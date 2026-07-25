@@ -592,7 +592,7 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
  *
  * `resolveRelatedMatches` is now the common floor under EVERY overlay shape:
  * before this, only the generic unmapped-domain card searched the registry at
- * all, and the banking card had no registry lookup whatsoever. Locks that the
+ * all, and the financial-context card had no registry lookup whatsoever. Locks that the
  * generalisation stays general — a new shape that forgets `relatedMatches`,
  * or a card type that quietly drops it, fails here rather than silently
  * regressing to the old per-shape asymmetry.
@@ -609,7 +609,7 @@ describe('Companion Overlay — related-matches generalisation', () => {
     // introspect.
     for (const iface of [
       'GithubRepoOverlayCard',
-      'BankingOverlayCard',
+      'FinancialContextOverlayCard',
       'GenericOverlayCard',
     ]) {
       const block = source.slice(
@@ -626,7 +626,7 @@ describe('Companion Overlay — related-matches generalisation', () => {
       join(process.cwd(), 'services', 'companion', 'overlayComposition.ts'),
       'utf8',
     );
-    // One definition, three call sites (github / banking / generic). A second
+    // One definition, three call sites (github / financial-context / generic). A second
     // definition would mean a shape had forked the lookup -- the exact
     // duplicate-implementation defect CLAUDE.md's inv.engineering.037 forbids.
     const definitions = source.match(/async function resolveRelatedMatches\(/g) ?? [];

@@ -8,7 +8,7 @@
  * PARAMOUNT client-spine-fetch rule) against `GET /api/companion/overlay`.
  * Gated on the server's own domain→shape resolution — this component never
  * classifies a domain itself, it only renders whatever shape the server
- * returns: `'github-repo'`, `'banking'`, or (operator-directed, 2026-07-25)
+ * returns: `'github-repo'`, `'financial-context'`, or (operator-directed, 2026-07-25)
  * `'generic'` for a real, currently-granted domain with no dedicated
  * dashboard. The honest "No overlay available for this page" empty state is
  * now reached only for a genuine consent gap (no observation shared, no
@@ -28,7 +28,7 @@ import { buildCodexUrl } from "@/utils/codex-nav";
 import type {
   OverlayCard,
   GithubRepoOverlayCard,
-  BankingOverlayCard,
+  FinancialContextOverlayCard,
   GenericOverlayCard,
 } from "@/services/companion/overlayComposition";
 import type { CompanionSearchResult } from "@/types/companionSearch";
@@ -46,7 +46,7 @@ type OverlayEmptyReason = "no-observation" | "no-domain-observed" | "grant-revok
 interface OverlayResponse {
   ok: boolean;
   domain: string | null;
-  shape: "github-repo" | "banking" | "generic" | null;
+  shape: "github-repo" | "financial-context" | "generic" | null;
   card: OverlayCard | null;
   reason: OverlayEmptyReason;
 }
@@ -172,7 +172,7 @@ function GithubRepoCard({ card, domain }: { card: GithubRepoOverlayCard; domain:
  * The unmapped-domain fallback (operator-directed, 2026-07-25). Renders on
  * ANY page the domain→shape table has no dedicated dashboard for. Shows only
  * what's genuinely true here: the persona's OWN standing/delegations (not
- * page-specific — they're identical to the same panels on `BankingCard`,
+ * page-specific — they're identical to the same panels on `FinancialContextCard`,
  * just no longer withheld on a page with no shape) plus a best-effort
  * registry/research match using the page's own title. The "Pull Across" hint
  * is TEXT, not a button — there is no message path from this side-panel UI
@@ -217,12 +217,12 @@ function GenericCard({ card, domain }: { card: GenericOverlayCard; domain: strin
   );
 }
 
-function BankingCard({
+function FinancialContextCard({
   card,
   domain,
   personaIdHint,
 }: {
-  card: BankingOverlayCard;
+  card: FinancialContextOverlayCard;
   domain: string | null;
   /** Threaded through solely to build capability deep-links — the SAME hint
    *  the panel already uses for `personaFetch`, so the link and the data it
@@ -259,7 +259,7 @@ function BankingCard({
         </div>
       </div>
 
-      {/* Constitutional capabilities relevant to a banking-shaped page
+      {/* Constitutional capabilities relevant to a financial-context page
          (operator-approved 2026-07-24). Rendered only when the server
          actually matched something — same precedent as `researchMatches`
          above: an optional list-shaped section is omitted, not shown empty.
@@ -486,8 +486,8 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
         {status === "ready" && data ? (
           data.shape === "github-repo" && data.card?.shape === "github-repo" ? (
             <GithubRepoCard card={data.card} domain={data.domain} />
-          ) : data.shape === "banking" && data.card?.shape === "banking" ? (
-            <BankingCard card={data.card} domain={data.domain} personaIdHint={personaIdHint} />
+          ) : data.shape === "financial-context" && data.card?.shape === "financial-context" ? (
+            <FinancialContextCard card={data.card} domain={data.domain} personaIdHint={personaIdHint} />
           ) : data.shape === "generic" && data.card?.shape === "generic" ? (
             <GenericCard card={data.card} domain={data.domain} />
           ) : (

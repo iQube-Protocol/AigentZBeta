@@ -1,6 +1,6 @@
 # SPEC-CDR-001 — Constitutional Domain & Context Resolution
 
-**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — "This is now ratified and cleared to proceed to dev." Architecture and all architectural decisions in §10 are ratified. THREE decisions remain genuinely unresolvable without operator input (D-8, D-12, D-15) and gate specific phases only — see §10.2. Implementation may begin at P1.**
+**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — "This is now ratified and cleared to proceed to dev." Architecture and all architectural decisions in §10 are ratified. **P1 and P2 SHIPPED 2026-07-25**; D-15 was ratified with an explicit operator seed list (§10.3). TWO decisions remain open — D-12 (gates P5/P6) and D-8 (soft, interim ruling: treat `ire://` as documentary) — see §10.2.**
 **Title:** *Constitutional Domain & Context Resolution — domain profiles, resolver precedence, context composition, and capability presentation for websites, applications, agents, tools, services and workflows*
 **Companion to:** CRP-003 (Financial Services Constitutional Capability Domain) · CRP-003a (Constitutional Financial Services Programme) · PRD-MPY-001 (MoneyPenny) · PRD-MMC-001 (metaMe Companion) · PRD-IRE-001 (Invariant Resolution Engine) · CFS-051 (Experiment / Constitutional / Invariant Pipeline)
 **Extension of:** the Companion Overlay's existing domain→shape mapping (`services/companion/overlayMapping.ts`) and the shipped `FinancialDomain` execution taxonomy (`services/constitutional/financialIntelligenceExecutor.ts`). This SPEC introduces a resolution *layer* between them. It does not introduce a new financial ontology.
@@ -623,7 +623,7 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-12** | Which engine owns profile generation (IRE / IPE / KRE / CFO / a distinct Discovery Engine) | **Unresolved — do not guess** | **Open** |
 | **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Defer until D-2/D-3/D-12 resolved | **RATIFIED** |
 | **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **RATIFIED** |
-| **D-15** | Seed registry membership — which hostnames, at which provenance/verification | **Requires an explicit operator list.** Do not carry the five demo hosts forward by default | **Open** |
+| **D-15** | Seed registry membership — which hostnames, at which provenance/verification | Operator list supplied and ratified 2026-07-25 (§10.3). Five hostnames, three profiles, all `verified` / `financial-context`. Re-entered as explicit seeds, NOT inherited from `BANKING_DOMAINS`. No Horizen hostname | **RATIFIED** |
 | **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **RATIFIED** |
 | **D-17** | Whether a Domain Profile eventually becomes an iQube type (`DomainQube`) | **Direction noted, explicitly NOT adopted here** (§1.3). Requires its own charter | **Deferred** |
 | **D-18** | Domain Profile carries no persona-derived field; profiles cacheable/shareable, Resolved Contexts never cached across citizens and never persisted back (§12.2) | Adopt — tier-discipline hazard, not a style choice | **RATIFIED** |
@@ -644,13 +644,45 @@ Ratification (2026-07-25) approves the architecture and every decision whose ans
 
 | # | Why it cannot be resolved by ratification alone | What it gates | What is needed |
 |---|---|---|---|
-| **D-15** | Seed registry membership is a **list of real hostnames** with real provenance/verification. The five demo hosts must not be inherited by default (§0.1: three are metaMe's own properties, one is an exchange). | **P2** — blocks it entirely | An explicit operator list: which hostnames, each at `first-party` or `curated`, each `verified` or `provisional` |
+| **D-15** | ~~Seed registry membership is a **list of real hostnames** with real provenance/verification.~~ **RESOLVED 2026-07-25** — the operator supplied the list (§10.3) and explicitly re-entered the five hosts as ratified seeds rather than inheriting them. | ~~P2~~ — **unblocked, P2 SHIPPED** | — |
 | **D-12** | Which engine owns profile generation. The directive says "IDE"; the codebase has IRE, IPE, KRE, CFO. Naming the wrong one would misroute the whole discovery path. | **P5, P6** | An operator/steward decision, or an explicit "investigate and report" authorisation |
 | **D-8** | Whether `invariantFieldRef`'s `ire://` scheme resolves or is documentary. Requires reading PRD-IRE-001 against the shipped resolver. | Profile-schema completeness (soft) | Either an operator answer or authorisation to investigate. **Interim: treat as documentary**, so nothing depends on resolvability |
 
-**P1 is unblocked and may begin immediately** — it depends only on D-1, which is architectural and ratified.
+**P1 and P2 are both SHIPPED (2026-07-25).** P1 depended only on D-1; P2 was unblocked by the D-15 ratification below. **D-12 (P5, P6) and D-8 (soft) remain the open items.**
 
 **D-19 (temporal state)** stays `Deferred`, not blocking: §12.3 already lists the context inputs that do exist, and no surface needs a temporal input to function.
+
+### 10.3 D-15 RATIFIED — the seed registry (operator, 2026-07-25)
+
+**Governing principle the operator stated, and the reason this is not a rename:**
+
+> The old set said only: *"Render this card for these hosts."*
+> The new registry says: *"A named authority has asserted and verified that this host should resolve to this presentation context."*
+
+The same five hostnames carry over — **but not by inheritance.** They are re-entered explicitly as ratified domain-profile seeds, each with its provenance and status stated.
+
+**First-party, verified**
+
+| Hostname | Provenance | Verification | Overlay context | Rationale |
+|---|---|---|---|---|
+| `metame.com` | `first-party` | `verified` | `financial-context` | Canonical metaMe production property |
+| `www.metame.com` | `first-party` | `verified` | `financial-context` | Alias of the canonical production property |
+| `dev-beta.aigentz.me` | `first-party` | `verified` | `financial-context` | Existing platform runtime where Passport, Standing, delegation and wallet context are directly relevant |
+
+**Curated, verified**
+
+| Hostname | Provenance | Verification | Overlay context | Rationale |
+|---|---|---|---|---|
+| `coinbase.com` | `curated` | `verified` | `financial-context` | Explicit external digital-asset financial context |
+| `www.coinbase.com` | `curated` | `verified` | `financial-context` | Alias of the curated external property |
+
+**Alias discipline (binding):** `www` entries are **hostname aliases** of their canonical profile, not duplicated profile bodies. The registry resolves an alias to the *identical* profile object, preserving one source of truth per subject. A parity canary asserts object identity, so a copy-paste twin fails the build even if every field currently matches.
+
+**No Horizen hostname (operator, explicit).** The registry classifies a subject by the context relevant *on that subject*, never by partnership affiliation. A Horizen property is added only when one of the following holds: (a) it is the actual pilot application or agent-discovery surface; (b) Horizen provides a capability manifest or first-party attestation supporting the profile; or (c) a specific page or application route is explicitly curated as a Financial Services context. **This likely means the Horizen pilot begins with agent profiles, not hostname profiles** — architecturally cleaner, since the relevant subject is a Horizen agent or capability rather than every page on a Horizen-owned domain.
+
+**P2 is migration-equivalent, not feature-expanding (operator, binding).** After P2 the same five hosts render materially the same experience as before. The constitutional improvement is that the *reason* they resolve is now explicit, inspectable and governed. New behaviour begins in later phases only.
+
+---
 
 ### 10.1 Explicitly NOT authorised by ratifying this SPEC
 
@@ -670,12 +702,12 @@ Ratification (2026-07-25) approves the architecture and every decision whose ans
 
 ## 11. Post-ratification sequencing (indicative only)
 
-Recorded so the first build slice is deliberately narrow. Ratified 2026-07-25: P1 is authorised and shipped; every later phase remains gated on the decisions in its row, and the three Open decisions in §10.2 (D-8, D-12, D-15) still block P2, P5 and P6.
+Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 and P2 are shipped**; every later phase remains gated on the decisions in its row, and **D-12 still blocks P5 and P6**.
 
 | Phase | Scope | Gated on | Status |
 |---|---|---|---|
 | **P1** | Derive execution taxonomy in code + parity canary | D-1 | **SHIPPED 2026-07-25** — `services/resolution/executionTaxonomy.ts` derives from `FINANCIAL_DOMAINS`/`FINANCIAL_DOMAIN_LABEL`; the two hand-copied route arrays are replaced by `isExecutionDomain`; canary in `tests/source-of-truth-parity.test.ts` covers the §3 docs mirror, the §4.2 non-executability rule, and re-introduction of a restated list |
-| **P2** | Profile registry replacing the hostname `Set`; curated/first-party seed only; rename `banking` → `financial-context` | D-1, D-5, D-6, D-7, D-14, D-15 | **Blocked** — D-15 |
+| **P2** | Profile registry replacing the hostname `Set`; curated/first-party seed only; rename `banking` → `financial-context` | D-1, D-5, D-6, D-7, D-14, D-15 | **SHIPPED 2026-07-25** — `services/resolution/domainProfileRegistry.ts` (3 profiles / 5 hostnames, aliases share one object); `BANKING_DOMAINS` deleted and `shapeForDomain` now derives from the registry; `banking` → `financial-context` through composition, panel and capability table; canaries cover membership, migration equivalence, alias identity, provenance, verification, no-discovered/no-provisional, authority + evidence presence, T0-absence in `verifiedBy`, abstention, and the legacy identifier's removal |
 | **P3** | Resolver with L1/L2/L4 only — no provisional path | D-9, D-11 | Not started |
 | **P4** | Capability-module composition | D-2, D-3, D-4, D-11 | Not started |
 | **P5** | L3 provisional discovery + abstention UI | D-10, D-12 | **Blocked** — D-12 |

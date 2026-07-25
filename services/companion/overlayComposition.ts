@@ -94,21 +94,21 @@ export interface OverlayCapabilityMatch {
   route: CapabilityRoute | null;
 }
 
-export interface BankingOverlayCard {
-  shape: 'banking';
+export interface FinancialContextOverlayCard {
+  shape: 'financial-context';
   standing: OverlayStandingSummary;
   /** T1-safe persona flags already resolved by the spine for this request —
    *  not a new read (mirrors what `/api/wallet/active-persona` already
    *  returns to its own callers). */
   identifiability: ActivePersonaContext['identifiability'];
   cartridgeFlags: ActivePersonaContext['cartridgeFlags'];
-  /** Constitutional capabilities relevant to a banking-shaped page
+  /** Constitutional capabilities relevant to a financial-context page
    *  (operator-approved 2026-07-24). OPTIONAL so every existing consumer of
    *  this card keeps working unchanged; absent/empty whenever the registry is
    *  empty, the migration is unapplied, or none of the declared ids are
    *  actually registered yet. */
   matchedCapabilities?: OverlayCapabilityMatch[];
-  /** See `resolveRelatedMatches`. Banking-shaped pages previously had NO
+  /** See `resolveRelatedMatches`. Financial-context pages previously had NO
    *  registry lookup at all — the generalisation is what gave every shape the
    *  same "what does metaMe already know about this page" panel. */
   relatedMatches: CompanionSearchResult[];
@@ -119,7 +119,8 @@ export interface BankingOverlayCard {
  * unmapped pages + 3 as you suggest").
  *
  * NOT a fourth hand-classified shape. `shapeForDomain` still returns `null`
- * for any domain outside the `github-repo`/`banking` table — that
+ * for any domain outside the `github-repo` rule and the verified Domain
+ * Profile registry — that
  * classification is unchanged. This is what the route composes INSTEAD OF
  * the prior empty state, specifically and ONLY when the reason is
  * `'domain-unmapped'` (a real, currently-granted observation exists; the
@@ -135,7 +136,7 @@ export interface BankingOverlayCard {
  *   - `standing` / `identifiability` / `cartridgeFlags` — persona-level, not
  *     page-level. Hiding these on an unmapped domain was never a privacy
  *     boundary, just an artifact of the card being all-or-nothing per shape;
- *     they render here as they already do on `BankingOverlayCard`.
+ *     they render here as they already do on `FinancialContextOverlayCard`.
  *   - `titleMatches` — a best-effort registry/research search using the
  *     page's own title as the query, via the EXACT SAME federation
  *     functions `composeGithubRepoCard` already calls
@@ -162,7 +163,7 @@ export interface GenericOverlayCard {
   relatedMatches: CompanionSearchResult[];
 }
 
-export type OverlayCard = GithubRepoOverlayCard | BankingOverlayCard | GenericOverlayCard;
+export type OverlayCard = GithubRepoOverlayCard | FinancialContextOverlayCard | GenericOverlayCard;
 
 async function buildStandingSummary(personaId: string): Promise<OverlayStandingSummary> {
   const admin = getSupabaseServer();
@@ -270,18 +271,18 @@ async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCa
   }
 }
 
-async function composeBankingCard(
+async function composeFinancialContextCard(
   persona: ActivePersonaContext,
   currentTabTitle: string | undefined,
   domain: string | null,
-): Promise<BankingOverlayCard> {
+): Promise<FinancialContextOverlayCard> {
   const [standing, matchedCapabilities, relatedMatches] = await Promise.all([
     buildStandingSummary(persona.personaId),
-    matchCapabilitiesForShape('banking'),
+    matchCapabilitiesForShape('financial-context'),
     resolveRelatedMatches(domain, currentTabTitle),
   ]);
   return {
-    shape: 'banking',
+    shape: 'financial-context',
     standing,
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
@@ -297,7 +298,7 @@ export async function composeOverlayCard(
   domain: string | null,
 ): Promise<OverlayCard> {
   if (shape === 'github-repo') return composeGithubRepoCard(persona.personaId, currentTabTitle, domain);
-  return composeBankingCard(persona, currentTabTitle, domain);
+  return composeFinancialContextCard(persona, currentTabTitle, domain);
 }
 
 /**
@@ -341,7 +342,7 @@ export function buildRegistrySearchCandidates(
  *
  * Operator-directed 2026-07-25, answering their own question — "would this
  * apply generally or just github?" — with: generally. Before this, only the
- * generic (unmapped-domain) card searched the registry at all; the banking
+ * generic (unmapped-domain) card searched the registry at all; the financial-context
  * card had NO registry lookup whatsoever, and the github card had only its
  * narrow repo-name "linked iQube" question. So the broadest capability lived
  * on the LEAST specific shape, which is backwards.
@@ -350,7 +351,7 @@ export function buildRegistrySearchCandidates(
  * signals (`buildRegistrySearchCandidates`: the domain's product hint where
  * one is declared, plus the page's own title) through the same federation
  * functions. Shape-specific panels stay shape-specific — github keeps its
- * repo-name `registryMatch`, banking keeps its capability match — this is
+ * repo-name `registryMatch`, financial-context keeps its capability match — this is
  * the common floor beneath them, not a replacement for either.
  *
  * `excludeRefs` keeps a card from listing the same hit twice when a

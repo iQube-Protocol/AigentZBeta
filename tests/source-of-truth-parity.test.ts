@@ -49,6 +49,13 @@ import { EXPERIMENT_REGISTRY } from '../types/research';
 import { ASSIGNABLE_EXPERIMENTS } from '../services/passport/participationAccess';
 import { FINANCIAL_DOMAINS } from '../services/constitutional/financialIntelligenceExecutor';
 import { EXECUTION_DOMAINS, isExecutionDomain } from '../services/resolution/executionTaxonomy';
+import {
+  DOMAIN_PROFILES,
+  registeredHostnames,
+  resolveDomainProfile,
+  overlayContextForDomain,
+} from '../services/resolution/domainProfileRegistry';
+import { shapeForDomain, SHAPE_CAPABILITY_IDS } from '../services/companion/overlayMapping';
 
 describe('source-of-truth parity (inv.engineering.036/037 enforcement)', () => {
   it('ASSIGNABLE_EXPERIMENTS remains a pure derivation of EXPERIMENT_REGISTRY', () => {
@@ -149,6 +156,19 @@ describe('SPEC-CDR-001 execution taxonomy parity (D-1)', () => {
     }
   });
 
+  it('P2 seed profiles assert NO execution domain (presentation must not imply executability)', () => {
+    // D-11's presentation/execution firewall, enforced rather than asserted.
+    // A hostname profile says which CONTEXT to render; claiming an execution
+    // domain for a hostname would let a presentation surface imply that money
+    // may move there.
+    for (const profile of DOMAIN_PROFILES) {
+      expect(
+        'executionDomains' in profile,
+        `${profile.subject} asserts executionDomains — presentation must not imply executability`,
+      ).toBe(false);
+    }
+  });
+
   it('no surface restates the execution-domain list instead of deriving it', () => {
     // The two API routes each carried a hand-copied
     // `['intelligence','investment','market']` array before D-1 was
@@ -163,5 +183,142 @@ describe('SPEC-CDR-001 execution taxonomy parity (D-1)', () => {
       );
       expect(src).toContain('isExecutionDomain');
     }
+  });
+});
+
+/**
+ * SPEC-CDR-001 P2 (D-14 / D-15, RATIFIED 2026-07-25) — Domain Profile registry.
+ *
+ * P2 is MIGRATION-EQUIVALENT, not feature-expanding (operator, binding): the
+ * same five hostnames must render materially the same experience as before.
+ * The constitutional improvement is that the *reason* they resolve is now
+ * explicit, inspectable and governed — so these canaries pin both halves:
+ * behaviour unchanged, and the governance metadata actually present.
+ */
+describe('SPEC-CDR-001 domain profile registry (D-15)', () => {
+  /** The exact membership the operator ratified. Restated here ON PURPOSE:
+   *  this is the independent statement of the decision that the registry is
+   *  checked against. Drift in either direction fails. */
+  const RATIFIED_SEEDS: Record<string, 'first-party' | 'curated'> = {
+    'metame.com': 'first-party',
+    'www.metame.com': 'first-party',
+    'dev-beta.aigentz.me': 'first-party',
+    'coinbase.com': 'curated',
+    'www.coinbase.com': 'curated',
+  };
+
+  it('resolves exactly the five ratified hostnames — no more, no fewer', () => {
+    expect(new Set(registeredHostnames())).toEqual(new Set(Object.keys(RATIFIED_SEEDS)));
+  });
+
+  it('migration equivalence: every legacy BANKING_DOMAINS host still resolves', () => {
+    // The five hosts the removed hardcoded Set contained. If P2 changed which
+    // pages get a card, it stopped being a migration.
+    for (const host of Object.keys(RATIFIED_SEEDS)) {
+      expect(overlayContextForDomain(host), `${host} lost its overlay context`).toBe(
+        'financial-context',
+      );
+      expect(shapeForDomain(host)).toBe('financial-context');
+    }
+  });
+
+  it('aliases resolve to the IDENTICAL profile object, not a duplicated body', () => {
+    // D-15: "avoid duplicating the complete profile body if an alias mechanism
+    // can preserve a single source of truth." Object identity is the strongest
+    // available statement of that — a copy-paste twin would fail here even if
+    // every field happened to match today.
+    expect(resolveDomainProfile('www.metame.com')).toBe(resolveDomainProfile('metame.com'));
+    expect(resolveDomainProfile('www.coinbase.com')).toBe(resolveDomainProfile('coinbase.com'));
+    // Three profiles behind five hostnames.
+    expect(DOMAIN_PROFILES).toHaveLength(3);
+  });
+
+  it('every seed carries the ratified provenance, and all are verified', () => {
+    for (const [host, provenance] of Object.entries(RATIFIED_SEEDS)) {
+      const profile = resolveDomainProfile(host);
+      expect(profile, `${host} unresolved`).not.toBeNull();
+      expect(profile!.assertionProvenance, `${host} provenance drift`).toBe(provenance);
+      expect(profile!.verificationStatus, `${host} is not verified`).toBe('verified');
+    }
+  });
+
+  it('no provisional and no discovered profiles exist yet (P3/P5 are unbuilt)', () => {
+    for (const profile of DOMAIN_PROFILES) {
+      expect(profile.verificationStatus).toBe('verified');
+      expect(profile.assertionProvenance).not.toBe('discovered');
+      // D-6: confidence belongs only to inferred assertions. Its presence on
+      // an asserted profile would imply a classification that never ran.
+      expect('confidence' in profile, `${profile.subject} carries a confidence score`).toBe(false);
+    }
+  });
+
+  it('every seed states an authority and evidence — a claim, never a bare assertion', () => {
+    for (const profile of DOMAIN_PROFILES) {
+      expect(profile.verifiedBy, `${profile.subject} has no authority`).toBeTruthy();
+      expect(profile.verifiedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+      expect(profile.evidence.length, `${profile.subject} has no evidence`).toBeGreaterThan(0);
+      expect(profile.rationale.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('verifiedBy carries no T0 identifier (tier discipline — profiles are network-bound)', () => {
+    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    for (const profile of DOMAIN_PROFILES) {
+      const serialised = JSON.stringify(profile.verifiedBy);
+      expect(serialised, `${profile.subject} verifiedBy looks like a raw identifier`).not.toMatch(
+        UUID,
+      );
+    }
+  });
+
+  it('abstains for unmapped hostnames rather than fabricating a context', () => {
+    // SPEC-CDR-001 §6.2 — abstention is preferable to fabricated context.
+    for (const host of ['google.com', 'example.com', 'metame.com.evil.test', '', '   ']) {
+      expect(overlayContextForDomain(host), `${host} should not resolve`).toBeNull();
+    }
+    expect(overlayContextForDomain(null)).toBeNull();
+    // Normalisation still applies, exactly as the old Set-based lookup did.
+    expect(overlayContextForDomain('  MetaMe.COM ')).toBe('financial-context');
+  });
+
+  it('the legacy `banking` identifier is gone from every companion surface', () => {
+    // D-14 renamed the overlay context. A surviving `banking` literal would
+    // mean a consumer still switches on the old wire value — the card would
+    // silently stop rendering.
+    for (const rel of [
+      '../services/companion/overlayMapping.ts',
+      '../services/companion/overlayComposition.ts',
+      '../components/companion/CompanionOverlayPanel.tsx',
+    ]) {
+      const src = readFileSync(join(__dirname, rel), 'utf8');
+      // Strip block comments: overlayMapping.ts documents the rename in prose,
+      // and the historical record is worth keeping. Only live code counts.
+      const code = src.replace(/\/\*[\s\S]*?\*\//g, '');
+      expect(code, `${rel} still uses the legacy banking identifier`).not.toMatch(
+        /['"]banking['"]/,
+      );
+    }
+  });
+
+  it('shapeForDomain derives membership from the registry, not a hardcoded set', () => {
+    const src = readFileSync(
+      join(__dirname, '../services/companion/overlayMapping.ts'),
+      'utf8',
+    );
+    expect(src).toContain('overlayContextForDomain');
+    // The removed hostname Set, in any revived form.
+    expect(src).not.toMatch(/new Set<string>\(\s*\[/);
+    expect(src.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('coinbase.com');
+  });
+
+  it('the capability table stays exhaustive over the renamed shape', () => {
+    // Keyed by OverlayShape, so a renamed or added context that forgets this
+    // table is a compile error -- this pins the runtime side of that contract.
+    expect(Object.keys(SHAPE_CAPABILITY_IDS).sort()).toEqual(
+      ['financial-context', 'github-repo'],
+    );
+    expect(SHAPE_CAPABILITY_IDS['financial-context']).toContain(
+      'cap-moneypenny-financial-services',
+    );
   });
 });

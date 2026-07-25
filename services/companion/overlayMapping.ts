@@ -6,52 +6,62 @@
  *
  * A SMALL, EXPLICIT domain → shape table — NOT a general-purpose arbitrary-
  * app classifier (plan §4 non-goal, ratified). Two illustrative shapes:
- * `github.com`/`*.github.com` → `'github-repo'`; a banking-class domain set
- * → `'banking'` (QriptoCENT/Wallet/Standing/Passport/Delegations). Expanding
- * this table is a natural follow-up, not blocked by the ratifying pass.
+ * `github.com`/`*.github.com` → `'github-repo'`; a set of hostnames →
+ * `'financial-context'` (QriptoCENT/Wallet/Standing/Passport/Delegations).
  *
- * 2026-07-23 addition: the platform's own domains (`metame.com`,
- * `dev-beta.aigentz.me`) were added to the BANKING set, not a new shape --
- * being on the platform's own site is exactly the "wallet/standing/passport"
- * context the banking card already composes, so it's a genuine semantic fit,
- * not an arbitrary stretch. `google.com` was deliberately NOT added: it
- * doesn't fit either shape's data model, and forcing it into one would
- * violate this file's own ratified principle below (no fabricated card for
- * an unmapped domain) -- for google.com, the honest "no overlay available"
- * empty state is the correct behavior, not a bug.
+ * SPEC-CDR-001 P2 (D-14, D-15 — RATIFIED 2026-07-25) changed BOTH halves of
+ * that second mapping:
+ *
+ *   1. The shape is now `'financial-context'`, not `'banking'`. It is a
+ *      RENDERING CONTEXT informed by domain profiles — never a financial
+ *      domain, and never a fourth ontology competing with the runtime
+ *      `FinancialDomain` taxonomy (SPEC-CDR-001 §4.3).
+ *   2. The hardcoded `BANKING_DOMAINS` hostname `Set` is GONE. Membership now
+ *      comes from the verified Domain Profile registry
+ *      (`services/resolution/domainProfileRegistry.ts`), where every hostname
+ *      carries its provenance, verification status, asserting authority, and
+ *      rationale. The five hosts are the same; they are seeds re-entered under
+ *      D-15, NOT inherited from the old set.
+ *
+ * `google.com` is still deliberately absent: it doesn't fit either shape's
+ * data model, and forcing it into one would violate this file's own ratified
+ * principle (no fabricated card for an unmapped domain) -- for google.com the
+ * honest "no overlay available" empty state is correct behaviour, not a bug.
  *
  * Pure, no I/O. Returns `null` for any unmapped domain — the caller renders
  * an honest "no overlay available for this page" rather than a fabricated
  * generic card.
  */
 
-export type OverlayShape = 'github-repo' | 'banking';
+import {
+  overlayContextForDomain,
+  type OverlayContext,
+} from '@/services/resolution/domainProfileRegistry';
+
+/**
+ * `OverlayContext` is folded in rather than restated, so the registry stays
+ * the single source of truth for the context name (`inv.engineering.036`).
+ * Adding a context there widens this union automatically.
+ */
+export type OverlayShape = 'github-repo' | OverlayContext;
 
 const GITHUB_DOMAIN_RE = /(^|\.)github\.com$/i;
-
-/** Illustrative banking-class domain set — deliberately small (plan §4). */
-const BANKING_DOMAINS = new Set<string>([
-  'coinbase.com',
-  'www.coinbase.com',
-  'metame.com',
-  'www.metame.com',
-  'dev-beta.aigentz.me',
-]);
 
 export function shapeForDomain(domain: string | null | undefined): OverlayShape | null {
   if (!domain) return null;
   const normalized = domain.trim().toLowerCase();
   if (normalized.length === 0) return null;
   if (GITHUB_DOMAIN_RE.test(normalized)) return 'github-repo';
-  if (BANKING_DOMAINS.has(normalized)) return 'banking';
-  return null;
+  // L1 — verified, explicitly-asserted profiles only. No inferred
+  // classification and no provisional path exists yet (P3/P5).
+  return overlayContextForDomain(normalized);
 }
 
 /**
  * SHAPE → CCB CAPABILITY IDS (operator-approved 2026-07-24, "Yes to mp overlay").
  *
- * The SAME explicit-table philosophy as `BANKING_DOMAINS` above, one level
- * further along: a small, hand-declared list of Constitutional Capability
+ * The SAME explicit-table philosophy as the Domain Profile registry above, one
+ * level further along: a small, hand-declared list of Constitutional Capability
  * Registry ids (`services/constitutional/capabilityRegistry.ts`) that are
  * genuinely relevant to a citizen looking at a page of this shape. NOT a
  * semantic classifier, NOT a free-text query — the same non-goal this file's
@@ -71,7 +81,7 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
  *
  * Ids below are the two financial-services capabilities registered by
  * `scripts/register-ccb-capabilities.ts` — the natural constitutional answer
- * to "what governs money-shaped work here?" on a banking-shaped page.
+ * to "what governs money-shaped work here?" on a financial-context page.
  *
  * KNOWN TRAP (hit 2026-07-25, both deep links 404'd as "Codex not found"):
  * the embed route (`app/(embed)/triad/embed/codex/[codexSlug]/page.tsx`)
@@ -90,7 +100,10 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
  */
 export const SHAPE_CAPABILITY_IDS: Record<OverlayShape, readonly string[]> = {
   'github-repo': [],
-  banking: ['cap-moneypenny-financial-services', 'financial-services-capability-suite'],
+  'financial-context': [
+    'cap-moneypenny-financial-services',
+    'financial-services-capability-suite',
+  ],
 };
 
 /** PURE — the declared capability ids for a shape. Never an I/O call; the
