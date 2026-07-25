@@ -1,7 +1,7 @@
-# SPEC-CDR-001 — Constitutional Domain Resolution
+# SPEC-CDR-001 — Constitutional Domain & Context Resolution
 
-**metaMe IRL / iQube Protocol / AgentiQ · Domain-resolution architecture specification · Status: DRAFT — DOCS-ONLY, AWAITING RATIFICATION. No code may change under this SPEC until the decision register in §10 is resolved. The operator's instruction is explicit: "Do not rename `banking`, replace the hostname set, widen `FinancialDomain`, or begin agent classification until the charter has been reviewed and ratified."**
-**Title:** *Constitutional Domain Resolution — domain profiles, resolver precedence, and capability composition for websites, applications, agents, tools, services and workflows*
+**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: DRAFT — DOCS-ONLY, DIRECTION RATIFIED / DECISIONS OPEN. The operator ratified the *direction* on 2026-07-25 with one required refinement (separate Domain Resolution from Context Resolution, now §12–§14). The §10 decision register remains OPEN and unratified. No code may change under this SPEC: "Do not rename `banking`, replace the hostname set, widen `FinancialDomain`, or begin agent classification until the charter has been reviewed and ratified."**
+**Title:** *Constitutional Domain & Context Resolution — domain profiles, resolver precedence, context composition, and capability presentation for websites, applications, agents, tools, services and workflows*
 **Companion to:** CRP-003 (Financial Services Constitutional Capability Domain) · CRP-003a (Constitutional Financial Services Programme) · PRD-MPY-001 (MoneyPenny) · PRD-MMC-001 (metaMe Companion) · PRD-IRE-001 (Invariant Resolution Engine) · CFS-051 (Experiment / Constitutional / Invariant Pipeline)
 **Extension of:** the Companion Overlay's existing domain→shape mapping (`services/companion/overlayMapping.ts`) and the shipped `FinancialDomain` execution taxonomy (`services/constitutional/financialIntelligenceExecutor.ts`). This SPEC introduces a resolution *layer* between them. It does not introduce a new financial ontology.
 **Owner:** AgentiQ Runtime stewards + Financial Services programme stewards (CRP-003a) + IRL research stewards. **Origin:** operator architectural direction, 2026-07-25, following live verification of the Overlay's `banking` shape and the finding (§0.2) that three of the five proposed sub-domains are already shipped canonical code.
@@ -84,7 +84,43 @@ AFTER
 
 The separation of powers, stated once and binding throughout:
 
-> **The discovery engine classifies the domain. The Overlay renders the constitutional context. Neither performs the other's function.**
+> **The discovery engine classifies the domain. The resolver composes the context. The Overlay renders it. No layer performs another's function.**
+
+### 1.1 Scope correction (operator, 2026-07-25): this is a platform service, not an Overlay service
+
+The Overlay is the **first consumer**, not the owner. On review the operator's assessment was explicit: *"I wouldn't think of this as an Overlay service anymore… The Overlay is simply the first consumer."* Named consumers, all reading the same resolution layer:
+
+Companion Overlay · Founder Office · the discovery engine · AgentiQ · MoneyPenny · Research tooling · future Capability Suites
+
+**Consequence for the build:** the resolver must not live under `services/companion/`. Placing it there would make every other consumer import from a surface-specific module — the structural precondition for the fork this SPEC exists to prevent. Proposed home: `services/resolution/` (D-16).
+
+### 1.2 This is a general constitutional ontology, not a financial taxonomy
+
+Also operator, same review: *"I don't think we're actually designing a Financial Services taxonomy. We're designing a general constitutional ontology."* Accepted. The stack below is domain-agnostic; Financial Services is simply its **first production domain**, chosen because its execution taxonomy is already canonical (§0.2) and therefore testable.
+
+```
+Subject                 what is being resolved (host, app, agent, tool, service, workflow)
+  ↓
+Domain                  the field it operates in            — Financial Services, Human Mobility, Research, …
+  ↓
+Execution domain        what work is performed              — canonical, executable (§3)
+  ↓
+Governance domain       under what constitutional principles — proposed, non-executable (§4)
+  ↓
+Capability              what can be done here
+  ↓
+Context                 what THIS citizen should experience  — §12
+  ↓
+Presentation            what is rendered                     — §7
+```
+
+The same stack is expected to serve Human Mobility (already a live cartridge with PSC-001/MAF governance), Research, Identity, Creative, and further domains. **Nothing in §§2–7 may be written so as to work only for Financial Services** — a constraint on the implementation, not merely an aspiration.
+
+### 1.3 Named future direction — NOT adopted here
+
+The operator observed that a Domain Profile, carrying evidence, provenance, verification, applicable domains, capability modules and invariant references, *"feels like exactly the kind of object that belongs in the iQube ecosystem… I'd actually start thinking of it as another iQube type. Perhaps eventually `DomainQube`. Not now — but architecturally that's where this seems to be heading."*
+
+Recorded as a **direction, not a decision**. This SPEC does not define a DomainQube, does not assume one, and does not design the profile schema (§5.3) around becoming one. Doing so would be speculative architecture against an unratified concept. It is noted so a future ratification has a starting point (D-17).
 
 ---
 
@@ -307,6 +343,114 @@ A profile may carry `invariantFieldRef`, letting a context know not merely *"thi
 
 ---
 
+## 12. Context Resolution — the second layer (operator refinement, 2026-07-25)
+
+### 12.1 Why two layers and not one
+
+The operator's required refinement: *"context isn't determined solely by domain."* Correct, and the distinction is crisp:
+
+| Layer | Question it answers | Input | Output |
+|---|---|---|---|
+| **Domain Resolution** (§§2–6) | *What kind of thing is this?* | subject only | Domain Profile |
+| **Context Resolution** (§12–14) | *Given this thing and this citizen, what constitutional experience should be composed?* | Domain Profile **×** citizen state | Resolved Context |
+
+```
+Subject → Domain Resolution → Domain Profile → Context Resolution → Capability Composition → Presentation
+```
+
+### 12.2 THE STRUCTURAL REASON THIS SEPARATION IS MANDATORY, NOT STYLISTIC
+
+The operator's stated motivation was to avoid *"overloading the Domain Profile itself."* There is a sharper reason, and it is a tier-discipline hazard:
+
+> **A Domain Profile is a property of the SUBJECT and is identical for every citizen. A Resolved Context is a property of the (subject × citizen) pair. Merging them would put persona-derived state — Standing, plan tier, active delegations, Passport status — inside an artifact that §5.3 already designates as network-bound and potentially chain-bound.**
+
+That is a direct Identity & Access Spine violation waiting to happen: profiles are shareable, cacheable, and publishable precisely *because* they carry nothing persona-specific. The moment a profile carries "this citizen's tier," it can no longer be shared, cached across citizens, or safely anchored — and the leak would be silent, because the object would still look like a profile.
+
+**Binding consequences (proposed, D-18):**
+
+1. A Domain Profile MUST NOT contain any persona-derived field. The `verifiedBy` T2 commitment (§5.3) is the sole identity-adjacent value permitted, and it identifies the *verifier of the classification*, never a consumer.
+2. Domain Profiles MAY be cached and shared across citizens. **Resolved Contexts MUST NOT be** — cache keys must include the citizen, or caching must be omitted.
+3. Context Resolution output is **ephemeral and per-request**. It is never persisted back into the profile registry.
+
+### 12.3 Context inputs
+
+Beyond the Domain Profile, Context Resolution reads (all verified present in the codebase — none assumed):
+
+| Input | Source | Verified |
+|---|---|---|
+| Passport status / identifiability | Identity & Access Spine (`getActivePersona`) | Shipped |
+| Standing | `readStandingForVenture` | Shipped |
+| Plan tier | `AgencyPlanTier` — `citizen` · `citizen_plus` · `sovereign_citizen` · `steward` · `first_citizen` (`services/billing/personaPlan.ts:35`) | Shipped |
+| Active delegations | Constitutional Agreement layer (`requireAuthorizedAgreement`) | Shipped |
+| Cartridge flags | spine-resolved `cartridgeFlags` | Shipped |
+| Current task / intent | intent + NBE layer | Shipped |
+| Temporal state | — | **NOT SPECIFIED.** The operator raised this hedged ("perhaps even temporal state"). No temporal-state primitive was located; specifying one would be guessing. Open as D-19. |
+
+**Plan tier must be read through the existing billing helpers, never re-derived.** `SOVEREIGN_TIERS` (`personaPlan.ts:216`) already encodes which tiers count as sovereign; restating that set anywhere in the resolver would be an `inv.engineering.036/037` parity defect of exactly the kind §0.2 catalogues.
+
+### 12.4 Context Resolution must not become a second access gate
+
+**Proposed, binding (D-20):** Context Resolution decides what is *composed and shown*. It is **not** an authorisation boundary. Every gated action remains gated by its existing enforcement — `evaluateAccess`, `requireAuthorizedAgreement`, the spine's own checks — regardless of what context was composed.
+
+Rationale: a resolver that both selects the experience *and* is trusted to permit action becomes a parallel access-control path, which CLAUDE.md's Identity & Access Spine section forbids outright ("Do not build parallel resolvers, parallel gates, or parallel decision logic"). Composition may *hide* an affordance; only the spine may *permit* one. Hiding is a UX decision; permitting is a constitutional one.
+
+### 12.5 Abstention composes
+
+If Domain Resolution abstained (§6, L3/L4), Context Resolution composes the **base constitutional shape only** (§7.1). It must not compensate for an absent or unverified profile by inferring domain context from citizen state. A citizen holding financial delegations does not make an unclassified page financial.
+
+---
+
+## 13. The discovery engine as a generator of constitutional structure
+
+The operator's fourth observation: the discovery engine *"shouldn't just discover invariants. It should discover constitutional structure"* — becoming a generator of Domain Profiles, not merely invariant sets.
+
+```
+Domain → Execution domains → Capabilities → Invariants → Governance constraints → Domain Profile
+```
+
+Applied to the two live domains:
+
+| Financial Services | Human Mobility |
+|---|---|
+| Execution domains: intelligence · investment · market | Sub-domains: emergency mobility · business mobility |
+| ↓ capabilities → invariants → governance constraints → Domain Profile | ↓ capabilities → invariants → governance constraints → Domain Profile |
+
+This makes profile generation a **projection of existing machinery** rather than a new engine — consistent with §8.2. It also sharpens D-12: whichever engine owns this is producing constitutional structure, not just invariant sets, which is a materially larger remit than "discovery" implies and should be named accordingly.
+
+**Human Mobility caution:** HMS carries its own paramount rules (PSC-001; the T0 identifier-isolation regime in CLAUDE.md, where `caseId` and `personaId` must never reach a network- or chain-bound structure). A Human Mobility Domain Profile is network-bound by construction. **Any extension of this architecture to HMS must satisfy the HMS identifier-isolation rules before a single profile is generated** — flagged now, not deferred, because §12.2's caching rules make it consequential (D-21).
+
+---
+
+## 14. Revised layer summary
+
+```
+                    ┌─────────────────────────────────────────┐
+   SUBJECT ───────► │  DOMAIN RESOLUTION            §§2–6     │
+                    │  identical for every citizen            │
+                    │  shareable · cacheable · publishable    │
+                    └──────────────────┬──────────────────────┘
+                                       │  Domain Profile
+                                       ▼
+   CITIZEN STATE ─► ┌─────────────────────────────────────────┐
+   (passport,       │  CONTEXT RESOLUTION           §12       │
+    standing,       │  per (subject × citizen)                │
+    tier,           │  ephemeral · never cached across        │
+    delegations,    │  citizens · never persisted to profile  │
+    task)           │  NOT an access gate (§12.4)             │
+                    └──────────────────┬──────────────────────┘
+                                       │  Resolved Context
+                                       ▼
+                    ┌─────────────────────────────────────────┐
+                    │  CAPABILITY COMPOSITION       §7        │
+                    │  base shape + modules                   │
+                    │  presentation/execution firewall        │
+                    └──────────────────┬──────────────────────┘
+                                       ▼
+                              PRESENTATION (Overlay, and every other consumer)
+```
+
+---
+
 ## 9. Research apparatus
 
 If ratified, this becomes measurable rather than merely asserted. Candidate measures: classification precision on a held-out set; **abstention rate** (§6.3 — published, not minimised); agent-domain fit in the Horizen cohort; effect on discovery and Time-to-Value; and whether invariant-informed classification measurably improves orchestration.
@@ -336,6 +480,12 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Defer until D-2/D-3/D-12 resolved | **Open** |
 | **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **Open** |
 | **D-15** | Seed registry membership — which hostnames, at which provenance/verification | **Requires an explicit operator list.** Do not carry the five demo hosts forward by default | **Open** |
+| **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **Open** |
+| **D-17** | Whether a Domain Profile eventually becomes an iQube type (`DomainQube`) | **Direction noted, explicitly NOT adopted here** (§1.3). Requires its own charter | **Deferred** |
+| **D-18** | Domain Profile carries no persona-derived field; profiles cacheable/shareable, Resolved Contexts never cached across citizens and never persisted back (§12.2) | Adopt — tier-discipline hazard, not a style choice | **Open** |
+| **D-19** | Whether "temporal state" is a Context Resolution input | **Unresolved — no temporal-state primitive located. Do not guess** (§12.3) | **Open** |
+| **D-20** | Context Resolution is composition only, never an authorisation boundary (§12.4) | Adopt — a resolver that also permits would be a parallel access gate | **Open** |
+| **D-21** | Human Mobility extension must satisfy HMS T0 identifier-isolation (PSC-001) BEFORE any profile is generated (§13) | Adopt as a precondition, not a follow-on | **Open** |
 
 ### 10.1 Explicitly NOT authorised by ratifying this SPEC
 
@@ -344,6 +494,9 @@ Every decision below must be resolved before implementation. **No code changes u
 - Any inferred classification reaching the Overlay without verification (§6)
 - Agent classification (§8.4, D-13)
 - Waiving D1 (CFS-016), the Identity & Access Spine rules, or the DVN-pipeline-protection paramounts
+- Defining, implying, or designing toward a `DomainQube` iQube type (D-17)
+- Extending the architecture to Human Mobility ahead of the HMS identifier-isolation precondition (D-21)
+- Treating Context Resolution as an access gate (D-20)
 
 ---
 
@@ -359,6 +512,8 @@ Recorded so the first build slice is deliberately narrow. Not authorised until �
 | **P4** | Capability-module composition | D-2, D-3, D-4, D-11 |
 | **P5** | L3 provisional discovery + abstention UI | D-10, D-12 |
 | **P6** | Agent classification (Horizen) | D-13 |
+| **P7** | Context Resolution layer (§12) — after Domain Resolution is stable, never before | D-16, D-18, D-20 |
+| **P8** | Second production domain (Human Mobility) to prove generality (§1.2) | D-21 + HMS steward sign-off |
 
 The first code change, when it comes, is exactly this and nothing more:
 
