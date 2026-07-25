@@ -670,18 +670,18 @@ Ratification (2026-07-25) approves the architecture and every decision whose ans
 
 ## 11. Post-ratification sequencing (indicative only)
 
-Recorded so the first build slice is deliberately narrow. Not authorised until §10 is resolved.
+Recorded so the first build slice is deliberately narrow. Ratified 2026-07-25: P1 is authorised and shipped; every later phase remains gated on the decisions in its row, and the three Open decisions in §10.2 (D-8, D-12, D-15) still block P2, P5 and P6.
 
-| Phase | Scope | Gated on |
-|---|---|---|
-| **P1** | Derive execution taxonomy in code + parity canary | D-1 |
-| **P2** | Profile registry replacing the hostname `Set`; curated/first-party seed only; rename `banking` → `financial-context` | D-1, D-5, D-6, D-7, D-14, D-15 |
-| **P3** | Resolver with L1/L2/L4 only — no provisional path | D-9, D-11 |
-| **P4** | Capability-module composition | D-2, D-3, D-4, D-11 |
-| **P5** | L3 provisional discovery + abstention UI | D-10, D-12 |
-| **P6** | Agent classification (Horizen) | D-13 |
-| **P7** | Context Resolution layer (§12) — after Domain Resolution is stable, never before | D-16, D-18, D-20 |
-| **P8** | Second production domain (Human Mobility) to prove generality (§1.2) | D-21 + HMS steward sign-off |
+| Phase | Scope | Gated on | Status |
+|---|---|---|---|
+| **P1** | Derive execution taxonomy in code + parity canary | D-1 | **SHIPPED 2026-07-25** — `services/resolution/executionTaxonomy.ts` derives from `FINANCIAL_DOMAINS`/`FINANCIAL_DOMAIN_LABEL`; the two hand-copied route arrays are replaced by `isExecutionDomain`; canary in `tests/source-of-truth-parity.test.ts` covers the §3 docs mirror, the §4.2 non-executability rule, and re-introduction of a restated list |
+| **P2** | Profile registry replacing the hostname `Set`; curated/first-party seed only; rename `banking` → `financial-context` | D-1, D-5, D-6, D-7, D-14, D-15 | **Blocked** — D-15 |
+| **P3** | Resolver with L1/L2/L4 only — no provisional path | D-9, D-11 | Not started |
+| **P4** | Capability-module composition | D-2, D-3, D-4, D-11 | Not started |
+| **P5** | L3 provisional discovery + abstention UI | D-10, D-12 | **Blocked** — D-12 |
+| **P6** | Agent classification (Horizen) | D-13 | **Blocked** — D-13 deferred pending D-12 |
+| **P7** | Context Resolution layer (§12) — after Domain Resolution is stable, never before | D-16, D-18, D-20 | Not started |
+| **P8** | Second production domain (Human Mobility) to prove generality (§1.2) | D-21 + HMS steward sign-off | Not started |
 
 The first code change, when it comes, is exactly this and nothing more:
 

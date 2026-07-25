@@ -27,7 +27,21 @@
  */
 
 export type IntelligenceConfidence = 'low' | 'medium' | 'high';
-export type FinancialDomain = 'intelligence' | 'investment' | 'market';
+
+/**
+ * The canonical execution-domain tuple. SPEC-CDR-001 §3 / D-1 (RATIFIED
+ * 2026-07-25): every registry, profile schema, or presentation surface that
+ * enumerates execution domains MUST derive them from HERE rather than restate
+ * them. `FinancialDomain` is derived from this tuple, not the other way round,
+ * so a value list and the type can never drift apart.
+ *
+ * Widening this tuple widens the money-moving execution contract. SPEC-CDR-001
+ * §10.1 explicitly does NOT authorise that — governance domains are a separate,
+ * non-executable class (§4.2) and must never be added here.
+ */
+export const FINANCIAL_DOMAINS = ['intelligence', 'investment', 'market'] as const;
+
+export type FinancialDomain = (typeof FINANCIAL_DOMAINS)[number];
 
 /** Injected grounding — the invariants relevant to the request. */
 export type GroundingFn = (namespaces: string[], limit: number) => Promise<{ id: string; statement: string }[]>;
@@ -46,7 +60,9 @@ export type AnalyzeFn = (
 // invariants, not just the platform-general namespaces.
 export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering', 'finance'];
 
-const DOMAIN_LABEL: Record<FinancialDomain, string> = {
+/** Shipped domain labels. Exported so SPEC-CDR-001's taxonomy derives these
+ *  rather than maintaining a second label table (inv.engineering.036). */
+export const FINANCIAL_DOMAIN_LABEL: Record<FinancialDomain, string> = {
   intelligence: 'Financial Intelligence',
   investment: 'Investment Operations',
   market: 'Market Operations',
@@ -93,7 +109,7 @@ export async function runFinancialCapability(
   let confidence: IntelligenceConfidence = evidenceRefs.length >= 3 ? 'high' : evidenceRefs.length >= 1 ? 'medium' : 'low';
 
   let summary =
-    `${DOMAIN_LABEL[domain]} brief for: "${intent}". ` +
+    `${FINANCIAL_DOMAIN_LABEL[domain]} brief for: "${intent}". ` +
     (evidenceRefs.length > 0
       ? `Grounded in ${evidenceRefs.length} constitutional invariant(s).`
       : `No grounding available — un-grounded (fails verification). Advice only, no fund movement.`);

@@ -34,11 +34,21 @@
  *    projection of two sources of truth, so a renamed/disabled tab must fail
  *    the build rather than ship a dead link:
  *      tests/companion-observer.test.ts
+ *
+ * Canaries defined IN this file:
+ *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY
+ *  - SPEC-CDR-001 execution taxonomy (D-1): EXECUTION_DOMAINS ↔
+ *    FINANCIAL_DOMAINS ↔ the SPEC §3 docs mirror, plus the §4.2
+ *    non-executability rule for governance domains
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { EXPERIMENT_REGISTRY } from '../types/research';
 import { ASSIGNABLE_EXPERIMENTS } from '../services/passport/participationAccess';
+import { FINANCIAL_DOMAINS } from '../services/constitutional/financialIntelligenceExecutor';
+import { EXECUTION_DOMAINS, isExecutionDomain } from '../services/resolution/executionTaxonomy';
 
 describe('source-of-truth parity (inv.engineering.036/037 enforcement)', () => {
   it('ASSIGNABLE_EXPERIMENTS remains a pure derivation of EXPERIMENT_REGISTRY', () => {
@@ -62,5 +72,96 @@ describe('source-of-truth parity (inv.engineering.036/037 enforcement)', () => {
   it('EXPERIMENT_REGISTRY ids are unique (a registry with duplicate keys is two sources of truth)', () => {
     const ids = EXPERIMENT_REGISTRY.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+/**
+ * SPEC-CDR-001 D-1 (RATIFIED 2026-07-25) — execution-taxonomy parity.
+ *
+ * The taxonomy IS the shipped `FinancialDomain` union. `EXECUTION_DOMAINS`
+ * derives from it in code, so THAT pair cannot drift. The one place derivation
+ * is impossible is the docs mirror in SPEC-CDR-001 §3 — so it is checked here,
+ * per §3's binding derivation rule and CLAUDE.md's parity-canary requirement.
+ *
+ * This canary also pins the §4.2 non-executability rule: a governance domain
+ * must never leak into the executable union. Widening `FinancialDomain` widens
+ * the money-moving execution contract, which §10.1 explicitly does not
+ * authorise — so that must fail the build, not pass review.
+ */
+describe('SPEC-CDR-001 execution taxonomy parity (D-1)', () => {
+  const SPEC_PATH = join(
+    __dirname,
+    '../codexes/packs/irl/foundation/SPEC-CDR-001_constitutional-domain-resolution.md',
+  );
+  const spec = readFileSync(SPEC_PATH, 'utf8');
+
+  /** Pull the markdown between one `## <heading>` and the next `## `. */
+  const section = (startsWith: string): string => {
+    const from = spec.indexOf(`\n## ${startsWith}`);
+    expect(from, `section "## ${startsWith}" not found in SPEC-CDR-001`).toBeGreaterThan(-1);
+    const rest = spec.slice(from + 1);
+    const to = rest.indexOf('\n## ', 1);
+    return to === -1 ? rest : rest.slice(0, to);
+  };
+
+  /** Rows whose first cell is a backticked id: | `id` | col2 | col3 | */
+  const idRows = (md: string): { id: string; c2: string; c3: string }[] =>
+    Array.from(md.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*([^|]*?)\s*\|\s*([^|]*?)\s*\|/gm)).map((m) => ({
+      id: m[1],
+      c2: m[2],
+      c3: m[3],
+    }));
+
+  it('EXECUTION_DOMAINS is a pure derivation of FINANCIAL_DOMAINS', () => {
+    expect(EXECUTION_DOMAINS.map((d) => d.id)).toEqual([...FINANCIAL_DOMAINS]);
+  });
+
+  it('the §3 docs table matches the shipped union — ids, labels, and posture', () => {
+    const rows = idRows(section('3. Canonical execution taxonomy'));
+    expect(rows.length, '§3 table rows not parsed').toBe(FINANCIAL_DOMAINS.length);
+    expect(rows.map((r) => r.id)).toEqual([...FINANCIAL_DOMAINS]);
+
+    for (const row of rows) {
+      const shipped = EXECUTION_DOMAINS.find((d) => d.id === row.id)!;
+      // Column 2 is "Label (shipped)" — must be the real label, not a retitle.
+      expect(row.c2).toBe(shipped.label);
+      // Column 3 states the CRP-003a posture in prose; the code records it as
+      // an enum. A doc that says "Authoritative" for a shadow-only domain (or
+      // the reverse) is exactly the drift that must fail the build.
+      const documented = row.c3.toLowerCase().startsWith('authoritative')
+        ? 'authoritative'
+        : 'shadow-only';
+      expect(documented, `posture drift for "${row.id}"`).toBe(shipped.posture);
+    }
+  });
+
+  it('no governance domain has leaked into the executable union (§4.2)', () => {
+    const governance = idRows(section('4. Proposed governance domains'));
+    // Guard the guard: if §4.1's table is ever restructured away, this test
+    // would silently pass on an empty list.
+    expect(governance.length).toBeGreaterThan(0);
+    for (const g of governance) {
+      expect(
+        (FINANCIAL_DOMAINS as readonly string[]).includes(g.id),
+        `"${g.id}" is a governance domain and must never be executable`,
+      ).toBe(false);
+      expect(isExecutionDomain(g.id)).toBe(false);
+    }
+  });
+
+  it('no surface restates the execution-domain list instead of deriving it', () => {
+    // The two API routes each carried a hand-copied
+    // `['intelligence','investment','market']` array before D-1 was
+    // implemented. This pins that they stay derived.
+    for (const rel of [
+      '../app/api/moneypenny/runtime/route.ts',
+      '../app/api/constitutional/service-pipeline/route.ts',
+    ]) {
+      const src = readFileSync(join(__dirname, rel), 'utf8');
+      expect(src, `${rel} restates the domain list`).not.toMatch(
+        /\[\s*'intelligence'\s*,\s*'investment'\s*,\s*'market'\s*\]/,
+      );
+      expect(src).toContain('isExecutionDomain');
+    }
   });
 });

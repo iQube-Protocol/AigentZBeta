@@ -45,9 +45,9 @@ import {
 } from '@/app/api/dev-command-center/_lib/persona';
 import { runConstitutionalServicePattern } from '@/services/constitutional/constitutionalServicePipeline';
 import type { FinancialDomain } from '@/services/constitutional/financialIntelligenceExecutor';
+// SPEC-CDR-001 D-1: derive the domain list, never restate it.
+import { isExecutionDomain } from '@/services/resolution/executionTaxonomy';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
-
-const DOMAINS: FinancialDomain[] = ['intelligence', 'investment', 'market'];
 
 const MONEYPENNY_CAPABILITY_REF = 'cap-moneypenny-financial-services';
 // P4-6: a SECOND, distinct capabilityRef for the money-moving domains
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   // the original, already-live ref (zero regression); Investment/Market use
   // the settlement-tier ref, whose agreement can only reach its authorized
   // state under the World-ID grade (constitutionalAgreement.ts).
-  const domain: FinancialDomain = DOMAINS.includes(body.domain as FinancialDomain) ? (body.domain as FinancialDomain) : 'intelligence';
+  const domain: FinancialDomain = isExecutionDomain(body.domain) ? body.domain : 'intelligence';
   const capabilityRef = domain === 'intelligence' ? MONEYPENNY_CAPABILITY_REF : MONEYPENNY_SETTLEMENT_CAPABILITY_REF;
   const selectedAgentRef = MONEYPENNY_AGENT_REF;
 

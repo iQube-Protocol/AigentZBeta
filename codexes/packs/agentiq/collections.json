@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-25_cdr-001-p1-execution-taxonomy.md",
         "updates/2026-07-25_cfs-051-registry-gate-widening.md",
         "updates/2026-07-25_spec-hmc-001-phase1-continuity-assessment.md",
         "updates/2026-07-25_spec-cos-001-phase1-substrate-state.md",
