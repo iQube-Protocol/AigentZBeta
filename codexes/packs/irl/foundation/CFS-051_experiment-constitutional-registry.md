@@ -1,7 +1,7 @@
 # CFS-051 — The Experiment / Constitutional / Invariant Pipeline
 
 **Chrysalis Foundation · Charter · Status: RATIFIED-for-this-slice (built 2026-07-24, Strand 1 of the operator's four-strand programme)**
-**Depends on / composes:** `types/research.ts` (EXPERIMENT_REGISTRY, EXPERIMENT_LIFECYCLE — the ratified/shipped experiment object model this register never forks), `codexes/packs/irl/foundation/canonical-invariants.seed.json` / `appendix-a_canonical-invariants.md` (the ratified invariant canon this register feeds candidates toward, never replaces), CFS-034 (Research Progression Ladder — standing/rungs, unrelated axis), CFS-044 (Open Lab reviewer engagement — the CAS access-grant mechanism this register's admin gate is architected to compose with later), `services/constitutional/capabilityRegistry.ts` (the structural template: soft-fail Supabase-backed registry, service-role RLS, thin gated API route).
+**Depends on / composes:** `types/research.ts` (EXPERIMENT_REGISTRY, EXPERIMENT_LIFECYCLE — the ratified/shipped experiment object model this register never forks), `codexes/packs/irl/foundation/canonical-invariants.seed.json` / `appendix-a_canonical-invariants.md` (the ratified invariant canon this register feeds candidates toward, never replaces), CFS-034 (Research Progression Ladder — standing/rungs, unrelated axis), CFS-044 (Open Lab reviewer engagement — the CAS access-grant mechanism this register's gate now COMPOSES, built 2026-07-25, see §5a), `services/access/policyResolvers.ts` (the access spine's shipped `token:*` credential resolver the token path composes — imported, never modified), `services/constitutional/capabilityRegistry.ts` (the structural template: soft-fail Supabase-backed registry, service-role RLS, thin gated API route).
 
 **Renamed 2026-07-24 (operator correction, same day as the build):** this charter and its tab were first titled "...Registry." The operator was explicit that this reads as competing with, or replacing, the platform's actual formal experiment/invariant ratification process — which is unchanged, unaffected, and remains the sole authority (`types/research.ts`'s `EXPERIMENT_REGISTRY`, the canon file's canonization ceremony, protocol freeze/governance). Renamed throughout the user-facing surface (tab label, in-app header, this title) to **Pipeline**: an informal, pre-formal place to capture experiment ideas, candidate principles, and candidate invariants, which a human then runs through the EXISTING formal process, unchanged, to promote into the real registry/canon. §2's "Extend-don't-duplicate" boundary below was already written this way — only the naming was wrong, not the design.
 
@@ -55,14 +55,60 @@ Types: `types/researchRegistry.ts` (a NEW file, deliberately not an extension of
 ## 4. Service + API
 
 - `services/research/registryStore.ts` — `list*`/`create*` per kind (mirrors `capabilityRegistry.ts`'s soft-fail pattern: every list soft-fails to `[]` if the migration isn't applied yet, every create reports `{ ok: false, reason }` honestly), plus kind-generic `transitionRegistryStatus`, `addRegistryReviewNote`, `editRegistryItem` (patch restricted to a per-kind allowlist — never `id`/`slug`/`review_history` directly).
-- `services/research/registryAccess.ts` — **the swappable admin gate**, `canManageRegistry(persona)`. Today: `persona.cartridgeFlags?.isAdmin` only. This is the ONE function the cohort/token-gated follow-on touches — never the CRUD service, never the API route's action dispatch, never the tab component.
-- `app/api/research/registry/route.ts` — `GET` (list all four registers) + `POST` (`action: 'create' | 'edit' | 'transition-status' | 'add-review'`), gated by `resolvePersonaOrTimeout` + `canManageRegistry`, mirroring `/api/constitutional/capability-registry`'s 503/401/403 contract exactly.
+- `services/research/registryAccess.ts` — **the swappable gate** (widened 2026-07-25, see §5a). Exposes a PURE decision core plus a thin I/O shell; the CRUD service and the store remain entirely gate-unaware.
+- `app/api/research/registry/route.ts` — `GET` (list all four registers) + `POST` (`action: 'create' | 'edit' | 'transition-status' | 'add-review'`), gated by `resolvePersonaOrTimeout` + `resolveRegistryAccess`, mirroring `/api/constitutional/capability-registry`'s 503/401/403 contract exactly.
 
 ## 5. Front-end
 
 `app/triad/components/codex/tabs/ExperimentRegistryTab.tsx` — registered in `TabRenderer.componentRegistry` as `ExperimentRegistryTab`, wired into `IRL_CARTRIDGE` (`data/codex-configs.ts`) as tab id `irl-experiment-registry` (slug `irl-experiment-registry`), group `laboratory`, `adminOnly: true`, sibling to `irl-corpus-scout` / `irl-exp-p1-readiness`. Four-section switcher (Candidate Experiments / Candidate Principles / Candidate Invariants / Research Backlog), each with: a collapsed create form, a list of items with an inline status-transition `<select>`, and an expandable review-history panel + add-review-note mini-form. Uses `personaFetch` exclusively (CLAUDE.md PARAMOUNT spine-fetch rule) and the translucent-slate house style (`bg-slate-900/40` / `border-slate-800`, no white hairlines).
 
-**Path to public access (not built now, per operator framing "for now"):** `canManageRegistry` is the single widening point. The natural composition target is the EXISTING `research-lab` access domain in `services/passport/participationAccess.ts` (`ACCESS_DOMAINS`, `DOMAIN_ROLES`, `listAccessGrants`) — the same CAS mechanism CFS-044's Open Lab reviewer engagement already uses. A follow-on `canManageRegistry` could OR in "caller holds an active `research-lab` grant with role ≥ `research-associate`" without touching anything else in this charter's build. Token-gating would similarly compose at that one seam.
+**Path to public access — BUILT 2026-07-25, see §5a.** (The original text here predicted the shape correctly: the widening touched only `services/research/registryAccess.ts`, and neither the CRUD service, the store, nor the tab component changed behaviour.)
+
+## 5a. The gate widening (built 2026-07-25 — operator answered "both")
+
+Asked whether to widen to a CAS research-lab grant, a token gate, or both, the operator answered **both**. The seed backlog row `backlog-widen-registry-access-gate` is now satisfied.
+
+### Three paths, OR'd, each independently sufficient
+
+| Path | Signal | Composes |
+|---|---|---|
+| `platform-admin` | `persona.cartridgeFlags.isAdmin` | — (unchanged; never weakened) |
+| `cas-research-lab-grant` | an active `research-lab` grant in the Constitutional Access Service | `getGrantedExperiments` (`services/passport/participationAccess.ts`) — the SAME grant mechanism CFS-044's Open Lab reviewer engagement issues against. **No second grant system, no new table, no new query.** |
+| `token-holding` | the caller holds the operator-configured gate token on-chain | `resolveExternalCredential` (`services/access/policyResolvers.ts`) — the access spine's SHIPPED `token:<chain>:<contract>[:<tokenId>]` credential resolver, which resolves the persona's chain address and reads `balanceOf` via `ownsErc721`/`ownsErc1155`. That file is spine-protected: **imported, never modified.** |
+
+### Propose vs. curate — the gate is TWO capabilities, not one
+
+The operator's framing was specific: widen so public users can **propose**. Proposing and curating are different constitutional acts, so the gate splits:
+
+| Capability | Actions | Who |
+|---|---|---|
+| `read` | `GET` | any of the three paths |
+| `propose` | `POST create` | any of the three paths |
+| `curate` | `POST edit` / `transition-status` / `add-review` | **platform admin ONLY — byte-identical to the pre-widening behaviour** |
+
+A status transition is the step a human takes *toward* the formal registry/canon ceremony §2 protects; that judgement stays with the admin. Silently granting full CRUD to every grant-holder would have over-read the instruction.
+
+**Role-scoped curation is deliberately NOT built.** Letting a grant whose role is `reviewer` / `research-steward` / `ratifier` append review notes would need a role-aware grant reader; `getGrantedExperiments` — the only persona-scoped grant reader that exists — returns experiment scoping, not role. Inventing a second grant query would be the parallel-implementation defect `inv.engineering.037` names. Tracked as a follow-on, not guessed at.
+
+### Pure core + thin I/O shell
+
+`decideRegistryAccess(signals) → decision` is PURE and synchronous — three booleans in, a capability decision out — mirroring SPEC-COS-001's `services/onboarding/substrateState.ts::activeSurfaces`. All I/O lives in `resolveRegistryAccess`, which gathers the signals and delegates. Both widened lookups **fail closed** and never throw: a Supabase outage or an RPC failure denies the widened path, never the admin path, and never 500s the route. An admin short-circuits both network lookups entirely.
+
+### Token configuration — nothing is hardcoded
+
+The gate token is named by the operator via `RESEARCH_REGISTRY_TOKEN_CREDENTIAL` (allowlisted in `scripts/create-env-production.js`), in the access spine's own grammar: `token:<chain>:<contract>` or `token:<chain>:<contract>:<tokenId>`. Chains: ethereum | base | optimism | polygon | arbitrum. **Unset is the default and means the token path is INERT, not open**; a malformed value is logged and treated as unset, so a typo fails closed. No contract address is hardcoded, guessed, or defaulted (CLAUDE.md "No Guessing or Hallucinating") — the canary asserts no 40-hex EVM literal appears in the module. **No DB migration was required.**
+
+### A gate-bypass bug found and fixed while widening
+
+`POST create` accepted a client-supplied `status`. While every caller was an admin this was harmless; the moment `propose` widened, a propose-only caller could have created a row already at `published` / `promoted` / `ratified` / `canonized` — precisely the transitions `curate` exists to withhold. The route now drops a non-curator's `status`, so the store applies its own default (`proposed` / `candidate` / `backlog`) and every advance must go through the curate-gated `transition-status`.
+
+### The surface stays admin-only
+
+`irl-experiment-registry` remains `adminOnly: true` in `data/codex-configs.ts`, untouched. Widening the API was additive and operator-directed; exposing a public proposal *surface* is a separate step requiring its own authorization (CLAUDE.md "Security — Access Gates"). `GET` now returns a `capabilities` object so a future public surface can render exactly the affordances its caller holds.
+
+### Canary
+
+`tests/research-registry-access.test.ts` (22 assertions) pins: the full 2^3 decision truth table (admin keeps everything; no-signal passes nothing; each widened path independently grants propose and NEVER curate); token-credential validation failing closed; the action→capability map; the create-status guard; that the gate composes rather than re-implements grants/chain reads; and — structurally — that `registryStore.ts` contains no gate logic, no admin flag, no grant query, and no raw `persona_id`.
 
 ## 6. Seed data and its real sources
 
@@ -109,12 +155,15 @@ Also seeded: one candidate constitutional principle (CFS-044's "Runtime is the P
 
 - **Not** a fork of `EXPERIMENT_REGISTRY`, the invariant canon, or the Standing/rung ladder (CFS-034) — composes with all three, forks none.
 - **Not** DVN-receipted yet — the `review_history` jsonb log is the audit trail for this slice; DVN anchoring is a named follow-on.
-- **Not** publicly accessible yet — admin-only, with the widening seam documented and ready.
+- **Not** a publicly accessible SURFACE yet — the API gate widened 2026-07-25 (§5a) to admit CAS `research-lab` grant holders and token holders for read+propose, but the tab remains `adminOnly: true` until the operator authorizes a public proposal surface. Curation remains platform-admin on every path.
 - **Not** applied to a live database — the operator must run the migration SQL (see the session's final report / this build's commit message for the exact copyable block).
 
 ## 8. Ratification record
 
 - [x] BUILT 2026-07-24 (Strand 1 of the operator's four-strand programme) — schema, service, API route, admin tab, seed data, this charter.
+- [x] GATE WIDENED 2026-07-25 (operator answered "both") — CAS `research-lab` grant + token gate OR'd with the untouched admin path, split into propose vs. curate, canary-pinned (§5a). Satisfies the seed backlog row `backlog-widen-registry-access-gate`.
+- [ ] Operator sets `RESEARCH_REGISTRY_TOKEN_CREDENTIAL` in Amplify if the token path should be live (unset = inert, which is a valid steady state — the CAS grant path works without it).
+- [ ] Operator authorizes (or declines) a PUBLIC proposal surface; until then `irl-experiment-registry` stays `adminOnly: true`.
 - [ ] Operator reviews and ratifies the four-table schema + admin-gate design.
 - [ ] Operator runs the migration SQL against the live Supabase instance.
 - [ ] Operator ratifies SPEC-HMC-001 and SPEC-COS-001 (Strands 2/3 of this same programme), which this build's seed data now cites for Constitutional Agent Reconstitution, Agent Continuity, Progressive Surface Activation, and Common Onboarding Substrate — see `backlog-clarify-agent-reconstitution-continuity-scope` (retitled "Ratify SPEC-HMC-001").

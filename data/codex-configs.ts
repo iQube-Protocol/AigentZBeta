@@ -5265,10 +5265,14 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // ── Experiment / Constitutional / Invariant Registry (CFS-051,
     // Strand 1 build 2026-07-24) — the living register of candidate
     // experiments, candidate constitutional principles, candidate
-    // structural invariants, and the research backlog. Admin-only today;
-    // the gate (services/research/registryAccess.ts::canManageRegistry) is
-    // a documented, swappable widening point for cohort/token-gated public
-    // proposal access (operator framing) — not built here.
+    // structural invariants, and the research backlog.
+    //
+    // The API gate (services/research/registryAccess.ts) was WIDENED 2026-07-25
+    // per the operator's "both" answer: admin OR a CAS `research-lab` grant OR
+    // the configured token grants read+propose; CURATE stays platform-admin.
+    // This TAB stays `adminOnly: true` deliberately — widening the API is
+    // additive, but exposing a public proposal surface needs its own operator
+    // authorization (CLAUDE.md "Security — Access Gates").
     {
       id: 'irl-experiment-registry',
       label: 'Experiment Pipeline',

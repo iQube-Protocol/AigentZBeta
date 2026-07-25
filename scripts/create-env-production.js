@@ -264,6 +264,12 @@ const envVars = [
   'LINEAR_API_KEY',
   // Linear lifecycle mirror target team (e.g. 'ENG') — services/linear/lifecycleMirror.ts
   'LINEAR_TEAM_KEY',
+  // CFS-051 Experiment Pipeline token gate (widened 2026-07-25). One of the
+  // three OR'd paths in services/research/registryAccess.ts. Value is the
+  // access spine's own credential grammar: 'token:<chain>:<contract>' (ERC-721)
+  // or 'token:<chain>:<contract>:<tokenId>' (ERC-1155). UNSET = the token path
+  // is inert (fails closed); it never opens access on its own.
+  'RESEARCH_REGISTRY_TOKEN_CREDENTIAL',
 ];
 
 let content = '';

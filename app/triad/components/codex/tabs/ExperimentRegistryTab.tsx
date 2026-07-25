@@ -10,9 +10,19 @@
  * This is the real, working admin surface for the four registers created by
  * migration 20260820000000 and served by /api/research/registry
  * (services/research/registryStore.ts, gated by
- * services/research/registryAccess.ts::canManageRegistry — today platform
- * admin, a documented, swappable follow-on point for cohort/token-gated
- * public proposal access, not built here).
+ * services/research/registryAccess.ts).
+ *
+ * GATE WIDENED 2026-07-25 (operator answered "both"): the API now admits a
+ * platform admin, a CAS `research-lab` grant holder, OR a holder of the
+ * operator-configured gate token — but only the first may CURATE (edit,
+ * transition status, add review notes); the widened paths may PROPOSE
+ * (create) and read. GET returns a `capabilities` object saying which.
+ *
+ * THIS TAB REMAINS `adminOnly: true` in data/codex-configs.ts and that flag is
+ * deliberately untouched — widening the API is additive and operator-directed;
+ * exposing a public proposal SURFACE is a separate step that needs its own
+ * operator authorization (CLAUDE.md "Security — Access Gates"). So every
+ * caller who reaches this component today still has full curate rights.
  *
  * Four sections share ONE shape: list + create form + per-item status
  * transition + append-only review-history note. Spine discipline:
@@ -360,9 +370,10 @@ export function ExperimentRegistryTab() {
               protocol freeze, canonization) is unchanged and lives entirely elsewhere. This is where candidate
               research threads, candidate constitutional principles, candidate structural invariants, and the
               research backlog sit — with status, dependencies, and review history — before a human runs them
-              through the existing formal process to promote them in. Admin-only today (CFS-051); a swappable gate
-              (<code className="text-slate-400">canManageRegistry</code>) is the widening point for cohort/token-gated
-              public proposal access.
+              through the existing formal process to promote them in. The API gate (CFS-051, widened 2026-07-25)
+              admits a platform admin, a CAS <code className="text-slate-400">research-lab</code> grant holder, or a
+              holder of the configured gate token — but only an admin may curate (edit, transition status, review).
+              The widened paths may propose. This tab itself is still admin-only.
             </p>
           </div>
           <button onClick={load} className="shrink-0 flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-300">
