@@ -486,3 +486,51 @@ describe('Companion Overlay — capability route parity', () => {
     }
   });
 });
+
+/**
+ * UNMAPPED-DOMAIN GENERIC CARD (operator-directed, 2026-07-25 — "1 and 2 for
+ * unmapped pages + 3 as you suggest"). Locks the no-fabrication contract for
+ * `composeGenericOverlayCard` and the route's four-way reason split.
+ */
+describe('Companion Overlay — generic (unmapped-domain) card', () => {
+  beforeEach(() => {
+    mockedGetSupabaseServer.mockReset();
+  });
+
+  it('degrades honestly to no standing signal when Supabase is unavailable, and no title yields no matches', async () => {
+    mockedGetSupabaseServer.mockReturnValue(null);
+    const { composeGenericOverlayCard } = await import('@/services/companion/overlayComposition');
+
+    const persona = {
+      personaId: 'persona-1',
+      identifiability: 'semi_anonymous',
+      cartridgeFlags: { isAdmin: false, isPartner: false },
+    } as unknown as import('@/types/access').ActivePersonaContext;
+
+    const card = await composeGenericOverlayCard(persona, undefined, 'example.com');
+
+    expect(card.shape).toBe('generic');
+    expect(card.domain).toBe('example.com');
+    expect(card.standing.hasStandingSignal).toBe(false);
+    // No page title -> no query -> no fabricated matches, not an error.
+    expect(card.titleMatches).toEqual([]);
+    // Persona-level fields pass through unchanged -- this is item 3 of the
+    // operator's ask: these were never page-specific, so nothing is derived
+    // or narrowed for the unmapped case.
+    expect(card.identifiability).toBe('semi_anonymous');
+    expect(card.cartridgeFlags).toEqual({ isAdmin: false, isPartner: false });
+  });
+
+  // A route-level integration test (mocking loadLatestObservation/
+  // loadGrantState/isCapabilityGranted) is deliberately NOT added here: this
+  // file already imports the REAL `isCapabilityGranted` for its own direct
+  // unit tests above (grantCapability/revokeCapability describe block), and
+  // module-mocking it mid-file risks destabilizing those. The route's
+  // four-way reason branch (app/api/companion/overlay/route.ts) is simple
+  // enough to verify by inspection: `composeGenericOverlayCard` is called
+  // if and only if `reason === 'domain-unmapped' && domain` — the exact
+  // condition under which `shape` is falsy but a real, currently-granted
+  // domain exists. The composition-level contract above is what actually
+  // needs a canary (the no-fabrication guarantee); the branch condition
+  // itself is a one-line `if` with no logic worth a parallel mock harness.
+});

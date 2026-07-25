@@ -105,7 +105,46 @@ export interface BankingOverlayCard {
   matchedCapabilities?: OverlayCapabilityMatch[];
 }
 
-export type OverlayCard = GithubRepoOverlayCard | BankingOverlayCard;
+/**
+ * The unmapped-domain fallback (operator-directed, 2026-07-25 — "1 and 2 for
+ * unmapped pages + 3 as you suggest").
+ *
+ * NOT a fourth hand-classified shape. `shapeForDomain` still returns `null`
+ * for any domain outside the `github-repo`/`banking` table — that
+ * classification is unchanged. This is what the route composes INSTEAD OF
+ * the prior empty state, specifically and ONLY when the reason is
+ * `'domain-unmapped'` (a real, currently-granted observation exists; the
+ * domain simply has no dedicated dashboard). The other three empty-state
+ * reasons (`no-observation`, `no-domain-observed`, `grant-revoked`) are
+ * consent problems, not classification problems, and keep returning
+ * `card: null` — composing ANY card there would show standing/capability
+ * data derived from an observation the route has no legitimate basis to
+ * use, conflating "no consent" with "no dashboard for this page type".
+ *
+ * Composed from data that is true on EVERY page, never fabricated for one
+ * that has none:
+ *   - `standing` / `identifiability` / `cartridgeFlags` — persona-level, not
+ *     page-level. Hiding these on an unmapped domain was never a privacy
+ *     boundary, just an artifact of the card being all-or-nothing per shape;
+ *     they render here as they already do on `BankingOverlayCard`.
+ *   - `titleMatches` — a best-effort registry/research search using the
+ *     page's own title as the query, via the EXACT SAME federation
+ *     functions `composeGithubRepoCard` already calls
+ *     (`searchRegistryIQube` / `searchRegistryAsset` / `searchResearch` /
+ *     `rankSearchResults`) — never a second matching implementation, just a
+ *     different query source (page title vs. an extracted repo name).
+ *     Empty title or zero hits degrades to `[]`, never a fabricated match.
+ */
+export interface GenericOverlayCard {
+  shape: 'generic';
+  domain: string;
+  standing: OverlayStandingSummary;
+  identifiability: ActivePersonaContext['identifiability'];
+  cartridgeFlags: ActivePersonaContext['cartridgeFlags'];
+  titleMatches: CompanionSearchResult[];
+}
+
+export type OverlayCard = GithubRepoOverlayCard | BankingOverlayCard | GenericOverlayCard;
 
 async function buildStandingSummary(personaId: string): Promise<OverlayStandingSummary> {
   const admin = getSupabaseServer();
@@ -224,4 +263,43 @@ export async function composeOverlayCard(
 ): Promise<OverlayCard> {
   if (shape === 'github-repo') return composeGithubRepoCard(persona.personaId, currentTabTitle);
   return composeBankingCard(persona);
+}
+
+/**
+ * The unmapped-domain composer. Kept as a SEPARATE export (not folded into
+ * `composeOverlayCard`'s shape switch) because its call condition is not "no
+ * shape resolved" but the more specific "no shape resolved AND a currently-
+ * granted observation legitimately exists for this domain" — a distinction
+ * only the route can make (it alone holds the four-way reason computation).
+ * See the `GenericOverlayCard` doc comment for what this does and does not
+ * fabricate.
+ */
+export async function composeGenericOverlayCard(
+  persona: ActivePersonaContext,
+  currentTabTitle: string | undefined,
+  domain: string,
+): Promise<GenericOverlayCard> {
+  const query = (currentTabTitle ?? '').trim();
+
+  const [standing, titleMatches] = await Promise.all([
+    buildStandingSummary(persona.personaId),
+    query.length === 0
+      ? Promise.resolve<CompanionSearchResult[]>([])
+      : Promise.all([
+          searchRegistryIQube(query).catch(() => []),
+          searchRegistryAsset(query).catch(() => []),
+          searchResearch(query).catch(() => []),
+        ]).then(([iqubeMatches, assetMatches, research]) =>
+          rankSearchResults([...iqubeMatches, ...assetMatches, ...research], query).slice(0, 5),
+        ),
+  ]);
+
+  return {
+    shape: 'generic',
+    domain,
+    standing,
+    identifiability: persona.identifiability,
+    cartridgeFlags: persona.cartridgeFlags,
+    titleMatches,
+  };
 }

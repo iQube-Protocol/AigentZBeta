@@ -7,9 +7,13 @@
  * Surface-agnostic (`personaIdHint` only), `personaFetch`-only (CLAUDE.md
  * PARAMOUNT client-spine-fetch rule) against `GET /api/companion/overlay`.
  * Gated on the server's own domain→shape resolution — this component never
- * classifies a domain itself, it only renders whatever shape (or `null`)
- * the server returns. An unmapped domain renders an honest "No overlay
- * available for this page", never a fabricated generic card.
+ * classifies a domain itself, it only renders whatever shape the server
+ * returns: `'github-repo'`, `'banking'`, or (operator-directed, 2026-07-25)
+ * `'generic'` for a real, currently-granted domain with no dedicated
+ * dashboard. The honest "No overlay available for this page" empty state is
+ * now reached only for a genuine consent gap (no observation shared, no
+ * domain observed, or the grant was revoked) — never for an unmapped domain,
+ * since that case now gets the generic card instead.
  *
  * Styling: canonical slate house style only (`border-slate-800` /
  * `bg-slate-900/40`, no white hairlines).
@@ -25,6 +29,7 @@ import type {
   OverlayCard,
   GithubRepoOverlayCard,
   BankingOverlayCard,
+  GenericOverlayCard,
 } from "@/services/companion/overlayComposition";
 
 const OVERLAY_ENDPOINT = "/api/companion/overlay";
@@ -40,7 +45,7 @@ type OverlayEmptyReason = "no-observation" | "no-domain-observed" | "grant-revok
 interface OverlayResponse {
   ok: boolean;
   domain: string | null;
-  shape: "github-repo" | "banking" | null;
+  shape: "github-repo" | "banking" | "generic" | null;
   card: OverlayCard | null;
   reason: OverlayEmptyReason;
 }
@@ -121,6 +126,70 @@ function GithubRepoCard({ card, domain }: { card: GithubRepoOverlayCard; domain:
           </ul>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * The unmapped-domain fallback (operator-directed, 2026-07-25). Renders on
+ * ANY page the domain→shape table has no dedicated dashboard for. Shows only
+ * what's genuinely true here: the persona's OWN standing/delegations (not
+ * page-specific — they're identical to the same panels on `BankingCard`,
+ * just no longer withheld on a page with no shape) plus a best-effort
+ * registry/research match using the page's own title. The "Pull Across" hint
+ * is TEXT, not a button — there is no message path from this side-panel UI
+ * to the context-menu-only capture flow, so a button here would be a
+ * fabricated affordance that does nothing on click.
+ */
+function GenericCard({ card, domain }: { card: GenericOverlayCard; domain: string | null }) {
+  const score = card.standing.score as { score?: number } | null;
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          {domain ?? "This page"}
+        </div>
+        <div className="mt-2 space-y-1">
+          <StatRow label="Standing signal" value={card.standing.hasStandingSignal ? "Active" : "None yet"} />
+          {typeof score?.score === "number" ? (
+            <StatRow label="Standing score" value={score.score.toFixed(1)} />
+          ) : null}
+          <StatRow label="Passport identifiability" value={card.identifiability} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Delegations
+        </div>
+        <div className="mt-1 space-y-1">
+          <StatRow label="Admin" value={card.cartridgeFlags.isAdmin ? "Yes" : "No"} />
+          <StatRow label="Partner" value={card.cartridgeFlags.isPartner ? "Yes" : "No"} />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Related in the registry
+        </div>
+        {card.titleMatches.length > 0 ? (
+          <ul className="mt-1 space-y-1">
+            {card.titleMatches.map((m, i) => (
+              <li key={`${m.ref}-${i}`} className="truncate text-xs text-slate-200">
+                {m.title}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-1 text-xs text-slate-500">No registry or research matches for this page.</div>
+        )}
+      </div>
+
+      <div className="text-[11px] leading-snug text-slate-600">
+        No dedicated overlay is built for this kind of page yet. Right-click anywhere on it and choose
+        &ldquo;Pull Across → metaMe&rdquo; to bring it into an Intent or Venture.
+      </div>
     </div>
   );
 }
@@ -319,6 +388,8 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
             <GithubRepoCard card={data.card} domain={data.domain} />
           ) : data.shape === "banking" && data.card?.shape === "banking" ? (
             <BankingCard card={data.card} domain={data.domain} personaIdHint={personaIdHint} />
+          ) : data.shape === "generic" && data.card?.shape === "generic" ? (
+            <GenericCard card={data.card} domain={data.domain} />
           ) : (
             <div className="text-xs text-slate-500">
               {data.reason ? EMPTY_REASON_COPY[data.reason] : "No overlay available for this page"}

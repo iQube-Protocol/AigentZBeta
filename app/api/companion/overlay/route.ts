@@ -7,11 +7,26 @@
  * Reads the persona's own latest stored observation (Step 1's
  * `companion_observation_latest`, one row per persona), maps its
  * `currentTabDomain` through the small, explicit domain→shape table
- * (`services/companion/overlayMapping.ts`), and — only on a match — composes
- * a card (`services/companion/overlayComposition.ts`) from existing
- * standing/capability/registry reads. An unmapped domain returns
- * `shape: null`; the client renders "no overlay available for this page"
- * honestly rather than a fabricated generic card (plan §3's own requirement).
+ * (`services/companion/overlayMapping.ts`), and — on a match — composes a
+ * card (`services/companion/overlayComposition.ts`) from existing
+ * standing/capability/registry reads.
+ *
+ * UNMAPPED-DOMAIN FALLBACK (operator-directed, 2026-07-25). A domain with no
+ * dedicated shape no longer means an empty panel BY ITSELF — it means the
+ * generic card (`composeGenericOverlayCard`): persona-level standing/
+ * delegations (true on every page, never page-specific data pretending to
+ * be) plus a best-effort registry/research search using the page's own
+ * title, via the SAME federation functions the github-repo card already
+ * calls. This is deliberately NOT a fourth hand-classified shape — it never
+ * fabricates page-specific data for a page that has none (plan §3's original
+ * requirement still holds for THAT).
+ *
+ * The honest empty state is still returned, unchanged, for the other three
+ * reasons — `no-observation`, `no-domain-observed`, `grant-revoked` — because
+ * those are consent problems, not classification problems: composing any
+ * card there would use an observation the route has no legitimate basis to
+ * act on. Only `domain-unmapped` (a real, currently-granted domain with no
+ * shape) gets the generic card.
  *
  * REVOCATION-LIVE CHECK: a stored observation's `currentTabDomain` is only
  * honored if `'current-tab'` is STILL granted, checked against the
@@ -33,7 +48,7 @@ import { isCapabilityGranted } from '@/services/companion/observerConsent';
 import { loadGrantState } from '@/app/api/companion/observer/_lib/store';
 import { loadLatestObservation } from '@/app/api/companion/observer/_lib/observationStore';
 import { shapeForDomain } from '@/services/companion/overlayMapping';
-import { composeOverlayCard } from '@/services/companion/overlayComposition';
+import { composeOverlayCard, composeGenericOverlayCard } from '@/services/companion/overlayComposition';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +98,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           : 'domain-unmapped';
 
   if (!shape) {
+    // A real, currently-granted domain with no dedicated shape gets the
+    // generic fallback card. The other three reasons are consent problems,
+    // not classification problems — genuinely nothing to compose.
+    if (reason === 'domain-unmapped' && domain) {
+      const card = await composeGenericOverlayCard(persona, observation?.currentTabTitle, domain);
+      return NextResponse.json(
+        { ok: true, domain, shape: 'generic', card, reason: null },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     return NextResponse.json(
       { ok: true, domain, shape: null, card: null, reason },
       { headers: { 'Cache-Control': 'no-store' } },
