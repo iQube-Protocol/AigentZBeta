@@ -64,30 +64,21 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
 }
 
 /**
- * SHAPE → CCB CAPABILITY IDS (operator-approved 2026-07-24, "Yes to mp overlay").
+ * P4 SUPERSEDED THE SHAPE → CCB CAPABILITY IDS TABLE.
  *
- * The SAME explicit-table philosophy as the Domain Profile registry above, one
- * level further along: a small, hand-declared list of Constitutional Capability
- * Registry ids (`services/constitutional/capabilityRegistry.ts`) that are
- * genuinely relevant to a citizen looking at a page of this shape. NOT a
- * semantic classifier, NOT a free-text query — the same non-goal this file's
- * header already rules out for domains applies to capabilities.
+ * A hand-declared `Record<OverlayShape, capabilityIds>` used to live here.
+ * Capability ids now hang off the **capability module** a resolved Domain
+ * Profile names (`services/resolution/capabilityModules.ts`), so there is one
+ * mapping instead of two — the module IS the thing that knows which registry
+ * ids it surfaces. Keeping both would have been the `inv.engineering.036`
+ * duplicate the module model exists to remove.
  *
- * Deliberately narrow and honest in both directions:
- *   - An id listed here that is NOT actually registered simply produces no
- *     match — never a placeholder, never a fabricated entry (the same
- *     "degrade honestly" contract as `registryMatch: null`).
- *   - `github-repo` is intentionally EMPTY: that shape already carries its
- *     own capability signal via `recommendProducers('software',
- *     'operational')`, which reads a different system (the closed
- *     `CapabilityId` producer graph). Adding CCB ids there would put two
- *     unrelated capability notions in one card. Left declared-but-empty
- *     rather than omitted so the table stays exhaustive over `OverlayShape`
- *     and a future shape addition is a compile error, not a silent gap.
- *
- * Ids below are the two financial-services capabilities registered by
- * `scripts/register-ccb-capabilities.ts` — the natural constitutional answer
- * to "what governs money-shaped work here?" on a financial-context page.
+ * `github-repo` correspondingly declares nothing: it has no Domain Profile
+ * and therefore no modules. That is unchanged behaviour, and still deliberate
+ * — the shape already carries its own capability signal via
+ * `recommendProducers('software', 'operational')`, which reads a different
+ * system (the closed `CapabilityId` producer graph). Mixing CCB ids in would
+ * put two unrelated capability notions in one card.
  *
  * KNOWN TRAP (hit 2026-07-25, both deep links 404'd as "Codex not found"):
  * the embed route (`app/(embed)/triad/embed/codex/[codexSlug]/page.tsx`)
@@ -104,19 +95,6 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
  * regardless of how slug and id happen to relate. The parity canary
  * (tests/companion-observer.test.ts) asserts against `.id`, matching this.
  */
-export const SHAPE_CAPABILITY_IDS: Record<OverlayShape, readonly string[]> = {
-  'github-repo': [],
-  'financial-context': [
-    'cap-moneypenny-financial-services',
-    'financial-services-capability-suite',
-  ],
-};
-
-/** PURE — the declared capability ids for a shape. Never an I/O call; the
- *  caller checks which of these are ACTUALLY registered. */
-export function capabilityIdsForShape(shape: OverlayShape): readonly string[] {
-  return SHAPE_CAPABILITY_IDS[shape] ?? [];
-}
 
 /**
  * CAPABILITY → THE SURFACE WHERE IT ACTUALLY OPERATES (2026-07-25).
@@ -150,7 +128,7 @@ export function capabilityIdsForShape(shape: OverlayShape): readonly string[] {
 export interface CapabilityRoute {
   /** For `buildCodexUrl`'s first argument — MUST be the codex's real `id`
    *  (e.g. 'alpha-knyt-codex'), NOT its `.slug`. See the "KNOWN TRAP" note
-   *  above `SHAPE_CAPABILITY_IDS`: the embed route matches by id, and only
+   *  above: the embed route matches by id, and only
    *  a value that already carries the `-codex`/`-cartridge` suffix survives
    *  its suffix logic unchanged regardless of how slug and id relate. */
   readonly slug: string;

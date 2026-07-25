@@ -230,9 +230,9 @@ function FinancialContextCard({
   personaIdHint: string;
 }) {
   const score = card.standing.score as { score?: number } | null;
-  // Optional on the card type — an older server response (or an empty
-  // registry) simply yields no capability section.
-  const matched = card.matchedCapabilities ?? [];
+  // P4: capabilities render grouped by the module that surfaces them. The
+  // flat `card.matchedCapabilities` is retained on the wire for any other
+  // consumer, but this panel reads `card.modules` — grouping is the point.
 
   return (
     <div className="space-y-3">
@@ -259,74 +259,109 @@ function FinancialContextCard({
         </div>
       </div>
 
-      {/* Constitutional capabilities relevant to a financial-context page
-         (operator-approved 2026-07-24). Rendered only when the server
-         actually matched something — same precedent as `researchMatches`
-         above: an optional list-shaped section is omitted, not shown empty.
-         An unpopulated registry (or an unapplied migration) therefore looks
-         exactly like today's card, never a broken or error state. */}
-      {matched.length > 0 ? (
-        <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-            Constitutional capabilities
+      {/* P4 — CAPABILITY MODULES (SPEC-CDR-001 §7.1).
+         The capability rows that shipped 2026-07-24 are now rendered INSIDE
+         the `financial-intelligence` module rather than as a standalone list:
+         one rendering model, never parallel "legacy rows" and "new modules"
+         (operator, P4-3). A module appears only because the resolved Domain
+         Profile named it — never inferred from the overlay context, and
+         governance modules never by default (P4-2).
+
+         The composer already omits an executable module with no matched
+         capabilities, so an unpopulated registry still renders exactly
+         today's card rather than an empty header. */}
+      {card.modules.map((mod) => (
+        <div
+          key={mod.moduleId}
+          className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              {mod.label}
+            </div>
+            {/* D-11, the VISUAL half of the firewall. `Shadow` names the
+               actual constitutional state; governance modules are context
+               only. An authoritative module carries no chip -- it is the
+               unmarked case. */}
+            {mod.posture === "shadow-only" ? (
+              <span
+                title="Visible for context; not authorized or executable from this surface."
+                className="shrink-0 rounded-sm border border-amber-900/60 bg-amber-950/40 px-1.5 py-0.5 text-[10px] text-amber-300"
+              >
+                Shadow
+              </span>
+            ) : mod.posture === "non-executable" ? (
+              <span
+                title="Visible for context; not authorized or executable from this surface."
+                className="shrink-0 rounded-sm border border-slate-800 bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-slate-400"
+              >
+                Context
+              </span>
+            ) : null}
           </div>
-          <ul className="mt-2 space-y-2">
-            {matched.map((cap) => (
-              <li key={cap.capabilityId} className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-xs text-slate-200">{cap.displayLabel}</span>
-                  <span className="shrink-0 rounded-sm border border-slate-800 bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-slate-400">
-                    {cap.standingBand}
-                  </span>
-                </div>
-                {cap.description ? (
-                  <p className="text-[11px] leading-snug text-slate-500">{cap.description}</p>
-                ) : null}
-                {/* briefUrl may be a published Artifact URL or a repo path —
-                   same two-case handling as MySoftwareTab's registered
-                   capabilities list; a path is shown as plain text, never a
-                   dead link. */}
-                {cap.briefUrl ? (
-                  cap.briefUrl.startsWith("http") ? (
+          <p className="mt-1 text-[11px] leading-snug text-slate-500">{mod.summary}</p>
+          {mod.capabilities.length > 0 ? (
+            <ul className="mt-2 space-y-2">
+              {mod.capabilities.map((cap) => (
+                <li key={cap.capabilityId} className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-xs text-slate-200">{cap.displayLabel}</span>
+                    <span className="shrink-0 rounded-sm border border-slate-800 bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-slate-400">
+                      {cap.standingBand}
+                    </span>
+                  </div>
+                  {cap.description ? (
+                    <p className="text-[11px] leading-snug text-slate-500">{cap.description}</p>
+                  ) : null}
+                  {/* briefUrl may be a published Artifact URL or a repo path —
+                     same two-case handling as MySoftwareTab's registered
+                     capabilities list; a path is shown as plain text, never a
+                     dead link. */}
+                  {cap.briefUrl ? (
+                    cap.briefUrl.startsWith("http") ? (
+                      <a
+                        href={cap.briefUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-violet-400 hover:text-violet-300"
+                      >
+                        Read the brief
+                      </a>
+                    ) : (
+                      <span
+                        className="block truncate font-mono text-[10px] text-slate-600"
+                        title={cap.briefUrl}
+                      >
+                        {cap.briefUrl.split("/").pop()}
+                      </span>
+                    )
+                  ) : null}
+                  {/* The way IN — but ONLY where the module's posture permits
+                     an action at all (D-11, behavioural half). A shadow-only
+                     or governance module renders NO control here: not a
+                     disabled one, since a disabled button still implies the
+                     action exists (operator, P4-4). `route` is
+                     identifier-free static metadata; the persona is attached
+                     HERE, at render, exactly as CompanionSearchPanel does. */}
+                  {mod.allowsAction && cap.route ? (
                     <a
-                      href={cap.briefUrl}
+                      href={buildCodexUrl(cap.route.slug, {
+                        tab: cap.route.tab,
+                        personaId: personaIdHint,
+                      })}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] text-violet-400 hover:text-violet-300"
+                      className="mt-1 block rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-center text-[11px] text-slate-200 transition-colors hover:bg-slate-900"
                     >
-                      Read the brief
+                      {cap.route.label} →
                     </a>
-                  ) : (
-                    <span className="block truncate font-mono text-[10px] text-slate-600" title={cap.briefUrl}>
-                      {cap.briefUrl.split("/").pop()}
-                    </span>
-                  )
-                ) : null}
-                {/* The way IN. A registered capability with no route to its
-                   operating surface is a label, not an affordance (operator,
-                   2026-07-25: "I now see the capability but what can be done
-                   with them?"). `route` is identifier-free static metadata
-                   from CAPABILITY_ROUTES; the persona is attached HERE, at
-                   render, exactly as CompanionSearchPanel does. Deep-links to
-                   the existing surface — the Companion never forks it. */}
-                {cap.route ? (
-                  <a
-                    href={buildCodexUrl(cap.route.slug, {
-                      tab: cap.route.tab,
-                      personaId: personaIdHint,
-                    })}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-center text-[11px] text-slate-200 transition-colors hover:bg-slate-900"
-                  >
-                    {cap.route.label} →
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-      ) : null}
+      ))}
 
       <RelatedInRegistry matches={card.relatedMatches ?? []} />
     </div>

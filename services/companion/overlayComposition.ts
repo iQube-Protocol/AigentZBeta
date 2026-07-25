@@ -34,12 +34,20 @@ import { recommendProducers } from '@/services/capability/capabilityGraph';
 import type { ProducerRecommendation } from '@/types/capabilityGraph';
 import {
   repoNameCandidateFromTitle,
-  capabilityIdsForShape,
   routeForCapability,
   domainSearchHint,
   type CapabilityRoute,
   type OverlayShape,
 } from '@/services/companion/overlayMapping';
+import {
+  capabilityIdsForModules,
+  capabilityModule,
+  moduleAllowsAction,
+  modulePosture,
+  type CapabilityModuleId,
+  type ModulePosture,
+} from '@/services/resolution/capabilityModules';
+import { resolveDomainProfile } from '@/services/resolution/domainProfileRegistry';
 import { listRegisteredCapabilities } from '@/services/constitutional/capabilityRegistry';
 import {
   searchRegistryIQube,
@@ -94,6 +102,21 @@ export interface OverlayCapabilityMatch {
   route: CapabilityRoute | null;
 }
 
+/**
+ * A capability module as composed for rendering (SPEC-CDR-001 §7.1, P4).
+ * Carries its posture and its action permission explicitly, so the renderer
+ * never has to re-derive the firewall rule.
+ */
+export interface OverlayCapabilityModule {
+  moduleId: CapabilityModuleId;
+  label: string;
+  summary: string;
+  posture: ModulePosture;
+  /** D-11 — TRUE only for an authoritative module. */
+  allowsAction: boolean;
+  capabilities: OverlayCapabilityMatch[];
+}
+
 export interface FinancialContextOverlayCard {
   shape: 'financial-context';
   standing: OverlayStandingSummary;
@@ -108,6 +131,10 @@ export interface FinancialContextOverlayCard {
    *  empty, the migration is unapplied, or none of the declared ids are
    *  actually registered yet. */
   matchedCapabilities?: OverlayCapabilityMatch[];
+  /** P4 — the modules the resolved profile named, each with its posture and
+   *  its own capability rows. `matchedCapabilities` is retained as the flat
+   *  list so no existing consumer breaks; the modules are the grouping. */
+  modules: OverlayCapabilityModule[];
   /** See `resolveRelatedMatches`. Financial-context pages previously had NO
    *  registry lookup at all — the generalisation is what gave every shape the
    *  same "what does metaMe already know about this page" panel. */
@@ -225,7 +252,7 @@ async function composeGithubRepoCard(
  * Capability-matching path (operator-approved 2026-07-24, "Yes to mp overlay").
  *
  * The matching RULE is deliberately dumb and auditable: take the shape's
- * hand-declared id list (`capabilityIdsForShape`, `overlayMapping.ts`) and
+ * declared id list (the modules a resolved profile names) and
  * keep the ones that are ACTUALLY in the Constitutional Capability Registry
  * and not deprecated. No semantic classifier, no free-text query, no
  * inference — the same explicit-table discipline `shapeForDomain` uses one
@@ -245,8 +272,9 @@ async function composeGithubRepoCard(
  * capabilities", never an error state — same discipline as
  * `searchFederation`'s per-source `guard()`.
  */
-async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCapabilityMatch[]> {
-  const declared = capabilityIdsForShape(shape);
+async function matchCapabilities(
+  declared: readonly string[],
+): Promise<OverlayCapabilityMatch[]> {
   if (declared.length === 0) return [];
   try {
     const registered = await listRegisteredCapabilities();
@@ -271,14 +299,60 @@ async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCa
   }
 }
 
+/**
+ * P4 — compose the capability modules the RESOLVED PROFILE names (§7.1).
+ *
+ * Modules are never inferred from the overlay context: a profile that names
+ * none renders none, and a governance module appears only where a profile
+ * explicitly asserts it (operator, P4-2).
+ *
+ * Rendering rule, chosen to preserve the shipped empty-state discipline: an
+ * **executable** module with zero matched capabilities is OMITTED, because an
+ * unpopulated registry (or an unapplied migration) would otherwise turn
+ * today's clean card into a header with nothing under it. A **context-only**
+ * module (shadow-only or governance) inherently has no capability rows, so it
+ * renders on the strength of the profile's assertion alone — that IS its
+ * content.
+ */
+function composeModules(
+  modules: readonly CapabilityModuleId[],
+  matched: OverlayCapabilityMatch[],
+): OverlayCapabilityModule[] {
+  const byId = new Map(matched.map((m) => [m.capabilityId, m]));
+  const composed: OverlayCapabilityModule[] = [];
+  for (const id of modules) {
+    const def = capabilityModule(id);
+    const capabilities = def.capabilityIds
+      .map((capabilityId) => byId.get(capabilityId))
+      .filter((m): m is OverlayCapabilityMatch => Boolean(m));
+    const posture = modulePosture(id);
+    const contextOnly = posture !== 'authoritative';
+    if (!contextOnly && capabilities.length === 0) continue;
+    composed.push({
+      moduleId: id,
+      label: def.label,
+      summary: def.summary,
+      posture,
+      // D-11's behavioural half: only an authoritative module may present an
+      // action affordance. The renderer omits the control entirely rather
+      // than disabling it -- a disabled button still implies the action.
+      allowsAction: moduleAllowsAction(id),
+      capabilities,
+    });
+  }
+  return composed;
+}
+
 async function composeFinancialContextCard(
   persona: ActivePersonaContext,
   currentTabTitle: string | undefined,
   domain: string | null,
 ): Promise<FinancialContextOverlayCard> {
+  const profile = resolveDomainProfile(domain);
+  const declaredModules = profile?.capabilityModules ?? [];
   const [standing, matchedCapabilities, relatedMatches] = await Promise.all([
     buildStandingSummary(persona.personaId),
-    matchCapabilitiesForShape('financial-context'),
+    matchCapabilities(capabilityIdsForModules(declaredModules)),
     resolveRelatedMatches(domain, currentTabTitle),
   ]);
   return {
@@ -287,6 +361,7 @@ async function composeFinancialContextCard(
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
     matchedCapabilities,
+    modules: composeModules(declaredModules, matchedCapabilities),
     relatedMatches,
   };
 }

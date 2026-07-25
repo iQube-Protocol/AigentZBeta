@@ -55,7 +55,14 @@ import {
   resolveDomainProfile,
   overlayContextForDomain,
 } from '../services/resolution/domainProfileRegistry';
-import { shapeForDomain, SHAPE_CAPABILITY_IDS } from '../services/companion/overlayMapping';
+import { shapeForDomain } from '../services/companion/overlayMapping';
+import {
+  CAPABILITY_MODULE_IDS,
+  capabilityModule,
+  capabilityIdsForModules,
+  moduleAllowsAction,
+  modulePosture,
+} from '../services/resolution/capabilityModules';
 import {
   resolveDomain,
   classifyProfile,
@@ -421,14 +428,72 @@ describe('SPEC-CDR-001 domain profile registry (D-15)', () => {
     expect(shapeForDomain('google.com')).toBeNull();
   });
 
-  it('the capability table stays exhaustive over the renamed shape', () => {
-    // Keyed by OverlayShape, so a renamed or added context that forgets this
-    // table is a compile error -- this pins the runtime side of that contract.
-    expect(Object.keys(SHAPE_CAPABILITY_IDS).sort()).toEqual(
-      ['financial-context', 'github-repo'],
+  it('P4: every seed names financial-intelligence and nothing else (migration-equivalent)', () => {
+    // Naming a shadow-only or governance module on a seed would be NEW
+    // behaviour, which P4 was not authorised to add.
+    for (const profile of DOMAIN_PROFILES) {
+      expect(profile.capabilityModules).toEqual(['financial-intelligence']);
+    }
+  });
+
+  it('P4: module posture DERIVES from the execution taxonomy, never restated', () => {
+    // A module cannot claim to be authoritative while its execution domain is
+    // shadow-only, because it holds no copy of that fact.
+    for (const id of CAPABILITY_MODULE_IDS) {
+      const def = capabilityModule(id);
+      const posture = modulePosture(id);
+      if (def.executionDomain) {
+        const shipped = EXECUTION_DOMAINS.find((d) => d.id === def.executionDomain)!;
+        expect(posture, `${id} posture drifted from ${def.executionDomain}`).toBe(shipped.posture);
+      } else {
+        // Governance modules are non-executable BY CLASS (D-2/D-3) -- not an
+        // execution surface awaiting a flip.
+        expect(def.governanceDomain, `${id} has neither domain`).toBeTruthy();
+        expect(posture).toBe('non-executable');
+      }
+    }
+  });
+
+  it('P4: only an authoritative module may present an action (D-11 firewall)', () => {
+    for (const id of CAPABILITY_MODULE_IDS) {
+      expect(moduleAllowsAction(id)).toBe(modulePosture(id) === 'authoritative');
+    }
+    // Concretely: the two money-moving domains are shadow-only, so neither may
+    // render an affordance -- the presentation half of the Domain 1/2 pause.
+    expect(moduleAllowsAction('investment-operations')).toBe(false);
+    expect(moduleAllowsAction('market-operations')).toBe(false);
+    expect(moduleAllowsAction('constitutional-financial-integrity')).toBe(false);
+    expect(moduleAllowsAction('constitutional-commerce')).toBe(false);
+    expect(moduleAllowsAction('financial-intelligence')).toBe(true);
+  });
+
+  it('P4: no governance module renders unless a profile names it', () => {
+    const named = new Set(DOMAIN_PROFILES.flatMap((p) => [...p.capabilityModules]));
+    expect(named.has('constitutional-financial-integrity')).toBe(false);
+    expect(named.has('constitutional-commerce')).toBe(false);
+  });
+
+  it('P4: capability ids hang off modules, not a second shape table', () => {
+    const src = readFileSync(
+      join(__dirname, '../services/companion/overlayMapping.ts'),
+      'utf8',
     );
-    expect(SHAPE_CAPABILITY_IDS['financial-context']).toContain(
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toContain('SHAPE_CAPABILITY_IDS');
+    expect(code).not.toContain('capabilityIdsForShape');
+    expect(capabilityIdsForModules(['financial-intelligence'])).toEqual([
       'cap-moneypenny-financial-services',
-    );
+      'financial-services-capability-suite',
+    ]);
+    expect(capabilityIdsForModules([])).toEqual([]);
+  });
+
+  it('P4: a profile still asserts no execution domain, even naming modules', () => {
+    // The point of P4-1: naming a module is a PRESENTATION assertion. If it
+    // ever became an execution claim, section 0.3's hazard is back.
+    for (const profile of DOMAIN_PROFILES) {
+      expect('executionDomains' in profile).toBe(false);
+      expect(profile.capabilityModules.length).toBeGreaterThan(0);
+    }
   });
 });

@@ -37,10 +37,16 @@
  *     manifest, or a specifically curated route. The pilot's first subjects
  *     are likely **agents**, not hostnames — which is architecturally cleaner
  *     and is why nothing is stubbed here in anticipation.
- *   - **No `capabilityModules`** (P4) and **no `invariantFieldRef`** — D-8 is
- *     unresolved and the interim ruling is to treat `ire://` as documentary,
- *     so nothing may depend on its resolvability.
+ *   - **No `invariantFieldRef`** — D-8 is unresolved and the interim ruling is
+ *     to treat `ire://` as documentary, so nothing may depend on its
+ *     resolvability.
+ *
+ * P4 added `capabilityModules` (D-2/D-3/D-4/D-11): a profile now names the
+ * modules it asserts are applicable. Still no `executionDomains` — naming a
+ * module is a presentation assertion and must never become an execution claim.
  */
+
+import type { CapabilityModuleId } from '@/services/resolution/capabilityModules';
 
 /**
  * The overlay presentation context. Renamed from the legacy `'banking'`
@@ -97,6 +103,20 @@ interface DomainProfileBase {
    */
   readonly aliases?: readonly string[];
   readonly overlayContext: OverlayContext;
+  /**
+   * P4 (D-2/D-3/D-4/D-11, operator P4-1): the capability modules this profile
+   * ASSERTS are applicable. A typed union rather than `string[]`, so an
+   * unknown module is a compile error instead of a silently-dropped row.
+   *
+   * These are assertions governed by this profile's own provenance and
+   * verification lifecycle. **They do not imply execution-domain membership or
+   * executability** — a profile still asserts no `executionDomains`, and the
+   * presentation/execution firewall stands (§7.2).
+   *
+   * Governance modules render ONLY when named here (operator, P4-2): never by
+   * default, and never inferred from `overlayContext`.
+   */
+  readonly capabilityModules: readonly CapabilityModuleId[];
   readonly verificationStatus: VerificationStatus;
   readonly verifiedBy: DomainProfileAuthority;
   /** ISO-8601. The date the asserting authority verified this profile. */
@@ -154,6 +174,12 @@ export const DOMAIN_PROFILES: readonly DomainProfile[] = [
     subject: 'metame.com',
     aliases: ['www.metame.com'],
     overlayContext: 'financial-context',
+    // Migration-equivalent: `financial-intelligence` carries exactly the two
+    // capability rows this card has rendered since 2026-07-24, so P4 reframes
+    // them rather than changing what any seed presents. Naming a shadow-only
+    // or governance module on a seed would be NEW behaviour, which P4 is not
+    // authorised to add -- a profile amendment is the way to do that.
+    capabilityModules: ['financial-intelligence'],
     assertionProvenance: 'first-party',
     verificationStatus: 'verified',
     verifiedBy: RATIFIED_BY,
@@ -166,6 +192,7 @@ export const DOMAIN_PROFILES: readonly DomainProfile[] = [
     subjectType: 'hostname',
     subject: 'dev-beta.aigentz.me',
     overlayContext: 'financial-context',
+    capabilityModules: ['financial-intelligence'],
     assertionProvenance: 'first-party',
     verificationStatus: 'verified',
     verifiedBy: RATIFIED_BY,
@@ -180,6 +207,7 @@ export const DOMAIN_PROFILES: readonly DomainProfile[] = [
     subject: 'coinbase.com',
     aliases: ['www.coinbase.com'],
     overlayContext: 'financial-context',
+    capabilityModules: ['financial-intelligence'],
     assertionProvenance: 'curated',
     verificationStatus: 'verified',
     verifiedBy: RATIFIED_BY,
