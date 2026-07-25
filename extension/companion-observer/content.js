@@ -120,6 +120,15 @@ async function buildObservation() {
 }
 
 async function observeAndSend() {
+  // Hard guard, not just at the call sites: a hidden tab must never write an
+  // observation claiming to be the current tab, no matter which path called
+  // this. Callers check too (see main()), but this is the choke point that
+  // makes the rule impossible to bypass by adding a new caller later.
+  if (document.visibilityState !== 'visible') {
+    console.log('[metaMe Observer] observe skipped — tab is not visible');
+    return;
+  }
+
   const observation = await buildObservation();
   console.log('[metaMe Observer] observation built (fields gated by live grant check):', observation);
 
@@ -158,7 +167,33 @@ async function main() {
   const pong = await sendMessage({ type: 'PING' });
   console.log('[metaMe Observer] ping/pong result:', pong);
 
-  await observeAndSend();
+  // ONLY OBSERVE IF THIS TAB IS ACTUALLY THE ONE BEING LOOKED AT.
+  //
+  // `currentTabDomain` means "the tab the operator is on" — a HIDDEN tab
+  // asserting that is simply false, whatever else is true. The
+  // `visibilitychange` listener below is what observes when this tab
+  // genuinely becomes the visible one; a background tab has nothing
+  // legitimate to say here and stays silent until then.
+  //
+  // THE BUG THIS FIXES (operator-reported 2026-07-25, third round on this
+  // surface: "still seems to be showing previous page and refresh still not
+  // working"). `healObserverInOpenTabs` (background.js) injects this script
+  // into EVERY open tab at once after an extension reload. With an
+  // unconditional observe here, all of those tabs raced to write into
+  // `companion_observation_latest` — one row per persona — and whichever
+  // finished LAST won. The operator was on dev-beta.aigentz.me and the
+  // Overlay showed "REPOSITORY — GITHUB.COM": not a stale row at all, but a
+  // FRESH row written by a background github.com tab microseconds later.
+  // Refresh looked broken for the same reason it did in the two earlier
+  // rounds — it faithfully re-read a row whose content was wrong.
+  //
+  // Page-load observation still happens normally for the foreground tab
+  // (a tab you navigate is visible by definition), so nothing regresses.
+  if (document.visibilityState === 'visible') {
+    await observeAndSend();
+  } else {
+    console.log('[metaMe Observer] tab is hidden at injection — not claiming to be the current tab');
+  }
 }
 
 main();
@@ -177,4 +212,17 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     scheduleObserve();
   }
+});
+
+// Background-initiated re-observation. Sent by `healObserverInOpenTabs`
+// (background.js) to the ACTIVE tab as the last step of a healing sweep, so
+// the stored observation deterministically describes the tab the operator is
+// looking at rather than whichever injected content script happened to
+// finish last. Still routed through `observeAndSend`, so the visibility
+// guard and every live grant check apply identically — this message cannot
+// make a hidden tab observe, and grants nothing a page load wouldn't.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'RE_OBSERVE') void observeAndSend();
+  // No response needed; returning false keeps the channel synchronous.
+  return false;
 });

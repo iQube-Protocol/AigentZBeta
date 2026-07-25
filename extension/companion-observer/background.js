@@ -818,6 +818,25 @@ async function healObserverInOpenTabs(trigger) {
     }),
   );
   console.log(`[metaMe Companion] observer healed in ${healed} open tab(s) (${trigger})`);
+
+  // DETERMINISTIC LAST WORD. Content scripts only observe when their tab is
+  // visible (content.js), so the heal above can no longer let a background
+  // tab overwrite the current one. But "which tab wrote last" should not
+  // depend on injection ORDER at all: after the sweep, explicitly ask the
+  // genuinely-active tab to re-observe, so the stored observation ends up
+  // describing the tab the operator is actually looking at, every time.
+  //
+  // Best-effort and last: a failure here (no active tab, privileged origin,
+  // no content script) leaves whatever the visible tab already wrote, which
+  // is still correct — this only removes the dependence on timing.
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab?.id && isInjectableUrl(activeTab.url)) {
+      await chrome.tabs.sendMessage(activeTab.id, { type: 'RE_OBSERVE' });
+    }
+  } catch {
+    // No receiver / privileged origin / tab closed — nothing to correct.
+  }
 }
 
 chrome.runtime.onInstalled.addListener(() => void healObserverInOpenTabs('install/update'));
