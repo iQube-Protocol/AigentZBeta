@@ -23,6 +23,12 @@
  *      rationale. The five hosts are the same; they are seeds re-entered under
  *      D-15, NOT inherited from the old set.
  *
+ * P3 (D-9/D-10) added the third change: membership alone no longer decides.
+ * `services/resolution/domainResolver.ts` applies the four-level precedence,
+ * and this function receives a context only when the resolver is willing to
+ * ASSERT it (L1/L2). An unverified profile abstains. Abstention is preferable
+ * to fabricated context (§6.2).
+ *
  * `google.com` is still deliberately absent: it doesn't fit either shape's
  * data model, and forcing it into one would violate this file's own ratified
  * principle (no fabricated card for an unmapped domain) -- for google.com the
@@ -33,10 +39,8 @@
  * generic card.
  */
 
-import {
-  overlayContextForDomain,
-  type OverlayContext,
-} from '@/services/resolution/domainProfileRegistry';
+import type { OverlayContext } from '@/services/resolution/domainProfileRegistry';
+import { assertedContextFor } from '@/services/resolution/domainResolver';
 
 /**
  * `OverlayContext` is folded in rather than restated, so the registry stays
@@ -52,9 +56,11 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
   const normalized = domain.trim().toLowerCase();
   if (normalized.length === 0) return null;
   if (GITHUB_DOMAIN_RE.test(normalized)) return 'github-repo';
-  // L1 — verified, explicitly-asserted profiles only. No inferred
-  // classification and no provisional path exists yet (P3/P5).
-  return overlayContextForDomain(normalized);
+  // P3: the four-level resolver decides. `assertedContextFor` returns a
+  // context ONLY at L1/L2 (verified) — an unverified profile abstains, and an
+  // unmapped domain abstains. This function never sees an unverified context,
+  // so it cannot render one by accident.
+  return assertedContextFor(normalized);
 }
 
 /**

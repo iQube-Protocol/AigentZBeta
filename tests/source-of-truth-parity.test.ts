@@ -56,6 +56,12 @@ import {
   overlayContextForDomain,
 } from '../services/resolution/domainProfileRegistry';
 import { shapeForDomain, SHAPE_CAPABILITY_IDS } from '../services/companion/overlayMapping';
+import {
+  resolveDomain,
+  classifyProfile,
+  assertedContextFor,
+} from '../services/resolution/domainResolver';
+import type { DomainProfile } from '../services/resolution/domainProfileRegistry';
 
 describe('source-of-truth parity (inv.engineering.036/037 enforcement)', () => {
   it('ASSIGNABLE_EXPERIMENTS remains a pure derivation of EXPERIMENT_REGISTRY', () => {
@@ -305,10 +311,114 @@ describe('SPEC-CDR-001 domain profile registry (D-15)', () => {
       join(__dirname, '../services/companion/overlayMapping.ts'),
       'utf8',
     );
-    expect(src).toContain('overlayContextForDomain');
+    // Membership comes from services/resolution/* -- via the registry in P2,
+    // and via the resolver on top of it from P3 onward. Either way it is
+    // derived, never restated here.
+    expect(src).toContain('@/services/resolution/');
     // The removed hostname Set, in any revived form.
     expect(src).not.toMatch(/new Set<string>\(\s*\[/);
     expect(src.replace(/\/\*[\s\S]*?\*\//g, '')).not.toContain('coinbase.com');
+  });
+
+  it('P3: every seed resolves at L1 and is assertable', () => {
+    for (const host of Object.keys(RATIFIED_SEEDS)) {
+      const r = resolveDomain(host);
+      // All five seeds are asserted-and-verified, so all five are L1. L2
+      // requires a DISCOVERED profile that was later verified, and none
+      // exists yet -- P5 produces the first.
+      expect(r.level, `${host} did not resolve at L1`).toBe('L1');
+      expect(r.reason).toBe('asserted-verified');
+      expect(r.assert).toBe(true);
+      expect(r.overlayContext).toBe('financial-context');
+    }
+  });
+
+  it('P3: an unmapped subject abstains at L4 with a stated reason', () => {
+    const r = resolveDomain('google.com');
+    expect(r.level).toBe('L4');
+    expect(r.reason).toBe('no-profile');
+    expect(r.assert).toBe(false);
+    expect(r.overlayContext).toBeNull();
+    expect(r.profile).toBeNull();
+  });
+
+  it('P3: no shipped profile can reach L3 — the provisional path is unbuilt', () => {
+    // The registry contains no provisional or discovered profiles, so L3 is
+    // unreachable today. If a later change seeds one before P5 ships the
+    // hedged forms, this fails and forces the decision to be deliberate.
+    for (const host of registeredHostnames()) {
+      expect(resolveDomain(host).level, `${host} reached L3`).not.toBe('L3');
+    }
+  });
+
+  it('P3: a provisional profile is classified but NEVER asserted', () => {
+    // The behaviour that matters most, exercised directly rather than
+    // inferred from the registry's current contents. Constructed locally --
+    // seeding one into the real registry would ship an unverified profile.
+    const provisional = {
+      schemaVersion: 'cdr-domain-profile/v1',
+      subjectType: 'hostname',
+      subject: 'unverified.test',
+      overlayContext: 'financial-context',
+      assertionProvenance: 'discovered',
+      confidence: 0.97,
+      verificationStatus: 'provisional',
+      verifiedBy: { kind: 'operator-ratification', decisionRef: 'test' },
+      verifiedAt: '2026-07-25T00:00:00Z',
+      evidence: [{ type: 'page-content', ref: 'test' }],
+      rationale: 'test fixture',
+    } as const satisfies DomainProfile;
+
+    // THE assertion this whole phase exists to make. Even at 0.97 confidence:
+    // classified as L3, never asserted, no context to render, and presented
+    // as L4 -- §6.2's always-permitted implementation of L3.
+    const r = classifyProfile(provisional);
+    expect(r.level).toBe('L3');
+    expect(r.reason).toBe('unverified');
+    expect(r.assert, 'a provisional profile must NEVER be asserted').toBe(false);
+    expect(r.overlayContext, 'a provisional profile must expose no context').toBeNull();
+    expect(r.presentAs).toBe('L4');
+    // It is still visible for inspection -- refused, not silently dropped.
+    expect(r.profile).toBe(provisional);
+
+    // Control: a verified profile does assert, so the test above is proving
+    // refusal rather than a resolver that never asserts anything.
+    expect(classifyProfile(resolveDomainProfile('metame.com')).assert).toBe(true);
+
+    // Structural backstop: overlayContext is null whenever assert is false, so
+    // a caller that ignores `assert` still cannot render an unverified context.
+    for (const host of [...registeredHostnames(), 'google.com', '', null]) {
+      const res = resolveDomain(host);
+      if (!res.assert) expect(res.overlayContext).toBeNull();
+    }
+  });
+
+  it('P3: the resolver carries no authorization verdict (D-22)', () => {
+    // Composition never grants authority. A resolution that carried an
+    // allow/deny would be a second access gate beside the Identity & Access
+    // Spine -- the exact parallel-gate defect the SPEC forbids.
+    const r = resolveDomain('metame.com') as Record<string, unknown>;
+    for (const forbidden of ['allowed', 'permitted', 'authorized', 'verdict', 'personaId']) {
+      expect(forbidden in r, `resolution carries "${forbidden}"`).toBe(false);
+    }
+  });
+
+  it('P3: shapeForDomain consumes the resolver rather than the registry directly', () => {
+    // A resolver nothing consumes is the "shipped but unwired" defect. The
+    // overlay's only path to a context must run through the precedence rules.
+    const src = readFileSync(
+      join(__dirname, '../services/companion/overlayMapping.ts'),
+      'utf8',
+    );
+    expect(src).toContain('assertedContextFor');
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code, 'shapeForDomain bypasses the resolver').not.toContain(
+      'overlayContextForDomain',
+    );
+    // And the wired path still produces the same answers.
+    expect(shapeForDomain('coinbase.com')).toBe('financial-context');
+    expect(assertedContextFor('coinbase.com')).toBe('financial-context');
+    expect(shapeForDomain('google.com')).toBeNull();
   });
 
   it('the capability table stays exhaustive over the renamed shape', () => {
