@@ -25,6 +25,10 @@
  *  - ActivityActionType (TS) ⊆ activity_receipts_action_type_check (SQL, latest
  *    rebuild) -- the "2026-07-15 constraint-drift incident" class of bug:
  *      tests/activity-receipts-action-type-parity.test.ts
+ *  - ARCHETYPE_JOURNEY (SPEC-COS-001 substrate resolver) ⊆ the Threshold
+ *    Journey Registry, and the substrate resolver composes rather than
+ *    re-derives passport/access/delegation:
+ *      tests/onboarding-substrate.test.ts
  */
 
 import { describe, it, expect } from 'vitest';
