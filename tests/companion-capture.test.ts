@@ -225,8 +225,14 @@ describe('POST /api/companion/capture/[captureId]/assign — fail closed + compo
       join(process.cwd(), 'app', 'api', 'companion', 'capture', '[captureId]', 'assign', 'route.ts'),
       'utf8',
     );
-    expect(source).toMatch(/import\s*\{\s*createIntentQube\s*\}\s*from\s*'@\/services\/iqube\/intentQube'/);
-    expect(source).toMatch(/import\s*\{\s*createVentureQube\s*\}\s*from\s*'@\/services\/venture\/ventureQubeService'/);
+    // Tolerant of ADDITIONAL named imports from the same module (the route
+    // also pulls in `getIntentQube`/`getVentureQube`) — what this canary
+    // locks is that the constructor comes from the REAL service module, not
+    // that it is the only symbol imported from it. The stricter
+    // exactly-one-symbol form failed the moment a sibling getter was added,
+    // which is drift in the assertion, not in the route (2026-07-25).
+    expect(source).toMatch(/import\s*\{[^}]*\bcreateIntentQube\b[^}]*\}\s*from\s*'@\/services\/iqube\/intentQube'/);
+    expect(source).toMatch(/import\s*\{[^}]*\bcreateVentureQube\b[^}]*\}\s*from\s*'@\/services\/venture\/ventureQubeService'/);
   });
 
   it('only supports intent/venture destinations — everything else is a named 400, never a silent no-op', () => {
@@ -250,7 +256,11 @@ describe('CaptureInboxPanel.tsx — personaFetch-only discipline', () => {
   it('uses personaFetch, never raw fetch or authedFetchHeaders', () => {
     expect(source).toContain('personaFetch(');
     expect(source).not.toMatch(/[^A-Za-z]fetch\(/);
-    expect(source).not.toContain('authedFetchHeaders');
+    // A CALL to authedFetchHeaders, not a mention of it: the file's own
+    // header comment states the rule ("never `authedFetchHeaders`"), and a
+    // bare substring check flagged that comment as the violation it
+    // describes (2026-07-25). The forbidden thing is the invocation.
+    expect(source).not.toMatch(/authedFetchHeaders\s*\(/);
   });
 
   it('never renders personaIdHint as a JSX text node', () => {
@@ -361,7 +371,10 @@ describe('extension/companion-observer — Capture structural canary', () => {
       background.indexOf('async function performCapture'),
       background.indexOf('const PULL_ACROSS_MENU_ID'),
     );
-    const refreshIdx = fnBody.indexOf('refreshGrantsFromServer()');
+    // `refreshGrantsFromServer(` (open paren, no closing) — the call now
+    // carries an explicit CompanionSurfaceKind argument (SPEC-MMC-003 §3.6);
+    // the ORDERING this canary exists to lock is unchanged.
+    const refreshIdx = fnBody.indexOf('refreshGrantsFromServer(');
     const gateIdx = fnBody.indexOf('assertCaptureRespectsGrants(');
     expect(refreshIdx).toBeGreaterThan(-1);
     expect(gateIdx).toBeGreaterThan(refreshIdx);
@@ -372,12 +385,29 @@ describe('extension/companion-observer — Capture structural canary', () => {
     // when no hint is supplied at all -- a Bearer token alone is not enough
     // for any account with more than one persona. Fixed by extracting the
     // active persona id alongside the auth session at Connect time and
-    // attaching it via withPersonaHeader on every call this worker makes
-    // (grants refresh, observation forward, capture POST).
-    expect(background).toContain('function withPersonaHeader(headers)');
+    // attaching it via the shared header helper on every call this worker
+    // makes (grants refresh, observation forward, capture POST). Renamed
+    // withPersonaHeader -> withCompanionHeaders in the SPEC-MMC-003 §3.6
+    // pass, which added the surface tag to the SAME helper rather than
+    // introducing a second one — the persona guarantee below is unchanged.
+    expect(background).toContain('function withCompanionHeaders(headers, surface)');
     expect(background).toContain("headers['x-persona-id'] = personaId");
-    const withPersonaHeaderCallCount = (background.match(/await withPersonaHeader\(/g) || []).length;
-    expect(withPersonaHeaderCallCount).toBe(3); // callGrants, postObservation, postCapture
+    const headerHelperCallCount = (background.match(/await withCompanionHeaders\(/g) || []).length;
+    expect(headerHelperCallCount).toBe(3); // callGrants, postObservation, postCapture
+  });
+
+  it('background.js stamps the CompanionSurfaceKind on every server-bound call (SPEC-MMC-003 §3.6)', () => {
+    // Runtime registration: types/companion.ts already RESERVED
+    // 'extension-sidebar'/'extension-overlay'; nothing stamped a call with
+    // either, so the platform could not tell an extension-originated call
+    // from a web-embed one. Additive by construction — the header rides the
+    // same helper as x-persona-id and every call site passes an explicit
+    // surface rather than letting one be inferred.
+    expect(background).toContain('headers[COMPANION_SURFACE_HEADER] = surface');
+    // In-page origins (content-script observation, "Pull Across" capture)
+    // are the overlay surface, never the side panel.
+    expect(background).toMatch(/const postObservation[\s\S]{0,700}COMPANION_SURFACE_OVERLAY/);
+    expect(background).toMatch(/const postCapture[\s\S]{0,700}COMPANION_SURFACE_OVERLAY/);
   });
 
   it('background.js extracts personaId in the same in-page function as the auth session', () => {
@@ -392,9 +422,90 @@ describe('extension/companion-observer — Capture structural canary', () => {
   it('connectToMetaMe persists the extracted persona id', () => {
     const fnBody = background.slice(
       background.indexOf('async function connectToMetaMe'),
-      background.indexOf("// ─── Capture"),
+      background.indexOf('async function verifyCompanion'),
     );
-    expect(fnBody).toContain('persistActivePersonaId(session.personaId ?? null)');
+    // No longer `?? null`: pairing cannot complete without a persona at all
+    // (see the confirmation-gate canary below), so the stored value is
+    // always the confirmed persona, never a null placeholder.
+    expect(fnBody).toContain('persistActivePersonaId(session.personaId)');
+  });
+
+  it('connectToMetaMe refuses to pair without a CONFIRMED persona (SPEC-MMC-003 §3.3)', () => {
+    // The 2026-07-24 incident this closes by construction: pairing could
+    // complete with a valid Bearer token and NO persona hint, after which
+    // every server call resolved through getActivePersona's "first owned
+    // persona, sorted" fallback — silently the wrong persona for any
+    // multi-persona account. The old code warned about this AFTER storing
+    // the session (`personaFound: false`); the gate below means there is
+    // nothing to warn about, because nothing is stored.
+    const fnBody = background.slice(
+      background.indexOf('async function connectToMetaMe'),
+      background.indexOf('async function verifyCompanion'),
+    );
+    expect(fnBody).toContain('async function connectToMetaMe(confirmedPersonaId)');
+    expect(fnBody).toContain("return { ok: false, reason: 'persona-confirmation-required' }");
+    expect(fnBody).toContain("return { ok: false, reason: 'no-active-persona' }");
+    expect(fnBody).toContain("reason: 'persona-changed-since-confirmation'");
+    // Every refusal must come BEFORE anything is persisted — no half-paired
+    // state, ever.
+    const persistIdx = fnBody.indexOf('persistAuthSession(session)');
+    expect(persistIdx).toBeGreaterThan(fnBody.indexOf("'persona-changed-since-confirmation'"));
+  });
+
+  it('the extension only injects into the Companion app origin (2026-07-25 hardening)', () => {
+    // chrome.scripting.executeScript under `activeTab` runs against WHATEVER
+    // tab is active, independent of manifest host_permissions. Without an
+    // origin check, clicking Connect on an unrelated site scanned THAT
+    // site's localStorage for any key containing "auth-token" and, on a hit,
+    // persisted a foreign bearer token as the metaMe session. Both injection
+    // paths (the persona probe and the session extraction) must route
+    // through the shared origin guard.
+    expect(background).toContain('function isCompanionAppUrl(url)');
+    expect(background).toContain('url.startsWith(`${COMPANION_APP_ORIGIN}/`)');
+    expect(background).toContain("return { ok: false, reason: 'active-tab-not-metame' }");
+    const guardCallCount = (background.match(/await getCompanionAppTab\(\)/g) || []).length;
+    expect(guardCallCount).toBe(2); // probeActivePersona, connectToMetaMe
+  });
+
+  it('the popup gates Connect on an explicit persona confirmation (SPEC-MMC-003 §3.3)', () => {
+    const popup = readFileSync(
+      join(process.cwd(), 'extension', 'companion-observer', 'popup.js'),
+      'utf8',
+    );
+    const popupHtml = readFileSync(
+      join(process.cwd(), 'extension', 'companion-observer', 'popup.html'),
+      'utf8',
+    );
+    // Disabled in the markup — the button is never clickable before the
+    // probe answers, not merely re-disabled by script after first paint.
+    expect(popupHtml).toContain('<button id="connectBtn" disabled>');
+    expect(popup).toContain("type: 'PROBE_ACTIVE_PERSONA'");
+    expect(popup).toContain("{ type: 'CONNECT_METAME', confirmedPersonaId }");
+    // Only a persona the operator was SHOWN may be sent as confirmed.
+    expect(popup).toContain('confirmedPersonaId = response.personaId');
+    // The raw persona UUID is the owner's private root identifier — masked.
+    expect(popup).toContain('function maskPersonaId(personaId)');
+  });
+
+  it('post-install verification is ONE tri-state check, not three strings (SPEC-MMC-003 §3.7)', () => {
+    // The three signals already existed (ensureFreshToken / stored persona /
+    // grants fetch) but were reported separately at different moments. This
+    // locks them into a single handler with exactly three states, and locks
+    // out the old session-only GET_CONNECTION_STATUS path that reported
+    // "Connected." for a session that could not reach the server.
+    expect(background).toContain('async function verifyCompanion()');
+    expect(background).toContain("state: 'connected'");
+    expect(background).toContain("state: 'attention'");
+    expect(background).toContain("state: 'not-connected'");
+    // No live handler for the old session-only status message — the only
+    // remaining mention is the comment recording why it was replaced.
+    expect(background).not.toContain("case 'GET_CONNECTION_STATUS'");
+    const popup = readFileSync(
+      join(process.cwd(), 'extension', 'companion-observer', 'popup.js'),
+      'utf8',
+    );
+    expect(popup).toContain("type: 'VERIFY_COMPANION'");
+    expect(popup).not.toContain('GET_CONNECTION_STATUS');
   });
 
   it('background.js runs the client-side consent pre-check before any POST', () => {

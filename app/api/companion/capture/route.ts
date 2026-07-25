@@ -40,6 +40,7 @@ import {
   type CaptureSourceKind,
   type CapturedObject,
 } from '@/types/companionCapture';
+import { COMPANION_SURFACE_HEADER, parseCompanionSurfaceKind } from '@/types/companion';
 import { assertCaptureRespectsGrants } from '@/services/companion/captureConsent';
 import { loadGrantState } from '@/app/api/companion/observer/_lib/store';
 import { insertCapturedObject, listCapturedObjects } from './_lib/store';
@@ -167,6 +168,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 500, headers: { 'Cache-Control': 'no-store' } },
     );
   }
+
+  // Runtime registration (SPEC-MMC-003 §3.6): record WHICH Companion surface
+  // performed this capture. The extension stamps `x-companion-surface`
+  // (`extension-overlay` for a "Pull Across" context-menu capture); a caller
+  // that sends nothing yields `null` and this line simply reports 'unknown'.
+  //
+  // OBSERVABILITY ONLY, deliberately: `companion_captured_objects` has no
+  // column for surface provenance, and adding one is a migration — which
+  // SPEC-MMC-003 §7 holds for its own operator go-ahead rather than
+  // inventing a schema change here. Nothing about the capture's behaviour,
+  // response shape, or receipt path depends on this value.
+  const surface = parseCompanionSurfaceKind(request.headers.get(COMPANION_SURFACE_HEADER));
+  console.info(
+    `[companion:capture] surface=${surface ?? 'unknown'} sourceKind=${capture.sourceKind}`,
+  );
 
   return NextResponse.json({ ok: true, capture: record }, { headers: { 'Cache-Control': 'no-store' } });
 }

@@ -42,6 +42,7 @@
       "items": [
         "updates/2026-07-25_spec-hmc-001-phase1-continuity-assessment.md",
         "updates/2026-07-25_spec-cos-001-phase1-substrate-state.md",
+        "updates/2026-07-25_spec-mmc-003-phase1-pairing-and-verification.md",
         "updates/2026-07-24_moneypenny-cohesion-review.md",
         "updates/2026-07-24_spec-mmc-002-phase3-mysoftware-core-actions.md",
         "updates/2026-07-24_ccb-metame-companion.md",

@@ -78,3 +78,25 @@ const SOURCE_KIND_TO_CAPABILITY = {
 const CAPTURED_CONTENT_MAX_CHARS = 20000;
 
 const COMPANION_CAPTURE_API_URL = `${COMPANION_APP_ORIGIN}/api/companion/capture`;
+
+// ─── Runtime registration — CompanionSurfaceKind (SPEC-MMC-003 §3.6) ───────
+// `types/companion.ts`'s `CompanionSurfaceKind` union already RESERVED
+// 'extension-sidebar' and 'extension-overlay' as Phase-2+ presentation
+// surfaces, but nothing in this extension ever stamped a call with either —
+// so the platform could not tell "the operator acted from the extension"
+// from "the operator acted from the web-embed panel" (SPEC-MMC-003 §0.5).
+// These two constants + the header name below close that, additively: a
+// server that ignores the header behaves exactly as it did before.
+//
+// Same hand-synced-mirror risk already flagged above for the Observer and
+// Capture constants — the authoritative union lives in `types/companion.ts`
+// (alongside `COMPANION_SURFACE_HEADER` and `parseCompanionSurfaceKind`,
+// added in the same pass), and this plain-JS extension cannot import it.
+const COMPANION_SURFACE_HEADER = 'x-companion-surface';
+
+/** The extension's own chrome (popup + docked side panel). */
+const COMPANION_SURFACE_SIDEBAR = 'extension-sidebar';
+/** In-page context: the content script's observation and the "Pull Across"
+ *  context-menu capture both originate from the page the operator is on,
+ *  which is what the Constitutional Overlay reads — not the side panel. */
+const COMPANION_SURFACE_OVERLAY = 'extension-overlay';

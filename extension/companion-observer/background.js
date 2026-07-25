@@ -116,10 +116,17 @@ async function getStoredPersonaId() {
  * already honours (priority 2, "existing platform convention"). Every
  * server-bound call this worker makes must go through this, or it silently
  * resolves against the wrong persona for any multi-persona account.
+ *
+ * ALSO stamps the CompanionSurfaceKind this call originated from
+ * (`x-companion-surface`, SPEC-MMC-003 §3.6 — runtime registration). Purely
+ * additive: a server that does not read the header behaves exactly as it did
+ * before this argument existed, and every caller passes an explicit surface
+ * so the value is never guessed from context.
  */
-async function withPersonaHeader(headers) {
+async function withCompanionHeaders(headers, surface) {
   const personaId = await getStoredPersonaId();
   if (personaId) headers['x-persona-id'] = personaId;
+  if (surface) headers[COMPANION_SURFACE_HEADER] = surface;
   return headers;
 }
 
@@ -216,7 +223,13 @@ async function forwardObservationToServer(observation) {
   const postObservation = async (token) =>
     fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/observation`, {
       method: 'POST',
-      headers: await withPersonaHeader({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
+      // extension-overlay: an observation always originates in the page the
+      // content script runs in, and is what the Constitutional Overlay reads
+      // — never the side panel's own chrome (SPEC-MMC-003 §3.6).
+      headers: await withCompanionHeaders(
+        { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        COMPANION_SURFACE_OVERLAY,
+      ),
       body: JSON.stringify(observation),
       cache: 'no-store',
     });
@@ -243,13 +256,17 @@ async function forwardObservationToServer(observation) {
  * untouched rather than clearing it to "everything granted" — the safe
  * failure direction for a consent system.
  */
-async function refreshGrantsFromServer() {
+async function refreshGrantsFromServer(surface = COMPANION_SURFACE_SIDEBAR) {
   const fresh = await ensureFreshToken();
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
 
   const callGrants = async (token) =>
     fetchWithTimeout(`${COMPANION_OBSERVER_API_BASE}/grants`, {
-      headers: await withPersonaHeader({ Authorization: `Bearer ${token}` }),
+      // Surface defaults to the side panel (the popup's Connect/Verify paths
+      // are its only unparameterised callers); the content script's
+      // REFRESH_GRANTS relay and the context-menu capture both pass
+      // extension-overlay explicitly (SPEC-MMC-003 §3.6).
+      headers: await withCompanionHeaders({ Authorization: `Bearer ${token}` }, surface),
       cache: 'no-store',
     });
 
@@ -313,18 +330,131 @@ function extractSupabaseSessionFromPage() {
   }
 }
 
-async function connectToMetaMe() {
-  // activeTab: this only works when the user invokes the connect action
-  // (popup button click, a user gesture) while the metaMe tab is the active
-  // tab in the current window — the least-privileged way to get one-shot
-  // scripting access to that tab without a broad host_permissions grant.
+/**
+ * Runs INSIDE the active tab (same serialized-injection pattern as
+ * `extractSupabaseSessionFromPage`, so it cannot close over anything here).
+ *
+ * DELIBERATELY TOKEN-FREE: this is the pre-Connect probe that answers only
+ * "is someone signed in here, and which persona is active?" — it returns a
+ * boolean for the session and the persona id, never the access/refresh
+ * tokens themselves. The popup renders this result, so nothing that reaches
+ * the popup should be a bearer credential. The token-bearing extraction
+ * stays in `extractSupabaseSessionFromPage`, called only by the Connect path
+ * whose result never leaves the service worker.
+ */
+function extractPersonaHintFromPage() {
+  const key = Object.keys(localStorage).find((k) => k.includes('auth-token'));
+  let hasAuthSession = false;
+  if (key) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key));
+      const session = parsed?.currentSession ?? parsed;
+      hasAuthSession = Boolean(session?.access_token);
+    } catch {
+      hasAuthSession = false;
+    }
+  }
+  const personaId =
+    localStorage.getItem('currentPersonaId') || sessionStorage.getItem('currentPersonaId') || null;
+  return { hasAuthSession, personaId };
+}
+
+/**
+ * Guard for BOTH the probe and the Connect extraction: only ever inject into
+ * a tab that is actually on the Companion app's own origin.
+ *
+ * Without this, `chrome.scripting.executeScript` (which `activeTab` permits
+ * against WHATEVER tab happens to be active, independent of the manifest's
+ * single `host_permissions` entry) would run the localStorage scan on an
+ * unrelated site — scanning that site's storage for any key containing
+ * "auth-token" and, on a hit, persisting a foreign site's bearer token as
+ * this extension's metaMe session. Found and fixed 2026-07-25 while building
+ * SPEC-MMC-003 §3.3's pairing gate; the origin check is the fix.
+ */
+function isCompanionAppUrl(url) {
+  return typeof url === 'string' && url.startsWith(`${COMPANION_APP_ORIGIN}/`);
+}
+
+/**
+ * Resolve the active tab, refusing anything that is not the Companion app's
+ * own origin. Shared by the probe and the Connect extraction so there is one
+ * origin rule, not two.
+ */
+async function getCompanionAppTab() {
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!activeTab?.id) return { ok: false, reason: 'no-active-tab' };
+  if (!isCompanionAppUrl(activeTab.url)) return { ok: false, reason: 'active-tab-not-metame' };
+  return { ok: true, tab: activeTab };
+}
+
+/**
+ * SPEC-MMC-003 §3.3 — the persona confirmation that must happen BEFORE
+ * "Connect" is available at all.
+ *
+ * §0.4 records the real 2026-07-24 incident this closes: pairing could
+ * complete with a valid bearer token but NO persona hint, after which every
+ * server call resolved through `getActivePersona`'s step-4 fallback ("first
+ * owned persona, sorted") — silently the wrong persona for any account with
+ * more than one. The shipped code surfaced that only AFTER the fact, as a
+ * `personaFound: false` warning string. This probe moves the check ahead of
+ * the action: the popup shows which persona is about to be paired and only
+ * then enables Connect, so the ambiguous case cannot be paired past by
+ * construction rather than warned about afterwards.
+ */
+async function probeActivePersona() {
+  const tabResult = await getCompanionAppTab();
+  if (!tabResult.ok) return { ok: false, reason: tabResult.reason };
 
   let results;
   try {
     results = await chrome.scripting.executeScript({
-      target: { tabId: activeTab.id },
+      target: { tabId: tabResult.tab.id },
+      func: extractPersonaHintFromPage,
+    });
+  } catch (err) {
+    return { ok: false, reason: `executeScript-failed: ${String(err)}` };
+  }
+
+  const hint = results?.[0]?.result;
+  if (!hint) return { ok: false, reason: 'probe-returned-nothing' };
+  if (!hint.hasAuthSession) return { ok: false, reason: 'not-signed-in' };
+  if (!hint.personaId) return { ok: false, reason: 'no-active-persona' };
+
+  return { ok: true, personaId: hint.personaId };
+}
+
+/**
+ * Pairing. STRICT as of SPEC-MMC-003 §3.3: the caller MUST pass the
+ * `confirmedPersonaId` the operator was actually shown by `probeActivePersona`
+ * (see the popup's confirm step). Three refusals, all fail-closed, replacing
+ * the previous "pair anyway, warn afterwards" behaviour:
+ *
+ *   - `persona-confirmation-required` — no confirmed persona was supplied at
+ *     all (a caller that skipped the confirm step).
+ *   - `no-active-persona` — the page no longer reports an active persona.
+ *   - `persona-changed-since-confirmation` — the operator switched persona
+ *     between confirming and clicking Connect; pairing to the NEW one would
+ *     be pairing to a persona they never confirmed, so refuse and re-probe.
+ *
+ * Nothing is persisted on any refusal — no half-paired state, no session
+ * stored without its matching persona hint.
+ */
+async function connectToMetaMe(confirmedPersonaId) {
+  if (!confirmedPersonaId) return { ok: false, reason: 'persona-confirmation-required' };
+
+  // activeTab: this only works when the user invokes the connect action
+  // (popup button click, a user gesture) while the metaMe tab is the active
+  // tab in the current window — the least-privileged way to get one-shot
+  // scripting access to that tab without a broad host_permissions grant.
+  // The origin check inside getCompanionAppTab additionally refuses to
+  // inject into any tab that is not the Companion app itself.
+  const tabResult = await getCompanionAppTab();
+  if (!tabResult.ok) return { ok: false, reason: tabResult.reason };
+
+  let results;
+  try {
+    results = await chrome.scripting.executeScript({
+      target: { tabId: tabResult.tab.id },
       func: extractSupabaseSessionFromPage,
     });
   } catch (err) {
@@ -333,16 +463,67 @@ async function connectToMetaMe() {
 
   const session = results?.[0]?.result;
   if (!session?.accessToken) return { ok: false, reason: 'no-token-found-in-page' };
+  if (!session.personaId) return { ok: false, reason: 'no-active-persona' };
+  if (session.personaId !== confirmedPersonaId) {
+    return { ok: false, reason: 'persona-changed-since-confirmation' };
+  }
 
   await persistAuthSession(session);
   // Persist the ACTIVE persona id extracted at the same time — without
   // this, every subsequent server call this worker makes resolves through
   // getActivePersona's "first owned persona" fallback instead of the one
   // actually active in the tab (see extractSupabaseSessionFromPage's own
-  // comment for the full explanation).
-  await persistActivePersonaId(session.personaId ?? null);
-  const refreshResult = await refreshGrantsFromServer();
-  return { ok: true, refreshed: refreshResult, personaFound: Boolean(session.personaId) };
+  // comment for the full explanation). Guaranteed non-null by the checks
+  // above: pairing now either has the confirmed persona or does not happen.
+  await persistActivePersonaId(session.personaId);
+  const refreshResult = await refreshGrantsFromServer(COMPANION_SURFACE_SIDEBAR);
+  return { ok: true, refreshed: refreshResult, personaId: session.personaId };
+}
+
+/**
+ * SPEC-MMC-003 §3.7 — post-install verification as ONE honest tri-state
+ * check instead of three independently-worded status strings the operator
+ * had to piece together (a valid session, a grants fetch that succeeded, and
+ * a persona that was actually found were all reported separately, at
+ * different moments, in different places).
+ *
+ * Runs the three EXISTING signals in sequence — no new check is invented,
+ * and no new server route is called:
+ *   1. `ensureFreshToken()`      — is there a valid, non-expired session?
+ *   2. `getStoredPersonaId()`    — did pairing capture an active persona?
+ *   3. `refreshGrantsFromServer()` — does the server actually answer this
+ *      session (the only check that proves the pairing works end-to-end)?
+ *
+ * Returns exactly one of three states, with the SPECIFIC failing check named
+ * rather than a generic error:
+ *   'connected'     — all three passed.
+ *   'attention'     — session valid, but persona or grants failed.
+ *   'not-connected' — no session at all.
+ */
+async function verifyCompanion() {
+  const fresh = await ensureFreshToken();
+  if (!fresh.ok) {
+    return {
+      state: 'not-connected',
+      checks: { session: false, persona: false, grants: false },
+      failing: 'session',
+      reason: fresh.reason,
+    };
+  }
+
+  const personaId = await getStoredPersonaId();
+  const grants = await refreshGrantsFromServer(COMPANION_SURFACE_SIDEBAR);
+
+  const checks = { session: true, persona: Boolean(personaId), grants: Boolean(grants.ok) };
+  if (checks.persona && checks.grants) {
+    return { state: 'connected', checks };
+  }
+  return {
+    state: 'attention',
+    checks,
+    failing: !checks.persona ? 'persona' : 'grants',
+    reason: !checks.persona ? 'no-active-persona-stored' : grants.reason,
+  };
 }
 
 // ─── Capture — "Pull Across" (SPEC-MMC-001 §3 Movement I / §9; ────────────
@@ -456,7 +637,7 @@ function setCaptureBadge(text, color) {
  * back to whatever the cache already had, same as before this call existed.
  */
 async function performCapture(info, tab) {
-  await refreshGrantsFromServer();
+  await refreshGrantsFromServer(COMPANION_SURFACE_OVERLAY);
 
   const capture = await buildCapture(info, tab);
   const siteDomain = siteDomainFromUrl(capture.sourceUrl);
@@ -479,7 +660,12 @@ async function performCapture(info, tab) {
   const postCapture = async (token) =>
     fetchWithTimeout(COMPANION_CAPTURE_API_URL, {
       method: 'POST',
-      headers: await withPersonaHeader({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }),
+      // extension-overlay: "Pull Across" fires from the page's own context
+      // menu, not the extension's side panel (SPEC-MMC-003 §3.6).
+      headers: await withCompanionHeaders(
+        { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        COMPANION_SURFACE_OVERLAY,
+      ),
       body: JSON.stringify(capture),
       cache: 'no-store',
     });
@@ -574,23 +760,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    case 'CONNECT_METAME': {
-      connectToMetaMe().then(sendResponse);
+    case 'PROBE_ACTIVE_PERSONA': {
+      // SPEC-MMC-003 §3.3 — the persona confirmation step that gates
+      // CONNECT_METAME below. Returns a persona id only (no tokens).
+      probeActivePersona().then(sendResponse);
       return true; // async response
     }
 
-    case 'GET_CONNECTION_STATUS': {
-      // Popup-load check — reuses ensureFreshToken (not a new auth path) so
-      // a session persisted in chrome.storage.local from an earlier connect
-      // is reflected as "Connected" immediately, and proactively refreshed
-      // if it's expiring soon, instead of the popup always defaulting to
-      // "Not connected" until the operator clicks Connect again.
-      ensureFreshToken().then((result) => sendResponse({ connected: result.ok, reason: result.ok ? undefined : result.reason }));
+    case 'CONNECT_METAME': {
+      // `confirmedPersonaId` is REQUIRED — connectToMetaMe refuses without
+      // it, so a caller that skips PROBE_ACTIVE_PERSONA cannot pair.
+      connectToMetaMe(message.confirmedPersonaId).then(sendResponse);
+      return true; // async response
+    }
+
+    case 'VERIFY_COMPANION': {
+      // SPEC-MMC-003 §3.7 — the single tri-state check. Replaces the former
+      // GET_CONNECTION_STATUS handler (session-only, which reported
+      // "Connected." for a session that could not actually reach the server
+      // and had no persona hint); the popup is its only consumer, so there
+      // is one status path here, not two.
+      verifyCompanion().then(sendResponse);
       return true; // async response
     }
 
     case 'REFRESH_GRANTS': {
-      refreshGrantsFromServer().then(sendResponse);
+      // Relayed by content.js from the page context — tag it as the overlay
+      // surface, not the side panel (SPEC-MMC-003 §3.6).
+      refreshGrantsFromServer(COMPANION_SURFACE_OVERLAY).then(sendResponse);
       return true; // async response
     }
 
