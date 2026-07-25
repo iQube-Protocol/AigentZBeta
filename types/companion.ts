@@ -45,15 +45,47 @@ import type { CodexShell } from '@/utils/codex-nav';
  * MCP/Threshold (PRD-THR-001, §0.5) — `mcp-host` names that channel; this
  * contract does not restate the Threshold gateway.
  */
-export type CompanionSurfaceKind =
-  | 'web-embed'          // Phase 0/1 first surface: /triad/embed/companion
-  | 'extension-sidebar'  // Phase 2+ (extension shell; observation gated on §4)
-  | 'extension-overlay'  // Phase 2+
-  | 'mobile'             // Phase 4
-  | 'desktop'            // Phase 4
-  | 'vscode'             // Phase 4
-  | 'embedded-widget'    // Phase 4
-  | 'mcp-host';          // Already served by PRD-THR-001 (Threshold/MCP)
+export const COMPANION_SURFACE_KINDS = [
+  'web-embed',          // Phase 0/1 first surface: /triad/embed/companion
+  'extension-sidebar',  // Phase 2+ (extension shell; observation gated on §4)
+  'extension-overlay',  // Phase 2+
+  'mobile',             // Phase 4
+  'desktop',            // Phase 4
+  'vscode',             // Phase 4
+  'embedded-widget',    // Phase 4
+  'mcp-host',           // Already served by PRD-THR-001 (Threshold/MCP)
+] as const;
+
+export type CompanionSurfaceKind = (typeof COMPANION_SURFACE_KINDS)[number];
+
+/**
+ * The header a non-web surface stamps its own `CompanionSurfaceKind` onto
+ * (SPEC-MMC-003 §3.6 — runtime registration). The Companion browser
+ * extension attaches it to every server-bound call
+ * (`extension/companion-observer/background.js`'s `withCompanionHeaders`);
+ * the web-embed surface has no need for it, since it passes its surface
+ * directly to `resolveCompanionContext`.
+ *
+ * ADDITIVE BY CONSTRUCTION: a route that never reads this header behaves
+ * exactly as it did before the header existed, and `parseCompanionSurfaceKind`
+ * returns `null` for absent/unknown values rather than defaulting to a
+ * surface that did not actually make the call.
+ */
+export const COMPANION_SURFACE_HEADER = 'x-companion-surface';
+
+/**
+ * Validate an untrusted surface value (a header, a query param) against the
+ * canonical list above. Derived from `COMPANION_SURFACE_KINDS` — never a
+ * hand-copied second list (CLAUDE.md "Source-of-truth parity"). Returns
+ * `null` for anything unrecognised: an unknown surface is "unknown", never
+ * silently coerced to `'web-embed'`.
+ */
+export function parseCompanionSurfaceKind(value: unknown): CompanionSurfaceKind | null {
+  if (typeof value !== 'string') return null;
+  return (COMPANION_SURFACE_KINDS as readonly string[]).includes(value)
+    ? (value as CompanionSurfaceKind)
+    : null;
+}
 
 // ─── Identity (T1 — the ONLY identity shape a surface holds) ────────────────
 

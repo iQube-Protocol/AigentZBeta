@@ -57,7 +57,10 @@ import dynamic from "next/dynamic";
 
 import { useCodexEmbedAuthBridge } from "../codex/_lib/useCodexEmbedAuthBridge";
 import { resolveCompanionContext } from "@/services/companion/runtime";
-import type { CompanionRuntimeContext } from "@/types/companion";
+import {
+  parseCompanionSurfaceKind,
+  type CompanionRuntimeContext,
+} from "@/types/companion";
 import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
@@ -85,6 +88,17 @@ function CompanionShell() {
     "auth_profile_id",
   ]);
 
+  // Runtime registration (SPEC-MMC-003 §3.6): which Companion surface is
+  // hosting this embed. The extension's side panel passes
+  // `?surface=extension-sidebar` (see extension/companion-observer/
+  // sidepanel.js) — before this, the page hardcoded 'web-embed' even when
+  // mounted inside the extension, so the runtime could not tell the two
+  // apart. Validated against the canonical COMPANION_SURFACE_KINDS list;
+  // absent or unrecognised falls back to 'web-embed', the value this page
+  // always used.
+  const surface =
+    parseCompanionSurfaceKind(readFirst(searchParams, ["surface"])) ?? "web-embed";
+
   const { personaId } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
@@ -100,7 +114,7 @@ function CompanionShell() {
   useEffect(() => {
     let cancelled = false;
     resolveCompanionContext({
-      surface: "web-embed",
+      surface,
       personaIdHint: personaId,
     }).then((resolved) => {
       if (!cancelled) setCtx(resolved);
@@ -108,7 +122,7 @@ function CompanionShell() {
     return () => {
       cancelled = true;
     };
-  }, [personaId]);
+  }, [personaId, surface]);
 
   const identity = ctx?.identity ?? null;
 
