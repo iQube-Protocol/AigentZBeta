@@ -72,6 +72,21 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
  * Ids below are the two financial-services capabilities registered by
  * `scripts/register-ccb-capabilities.ts` — the natural constitutional answer
  * to "what governs money-shaped work here?" on a banking-shaped page.
+ *
+ * KNOWN TRAP (hit 2026-07-25, both deep links 404'd as "Codex not found"):
+ * the embed route (`app/(embed)/triad/embed/codex/[codexSlug]/page.tsx`)
+ * builds its lookup key by appending `-codex` to whatever string sits in the
+ * URL path UNLESS it already ends in `-codex`/`-cartridge`, then matches
+ * that against each `CodexConfig.id` — NOT `.slug`. For `MONEYPENNY_CARTRIDGE`
+ * (`id: 'moneypenny-codex'`, `slug: 'moneypenny'`) slug+`-codex` happens to
+ * equal id. For `VENTURE_LAB_CODEX` it does NOT: `id: 'alpha-knyt-codex'`
+ * (kept for historical reasons — CLAUDE.md's Venture Lab α naming note),
+ * `slug: 'venture-lab'`; `'venture-lab' + '-codex'` matches nothing. So
+ * `CAPABILITY_ROUTES.slug` below is always the codex's real `id` (already
+ * carrying the `-codex`/`-cartridge` suffix), which the embed route passes
+ * through UNCHANGED — the one value that survives its suffix logic
+ * regardless of how slug and id happen to relate. The parity canary
+ * (tests/companion-observer.test.ts) asserts against `.id`, matching this.
  */
 export const SHAPE_CAPABILITY_IDS: Record<OverlayShape, readonly string[]> = {
   'github-repo': [],
@@ -114,7 +129,11 @@ export function capabilityIdsForShape(shape: OverlayShape): readonly string[] {
  * below are read from `data/codex-configs.ts`, never guessed.
  */
 export interface CapabilityRoute {
-  /** Codex slug for `buildCodexUrl` — `CodexConfig.slug`, not its id. */
+  /** For `buildCodexUrl`'s first argument — MUST be the codex's real `id`
+   *  (e.g. 'alpha-knyt-codex'), NOT its `.slug`. See the "KNOWN TRAP" note
+   *  above `SHAPE_CAPABILITY_IDS`: the embed route matches by id, and only
+   *  a value that already carries the `-codex`/`-cartridge` suffix survives
+   *  its suffix logic unchanged regardless of how slug and id relate. */
   readonly slug: string;
   /** Tab slug within that codex — `CodexTab.slug`. */
   readonly tab: string;
@@ -123,17 +142,19 @@ export interface CapabilityRoute {
 }
 
 export const CAPABILITY_ROUTES: Record<string, CapabilityRoute> = {
-  // VENTURE_LAB_CODEX.slug === 'venture-lab'; tab id/slug 'financial-services'
-  // (CRP-003a Increment 3 — the Founder Office Capability Suite).
+  // VENTURE_LAB_CODEX.id === 'alpha-knyt-codex' (product name "Venture Lab α",
+  // slug 'venture-lab' — id kept for historical reasons, see CLAUDE.md).
+  // Tab id/slug 'financial-services' (CRP-003a Increment 3 — the Founder
+  // Office Capability Suite).
   'financial-services-capability-suite': {
-    slug: 'venture-lab',
+    slug: 'alpha-knyt-codex',
     tab: 'financial-services',
     label: 'Open Financial Services',
   },
   // MoneyPenny's runtime drives that same pipeline, so its operating surface
   // is the same tab — the runtime is the agent mode, not a separate console.
   'cap-moneypenny-financial-services': {
-    slug: 'venture-lab',
+    slug: 'alpha-knyt-codex',
     tab: 'financial-services',
     label: 'Open Financial Services',
   },

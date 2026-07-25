@@ -425,19 +425,49 @@ describe('DELETE /api/companion/observer/grants/[capability] — fail closed', (
  * canaries living elsewhere.
  */
 describe('Companion Overlay — capability route parity', () => {
-  it('every declared route points at a real, enabled tab in a real codex', async () => {
+  /**
+   * Mirrors the EXACT resolution logic in
+   * app/(embed)/triad/embed/codex/[codexSlug]/page.tsx: append `-codex`
+   * unless the string already carries a known suffix, then resolve legacy
+   * aliases. This is deliberately duplicated rather than imported because
+   * the page inlines it — but this canary is what makes that inline logic a
+   * source of truth this table must track, instead of a route that "looks
+   * right" (matches `.slug`) while actually 404ing in production.
+   *
+   * THE BUG THIS SHAPE OF TEST WOULD HAVE CAUGHT (2026-07-25): the original
+   * version of this canary checked `route.slug` against `CodexConfig.slug`
+   * and passed, because the table's value and the assertion were both
+   * `'venture-lab'` — internally consistent, and wrong, since the embed
+   * route resolves by `.id` (`'alpha-knyt-codex'`), not `.slug`. Both
+   * capability deep-links 404'd as "Codex not found" in the live browser
+   * despite this canary being green. Asserting against the REAL resolution
+   * function closes that gap.
+   */
+  function resolveEmbedCodexId(rawSlug: string, legacyAliases: Record<string, string>): string {
+    const hasKnownSuffix = rawSlug.endsWith('-codex') || rawSlug.endsWith('-cartridge');
+    const suffixed = hasKnownSuffix ? rawSlug : `${rawSlug}-codex`;
+    return legacyAliases[suffixed] ?? suffixed;
+  }
+
+  it('every declared route resolves via the REAL embed-route id lookup, to a real, enabled tab', async () => {
     const { CAPABILITY_ROUTES } = await import('@/services/companion/overlayMapping');
-    const { CODEX_DEFINITIONS } = await import('@/data/codex-configs');
+    const { CODEX_DEFINITIONS, LEGACY_CODEX_SLUGS } = await import('@/data/codex-configs');
 
     const entries = Object.entries(CAPABILITY_ROUTES);
     expect(entries.length).toBeGreaterThan(0);
 
     for (const [capabilityId, route] of entries) {
-      const codex = CODEX_DEFINITIONS.find((c) => c.slug === route.slug);
-      expect(codex, `${capabilityId}: no codex with slug "${route.slug}"`).toBeTruthy();
+      const resolvedId = resolveEmbedCodexId(route.slug, LEGACY_CODEX_SLUGS);
+      const codex = CODEX_DEFINITIONS.find((c) => c.id === resolvedId);
+      expect(
+        codex,
+        `${capabilityId}: route.slug "${route.slug}" resolves to codex id "${resolvedId}", which does not exist. ` +
+          `CAPABILITY_ROUTES.slug must be the codex's real .id (already carrying its -codex/-cartridge suffix), ` +
+          `not its .slug — the embed route matches by id.`,
+      ).toBeTruthy();
 
       const tab = codex!.tabs.find((t) => t.slug === route.tab);
-      expect(tab, `${capabilityId}: codex "${route.slug}" has no tab "${route.tab}"`).toBeTruthy();
+      expect(tab, `${capabilityId}: codex "${resolvedId}" has no tab "${route.tab}"`).toBeTruthy();
       // A disabled tab is a dead link even though the slug resolves.
       expect(tab!.enabled, `${capabilityId}: tab "${route.tab}" is disabled`).toBe(true);
       expect(route.label.trim().length).toBeGreaterThan(0);
