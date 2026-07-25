@@ -114,7 +114,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const card = await composeOverlayCard(shape, persona, observation?.currentTabTitle);
+  const card = await composeOverlayCard(shape, persona, observation?.currentTabTitle, domain);
 
   return NextResponse.json(
     { ok: true, domain, shape, card, reason: null },

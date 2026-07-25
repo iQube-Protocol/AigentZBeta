@@ -513,7 +513,7 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
     expect(card.domain).toBe('example.com');
     expect(card.standing.hasStandingSignal).toBe(false);
     // No page title -> no query -> no fabricated matches, not an error.
-    expect(card.titleMatches).toEqual([]);
+    expect(card.relatedMatches).toEqual([]);
     // Persona-level fields pass through unchanged -- this is item 3 of the
     // operator's ask: these were never page-specific, so nothing is derived
     // or narrowed for the unmapped case.
@@ -526,7 +526,7 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
    * title is the inbox content ("Inbox (72,138)"), never the word "Gmail",
    * so title-only search silently missed the real, already-registered Gmail
    * connector assets. Locks the fix: `domainSearchHint` for the small,
-   * explicit Google Workspace host table, and `buildGenericSearchCandidates`
+   * explicit Google Workspace host table, and `buildRegistrySearchCandidates`
    * (the pure core `composeGenericOverlayCard`'s I/O shell delegates to) —
    * both directly testable without any Supabase/search-federation I/O.
    */
@@ -547,28 +547,28 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
       expect(domainSearchHint(undefined)).toBeNull();
     });
 
-    it('buildGenericSearchCandidates puts the domain hint first when present, and still falls back to title alone', async () => {
-      const { buildGenericSearchCandidates } = await import('@/services/companion/overlayComposition');
+    it('buildRegistrySearchCandidates puts the domain hint first when present, and still falls back to title alone', async () => {
+      const { buildRegistrySearchCandidates } = await import('@/services/companion/overlayComposition');
 
       // THE EXACT REPORTED CASE: Gmail's title alone would have produced [],
       // silently missing the real Gmail connector assets. The hint fixes it.
-      expect(buildGenericSearchCandidates('mail.google.com', 'Inbox (72,138)')).toEqual([
+      expect(buildRegistrySearchCandidates('mail.google.com', 'Inbox (72,138)')).toEqual([
         'Gmail',
         'Inbox (72,138)',
       ]);
 
       // No hint for this domain -> title-only, unchanged from before the fix.
-      expect(buildGenericSearchCandidates('example.com', 'Some Page Title')).toEqual(['Some Page Title']);
+      expect(buildRegistrySearchCandidates('example.com', 'Some Page Title')).toEqual(['Some Page Title']);
 
       // No title -> hint alone, not an empty candidate list.
-      expect(buildGenericSearchCandidates('mail.google.com', undefined)).toEqual(['Gmail']);
+      expect(buildRegistrySearchCandidates('mail.google.com', undefined)).toEqual(['Gmail']);
 
       // Neither -> genuinely nothing to search, not a fabricated candidate.
-      expect(buildGenericSearchCandidates('example.com', undefined)).toEqual([]);
-      expect(buildGenericSearchCandidates(null, null)).toEqual([]);
+      expect(buildRegistrySearchCandidates('example.com', undefined)).toEqual([]);
+      expect(buildRegistrySearchCandidates(null, null)).toEqual([]);
 
       // Hint and title happen to collide (case-insensitively) -> deduped to one.
-      expect(buildGenericSearchCandidates('mail.google.com', 'gmail')).toEqual(['Gmail']);
+      expect(buildRegistrySearchCandidates('mail.google.com', 'gmail')).toEqual(['Gmail']);
     });
   });
 
@@ -584,4 +584,54 @@ describe('Companion Overlay — generic (unmapped-domain) card', () => {
   // domain exists. The composition-level contract above is what actually
   // needs a canary (the no-fabrication guarantee); the branch condition
   // itself is a one-line `if` with no logic worth a parallel mock harness.
+});
+
+/**
+ * GENERALISATION CANARY (operator-directed, 2026-07-25 — "would this apply
+ * generally or just github?" → generally).
+ *
+ * `resolveRelatedMatches` is now the common floor under EVERY overlay shape:
+ * before this, only the generic unmapped-domain card searched the registry at
+ * all, and the banking card had no registry lookup whatsoever. Locks that the
+ * generalisation stays general — a new shape that forgets `relatedMatches`,
+ * or a card type that quietly drops it, fails here rather than silently
+ * regressing to the old per-shape asymmetry.
+ */
+describe('Companion Overlay — related-matches generalisation', () => {
+  it('every overlay card type declares relatedMatches', async () => {
+    const source = readFileSync(
+      join(process.cwd(), 'services', 'companion', 'overlayComposition.ts'),
+      'utf8',
+    );
+
+    // Each card interface must carry the field. Asserted against the source
+    // because these are compile-time types with no runtime representation to
+    // introspect.
+    for (const iface of [
+      'GithubRepoOverlayCard',
+      'BankingOverlayCard',
+      'GenericOverlayCard',
+    ]) {
+      const block = source.slice(
+        source.indexOf(`export interface ${iface} {`),
+        source.indexOf('}', source.indexOf(`export interface ${iface} {`)),
+      );
+      expect(block.length, `${iface} not found`).toBeGreaterThan(0);
+      expect(block, `${iface} is missing relatedMatches`).toContain('relatedMatches');
+    }
+  });
+
+  it('all three composers resolve related matches through the one shared function', async () => {
+    const source = readFileSync(
+      join(process.cwd(), 'services', 'companion', 'overlayComposition.ts'),
+      'utf8',
+    );
+    // One definition, three call sites (github / banking / generic). A second
+    // definition would mean a shape had forked the lookup -- the exact
+    // duplicate-implementation defect CLAUDE.md's inv.engineering.037 forbids.
+    const definitions = source.match(/async function resolveRelatedMatches\(/g) ?? [];
+    expect(definitions).toHaveLength(1);
+    const callSites = source.match(/resolveRelatedMatches\(/g) ?? [];
+    expect(callSites.length).toBeGreaterThanOrEqual(4); // 1 definition + >=3 calls
+  });
 });

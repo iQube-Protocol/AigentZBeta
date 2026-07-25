@@ -31,6 +31,7 @@ import type {
   BankingOverlayCard,
   GenericOverlayCard,
 } from "@/services/companion/overlayComposition";
+import type { CompanionSearchResult } from "@/types/companionSearch";
 
 const OVERLAY_ENDPOINT = "/api/companion/overlay";
 
@@ -73,6 +74,41 @@ function StatRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-2 text-[11px]">
       <span className="text-slate-500">{label}</span>
       <span className="text-slate-200">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * "What does metaMe already know about this page" — rendered on EVERY shape.
+ *
+ * Operator-directed 2026-07-25 ("would this apply generally or just github?"
+ * — generally). Previously only the generic unmapped-domain card showed
+ * registry hits, so the broadest capability sat on the least specific shape.
+ * Server-side this is one `resolveRelatedMatches` for all shapes; here it is
+ * one component, so the three cards cannot drift in how they present it.
+ *
+ * Always rendered, including empty — unlike the optional shape-specific
+ * sections. "No matches" is a real, useful answer to "is any of my registry
+ * related to this page", and silently omitting the panel would read as the
+ * feature being absent rather than as a genuine negative.
+ */
+function RelatedInRegistry({ matches }: { matches: CompanionSearchResult[] }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+        Related in the registry
+      </div>
+      {matches.length > 0 ? (
+        <ul className="mt-1 space-y-1">
+          {matches.map((m, i) => (
+            <li key={`${m.ref}-${i}`} className="truncate text-xs text-slate-200">
+              {m.title}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-1 text-xs text-slate-500">No registry or research matches for this page.</div>
+      )}
     </div>
   );
 }
@@ -126,6 +162,8 @@ function GithubRepoCard({ card, domain }: { card: GithubRepoOverlayCard; domain:
           </ul>
         </div>
       ) : null}
+
+      <RelatedInRegistry matches={card.relatedMatches ?? []} />
     </div>
   );
 }
@@ -169,22 +207,7 @@ function GenericCard({ card, domain }: { card: GenericOverlayCard; domain: strin
         </div>
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-          Related in the registry
-        </div>
-        {card.titleMatches.length > 0 ? (
-          <ul className="mt-1 space-y-1">
-            {card.titleMatches.map((m, i) => (
-              <li key={`${m.ref}-${i}`} className="truncate text-xs text-slate-200">
-                {m.title}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="mt-1 text-xs text-slate-500">No registry or research matches for this page.</div>
-        )}
-      </div>
+      <RelatedInRegistry matches={card.relatedMatches ?? []} />
 
       <div className="text-[11px] leading-snug text-slate-600">
         No dedicated overlay is built for this kind of page yet. Right-click anywhere on it and choose
@@ -304,6 +327,8 @@ function BankingCard({
           </ul>
         </div>
       ) : null}
+
+      <RelatedInRegistry matches={card.relatedMatches ?? []} />
     </div>
   );
 }

@@ -66,6 +66,10 @@ export interface GithubRepoOverlayCard {
   capability: ProducerRecommendation[];
   registryMatch: CompanionSearchResult | null;
   researchMatches: CompanionSearchResult[];
+  /** See `resolveRelatedMatches` — the SAME general registry/research lookup
+   *  every shape now carries. Deduped against `registryMatch` /
+   *  `researchMatches` above so this card never lists the same hit twice. */
+  relatedMatches: CompanionSearchResult[];
 }
 
 /**
@@ -104,6 +108,10 @@ export interface BankingOverlayCard {
    *  empty, the migration is unapplied, or none of the declared ids are
    *  actually registered yet. */
   matchedCapabilities?: OverlayCapabilityMatch[];
+  /** See `resolveRelatedMatches`. Banking-shaped pages previously had NO
+   *  registry lookup at all — the generalisation is what gave every shape the
+   *  same "what does metaMe already know about this page" panel. */
+  relatedMatches: CompanionSearchResult[];
 }
 
 /**
@@ -151,7 +159,7 @@ export interface GenericOverlayCard {
   standing: OverlayStandingSummary;
   identifiability: ActivePersonaContext['identifiability'];
   cartridgeFlags: ActivePersonaContext['cartridgeFlags'];
-  titleMatches: CompanionSearchResult[];
+  relatedMatches: CompanionSearchResult[];
 }
 
 export type OverlayCard = GithubRepoOverlayCard | BankingOverlayCard | GenericOverlayCard;
@@ -178,6 +186,7 @@ async function buildStandingSummary(personaId: string): Promise<OverlayStandingS
 async function composeGithubRepoCard(
   personaId: string,
   currentTabTitle: string | undefined,
+  domain: string | null,
 ): Promise<GithubRepoOverlayCard> {
   const [standing, capability] = await Promise.all([
     buildStandingSummary(personaId),
@@ -199,7 +208,16 @@ async function composeGithubRepoCard(
     researchMatches = rankSearchResults(research, candidate).slice(0, 5);
   }
 
-  return { shape: 'github-repo', standing, capability, registryMatch, researchMatches };
+  // The general lookup, excluding whatever the repo-specific panels above
+  // already show, so the same hit never appears twice on one card.
+  const alreadyShown = new Set<string>(
+    [registryMatch?.ref, ...researchMatches.map((m) => m.ref)].filter(
+      (ref): ref is string => typeof ref === 'string',
+    ),
+  );
+  const relatedMatches = await resolveRelatedMatches(domain, currentTabTitle, alreadyShown);
+
+  return { shape: 'github-repo', standing, capability, registryMatch, researchMatches, relatedMatches };
 }
 
 /**
@@ -252,10 +270,15 @@ async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCa
   }
 }
 
-async function composeBankingCard(persona: ActivePersonaContext): Promise<BankingOverlayCard> {
-  const [standing, matchedCapabilities] = await Promise.all([
+async function composeBankingCard(
+  persona: ActivePersonaContext,
+  currentTabTitle: string | undefined,
+  domain: string | null,
+): Promise<BankingOverlayCard> {
+  const [standing, matchedCapabilities, relatedMatches] = await Promise.all([
     buildStandingSummary(persona.personaId),
     matchCapabilitiesForShape('banking'),
+    resolveRelatedMatches(domain, currentTabTitle),
   ]);
   return {
     shape: 'banking',
@@ -263,6 +286,7 @@ async function composeBankingCard(persona: ActivePersonaContext): Promise<Bankin
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
     matchedCapabilities,
+    relatedMatches,
   };
 }
 
@@ -270,9 +294,10 @@ export async function composeOverlayCard(
   shape: OverlayShape,
   persona: ActivePersonaContext,
   currentTabTitle: string | undefined,
+  domain: string | null,
 ): Promise<OverlayCard> {
-  if (shape === 'github-repo') return composeGithubRepoCard(persona.personaId, currentTabTitle);
-  return composeBankingCard(persona);
+  if (shape === 'github-repo') return composeGithubRepoCard(persona.personaId, currentTabTitle, domain);
+  return composeBankingCard(persona, currentTabTitle, domain);
 }
 
 /**
@@ -293,7 +318,7 @@ export async function composeOverlayCard(
  * I/O-free testing — this is the one place the "which queries do we try"
  * decision is made; the I/O shell below just executes each and merges.
  */
-export function buildGenericSearchCandidates(
+export function buildRegistrySearchCandidates(
   domain: string | null | undefined,
   currentTabTitle: string | null | undefined,
 ): string[] {
@@ -311,6 +336,49 @@ export function buildGenericSearchCandidates(
   return out;
 }
 
+/**
+ * THE GENERAL "what does metaMe already know about this page" LOOKUP.
+ *
+ * Operator-directed 2026-07-25, answering their own question — "would this
+ * apply generally or just github?" — with: generally. Before this, only the
+ * generic (unmapped-domain) card searched the registry at all; the banking
+ * card had NO registry lookup whatsoever, and the github card had only its
+ * narrow repo-name "linked iQube" question. So the broadest capability lived
+ * on the LEAST specific shape, which is backwards.
+ *
+ * Now every shape carries the same lookup, driven by the same two honest
+ * signals (`buildRegistrySearchCandidates`: the domain's product hint where
+ * one is declared, plus the page's own title) through the same federation
+ * functions. Shape-specific panels stay shape-specific — github keeps its
+ * repo-name `registryMatch`, banking keeps its capability match — this is
+ * the common floor beneath them, not a replacement for either.
+ *
+ * `excludeRefs` keeps a card from listing the same hit twice when a
+ * shape-specific panel already surfaced it.
+ */
+async function resolveRelatedMatches(
+  domain: string | null | undefined,
+  currentTabTitle: string | null | undefined,
+  excludeRefs: ReadonlySet<string> = new Set(),
+): Promise<CompanionSearchResult[]> {
+  const candidates = buildRegistrySearchCandidates(domain, currentTabTitle);
+  if (candidates.length === 0) return [];
+
+  const perCandidate = await Promise.all(candidates.map((q) => searchAllSourcesFor(q)));
+
+  // Merge in candidate priority order, deduping by ref.
+  const seen = new Set<string>(excludeRefs);
+  const out: CompanionSearchResult[] = [];
+  for (const results of perCandidate) {
+    for (const result of results) {
+      if (seen.has(result.ref)) continue;
+      seen.add(result.ref);
+      out.push(result);
+    }
+  }
+  return out.slice(0, 5);
+}
+
 async function searchAllSourcesFor(query: string): Promise<CompanionSearchResult[]> {
   const [iqubeMatches, assetMatches, research] = await Promise.all([
     searchRegistryIQube(query).catch(() => []),
@@ -325,25 +393,13 @@ export async function composeGenericOverlayCard(
   currentTabTitle: string | undefined,
   domain: string,
 ): Promise<GenericOverlayCard> {
-  const candidates = buildGenericSearchCandidates(domain, currentTabTitle);
-
-  const [standing, perCandidateResults] = await Promise.all([
+  // Uses the SAME `resolveRelatedMatches` every other shape now uses — this
+  // composer used to carry its own inline copy of the merge/dedupe logic,
+  // which became a duplicate the moment the lookup was generalised.
+  const [standing, relatedMatches] = await Promise.all([
     buildStandingSummary(persona.personaId),
-    Promise.all(candidates.map((q) => searchAllSourcesFor(q))),
+    resolveRelatedMatches(domain, currentTabTitle),
   ]);
-
-  // Merge in candidate priority order, deduping by ref -- a result matched
-  // by the (more certain) domain hint keeps its earlier position over the
-  // same result also matching the (incidental) title.
-  const seenRefs = new Set<string>();
-  const titleMatches: CompanionSearchResult[] = [];
-  for (const results of perCandidateResults) {
-    for (const result of results) {
-      if (seenRefs.has(result.ref)) continue;
-      seenRefs.add(result.ref);
-      titleMatches.push(result);
-    }
-  }
 
   return {
     shape: 'generic',
@@ -351,6 +407,6 @@ export async function composeGenericOverlayCard(
     standing,
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
-    titleMatches: titleMatches.slice(0, 5),
+    relatedMatches,
   };
 }
