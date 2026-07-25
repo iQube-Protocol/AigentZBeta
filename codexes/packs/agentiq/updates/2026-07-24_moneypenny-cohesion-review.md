@@ -104,6 +104,105 @@ is wanted, it needs its own scoped design (a third Overlay shape or a
 capability field on the banking shape) and an explicit operator go-ahead,
 not an assumption that registration alone closes it.
 
+### Companion Overlay — BUILT (operator go-ahead 2026-07-24, "Yes to mp overlay")
+
+The investigation above stands as the correct record of *why* this was
+architectural rather than an allowlist tweak. The operator then explicitly
+approved building exactly the thing it scoped: a capability-matching field on
+the banking shape. That is now shipped.
+
+**The matching rule.** Deliberately dumb, explicit, and auditable — the same
+philosophy `overlayMapping.ts`'s own header ratifies for domains, applied one
+level further along rather than fought:
+
+```ts
+// services/companion/overlayMapping.ts — PURE, no I/O
+export const SHAPE_CAPABILITY_IDS: Record<OverlayShape, readonly string[]> = {
+  'github-repo': [],
+  banking: ['cap-moneypenny-financial-services', 'financial-services-capability-suite'],
+};
+export function capabilityIdsForShape(shape: OverlayShape): readonly string[]
+```
+
+`composeBankingCard()` takes that declared id list and keeps only the ids
+that are **actually registered** in the Constitutional Capability Registry
+and **not deprecated**. No semantic classifier, no free-text query, no
+inference over arbitrary apps — the "arbitrary-app classifier" non-goal the
+mapping file rules out is respected, not quietly reintroduced.
+
+Three deliberate choices worth recording:
+
+- **`github-repo` is declared-but-empty, not omitted.** That shape already
+  carries a capability signal via `recommendProducers('software',
+  'operational')`, which reads the *closed `CapabilityId` producer graph* — a
+  different system. Mixing CCB registry ids into the same card would put two
+  unrelated capability notions side by side. Declaring it empty (rather than
+  making the table `Partial<>`) keeps it exhaustive over `OverlayShape`, so
+  adding a third shape is a compile error, not a silent gap.
+- **Registry-wide matches, not caller-owned ones.** Overlay answers "what
+  constitutional capability is relevant to what I'm looking at" — not "what
+  did I register". The persona-scoped ownership re-derivation in
+  `/api/constitutional/capability-registry/mine` answers the *other*
+  question and stays the right tool for it. Note this does **not** weaken the
+  sibling admin route's gate: that gate protects *enumeration* of the whole
+  constitutional ledger, and this path never enumerates — the hand-declared id
+  list is the filter, so nothing outside it can ever reach a response.
+- **The id list is not a duplicate of `scripts/register-ccb-capabilities.ts`.**
+  It's a relevance selection, and the runtime authority on whether an id
+  exists is the registry itself, which the filter queries. If the script's ids
+  ever changed, this table would match nothing and the section would vanish —
+  honest degradation, not stale data. Deriving the list from a one-shot
+  registration script would be the wrong direction of dependency.
+
+**The new type** (`services/companion/overlayComposition.ts`), optional so
+every existing consumer of `BankingOverlayCard` keeps working untouched:
+
+```ts
+export interface OverlayCapabilityMatch {
+  capabilityId: string;
+  displayLabel: string;
+  description: string | null;
+  standingBand: string;
+  briefUrl: string | null;   // repo path OR http(s) URL — UI handles both
+}
+// on BankingOverlayCard:
+matchedCapabilities?: OverlayCapabilityMatch[];
+```
+
+T2-safe by construction: every field is a capability fact from
+`capability_registry`, a table that carries no identity column at all (CFS-032
+T2 discipline). No `personaId` enters or leaves this path.
+
+**What renders.** *Registry populated* → a "Constitutional capabilities"
+section on the banking card, in the canonical slate house style
+(`border-slate-800` / `bg-slate-900/40`, no white hairlines, no solid white
+buttons) matching the card's existing sections: capability label + standing
+band chip, a short description, and the CCB brief — rendered as a link when
+`briefUrl` is an http(s) URL and as plain monospace text when it's a repo
+path, mirroring `MySoftwareTab`'s handling of the same
+path-or-URL ambiguity rather than forking a second convention. *Registry
+empty, migration `20260716000000` unapplied, Supabase unavailable, or none of
+the declared ids registered yet* → the section is omitted entirely and the
+banking card looks exactly as it does today. Never an error, never a
+placeholder, never a fabricated entry — `listRegisteredCapabilities()` is
+itself soft-fail (returns `[]`), and the composition wraps it in its own
+try/catch that warns and degrades, the same discipline as
+`searchFederation`'s per-source `guard()`.
+
+**Practical consequence for MoneyPenny:** once the operator runs
+`scripts/register-ccb-capabilities.ts`, a citizen on any banking-shaped page
+(`metame.com`, `dev-beta.aigentz.me`, `coinbase.com`, …) sees *MoneyPenny
+Constitutional Runtime* surfaced as a relevant constitutional capability with
+her standing band and a pointer to her CCB. Before that script runs, nothing
+appears — which is the honest state, not a bug.
+
+**Not touched, deliberately:** `types/capabilityGraph.ts`'s closed
+`CapabilityId` enum and `services/capability/capabilityGraph.ts`'s
+`recommendProducers` — the investigation above established they belong to a
+different system, and this is a new, separate read path against the CCB
+registry, not a bend of the producer-recommendation one. No DB migration, no
+new table.
+
 ## Shared runtime
 
 MoneyPenny's Constitutional Capability Brief (CFS-049 format) is written (`2026-07-24_ccb-moneypenny-runtime.md`) and queued for registration into the Capability Registry via the same script mentioned above — not yet run by the operator. Once it is, MoneyPenny's runtime becomes a discoverable, receipted, standing-bearing capability like any other, and (per today's mySoftware Phase 2 work) will show up in the registering persona's own mySoftware tab.
@@ -115,8 +214,8 @@ MoneyPenny's own cartridge now has real intra-cartridge navigation (the four-dom
 ## Remaining gaps (honest list)
 
 1. **Live verification owed**: Venture Lab Phase 1 regroup, MoneyPenny Phase 2 regroup, wallet-agent sync currency — none re-checked live this review.
-2. ~~**Companion↔MoneyPenny integration** — does not exist yet.~~ **Closed 2026-07-24 (Companion Search half)**: `searchMoneyPenny` ships as the 7th federated source. **Investigated, not built (Overlay half)**: Overlay's domain→shape mechanism is not generic and does not gain MoneyPenny visibility from CCB registration alone — see "Companion integration" above for the full finding. A MoneyPenny-aware Overlay shape remains a real, scoped-but-unbuilt option if wanted.
-3. **CCB registration** — script written, not yet run by the operator (blocks MoneyPenny's capability from being discoverable/receipted as "hers" in the Capability Registry / mySoftware — and, per today's Overlay investigation, registration alone still would not surface her in Overlay).
+2. ~~**Companion↔MoneyPenny integration** — does not exist yet.~~ **Closed 2026-07-24 (Companion Search half)**: `searchMoneyPenny` ships as the 7th federated source. ~~**Investigated, not built (Overlay half)**: Overlay's domain→shape mechanism is not generic and does not gain MoneyPenny visibility from CCB registration alone — see "Companion integration" above for the full finding. A MoneyPenny-aware Overlay shape remains a real, scoped-but-unbuilt option if wanted.~~ **Closed 2026-07-24 (Overlay half) on operator go-ahead**: the banking shape now carries `matchedCapabilities`, filled by an explicit shape→capability-id table filtered against the live Capability Registry. Surfaces once the CCB registration script is run; degrades to nothing before then. See "Companion Overlay — BUILT" above.
+3. **CCB registration** — script written, not yet run by the operator (blocks MoneyPenny's capability from being discoverable/receipted as "hers" in the Capability Registry / mySoftware). Since the Overlay build landed, this script is now ALSO what makes her appear in the Companion Overlay's banking card — the matching path is live, the registry row is what's missing.
 4. **Domains 1/2 (money-moving) remain shadow-only** — a deliberate, unresolved pause point, not a bug. Any move past it needs its own explicit go-ahead and ceremony review, same discipline as SPEC-MMC-002 Phase 3's Deploy/Run actions.
 5. **No test-suite/typecheck run** across the MoneyPenny increments this session (consistent with this sandbox's pre-existing `npm install` limitation, noted throughout today's other work) — this review is a documentation-level checkpoint, not a QA pass. The new `searchMoneyPenny` source was verified by hand-simulating its match logic against the real `MONEYPENNY_CARTRIDGE.tabs` data (see the follow-up implementation commit), not by a live test run.
 
@@ -124,5 +223,6 @@ MoneyPenny's own cartridge now has real intra-cartridge navigation (the four-dom
 
 - Run the CCB registration script (operator, blocked on migration + personaId, both now provided).
 - Live-verify the two nav regroups (Venture Lab, MoneyPenny) on dev.
-- ~~Decide whether to build Companion↔MoneyPenny integration, and if so scope it~~ — **decided 2026-07-24**: Search source shipped; Overlay content deliberately not built (no narrow gap found; would require a new content shape — needs its own operator go-ahead if wanted).
+- ~~Decide whether to build Companion↔MoneyPenny integration, and if so scope it~~ — **decided 2026-07-24**: Search source shipped; Overlay content initially deferred (no narrow gap found; required a new capability field on the banking shape), then **built the same day on explicit operator go-ahead** ("Yes to mp overlay"). Both halves of Companion↔MoneyPenny integration now exist.
+- Live-verify the Overlay capability section on dev **after** running the CCB registration script — until that script runs there is deliberately nothing to see, so an empty section is not evidence of a defect.
 - Any decision to progress Domains 1/2 toward authoritative needs its own explicit operator-authorized ceremony design — not assumed by this review.

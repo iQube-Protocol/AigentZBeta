@@ -48,6 +48,43 @@ export function shapeForDomain(domain: string | null | undefined): OverlayShape 
 }
 
 /**
+ * SHAPE → CCB CAPABILITY IDS (operator-approved 2026-07-24, "Yes to mp overlay").
+ *
+ * The SAME explicit-table philosophy as `BANKING_DOMAINS` above, one level
+ * further along: a small, hand-declared list of Constitutional Capability
+ * Registry ids (`services/constitutional/capabilityRegistry.ts`) that are
+ * genuinely relevant to a citizen looking at a page of this shape. NOT a
+ * semantic classifier, NOT a free-text query — the same non-goal this file's
+ * header already rules out for domains applies to capabilities.
+ *
+ * Deliberately narrow and honest in both directions:
+ *   - An id listed here that is NOT actually registered simply produces no
+ *     match — never a placeholder, never a fabricated entry (the same
+ *     "degrade honestly" contract as `registryMatch: null`).
+ *   - `github-repo` is intentionally EMPTY: that shape already carries its
+ *     own capability signal via `recommendProducers('software',
+ *     'operational')`, which reads a different system (the closed
+ *     `CapabilityId` producer graph). Adding CCB ids there would put two
+ *     unrelated capability notions in one card. Left declared-but-empty
+ *     rather than omitted so the table stays exhaustive over `OverlayShape`
+ *     and a future shape addition is a compile error, not a silent gap.
+ *
+ * Ids below are the two financial-services capabilities registered by
+ * `scripts/register-ccb-capabilities.ts` — the natural constitutional answer
+ * to "what governs money-shaped work here?" on a banking-shaped page.
+ */
+export const SHAPE_CAPABILITY_IDS: Record<OverlayShape, readonly string[]> = {
+  'github-repo': [],
+  banking: ['cap-moneypenny-financial-services', 'financial-services-capability-suite'],
+};
+
+/** PURE — the declared capability ids for a shape. Never an I/O call; the
+ *  caller checks which of these are ACTUALLY registered. */
+export function capabilityIdsForShape(shape: OverlayShape): readonly string[] {
+  return SHAPE_CAPABILITY_IDS[shape] ?? [];
+}
+
+/**
  * Best-effort repo-name candidate extracted from a GitHub tab title. GitHub
  * page titles commonly take the shape `owner/repo: description` or
  * `GitHub - owner/repo: description` or `owner/repo`. This is a heuristic,

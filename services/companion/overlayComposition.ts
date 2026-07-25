@@ -34,8 +34,10 @@ import { recommendProducers } from '@/services/capability/capabilityGraph';
 import type { ProducerRecommendation } from '@/types/capabilityGraph';
 import {
   repoNameCandidateFromTitle,
+  capabilityIdsForShape,
   type OverlayShape,
 } from '@/services/companion/overlayMapping';
+import { listRegisteredCapabilities } from '@/services/constitutional/capabilityRegistry';
 import {
   searchRegistryIQube,
   searchRegistryAsset,
@@ -63,6 +65,22 @@ export interface GithubRepoOverlayCard {
   researchMatches: CompanionSearchResult[];
 }
 
+/**
+ * A registered Constitutional Capability that the shape's explicit id table
+ * declares relevant to this page. T2-safe by construction: every field is a
+ * capability fact from `capability_registry`, a table that carries NO
+ * identity column at all (CFS-032 T2 discipline) — no personaId, no
+ * ownership, nothing persona-derived.
+ */
+export interface OverlayCapabilityMatch {
+  capabilityId: string;
+  displayLabel: string;
+  description: string | null;
+  standingBand: string;
+  /** Repo path OR http(s) URL — the UI handles both (mySoftware's pattern). */
+  briefUrl: string | null;
+}
+
 export interface BankingOverlayCard {
   shape: 'banking';
   standing: OverlayStandingSummary;
@@ -71,6 +89,12 @@ export interface BankingOverlayCard {
    *  returns to its own callers). */
   identifiability: ActivePersonaContext['identifiability'];
   cartridgeFlags: ActivePersonaContext['cartridgeFlags'];
+  /** Constitutional capabilities relevant to a banking-shaped page
+   *  (operator-approved 2026-07-24). OPTIONAL so every existing consumer of
+   *  this card keeps working unchanged; absent/empty whenever the registry is
+   *  empty, the migration is unapplied, or none of the declared ids are
+   *  actually registered yet. */
+  matchedCapabilities?: OverlayCapabilityMatch[];
 }
 
 export type OverlayCard = GithubRepoOverlayCard | BankingOverlayCard;
@@ -121,13 +145,66 @@ async function composeGithubRepoCard(
   return { shape: 'github-repo', standing, capability, registryMatch, researchMatches };
 }
 
+/**
+ * Capability-matching path (operator-approved 2026-07-24, "Yes to mp overlay").
+ *
+ * The matching RULE is deliberately dumb and auditable: take the shape's
+ * hand-declared id list (`capabilityIdsForShape`, `overlayMapping.ts`) and
+ * keep the ones that are ACTUALLY in the Constitutional Capability Registry
+ * and not deprecated. No semantic classifier, no free-text query, no
+ * inference — the same explicit-table discipline `shapeForDomain` uses one
+ * level up.
+ *
+ * Reads the EXISTING `listRegisteredCapabilities()` (the same function the
+ * admin route and `registeredCapabilityBlock()` already call) — never a new
+ * query, never a parallel registry read. Note this never ENUMERATES the
+ * registry to the caller: the declared id list is the filter, so an
+ * unlisted capability can never reach the response. That is why this does
+ * not weaken the sibling admin route's gate, which exists to protect
+ * enumeration of the whole constitutional ledger.
+ *
+ * Soft-fails to [] on every failure path (`listRegisteredCapabilities` is
+ * itself soft-fail: no Supabase, unapplied migration 20260716000000, or a
+ * query error all yield []), so an empty registry renders as "no matched
+ * capabilities", never an error state — same discipline as
+ * `searchFederation`'s per-source `guard()`.
+ */
+async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCapabilityMatch[]> {
+  const declared = capabilityIdsForShape(shape);
+  if (declared.length === 0) return [];
+  try {
+    const registered = await listRegisteredCapabilities();
+    if (registered.length === 0) return [];
+    const wanted = new Set(declared);
+    return registered
+      .filter((c) => wanted.has(c.capabilityId) && c.lifecycleState !== 'deprecated')
+      .map((c) => {
+        const payload = (c.object?.payload ?? {}) as { description?: string; briefUrl?: string | null };
+        return {
+          capabilityId: c.capabilityId,
+          displayLabel: c.displayLabel,
+          description: payload.description?.trim() ? payload.description : null,
+          standingBand: c.standingBand,
+          briefUrl: payload.briefUrl ?? null,
+        };
+      });
+  } catch (e) {
+    console.warn('[CompanionOverlay] capability match failed; degrading to no matches:', e);
+    return [];
+  }
+}
+
 async function composeBankingCard(persona: ActivePersonaContext): Promise<BankingOverlayCard> {
-  const standing = await buildStandingSummary(persona.personaId);
+  const [standing, matchedCapabilities] = await Promise.all([
+    buildStandingSummary(persona.personaId),
+    matchCapabilitiesForShape('banking'),
+  ]);
   return {
     shape: 'banking',
     standing,
     identifiability: persona.identifiability,
     cartridgeFlags: persona.cartridgeFlags,
+    matchedCapabilities,
   };
 }
 
