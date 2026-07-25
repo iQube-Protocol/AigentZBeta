@@ -410,3 +410,49 @@ describe('DELETE /api/companion/observer/grants/[capability] — fail closed', (
     }
   });
 });
+
+/**
+ * CAPABILITY ROUTE PARITY (2026-07-25).
+ *
+ * `CAPABILITY_ROUTES` (services/companion/overlayMapping.ts) is a
+ * hand-declared projection of two other sources of truth: the Constitutional
+ * Capability Registry's ids and `data/codex-configs.ts`'s codex/tab slugs.
+ * Nothing derives it, so per CLAUDE.md's source-of-truth parity rule
+ * (`inv.engineering.036`/`037`) it needs a canary or it silently rots into a
+ * dead link the moment a tab is renamed, disabled, or moved.
+ *
+ * Registered in tests/source-of-truth-parity.test.ts's index of parity
+ * canaries living elsewhere.
+ */
+describe('Companion Overlay — capability route parity', () => {
+  it('every declared route points at a real, enabled tab in a real codex', async () => {
+    const { CAPABILITY_ROUTES } = await import('@/services/companion/overlayMapping');
+    const { CODEX_DEFINITIONS } = await import('@/data/codex-configs');
+
+    const entries = Object.entries(CAPABILITY_ROUTES);
+    expect(entries.length).toBeGreaterThan(0);
+
+    for (const [capabilityId, route] of entries) {
+      const codex = CODEX_DEFINITIONS.find((c) => c.slug === route.slug);
+      expect(codex, `${capabilityId}: no codex with slug "${route.slug}"`).toBeTruthy();
+
+      const tab = codex!.tabs.find((t) => t.slug === route.tab);
+      expect(tab, `${capabilityId}: codex "${route.slug}" has no tab "${route.tab}"`).toBeTruthy();
+      // A disabled tab is a dead link even though the slug resolves.
+      expect(tab!.enabled, `${capabilityId}: tab "${route.tab}" is disabled`).toBe(true);
+      expect(route.label.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('routes carry no identifier — they are static, loggable metadata', async () => {
+    const { CAPABILITY_ROUTES } = await import('@/services/companion/overlayMapping');
+    // The persona is attached at render time by the panel, never stored here.
+    // A UUID appearing in this table would mean an identifier had been baked
+    // into a static constant — the exact T0/T1 leak the tier rules forbid.
+    const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+    expect(UUID_RE.test(JSON.stringify(CAPABILITY_ROUTES))).toBe(false);
+    for (const route of Object.values(CAPABILITY_ROUTES)) {
+      expect(Object.keys(route).sort()).toEqual(['label', 'slug', 'tab']);
+    }
+  });
+});

@@ -85,6 +85,67 @@ export function capabilityIdsForShape(shape: OverlayShape): readonly string[] {
 }
 
 /**
+ * CAPABILITY → THE SURFACE WHERE IT ACTUALLY OPERATES (2026-07-25).
+ *
+ * Operator, on seeing the capability rows render for the first time: *"I now
+ * see the capability but what can be done with them?"* — a fair question,
+ * because a registered capability with no route to its operating surface is
+ * a label, not an affordance. This table is the answer: it turns each row
+ * into a way IN.
+ *
+ * Deliberately a DEEP LINK to the existing surface, not a second
+ * implementation of it. The Financial Services Capability Suite is a live
+ * 12-step pipeline mounted at Venture Lab α → Financial Services
+ * (`data/codex-configs.ts`, `VENTURE_LAB_CODEX` tab slug
+ * `financial-services`, rendered by `FinancialServicesTab`). Rebuilding any
+ * part of it inside a ~400px side panel would be the parallel-implementation
+ * defect CLAUDE.md's "Extend, Don't Duplicate" forbids — and would fork a
+ * money-moving surface, the worst possible place for two implementations to
+ * drift.
+ *
+ * IDENTIFIER-FREE, exactly like `types/companionSearch.ts`'s routing
+ * metadata: `{ slug, tab }` only. The persona is attached at RENDER time by
+ * the panel via `buildCodexUrl(..., { personaId })` — this table never sees
+ * or stores an identifier, so it stays a pure static constant safe to log.
+ *
+ * A capability absent from this table renders exactly as it does today (text
+ * + brief ref, no link) rather than a dead or invented route — the same
+ * "degrade honestly" contract as the shape table above. `slug`/`tab` values
+ * below are read from `data/codex-configs.ts`, never guessed.
+ */
+export interface CapabilityRoute {
+  /** Codex slug for `buildCodexUrl` — `CodexConfig.slug`, not its id. */
+  readonly slug: string;
+  /** Tab slug within that codex — `CodexTab.slug`. */
+  readonly tab: string;
+  /** Button label. Names the surface, so the operator knows where they land. */
+  readonly label: string;
+}
+
+export const CAPABILITY_ROUTES: Record<string, CapabilityRoute> = {
+  // VENTURE_LAB_CODEX.slug === 'venture-lab'; tab id/slug 'financial-services'
+  // (CRP-003a Increment 3 — the Founder Office Capability Suite).
+  'financial-services-capability-suite': {
+    slug: 'venture-lab',
+    tab: 'financial-services',
+    label: 'Open Financial Services',
+  },
+  // MoneyPenny's runtime drives that same pipeline, so its operating surface
+  // is the same tab — the runtime is the agent mode, not a separate console.
+  'cap-moneypenny-financial-services': {
+    slug: 'venture-lab',
+    tab: 'financial-services',
+    label: 'Open Financial Services',
+  },
+};
+
+/** PURE — the operating surface for a capability, or null when none is
+ *  declared (render the row without a link; never invent a route). */
+export function routeForCapability(capabilityId: string): CapabilityRoute | null {
+  return CAPABILITY_ROUTES[capabilityId] ?? null;
+}
+
+/**
  * Best-effort repo-name candidate extracted from a GitHub tab title. GitHub
  * page titles commonly take the shape `owner/repo: description` or
  * `GitHub - owner/repo: description` or `owner/repo`. This is a heuristic,

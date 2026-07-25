@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { personaFetch } from "@/utils/personaSpine";
+import { buildCodexUrl } from "@/utils/codex-nav";
 import type {
   OverlayCard,
   GithubRepoOverlayCard,
@@ -124,7 +125,18 @@ function GithubRepoCard({ card, domain }: { card: GithubRepoOverlayCard; domain:
   );
 }
 
-function BankingCard({ card, domain }: { card: BankingOverlayCard; domain: string | null }) {
+function BankingCard({
+  card,
+  domain,
+  personaIdHint,
+}: {
+  card: BankingOverlayCard;
+  domain: string | null;
+  /** Threaded through solely to build capability deep-links — the SAME hint
+   *  the panel already uses for `personaFetch`, so the link and the data it
+   *  came from resolve the same persona. */
+  personaIdHint: string;
+}) {
   const score = card.standing.score as { score?: number } | null;
   // Optional on the card type — an older server response (or an empty
   // registry) simply yields no capability section.
@@ -197,6 +209,26 @@ function BankingCard({ card, domain }: { card: BankingOverlayCard; domain: strin
                       {cap.briefUrl.split("/").pop()}
                     </span>
                   )
+                ) : null}
+                {/* The way IN. A registered capability with no route to its
+                   operating surface is a label, not an affordance (operator,
+                   2026-07-25: "I now see the capability but what can be done
+                   with them?"). `route` is identifier-free static metadata
+                   from CAPABILITY_ROUTES; the persona is attached HERE, at
+                   render, exactly as CompanionSearchPanel does. Deep-links to
+                   the existing surface — the Companion never forks it. */}
+                {cap.route ? (
+                  <a
+                    href={buildCodexUrl(cap.route.slug, {
+                      tab: cap.route.tab,
+                      personaId: personaIdHint,
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1 block rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-center text-[11px] text-slate-200 transition-colors hover:bg-slate-900"
+                  >
+                    {cap.route.label} →
+                  </a>
                 ) : null}
               </li>
             ))}
@@ -286,7 +318,7 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
           data.shape === "github-repo" && data.card?.shape === "github-repo" ? (
             <GithubRepoCard card={data.card} domain={data.domain} />
           ) : data.shape === "banking" && data.card?.shape === "banking" ? (
-            <BankingCard card={data.card} domain={data.domain} />
+            <BankingCard card={data.card} domain={data.domain} personaIdHint={personaIdHint} />
           ) : (
             <div className="text-xs text-slate-500">
               {data.reason ? EMPTY_REASON_COPY[data.reason] : "No overlay available for this page"}

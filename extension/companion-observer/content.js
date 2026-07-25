@@ -17,6 +17,15 @@
 
 console.log('[metaMe Observer] content script injected on', location.href);
 
+// Presence marker for background.js's `healObserverInOpenTabs` probe. Set in
+// the ISOLATED world (where both this script and the probe's `func` run), so
+// healing can tell "this tab already has an observer" from "this tab lost its
+// observer to an extension reload" and skip the former. Without it, healing
+// re-injects over a live script and the top-level `const` declarations below
+// throw a redeclaration SyntaxError — harmless (the existing script keeps
+// running) but noisy in every page console on browser startup.
+window.__metameObserverLoaded = true;
+
 /** Wraps `chrome.runtime.sendMessage` in a Promise for async/await use. */
 function sendMessage(message) {
   return new Promise((resolve) => {
@@ -39,6 +48,33 @@ async function checkGrant(capability) {
  * hand, same known-risk duplication flagged in `constants.js`), populating
  * ONLY fields whose capability the background worker confirms is granted.
  */
+/**
+ * Grant-refresh throttle. `buildObservation` refreshes the background
+ * worker's grant cache from the SERVER on every call (see the comment inside
+ * it for why that refresh exists at all). Once re-observation runs on every
+ * tab switch rather than once per page load, an un-throttled refresh means a
+ * network round-trip per flick between tabs.
+ *
+ * 15s is chosen against what the refresh is FOR: catching a capability the
+ * operator just granted in the Companion panel. That's a deliberate human
+ * action followed by looking at the Overlay — comfortably more than 15s of
+ * wall-clock. So the staleness bug the refresh fixes stays fixed, and the
+ * per-switch cost goes away. Page load always refreshes (lastGrantRefreshAt
+ * starts at 0).
+ */
+const GRANT_REFRESH_MIN_INTERVAL_MS = 15_000;
+let lastGrantRefreshAt = 0;
+
+/** Trailing debounce for visibility-driven re-observation: rapid A→B→A tab
+ *  flicking collapses to ONE observation instead of three. */
+const OBSERVE_DEBOUNCE_MS = 400;
+let observeTimer = null;
+
+/** The last payload actually POSTed, minus its timestamp. An observation
+ *  identical to it carries no new information, so sending it would cost a
+ *  write and a row update to say nothing. */
+let lastSentSignature = null;
+
 async function buildObservation() {
   // Refresh the background worker's grant cache from the server FIRST. The
   // worker's `grantStateCache` is only populated at Connect time or on an
@@ -51,7 +87,11 @@ async function buildObservation() {
   // here (no connection, network error) is non-fatal -- checkGrant() below
   // just falls back to whatever the cache already had, same as before this
   // refresh existed.
-  await sendMessage({ type: 'REFRESH_GRANTS' });
+  const now = Date.now();
+  if (now - lastGrantRefreshAt >= GRANT_REFRESH_MIN_INTERVAL_MS) {
+    lastGrantRefreshAt = now;
+    await sendMessage({ type: 'REFRESH_GRANTS' });
+  }
 
   const grantedCapabilities = [];
   const observation = { grantedCapabilities, observedAt: new Date().toISOString() };
@@ -83,8 +123,32 @@ async function observeAndSend() {
   const observation = await buildObservation();
   console.log('[metaMe Observer] observation built (fields gated by live grant check):', observation);
 
+  // Identical-payload suppression. `observedAt` is excluded because it
+  // changes on every build by definition — including it would defeat the
+  // check entirely. Everything the server actually stores or renders IS
+  // compared, so a genuinely changed observation (new domain, new title, a
+  // selection made or cleared, page text changed) always sends.
+  const { observedAt: _observedAt, ...material } = observation;
+  const signature = JSON.stringify(material);
+  if (signature === lastSentSignature) {
+    console.log('[metaMe Observer] observation unchanged since last send — skipped');
+    return;
+  }
+
   const result = await sendMessage({ type: 'OBSERVATION', observation });
   console.log('[metaMe Observer] background observation handling result:', result);
+  // Only record the signature once the consent choke point ACCEPTED it. A
+  // rejected observation must not suppress the next attempt.
+  if (result && result.ok) lastSentSignature = signature;
+}
+
+/** Debounced entry point for every event-driven re-observation. */
+function scheduleObserve() {
+  if (observeTimer) clearTimeout(observeTimer);
+  observeTimer = setTimeout(() => {
+    observeTimer = null;
+    void observeAndSend();
+  }, OBSERVE_DEBOUNCE_MS);
 }
 
 async function main() {
@@ -104,8 +168,13 @@ main();
 // a tab is already open has no effect until the operator reloads that tab —
 // the stored observation stays the stale pre-grant one, gated fields never
 // appear, and the Overlay looks broken even though the grant is correct.
+//
+// Debounced + identical-payload-suppressed (2026-07-25) so that "re-observe
+// whenever the tab is looked at" does not become a network write per tab
+// flick. Switching away and back with nothing changed now costs zero
+// requests; switching to a genuinely different page always sends.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    void observeAndSend();
+    scheduleObserve();
   }
 });

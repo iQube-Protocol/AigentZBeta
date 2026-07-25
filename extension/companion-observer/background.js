@@ -715,6 +715,86 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   void performCapture(info, tab);
 });
 
+// ─── Content-script healing for already-open tabs ──────────────────────────
+//
+// THE BUG THIS FIXES (operator-reported 2026-07-25, "the overlay is a bit
+// intermittent and the refresh button does not seem to work"):
+//
+// Manifest V3 does NOT inject `content_scripts` into tabs that were already
+// open when the extension is installed, updated, or reloaded — injection
+// happens on navigation only. So after every `chrome://extensions` reload,
+// EVERY open tab silently loses its observer: no content script means no
+// page-load observation AND no `visibilitychange` re-observation
+// (content.js). Switching to such a tab writes nothing, so
+// `/api/companion/overlay` keeps serving whichever tab DID still have a live
+// content script — the operator saw "venice.ai" in the Overlay while looking
+// at github.com, and Refresh (which only re-reads that same stored row)
+// correctly showed no change. Reloading the page fixed it, which is exactly
+// the signature of this class of bug.
+//
+// The fix is the standard MV3 remedy: on install/update/startup, inject the
+// SAME files the manifest already declares into the tabs that missed it.
+//
+// NOT A PRIVILEGE EXPANSION. `manifest.json` already declares these two
+// files as `content_scripts` matching `http://*/*` + `https://*/*`, so this
+// injects exactly what Chrome would have injected on the next navigation —
+// only sooner. It is deliberately UNRELATED to `isCompanionAppUrl` /
+// `getCompanionAppTab`, which guard a different act: reading auth material
+// OUT of a page (see that guard's own note). Reading nothing and injecting
+// the declared observer is not that act, and conflating the two would break
+// the observer on every non-metaMe page, which is most of them.
+const HEALED_CONTENT_SCRIPT_FILES = ['constants.js', 'content.js'];
+
+/** http(s) only — `chrome://`, `about:`, the Web Store, and other privileged
+ *  origins reject injection, and the manifest never matched them anyway. */
+function isInjectableUrl(url) {
+  return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+}
+
+/**
+ * Best-effort, never-throws. A tab that refuses injection (privileged origin,
+ * closed mid-flight, or a page that already HAS the script) is skipped
+ * silently — one uninjectable tab must not stop the rest from healing.
+ */
+async function healObserverInOpenTabs(trigger) {
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch (err) {
+    console.warn('[metaMe Companion] tab query failed while healing observer:', err);
+    return;
+  }
+
+  let healed = 0;
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (!tab.id || !isInjectableUrl(tab.url)) return;
+      try {
+        // Skip tabs that already have a live observer (see content.js's
+        // marker). Both this probe and the content script run in the same
+        // ISOLATED world, so the flag is visible here.
+        const [probe] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => Boolean(window.__metameObserverLoaded),
+        });
+        if (probe?.result) return;
+
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: HEALED_CONTENT_SCRIPT_FILES,
+        });
+        healed += 1;
+      } catch {
+        // Expected for privileged origins and races — not an error.
+      }
+    }),
+  );
+  console.log(`[metaMe Companion] observer healed in ${healed} open tab(s) (${trigger})`);
+}
+
+chrome.runtime.onInstalled.addListener(() => void healObserverInOpenTabs('install/update'));
+chrome.runtime.onStartup.addListener(() => void healObserverInOpenTabs('browser-startup'));
+
 // ─── Message relay — the content script's only path to grant state ────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

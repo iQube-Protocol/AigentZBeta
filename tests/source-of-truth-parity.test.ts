@@ -29,6 +29,11 @@
  *    Journey Registry, and the substrate resolver composes rather than
  *    re-derives passport/access/delegation:
  *      tests/onboarding-substrate.test.ts
+ *  - CAPABILITY_ROUTES (Companion Overlay capability deep-links) ↔ real,
+ *    ENABLED codex/tab slugs in data/codex-configs.ts -- a hand-declared
+ *    projection of two sources of truth, so a renamed/disabled tab must fail
+ *    the build rather than ship a dead link:
+ *      tests/companion-observer.test.ts
  */
 
 import { describe, it, expect } from 'vitest';

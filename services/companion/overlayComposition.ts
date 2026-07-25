@@ -35,6 +35,8 @@ import type { ProducerRecommendation } from '@/types/capabilityGraph';
 import {
   repoNameCandidateFromTitle,
   capabilityIdsForShape,
+  routeForCapability,
+  type CapabilityRoute,
   type OverlayShape,
 } from '@/services/companion/overlayMapping';
 import { listRegisteredCapabilities } from '@/services/constitutional/capabilityRegistry';
@@ -79,6 +81,12 @@ export interface OverlayCapabilityMatch {
   standingBand: string;
   /** Repo path OR http(s) URL — the UI handles both (mySoftware's pattern). */
   briefUrl: string | null;
+  /** Where this capability actually OPERATES, from `CAPABILITY_ROUTES`
+   *  (overlayMapping.ts). Identifier-free `{ slug, tab, label }`; the panel
+   *  attaches the persona at render time via `buildCodexUrl`. `null` when no
+   *  operating surface is declared — the row renders without a link rather
+   *  than inventing a route. */
+  route: CapabilityRoute | null;
 }
 
 export interface BankingOverlayCard {
@@ -186,6 +194,7 @@ async function matchCapabilitiesForShape(shape: OverlayShape): Promise<OverlayCa
           description: payload.description?.trim() ? payload.description : null,
           standingBand: c.standingBand,
           briefUrl: payload.briefUrl ?? null,
+          route: routeForCapability(c.capabilityId),
         };
       });
   } catch (e) {
