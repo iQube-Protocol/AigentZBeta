@@ -1,6 +1,6 @@
 # SPEC-CDR-001 — Constitutional Domain & Context Resolution
 
-**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: DRAFT — DOCS-ONLY, DIRECTION RATIFIED / DECISIONS OPEN. The operator ratified the *direction* on 2026-07-25 with one required refinement (separate Domain Resolution from Context Resolution, now §12–§14). The §10 decision register remains OPEN and unratified. No code may change under this SPEC: "Do not rename `banking`, replace the hostname set, widen `FinancialDomain`, or begin agent classification until the charter has been reviewed and ratified."**
+**metaMe IRL / iQube Protocol / AgentiQ · Platform resolution-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — "This is now ratified and cleared to proceed to dev." Architecture and all architectural decisions in §10 are ratified. THREE decisions remain genuinely unresolvable without operator input (D-8, D-12, D-15) and gate specific phases only — see §10.2. Implementation may begin at P1.**
 **Title:** *Constitutional Domain & Context Resolution — domain profiles, resolver precedence, context composition, and capability presentation for websites, applications, agents, tools, services and workflows*
 **Companion to:** CRP-003 (Financial Services Constitutional Capability Domain) · CRP-003a (Constitutional Financial Services Programme) · PRD-MPY-001 (MoneyPenny) · PRD-MMC-001 (metaMe Companion) · PRD-IRE-001 (Invariant Resolution Engine) · CFS-051 (Experiment / Constitutional / Invariant Pipeline)
 **Extension of:** the Companion Overlay's existing domain→shape mapping (`services/companion/overlayMapping.ts`) and the shipped `FinancialDomain` execution taxonomy (`services/constitutional/financialIntelligenceExecutor.ts`). This SPEC introduces a resolution *layer* between them. It does not introduce a new financial ontology.
@@ -451,6 +451,22 @@ Corollaries:
 2. A module absent from a composed context is **not** an authorisation denial — it is a presentation decision, and the spine must still deny independently if the action is attempted by another route.
 3. Hiding is a UX decision; permitting is a constitutional one. They may disagree without either being wrong.
 
+### 13a.3a The formal handoff interface (operator refinement, D-26)
+
+The transition was conceptually clear but technically implicit, which is how policy logic leaks backwards. Made explicit:
+
+```
+Resolved Context  →  Authorized Action Request  →  Identity & Access Spine  →  verdict
+```
+
+The Context Resolver **never asks** *"May I trade?"* It states what was selected:
+
+> *"The citizen selected Market Operations / Execute Trade."*
+
+Only then does the spine evaluate Passport, Standing, delegation, agreement, plan and permissions, and return a verdict. The resolver neither anticipates that verdict nor pre-filters against it.
+
+**Why the interface matters more than the principle:** a principle can be honoured loosely; an interface makes the violation visible in code review. An `AuthorizedActionRequest` that carried a `likelyPermitted` hint, or a resolver that consulted the spine "just to decide what to render," would both be immediately legible as boundary erosion at this seam. Without a named interface, the same drift arrives as a series of individually-reasonable-looking commits.
+
 ### 13a.4 Authorization is evaluated at the point of action, never cached from composition (proposed, D-22)
 
 A subtle hazard the three-stage split exposes: if authorization were evaluated *during* Context Resolution and carried forward in the Resolved Context, the result would be a time-of-check/time-of-use gap. A delegation can be revoked, a plan tier can lapse, an agreement can expire, and Standing can change between the moment a context is composed and the moment the citizen clicks. A context that carried "permitted: true" would be asserting a fact that had since become false.
@@ -463,13 +479,29 @@ A subtle hazard the three-stage split exposes: if authorization were evaluated *
 
 The operator observed that the Domain/Context split "accidentally exposes two very clean invariants." Both are proposed here as **candidate structural invariants**, and — per CFS-051 — the correct home for them is the `research_candidate_invariants` register at status `candidate`, not inline canonization in this document. This SPEC proposes; it does not canonize.
 
-### CDR-INV-1 — Domain Profile universality
+### CDR-INV-1 — Domain Profile universality (STRUCTURAL DEFINITION, not a candidate)
 
 > **Every citizen observing the same subject receives the same Domain Profile.**
 
-If that does not hold, the object is not a Domain Profile. This is **definitional, not empirical** — it is a structural rule about what the artifact *is*, in the same class as CLAUDE.md's engineering invariants, not a hypothesis about the world requiring experimental support. Ratifying it would place it in the canonical class directly.
+If that does not hold, the object is not a Domain Profile.
 
-**It is directly canary-able**, which is what makes it valuable rather than merely elegant: resolve the same subject for N distinct citizens, assert byte-identical profiles. Any persona-derived field introduced by a future change (§12.2's hazard) fails that test immediately and loudly.
+**Corrected 2026-07-25 (operator).** An earlier draft filed this into CFS-051's
+candidate register *while also* calling it definitional. The operator identified
+the contradiction: *"If something is definitional, then it is not awaiting
+experimental confirmation — it is part of the definition of the artifact
+itself."* Correct. Filing a definition as a candidate would have implied it
+could fail review and be rejected, which is incoherent — rejecting it would not
+falsify a claim, it would merely mean the thing being described was never a
+Domain Profile.
+
+The two are therefore separated:
+
+| | Statement | Where it belongs |
+|---|---|---|
+| **Structural definition** | A Domain Profile is citizen-independent. | **This architecture — binding on ratification.** Not a candidate. |
+| **Research question** | Does maintaining citizen-independent Domain Profiles measurably improve composability, cacheability, auditability or performance? | **CFS-051 register**, status `proposed` — a real empirical claim with a real experiment behind it. |
+
+**The definition is directly canary-able**, which is what makes it enforceable rather than merely stated: resolve the same subject for N distinct citizens, assert byte-identical profiles. Any persona-derived field introduced by a future change (§12.2's hazard) fails immediately and loudly. That canary is a *conformance test against a definition*, not evidence for a hypothesis.
 
 ### CDR-INV-2 — Context divergence legitimacy
 
@@ -481,7 +513,19 @@ Because Context depends on Passport, Standing, delegation, plan tier, permission
 
 ---
 
-## 13c. Named future direction — Activity Context (NOT adopted)
+### 13b.1 A third invariant to watch for during implementation (not adopted)
+
+The operator flagged a likely third structural invariant, explicitly not for adoption now:
+
+> **Authorization decisions shall not alter Domain Profiles or Resolved Contexts.**
+
+Because **resolution is descriptive; authorization is normative.** If authorization begins mutating what was resolved, the architecture collapses back into a single decision engine and every separation in §§12–13a becomes notional.
+
+Recorded as an **implementation watch item (D-27)**, not a ratified invariant, on the operator's framing: *"it's exactly the kind of boundary erosion that tends to happen over time."* The realistic failure is not a deliberate design change but a plausible-looking optimisation — e.g. "the spine already computed this, so let's write it back into the context to avoid recomputing." That commit would look like caching and would in fact be a category violation. Reviewers of §12–13a work should treat any write-back from the authorization stage as presumptively wrong.
+
+---
+
+## 13c. Reserved composition axis — Activity Context (NOT adopted)
 
 The operator: *"What sits between Context and execution? … Activity Context."* The observation is that these four facts together produce a materially different experience than the subject alone:
 
@@ -495,7 +539,12 @@ Domain Context  +  Citizen Context  +  Activity Context  =  Resolved Context
 
 explaining why the *same* citizen may legitimately see different constitutional experiences on the *same* subject depending on what they are trying to accomplish — a case CDR-INV-2 permits but does not currently model.
 
-**Recorded as a direction, explicitly NOT adopted (D-23), on the operator's own instruction ("I'd leave this as a future direction rather than adding it now").** §12.3 already lists "current task / intent" as a context input, which is the seed of Activity Context; this SPEC does not elevate it into a named third composition term. Doing so would design against an unratified concept.
+**Recorded as a RESERVED COMPOSITION AXIS, explicitly NOT adopted (D-23).** The operator's framing, and it is the more accurate one: *"You're reserving a dimension rather than proposing a feature."* The distinction matters for implementation — a reserved axis means Context Resolution's internal shape should not be written so as to make a third (or fourth) composition term impossible to add later, even though none is added now. Anticipated axes, none specified:
+
+```
+Resolved Context = Domain Context + Citizen Context + Activity Context (reserved) + Environmental Context (reserved) + …
+```
+ §12.3 already lists "current task / intent" as a context input, which is the seed of Activity Context; this SPEC does not elevate it into a named third composition term. Doing so would design against an unratified concept.
 
 ---
 
@@ -527,6 +576,23 @@ explaining why the *same* citizen may legitimately see different constitutional 
                               PRESENTATION (Overlay, and every other consumer)
 ```
 
+### 14.1 Where this SPEC's authority ends (operator refinement, D-28)
+
+This document governs the **resolution portion of the constitutional lifecycle only**. The full lifecycle continues well past Presentation, and every stage after Authorization **already exists** in the constitutional service pattern:
+
+```
+Subject → Domain Resolution → Domain Profile → Context Resolution → Resolved Context
+    → Authorization (Identity & Access Spine)     ← THIS SPEC HANDS OFF HERE
+    → Execution            (constitutionalServicePipeline, the domain executors)
+    → Evidence             (activity receipts, DVN anchoring)
+    → Standing             (standing accrual)
+    → Constitutional Memory
+```
+
+**Stated explicitly so no future reader assumes the architecture ends at Presentation.** It does not: resolution feeds directly into evidence generation and Standing, both of which are governed by existing, protected machinery — the DVN pipeline paramounts and the receipt writers. A change to resolution that quietly altered what evidence gets generated would be out of this SPEC's scope *and* inside the DVN protection boundary.
+
+**Corollary:** Presentation is a *branch* of this lifecycle, not its terminus. The Overlay renders; it is not where the constitutional story ends.
+
 ---
 
 ## 9. Research apparatus
@@ -543,31 +609,48 @@ Every decision below must be resolved before implementation. **No code changes u
 
 | # | Decision | Recommendation | Status |
 |---|---|---|---|
-| **D-1** | Execution taxonomy derived from `FinancialDomain` in code, with a parity canary where derivation is impossible | Adopt | **Open** |
-| **D-2** | Accept `constitutional-financial-integrity` as a **governance** domain (non-executable) | Adopt as proposed, non-executable | **Open** |
-| **D-3** | Accept `constitutional-commerce` as a **governance** domain (non-executable) | Adopt as proposed, non-executable | **Open** |
-| **D-4** | Governance domains sit **beside** execution domains, related by `governs`, not above them | Adopt (§4.3 rationale) | **Open** |
-| **D-5** | Split `assertionProvenance` and `verificationStatus` into two independent fields | Adopt | **Open** |
-| **D-6** | `confidence` present only for `discovered`; absent for curated/first-party | Adopt | **Open** |
-| **D-7** | Profile schema `cdr-domain-profile/v1` as specified in §5.3, incl. T2-only `verifiedBy` | Adopt | **Open** |
+| **D-1** | Execution taxonomy derived from `FinancialDomain` in code, with a parity canary where derivation is impossible | Adopt | **RATIFIED** |
+| **D-2** | Accept `constitutional-financial-integrity` as a **governance** domain (non-executable) | Adopt as proposed, non-executable | **RATIFIED** |
+| **D-3** | Accept `constitutional-commerce` as a **governance** domain (non-executable) | Adopt as proposed, non-executable | **RATIFIED** |
+| **D-4** | Governance domains sit **beside** execution domains, related by `governs`, not above them | Adopt (§4.3 rationale) | **RATIFIED** |
+| **D-5** | Split `assertionProvenance` and `verificationStatus` into two independent fields | Adopt | **RATIFIED** |
+| **D-6** | `confidence` present only for `discovered`; absent for curated/first-party | Adopt | **RATIFIED** |
+| **D-7** | Profile schema `cdr-domain-profile/v1` as specified in §5.3, incl. T2-only `verifiedBy` | Adopt | **RATIFIED** |
 | **D-8** | Whether `invariantFieldRef` (`ire://…`) is resolvable or documentary | **Unresolved — consult PRD-IRE-001** | **Open** |
-| **D-9** | Four-level resolver precedence, strictly ordered | Adopt | **Open** |
-| **D-10** | L3 abstention forms; "abstention preferable to fabricated context" as binding | Adopt | **Open** |
-| **D-11** | Presentation/execution firewall — modules must not imply executability | Adopt | **Open** |
+| **D-9** | Four-level resolver precedence, strictly ordered | Adopt | **RATIFIED** |
+| **D-10** | L3 abstention forms; "abstention preferable to fabricated context" as binding | Adopt | **RATIFIED** |
+| **D-11** | Presentation/execution firewall — modules must not imply executability | Adopt | **RATIFIED** |
 | **D-12** | Which engine owns profile generation (IRE / IPE / KRE / CFO / a distinct Discovery Engine) | **Unresolved — do not guess** | **Open** |
-| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Defer until D-2/D-3/D-12 resolved | **Open** |
-| **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **Open** |
+| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Defer until D-2/D-3/D-12 resolved | **RATIFIED** |
+| **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **RATIFIED** |
 | **D-15** | Seed registry membership — which hostnames, at which provenance/verification | **Requires an explicit operator list.** Do not carry the five demo hosts forward by default | **Open** |
-| **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **Open** |
+| **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **RATIFIED** |
 | **D-17** | Whether a Domain Profile eventually becomes an iQube type (`DomainQube`) | **Direction noted, explicitly NOT adopted here** (§1.3). Requires its own charter | **Deferred** |
-| **D-18** | Domain Profile carries no persona-derived field; profiles cacheable/shareable, Resolved Contexts never cached across citizens and never persisted back (§12.2) | Adopt — tier-discipline hazard, not a style choice | **Open** |
+| **D-18** | Domain Profile carries no persona-derived field; profiles cacheable/shareable, Resolved Contexts never cached across citizens and never persisted back (§12.2) | Adopt — tier-discipline hazard, not a style choice | **RATIFIED** |
 | **D-19** | Whether "temporal state" is a Context Resolution input | **Unresolved — no temporal-state primitive located. Do not guess** (§12.3) | **Open** |
-| **D-20** | Context Resolution is composition only, never an authorisation boundary (§12.4) | Adopt — a resolver that also permits would be a parallel access gate | **Open** |
-| **D-21** | Human Mobility extension must satisfy HMS T0 identifier-isolation (PSC-001) BEFORE any profile is generated (§13) | Adopt as a precondition, not a follow-on | **Open** |
-| **D-22** | Authorization is a distinct STAGE (§13a), owned by the Identity & Access Spine, never by this SPEC; verdicts evaluated at point of action and never carried in a Resolved Context | Adopt — supersedes and subsumes D-20 | **Open** |
+| **D-20** | Context Resolution is composition only, never an authorisation boundary (§12.4) | Adopt — a resolver that also permits would be a parallel access gate | **RATIFIED** |
+| **D-21** | Human Mobility extension must satisfy HMS T0 identifier-isolation (PSC-001) BEFORE any profile is generated (§13) | Adopt as a precondition, not a follow-on | **RATIFIED** |
+| **D-22** | Authorization is a distinct STAGE (§13a), owned by the Identity & Access Spine, never by this SPEC; verdicts evaluated at point of action and never carried in a Resolved Context | Adopt — supersedes and subsumes D-20 | **RATIFIED** |
 | **D-23** | Activity Context as a third composition term | **Direction noted, explicitly NOT adopted** (§13c), per operator instruction | **Deferred** |
-| **D-24** | Register CDR-INV-1 (Domain Profile universality) and CDR-INV-2 (Context divergence legitimacy) as candidate structural invariants in CFS-051's register at status `candidate` | Adopt — definitional, so canonical-class if ratified, not hypothesis-class | **Open** |
-| **D-25** | Resolution service framed as constitutional middleware consumed by every Capability Suite (§1.1), with Financial Services as first implementation and Human Mobility as second | Adopt | **Open** |
+| **D-24** | Register CDR-INV-1 (Domain Profile universality) and CDR-INV-2 (Context divergence legitimacy) as candidate structural invariants in CFS-051's register at status `candidate` | Adopt — definitional, so canonical-class if ratified, not hypothesis-class | **RATIFIED** |
+| **D-25** | Resolution service framed as constitutional middleware consumed by every Capability Suite (§1.1), with Financial Services as first implementation and Human Mobility as second | Adopt | **RATIFIED** |
+| **D-26** | Formal `Resolved Context → Authorized Action Request → Spine` handoff interface (§13a.3a) — the resolver states what was selected, never asks whether it is permitted | Adopt — an interface makes the violation legible in review; a principle does not | **RATIFIED** |
+| **D-27** | *Authorization decisions shall not alter Domain Profiles or Resolved Contexts* — resolution is descriptive, authorization is normative | **Implementation watch item, NOT a ratified invariant** (§13b.1). Treat any write-back from the authorization stage as presumptively wrong in review | **Watch** |
+| **D-28** | This SPEC governs the resolution portion of the lifecycle only, handing off after Authorization to the existing Execution → Evidence → Standing → Constitutional Memory chain (§14.1) | Adopt — prevents readers assuming the architecture terminates at Presentation | **RATIFIED** |
+
+### 10.2 What ratification resolved, and the three things it could not
+
+Ratification (2026-07-25) approves the architecture and every decision whose answer is an architectural choice. **Three decisions are not architectural choices** — they require information this SPEC cannot derive from the codebase, and CLAUDE.md's zero-tolerance no-guessing rule forbids inventing them:
+
+| # | Why it cannot be resolved by ratification alone | What it gates | What is needed |
+|---|---|---|---|
+| **D-15** | Seed registry membership is a **list of real hostnames** with real provenance/verification. The five demo hosts must not be inherited by default (§0.1: three are metaMe's own properties, one is an exchange). | **P2** — blocks it entirely | An explicit operator list: which hostnames, each at `first-party` or `curated`, each `verified` or `provisional` |
+| **D-12** | Which engine owns profile generation. The directive says "IDE"; the codebase has IRE, IPE, KRE, CFO. Naming the wrong one would misroute the whole discovery path. | **P5, P6** | An operator/steward decision, or an explicit "investigate and report" authorisation |
+| **D-8** | Whether `invariantFieldRef`'s `ire://` scheme resolves or is documentary. Requires reading PRD-IRE-001 against the shipped resolver. | Profile-schema completeness (soft) | Either an operator answer or authorisation to investigate. **Interim: treat as documentary**, so nothing depends on resolvability |
+
+**P1 is unblocked and may begin immediately** — it depends only on D-1, which is architectural and ratified.
+
+**D-19 (temporal state)** stays `Deferred`, not blocking: §12.3 already lists the context inputs that do exist, and no surface needs a temporal input to function.
 
 ### 10.1 Explicitly NOT authorised by ratifying this SPEC
 
