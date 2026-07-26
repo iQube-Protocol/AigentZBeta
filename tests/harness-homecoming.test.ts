@@ -12,6 +12,8 @@ import { HOMECOMING_DELEGATE_SPECS } from '@/services/homecoming/agentHomecoming
 import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import {
   resolveDelegateIdentity,
+  resolveAuthoredOrGenericIdentity,
+  GENERIC_DELEGATE_DESCRIPTION,
   buildDelegateSystemPrompt,
 } from '@/services/homecoming/delegateConverse';
 
@@ -48,6 +50,30 @@ describe('resolveDelegateIdentity', () => {
         expect(id.label).toBe(slug);
       }
     }
+  });
+
+  it('the generic-identity RULE is directly testable without an invalid delegate id', () => {
+    // Operator refinement 2026-07-25: the rule is extracted as a pure function
+    // so the forward-compatibility branch can be proven without fabricating an
+    // off-roster id (which the type boundary forbids and which throws).
+    const generic = resolveAuthoredOrGenericIdentity({
+      delegateId: 'future-delegate',
+      authoredIdentity: null,
+      agentClass: 'guide-agent',
+    });
+    expect(generic.label).toBe('future-delegate');
+    expect(generic.description).toBe(GENERIC_DELEGATE_DESCRIPTION);
+    // TRUE of every delegate by charter, and free of invented specifics.
+    expect(generic.description).toContain('bounded delegation');
+
+    // ...and an authored identity is used verbatim rather than genericised.
+    const authored = resolveAuthoredOrGenericIdentity({
+      delegateId: 'future-delegate',
+      authoredIdentity: { displayName: 'Future', description: 'Authored copy.' },
+      agentClass: 'guide-agent',
+    });
+    expect(authored.label).toBe('Future');
+    expect(authored.description).toBe('Authored copy.');
   });
 
   it('an AUTHORED delegate keeps its card identity (regression: moneypenny was authored)', () => {

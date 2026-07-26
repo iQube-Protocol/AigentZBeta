@@ -27,22 +27,56 @@ export interface DelegateIdentity {
   agentClass: string;
 }
 
+/** The generic identity. TRUE of every Homecoming delegate by charter, and
+ *  free of invented specifics — it states only bounded delegation. */
+export const GENERIC_DELEGATE_DESCRIPTION =
+  'A constitutional delegate of the Human Agency System, operating under bounded delegation.';
+
 /**
- * Resolve a delegate's conversational identity. Authored delegates (a stand-up
- * spec) carry their card-grounded description; others fall back to a generic —
- * but still TRUE — bounded-delegate identity from the charter-time roster (No
- * invented specifics). Pure.
+ * The selection RULE, as a pure function of its inputs (operator refinement,
+ * 2026-07-25).
+ *
+ * **Forward-compatibility rule, stated conditionally — this is not a fallback
+ * a citizen can exercise today:** *if a future roster-valid delegate exists
+ * without an authored identity specification, Homecoming returns the generic
+ * identity rather than inventing authored characteristics.*
+ *
+ * Every delegate on the current roster (aletheon, moneypenny, nakamoto) IS
+ * authored, so the generic branch has no reachable subject. Extracting the rule
+ * here keeps it directly testable without fabricating an invalid delegate id —
+ * which would assert behaviour the type boundary already forbids.
+ */
+export function resolveAuthoredOrGenericIdentity(input: {
+  delegateId: string;
+  authoredIdentity: { displayName: string; description: string } | null;
+  agentClass: string;
+}): DelegateIdentity {
+  return {
+    label: input.authoredIdentity?.displayName ?? input.delegateId,
+    description: input.authoredIdentity?.description ?? GENERIC_DELEGATE_DESCRIPTION,
+    agentClass: input.agentClass,
+  };
+}
+
+/**
+ * Resolve a delegate's conversational identity.
+ *
+ * **Defined ONLY for roster-valid delegate ids.** An off-roster id throws on
+ * the charter-status lookup, and that is deliberate: a defensive guard here
+ * would weaken the type boundary and imply arbitrary ids are supported. The
+ * invariant is enforced by type and at call sites, never by a silent fallback
+ * inside the resolver.
+ *
+ * Composes `resolveAuthoredOrGenericIdentity` rather than repeating the rule.
  */
 export function resolveDelegateIdentity(delegate: HomecomingDelegateId): DelegateIdentity {
   const spec = getDelegateSpec(delegate);
   const meta = DELEGATE_CHARTER_STATUS[delegate];
-  return {
-    label: spec?.displayName ?? delegate,
-    description:
-      spec?.description ??
-      'A constitutional delegate of the Human Agency System, operating under bounded delegation.',
+  return resolveAuthoredOrGenericIdentity({
+    delegateId: delegate,
+    authoredIdentity: spec ? { displayName: spec.displayName, description: spec.description } : null,
     agentClass: meta.agentClass,
-  };
+  });
 }
 
 export interface DelegateGrounding {
