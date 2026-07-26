@@ -162,16 +162,30 @@ describe('Quick Links are derived and reuse the shipped navigation', () => {
     expect(code).toContain('window.open(quickLinkHref(link, personaId), quickLinkTarget()');
   });
 
-  it('§3.2.4 — renders in the copilot\'s OWN carousel, not Companion chrome', () => {
-    // Class 2 actions are conversational affordances. Reusing the shipped
-    // `quickPrompts` row above the composer is what makes that true, rather
-    // than a second bespoke strip that merely looks similar.
-    const code = stripComments(readSource(COMPANION_PAGE));
-    expect(code).toContain('quickPrompts={quickLinkPrompts}');
-    expect(code).toContain('onPrompt={openQuickLink}');
-    expect(code).toContain('skipInference: true');
-    // No bespoke anchor strip left behind.
-    expect(code).not.toMatch(/quickLinks\.map\([^)]*\)\s*=>\s*\(\s*<a/);
+  it('DEFECT RECORDED — quickPrompts is dead API on CodexCopilotLayer', () => {
+    // Found 2026-07-26 when the carousel did not appear in the running build.
+    // `quickPrompts` is DECLARED on CodexCopilotLayer's props (line ~56) but is
+    // never destructured and never rendered. Passing it does nothing.
+    //
+    // So the previous claim here — "Quick Links reuse the shipped carousel" —
+    // was FALSE. The prop was passed; no carousel existed to receive it. This
+    // test now pins the defect rather than asserting the property, because a
+    // canary that greps for `quickPrompts={...}` in the page would go green
+    // forever while the citizen sees nothing: exactly the false-confidence
+    // failure these canaries exist to prevent.
+    //
+    // The real contextual-action mechanism is `walletActions`
+    // (WalletActionPayload[]), which produces the Open Checkout / Wallet
+    // Balance chips. Wiring Quick Links through it — or making `quickPrompts`
+    // live — is SCOPE-MMC-004 D-13.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    const declared = copilot.includes('quickPrompts?:');
+    const consumed = /quickPrompts[,)\s]/.test(copilot.replace('quickPrompts?:', ''));
+    expect(declared, 'quickPrompts should still be declared').toBe(true);
+    expect(
+      consumed,
+      'quickPrompts is now consumed — delete this defect record and wire Quick Links through it (D-13).',
+    ).toBe(false);
   });
 
   it('is a presentation filter, and says so — the server gate still governs', () => {
