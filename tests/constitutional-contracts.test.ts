@@ -82,10 +82,18 @@ describe('Canonical Ontology Service (CFS-015)', () => {
 
   it('attaches governing invariants to resolved concepts', async () => {
     const r = await resolveOntology('How does Standing differ from Reach?');
-    const standing = r.resolvedTerms.find((t) => t.canonical === 'standing');
-    expect(standing?.invariantIds).toContain('inv.constitutional.061');
-    const reach = r.resolvedTerms.find((t) => t.canonical === 'reach');
-    expect(reach?.invariantIds).toContain('inv.constitutional.062');
+    // Canonical CASING is not part of the contract. When a concept also exists
+    // as a glossary/ontology canon term, the resolver MERGES the two into one
+    // entry (source 'both') and keeps the glossary's canonical form -- so
+    // 'Standing' may be the surviving spelling. Pinning the lowercase form
+    // asserted an implementation detail and broke on a deliberate merge; what
+    // matters is that exactly one entry exists and the invariants are attached.
+    const find = (c: string) =>
+      r.resolvedTerms.filter((t) => t.canonical.toLowerCase() === c);
+    expect(find('standing'), 'standing resolved to 0 or >1 entries').toHaveLength(1);
+    expect(find('standing')[0].invariantIds).toContain('inv.constitutional.061');
+    expect(find('reach'), 'reach resolved to 0 or >1 entries').toHaveLength(1);
+    expect(find('reach')[0].invariantIds).toContain('inv.constitutional.062');
   });
 
   it('surfaces unresolvable qube-flavoured drift instead of dropping it', async () => {
@@ -119,7 +127,12 @@ describe('Model Router v1 (CFS-015)', () => {
     expect(routes.map((r) => r.stage).sort()).toEqual([...REASONING_STAGES].sort());
     for (const r of routes) {
       expect(isAllowedExperimentModel(r.provider, r.model), `${r.stage} → ${r.provider}:${r.model}`).toBe(true);
-      expect(r.source).toBe('default');
+      // ModelQube routing (CFS-015 Phase 2) made routing constitutional data:
+      // a stage now normally resolves via 'modelqube', with 'default' as the
+      // defensive fallback when no qube is fit. The contract this test guards
+      // is that EVERY stage routes to an ALLOWLISTED model -- not which of the
+      // two non-override sources produced it.
+      expect(['modelqube', 'default'], `${r.stage} source`).toContain(r.source);
     }
   });
 
@@ -127,11 +140,16 @@ describe('Model Router v1 (CFS-015)', () => {
     process.env.CONSTITUTIONAL_ROUTE_CONSEQUENCE = 'openai:gpt-4o';
     expect(routeFor('consequence')).toMatchObject({ provider: 'openai', model: 'gpt-4o', source: 'override' });
 
+    // An ignored override falls back to normal resolution -- which is
+    // ModelQube-driven, with the literal default beneath it. The assertion
+    // that matters is that the bad override did NOT take effect.
     process.env.CONSTITUTIONAL_ROUTE_RISK = 'not-a-provider:whatever';
-    expect(routeFor('risk').source).toBe('default');
+    expect(routeFor('risk').source).not.toBe('override');
+    expect(isAllowedExperimentModel(routeFor('risk').provider, routeFor('risk').model)).toBe(true);
 
     process.env.CONSTITUTIONAL_ROUTE_VALUE = 'anthropic:made-up-model-9000';
-    expect(routeFor('value').source).toBe('default');
+    expect(routeFor('value').source).not.toBe('override');
+    expect(routeFor('value').model).not.toBe('made-up-model-9000');
   });
 
   it('the sovereign fallback (venice) has allowlisted models available', () => {
@@ -508,7 +526,21 @@ describe('Computational Epistemology — Aletheon institute-standing amendment (
 
   it('RESEARCH_PROGRAMMES pinned — the A/B/C nomenclature maps to registered experiments', async () => {
     const { RESEARCH_PROGRAMMES, EXPERIMENT_REGISTRY } = await import('@/types/research');
-    expect(RESEARCH_PROGRAMMES.map((p) => `${p.id}:${p.name}`)).toEqual([
+    // The programme list GROWS -- D (Reasoning Systems) and E (Invariant
+    // Intelligence) were added after this test was written, and a hardcoded
+    // three-item list turned every legitimate addition into a red build.
+    // What is actually worth pinning is the SHAPE: single-letter ids, unique,
+    // sequential from A, each with a name. The membership check below (every
+    // programme experiment exists in the registry) is the real contract.
+    const ids = RESEARCH_PROGRAMMES.map((p) => p.id);
+    expect(ids).toEqual(ids.map((_, i) => String.fromCharCode(65 + i)));
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const p of RESEARCH_PROGRAMMES) {
+      expect(p.name.trim().length, `programme ${p.id} has no name`).toBeGreaterThan(0);
+    }
+    // The three original programmes must still be present and correctly named
+    // -- growth is fine, silent renaming of a shipped programme is not.
+    expect(RESEARCH_PROGRAMMES.slice(0, 3).map((p) => `${p.id}:${p.name}`)).toEqual([
       'A:Invariant Knowledge',
       'B:Temporal Composition',
       'C:Reasoning Compression',

@@ -117,9 +117,16 @@ describe('MoneyPenny Runtime route — P4-4 receipt + DVN provenance', () => {
 describe('MoneyPenny Architect route — proposal-only boundary (regression)', () => {
   it('never imports authorizeAgreement, acceptAgreement, or settlementExecutor', () => {
     const src = readFileSync(ARCHITECT_ROUTE_PATH, 'utf8');
-    expect(src).not.toContain('authorizeAgreement');
-    expect(src).not.toContain('acceptAgreement');
-    expect(src.toLowerCase()).not.toContain('settlementexecutor');
+    // Comments are stripped before asserting. The route's own header DOCUMENTS
+    // the boundary by naming the three forbidden symbols -- so a raw-source
+    // grep failed on the prose explaining the rule it was enforcing, which
+    // made a live authority canary read red for a compliant route. Worse than
+    // useless: a canary that cries wolf gets ignored, and this one guards the
+    // Architect's proposal-only boundary.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toContain('authorizeAgreement');
+    expect(code).not.toContain('acceptAgreement');
+    expect(code.toLowerCase()).not.toContain('settlementexecutor');
   });
 });
 
