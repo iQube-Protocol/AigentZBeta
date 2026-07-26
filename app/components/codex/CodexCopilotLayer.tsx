@@ -44,6 +44,9 @@ interface CodexCopilotLayerProps {
   variant?: "floating" | "embedded";
   className?: string;
   hideAvatarToggle?: boolean;
+  /** Which existing copilot mode to open in. Defaults to 'chat' (unchanged
+   *  for every current mount). Companion 1.1 / SCOPE-MMC-004 D-8. */
+  initialCopilotMode?: "chat" | "avatar";
   contextOptions?: Array<{ id: string; label: string }>;
   contextId?: string;
   onContextChange?: (contextId: string) => void;
@@ -182,6 +185,7 @@ export function CodexCopilotLayer({
   variant = "floating",
   className,
   hideAvatarToggle = false,
+  initialCopilotMode,
   contextOptions,
   contextId,
   onContextChange,
@@ -434,7 +438,12 @@ export function CodexCopilotLayer({
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
-  const [copilotMode, setCopilotMode] = useState<CopilotMode>("chat");
+  // `initialCopilotMode` lets a HOST choose which existing mode the copilot
+  // opens in (Companion 1.1 / SCOPE-MMC-004 D-8: the Companion's Avatar nav
+  // item enters the copilot's OWN avatar mode rather than mounting anything
+  // parallel). Additive and defaulted — no existing mount changes behaviour,
+  // and no new capability is introduced: both modes already shipped.
+  const [copilotMode, setCopilotMode] = useState<CopilotMode>(initialCopilotMode ?? "chat");
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<CopilotMessage[]>([]);

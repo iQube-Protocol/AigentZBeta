@@ -23,6 +23,25 @@
  * identity chip. NO browser observation of any kind (PRD §6 Phase 1 / §4):
  * nothing here reads tabs, pages, selections, history, or clipboard.
  *
+ * COMPANION 1.1 (SCOPE-MMC-004, 2026-07-26) — RECONSTITUTED AROUND AGENT ME.
+ * The Companion is now a HOST for Agent Me rather than a surface with its own
+ * conversational interface (§3: "Agent Me is the Companion"). Three changes,
+ * all reorganisation — no new capability (§6.1):
+ *   1. `CodexCopilotLayer variant="embedded"` mounts AS the Agent Me runtime,
+ *      full width, and is the DEFAULT surface (§4.1, C1). It is the existing
+ *      copilot — no second chat implementation exists or may exist.
+ *   2. The top segmented control becomes CANONICAL BOTTOM NAVIGATION derived
+ *      from `services/companion/companionNavigation.ts` (§4.3, D-3): one
+ *      shared vocabulary, presentation adapting by surface density. Wallet is
+ *      now a peer mode beside Agent Me, not a separate application.
+ *   3. `Avatar` is NOT a parallel surface. It selects Agent Me and enters the
+ *      copilot's own avatar mode (D-8) — voice, text and avatar share one
+ *      session, with no avatar-specific memory, model or context.
+ * The pre-1.1 `companion` rail (identity chip, Timeline, Observer
+ * permissions) has no slot in the ratified six-item vocabulary. Its content is
+ * PRESERVED and still reachable from the header's identity chip so nothing is
+ * lost (§14.6); where it belongs permanently is SCOPE-MMC-004 D-9.
+ *
  * WIDTH + SURFACE TOGGLE (2026-07-23, operator-directed, twice-revised):
  * this page is the extension's "Manage permissions" surface, opened as a
  * floating popup window dedicated solely to it (see
@@ -65,6 +84,25 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
+import {
+  COMPANION_NAV_ITEMS,
+  COMPANION_NAV_LABEL,
+  COMPANION_NAV_ITEM_TO_SURFACE,
+  COMPANION_PRIMARY_NAV_ITEM,
+  COMPANION_NAV_DENSITY_CLASS,
+  copilotModeForNavItem,
+  navDensityForSurface,
+  type CompanionNavItemId,
+} from "@/services/companion/companionNavigation";
+
+// Named export, not default — `dynamic` needs the component picked out.
+const CodexCopilotLayer = dynamic(
+  () =>
+    import("@/app/components/codex/CodexCopilotLayer").then(
+      (m) => m.CodexCopilotLayer
+    ),
+  { ssr: false }
+);
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -106,10 +144,22 @@ function CompanionShell() {
 
   const [ctx, setCtx] = useState<CompanionRuntimeContext | null>(null);
   const [walletOpen, setWalletOpen] = useState(true);
-  // Wallet is the default/first surface (2026-07-23, operator-directed,
-  // reverted same day): wallet is the sign-in / identity surface most of
-  // this shell's other reads depend on, so it belongs first again.
-  const [activeSurface, setActiveSurface] = useState<"wallet" | "companion" | "search" | "overlay" | "workspace">("wallet");
+  // Companion 1.1 (§4.1, C1): AGENT ME is the default. The Companion is a host
+  // for Agent Me, so the citizen lands in the conversation, not beside it.
+  // (Wallet was the pre-1.1 default because it was the sign-in surface; it is
+  // now a peer mode one tap away, and sign-in is still reachable from every
+  // gated surface's prompt.)
+  const [activeNavItem, setActiveNavItem] = useState<CompanionNavItemId>(
+    COMPANION_PRIMARY_NAV_ITEM
+  );
+  // The pre-1.1 rail has no slot in the ratified six-item vocabulary (D-9).
+  // Its content is preserved and opened from the identity chip, so §14.6's
+  // "no capability lost" holds while the placement question stays open.
+  const [railOpen, setRailOpen] = useState(false);
+
+  const activeSurface = COMPANION_NAV_ITEM_TO_SURFACE[activeNavItem];
+  const density = navDensityForSurface(surface);
+  const densityClass = COMPANION_NAV_DENSITY_CLASS[density];
 
   useEffect(() => {
     let cancelled = false;
@@ -140,67 +190,75 @@ function CompanionShell() {
           the container completely removes that class of mismatch entirely,
           regardless of platform-specific window-chrome insets. */}
       <div className="flex h-full min-h-0 w-full flex-col bg-slate-900/40">
-        {/* Surface toggle — always visible regardless of which surface is
-            active, so there's a way back from either side. */}
-        <div className="flex shrink-0 items-center gap-1 border-b border-slate-800 bg-slate-900/60 px-2 py-1.5">
-          <button
-            type="button"
-            onClick={() => setActiveSurface("wallet")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "wallet"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Wallet
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSurface("companion")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "companion"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Companion
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSurface("search")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "search"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Search
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSurface("overlay")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "overlay"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Overlay
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSurface("workspace")}
-            className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-              activeSurface === "workspace"
-                ? "bg-slate-800 text-slate-100"
-                : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-            }`}
-          >
-            Workspace
-          </button>
-        </div>
+        {/* Identity chip — persistent header. Opens the pre-1.1 rail
+            (Timeline + Observer permissions), whose permanent home under the
+            six-item vocabulary is D-9. */}
+        <button
+          type="button"
+          onClick={() => setRailOpen((open) => !open)}
+          className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/60 px-3 py-2 text-left transition-colors hover:bg-slate-900"
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${identity ? "bg-emerald-400" : "bg-slate-600"}`}
+          />
+          <span className="truncate text-xs text-slate-300">
+            {ctx === null
+              ? "Resolving…"
+              : identity
+                ? identity.displayLabel || "Active persona"
+                : "Signed out"}
+          </span>
+          <span className="ml-auto text-[10px] text-slate-500">
+            {railOpen ? "Hide activity" : "Activity"}
+          </span>
+        </button>
 
-        {activeSurface === "wallet" ? (
+        {railOpen ? (
+          /* Pre-1.1 rail, preserved verbatim (§14.6): Timeline + Observer
+             permissions. Reached from the identity chip because the ratified
+             six-item vocabulary has no slot for it — D-9 decides its home. */
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Timeline
+              </div>
+              {ctx && ctx.feed.length > 0 ? (
+                <ul className="space-y-2">
+                  {ctx.feed.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
+                    >
+                      <div className="text-xs text-slate-200">{item.title}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-500">
+                        <span>{item.kind}</span>
+                        {item.cartridge ? <span>· {item.cartridge}</span> : null}
+                        <span>· {new Date(item.occurredAt).toLocaleString()}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="text-xs text-slate-500">
+                  {identity
+                    ? "No receipted activity yet."
+                    : "Sign in to see your receipted activity."}
+                </div>
+              )}
+
+              <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Observer permissions
+              </div>
+              {identity && personaId ? (
+                <ObserverGrantPanel personaIdHint={personaId} />
+              ) : (
+                <div className="text-xs text-slate-500">
+                  Sign in to manage what the Observer may see.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeSurface === "wallet" ? (
           /* Embedded wallet — canonical embedded-mode mount (never overlay). */
           <div className="min-h-0 flex-1">
             {walletOpen ? (
@@ -251,7 +309,7 @@ function CompanionShell() {
               Sign in to see the Constitutional Overlay for this page.
             </div>
           )
-        ) : activeSurface === "workspace" ? (
+        ) : activeSurface === "workbench" ? (
           /* Workspace — Movement I (Capture), PRD-MMC-IMPL-003. This is the
              fifth companion surface: the Constitutional Flow's landing point
              INSIDE the extension itself, not a link out to the full app's
@@ -277,80 +335,61 @@ function CompanionShell() {
             </div>
           )
         ) : (
-          /* Companion rail — identity chip + Phase 1 Timeline (read-only) +
-             Observer permissions. */
-          <div className="flex min-h-0 flex-1 flex-col">
-            <div className="border-b border-slate-800 px-4 py-3">
-              <div className="text-sm font-semibold text-slate-200">
-                metaMe Companion
-              </div>
-              {ctx === null ? (
-                <div className="mt-1 text-xs text-slate-500">Resolving…</div>
-              ) : identity ? (
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  <span className="truncate text-xs text-slate-300">
-                    {identity.displayLabel || "Active persona"}
-                  </span>
-                  <span className="rounded-sm border border-slate-800 bg-slate-900/40 px-1.5 py-0.5 text-[10px] text-slate-400">
-                    {identity.identifiability}
-                  </span>
-                </div>
-              ) : (
-                <div className="mt-1 text-xs text-slate-500">
-                  Signed out — open the wallet to continue with your Passport.
-                </div>
-              )}
-            </div>
+          /* AGENT ME — the primary occupant (§4.1, C1). This is the EXISTING
+             `CodexCopilotLayer`, mounted embedded at the Companion's full
+             width. No second chat implementation exists here, and none may:
+             §4.1's "no duplicate chat implementations" is what makes the
+             single constitutional relationship true rather than merely
+             claimed.
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Timeline
-              </div>
-              {ctx && ctx.feed.length > 0 ? (
-                <ul className="space-y-2">
-                  {ctx.feed.map((item) => (
-                    <li
-                      key={item.id}
-                      className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2"
-                    >
-                      <div className="text-xs text-slate-200">{item.title}</div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-500">
-                        <span>{item.kind}</span>
-                        {item.cartridge ? <span>· {item.cartridge}</span> : null}
-                        <span>· {new Date(item.occurredAt).toLocaleString()}</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-xs text-slate-500">
-                  {identity
-                    ? "No receipted activity yet."
-                    : "Sign in to see your receipted activity."}
-                </div>
-              )}
-
-              {/* Observer permissions — PRD-MMC-IMPL-001 Increment 4. Mounts
-                  only when identity is resolved, mirroring the Timeline
-                  section's own `identity ?` conditional above: an
-                  unauthenticated visitor sees no grant UI, fails closed like
-                  every other part of this shell. No browser observation
-                  happens here — this manages consent GRANTS only (PRD-MMC-001
-                  §4 Phase 2; no observation source exists yet, plan §0.2). */}
-              <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                Observer permissions
-              </div>
-              {identity && personaId ? (
-                <ObserverGrantPanel personaIdHint={personaId} />
-              ) : (
-                <div className="text-xs text-slate-500">
-                  Sign in to manage what the Observer may see.
-                </div>
-              )}
-            </div>
+             `initialCopilotMode` selects between the copilot's OWN two modes.
+             The Avatar nav item routes here with mode 'avatar' — the avatar is
+             another renderer of this same session, never a second Agent Me
+             (D-8). */
+          <div className="min-h-0 flex-1">
+            <CodexCopilotLayer
+              isOpen={true}
+              onClose={() => undefined}
+              variant="embedded"
+              className="h-full w-full"
+              initialCopilotMode={copilotModeForNavItem(activeNavItem)}
+              agent={{ id: "aigent-me", name: "Agent Me" }}
+              personaId={personaId}
+            />
           </div>
         )}
+
+        {/* CANONICAL BOTTOM NAVIGATION (§4.3, D-3).
+            Rendered FROM the shared vocabulary — never a local list, so the
+            item set cannot drift between Runtime, Companion and partner
+            surfaces. Only `densityClass` varies by host: spacing, never
+            content, order or naming. */}
+        <nav
+          aria-label="Companion navigation"
+          className={`flex shrink-0 items-center justify-between border-t border-slate-800 bg-slate-900/60 ${densityClass.bar}`}
+        >
+          {COMPANION_NAV_ITEMS.map((item) => {
+            const isActive = !railOpen && activeNavItem === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => {
+                  setRailOpen(false);
+                  setActiveNavItem(item);
+                }}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex-1 rounded-md text-center transition-colors ${densityClass.item} ${densityClass.label} ${
+                  isActive
+                    ? "bg-slate-800 text-slate-100"
+                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                }`}
+              >
+                {COMPANION_NAV_LABEL[item]}
+              </button>
+            );
+          })}
+        </nav>
       </div>
     </div>
   );

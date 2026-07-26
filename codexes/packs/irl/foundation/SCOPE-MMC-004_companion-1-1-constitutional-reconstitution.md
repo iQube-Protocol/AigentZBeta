@@ -243,7 +243,7 @@ Recorded at scope time so they are designed in rather than retrofitted:
 
 **C0 is not optional.** §6.1 is unenforceable without an inventory of what already ships — "no new capabilities" can only be checked against a list of the existing ones, and §11.1's canary derives from it.
 
-**All §13 decisions are now ratified**, so C0–C5 are gated only on each other.
+**D-1 through D-8 are ratified. Two further decisions (D-9, D-10) were surfaced BY the C0–C2 build** and are recorded in §13; neither blocks C3–C5, and both are cheap to change.
 
 **C5 is sequenced last deliberately** — it is the one behavioural rewiring (§5.2), and it should land against a Companion whose session model has already been proved singular by C1–C3.
 
@@ -261,6 +261,8 @@ Recorded at scope time so they are designed in rather than retrofitted:
 | **D-6** | Is "a single continuous conversation" scoped per persona, per surface, or global? | **RATIFIED: one constitutional relationship per persona** (§3.1). Continuous across Runtime, Companion and partner sites **because those are windows onto the same persona** — **not global.** Different personas retain different constitutional relationships, and nothing here merges them | **RATIFIED** |
 | **D-7** | Does any 1.1 surface emit receipts, or is the release receipt-neutral? | **RATIFIED: receipt-neutral.** Emitting receipts from a layout release would accidentally change constitutional behaviour | **RATIFIED** |
 | **D-8** | **NEW (Aletheon review).** Does the avatar own a separate conversational session? | **RATIFIED: no.** The avatar is another **renderer** of Agent Me. Voice, text and avatar operate against exactly the same live conversation — **no avatar-specific memory, no avatar-specific AI, no avatar-specific context** (§4.5). Among the most consequential decisions in this Scope: an avatar with its own model and memory is the most natural way to create a second Agent Me while believing you are only changing a rendering, and it would pass every visual criterion while violating §3.1 outright | **RATIFIED** |
+| **D-9** | The pre-1.1 `companion` rail (identity chip · activity timeline · observer permissions) has **no slot** in the ratified six-item vocabulary. Where does it belong permanently? | **Open.** C1/C2 preserve it — reachable from the persistent identity chip in the header — so §14.6 holds and nothing is lost. But "reachable from the chip" is an implementation stopgap, not a ratified placement | **Open — surfaced by the C1/C2 build** |
+| **D-10** | **Naming conflict between two ratified documents.** PRD-MMC-IMPL-003 (2026-07-24) named the capture surface **Workspace** — itself a same-day correction away from an invented label — and `tests/companion-capture.test.ts` asserted `.not.toContain('workbench')` to stop the mis-naming returning. §4.3 here ratifies **Workbench** in the nav vocabulary | **Resolved in favour of the later, more specific ratification: the nav item is `workbench`.** The absolute prohibition is retired because its premise no longer holds — not weakened to let a violation pass. The capture canary still asserts, unchanged in strength, that the capability is mounted and identity-gated. **Confirm or revert:** reverting is one line in `COMPANION_NAV_LABEL` | **Open — needs operator confirmation** |
 
 ---
 
