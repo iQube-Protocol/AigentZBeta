@@ -84,6 +84,7 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
+import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
 import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers, Activity, ShieldCheck } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import {
@@ -366,6 +367,27 @@ function CompanionShell() {
     [activeNavItem]
   );
 
+  /**
+   * THE GATE IS NOW A DOOR (PRD-PAG-001 Amendment A, chartered 2026-07-26).
+   *
+   * Every gated surface used to end at "Sign in to …" — a conventional
+   * sign-in wall standing between a citizen and the Passport that is supposed
+   * to grant them access. That is the discontinuity Amendment A removes, so
+   * the same surfaces now offer Passport-native Connect instead.
+   *
+   * One node for all of them: there is ONE way to establish a session here, and
+   * five differently-worded prompts would only imply otherwise.
+   */
+  const connectGate = (
+    <PassportConnectPanel
+      // A session that did not exist a moment ago changes what every consumer
+      // on this page resolves — the auth bridge, the spine reads, the copilot.
+      // A reload is the honest way to let all of them re-resolve at once; a
+      // partial refresh would leave some surfaces reading the old absence.
+      onConnected={() => window.location.reload()}
+    />
+  );
+
   /** The submitted search query. Owned here because the COMPOSER collects it
    *  and the panel consumes it — neither can own it alone (D-12). */
   const [searchQuery, setSearchQuery] = useState("");
@@ -483,7 +505,7 @@ function CompanionShell() {
                 <div className="text-xs text-slate-500">
                   {identity
                     ? "No receipted activity yet."
-                    : "Sign in to see your receipted activity."}
+                    : "Connect with your Passport to see your receipted activity."}
                 </div>
               )}
             </div>
@@ -502,9 +524,7 @@ function CompanionShell() {
               {identity && personaId ? (
                 <ObserverGrantPanel personaIdHint={personaId} />
               ) : (
-                <div className="text-xs text-slate-500">
-                  Sign in to manage what the Observer may see.
-                </div>
+                connectGate
               )}
             </div>
           </div>
@@ -543,10 +563,7 @@ function CompanionShell() {
           identity && personaId ? (
             <CompanionSearchPanel personaIdHint={personaId} query={searchQuery} />
           ) : (
-            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
-              Sign in to search across research, the registry, and the
-              capability graph.
-            </div>
+            connectGate
           )
         ) : activeSurface === "overlay" ? (
           /* Constitutional Overlay — PRD-MMC-IMPL-002 Increment 2. Mounts
@@ -555,9 +572,7 @@ function CompanionShell() {
           identity && personaId ? (
             <CompanionOverlayPanel personaIdHint={personaId} />
           ) : (
-            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
-              Sign in to see the Constitutional Overlay for this page.
-            </div>
+            connectGate
           )
         ) : activeSurface === "workspace" ? (
           /* Workspace — Movement I (Capture), PRD-MMC-IMPL-003. This is the
@@ -580,9 +595,7 @@ function CompanionShell() {
           identity && personaId ? (
             <CaptureInboxPanel personaIdHint={personaId} />
           ) : (
-            <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
-              Sign in to see what you've pulled across from the web.
-            </div>
+            connectGate
           )
         ) : null}
           />

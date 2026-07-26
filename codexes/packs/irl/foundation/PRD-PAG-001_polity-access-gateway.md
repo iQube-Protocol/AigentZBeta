@@ -603,16 +603,48 @@ and A.7. Implementation remains **gated on this record being completed by the op
 
 | Increment | State |
 |---|---|
-| **1. Single-use challenge store** (§A.4 prerequisite, ruling 7) | **SHIPPED 2026-07-26** — migration `20260819000000_passport_connection_challenges.sql` (additive, deny-all RLS, unique nonce hash) + `services/passport/connectionChallenge.ts` (persona-free challenge, atomic conditional-update spend, recovered signer) + `tests/passport-connection-challenge.test.ts` (12 canaries). Touches nothing existing; rollback is `DROP TABLE`. |
-| 2. Reverse personhood walk (kybe → root → `auth_user_id`) | not started |
-| 3. `resolveCallerFromPassportProof()` → canonical `CallerIdentityContext` | not started |
-| 4. Second credential kind in `getCallerIdentityContext` | not started |
-| 5. `/api/passport-connect/{challenge,proof}` routes | not started |
-| 6. Companion Connect states A–E | not started |
+| **1. Single-use challenge store** (§A.4 prerequisite, ruling 7) | **SHIPPED** — migration `20260819000000` (operator-run 2026-07-26) + `services/passport/connectionChallenge.ts` + canaries. |
+| **2. Reverse personhood walk** (kybe → root → `auth_user_id`) | **SHIPPED** — `services/identity/passportPrincipal.ts`. |
+| **3. Principal + session resolution** | **SHIPPED** — `passportPrincipal.ts` + `services/identity/passportSession.ts`. |
+| **4. Second credential kind in `getCallerIdentityContext`** | **NOT REQUIRED — deliberately not built.** See §A.10.2. |
+| **5. `/api/passport-connect/{challenge,proof}`** | **SHIPPED** — both unauthenticated by design; neither calls the spine. |
+| **6. Companion Connect states A–E** | **SHIPPED** — `components/companion/PassportConnectPanel.tsx`, mounted as the Companion's `connectGate` in place of every "Sign in to …" wall. |
 
-Increment 1 was taken first deliberately: it is the ruling-7 prerequisite, it is
-self-contained, and it mints no session — so nothing in it can weaken access while the
-remaining increments are still open. **No protected file has been modified** (§A.9.1).
+**No protected file was modified** (§A.9.1) — canaried. 28 challenge/access canaries; full suite 137 files / 1786 tests green.
+
+### A.10.2 Two findings from building it
+
+**(a) Increment 4 is unnecessary, and building it would have been a defect.** Ruling 4 keeps
+Supabase as the application-session envelope, so the passport path terminates in an
+**ordinary Supabase session** (minted via `auth.admin.generateLink`, exchanged by the browser
+with `verifyOtp`). `getCallerIdentityContext` therefore sees the Bearer it always saw and
+needs no second credential kind. Adding one would have created a second path resolving the
+same context — the parallel-implementation defect the spine rules exist to prevent. It also
+keeps rollback safe: a session minted here is indistinguishable from any other, so disabling
+the feature strands nothing.
+
+**(b) The "no prior account" citizen is blocked UPSTREAM, in issuance — not in access.**
+`services/passport/bureauIdentityService.ts` anchors every Passport to a Supabase auth user
+("find-or-create `root_identity` by `auth_user_id`"). So every Passport that exists today
+resolves an `authUserId` and the shipped flow works end-to-end with **no sign-in step**. But
+the success criterion *"a new citizen can receive a Passport without first signing into
+metaMe"* cannot be met by this amendment: it requires ISSUANCE to mint an account-less
+lineage, which §8 puts explicitly out of scope. `resolvePassportPrincipal` returns
+`principal_unprovisioned` for that case rather than inventing a synthetic principal —
+**a separate charter is needed.**
+
+### A.10.3 Still open
+
+- **SessionQube recording (ruling 5)** — the Passport-backed session is not yet written to the
+  SessionQube substrate. The existing human-session machinery is OAuth-handshake shaped
+  (client_id, authorization code) and this is a first-party direct mint; forcing it in would
+  be a parallel implementation. Needs either a row shape for direct mints or a receipt-side
+  record. **Not silently skipped — named here.**
+- **Account ↔ Passport binding** for existing account holders (§A.5 neighbourhood).
+- **Passport consolidation / lineage** (§A.5), **passkey enrolment** (§A.6 level 2), external
+  RP presentation — each separately chartered.
+
+
 
 *Amendment authored docs-only, 2026-07-26. Builds nothing. Reconciled against the shipped
 Phase 1 (`services/accessGateway/*`, `app/api/access-gateway/*`, `app/access-gateway/authorize/page.tsx`),

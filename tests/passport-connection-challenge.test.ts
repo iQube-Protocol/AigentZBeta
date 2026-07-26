@@ -134,3 +134,149 @@ describe('the migration is additive and fails closed', () => {
     expect(readSource(MIGRATION)).toMatch(/nonce_hash text NOT NULL UNIQUE/);
   });
 });
+
+// ─── Increments 2–6: resolution, session, routes, Connect surface ───────────
+
+const PRINCIPAL = 'services/identity/passportPrincipal.ts';
+const SESSION = 'services/identity/passportSession.ts';
+const CHALLENGE_ROUTE = 'app/api/passport-connect/challenge/route.ts';
+const PROOF_ROUTE = 'app/api/passport-connect/proof/route.ts';
+const CONNECT_PANEL = 'components/companion/PassportConnectPanel.tsx';
+
+describe('no pre-session surface requires an identity the caller cannot have', () => {
+  it('THE canary: neither route authenticates its caller', () => {
+    // A getActivePersona call on either route rebuilds the exact circular
+    // dependency Amendment A exists to remove: an account session required in
+    // order to prove the Passport meant to establish it.
+    for (const file of [CHALLENGE_ROUTE, PROOF_ROUTE]) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} authenticates its caller`).not.toContain('getActivePersona');
+      expect(code, `${file} authenticates its caller`).not.toContain('getCallerIdentityContext');
+      expect(code, `${file} authenticates its caller`).not.toContain('resolvePersonaOrTimeout');
+      expect(code, `${file} uses the persona-bearing transport`).not.toContain('personaFetch');
+    }
+  });
+
+  it('the resolver takes a wallet, never a persona or profile', () => {
+    const code = stripComments(readSource(PRINCIPAL));
+    const sig = code.slice(code.indexOf('export async function resolvePassportPrincipal'));
+    const params = sig.slice(0, sig.indexOf('{'));
+    for (const forbidden of ['personaId', 'authProfileId', 'didPersonaId']) {
+      expect(params, `resolvePassportPrincipal accepts ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('the Connect surface never uses the Bearer-bearing transport', () => {
+    const code = stripComments(readSource(CONNECT_PANEL));
+    expect(code, 'Connect cannot require a session it exists to create').not.toContain('personaFetch');
+  });
+});
+
+describe('binding is by lineage — ruling 3', () => {
+  it('the resolver keys on the kybe, never on email, name or wallet', () => {
+    const code = stripComments(readSource(PRINCIPAL));
+    expect(code).toContain("eq('kybe_identity_id', kybeId)");
+    // The wallet is an ENTRY point, not the binding key: no passport lookup
+    // may be keyed by an address or an email.
+    expect(code).not.toMatch(/polity_passport_records[\s\S]{0,200}eq\('(wallet|email)/);
+    expect(code, 'email matching has entered the resolver').not.toContain('email');
+  });
+
+  it('an ambiguous lineage refuses rather than choosing', () => {
+    // Two live roots for one wallet, or two auth users under one personhood,
+    // means picking one would silently choose whose session to mint.
+    const code = stripComments(readSource(PRINCIPAL));
+    expect(code).toContain("new Set(rootIds).size > 1");
+    expect(code).toContain('authUserIds.length > 1');
+  });
+
+  it('only active aliases and usable passports carry access', () => {
+    const code = stripComments(readSource(PRINCIPAL));
+    expect(code).toContain("eq('status', 'active')");
+    expect(code).toContain('isPassportUsable(passport)');
+  });
+});
+
+describe('session issuance stays inside the compatibility envelope — ruling 4', () => {
+  it('no protected spine file is modified', () => {
+    // §A.9.1. If this fails the design has drifted from the ruling.
+    for (const file of [
+      'services/identity/getActivePersona.ts',
+      'services/access/evaluateAccess.ts',
+      'services/identity/personaSessionToken.ts',
+    ]) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} now knows about the passport path`).not.toContain('passportPrincipal');
+      expect(code, `${file} now knows about the passport path`).not.toContain('passportSession');
+      expect(code, `${file} now knows about the passport path`).not.toContain('connectionChallenge');
+    }
+  });
+
+  it('the session is an ordinary Supabase session, not a hand-rolled one', () => {
+    // This is what keeps rollback safe: a session minted here is
+    // indistinguishable from any other, so disabling the path strands nothing.
+    const code = stripComments(readSource(SESSION));
+    expect(code).toContain('auth.admin.generateLink');
+    expect(code, 'a bespoke session token appeared').not.toMatch(/jwt\.sign|createSessionToken/);
+  });
+
+  it('only a single-use handle reaches the browser — no identity on its face', () => {
+    const code = stripComments(readSource(SESSION));
+    const grant = code.slice(code.indexOf('return { ok: true, grant:'));
+    for (const forbidden of ['email', 'authUserId', 'kybeId', 'rootIdentityId', 'personaId']) {
+      expect(grant, `the grant leaks ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('the proof response carries no T0 identifier', () => {
+    const code = stripComments(readSource(PROOF_ROUTE));
+    const responses = code.slice(code.indexOf('export async function POST'));
+    for (const forbidden of ['kybeId', 'rootIdentityId', 'authUserId', 'personaId', 'authProfileId']) {
+      expect(responses, `the proof route returns ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('resolution failures do not let a caller probe the lineage graph', () => {
+    // "unknown wallet" vs "no passport" would let someone map the graph with
+    // wallets they do not own.
+    const code = stripComments(readSource(PROOF_ROUTE));
+    expect(code).toContain("error: 'no_constitutional_access'");
+    for (const leak of ['wallet_unknown', 'no_passport', 'passport_inactive', 'lineage_incomplete']) {
+      expect(code, `the proof route discloses ${leak}`).not.toContain(`'${leak}'`);
+    }
+  });
+
+  it('the origin is server-determined, never taken from the body', () => {
+    const code = stripComments(readSource(CHALLENGE_ROUTE));
+    expect(code).toContain('origin: request.nextUrl.origin');
+    expect(code, 'a caller can nominate its own origin').not.toMatch(/body\?\.origin/);
+  });
+});
+
+describe('the Companion is preferred, never exclusive — ruling 6', () => {
+  it('Connect drives the open protocol, not an extension-only capability', () => {
+    // Any wallet or web connector must be able to drive the same two routes.
+    const code = stripComments(readSource(CONNECT_PANEL));
+    expect(code).toContain('/api/passport-connect/challenge');
+    expect(code).toContain('/api/passport-connect/proof');
+    expect(code, 'Connect reaches for an extension-only API').not.toContain('chrome.');
+  });
+
+  it('presence of a credential is never treated as authorisation', () => {
+    // The citizen always performs a local approval ceremony.
+    const code = stripComments(readSource(CONNECT_PANEL));
+    expect(code).toContain('personal_sign');
+  });
+
+  it('it never silently chooses between wallets', () => {
+    const code = stripComments(readSource(CONNECT_PANEL));
+    expect(code).toContain('kind: "choose"');
+    expect(code).toContain('accounts.length === 1 ? accounts[0] : null');
+  });
+
+  it('the companion offers Connect where it used to show a sign-in wall', () => {
+    const page = stripComments(readSource('app/(embed)/triad/embed/companion/page.tsx'));
+    expect(page).toContain('connectGate');
+    expect(page, 'a sign-in wall survives on a gated surface').not.toContain('Sign in to');
+  });
+});
