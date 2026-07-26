@@ -287,4 +287,168 @@ Phase names retained; each reconciled so the operator sees what is genuinely new
 
 ---
 
+---
+
+# AMENDMENT A — Passport-native access (operator specification, 2026-07-26)
+
+**Status:** amendment drafted docs-only. **Nothing in §A.3 is built.** The change it
+describes creates an unauthenticated session-minting path and touches the identity spine,
+both of which are operator-approval-only (§6.3, CLAUDE.md "Identity & Access Spine").
+
+The operator specified a Passport-native access path with the governing rule:
+
+> Do not require an account session in order to prove the Passport that is intended to
+> establish the account session.
+
+This amendment records what that rule finds in the **shipped** Phase 1, what the operator's
+specification genuinely adds beyond this PRD, and what must be decided before code.
+
+## A.1 The finding: Phase 1 shipped as authorization, not authentication
+
+Phase 1 shipped on 2026-07-22 (§10) — `services/accessGateway/{humanSession,sessionQube}.ts`,
+six `/api/access-gateway/*` routes, migration `20260814000000_access_gateway_human_sessions.sql`,
+`tests/access-gateway-human-session.test.ts`. It works. But it implements the **consent** act
+for an **already-authenticated** human, not primary authentication:
+
+| Evidence | What it shows |
+|---|---|
+| `app/api/access-gateway/complete/route.ts:41-44` | The act that mints the authorization code calls `resolvePersonaOrTimeout` and returns **401 `unauthenticated`** without a Supabase session. |
+| `app/access-gateway/authorize/page.tsx:121` | The consent page reaches `complete` via `personaFetch` — which attaches the Supabase Bearer. |
+| `services/accessGateway/humanSession.ts:343` | The Passport is read from `polity_passport_records` **keyed by `personaId`** — i.e. resolved *from* the session. |
+
+The route's own header states this plainly: *"Called from the browser consent page by the
+SIGNED-IN human. Phase 1 federates the existing Supabase auth (PRD §0.7)."* That was a
+correct reading of §0.7 at the time. It also means the Passport currently functions as **a
+claim attached to a pre-existing account** — precisely the reduction the operator's
+specification forbids.
+
+## A.2 The circular dependency, located exactly
+
+```
+getActivePersona                    services/identity/getActivePersona.ts:353
+  └─ getCallerIdentityContext       services/wallet/personaRepo.ts:219-221
+       └─ requires  Authorization: Bearer <supabase-jwt>
+            └─ → authProfileId → owned personas → personaId
+                 └─ polity_passport_records keyed by persona
+```
+
+No account session → no `authProfileId` → no persona → **no Passport read**. The credential
+that is meant to establish the session is only reachable *from* the session. One direction
+of one dependency is backwards; everything else in the chain is sound.
+
+## A.3 What must be decided before any code
+
+Two decisions, both operator-level. Neither has a defensible default.
+
+**A.3.1 — How is a constitutional principal resolved without `authProfileId`?**
+The spine resolves persona *from* the auth profile. A Passport-native path must resolve it
+from `(proven wallet → passport record → kybe/root → persona)`. `services/identity/personhoodResolver.ts`
+already walks `root_identity → kybe_id → did_persona` and documents that **"THE PASSPORT IS
+KYBE-DRIVEN: it belongs to the person, a level BENEATH persona"** — the right chain exists;
+its entry point is the session. Options: (a) a sibling resolver entered from a proven wallet,
+composed with the existing walk; (b) teach `getCallerIdentityContext` a second credential
+kind. **(b) modifies a PROTECTED file.**
+
+**A.3.2 — How is a platform session minted?**
+There is **no server-side session-minting mechanism in the repo today** (no
+`admin.createUser`, no `generateLink`, no equivalent — verified by grep). Options: mint a
+real Supabase user/session server-side behind the flow, or issue a SessionQube human session
+as the primary credential and teach the spine to accept it. The second is cleaner
+constitutionally and touches a protected file.
+
+## A.4 Security finding — the existing challenge primitive is NOT replay-safe for sessions
+
+`services/identity/walletAliasService.ts` already provides `buildOwnershipChallenge(...nonce, domain)`
+and `verifyEvmOwnership()` (ethers `verifyMessage`) — a SIWE-shaped challenge, reusable.
+**But `app/api/identity/wallet-alias/challenge/route.ts` states: "Nonces are stateless —
+they're embedded in the message."** Nothing consumes them.
+
+That is acceptable for its current job (wallet-alias binding re-validates persona ownership
+at register time). It is **not** acceptable for session establishment: a replayed signed
+challenge would mint a session. The operator's own requirements — *single-use, short-lived,
+audience-bound, resistant to replay* — therefore require a **server-side single-use nonce
+store**, which does not exist. This must be built before the challenge primitive is reused
+for authentication, not after.
+
+The challenge message is also keyed to `didPersonaId`, which a pre-session caller does not
+have. Passport-native access needs an audience/origin-bound form keyed on the wallet address.
+
+## A.5 Passport multiplicity and consolidation — genuinely new, mostly expressible in existing primitives
+
+Not covered anywhere in §§1–10. The operator's model:
+
+```
+Provisional Passports (low-assurance, e.g. captcha)
+        ↓ high-assurance uniqueness proof (World ID)
+Canonical Passport lineage established
+        ↓
+predecessors retained for provenance; one active canonical Passport
+```
+
+Two existing primitives carry most of this and must be reused rather than re-invented:
+
+1. **The graded personhood ladder already exists** — `services/passport/personhoodProof.ts`:
+   `PersonhoodProofType = 'captcha' | 'world_id' | 'agent_declaration' | 'operator_attestation'`,
+   with `verifyWeakProof` / `verifyWorldIdProof`. "Provisional" vs "canonical" is the
+   *existing* grade distinction, not a new axis.
+2. **The consolidation transition already exists** — `services/passport/passportStatusMachine.ts`
+   ratifies `active → superseded_by_reissue`, evidence `reissue_continuity_binding`,
+   reversibility `one_way`. That is the operator's "predecessor" state, already ratified.
+
+Net-new is therefore narrower than the specification implies: the **lineage resolution**
+(which provisional Passports belong to one verified personhood), the **deterministic origin
+rule** (earliest valid Passport unless the citizen selects another), and the **reconciliation
+of standing and delegation** so consolidation cannot duplicate standing or silently
+resurrect revoked delegation. The operator's rule — *never merge on matching email or
+display name* — aligns with the existing spine rule against email-based binding and should
+be canaried.
+
+## A.6 Holder-control tiers
+
+The operator's three levels map onto existing substrate as follows:
+
+| Level | Status |
+|---|---|
+| 1 — presence + local wallet approval | Challenge/verify primitives exist (§A.4); the single-use nonce store does not. |
+| 2 — passkey-protected | **WebAuthn/passkey remains genuinely unbuilt** — §0.5 and §9 already record this; grep still finds only a comment mention in `guidedOnboarding.ts`. |
+| 3 — step-up for consequential acts | `requireAuthorizedAgreement` + the graded ladder exist; the *risk→grade* binding is unstated. |
+
+The operator's framing is endorsed and should be recorded as the rule: **additional passkey
+enrolment is optional for ordinary access; cryptographic holder-control proof is not
+optional; step-up is mandatory where consequence requires it.**
+
+## A.7 Tension to rule on: the Companion's status
+
+§3 and §7 Phase 3 state the browser extension is *"an optional convenience connector — never
+the identity store, never required for metaMe login."* The operator's specification makes the
+Companion's **Connect** the primary access path (States A–E).
+
+These are reconcilable — the Companion can be the *primary presentation channel* without
+becoming the *identity store or a requirement* — but the PRD's wording currently reads as
+subordinating the Companion. **Operator ruling requested**, so the two documents do not
+disagree.
+
+## A.8 Delegation stays separate — already correct
+
+The operator's `Passport valid ≠ delegation valid` rule is already the shipped posture:
+`complete/route.ts` forms no delegation (`agent_alias` / `agreement_id` stay NULL on the human
+row) and CFS-043 Principal–Delegate Separation is absolute. The one behavioural addition is
+that **missing delegation must route to a delegation-activation flow, never to a sign-in
+wall** — which becomes possible only once §A.3 lands.
+
+## A.9 Amendment ratification record
+
+- [ ] Operator ratifies the §A.1 finding — Phase 1 is authorization over an existing session, and the Passport is currently an attribute of an account.
+- [ ] Operator decides **A.3.1** (principal resolution) and **A.3.2** (session minting), and grants or withholds approval to modify the protected spine files each implies.
+- [ ] Operator ratifies §A.4 — a single-use nonce store is a prerequisite, not a follow-on.
+- [ ] Operator ratifies §A.5 — consolidation reuses the graded ladder + `superseded_by_reissue`; net-new is lineage, origin rule, and standing/delegation reconciliation.
+- [ ] Operator ratifies §A.6 tiering language.
+- [ ] Operator rules on §A.7 — the Companion's status relative to §3 / Phase 3.
+
+*Amendment authored docs-only, 2026-07-26. Builds nothing. Reconciled against the shipped
+Phase 1 (`services/accessGateway/*`, `app/api/access-gateway/*`, `app/access-gateway/authorize/page.tsx`),
+`services/identity/{getActivePersona,personhoodResolver,walletAliasService}.ts`,
+`services/wallet/personaRepo.ts`, `services/passport/{personhoodProof,passportStatusMachine}.ts`.*
+
+
 *Authored docs-only, 2026-07-22. Reconciled against `PRD-THR-001`, `CFS-024`, `CFS-043`, `services/identity/personaReferences.ts`, `services/threshold/{gateway,gatewaySession}.ts`, `app/api/threshold/oauth/*`, `services/passport/{passportCredential,personhoodProof}.ts`, and the Identity & Access Spine section of `CLAUDE.md`. Builds nothing; proposes an architecture for operator ratification.*
