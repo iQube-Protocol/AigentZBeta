@@ -110,6 +110,28 @@ export const COMPANION_NAV_ITEM_TO_SURFACE: Record<CompanionNavItemId, Companion
   overlay: 'overlay',
 };
 
+/**
+ * The nav items the Copilot's own menu row ALREADY owns.
+ *
+ * §3.2 as corrected by the operator (2026-07-26): the Copilot is the shell and
+ * the Companion is a deployment of it, so there is ONE navigation system.
+ * `CodexCopilotLayer`'s footer row already carries an avatar/chat mode toggle
+ * and a wallet launcher — those three items need no migration, and re-rendering
+ * them beside the copilot's own would give the citizen two controls for one
+ * concept.
+ *
+ * Everything NOT in this set is what a host deployment supplies through
+ * `navExtras`. Written here rather than as a literal in the page so the split
+ * cannot drift from the vocabulary above (`inv.engineering.036`).
+ */
+export const COPILOT_NATIVE_NAV_ITEMS = ['avatar', 'wallet', 'agent-me'] as const;
+
+/** Items a host must migrate into the copilot menu itself. */
+export function migratedNavItems(): CompanionNavItemId[] {
+  const native = new Set<string>(COPILOT_NATIVE_NAV_ITEMS);
+  return COMPANION_NAV_ITEMS.filter((id) => !native.has(id));
+}
+
 /** Which copilot mode a nav item enters, when it resolves to Agent Me. */
 export function copilotModeForNavItem(item: CompanionNavItemId): 'chat' | 'avatar' {
   return item === 'avatar' ? 'avatar' : 'chat';

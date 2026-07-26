@@ -65,6 +65,13 @@ interface CodexCopilotLayerProps {
       }
   >;
   onPrompt?: (prompt: string) => void;
+  /**
+   * Extra controls rendered INSIDE the copilot's own bottom menu row, beside
+   * the modes it already owns. This is how a host deployment migrates its
+   * surface switches into the one navigation system (SCOPE-MMC-004 §3.2:
+   * the Copilot is the shell) without every cartridge inheriting them.
+   */
+  navExtras?: React.ReactNode;
   onUserPrompt?: (
     prompt: string
   ) => Promise<
@@ -125,6 +132,16 @@ interface CodexCopilotLayerProps {
   density?: "narrow" | "wide" | "extra-wide";
   walletEmbeddedAnchor?: "left" | "right";
   walletAllowWideLayout?: boolean;
+  /**
+   * How the embedded wallet sizes itself. `"fixed"` (the default, and the
+   * behaviour every existing mount had when this was a hardcoded constant)
+   * gives the wallet its own rem width beside the copilot inside a wide
+   * cartridge. `"fill"` makes it take whatever width the host actually
+   * provides — which is what a Companion pane needs, because there the
+   * copilot IS the whole surface and a fixed cartridge-sized wallet either
+   * overflows the pane or leaves a gap beside it.
+   */
+  walletEmbeddedWidth?: "fill" | "fixed";
   agent?: {
     id: string;
     name: string;
@@ -192,7 +209,9 @@ export function CodexCopilotLayer({
   inputPanelClassName,
   inputPanelInputClassName,
   promptMaxHeight,
+  quickPrompts,
   onPrompt,
+  navExtras,
   onUserPrompt,
   getChatRequestContext,
   groundContext,
@@ -219,6 +238,7 @@ export function CodexCopilotLayer({
   density = "narrow",
   walletEmbeddedAnchor = "right",
   walletAllowWideLayout = true,
+  walletEmbeddedWidth: walletEmbeddedWidthProp = "fixed",
   agent,
   personaId,
   accentColor = 'cyan',
@@ -1171,20 +1191,33 @@ export function CodexCopilotLayer({
         ? "w-full md:w-[32rem]"
         : "w-full md:w-[22rem]";
   const widthClass = panelClassName ?? defaultPanelWidthClass;
+  const walletEmbeddedWidth = walletEmbeddedWidthProp;
+  // "fill" drops the `md:` rem cap entirely: the wallet takes the host's width
+  // rather than a cartridge-sized column. Without this the class below would
+  // pin it back to 22.25rem on md+ and `embeddedWidth="fill"` would have no
+  // visible effect — the wallet would render at cartridge width inside a
+  // Companion pane, which is the defect this prop fixes.
   const walletPanelWidthClass =
-    density === "extra-wide"
+    walletEmbeddedWidth === "fill"
+      ? "w-full"
+      : density === "extra-wide"
       ? "w-full md:w-[40.25rem]"
       : !walletAllowWideLayout
         ? "w-full md:w-[22.25rem]"
         : density === "wide" || (density === "narrow" && walletCopilotOpen)
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
-  const walletEmbeddedWidth = "fixed";
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
   const embeddedContainerClass = `relative h-full w-full overflow-hidden flex flex-col ${
     walletEmbeddedAnchor === "left" ? "md:flex-row-reverse" : "md:flex-row"
   } gap-2`;
   const embeddedPanelClass = "flex-1 min-w-0 h-full";
+  // In "fill" mode the wallet IS the surface, so the copilot yields while it is
+  // open rather than sharing the pane. Sharing works in a cartridge, where
+  // there is room for a copilot column beside a wallet column; in a Companion
+  // pane it would squeeze both into an unusable stack.
+  const walletFillsSurface =
+    walletEmbeddedWidth === "fill" && walletPanelOpen && !walletPanelCollapsed;
   const currentWalletLayout: "narrow" | "wide" =
     walletAllowWideLayout && (walletCopilotOpen || (density === "wide" || density === "extra-wide"))
       ? "wide"
@@ -1275,7 +1308,7 @@ export function CodexCopilotLayer({
             ref={copilotPanelRef}
             className={`${variant === "embedded" ? embeddedPanelClass : widthClass} ${
               variant === "embedded" ? "h-full min-h-0" : "h-full md:h-full"
-            } transition-all duration-300 ease-out`}
+            } ${walletFillsSurface ? "hidden" : ""} transition-all duration-300 ease-out`}
           >
             <div className={`h-full ${variant === "embedded" ? "bg-black/[0.18] backdrop-blur-sm rounded-none" : "bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl"} flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
@@ -1472,12 +1505,56 @@ export function CodexCopilotLayer({
                           via codex:navigate-tab, cross-cartridge via
                           buildCodexUrl. Rendered by the layer (never parsed
                           from model output) so navigation is always reliable. */}
-                      {((deepLinks && deepLinks.length > 0) || (operations && operations.length > 0)) && (
+                      {((deepLinks && deepLinks.length > 0) ||
+                        (operations && operations.length > 0) ||
+                        (quickPrompts && quickPrompts.length > 0)) && (
                         <div className="mb-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
                           {/* Single-row carousel: chips never wrap; overflow scrolls
                               horizontally. The opaque slate backing keeps chips and
                               the inference copy behind them both legible. */}
                           <div className="flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar">
+                            {/* Host-supplied quick prompts. `quickPrompts` was
+                                DECLARED on this component but never destructured
+                                or rendered — passing it did nothing, which is why
+                                the Companion's Quick Links carousel did not appear
+                                (found 2026-07-26). It renders here, in the SAME
+                                single row the deep-link chips already use, rather
+                                than in a second strip: the operator's standard is
+                                one row above the composer.
+
+                                `skipInference` means the chip is an ACT, not a
+                                question — it calls `onPrompt` and never enters the
+                                model path. That is what lets a Companion Quick Link
+                                open a cartridge in the browser instead of asking
+                                the copilot about it. */}
+                            {(quickPrompts ?? []).map((qp, i) => {
+                              const item = typeof qp === "string" ? { label: qp } : qp;
+                              const prompt = item.prompt ?? item.label;
+                              return (
+                                <button
+                                  key={item.id ?? `${item.label}-${i}`}
+                                  onClick={() => {
+                                    if (item.skipInference) {
+                                      onPrompt?.(prompt);
+                                      return;
+                                    }
+                                    setInputValue(prompt);
+                                    void sendMessage(prompt);
+                                  }}
+                                  title={item.label}
+                                  className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] transition ${ACCENT.pillBorder} ${ACCENT.pillBg} ${ACCENT.pillText} ${ACCENT.pillHoverBg}`}
+                                >
+                                  {item.icon ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      {item.icon}
+                                      {item.iconOnly ? null : <span>{item.label}</span>}
+                                    </span>
+                                  ) : (
+                                    item.label
+                                  )}
+                                </button>
+                              );
+                            })}
                             {(deepLinks ?? []).map((dl) => (
                               <button
                                 key={dl.label}
@@ -1629,6 +1706,15 @@ export function CodexCopilotLayer({
                                 <Wallet className="w-4 h-4" />
                               </button>
                             )}
+                            {/* Host-supplied nav items, in the copilot's OWN menu
+                                row beside the modes it already owns (avatar /
+                                chat / wallet). Additive rather than a
+                                replacement: `footerContent` would have taken
+                                this row over and cost the copilot the modes it
+                                already has. Nothing passes this except the
+                                Companion, so the migration stays contained to
+                                that deployment (operator, 2026-07-26). */}
+                            {navExtras}
                             {!hideAvatarToggle && (
                               <>
                                 {contextOptions && contextOptions.length > 0 ? (

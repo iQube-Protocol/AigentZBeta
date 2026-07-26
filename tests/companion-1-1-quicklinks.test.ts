@@ -162,30 +162,44 @@ describe('Quick Links are derived and reuse the shipped navigation', () => {
     expect(code).toContain('window.open(quickLinkHref(link, personaId), quickLinkTarget()');
   });
 
-  it('DEFECT RECORDED — quickPrompts is dead API on CodexCopilotLayer', () => {
-    // Found 2026-07-26 when the carousel did not appear in the running build.
-    // `quickPrompts` is DECLARED on CodexCopilotLayer's props (line ~56) but is
-    // never destructured and never rendered. Passing it does nothing.
-    //
-    // So the previous claim here — "Quick Links reuse the shipped carousel" —
-    // was FALSE. The prop was passed; no carousel existed to receive it. This
-    // test now pins the defect rather than asserting the property, because a
-    // canary that greps for `quickPrompts={...}` in the page would go green
-    // forever while the citizen sees nothing: exactly the false-confidence
-    // failure these canaries exist to prevent.
-    //
-    // The real contextual-action mechanism is `walletActions`
-    // (WalletActionPayload[]), which produces the Open Checkout / Wallet
-    // Balance chips. Wiring Quick Links through it — or making `quickPrompts`
-    // live — is SCOPE-MMC-004 D-13.
+  it('the carousel prop is LIVE — declared, destructured and rendered', () => {
+    // History, because this is the exact failure the canary suite exists to
+    // catch: `quickPrompts` was declared on CodexCopilotLayer and never
+    // destructured or rendered. The Companion passed it, the earlier canary
+    // grepped for the pass-site and went green, and the citizen saw no
+    // carousel at all (operator, 2026-07-26). A prop that is only DECLARED is
+    // indistinguishable from a working one at every grep-shaped assertion, so
+    // this checks the whole chain instead of the pass-site.
     const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
-    const declared = copilot.includes('quickPrompts?:');
-    const consumed = /quickPrompts[,)\s]/.test(copilot.replace('quickPrompts?:', ''));
-    expect(declared, 'quickPrompts should still be declared').toBe(true);
-    expect(
-      consumed,
-      'quickPrompts is now consumed — delete this defect record and wire Quick Links through it (D-13).',
-    ).toBe(false);
+    expect(copilot, 'quickPrompts must still be part of the contract').toContain('quickPrompts?:');
+    // Destructured out of props — the step that was missing.
+    expect(copilot, 'quickPrompts is declared but never destructured').toMatch(
+      /\n\s+quickPrompts,\n/,
+    );
+    // ...and actually mapped to chips.
+    expect(copilot, 'quickPrompts is destructured but never rendered').toMatch(
+      /\(quickPrompts \?\? \[\]\)\.map/,
+    );
+  });
+
+  it('§3.2.5a — Quick Links ride the ONE row above the composer, not a second strip', () => {
+    // The operator's standard: "a single row carousel as is already the
+    // standard in the copilot". Rendering them in their own strip would be a
+    // parallel affordance for the same job (inv.engineering.037) and would
+    // push the composer further from the citizen on every surface.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    const carousels = copilot.match(/flex flex-nowrap items-center gap-1 overflow-x-auto/g) ?? [];
+    expect(carousels.length, 'more than one chip carousel exists in the copilot').toBe(1);
+  });
+
+  it('a skipInference Quick Link never enters the model path', () => {
+    // Selecting a Quick Link is a NAVIGATION act. If it were sent as a message
+    // the citizen would get an answer about the destination instead of the
+    // destination — and would be billed an inference for a click.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/if \(item\.skipInference\) \{\s*onPrompt\?\.\(prompt\);\s*return;/);
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toContain('skipInference: true');
   });
 
   it('is a presentation filter, and says so — the server gate still governs', () => {

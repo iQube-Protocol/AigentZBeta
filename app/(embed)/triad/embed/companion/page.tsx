@@ -100,6 +100,7 @@ import {
   COMPANION_PRIMARY_NAV_ITEM,
   COMPANION_NAV_DENSITY_CLASS,
   copilotModeForNavItem,
+  migratedNavItems,
   navDensityForSurface,
   type CompanionNavItemId,
 } from "@/services/companion/companionNavigation";
@@ -270,6 +271,52 @@ function CompanionShell() {
       window.open(quickLinkHref(link, personaId), quickLinkTarget(), "noreferrer");
     },
     [quickLinkByLabel, personaId]
+  );
+
+  /**
+   * MIGRATION OF THE REMAINING BUTTONS INTO THE COPILOT MENU (operator,
+   * 2026-07-26). §3.2: the Copilot is the shell, so surface switches belong in
+   * its own menu row rather than a strip beneath it. Avatar, Agent Me and
+   * Wallet are already there natively, so only the rest migrate — derived,
+   * never listed, so the split cannot drift from the vocabulary.
+   *
+   * The bottom row is deliberately KEPT for now, per the operator: "you can
+   * keep them in both rows if you want until we test they are working in the
+   * copilot menu before retiring the bottom row." Retiring it is a separate,
+   * evidence-led step — not something to do speculatively in the same change
+   * that introduces the replacement.
+   */
+  const copilotNavExtras = useMemo(
+    () => (
+      <>
+        {migratedNavItems().map((item) => {
+          const label = COMPANION_NAV_LABEL[item];
+          const Icon = NAV_ICON_COMPONENT[COMPANION_NAV_ICON[item]];
+          const isActive = !railOpen && activeNavItem === item;
+          return (
+            <button
+              key={item}
+              type="button"
+              onClick={() => {
+                setRailOpen(false);
+                setActiveNavItem(item);
+              }}
+              title={label}
+              aria-label={label}
+              aria-current={isActive ? "page" : undefined}
+              className={`rounded-lg p-1.5 ring-1 ring-white/10 transition-colors ${
+                isActive
+                  ? "bg-slate-800 text-slate-100"
+                  : "text-slate-400 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : label}
+            </button>
+          );
+        })}
+      </>
+    ),
+    [activeNavItem, railOpen]
   );
 
   const identity = ctx?.identity ?? null;
@@ -464,6 +511,16 @@ function CompanionShell() {
                  the Companion stays put on the right. */
               quickPrompts={quickLinkPrompts}
               onPrompt={openQuickLink}
+              /* The wallet reached FROM THE COPILOT must be the same
+                 pane-width wallet the Companion's own Wallet item mounts
+                 (`embeddedWidth="fill"`, `allowWideLayout={false}`). Before
+                 this, the copilot's wallet was hardcoded to the cartridge-
+                 sized column, so the same capability rendered at two
+                 different widths depending on which route reached it —
+                 operator report, 2026-07-26. */
+              walletEmbeddedWidth="fill"
+              walletAllowWideLayout={false}
+              navExtras={copilotNavExtras}
               agent={{ id: "aigent-me", name: "Agent Me" }}
               personaId={personaId}
             />

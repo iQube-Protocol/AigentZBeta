@@ -23,6 +23,8 @@ import {
   COMPANION_NAV_ITEM_TO_SURFACE,
   COMPANION_PRIMARY_NAV_ITEM,
   COMPANION_CAPABILITY_INVENTORY,
+  COPILOT_NATIVE_NAV_ITEMS,
+  migratedNavItems,
   PRE_1_1_COMPANION_MODES,
   copilotModeForNavItem,
   navDensityForSurface,
@@ -223,6 +225,85 @@ describe('§4.5 / D-8 — the avatar owns no session of its own', () => {
       expect(code, `a second conversational surface (${parallel}) would be a second Agent Me`)
         .not.toContain(parallel);
     }
+  });
+});
+
+// ─── §3.2 — one navigation system: migration into the copilot menu ──────────
+
+describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
+  it('splits the vocabulary by what the copilot already owns, derived not listed', () => {
+    expect([...COPILOT_NATIVE_NAV_ITEMS]).toEqual(['avatar', 'wallet', 'agent-me']);
+    expect(migratedNavItems()).toEqual(['search', 'workspace', 'overlay']);
+    // Together they are exactly the vocabulary — no item is in both, none lost.
+    expect([...COPILOT_NATIVE_NAV_ITEMS, ...migratedNavItems()].sort()).toEqual(
+      [...COMPANION_NAV_ITEMS].sort(),
+    );
+  });
+
+  it('the page derives the migrated set rather than re-listing it', () => {
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('migratedNavItems()');
+    expect(code).toContain('navExtras={copilotNavExtras}');
+  });
+
+  it('the copilot renders host nav extras additively, never via footerContent', () => {
+    // `footerContent` REPLACES the copilot's own menu row. Using it here would
+    // have migrated three items in and knocked the avatar/chat toggle and the
+    // wallet launcher out — a net loss disguised as a migration.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toContain('navExtras?:');
+    expect(copilot).toMatch(/\n\s+navExtras,\n/);
+    expect(copilot).toContain('{navExtras}');
+    expect(stripComments(readSource(COMPANION_PAGE))).not.toContain('footerContent');
+  });
+
+  it('the bottom row is KEPT while the migration is under test', () => {
+    // Operator: "you can keep them in both rows if you want until we test they
+    // are working in the copilot menu before retiring the bottom row." Retiring
+    // it early would strip the only way back from Search/Workspace/Overlay,
+    // where the copilot — and therefore its menu — is not mounted at all.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('aria-label="Companion navigation"');
+    expect(code).toContain('COMPANION_NAV_ITEMS.map');
+  });
+});
+
+// ─── One capability, one width, whichever route reaches it ──────────────────
+
+describe('the wallet renders at Companion pane width from BOTH routes', () => {
+  it('the copilot mount asks for the same fill-width wallet as the nav item', () => {
+    // The defect (operator, 2026-07-26): the Companion's own Wallet nav item
+    // mounted SmartWalletDrawer with embeddedWidth="fill", but the wallet
+    // reached THROUGH the copilot used a hardcoded "fixed" cartridge-sized
+    // column. Same capability, two widths, decided by which route the citizen
+    // happened to take — precisely what §4.3's "one navigation" forbids.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('embeddedWidth="fill"');
+    expect(code).toContain('walletEmbeddedWidth="fill"');
+    expect(code).toContain('allowWideLayout={false}');
+    expect(code).toContain('walletAllowWideLayout={false}');
+  });
+
+  it('the copilot takes its wallet width from a prop, never a constant', () => {
+    // `const walletEmbeddedWidth = "fixed"` is what made the copilot's wallet
+    // unfixable from outside. If it returns, the Companion mount above goes on
+    // compiling and silently stops having any effect.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).not.toMatch(/const walletEmbeddedWidth = ["']fixed["']/);
+    expect(copilot).toContain('walletEmbeddedWidth?:');
+  });
+
+  it('fill mode drops the rem cap, or the prop would have no visible effect', () => {
+    // A width prop that is threaded through but overridden by a `md:w-[22.25rem]`
+    // wrapper class is the subtlest version of this same bug: every grep passes
+    // and the pane still renders at cartridge width.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/walletEmbeddedWidth === ["']fill["']\s*\?\s*["']w-full["']/);
+  });
+
+  it('defaults to fixed — every pre-existing cartridge mount is unchanged', () => {
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/walletEmbeddedWidth: walletEmbeddedWidthProp = ["']fixed["']/);
   });
 });
 
