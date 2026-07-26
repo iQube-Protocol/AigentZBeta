@@ -383,13 +383,17 @@ The operator's ruling is wider than the question asked. D-5 offered three hostin
 | Copilot width | Inherits the **Companion's** dimensions, not its cartridge width |
 | aigentMe's platform role | Promoted to **primary orchestration layer** |
 
-### 6a.3 Consequences this SPEC records (not authorises)
+### 6a.3 Scope limit — **D-5 DOES NOT AUTHORISE A COMPANION REDESIGN** (operator, 2026-07-26)
 
-The third paragraph reaches well beyond Stage B hosting. Recorded here so it is not lost, and explicitly **not** chartered by this SPEC:
+The operator's follow-up is explicit and binding on this programme:
 
-1. **Quick Links, cartridge navigation, Passport workflows and Workspace actions become aigentMe actions** — aigentMe drives the left-hand runtime while holding one continuous conversation. That is a re-architecture of platform navigation, not a Threshold Crossing feature.
-2. **Consolidation target:** Runtime Copilot + Edge Companion history + agreements + activity + settings collapse into **one persistent constitutional interaction model**. The stated goal is eliminating duplicate conversational surfaces while preserving **a single aigentMe identity across metaMe and the broader web**.
-3. **This needs its own charter.** It touches the Companion, the copilot layer, the wallet drawer, navigation, and the identity spine's session continuity. Implementing it as a side effect of §6 would be exactly the unscoped-sprawl this programme is structured to avoid.
+> Complete the current implementation programme exactly as scoped. Do not expand D-5 into a Companion redesign.
+
+**What D-5 authorises inside SPEC-TCP-001 — and nothing more:** Stage B's §6 modules are hosted with `CodexCopilotLayer` mounted as the full-width aigentMe runtime inside the Companion, and wallet/aigentMe are toggled peer modes in one overlay (§6a.1–6a.2).
+
+**Everything in the ruling's third paragraph is OUT of scope here and moves to its own charter — `SPEC-MMC-004` (Companion 1.1).** That covers: Quick Links / cartridge navigation / Passport workflows / Workspace actions becoming aigentMe actions; unified bottom navigation across Runtime, Companion and partner sites; and consolidating Runtime Copilot + Companion history + agreements + activity + settings into one persistent interaction model.
+
+The split matters because those two bodies of work have different risk profiles. Stage B hosting is a mount-and-size change inside a shipped component. Companion 1.1 re-architects platform navigation and touches the identity spine's session continuity. Letting the second ride along inside a Threshold Crossing phase is exactly the unscoped sprawl this programme is structured to avoid — and the operator has now ruled it out directly, not merely as a caution.
 
 ### 6a.4 Required amendment to CLAUDE.md at build time
 
@@ -399,43 +403,49 @@ The two are compatible in their essential claim — the wallet is still embedded
 
 ---
 
-## 6b. What "initial constitutional configuration complete" means — **D-7 RATIFIED 2026-07-26**
+## 6b. What crosses the threshold — **D-7 RATIFIED then SUPERSEDED, both on 2026-07-26**
 
-Threshold Crossing requires **exactly two** of §6's modules. The operator's list, verbatim:
+### 6b.1 The governing ruling (operator, verbatim — supersedes the earlier D-7 interpretation)
 
-> 1. a minimum viable Personal Experience Qube; and
-> 2. completion of one meaningful First Task.
->
-> The First Task may be delivered through the Experience Guide, but merely opening the guide does not count. Venture Experience Qube, Notifications, Journey Recommendation and extended Preferences are not threshold requirements. Essential preferences and consent should be captured within the minimum PEQ.
+> Do not gate Threshold Crossing on completion of the ExperienceModel, ExperienceGuide or ExperienceQube. These are personalization assets, not constitutional prerequisites. The constitutional threshold is crossed once Passport, Delegation and Agent Me activation are complete. After crossing, Agent Me should progressively recommend and help populate the ExperienceModel and ExperienceGuide over time, including by deriving their JSON representations from ongoing interaction where appropriate. Manual forms remain available as review and editing surfaces, not mandatory onboarding steps.
 
-| §6 module | Required for threshold? |
+### 6b.2 What this replaces
+
+D-7 was first answered earlier the same day as *"a minimum viable Personal Experience Qube + one completed meaningful First Task."* **That answer is withdrawn.** The superseding note removes the PEQ from the gate entirely, and with it the two build-time definitions the earlier answer had created (a "minimum viable PEQ" field set, and a task signal distinguishing *completed* from *opened*). Neither is needed for the threshold; both are recorded here only so a reader of the git history knows they were dropped deliberately rather than forgotten.
+
+The withdrawn answer is left visible rather than deleted because the reasoning that replaced it is the substantive part: **personalization is not constitution.** A citizen is not more or less constituted by how much of a profile they have filled in.
+
+### 6b.3 The threshold, restated
+
+**Threshold Crossing = Passport + Delegation + aigentMe activation.** Nothing about §6's configuration modules gates it.
+
+| §6 module | Gates the threshold? |
 |---|---|
-| **Personal Experience Qube** | **YES** — at *minimum viable* depth, not a completed wizard |
-| **First Tasks** | **YES** — exactly one, *meaningful* and *completed* |
-| Preferences | No, beyond the essential preferences + consent folded into the minimum PEQ |
-| Venture Experience Qube | No (still D-6 for its own modelling question) |
-| Notifications | No |
-| Experience Guide | No — but it MAY be the delivery vehicle for the First Task |
-| Journey Recommendation | No |
+| Personal Experience Qube | **No** — personalization asset |
+| Experience Guide | **No** — personalization asset |
+| Experience Model | **No** — personalization asset |
+| Venture Experience Qube | **No** (still D-6 for its own modelling question) |
+| Preferences | **No** |
+| Notifications | **No** |
+| Journey Recommendation | **No** (and could never have been — recommendation-only until D-19/D-20, §0.6) |
+| First Tasks | **No** — the earlier answer required one; the superseding ruling names only Passport, Delegation and aigentMe activation |
 
-### 6b.1 Two definitions this creates, both needing to be pinned before build
+### 6b.4 Personalization becomes a post-threshold, agent-driven track
 
-1. **"Minimum viable PEQ"** — a threshold criterion cannot rest on an unstated bar. It must be defined as a *specific, observable* field set on `services/iqube/experienceQube.ts`, and it now also carries **essential preferences and consent**, which today live in the Preferences module. Folding consent into the PEQ is a schema question, not a UI one.
-2. **"One meaningful First Task"** — "meaningful" is doing real work in this sentence. The operator drew the line explicitly (opening the Experience Guide does not count), so the criterion is **completion of a task**, not engagement with a surface. The `GET /api/wallet/tasks` assembly must therefore distinguish *opened* from *completed*, and a task delivered via the Experience Guide must report completion of the task, never of the guide.
+The ruling does not discard the personalization assets — it **relocates** them to after the threshold and changes who does the work:
 
-Both are build-time definitions; neither is inferred here.
+1. **aigentMe progressively recommends and helps populate** the ExperienceModel and ExperienceGuide over time.
+2. **Derivation from interaction is explicitly permitted** — aigentMe may derive their JSON representations from ongoing interaction "where appropriate." This is the observer pattern applied to personalization: observed, not interrogated.
+3. **Manual forms remain, with a changed role.** `ExperienceModelSetupWizard`, `PersonalGuideSetupWizard` and the rest survive as **review and editing surfaces**, never mandatory onboarding steps. Nothing is deleted; a wizard stops being a gate and becomes a place to check and correct what aigentMe has already derived.
 
-### 6b.2 Why this is the coherent cut
+**A constraint this implies, not yet decided:** if aigentMe derives profile content from interaction, the derived state must be distinguishable from what the citizen authored or confirmed. Otherwise a review surface cannot show the citizen *what was inferred about them* — which is the whole point of it being reviewable. That is a provenance field on the derived artifact, and it belongs to whichever charter builds the derivation, not to this SPEC.
 
-The excluded modules are excluded for reasons that hold independently:
+### 6b.5 Consequential effect on D-21
 
-- **Journey Recommendation** could never have been a threshold requirement — it is recommendation-only until D-19/D-20 land (§0.6), so requiring it would have made the threshold uncrossable.
-- **Notifications** and **extended Preferences** are configuration a citizen can complete at any time; gating personhood on them would confuse *configured* with *constituted*.
-- **Venture Experience Qube** is optional by §6's own table and still blocked on D-6.
+D-21 adopted the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with Threshold Crossed as the terminal state of **both**. This ruling changes that: Guided Configuration is no longer a gate, so it can no longer have Threshold Crossed as its terminal state.
 
-What remains is the smallest pair that evidences both halves of §1.1's split: the PEQ evidences **Constitutional Activation** (the citizen exists as a modelled principal), and the completed First Task evidences **Guided Configuration** (the citizen has actually done something with it).
+The coherent reading — recorded, not assumed — is that **Threshold Crossed is the terminal state of Constitutional Activation only**, and Guided Configuration becomes an **open-ended post-threshold track** that aigentMe drives and that has no completion state at all. That preserves everything D-21 was protecting (a "declined" state stays distinguishable from a "completed" one) while matching the ruling. D-21's register row is annotated accordingly; if the operator reads it differently, that is a correction to make before §13 is built.
 
----
 
 ## 7. The Progressive Experience Qube — and the one-sitting mode (operator amendment)
 
@@ -619,9 +629,16 @@ Nothing may report Threshold Crossed on the strength of one layer alone.
 | 3 | aigentMe active | **No — derived** | Derived from Passport issuance; Capsule engagement is persisted nowhere (§0.8, D-10) |
 | 4 | Companion installed | **No** | No table, column, or signal records it (§0.7, D-9) |
 | 5 | Companion paired | **No** | Pairing state lives in `chrome.storage.local` only (§0.7, D-9) |
-| 6 | Initial configuration complete | **Defined, not yet evaluable** | **D-7 RATIFIED 2026-07-26** (§6b): a minimum viable PEQ **and** one completed meaningful First Task. The criterion is now unambiguous, but two build-time definitions must be pinned before it can be *evaluated* — the exact PEQ field set that constitutes "minimum viable" (including the essential preferences + consent folded into it), and a task signal that distinguishes *completed* from *opened* |
+| 6 | ~~Initial configuration complete~~ | **REMOVED as a criterion** | **D-7 SUPERSEDED 2026-07-26** (§6b): ExperienceModel / ExperienceGuide / ExperienceQube are personalization assets, not constitutional prerequisites. No §6 configuration module gates the threshold, so this row is no longer a Constitutional Activation criterion at all. Personalization continues as a post-threshold track aigentMe drives (§6b.4) |
 
-**Criterion 6 is now defined; criteria 3, 4 and 5 remain unobservable.** Any implementation that reports "Threshold Crossed" before D-8, D-9 and D-10 are resolved would be asserting a constitutional state it cannot observe — the precise class of failure SPEC-COS-001's resolver was built to avoid, and which its `not-resolvable-today` dial exists to make visible. **D-9 is now the long pole**: it gates criteria 4 and 5, and (per D-15) it is the remaining condition on any completion percentage.
+**Criterion 6 is removed. Criterion 3 (aigentMe active) remains derived, not observed (D-10). Criteria 4–5 (Companion installed / paired) remain unobservable (D-9) — and whether they are still criteria AT ALL is now D-24**, because D-7's superseding ruling names only Passport, Delegation and aigentMe activation.
+
+**What this means for the critical path, stated conditionally because D-24 is open:**
+
+- **If D-24 drops criteria 4–5**, the threshold reduces to criteria 1–3. D-9 leaves the threshold critical path entirely, and the binding constraints become D-8 (delegation criterion) and D-10 (aigentMe active is derived, not observed). D-10 then becomes the long pole, because a threshold that turns on "aigentMe activation" cannot rest on a *derived* signal — it would be asserting the very thing it must observe.
+- **If D-24 retains them**, D-9 stays the long pole exactly as before.
+
+Either way, any implementation that reports "Threshold Crossed" while its criteria are underivable would be asserting a constitutional state it cannot observe — the precise class of failure SPEC-COS-001's resolver was built to avoid, and which its `not-resolvable-today` dial exists to make visible.
 
 **Receipt posture (proposed, D-17):** if Threshold Crossing is to be receipted, it composes the existing unified receipt writer and, if anchored, the existing DVN pipeline with a new **action type only** — the one change CLAUDE.md's DVN Pipeline Protection section permits unilaterally. No payload-shape change, no state-machine change, no `hashPersonaRef` change. Any receipt carries a T2 `personaPublicRef` (`services/identity/personaReferences.ts`) and **never** a `personaId`.
 
@@ -793,9 +810,9 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-2** | Which surface plays Path B's "Platform Welcome"? Candidates: `IRLWelcomeTab`, `AigentMeWelcomeSplitTab`, `services/threshold/welcome.ts`'s `WELCOME_MESSAGE`, or a new one | **RATIFIED (operator, 2026-07-26): a NEW universal Threshold Welcome surface**, composed from existing design and guide primitives. Do **not** repurpose an IRL-specific or aigentMe-specific welcome tab. The surface begins **or resumes** Threshold Crossing and hands off to Passport. See §5a | **RATIFIED** |
 | **D-3** | Path C's QR variant: build QR generation/scanning, or drop QR from the spec until it exists | Drop from Phase 1; the invitation link path already works | **Open** |
 | **D-4** | Resolve the three-way "Experience Guide" naming collision (§0.11) — rename this SPEC's §8–§10 concept, or rename one of the two shipped senses | Rename this SPEC's concept (e.g. "Capability Walkthrough"); the two shipped senses are load-bearing in code and docs | **Open — BLOCKING for §8–§10** |
-| **D-5** | Where Stage B is hosted: extension side panel · widened Companion embed · promote the embed to a full `CodexCopilotLayer` mount | **RATIFIED (operator, 2026-07-26), and materially wider than the question asked.** The Edge Companion becomes the **canonical runtime surface for the citizen's aigentMe**: the existing `CodexCopilotLayer` is mounted AS the aigentMe runtime and expands to the Companion's full width — the Companion is the container, aigentMe the primary occupant. **No second Copilot is embedded inside the Companion.** Wallet and aigentMe are **peer modes toggled within one overlay** (the existing Wallet-over-Cartridge pattern), never two cropped side-by-side panels. Consequently aigentMe becomes the platform's **primary orchestration layer**. Full text and its consequences: §6a | **RATIFIED — supersedes the three options offered** |
+| **D-5** | Where Stage B is hosted: extension side panel · widened Companion embed · promote the embed to a full `CodexCopilotLayer` mount | **RATIFIED (operator, 2026-07-26), and materially wider than the question asked.** The Edge Companion becomes the **canonical runtime surface for the citizen's aigentMe**: the existing `CodexCopilotLayer` is mounted AS the aigentMe runtime and expands to the Companion's full width — the Companion is the container, aigentMe the primary occupant. **No second Copilot is embedded inside the Companion.** Wallet and aigentMe are **peer modes toggled within one overlay** (the existing Wallet-over-Cartridge pattern), never two cropped side-by-side panels. Consequently aigentMe becomes the platform's **primary orchestration layer** — **but that consequence is chartered SEPARATELY as `SPEC-MMC-004` (Companion 1.1), not by this SPEC** (operator, 2026-07-26: *"Do not expand D-5 into a Companion redesign"*). Full text and scope limit: §6a | **RATIFIED — supersedes the three options offered** |
 | **D-6** | "Venture Experience Qube": `experienceType: 'venture'` on the single per-persona qube, or a genuine second qube (schema change) | Prefer the shipped one-qube model unless the operator needs true multiplicity | **Open** |
-| **D-7** | What "initial constitutional configuration complete" means — which subset of §6's seven modules is required | **RATIFIED (operator, 2026-07-26) — exactly two requirements:** (1) a **minimum viable Personal Experience Qube**, and (2) completion of **one meaningful First Task**. The First Task MAY be delivered through the Experience Guide, but **merely opening the guide does not count**. Venture Experience Qube, Notifications, Journey Recommendation and extended Preferences are **not** threshold requirements. Essential preferences and consent are captured **within** the minimum PEQ. See §6b | **RATIFIED** |
+| **D-7** | What "initial constitutional configuration complete" means — which subset of §6's seven modules is required | **SUPERSEDED (operator, 2026-07-26, same day as its first answer).** The earlier answer (minimum viable PEQ + one meaningful First Task) is **withdrawn**. Governing ruling: *ExperienceModel, ExperienceGuide and ExperienceQube are personalization assets, not constitutional prerequisites* — **no §6 module gates the threshold.** The threshold is **Passport + Delegation + aigentMe activation**. Personalization moves to a post-threshold track aigentMe drives, deriving from interaction where appropriate; manual forms survive as review/edit surfaces, never mandatory steps. See §6b | **RATIFIED (superseding)** |
 | **D-8** | Reconcile "Delegation active" as a Stage A / §13 criterion against the shipped `optional: true` / "never gates" model | Recommend: keep Delegation **optional** for threshold crossing, and make it **required-when-an-agent-is-bound** (Path A). Otherwise a direct human arrival can never cross | **Open — BLOCKING for §4, §13** |
 | **D-9** | Make Companion install + pairing server-observable — persist surface provenance (SPEC-MMC-003 §3.6's held migration) or add an explicit pairing record | Adopt the smaller: persist the already-stamped `x-companion-surface`. Exact SQL to the operator inline at charter time | **Open — BLOCKING for §13** |
 | **D-10** | Make aigentMe engagement observed rather than derived (§0.8), or accept "derived" and label it everywhere it surfaces | Accept `derived` for Phase 1 and label it; upgrade only if §13 needs a hard signal | **Open** |
@@ -809,9 +826,10 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-18** | Confirm Build and Safeguard are Action Modes, not journeys — and that "aigentMe-led" means observer-layer reflection, not a ladder (§14.2) | Adopt (§14.2's reading is read from shipped code) | **Open** |
 | **D-19** | May a delegated agent select a journey on the principal's behalf, or is selection human-only? | **RATIFIED (operator, 2026-07-26): recommend-and-prepare, never finalise.** A delegated agent MAY recommend and prepare a journey selection; the principal MUST explicitly confirm it **through the existing authorization spine** before it becomes active. **No agent-finalised journey selection, and no parallel authorization gate.** This is the Principal–Delegate Separation boundary (CFS-043 §2) applied to journey selection. See §14.3a | **RATIFIED** |
 | **D-20** | Charter the journey-selection store, write path, `select_journey` tool, migration, and resolver extension (§14.3, five items) | Adopt as a **separate charter**, not a phase of this SPEC. Nothing in §14 is implementable before it lands | **Open — BLOCKING for §14** |
-| **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | Adopt. It resolves D-8 without weakening either layer, and keeps "declined" distinguishable from "completed" | **Open — BLOCKING for §13** |
+| **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | Adopt the split. **But D-7's supersession (2026-07-26) breaks the "terminal state of both" half**: Guided Configuration is no longer a gate, so it cannot terminate at Threshold Crossed. Recommended reading (§6b.5): Threshold Crossed terminates **Constitutional Activation only**, and Guided Configuration becomes an open-ended post-threshold track with no completion state. This keeps "declined" distinguishable from "completed" and still resolves D-8 | **Open — BLOCKING for §13; needs re-confirmation in light of D-7** |
 | **D-22** | Adopt **reuse before replacement**: the shipped metaMe Runtime Shell tour is the **reference implementation**; it SHALL be audited (§0.3a) before any new tour framework is selected, and any replacement proposal must name the requirement it cannot meet | Adopt (`inv.engineering.037`). The original §0.3 absence claim is withdrawn | **Open — BLOCKING for §8, §9** |
 | **D-23** | Whether the Guided Experience Framework is **extracted into the main tree**, **kept in the thin client and consumed**, or **re-expressed as a shared package** — the two trees are separate repositories (§0.3a Q1) | **RESOLVED (operator, 2026-07-25): build it natively in the Next.js Edge Companion first**, so the programme carries no dependency on the Lovable thin client. Handoffs between the two surfaces are addressed later, not now. The thin-client implementation remains the **reference** (D-22) — read for its contract and its hard-won staging discipline, not imported | **RATIFIED** |
+| **D-24** | **NEW, raised by D-7's supersession (2026-07-26).** D-7 now states the threshold as *"Passport, Delegation and Agent Me activation"* — three criteria. §13 lists **six** Constitutional Activation criteria; the other three are **Companion installed** and **Companion paired** (criteria 4–5, unobservable today, D-9). Does the superseding ruling ALSO drop those two, or are they retained as Stage A infrastructure that aigentMe activation presupposes? | **Requires an operator ruling — do not default.** The two readings diverge materially: if dropped, D-9 leaves the threshold critical path entirely and §13 becomes evaluable much sooner; if retained, D-9 remains the long pole. A reading is NOT inferred here because the ruling neither named nor excluded them | **Open — BLOCKING for §13** |
 
 ### 20.1 Explicitly NOT authorised by ratifying this SPEC
 
@@ -845,7 +863,7 @@ Recorded so the first build slice is deliberately narrow. **Not authorised until
 | **P4a** | **Reference-implementation audit** — completed for the five supplied files (§0.3a). Disposition **RESOLVED by D-23: build natively in the Next.js Edge Companion**, no thin-client dependency. Remaining P4a work is narrow: confirm §9's seven-point contract against the native surface's own constraints (Next.js client components, the Companion's ~23rem panel, `personaFetch` transport). | D-12, D-22, **D-23 ratified** |
 | **P4b** | **Guide runtime, built natively in the Edge Companion.** One runtime + declarative definitions: highlight, stage-the-surface, navigate (`buildCodexUrl`), narrate (`useTTSPlayer` → `/api/skills/tts`), captions, step-lifecycle seam, pause-for-interaction, confirm-completion. The thin client's controlled-advancement + anchor-wait + settle discipline is a **requirement to reproduce**, not code to import (§0.3a). | D-4, D-13, and P4a |
 | **P5** | **The Companion Guide** — the first definition on P4b's runtime, script approved against the capability set current on its build date. | D-14, and P4 |
-| **P6** | **Stage B in the Companion.** Host §6's modules with `CodexCopilotLayer` mounted as the full-width aigentMe runtime inside the Companion; wallet and aigentMe as toggled peer modes (§6a). Amend CLAUDE.md's Wallet-Over-Cartridge Overlay section in the same change (§6a.4). **§6a.3's orchestration-layer consequences are NOT in this phase** — they need their own charter. | ~~D-5~~ (ratified), D-6, and P2 |
+| **P6** | **Stage B in the Companion.** Host §6's modules with `CodexCopilotLayer` mounted as the full-width aigentMe runtime inside the Companion; wallet and aigentMe as toggled peer modes (§6a). Amend CLAUDE.md's Wallet-Over-Cartridge Overlay section in the same change (§6a.4). **§6a.3's orchestration-layer consequences are NOT in this phase** — they are chartered as `SPEC-MMC-004` (Companion 1.1). | ~~D-5~~ (ratified), D-6, and P2 |
 | **P7** | **Entry paths B and C** hardened to the §3 convergence contract, converging on the new universal Threshold Welcome surface (§5a) — re-entrant (begins **or resumes**), composed from existing primitives, handing off to Passport. | ~~D-2~~ (ratified), D-3 |
 | **P8** | **Journey selection** — the separate charter of §14.3 (store, write path, `select_journey` tool, migration, resolver extension). Per **D-19 (§14.3a)** the store carries a **prepared → active** split: an agent may reach `prepared`, only the principal reaches `active`, via `requireAuthorizedAgreement`. `select_journey` MAY ONLY PREPARE, canaried like the MoneyPenny authority boundary. | ~~D-19~~ (ratified), D-20 |
 | **P9** | **§14 specialist-journey activation gate.** Derived from `journeyRegistry` / `actionModes` / `ARCHETYPE_JOURNEY`, with a parity canary. | P8 complete, D-18 |
