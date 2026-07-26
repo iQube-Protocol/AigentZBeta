@@ -103,9 +103,23 @@ describe('Recursive compression discipline (parent-child keystone)', () => {
 
   it('is acyclic + drops self-references, and only accepts in-range parent indices', () => {
     expect(src).toMatch(/MUST be acyclic/);
-    // parent-index filter: integer, not self, within [0, items.length)
-    expect(src).toMatch(/p !== idx/);
-    expect(src).toMatch(/p < items\.length/);
+    // The filter was rewritten (inverted polarity, renamed variable, plus an
+    // integer check and a seen-set dedupe) with IDENTICAL semantics, so the
+    // old `p !== idx` / `p < items.length` literals pinned an expression that
+    // no longer exists while the rule it guards held throughout.
+    //
+    // Asserted by SEMANTICS, not by expression text: the guard must reject a
+    // non-integer, a self-reference, and an out-of-range index. Naming and
+    // polarity are free to change; dropping a condition is not.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const guard = code
+      .split('\n')
+      .find((l) => l.includes('items.length') && l.includes('continue'));
+    expect(guard, 'the parent-index guard was not found').toBeTruthy();
+    expect(guard, 'integer check dropped').toMatch(/Number\.isInteger/);
+    expect(guard, 'self-reference check dropped').toMatch(/idx/);
+    expect(guard, 'lower-bound check dropped').toMatch(/<\s*0/);
+    expect(guard, 'upper-bound check dropped').toMatch(/items\.length/);
   });
 
   it('role/derived: a node is derived only when it has ≥1 valid parent, else root', () => {

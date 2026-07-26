@@ -167,11 +167,17 @@ describe("the module RECORDS — it never executes, deploys, or writes a receipt
     "utf8",
   );
   it("does no I/O — no receipt service, no dvn, no fs, no fetch, no child_process", () => {
-    expect(source).not.toMatch(/activityReceiptService/);
-    expect(source).not.toMatch(/from ['"].*dvn/);
-    expect(source).not.toMatch(/from ['"]fs['"]/);
-    expect(source).not.toMatch(/child_process/);
-    expect(source).not.toMatch(/\bfetch\s*\(/);
+    // Comments stripped first. The module's header CITES
+    // services/receipts/activityReceiptService.ts to explain which receipts the
+    // caller writes -- accurate documentation that a raw-source grep read as an
+    // I/O violation. Fourth instance of this defect class in one triage pass;
+    // see the Architect, qubetalk and invite canaries.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code).not.toMatch(/activityReceiptService/);
+    expect(code).not.toMatch(/from ['"].*dvn/);
+    expect(code).not.toMatch(/from ['"]fs['"]/);
+    expect(code).not.toMatch(/child_process/);
+    expect(code).not.toMatch(/\bfetch\s*\(/);
     // crypto is the only permitted import (for T2-safe commitments).
   });
 });
