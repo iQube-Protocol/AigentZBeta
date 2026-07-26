@@ -133,6 +133,39 @@ Two consequences, written into SPEC-TCP-001 §13 and the D-24 register row:
 
 **D-10 also gets sharper.** Now that the threshold turns explicitly on "Agent Me Activation" as its own named step, deriving that signal from Passport issuance is weaker than the criterion requires — it would assert activation from the presence of a passport rather than from evidence that aigentMe was activated. D-10 is no longer a nice-to-have.
 
+## 3e. Aletheon review applied — Companion 1.1 decision register fully closed
+
+The operator forwarded an Aletheon review of the Scope. It endorsed the document and proposed one architectural change, one missing decision, and several sharpenings. All were applied.
+
+| Item | Disposition |
+|---|---|
+| **D-1** strengthen the no-new-capabilities wording | Applied verbatim: *"Where consolidation reveals a capability gap, Companion 1.1 records the gap and defers it to a subsequent charter. Companion 1.1 never introduces new constitutional capability to close such gaps."* Forecloses expansion under "just one missing thing" |
+| **D-2** inside-only | **Ratified.** Browser actions, permissions, extension lifecycle, popup behaviour and store packaging become **Extension 2.x** |
+| **D-3** "shared constitutional navigation with adaptive presentation" | **Ratified as a refinement, not a reversal** — see below |
+| **D-4** Companion frame only, no host-page injection | **Ratified.** Closes the assumption previously recorded here pending a ruling; the assumption was correct and is now a decision |
+| **D-5** merge presentation only | **Ratified.** Receipts, storage, retention and audit history unchanged — only where they surface |
+| **D-6** one constitutional relationship **per persona**, explicitly not global | **Ratified**, and §3.1 now states the boundary as prominently as the continuity |
+| **D-7** receipt-neutral | **Ratified** |
+| **D-8** (new) does the avatar own a separate session? | **Ratified: no** — see below |
+| Success criterion 7 | Added: *"The citizen never has to decide which Agent Me they are speaking to."* |
+| Explicit 1.2 deferral for ExperienceModel/Guide derivation | Added to §10 and §15 |
+
+**All eight decisions are now ratified**, so C0–C5 are gated only on each other.
+
+### D-3 — why this is a refinement rather than a reversal
+
+Aletheon evaluated D-3 as an open three-way choice and picked option 2. The operator had already answered *"3 no change."* These converge rather than conflict, and the Scope says so explicitly: **"no change" settled whether to redesign the navigation (no); Aletheon's formulation settles how the unchanged model renders across three surfaces**, which the earlier answer did not address.
+
+The resulting rule: **the navigation vocabulary is identical; the presentation adapts to the host** (full / different spacing / compact). "Adaptive" governs spacing, density and affordance size — never which concepts exist, what they are called, or their order. The invariant is that the citizen never has to relearn navigation. Flagged in the register in case "no change" was meant as literally identical rendering.
+
+### D-8 — the most consequential addition
+
+*Does the avatar own a separate conversational session?* **No.** Voice, text and avatar operate against exactly the same live conversation: no avatar-specific memory, no avatar-specific AI, no avatar-specific context.
+
+This was a genuine gap. The Scope had the property implicit in §4.5 and canaried in §11.6, but never as a **decision** — and it is the single most natural way to accidentally create a second Agent Me while believing you are only changing a rendering. An avatar with its own model and memory would satisfy every visual success criterion and violate §3.1 outright. It is now D-8, stated in §4.5, and §11.6's canary is bound to it.
+
+It also converges with the §5.2 flag raised before the review: the avatar is the one in-scope item that is a rewiring rather than a relayout. D-8 is the decision; §5.2 is its build consequence; C5 sequences it last.
+
 ## 4. What changed in the critical path
 
 **D-9 is the long pole — now confirmed, not conditional** (D-24 resolved, §3d). Companion Pairing is a retained threshold criterion and its state lives only in `chrome.storage.local`, so nothing server-side can observe it.
@@ -155,6 +188,6 @@ For CDR, nothing blocks any phase; P6 is next.
 
 - ~~TCP D-24~~ — **resolved** by the Companion 1.1 Scope (§3d).
 - **TCP D-21** needs re-confirmation in light of D-7's supersession (§6b.5).
-- **SCOPE-MMC-004 (Companion 1.1)** — D-3 and D-6 resolved by the brief; **D-2, D-4, D-5, D-7 remain open**, of which **D-4 blocks C2**.
+- ~~SCOPE-MMC-004 open decisions~~ — **all eight ratified** after the Aletheon review (§3e). C0–C5 are gated only on each other.
 - The **Constitutional Continuity Principle** (SCOPE-MMC-004 §3.1) awaits registration as an invariant; it is eligible for `canonical` as a governance rule.
 - A **provenance field** distinguishing aigentMe-derived profile content from citizen-authored content, owned by whichever charter builds the derivation track (§6b.4).
