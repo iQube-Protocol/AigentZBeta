@@ -582,4 +582,16 @@ describe('voice sits with the two ways of addressing Agent Me', () => {
     // …and still reachable where the toggle group is hidden.
     expect((code.match(/\{hideAvatarToggle \? micButton : null\}/g) ?? []).length).toBe(2);
   });
+
+  it('pause travels with the mic — they are one control, not two', () => {
+    // Splitting them put "pause listening" and "stop talking" at opposite ends
+    // of the row (operator, 2026-07-26).
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(code).toContain('const pauseButton = vapiState !== "idle" ?');
+    expect((code.match(/\{pauseButton\}/g) ?? []).length).toBe(2);
+    expect((code.match(/\{hideAvatarToggle \? pauseButton : null\}/g) ?? []).length).toBe(2);
+    // Pause immediately precedes the mic in both groups.
+    for (const m of code.matchAll(/\{pauseButton\}\s*\n\s*\{micButton\}/g)) expect(m).toBeTruthy();
+    expect((code.match(/\{pauseButton\}\s*\n\s*\{micButton\}/g) ?? []).length).toBe(2);
+  });
 });

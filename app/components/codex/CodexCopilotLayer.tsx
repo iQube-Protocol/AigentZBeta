@@ -979,6 +979,28 @@ export function CodexCopilotLayer({
   };
 
   /**
+   * The audio pause. Lives beside the mic (operator, 2026-07-26) — it is the
+   * other half of one voice control, and splitting them put "stop talking"
+   * and "pause listening" at opposite ends of the row.
+   *
+   * Only rendered mid-session (`vapiState !== 'idle'`), so the left group is
+   * three icons at rest and four while the citizen is actually talking.
+   */
+  const pauseButton = vapiState !== "idle" ? (
+      <button
+        onClick={() => {
+          const next = !vapiPaused;
+          setVapiPaused(next);
+          vapiPausedRef.current = next;
+        }}
+        title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+        className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
+      >
+        {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+      </button>
+  ) : null;
+
+  /**
    * The voice control. ONE definition, rendered once per footer.
    *
    * Placement (operator, 2026-07-26): it belongs with Avatar and Chat — the
@@ -1870,6 +1892,7 @@ export function CodexCopilotLayer({
                               >
                                 <MessageSquare className="w-3 h-3" />
                               </button>
+                              {pauseButton}
                               {micButton}
                             </div>
                           )}
@@ -1940,19 +1963,7 @@ export function CodexCopilotLayer({
                                 )}
                               </>
                             )}
-                            {vapiState !== "idle" && (
-                              <button
-                                onClick={() => {
-                                  const next = !vapiPaused;
-                                  setVapiPaused(next);
-                                  vapiPausedRef.current = next;
-                                }}
-                                title={vapiPaused ? "Resume audio input" : "Pause audio input"}
-                                className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
-                              >
-                                {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                              </button>
-                            )}
+                            {hideAvatarToggle ? pauseButton : null}
                             {hideAvatarToggle ? micButton : null}
                           </div>
                         </div>
@@ -2026,10 +2037,11 @@ export function CodexCopilotLayer({
                             >
                               <MessageSquare className="w-3 h-3" />
                             </button>
+                            {pauseButton}
                             {micButton}
                           </div>
                         )}
-                        {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause */}
+                        {/* RIGHT: host nav + wallet launcher + badge+dropdown */}
                         <div className="relative flex items-center gap-1">
                           {/* HOST NAV RENDERS IN AVATAR MODE TOO. Avatar is
                               another renderer of the SAME session (D-8), not a
@@ -2093,19 +2105,7 @@ export function CodexCopilotLayer({
                               )}
                             </>
                           )}
-                          {vapiState !== "idle" && (
-                            <button
-                              onClick={() => {
-                                const next = !vapiPaused;
-                                setVapiPaused(next);
-                                vapiPausedRef.current = next;
-                              }}
-                              title={vapiPaused ? "Resume audio input" : "Pause audio input"}
-                              className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
-                            >
-                              {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                            </button>
-                          )}
+                          {hideAvatarToggle ? pauseButton : null}
                           {hideAvatarToggle ? micButton : null}
                         </div>
                       </div>
