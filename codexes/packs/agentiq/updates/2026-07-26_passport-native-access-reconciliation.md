@@ -65,6 +65,11 @@ No session → no persona → no Passport read. One direction of one dependency 
 
 ## Two things the operator must decide before any code
 
+> **SUPERSEDED the same day** — both were ruled; see "Rulings and plan" below. Retained as
+> written because the rulings only make sense against the question they answered. Note the
+> line "both touch protected spine files" turned out to be **wrong**: ruling A.3.2 removes
+> that requirement entirely (§A.9.1).
+
 Neither has a defensible default, and both touch protected spine files.
 
 1. **How a principal resolves without `authProfileId`.** `personhoodResolver.ts` already
@@ -89,6 +94,9 @@ message is also keyed to `didPersonaId`, which a pre-session caller does not hav
 
 ## One tension to rule on
 
+> **RULED** — the Companion is the preferred connector, never the identity store, never
+> exclusive. PAG-001's body language was revised accordingly.
+
 PAG-001 §3 / §7 Phase 3 call the browser extension *"an optional convenience connector —
 never the identity store, never required for metaMe login."* The new specification makes the
 Companion's **Connect** the primary access path. Reconcilable — primary *presentation
@@ -105,6 +113,10 @@ chartered Phase 1 explicitly on the condition that no protected spine file was t
 Shipping a partial version of this would be worse than shipping nothing. The amendment
 carries an unchecked ratification record; on sign-off of §A.3 and §A.4 the implementation is
 a bounded, well-scoped pass.
+
+> **Still true after the rulings**, with one correction: the path no longer touches a
+> protected file, but it does still mint sessions without a prior account session — so it
+> remains operator-chartered work, not something to start unprompted.
 
 ---
 
