@@ -119,13 +119,26 @@ describe("surface material — colour alone cannot express a rendering system (i
     }
   });
 
-  it("the glass interpretation binds a REAL (non-'none') blur + elevation", () => {
+  it("the glass interpretation binds a REAL (non-'none') blur + elevation, in the SLATE house style", () => {
     expect(agentiqLiquidGlass.roles["material.blur"]).not.toBe("none");
     expect(agentiqLiquidGlass.roles["material.blur"]).toContain("blur(");
     expect(agentiqLiquidGlass.roles["material.elevation"]).not.toBe("none");
-    expect(agentiqLiquidGlass.roles["material.elevation"]).toContain("inset");
-    // …grounded in the real house token (styles/drawer.css glass fill).
-    expect(agentiqLiquidGlass.roles["material.tint"]).toBe("rgba(15, 23, 42, 0.6)");
+
+    // CORRECTED 2026-07-25. This test previously required `inset` in the
+    // elevation and the tint rgba(15,23,42,0.6) -- the DEPRECATED white-hairline
+    // residual. CLAUDE.md's Canonical Surface Styling section (PARAMOUNT) is
+    // explicit: "No white inset top-highlight. `inset 0 1px 0
+    // rgba(255,255,255,0.05)` is part of the deprecated residual — omit it."
+    //
+    // The implementation is correct; the TEST was enforcing the style the
+    // operator has repeatedly had to correct. Greening it by pinning those
+    // values would have reintroduced the residual under cover of a passing
+    // suite -- so the canary is inverted to guard the ratified style instead.
+    expect(agentiqLiquidGlass.roles["material.elevation"]).not.toContain("inset");
+    expect(agentiqLiquidGlass.roles["material.elevation"]).not.toMatch(/rgba\(\s*255/);
+    // Plain drop shadow + translucent slate-900 fill + slate-800 hairline.
+    expect(agentiqLiquidGlass.roles["material.tint"]).toBe("rgba(15, 23, 42, 0.4)");
+    expect(agentiqLiquidGlass.roles["border.subtle"]).toBe("#1E293B");
   });
 
   it("the flat interpretations (CCF, High-Contrast) bind material.blur: 'none' — unchanged look", () => {
@@ -159,8 +172,18 @@ describe("surface material — colour alone cannot express a rendering system (i
     const glass = surfaceStyle(agentiqLiquidGlass);
     expect(glass.backdropFilter).toContain("blur(");
     expect(glass.backdropFilter).toBe(glass.WebkitBackdropFilter);
-    expect(glass.boxShadow).toContain("inset");
-    expect(glass.border).toContain("rgba(255, 255, 255, 0.10)");
+    // Same correction as above: the composed panel must carry NO white inset
+    // and NO white hairline. A white BORDER is the specific thing CLAUDE.md
+    // forbids on panel chrome; white ink and white emphasis fills are fine,
+    // which is why this asserts the border and shadow rather than the whole
+    // style object.
+    expect(glass.boxShadow).not.toContain("inset");
+    expect(glass.border).not.toMatch(/rgba\(\s*255/);
+    expect(glass.border).toContain("#1E293B");
+    // …and it is still materially DIFFERENT from the matte panel, which is
+    // what this test exists to prove.
+    expect(glass.boxShadow).not.toBe("none");
+    expect(glass.background).not.toBe(flat.background);
   });
 });
 

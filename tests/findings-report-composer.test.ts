@@ -51,8 +51,21 @@ describe('composeFindingsReport — sequential + coherent, single ordered spine'
     expect(i6).toBeGreaterThan(-1);
     expect(i4).toBeLessThan(i5);
     expect(i5).toBeLessThan(i6);
-    // EXP-005 has no runs → its section says publication pending, not a fabricated result.
-    expect(md).toMatch(/EXP-005 — Provider Choice[\s\S]*publication pending/);
+    // EXP-005 has no runs -> it is shown IN SLOT as publication pending, never
+    // a fabricated result and never a silent gap.
+    //
+    // Asserted semantically. The old regex required the literal
+    // 'EXP-005 — Provider Choice' followed by the phrase, but the programme map
+    // renders the id with markdown emphasis (**EXP-005**) and the plain section
+    // heading no longer carries the status line -- so a compliant report failed
+    // on emphasis characters and phrase placement rather than on substance.
+    const pendingLine = md
+      .split('\n')
+      .find((l) => l.includes('EXP-005') && l.includes('Provider Choice'));
+    expect(pendingLine, 'EXP-005 is missing from the report entirely').toBeTruthy();
+    expect(pendingLine, 'EXP-005 has no runs and must read as publication pending').toContain(
+      'publication pending',
+    );
   });
 
   it('emits series in canonical order (Foundational → Sovereignty → Invariant Intelligence → Instrument Validation)', () => {
