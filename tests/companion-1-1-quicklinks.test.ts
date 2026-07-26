@@ -1,0 +1,187 @@
+/**
+ * Companion 1.1 C3/C5 canaries — Quick Link gating + avatar knowledge source.
+ *
+ * The operator's requirement for C3 is not "Quick Links work", it is:
+ *
+ *   "ensure that admin and access gating is retained as need be. Ideally
+ *    observer should be state and context aware and not enable unauthorised
+ *    surfaces to be surfaced as quicklinks"
+ *
+ * So the assertions below are weighted toward the ways a gate silently opens:
+ * an unresolved persona, a gate the code does not recognise, a query that
+ * reaches past the filter, and a hand-copied list that drifts out of step with
+ * a tab that later became `adminOnly`.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { readSource, stripComments } from './_lib/sourceAuthority';
+import {
+  quickLinkVisibility,
+  resolveQuickLinks,
+  quickLinkHref,
+  type QuickLinkAccessContext,
+} from '@/services/companion/quickLinks';
+import {
+  AVATAR_KNOWLEDGE_SOURCE,
+  AVATAR_KNOWLEDGE_TARGET,
+  isServicedByAigentMeKb,
+  avatarKnowledgeStatus,
+} from '@/services/companion/avatarKnowledgeSource';
+
+const NOBODY: QuickLinkAccessContext = { isAdmin: false, isPartner: false, adminCartridges: [] };
+const ADMIN: QuickLinkAccessContext = { isAdmin: true, isPartner: false, adminCartridges: [] };
+const PARTNER: QuickLinkAccessContext = { isAdmin: false, isPartner: true, adminCartridges: [] };
+const KNYT_ADMIN: QuickLinkAccessContext = {
+  isAdmin: false,
+  isPartner: false,
+  adminCartridges: ['knyt-codex'],
+};
+
+// ─── Fail-closed gating ─────────────────────────────────────────────────────
+
+describe('Quick Link gating — fails closed', () => {
+  it('offers an ungated tab to anyone, including an unresolved persona', () => {
+    expect(quickLinkVisibility({}, null, 'any')).toBe('ungated');
+    expect(quickLinkVisibility({}, NOBODY, 'any')).toBe('ungated');
+  });
+
+  it('NEVER offers a gated tab to an unresolved persona', () => {
+    // The branch that makes fail-closed real. A Companion still resolving
+    // identity must not advertise an admin surface, however briefly — a Quick
+    // Link is an offer, and an offer is an intervention.
+    expect(quickLinkVisibility({ adminOnly: true }, null, 'any')).toBeNull();
+    expect(quickLinkVisibility({ partnerOnly: true }, null, 'any')).toBeNull();
+  });
+
+  it('never offers an adminOnly tab to a non-admin', () => {
+    expect(quickLinkVisibility({ adminOnly: true }, NOBODY, 'any')).toBeNull();
+    expect(quickLinkVisibility({ adminOnly: true }, PARTNER, 'any')).toBeNull();
+  });
+
+  it('a partner does not inherit admin surfaces', () => {
+    expect(quickLinkVisibility({ adminOnly: true, partnerOnly: true }, PARTNER, 'any')).toBeNull();
+  });
+
+  it('a global admin sees gated surfaces; a partner sees partnerOnly ones', () => {
+    expect(quickLinkVisibility({ adminOnly: true }, ADMIN, 'any')).toBe('global-admin');
+    expect(quickLinkVisibility({ partnerOnly: true }, ADMIN, 'any')).toBe('global-admin');
+    expect(quickLinkVisibility({ partnerOnly: true }, PARTNER, 'any')).toBe('partner');
+  });
+
+  it('a per-cartridge admin grant applies to THAT cartridge only', () => {
+    expect(quickLinkVisibility({ adminOnly: true }, KNYT_ADMIN, 'knyt-codex')).toBe('cartridge-admin');
+    expect(quickLinkVisibility({ adminOnly: true }, KNYT_ADMIN, 'agentiq')).toBeNull();
+  });
+});
+
+// ─── The registry sweep — the property that actually protects citizens ──────
+
+describe('resolveQuickLinks — no unauthorised surface reaches an unprivileged citizen', () => {
+  it('yields links for an ordinary citizen, and every one of them is ungated', () => {
+    const links = resolveQuickLinks({ access: NOBODY });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link.allowedBecause, `'${link.id}' reached a non-admin`).toBe('ungated');
+    }
+  });
+
+  it('an unresolved persona gets ungated links only', () => {
+    for (const link of resolveQuickLinks({ access: null })) {
+      expect(link.allowedBecause).toBe('ungated');
+    }
+  });
+
+  it('an admin sees strictly more than a citizen — proving the gate does something', () => {
+    // Without this, a filter that excluded everything would pass every test
+    // above while being useless, and a filter that excluded nothing would be
+    // caught only if the registry happens to contain a gated tab. It does.
+    const asCitizen = resolveQuickLinks({ access: NOBODY }).map((l) => l.id);
+    const asAdmin = resolveQuickLinks({ access: ADMIN }).map((l) => l.id);
+    expect(asAdmin.length).toBeGreaterThan(asCitizen.length);
+    for (const id of asCitizen) expect(asAdmin).toContain(id);
+  });
+
+  it('a copilot query cannot surface a gated link the persona lacks', () => {
+    // Narrowing happens AFTER gating. If it ever happened instead of gating,
+    // a well-chosen query would be a privilege-escalation channel.
+    const adminOnlyIds = new Set(
+      resolveQuickLinks({ access: ADMIN })
+        .filter((l) => l.allowedBecause !== 'ungated')
+        .map((l) => l.id),
+    );
+    expect(adminOnlyIds.size).toBeGreaterThan(0);
+    for (const needle of ['admin', 'docs', 'a', '']) {
+      for (const link of resolveQuickLinks({ access: NOBODY, matching: needle })) {
+        expect(adminOnlyIds.has(link.id), `query '${needle}' surfaced gated '${link.id}'`).toBe(false);
+      }
+    }
+  });
+
+  it('respects a limit without reordering privilege', () => {
+    const limited = resolveQuickLinks({ access: NOBODY, limit: 3 });
+    expect(limited.length).toBeLessThanOrEqual(3);
+    for (const link of limited) expect(link.allowedBecause).toBe('ungated');
+  });
+});
+
+describe('Quick Links are derived and reuse the shipped navigation', () => {
+  it('derives candidates from the cartridge registry, never a local list', () => {
+    const code = stripComments(readSource('services/companion/quickLinks.ts'));
+    expect(code).toContain('CODEX_DEFINITIONS');
+    expect(code).toContain('buildCodexUrl');
+  });
+
+  it('builds the same deep link shape the shipped search results already use', () => {
+    const [link] = resolveQuickLinks({ access: NOBODY, limit: 1 });
+    const href = quickLinkHref(link, 'persona-under-test');
+    expect(href).toContain(link.codexSlug);
+    expect(href).toContain('persona-under-test');
+  });
+
+  it('never puts privilege flags on the URL', () => {
+    // isAdmin/isPartner on a link the Companion generated would be this module
+    // asserting privilege rather than observing it (CLAUDE.md: never hardcode
+    // isAdmin=true in a link).
+    const [link] = resolveQuickLinks({ access: ADMIN, limit: 1 });
+    const href = quickLinkHref(link, 'p');
+    expect(href).not.toContain('isAdmin');
+    expect(href).not.toContain('isPartner');
+  });
+
+  it('is a presentation filter, and says so — the server gate still governs', () => {
+    const src = readSource('services/companion/quickLinks.ts');
+    expect(src).toContain('never become one');
+    expect(src.toLowerCase()).toContain('server-side');
+  });
+});
+
+// ─── C5 — avatar knowledge source ───────────────────────────────────────────
+
+describe('C5 — the avatar knowledge source is declared honestly', () => {
+  it('reports the LIVE source, which is still the D-ID-hosted corpus', () => {
+    expect(AVATAR_KNOWLEDGE_SOURCE).toBe('did-hosted');
+    expect(isServicedByAigentMeKb()).toBe(false);
+  });
+
+  it('declares aigentMe KB as the target and flags the gap as a stub', () => {
+    expect(AVATAR_KNOWLEDGE_TARGET).toBe('aigentme-kb');
+    const status = avatarKnowledgeStatus();
+    expect(status.isStub).toBe(true);
+    expect(status.note).toMatch(/not yet wired/i);
+  });
+
+  it('the status note does not describe the target as though it were the state', () => {
+    // The failure this guards is a doc-shaped one: a note that reads "the
+    // avatar answers from the aigentMe KB" while it does not would make every
+    // reader trust answers from a corpus nobody governs.
+    const note = avatarKnowledgeStatus().note.toLowerCase();
+    expect(note).toContain('d-id');
+    expect(note).not.toMatch(/^the avatar answers from the aigentme knowledge base/);
+  });
+
+  it('D-ID ships unchanged — Companion 1.1 does not touch the SDK mount', () => {
+    const code = stripComments(readSource('app/components/metaVatar/MetaAvatar.tsx'));
+    expect(code).toContain('agent.d-id.com');
+    expect(code).toContain('data-agent-id');
+  });
+});

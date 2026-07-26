@@ -70,7 +70,7 @@
 
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -84,6 +84,12 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
+import { personaFetch } from "@/utils/personaSpine";
+import {
+  resolveQuickLinks,
+  quickLinkHref,
+  type QuickLinkAccessContext,
+} from "@/services/companion/quickLinks";
 import {
   COMPANION_NAV_ITEMS,
   COMPANION_NAV_LABEL,
@@ -173,6 +179,50 @@ function CompanionShell() {
       cancelled = true;
     };
   }, [personaId, surface]);
+
+  // Quick Link access context (C3). Read from the spine's own T1 surface via
+  // `personaFetch` with the SAME personaIdHint every other panel uses — one
+  // transport, one resolved persona (§8.2). `null` until it resolves, which
+  // the gate treats as "offer ungated links only" rather than as "no
+  // privileges": fail closed while unknown.
+  const [access, setAccess] = useState<QuickLinkAccessContext | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!personaId) {
+      setAccess(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await personaFetch("/api/wallet/active-persona", {
+          cache: "no-store",
+          personaIdHint: personaId,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setAccess({
+          isAdmin: Boolean(data?.cartridgeFlags?.isAdmin),
+          isPartner: Boolean(data?.cartridgeFlags?.isPartner),
+          adminCartridges: Array.isArray(data?.cartridgeFlags?.adminCartridges)
+            ? data.cartridgeFlags.adminCartridges.filter(
+                (slug: unknown): slug is string => typeof slug === "string"
+              )
+            : [],
+        });
+      } catch {
+        // Leave `access` null — the gate offers ungated links only.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [personaId]);
+
+  const quickLinks = useMemo(
+    () => resolveQuickLinks({ access, limit: 6 }),
+    [access]
+  );
 
   const identity = ctx?.identity ?? null;
 
@@ -346,7 +396,27 @@ function CompanionShell() {
              The Avatar nav item routes here with mode 'avatar' — the avatar is
              another renderer of this same session, never a second Agent Me
              (D-8). */
-          <div className="min-h-0 flex-1">
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* QUICK LINKS (C3) — REUSE of the shipped open-in-pane capability:
+                the same `buildCodexUrl` deep link the search results already
+                render, so the left pane navigates exactly as it does today.
+                Gated by `resolveQuickLinks`, which fails closed — an
+                unresolved persona and a non-admin both see ungated links only,
+                so an unauthorised surface is never OFFERED. The server gate
+                still governs access; this only governs what is advertised. */}
+            {quickLinks.length > 0 ? (
+              <div className="flex shrink-0 flex-wrap gap-1 border-b border-slate-800 px-2 py-1.5">
+                {quickLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={quickLinkHref(link, personaId)}
+                    className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[10px] text-slate-300 transition-colors hover:bg-slate-900/60"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            ) : null}
             <CodexCopilotLayer
               isOpen={true}
               onClose={() => undefined}

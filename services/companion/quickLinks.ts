@@ -1,0 +1,160 @@
+/**
+ * Companion 1.1 C3 — Quick Links as Agent Me actions (SCOPE-MMC-004 §5.1).
+ *
+ * REUSE, NOT NEW CAPABILITY (§6.1). Opening a cartridge/page in the left pane
+ * already ships: `CompanionSearchPanel` renders `buildCodexUrl(slug, { tab,
+ * personaId })` anchors and the pane navigates. Quick Links are the SAME
+ * capability reached a different way — the copilot surfacing slugs from across
+ * the application instead of the citizen typing a search. This module resolves
+ * and GATES those slugs; it opens nothing itself.
+ *
+ * ── THE GATING REQUIREMENT (operator, 2026-07-26) ──────────────────────────
+ *
+ *   "we also need to ensure that admin and access gating is retained as need
+ *    be. Ideally observer should be state and context aware and not enable
+ *    unauthorised surfaces to be surfaced as quicklinks"
+ *
+ * This is the sharp edge of C3, and it is a WIDER surface than search. The
+ * federated search targets are a short hardcoded list of destinations known to
+ * be safe (`searchFederation.ts` mentions `adminOnly` only in a comment
+ * explaining why one target was chosen). Quick Links draw from the whole
+ * cartridge registry, so "the list is short and someone checked it" stops
+ * being a defensible answer and the gate has to be real.
+ *
+ * Two properties make it real:
+ *
+ *  1. **Derived, never hand-listed.** Candidates come from `CODEX_DEFINITIONS`
+ *     — the same registry the picker and the embed route use. A hand-copied
+ *     Quick Link list would drift and, worse, would drift silently past a tab
+ *     that LATER became `adminOnly` (`inv.engineering.036`/`037`).
+ *  2. **Fails closed.** A link is offered only when the persona is positively
+ *     known to be permitted. Absent flags, an unresolved persona, or an
+ *     unrecognised gate all mean EXCLUDE. The default answer to "may this
+ *     citizen see this?" is no.
+ *
+ * ── WHAT THIS MODULE IS NOT ────────────────────────────────────────────────
+ *
+ * **It is not an authority gate, and must never become one.** Hiding a link is
+ * a PRESENTATION decision — it stops an unauthorised surface being *offered*.
+ * The server-side gate remains the thing that actually refuses access
+ * (CLAUDE.md, "Access gates are always resolved server-side"). If this filter
+ * were ever the only check, an operator who guessed a URL would walk straight
+ * in. Belt and braces, and this is the belt.
+ */
+
+import { CODEX_DEFINITIONS } from '@/data/codex-configs';
+import { buildCodexUrl } from '@/utils/codex-nav';
+
+/**
+ * The access facts a Quick Link decision needs. A deliberately narrow mirror
+ * of the spine's `cartridgeFlags` (`types/access.ts`) — narrow because this
+ * module must never grow into a second place where authority is decided.
+ *
+ * `null` means "not resolved yet", which is NOT the same as "no privileges"
+ * and is handled explicitly: an unresolved persona gets only ungated links.
+ */
+export interface QuickLinkAccessContext {
+  readonly isAdmin: boolean;
+  readonly isPartner: boolean;
+  /** Per-cartridge admin grants, by cartridge slug. */
+  readonly adminCartridges: readonly string[];
+}
+
+export interface QuickLink {
+  /** `${codexSlug}:${tabSlug}` — stable, and safe to use as a React key. */
+  readonly id: string;
+  readonly label: string;
+  readonly codexSlug: string;
+  readonly tabSlug: string;
+  /** Why it was allowed. Diagnostic — makes a wrong decision legible. */
+  readonly allowedBecause: 'ungated' | 'global-admin' | 'cartridge-admin' | 'partner';
+}
+
+/**
+ * May this persona be OFFERED this tab?
+ *
+ * Exported because the canary asserts it directly: the fail-closed property
+ * has to be testable without constructing a whole registry.
+ */
+export function quickLinkVisibility(
+  gate: { adminOnly?: boolean; partnerOnly?: boolean },
+  access: QuickLinkAccessContext | null,
+  codexSlug: string,
+): QuickLink['allowedBecause'] | null {
+  const gated = Boolean(gate.adminOnly) || Boolean(gate.partnerOnly);
+  if (!gated) return 'ungated';
+
+  // Unresolved persona + a gated surface = refuse. This is the branch that
+  // makes "fails closed" true rather than aspirational: an unauthenticated or
+  // still-loading Companion must never advertise an admin surface, however
+  // briefly, because a Quick Link is an offer and an offer is an intervention.
+  if (!access) return null;
+
+  if (access.isAdmin) return 'global-admin';
+  // A per-cartridge admin grant satisfies an adminOnly tab on THAT cartridge
+  // only (types/access.ts: `isAdmin` overrides; the two are independent).
+  if (gate.adminOnly && access.adminCartridges.includes(codexSlug)) return 'cartridge-admin';
+  // partnerOnly admits partners; admins already returned above.
+  if (gate.partnerOnly && !gate.adminOnly && access.isPartner) return 'partner';
+
+  return null;
+}
+
+/**
+ * Every Quick Link this persona may be offered, derived from the live
+ * cartridge registry.
+ *
+ * `matching` narrows by a copilot-supplied query — that is how "slugs surfaced
+ * from across the application via the copilot" reaches the citizen. Narrowing
+ * happens AFTER gating, never instead of it: a query must not be able to
+ * surface something the gate excluded.
+ */
+export function resolveQuickLinks(input: {
+  access: QuickLinkAccessContext | null;
+  matching?: string;
+  limit?: number;
+}): QuickLink[] {
+  const needle = input.matching?.trim().toLowerCase() ?? '';
+  const out: QuickLink[] = [];
+
+  for (const codex of CODEX_DEFINITIONS) {
+    for (const tab of codex.tabs ?? []) {
+      const allowedBecause = quickLinkVisibility(tab, input.access, codex.slug);
+      if (!allowedBecause) continue;
+
+      if (needle) {
+        const haystack = `${codex.name ?? ''} ${tab.label ?? ''} ${tab.slug}`.toLowerCase();
+        if (!haystack.includes(needle)) continue;
+      }
+
+      out.push({
+        id: `${codex.slug}:${tab.slug}`,
+        label: `${codex.name ?? codex.slug} · ${tab.label ?? tab.slug}`,
+        codexSlug: codex.slug,
+        tabSlug: tab.slug,
+        allowedBecause,
+      });
+    }
+  }
+
+  return typeof input.limit === 'number' ? out.slice(0, input.limit) : out;
+}
+
+/**
+ * The destination for a Quick Link — the SAME `buildCodexUrl` the search
+ * results already use, so the pane opens exactly as it does today and identity
+ * propagates per CLAUDE.md's inter-cartridge navigation rule.
+ *
+ * Note what is NOT passed: `isAdmin`/`isPartner` are never put on the URL.
+ * They exist as optimistic-render params, and sending them from a link the
+ * Companion generated would be this module asserting privilege rather than
+ * observing it. The receiving embed re-resolves server-side regardless.
+ */
+export function quickLinkHref(link: QuickLink, personaId?: string): string {
+  return buildCodexUrl(link.codexSlug, {
+    tab: link.tabSlug,
+    personaId,
+    from: 'companion',
+    fromTab: 'agent-me',
+  });
+}
