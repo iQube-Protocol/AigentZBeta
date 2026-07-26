@@ -340,8 +340,22 @@ Stops classifying; starts consuming. `shapeForDomain` becomes a **profile lookup
 ### 8.3 The Financial Services programme (CRP-003a)
 Gains an explicit statement that its three execution domains are the canonical taxonomy, and a proposed governance-domain class that does **not** alter its execution surface. No change to shadow/authoritative posture. No change to the Domain 1/2 pause point.
 
-### 8.4 The Horizen agent-classification pilot
-The same profile schema classifies agents, not just hostnames (`subjectType: "agent"`). The proposed flow — agent discovered → capability evidence ingested → domain classification → execution/governance domains assigned → candidate invariant profile attached → Passport relationship established → bounded-delegation eligibility assessed → discoverable in Founder Office — is recorded here as the pilot's target sequence. **It is not authorised by this SPEC** (D-13); it depends on D-2/D-3 and on §8.2's resolution.
+### 8.4 The Horizen agent-classification pilot — **D-13 AUTHORISED 2026-07-26**
+
+The same profile schema classifies agents, not just hostnames (`subjectType: "agent"`). The flow — agent discovered → capability evidence ingested → domain classification → execution/governance domains assigned → candidate invariant profile attached → Passport relationship established → bounded-delegation eligibility assessed → discoverable in Founder Office — is the pilot's authorised sequence. Its dependencies (D-2, D-3, §8.2/D-12) are all resolved.
+
+#### 8.4.1 The advisory-only constraint (operator, verbatim, binding on every P6 slice)
+
+> Classification, execution/governance-domain assignment and bounded-delegation eligibility are advisory inputs only. They must compose through `requireAuthorizedAgreement` and must never independently grant authority, executability or delegation.
+
+This is the agent-side statement of the **D-11 presentation/execution firewall**, and it is what makes classifying agents safe at all. Read concretely:
+
+- **"Advisory input"** means a classification result may inform *what is offered, explained, or requested* — never *what is permitted*. A profile that classifies an agent as financial does not make that agent able to move money; it makes the system able to say why a money-moving action would need an agreement.
+- **`bounded-delegation eligibility` is the sharpest edge.** "Eligible" is a statement about a candidate, not a grant. It MUST NOT short-circuit, pre-satisfy, or stand in for `requireAuthorizedAgreement`; the human authorisation step is unchanged and still the only thing that opens the gate.
+- **No parallel gate.** A P6 slice may not introduce a second authority check keyed on classification. If a decision needs authority, it composes the existing gate; if it cannot, it is not a P6 slice.
+- **A profile still asserts no `executionDomains`** (D-11). `subjectType: 'agent'` does not relax that — an agent profile asserts presentation context exactly as a hostname profile does.
+
+The canary obligation for P6 mirrors P4's: an agent profile must be shown incapable of presenting an executable action, and the eligibility signal must be shown NOT to satisfy the 409 gate on its own.
 
 ### 8.5 Invariant-field references
 A profile may carry `invariantFieldRef`, letting a context know not merely *"this is financial"* but *"this context is governed by these candidate invariants."* The Overlay need not display them; it may use them to choose available actions, explain why an action is restricted, request additional verification, or surface qualified services. Subject to D-8.
@@ -701,7 +715,7 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-10** | L3 abstention forms; "abstention preferable to fabricated context" as binding | Adopt | **RATIFIED** |
 | **D-11** | Presentation/execution firewall — modules must not imply executability | Adopt | **RATIFIED** |
 | **D-12** | Which engine owns profile generation | **RATIFIED 2026-07-25.** The **IDE (CFS-048, `services/invariants/discoveryEngine.ts`) emits Candidate Domain Profiles as discovery artifacts** — not replaced, not duplicated, **not renamed** (§13.2). Profiles join the existing Discovery Artifact class and its verification/promotion lifecycle (§13.3); they SHALL NOT become canonical without verification (§13.4). The pipeline stays one-directional: nothing downstream generates structure (§13.1). §8.2's earlier premise — that no IDE existed in the codebase — was factually wrong and is corrected there | **RATIFIED** |
-| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | Ratified as *deferred until D-2/D-3/D-12 resolved*. **All three are now resolved (2026-07-25)**, so the deferral condition is met and this reverts to a live operator call. §10.3's ruling is relevant: the pilot's subjects are likely **agents**, not hostnames, which puts P6 nearer the critical path than its phase number suggests | **Deferral discharged — awaiting an operator decision** |
+| **D-13** | Whether the Horizen agent-classification pilot (§8.4) is authorised | **AUTHORISED (operator, 2026-07-26).** The pilot proceeds and the pilot-required P6 slice takes sequencing priority. Binding constraint, stated by the operator and reproduced verbatim in §8.4: classification, execution/governance-domain assignment and bounded-delegation eligibility are **advisory inputs only** — they compose through `requireAuthorizedAgreement` and never independently grant authority, executability or delegation | **RATIFIED** |
 | **D-14** | Whether `financial-context` is the ratified overlay-context name | Adopt (§4.3: a rendering context, not a domain) | **RATIFIED** |
 | **D-15** | Seed registry membership — which hostnames, at which provenance/verification | Operator list supplied and ratified 2026-07-25 (§10.3). Five hostnames, three profiles, all `verified` / `financial-context`. Re-entered as explicit seeds, NOT inherited from `BANKING_DOMAINS`. No Horizen hostname | **RATIFIED** |
 | **D-16** | Resolver lives at `services/resolution/`, NOT under `services/companion/` — it is a platform service with many consumers (§1.1) | Adopt | **RATIFIED** |
@@ -782,7 +796,11 @@ The same five hostnames carry over — **but not by inheritance.** They are re-e
 
 ## 11. Post-ratification sequencing (indicative only)
 
-Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 and P2 are shipped**, and **no decision blocks any remaining phase** — D-12's ratification cleared the last one. Later phases remain sequenced by dependency (P3 wants a registry to resolve against; P5's generator is the IDE; P6 additionally needs D-13's pilot authorisation; P8 needs the HMS identifier-isolation precondition and steward sign-off).
+Recorded so each build slice stays deliberately narrow. **As of 2026-07-26: P1–P5 are shipped and no decision blocks any remaining phase.**
+
+**On the operator's 2026-07-26 instruction to "advance the pilot-required P6 slice ahead of P3–P5":** no resequencing is required, because P3, P4 and P5 all shipped on 2026-07-25 — before the instruction was given. P6 is therefore simply the next unshipped phase. The instruction is recorded rather than actioned, and its intent is preserved: **P6 takes priority over P7 and P8**, which are the only phases still ahead of it. This is noted explicitly so no later reader concludes a reordering happened that did not.
+
+P8 still needs the HMS identifier-isolation precondition and steward sign-off.
 
 | Phase | Scope | Gated on | Status |
 |---|---|---|---|
@@ -791,7 +809,7 @@ Recorded so each build slice stays deliberately narrow. As of 2026-07-25: **P1 a
 | **P3** | Resolver with L1/L2/L4 only — no provisional path | D-9, D-11 | **SHIPPED 2026-07-25** — `services/resolution/domainResolver.ts`. Strict top-to-bottom precedence; `assert` is true only at L1/L2; a provisional profile classifies at L3 but is refused (`assert: false`, `overlayContext: null`, `presentAs: 'L4'` — §6.2's always-permitted L3 form). `classifyProfile` is split from `resolveDomain` so the refusal is testable without seeding an unverified profile. `shapeForDomain` consumes it, so the Overlay's only path to a context runs through the precedence rules |
 | **P4** | Capability-module composition | D-2, D-3, D-4, D-11 | **SHIPPED 2026-07-25** — `services/resolution/capabilityModules.ts`. A profile NAMES its modules as a typed `CapabilityModuleId[]` (operator P4-1) and still asserts no `executionDomains`. Module posture DERIVES from P1's `EXECUTION_DOMAINS`; governance modules are `non-executable` by class. D-11 enforced both ways: only an authoritative module may present an action, and shadow/governance modules render **no control at all** rather than a disabled one. The shipped capability rows are reframed as `financial-intelligence` — one rendering model, no parallel legacy list. The shape→ids table is deleted; ids hang off modules |
 | **P5** | L3 provisional discovery + abstention UI | D-10, D-12 | **SHIPPED 2026-07-25** — resolution path is ratified seed → promoted profile → abstention (`resolveDomainFromAnySource`); both sources normalise to one `DomainProfile` contract with `profileSource` recording origin, kept distinct from `assertionProvenance`. `presentationPolicy.ts` resolves profile override → `CDR_PRESENTATION_THRESHOLD` and **fails safe to silent abstention** when neither is valid. Hedged offer ("Financial context may be relevant here", View / Dismiss) renders no card and states no context. Every decision writes an event carrying the threshold **actually applied**. Migration `20260822000000_cdr_domain_profiles.sql` must be applied before storage is read; until then every path soft-fails to P3 behaviour |
-| **P6** | Agent classification (Horizen) — the same generator, `subjectType: 'agent'` | D-13 | **Unblocked by D-12**; D-13 (whether the pilot is authorised) is the remaining gate. Note §10.3: the pilot likely begins with **agent** profiles rather than hostname profiles, so this may sit on the pilot's critical path |
+| **P6** | Agent classification (Horizen) — the same generator, `subjectType: 'agent'` | D-13 | **AUTHORISED 2026-07-26 — next phase, ahead of P7/P8.** Every slice is bound by §8.4.1's advisory-only constraint: classification, domain assignment and bounded-delegation eligibility compose through `requireAuthorizedAgreement` and never grant authority, executability or delegation on their own. Ships with the mirrored P4 canaries (an agent profile cannot present an executable action; the eligibility signal alone does not satisfy the 409 gate) |
 | **P7** | Context Resolution layer (§12) — after Domain Resolution is stable, never before | D-16, D-18, D-20 | Not started |
 | **P8** | Second production domain (Human Mobility) to prove generality (§1.2) | D-21 + HMS steward sign-off | Not started |
 
