@@ -763,6 +763,14 @@ export function CodexCopilotLayer({
 
   useEffect(() => {
     if (!copilotPanelRef.current) return;
+    // ONLY while the avatar is actually showing. This drives a
+    // requestAnimationFrame loop that writes CSS custom properties on
+    // document.documentElement every frame; ungated it ran for the lifetime of
+    // the mount, so in the Companion — where the copilot never unmounts — it
+    // wrote to the document root at 60fps forever, in chat mode, with nothing
+    // reading the values. Style recalc on the root every frame is exactly the
+    // kind of load that shows up as janky scrolling.
+    if (copilotMode !== "avatar") return;
 
     const updateAnchor = () => {
       const node = copilotPanelRef.current;
@@ -969,6 +977,57 @@ export function CodexCopilotLayer({
     if (/(reputation|trust|score|credibility)/.test(normalized)) return "reputation";
     return null;
   };
+
+  /**
+   * The voice control. ONE definition, rendered once per footer.
+   *
+   * Placement (operator, 2026-07-26): it belongs with Avatar and Chat — the
+   * three ways of addressing Agent Me — not stranded at the far right among
+   * the surface-navigation icons. Where the mode toggle is hidden there is no
+   * left group to join, so it falls back to the right cluster.
+   *
+   * The two footers previously carried near-copies of this markup and they had
+   * already drifted: only the chat copy handled `vapiState === 'error'`, so a
+   * voice error in avatar mode could not be dismissed. One definition removes
+   * both the duplication and the drift.
+   */
+  const micButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (vapiState === "error") { setVapiState("idle"); return; }
+        void toggleMarketa();
+      }}
+      title={
+        vapiState === "idle" ? "Talk to Marketa"
+          : vapiState === "error" ? "Voice unavailable — tap to dismiss"
+          : "Stop Marketa"
+      }
+      className={`p-1.5 rounded-lg transition-colors ${
+        vapiState === "idle"
+          ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+          : vapiState === "connecting"
+            ? "animate-pulse text-amber-300 bg-amber-500/10"
+            : vapiState === "error"
+              ? "text-rose-400 bg-rose-500/10"
+              : vapiState === "speaking"
+                ? "animate-pulse text-green-300 bg-green-500/10"
+                : "text-fuchsia-300 bg-fuchsia-500/15"
+      }`}
+    >
+      {vapiState === "idle" ? (
+        <Mic className="w-4 h-4" />
+      ) : vapiState === "connecting" ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : vapiState === "error" ? (
+        <MicOff className="w-4 h-4" />
+      ) : vapiState === "speaking" ? (
+        <Volume2 className="w-4 h-4" />
+      ) : (
+        <MicOff className="w-4 h-4" />
+      )}
+    </button>
+  );
 
   /**
    * The ONE way the wallet is opened from inside the copilot.
@@ -1811,9 +1870,10 @@ export function CodexCopilotLayer({
                               >
                                 <MessageSquare className="w-3 h-3" />
                               </button>
+                              {micButton}
                             </div>
                           )}
-                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic.
+                          {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause.
                               `gap-2` rather than `gap-1`: with the migrated nav
                               items in this cluster the icons read as one dense
                               block at gap-1 and become hard to hit accurately.
@@ -1893,41 +1953,7 @@ export function CodexCopilotLayer({
                                 {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (vapiState === "error") { setVapiState("idle"); return; }
-                                void toggleMarketa();
-                              }}
-                              title={
-                                vapiState === "idle" ? "Talk to Marketa"
-                                  : vapiState === "error" ? "Voice unavailable — tap to dismiss"
-                                  : "Stop Marketa"
-                              }
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                vapiState === "idle"
-                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                  : vapiState === "connecting"
-                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                    : vapiState === "error"
-                                      ? "text-rose-400 bg-rose-500/10"
-                                      : vapiState === "speaking"
-                                        ? "animate-pulse text-green-300 bg-green-500/10"
-                                        : "text-fuchsia-300 bg-fuchsia-500/15"
-                              }`}
-                            >
-                              {vapiState === "idle" ? (
-                                <Mic className="w-4 h-4" />
-                              ) : vapiState === "connecting" ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : vapiState === "error" ? (
-                                <MicOff className="w-4 h-4" />
-                              ) : vapiState === "speaking" ? (
-                                <Volume2 className="w-4 h-4" />
-                              ) : (
-                                <MicOff className="w-4 h-4" />
-                              )}
-                            </button>
+                            {hideAvatarToggle ? micButton : null}
                           </div>
                         </div>
                       ) : null}
@@ -2000,9 +2026,10 @@ export function CodexCopilotLayer({
                             >
                               <MessageSquare className="w-3 h-3" />
                             </button>
+                            {micButton}
                           </div>
                         )}
-                        {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                        {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause */}
                         <div className="relative flex items-center gap-1">
                           {/* HOST NAV RENDERS IN AVATAR MODE TOO. Avatar is
                               another renderer of the SAME session (D-8), not a
@@ -2079,30 +2106,7 @@ export function CodexCopilotLayer({
                               {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                             </button>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => void toggleMarketa()}
-                            title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              vapiState === "idle"
-                                ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                : vapiState === "connecting"
-                                  ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                  : vapiState === "speaking"
-                                    ? "animate-pulse text-green-300 bg-green-500/10"
-                                    : "text-fuchsia-300 bg-fuchsia-500/15"
-                            }`}
-                          >
-                            {vapiState === "idle" ? (
-                              <Mic className="w-4 h-4" />
-                            ) : vapiState === "connecting" ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : vapiState === "speaking" ? (
-                              <Volume2 className="w-4 h-4" />
-                            ) : (
-                              <MicOff className="w-4 h-4" />
-                            )}
-                          </button>
+                          {hideAvatarToggle ? micButton : null}
                         </div>
                       </div>
                     ) : null}

@@ -55,6 +55,35 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
         height: 'var(--metaavatar-codex-h, 240px)',
       };
     }
+    // NO ACTIVE CONTAINER — the host stays MOUNTED (rebuilding the avatar
+    // session is expensive; this file's whole design is "move it with CSS,
+    // never unmount it") but it must be genuinely INERT.
+    //
+    // It was not. `avatarInitialized` latches true on the first avatar use and
+    // never resets, so from then on this branch rendered a permanently mounted
+    // `position: fixed` element — and its INLINE z-index overrode the `-z-10`
+    // in the hidden class, parking an auto-sized, opacity-0 layer above the
+    // copilot. An `opacity < 1` fixed layer forms its own composited stacking
+    // context, which is exactly what stops `backdrop-filter` resolving on the
+    // panel beneath it: the frosted backdrop silently stops rendering and the
+    // near-transparent panel fill lets the page bleed through. Operator report
+    // 2026-07-26 — "after the avatar has been clicked... the opacity has
+    // disappeared", plus broken scrolling from the stray full-size layer.
+    //
+    // Zero-size + hidden + behind everything: mounted, costless, invisible.
+    if (!activeContainer) {
+      return {
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        overflow: 'hidden',
+        visibility: 'hidden',
+        pointerEvents: 'none',
+        zIndex: -1,
+      };
+    }
     return { position: 'fixed', zIndex: 140 };
   };
 

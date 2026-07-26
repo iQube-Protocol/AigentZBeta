@@ -524,3 +524,62 @@ describe('observer permissions are their own destination', () => {
     ).not.toContain('ObserverGrantPanel');
   });
 });
+
+describe('the avatar leaves nothing behind when released', () => {
+  const LAYOUTS = ['app/(embed)/layout.tsx', 'app/(shell)/layout.tsx'];
+
+  it('the released avatar host is inert, not parked above the UI', () => {
+    // `avatarInitialized` latches true on first use and never resets, so the
+    // host stays mounted forever by design ("move it with CSS, never
+    // unmount"). The no-container branch returned `position: fixed` with an
+    // INLINE z-index that overrode the `-z-10` in the hidden class, leaving an
+    // auto-sized opacity-0 fixed layer above the copilot. An opacity<1 fixed
+    // layer forms a composited stacking context, which stops backdrop-filter
+    // resolving beneath it — the panel's frosted backdrop silently vanished
+    // and the page bled through (operator, 2026-07-26).
+    for (const file of LAYOUTS) {
+      const code = stripComments(readSource(file));
+      // Anchor inside the STYLE resolver — the classes resolver has its own
+      // `if (!activeContainer)` guard earlier in the file.
+      const styleFn = code.indexOf('getAvatarPositionStyle');
+      expect(styleFn, `${file} has no style resolver`).toBeGreaterThan(-1);
+      const branch = code.indexOf('if (!activeContainer)', styleFn);
+      expect(branch, `${file} has no inert branch for the released host`).toBeGreaterThan(-1);
+      const body = code.slice(branch, branch + 400);
+      expect(body, `${file} keeps the released host visible`).toContain('visibility:');
+      expect(body, `${file} keeps the released host above content`).toMatch(/zIndex:\s*-1/);
+      expect(body, `${file} keeps the released host sized`).toMatch(/width:\s*0/);
+    }
+  });
+
+  it('the avatar anchor loop runs only while the avatar is showing', () => {
+    // It writes CSS custom properties on the document root every animation
+    // frame. Ungated, it ran for the lifetime of the mount — which in the
+    // Companion is forever, because the copilot never unmounts.
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    const loop = code.indexOf('--metaavatar-codex-x');
+    expect(loop).toBeGreaterThan(-1);
+    const guardWindow = code.slice(Math.max(0, loop - 600), loop);
+    expect(guardWindow, 'the anchor rAF loop is no longer gated on avatar mode').toMatch(
+      /copilotMode !== "avatar"\)\s*return/,
+    );
+  });
+});
+
+describe('voice sits with the two ways of addressing Agent Me', () => {
+  it('one mic definition, not one per footer', () => {
+    // The two copies had already drifted — only the chat one handled
+    // vapiState === 'error', so a voice error in avatar mode was undismissable.
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(code).toContain('const micButton = (');
+    expect((code.match(/toggleMarketa\(\)/g) ?? []).length, 'a second mic button reappeared').toBe(1);
+  });
+
+  it('it renders inside the avatar/chat toggle group, and falls back when there is none', () => {
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    // Grouped with the mode toggles in both footers…
+    expect((code.match(/\{micButton\}/g) ?? []).length).toBe(2);
+    // …and still reachable where the toggle group is hidden.
+    expect((code.match(/\{hideAvatarToggle \? micButton : null\}/g) ?? []).length).toBe(2);
+  });
+});
