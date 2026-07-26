@@ -63,8 +63,16 @@ describe('composeFindingsReport — sequential + coherent, single ordered spine'
       .split('\n')
       .find((l) => l.includes('EXP-005') && l.includes('Provider Choice'));
     expect(pendingLine, 'EXP-005 is missing from the report entirely').toBeTruthy();
-    expect(pendingLine, 'EXP-005 has no runs and must read as publication pending').toContain(
-      'publication pending',
+    // Wording corrected 2026-07-25: an experiment with ZERO recorded runs now
+    // reads "no canonical run completed" rather than "run complete;
+    // publication pending", which asserted a run that never happened. What the
+    // test guards is unchanged -- EXP-005 is shown in slot with an HONEST
+    // status, never a fabricated result and never a silent gap.
+    expect(pendingLine, 'EXP-005 has no runs and must say so').toContain(
+      'no canonical run completed',
+    );
+    expect(pendingLine, 'a zero-run experiment must not claim a completed run').not.toMatch(
+      /\brun complete\b/,
     );
   });
 

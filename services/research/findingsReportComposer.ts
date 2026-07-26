@@ -257,7 +257,25 @@ export function composeFindingsReport({ runsByExp, now }: FindingsReportInput): 
   // experiments (IV0) legitimately establish "operationally validated".
   const memberStatus = (exp: ResearchExperiment) => {
     const c = runCount(exp.id);
-    if (c === 0) return "run complete; canonical publication pending";
+    // CORRECTED 2026-07-25 (operator): this previously read "run complete;
+    // canonical publication pending" for ZERO runs -- asserting that a run had
+    // happened when the composer's own input says none is recorded. That is a
+    // research-honesty defect, not copy polish: the report is a partner-facing
+    // artifact and it was overstating experimental state.
+    //
+    // "No canonical run completed" is precise and does NOT erase prior
+    // exploratory activity the way "not yet run" would.
+    //
+    // The full state model is:
+    //   no canonical run  →  canonical run complete, publication pending
+    //                     →  canonical publication complete
+    // The MIDDLE state is not expressible here: `gatherRunsByExp` selects from
+    // `experiment_results` with no publication filter, so the composer receives
+    // recorded runs and cannot distinguish published from unpublished. Rather
+    // than fabricate the distinction, only the two states the input supports
+    // are reported. Surfacing the middle state needs a publication signal on
+    // the input, which is a separate change.
+    if (c === 0) return "no canonical run completed";
     const runs = `${c} canonical run${c > 1 ? "s" : ""}`;
     return exp.seriesId === "IV0"
       ? `**operationally validated** (${runs})`
