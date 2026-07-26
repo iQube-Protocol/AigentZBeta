@@ -84,6 +84,7 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
+import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import {
   resolveQuickLinks,
@@ -93,6 +94,7 @@ import {
 import {
   COMPANION_NAV_ITEMS,
   COMPANION_NAV_LABEL,
+  COMPANION_NAV_ICON,
   COMPANION_NAV_ITEM_TO_SURFACE,
   COMPANION_PRIMARY_NAV_ITEM,
   COMPANION_NAV_DENSITY_CLASS,
@@ -114,6 +116,21 @@ const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
   { ssr: false }
 );
+
+/**
+ * Resolves the nav vocabulary's icon NAMES to components (D-10). The mapping
+ * lives in `companionNavigation.ts` as names so that module stays React-free
+ * and node-side canaries can import it; this record is the one place those
+ * names become components.
+ */
+const NAV_ICON_COMPONENT: Record<string, typeof UserRound> = {
+  UserRound,
+  Wallet: WalletIcon,
+  MessageCircle,
+  Search,
+  LayoutGrid,
+  Layers,
+};
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
   if (!searchParams) return undefined;
@@ -359,7 +376,7 @@ function CompanionShell() {
               Sign in to see the Constitutional Overlay for this page.
             </div>
           )
-        ) : activeSurface === "workbench" ? (
+        ) : activeSurface === "workspace" ? (
           /* Workspace — Movement I (Capture), PRD-MMC-IMPL-003. This is the
              fifth companion surface: the Constitutional Flow's landing point
              INSIDE the extension itself, not a link out to the full app's
@@ -440,6 +457,8 @@ function CompanionShell() {
         >
           {COMPANION_NAV_ITEMS.map((item) => {
             const isActive = !railOpen && activeNavItem === item;
+            const label = COMPANION_NAV_LABEL[item];
+            const Icon = NAV_ICON_COMPONENT[COMPANION_NAV_ICON[item]];
             return (
               <button
                 key={item}
@@ -449,13 +468,20 @@ function CompanionShell() {
                   setActiveNavItem(item);
                 }}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex-1 rounded-md text-center transition-colors ${densityClass.item} ${densityClass.label} ${
+                /* D-10: icon + tooltip. `title` gives the hover tooltip and
+                   `aria-label` the accessible name — an icon-only control with
+                   neither is unusable with a screen reader, and §4.3's "never
+                   has to relearn navigation" only holds if the words behind
+                   the icons stay stable. */
+                title={label}
+                aria-label={label}
+                className={`flex flex-1 items-center justify-center rounded-md transition-colors ${densityClass.item} ${
                   isActive
                     ? "bg-slate-800 text-slate-100"
                     : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
                 }`}
               >
-                {COMPANION_NAV_LABEL[item]}
+                {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : label}
               </button>
             );
           })}

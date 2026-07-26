@@ -293,39 +293,32 @@ describe('Companion embed page (/triad/embed/companion) — Workspace surface', 
   });
 
   /**
-   * NAMING CONFLICT, RESOLVED IN FAVOUR OF THE LATER RATIFICATION — and
-   * recorded here rather than silently applied, because two ratified
-   * documents disagree and this canary previously enforced the other one.
+   * NAMING CONFLICT — RESOLVED BACK TO **Workspace** (operator, D-10,
+   * 2026-07-26), and the history is kept because it explains why this
+   * prohibition is worth having.
    *
    *  • PRD-MMC-IMPL-003 (2026-07-24) named this surface **Workspace**, a
    *    same-day correction away from an invented label, and this file
-   *    asserted `.not.toContain('workbench')` to stop the mis-naming
-   *    returning.
-   *  • SCOPE-MMC-004 §4.3 (ratified 2026-07-26) fixes the Companion's
-   *    navigation vocabulary as `Avatar · Wallet · Agent Me · Search ·
-   *    **Workbench** · Overlay`, stated twice by the operator.
-   *
-   * The later, more specific ratification governs the NAV VOCABULARY, so the
-   * nav item is `workbench`. The absolute prohibition is therefore retired —
-   * its premise ("workbench is a mis-naming") no longer holds. That is a
-   * change of premise, NOT a weakening to make a violation pass: what the
-   * canary actually protects is that the capture capability is still mounted
-   * and still identity-gated, and both are asserted below, unchanged in
-   * strength.
-   *
-   * FLAGGED as SCOPE-MMC-004 D-10. If the operator wants `Workspace` in the
-   * nav instead, it is a one-line change to `COMPANION_NAV_LABEL`, and this
-   * comment is the reason it is cheap.
+   *    asserted `.not.toContain('workbench')` to stop it returning.
+   *  • SCOPE-MMC-004 §4.3's first draft said **Workbench**, and it shipped
+   *    that way for exactly one commit.
+   *  • The operator ruled **Workspace**. The prohibition is therefore
+   *    REINSTATED, not retired — the label drifted twice now, which is the
+   *    case for keeping a canary rather than trusting review.
    */
+  it('never reintroduces the "workbench" mis-naming', () => {
+    expect(source.toLowerCase()).not.toContain('workbench');
+  });
+
   it('exposes the capture surface through the ratified nav vocabulary', () => {
     expect(source).toContain('COMPANION_NAV_ITEMS');
-    // Structure, not a hand-copied union: the surface set now derives from
+    // Structure, not a hand-copied union: the surface set derives from
     // services/companion/companionNavigation.ts (inv.engineering.036).
     expect(source).not.toMatch(/useState<"wallet" \| "companion"/);
   });
 
   it('gates the capture mount on resolved identity, same as Search/Overlay', () => {
-    const idx = source.indexOf('activeSurface === "workbench" ? (');
+    const idx = source.indexOf('activeSurface === "workspace" ? (');
     expect(idx).toBeGreaterThan(-1);
     const section = source.slice(idx, idx + 1400);
     expect(section).toContain('identity && personaId');

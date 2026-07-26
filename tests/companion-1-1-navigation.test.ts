@@ -17,6 +17,7 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 import {
   COMPANION_NAV_ITEMS,
   COMPANION_NAV_LABEL,
+  COMPANION_NAV_ICON,
   COMPANION_NAV_DENSITY,
   COMPANION_NAV_DENSITY_CLASS,
   COMPANION_NAV_ITEM_TO_SURFACE,
@@ -40,7 +41,7 @@ describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
       'wallet',
       'agent-me',
       'search',
-      'workbench',
+      'workspace',
       'overlay',
     ]);
   });
@@ -66,6 +67,31 @@ describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
     expect(code).toContain('COMPANION_NAV_LABEL');
     // No literal re-listing of the vocabulary in the page.
     expect(code).not.toMatch(/\[\s*['"]avatar['"]\s*,\s*['"]wallet['"]/);
+  });
+});
+
+describe('D-10 — icon presentation, with the label as tooltip and accessible name', () => {
+  it('names an icon for every nav item', () => {
+    for (const id of COMPANION_NAV_ITEMS) {
+      expect(COMPANION_NAV_ICON[id], `no icon for '${id}'`).toBeTruthy();
+    }
+    expect(Object.keys(COMPANION_NAV_ICON).sort()).toEqual([...COMPANION_NAV_ITEMS].sort());
+  });
+
+  it('keeps labels — an icon-only nav still needs an accessible name', () => {
+    // The regression this guards is an accessibility one that looks fine in a
+    // screenshot: icons render, and the control is unusable with a screen
+    // reader because nothing carries the word.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('title={label}');
+    expect(code).toContain('aria-label={label}');
+    expect(code).toContain('aria-hidden="true"');
+  });
+
+  it('D-10: the vocabulary says Workspace, never Workbench', () => {
+    expect(COMPANION_NAV_LABEL.workspace).toBe('Workspace');
+    expect(JSON.stringify(COMPANION_NAV_ITEMS)).not.toContain('workbench');
+    expect(stripComments(readSource(COMPANION_PAGE)).toLowerCase()).not.toContain('workbench');
   });
 });
 

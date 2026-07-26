@@ -14,6 +14,21 @@
  * That is why `COMPANION_NAV_ITEMS` is a single frozen tuple and the per-
  * surface record below carries only density.
  *
+ * D-10 RESOLVED (operator, 2026-07-26): the item is **Workspace**, not
+ * "Workbench". The nav vocabulary now agrees with SPEC-MMC-001 and
+ * PRD-MMC-IMPL-003, which named this surface Workspace as a deliberate
+ * correction away from an invented label. The §4.3 draft briefly said
+ * Workbench and was implemented that way for one commit; the operator's
+ * ruling restores the original name, so `tests/companion-capture.test.ts`'s
+ * "never reintroduces the workbench mis-naming" prohibition is REINSTATED
+ * rather than retired.
+ *
+ * D-10 ALSO (same ruling): the Companion/copilot nav renders **icons with
+ * tooltips**, not text labels. The label is still part of the vocabulary — it
+ * is the tooltip and the accessible name — so D-3's "identical vocabulary"
+ * invariant is unaffected: what adapts is how the item is *presented*, which
+ * is exactly what "adaptive presentation" was scoped to cover.
+ *
  * ALSO THE C0 CAPABILITY INVENTORY (§12 C0, §11.1). Companion 1.1 introduces
  * no new capabilities, and that rule is unenforceable without a list of the
  * ones that already ship — so each nav item records the capability it exposes
@@ -34,20 +49,41 @@ export const COMPANION_NAV_ITEMS = [
   'wallet',
   'agent-me',
   'search',
-  'workbench',
+  'workspace',
   'overlay',
 ] as const;
 
 /** Derived from the value tuple so the runtime list and the type cannot drift. */
 export type CompanionNavItemId = (typeof COMPANION_NAV_ITEMS)[number];
 
-/** Display label per item. Part of the vocabulary — NOT surface-adaptive. */
+/**
+ * The icon each item renders as (D-10). `lucide-react` names, resolved by the
+ * consuming component — kept as a name rather than a component so this module
+ * stays free of React and remains importable by node-side canaries.
+ */
+export const COMPANION_NAV_ICON: Record<CompanionNavItemId, string> = {
+  avatar: 'UserRound',
+  wallet: 'Wallet',
+  'agent-me': 'MessageCircle',
+  search: 'Search',
+  workspace: 'LayoutGrid',
+  overlay: 'Layers',
+};
+
+/**
+ * Display label per item. Part of the vocabulary — NOT surface-adaptive.
+ *
+ * With D-10's icon presentation these are the TOOLTIP and the accessible
+ * name. They remain load-bearing: an icon-only nav with no accessible name is
+ * unusable with a screen reader, and "the citizen never has to relearn
+ * navigation" (§4.3) is only true if the words behind the icons are stable.
+ */
 export const COMPANION_NAV_LABEL: Record<CompanionNavItemId, string> = {
   avatar: 'Avatar',
   wallet: 'Wallet',
   'agent-me': 'Agent Me',
   search: 'Search',
-  workbench: 'Workbench',
+  workspace: 'Workspace',
   overlay: 'Overlay',
 };
 
@@ -70,7 +106,7 @@ export const COMPANION_NAV_ITEM_TO_SURFACE: Record<CompanionNavItemId, Companion
   wallet: 'wallet',
   'agent-me': 'agent-me',
   search: 'search',
-  workbench: 'workbench',
+  workspace: 'workspace',
   overlay: 'overlay',
 };
 
@@ -172,7 +208,7 @@ export const COMPANION_CAPABILITY_INVENTORY: Record<
     priorReach: 'pre-1.1-companion-mode',
     shippedIn: 'components/companion/CompanionSearchPanel.tsx',
   },
-  workbench: {
+  workspace: {
     capability: 'capture inbox — review and assign captured material',
     priorReach: 'pre-1.1-companion-mode',
     shippedIn: 'components/companion/CaptureInboxPanel.tsx',
@@ -202,5 +238,5 @@ export const PRE_1_1_COMPANION_MODES = {
   companion: null,
   search: 'search',
   overlay: 'overlay',
-  workspace: 'workbench',
+  workspace: 'workspace',
 } as const satisfies Record<string, CompanionNavItemId | null>;
