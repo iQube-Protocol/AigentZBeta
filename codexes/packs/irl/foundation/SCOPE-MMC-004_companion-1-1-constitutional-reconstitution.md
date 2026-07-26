@@ -41,6 +41,77 @@ This is the real purpose of Companion 1.1. It shifts the Companion from being *"
 
 ---
 
+## 3.2 ARCHITECTURAL CORRECTION — the Copilot is the shell (operator, 2026-07-26)
+
+**This inverts how §3 was being implemented, and it is the governing reading.**
+
+> The Companion should not be thought of as a shell that embeds the Copilot. Instead: **the Companion is a specialized deployment of the Copilot. The Copilot becomes the shell.** Everything else becomes capabilities exposed through that shell.
+
+### 3.2.1 What was being built, and why it was wrong
+
+C1/C2 built the Companion as a container that *mounts* `CodexCopilotLayer` inside it, and gave that container **its own bottom navigation**. The Copilot already has a nav-menu footer of its own, so the shipped result was **two navigation systems stacked on one surface** — visible in the operator's 2026-07-26 screenshot as the Copilot's icon row sitting directly above the Companion's bar.
+
+That is not a cosmetic duplication. It is the container/occupant relationship being modelled backwards: if the Companion is a shell, it needs chrome of its own, and every capability added later needs a decision about *which* chrome owns it. If the Copilot is the shell, the question never arises.
+
+### 3.2.2 The corrected architecture
+
+```
+Copilot  (the shell)
+├── Conversation
+├── Avatar mode
+├── Wallet mode
+├── Search mode
+├── Workspace mode
+├── Overlay mode
+└── Contextual Quick Actions
+```
+
+- The Companion **inherits the Copilot UI almost unchanged** — same conversation surface, prompt, composer, rendering, contextual action carousel, and **bottom navigation**. There are not two interaction models; there is one Copilot, and the Companion is one deployment of it.
+- **One navigation system.** The Companion's modes merge INTO the Copilot's nav. `Avatar`, `Wallet` and `aigentMe` are already there; `Search`, `Workspace` and `Overlay` join them as Copilot modes rather than Companion tabs. **No second toolbar.**
+- **Wallet** keeps the Copilot's nav icon and behaves exactly as today — selecting it invokes the existing wallet overlay from inside the Copilot shell. No redesign.
+- **Avatar** already works in the Copilot via the far-left avatar icon and needs no new overlay. It is another rendering mode of Agent Me; only presentation changes, the conversation is identical.
+
+### 3.2.3 Header and layout
+
+The header stays consistent: **R/T thinking dots top-right, persona left-justified in the same header.** Every screen renders **between the header and the bottom menu**, and the bottom menu persists across all of them.
+
+**Search mode reuses the composer**: the same bottom prompt input becomes the search entry bar, with results rendering above it. No separate search input.
+
+### 3.2.4 THE TWO CLASSES OF ACTION — the distinction that makes this consistent
+
+| | **Class 1 — Companion Modes** | **Class 2 — Context Actions** |
+|---|---|---|
+| Question answered | *How am I interacting?* | *What am I doing?* |
+| Examples | Avatar · Wallet · Agent Me · Search · Workspace · Overlay | Open Passport · Review Standing · Continue Venture · Draft Agreement · Launch Credential App · Open Graph · Continue Experiment |
+| Where it lives | The persistent bottom navigation | Inside the conversation — chips or a carousel in the response stream, or immediately above the composer |
+| What it does | Changes the Companion's mode | **Launches in the left-hand browser workspace** |
+
+### 3.2.5 Quick Links drive the BROWSER, not the Companion
+
+**The biggest correction, and the one C3 got wrong.** Quick Links must not navigate inside the Companion:
+
+```
+Credential App  →  opens the Credential application in the main browser window
+Graph           →  opens Graph
+Passport        →  opens Passport
+Cartridge       →  opens the cartridge
+```
+
+**The Companion remains on the right. The browser remains the workspace.** The model is a human assistant saying *"I've opened your Passport"* — not one that replaces itself with the Passport UI.
+
+C3 shipped Quick Links as a strip that navigated the Companion's own pane. Wrong on both counts: wrong place (global chrome rather than conversational affordance) and wrong target (in-pane rather than the browser). Corrected below.
+
+### 3.2.6 Why this scales
+
+The separation is what keeps the surface clean as capabilities accumulate:
+
+- **Bottom navigation = "how I'm interacting."** A closed, stable set.
+- **Conversation actions = "what I'm doing."** Open-ended, contextual, and launched into the browser.
+
+A new capability is almost always Class 2, so it costs nothing in chrome. That is the property a shell-inside-a-shell architecture cannot have.
+
+---
+
 ## 4. Objectives
 
 ### 4.1 Unify conversational experience
@@ -263,6 +334,7 @@ Recorded at scope time so they are designed in rather than retrofitted:
 | **D-8** | **NEW (Aletheon review).** Does the avatar own a separate conversational session? | **RATIFIED: no.** The avatar is another **renderer** of Agent Me. Voice, text and avatar operate against exactly the same live conversation — **no avatar-specific memory, no avatar-specific AI, no avatar-specific context** (§4.5). Among the most consequential decisions in this Scope: an avatar with its own model and memory is the most natural way to create a second Agent Me while believing you are only changing a rendering, and it would pass every visual criterion while violating §3.1 outright | **RATIFIED** |
 | **D-9** | The pre-1.1 `companion` rail (identity chip · activity timeline · observer permissions) has **no slot** in the ratified six-item vocabulary. Where does it belong permanently? | **Open.** C1/C2 preserve it — reachable from the persistent identity chip in the header — so §14.6 holds and nothing is lost. But "reachable from the chip" is an implementation stopgap, not a ratified placement | **Open — surfaced by the C1/C2 build** |
 | **D-10** | Naming conflict: PRD-MMC-IMPL-003 named the capture surface **Workspace** (a correction away from an invented label, canary-enforced); §4.3's first draft said **Workbench** | **RESOLVED (operator, 2026-07-26): Workspace.** §4.3 and the nav vocabulary are corrected; the `.not.toContain('workbench')` prohibition in `tests/companion-capture.test.ts` is **REINSTATED**, not retired. The label has now drifted twice, which is the argument for keeping the canary rather than trusting review. **Same ruling: the Companion/copilot nav renders ICONS WITH TOOLTIPS**, not text labels — the label remains the tooltip and the accessible name, so D-3's identical-vocabulary invariant is untouched (what adapts is presentation, which is what "adaptive presentation" was scoped to cover) | **RATIFIED** |
+| **D-11** | **The Copilot-as-shell merge (§3.2).** C1/C2 shipped the Companion as a container with its OWN bottom navigation, stacked above the Copilot's existing nav-menu footer — two navigation systems on one surface. §3.2 rules the Copilot IS the shell. What remains: (a) `Search`, `Workspace` and `Overlay` become **Copilot modes** in the Copilot's own nav; (b) the Companion's separate bar is **deleted**; (c) header carries R/T dots right + persona left; (d) Search mode reuses the **composer** as its entry bar; (e) Quick Links move from global chrome into the **conversation** as Class 2 chips/carousel | **Open — the next build pass.** Deliberately NOT done piecemeal: deleting the Companion bar before the Copilot nav absorbs the three modes would make Search/Workspace/Overlay unreachable and breach §14.6 ("no capability lost"). The two halves land together or not at all. Note the blast radius — `CodexCopilotLayer` is mounted by many cartridges, so adding modes there needs care that a Companion-only change did not | **Open — BLOCKING C4** |
 
 ---
 

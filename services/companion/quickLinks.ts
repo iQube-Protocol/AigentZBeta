@@ -141,15 +141,38 @@ export function resolveQuickLinks(input: {
 }
 
 /**
- * The destination for a Quick Link — the SAME `buildCodexUrl` the search
- * results already use, so the pane opens exactly as it does today and identity
- * propagates per CLAUDE.md's inter-cartridge navigation rule.
+ * QUICK LINKS DRIVE THE BROWSER, NOT THE COMPANION (§3.2.5, operator
+ * correction 2026-07-26).
+ *
+ * A Quick Link is a **Class 2 Context Action**: it changes *what the citizen
+ * is doing*, so it launches the destination in the **left-hand browser
+ * workspace** and leaves the Companion where it is, on the right. The model is
+ * an assistant saying *"I've opened your Passport"* — not one that replaces
+ * itself with the Passport UI.
+ *
+ * `quickLinkTarget()` therefore returns `_blank`: from the extension side
+ * panel that opens the main browser window, and from a web embed a new tab.
+ * The Companion never navigates its own pane to a Quick Link destination.
+ *
+ * (CLAUDE.md's `target="_blank"` prohibition is scoped to **gated PDF and
+ * video files** — handing a confidential media URL to the browser. A cartridge
+ * page is neither, and it re-resolves its own access gates server-side on
+ * arrival, so opening one in the workspace is the intended behaviour rather
+ * than an exception to that rule.)
+ *
+ * The destination itself is the SAME `buildCodexUrl` the search results
+ * already use, so identity propagates per CLAUDE.md's inter-cartridge
+ * navigation rule.
  *
  * Note what is NOT passed: `isAdmin`/`isPartner` are never put on the URL.
  * They exist as optimistic-render params, and sending them from a link the
  * Companion generated would be this module asserting privilege rather than
  * observing it. The receiving embed re-resolves server-side regardless.
  */
+export function quickLinkTarget(): '_blank' {
+  return '_blank';
+}
+
 export function quickLinkHref(link: QuickLink, personaId?: string): string {
   return buildCodexUrl(link.codexSlug, {
     tab: link.tabSlug,

@@ -89,6 +89,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import {
   resolveQuickLinks,
   quickLinkHref,
+  quickLinkTarget,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
 import {
@@ -414,19 +415,30 @@ function CompanionShell() {
              another renderer of this same session, never a second Agent Me
              (D-8). */
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* QUICK LINKS (C3) — REUSE of the shipped open-in-pane capability:
-                the same `buildCodexUrl` deep link the search results already
-                render, so the left pane navigates exactly as it does today.
+            {/* QUICK LINKS (C3) — Class 2 Context Actions (§3.2.4/§3.2.5).
+                They DRIVE THE BROWSER: each opens its destination in the
+                left-hand workspace (`target="_blank"`) and leaves the
+                Companion in place on the right. The Companion never navigates
+                its own pane to a Quick Link.
+
                 Gated by `resolveQuickLinks`, which fails closed — an
                 unresolved persona and a non-admin both see ungated links only,
                 so an unauthorised surface is never OFFERED. The server gate
-                still governs access; this only governs what is advertised. */}
+                still governs access; this only governs what is advertised.
+
+                PLACEMENT IS STILL PROVISIONAL. §3.2.4 puts Class 2 actions
+                inside the conversation (chips/carousel in the response stream
+                or immediately above the composer), not in global chrome. They
+                sit above the copilot here until the Copilot-as-shell merge
+                lands — recorded as D-11 rather than left to look intentional. */}
             {quickLinks.length > 0 ? (
               <div className="flex shrink-0 flex-wrap gap-1 border-b border-slate-800 px-2 py-1.5">
                 {quickLinks.map((link) => (
                   <a
                     key={link.id}
                     href={quickLinkHref(link, personaId)}
+                    target={quickLinkTarget()}
+                    rel="noreferrer"
                     className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[10px] text-slate-300 transition-colors hover:bg-slate-900/60"
                   >
                     {link.label}

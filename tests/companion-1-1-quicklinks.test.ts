@@ -15,10 +15,13 @@
 
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
+
+const COMPANION_PAGE = 'app/(embed)/triad/embed/companion/page.tsx';
 import {
   quickLinkVisibility,
   resolveQuickLinks,
   quickLinkHref,
+  quickLinkTarget,
   type QuickLinkAccessContext,
 } from '@/services/companion/quickLinks';
 import {
@@ -146,6 +149,18 @@ describe('Quick Links are derived and reuse the shipped navigation', () => {
     const href = quickLinkHref(link, 'p');
     expect(href).not.toContain('isAdmin');
     expect(href).not.toContain('isPartner');
+  });
+
+  it('§3.2.5 — drives the BROWSER, never the Companion pane', () => {
+    // The correction C3 got wrong first time. A Quick Link is a Class 2
+    // Context Action: it launches into the left-hand workspace and leaves the
+    // Companion in place on the right. If it ever navigated the Companion's
+    // own pane, the assistant would be replacing itself with the thing it was
+    // asked to open.
+    expect(quickLinkTarget()).toBe('_blank');
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('target={quickLinkTarget()}');
+    expect(code).toContain('rel="noreferrer"');
   });
 
   it('is a presentation filter, and says so — the server gate still governs', () => {
