@@ -24,6 +24,13 @@ const envVars = [
   'VENICE_IMAGE_MODEL',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL',
+  // ── SPEC-CDR-001 P5 — presentation threshold for provisional (L3) domain
+  //    profiles. Operational policy, NOT a constitutional constant: it governs
+  //    when the runtime may interrupt a citizen with a hedged contextual
+  //    offer, and is calibrated from evidence. A per-profile
+  //    `presentation_threshold` row value overrides it. UNSET OR INVALID =
+  //    SILENT ABSTENTION (never 0, never show-everything).
+  'CDR_PRESENTATION_THRESHOLD',
   // ── Groq — third-tier STT fallback (Whisper-large-v3, OpenAI-compatible) ─
   'GROQ_API_KEY',
   // ── Cartesia — primary TTS provider (Sonic English, sounds better than OpenAI tts-1) ─

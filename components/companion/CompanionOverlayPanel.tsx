@@ -43,12 +43,28 @@ export interface CompanionOverlayPanelProps {
 
 type OverlayEmptyReason = "no-observation" | "no-domain-observed" | "grant-revoked" | "domain-unmapped" | null;
 
+/**
+ * P5 — the hedged provisional offer (SPEC-CDR-001 §6.2).
+ *
+ * Present ONLY when a provisional (L3) profile cleared the applied
+ * presentation threshold. It carries no card and states no context: the
+ * citizen decides whether to look. `appliedThreshold` and `confidence` ride
+ * along so the view/dismiss event records the same numbers the server used.
+ */
+interface ProvisionalOffer {
+  profileId: string;
+  overlayContext: "financial-context";
+  confidence: number | null;
+  appliedThreshold: number | null;
+}
+
 interface OverlayResponse {
   ok: boolean;
   domain: string | null;
   shape: "github-repo" | "financial-context" | "generic" | null;
   card: OverlayCard | null;
   reason: OverlayEmptyReason;
+  provisional?: ProvisionalOffer | null;
 }
 
 const EMPTY_REASON_COPY: Record<Exclude<OverlayEmptyReason, null>, string> = {
@@ -109,6 +125,71 @@ function RelatedInRegistry({ matches }: { matches: CompanionSearchResult[] }) {
       ) : (
         <div className="mt-1 text-xs text-slate-500">No registry or research matches for this page.</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * P5 — the hedged provisional offer (SPEC-CDR-001 §6.2, operator P5-3).
+ *
+ * The wording is deliberate and constrained:
+ *
+ *   "Financial context may be relevant here."   — MAY, not IS.
+ *
+ * The Overlay MUST NOT render "This is a financial services site" for a
+ * provisional profile. The citizen is not asked to classify the page either —
+ * that is the platform's job, not theirs — so the actions are only View and
+ * Dismiss, never a context picker.
+ *
+ * Choosing to view does NOT promote the profile or assert the context; it
+ * reveals that a provisional classification exists, with its basis stated.
+ * Verification remains a separate, human act (P5-5).
+ */
+function ProvisionalContextOffer({
+  offer,
+  onOutcome,
+}: {
+  offer: ProvisionalOffer;
+  onOutcome: (outcome: "viewed" | "dismissed") => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2.5">
+      <div className="text-xs text-slate-200">Financial context may be relevant here.</div>
+      {expanded ? (
+        <div className="mt-2 space-y-1 border-t border-slate-800 pt-2">
+          <p className="text-[11px] leading-snug text-slate-500">
+            This context is <span className="text-slate-300">provisional</span>. It was
+            discovered from evidence and has not been verified, so nothing here is
+            asserted and no action is available from it.
+          </p>
+          {typeof offer.confidence === "number" ? (
+            <StatRow label="Discovery confidence" value={offer.confidence.toFixed(2)} />
+          ) : null}
+          {typeof offer.appliedThreshold === "number" ? (
+            <StatRow label="Presentation threshold" value={offer.appliedThreshold.toFixed(2)} />
+          ) : null}
+          <StatRow label="Status" value="Awaiting verification" />
+        </div>
+      ) : null}
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          onClick={() => {
+            setExpanded(true);
+            onOutcome("viewed");
+          }}
+          className="rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200 transition-colors hover:bg-slate-900"
+        >
+          View context
+        </button>
+        <button
+          onClick={() => onOutcome("dismissed")}
+          className="rounded-md px-2 py-1 text-[11px] text-slate-500 transition-colors hover:text-slate-300"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }
@@ -372,6 +453,11 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<OverlayResponse | null>(null);
+  // Dismissing a hedged offer hides it for this panel session. Deliberately
+  // NOT persisted: a provisional profile that gets verified should be able to
+  // surface properly later, and a permanent client-side suppression would
+  // silently outlive the state that justified it.
+  const [offerDismissed, setOfferDismissed] = useState(false);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -516,6 +602,28 @@ export function CompanionOverlayPanel({ personaIdHint }: CompanionOverlayPanelPr
           <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-2 text-[11px] text-rose-300">
             {error}
           </div>
+        ) : null}
+
+        {status === "ready" && data?.provisional && !offerDismissed ? (
+          <ProvisionalContextOffer
+            offer={data.provisional}
+            onOutcome={(outcome) => {
+              if (outcome === "dismissed") setOfferDismissed(true);
+              void personaFetch(OVERLAY_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                personaIdHint,
+                body: JSON.stringify({
+                  profileId: data.provisional!.profileId,
+                  outcome,
+                  confidence: data.provisional!.confidence,
+                  appliedThreshold: data.provisional!.appliedThreshold,
+                }),
+              }).catch(() => {
+                /* instrumentation must never disturb the citizen's surface */
+              });
+            }}
+          />
         ) : null}
 
         {status === "ready" && data ? (

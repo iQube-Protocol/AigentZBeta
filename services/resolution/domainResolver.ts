@@ -52,6 +52,10 @@ import {
   type DomainProfile,
   type OverlayContext,
 } from '@/services/resolution/domainProfileRegistry';
+import {
+  loadPromotedProfile,
+  type StoredDomainProfile,
+} from '@/services/resolution/domainProfileStore';
 
 export type ResolutionLevel = 'L1' | 'L2' | 'L3' | 'L4';
 
@@ -157,9 +161,54 @@ export function classifyProfile(profile: DomainProfile | null): DomainResolution
   };
 }
 
-/** PURE — look a subject up in the registry, then apply the precedence rules. */
+/** PURE — look a subject up in the CODE registry, then apply the precedence
+ *  rules. Ratified seeds only; see `resolveDomainFromAnySource` for the full
+ *  path including promoted profiles. */
 export function resolveDomain(subject: string | null | undefined): DomainResolution {
   return classifyProfile(resolveDomainProfile(subject));
+}
+
+/**
+ * A resolution plus the operational fields that exist only for a profile held
+ * in storage. `stored` is null for a ratified code seed — which has no row id
+ * and no per-row threshold, and needs neither.
+ */
+export interface SourcedDomainResolution extends DomainResolution {
+  readonly stored: StoredDomainProfile | null;
+}
+
+/**
+ * The full resolution path (operator, P5-1):
+ *
+ *     Ratified code seed
+ *             ↓ if no match
+ *     Promoted database profile
+ *             ↓ if no match
+ *     Discovery / abstention path (L4)
+ *
+ * Seeds resolve FIRST because they are manually ratified constitutional
+ * assertions, version-controlled and reviewable in git. A later phase may
+ * migrate them into the store; that migration is separately reviewed and
+ * receipted, and is deliberately not bundled into P5 — doing so would mix
+ * "introduce generated profiles" with "move the existing source of authority"
+ * in one change.
+ *
+ * Both sources normalise to the SAME `DomainProfile` contract, so downstream
+ * composition never asks where a profile came from. `profileSource` records it
+ * for diagnostics, kept distinct from `assertionProvenance`.
+ *
+ * Async only because the second tier reads storage; it soft-fails to the code
+ * result, so an unapplied migration degrades to exactly P3's behaviour.
+ */
+export async function resolveDomainFromAnySource(
+  subject: string | null | undefined,
+): Promise<SourcedDomainResolution> {
+  const seeded = resolveDomain(subject);
+  if (seeded.level !== 'L4') return { ...seeded, stored: null };
+
+  const stored = await loadPromotedProfile(subject);
+  if (!stored) return { ...L4, stored: null };
+  return { ...classifyProfile(stored.profile), stored };
 }
 
 /**

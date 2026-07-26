@@ -48,6 +48,9 @@ import { isCapabilityGranted } from '@/services/companion/observerConsent';
 import { loadGrantState } from '@/app/api/companion/observer/_lib/store';
 import { loadLatestObservation } from '@/app/api/companion/observer/_lib/observationStore';
 import { shapeForDomain } from '@/services/companion/overlayMapping';
+import { resolveDomainFromAnySource } from '@/services/resolution/domainResolver';
+import { decidePresentation } from '@/services/resolution/presentationPolicy';
+import { recordPresentationEvent } from '@/services/resolution/domainProfileStore';
 import { composeOverlayCard, composeGenericOverlayCard } from '@/services/companion/overlayComposition';
 
 export const dynamic = 'force-dynamic';
@@ -81,7 +84,57 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     isCapabilityGranted(grantState, 'current-tab', observation.currentTabDomain);
 
   const domain = domainStillGranted ? observation!.currentTabDomain! : null;
-  const shape = shapeForDomain(domain);
+
+  // P5 — the full resolution path: ratified code seed, then promoted profile,
+  // then abstention. `shapeForDomain` remains the pure seed-only path used by
+  // canaries and any sync caller; this route needs the storage tier too.
+  const resolution = await resolveDomainFromAnySource(domain);
+  const shape = resolution.assert ? resolution.overlayContext : shapeForDomain(domain);
+
+  // P5 — L3. A provisional profile NEVER asserts (§6.2). It may, when its
+  // confidence clears the applied presentation threshold, be OFFERED in
+  // hedged form. Below threshold the runtime stays silent -- and records the
+  // silence, because an abstention nobody counted is an abstention nobody can
+  // calibrate (§6.3: the rate is a metric to publish, not a defect to hide).
+  const provisional =
+    resolution.level === 'L3' && resolution.profile && resolution.stored
+      ? (() => {
+          const confidence =
+            resolution.profile!.assertionProvenance === 'discovered'
+              ? resolution.profile!.confidence
+              : null;
+          const decision = decidePresentation(
+            confidence,
+            resolution.stored!.presentationThreshold,
+          );
+          void recordPresentationEvent({
+            profileId: resolution.stored!.id,
+            subjectType: resolution.profile!.subjectType,
+            resolutionLevel: 'L3',
+            confidence,
+            appliedPresentationThreshold: decision.appliedThreshold,
+            outcome: decision.eligible ? 'offered' : 'silent_abstention',
+          });
+          return decision.eligible
+            ? {
+                profileId: resolution.stored!.id,
+                overlayContext: resolution.profile!.overlayContext,
+                confidence,
+                appliedThreshold: decision.appliedThreshold,
+              }
+            : null;
+        })()
+      : null;
+
+  if (provisional) {
+    // The hedged offer, and nothing else. No card is composed and no context
+    // is stated -- the citizen decides whether to look. Presenting the card
+    // here would be the assertion L3 forbids.
+    return NextResponse.json(
+      { ok: true, domain, shape: null, card: null, reason: null, provisional },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   // Distinguishes WHY there's no card — "domain isn't in the illustrative
   // demo set" (expected, working as scoped) reads identically to "you never
@@ -120,4 +173,46 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     { ok: true, domain, shape, card, reason: null },
     { headers: { 'Cache-Control': 'no-store' } },
   );
+}
+
+
+/**
+ * POST — record the citizen's response to a hedged provisional offer.
+ *
+ * `viewed` / `dismissed` only. The server already recorded `offered` or
+ * `silent_abstention` when it made the decision, so this closes the loop
+ * without letting the client assert anything: the body carries a profile id
+ * and an outcome, never a classification.
+ *
+ * Instrumentation, not authority — it soft-fails and always returns ok.
+ */
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const persona = await getActivePersona(request);
+  if (!persona) {
+    return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
+  }
+  const body = (await request.json().catch(() => null)) as {
+    profileId?: unknown;
+    outcome?: unknown;
+    confidence?: unknown;
+    appliedThreshold?: unknown;
+  } | null;
+
+  const profileId = typeof body?.profileId === 'string' ? body.profileId : null;
+  const outcome = body?.outcome === 'viewed' || body?.outcome === 'dismissed' ? body.outcome : null;
+  if (!profileId || !outcome) {
+    return NextResponse.json({ ok: false, error: 'profileId and outcome required' }, { status: 400 });
+  }
+
+  await recordPresentationEvent({
+    profileId,
+    subjectType: 'hostname',
+    resolutionLevel: 'L3',
+    confidence: typeof body?.confidence === 'number' ? body.confidence : null,
+    appliedPresentationThreshold:
+      typeof body?.appliedThreshold === 'number' ? body.appliedThreshold : null,
+    outcome,
+  });
+
+  return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 }

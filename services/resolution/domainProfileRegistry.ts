@@ -88,8 +88,24 @@ export type DomainProfileAuthority =
   | { readonly kind: 'polity-public-ref'; readonly ref: string }
   | { readonly kind: 'operator-ratification'; readonly decisionRef: string };
 
+/**
+ * WHERE the profile came from — operational metadata, deliberately DISTINCT
+ * from `assertionProvenance` (operator, P5-1).
+ *
+ *   profileSource       = which store held it (a deployment fact)
+ *   assertionProvenance = who asserted it and how (a constitutional fact)
+ *
+ * Collapsing them would make "ratified in code" look like a provenance class,
+ * which it is not: a ratified seed and a promoted discovery can both be
+ * `curated`, and a code seed is not automatically more trustworthy than a
+ * verified promoted one — the resolver's precedence is about provenance, not
+ * storage.
+ */
+export type ProfileSource = 'ratified-seed' | 'promoted-discovery';
+
 interface DomainProfileBase {
   readonly schemaVersion: 'cdr-domain-profile/v1';
+  readonly profileSource: ProfileSource;
   /** P2 seeds are all hostnames. The schema is subject-kind-general by design
    *  (§5.3) so one service can later resolve agents and capabilities too. */
   readonly subjectType: 'hostname';
@@ -170,6 +186,7 @@ const ATTESTATION: readonly DomainProfileEvidence[] = [
 export const DOMAIN_PROFILES: readonly DomainProfile[] = [
   {
     schemaVersion: 'cdr-domain-profile/v1',
+    profileSource: 'ratified-seed',
     subjectType: 'hostname',
     subject: 'metame.com',
     aliases: ['www.metame.com'],
@@ -189,6 +206,7 @@ export const DOMAIN_PROFILES: readonly DomainProfile[] = [
   },
   {
     schemaVersion: 'cdr-domain-profile/v1',
+    profileSource: 'ratified-seed',
     subjectType: 'hostname',
     subject: 'dev-beta.aigentz.me',
     overlayContext: 'financial-context',
@@ -203,6 +221,7 @@ export const DOMAIN_PROFILES: readonly DomainProfile[] = [
   },
   {
     schemaVersion: 'cdr-domain-profile/v1',
+    profileSource: 'ratified-seed',
     subjectType: 'hostname',
     subject: 'coinbase.com',
     aliases: ['www.coinbase.com'],
