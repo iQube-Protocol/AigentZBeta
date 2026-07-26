@@ -10,6 +10,7 @@ import { useCopilotHost } from "./CopilotHostContext";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { personaFetch } from "@/utils/personaSpine";
 import { useSessionInvariants } from "@/hooks/useSessionInvariants";
+import { resolveVoicePersona } from "@/services/metame/voicePersona";
 import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
@@ -527,7 +528,14 @@ export function CodexCopilotLayer({
   }, [hideAvatarToggle, copilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
 
-  // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
+  // ── Voice (Vapi) — speaks as THIS SURFACE'S agent ───────────────────────────
+  //
+  // Was hardcoded to Marketa in four places (session name, greeting, system
+  // prompt, tooltips), so every mount introduced her regardless of the agent
+  // the citizen was actually talking to — Agent Me in the Companion, a
+  // cartridge lead elsewhere. The copilot is ONE conversation rendered three
+  // ways (text / avatar / voice, D-8); an agent that changes identity with the
+  // modality breaks the premise that there is one agent to address.
   type VapiState = "idle" | "connecting" | "active" | "speaking" | "error";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
   const [vapiPaused, setVapiPaused] = useState(false);
@@ -563,7 +571,14 @@ export function CodexCopilotLayer({
     return () => { vapi?.stop(); };
   }, []);
 
-  const toggleMarketa = useCallback(async () => {
+  /** Derived from the host's agent prop; falls back to Marketa when a mount
+   *  names no agent, so surfaces that never declared one are unchanged. */
+  const voicePersona = useMemo(
+    () => resolveVoicePersona(agent),
+    [agent],
+  );
+
+  const toggleVoice = useCallback(async () => {
     if (!vapiRef.current) return;
     if (vapiState !== "idle" && vapiState !== "error") {
       vapiRef.current.stop();
@@ -577,31 +592,25 @@ export function CodexCopilotLayer({
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
-        name: "Marketa",
-        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What would you like to do?",
+        name: voicePersona.name,
+        firstMessage: voicePersona.greeting,
         transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
         voice: {
           provider: "cartesia",
-          voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
+          voiceId: voicePersona.voiceId,
           model: "sonic-english",
         },
         model: {
           provider: "openai",
           model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are Marketa, a creative AI co-pilot in the iQube platform. Help users with their questions and tasks. Be concise, helpful, and friendly. Keep responses to 2-3 sentences max.",
-            },
-          ],
+          messages: [{ role: "system", content: voicePersona.systemPrompt }],
         },
       });
     } catch {
       setVapiState("idle");
     }
-  }, [vapiState]);
-  // ── end Marketa voice ───────────────────────────────────────────────────────
+  }, [vapiState, voicePersona]);
+  // ── end voice ───────────────────────────────────────────────────────────────
 
   const headerHeight = 44;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
@@ -1018,12 +1027,12 @@ export function CodexCopilotLayer({
       type="button"
       onClick={() => {
         if (vapiState === "error") { setVapiState("idle"); return; }
-        void toggleMarketa();
+        void toggleVoice();
       }}
       title={
-        vapiState === "idle" ? "Talk to Marketa"
+        vapiState === "idle" ? `Talk to ${voicePersona.name}`
           : vapiState === "error" ? "Voice unavailable — tap to dismiss"
-          : "Stop Marketa"
+          : `Stop ${voicePersona.name}`
       }
       className={`p-1.5 rounded-lg transition-colors ${
         vapiState === "idle"
