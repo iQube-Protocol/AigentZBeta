@@ -290,6 +290,16 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     expect(copilot).toMatch(/bodySlot \? ["']hidden["'] : ["']{2}/);
   });
 
+  it('assistant replies render through the inference renderer, not as raw text', () => {
+    // `enableInferenceRendering` is opt-in and defaults to false, so a mount
+    // that forgets it silently loses markdown, code blocks and Mermaid — the
+    // reply arrives as one undifferentiated block. It reads as "the copilot's
+    // styling is broken" rather than "this surface never opted in", which is
+    // why it survived: nothing errors, and every OTHER mount looks fine.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('enableInferenceRendering');
+  });
+
   it('the bottom row is KEPT while the migration is under test', () => {
     // Operator: "you can keep them in both rows if you want until we test they
     // are working in the copilot menu before retiring the bottom row." Retiring

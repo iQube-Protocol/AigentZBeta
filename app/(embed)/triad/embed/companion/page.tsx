@@ -388,6 +388,12 @@ function CompanionShell() {
                the Companion stays put on the right. */
             quickPrompts={quickLinkPrompts}
             onPrompt={openQuickLink}
+            /* Markdown / Mermaid rendering. `enableInferenceRendering` is
+               opt-in and defaults to false, so without it assistant replies
+               render as one raw string — the "solid blocks of text" the
+               operator reported (2026-07-26). Every other copilot mount in the
+               app passes it; the Companion was simply missing it. */
+            enableInferenceRendering
             /* The wallet reached FROM THE COPILOT must be the same pane-width
                wallet the Companion's own Wallet item mounts. Before this, the
                copilot's wallet was hardcoded to the cartridge-sized column, so
