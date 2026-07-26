@@ -10,6 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { HOMECOMING_DELEGATE_SPECS, getDelegateSpec } from '@/services/homecoming/agentHomecoming';
+import type { HomecomingDelegateId } from '@/types/homecoming';
 import { SLUG_RE } from '@/services/agents/sponsorPolityAgent';
 import { buildParticipantApplication } from '@/services/homecoming/issueDelegatePassport';
 import { validateParticipantApplication } from '@/services/passport/participantApplicationValidator';
@@ -33,8 +34,19 @@ describe('Agent Homecoming — stand-up specs', () => {
   });
 
   it('un-authored delegates are not standable (no invented spec)', () => {
-    expect(getDelegateSpec('moneypenny')).toBeNull();
-    expect(getDelegateSpec('nakamoto')).toBeNull();
+    // The SUBJECT must be genuinely un-authored, not merely un-authored on the
+    // day the test was written. 'moneypenny' was the original example and has
+    // since been authored (MoneyPenny now has a real card), which turned a
+    // correct implementation into a red build. A deliberately fictitious slug
+    // keeps the invariant under test instead of a moving example.
+    // Every delegate on the roster (aletheon, moneypenny, nakamoto) is now
+    // AUTHORED, so no real id exercises this branch any more -- the original
+    // subjects were authored after the test was written. The fixture id is
+    // asserted to be genuinely absent from the spec map, so this cannot
+    // silently become vacuous if the roster grows.
+    const FIXTURE = 'no-such-delegate-fixture' as HomecomingDelegateId;
+    expect(Object.keys(HOMECOMING_DELEGATE_SPECS)).not.toContain(FIXTURE);
+    expect(getDelegateSpec(FIXTURE)).toBeNull();
   });
 });
 

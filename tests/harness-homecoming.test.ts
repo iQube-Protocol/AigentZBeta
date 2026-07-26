@@ -8,6 +8,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { HOMECOMING_DELEGATE_SPECS } from '@/services/homecoming/agentHomecoming';
+import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import {
   resolveDelegateIdentity,
   buildDelegateSystemPrompt,
@@ -21,11 +23,39 @@ describe('resolveDelegateIdentity', () => {
     expect(id.agentClass).toBe('specialist');
   });
 
-  it('falls back to a generic-but-true identity for un-authored delegates', () => {
+  it('every roster delegate resolves; an un-authored one would fall back, not crash', () => {
+    // The original test used 'moneypenny' as its un-authored example. All three
+    // roster delegates (aletheon, moneypenny, nakamoto) have since been
+    // AUTHORED, so no id exercises the fallback any more.
+    //
+    // A fictitious id is NOT a valid substitute: `resolveDelegateIdentity` takes
+    // a `HomecomingDelegateId`, and an off-roster string throws on the charter
+    // metadata lookup. That crash is unreachable by contract, so testing it
+    // would assert behaviour the type system already forbids.
+    //
+    // So this asserts the real state and stays correct either way: every roster
+    // delegate resolves to a usable identity, and IF one ever lacks a spec, the
+    // generic-but-true description is used rather than an invented one.
+    const roster = Object.keys(HOMECOMING_DELEGATE_SPECS) as HomecomingDelegateId[];
+    expect(roster.length).toBeGreaterThan(0);
+    for (const slug of HOMECOMING_DELEGATES) {
+      const id = resolveDelegateIdentity(slug);
+      expect(id.label.trim().length, `${slug} has no label`).toBeGreaterThan(0);
+      expect(id.description).toContain('bounded delegation');
+      expect(id.agentClass.trim().length).toBeGreaterThan(0);
+      if (!HOMECOMING_DELEGATE_SPECS[slug]) {
+        // The fallback path: true, generic, never invented.
+        expect(id.label).toBe(slug);
+      }
+    }
+  });
+
+  it('an AUTHORED delegate keeps its card identity (regression: moneypenny was authored)', () => {
+    // The other half of the same change, now asserted rather than assumed --
+    // authoring a delegate must actually take effect.
     const id = resolveDelegateIdentity('moneypenny');
-    expect(id.label).toBe('moneypenny');
-    expect(id.description).toContain('bounded delegation');
-    expect(id.agentClass).toBe('guide-agent'); // from the charter roster, not invented
+    expect(id.label).toBe('MoneyPenny');
+    expect(id.description.trim().length).toBeGreaterThan(0);
   });
 });
 
