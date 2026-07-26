@@ -3,6 +3,8 @@
 **Date:** 2026-07-26
 **Branch:** `claude/constitutional-ground-review-7yg8nb`
 **Deliverable:** `PRD-PAG-001` **Amendment A** (docs-only). **No code was written.**
+**Update 2026-07-26 (later):** architecture rulings received from Aletheon via the operator and
+folded in — see "Rulings and plan" at the foot of this note.
 
 ---
 
@@ -103,3 +105,42 @@ chartered Phase 1 explicitly on the condition that no protected spine file was t
 Shipping a partial version of this would be worse than shipping nothing. The amendment
 carries an unchecked ratification record; on sign-off of §A.3 and §A.4 the implementation is
 a bounded, well-scoped pass.
+
+---
+
+## Rulings and plan (second pass, same day)
+
+All eight architecture rulings received and folded into Amendment A §§A.3, A.7, with an
+implementation plan at §A.9 and a ratification record at §A.10.
+
+**The most consequential consequence: the implementation now requires ZERO protected-file
+modification.** Because the Passport path terminates in a canonical `authProfileId` (ruling:
+Supabase stays the application-session compatibility envelope), `getActivePersona.ts`,
+`evaluateAccess.ts` and `personaSessionToken.ts` are all untouched — they consume
+`getCallerIdentityContext`'s result and cannot tell which credential produced it. The work
+lands in `services/wallet/personaRepo.ts`, `services/identity/personhoodResolver.ts` and
+`services/identity/walletAliasService.ts`, none of which are on CLAUDE.md's protected list.
+
+If an implementation pass finds it needs a protected file, that is a signal the design has
+drifted from the ruling — stop and re-ratify rather than request an exception.
+
+**A second verified finding:** the KybeDID→Supabase binding the ruling requires **already
+exists in schema and is indexed.** `supabase/migrations/20260427000000_root_did_persona_binding.sql:17`
+comments `root_identity.auth_user_id` as *"Supabase auth.users id — canonical link between
+auth session and root DID"*, with `idx_root_identity_auth_user_id` on it, and
+`personhoodResolver.ts:89-100` already walks it session→kybe. Passport-native access is the
+**same edge walked in reverse** — no new binding table, and provisioning is needed only when
+no `root_identity` row exists for the resolved kybe.
+
+Also folded in: one additive table (`passport_connection_challenges`) with atomic single-use
+consumption by conditional update; a five-step rollback that is reversible without data loss
+precisely because sessions stay ordinary Supabase sessions; eight canaries led by the
+negative one — *no pre-session flow may reference `personaId`, `authProfileId` or
+`didPersonaId`*; and PAG-001's body language on the Companion revised per ruling 6.
+
+Consolidation, passkey enrolment, SessionQube-as-runtime-session and external RP presentation
+are each explicitly out of scope and separately chartered.
+
+**Still not implemented.** §A.10's last two boxes — operator sign-off on the plan, and
+chartering the pass — are unticked, per the instruction not to implement until the amended
+ratification record is complete.

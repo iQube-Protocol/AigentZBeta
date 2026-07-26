@@ -71,7 +71,7 @@ CLAUDE.md's "Wallet-Over-Cartridge Overlay — CANONICAL PATTERN" section docume
 
 Make the **Polity Passport the root authentication/authorization credential** for the whole iQube-compliant ecosystem, with the **Smart Wallet as holder/selector**, so a person who claims a Passport inside their agent (Claude/ChatGPT/Claude Code — via the already-built Threshold crossing) can later **"Continue with Polity Passport"** on `metame.live`, IRL OS, Founder Office, Studio, and any external relying party — **no username/password.**
 
-Operator framing (verbatim, retained): the Passport should *become the login credential* rather than integrating into various sign-on systems; the operator weighs "a browser plugin vs a smart-wallet plugin" and notes the smart wallet is *"ultimately where the passport-verified credential is housed."* Aletheon's decisive correction (retained): *"the right answer is not simply 'build a browser plugin' — the deeper requirement is to make the Polity Passport the root credential, with the Smart Wallet as holder/selector; a browser extension is one access surface, but should not become the only way the system works."* This PRD encodes that: the **wallet is the canonical holder** (three forms, §3); the browser extension is one convenience connector, never the identity store and never required for metaMe login.
+Operator framing (verbatim, retained): the Passport should *become the login credential* rather than integrating into various sign-on systems; the operator weighs "a browser plugin vs a smart-wallet plugin" and notes the smart wallet is *"ultimately where the passport-verified credential is housed."* Aletheon's decisive correction (retained): *"the right answer is not simply 'build a browser plugin' — the deeper requirement is to make the Polity Passport the root credential, with the Smart Wallet as holder/selector; a browser extension is one access surface, but should not become the only way the system works."* This PRD encodes that: the **wallet is the canonical holder** (three forms, §3); the browser extension is the **preferred access connector for the metaMe journey** — it is never the identity store, and it must not become the exclusive technical means of Passport-native authentication (Amendment A §A.7, ruled 2026-07-26).
 
 **The clean separation the whole design rests on** (Aletheon's, retained and sharpened against the code):
 
@@ -226,7 +226,7 @@ Phase names retained; each reconciled so the operator sees what is genuinely new
 
 - **Phase 1 — Passport login across first-party surfaces** (metaMe / IRL OS / Founder Office / Studio / Aigent Z). "Continue with Polity Passport": passkey enrol/unlock (**new**) + Passport presentation (**VC builder exists**; first-party can consume the HMAC-stub envelope directly) + **persona selector (EXISTS)** + **pairwise per-RP subject (EXISTS — `derivePairwiseRef`)** + short-lived session (**extend `agent_gateway_sessions` with a human row shape**) + recovery. **Keep username/password as transitional recovery only** (§0.7). *Net-new in Phase 1 is narrower than Aletheon's draft implies — persona selection and pairwise ids are already built; the new work is passkey + the human-OIDC adapter + the human session row.*
 - **Phase 2 — Lightweight Passport Wallet PWA** (wallet form 2). Genuinely new surface (§3).
-- **Phase 3 — Browser extension** (wallet form 3). Optional convenience connector — never the identity store, never required for metaMe login.
+- **Phase 3 — Browser extension / metaMe Companion** (wallet form 3). **The preferred Threshold Crossing connector** for the metaMe journey, and part of the intended Agent Me sequence — but never the identity store, and never the exclusive technical route to Passport-native access: the same protocol must remain reachable through another compatible wallet or web connector (Amendment A §A.7, ruled 2026-07-26).
 - **Phase 4 — External relying-party integration kit.** Verifier SDK, **OIDC4VP** metadata, credential-request schemas, pairwise refs, access-grant + delegation verification, certification. **Gated on Passport VC Phase-C asymmetric signing (§0.5)** — external verification of an HMAC-stub VC is not possible; this dependency must be called out to the operator, not glossed. The W3C Digital Credentials API path is a Phase-4 *emerging* target, not a hard dependency.
 
 **Sequencing dependency to flag:** Phase 4 (external RPs) cannot ship credential presentation to third parties until the Passport credential is asymmetrically signed. Phase 1 (first-party) can proceed on the existing stub because first-party surfaces trust the Bureau secret. This dependency should be scheduled explicitly.
@@ -291,9 +291,11 @@ Phase names retained; each reconciled so the operator sees what is genuinely new
 
 # AMENDMENT A — Passport-native access (operator specification, 2026-07-26)
 
-**Status:** amendment drafted docs-only. **Nothing in §A.3 is built.** The change it
-describes creates an unauthenticated session-minting path and touches the identity spine,
-both of which are operator-approval-only (§6.3, CLAUDE.md "Identity & Access Spine").
+**Status:** architecture **RULED** 2026-07-26 (§A.3, §A.7); implementation plan drafted
+(§A.9); **nothing is built.** Implementation is gated on the operator completing the §A.10
+ratification record. The change creates an unauthenticated session-minting path, which is
+operator-approval-only (§6.3, CLAUDE.md "Identity & Access Spine") — though under ruling
+A.3.2 it now requires **no protected-file modification at all** (§A.9.1).
 
 The operator specified a Passport-native access path with the governing rule:
 
@@ -336,25 +338,83 @@ No account session → no `authProfileId` → no persona → **no Passport read*
 that is meant to establish the session is only reachable *from* the session. One direction
 of one dependency is backwards; everything else in the chain is sound.
 
-## A.3 What must be decided before any code
+## A.3 Architecture rulings (Aletheon via operator, 2026-07-26) — RULED
 
-Two decisions, both operator-level. Neither has a defensible default.
+Both open decisions are now ruled. The governing invariant:
 
-**A.3.1 — How is a constitutional principal resolved without `authProfileId`?**
-The spine resolves persona *from* the auth profile. A Passport-native path must resolve it
-from `(proven wallet → passport record → kybe/root → persona)`. `services/identity/personhoodResolver.ts`
-already walks `root_identity → kybe_id → did_persona` and documents that **"THE PASSPORT IS
-KYBE-DRIVEN: it belongs to the person, a level BENEATH persona"** — the right chain exists;
-its entry point is the session. Options: (a) a sibling resolver entered from a proven wallet,
-composed with the existing walk; (b) teach `getCallerIdentityContext` a second credential
-kind. **(b) modifies a PROTECTED file.**
+> **Multiple proofs may enter the identity spine; only one constitutional principal model
+> exits it.**
 
-**A.3.2 — How is a platform session minted?**
-There is **no server-side session-minting mechanism in the repo today** (no
-`admin.createUser`, no `generateLink`, no equivalent — verified by grep). Options: mint a
-real Supabase user/session server-side behind the flow, or issue a SessionQube human session
-as the primary credential and teach the spine to accept it. The second is cleaner
-constitutionally and touches a protected file.
+### A.3.1 Principal resolution — a second credential entry, not a second spine
+
+Passport proof becomes a **second credential kind** entering the existing identity boundary.
+It must not create a second interpretation of KybeDID, canonical Passport, persona, standing,
+delegation or authority.
+
+```ts
+type CallerCredential =
+  | { kind: 'supabase-session'; bearerToken: string }
+  | { kind: 'passport-proof'; proofId: string };
+```
+
+Both paths terminate in the **same canonical `CallerIdentityContext`**. A bounded pre-session
+resolver (`resolveCallerFromPassportProof()`) may verify the proof, but it must resolve into
+that same structure and must never become a durable sibling authority system.
+
+### A.3.2 Session minting — Passport-primary, Supabase-compatible
+
+```
+Passport / KybeDID   = identity and authority root
+Supabase user        = internal application principal record
+Supabase session     = application session transport
+```
+
+Supabase remains the **application-session compatibility envelope for this phase**; it is no
+longer the constitutional source of identity. After successful Passport verification the
+platform resolves — or silently provisions — an internal Supabase principal and issues the
+session. **The citizen never creates, names, password-protects or signs into that record.**
+
+Binding key: the **canonical personhood lineage (KybeDID)**, never email, wallet address,
+persona id, or a provisional Passport record — so wallets, personas and superseded Passport
+credentials can change without minting duplicate users.
+
+**The binding edge already exists in schema and is indexed** (verified 2026-07-26):
+
+```
+kybe_identity                                   ← canonical personhood
+  ↑ root_identity.kybe_id
+    root_identity.auth_user_id → auth.users     ← the Supabase principal
+```
+
+`supabase/migrations/20260427000000_root_did_persona_binding.sql:17` comments
+`root_identity.auth_user_id` as *"Supabase auth.users id — canonical link between auth
+session and root DID"*, with `idx_root_identity_auth_user_id` on it.
+`services/identity/personhoodResolver.ts:89-100` already walks it in the session→kybe
+direction. **Passport-native access is the same edge walked in reverse.** No new binding
+table is required; provisioning is needed only when no `root_identity` row exists for the
+resolved kybe.
+
+### A.3.3 SessionQube — constitutional record, not yet the runtime session
+
+```
+Passport proof → SessionQube (authorization receipt) → Supabase-compatible app session
+```
+
+SessionQube records what was proven, which Passport lineage resolved, the assurance level,
+consent, audience, expiry and authorization constraints. It does **not** replace the
+operational web session in this amendment — doing so would convert a new authentication path
+into a runtime-wide authentication migration. Direct SessionQube spine support is a
+**separately chartered phase**.
+
+### A.3.4 The pre-session constraint
+
+**No pre-session flow may require `personaId`, `authProfileId` or `didPersonaId`.** Personhood
+and persona are resolved only *after* holder proof succeeds:
+
+```
+connection request → challenge → holder proof → Passport resolution
+→ personhood resolution → persona / default operating context → session
+```
 
 ## A.4 Security finding — the existing challenge primitive is NOT replay-safe for sessions
 
@@ -417,16 +477,20 @@ The operator's framing is endorsed and should be recorded as the rule: **additio
 enrolment is optional for ordinary access; cryptographic holder-control proof is not
 optional; step-up is mandatory where consequence requires it.**
 
-## A.7 Tension to rule on: the Companion's status
+## A.7 The Companion's status — RULED
 
-§3 and §7 Phase 3 state the browser extension is *"an optional convenience connector — never
-the identity store, never required for metaMe login."* The operator's specification makes the
-Companion's **Connect** the primary access path (States A–E).
+**Ruling:** *The Companion is the preferred access connector for the metaMe journey. It is
+never the identity store and must not become the exclusive technical means of Passport-native
+authentication.*
 
-These are reconcilable — the Companion can be the *primary presentation channel* without
-becoming the *identity store or a requirement* — but the PRD's wording currently reads as
-subordinating the Companion. **Operator ruling requested**, so the two documents do not
-disagree.
+Applied to this PRD's body: §1's framing sentence and §7 Phase 3 have been revised
+accordingly (2026-07-26). Consequences:
+
+- the Passport remains in the wallet; the Companion facilitates presentation and holder approval;
+- Passport-native access must remain reachable through another compatible wallet or web connector;
+- installing the Companion is part of the intended Agent Me journey, but the **access protocol
+  must not technically depend on that single client**. Any route, service or canary that would
+  only work with the extension present is an infraction of this ruling.
 
 ## A.8 Delegation stays separate — already correct
 
@@ -436,14 +500,104 @@ row) and CFS-043 Principal–Delegate Separation is absolute. The one behavioura
 that **missing delegation must route to a delegation-activation flow, never to a sign-in
 wall** — which becomes possible only once §A.3 lands.
 
-## A.9 Amendment ratification record
+## A.9 Implementation plan (chartered on ratification — NOT YET BUILT)
 
-- [ ] Operator ratifies the §A.1 finding — Phase 1 is authorization over an existing session, and the Passport is currently an attribute of an account.
-- [ ] Operator decides **A.3.1** (principal resolution) and **A.3.2** (session minting), and grants or withholds approval to modify the protected spine files each implies.
-- [ ] Operator ratifies §A.4 — a single-use nonce store is a prerequisite, not a follow-on.
-- [ ] Operator ratifies §A.5 — consolidation reuses the graded ladder + `superseded_by_reissue`; net-new is lineage, origin rule, and standing/delegation reconciliation.
-- [ ] Operator ratifies §A.6 tiering language.
-- [ ] Operator rules on §A.7 — the Companion's status relative to §3 / Phase 3.
+### A.9.1 Protected-file impact — **zero**
+
+The headline consequence of ruling A.3.2. Because the Passport path terminates in a canonical
+`authProfileId`, everything downstream of `getCallerIdentityContext` is unchanged.
+
+| File | Protected? | Change |
+|---|---|---|
+| `services/identity/getActivePersona.ts` | **YES** (CLAUDE.md) | **NONE.** It calls `getCallerIdentityContext(request)` and consumes the result; a second credential kind resolving to the same context is invisible to it. |
+| `services/access/evaluateAccess.ts` | **YES** | **NONE.** One decision gate, unchanged. |
+| `services/identity/personaSessionToken.ts` | **YES** | **NONE.** |
+| `services/wallet/personaRepo.ts` | no | Extend `getCallerIdentityContext` to accept the passport-proof credential; reuse the existing private `getOrCreateCanonicalAuthProfileId` (line 130) rather than forking it. |
+| `services/identity/personhoodResolver.ts` | no | Add the reverse walk (kybe → root → `auth_user_id`). Composition only. |
+| `services/identity/walletAliasService.ts` | no | Reuse `verifyEvmOwnership`; add an audience/origin-bound challenge builder that takes no persona id. |
+
+**If an implementation pass finds it needs to modify a protected file, that is a signal the
+design has drifted from this ruling — stop and re-ratify rather than requesting an exception.**
+
+### A.9.2 Migration boundaries
+
+One new table, additive, no backfill, no change to any existing row:
+
+- `passport_connection_challenges` — the atomic single-use nonce store (§A.4):
+  `{ id, nonce_hash, audience, origin, expires_at, consumed_at, requested_action,
+     wallet_address (nullable), provisional_connection_id }`.
+  Single-use is enforced by a **conditional update** (`UPDATE … SET consumed_at = now()
+  WHERE id = $1 AND consumed_at IS NULL RETURNING *`) — consumption and check in one atomic
+  statement, never read-then-write. Deny-all RLS, service-role only, mirroring
+  `agent_gateway_sessions`.
+
+Lineage/consolidation (§A.5) may need predecessor links on the passport record. It is
+**deliberately not scoped here** — consolidation is a personhood-layer operation and should
+be its own chartered increment so it cannot ride in on an authentication change.
+
+Existing `access_gateway_human_sessions` (migration `20260814000000`) is extended for the
+SessionQube authorization receipt if required — extended, never forked.
+
+### A.9.3 Rollback strategy
+
+Every step is reversible without data loss because nothing existing is modified:
+
+1. **Feature-flagged entry.** The passport-proof credential kind is accepted only when the
+   flag is on. Flag off ⇒ `getCallerIdentityContext` behaves byte-identically to today.
+2. **Additive-only schema.** Dropping `passport_connection_challenges` removes the feature and
+   nothing else; no existing table is altered.
+3. **No session-format change.** Sessions minted through the Passport path are ordinary
+   Supabase sessions (ruling A.3.2), so a rollback strands no live session in an
+   unrecognisable format — the single strongest argument for keeping Supabase as the envelope
+   this phase.
+4. **Provisioned principals persist harmlessly.** A `root_identity`/auth user provisioned
+   behind the flow remains valid under the existing sign-in path; rollback does not orphan a
+   citizen who already crossed.
+5. **Sign-in untouched throughout.** Phase 1's existing consent flow keeps working, so
+   rollback is never the only way out of a failure.
+
+### A.9.4 Canaries (the amendment is not done until these exist)
+
+Load-bearing, negative first:
+
+1. **No pre-session flow requires an identity the caller cannot have** — the challenge and
+   proof routes must never reference `personaId`, `authProfileId` or `didPersonaId` in their
+   request contract (§A.3.4). This is the canary that would have caught the original defect.
+2. **A consumed challenge cannot mint a second session** — behavioural, driving the real
+   conditional-update path with a replayed nonce.
+3. **Both credential kinds resolve one context shape** — the passport path and the Supabase
+   path produce the same `CallerIdentityContext` fields; no branch returns a variant.
+4. **No protected file is modified** — structural, asserting the §A.9.1 table.
+5. **Binding is never by email, wallet address, persona id or provisional passport** — only
+   the canonical personhood lineage (mirrors the existing spine rule against email binding).
+6. **T0 discipline holds on the new path** — no `personaId` / `authProfileId` / `rootDid` /
+   `kybeAttestation` in any pre-session response, extending the existing spine canaries.
+7. **Passport-native access does not depend on the Companion** (§A.7) — the protocol must be
+   exercisable without the extension present.
+8. `scripts/verify-spine.mjs` passes unchanged.
+
+### A.9.5 Explicitly out of scope for this amendment
+
+Passport consolidation/lineage (§A.5), passkey enrolment (§A.6 level 2), SessionQube as the
+runtime session (§A.3.3), and external RP presentation (Phase 4, still gated on Phase-C
+asymmetric signing). Each is separately chartered.
+
+## A.10 Amendment ratification record
+
+Architecture rulings issued by Aletheon via the operator, 2026-07-26, and folded into §§A.3
+and A.7. Implementation remains **gated on this record being completed by the operator.**
+
+- [x] §A.1 finding recorded — Phase 1 is authorization over an existing session; the Passport currently functions as an attribute of an account.
+- [x] **Ruling 1** — Passport proof is a second credential entry into the existing spine; no independent Passport identity system (§A.3.1).
+- [x] **Ruling 2** — both login methods resolve one canonical `CallerIdentityContext` (§A.3.1).
+- [x] **Ruling 3** — Passport / KybeDID is the identity root (§A.3.2).
+- [x] **Ruling 4** — Supabase remains the application-session compatibility envelope for this phase (§A.3.2).
+- [x] **Ruling 5** — SessionQube records the constitutional session proof but does not replace the web session (§A.3.3).
+- [x] **Ruling 6** — the Companion is the preferred connector, never the identity store, never exclusive (§A.7; PRD body revised).
+- [x] **Ruling 7** — server-side single-use nonce consumption is a prerequisite (§A.4, §A.9.2).
+- [x] **Ruling 8** — no pre-session flow may require `personaId`, `authProfileId` or `didPersonaId` (§A.3.4).
+- [ ] **Operator signs off the implementation plan** (§A.9) — protected-file impact, migration boundaries, rollback, canaries.
+- [ ] **Operator charters the implementation pass.** Until this box is ticked, no code is written.
 
 *Amendment authored docs-only, 2026-07-26. Builds nothing. Reconciled against the shipped
 Phase 1 (`services/accessGateway/*`, `app/api/access-gateway/*`, `app/access-gateway/authorize/page.tsx`),
