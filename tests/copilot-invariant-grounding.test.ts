@@ -69,3 +69,126 @@ describe('the corpus is derived from the agent, never pinned to KNYT', () => {
     expect(code).toMatch(/\(requestedDomain as ContentDomain \| undefined\) \?\?/);
   });
 });
+
+/**
+ * The category error above the coverage bug (operator, 2026-07-26).
+ *
+ * Widening `isConstitutionallyGrounded` fixed WHICH surfaces were grounded. It
+ * did not fix the model: the predicate still decided WHETHER the constitutional
+ * substrate existed at all. A cartridge overlay could therefore substitute for
+ * the base, and a surface that sent no ground context was grounded on nothing.
+ *
+ * Base and overlay are different questions:
+ *   - L1 common ground  — unconditional. Every copilot is one constitutional
+ *                         intelligence; absence of cartridge context must not
+ *                         subtract it.
+ *   - L2 cartridge      — selects WHICH invariants surface. Narrows, never
+ *                         removes.
+ */
+describe('the constitutional substrate is unconditional — a cartridge narrows it, never removes it', () => {
+  it('THE negative canary: common ground resolves with no cartridge context at all', () => {
+    // The one assertion that would have caught the original defect. Every
+    // other check here can pass while the base is still conditional on an
+    // overlay — which is precisely the failure this guards.
+    const code = stripComments(readSource(ROUTE));
+    const decl = code.indexOf('let constitutionalGround');
+    expect(decl, 'the L1 substrate is no longer resolved as its own step').toBeGreaterThan(-1);
+    const region = code.slice(decl, code.indexOf('if (isComposerMode)', decl));
+    expect(region).toContain('resolveCommonConstitutionalGround(');
+    expect(
+      region,
+      'the substrate is gated on a cartridge overlay again — base and overlay have re-merged',
+    ).not.toContain('isConstitutionallyGrounded');
+  });
+
+  it('resolution happens before the prompt-path split, so composer is grounded too', () => {
+    // Composer builds its prompt through a different builder. That is exactly
+    // how it came to stand on nothing: the substrate is not a property of
+    // which builder ran.
+    const code = stripComments(readSource(ROUTE));
+    expect(code.indexOf('let constitutionalGround')).toBeLessThan(code.indexOf('if (isComposerMode)'));
+    expect(code).toContain('systemPrompt += constitutionalGroundPromptBlock(constitutionalGround)');
+  });
+
+  it('the base block renders outside every groundContext branch, and before the overlay', () => {
+    const code = stripComments(readSource(ROUTE));
+    expect(code).toContain('const constitutionalGroundBlock = constitutionalGroundPromptBlock(constitutionalGround);');
+    expect(code, 'substrate must precede overlay in the prompt').toContain(
+      '${constitutionalGroundBlock}${groundContextBlock}',
+    );
+  });
+
+  it('the invariants echo reads the resolved base, not the overlay copy of it', () => {
+    // A surface that sends no overlay still has ground, and still needs its
+    // memory to carry to the next turn.
+    const code = stripComments(readSource(ROUTE));
+    expect(code).toMatch(/resolved_invariants: constitutionalGround\.length > 0/);
+  });
+
+  it('a scoped miss falls back to the unscoped field for EVERY scoping signal', () => {
+    // A domain-scoped miss that returned [] would make the base conditional on
+    // the overlay by a second route — an empty overlay silently subtracting.
+    const res = stripComments(readSource('services/invariants/resolution.ts'));
+    expect(res).toContain('extra?.domains?.length');
+    expect(res).toContain('extra?.ontologyClassIds?.length');
+    expect(res).toContain('export async function resolveCommonConstitutionalGround(');
+  });
+});
+
+describe('one invariant budget, not three independent literals', () => {
+  it('the caps live in a single exported constant', () => {
+    const res = stripComments(readSource('services/invariants/resolution.ts'));
+    expect(res).toContain('export const INVARIANT_BUDGET');
+  });
+
+  it('every injection site consumes it rather than a bare number', () => {
+    // PRD §5 budgets the SUM ("room for BOTH platform-wide and domain
+    // knowledge"). Three literals at three sites bound no sum, and a fourth
+    // path could crowd out the cartridge corpus with nowhere to notice.
+    const code = stripComments(readSource(ROUTE));
+    expect(code).toContain('INVARIANT_BUDGET.currentTurn');
+    expect(code).toContain('INVARIANT_BUDGET.withSessionMemory');
+    expect(code).toContain('INVARIANT_BUDGET.partnershipMemory');
+  });
+
+  it('parity canary: the client cap equals the server ceiling', () => {
+    // The hook cannot import the server module (it reaches the invariant
+    // store), so the duplication is held by this check, not by convention.
+    const server = readSource('services/invariants/resolution.ts').match(/withSessionMemory:\s*(\d+)/);
+    const client = readSource('hooks/useSessionInvariants.ts').match(/SESSION_INVARIANT_CAP = (\d+)/);
+    expect(server?.[1], 'server ceiling not found').toBeDefined();
+    expect(client?.[1], 'client cap not found').toBeDefined();
+    expect(client?.[1], 'client and server invariant ceilings have drifted').toBe(server?.[1]);
+  });
+});
+
+describe('constitutional memory travels for every surface that sends a ground context', () => {
+  const CLIENTS = [
+    'app/components/codex/CodexCopilotLayer.tsx',
+    'components/smarttriad/copilot/SmartTriadCopilotLayer.tsx',
+  ];
+
+  it('no client gates memory on the smart-triad literal', () => {
+    // The server-side gate was widened first and reported as fixed; this
+    // client-side twin stayed live, so memory still reached one surface.
+    for (const file of CLIENTS) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} gates constitutional memory on a surface literal`).not.toMatch(
+        /surface\s*===\s*['"]smart-triad['"]/,
+      );
+    }
+  });
+
+  it('both copilot mounts carry memory through the one shared hook', () => {
+    for (const file of CLIENTS) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} does not use the shared hook`).toContain('useSessionInvariants()');
+      expect(code, `${file} never attaches memory to its outbound ground context`).toContain(
+        'sessionInvariants.decorate(',
+      );
+      expect(code, `${file} never folds the turn's echo back into memory`).toContain(
+        'sessionInvariants.ingest(',
+      );
+    }
+  });
+});

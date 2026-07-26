@@ -32,6 +32,7 @@ import {
 
 // Import CSS
 import "./styles/smarttriad-copilot.css";
+import { useSessionInvariants } from '@/hooks/useSessionInvariants';
 
 interface SmartTriadCopilotLayerProps {
   isOpen: boolean;
@@ -436,6 +437,12 @@ export function SmartTriadCopilotLayer({
   // the POST goes out, so the LLM always sees the freshest right-pane
   // state (e.g. a brief that finished loading between chip click and
   // send). Stable callback identity is preserved.
+  // Constitutional memory v0 — same hook the codex copilot uses, so this
+  // surface accumulates and carries invariants identically. Previously this
+  // layer sent groundContext verbatim with no marker and no memory, so every
+  // turn here restarted the operator's constitutional session from zero.
+  const sessionInvariants = useSessionInvariants();
+
   const groundContextRef = useRef<Record<string, unknown> | null | undefined>(groundContext);
   useEffect(() => {
     groundContextRef.current = groundContext;
@@ -585,7 +592,7 @@ export function SmartTriadCopilotLayer({
           domain: domainForPersona,
           provider_id: selectedProvider,
           personaId,
-          groundContext: currentGroundContext,
+          groundContext: sessionInvariants.decorate(currentGroundContext),
           // Operator-attached uploads — server fetches indexed content
           // for each, injects as <attached_file> blocks in the system
           // prompt so the LLM sees the file content this turn.
@@ -594,6 +601,10 @@ export function SmartTriadCopilotLayer({
       });
 
       const data = await res.json();
+
+      // Fold this turn's resolved invariants into the session's carried
+      // memory so the next turn ships them back as sessionInvariants.
+      sessionInvariants.ingest(data?.resolved_invariants);
 
       const assistantMessage: SmartTriadMessage = {
         id: `assistant-${Date.now()}`,

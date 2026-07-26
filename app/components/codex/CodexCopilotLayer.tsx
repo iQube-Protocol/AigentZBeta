@@ -9,6 +9,7 @@ import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useCopilotHost } from "./CopilotHostContext";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { personaFetch } from "@/utils/personaSpine";
+import { useSessionInvariants } from "@/hooks/useSessionInvariants";
 import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
@@ -315,34 +316,10 @@ export function CodexCopilotLayer({
     }
   }, []);
 
-  // Constitutional memory v0 (SmartTriad Phase 3): invariants the IRE resolved
-  // on earlier turns, accumulated from resolved_invariants echoes and sent
-  // back as groundContext.sessionInvariants. T2-safe (seed ids + statements).
-  const sessionInvariantsRef = useRef<Array<{ seedId: string; statement: string }>>([]);
-  // CFS-045-A2 session marker — opaque random token grouping this mount's
-  // turns into one reasoning session for trajectory capture. NEVER derived
-  // from any identifier.
-  const sessionMarkerRef = useRef<string>("");
-  if (!sessionMarkerRef.current) {
-    sessionMarkerRef.current = Math.random().toString(36).slice(2, 12);
-  }
-  const accumulateResolvedInvariants = (
-    incoming: CodexChatResponse["resolved_invariants"],
-  ) => {
-    if (!Array.isArray(incoming) || incoming.length === 0) return;
-    const merged: Array<{ seedId: string; statement: string }> = [];
-    const seen = new Set<string>();
-    // Newest resolution first, then prior memory — cap at 12, matching the
-    // server-side merge ceiling.
-    for (const inv of [...incoming, ...sessionInvariantsRef.current]) {
-      const seedId = String(inv?.seedId ?? "");
-      const statement = String(inv?.statement ?? "");
-      if (!seedId || !statement || seen.has(seedId) || merged.length >= 12) continue;
-      seen.add(seedId);
-      merged.push({ seedId, statement });
-    }
-    sessionInvariantsRef.current = merged;
-  };
+  // Constitutional memory v0 (SmartTriad Phase 3 + CFS-045-A2). Shared with
+  // SmartTriadCopilotLayer via the hook so both copilot mounts carry memory
+  // the same way — one implementation, not two that can drift.
+  const sessionInvariants = useSessionInvariants();
 
   // Inference-driven navigation (SmartTriad PRD §6): the model embeds
   // [[nav:Label]] markers in its reply; labels are validated VERBATIM against
@@ -1110,26 +1087,17 @@ export function CodexCopilotLayer({
           // existing caller's request body is unchanged. On smart-triad
           // surfaces the accumulated session invariants ride along
           // (constitutional memory v0).
-          ...(groundContext
-            ? {
-                groundContext:
-                  groundContext.surface === "smart-triad"
-                    ? {
-                        ...groundContext,
-                        sessionMarker: sessionMarkerRef.current,
-                        ...(sessionInvariantsRef.current.length > 0
-                          ? { sessionInvariants: sessionInvariantsRef.current }
-                          : {}),
-                      }
-                    : groundContext,
-              }
-            : {}),
+          // Constitutional memory rides along for EVERY surface that sends a
+          // ground context — not just the one that happened to be named
+          // "smart-triad". Omitted entirely when the host cartridge passes no
+          // groundContext, so those callers' request bodies are unchanged.
+          ...(groundContext ? { groundContext: sessionInvariants.decorate(groundContext) } : {}),
           ...extraContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
       const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
-      accumulateResolvedInvariants(data?.resolved_invariants);
+      sessionInvariants.ingest(data?.resolved_invariants);
       // PRD §6 — lift [[nav:Label]] markers out of the reply into chips.
       const navParsed =
         typeof data?.response === "string" ? extractNavMarkers(data.response) : null;

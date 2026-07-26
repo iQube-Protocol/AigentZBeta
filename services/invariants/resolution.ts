@@ -323,13 +323,23 @@ export async function resolveCitableInvariants(
     if (items.length > 0) {
       return items.map((i) => ({ seedId: String(i.seedId ?? i.id), statement: String(i.statement) }));
     }
-    // A namespace-scoped slice can come back thin/empty while the scoped
-    // library is small (e.g. `finance` with only a handful of invariants) —
-    // fall back to the unscoped resolution rather than showing no citations
-    // at all. Same empty-perception discipline resolveConstitutionalField
-    // itself already applies (line ~236) — never let a narrow scope produce
-    // a worse result than no scope would have.
-    if (extra?.namespaces && extra.namespaces.length > 0) {
+    // A scoped slice can come back thin/empty while the scoped library is
+    // small (e.g. `finance` with only a handful of invariants) — fall back to
+    // the unscoped resolution rather than showing no citations at all. Same
+    // empty-perception discipline resolveConstitutionalField itself already
+    // applies (line ~236) — never let a narrow scope produce a worse result
+    // than no scope would have.
+    //
+    // This covers EVERY scoping signal, not just namespaces. `extra` is the
+    // overlay (a cartridge, a domain, an ontology class); an overlay selects
+    // WHICH invariants surface, it can never subtract the substrate. A domain-
+    // scoped miss that returned [] would have made the common ground
+    // conditional on the overlay — the exact category error this seam exists
+    // to prevent.
+    const isScoped = Boolean(
+      extra?.namespaces?.length || extra?.domains?.length || extra?.ontologyClassIds?.length,
+    );
+    if (isScoped) {
       const unscoped = await resolveConstitutionalField(intentText);
       return (unscoped.snapshot?.slice.items ?? [])
         .slice(0, limit)
@@ -351,4 +361,51 @@ export function formatCitableInvariantsBlock(invariants: CitableInvariant[]): st
   if (invariants.length === 0) return '';
   const lines = invariants.map((inv) => `- [${inv.seedId}] ${inv.statement}`);
   return `### Governing platform invariants (IRE-resolved for this message — cite by seed id when they ground a claim)\n${lines.join('\n')}`;
+}
+
+/**
+ * The invariant injection budget, in one place (PRD §5: "each copilot must
+ * keep room for BOTH platform-wide and domain knowledge").
+ *
+ * These caps used to live as three bare literals at three independent
+ * injection sites, so nothing bounded their SUM — the property the budgeting
+ * rule is actually about. A fourth uncapped path would have crowded out the
+ * cartridge corpus with no single place to notice.
+ */
+export const INVARIANT_BUDGET = {
+  /** Invariants resolved from THIS message (the leading edge of the field). */
+  currentTurn: 8,
+  /** Ceiling after session memory tops up the current-turn resolution. */
+  withSessionMemory: 12,
+  /** Compiled partnership memory (CFS-045), injected alongside, not within. */
+  partnershipMemory: 6,
+} as const;
+
+/**
+ * Resolve the COMMON CONSTITUTIONAL GROUND for a turn — the L1 substrate every
+ * copilot stands on, independent of which cartridge it is embedded in.
+ *
+ * The distinction this function exists to hold:
+ *
+ *   - The **substrate** is unconditional. Every copilot is one constitutional
+ *     intelligence; absence of cartridge context does not subtract its ground.
+ *   - The **overlay** (`overlay`) only ever narrows WHICH invariants surface.
+ *     It never decides WHETHER the substrate exists, and a scoped miss falls
+ *     back to the unscoped field rather than returning nothing.
+ *
+ * Callers must therefore invoke this for every turn and pass the overlay as an
+ * argument — never guard the call itself on the overlay being present. Gating
+ * resolution on `groundContext` (a cartridge signal) is the category error that
+ * left the richest surfaces grounded on nothing.
+ *
+ * Best-effort by construction (inherits `resolveCitableInvariants`'s fail-open
+ * contract): a resolution failure yields an empty list, never a thrown turn.
+ */
+export async function resolveCommonConstitutionalGround(
+  intentText: string,
+  overlay?: Partial<GroundingContext>,
+  limit: number = INVARIANT_BUDGET.currentTurn,
+): Promise<CitableInvariant[]> {
+  const scoped = overlay && Object.keys(overlay).length > 0 ? overlay : undefined;
+  return resolveCitableInvariants(intentText, limit, scoped);
 }

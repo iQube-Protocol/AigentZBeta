@@ -2001,6 +2001,22 @@ async function loadMetameContext(
 }
 
 // Build system prompt with codex context, user role, and KB content
+/**
+ * Render the L1 common constitutional ground as a system-prompt block.
+ *
+ * ONE rendering, shared by every prompt path (persona and composer alike), so
+ * no surface can drift into its own phrasing of the substrate — or quietly
+ * omit it. An empty list renders nothing: never fabricate a block resolution
+ * did not produce.
+ */
+function constitutionalGroundPromptBlock(
+  items?: Array<{ seedId: string; statement: string }>,
+): string {
+  if (!items || items.length === 0) return '';
+  const lines = items.map((inv) => `- [${inv.seedId}] ${inv.statement}`).join('\n');
+  return `\n\n## Governing platform invariants — the constitution you reason inside\n\nThese are IRE-resolved for THIS message (plus any carried session memory) from the platform's canonical invariant corpus. They hold on every surface, in every cartridge: they are the ground you share with every other copilot, NOT this cartridge's domain knowledge. Cite them by seed id when they ground a claim. Never contradict one; if a request would require contradicting one, say so plainly and name the invariant.\n\n${lines}`;
+}
+
 function buildSystemPrompt(
   metadata: CodexMetadata,
   aigentId: string,
@@ -2011,6 +2027,13 @@ function buildSystemPrompt(
   platformKnowledgeBlock?: string,
   knowledgeInit?: KnowledgeManifest | null,
   latestUserMessage?: string,
+  /**
+   * The L1 common constitutional ground for this turn, resolved by the caller
+   * BEFORE any cartridge signal. Rendered unconditionally — an empty list
+   * renders nothing (never fabricate a block resolution did not produce), but
+   * an absent CARTRIDGE must never be what empties it.
+   */
+  constitutionalGround?: Array<{ seedId: string; statement: string }>,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1').
   // Fall back via defaultAgentIdForPersona (not a hardcoded 'aigent-kn0w1') so any
@@ -2129,6 +2152,14 @@ function buildSystemPrompt(
   // payload is empty so we don't add noise.
   let groundContextBlock = '';
 
+  // L1 common constitutional ground — the substrate, rendered for EVERY turn.
+  // Deliberately built OUTSIDE the groundContext branches below: those depend
+  // on a cartridge overlay, and the whole point of this block is that the base
+  // does not. An empty list still renders nothing — honesty over completeness —
+  // but what empties it is resolution finding nothing relevant, never the
+  // absence of a cartridge.
+  const constitutionalGroundBlock = constitutionalGroundPromptBlock(constitutionalGround);
+
   // DCIR observation rendering (CFS-020, observe-mode) — ONE shared block for
   // every surface whose ground context carries the observation seam fields
   // (dev-command-center, irl-research, aigentme-welcome, studio-composer, and
@@ -2222,14 +2253,10 @@ function buildSystemPrompt(
         lines.push(`### Operations available to this (admin) operator — amber chips below the chat`);
         for (const op of operations) lines.push(`- ${op.label}`);
       }
-      // Phase 2 — IRE-curated platform invariants (resolved from THIS message).
-      const platformInvariants = Array.isArray(gc.platformInvariants)
-        ? (gc.platformInvariants as Array<Record<string, unknown>>)
-        : [];
-      if (platformInvariants.length > 0) {
-        lines.push(`### Governing platform invariants (IRE-resolved for this question + session memory — cite by seed id when they ground a claim)`);
-        for (const inv of platformInvariants) lines.push(`- [${inv.seedId}] ${inv.statement}`);
-      }
+      // NOTE: the IRE-resolved platform invariants are NOT rendered here.
+      // They are the L1 substrate and render in constitutionalGroundBlock,
+      // which is emitted whether or not this overlay block runs at all. Moving
+      // them back inside this block would re-couple the base to the overlay.
       // CFS-045 constitutional memory — the operator's compiled memory
       // invariants (what survived reasoning in prior sessions, never
       // transcripts). Tailor guidance to these durable patterns.
@@ -2702,7 +2729,7 @@ ${knowledgeInit.nodes
           .join('\n')}`
       : '';
 
-  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}${canonBlock}`;
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${constitutionalGroundBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}${canonBlock}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -2940,8 +2967,72 @@ export async function POST(request: NextRequest) {
     // matching schema of the four).
     let researchFenceRetry = false;
 
+    // ── Common constitutional ground (L1 substrate) ───────────────────────────
+    // PRD §161: "Every embedded copilot is one constitutional intelligence,
+    // specialized by context, not by hardcoded prompts." The substrate is
+    // therefore resolved for EVERY turn, BEFORE the composer/persona split and
+    // independently of whether the client sent a ground context at all.
+    //
+    // The category error this replaces: resolution used to sit behind
+    // `isConstitutionallyGrounded(groundContext)`. That predicate answers "is
+    // there a cartridge OVERLAY?" — a question about specialization. Using it to
+    // decide whether the BASE exists let an overlay substitute for the
+    // substrate, so a surface that sent no ground context was grounded on
+    // nothing at all. A cartridge narrows the ground; it can never remove it.
+    let constitutionalGround: Array<{ seedId: string; statement: string }> = [];
+    if (typeof message === 'string' && message.trim().length > 0) {
+      const gcOverlay = userContext.groundContext as Record<string, unknown> | undefined;
+      try {
+        const { resolveCommonConstitutionalGround, INVARIANT_BUDGET } = await import(
+          '@/services/invariants/resolution'
+        );
+        // OVERLAY, not gate: the active cartridge narrows WHICH invariants
+        // surface. Absent (no ground context, or one carrying no cartridge) the
+        // unscoped field resolves — the base, undiminished. The agent-derived
+        // content domain is deliberately NOT used here: it selects a KB corpus,
+        // and conflating corpus selection with constitutional scope is what
+        // pinned grounding to KNYT.
+        const overlayCartridge = String(
+          ((gcOverlay?.cartridge ?? {}) as Record<string, unknown>).id ?? '',
+        ).trim();
+        constitutionalGround = await resolveCommonConstitutionalGround(
+          message,
+          overlayCartridge ? { domains: [overlayCartridge] } : undefined,
+          INVARIANT_BUDGET.currentTurn,
+        );
+        // Constitutional memory v0 — invariants cited on EARLIER turns (echoed
+        // back by the client as sessionInvariants) stay in the ground so
+        // guidance remains constitutionally consistent across the session.
+        // Current-turn resolution leads; memory tops up to the shared ceiling.
+        const remembered = Array.isArray(gcOverlay?.sessionInvariants)
+          ? (gcOverlay.sessionInvariants as Array<Record<string, unknown>>)
+          : [];
+        const seen = new Set(constitutionalGround.map((m) => m.seedId));
+        for (const inv of remembered) {
+          if (constitutionalGround.length >= INVARIANT_BUDGET.withSessionMemory) break;
+          const seedId = String(inv?.seedId ?? '');
+          const statement = String(inv?.statement ?? '');
+          if (!seedId || !statement || seen.has(seedId)) continue;
+          seen.add(seedId);
+          constitutionalGround.push({ seedId, statement });
+        }
+      } catch {
+        // IRE unavailable — the turn proceeds on persona + cartridge context.
+      }
+      // Mirror onto the overlay so the downstream paths that read it (memory
+      // compilation, the response echo) see exactly the list the prompt was
+      // built from. This is a projection of the base, never its source.
+      if (gcOverlay && constitutionalGround.length > 0) {
+        gcOverlay.platformInvariants = constitutionalGround;
+      }
+    }
+
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
+      // The composer builds its prompt on a different path, which is exactly
+      // how it came to be grounded on nothing. The substrate is not a property
+      // of which builder ran — append it here too.
+      systemPrompt += constitutionalGroundPromptBlock(constitutionalGround);
 
       // DCIR observation seam (CFS-020 §6, observe-mode-first) — the Studio
       // Composer is the THIRD instrumented surface (after the Dev Command
@@ -3136,50 +3227,12 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      // SmartTriad Phase 2 (PRD §5, IRE-curated L1 — unlocked by the IRV-001/
-      // IPV-001 Stage-0 calibration, 2026-07-18): resolve the operator's
-      // message through the Invariant Resolution Engine and inject the
-      // governing platform invariants as ground truth. Intent → IRE → relevant
-      // invariants — selected per interaction, never bulk-loaded, so each
-      // copilot keeps room for both platform and domain knowledge. T2-safe
-      // (statements + seed ids only). Best-effort: an IRE failure degrades to
-      // the Phase-1b context, never blocks the chat.
-      if (
-        userContext?.groundContext &&
-        isConstitutionallyGrounded(userContext.groundContext) &&
-        typeof message === 'string' &&
-        message.trim().length > 0
-      ) {
-        try {
-          const { resolveConstitutionalField } = await import('@/services/invariants/resolution');
-          const field = await resolveConstitutionalField(message);
-          const items = (field.snapshot?.slice.items ?? []).slice(0, 8);
-          const merged: Array<{ seedId: string; statement: string }> = items.map((i) => ({
-            seedId: String(i.seedId ?? i.id),
-            statement: String(i.statement),
-          }));
-          // Phase 3 constitutional memory v0 — invariants cited on EARLIER
-          // turns (accumulated client-side from resolved_invariants echoes)
-          // stay in the ground truth so guidance remains constitutionally
-          // consistent across the session. Current-turn resolution leads;
-          // memory tops up to a hard cap. Dedupe by seedId. T2-safe.
-          const gcNow = userContext.groundContext as Record<string, unknown>;
-          const remembered = Array.isArray(gcNow.sessionInvariants)
-            ? (gcNow.sessionInvariants as Array<Record<string, unknown>>)
-            : [];
-          const seen = new Set(merged.map((m) => m.seedId));
-          for (const inv of remembered) {
-            if (merged.length >= 12) break;
-            const seedId = String(inv.seedId ?? '');
-            const statement = String(inv.statement ?? '');
-            if (!seedId || !statement || seen.has(seedId)) continue;
-            seen.add(seedId);
-            merged.push({ seedId, statement });
-          }
-          if (merged.length > 0) gcNow.platformInvariants = merged;
-        } catch {
-          // IRE unavailable — Phase-1b context stands on its own.
-        }
+      // Cartridge-scoped overlay enrichments. The L1 substrate was already
+      // resolved unconditionally above (`constitutionalGround`) — what remains
+      // here genuinely NEEDS a cartridge, because it is keyed by cartridge id.
+      // This gate is therefore asking the question it can actually answer:
+      // "is there an overlay?", never "does the operator have ground?".
+      if (userContext?.groundContext && isConstitutionallyGrounded(userContext.groundContext)) {
         // CFS-045 constitutional memory (persistent layer, ratified
         // 2026-07-19): retrieve the operator's compiled memory invariants for
         // this cartridge into the ground truth. SPINE-RESOLVED persona ONLY —
@@ -3188,10 +3241,15 @@ export async function POST(request: NextRequest) {
         if (activePersonaCtx?.personaId) {
           try {
             const { retrieveMemoryInvariants } = await import('@/services/memory/memoryCompilation');
+            const { INVARIANT_BUDGET } = await import('@/services/invariants/resolution');
             const gcNow = userContext.groundContext as Record<string, unknown>;
             const cartId = String(((gcNow.cartridge ?? {}) as Record<string, unknown>).id ?? '');
             if (cartId) {
-              const memory = await retrieveMemoryInvariants(activePersonaCtx.personaId, cartId, 6);
+              const memory = await retrieveMemoryInvariants(
+                activePersonaCtx.personaId,
+                cartId,
+                INVARIANT_BUDGET.partnershipMemory,
+              );
               if (memory.length > 0) {
                 gcNow.memoryInvariants = memory.map((m) => ({
                   statement: m.statement,
@@ -3211,7 +3269,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined);
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround);
 
       // Canonical Ontology (CFS-015): append canonical-term guidance to the
       // prompt and cite the governing invariants (Reach, Law XII) —
@@ -3519,10 +3577,12 @@ export async function POST(request: NextRequest) {
       // grounded THIS turn (current resolution + carried session memory) so
       // the client can accumulate them and send them back as
       // groundContext.sessionInvariants on the next turn. T2-safe content.
-      resolved_invariants:
-        isConstitutionallyGrounded(userContext?.groundContext)
-          ? ((userContext?.groundContext as Record<string, unknown>).platformInvariants ?? undefined)
-          : undefined,
+      // Echo the invariants that grounded THIS turn so the client can
+      // accumulate them and send them back as sessionInvariants next turn.
+      // Read from the resolved base, NOT from the ground context: a surface
+      // that sends no cartridge overlay still has ground, and still needs its
+      // memory to carry. T2-safe content (seed ids + statements only).
+      resolved_invariants: constitutionalGround.length > 0 ? constitutionalGround : undefined,
     });
 
   } catch (error) {
