@@ -215,15 +215,21 @@ The operator's clarification — *"Technical Founder Operator … this IS the de
 | **Constitutional Activation** | *Is this citizen constitutionally active?* | **Objective.** A set of facts the platform either observes or honestly cannot (§13). | Binding. Gates specialist-journey activation (§14). |
 | **Guided Configuration** | *Has this citizen been shown how to operate?* | **Experiential.** A guided pass through the capabilities, at the citizen's pace, in one sitting or progressively. | **Never gates anything.** May be completed, deferred indefinitely, or explicitly declined. |
 
-**Threshold Crossed moves to the end** — it is no longer a synonym for either layer, but the **terminal state of both**:
+**Threshold Crossed moves to the end** — it is no longer a synonym for either layer.
 
-> **Threshold Crossed** = Constitutional Activation complete **AND** Guided Configuration either completed **or** explicitly declined.
+**AS ORIGINALLY DRAFTED** it was the terminal state of *both* layers: *Constitutional Activation complete AND Guided Configuration either completed or explicitly declined.*
+
+**AS RATIFIED (D-21 confirmed 2026-07-26, after D-7's supersession):**
+
+> **Threshold Crossed = Constitutional Activation complete.**
+
+Guided Configuration no longer contributes to the threshold at all. D-7's supersession removed personalization from the gate, and a layer that gates nothing cannot be half of a terminal state. Guided Configuration becomes an **open-ended post-threshold track** that aigentMe drives (§6b.4) and that has **no completion state**.
 
 **Three consequences, all load-bearing:**
 
 1. **This resolves D-8.** The delegation contradiction existed because one list mixed constitutional facts with experiential completion. Under the split, Delegation is a **Constitutional Activation** criterion and is *required-when-an-agent-is-bound* rather than universally required — so a direct human arrival with no agent can complete Activation. Guide completion lives entirely in Guided Configuration and gates nothing. Neither layer needs the other weakened.
 
-2. **"Declined" must stay distinguishable from "completed."** The reference implementation collapses these (`hasSeen = completed || skipped`, §0.3a Q6) — correct for a visitor tour, wrong here. A citizen who declined guidance and one who completed it are both Threshold Crossed, and the platform must be able to tell them apart: the first should still be offered guidance later; the second should not be re-prompted. A single boolean cannot carry that.
+2. **"Declined" must stay distinguishable from "completed"** — and this survives the D-21 ratification, with a changed reason. It is no longer needed to evaluate the threshold (Guided Configuration no longer contributes to it); it is needed to run the post-threshold track honestly. The reference implementation collapses the two (`hasSeen = completed || skipped`, §0.3a Q6) — correct for a visitor tour, wrong here. A citizen who *declined* guidance should still be offered it later; one who *completed* it should not be re-prompted. A single boolean cannot carry that, whichever side of the threshold it sits on.
 
 3. **Only Constitutional Activation is receipt-eligible.** Guided Configuration is a UX record, not a constitutional fact. Anchoring "watched the tour" would put a preference into the provenance trail. D-17's receipt question applies to Activation and to the Threshold Crossed terminal state — never to guide progress.
 
@@ -440,26 +446,19 @@ The ruling does not discard the personalization assets — it **relocates** them
 
 **A constraint this implies, not yet decided:** if aigentMe derives profile content from interaction, the derived state must be distinguishable from what the citizen authored or confirmed. Otherwise a review surface cannot show the citizen *what was inferred about them* — which is the whole point of it being reviewable. That is a provenance field on the derived artifact, and it belongs to whichever charter builds the derivation, not to this SPEC.
 
-### 6b.5 Consequential effect on D-21
+### 6b.5 Consequential effect on D-21 — **RESOLVED, D-21 confirmed 2026-07-26**
 
-D-21 adopted the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with Threshold Crossed as the terminal state of **both**. This ruling changes that: Guided Configuration is no longer a gate, so it can no longer have Threshold Crossed as its terminal state.
+D-21 adopted the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with Threshold Crossed as the terminal state of **both**. D-7's supersession broke that second half: Guided Configuration is no longer a gate, and a layer that gates nothing cannot be half of a terminal state.
 
-The coherent reading — recorded, not assumed — is that **Threshold Crossed is the terminal state of Constitutional Activation only**, and Guided Configuration becomes an **open-ended post-threshold track** that aigentMe drives and that has no completion state at all. That preserves everything D-21 was protecting (a "declined" state stays distinguishable from a "completed" one) while matching the ruling. D-21's register row is annotated accordingly; if the operator reads it differently, that is a correction to make before §13 is built.
+**The operator confirmed D-21 as amended (2026-07-26).** The split stands; the "terminal state of both" clause is replaced:
 
+> **Threshold Crossed = Constitutional Activation complete** — the four §13.1 criteria, nothing else.
 
-## 7. The Progressive Experience Qube — and the one-sitting mode (operator amendment)
+Guided Configuration becomes an **open-ended post-threshold track** that aigentMe drives (§6b.4) and that has **no completion state at all**.
 
-The Experience Qube is **not a single form**. It is progressively constructed through Companion interactions: asked naturally over time, in context, one question at a time, minimising onboarding fatigue.
+**This completes D-21's original purpose rather than weakening it.** D-21 existed to stop one list mixing constitutional facts with experiential completion. Removing Guided Configuration from the threshold finishes that separation: one layer gates and is receipt-eligible; the other never gates, is never receipted (§13.2), and never ends.
 
-**Operator amendment (2026-07-25), binding:** *the option to complete it in one sitting must also be offered, for users who prefer that.* **Both modes are first-class.** Neither is the "real" path with the other as a fallback; neither is hidden behind the other; a user may switch between them at any point without losing state.
-
-**What this composes:** `upsertExperienceQube` already accepts partial input and upserts on `persona_id`, so incremental accumulation needs no schema change. The one-sitting mode already exists in kind — `ExperienceModelSetupWizard` and `PersonalGuideSetupWizard` are modal multi-step forms that submit a complete state. The progressive mode does not exist; nothing today asks an Experience Qube question opportunistically in context.
-
-**Constraints (proposed):**
-
-- **Observed, never asserted.** Progressive construction must record what the person *said or did*, never a model's inference presented as their answer — CLAUDE.md's Artifact Production / Observer doctrine, and SPEC-COS-001 §6's rule that the recommendation layer has no authority to fast-track a persona past a gate.
-- **T0/T1 discipline is unchanged.** The `blak` slice is server-only. A progressive question that would write to `blak` must not round-trip its answer through a client surface that renders other personas' data.
-- **Resumability is the point.** A progressive question stream that cannot be paused, skipped, or later completed in one sitting has not implemented the amendment.
+**What survives, with a changed reason:** "declined" must stay distinguishable from "completed" (§1.1 consequence 2). It is no longer needed to evaluate the threshold — it is needed to run the post-threshold track honestly, so a citizen who declined guidance can be offered it again while one who completed it is not re-prompted.
 
 ---
 
@@ -593,32 +592,38 @@ export function activeSurfaces(layers: SubstrateLayer[]): SubstrateSurfaceId[]
 
 ## 13. Threshold Crossing — the completion definition (RESTRUCTURED per §1.1)
 
-**Two layers, evaluated separately; Threshold Crossed is the terminal state of both.**
+**Two layers, evaluated separately. Threshold Crossed is the terminal state of Constitutional Activation ALONE** (D-21 as ratified 2026-07-26). Guided Configuration is tracked, never gating, and has no completion state.
 
 ### 13.1 Constitutional Activation — objective, binding, gates §14
 
-Achieved when all six are true:
+Achieved when all **four** are true:
 
-1. Passport active
-2. Delegation active — **required-when-an-agent-is-bound**, not universally (§1.1, D-8)
-3. aigentMe active
-4. Companion installed
-5. Companion paired
-6. Initial constitutional configuration complete
+1. **Passport active**
+2. **Delegation active** — *required-when-an-agent-is-bound*, not universally (§1.1, D-8)
+3. **aigentMe active**
+4. **Companion paired** — install is its precondition, not a separate criterion (D-24, §9.1 of the Companion 1.1 Scope)
+
+This is **four, not the six originally drafted.** Criterion 6 ("initial constitutional configuration complete") was removed by D-7's supersession — personalization is not a prerequisite (§6b). The former criteria 4 and 5 collapse into one: pairing cannot occur without an installed Companion. The result matches the Companion 1.1 Scope's statement of the same sequence:
+
+```
+Passport → Delegation → Agent Me Activation → Companion Pairing → Threshold Crossed
+```
 
 **The citizen is then constitutionally active.** This is the objective layer; every criterion is a fact the platform either observes or honestly reports it cannot (table below).
 
 ### 13.2 Guided Configuration — experiential, never gates
 
-Achieved when the citizen has completed a guided pass through the capabilities — **or has explicitly declined one**. It has **no** gating power over Constitutional Activation, specialist-journey activation, or any surface. Its two terminal states must remain distinguishable (§1.1 consequence 2): a citizen who *declined* may be offered guidance again; a citizen who *completed* should not be re-prompted. Recording both as one boolean — the reference implementation's `hasSeen = completed || skipped` (§0.3a Q6) — would lose exactly the distinction this SPEC needs.
+**No longer a threshold layer at all (D-21 as ratified).** It is an **open-ended post-threshold track**: aigentMe progressively guides and populates (§6b.4), and there is no state at which it is "done". It has **no** gating power over Constitutional Activation, specialist-journey activation, or any surface — and now no terminal state either. Its two terminal states must remain distinguishable (§1.1 consequence 2): a citizen who *declined* may be offered guidance again; a citizen who *completed* should not be re-prompted. Recording both as one boolean — the reference implementation's `hasSeen = completed || skipped` (§0.3a Q6) — would lose exactly the distinction this SPEC needs.
 
 **Guided Configuration is not receipt-eligible.** It is a UX record, not a constitutional fact (§1.1 consequence 3).
 
 ### 13.3 Threshold Crossed — the terminal state
 
-> **Threshold Crossed** = Constitutional Activation complete **AND** Guided Configuration completed **or** explicitly declined.
+> **Threshold Crossed = Constitutional Activation complete** (all four §13.1 criteria).
 
-Nothing may report Threshold Crossed on the strength of one layer alone.
+**D-21 as ratified 2026-07-26.** Guided Configuration contributes nothing to this determination. Nothing may report Threshold Crossed on the strength of fewer than the four criteria — and nothing may withhold it because guidance is incomplete.
+
+**What the ratification preserved:** D-21 existed to stop one list mixing constitutional facts with experiential completion. Removing Guided Configuration from the threshold does not weaken that — it completes it. The layers are now cleanly separated: one gates and is receipt-eligible; the other never gates, is never receipted (§13.2), and never ends.
 
 **Verified evaluability of the Constitutional Activation criteria — this table is the reason §13.1 is not implementable today:**
 
@@ -830,7 +835,7 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-18** | Confirm Build and Safeguard are Action Modes, not journeys — and that "aigentMe-led" means observer-layer reflection, not a ladder (§14.2) | Adopt (§14.2's reading is read from shipped code) | **Open** |
 | **D-19** | May a delegated agent select a journey on the principal's behalf, or is selection human-only? | **RATIFIED (operator, 2026-07-26): recommend-and-prepare, never finalise.** A delegated agent MAY recommend and prepare a journey selection; the principal MUST explicitly confirm it **through the existing authorization spine** before it becomes active. **No agent-finalised journey selection, and no parallel authorization gate.** This is the Principal–Delegate Separation boundary (CFS-043 §2) applied to journey selection. See §14.3a | **RATIFIED** |
 | **D-20** | Charter the journey-selection store, write path, `select_journey` tool, migration, and resolver extension (§14.3, five items) | Adopt as a **separate charter**, not a phase of this SPEC. Nothing in §14 is implementable before it lands | **Open — BLOCKING for §14** |
-| **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | Adopt the split. **But D-7's supersession (2026-07-26) breaks the "terminal state of both" half**: Guided Configuration is no longer a gate, so it cannot terminate at Threshold Crossed. Recommended reading (§6b.5): Threshold Crossed terminates **Constitutional Activation only**, and Guided Configuration becomes an open-ended post-threshold track with no completion state. This keeps "declined" distinguishable from "completed" and still resolves D-8 | **Open — BLOCKING for §13; needs re-confirmation in light of D-7** |
+| **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | **RATIFIED (operator, 2026-07-26) — the split is adopted; the "terminal state of both" half is REPLACED.** D-7's supersession removed personalization from the gate, and a layer that gates nothing cannot be half of a terminal state. **Threshold Crossed = Constitutional Activation complete** (the four §13.1 criteria). Guided Configuration becomes an **open-ended post-threshold track with no completion state**. "Declined" stays distinguishable from "completed" — no longer to evaluate the threshold, but to run the post-threshold track honestly. D-8's resolution is unaffected | **RATIFIED** |
 | **D-22** | Adopt **reuse before replacement**: the shipped metaMe Runtime Shell tour is the **reference implementation**; it SHALL be audited (§0.3a) before any new tour framework is selected, and any replacement proposal must name the requirement it cannot meet | Adopt (`inv.engineering.037`). The original §0.3 absence claim is withdrawn | **Open — BLOCKING for §8, §9** |
 | **D-23** | Whether the Guided Experience Framework is **extracted into the main tree**, **kept in the thin client and consumed**, or **re-expressed as a shared package** — the two trees are separate repositories (§0.3a Q1) | **RESOLVED (operator, 2026-07-25): build it natively in the Next.js Edge Companion first**, so the programme carries no dependency on the Lovable thin client. Handoffs between the two surfaces are addressed later, not now. The thin-client implementation remains the **reference** (D-22) — read for its contract and its hard-won staging discipline, not imported | **RATIFIED** |
 | **D-24** | Raised by D-7's supersession: D-7 named only *"Passport, Delegation and Agent Me activation"*, while §13 listed six Constitutional Activation criteria. Do **Companion installed / paired** survive? | **RESOLVED (operator, 2026-07-26, via the Companion 1.1 Scope §9).** Threshold Crossing is stated there as `Passport → Delegation → Agent Me Activation → **Companion Pairing** → Threshold Crossed`. **Pairing is RETAINED.** `Companion installed` is not separately listed and is treated as a **precondition of pairing**, not an independent criterion — an inference from the four-step sequence, flagged for cheap correction if separate install tracking is wanted. **Consequence: D-9 remains the long pole**, since pairing state lives in `chrome.storage.local` only | **RATIFIED** |
@@ -889,10 +894,10 @@ No new resolver, no new percentage, no new authority mechanism, no new table.
 
 ## 22. Ratification record
 
-- [x] **AMENDED 2026-07-25** — five operator refinements applied: (1) §0.3's "no guided-tour mechanism exists" claim **withdrawn**, replaced with the reference-implementation framing plus a source audit (§0.3a/§0.3b); (2) capabilities labelled **Existing / Composable / New** in §9; (3) the framework specified by **behavioural contract, not library name** (§9); (4) the **Constitutional Activation / Guided Configuration** split adopted, with **Threshold Crossed** as the terminal state of both (§1.1, §13) — which also resolves D-8; (5) MoneyPenny retained as a **checkpoint, not a redesign** — no FS surface restructuring enters this SPEC. Three decisions added: D-21, D-22, D-23.
+- [x] **AMENDED 2026-07-25** — five operator refinements applied: (1) §0.3's "no guided-tour mechanism exists" claim **withdrawn**, replaced with the reference-implementation framing plus a source audit (§0.3a/§0.3b); (2) capabilities labelled **Existing / Composable / New** in §9; (3) the framework specified by **behavioural contract, not library name** (§9); (4) the **Constitutional Activation / Guided Configuration** split adopted, with **Threshold Crossed** as the terminal state of both (§1.1, §13) — which also resolves D-8 *(the "terminal state of both" half was later replaced when D-21 was confirmed on 2026-07-26; this line records the 2026-07-25 state and is left unedited as history — see §6b.5)*; (5) MoneyPenny retained as a **checkpoint, not a redesign** — no FS surface restructuring enters this SPEC. Three decisions added: D-21, D-22, D-23.
 - [ ] **PROPOSED 2026-07-25** — operator's Threshold Crossing Programme specification (seventeen sections plus two in-line amendments), reconciled by Claude Code against SPEC-COS-001, PRD-THR-001, SPEC-MMC-003, SPEC-HMC-001, CFS-043/043a, CFS-050, CFS-051, SPEC-CDR-001, and the shipped platform.
 - [ ] Operator resolves the §20 decision register (D-1 … D-23). Nine are marked BLOCKING and gate §4, §6, §8–§10, §13, and §14.
-- [ ] Operator confirms **D-21** (the §1.1 layer split), which carries the recommended **D-8** resolution: Delegation is a Constitutional Activation criterion, required-when-an-agent-is-bound rather than universally, so a direct human arrival can still cross.
+- [x] **CONFIRMED 2026-07-26** — Operator confirms **D-21** (the §1.1 layer split), as amended by D-7's supersession: Threshold Crossed = Constitutional Activation complete alone. Carries the recommended **D-8** resolution: Delegation is a Constitutional Activation criterion, required-when-an-agent-is-bound rather than universally, so a direct human arrival can still cross.
 - [x] **D-23 RESOLVED 2026-07-25** — build the Guided Experience Framework **natively in the Next.js Edge Companion first**, so nothing in this programme depends on the Lovable thin client. Handoffs between the two surfaces are deferred, not designed now. The thin-client tour stays the reference implementation (D-22): its step contract and staging discipline are requirements to reproduce, not code to import — which keeps `inv.engineering.036`/`037` satisfied, because the two surfaces are separate products rather than one capability implemented twice.
 - [ ] Operator charters the **journey-selection store** (§14.3 / D-20) as separate work. §14 is not implementable before it.
 - [ ] Operator confirms **§17's architectural observation** — the Companion as the constitutional home of the citizen, and the Homecoming reframing — as binding architecture rather than description.

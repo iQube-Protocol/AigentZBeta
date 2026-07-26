@@ -166,6 +166,36 @@ This was a genuine gap. The Scope had the property implicit in §4.5 and canarie
 
 It also converges with the §5.2 flag raised before the review: the avatar is the one in-scope item that is a rewiring rather than a relayout. D-8 is the decision; §5.2 is its build consequence; C5 sequences it last.
 
+## 3f. TCP D-21 confirmed — the threshold definition is now closed
+
+The operator confirmed D-21 (2026-07-26). **The split is adopted; the "terminal state of both" clause is replaced.**
+
+> **Threshold Crossed = Constitutional Activation complete.**
+
+Guided Configuration contributes nothing to the threshold. D-7's supersession removed personalization from the gate, and a layer that gates nothing cannot be half of a terminal state — so Guided Configuration becomes an **open-ended post-threshold track with no completion state**, driven by aigentMe (§6b.4).
+
+**This completes D-21's purpose rather than weakening it.** D-21 existed to stop one list mixing constitutional facts with experiential completion. Removing Guided Configuration from the threshold finishes that separation: one layer gates and is receipt-eligible; the other never gates, is never receipted, and never ends.
+
+**What survives, with a changed reason:** "declined" stays distinguishable from "completed." No longer to evaluate the threshold — to run the post-threshold track honestly, so a citizen who declined guidance can be offered it again while one who completed it is not re-prompted. A single boolean still cannot carry that.
+
+### The threshold, now fully determined
+
+Applying D-7's supersession, D-24 and D-21 together, §13.1 reduces from the six criteria originally drafted to **four**:
+
+```
+Passport → Delegation → Agent Me Activation → Companion Pairing → Threshold Crossed
+```
+
+- Criterion 6 (*initial configuration complete*) — **removed** by D-7's supersession.
+- Criteria 4 and 5 (*Companion installed* / *paired*) — **collapsed into one** by D-24; install is pairing's precondition.
+- Delegation remains *required-when-an-agent-is-bound*, not universally (D-8).
+
+This matches the Companion 1.1 Scope's independent statement of the same sequence, which is a useful cross-check: two documents written from different angles converged on the same four steps.
+
+### Editorial note
+
+§13.1's numbered list still carried the original six criteria until this pass — the earlier edits had updated the evaluability table beneath it but not the list itself. Both are now consistent. The 2026-07-25 amendment record at the foot of the SPEC still describes "terminal state of both"; that line is **left unedited as history** and annotated with a pointer to §6b.5, rather than rewritten to match the present state.
+
 ## 4. What changed in the critical path
 
 **D-9 is the long pole — now confirmed, not conditional** (D-24 resolved, §3d). Companion Pairing is a retained threshold criterion and its state lives only in `chrome.storage.local`, so nothing server-side can observe it.
@@ -187,7 +217,7 @@ For CDR, nothing blocks any phase; P6 is next.
 **New, arising from this pass:**
 
 - ~~TCP D-24~~ — **resolved** by the Companion 1.1 Scope (§3d).
-- **TCP D-21** needs re-confirmation in light of D-7's supersession (§6b.5).
+- ~~TCP D-21~~ — **confirmed** 2026-07-26 (§3f). The threshold definition is now closed at four criteria.
 - ~~SCOPE-MMC-004 open decisions~~ — **all eight ratified** after the Aletheon review (§3e). C0–C5 are gated only on each other.
 - The **Constitutional Continuity Principle** (SCOPE-MMC-004 §3.1) awaits registration as an invariant; it is eligible for `canonical` as a governance rule.
 - A **provenance field** distinguishing aigentMe-derived profile content from citizen-authored content, owned by whichever charter builds the derivation track (§6b.4).
