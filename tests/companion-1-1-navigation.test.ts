@@ -37,7 +37,11 @@ const COMPANION_PAGE = 'app/(embed)/triad/embed/companion/page.tsx';
 // ─── §11.7 Navigation vocabulary — one definition, not three lists ──────────
 
 describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
-  it('is exactly the seven ratified items, in canonical order', () => {
+  it('is exactly the ratified vocabulary, in canonical order', () => {
+    // `permissions` was split out of `activity` (operator, 2026-07-26):
+    // observer consent is its own destination, not a section below the feed.
+    // A VOCABULARY EXTENSION — SCOPE-MMC-004 §4.3 ratified seven items, so
+    // this eighth needs the operator's sign-off to become canon.
     expect([...COMPANION_NAV_ITEMS]).toEqual([
       'avatar',
       'wallet',
@@ -46,6 +50,7 @@ describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
       'workspace',
       'overlay',
       'activity',
+      'permissions',
     ]);
   });
 
@@ -239,7 +244,13 @@ describe('§4.5 / D-8 — the avatar owns no session of its own', () => {
 describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
   it('splits the vocabulary by what the copilot already owns, derived not listed', () => {
     expect([...COPILOT_NATIVE_NAV_ITEMS]).toEqual(['avatar', 'wallet', 'agent-me']);
-    expect(migratedNavItems()).toEqual(['search', 'workspace', 'overlay', 'activity']);
+    expect(migratedNavItems()).toEqual([
+      'search',
+      'workspace',
+      'overlay',
+      'activity',
+      'permissions',
+    ]);
     // Together they are exactly the vocabulary — no item is in both, none lost.
     expect([...COPILOT_NATIVE_NAV_ITEMS, ...migratedNavItems()].sort()).toEqual(
       [...COMPANION_NAV_ITEMS].sort(),
@@ -420,5 +431,96 @@ describe('§8.5 / §11.5 — SLATE house style on the rebuilt navigation', () =>
 
   it('uses the canonical slate hairline', () => {
     expect(stripComments(readSource(COMPANION_PAGE))).toContain('border-slate-800');
+  });
+});
+
+// ─── Live-drive regressions (operator report, 2026-07-26) ───────────────────
+
+/**
+ * Four defects reported together from one drive of the Companion. They share a
+ * shape worth naming: each is a control that LOOKS present and does nothing —
+ * dead search, dead wallet, vanished menu, dead chevron. A dead affordance is
+ * worse than a missing one, because the citizen blames themselves.
+ */
+describe('Companion controls do what they appear to do', () => {
+  const SEARCH_PANEL = 'components/companion/CompanionSearchPanel.tsx';
+  const COPILOT = 'app/components/codex/CodexCopilotLayer.tsx';
+
+  it('the search-running effect lives in the component, not in a helper', () => {
+    // It had been spliced into the body of the module-level `readErrorMessage`
+    // helper, where it could never run — so submitting a query set state and
+    // nothing else happened. Assert the effect precedes the component's return
+    // and follows its declaration, which a helper-nested copy cannot.
+    const code = stripComments(readSource(SEARCH_PANEL));
+    const component = code.indexOf('export function CompanionSearchPanel');
+    const effect = code.indexOf('void runSearch(query)');
+    expect(effect, 'the search effect is gone').toBeGreaterThan(-1);
+    expect(effect, 'the search effect is outside the component again').toBeGreaterThan(component);
+    const helper = code.indexOf('async function readErrorMessage');
+    expect(helper).toBeGreaterThan(-1);
+    expect(
+      code.slice(helper, component),
+      'a hook is nested inside the error helper again',
+    ).not.toContain('useEffect');
+  });
+
+  it('host nav renders in BOTH copilot modes, so the avatar cannot strand the citizen', () => {
+    // The avatar is another renderer of the same session (D-8). Rendering
+    // navExtras only in the chat branch meant entering avatar mode took the
+    // migrated Companion items with it.
+    const code = stripComments(readSource(COPILOT));
+    const uses = code.match(/\{navExtras\}/g) ?? [];
+    expect(uses.length, 'navExtras renders in only one mode branch').toBeGreaterThanOrEqual(2);
+  });
+
+  it('every wallet launch routes through the one host-aware helper', () => {
+    // Two sources of truth for "which surface is showing" is what made the
+    // wallet button dead once any host bodySlot was mounted.
+    const code = stripComments(readSource(COPILOT));
+    expect(code).toContain('const launchWallet = useCallback(');
+    expect(code).toContain('onWalletLaunch?.()');
+    const raw = code.match(/setWalletPanelOpen\(true\)/g) ?? [];
+    expect(
+      raw.length,
+      'a wallet open bypasses launchWallet, so the host is not told',
+    ).toBe(1); // the single one inside launchWallet itself
+  });
+
+  it('the host tells the copilot where the wallet lives', () => {
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toContain('onWalletLaunch=');
+  });
+
+  it('no dead close-chevron survives in the copilot menu row', () => {
+    // `onClose` is a no-op where the copilot IS the shell.
+    const code = stripComments(readSource(COPILOT));
+    expect(code).not.toMatch(/onClick=\{onClose\}[\s\S]{0,200}?ChevronDown/);
+  });
+});
+
+describe('observer permissions are their own destination', () => {
+  it('permissions is a first-class nav item with its own surface', () => {
+    expect(COMPANION_NAV_ITEMS).toContain('permissions');
+    expect(COMPANION_NAV_ITEM_TO_SURFACE.permissions).toBe('permissions');
+    expect(COMPANION_NAV_LABEL.permissions).toBe('Permissions');
+  });
+
+  it('it exposes the SAME shipped panel — a new home, not a new capability', () => {
+    const record = COMPANION_CAPABILITY_INVENTORY.permissions;
+    expect(record.shippedIn).toContain('ObserverGrantPanel');
+    expect(record.priorReach).toBe('pre-1.1-companion-mode');
+  });
+
+  it('the grant panel no longer hangs below the activity Timeline', () => {
+    // Consent reached by scrolling past a feed of what was already observed is
+    // consent presented as an appendix to its own consequences.
+    const page = stripComments(readSource(COMPANION_PAGE));
+    const permissionsBranch = page.indexOf('activeSurface === "permissions"');
+    expect(permissionsBranch, 'no permissions surface').toBeGreaterThan(-1);
+    const activityBranch = page.indexOf('activeSurface === "activity"');
+    expect(
+      page.slice(activityBranch, permissionsBranch),
+      'the grant panel is back inside the activity surface',
+    ).not.toContain('ObserverGrantPanel');
   });
 });

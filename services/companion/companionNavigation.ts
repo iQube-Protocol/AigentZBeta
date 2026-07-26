@@ -52,6 +52,12 @@ export const COMPANION_NAV_ITEMS = [
   'workspace',
   'overlay',
   'activity',
+  // SPLIT OUT OF `activity` (operator, 2026-07-26). Observer permissions were
+  // rendered underneath the activity Timeline, so the one control that decides
+  // what the Observer may see was reached by scrolling past a feed. Consent is
+  // not an appendix to history: it is its own destination, and it now occupies
+  // the slot the dead close-chevron vacated in the copilot menu row.
+  'permissions',
 ] as const;
 
 /** Derived from the value tuple so the runtime list and the type cannot drift. */
@@ -70,6 +76,7 @@ export const COMPANION_NAV_ICON: Record<CompanionNavItemId, string> = {
   workspace: 'LayoutGrid',
   overlay: 'Layers',
   activity: 'Activity',
+  permissions: 'ShieldCheck',
 };
 
 /**
@@ -84,10 +91,16 @@ export const COMPANION_NAV_LABEL: Record<CompanionNavItemId, string> = {
   avatar: 'Avatar',
   wallet: 'Wallet',
   'agent-me': 'Agent Me',
-  search: 'Search',
+  // Operator-set (2026-07-26). NOTE FOR WHOEVER EDITS THIS NEXT: the surface
+  // behind it federates over research, the iQube registry, registry assets and
+  // libraries, the capability graph, mySoftware and MoneyPenny
+  // (`services/companion/searchFederation.ts`) — so this label names the
+  // largest source, not the whole scope. Flagged to the operator; kept as set.
+  search: 'Search Registry',
   workspace: 'Workspace',
   overlay: 'Overlay',
   activity: 'Activity',
+  permissions: 'Permissions',
 };
 
 /**
@@ -112,6 +125,7 @@ export const COMPANION_NAV_ITEM_TO_SURFACE: Record<CompanionNavItemId, Companion
   workspace: 'workspace',
   overlay: 'overlay',
   activity: 'activity',
+  permissions: 'permissions',
 };
 
 /**
@@ -245,7 +259,15 @@ export const COMPANION_CAPABILITY_INVENTORY: Record<
     shippedIn: 'components/companion/CompanionOverlayPanel.tsx',
   },
   activity: {
-    capability: 'activity timeline + observer permissions',
+    capability: 'activity timeline of receipted acts',
+    priorReach: 'pre-1.1-companion-mode',
+    shippedIn: 'app/(embed)/triad/embed/companion/page.tsx (Timeline)',
+  },
+  permissions: {
+    // Still §6.1-clean: this is the SAME shipped panel, given its own
+    // destination instead of a position below the Timeline. Splitting where a
+    // capability is reached is not adding one.
+    capability: 'observer permission grants — what the Observer may see',
     priorReach: 'pre-1.1-companion-mode',
     shippedIn: 'components/companion/ObserverGrantPanel.tsx',
   },
@@ -271,6 +293,10 @@ export const PRE_1_1_COMPANION_MODES = {
   // reached from the copilot menu in the slot the dead chevron vacated. It was
   // recorded here as `null` while its home was undecided; nothing is unplaced
   // now.
+  // The pre-1.1 rail carried BOTH halves. The Timeline keeps the `activity`
+  // home it was given; observer permissions became `permissions` in its own
+  // right. Recorded against `activity` because that is where the rail's
+  // identity chip + feed live — nothing was lost, one half was promoted.
   companion: 'activity',
   search: 'search',
   overlay: 'overlay',

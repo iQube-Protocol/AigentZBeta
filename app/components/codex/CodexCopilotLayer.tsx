@@ -75,6 +75,16 @@ interface CodexCopilotLayerProps {
    */
   navExtras?: React.ReactNode;
   /**
+   * Told whenever the copilot opens its wallet, so a host that owns surface
+   * selection can move its own state to the wallet surface at the same moment.
+   *
+   * Without it the copilot's internal panel state is the truth, exactly as
+   * before. With it there is ONE answer to "which surface is showing": a host
+   * whose `bodySlot` takes precedence over the wallet would otherwise leave
+   * the wallet button looking dead — it set state nobody rendered.
+   */
+  onWalletLaunch?: () => void;
+  /**
    * Renders in place of the message list, keeping the copilot's header, chip
    * carousel, composer and menu row mounted around it.
    *
@@ -241,6 +251,7 @@ export function CodexCopilotLayer({
   quickPrompts,
   onPrompt,
   navExtras,
+  onWalletLaunch,
   bodySlot,
   hideComposer = false,
   composerMode = "chat",
@@ -492,8 +503,7 @@ export function CodexCopilotLayer({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('reopenWallet') !== '1') return;
-    setWalletPanelOpen(true);
-    setWalletPanelCollapsed(false);
+    launchWallet();
     params.delete('reopenWallet');
     const search = params.toString();
     const newUrl =
@@ -674,9 +684,7 @@ export function CodexCopilotLayer({
   // direct SmartWalletDrawer triggers which have z-index conflicts in embeds.
   useEffect(() => {
     if (walletTabSignal === undefined) return;
-    setWalletPanelOpen(true);
-    setWalletPanelCollapsed(false);
-    setWalletPanelTab('wallet');
+    launchWallet('wallet');
   }, [walletTabSignal]);
 
   useEffect(() => {
@@ -962,12 +970,30 @@ export function CodexCopilotLayer({
     return null;
   };
 
+  /**
+   * The ONE way the wallet is opened from inside the copilot.
+   *
+   * Every call site routes through here so a host that owns surface selection
+   * hears about it. Before this, the copilot set its own `walletPanelOpen` and
+   * nothing else — so in the Companion, where a host `bodySlot` deliberately
+   * takes precedence over the wallet, pressing Wallet after landing on any
+   * other surface changed state that could never render. It read as "the
+   * wallet is broken" (operator, 2026-07-26).
+   */
+  const launchWallet = useCallback(
+    (tab: WalletTab = "wallet") => {
+      setWalletPanelTab(tab);
+      setWalletPanelOpen(true);
+      setWalletPanelCollapsed(false);
+      onWalletLaunch?.();
+    },
+    [onWalletLaunch],
+  );
+
   const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
     const matchedTab = resolveWalletPromptTab(prompt);
     if (matchedTab) {
-      setWalletPanelTab(matchedTab);
-      setWalletPanelOpen(true);
-      setWalletPanelCollapsed(false);
+      launchWallet(matchedTab);
       showWalletMenuWithTimeout(6000);
       return;
     }
@@ -1494,9 +1520,7 @@ export function CodexCopilotLayer({
                                       key={`${msg.id}-${card.id}`}
                                       type="button"
                                       onClick={() => {
-                                        setWalletPanelTab(card.tab);
-                                        setWalletPanelOpen(true);
-                                        setWalletPanelCollapsed(false);
+                                        launchWallet(card.tab);
                                         showWalletMenuWithTimeout(6000);
                                       }}
                                       className={`inline-flex items-center gap-1.5 rounded-full border ${ACCENT.pillBorder} ${ACCENT.pillBg} px-2.5 py-1 text-[11px] font-medium ${ACCENT.pillText} transition-colors ${ACCENT.pillHoverBg}`}
@@ -1798,11 +1822,7 @@ export function CodexCopilotLayer({
                             {showWalletMenu && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setWalletPanelTab("wallet");
-                                  setWalletPanelOpen(true);
-                                  setWalletPanelCollapsed(false);
-                                }}
+                                onClick={() => launchWallet("wallet")}
                                 title="Open wallet"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                               >
@@ -1829,14 +1849,15 @@ export function CodexCopilotLayer({
                                     {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                     <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                   </button>
-                                ) : (
-                                  <button
-                                    onClick={onClose}
-                                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                                  >
-                                    <ChevronDown className="w-4 h-4" />
-                                  </button>
-                                )}
+                                ) : null}
+                                {/* The chevron that used to sit here was a
+                                    CLOSE button. In a deployment where the
+                                    copilot IS the shell, `onClose` is a no-op,
+                                    so it was a control that looked meaningful
+                                    and did nothing — the same dead affordance
+                                    already removed from the avatar footer, left
+                                    behind here. Its slot is where the host's
+                                    own nav items now sit. */}
                                 {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
                                   <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
                                     {contextOptions.map((opt) => (
@@ -1983,14 +2004,21 @@ export function CodexCopilotLayer({
                         )}
                         {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
                         <div className="relative flex items-center gap-1">
+                          {/* HOST NAV RENDERS IN AVATAR MODE TOO. Avatar is
+                              another renderer of the SAME session (D-8), not a
+                              separate surface — so the navigation must survive
+                              the mode change. It rendered only in the chat
+                              branch, so entering avatar mode took the migrated
+                              Companion items (Search / Workspace / Overlay /
+                              Activity / Permissions) with it and left the
+                              citizen with no way out but the chat toggle
+                              (operator, 2026-07-26: "navigating to the avatar
+                              is still breaking the companion menu system"). */}
+                          {navExtras}
                           {showWalletMenu && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setWalletPanelTab("wallet");
-                                setWalletPanelOpen(true);
-                                setWalletPanelCollapsed(false);
-                              }}
+                              onClick={() => launchWallet("wallet")}
                               title="Open wallet"
                               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                             >

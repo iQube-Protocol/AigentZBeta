@@ -84,12 +84,13 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
-import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers, Activity } from "lucide-react";
+import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers, Activity, ShieldCheck } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import {
   resolveQuickLinks,
   quickLinkHref,
   quickLinkTarget,
+  quickLinkContextNeedle,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
 import {
@@ -133,6 +134,7 @@ const NAV_ICON_COMPONENT: Record<string, typeof UserRound> = {
   LayoutGrid,
   Layers,
   Activity,
+  ShieldCheck,
 };
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
@@ -243,9 +245,50 @@ function CompanionShell() {
     };
   }, [personaId]);
 
+  /**
+   * The observed page's shape, read from the SAME overlay route the Overlay
+   * surface already renders — no new observation and no new permission. Null
+   * whenever there is no live observation, no granted domain, or an
+   * unrecognised one, which is the honest majority case.
+   */
+  const [observedShape, setObservedShape] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (!personaId) {
+      setObservedShape(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await personaFetch("/api/companion/overlay", {
+          cache: "no-store",
+          personaIdHint: personaId,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setObservedShape(typeof data?.shape === "string" ? data.shape : null);
+      } catch {
+        // No observation available — quick links stay exactly as they are
+        // without one. Context specialises the set; it never gates it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [personaId, activeNavItem]);
+
   const quickLinks = useMemo(
-    () => resolveQuickLinks({ access, limit: 6 }),
-    [access]
+    () =>
+      resolveQuickLinks({
+        access,
+        // Observer-driven ranking (§6.1: a shipped signal informing a second
+        // surface). Gating still runs first and is untouched — context can
+        // only reorder what the persona may already see.
+        context: quickLinkContextNeedle(observedShape),
+        limit: 6,
+      }),
+    [access, observedShape]
   );
 
   /** The copilot's own carousel shape. Labels are the visible affordance. */
@@ -394,6 +437,14 @@ function CompanionShell() {
             walletEmbeddedWidth="fill"
             walletAllowWideLayout={false}
             navExtras={copilotNavExtras}
+            /* ONE answer to "which surface is showing". The copilot's own
+               wallet button used to set only the copilot's internal panel
+               state, which this host's `bodySlot` deliberately takes
+               precedence over — so after visiting any other surface, pressing
+               Wallet did nothing visible (operator, 2026-07-26: "wallet
+               doesn't seem to work after the failing search button has been
+               clicked"). Now the launch moves the host's surface too. */
+            onWalletLaunch={() => setActiveNavItem("wallet")}
             /* THE COMPOSER IS NOT UNIVERSAL CHROME. It belongs to Agent Me
                (where it is the prompt bar) and to Search (where it IS the
                search bar). On Wallet / Workspace / Overlay it would invite the
@@ -435,8 +486,17 @@ function CompanionShell() {
                     : "Sign in to see your receipted activity."}
                 </div>
               )}
-
-              <div className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            </div>
+          </div>
+        ) : activeSurface === "permissions" ? (
+          /* Observer permissions — its OWN destination (operator, 2026-07-26).
+             It used to render below the activity Timeline, so the control that
+             decides what the Observer may see was reached by scrolling past a
+             feed of what it had already seen. Consent is not an appendix to
+             history. Same panel, same gate — only its home changed. */
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Observer permissions
               </div>
               {identity && personaId ? (

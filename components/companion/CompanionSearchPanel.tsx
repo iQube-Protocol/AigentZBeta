@@ -45,15 +45,7 @@ export interface CompanionSearchPanelProps {
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
   if (body && typeof body === "object" && "error" in body && typeof (body as { error?: unknown }).error === "string") {
-    // The composer submits by changing `query`; this runs the search. Keyed on
-  // the submitted value only — the composer holds the keystrokes, so no
-  // request fires while the citizen is still typing.
-  useEffect(() => {
-    if (query.trim().length === 0) return;
-    void runSearch(query);
-  }, [query, runSearch]);
-
-  return (body as { error: string }).error;
+    return (body as { error: string }).error;
   }
   return fallback;
 }
@@ -94,6 +86,21 @@ export function CompanionSearchPanel({ personaIdHint, query }: CompanionSearchPa
     },
     [personaIdHint],
   );
+
+  // The composer submits by changing `query`; this runs the search. Keyed on
+  // the submitted value only — the composer holds the keystrokes, so no
+  // request fires while the citizen is still typing.
+  //
+  // THIS EFFECT MUST LIVE IN THE COMPONENT. It was previously spliced into the
+  // body of `readErrorMessage` (a module-level async helper), where it could
+  // never run — so submitting a query set state and nothing else happened, and
+  // Search looked dead from the citizen's side (operator report, 2026-07-26).
+  // Had that helper ever been reached, calling a hook outside render would
+  // have thrown instead.
+  useEffect(() => {
+    if (query.trim().length === 0) return;
+    void runSearch(query);
+  }, [query, runSearch]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

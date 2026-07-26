@@ -22,6 +22,7 @@ import {
   resolveQuickLinks,
   quickLinkHref,
   quickLinkTarget,
+  quickLinkContextNeedle,
   type QuickLinkAccessContext,
 } from '@/services/companion/quickLinks';
 import {
@@ -237,5 +238,56 @@ describe('C5 — the avatar knowledge source is declared honestly', () => {
     const code = stripComments(readSource('app/components/metaVatar/MetaAvatar.tsx'));
     expect(code).toContain('agent.d-id.com');
     expect(code).toContain('data-agent-id');
+  });
+});
+
+// ─── Observed context RANKS, never gates (operator, 2026-07-26) ─────────────
+
+describe('quick links are observer-driven without becoming observer-gated', () => {
+  it('maps only the shapes the overlay actually recognises, and abstains otherwise', () => {
+    // Same discipline overlayMapping applies: no fabricated association for an
+    // unrecognised page.
+    expect(quickLinkContextNeedle('github-repo')).toBe('software');
+    expect(quickLinkContextNeedle('financial-context')).toBe('wallet');
+    expect(quickLinkContextNeedle('example.com')).toBeNull();
+    expect(quickLinkContextNeedle(null)).toBeNull();
+    expect(quickLinkContextNeedle(undefined)).toBeNull();
+  });
+
+  it('an observation NEVER subtracts links — the count is unchanged', () => {
+    // THE load-bearing one. If context filtered instead of ranked, landing on
+    // an unrecognised page would empty a surface that works fine with no
+    // observation at all — an observation making the citizen worse off.
+    const without = resolveQuickLinks({ access: NOBODY, limit: 6 });
+    for (const shape of ['github-repo', 'financial-context', 'nothing-we-know']) {
+      const with_ = resolveQuickLinks({
+        access: NOBODY,
+        context: quickLinkContextNeedle(shape),
+        limit: 6,
+      });
+      expect(with_.length, `context '${shape}' changed how many links are offered`).toBe(
+        without.length,
+      );
+    }
+  });
+
+  it('an observation NEVER widens the set beyond what the persona may see', () => {
+    // Ranking runs after the gate, so context cannot promote a gated surface.
+    const citizen = new Set(
+      resolveQuickLinks({ access: NOBODY, context: 'wallet' }).map((l) => l.id),
+    );
+    const ungated = new Set(resolveQuickLinks({ access: NOBODY }).map((l) => l.id));
+    for (const id of citizen) {
+      expect(ungated.has(id), `context surfaced '${id}', which the gate excluded`).toBe(true);
+    }
+  });
+
+  it('matching links are offered first when a context is observed', () => {
+    const all = resolveQuickLinks({ access: ADMIN });
+    const needle = 'wallet';
+    const anyMatch = all.some((l) => l.label.toLowerCase().includes(needle));
+    if (!anyMatch) return; // nothing to rank in this registry — not a failure
+    const ranked = resolveQuickLinks({ access: ADMIN, context: needle });
+    expect(ranked[0].label.toLowerCase()).toContain(needle);
   });
 });

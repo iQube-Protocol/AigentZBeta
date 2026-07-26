@@ -109,9 +109,48 @@ export function quickLinkVisibility(
  * happens AFTER gating, never instead of it: a query must not be able to
  * surface something the gate excluded.
  */
+/**
+ * OBSERVED CONTEXT → a ranking needle (operator, 2026-07-26: "I would ideally
+ * like to see the quick actions change and be dynamic — observer and context
+ * driven even to a small degree now").
+ *
+ * A SMALL, EXPLICIT table, deliberately mirroring `overlayMapping.ts`'s own
+ * discipline: an unmapped shape yields `null` and no ranking happens. Guessing
+ * a topic for an unrecognised page would be exactly the fabricated association
+ * that module refuses to make for overlay cards.
+ *
+ * Keyed by `OverlayShape`, which is what the Companion already receives from
+ * `GET /api/companion/overlay` — no new observation, no new permission, no new
+ * read. This is the SAME observation the Overlay surface already renders,
+ * informing a second surface (§6.1: exposure of a shipped signal, not a new
+ * capability).
+ */
+export const QUICK_LINK_CONTEXT_NEEDLE: Readonly<Record<string, string>> = {
+  'github-repo': 'software',
+  'financial-context': 'wallet',
+};
+
+export function quickLinkContextNeedle(shape: string | null | undefined): string | null {
+  if (!shape) return null;
+  return QUICK_LINK_CONTEXT_NEEDLE[shape] ?? null;
+}
+
 export function resolveQuickLinks(input: {
   access: QuickLinkAccessContext | null;
   matching?: string;
+  /**
+   * Observed-context needle. RANKS, never filters — links that match are
+   * offered first and the rest still fill the limit behind them.
+   *
+   * The distinction matters: a filter would let an observation SUBTRACT the
+   * citizen's quick links, so landing on an unrecognised page would empty a
+   * surface that works fine with no observation at all. Context specialises
+   * what is offered; it never decides whether anything is offered.
+   *
+   * It also cannot WIDEN the set: ranking happens after `quickLinkVisibility`,
+   * so an observation can never promote a surface the persona may not see.
+   */
+  context?: string | null;
   limit?: number;
 }): QuickLink[] {
   const needle = input.matching?.trim().toLowerCase() ?? '';
@@ -137,7 +176,17 @@ export function resolveQuickLinks(input: {
     }
   }
 
-  return typeof input.limit === 'number' ? out.slice(0, input.limit) : out;
+  // Context ranking — stable partition, matches first. Applied BEFORE the
+  // limit so a context-relevant link can actually reach the visible set.
+  const context = input.context?.trim().toLowerCase() ?? '';
+  const ranked = context
+    ? [
+        ...out.filter((l) => l.label.toLowerCase().includes(context)),
+        ...out.filter((l) => !l.label.toLowerCase().includes(context)),
+      ]
+    : out;
+
+  return typeof input.limit === 'number' ? ranked.slice(0, input.limit) : ranked;
 }
 
 /**
