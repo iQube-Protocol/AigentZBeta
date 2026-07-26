@@ -43,6 +43,11 @@ export default defineConfig({
     // moved because it crosses a boundary, NEVER because it currently fails.
     include: ["tests/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
+    // Guarantees globalThis.crypto on Node 18, where WebCrypto is not yet a
+    // default global. Without it the self-custody vault tests fail purely on
+    // the runner's Node version. See the file for why this is a runner shim
+    // and not a fallback inside the security module.
+    setupFiles: ["tests/setup/webcrypto.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,
     env: {

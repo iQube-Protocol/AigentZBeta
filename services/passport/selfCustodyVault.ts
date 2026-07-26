@@ -12,7 +12,14 @@
  * client-side WebCrypto, the server only ever relays ciphertext.
  *
  * Client-safe: uses ONLY globalThis.crypto (WebCrypto) — no Node imports.
- * Works in the browser and in Node 18+ (tests).
+ * Always available in the browser. Under Node, `globalThis.crypto` is a
+ * default global only from Node 19; Node 18 requires
+ * `--experimental-global-webcrypto`. (This comment previously claimed "Node
+ * 18+", which produced environment-dependent test failures —
+ * `Cannot read properties of undefined (reading 'getRandomValues')` — on a
+ * Node 18 runner.) `tests/setup/webcrypto.ts` installs the global for the test
+ * runner when absent; this module deliberately keeps NO Node fallback, so the
+ * client-only custody contract stays intact.
  *
  * Envelope binary layout (versioned):
  *   bytes 0–8   magic  "PPBVAULT1" (ASCII)
