@@ -7,8 +7,17 @@
  * zero counts, never crash, and never silently report readiness.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { runCrystalReadinessReport } from '../services/research/crystalReadiness';
+import { listInvariants } from '@/services/invariants/store';
+
+// Pass through to the real store by default, so the tests below still exercise
+// the genuine substrate path. One test overrides it for a single call to make
+// the empty-collection path reachable in EVERY environment — see its comment.
+vi.mock('@/services/invariants/store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/invariants/store')>();
+  return { ...actual, listInvariants: vi.fn(actual.listInvariants) };
+});
 
 describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
   it('reports ok: false, never throws, for a domain with no invariants yet', async () => {
@@ -24,6 +33,34 @@ describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
       expect(typeof check.name).toBe('string');
       expect(typeof check.passed).toBe('boolean');
       expect(typeof check.detail).toBe('string');
+    }
+  });
+
+  it('every check fails closed on a KNOWN-empty collection (substrate-independent)', async () => {
+    // Determinism matters here, and its absence hid a real bug until
+    // 2026-07-26. The sibling test below only reaches the per-check loop when
+    // the invariant substrate is REACHABLE and returns zero rows. In an
+    // environment with no Supabase credentials the fetch throws, the report
+    // short-circuits to a single failing 'invariant-fetch' check, and the loop
+    // never runs — so CI was green while a real fail-open sat in the code:
+    // `duplicate-detection` reported passed:true on an empty collection
+    // ("no duplicates found" is vacuously true with nothing to compare).
+    // It surfaced only on a machine that HAD credentials.
+    //
+    // Forcing an empty result makes the full check list reachable everywhere,
+    // so this class of vacuous pass fails the build rather than depending on
+    // who runs it.
+    vi.mocked(listInvariants).mockResolvedValueOnce([]);
+    const report = await runCrystalReadinessReport({
+      experimentId: 'EXP-P1',
+      crystalDomain: 'constitutional-reasoning-does-not-exist-yet',
+    });
+    expect(report.ok).toBe(false);
+    expect(report.invariantCount).toBe(0);
+    expect(report.checks.length).toBeGreaterThan(1);
+    expect(report.checks.map((c) => c.name)).toContain('duplicate-detection');
+    for (const check of report.checks) {
+      expect(check.passed, `check '${check.name}' passed on zero invariants`).toBe(false);
     }
   });
 

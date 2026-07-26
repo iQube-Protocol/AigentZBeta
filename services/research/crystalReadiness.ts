@@ -247,12 +247,22 @@ export async function runCrystalReadinessReport(
   const duplicatePairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
   checks.push({
     name: 'duplicate-detection',
-    passed: duplicatePairs.length === 0,
+    // FAIL-CLOSED FIX 2026-07-26: this was `duplicatePairs.length === 0`, which
+    // reports passed:true on an EMPTY collection — "no duplicates found" is
+    // vacuously true when there is nothing to compare. Every sibling check
+    // here already guards with `invariantCount > 0`; this one did not, so a
+    // readiness report on a domain with zero invariants carried one green
+    // check. That is precisely the silent-readiness failure the report exists
+    // to prevent.
+    passed: invariantCount > 0 && duplicatePairs.length === 0,
     detail:
-      duplicatePairs.length === 0
-        ? 'no near-duplicate statements found at the configured similarity threshold (lexical heuristic only)'
-        : `${duplicatePairs.length} near-duplicate statement pair(s) found (e.g. ${duplicatePairs[0][0]} ~ ` +
-          `${duplicatePairs[0][1]}) — unresolved duplicates fail this check`,
+      invariantCount === 0
+        ? `no invariants found in domain '${crystalDomain}' — duplicate detection has nothing to compare, ` +
+          `which is not evidence of readiness`
+        : duplicatePairs.length === 0
+          ? 'no near-duplicate statements found at the configured similarity threshold (lexical heuristic only)'
+          : `${duplicatePairs.length} near-duplicate statement pair(s) found (e.g. ${duplicatePairs[0][0]} ~ ` +
+            `${duplicatePairs[0][1]}) — unresolved duplicates fail this check`,
   });
 
   // 5. Provenance eligibility — only external-established | external-empirical.
