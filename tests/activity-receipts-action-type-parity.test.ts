@@ -97,8 +97,21 @@ describe('every actionType written at a call site is a declared ActivityActionTy
 
   /** Every `createActivityReceipt({ … actionType: 'x' … })` literal in the
    *  tree, with the file it came from. Comment-stripped, so prose naming an
-   *  action type is not mistaken for a call site. */
+   *  action type is not mistaken for a call site.
+   *
+   *  Memoised, and prefiltered on the RAW source before parsing. Both matter:
+   *  `stripComments` is a full TypeScript parse, and running it on all ~2,600
+   *  source files took ~40s of SYNCHRONOUS cpu inside the test body — enough
+   *  to starve the vitest worker's event loop and make it miss its
+   *  `onTaskUpdate` heartbeat, which surfaces as an unhandled
+   *  "Timeout calling onTaskUpdate" error and can fail unrelated suites.
+   *  The prefilter is a safe superset: a file whose only mention of
+   *  `createActivityReceipt` is in a comment still gets parsed, and the
+   *  post-strip regex then correctly finds no call in it. */
+  let scanCache: Map<string, string[]> | null = null;
+
   function writtenActionTypes(): Map<string, string[]> {
+    if (scanCache) return scanCache;
     const found = new Map<string, string[]>();
     const walk = (dir: string) => {
       for (const entry of readdirSync(dir)) {
@@ -106,7 +119,9 @@ describe('every actionType written at a call site is a declared ActivityActionTy
         const p = join(dir, entry);
         if (statSync(p).isDirectory()) { walk(p); continue; }
         if (!/\.(ts|tsx)$/.test(entry)) continue;
-        const code = stripComments(readFileSync(p, 'utf8'));
+        const raw = readFileSync(p, 'utf8');
+        if (!raw.includes('createActivityReceipt')) continue;
+        const code = stripComments(raw);
         if (!code.includes('createActivityReceipt')) continue;
         // Scope each match to the argument object of a createActivityReceipt
         // call, so an unrelated `actionType:` field on another API (e.g.
@@ -123,6 +138,7 @@ describe('every actionType written at a call site is a declared ActivityActionTy
     for (const root of SCAN_ROOTS) {
       try { walk(join(process.cwd(), root)); } catch { /* root absent — skip */ }
     }
+    scanCache = found;
     return found;
   }
 
