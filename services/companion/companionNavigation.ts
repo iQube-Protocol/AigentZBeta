@@ -91,12 +91,11 @@ export const COMPANION_NAV_LABEL: Record<CompanionNavItemId, string> = {
   avatar: 'Avatar',
   wallet: 'Wallet',
   'agent-me': 'Agent Me',
-  // Operator-set (2026-07-26). NOTE FOR WHOEVER EDITS THIS NEXT: the surface
-  // behind it federates over research, the iQube registry, registry assets and
-  // libraries, the capability graph, mySoftware and MoneyPenny
-  // (`services/companion/searchFederation.ts`) — so this label names the
-  // largest source, not the whole scope. Flagged to the operator; kept as set.
-  search: 'Search Registry',
+  // Operator-set (2026-07-26, revised same day from "Search Registry"). The
+  // surface federates over research, the iQube registry, registry assets and
+  // libraries, the capability graph, mySoftware and MoneyPenny — "Knowledge
+  // Field" names the whole scope rather than the largest source.
+  search: 'Search Knowledge Field',
   workspace: 'Workspace',
   overlay: 'Overlay',
   activity: 'Activity',

@@ -25,6 +25,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { buildCodexUrl } from "@/utils/codex-nav";
+import { cartridgeLinkTarget } from "@/services/companion/quickLinks";
 import type {
   OverlayCard,
   GithubRepoOverlayCard,
@@ -430,7 +431,7 @@ function FinancialContextCard({
                         tab: cap.route.tab,
                         personaId: personaIdHint,
                       })}
-                      target="_blank"
+                      target={cartridgeLinkTarget()}
                       rel="noreferrer"
                       className="mt-1 block rounded-md border border-slate-800 bg-slate-900/60 px-2 py-1 text-center text-[11px] text-slate-200 transition-colors hover:bg-slate-900"
                     >

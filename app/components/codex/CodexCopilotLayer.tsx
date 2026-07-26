@@ -1892,8 +1892,12 @@ export function CodexCopilotLayer({
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                              {pauseButton}
+                              {micButton}
                               <button
                                 onClick={() => setCopilotMode("avatar")}
+                                title="Avatar"
+                                aria-label="Avatar"
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "avatar"
                                     ? "bg-purple-500/20 text-purple-400"
@@ -1904,6 +1908,8 @@ export function CodexCopilotLayer({
                               </button>
                               <button
                                 onClick={() => setCopilotMode("chat")}
+                                title={agent?.name ?? "Chat"}
+                                aria-label={agent?.name ?? "Chat"}
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "chat"
                                     ? ACCENT_HIGHLIGHT_STRONG
@@ -1912,8 +1918,6 @@ export function CodexCopilotLayer({
                               >
                                 <MessageSquare className="w-3 h-3" />
                               </button>
-                              {pauseButton}
-                              {micButton}
                             </div>
                           )}
                           {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause.
@@ -2047,8 +2051,12 @@ export function CodexCopilotLayer({
                           </div>
                         ) : (
                           <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                            {pauseButton}
+                            {micButton}
                             <button
                               onClick={() => setCopilotMode("avatar")}
+                              title="Avatar"
+                              aria-label="Avatar"
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "avatar"
                                   ? "bg-purple-500/20 text-purple-400"
@@ -2059,6 +2067,8 @@ export function CodexCopilotLayer({
                             </button>
                             <button
                               onClick={() => setCopilotMode("chat")}
+                              title={agent?.name ?? "Chat"}
+                              aria-label={agent?.name ?? "Chat"}
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "chat"
                                   ? ACCENT_HIGHLIGHT_STRONG
@@ -2067,8 +2077,6 @@ export function CodexCopilotLayer({
                             >
                               <MessageSquare className="w-3 h-3" />
                             </button>
-                            {pauseButton}
-                            {micButton}
                           </div>
                         )}
                         {/* RIGHT: host nav + wallet launcher + badge+dropdown */}

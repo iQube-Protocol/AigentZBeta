@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { buildCodexUrl } from "@/utils/codex-nav";
+import { cartridgeLinkTarget } from "@/services/companion/quickLinks";
 import type { CompanionSearchResult } from "@/types/companionSearch";
 
 const SEARCH_ENDPOINT = "/api/companion/search";
@@ -113,7 +114,8 @@ export function CompanionSearchPanel({ personaIdHint, query }: CompanionSearchPa
 
         {status === "idle" ? (
           <div className="text-xs text-slate-500">
-            Search across research, the registry, and the capability graph.
+            Search the knowledge field — research, the registry, assets, libraries,
+            capabilities, software and MoneyPenny.
           </div>
         ) : null}
 
@@ -129,7 +131,14 @@ export function CompanionSearchPanel({ personaIdHint, query }: CompanionSearchPa
                   href={buildCodexUrl(result.target.slug, {
                     tab: result.target.tab,
                     personaId: personaIdHint,
+                    from: "companion",
+                    fromTab: "search",
                   })}
+                  /* Opens in the left-hand browser workspace, exactly as Quick
+                     Links do — never inside the Companion, which would replace
+                     the citizen's agent with a page. */
+                  target={cartridgeLinkTarget()}
+                  rel="noreferrer"
                   className="block rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 transition-colors hover:bg-slate-900/60"
                 >
                   <div className="flex items-center justify-between gap-2">

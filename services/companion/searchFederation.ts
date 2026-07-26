@@ -181,11 +181,37 @@ function isRegistryPublicView(value: unknown): value is RegistryPublicView {
 
 export async function searchRegistryIQube(query: string): Promise<CompanionSearchResult[]> {
   const { entries } = await listIQubes({ limit: REGISTRY_IQUBE_HYDRATE_LIMIT });
+
+  // Per-entry hydration failures were swallowed silently. The top-level guard
+  // in `federateSearch` logs which SOURCE threw, but a source where every
+  // entry failed to hydrate returns [] without throwing — indistinguishable
+  // from "no match", which is exactly the ambiguity that guard exists to kill.
+  // Operator reported "iQube returns nothing" twice (2026-07-23, 2026-07-26);
+  // this makes the next occurrence diagnosable from the logs instead of
+  // requiring a code read.
+  let hydrateFailures = 0;
+  let firstHydrateError: unknown = null;
   const hydrated = await Promise.all(
     entries.map((entry) =>
-      resolveIQube(entry.iqube_id, { projection: 'public', allowPrivate: false }).catch(() => null),
+      resolveIQube(entry.iqube_id, { projection: 'public', allowPrivate: false }).catch((err) => {
+        hydrateFailures += 1;
+        if (firstHydrateError === null) firstHydrateError = err;
+        return null;
+      }),
     ),
   );
+  if (hydrateFailures > 0) {
+    console.error(
+      `[CompanionSearch] registry-iqube: ${hydrateFailures}/${entries.length} entries failed to hydrate.`,
+      firstHydrateError,
+    );
+  }
+  if (entries.length >= REGISTRY_IQUBE_HYDRATE_LIMIT) {
+    // A silent cap reads as "no such iQube" for anything past it.
+    console.warn(
+      `[CompanionSearch] registry-iqube: hydration cap of ${REGISTRY_IQUBE_HYDRATE_LIMIT} reached — results beyond it are NOT searched.`,
+    );
+  }
 
   const out: CompanionSearchResult[] = [];
   for (const view of hydrated) {

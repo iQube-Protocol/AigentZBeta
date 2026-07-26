@@ -3513,7 +3513,7 @@ export default function SmartWalletDrawer({
                   <button
                     onClick={handleConvertUsdcToQc}
                     disabled={convertStep === "processing"}
-                    className="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-medium disabled:opacity-60"
+                    className="px-3 py-2 rounded-lg bg-emerald-500/15 ring-1 ring-emerald-400/30 backdrop-blur-sm text-emerald-200 text-xs font-medium transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
                   >
                     {convertStep === "processing" ? "Converting" : "Convert"}
                   </button>

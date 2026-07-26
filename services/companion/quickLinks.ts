@@ -218,8 +218,26 @@ export function resolveQuickLinks(input: {
  * Companion generated would be this module asserting privilege rather than
  * observing it. The receiving embed re-resolves server-side regardless.
  */
-export function quickLinkTarget(): '_blank' {
+/**
+ * THE RULE (operator, 2026-07-26): **any cartridge page reached from a link
+ * opens in the left-hand browser workspace, never inside the Companion.**
+ *
+ * The Companion is a persistent side surface. Navigating it to a cartridge
+ * replaces the citizen's agent with a page — losing the conversation and the
+ * thing that made the link worth following. Quick Links already worked this
+ * way (§3.2.5); search results and overlay capability links did not, and
+ * rendered the cartridge inside the panel.
+ *
+ * One definition, so a new linking surface cannot quietly pick the other
+ * behaviour.
+ */
+export function cartridgeLinkTarget(): '_blank' {
   return '_blank';
+}
+
+/** @see cartridgeLinkTarget — retained name for the Quick Link call sites. */
+export function quickLinkTarget(): '_blank' {
+  return cartridgeLinkTarget();
 }
 
 export function quickLinkHref(link: QuickLink, personaId?: string): string {
