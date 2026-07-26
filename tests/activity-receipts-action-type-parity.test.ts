@@ -24,8 +24,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import { stripComments } from './_lib/sourceAuthority';
 
 const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 const SERVICE_PATH = join(process.cwd(), 'services', 'receipts', 'activityReceiptService.ts');
@@ -67,5 +68,90 @@ describe('activity_receipts action_type CHECK parity (drift-incident regression 
 
     const missing = tsTypes.filter((t) => !sqlTypes.has(t));
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The REVERSE direction — added 2026-07-26 after this canary's own blind spot
+ * let the same incident class through again.
+ *
+ * The check above compares the TS union against the CHECK constraint, so it
+ * only sees action types that reached the union. Two never did:
+ * `canonical_plate_composed` (the Canonical Plates route) and `plan_cancelled`
+ * (the plan-renewal cron). Both were written by live `createActivityReceipt`
+ * calls and were in NEITHER the union NOR the constraint, so there was nothing
+ * for the comparison to catch.
+ *
+ * Nothing else caught it either: `next.config` sets
+ * `typescript.ignoreBuildErrors: true`, so the type error at each call site
+ * never failed a build, and both call sites wrap the write in an EMPTY catch,
+ * so the resulting check-violation was discarded without a log. Every
+ * Canonical Plate composition and every post-grace plan cancellation wrote no
+ * receipt at all.
+ *
+ * So the authoritative direction is call site → union → constraint. This
+ * asserts the first hop; the block above already asserts the second.
+ */
+describe('every actionType written at a call site is a declared ActivityActionType', () => {
+  const SCAN_ROOTS = ['app', 'services', 'components', 'scripts'];
+
+  /** Every `createActivityReceipt({ … actionType: 'x' … })` literal in the
+   *  tree, with the file it came from. Comment-stripped, so prose naming an
+   *  action type is not mistaken for a call site. */
+  function writtenActionTypes(): Map<string, string[]> {
+    const found = new Map<string, string[]>();
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        if (entry === 'node_modules' || entry.startsWith('.')) continue;
+        const p = join(dir, entry);
+        if (statSync(p).isDirectory()) { walk(p); continue; }
+        if (!/\.(ts|tsx)$/.test(entry)) continue;
+        const code = stripComments(readFileSync(p, 'utf8'));
+        if (!code.includes('createActivityReceipt')) continue;
+        // Scope each match to the argument object of a createActivityReceipt
+        // call, so an unrelated `actionType:` field on another API (e.g.
+        // sessionService's browser actions, rewardService's Qc events) is not
+        // swept in.
+        for (const call of code.matchAll(/createActivityReceipt\(\s*\{([\s\S]*?)\}\s*\)/g)) {
+          const m = call[1].match(/actionType:\s*'([a-z0-9_]+)'/);
+          if (!m) continue;
+          if (!found.has(m[1])) found.set(m[1], []);
+          if (!found.get(m[1])!.includes(p)) found.get(m[1])!.push(p);
+        }
+      }
+    };
+    for (const root of SCAN_ROOTS) {
+      try { walk(join(process.cwd(), root)); } catch { /* root absent — skip */ }
+    }
+    return found;
+  }
+
+  function declaredUnion(): Set<string> {
+    const tsContent = readFileSync(SERVICE_PATH, 'utf8');
+    const start = tsContent.indexOf('export type ActivityActionType =');
+    const end = tsContent.indexOf('export type ReceiptStatus');
+    return new Set(
+      [...tsContent.slice(start, end).matchAll(/^\s*\|\s*'([a-z_0-9]+)'/gm)].map((m) => m[1]),
+    );
+  }
+
+  it('finds call sites at all — guards against a vacuous pass', () => {
+    // Without this floor, a broken scan would report zero call sites and the
+    // assertion below would pass while checking nothing.
+    expect(writtenActionTypes().size).toBeGreaterThan(20);
+  });
+
+  it('declares every actionType passed to createActivityReceipt', () => {
+    const declared = declaredUnion();
+    const undeclared = [...writtenActionTypes().entries()]
+      .filter(([type]) => !declared.has(type))
+      .map(([type, files]) => `'${type}' written by ${files.join(', ')}`);
+    expect(
+      undeclared,
+      'Undeclared actionType(s). Add each to ActivityActionType in ' +
+        'services/receipts/activityReceiptService.ts AND to a wholesale rebuild of ' +
+        'activity_receipts_action_type_check — otherwise the write throws a check ' +
+        'violation and the receipt is lost silently.',
+    ).toEqual([]);
   });
 });

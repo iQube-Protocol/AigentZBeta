@@ -152,7 +152,29 @@ export type ActivityActionType =
   // Intelligence). Real Reach accrual happened (step 11), never a fund
   // movement (Domain 3 carries no settlement terms). DVN-anchorable so the
   // financial-services execution trail is tamper-evident.
-  | 'finance_authoritative_execution';
+  | 'finance_authoritative_execution'
+  // Declared 2026-07-26 — these four were ALREADY being written by live
+  // `createActivityReceipt` call sites while absent from this union. Adding
+  // them here is not new behaviour; it makes the type describe what the code
+  // already does.
+  //
+  // The two that were also missing from the DB CHECK constraint
+  // (`canonical_plate_composed`, `plan_cancelled`) were silently losing every
+  // receipt: `next.config` sets `typescript.ignoreBuildErrors`, so the type
+  // error never failed a build, and both call sites wrap the write in an EMPTY
+  // catch, so the check-violation was discarded with no log. Fixed by
+  // supabase/migrations/20260726120000_receipt_check_drift_fix_compose_and_cancel.sql.
+  //
+  // None of the four is DVN-anchorable, so no chain-of-provenance gap was
+  // involved — the loss was the internal audit receipt only.
+  //
+  // `tests/activity-receipts-action-type-parity.test.ts` now enforces BOTH
+  // directions, so an actionType written at a call site but left out of this
+  // union fails the build instead of failing silently at write time.
+  | 'canonical_plate_composed'   // app/api/constitutional/canonical-plates/route.ts
+  | 'plan_cancelled'             // services/billing/planRenewal.ts
+  | 'venture_blueprint_handoff'  // services/venture/blueprintHandoff.ts
+  | 'standing_accrued';          // services/crm/standingAccrualService.ts
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
