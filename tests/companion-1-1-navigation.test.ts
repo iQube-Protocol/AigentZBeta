@@ -66,8 +66,8 @@ describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
     // array, drifting, and the citizen having to relearn navigation — the
     // exact invariant §4.3 protects.
     const code = stripComments(readSource(COMPANION_PAGE));
-    expect(code).toContain('COMPANION_NAV_ITEMS');
     expect(code).toContain('COMPANION_NAV_LABEL');
+    expect(code).toContain('COMPANION_NAV_ICON');
     // No literal re-listing of the vocabulary in the page.
     expect(code).not.toMatch(/\[\s*['"]avatar['"]\s*,\s*['"]wallet['"]/);
   });
@@ -291,7 +291,7 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     // with it and we would be back to the same defect by another route.
     const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
     expect(copilot).toContain('bodySlot?:');
-    expect(copilot).toContain(': bodySlot}');
+    expect(copilot).toContain('bodySlot ?? walletDrawerNode');
     // The message list hides rather than the shell unmounting.
     expect(copilot).toMatch(/bodySlot \|\| walletFillsSurface \? ["']hidden["'] : ["']{2}/);
     // The fill-mode wallet is a BODY, not a replacement for the panel. The
@@ -300,7 +300,10 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     // panel's own class string — a blanket "no walletFillsSurface ? hidden"
     // would also match the message-list hide, which is correct and required.)
     expect(copilot).not.toMatch(/walletFillsSurface \? ["']hidden["'] : ["']{2}\} transition-all/);
-    expect(copilot).toContain('walletFillsSurface ? walletDrawerNode : bodySlot');
+    // A body slot WINS: the wallet is opened by a nav item and closed by
+    // nothing, so without precedence it stayed mounted over every surface the
+    // citizen navigated to and the menu stopped working.
+    expect(copilot).toContain('bodySlot ?? walletDrawerNode');
     // One wallet definition serving both placements.
     expect((copilot.match(/<SmartWalletDrawer/g) ?? []).length).toBe(1);
   });
@@ -337,14 +340,16 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     expect(copilot).toContain('onComposerSubmit?.(value)');
   });
 
-  it('the bottom row is KEPT while the migration is under test', () => {
-    // Operator: "you can keep them in both rows if you want until we test they
-    // are working in the copilot menu before retiring the bottom row." Retiring
-    // it early would strip the only way back from Search/Workspace/Overlay,
-    // where the copilot — and therefore its menu — is not mounted at all.
+  it('the duplicate bottom row is RETIRED — the copilot menu is the only nav', () => {
+    // Retired on the operator's word (2026-07-26) once the copilot menu was
+    // proven reachable everywhere. It could ONLY be retired after the copilot
+    // stopped unmounting — before that it was the sole way back from an
+    // activated surface, and deleting it would have breached §14.6.
     const code = stripComments(readSource(COMPANION_PAGE));
-    expect(code).toContain('aria-label="Companion navigation"');
-    expect(code).toContain('COMPANION_NAV_ITEMS.map');
+    expect(code, 'the duplicate nav row is back').not.toContain('aria-label="Companion navigation"');
+    // ...and the vocabulary still reaches the citizen, via the copilot menu.
+    expect(code).toContain('migratedNavItems()');
+    expect(code).toContain('navExtras={copilotNavExtras}');
   });
 });
 

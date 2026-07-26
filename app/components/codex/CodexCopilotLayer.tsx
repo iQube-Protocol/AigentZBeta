@@ -1410,8 +1410,21 @@ export function CodexCopilotLayer({
                               the confidence of the answer belong in one glance
                               — split across two rows, the operator has to
                               assemble them. */}
-                          <span className="truncate text-xs font-medium text-white/80">
-                            {agent?.name ?? ""}
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {/* Connected dot, carried over from the Companion's
+                                old identity chip. It is the only thing in the
+                                header that says the persona actually resolved —
+                                dropping the chip without it would have removed
+                                a live signal, not just a duplicate. */}
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${
+                                personaId ? "bg-emerald-400" : "bg-slate-600"
+                              }`}
+                              aria-hidden="true"
+                            />
+                            <span className="truncate text-xs font-medium text-white/80">
+                              {agent?.name ?? ""}
+                            </span>
                           </span>
                           <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
@@ -1434,7 +1447,13 @@ export function CodexCopilotLayer({
                           className="absolute left-0 right-0 flex flex-col overflow-hidden"
                           style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px` }}
                         >
-                          {walletFillsSurface ? walletDrawerNode : bodySlot}
+                          {/* A body slot WINS over the wallet. Without this the wallet stayed
+                              mounted after the citizen navigated away — it is opened by a
+                              nav item but closed by nothing, so its rail rendered on top of
+                              every other surface and the menu stopped working (operator,
+                              2026-07-26). Precedence, not a close-on-change effect: the
+                              surface the citizen chose is simply the one that renders. */}
+                          {bodySlot ?? walletDrawerNode}
                         </div>
                       ) : null}
                       <div

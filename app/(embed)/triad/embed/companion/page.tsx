@@ -343,29 +343,13 @@ function CompanionShell() {
           the container completely removes that class of mismatch entirely,
           regardless of platform-specific window-chrome insets. */}
       <div className="flex h-full min-h-0 w-full flex-col bg-slate-900/40">
-        {/* Identity chip — persistent header. Opens the pre-1.1 rail
-            (Timeline + Observer permissions), whose permanent home under the
-            six-item vocabulary is D-9. */}
-        <button
-          type="button"
-          onClick={() => setActiveNavItem("activity")}
-          className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/60 px-3 py-2 text-left transition-colors hover:bg-slate-900"
-        >
-          <span
-            className={`h-2 w-2 rounded-full ${identity ? "bg-emerald-400" : "bg-slate-600"}`}
-          />
-          <span className="truncate text-xs text-slate-300">
-            {ctx === null
-              ? "Resolving…"
-              : identity
-                ? identity.displayLabel || "Active persona"
-                : "Signed out"}
-          </span>
-          <span className="ml-auto text-[10px] text-slate-500">
-            {activeSurface === "activity" ? "Activity" : ""}
-          </span>
-        </button>
-
+        {/* The Companion's own identity chip and bottom nav row are GONE
+            (operator, 2026-07-26). Both were duplicates of controls the
+            Copilot now owns: the persona moved into the copilot header beside
+            the R/T dots (keeping its connected dot), and all seven nav items
+            live in the copilot's menu row. Retiring them was gated on the
+            copilot nav being reachable everywhere — which it is now that the
+            copilot never unmounts, so §14.6 holds and nothing is stranded. */}
         {/* THE COPILOT IS THE SHELL, AND IT NEVER UNMOUNTS (§3.2, operator
             2026-07-26). Every surface renders into the copilot's `bodySlot`,
             so its menu row — the migrated navigation — persists exactly the way
@@ -544,45 +528,6 @@ function CompanionShell() {
           />
         </div>
 
-        {/* CANONICAL BOTTOM NAVIGATION (§4.3, D-3).
-            Rendered FROM the shared vocabulary — never a local list, so the
-            item set cannot drift between Runtime, Companion and partner
-            surfaces. Only `densityClass` varies by host: spacing, never
-            content, order or naming. */}
-        <nav
-          aria-label="Companion navigation"
-          className={`flex shrink-0 items-center justify-between border-t border-slate-800 bg-slate-900/60 ${densityClass.bar}`}
-        >
-          {COMPANION_NAV_ITEMS.map((item) => {
-            const isActive = activeNavItem === item;
-            const label = COMPANION_NAV_LABEL[item];
-            const Icon = NAV_ICON_COMPONENT[COMPANION_NAV_ICON[item]];
-            return (
-              <button
-                key={item}
-                type="button"
-                onClick={() => {
-                  setActiveNavItem(item);
-                }}
-                aria-current={isActive ? "page" : undefined}
-                /* D-10: icon + tooltip. `title` gives the hover tooltip and
-                   `aria-label` the accessible name — an icon-only control with
-                   neither is unusable with a screen reader, and §4.3's "never
-                   has to relearn navigation" only holds if the words behind
-                   the icons stay stable. */
-                title={label}
-                aria-label={label}
-                className={`flex flex-1 items-center justify-center rounded-md transition-colors ${densityClass.item} ${
-                  isActive
-                    ? "bg-slate-800 text-slate-100"
-                    : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
-                }`}
-              >
-                {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : label}
-              </button>
-            );
-          })}
-        </nav>
       </div>
     </div>
   );
