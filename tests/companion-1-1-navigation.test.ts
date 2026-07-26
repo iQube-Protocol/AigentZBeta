@@ -572,7 +572,13 @@ describe('voice sits with the two ways of addressing Agent Me', () => {
     // vapiState === 'error', so a voice error in avatar mode was undismissable.
     const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
     expect(code).toContain('const micButton = (');
-    expect((code.match(/toggleMarketa\(\)/g) ?? []).length, 'a second mic button reappeared').toBe(1);
+    // Anchored on the shared const's own call site rather than a function name,
+    // so a rename cannot make this canary silently vacuous (it did: the name
+    // moved to `toggleVoice` and the old pattern matched zero, not two).
+    expect(
+      (code.match(/void toggleVoice\(\);/g) ?? []).length,
+      'a second mic button reappeared',
+    ).toBe(1);
   });
 
   it('it renders inside the avatar/chat toggle group, and falls back when there is none', () => {
