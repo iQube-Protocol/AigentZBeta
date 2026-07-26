@@ -203,6 +203,15 @@ describe("atlas variant — Canonical Asset 001 (Bearing Instrument v1.0)", () =
   it("keeps the compact variant the default — atlas is opt-in", () => {
     // The dispatcher renders CompactBearing unless variant === "atlas"; the
     // atlas anatomy never leaks into the default inline dial.
-    expect(source).toContain('props.variant === "atlas" ? <AtlasBearing');
+    //
+    // `source` was referenced here from a DIFFERENT describe block's scope --
+    // a genuine defect that stayed dormant because this file never collected
+    // (tsconfig's `jsx: "preserve"` left .tsx untransformed for the runner).
+    // Read locally rather than hoisting, so each block owns what it asserts.
+    const dispatcherSource = readFileSync(
+      join(process.cwd(), "components/representation/BearingInstrument.tsx"),
+      "utf8",
+    );
+    expect(dispatcherSource).toContain('props.variant === "atlas" ? <AtlasBearing');
   });
 });

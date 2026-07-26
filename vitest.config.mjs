@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
@@ -16,6 +17,15 @@ if (existsSync(envLocal)) {
 }
 
 export default defineConfig({
+  // tsconfig.json sets `jsx: "preserve"` for Next.js, which leaves .tsx
+  // untransformed for Vite -- so ANY test importing a component failed to
+  // COLLECT with "content contains invalid JS syntax", reported at the first
+  // JSX close tag. That silently hid whole suites (bearing-instrument,
+  // meta-vitruvian) behind what looked like a syntax error in shipped code.
+  //
+  // Overriding the transform HERE affects the test runner only; the Next.js
+  // production build keeps `preserve` and its own JSX handling.
+  plugins: [react()],
   test: {
     environment: "node",
     globals: true,
