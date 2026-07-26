@@ -467,6 +467,11 @@ function CompanionShell() {
                doesn't seem to work after the failing search button has been
                clicked"). Now the launch moves the host's surface too. */
             onWalletLaunch={() => setActiveNavItem("wallet")}
+            /* The copilot IS the shell here, so its close chevron would be a
+               dead control — the Companion's own chrome closes the panel. Only
+               this host sets it; every other mount keeps the chevron, which is
+               the only way to dismiss the copilot once opened. */
+            hideCloseControl
             /* THE COMPOSER IS NOT UNIVERSAL CHROME. It belongs to Agent Me
                (where it is the prompt bar) and to Search (where it IS the
                search bar). On Wallet / Workspace / Overlay it would invite the

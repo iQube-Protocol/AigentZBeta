@@ -86,6 +86,16 @@ interface CodexCopilotLayerProps {
    */
   onWalletLaunch?: () => void;
   /**
+   * Hide the close control.
+   *
+   * Set ONLY by a host where the copilot IS the shell and therefore never
+   * closes — the Companion, whose own chrome closes the panel. Everywhere else
+   * this chevron is the only way to dismiss the copilot once opened, so it
+   * must stay: removing it outright (2026-07-26) stranded the platform copilot
+   * open with no exit.
+   */
+  hideCloseControl?: boolean;
+  /**
    * Renders in place of the message list, keeping the copilot's header, chip
    * carousel, composer and menu row mounted around it.
    *
@@ -253,6 +263,7 @@ export function CodexCopilotLayer({
   onPrompt,
   navExtras,
   onWalletLaunch,
+  hideCloseControl = false,
   bodySlot,
   hideComposer = false,
   composerMode = "chat",
@@ -1942,14 +1953,24 @@ export function CodexCopilotLayer({
                                     <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                   </button>
                                 ) : null}
-                                {/* The chevron that used to sit here was a
-                                    CLOSE button. In a deployment where the
-                                    copilot IS the shell, `onClose` is a no-op,
-                                    so it was a control that looked meaningful
-                                    and did nothing — the same dead affordance
-                                    already removed from the avatar footer, left
-                                    behind here. Its slot is where the host's
-                                    own nav items now sit. */}
+                                {/* THE CLOSE CONTROL. Live everywhere except a
+                                    host where the copilot is the shell — there
+                                    `onClose` is a no-op and the host's own
+                                    chrome does the closing, so it is hidden
+                                    rather than rendered dead. Removing it for
+                                    every mount (2026-07-26) left the platform
+                                    copilot with no way to close once opened. */}
+                                {!hideCloseControl && (
+                                  <button
+                                    type="button"
+                                    onClick={onClose}
+                                    title="Close copilot"
+                                    aria-label="Close copilot"
+                                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                  >
+                                    <ChevronDown className="w-4 h-4" />
+                                  </button>
+                                )}
                                 {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
                                   <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
                                     {contextOptions.map((opt) => (

@@ -491,10 +491,22 @@ describe('Companion controls do what they appear to do', () => {
     expect(page).toContain('onWalletLaunch=');
   });
 
-  it('no dead close-chevron survives in the copilot menu row', () => {
-    // `onClose` is a no-op where the copilot IS the shell.
+  it('the close control is HIDDEN where it would be dead, not deleted everywhere', () => {
+    // Correction to an over-broad fix (operator, 2026-07-26): removing the
+    // chevron for every mount stranded the PLATFORM copilot open with no exit.
+    // It is dead only where the copilot is the shell and `onClose` is a no-op.
     const code = stripComments(readSource(COPILOT));
-    expect(code).not.toMatch(/onClick=\{onClose\}[\s\S]{0,200}?ChevronDown/);
+    expect(code, 'the close control was deleted again').toMatch(
+      /!hideCloseControl && \([\s\S]{0,400}?onClick=\{onClose\}/,
+    );
+    expect(code, 'the close control is no longer gated').toContain('hideCloseControl = false');
+  });
+
+  it('only the Companion opts out of the close control', () => {
+    // Any other host setting this would lose its only way to dismiss the
+    // copilot.
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toContain('hideCloseControl');
   });
 });
 
