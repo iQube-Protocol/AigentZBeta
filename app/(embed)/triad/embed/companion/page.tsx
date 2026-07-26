@@ -84,7 +84,7 @@ import { ObserverGrantPanel } from "@/components/companion/ObserverGrantPanel";
 import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPanel";
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
-import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers } from "lucide-react";
+import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers, Activity } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import {
   resolveQuickLinks,
@@ -132,6 +132,7 @@ const NAV_ICON_COMPONENT: Record<string, typeof UserRound> = {
   Search,
   LayoutGrid,
   Layers,
+  Activity,
 };
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
@@ -180,7 +181,11 @@ function CompanionShell() {
   // The pre-1.1 rail has no slot in the ratified six-item vocabulary (D-9).
   // Its content is preserved and opened from the identity chip, so §14.6's
   // "no capability lost" holds while the placement question stays open.
-  const [railOpen, setRailOpen] = useState(false);
+  // D-9 RESOLVED: the activity rail is a nav ITEM now, not a chip-toggled
+  // overlay, so its open state is just `activeNavItem === 'activity'`. Keeping
+  // a separate `railOpen` flag beside it would be two sources of truth for one
+  // question, and they would disagree the first time one was set without the
+  // other — the Capsule/layout defect class CLAUDE.md warns about.
 
   const activeSurface = COMPANION_NAV_ITEM_TO_SURFACE[activeNavItem];
   const density = navDensityForSurface(surface);
@@ -292,13 +297,12 @@ function CompanionShell() {
         {migratedNavItems().map((item) => {
           const label = COMPANION_NAV_LABEL[item];
           const Icon = NAV_ICON_COMPONENT[COMPANION_NAV_ICON[item]];
-          const isActive = !railOpen && activeNavItem === item;
+          const isActive = activeNavItem === item;
           return (
             <button
               key={item}
               type="button"
               onClick={() => {
-                setRailOpen(false);
                 setActiveNavItem(item);
               }}
               title={label}
@@ -316,7 +320,7 @@ function CompanionShell() {
         })}
       </>
     ),
-    [activeNavItem, railOpen]
+    [activeNavItem]
   );
 
   /** The submitted search query. Owned here because the COMPOSER collects it
@@ -344,7 +348,7 @@ function CompanionShell() {
             six-item vocabulary is D-9. */}
         <button
           type="button"
-          onClick={() => setRailOpen((open) => !open)}
+          onClick={() => setActiveNavItem("activity")}
           className="flex shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-900/60 px-3 py-2 text-left transition-colors hover:bg-slate-900"
         >
           <span
@@ -358,7 +362,7 @@ function CompanionShell() {
                 : "Signed out"}
           </span>
           <span className="ml-auto text-[10px] text-slate-500">
-            {railOpen ? "Hide activity" : "Activity"}
+            {activeSurface === "activity" ? "Activity" : ""}
           </span>
         </button>
 
@@ -415,7 +419,7 @@ function CompanionShell() {
             onComposerSubmit={setSearchQuery}
             agent={{ id: "aigent-me", name: "Agent Me" }}
             personaId={personaId}
-            bodySlot={railOpen ? (
+            bodySlot={activeSurface === "activity" ? (
           /* Pre-1.1 rail, preserved verbatim (§14.6): Timeline + Observer
              permissions. Reached from the identity chip because the ratified
              six-item vocabulary has no slot for it — D-9 decides its home. */
@@ -550,7 +554,7 @@ function CompanionShell() {
           className={`flex shrink-0 items-center justify-between border-t border-slate-800 bg-slate-900/60 ${densityClass.bar}`}
         >
           {COMPANION_NAV_ITEMS.map((item) => {
-            const isActive = !railOpen && activeNavItem === item;
+            const isActive = activeNavItem === item;
             const label = COMPANION_NAV_LABEL[item];
             const Icon = NAV_ICON_COMPONENT[COMPANION_NAV_ICON[item]];
             return (
@@ -558,7 +562,6 @@ function CompanionShell() {
                 key={item}
                 type="button"
                 onClick={() => {
-                  setRailOpen(false);
                   setActiveNavItem(item);
                 }}
                 aria-current={isActive ? "page" : undefined}

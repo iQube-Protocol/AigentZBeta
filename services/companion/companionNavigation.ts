@@ -51,6 +51,7 @@ export const COMPANION_NAV_ITEMS = [
   'search',
   'workspace',
   'overlay',
+  'activity',
 ] as const;
 
 /** Derived from the value tuple so the runtime list and the type cannot drift. */
@@ -68,6 +69,7 @@ export const COMPANION_NAV_ICON: Record<CompanionNavItemId, string> = {
   search: 'Search',
   workspace: 'LayoutGrid',
   overlay: 'Layers',
+  activity: 'Activity',
 };
 
 /**
@@ -85,6 +87,7 @@ export const COMPANION_NAV_LABEL: Record<CompanionNavItemId, string> = {
   search: 'Search',
   workspace: 'Workspace',
   overlay: 'Overlay',
+  activity: 'Activity',
 };
 
 /**
@@ -108,6 +111,7 @@ export const COMPANION_NAV_ITEM_TO_SURFACE: Record<CompanionNavItemId, Companion
   search: 'search',
   workspace: 'workspace',
   overlay: 'overlay',
+  activity: 'activity',
 };
 
 /**
@@ -240,6 +244,11 @@ export const COMPANION_CAPABILITY_INVENTORY: Record<
     priorReach: 'pre-1.1-companion-mode',
     shippedIn: 'components/companion/CompanionOverlayPanel.tsx',
   },
+  activity: {
+    capability: 'activity timeline + observer permissions',
+    priorReach: 'pre-1.1-companion-mode',
+    shippedIn: 'components/companion/ObserverGrantPanel.tsx',
+  },
 };
 
 /**
@@ -257,7 +266,12 @@ export const COMPANION_CAPABILITY_INVENTORY: Record<
  */
 export const PRE_1_1_COMPANION_MODES = {
   wallet: 'wallet',
-  companion: null,
+  // D-9 RESOLVED (operator, 2026-07-26): the pre-1.1 `companion` rail — the
+  // activity Timeline and observer permissions — is a FIRST-CLASS nav item,
+  // reached from the copilot menu in the slot the dead chevron vacated. It was
+  // recorded here as `null` while its home was undecided; nothing is unplaced
+  // now.
+  companion: 'activity',
   search: 'search',
   overlay: 'overlay',
   workspace: 'workspace',

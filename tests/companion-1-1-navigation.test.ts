@@ -37,7 +37,7 @@ const COMPANION_PAGE = 'app/(embed)/triad/embed/companion/page.tsx';
 // ─── §11.7 Navigation vocabulary — one definition, not three lists ──────────
 
 describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
-  it('is exactly the six ratified items, in canonical order', () => {
+  it('is exactly the seven ratified items, in canonical order', () => {
     expect([...COMPANION_NAV_ITEMS]).toEqual([
       'avatar',
       'wallet',
@@ -45,6 +45,7 @@ describe('§4.3 / D-3 — shared constitutional navigation vocabulary', () => {
       'search',
       'workspace',
       'overlay',
+      'activity',
     ]);
   });
 
@@ -183,13 +184,18 @@ describe('§14.6 — no existing constitutional capability is lost', () => {
     );
   });
 
-  it('the one unplaced pre-1.1 mode is flagged, not silently dropped', () => {
+  it('D-9 RESOLVED — NOTHING is unplaced; the rail is a first-class item', () => {
+    // This test previously asserted that exactly one pre-1.1 mode (`companion`)
+    // had no home and was flagged rather than dropped. The operator has now
+    // ruled (2026-07-26) that the activity rail IS a nav item, so the correct
+    // assertion inverts: nothing may be unplaced. That is a PREMISE change from
+    // the operator, not a weakened canary — the bar went up, not down.
     const unplaced = Object.entries(PRE_1_1_COMPANION_MODES)
       .filter(([, target]) => target === null)
       .map(([mode]) => mode);
-    expect(unplaced).toEqual(['companion']);
-    // Its content must still be reachable in the page (§14.6) even though the
-    // six-item vocabulary has no slot for it — that placement is D-9.
+    expect(unplaced, 'a pre-1.1 mode lost its home').toEqual([]);
+    expect(PRE_1_1_COMPANION_MODES.companion).toBe('activity');
+    // Its content still renders — placement is not preservation.
     const code = stripComments(readSource(COMPANION_PAGE));
     expect(code).toContain('ObserverGrantPanel');
     expect(code).toContain('Timeline');
@@ -233,7 +239,7 @@ describe('§4.5 / D-8 — the avatar owns no session of its own', () => {
 describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
   it('splits the vocabulary by what the copilot already owns, derived not listed', () => {
     expect([...COPILOT_NATIVE_NAV_ITEMS]).toEqual(['avatar', 'wallet', 'agent-me']);
-    expect(migratedNavItems()).toEqual(['search', 'workspace', 'overlay']);
+    expect(migratedNavItems()).toEqual(['search', 'workspace', 'overlay', 'activity']);
     // Together they are exactly the vocabulary — no item is in both, none lost.
     expect([...COPILOT_NATIVE_NAV_ITEMS, ...migratedNavItems()].sort()).toEqual(
       [...COMPANION_NAV_ITEMS].sort(),
