@@ -257,6 +257,39 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     expect(stripComments(readSource(COMPANION_PAGE))).not.toContain('footerContent');
   });
 
+  it('the copilot NEVER unmounts — every surface renders into its body slot', () => {
+    // The regression (operator, 2026-07-26): surfaces were branches of a
+    // ternary whose fallback was the copilot, so activating Search / Workspace
+    // / Overlay unmounted the copilot and took the migrated navigation with it
+    // — "we are not able to navigate back and forward between tabs once one has
+    // been activated". A migrated nav that disappears the moment you use it is
+    // worse than no migration.
+    //
+    // It also tore down the conversation on every switch, so returning to Agent
+    // Me returned to a fresh session — a silent D-8 breach.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('bodySlot={');
+    // Exactly one mount, and it is not inside a surface branch.
+    expect((code.match(/<CodexCopilotLayer/g) ?? []).length).toBe(1);
+    // Each surface panel must appear INSIDE the body slot, i.e. after it.
+    const slotAt = code.indexOf('bodySlot={');
+    for (const panel of ['CompanionSearchPanel', 'CaptureInboxPanel', 'CompanionOverlayPanel']) {
+      expect(code.indexOf(`<${panel}`), `${panel} renders outside the body slot`).toBeGreaterThan(
+        slotAt,
+      );
+    }
+  });
+
+  it('the copilot keeps its chrome around a body slot, never replaces it', () => {
+    // If bodySlot rendered in place of the whole panel, the menu row would go
+    // with it and we would be back to the same defect by another route.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toContain('bodySlot?:');
+    expect(copilot).toContain('{bodySlot}');
+    // The message list hides rather than the shell unmounting.
+    expect(copilot).toMatch(/bodySlot \? ["']hidden["'] : ["']{2}/);
+  });
+
   it('the bottom row is KEPT while the migration is under test', () => {
     // Operator: "you can keep them in both rows if you want until we test they
     // are working in the copilot menu before retiring the bottom row." Retiring

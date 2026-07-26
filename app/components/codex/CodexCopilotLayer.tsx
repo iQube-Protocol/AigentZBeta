@@ -72,6 +72,19 @@ interface CodexCopilotLayerProps {
    * the Copilot is the shell) without every cartridge inheriting them.
    */
   navExtras?: React.ReactNode;
+  /**
+   * Renders in place of the message list, keeping the copilot's header, chip
+   * carousel, composer and menu row mounted around it.
+   *
+   * This is what makes "the Copilot is the shell" literally true (SCOPE-MMC-004
+   * §3.2): a host surface swaps the BODY, and the navigation persists — rather
+   * than unmounting the copilot and taking its menu row with it, which left the
+   * citizen with no way back once a surface was activated.
+   *
+   * The conversation is not torn down while a body slot is showing, so
+   * returning to Agent Me returns to the same session (D-8).
+   */
+  bodySlot?: React.ReactNode;
   onUserPrompt?: (
     prompt: string
   ) => Promise<
@@ -212,6 +225,7 @@ export function CodexCopilotLayer({
   quickPrompts,
   onPrompt,
   navExtras,
+  bodySlot,
   onUserPrompt,
   getChatRequestContext,
   groundContext,
@@ -1330,9 +1344,23 @@ export function CodexCopilotLayer({
                           </div>
                         </div>
                       ) : null}
+                      {/* A host surface occupying the body. Same box as the
+                          message list, so header, chips, composer and menu row
+                          stay exactly where they are and navigation persists
+                          across surfaces. */}
+                      {bodySlot ? (
+                        <div
+                          className="absolute left-0 right-0 flex flex-col overflow-hidden"
+                          style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px` }}
+                        >
+                          {bodySlot}
+                        </div>
+                      ) : null}
                       <div
                         ref={chatContainerRef}
-                        className="absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain"
+                        className={`absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain ${
+                          bodySlot ? "hidden" : ""
+                        }`}
                         style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
                       >
                         {displayMessages.map((msg, index) => {
@@ -1690,8 +1718,12 @@ export function CodexCopilotLayer({
                               </button>
                             </div>
                           )}
-                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
-                          <div className="relative flex items-center gap-1">
+                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic.
+                              `gap-2` rather than `gap-1`: with the migrated nav
+                              items in this cluster the icons read as one dense
+                              block at gap-1 and become hard to hit accurately.
+                              Still right-aligned — only the spacing changes. */}
+                          <div className="relative flex items-center gap-2">
                             {showWalletMenu && (
                               <button
                                 type="button"

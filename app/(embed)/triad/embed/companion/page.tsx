@@ -358,7 +358,47 @@ function CompanionShell() {
           </span>
         </button>
 
-        {railOpen ? (
+        {/* THE COPILOT IS THE SHELL, AND IT NEVER UNMOUNTS (§3.2, operator
+            2026-07-26). Every surface renders into the copilot's `bodySlot`,
+            so its menu row — the migrated navigation — persists exactly the way
+            the Companion's own bar does. Before this, activating Search /
+            Workspace / Overlay unmounted the copilot and took its nav with it,
+            leaving no way back and forward between surfaces.
+
+            Keeping it mounted also keeps the CONVERSATION alive across surface
+            switches, so returning to Agent Me returns to the same session
+            rather than a fresh one (D-8). */}
+        <div className="min-h-0 flex-1">
+          <CodexCopilotLayer
+            isOpen={true}
+            onClose={() => undefined}
+            variant="embedded"
+            className="h-full w-full"
+            initialCopilotMode={copilotModeForNavItem(activeNavItem)}
+            /* QUICK LINKS as Class 2 Context Actions (§3.2.4/§3.2.5).
+               Rendered through the copilot's OWN carousel — the single row
+               above the composer that is already the standard here — rather
+               than a bespoke strip in Companion chrome. That was the C3
+               mistake: global chrome for something that is a conversational
+               affordance.
+
+               `skipInference` keeps them out of the model path: selecting one
+               is a navigation act, not a question. `onPrompt` then DRIVES THE
+               BROWSER — the destination opens in the left-hand workspace and
+               the Companion stays put on the right. */
+            quickPrompts={quickLinkPrompts}
+            onPrompt={openQuickLink}
+            /* The wallet reached FROM THE COPILOT must be the same pane-width
+               wallet the Companion's own Wallet item mounts. Before this, the
+               copilot's wallet was hardcoded to the cartridge-sized column, so
+               the same capability rendered at two different widths depending
+               on which route reached it — operator report, 2026-07-26. */
+            walletEmbeddedWidth="fill"
+            walletAllowWideLayout={false}
+            navExtras={copilotNavExtras}
+            agent={{ id: "aigent-me", name: "Agent Me" }}
+            personaId={personaId}
+            bodySlot={railOpen ? (
           /* Pre-1.1 rail, preserved verbatim (§14.6): Timeline + Observer
              permissions. Reached from the identity chip because the ratified
              six-item vocabulary has no slot for it — D-9 decides its home. */
@@ -479,53 +519,9 @@ function CompanionShell() {
               Sign in to see what you've pulled across from the web.
             </div>
           )
-        ) : (
-          /* AGENT ME — the primary occupant (§4.1, C1). This is the EXISTING
-             `CodexCopilotLayer`, mounted embedded at the Companion's full
-             width. No second chat implementation exists here, and none may:
-             §4.1's "no duplicate chat implementations" is what makes the
-             single constitutional relationship true rather than merely
-             claimed.
-
-             `initialCopilotMode` selects between the copilot's OWN two modes.
-             The Avatar nav item routes here with mode 'avatar' — the avatar is
-             another renderer of this same session, never a second Agent Me
-             (D-8). */
-          <div className="min-h-0 flex-1">
-            <CodexCopilotLayer
-              isOpen={true}
-              onClose={() => undefined}
-              variant="embedded"
-              className="h-full w-full"
-              initialCopilotMode={copilotModeForNavItem(activeNavItem)}
-              /* QUICK LINKS as Class 2 Context Actions (§3.2.4/§3.2.5).
-                 Rendered through the copilot's OWN `quickPrompts` carousel —
-                 the single row above the composer that is already the standard
-                 here — rather than a bespoke strip in Companion chrome. That
-                 was the C3 mistake: global chrome for something that is a
-                 conversational affordance.
-
-                 `skipInference` keeps them out of the model path: selecting one
-                 is a navigation act, not a question. `onPrompt` then DRIVES THE
-                 BROWSER — the destination opens in the left-hand workspace and
-                 the Companion stays put on the right. */
-              quickPrompts={quickLinkPrompts}
-              onPrompt={openQuickLink}
-              /* The wallet reached FROM THE COPILOT must be the same
-                 pane-width wallet the Companion's own Wallet item mounts
-                 (`embeddedWidth="fill"`, `allowWideLayout={false}`). Before
-                 this, the copilot's wallet was hardcoded to the cartridge-
-                 sized column, so the same capability rendered at two
-                 different widths depending on which route reached it —
-                 operator report, 2026-07-26. */
-              walletEmbeddedWidth="fill"
-              walletAllowWideLayout={false}
-              navExtras={copilotNavExtras}
-              agent={{ id: "aigent-me", name: "Agent Me" }}
-              personaId={personaId}
-            />
-          </div>
-        )}
+        ) : null}
+          />
+        </div>
 
         {/* CANONICAL BOTTOM NAVIGATION (§4.3, D-3).
             Rendered FROM the shared vocabulary — never a local list, so the
