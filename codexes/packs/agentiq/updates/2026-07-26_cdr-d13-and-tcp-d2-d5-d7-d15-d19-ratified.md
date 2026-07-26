@@ -3,7 +3,7 @@
 **Date:** 2026-07-26
 **Branch:** `claude/agentiq-onboarding-docs-jrbeha`
 **Specs amended:** `codexes/packs/irl/foundation/SPEC-CDR-001_constitutional-domain-resolution.md`, `codexes/packs/irl/foundation/SPEC-TCP-001_threshold-crossing-programme.md`
-**Spec created:** `codexes/packs/irl/foundation/SPEC-MMC-004_companion-1-1-reconstitution.md`
+**Scope created:** `codexes/packs/irl/foundation/SCOPE-MMC-004_companion-1-1-constitutional-reconstitution.md`
 **Nature:** documentation only — ratify-before-build. No code was written for any of these decisions.
 
 ---
@@ -37,14 +37,14 @@ The operator asked to "advance the pilot-required P6 slice ahead of P3–P5." **
 | **D-2** | A **new universal Threshold Welcome surface**, composed from existing design and guide primitives. Not an IRL- or aigentMe-specific tab. Begins **or resumes** Threshold Crossing, hands off to Passport | §5a |
 | **D-5** | The **Edge Companion becomes the canonical runtime surface for aigentMe**; `CodexCopilotLayer` is mounted *as* that runtime at full Companion width. Wallet and aigentMe are toggled **peer modes in one overlay**. aigentMe becomes the platform's primary orchestration layer | §6a |
 | **D-7** | ~~Minimum viable PEQ + one completed meaningful First Task~~ — **SUPERSEDED later the same day; see §3a** | §6b |
-| **D-15** | **Defer** the completion percentage until the threshold criteria are settled *and* observability exists for every included criterion. Phase 1 uses explicit lifecycle states. (D-7's supersession changed which criteria are included — and D-24 has not yet settled it) | §13 |
+| **D-15** | **Defer** the completion percentage until the threshold criteria are settled *and* observability exists for every included criterion. Phase 1 uses explicit lifecycle states. (Criteria settled by D-24, §3c; observability still outstanding — D-9) | §13 |
 | **D-19** | An agent may **recommend and prepare**; the principal must confirm through the existing authorization spine before a selection becomes active. No agent-finalised selection, no parallel gate | §14.3a |
 
 ### D-5 is wider than the question asked
 
 D-5 offered three hosting options; the ruling replaced the framing. Beyond Stage B hosting it makes aigentMe the primary orchestration layer, with Quick Links, cartridge navigation, Passport workflows and Workspace actions becoming things aigentMe performs on the citizen's behalf, and Runtime Copilot / Companion history / agreements / activity / settings consolidating into one persistent interaction model.
 
-§6a.3 was subsequently rewritten as an explicit **scope limit** on the operator's instruction — see §3b. That scope touches the Companion, the copilot layer, the wallet drawer, platform navigation and the identity spine's session continuity; it is chartered separately as `SPEC-MMC-004`.
+§6a.3 was subsequently rewritten as an explicit **scope limit** on the operator's instruction — see §3b. That scope touches the Companion, the copilot layer, the wallet drawer, platform navigation and the identity spine's session continuity; it is chartered separately as `SCOPE-MMC-004`.
 
 §6a.4 flags a required **CLAUDE.md amendment at build time**: the Wallet-Over-Cartridge Overlay section currently prescribes the wallet sliding in *alongside* the copilot. D-5 makes them toggled peer modes on one surface. The essential claim (embedded inside the copilot's stacking context, never a standalone slide-over) survives; the side-by-side wording is superseded. CLAUDE.md is deliberately **not** amended yet, because it documents built patterns and nothing is built.
 
@@ -82,20 +82,64 @@ Operator instruction: *"Complete the current implementation programme exactly as
 
 §6a.3 was rewritten from "consequences this SPEC records" into an explicit **scope limit**. Inside SPEC-TCP-001, D-5 authorises Stage B hosting and nothing else. The orchestration-layer work moves wholesale to a new charter:
 
-**`codexes/packs/irl/foundation/SPEC-MMC-004_companion-1-1-reconstitution.md`** — Companion 1.1. Purpose: reconstitute the Edge Companion around the **existing** aigentMe Copilot. Companion = container; aigentMe = primary interaction surface. Unified bottom navigation across Runtime, Companion and partner sites. Quick Links become aigentMe actions driving the left-hand runtime while holding one continuous conversation.
+**`codexes/packs/irl/foundation/SCOPE-MMC-004_companion-1-1-constitutional-reconstitution.md`** — Companion 1.1. Purpose: reconstitute the Edge Companion around the **existing** aigentMe Copilot. Companion = container; aigentMe = primary interaction surface. Unified bottom navigation across Runtime, Companion and partner sites. Quick Links become aigentMe actions driving the left-hand runtime while holding one continuous conversation.
 
 **Its governing constraint is §2: no new capabilities — only layout, navigation and interaction consolidation.** Every proposed item must trace to a shipped capability; where consolidation exposes a gap, the charter's answer is to *record* the gap, not fill it. That is why **C0 (the capability inventory) is not optional** — "no new capabilities" is unenforceable without a list of the existing ones, and the no-new-capability canary derives from that inventory rather than being hand-maintained.
 
 Seven decisions are open on it; three block work (D-3 what "unified" means across three surfaces, D-4 whether anything is injected into a partner page, D-6 how far "a single continuous conversation" extends). The charter also inherits the Principal–Delegate constraint explicitly: a Quick Link becoming an aigentMe action MUST NOT convert an authorised step into an automatic one — the most likely way a layout change causes a constitutional regression, and canaried rather than reviewed.
 
+## 3c. Companion 1.1 Scope ratified — and it resolves three open decisions
+
+The operator supplied a full brief and, notably, a framing instruction:
+
+> I actually think we should deliberately call this a Scope rather than a PRD. This is not a new product. It is a constitutional reconstitution of an existing product.
+
+The document was therefore **renamed** `SPEC-MMC-004…` → **`SCOPE-MMC-004_companion-1-1-constitutional-reconstitution.md`** and rewritten as the operator's ratified Scope. The distinction is load-bearing rather than cosmetic: a PRD invites *"what should this product do?"*, which is the wrong question when the answer is *what it already does*.
+
+### The Constitutional Continuity Principle
+
+> A citizen should never have to decide which Agent Me they are talking to. Regardless of whether they engage through the Runtime, the Edge Companion, a partner application, voice, or an embodied avatar, they are always interacting with the same constitutional companion. Different surfaces present the same relationship; they do not create separate ones.
+
+Recorded as §3.1. It is a **governance rule**, not an empirical claim, so it is eligible for `canonical` under the hypothesis-vs-canon discipline — registered as an **invariant candidate** pending operator ratification. The Scope does not self-canonize it.
+
+### Decisions the brief resolved
+
+| Decision | Resolution |
+|---|---|
+| **MMC-004 D-3** (what "unified navigation" means) | **No change** — adopt metaMe Runtime's navigation principles as they are; bottom navigation canonical (`Avatar · Wallet · Agent Me · Search · Workbench · Overlay`); icons may evolve without architectural change |
+| **MMC-004 D-6** (scope of "one continuous conversation") | **Resolved by the runtime architecture:** one Agent Me runtime; shared conversation, memory, context, delegation, ExperienceModel and knowledge across Runtime, Companion and Partner Site — per persona, continuous across all surfaces |
+| **TCP D-24** (do Companion installed/paired survive as threshold criteria?) | **Resolved — see §3d** |
+
+**MMC-004 D-4 remains open**, with an assumption recorded rather than a silent default: navigation renders **inside the Companion's own frame only** on a partner site. The brief treats the Companion as the host everywhere, which supports that reading, but it never addresses host-page injection — and injecting navigation into a page the platform does not control is a security and trust surface, not a layout choice. Flagged for cheap correction.
+
+### One in-scope item that is a rewiring, not a relayout
+
+Everything in scope is layout, navigation or exposure — **except the avatar**. Today it may be backed by a separately uploaded knowledge model; the Scope requires it to render Agent Me. §5.2 calls this out explicitly rather than leaving it buried, because it is the one place a reader could reasonably ask whether the no-new-capabilities rule is being bent. It is not — the avatar already speaks and Agent Me already reasons; what changes is which runtime backs the rendering. But it is behavioural, so it carries its own canary (§11.6) and is sequenced **last** (C5) rather than as a layout task.
+
+## 3d. TCP D-24 resolved by the Companion 1.1 Scope
+
+The Scope states Threshold Crossing as:
+
+```
+Passport → Delegation → Agent Me Activation → Companion Pairing → Threshold Crossed
+```
+
+**Companion Pairing is retained.** That answers D-24, which had been left open one turn earlier precisely because the D-7 supersession named only three criteria and the ruling neither included nor excluded the Companion ones.
+
+Two consequences, written into SPEC-TCP-001 §13 and the D-24 register row:
+
+1. **`Companion installed` is folded in as a precondition of pairing**, not an independent criterion — pairing cannot occur without an installed Companion. This is an inference from the four-step sequence rather than a statement the operator made, and it is flagged as such so separate install tracking can be restored cheaply if wanted.
+2. **D-9 remains the long pole, confirmed rather than conditional.** Pairing state lives in `chrome.storage.local` only, so the retained criterion is still unobservable server-side.
+
+**D-10 also gets sharper.** Now that the threshold turns explicitly on "Agent Me Activation" as its own named step, deriving that signal from Passport issuance is weaker than the criterion requires — it would assert activation from the presence of a passport rather than from evidence that aigentMe was activated. D-10 is no longer a nice-to-have.
+
 ## 4. What changed in the critical path
 
-**The long pole now depends on D-24, which is open.**
+**D-9 is the long pole — now confirmed, not conditional** (D-24 resolved, §3d). Companion Pairing is a retained threshold criterion and its state lives only in `chrome.storage.local`, so nothing server-side can observe it.
 
-- **If D-24 drops Companion installed/paired** (the reading in which the superseding ruling's three named criteria are exhaustive): D-9 leaves the threshold critical path. **D-10 becomes the long pole** — "aigentMe active" is currently *derived* from Passport issuance, and a threshold that turns on aigentMe activation cannot rest on a derived signal without asserting the thing it must observe.
-- **If D-24 retains them:** D-9 stays the long pole, gating §13 criteria 4–5 and (per D-15) any completion percentage.
+**D-10 is the second constraint**, and sharper than before: "Agent Me Activation" is now a named threshold step, so deriving it from Passport issuance asserts the very thing it must observe.
 
-D-15's percentage remains deferred under either reading, because its condition is observability for *every* included criterion — and which criteria are included is precisely what D-24 settles.
+D-15's percentage stays deferred, because its condition is observability for *every* included criterion — and the two included criteria that remain unobservable are exactly D-9's and D-10's.
 
 For CDR, nothing blocks any phase; P6 is next.
 
@@ -109,7 +153,8 @@ For CDR, nothing blocks any phase; P6 is next.
 
 **New, arising from this pass:**
 
-- **TCP D-24** — do Companion installed/paired survive as threshold criteria? Blocking §13; determines the critical path (above).
+- ~~TCP D-24~~ — **resolved** by the Companion 1.1 Scope (§3d).
 - **TCP D-21** needs re-confirmation in light of D-7's supersession (§6b.5).
-- **SPEC-MMC-004 (Companion 1.1)** is chartered with seven open decisions of its own; D-3, D-4 and D-6 block work.
+- **SCOPE-MMC-004 (Companion 1.1)** — D-3 and D-6 resolved by the brief; **D-2, D-4, D-5, D-7 remain open**, of which **D-4 blocks C2**.
+- The **Constitutional Continuity Principle** (SCOPE-MMC-004 §3.1) awaits registration as an invariant; it is eligible for `canonical` as a governance rule.
 - A **provenance field** distinguishing aigentMe-derived profile content from citizen-authored content, owned by whichever charter builds the derivation track (§6b.4).
