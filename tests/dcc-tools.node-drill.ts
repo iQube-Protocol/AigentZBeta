@@ -10,9 +10,18 @@
  *   - `repo cat` rejects `..` traversal;
  *   - env-check output carries booleans, never values.
  *
- * Run:
- *   npx esbuild --bundle --alias:@=. --platform=node --format=esm \
- *     --packages=external tests/dcc-tools.test.ts --outfile=/tmp/dcc.mjs && node /tmp/dcc.mjs
+ * RECLASSIFIED 2026-07-25: this is a node drill, not a vitest suite. Named
+ * `.test.ts` it was picked up by the runner's glob and failed to collect with
+ * "No test suite found" -- a permanent red file in the default suite for a
+ * file that was never meant to run there. Renamed out of the glob rather than
+ * given a placeholder test, which would have suppressed the error without
+ * making anything true.
+ *
+ * Run (tsx is a devDependency and resolves the `@/` tsconfig paths directly --
+ * the earlier `npx esbuild --bundle` line is left out because esbuild is not
+ * installed standalone here, so that command could only work with network):
+ *   npx tsx tests/dcc-tools.node-drill.ts
+ * Verified 2026-07-26: 103 checks pass.
  */
 
 import assert from 'node:assert/strict';

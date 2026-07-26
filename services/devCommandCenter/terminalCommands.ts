@@ -14,7 +14,7 @@
  * consumes this parser.
  *
  * This file is PURE (no I/O, no fs, no DB, no React) so the whitelist grammar
- * is unit-testable in isolation (tests/dcc-tools.test.ts) and the route that
+ * is unit-testable in isolation (tests/dcc-tools.node-drill.ts) and the route that
  * executes it (app/api/dev-command-center/terminal/route.ts) is the only place
  * side effects live.
  */
