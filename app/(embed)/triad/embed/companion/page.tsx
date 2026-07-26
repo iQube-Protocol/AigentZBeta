@@ -92,6 +92,7 @@ import {
   quickLinkHref,
   quickLinkTarget,
   quickLinkContextNeedle,
+  quickLinkSurfaceNeedle,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
 import {
@@ -283,13 +284,20 @@ function CompanionShell() {
     () =>
       resolveQuickLinks({
         access,
-        // Observer-driven ranking (§6.1: a shipped signal informing a second
-        // surface). Gating still runs first and is untouched — context can
-        // only reorder what the persona may already see.
-        context: quickLinkContextNeedle(observedShape),
+        // Observer- AND surface-driven ranking (§6.1: shipped signals
+        // informing a second surface). Gating still runs first and is
+        // untouched — context can only reorder what the persona may already
+        // see, never widen it.
+        //
+        // The observed page shape wins when it resolves, because it is the
+        // stronger signal; the active surface carries the rest of the time.
+        // Ranking on the shape ALONE was effectively inert: it abstains on
+        // every unrecognised domain, which is nearly all of them.
+        context:
+          quickLinkContextNeedle(observedShape) ?? quickLinkSurfaceNeedle(activeSurface),
         limit: 6,
       }),
-    [access, observedShape]
+    [access, observedShape, activeSurface]
   );
 
   /** The copilot's own carousel shape. Labels are the visible affordance. */

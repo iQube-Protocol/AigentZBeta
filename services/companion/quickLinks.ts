@@ -130,6 +130,37 @@ export const QUICK_LINK_CONTEXT_NEEDLE: Readonly<Record<string, string>> = {
   'financial-context': 'wallet',
 };
 
+/**
+ * THE SURFACE the citizen is on, as a ranking needle.
+ *
+ * WHY THIS EXISTS (operator, 2026-07-26: "still not seeing any dynamic changes
+ * in the quick links"). The first cut ranked ONLY on the observed page shape —
+ * but `shapeForDomain` recognises github.com and a handful of financial hosts
+ * and abstains everywhere else, so on almost every page the needle was null and
+ * nothing ever reordered. A mechanism whose signal is almost never present is
+ * inert, whatever its design says.
+ *
+ * The active surface is a signal that is ALWAYS present and changes as the
+ * citizen navigates, so the strip visibly responds. It is still context, not
+ * preference: it says "you are looking at your wallet", not "you like wallets".
+ *
+ * Deliberately partial. `agent-me` maps to nothing — the conversation surface
+ * has no topic of its own, and inventing one would be exactly the fabricated
+ * association `overlayMapping` refuses to make.
+ */
+export const QUICK_LINK_SURFACE_NEEDLE: Readonly<Record<string, string>> = {
+  wallet: 'wallet',
+  search: 'registry',
+  workspace: 'workspace',
+  permissions: 'passport',
+  activity: 'ledger',
+};
+
+export function quickLinkSurfaceNeedle(surface: string | null | undefined): string | null {
+  if (!surface) return null;
+  return QUICK_LINK_SURFACE_NEEDLE[surface] ?? null;
+}
+
 export function quickLinkContextNeedle(shape: string | null | undefined): string | null {
   if (!shape) return null;
   return QUICK_LINK_CONTEXT_NEEDLE[shape] ?? null;

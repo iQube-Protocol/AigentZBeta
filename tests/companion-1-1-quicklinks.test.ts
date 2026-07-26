@@ -23,6 +23,7 @@ import {
   quickLinkHref,
   quickLinkTarget,
   quickLinkContextNeedle,
+  quickLinkSurfaceNeedle,
   type QuickLinkAccessContext,
 } from '@/services/companion/quickLinks';
 import {
@@ -289,5 +290,49 @@ describe('quick links are observer-driven without becoming observer-gated', () =
     if (!anyMatch) return; // nothing to rank in this registry — not a failure
     const ranked = resolveQuickLinks({ access: ADMIN, context: needle });
     expect(ranked[0].label.toLowerCase()).toContain(needle);
+  });
+});
+
+describe('the ranking signal is one that is actually present', () => {
+  it('the active surface always yields a needle where a topic exists', () => {
+    // The shape-only version abstained on nearly every page, so nothing ever
+    // reordered and the strip looked static (operator, 2026-07-26).
+    expect(quickLinkSurfaceNeedle('wallet')).toBe('wallet');
+    expect(quickLinkSurfaceNeedle('workspace')).toBe('workspace');
+    expect(quickLinkSurfaceNeedle('permissions')).toBe('passport');
+  });
+
+  it('the conversation surface claims no topic of its own', () => {
+    // Inventing one would be the fabricated association overlayMapping refuses.
+    expect(quickLinkSurfaceNeedle('agent-me')).toBeNull();
+    expect(quickLinkSurfaceNeedle(null)).toBeNull();
+    expect(quickLinkSurfaceNeedle('not-a-surface')).toBeNull();
+  });
+
+  it('the page prefers the observed shape and falls back to the surface', () => {
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toMatch(
+      /quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkSurfaceNeedle\(activeSurface\)/,
+    );
+    // …and re-ranks when the surface changes, or it is static again.
+    expect(page).toMatch(/\[access, observedShape, activeSurface\]/);
+  });
+
+  it('a surface needle still cannot subtract or widen', () => {
+    const base = resolveQuickLinks({ access: NOBODY, limit: 6 });
+    const permitted = new Set(resolveQuickLinks({ access: NOBODY }).map((l) => l.id));
+    for (const surface of ['wallet', 'workspace', 'permissions', 'agent-me']) {
+      const ranked = resolveQuickLinks({
+        access: NOBODY,
+        context: quickLinkSurfaceNeedle(surface),
+        limit: 6,
+      });
+      expect(ranked.length, `surface '${surface}' changed the offer count`).toBe(base.length);
+      // Ranking reorders BEFORE the limit, so a different — still permitted —
+      // six can surface. That is the feature. What must hold is that every
+      // link came from the gated set, so compare against the UNLIMITED offer,
+      // not against the first six of it.
+      for (const l of ranked) expect(permitted.has(l.id)).toBe(true);
+    }
   });
 });
