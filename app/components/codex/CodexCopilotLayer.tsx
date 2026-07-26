@@ -2106,13 +2106,25 @@ export function CodexCopilotLayer({
                                   <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                 </button>
                               ) : null}
-                              {/* The chevron that used to sit here was a CLOSE
-                                  button. In a deployment where the copilot IS
-                                  the shell, `onClose` is a no-op, so it was a
-                                  control that looked meaningful and did
-                                  nothing (operator, 2026-07-26). Removed
-                                  rather than rebound: a dead affordance costs
-                                  more than a missing one. */}
+                              {/* THE CLOSE CONTROL — same gate as the chat
+                                  footer. Avatar is another renderer of the SAME
+                                  session (D-8), so it needs the same exit:
+                                  without it, entering avatar mode meant
+                                  switching back to chat before you could close
+                                  the copilot at all. Hidden only where the
+                                  copilot is the shell and `onClose` is a
+                                  no-op. */}
+                              {!hideCloseControl && (
+                                <button
+                                  type="button"
+                                  onClick={onClose}
+                                  title="Close copilot"
+                                  aria-label="Close copilot"
+                                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              )}
                               {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
                                 <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
                                   {contextOptions.map((opt) => (

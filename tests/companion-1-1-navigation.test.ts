@@ -500,6 +500,13 @@ describe('Companion controls do what they appear to do', () => {
       /!hideCloseControl && \([\s\S]{0,400}?onClick=\{onClose\}/,
     );
     expect(code, 'the close control is no longer gated').toContain('hideCloseControl = false');
+    // BOTH footers. The avatar is another renderer of the same session, so it
+    // needs the same exit — without one, entering avatar mode meant switching
+    // back to chat before the copilot could be closed at all.
+    expect(
+      (code.match(/!hideCloseControl && \(/g) ?? []).length,
+      'a mode branch lost its close control',
+    ).toBe(2);
   });
 
   it('only the Companion opts out of the close control', () => {
