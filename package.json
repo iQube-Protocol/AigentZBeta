@@ -26,6 +26,8 @@
     "type-check": "tsc --noEmit",
     "check:spine": "node scripts/check-persona-spine.mjs",
     "test": "vitest --config vitest.config.mjs run",
+    "test:integration": "vitest --config vitest.integration.config.mjs run",
+    "test:all": "npm test && npm run test:integration",
     "test:watch": "vitest --config vitest.config.mjs",
     "test:ci": "vitest --config vitest.config.mjs run --coverage",
     "test:crm": "vitest --config vitest.config.mjs run tests/crm-integration.test.ts",

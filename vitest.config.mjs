@@ -19,8 +19,20 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: true,
+    // DEFAULT SUITE = unit tests only. `npm test` must be runnable from a
+    // clean checkout with NO external services (operator-ratified 2026-07-25).
+    //
+    // Tests that genuinely cross a process or network boundary -- live HTTP
+    // servers, deployed APIs, databases the test does not provision, partner
+    // services, canisters, remote auth -- are named `*.integration.test.ts`
+    // and run via `npm run test:integration`.
+    //
+    // The guardrail that made this necessary: ~90 environment-absence failures
+    // were drowning 16 real unit failures, so the suite could not distinguish
+    // "the code is broken" from "the test environment is absent". A test is
+    // moved because it crosses a boundary, NEVER because it currently fails.
     include: ["tests/**/*.test.ts"],
-    exclude: ["**/node_modules/**"],
+    exclude: ["**/node_modules/**", "**/*.integration.test.ts"],
     testTimeout: 30000,
     hookTimeout: 30000,
     env: {
