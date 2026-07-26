@@ -27,7 +27,20 @@ describe('Invite → auto-channel', () => {
   });
 
   it('derives the claimant ref SERVER-SIDE via personaPublicRef (no raw ref on the wire)', () => {
-    expect(src).toMatch(/createOrGetChannel\(inv\.issuer_persona_id, personaPublicRef\(claimantPersonaId\)\)/);
+    // Matches the INVARIANT, not one call's formatting. The original regex
+    // pinned a single-line two-argument call; the call later gained a third
+    // argument (access-domain tagging) and wrapped across lines, so a
+    // still-compliant implementation read as a T0-leak failure.
+    const call = src.slice(src.indexOf('createOrGetChannel('));
+    const args = call.slice(0, call.indexOf(');'));
+    // The counterparty is the DERIVED public ref...
+    expect(args).toMatch(/personaPublicRef\(\s*claimantPersonaId\s*\)/);
+    // ...and the raw persona id is never passed BARE. Wrapped uses are removed
+    // first, so what remains is only an unwrapped occurrence -- otherwise the
+    // guard flags `personaPublicRef(claimantPersonaId)` itself, which is the
+    // compliant form it exists to require.
+    const unwrapped = args.replace(/personaPublicRef\(\s*claimantPersonaId\s*\)/g, '<derived>');
+    expect(unwrapped).not.toContain('claimantPersonaId');
   });
 
   it('the grant is created BEFORE the channel attempt — channel never gates access', () => {

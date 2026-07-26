@@ -104,7 +104,13 @@ describe('QubeTalk channel labels — per-side, never in receipts', () => {
 
   it('the label NEVER enters the receipt payload — writePeerReceipt uses the public ref, not the label', () => {
     const fn = src.slice(src.indexOf('async function writePeerReceipt'));
-    const body = fn.slice(0, fn.indexOf('\n}\n'));
+    const raw = fn.slice(0, fn.indexOf('\n}\n'));
+    // Comments stripped before asserting. The body DOCUMENTS the rule ("category
+    // labels only; each token here is T2-safe"), and a raw-source match tripped
+    // on that prose -- the same structural weakness as the Architect canary.
+    // A privacy canary that fails on its own explanation gets muted, and this
+    // one guards a label reaching a receipt payload.
+    const body = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     expect(body).not.toMatch(/label|counterpartyLabel|principal_a_label|principal_b_label/);
     // it carries the counterparty PUBLIC ref instead
     expect(body).toMatch(/counterparty:\$\{args\.counterpartyRef\}/);
