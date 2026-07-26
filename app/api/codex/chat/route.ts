@@ -564,6 +564,28 @@ function getProviderAvailability(): ProviderAvailability {
   };
 }
 
+/**
+ * Does this turn carry a constitutional ground context?
+ *
+ * This USED to be `groundContext.surface === 'smart-triad'` — an equality check
+ * against one literal, written when the shell copilot was the only producer.
+ * The effect was that IRE-resolved invariants, constitutional memory and the
+ * `resolved_invariants` echo reached exactly ONE mount. Every surface that
+ * declared its own surface id (dev-command-center, irl-research,
+ * aigentme-welcome, studio-composer, registry-asset-detail) failed the check
+ * and was grounded on nothing — the richest surfaces, excluded by a string
+ * comparison.
+ *
+ * The question the gate should have been asking is "did the client send a
+ * ground context?", not "is the client this one surface". Any surface that
+ * names itself is asking to be grounded.
+ */
+function isConstitutionallyGrounded(groundContext: unknown): boolean {
+  if (!groundContext || typeof groundContext !== 'object') return false;
+  const surface = (groundContext as Record<string, unknown>).surface;
+  return typeof surface === 'string' && surface.trim().length > 0;
+}
+
 function defaultAgentIdForPersona(persona: string): string {
   if (persona === 'moneypenny') return 'aigent-moneypenny';
   if (persona.startsWith('aigent-')) return persona;
@@ -2158,7 +2180,7 @@ function buildSystemPrompt(
   // NEVER a T0 identifier; the client contract only sends labels), and the
   // deterministic deep-link chips rendered under the chat, so answers stay
   // cartridge-scoped and navigational instead of generic.
-  if (userContext?.groundContext && (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad') {
+  if (userContext?.groundContext && isConstitutionallyGrounded(userContext.groundContext)) {
     try {
       const gc = userContext.groundContext as Record<string, unknown>;
       const cart = (gc.cartridge ?? {}) as Record<string, unknown>;
@@ -2229,7 +2251,7 @@ function buildSystemPrompt(
     userContext?.groundContext &&
     // The shell copilot's smart-triad context is handled by the generic block
     // above — don't let this NBA-shaped parser overwrite it.
-    (userContext.groundContext as Record<string, unknown>).surface !== 'smart-triad'
+    !isConstitutionallyGrounded(userContext.groundContext)
   ) {
     try {
       const gc = userContext.groundContext as Record<string, unknown>;
@@ -2760,7 +2782,12 @@ export async function POST(request: NextRequest) {
       mode = 'default',
       composerSessionContext,
       // New: User context fields
-      domain = 'metaKnyts',
+      // NOT defaulted to 'metaKnyts' any more. No copilot mount sends `domain`,
+      // so that default loaded the KNYT corpus + KB on every turn of every
+      // cartridge — the "copilot answers as metaKnyts lore everywhere" defect.
+      // Left undefined here and DERIVED from the resolved agent below, so KNYT
+      // agents still get KNYT grounding without pinning everyone else to it.
+      domain: requestedDomain,
       declaredRoles,
       walletBalance,
       nftCount,
@@ -2981,6 +3008,15 @@ export async function POST(request: NextRequest) {
     } else {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
+      // The corpus a turn is grounded on. An explicit `domain` from the client
+      // always wins; otherwise it is DERIVED from the agent. KNYT-focused
+      // agents get the KNYT corpus (which is correct and is what KnytTab and
+      // friends relied on when they sent no domain); everyone else gets
+      // 'protocol', whose branch returns an empty content scaffold so the LLM
+      // uses persona + cartridge context instead of someone else's lore.
+      const domain: ContentDomain =
+        (requestedDomain as ContentDomain | undefined) ??
+        (KNYT_FOCUSED_AGENTS.has(resolvedAgentForFetch) ? 'metaKnyts' : 'protocol');
       const isAigentMe = resolvedAgentForFetch === 'aigent-me';
       const isAigentZ = resolvedAgentForFetch === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
@@ -3110,7 +3146,7 @@ export async function POST(request: NextRequest) {
       // the Phase-1b context, never blocks the chat.
       if (
         userContext?.groundContext &&
-        (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+        isConstitutionallyGrounded(userContext.groundContext) &&
         typeof message === 'string' &&
         message.trim().length > 0
       ) {
@@ -3418,7 +3454,7 @@ export async function POST(request: NextRequest) {
     if (
       activePersonaCtx?.personaId &&
       userContext?.groundContext &&
-      (userContext.groundContext as Record<string, unknown>).surface === 'smart-triad' &&
+      isConstitutionallyGrounded(userContext.groundContext) &&
       typeof message === 'string' &&
       message.trim().length > 0
     ) {
@@ -3484,7 +3520,7 @@ export async function POST(request: NextRequest) {
       // the client can accumulate them and send them back as
       // groundContext.sessionInvariants on the next turn. T2-safe content.
       resolved_invariants:
-        (userContext?.groundContext as Record<string, unknown> | undefined)?.surface === 'smart-triad'
+        isConstitutionallyGrounded(userContext?.groundContext)
           ? ((userContext?.groundContext as Record<string, unknown>).platformInvariants ?? undefined)
           : undefined,
     });
