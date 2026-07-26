@@ -18,6 +18,7 @@ import {
   MessageSquare,
   ChevronDown,
   Send,
+  Search as SearchIcon,
   Loader2,
   BookOpen,
   Sparkles,
@@ -85,6 +86,20 @@ interface CodexCopilotLayerProps {
    * returning to Agent Me returns to the same session (D-8).
    */
   bodySlot?: React.ReactNode;
+  /**
+   * Hides the composer entirely. A surface that is not a conversation has no
+   * use for a prompt bar, and showing one there invites the citizen to type
+   * into something that will not answer.
+   */
+  hideComposer?: boolean;
+  /**
+   * What the composer submits to. `'search'` REPURPOSES the same bar as the
+   * search input — send icon becomes a search icon, submission goes to
+   * `onComposerSubmit` instead of the model, and nothing is added to the
+   * conversation. One input bar, not two (operator, 2026-07-26).
+   */
+  composerMode?: "chat" | "search";
+  onComposerSubmit?: (value: string) => void;
   onUserPrompt?: (
     prompt: string
   ) => Promise<
@@ -226,6 +241,9 @@ export function CodexCopilotLayer({
   onPrompt,
   navExtras,
   bodySlot,
+  hideComposer = false,
+  composerMode = "chat",
+  onComposerSubmit,
   onUserPrompt,
   getChatRequestContext,
   groundContext,
@@ -979,6 +997,22 @@ export function CodexCopilotLayer({
     void sendMessage(prompt);
   };
 
+  /**
+   * The one submit path for the composer. In `search` mode the SAME bar hands
+   * its value to the host and clears — the model is never called and nothing
+   * joins the conversation, because a search is a query over the platform, not
+   * a question to the agent.
+   */
+  const submitComposer = () => {
+    if (composerMode === "search") {
+      const value = inputValue.trim();
+      if (!value) return;
+      onComposerSubmit?.(value);
+      return;
+    }
+    void sendMessage();
+  };
+
   const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
     const message = (override ?? inputValue).trim();
     if (!message || isLoading) return;
@@ -1239,12 +1273,36 @@ export function CodexCopilotLayer({
     walletEmbeddedAnchor === "left" ? "md:flex-row-reverse" : "md:flex-row"
   } gap-2`;
   const embeddedPanelClass = "flex-1 min-w-0 h-full";
-  // In "fill" mode the wallet IS the surface, so the copilot yields while it is
-  // open rather than sharing the pane. Sharing works in a cartridge, where
-  // there is room for a copilot column beside a wallet column; in a Companion
-  // pane it would squeeze both into an unusable stack.
+  // In "fill" mode the wallet IS the body — it takes the pane, but INSIDE the
+  // copilot's chrome, so the header and the menu row stay put. The first
+  // attempt hid the whole copilot panel instead, which took the navigation
+  // with it and stranded the citizen in the wallet (operator, 2026-07-26) —
+  // the same defect as the surfaces, reached by a different route.
   const walletFillsSurface =
     walletEmbeddedWidth === "fill" && walletPanelOpen && !walletPanelCollapsed;
+  // One wallet definition, mounted in one of two places. Duplicating the JSX
+  // for the two placements would be the parallel-implementation defect
+  // (`inv.engineering.037`) and would drift on the next prop change.
+  const walletDrawerNode = (
+    <SmartWalletDrawer
+      open={true}
+      onClose={() => {
+        setWalletPanelOpen(false);
+        setWalletPanelCollapsed(false);
+        setWalletCopilotOpen(false);
+      }}
+      variant="embedded"
+      embeddedWidth={walletEmbeddedWidth}
+      embeddedAnchor={walletEmbeddedAnchor}
+      allowWideLayout={walletAllowWideLayout}
+      initialTab={walletPanelTab}
+      onTabChange={setWalletPanelTab}
+      onCopilotStateChange={setWalletCopilotOpen}
+      agent={agent || { id: "default", name: "Demo Agent" }}
+      codexMode={true}
+      personaId={personaId}
+    />
+  );
   const currentWalletLayout: "narrow" | "wide" =
     walletAllowWideLayout && (walletCopilotOpen || (density === "wide" || density === "extra-wide"))
       ? "wide"
@@ -1335,7 +1393,7 @@ export function CodexCopilotLayer({
             ref={copilotPanelRef}
             className={`${variant === "embedded" ? embeddedPanelClass : widthClass} ${
               variant === "embedded" ? "h-full min-h-0" : "h-full md:h-full"
-            } ${walletFillsSurface ? "hidden" : ""} transition-all duration-300 ease-out`}
+            } transition-all duration-300 ease-out`}
           >
             <div className={`h-full ${variant === "embedded" ? "bg-black/[0.18] backdrop-blur-sm rounded-none" : "bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl"} flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
@@ -1344,9 +1402,18 @@ export function CodexCopilotLayer({
                     <div className="flex-1 relative overflow-hidden">
                       {showTrustIndicators ? (
                         <div
-                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
+                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-between"
                           style={{ height: `${headerHeight}px` }}
                         >
+                          {/* ACTIVE PERSONA, left, on the same row as the R/T
+                              dots (§3.2.3). The identity you are acting as and
+                              the confidence of the answer belong in one glance
+                              — split across two rows, the operator has to
+                              assemble them. */}
+                          <span className="truncate text-xs font-medium text-white/80">
+                            {agent?.name ?? ""}
+                          </span>
+                          <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">R</span>
                             {renderDots(getReliabilityScore(), "reliability", isLoading || !!externalIsProcessing)}
@@ -1355,24 +1422,25 @@ export function CodexCopilotLayer({
                             <span className="text-[10px] text-white/60">T</span>
                             {renderDots(getTrustScore(), "trust", isLoading || !!externalIsProcessing)}
                           </div>
+                          </div>
                         </div>
                       ) : null}
                       {/* A host surface occupying the body. Same box as the
                           message list, so header, chips, composer and menu row
                           stay exactly where they are and navigation persists
                           across surfaces. */}
-                      {bodySlot ? (
+                      {walletFillsSurface || bodySlot ? (
                         <div
                           className="absolute left-0 right-0 flex flex-col overflow-hidden"
                           style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px` }}
                         >
-                          {bodySlot}
+                          {walletFillsSurface ? walletDrawerNode : bodySlot}
                         </div>
                       ) : null}
                       <div
                         ref={chatContainerRef}
                         className={`absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain ${
-                          bodySlot ? "hidden" : ""
+                          bodySlot || walletFillsSurface ? "hidden" : ""
                         }`}
                         style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
                       >
@@ -1623,7 +1691,7 @@ export function CodexCopilotLayer({
                           {opNote && <div className="mt-1 text-[10px] text-slate-400">{opNote}</div>}
                         </div>
                       )}
-                      {!floatingInput && (
+                      {!floatingInput && !hideComposer && (
                         <div>
                           <div className="h-px bg-white/10 mb-2" />
                           <div className="flex gap-2 items-end">
@@ -1641,7 +1709,7 @@ export function CodexCopilotLayer({
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.shiftKey) {
                                   e.preventDefault();
-                                  sendMessage();
+                                  submitComposer();
                                 }
                               }}
                               onFocus={() => {
@@ -1654,12 +1722,15 @@ export function CodexCopilotLayer({
                               disabled={isLoading}
                             />
                             <button
-                              onClick={() => sendMessage()}
+                              onClick={submitComposer}
                               disabled={!inputValue.trim() || isLoading}
+                              title={composerMode === "search" ? "Search" : "Send"}
                               className={`p-1.5 ${ACCENT.btnBg} ${ACCENT.btnHoverBg} disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0`}
                             >
                               {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : composerMode === "search" ? (
+                                <SearchIcon className="w-4 h-4" />
                               ) : (
                                 <Send className="w-4 h-4" />
                               )}
@@ -1950,14 +2021,14 @@ export function CodexCopilotLayer({
                                   {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                   <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                 </button>
-                              ) : (
-                                <button
-                                  onClick={onClose}
-                                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
-                                >
-                                  <ChevronDown className="w-4 h-4" />
-                                </button>
-                              )}
+                              ) : null}
+                              {/* The chevron that used to sit here was a CLOSE
+                                  button. In a deployment where the copilot IS
+                                  the shell, `onClose` is a no-op, so it was a
+                                  control that looked meaningful and did
+                                  nothing (operator, 2026-07-26). Removed
+                                  rather than rebound: a dead affordance costs
+                                  more than a missing one. */}
                               {contextMenuOpen && contextOptions && contextOptions.length > 0 && (
                                 <div className="absolute right-0 bottom-10 min-w-[180px] rounded-xl border border-white/10 bg-slate-950/90 p-2 shadow-xl backdrop-blur z-50">
                                   {contextOptions.map((opt) => (
@@ -2026,29 +2097,12 @@ export function CodexCopilotLayer({
             </div>
           </div>
 
-          {walletPanelOpen && !walletPanelCollapsed && (
+          {/* Fixed-width mode keeps the wallet BESIDE the copilot, as a
+              cartridge has room for. Fill mode renders the same node inside
+              the body box above instead, so the copilot's chrome survives. */}
+          {walletPanelOpen && !walletPanelCollapsed && !walletFillsSurface && (
             <div className={`rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl ${walletPanelWidthClass} h-full min-h-0 md:h-full md:max-h-none`}>
-              <SmartWalletDrawer
-                open={true}
-                onClose={() => {
-                  setWalletPanelOpen(false);
-                  setWalletPanelCollapsed(false);
-                  setWalletCopilotOpen(false);
-                }}
-                variant="embedded"
-                embeddedWidth={walletEmbeddedWidth}
-                embeddedAnchor={walletEmbeddedAnchor}
-                allowWideLayout={walletAllowWideLayout}
-                initialTab={walletPanelTab}
-                onTabChange={setWalletPanelTab}
-                onCopilotStateChange={setWalletCopilotOpen}
-                agent={agent || {
-                  id: "default",
-                  name: "Demo Agent",
-                }}
-                codexMode={true}
-                personaId={personaId}
-              />
+              {walletDrawerNode}
             </div>
           )}
         </div>

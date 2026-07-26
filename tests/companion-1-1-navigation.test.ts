@@ -285,9 +285,18 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     // with it and we would be back to the same defect by another route.
     const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
     expect(copilot).toContain('bodySlot?:');
-    expect(copilot).toContain('{bodySlot}');
+    expect(copilot).toContain(': bodySlot}');
     // The message list hides rather than the shell unmounting.
-    expect(copilot).toMatch(/bodySlot \? ["']hidden["'] : ["']{2}/);
+    expect(copilot).toMatch(/bodySlot \|\| walletFillsSurface \? ["']hidden["'] : ["']{2}/);
+    // The fill-mode wallet is a BODY, not a replacement for the panel. The
+    // first attempt hid the panel and took the nav with it.
+    // Specifically: the PANEL wrapper must not hide. (Asserted against the
+    // panel's own class string — a blanket "no walletFillsSurface ? hidden"
+    // would also match the message-list hide, which is correct and required.)
+    expect(copilot).not.toMatch(/walletFillsSurface \? ["']hidden["'] : ["']{2}\} transition-all/);
+    expect(copilot).toContain('walletFillsSurface ? walletDrawerNode : bodySlot');
+    // One wallet definition serving both placements.
+    expect((copilot.match(/<SmartWalletDrawer/g) ?? []).length).toBe(1);
   });
 
   it('assistant replies render through the inference renderer, not as raw text', () => {
@@ -298,6 +307,28 @@ describe('§3.2 — surface switches migrate INTO the copilot menu', () => {
     // why it survived: nothing errors, and every OTHER mount looks fine.
     const code = stripComments(readSource(COMPANION_PAGE));
     expect(code).toContain('enableInferenceRendering');
+  });
+
+  it('the composer is confined to Agent Me and Search — one input, never two', () => {
+    // Two defects in one property. The composer appeared on every surface,
+    // inviting the citizen to type into Workspace and Overlay where nothing
+    // answers; and on Search it appeared ALONGSIDE the panel's own search bar,
+    // so there were two input boxes doing one job.
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toContain('hideComposer={activeSurface !== "agent-me" && activeSurface !== "search"}');
+    expect(page).toContain('composerMode={activeSurface === "search" ? "search" : "chat"}');
+    // The search panel must no longer own an input of its own (D-12 closed).
+    const panel = stripComments(readSource('components/companion/CompanionSearchPanel.tsx'));
+    expect(panel, 'the search panel grew a second input back').not.toContain('<input');
+    expect(panel).toContain('query: string');
+  });
+
+  it('search submits to the host, never to the model', () => {
+    // A search typed into the shared composer must not become a chat turn:
+    // the citizen would be billed an inference and get prose instead of hits.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/if \(composerMode === ["']search["']\)/);
+    expect(copilot).toContain('onComposerSubmit?.(value)');
   });
 
   it('the bottom row is KEPT while the migration is under test', () => {

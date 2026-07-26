@@ -16,7 +16,7 @@
 
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { buildCodexUrl } from "@/utils/codex-nav";
@@ -38,18 +38,27 @@ export interface CompanionSearchPanelProps {
   /** T1 persona hint threaded onto the `personaFetch` call and the outbound
    *  `buildCodexUrl()` deep links. Never rendered as text in this component. */
   personaIdHint: string;
+  /** The submitted query, supplied by the copilot composer (D-12). */
+  query: string;
 }
 
 async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const body = await res.json().catch(() => null);
   if (body && typeof body === "object" && "error" in body && typeof (body as { error?: unknown }).error === "string") {
-    return (body as { error: string }).error;
+    // The composer submits by changing `query`; this runs the search. Keyed on
+  // the submitted value only — the composer holds the keystrokes, so no
+  // request fires while the citizen is still typing.
+  useEffect(() => {
+    if (query.trim().length === 0) return;
+    void runSearch(query);
+  }, [query, runSearch]);
+
+  return (body as { error: string }).error;
   }
   return fallback;
 }
 
-export function CompanionSearchPanel({ personaIdHint }: CompanionSearchPanelProps) {
-  const [query, setQuery] = useState("");
+export function CompanionSearchPanel({ personaIdHint, query }: CompanionSearchPanelProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<CompanionSearchResult[]>([]);
@@ -132,39 +141,13 @@ export function CompanionSearchPanel({ personaIdHint }: CompanionSearchPanelProp
         ) : null}
       </div>
 
-      {/* SEARCH ENTRY AT THE BOTTOM (§3.2.3, operator 2026-07-26): the entry
-          bar sits where the chat prompt bar sits, so the citizen's hand goes to
-          the same place in every mode. Styled to match the composer.
-
-          THE STATED IDEAL IS ONE STEP FURTHER — reuse the copilot's ACTUAL
-          composer as this input rather than a matched one. That needs a shared
-          composer seam (the copilot owns its own input and there is no prop to
-          borrow it), so it is recorded as SCOPE-MMC-004 D-12 rather than
-          approximated. This is bottom-placement, honestly labelled: the same
-          position and the same shape, not yet the same component. */}
-      <form
-        className="flex shrink-0 items-center gap-1.5 border-t border-slate-800 bg-slate-900/60 px-3 py-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void runSearch(query);
-        }}
-      >
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search research, registry, capabilities…"
-          className="min-w-0 flex-1 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-slate-700"
-        />
-        <button
-          type="submit"
-          disabled={status === "loading"}
-          aria-label="Search"
-          className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-200 hover:bg-slate-900 disabled:opacity-50"
-        >
-          {status === "loading" ? "…" : "Search"}
-        </button>
-      </form>
+      {/* NO INPUT OF ITS OWN (D-12 CLOSED, operator 2026-07-26).
+          This panel used to carry its own search bar, positioned and styled to
+          match the copilot composer. Once the copilot could lend its composer,
+          that match became a SECOND input box stacked under the first — the
+          operator saw two. The composer now IS the search bar (`composerMode`
+          = 'search'), and the query arrives here as a prop. One input, one
+          place the hand goes, in every mode. */}
     </div>
   );
 }

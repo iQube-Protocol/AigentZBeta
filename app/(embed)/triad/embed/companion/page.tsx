@@ -319,6 +319,10 @@ function CompanionShell() {
     [activeNavItem, railOpen]
   );
 
+  /** The submitted search query. Owned here because the COMPOSER collects it
+   *  and the panel consumes it — neither can own it alone (D-12). */
+  const [searchQuery, setSearchQuery] = useState("");
+
   const identity = ctx?.identity ?? null;
 
   return (
@@ -402,6 +406,13 @@ function CompanionShell() {
             walletEmbeddedWidth="fill"
             walletAllowWideLayout={false}
             navExtras={copilotNavExtras}
+            /* THE COMPOSER IS NOT UNIVERSAL CHROME. It belongs to Agent Me
+               (where it is the prompt bar) and to Search (where it IS the
+               search bar). On Wallet / Workspace / Overlay it would invite the
+               citizen to type into something that will not answer. */
+            hideComposer={activeSurface !== "agent-me" && activeSurface !== "search"}
+            composerMode={activeSurface === "search" ? "search" : "chat"}
+            onComposerSubmit={setSearchQuery}
             agent={{ id: "aigent-me", name: "Agent Me" }}
             personaId={personaId}
             bodySlot={railOpen ? (
@@ -482,7 +493,7 @@ function CompanionShell() {
              visitor sees a sign-in prompt, fails closed like every other
              part of this shell. */
           identity && personaId ? (
-            <CompanionSearchPanel personaIdHint={personaId} />
+            <CompanionSearchPanel personaIdHint={personaId} query={searchQuery} />
           ) : (
             <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
               Sign in to search across research, the registry, and the
