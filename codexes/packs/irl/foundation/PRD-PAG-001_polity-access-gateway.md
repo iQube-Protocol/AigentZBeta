@@ -596,8 +596,23 @@ and A.7. Implementation remains **gated on this record being completed by the op
 - [x] **Ruling 6** — the Companion is the preferred connector, never the identity store, never exclusive (§A.7; PRD body revised).
 - [x] **Ruling 7** — server-side single-use nonce consumption is a prerequisite (§A.4, §A.9.2).
 - [x] **Ruling 8** — no pre-session flow may require `personaId`, `authProfileId` or `didPersonaId` (§A.3.4).
-- [ ] **Operator signs off the implementation plan** (§A.9) — protected-file impact, migration boundaries, rollback, canaries.
-- [ ] **Operator charters the implementation pass.** Until this box is ticked, no code is written.
+- [x] **Operator signs off the implementation plan** (§A.9) — protected-file impact, migration boundaries, rollback, canaries. *(Ratified 2026-07-26.)*
+- [x] **Operator charters the implementation pass** *(2026-07-26: "PAG plan authorised pls execute").*
+
+### A.10.1 Implementation progress
+
+| Increment | State |
+|---|---|
+| **1. Single-use challenge store** (§A.4 prerequisite, ruling 7) | **SHIPPED 2026-07-26** — migration `20260819000000_passport_connection_challenges.sql` (additive, deny-all RLS, unique nonce hash) + `services/passport/connectionChallenge.ts` (persona-free challenge, atomic conditional-update spend, recovered signer) + `tests/passport-connection-challenge.test.ts` (12 canaries). Touches nothing existing; rollback is `DROP TABLE`. |
+| 2. Reverse personhood walk (kybe → root → `auth_user_id`) | not started |
+| 3. `resolveCallerFromPassportProof()` → canonical `CallerIdentityContext` | not started |
+| 4. Second credential kind in `getCallerIdentityContext` | not started |
+| 5. `/api/passport-connect/{challenge,proof}` routes | not started |
+| 6. Companion Connect states A–E | not started |
+
+Increment 1 was taken first deliberately: it is the ruling-7 prerequisite, it is
+self-contained, and it mints no session — so nothing in it can weaken access while the
+remaining increments are still open. **No protected file has been modified** (§A.9.1).
 
 *Amendment authored docs-only, 2026-07-26. Builds nothing. Reconciled against the shipped
 Phase 1 (`services/accessGateway/*`, `app/api/access-gateway/*`, `app/access-gateway/authorize/page.tsx`),
