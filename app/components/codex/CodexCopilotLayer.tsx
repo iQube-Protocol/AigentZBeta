@@ -1054,6 +1054,19 @@ export function CodexCopilotLayer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
+          // The agent this copilot IS. The layer has always known it and never
+          // sent it, so the route fell back to `defaultAgentIdForPersona()`
+          // (route.ts:570 → 'aigent-kn0w1') on every request — which is why
+          // every copilot answered as Kn0w1 with metaKnyts lore regardless of
+          // the cartridge it was mounted in (operator, 2026-07-26).
+          //
+          // `persona` below is NOT a substitute: it carries the USER's persona
+          // UUID, and the route treats that field as an AGENT slug. A UUID can
+          // never match `normalizeAgentId`'s alias table, so it always fell
+          // through to the Kn0w1 default. Sending the agent id explicitly is
+          // additive — a mount whose agent id isn't a known alias resolves
+          // exactly as it did before.
+          aigentId: agent?.id,
           persona: personaId || "kn0w1",
           personaId: personaId || null,
           contextId: contextId || null,
