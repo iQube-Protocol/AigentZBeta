@@ -101,6 +101,22 @@ Cartridge       →  opens the cartridge
 
 C3 shipped Quick Links as a strip that navigated the Companion's own pane. Wrong on both counts: wrong place (global chrome rather than conversational affordance) and wrong target (in-pane rather than the browser). Corrected below.
 
+### 3.2.5a Quick Links render in the copilot's own carousel (operator, 2026-07-26)
+
+> The quicklinks should be rendered above the prompt box in a single row carousel as is already the standard in the copilot.
+
+**Built.** Quick Links now pass through `CodexCopilotLayer`'s existing `quickPrompts` prop — the single row above the composer — with `skipInference: true`, and selection drives `window.open` into the workspace. No bespoke strip, no new component.
+
+This closes the C3 mistake completely. It was wrong twice: first navigating the Companion's own pane, then opening the browser from Companion chrome. Both versions treated a **Class 2 Context Action** as global navigation. Rendering through the copilot's own carousel is what actually makes it conversational, rather than a second strip that merely looks similar.
+
+### 3.2.6a Deployment containment (operator, 2026-07-26)
+
+> Yes I'd keep it companion deployment contained for now. After we use it for a while we can see which features we make visible everywhere.
+
+The three modes D-11 adds to the Copilot's navigation (`Search`, `Workspace`, `Overlay`) are **scoped to the Companion deployment**, not switched on for every cartridge that mounts `CodexCopilotLayer`.
+
+This is the right default for a reason beyond caution: §1 calls the Companion *a specialized deployment of the Copilot*, and a deployment that could only ever look identical to every other one would not be a deployment — it would just be the Copilot. Containment is what makes the sentence true. Which modes graduate to universal is then an **observation**, made after use, rather than a guess made at build time.
+
 ### 3.2.6 Why this scales
 
 The separation is what keeps the surface clean as capabilities accumulate:
@@ -334,7 +350,7 @@ Recorded at scope time so they are designed in rather than retrofitted:
 | **D-8** | **NEW (Aletheon review).** Does the avatar own a separate conversational session? | **RATIFIED: no.** The avatar is another **renderer** of Agent Me. Voice, text and avatar operate against exactly the same live conversation — **no avatar-specific memory, no avatar-specific AI, no avatar-specific context** (§4.5). Among the most consequential decisions in this Scope: an avatar with its own model and memory is the most natural way to create a second Agent Me while believing you are only changing a rendering, and it would pass every visual criterion while violating §3.1 outright | **RATIFIED** |
 | **D-9** | The pre-1.1 `companion` rail (identity chip · activity timeline · observer permissions) has **no slot** in the ratified six-item vocabulary. Where does it belong permanently? | **Open.** C1/C2 preserve it — reachable from the persistent identity chip in the header — so §14.6 holds and nothing is lost. But "reachable from the chip" is an implementation stopgap, not a ratified placement | **Open — surfaced by the C1/C2 build** |
 | **D-10** | Naming conflict: PRD-MMC-IMPL-003 named the capture surface **Workspace** (a correction away from an invented label, canary-enforced); §4.3's first draft said **Workbench** | **RESOLVED (operator, 2026-07-26): Workspace.** §4.3 and the nav vocabulary are corrected; the `.not.toContain('workbench')` prohibition in `tests/companion-capture.test.ts` is **REINSTATED**, not retired. The label has now drifted twice, which is the argument for keeping the canary rather than trusting review. **Same ruling: the Companion/copilot nav renders ICONS WITH TOOLTIPS**, not text labels — the label remains the tooltip and the accessible name, so D-3's identical-vocabulary invariant is untouched (what adapts is presentation, which is what "adaptive presentation" was scoped to cover) | **RATIFIED** |
-| **D-11** | **The Copilot-as-shell merge (§3.2).** C1/C2 shipped the Companion as a container with its OWN bottom navigation, stacked above the Copilot's existing nav-menu footer — two navigation systems on one surface. §3.2 rules the Copilot IS the shell. What remains: (a) `Search`, `Workspace` and `Overlay` become **Copilot modes** in the Copilot's own nav; (b) the Companion's separate bar is **deleted**; (c) header carries R/T dots right + persona left; (d) Search mode reuses the **composer** as its entry bar; (e) Quick Links move from global chrome into the **conversation** as Class 2 chips/carousel | **Open — the next build pass.** Deliberately NOT done piecemeal: deleting the Companion bar before the Copilot nav absorbs the three modes would make Search/Workspace/Overlay unreachable and breach §14.6 ("no capability lost"). The two halves land together or not at all. Note the blast radius — `CodexCopilotLayer` is mounted by many cartridges, so adding modes there needs care that a Companion-only change did not | **Open — BLOCKING C4** |
+| **D-11** | **The Copilot-as-shell merge (§3.2).** C1/C2 shipped the Companion as a container with its OWN bottom navigation, stacked above the Copilot's existing nav-menu footer | **PARTIALLY BUILT.** Done: Quick Links moved into the copilot's own `quickPrompts` carousel above the composer and now drive the browser (§3.2.5a) — the bespoke chrome strip is gone. **Ratified for the remainder (operator, 2026-07-26): the added modes are COMPANION-DEPLOYMENT-CONTAINED**, not enabled for every `CodexCopilotLayer` mount; which features graduate to universal is decided after use, by observation (§3.2.6a). Remaining: (a) `Search`/`Workspace`/`Overlay` become deployment-scoped Copilot modes; (b) the Companion's separate bar is deleted; (c) header carries R/T dots right + persona left; (d) Search mode reuses the composer as its entry bar. (a) and (b) must land together — deleting the bar first would make three modes unreachable and breach §14.6 | **Open — BLOCKING C4** |
 
 ---
 

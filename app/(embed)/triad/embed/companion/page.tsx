@@ -70,7 +70,7 @@
 
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -240,6 +240,36 @@ function CompanionShell() {
   const quickLinks = useMemo(
     () => resolveQuickLinks({ access, limit: 6 }),
     [access]
+  );
+
+  /** The copilot's own carousel shape. Labels are the visible affordance. */
+  const quickLinkPrompts = useMemo(
+    () =>
+      quickLinks.map((link) => ({
+        id: link.id,
+        label: link.label,
+        prompt: link.label,
+        skipInference: true,
+      })),
+    [quickLinks]
+  );
+
+  /**
+   * Selecting a Quick Link opens it in the BROWSER, never in the Companion.
+   * Matched back by label through a map rather than a scan, so two links that
+   * happened to share a label could not silently open the wrong destination.
+   */
+  const quickLinkByLabel = useMemo(
+    () => new Map(quickLinks.map((link) => [link.label, link])),
+    [quickLinks]
+  );
+  const openQuickLink = useCallback(
+    (prompt: string) => {
+      const link = quickLinkByLabel.get(prompt);
+      if (!link) return;
+      window.open(quickLinkHref(link, personaId), quickLinkTarget(), "noreferrer");
+    },
+    [quickLinkByLabel, personaId]
   );
 
   const identity = ctx?.identity ?? null;
@@ -414,44 +444,26 @@ function CompanionShell() {
              The Avatar nav item routes here with mode 'avatar' — the avatar is
              another renderer of this same session, never a second Agent Me
              (D-8). */
-          <div className="flex min-h-0 flex-1 flex-col">
-            {/* QUICK LINKS (C3) — Class 2 Context Actions (§3.2.4/§3.2.5).
-                They DRIVE THE BROWSER: each opens its destination in the
-                left-hand workspace (`target="_blank"`) and leaves the
-                Companion in place on the right. The Companion never navigates
-                its own pane to a Quick Link.
-
-                Gated by `resolveQuickLinks`, which fails closed — an
-                unresolved persona and a non-admin both see ungated links only,
-                so an unauthorised surface is never OFFERED. The server gate
-                still governs access; this only governs what is advertised.
-
-                PLACEMENT IS STILL PROVISIONAL. §3.2.4 puts Class 2 actions
-                inside the conversation (chips/carousel in the response stream
-                or immediately above the composer), not in global chrome. They
-                sit above the copilot here until the Copilot-as-shell merge
-                lands — recorded as D-11 rather than left to look intentional. */}
-            {quickLinks.length > 0 ? (
-              <div className="flex shrink-0 flex-wrap gap-1 border-b border-slate-800 px-2 py-1.5">
-                {quickLinks.map((link) => (
-                  <a
-                    key={link.id}
-                    href={quickLinkHref(link, personaId)}
-                    target={quickLinkTarget()}
-                    rel="noreferrer"
-                    className="rounded-md border border-slate-800 bg-slate-900/40 px-2 py-1 text-[10px] text-slate-300 transition-colors hover:bg-slate-900/60"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            ) : null}
+          <div className="min-h-0 flex-1">
             <CodexCopilotLayer
               isOpen={true}
               onClose={() => undefined}
               variant="embedded"
               className="h-full w-full"
               initialCopilotMode={copilotModeForNavItem(activeNavItem)}
+              /* QUICK LINKS as Class 2 Context Actions (§3.2.4/§3.2.5).
+                 Rendered through the copilot's OWN `quickPrompts` carousel —
+                 the single row above the composer that is already the standard
+                 here — rather than a bespoke strip in Companion chrome. That
+                 was the C3 mistake: global chrome for something that is a
+                 conversational affordance.
+
+                 `skipInference` keeps them out of the model path: selecting one
+                 is a navigation act, not a question. `onPrompt` then DRIVES THE
+                 BROWSER — the destination opens in the left-hand workspace and
+                 the Companion stays put on the right. */
+              quickPrompts={quickLinkPrompts}
+              onPrompt={openQuickLink}
               agent={{ id: "aigent-me", name: "Agent Me" }}
               personaId={personaId}
             />

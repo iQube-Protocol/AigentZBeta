@@ -152,15 +152,26 @@ describe('Quick Links are derived and reuse the shipped navigation', () => {
   });
 
   it('§3.2.5 — drives the BROWSER, never the Companion pane', () => {
-    // The correction C3 got wrong first time. A Quick Link is a Class 2
-    // Context Action: it launches into the left-hand workspace and leaves the
-    // Companion in place on the right. If it ever navigated the Companion's
-    // own pane, the assistant would be replacing itself with the thing it was
-    // asked to open.
+    // The correction C3 got wrong twice: first navigating the Companion's own
+    // pane, then opening the browser from a bespoke chrome strip. A Quick Link
+    // launches into the left-hand workspace and leaves the Companion on the
+    // right. If it ever navigated the Companion, the assistant would be
+    // replacing itself with the thing it was asked to open.
     expect(quickLinkTarget()).toBe('_blank');
     const code = stripComments(readSource(COMPANION_PAGE));
-    expect(code).toContain('target={quickLinkTarget()}');
-    expect(code).toContain('rel="noreferrer"');
+    expect(code).toContain('window.open(quickLinkHref(link, personaId), quickLinkTarget()');
+  });
+
+  it('§3.2.4 — renders in the copilot\'s OWN carousel, not Companion chrome', () => {
+    // Class 2 actions are conversational affordances. Reusing the shipped
+    // `quickPrompts` row above the composer is what makes that true, rather
+    // than a second bespoke strip that merely looks similar.
+    const code = stripComments(readSource(COMPANION_PAGE));
+    expect(code).toContain('quickPrompts={quickLinkPrompts}');
+    expect(code).toContain('onPrompt={openQuickLink}');
+    expect(code).toContain('skipInference: true');
+    // No bespoke anchor strip left behind.
+    expect(code).not.toMatch(/quickLinks\.map\([^)]*\)\s*=>\s*\(\s*<a/);
   });
 
   it('is a presentation filter, and says so — the server gate still governs', () => {
