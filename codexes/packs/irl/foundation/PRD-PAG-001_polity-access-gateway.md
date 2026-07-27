@@ -644,18 +644,113 @@ left-hand browser, which scrubs the token from the URL, exchanges it top-level, 
 (`next` confined to same-origin paths — no open redirect). Handoff failure degrades to the
 pre-handoff behaviour, never blocks the Companion's own session. Canaried (4).
 
-### A.10.3 Still open
+### A.10.3 Still open — statuses updated 2026-07-27 (operator dispositions)
 
 - **SessionQube recording (ruling 5)** — the Passport-backed session is not yet written to the
   SessionQube substrate. The existing human-session machinery is OAuth-handshake shaped
   (client_id, authorization code) and this is a first-party direct mint; forcing it in would
   be a parallel implementation. Needs either a row shape for direct mints or a receipt-side
-  record. **Not silently skipped — named here.**
-- **Account ↔ Passport binding** for existing account holders (§A.5 neighbourhood).
-- **Passport consolidation / lineage** (§A.5), **passkey enrolment** (§A.6 level 2), external
-  RP presentation — each separately chartered.
+  record. **Charter RATIFIED 2026-07-27 (operator). Build authorized on the operator's word;
+  not yet built.**
+- **Account ↔ Passport binding** for existing account holders (§A.5 neighbourhood) —
+  **CHARTERED FOR EXECUTION 2026-07-27 (operator). Charter = Amendment B below.** Execution
+  sequences after the §A.5/§A.6 build pass lands (it composes the lineage resolver and the
+  step-up policy).
+- **Passport consolidation / lineage** (§A.5), **passkey enrolment** (§A.6 level 2),
+  **step-up risk→grade binding** (§A.6 level 3) — **ALL THREE RATIFIED 2026-07-27 (operator:
+  "ratified - build"). Build pass launched same day** (parallel agent; zero protected-file
+  impact per §A.9.1; canaried). External RP presentation remains separately chartered, unbuilt.
+- **Issuance without a prior account** (§A.10.2 finding b) — **charter instructed 2026-07-27
+  (operator). Charter = Amendment C below; pending ratification of that amendment.**
+
+**Live-verification checklist (operator-fed):**
+
+- [ ] **Persona-selection flakiness** — "sometimes not showing one of my personas." Sits in the
+  spine's fallback resolution; not reproducible blind from the sandbox. Operator will send
+  details from a live session once the current build is deployed — if it still reproduces,
+  diagnose from those specifics. *(Recorded 2026-07-27; the last open piece of the reported
+  Companion access problem.)*
 
 
+
+---
+
+## Amendment B — Account ↔ Passport binding for existing account holders (CHARTERED FOR EXECUTION 2026-07-27)
+
+**Operator disposition 2026-07-27: "charter for execution."** This charter authorizes the
+execution pass; it sequences after the §A.5/§A.6 build (it composes the lineage resolver and
+the step-up policy shipped there).
+
+### B.1 Scope
+
+An existing account holder (username/password or OAuth Supabase account) binds their account
+to a Passport they control, so passport-native access (§A.4) becomes their sign-in. Issuance
+already anchors new Passports to the issuing auth user (`bureauIdentityService` find-or-create
+by `auth_user_id`), so this charter covers only the residual cases: accounts that predate the
+holder's Passport, and Passports whose lineage resolves to no — or a different — auth user.
+
+### B.2 Requirements
+
+1. **Both sides proven, never inferred.** The account side is proven by the caller's active
+   Supabase session (canonical spine resolution — no parallel resolver). The Passport side is
+   proven by the same challenge/proof walk as §A.4 (`connectionChallenge` single-use nonce +
+   signature verification + `resolvePassportPrincipal`) run in *verify* mode — holding a
+   session never substitutes for proving Passport control.
+2. **Never bind on email or display-name match** — the existing spine rule, extended here and
+   canaried (same class as the §A.5 no-merge canary).
+3. **Conflict is a refusal, not a re-bind.** If the proven Passport lineage already resolves
+   to a *different* auth user, the binding is refused and the citizen is routed to the §A.5
+   consolidation flow. Silent re-binding would let one account capture another's lineage.
+4. **Binding is a consequential act** — step-up-gated per the §A.6 risk→grade policy (its own
+   consequence class), and receipted through the established receipt writer.
+5. **Reversibility**: unbinding is chartered as part of the same surface, receipted, and never
+   deletes lineage — it detaches the compatibility envelope only (ruling 4: Supabase is the
+   envelope, the Passport/KybeDID is the root).
+
+### B.3 Boundaries
+
+Zero protected-file impact (§A.9.1 discipline). No new session machinery — a successful
+binding changes what future §A.4 proofs resolve to; it does not mint anything at bind time.
+
+---
+
+## Amendment C — Passport issuance without a prior account (CHARTER — authored 2026-07-27, pending ratification)
+
+**Operator disposition 2026-07-27: "charter."** §A.10.2 finding (b) located the block
+UPSTREAM: `bureauIdentityService` anchors every Passport to a Supabase auth user, so the
+success criterion *"a new citizen can receive a Passport without first signing into metaMe"*
+cannot be met by the access layer. This charter names the issuance change.
+
+### C.1 Scope
+
+The Bureau mints an **account-less lineage**: `root_identity` anchored to the personhood
+proof (the kybe identity), with `auth_user_id` nullable at issuance. Account creation becomes
+an optional LATER act — performed via the Amendment B binding machinery — never a
+prerequisite for holding a Passport.
+
+### C.2 Chartered mechanics
+
+1. **Schema**: `root_identity.auth_user_id` becomes nullable, with an integrity rule that an
+   account-less row must carry a verified kybe anchor (no orphan lineages).
+2. **Issuance**: the Bureau's find-or-create keys off the kybe identity when no auth user is
+   present. Account-less issuance requires a **high-assurance personhood grade** (World ID
+   class) — a captcha-grade account-less Passport would be a Sybil vector; grade required is
+   read from the §A.6 risk→grade policy, not hardcoded.
+3. **First access provisions the envelope.** Ruling 4 keeps Supabase as the application-session
+   compatibility envelope, so the first §A.4 proof by an account-less Passport mints the
+   envelope auth user server-side from the Passport walk — no user-visible signup. This is the
+   existing `principal_unprovisioned` branch of `resolvePassportPrincipal` acquiring a
+   provisioning path instead of a refusal. Binding-not-by-email discipline holds throughout.
+4. **Recovery** for account-less holders is Passport-side (holder-control proof, §A.6), never
+   email-side; recovery UX is part of the execution plan, not waved off.
+
+### C.3 Ratification gate
+
+- [ ] Operator ratifies nullable-`auth_user_id` + kybe-anchored integrity rule (C.2.1)
+- [ ] Operator ratifies the high-assurance-grade requirement for account-less issuance (C.2.2)
+- [ ] Operator ratifies first-access envelope provisioning (C.2.3)
+
+---
 
 *Amendment authored docs-only, 2026-07-26. Builds nothing. Reconciled against the shipped
 Phase 1 (`services/accessGateway/*`, `app/api/access-gateway/*`, `app/access-gateway/authorize/page.tsx`),

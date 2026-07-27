@@ -111,6 +111,54 @@ Verified against the root `package.json` and all thirteen workspace manifests un
 
 `utils/codex-nav.ts::buildCodexUrl` (with `tab`, `personaSessionToken`, `shell`, `from`/`fromTab`) is the navigation plumbing a guide **could** be built on. That is the extent of what exists.
 
+### 0.3d P4a closure — the §9 seven-point contract confirmed against the native surface (2026-07-27, operator: "go")
+
+The remaining P4a work was narrow: confirm the seven-point framework contract against the
+native Edge Companion's own constraints. Confirmed point-by-point against the surface as
+shipped this week (the Companion 1:1 shell — 8-item nav vocabulary, search, quick links,
+capture, wallet, avatar/chat modes, Passport connect gate):
+
+1. **Declarative definitions** — no native obstacle. Definitions are data modules consumed by
+   one runtime component inside the Companion page (a Next.js client component, like
+   everything else on that surface).
+2. **Stable anchor contract** — `data-tour` attributes are stamped in-tree (the Companion page
+   + `CodexCopilotLayer` are main-tree files), so the anchor contract is *stronger* here than
+   in the cross-repo reference implementation.
+3. **Controlled advancement with anchor verification** — reproducible natively (refs /
+   `MutationObserver` + the reference's anchor-wait + settle discipline). One native caution:
+   the avatar ↔ chat mode swap unmounts panels, so the runtime must re-verify anchors after
+   mode changes — observable via the shipped `onCopilotModeChange` seam, so this is a
+   discipline to apply, not a blocker.
+4. **Staging effects** — *the one point that degrades at a boundary.* Companion-internal
+   staging is DIRECT state control (`setActiveNavItem`, capsule/layout state) — stronger than
+   the reference's iframe postMessage. But steps that stage the **application in the left
+   browser** cross a *window* boundary (the cartridge-link rule: cartridge pages open in the
+   browser, never in the Companion). `buildCodexUrl` gets the user there; the Companion cannot
+   verify or hold that remote surface open. **Rule adopted: within the panel, staging is
+   stage-and-verify; across the window boundary, steps are fire-and-describe** — the script
+   narrates what the citizen will see rather than asserting a verified state. An honest guide
+   degrades explicitly; it does not pretend to observe a window it cannot.
+5. **Step-lifecycle seam** — net-new as specced; no native obstacle.
+6. **Externalised copy** — narration units authored under `TTS_MAX_CHARS = 950`, played
+   through `useTTSPlayer` with the surface's resolved voice persona (Agent Me in the
+   Companion, per the shipped `resolveVoicePersona` seam), preserving the R/T busy-pulse
+   contract.
+7. **State the runtime does not own** — progress reported outward to a persona-bound spine
+   route, consumed with `personaFetch` (mandatory — the Companion holds a Bearer once the
+   connect gate has run). Durability decisions stay with the host per the contract.
+
+**Panel constraint:** the ~23rem width bounds the spotlight/halo + caption card design;
+captions (D-13) are sized for the panel from the start, not retrofitted.
+
+**Disposition: P4a CLOSED. D-12 and D-22 RESOLVED** (see §20) — the reference implementation
+is adopted as the read-only contract source; the runtime is built natively (D-23); no
+replacement framework is needed, and none may be introduced without naming the requirement
+this path cannot meet. **The operator's "go" (2026-07-27) charters P4b** — the guide runtime
+build, captions included (D-13's recommended "build it" carried into scope). D-14 (per-guide
+script approval against the capability set current on build date) remains a standing gate at
+each guide's build time, starting with the Companion Guide (P5). Sequencing per the operator:
+the build queues behind the three priority workstreams in flight (Chrysalis tracker row 100).
+
 ### 0.4 The voice substrate for §9 **already exists and must be composed, not rebuilt** — but the caption layer does not
 
 | §9 requirement | Shipped primitive | Status |
@@ -834,8 +882,8 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-9** | Make Companion install + pairing server-observable — persist surface provenance (SPEC-MMC-003 §3.6's held migration) or add an explicit pairing record | Adopt the smaller: persist the already-stamped `x-companion-surface`. Exact SQL to the operator inline at charter time | **Open — BLOCKING for §13** |
 | **D-10** | Make aigentMe engagement observed rather than derived (§0.8), or accept "derived" and label it everywhere it surfaces | Accept `derived` for Phase 1 and label it; upgrade only if §13 needs a hard signal | **Open** |
 | **D-11** | Confirm SPEC-CDR-001 owns the §5 gap — both its Domain Resolution layer (what kind of thing is this page) and its Context Resolution layer (what should *this citizen* see here) — and that this SPEC builds neither a second classifier nor a second context composer | Adopt. Also adopt SPEC-CDR-001 §6.2's abstention rule verbatim: abstention is preferable to fabricated context | **Open** |
-| **D-12** | **(REWRITTEN 2026-07-25.)** Determine whether the **existing metaMe Runtime Shell guided-tour mechanism can serve as the shared Guided Experience Framework** — adopted, extracted, or adapted — rather than selecting or implementing a new one. The audit is §0.3a; the contract it must satisfy is §9's seven-point framework contract | Adopt reuse-before-replacement (D-22). The implementation satisfies the anchor contract, controlled advancement, and staging discipline today; it lacks declarative definitions, a step-lifecycle seam, and externalised copy. Recommend **extract and extend**, not replace — and require any replacement proposal to name the specific requirement the existing implementation cannot meet | **Open — BLOCKING for §8** |
-| **D-13** | Caption/transcript tier: build the `useTTSPlayer` caption seam, or ship voice-primary without captions | **Build it.** A voice-primary guide with no caption tier is inaccessible; it is a build item, not an assumption | **Open** |
+| **D-12** | **(REWRITTEN 2026-07-25.)** Determine whether the **existing metaMe Runtime Shell guided-tour mechanism can serve as the shared Guided Experience Framework** — adopted, extracted, or adapted — rather than selecting or implementing a new one. The audit is §0.3a; the contract it must satisfy is §9's seven-point framework contract | Adopt reuse-before-replacement (D-22). The implementation satisfies the anchor contract, controlled advancement, and staging discipline today; it lacks declarative definitions, a step-lifecycle seam, and externalised copy. Recommend **extract and extend**, not replace — and require any replacement proposal to name the specific requirement the existing implementation cannot meet | **RESOLVED 2026-07-27** — resolved as **reproduce the contract natively + extend** (D-23 removed the extraction question; §0.3d confirms the contract against the native surface). §8 unblocked |
+| **D-13** | Caption/transcript tier: build the `useTTSPlayer` caption seam, or ship voice-primary without captions | **Build it.** A voice-primary guide with no caption tier is inaccessible; it is a build item, not an assumption | **RESOLVED 2026-07-27** — the recommended "build it" is carried into the P4b charter by the operator's "go" (§0.3d); captions are in the runtime's build scope, panel-sized from the start |
 | **D-14** | Operator approves the Companion Guide script against the Companion capability set current on its build date (§10) | Adopt as a standing requirement for every guide, not only the first | **Open** |
 | **D-15** | Completion percentage: define it over evaluable criteria only, or defer it until D-7/D-9 land | **RATIFIED (operator, 2026-07-26): DEFER.** No percentage until D-7 is ratified *and* D-9 establishes observability for **every** included criterion. Phase 1 uses **explicit lifecycle states**, never a partial or fabricated percentage. (D-7 is now ratified; the remaining condition is D-9's observability.) See §13 | **RATIFIED** |
 | **D-16** | "Why it matters" rationale derives from `SubstrateLayer.evidence`, never separately-authored copy (§12) | Adopt | **Open** |
@@ -844,7 +892,7 @@ Every decision below must be resolved before implementation. **No code changes u
 | **D-19** | May a delegated agent select a journey on the principal's behalf, or is selection human-only? | **RATIFIED (operator, 2026-07-26): recommend-and-prepare, never finalise.** A delegated agent MAY recommend and prepare a journey selection; the principal MUST explicitly confirm it **through the existing authorization spine** before it becomes active. **No agent-finalised journey selection, and no parallel authorization gate.** This is the Principal–Delegate Separation boundary (CFS-043 §2) applied to journey selection. See §14.3a | **RATIFIED** |
 | **D-20** | Charter the journey-selection store, write path, `select_journey` tool, migration, and resolver extension (§14.3, five items) | Adopt as a **separate charter**, not a phase of this SPEC. Nothing in §14 is implementable before it lands | **Open — BLOCKING for §14** |
 | **D-21** | Adopt the **Constitutional Activation (objective) / Guided Configuration (experiential)** split, with **Threshold Crossed** as the terminal state of both (§1.1, §13) | **RATIFIED (operator, 2026-07-26) — the split is adopted; the "terminal state of both" half is REPLACED.** D-7's supersession removed personalization from the gate, and a layer that gates nothing cannot be half of a terminal state. **Threshold Crossed = Constitutional Activation complete** (the four §13.1 criteria). Guided Configuration becomes an **open-ended post-threshold track with no completion state**. "Declined" stays distinguishable from "completed" — no longer to evaluate the threshold, but to run the post-threshold track honestly. D-8's resolution is unaffected | **RATIFIED** |
-| **D-22** | Adopt **reuse before replacement**: the shipped metaMe Runtime Shell tour is the **reference implementation**; it SHALL be audited (§0.3a) before any new tour framework is selected, and any replacement proposal must name the requirement it cannot meet | Adopt (`inv.engineering.037`). The original §0.3 absence claim is withdrawn | **Open — BLOCKING for §8, §9** |
+| **D-22** | Adopt **reuse before replacement**: the shipped metaMe Runtime Shell tour is the **reference implementation**; it SHALL be audited (§0.3a) before any new tour framework is selected, and any replacement proposal must name the requirement it cannot meet | Adopt (`inv.engineering.037`). The original §0.3 absence claim is withdrawn | **RESOLVED 2026-07-27** — audit complete (§0.3a) + native-surface confirmation complete (§0.3d); the reference stays the read-only contract source, the runtime is built natively (D-23). No replacement framework without naming the requirement this path cannot meet |
 | **D-23** | Whether the Guided Experience Framework is **extracted into the main tree**, **kept in the thin client and consumed**, or **re-expressed as a shared package** — the two trees are separate repositories (§0.3a Q1) | **RESOLVED (operator, 2026-07-25): build it natively in the Next.js Edge Companion first**, so the programme carries no dependency on the Lovable thin client. Handoffs between the two surfaces are addressed later, not now. The thin-client implementation remains the **reference** (D-22) — read for its contract and its hard-won staging discipline, not imported | **RATIFIED** |
 | **D-24** | Raised by D-7's supersession: D-7 named only *"Passport, Delegation and Agent Me activation"*, while §13 listed six Constitutional Activation criteria. Do **Companion installed / paired** survive? | **RESOLVED (operator, 2026-07-26, via the Companion 1.1 Scope §9).** Threshold Crossing is stated there as `Passport → Delegation → Agent Me Activation → **Companion Pairing** → Threshold Crossed`. **Pairing is RETAINED.** `Companion installed` is not separately listed and is treated as a **precondition of pairing**, not an independent criterion — an inference from the four-step sequence, flagged for cheap correction if separate install tracking is wanted. **Consequence: D-9 remains the long pole**, since pairing state lives in `chrome.storage.local` only | **RATIFIED** |
 
@@ -877,7 +925,7 @@ Recorded so the first build slice is deliberately narrow. **Not authorised until
 | **P1** | **Observer surface.** Extend `services/onboarding/substrateState.ts` with stage/prerequisite/rationale fields (same `SubstrateResolution` dial), and give the route its first real consumer. No new resolver. **No completion percentage.** | D-15, D-16 |
 | **P2** | **Companion install + pairing observability.** Persist the already-stamped `x-companion-surface` (migration, exact SQL inline to the operator). Makes §13 criteria 4–5 evaluable. | D-9 |
 | **P3** | **Threshold definition.** ~~Define "initial configuration complete"~~ — **defined by D-7 (§6b)**; remaining scope is pinning the two build-time definitions (minimum-viable PEQ field set incl. consent; a task signal distinguishing completed from opened), reconciling the delegation criterion, and computing/exposing Threshold Crossing state. Receipt only if D-17 says so. | ~~D-7~~, D-8, D-10, D-17 |
-| **P4a** | **Reference-implementation audit** — completed for the five supplied files (§0.3a). Disposition **RESOLVED by D-23: build natively in the Next.js Edge Companion**, no thin-client dependency. Remaining P4a work is narrow: confirm §9's seven-point contract against the native surface's own constraints (Next.js client components, the Companion's ~23rem panel, `personaFetch` transport). | D-12, D-22, **D-23 ratified** |
+| **P4a** | **Reference-implementation audit** — completed for the five supplied files (§0.3a). Disposition **RESOLVED by D-23: build natively in the Next.js Edge Companion**, no thin-client dependency. Remaining P4a work — the native-surface confirmation of §9's seven-point contract — **COMPLETED 2026-07-27 (§0.3d). P4a CLOSED**; D-12/D-22 resolved. | ~~D-12~~, ~~D-22~~, **D-23 ratified** |
 | **P4b** | **Guide runtime, built natively in the Edge Companion.** One runtime + declarative definitions: highlight, stage-the-surface, navigate (`buildCodexUrl`), narrate (`useTTSPlayer` → `/api/skills/tts`), captions, step-lifecycle seam, pause-for-interaction, confirm-completion. The thin client's controlled-advancement + anchor-wait + settle discipline is a **requirement to reproduce**, not code to import (§0.3a). | D-4, D-13, and P4a |
 | **P5** | **The Companion Guide** — the first definition on P4b's runtime, script approved against the capability set current on its build date. | D-14, and P4 |
 | **P6** | **Stage B in the Companion.** Host §6's modules with `CodexCopilotLayer` mounted as the full-width aigentMe runtime inside the Companion; wallet and aigentMe as toggled peer modes (§6a). Amend CLAUDE.md's Wallet-Over-Cartridge Overlay section in the same change (§6a.4). **§6a.3's orchestration-layer consequences are NOT in this phase** — they are chartered as `SCOPE-MMC-004` (Companion 1.1). | ~~D-5~~ (ratified), D-6, and P2 |
@@ -907,6 +955,7 @@ No new resolver, no new percentage, no new authority mechanism, no new table.
 - [ ] Operator resolves the §20 decision register (D-1 … D-23). Nine are marked BLOCKING and gate §4, §6, §8–§10, §13, and §14.
 - [x] **CONFIRMED 2026-07-26** — Operator confirms **D-21** (the §1.1 layer split), as amended by D-7's supersession: Threshold Crossed = Constitutional Activation complete alone. Carries the recommended **D-8** resolution: Delegation is a Constitutional Activation criterion, required-when-an-agent-is-bound rather than universally, so a direct human arrival can still cross.
 - [x] **D-23 RESOLVED 2026-07-25** — build the Guided Experience Framework **natively in the Next.js Edge Companion first**, so nothing in this programme depends on the Lovable thin client. Handoffs between the two surfaces are deferred, not designed now. The thin-client tour stays the reference implementation (D-22): its step contract and staging discipline are requirements to reproduce, not code to import — which keeps `inv.engineering.036`/`037` satisfied, because the two surfaces are separate products rather than one capability implemented twice.
+- [x] **GO 2026-07-27 (operator)** — with D-4 settled (Threshold Guides) and the D-22 audit path ratified, the operator chartered the guides build: P4a closed via the §0.3d native-surface confirmation; **P4b (guide runtime, captions included) is CHARTERED**, D-14 stands as the per-guide script gate at P5. Sequencing: the build queues behind the three priority workstreams in flight (Chrysalis tracker row 100).
 - [ ] Operator charters the **journey-selection store** (§14.3 / D-20) as separate work. §14 is not implementable before it.
 - [ ] Operator confirms **§17's architectural observation** — the Companion as the constitutional home of the citizen, and the Homecoming reframing — as binding architecture rather than description.
 - [ ] Operator confirms the **§16 success criteria** enter CFS-051 as `proposed` (empirical) except criterion 5 (governance rule), per the hypothesis-vs-canon discipline.

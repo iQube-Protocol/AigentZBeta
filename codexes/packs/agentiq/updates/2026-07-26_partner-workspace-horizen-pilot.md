@@ -113,3 +113,13 @@ CRP-003a agreement route.
 - `tests/partner-workspace.test.ts` — NEW: canaries (single source, id vocabulary,
   canonical spellings, adminOnly, command-center honesty, transport/link discipline,
   deep-link parity)
+
+## Backlog (operator-queued 2026-07-27)
+
+- **Daily Chief-of-Staff wakeup — Aigent Z's morning report.** A Routine/automation
+  increment: Aigent Z (workspace owner/orchestrator) produces a daily morning report over
+  the Partner Workspace — pilot state, open actions, agreement movements, communication
+  since last sync — delivered on a schedule rather than on-demand. Deliberately NOT in the
+  composition pass: it should land after the workspace surface is live so there is real
+  state to report on. The natural next charter for this workstream once the surface is
+  deployed and exercised. (Operator: "Make sure we don't lose this.")
