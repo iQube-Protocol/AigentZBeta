@@ -350,3 +350,166 @@ Horizen becomes operational at the end of Phase 3. Phases 4–5 do not gate it.
 8. **Where the Participate area lives** — a new Venture Lab group (`Venture Lab → Participate`),
    or inside the Partner domain? *Recommendation: its own group — participation is cross-programme,
    not partner-specific.*
+
+---
+
+# Amendment B — Four-Tier Experimental Operating Model (operator ruling, 2026-07-27)
+
+**Ruling received and recorded in full as the governing architecture.** The correction: this is a
+**four-tier experimental operating model**, not a three-tier collaboration model, shared across
+both Labs but specialised by domain. Commonality sits at participation, constitutional access,
+collaboration, evidence, invariants and commons projection. **Domain richness stays deliberately
+asymmetric.**
+
+```
+Tier 0  Internal Programme Space            (operator-only, BlakQube-oriented)
+Tier 1  Sovereign Locker + Bounded Collab   (participant-sovereign)
+Tier 2  Shared Research or Venture Workspace (cohort-scoped metaQube)
+Tier 3  Governed metaCommons                (proof commons)
+```
+
+Amendment B asks for two audit passes that had not been run. Both are below, with findings.
+
+## B.1 NEW AUDIT — the invariant underpinning of the Venture Lab (§6)
+
+**Finding: the Venture Lab has essentially no invariant underpinning today, and the namespaces
+the ruling calls for do not exist.**
+
+The seed crystal holds **365 invariants** across thirteen namespaces:
+
+| Namespace | Count | | Namespace | Count |
+|---|---|---|---|---|
+| polity | 143 | | capability | 8 |
+| reasoning | 89 | | style | 8 |
+| constitutional | 38 | | sovereignty | 8 |
+| engineering | 24 | | interaction | 7 |
+| epistemology | 13 | | representation | 7 |
+| experience | 9 | | narrative | 6 |
+| | | | cybernetics | 5 |
+
+Status split: **202 canonical · 7 validated · 156 proposed.**
+
+There is **no `commercial`, `operational`, `service`, `transaction`, `adoption` or `value`
+namespace.** Keyword coverage across all 365 statements:
+
+| Concept the ruling names | Invariants touching it | Assessment |
+|---|---|---|
+| commercial | 4 (3 are `sovereignty.*` about provider substitutability) | effectively unmodelled |
+| venture | 4 — `polity.166` (Standing calibrates, never gates), `polity.172` (ventures execute, people participate), `polity.174` (VentureQube is a living venture specification), `polity.167` | **doctrine about ventures, not commercial invariants** |
+| revenue · customer · delivery · pilot | **0** | absent |
+| adoption | 3 | incidental |
+| operational | 30 | almost all "operational" as an epistemic qualifier (operational-vs-absolute truth), **not** operational invariants |
+| partner | 1 | absent in practice |
+
+**And no code under `services/venture/**` or `types/ventureQube.ts` cites a single invariant id.**
+The Venture Lab is not currently invariant-governed in any executable sense — it is
+invariant-*described* by four polity invariants and otherwise disconnected from the substrate.
+
+**Consequences for the plan:**
+
+1. The ruling's Venture invariant emphasis (commercial · operational · service-delivery ·
+   transaction · value-creation · adoption · partner-operation) is **entirely net-new**. It is
+   correctly scoped as *candidates*, and the ruling's own discipline applies: the Venture Lab may
+   **apply, test and propose** invariants but **must not canonise** on commercial success.
+2. This makes the Hypothesis-vs-Canon rule load-bearing here. Any commercial or operational
+   invariant enters at `proposed` and stays there until evidence exists — the same discipline that
+   keeps `inv.reasoning.323` proposed.
+3. `polity.166` is directly relevant and already canonical: **Standing calibrates confidence; it
+   does not gate.** A Venture Lab workspace must not use Standing as an access gate.
+4. **Recommendation:** do not create a `commercial`/`operational` namespace in this phase. Add
+   `invariantReferences` to the spine (Phase 2) so pilots can *cite* existing invariants and
+   *propose* candidates through the established seed-and-ratify path. Namespace creation is its
+   own operator ratification.
+
+## B.2 NEW AUDIT — Tier 0 already exists, informally (§2, Tier 0)
+
+The ruling's expectation — *"This tier likely already exists partly within the Partner framework,
+Portfolio surfaces, operator workspaces, private Lockers and administrative records"* — is
+**confirmed**. Venture Lab's sixteen tabs split cleanly along the Tier 0 / Tier 2 line already:
+
+| Posture | Tabs |
+|---|---|
+| **adminOnly — de facto Tier 0** | Partner Overview · Collaborate · Operate · Evidence · Communicate · α Programme · AgentiQ OS α · α Docs · Plan Pricing |
+| Open to venture participants | Founder Office · Founders Club · Financial Services · Commercial Funnel · Relationship Builder · Growth Matrix · Portfolio |
+
+So Tier 0 needs **recognition and naming, not construction**. What is missing is the *distinction*
+— today `adminOnly` conflates "internal programme space" with "platform administration", and the
+Partner group is caught in that conflation (§B.3).
+
+## B.3 NEW AUDIT — Partner group posture (§13)
+
+The ruling asks which of three postures the Partner group should take. **Finding: the third — split
+it.** The evidence is that all five Partner tabs are `adminOnly`, which is correct for exactly two
+of them and wrong for three:
+
+| Partner view | Contains | Correct tier |
+|---|---|---|
+| Overview (Pilot Command Center) | phase, owner, partner, open actions | **Tier 2** — the shared record; this is what a partner operator must see |
+| Collaborate | invitations, peer exchange, Locker | **Tier 2** (Locker contents stay Tier 1) |
+| Operate | integration checklist, delivery state | **Tier 2** |
+| Evidence | receipts, validation | **Tier 2**, with Tier 0 items filtered |
+| Communicate | announcement approvals, partner messaging | **Tier 0 → Tier 2 on approval** — drafting is internal, approved output is shared |
+
+Plus genuinely Tier 0 material with no home today: internal partner assessment, negotiation
+posture, commercial assumptions, internal risk analysis, pre-release reports.
+
+**Recommended posture, matching the ruling's preference:**
+
+```
+Partner Administration   → internal only        (Tier 0)  — new, small
+Partner Workspace        → programme-scoped     (Tier 2)  — the five views, membership-gated
+```
+
+**This is the mechanism that resolves the hard blocker** (base audit §7 item 4): partner operators
+never become platform admins. The Tier 2 views gate on **workspace membership** resolved through
+`participationAccess`; the Tier 0 view keeps `adminOnly`. It also gives the Communicate view its
+correct two-stage behaviour rather than one blanket gate.
+
+## B.4 Accepted without change
+
+- **Evidence posture — map, don't unify** (§8). Accepted; already the audit's own recommendation.
+  `FINDING_LIFECYCLE` stays pinned canon; `CommonsEvidencePosture` carries `sourceLifecycle` so the
+  native ladder is never erased.
+- **Four proof classes** (§9) — scientific · operational · commercial · constitutional. Adopted as
+  the commons discriminator. Note that **constitutional proof is the only class both Labs produce
+  natively**, which makes it the right first proof class to implement.
+- **Narrow spine** (§5) — accepted verbatim; matches the seam proposed in Amendment A §A.5, now
+  extended with `invariantReferences` per §6.
+- **Transport defect as a prerequisite** (§12) — accepted, with the eight sub-requirements as the
+  acceptance criteria for that work.
+- **Participation surfaces** (§11) — accepted; Venture Lab Participation as its own cross-programme
+  group.
+
+## B.5 Revised implementation sequence (supersedes Amendment A §A.7)
+
+| Stage | Scope | Gating |
+|---|---|---|
+| **Prerequisite** | Persona-safe participation transport: `personaFetch` on the steward routes, the missing `tests/persona-spine-fetch.test.ts` canary, mutation-tested, multi-persona isolation, non-admin participation | **Blocks Phase 1** |
+| **Phase 1** | Participant-facing Participation surfaces, both Labs, over the existing domain-scoped substrate. No new participation engine | Prerequisite |
+| **Phase 2** | Common `ExperimentWorkspace` spine — everything by reference except milestones/actions/blockers/decisions; `invariantReferences` included | — |
+| **Phase 3** | **Horizen Workspace**: Tier 0 Partner Administration split from Tier 2 Partner Workspace (§B.3), participant Lockers + bounded QubeTalk, Aigent Z administration + weekly reporting (**one increment with tracker row 102**), Venture Lab projections | Phases 1–2 |
+| **Phase 4** | Research Workspace adoption of the same four tiers, without weakening the native experimental model | Does **not** gate Horizen |
+| **Phase 5** | metaCommons proof layer — governed promotion, four proof classes, domain-aware posture, commons reporting | Does **not** gate Horizen |
+
+**Horizen becomes operational at the end of Phase 3.**
+
+## B.6 Governing formulation (recorded verbatim as canon for this workstream)
+
+> The Research Lab and Venture Lab are parallel experimental environments operating on a common
+> constitutional and collaborative substrate. The Research Lab is scientifically rich and primarily
+> produces structural and scientific proof. The Venture Lab is venture-rich and primarily produces
+> commercial and operational proof. Both are constitutionally governed, both may apply and test
+> invariants, and both contribute approved evidence into a shared metaCommons.
+
+## B.7 Decisions outstanding after Amendment B
+
+Amendment B resolves base-audit items 4 (partner access → split, §B.3), 7 (evidence posture → map)
+and 6 (transport → prerequisite). Still open:
+
+1. **Roles** — extend `DOMAIN_ROLES['venture-lab']` with the workspace roles? *(recommend yes)*
+2. **Instance id** — keep `horizen-pilot-series-001`? *(recommend yes)*
+3. **Actions substrate** — project from IntentQubes + Agreements rather than a new store? *(recommend yes)*
+4. **NEW — invariant namespaces** — confirm that no `commercial`/`operational` namespace is created
+   in this phase, and that Venture invariant candidates enter at `proposed` via the existing
+   seed-and-ratify path (§B.1). *(recommend yes)*
+5. **Scope** — authorise Prerequisite + Phases 1–3 as the Horizen delivery, with 4–5 following?
