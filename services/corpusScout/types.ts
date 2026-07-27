@@ -7,6 +7,12 @@
  *   ReviewWorkflowStatus  — pipeline-state question ("what did the reviewer decide").
  */
 
+// The registry TEMPLATE (SPEC-CIR-001) owns the tier vocabulary and the Law II
+// assessment shape; this module re-uses them rather than declaring a second
+// copy. `institutionalRegistry.ts` imports only the homepage directory, so
+// there is no cycle.
+import type { SourceTier, PillarDiversityRow } from './institutionalRegistry';
+
 /**
  * The EVIDENCE-PROVENANCE vocabulary — "where did the evidence come from".
  * Originally the four values ratified by `CRYSTAL-ENLARGEMENT_plan.md` §2a;
@@ -265,6 +271,12 @@ export interface InstitutionalRegistryRow {
    *  Steward-provided, never search-derived. Null until a steward adds one —
    *  an institution with no seedUrl isn't yet eligible for Agent B/C. */
   seedUrl: string | null;
+  /** SPEC-CIR-001 §3 — which acquisition tier this authority belongs to.
+   *  `null` means UNDECLARED, which is never treated as authoritative:
+   *  `assessRegistryDiversity` refuses to count an undeclared row toward
+   *  Law II. Fail-closed, so a practitioner source can never be silently
+   *  counted as a primary scientific authority. */
+  sourceTier: SourceTier | null;
 }
 
 /** The full constitutional substrate for one domain — what `GET
@@ -275,4 +287,12 @@ export interface DomainConstitution {
   pillars: CoveragePillarRow[];
   dependencies: DependencyRegistryRow[];
   institutions: InstitutionalRegistryRow[];
+  /**
+   * SPEC-CIR-001 §7 — Law II of Constitutional Discovery, evaluated per
+   * pillar over this domain's registry. Present so the rule is BOUND to an
+   * observable surface rather than existing only as doctrine (CFS-053 CB-1/
+   * CB-6: a mechanism that cannot fire is indistinguishable from one that
+   * does not exist).
+   */
+  diversity: PillarDiversityRow[];
 }

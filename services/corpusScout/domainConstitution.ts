@@ -26,6 +26,13 @@ import type {
   RatificationStatus,
 } from './types';
 import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
+import {
+  assessRegistryDiversity,
+  findRegistryEntry,
+  isSourceTier,
+  type DiversityInput,
+  type SourceTier,
+} from './institutionalRegistry';
 
 type Result<T> = { ok: true } & T | { ok: false; error: string };
 
@@ -86,6 +93,9 @@ function toInstitutionRow(r: Record<string, unknown>): InstitutionalRegistryRow 
     createdAt: String(r.created_at),
     updatedAt: String(r.updated_at),
     seedUrl: (r.seed_url as string | null) ?? null,
+    // Fail-closed: anything that isn't one of the two declared tiers reads as
+    // UNDECLARED, never as an authority (SPEC-CIR-001 §3).
+    sourceTier: isSourceTier(r.source_tier) ? r.source_tier : null,
   };
 }
 
@@ -118,13 +128,45 @@ export async function getDomainConstitution(
     }),
   );
 
+  const pillars = ((pillarsRes.data ?? []) as Record<string, unknown>[]).map(toPillarRow);
+
   return {
     domain,
     definition: definitionRes.data ? toDefinitionRow(definitionRes.data as Record<string, unknown>) : null,
-    pillars: ((pillarsRes.data ?? []) as Record<string, unknown>[]).map(toPillarRow),
+    pillars,
     dependencies: ((dependenciesRes.data ?? []) as Record<string, unknown>[]).map(toDependencyRow),
     institutions: backfilled,
+    diversity: assessRegistryDiversity(
+      toDiversityInputs(domain, backfilled),
+      pillars.map((p) => p.pillarKey),
+    ),
   };
+}
+
+/**
+ * Joins the live registry ROWS to the curated TEMPLATE so Law II can be
+ * evaluated over what the database actually holds — not over what the code
+ * hopes it holds. A row with no template entry contributes its tier and its
+ * pillar but NO tradition, which is what drives the `undeterminable` verdict:
+ * an unclassified authority makes the rule unverifiable, and saying so is more
+ * honest than either passing or failing it.
+ */
+function toDiversityInputs(
+  domain: string,
+  institutions: readonly InstitutionalRegistryRow[],
+): DiversityInput[] {
+  return institutions.map((row) => {
+    const template = findRegistryEntry(domain, row.institutionName);
+    return {
+      institution: row.institutionName,
+      category: template?.category ?? null,
+      evidenceType: template?.evidenceType ?? null,
+      // The ROW's declared tier wins — the database is the registry. The
+      // template only fills in for a row that declares none.
+      tier: (row.sourceTier ?? template?.tier ?? null) as SourceTier | null,
+      pillarKeys: [row.pillarKey],
+    };
+  });
 }
 
 /** §2.1 — propose or edit the Domain Definition. Editing an already-ratified
@@ -293,7 +335,17 @@ export async function ratifyDependencyEntry(
  *  across two tables). */
 export async function upsertInstitutionEntry(
   admin: SupabaseClient,
-  input: { domain: string; pillarKey: string; institutionName: string; seedUrl?: string | null },
+  input: {
+    domain: string;
+    pillarKey: string;
+    institutionName: string;
+    seedUrl?: string | null;
+    /** SPEC-CIR-001 §3. Omitted → resolved from the curated template →
+     *  undeclared. Never defaulted to `institutional-authority`: a
+     *  practitioner source that arrives untagged must not be silently
+     *  promoted into the primary-authority tier. */
+    sourceTier?: SourceTier | null;
+  },
 ): Promise<Result<{ institution: InstitutionalRegistryRow }>> {
   const { data: pillar } = await admin
     .from('corpus_coverage_pillars')
@@ -311,6 +363,13 @@ export async function upsertInstitutionEntry(
   // wins; canonical resolution only fills the gap.
   const seedUrl = input.seedUrl?.trim() || resolveCanonicalHomepage(input.institutionName) || null;
 
+  // Same discipline one field over: a caller-supplied tier wins, the curated
+  // template fills the gap, and neither present means UNDECLARED (null).
+  const sourceTier: SourceTier | null =
+    (isSourceTier(input.sourceTier) ? input.sourceTier : null) ??
+    findRegistryEntry(input.domain, input.institutionName)?.tier ??
+    null;
+
   const { data, error } = await admin
     .from('corpus_institutional_registry')
     .upsert(
@@ -319,6 +378,7 @@ export async function upsertInstitutionEntry(
         pillar_key: input.pillarKey,
         institution_name: input.institutionName,
         seed_url: seedUrl,
+        source_tier: sourceTier,
         status: 'proposed',
         ratified_by: null,
         ratified_at: null,

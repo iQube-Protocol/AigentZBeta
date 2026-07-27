@@ -77,6 +77,17 @@
  *    hardcoded 'constitutional' literal that shadowed the registry, asserted by
  *    CALLING the promotion rather than by reading the registry value:
  *      tests/evidence-provenance-populations.test.ts
+ *  - The Institutional Registry TEMPLATE (SPEC-CIR-001,
+ *    services/corpusScout/institutionalRegistry.ts) ↔ the two seed migrations
+ *    that put its rows in the database (20260817000000 financial-services,
+ *    20260827000000 commercialisation), ↔ the operator-supplied URLs in
+ *    canonicalInstitutionHomepages.ts, ↔ PRD-IDE-002 §4's pillars and §11.2's
+ *    acquisition-gap order, ↔ discoveryDomains' tangentialDomains. ONE template
+ *    serves both domains on purpose: a template Commercialisation uses and
+ *    Financial Services does not is two registries again. Also the home of the
+ *    Law II diversity check, asserted by DRIVING getDomainConstitution rather
+ *    than by reading the source for a call:
+ *      tests/commercialisation-institutional-registry.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:

@@ -42,6 +42,7 @@ import {
   upsertInstitutionEntry,
   ratifyInstitutionEntry,
 } from '@/services/corpusScout/domainConstitution';
+import { isSourceTier } from '@/services/corpusScout/institutionalRegistry';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -90,6 +91,7 @@ export async function POST(req: NextRequest) {
     relationship?: string;
     institutionName?: string;
     seedUrl?: string;
+    sourceTier?: string;
   };
 
   if (!isAction(body.action)) {
@@ -151,6 +153,9 @@ export async function POST(req: NextRequest) {
         pillarKey: body.pillarKey,
         institutionName: body.institutionName,
         seedUrl: body.seedUrl,
+        // SPEC-CIR-001 §3 — an unrecognised or absent value stays UNDECLARED
+        // rather than defaulting into the primary-authority tier.
+        sourceTier: isSourceTier(body.sourceTier) ? body.sourceTier : null,
       });
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }

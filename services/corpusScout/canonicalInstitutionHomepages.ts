@@ -43,6 +43,41 @@ const CANONICAL_INSTITUTION_HOMEPAGES: Readonly<Record<string, string>> = {
   eiopa: 'https://www.eiopa.europa.eu',
   imf: 'https://www.imf.org',
   'world bank': 'https://www.worldbank.org',
+
+  // ── Commercialisation, first tier (PRD-IDE-002 / SPEC-CIR-001) ───────────
+  //
+  // PROVENANCE: every URL below was SUPPLIED VERBATIM BY THE OPERATOR in the
+  // direction of 2026-07-27. None was searched for, inferred, or constructed,
+  // and none has been verified from the build environment — outbound HTTPS is
+  // blocked there, so any claim of verification would be false. They carry
+  // exactly the posture this file's header already states: curated at build
+  // time, not checked against a live registry. The first Agent B/C discovery
+  // run on the deployed app is what verifies them, and a dead entry surfaces
+  // as an honest retrieval failure, never as a search fallback.
+  //
+  // `world bank` is NOT restated here — the same institution already appears
+  // above as a Financial Services authority with the same operator-supplied
+  // URL. One institution, one homepage fact, one entry.
+  //
+  // The operator's SECOND tier (a16z, First Round Review, Y Combinator
+  // Library, McKinsey/Bain/BCG/Deloitte Insights, PwC Strategy, Accenture
+  // Research) is deliberately ABSENT: no URL was supplied for any of them, so
+  // resolution fails honestly and they stay ineligible for Agent B/C until a
+  // steward provides a seedUrl. See `institutionalRegistry.ts`.
+  nber: 'https://www.nber.org',
+  'kauffman foundation': 'https://www.kauffman.org',
+  ssrn: 'https://www.ssrn.com',
+  oecd: 'https://www.oecd.org',
+  'mit sloan': 'https://mitsloan.mit.edu',
+  'stanford graduate school of business': 'https://www.gsb.stanford.edu',
+  'harvard business school': 'https://www.hbs.edu',
+  'strategic management society': 'https://www.strategicmanagement.net',
+  'santa fe institute': 'https://www.santafe.edu',
+  incose: 'https://www.incose.org',
+  'silicon valley product group': 'https://www.svpg.com',
+  'product school': 'https://productschool.com',
+  strategyzer: 'https://www.strategyzer.com',
+  'lean startup': 'https://theleanstartup.com',
 };
 
 function normalize(name: string): string {
