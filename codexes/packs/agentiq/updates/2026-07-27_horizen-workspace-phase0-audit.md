@@ -1215,3 +1215,75 @@ only admins see the Partner group — which is the correct fail-closed posture, 
 - **Participant Lockers attached by commitment.** `lockers` remains empty on the spine.
 - **Phases 4–5.** Research Workspace adoption and the metaProof Commons proof layer, in that order,
   neither gating Horizen.
+
+---
+
+# Amendment F — Tier→Surface mapping (operator ruling, 2026-07-27)
+
+**Recorded verbatim, then audited against the code.** Amendment B defined the four tiers as
+information boundaries. This ruling says WHERE each one lives:
+
+> "The Internal workspace > venture labs cartridge (admin gated), the partner space > partner tab;
+> the project space (all horizen project participants) participants tab for both mIRL/IRL OS and
+> MVL and the commons > mIRL/IRL OS and MVL, AgentiQ and AgentiQ OS with AgentiQ being the home and
+> the others mirrors"
+
+## F.1 The mapping
+
+| Space | Tier | Surface | Gate |
+|---|---|---|---|
+| **Internal workspace** | 0 | Venture Lab cartridge | admin-gated |
+| **Partner space** | 0 + 2 | Venture Lab → Partner group | split (§B.3) |
+| **Project space** — *all* Horizen project participants | 2 | Participate group, in **IRL · IRL OS · Venture Lab** | participation grant |
+| **Commons** | 3 | **AgentiQ (home)**, mirrored in **AgentiQ OS · IRL · IRL OS · Venture Lab** | — |
+
+Reading recorded for the avoidance of doubt: **MVL** is the Venture Lab cartridge
+(`alpha-knyt-codex`, slug `venture-lab`); **mIRL** is the IRL cartridge (`irl-cartridge`). If that
+reading is wrong the mapping is unchanged in shape — only the file targets move.
+
+## F.2 AUDIT — three of the four already exist
+
+| Space | Status | Evidence |
+|---|---|---|
+| Internal workspace | **Exists** | Venture Lab's `administer` group, plus the nine de-facto Tier 0 tabs catalogued in §B.2 |
+| Partner space | **Exists, split as ratified** | Partner group: 4 Tier 2 views + Communicate + Administration (Phase 3a) |
+| **Project space** | **Exists in all three** | `participate` group (Venture Lab, 6 tabs) · `participation` group (IRL, 7 tabs) · `participation` group (IRL OS, 7 tabs) |
+| **Commons** | **Does not exist anywhere** | No commons tab in any cartridge. This is Phase 5 |
+
+**The Project space needed no construction** — this is the third time in this workstream that the
+audit-first discipline found the capability already present (§A.1, §B.2, now §F.2). What the
+ruling adds is that the three surfaces are now *ratified as one space with three entrances*, so
+removing one is a constitutional change rather than a config tidy-up. `tests/tier-surface-map.test.ts`
+enforces it.
+
+### The asymmetry between the three, recorded rather than "fixed"
+
+They are not identical, and two differences are legitimate:
+
+- **IRL and IRL OS carry a `Passport Registry` tab; Venture Lab does not.** The Research Lab issues
+  passports; the Venture Lab consumes participation grants. Different institutional role.
+- **Steward differs by design.** Venture Lab mounts `StewardParticipationTab` (the participation-
+  domain steward — invitations and grants); IRL/IRL OS mount `PassportBureauStewardTab` (the
+  passport bureau). Two stewards of two different things, not drift.
+
+Everything else — Overview, Apply, Delegation, Locker, Standing — is the SAME component in all
+three, configured per domain. That is the substrate the cross-Lab ruling said was already
+extracted (§A.1), visible as data.
+
+## F.3 The Commons is the one real gap, and its shape is now specified
+
+The ruling settles what Phase 5 was going to have to decide anyway: the Commons is **one surface
+with five entrances**, AgentiQ being the home. That is the same home-and-mirror discipline the
+capability-artefact home shipped under today — *a mirror is a second ENTRANCE, never a second copy*:
+same source, same component, distinct slug. A mirror that forked its own data would make the
+Commons a second source of proof, which is precisely what Principle P5 (*only governed proof enters
+the metaProof Commons*) exists to prevent.
+
+Recorded to the tracker as the Phase 5 surface specification. **Not built here** — Phase 5 is the
+proof layer, and per Amendment D §D.8 it implements constitutional proof first. Building the tabs
+before the proof model would produce five entrances to nothing.
+
+## F.4 What this changes in the plan
+
+Nothing is re-sequenced. Phase 5 gains a specified surface shape instead of an open question, and
+the Project space's three entrances become ratified structure rather than incidental configuration.
