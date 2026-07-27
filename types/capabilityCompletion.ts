@@ -1,0 +1,282 @@
+/**
+ * Capability Completion Artifact — the machine-readable type contract for
+ * CCR-001 (`codexes/packs/irl/foundation/CCR-001_constitutional-capability-completion.md`),
+ * schema `capability-completion-artifact/v1.0`.
+ *
+ * EXTENDS, DOES NOT FORK (CCR-001 §25, CFS-049 Amendment A). This is NOT a
+ * second artifact family beside the Constitutional Capability Brief. It is the
+ * Brief's completion half, expressed as a type:
+ *
+ *   CFS-049 (the Brief) answers  →  what shipped, where it is, how to use it
+ *   CCR-001 (this contract) adds →  what must remain true, which defect proved
+ *                                   it, which canary enforces it, how it is
+ *                                   reproduced, how it may safely change
+ *
+ * The Brief's markdown twin remains the SOURCE OF TRUTH (CFS-049 §5). This
+ * shape is DERIVED from that markdown by `parseCompletionArtifact` in
+ * `services/constitutional/capabilityCompletionArtifact.ts` — it is never a
+ * hand-maintained JSON duplicate of the document, because that would be the
+ * exact `inv.engineering.036` defect (two things describing one thing, the
+ * stale one winning) that CCR-001's own reference capability was written to
+ * eliminate.
+ *
+ * The registry linkage is CFS-032's, unchanged: `capabilityId` here is the
+ * same key `RegisterCapabilityInput.capabilityId` uses, and `briefUrl` on that
+ * registry remains the single pointer to the document this shape is read from.
+ * Registration stays the acceptance ceremony — this contract adds no second one.
+ *
+ * NOT IMPLEMENTED HERE — CCR-001 §9's six-stage invariant lifecycle
+ * (`Observed → Candidate → Validated → Ratified → Canonical → Deprecated`).
+ * It conflicts with `FINDING_LIFECYCLE` in `types/research.ts`, whose ORDER is
+ * pinned constitutional data under `inv.constitutional.078`. CCR-001 §25
+ * records the conflict as an OPEN OPERATOR DECISION and this file does not
+ * resolve it: `InvariantStatus` below is the seed crystal's EXISTING
+ * `proposed | validated | canonical` vocabulary, introducing no new ladder.
+ *
+ * Validator idiom follows `services/passport/participantApplicationValidator.ts`
+ * (path-addressed issues over an `unknown` input, version field checked first)
+ * rather than `types/representation.ts`'s `ValidationResult` — that one is the
+ * representation system's own domain contract with a flat `violations: string[]`,
+ * which cannot address a fault inside a nested invariant record.
+ */
+
+// ---------------------------------------------------------------------------
+// Schema version
+// ---------------------------------------------------------------------------
+
+/**
+ * The versioned schema identifier (CCR-001 §12). Follows the repo's
+ * `<kebab-domain-slug>/v<major>.<minor>` convention (cf. `venture-iqube/v1.0`
+ * in `types/ventureQube.ts`). A document declaring any other version is
+ * refused rather than coerced.
+ */
+export const CAPABILITY_COMPLETION_SCHEMA_VERSION = 'capability-completion-artifact/v1.0' as const;
+
+export type CapabilityCompletionSchemaVersion = typeof CAPABILITY_COMPLETION_SCHEMA_VERSION;
+
+// ---------------------------------------------------------------------------
+// §8 Provenance vocabulary — pinned
+// ---------------------------------------------------------------------------
+
+/**
+ * CCR-001 §8 — how an invariant came to be known. CCR-INV-4 ("every invariant
+ * retains provenance") is meaningless without a closed vocabulary: "we learned
+ * this somehow" is not provenance. `CAN-CCR-2` pins it.
+ *
+ * ORDER IS NOT SEMANTIC here — unlike `FINDING_LIFECYCLE`, this is a set of
+ * kinds, not a ladder. Nothing may read position in this array as rank.
+ */
+export const INVARIANT_PROVENANCE_KINDS = [
+  /** A live regression proved it. The strongest and most common kind. */
+  'regression-derived',
+  /** Surfaced when two already-working parts were composed. */
+  'integration-derived',
+  /** Caught in design or review before it ever shipped a defect. */
+  'pre-release-intercepted',
+  /** Found by deliberately attacking the capability. */
+  'adversarially-derived',
+  /** Follows from a proof, a type, or a structural argument. */
+  'formally-derived',
+  /** The same shape recurred across two or more capabilities. */
+  'cross-capability-recurrence',
+  /** Asserted but not yet evidenced — a candidate, never a claim. */
+  'proposed',
+] as const;
+
+export type InvariantProvenance = (typeof INVARIANT_PROVENANCE_KINDS)[number];
+
+/**
+ * The one provenance kind that carries NO evidence. Pinned separately so
+ * `CAN-CCR-2` states its rule against a named constant rather than a literal.
+ */
+export const UNEVIDENCED_PROVENANCE: InvariantProvenance = 'proposed';
+
+// ---------------------------------------------------------------------------
+// Invariant status — the EXISTING seed-crystal vocabulary, not a new ladder
+// ---------------------------------------------------------------------------
+
+/**
+ * `proposed | validated | canonical` — exactly the statuses the canonical
+ * invariant crystal already uses. Deliberately NOT CCR-001 §9's six stages;
+ * see the file header. `canonical` is this vocabulary's ratified terminus and
+ * is what `CAN-CCR-3` ("no ratified invariant without enforcement") reads.
+ */
+export const INVARIANT_STATUSES = ['proposed', 'validated', 'canonical'] as const;
+
+export type InvariantStatus = (typeof INVARIANT_STATUSES)[number];
+
+/** Statuses that assert the invariant is evidenced, not merely asserted. */
+export const EVIDENCED_STATUSES: readonly InvariantStatus[] = ['validated', 'canonical'];
+
+// ---------------------------------------------------------------------------
+// §7.7 / §7.8 — reproduction invariants with their development-derived record
+// ---------------------------------------------------------------------------
+
+/**
+ * One reproduction invariant: the rule, how it came to be known, the defect
+ * that proved it (§7.8), and the executable proof that enforces it (§7.9).
+ *
+ * `defect` and `canaries` are what make this a completion record rather than
+ * documentation. An invariant with neither is a slogan.
+ */
+export interface ReproductionInvariant {
+  /** Stable id within the artifact, e.g. `MS-4`. Unique per artifact. */
+  id: string;
+  /** The rule, stated as something that must remain true. */
+  statement: string;
+  /** §8 vocabulary. `CAN-CCR-2` refuses an evidenced status without one. */
+  provenance: InvariantProvenance;
+  /** §7.8 — the defect that proved it, in enough detail to recognise a repeat. */
+  defect: string;
+  /**
+   * §7.9 — repo-relative paths of the executable proofs enforcing this
+   * invariant. `CAN-CCR-3` requires at least one for a `canonical` invariant;
+   * `CAN-CCR-5` requires every path to resolve on disk.
+   */
+  canaries: string[];
+  status: InvariantStatus;
+}
+
+// ---------------------------------------------------------------------------
+// §7.6 — capability boundary
+// ---------------------------------------------------------------------------
+
+/**
+ * What the capability owns and — the half that code cannot record — what it
+ * deliberately does NOT own. Six of the Companion's nine defects were two
+ * things owning one thing; `doesNotOwn` is the field that would have named
+ * the rule being broken.
+ */
+export interface CapabilityBoundary {
+  owns: string[];
+  doesNotOwn: string[];
+  dependencies: string[];
+  /** Authorities outside this capability that constrain it (spine, DVN, SDKs). */
+  externalAuthorities: string[];
+}
+
+// ---------------------------------------------------------------------------
+// §7.14 — Commons publication record
+// ---------------------------------------------------------------------------
+
+/**
+ * The four native proof classes of the metaProof Commons (Horizen audit
+ * Amendment D §D.1, operator-ratified 2026-07-27). Restated as a type, not
+ * re-decided: this artifact classifies itself, it does not define the classes.
+ */
+export const COMMONS_PROOF_CLASSES = [
+  'scientific',
+  'operational',
+  'commercial',
+  'constitutional',
+] as const;
+
+export type CommonsProofClass = (typeof COMMONS_PROOF_CLASSES)[number];
+
+/**
+ * §7.14 / CCR-INV-10 — publication follows constitutional acceptance, and is
+ * subject to Amendment E §E.3 Principle 5 (*only governed proof enters*):
+ * a submission without evidence references, a claim scope and an evidence
+ * posture is REFUSED, never accepted-then-hidden.
+ *
+ * `published: false` with `approvalRecordRef: null` is the honest default for
+ * an artifact that has not been submitted — the Commons resource model
+ * (`MetaCommonsResource`) is not built yet, so nothing here may claim it has.
+ */
+export interface CommonsPublicationRecord {
+  proofClass: CommonsProofClass;
+  /** What is being claimed, and over what — never "this is true generally". */
+  claimScope: string;
+  /** References supporting the claim. Principle 5: a claim with none is refused. */
+  evidenceRefs: string[];
+  /** Amendment E §E.3.4 — no commons record without one. Null until approved. */
+  approvalRecordRef: string | null;
+  published: boolean;
+  /**
+   * `CAN-CCR-8` — publication preserves lineage. The source artifact and the
+   * capability it belongs to must survive publication, so a published proof
+   * can always be traced back to the record that produced it.
+   */
+  lineage: {
+    capabilityId: string;
+    artifactPath: string;
+    sourceReferences: string[];
+  };
+}
+
+// ---------------------------------------------------------------------------
+// §7.1 — identity
+// ---------------------------------------------------------------------------
+
+export interface CapabilityIdentity {
+  /** Same key as `RegisterCapabilityInput.capabilityId` (CFS-032). */
+  capabilityId: string;
+  displayLabel: string;
+  /** The artifact's own version — it changes as the capability changes. */
+  artifactVersion: string;
+  /** ISO date (YYYY-MM-DD) of this artifact revision. */
+  date: string;
+  /** Governing PRD / CFS / SPEC references. */
+  governingDocuments: string[];
+  /** Repo-relative path of the markdown twin this shape was derived from. */
+  artifactPath: string;
+}
+
+// ---------------------------------------------------------------------------
+// The artifact
+// ---------------------------------------------------------------------------
+
+export interface CapabilityCompletionArtifact {
+  schemaVersion: CapabilityCompletionSchemaVersion;
+  /** §7.1 */
+  identity: CapabilityIdentity;
+  /**
+   * §7.2 — what the capability DOES, behaviourally. `CAN-CCR-4` refuses a
+   * statement that is only a list of code locations: a reader who cannot
+   * reproduce the behaviour from this sentence has not been told what the
+   * capability is.
+   */
+  behaviouralCapabilityStatement: string;
+  /** §7.3 — why it exists. */
+  purpose: string;
+  /** §7.4 — where it operates: surfaces first, source paths second. */
+  location: { surfaces: string[]; sourcePaths: string[] };
+  /** §7.5 — how it is invoked. */
+  invocation: string[];
+  /** §7.6 */
+  boundary: CapabilityBoundary;
+  /**
+   * §7.7 / CCR-INV-8 — reproduction does not require identical implementation.
+   * States which parts are free to differ and which are not.
+   */
+  implementationFreedom: string;
+  /** §7.7 / §7.8 / §7.9 */
+  reproductionInvariants: ReproductionInvariant[];
+  /** §7.10 — the ordered procedure for reproducing the capability. */
+  reproductionProcedure: string[];
+  /** §7.11 — how it may safely change. */
+  modificationRules: string[];
+  /** §7.12 — hazards a reimplementer would otherwise rediscover expensively. */
+  knownHazards: string[];
+  /** §7.13 — what has actually been observed working. */
+  operationalEvidence: string[];
+  /** §7.14 */
+  commons: CommonsPublicationRecord;
+}
+
+// ---------------------------------------------------------------------------
+// Validation result (path-addressed)
+// ---------------------------------------------------------------------------
+
+export interface CompletionIssue {
+  /** JSON-ish path of the fault, e.g. `reproductionInvariants[3].canaries`. */
+  path: string;
+  message: string;
+  /** The canary this issue would trip, when it maps to one. */
+  canary?: 'CAN-CCR-2' | 'CAN-CCR-3' | 'CAN-CCR-4' | 'CAN-CCR-5' | 'CAN-CCR-8';
+}
+
+export interface CompletionValidationResult {
+  valid: boolean;
+  issues: CompletionIssue[];
+}

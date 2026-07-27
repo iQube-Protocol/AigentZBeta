@@ -1,4 +1,10 @@
-# Companion Menu System — Invariants
+# Companion Menu System — Constitutional Capability Brief (CCB v2)
+
+**The first Capability Completion Artifact under CCR-001**
+(`codexes/packs/irl/foundation/CCR-001_constitutional-capability-completion.md`), and therefore the
+reference example of the format. It is a Constitutional Capability Brief (CFS-049) carrying
+CCR-001's completion sections — **not a second artifact family** (CFS-049 Amendment A). Schema:
+`capability-completion-artifact/v1.0`.
 
 **Operator-requested, 2026-07-27:** *"It may be worth defining what the invariants of this menu
 system are so we don't have to keep playing this game of whack-a-mole where fixing one thing
@@ -7,10 +13,90 @@ breaks another persistently."*
 This is that definition. Nine invariants, each with the defect that proved it and the canary that
 enforces it. **Every one of them was learned from a live regression** — none is speculative.
 
-Scope: the Companion shell (`app/(embed)/triad/embed/companion/page.tsx`), the copilot that hosts
-it (`app/components/codex/CodexCopilotLayer.tsx`), the nav vocabulary
-(`services/companion/companionNavigation.ts`), and quick links
-(`services/companion/quickLinks.ts`).
+## Capability identity
+
+| Field | Value |
+|-------|-------|
+| Capability ID | `companion-menu-system` |
+| Display label | Companion Menu System |
+| Artifact version | 1.0 |
+| Schema | `capability-completion-artifact/v1.0` |
+| Date | 2026-07-27 |
+| Governing documents | `CCR-001`, `CFS-049`, `SCOPE-MMC-004`, `PRD-MMC-001` |
+| Artifact path | `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md` |
+| Registry status | **Not yet registered** in CFS-032. Registration is the acceptance ceremony and belongs to CCR-001 Phase 4; recorded here honestly rather than claimed. The parent capability `metame-companion` IS registered and carries its own Brief. |
+
+## Behavioural capability statement
+
+The Companion menu system is the single navigational authority for the Companion shell: one row of
+controls, owned by the copilot, through which a citizen chooses which surface occupies the body —
+conversation, avatar, wallet, search, workspace, overlay, activity or permissions. Choosing a
+surface swaps what the body renders while the row itself stays put and stays legible above it; the
+page the citizen happens to be browsing may refine what the row offers but may never change what
+they chose. A correct implementation is one where every rendered control acts on the surface it is
+rendered on, where exactly one component decides what the body shows at any moment, and where the
+row's geometry stays true through every surface change.
+
+## Purpose
+
+The menu system took ten fix cycles because nothing named the rule each fix was breaking. Six of
+its nine defects were the same shape, and each fix was locally correct and invisible to the next
+one. This artifact exists so the next person to touch it — a new session, another agent, a
+reimplementer on a different stack — inherits the rules rather than rediscovering them one
+regression at a time.
+
+## Location
+
+### Surfaces
+- Companion browser extension → the control row beneath the body, on every surface
+- Platform copilot → the same row, where the close chevron is the only way to dismiss the panel
+
+### Source paths
+- `app/(embed)/triad/embed/companion/page.tsx` — the Companion shell
+- `app/components/codex/CodexCopilotLayer.tsx` — the copilot that hosts it
+- `services/companion/companionNavigation.ts` — the nav vocabulary
+- `services/companion/quickLinks.ts` — quick links
+
+## Invocation
+
+- A citizen presses a control in the copilot's menu row; the host is notified and swaps the body.
+- The host supplies `bodySlot` / `onWalletLaunch`, taking ownership of the body for that surface.
+- The copilot's own mode toggle enters or leaves avatar, echoing the change back to the host.
+- Quick links are offered from the strip, ranked by the observed page but gated by the chosen surface.
+
+## Capability boundary
+
+### Owns
+- The navigation vocabulary and the single row that renders it
+- Which surface is active, as one value shared by host and copilot
+- The geometry of the row, and the body offset that keeps the row legible above the body
+- Whether a control is eligible to render on this deployment
+
+### Does not own
+- What any surface's body actually renders — a host that supplies `bodySlot` owns that
+- The wallet's contents, lifecycle, or internal state
+- The avatar SDK's DOM, which it injects outside any container given to it
+- The page beneath the Companion, which is observed and never controlled
+- Authorization for anything the row navigates to — that is the identity and access spine's
+
+### Dependencies
+- `services/companion/companionNavigation.ts` for the vocabulary — never a local list
+- The host shell for `bodySlot` / `onWalletLaunch` ownership handover
+- `services/companion/quickLinks.ts` and the domain resolver for the observed-page signal
+
+### External authorities
+- The identity and access spine — every destination re-resolves its own gate; the row grants nothing
+- The D-ID avatar SDK, which renders at `document.body` level and can write `document.body.style`
+- The host deployment, which decides whether the close control can act at all
+
+## Implementation freedom
+
+Nothing here fixes the framework, the styling, the control shapes, the transport between host and
+copilot, or the number of surfaces. A reimplementation may use different components, a different
+event mechanism, and a different visual language and still be correct. What may not differ is the
+*arity*: one navigation, one owner per surface, one state behind two views, one rect per overlay,
+and one measurement that tracks the node actually mounted. Every invariant below constrains how
+many things may describe or own one thing — not what any of them is made of.
 
 ## Why whack-a-mole kept happening
 
@@ -30,6 +116,8 @@ and it reads as "still broken" after a fix that was genuinely applied.
 The copilot's menu row is the only navigation. No surface may render a second control for a
 concept the menu already owns.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** the Companion's own bottom nav row duplicating the copilot's (retired 2026-07-26);
   the Partner Workspace rendering a tier-3 row AND an in-component surface row, which disagreed
   with each other on screen (2026-07-27).
@@ -43,6 +131,8 @@ Exactly one component decides what occupies the body. When a host supplies `body
 surface — not even harmless-looking state, because `bodySlot` precedence hides it until the moment
 it doesn't.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** twice. The copilot's wallet stayed mounted after the citizen navigated away
   (2026-07-26); then `launchWallet` set private `walletPanelOpen` *and* notified the host, so
   pressing Agent Me surfaced a stale wallet over the conversation (2026-07-27).
@@ -54,6 +144,8 @@ it doesn't.
 Mode (`chat` / `avatar`) is one value. Host and copilot stay in agreement in **both** directions,
 and neither may keep its own idea of which surface is active.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** entering avatar via the copilot toggle left the host's `activeNavItem` frozen, so
   every later nav click wrote state the avatar branch never rendered (2026-07-26). Then the chat
   echo returned the *current* item unless it was `avatar`, so from any bodySlot surface the Agent
@@ -66,6 +158,8 @@ and neither may keep its own idea of which surface is active.
 Any geometry derived from a **conditionally rendered** node must re-measure when that node
 changes. A zero measurement is a teardown artifact, **never** a layout value.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** the ten-cycle defect. The footer carrying the whole menu row was measured by a
   `ResizeObserver` attached with `[]` deps. Entering avatar detached the node (`offsetHeight` 0);
   returning to chat mounted a new node the observer never saw. Height stuck at 0 for the life of
@@ -82,6 +176,8 @@ that merely **happens to be there**. Context refines what a choice offers; it ne
 choice. Only a surface that is *about* the page (`overlay`) — or has no topic of its own
 (`agent-me`) — falls through to the observation.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** quick-link ranking read `shape ?? domain ?? surface` on the reasoning that an
   asserted page shape is "the stronger signal." But `dev-beta.aigentz.me` carries a verified
   Domain Profile, so during testing the shape *always* resolved and pinned the strip to one needle
@@ -95,6 +191,8 @@ Ranking runs **after** gating. It may reorder, and reordering before the limit l
 changes *which* items are visible — but it may never widen the offer, empty it, or change how many
 are offered.
 
+- **Provenance:** pre-release-intercepted
+- **Status:** canonical
 - **Broke it:** never shipped, but the first ranking design filtered instead of ranking, which
   would have let an unrecognised page empty a surface that works fine with no observation at all.
 - **Enforced by:** `tests/companion-1-1-quicklinks.test.ts` — a surface needle cannot subtract or
@@ -105,6 +203,8 @@ are offered.
 A signal that can never fire is a bug even though nothing errors. Ship no needle, filter, or
 observer without evidence that it matches something real.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** `workspace: ['mycluster']` matched nothing because ranking read the visible label
   only, and `myCluster` is a tab **group** whose members are labelled myCanvas / myWorkspace /
   myCartridge / myLedger. The strip stayed frozen and read as "quick links still static"
@@ -118,6 +218,8 @@ A floating layer takes **one rect** — the box it is meant to fill. Position fr
 size from another is a misplacement waiting to happen, and a high-z layer with no
 `pointer-events: none` swallows clicks wherever it lands.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** the avatar host took its position from the panel and its size from the frame. The
   repo carries the scar tissue: an earlier commit raised six unrelated components to `z-200` to
   escape this overlay.
@@ -129,6 +231,8 @@ size from another is a misplacement waiting to happen, and a high-z layer with n
 Every rendered control does something on this surface. A control whose only effect is on a
 different deployment is a dead control and must be gated out, not left as decoration.
 
+- **Provenance:** regression-derived
+- **Status:** canonical
 - **Broke it:** the copilot's close chevron in the Companion, where the Companion's own chrome
   closes the panel — and then the over-correction that removed it from the platform copilot, where
   it is the only way to dismiss the copilot.
@@ -144,6 +248,56 @@ The D-ID avatar SDK renders **outside** the container it is given: it injects no
 reaches them. Any third-party widget embedded in this shell must be assumed to do the same, which
 means: unmount it when it is not in use, sweep its artifacts on teardown, and restore any
 document-level styles it may have taken.
+
+## Reproduction procedure
+
+1. Define the navigation vocabulary in ONE module and render every control from it — no surface may re-list it locally.
+2. Give the row a single owner: the copilot renders the controls; the host that supplies `bodySlot` owns what they reveal.
+3. Hold the active surface and the chat/avatar mode as ONE value, synced in both directions, with no private copy on either side.
+4. Attach the row's geometry measurement with a callback ref that disconnects the previous observer and re-measures on every mount; discard a zero as a teardown artifact rather than writing it as a height.
+5. Offset the body by the measured row height so the row stays legible above whatever the body renders.
+6. Gate the offered quick links by the chosen surface FIRST, then rank the survivors by the observed page — never filter during ranking.
+7. Gate out every control whose effect belongs to a different deployment, and let each remaining control act on this surface.
+8. Anchor any floating layer to the single rect of the box it fills, with `pointer-events: none` unless it is meant to receive input.
+9. Unmount third-party embeds when unused and sweep the document-level artifacts they leave behind.
+10. Ship one canary per invariant, in the same change as the behaviour it guards.
+
+## Modification rules
+
+- Before changing anything in the menu system, name which invariant your change relies on.
+- A change that would violate an invariant is a discussion, not an implementation.
+- A defect that fits none of the nine is a tenth invariant — add it here with its defect and its canary in the same change that fixes it.
+- Never add a second control, a second owner, a second mode value, or a second measurement for something the list above already assigns to one place.
+- Never widen a canary's tolerance to make a violating change pass; the canary is the invariant's only enforceable form.
+- Changing the vocabulary in `services/companion/companionNavigation.ts` is a vocabulary EXTENSION and needs the operator's sign-off — the ratified set is pinned by canary.
+
+## Known hazards
+
+- Third-party embeds render outside the container they are given — see the standing caution above. The D-ID avatar SDK is the known instance; assume any new widget behaves the same.
+- A `ResizeObserver` attached with `[]` deps against a conditionally rendered node is inert after the first unmount. It errors on nothing and reads as "still broken" after a genuine fix.
+- A needle or filter that matches only a visible label will silently miss anything addressed by group, id, or route — an inert mechanism, not an empty result.
+- Raising z-index to escape a mis-anchored overlay spreads the defect: the repo already carries six unrelated components raised to `z-200` for exactly this reason.
+- `bodySlot` precedence hides parallel copilot state until the arrangement changes, so a "harmless" duplicate field can sit latent for weeks before surfacing as a stale wallet.
+
+## Operational evidence
+
+- 2026-07-26 — the retired Companion bottom nav row and the wallet-remount fix shipped; the duplicate-navigation and stale-wallet symptoms stopped reproducing.
+- 2026-07-27 — the ten-cycle geometry defect was diagnosed and fixed only after MS-4 was written down; the body stopped rendering underneath the menu bar.
+- 2026-07-27 — the quick-link strip began changing with the selected surface once precedence was pinned surface-first (MS-5) and the inert `mycluster` needle was repaired (MS-7).
+- The canaries named against each invariant above run in the repo's vitest suite and pass on this commit.
+
+## Commons publication record
+
+| Field | Value |
+|-------|-------|
+| Proof class | constitutional |
+| Claim scope | These nine invariants, as governing the Companion menu system on this platform. NOT a claim that they generalise to menu systems at large — the recurrence shape (two owners, stale one wins) is a candidate for cross-capability promotion, which is a separate finding requiring its own evidence. |
+| Evidence references | `tests/companion-1-1-navigation.test.ts`, `tests/companion-1-1-quicklinks.test.ts`, `tests/partner-workspace.test.ts`, `tests/capability-completion.test.ts` |
+| Approval record | None — not yet submitted |
+| Published | no |
+| Lineage — capability | `companion-menu-system` |
+| Lineage — artifact | `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md` |
+| Lineage — sources | `app/(embed)/triad/embed/companion/page.tsx`, `app/components/codex/CodexCopilotLayer.tsx`, `services/companion/companionNavigation.ts`, `services/companion/quickLinks.ts` |
 
 ## Applying these
 

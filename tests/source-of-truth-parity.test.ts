@@ -38,6 +38,12 @@
  *    PRD-PAG-001 Amendment A §A.6) pinned as the source of truth, incl.
  *    money-moving = world_id and grade monotonicity:
  *      tests/passport-step-up-policy.test.ts
+ *  - The CCR-001 completion-artifact template's machine-read headings ↔ the
+ *    section names `parseCompletionArtifact` looks for ↔ the reference
+ *    artifact's own headings. A docs-file mirror that cannot be derived: if the
+ *    template renames a heading the parser reads, artifacts authored from it
+ *    parse to empty and validate as incomplete for no visible reason:
+ *      tests/capability-completion.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:
