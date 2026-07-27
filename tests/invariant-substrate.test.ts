@@ -95,14 +95,23 @@ describe('constitutional constants (CFS-001/002/003)', () => {
     expect([...ACYCLIC_EDGE_TYPES].sort()).toEqual(['depends_on', 'derives_from', 'supersedes']);
   });
 
-  it('pins the fourteen namespaces (incl. style CFS-011, narrative CFS-012, polity, finance PRD-MPY-001 D5) and the confidence ladder', () => {
+  it('pins the fifteen namespaces (incl. style CFS-011, narrative CFS-012, polity, finance PRD-MPY-001 D5, commercialisation PRD-IDE-002) and the confidence ladder', () => {
     // Base 7 (constitutional/reasoning/engineering/experience/capability/style/narrative)
-    // + five-namespace widening (2026-07-13) + polity (2026-07-17) + finance (PRD-MPY-001 D5, 2026-07-21).
-    expect(INVARIANT_NAMESPACES).toHaveLength(14);
+    // + five-namespace widening (2026-07-13) + polity (2026-07-17) + finance (PRD-MPY-001 D5, 2026-07-21)
+    // + commercialisation (PRD-IDE-002, operator ruling 2026-07-27) — the fifteenth is the FIRST-CLASS
+    // HORIZONTAL value-realisation domain, deliberately not nested beneath finance: its three evidence
+    // domains (financial-services, media, human-mobility-services) are APPLICATION CONTEXTS, not its
+    // parent ontology.
+    //
+    // This assertion is EXACT on purpose and must stay exact. A namespace appearing or vanishing is a
+    // constitutional change (CFS-013 §3 — a class cannot exist without a declared composition law), so
+    // it must be made deliberately and recorded here. Do not relax it to a lower bound.
+    expect(INVARIANT_NAMESPACES).toHaveLength(15);
     expect(INVARIANT_NAMESPACES).toContain('style');
     expect(INVARIANT_NAMESPACES).toContain('narrative');
     expect(INVARIANT_NAMESPACES).toContain('polity');
     expect(INVARIANT_NAMESPACES).toContain('finance');
+    expect(INVARIANT_NAMESPACES).toContain('commercialisation');
     expect(CONFIDENCE_BASIS_WEIGHT.document_verified).toBe(1.0);
     expect(CONFIDENCE_BASIS_WEIGHT.principal_verified).toBe(0.85);
     expect(CONFIDENCE_BASIS_WEIGHT.agent_verified).toBe(0.6);

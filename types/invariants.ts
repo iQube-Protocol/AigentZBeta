@@ -47,7 +47,18 @@ export type InvariantNamespace =
   // a class's algebra must be declared before it can enter canonical status).
   // Same additive pattern as the polity widening; the CHECK constraints are
   // widened in supabase/migrations/20260721000000_finance_invariant_namespace.sql.
-  | 'finance';
+  | 'finance'
+  // Commercialisation namespace — operator-ratified 2026-07-27 (the PRD-IDE-002
+  // ruling). A FIRST-CLASS HORIZONTAL class, deliberately NOT nested beneath
+  // finance: "Financial Services, Media and Human Mobility are evidence domains
+  // and application contexts for discovering commercialisation invariants. They
+  // are not the parent ontology of commercialisation itself." Nesting it as
+  // `finance.commercialisation.*` would subordinate a cross-domain class to its
+  // first application domain and make later portability awkward. Same additive
+  // pattern as the finance widening: the class + its composition law are
+  // declared BEFORE its members land (CFS-013 §3), and every member enters at
+  // 'proposed' — inclusion in the experimental crystal is not ratification.
+  | 'commercialisation';
 
 export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'constitutional',
@@ -64,6 +75,7 @@ export const INVARIANT_NAMESPACES: readonly InvariantNamespace[] = [
   'representation',
   'polity',
   'finance',
+  'commercialisation',
 ];
 
 /**
@@ -117,6 +129,28 @@ export const COMPOSITION_LAWS: Record<InvariantNamespace, CompositionLaw> = {
   // enter at 'proposed' and never auto-canonize (inv.reasoning.337); the
   // operator ratifies before any finance invariant advances to 'canonical'.
   finance: 'normative',
+  // Commercialisation composition law — PRD-IDE-002 (operator ruling
+  // 2026-07-27), declared per CFS-013 §3 before its eight seeded members land.
+  // PROVISIONAL, in the sense the 2026-07-13 widening uses: declared ahead of
+  // ratification so the class has an algebra, and amendable by the operator.
+  //
+  // CONTEXTUAL, not normative. A commercialisation invariant is a HORIZONTAL
+  // capability regularity whose manifestation resolves per APPLICATION CONTEXT
+  // — the operator's own framing of the three evidence domains ("Financial
+  // Services, Media and Human Mobility are … application contexts"). "Authority
+  // precedes execution" resolves as an x409 agreement gate in financial
+  // services, a principal-approval flag in human mobility, and a trust-graded
+  // mission class in media: one invariant, three resolutions. That is exactly
+  // `contextual`'s algebra.
+  //
+  // Deliberately NOT 'normative' (the finance/engineering no-partial-compliance
+  // family): every member is a `proposed` empirical hypothesis with a known
+  // shared-platform common-cause limitation (PRD-IDE-002 §9.4). Declaring that a
+  // partially-satisfied commercialisation invariant is *unlawful* would assert
+  // law-like force for claims the evidence does not yet support — the exact
+  // over-claim the hypothesis-vs-canon rule forbids. If validation later earns
+  // that force, the operator amends this line; it is not assumed now.
+  commercialisation: 'contextual',
 };
 
 export type InvariantStatus =

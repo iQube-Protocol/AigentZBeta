@@ -34,6 +34,31 @@ It also makes **Amendment D §D.4a mechanical** rather than a matter of reviewer
 - **No L4 claim.** The three Addendum A domains share a platform architecture, so a shared common cause cannot be ruled out from inside the corpus. The whole library is `platform-derived` and provenance caps it — recorded in PRD §9.4 as the library's largest limitation.
 - **The taxonomy was tested, not accepted.** Fifteen sub-domains in, fourteen out: three merges, one rejection-with-absorption, one split, two additions, each with named evidence (PRD §5).
 
+## Addendum — the operator rulings of 2026-07-27 (executed same session)
+
+### 1. Commercialisation Crystal — seeded
+
+The first-class `commercialisation` namespace was created and the **eight** recurrence-3 candidates seeded at `status: "proposed"`, excluding the `equivalent` candidate (C-006) and both single-domain `specialized` ones (C-009, C-010), which stay in the discovered library. Namespace is **flat and first-class** (`inv.commercialisation.001`–`008`) — not nested under finance, because the three evidence domains are *application contexts*, not the parent ontology. Declared ahead of its members per CFS-013 §3: `InvariantNamespace` union, `INVARIANT_NAMESPACES`, `COMPOSITION_LAWS.commercialisation = 'contextual'`, plus a CHECK-widening migration. Full record in PRD-IDE-002 §10.
+
+**Two things the ruling surfaced that the operator must still decide (PRD-IDE-002 §10.4):** all eight are `platform-derived`, and `CRYSTAL-ENLARGEMENT_plan.md` §2a bars `platform-derived` invariants from `Crystal vP1` — a live conflict, recorded and not resolved. And financial-services invariants are **not** partitionable from constitutional ones today, because `promoteCandidate` hardcodes `namespace: 'constitutional'` for every domain.
+
+### 2. The fifteen Laws — promoted to canonical by reflection
+
+```
+Constitution → ratifies → Law N → Invariant Representation → Canonical
+```
+
+Not `Crystal → Canon`. The crystal is **reflecting** constitutional canon, not creating it. **20 records** across **Laws I–XV** were promoted from `proposed` to `canonical` — 20 not 15 because Laws XII, XIII and XV are multi-clause, and the crystal's own one-sentence canonicalization rule forces a multi-clause Law into several atomic records.
+
+Each promoted record gained, inside its existing `provenance` object (not as foreign top-level keys):
+
+```json
+"canonical_basis": { "source": "CFS-009", "ratified": true },
+"derived_from":    { "law": "XIII" }
+```
+
+Left `proposed` deliberately: Law XIII Corollaries I–III, the Law XV class-purity and sequencing corollaries, the Constitutional Evolution / Constitutional Emergence bridge principles, and `inv.engineering.037` (primary source CLAUDE.md, Law II only as support). None is a clause of a Law's ratified text. **Law XVI has no seed entry at all** — CFS-052 §9 leaves it to the operator, so there was nothing to promote and manufacturing one would have been inventing canon.
+
 ## Operator action outstanding
 
 Registering this doc in `codexes/packs/agentiq/collections.json` (`col_updates`) was **out of this session's file scope** — another agent held that file. Add:

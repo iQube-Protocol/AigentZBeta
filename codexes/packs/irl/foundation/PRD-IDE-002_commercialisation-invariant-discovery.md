@@ -311,108 +311,93 @@ Consequences applied, not merely stated:
 - The three `novel` candidates (C-002, C-003, C-013) are recorded as **hypotheses for attack**, with the specific reason each might be an artefact.
 - The two single-domain candidates keep the `specialized` floor by rule, not by judgement.
 
-## 10. Suggested crystal additions (Deliverable 7) — for the operator to apply
+## 10. Crystal additions — RATIFIED AND APPLIED (operator ruling, 2026-07-27)
 
-**This PRD does not amend `canonical-invariants.seed.json`.** Amending canon is an operator act under Law XI, and a canary asserts the seed file contains no commercialisation entry. What follows is the block to apply, and the two decisions that must precede it.
+Both decisions this section previously left open have been ruled on, and the seed is executed. The ruling, verbatim:
 
-**10.1 Operator decision 1 — the namespace.** The seed crystal's `namespaces` array has no `commercialisation` entry. Adding one is a constitutional decision (it creates a new invariant family). The alternative is to place these under the existing `capability` namespace. **Recommendation: add `commercialisation`**, because the whole point of §2 is that this is a distinct horizontal family, and folding it into `capability` would make the vertical/horizontal distinction invisible in the crystal. Either way, per CRP-003 §9 the `C-nnn` keys in §9.1 are a **drafting convenience only** and must be renumbered into `inv.<namespace>.<n>` — never carried in as a parallel numbering scheme.
+> **Commercialisation Crystal:** Create the first-class `commercialisation` invariant namespace. Seed the eight recurrence-3 proposed candidates, excluding the candidate classified equivalent to CFS-052 III.4. Preserve their proposed status and record that inclusion is experimental, not canonical. Retain specialised and lower-recurrence candidates in the discovered library but outside the initial frozen crystal.
 
-**10.2 Operator decision 2 — how many.** **Recommendation: seed only the nine recurrence-3 candidates** (C-001 – C-006, C-013, C-014, C-016), and of those, **exclude C-006** as `equivalent` to `CFS-052` III.4 — seeding it would enter the same invariant twice under two ids. That leaves **eight**. The recurrence-2 and recurrence-1 candidates should wait for the external corpus, which may reclassify them.
+### 10.1 Decision 1 — namespace: FIRST-CLASS, not nested
 
-**10.3 The block.** Append to the `invariants` array (append-only, do not renumber), replacing `NNN` with the next free number in the chosen namespace. **Every entry is `proposed` — deliberately, and per §2.2 the crystal is being expanded with candidates to test the reasoning process, not with new canon.**
+> "Commercialisation should remain a first-class horizontal discovery domain, not be nested beneath Financial Services. Financial Services, Media and Human Mobility are evidence domains and **application contexts** for discovering commercialisation invariants. They are not the parent ontology of commercialisation itself."
+>
+> "The latter would incorrectly subordinate a cross-domain invariant class to its first application domain and make later portability awkward."
 
-```json
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "constraint",
-      "statement": "Delegated execution requires a prior, attributable record of the authority granted for it.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "governance"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-001; recurrence 3 (financial-services, media, human-mobility-services); platform-derived; UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "constraint",
-      "statement": "Value-bearing information is released in graded packages against demonstrated counterparty capability, not wholesale on request.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "trust"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-002; recurrence 3; platform-derived; candidate-novel, UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "principle",
-      "statement": "Status conferred by payment is separable from status earned by verified contribution; the apex state cannot be purchased.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "trust", "standing"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-003; recurrence 3; platform-derived; candidate-novel but may be an artefact of a shared Standing implementation (§9.4), UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "principle",
-      "statement": "A commercial relationship is a state machine, and its transitions rather than its stock are the actionable unit.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "adoption"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-004; recurrence 3; platform-derived; UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "principle",
-      "statement": "The reusable template, not the delivered instance, is the unit of commercial scale.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "scaling"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-005; recurrence 3; platform-derived; UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "constraint",
-      "statement": "A partner is qualified by referral authority, not by execution capacity.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "partnerships"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-013; recurrence 3; platform-derived; candidate-novel, UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "constraint",
-      "statement": "Outcome is assured against a derived composite of verified state, never against activity volume.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "outcomes"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-014; recurrence 3; platform-derived; UNVALIDATED"
-      }
-    },
-    {
-      "id": "inv.commercialisation.NNN",
-      "namespace": "commercialisation",
-      "semantic_type": "principle",
-      "statement": "A commercial vertical is a stage of one shared progression spine, not a peer rail.",
-      "status": "proposed",
-      "contexts": ["commercialisation", "venture-operations"],
-      "provenance": {
-        "source": "PRD-IDE-002 §9.1 C-016; recurrence 3; platform-derived; UNVALIDATED"
-      }
-    },
+```
+commercialisation.*                     ✅
+    applied across: financial-services · media · human-mobility-services
+
+financial-services.commercialisation.*  ❌
 ```
 
-If decision 1 adds a namespace, also add `"commercialisation"` to the seed file's top-level `namespaces` array, and mirror each statement into `appendix-a_canonical-invariants.md`.
+**Applied as:** namespace `commercialisation`, ids `inv.commercialisation.001`–`008`. This follows the seed file's own convention, verified before acting: all thirteen pre-existing namespaces are **flat single segments** with ids `inv.<namespace>.<n>` and no dotted namespace anywhere in the file. The sub-domain therefore rides in the existing `contexts` array rather than being forced into the id — which satisfies both halves of the instruction (constitutional parent is `commercialisation`; the slug follows existing convention).
+
+Declared ahead of its members, per CFS-013 §3 and the identical `finance` precedent (PRD-MPY-001 §9 D5):
+
+| Artefact | Change |
+|---|---|
+| `types/invariants.ts` | `InvariantNamespace` union + `INVARIANT_NAMESPACES` + `COMPOSITION_LAWS.commercialisation` |
+| `supabase/migrations/20260801000000_commercialisation_invariant_namespace.sql` | Widens the three namespace CHECK constraints |
+| `canonical-invariants.seed.json` | `namespaces` array + the eight records |
+
+**Composition law: `contextual`** — a horizontal capability invariant *resolves per application context*, which is the operator's own framing of the three evidence domains. "Authority precedes execution" resolves as an x409 agreement gate in financial services, a principal-approval flag in human mobility, and a trust-graded mission class in media: one invariant, three resolutions. Deliberately **not** `normative` (the finance/engineering no-partial-compliance family) — asserting that a partially-satisfied commercialisation invariant is *unlawful* would claim law-like force for `proposed` hypotheses that carry a known common-cause limitation (§9.4). Provisional; the operator amends if validation later earns it.
+
+### 10.2 Decision 2 — the eight, and why not more
+
+> "broad enough to represent the new invariant class; grounded across all three initial domains; small enough not to overwhelm the crystal; free of the known equivalent candidate; honest about the shared-platform common-cause limitation; still entirely noncanonical."
+>
+> "I would **not** seed the two single-domain specialised candidates into the initial frozen crystal. Keep them in the discovered library and available for domain-specific experiments… I would **also not** seed all remaining recurrence-2 candidates merely to increase quantity. **The first freeze should optimise for clear class representation, not library completeness.**"
+
+| Seed id | PRD candidate | Sub-domain | Statement |
+|---|---|---|---|
+| `inv.commercialisation.001` | C-001 | `commercial-governance` | Delegated execution requires a prior, attributable record of the authority granted for it. |
+| `inv.commercialisation.002` | C-002 | `trust-formation` | Value-bearing information is released in graded packages against demonstrated counterparty capability, not wholesale on request. |
+| `inv.commercialisation.003` | C-003 | `trust-formation` | Status conferred by payment is separable from status earned by verified contribution; the apex state cannot be purchased. |
+| `inv.commercialisation.004` | C-004 | `adoption` | A commercial relationship is a state machine, and its transitions rather than its stock are the actionable unit. |
+| `inv.commercialisation.005` | C-005 | `scaling` | The reusable template, not the delivered instance, is the unit of commercial scale. |
+| `inv.commercialisation.006` | C-013 | `partnerships` | A partner is qualified by referral authority, not by execution capacity. |
+| `inv.commercialisation.007` | C-014 | `outcome-assurance` | Outcome is assured against a derived composite of verified state, never against activity volume. |
+| `inv.commercialisation.008` | C-016 | `venture-operations` | A commercial vertical is a stage of one shared progression spine, not a peer rail. |
+
+**Excluded, and retained in the discovered library above:** C-006 (`equivalent` to CFS-052 III.4 — seeding it enters the same invariant twice under two ids), C-009 and C-010 (single-domain, `specialized` by §D.4a). Excluded is not discarded: all three remain in §9.1 and stay available for domain-specific experiments. Canaries assert both halves — the eight present, the three absent.
+
+### 10.3 Status — proposed, and inclusion is experimental
+
+> "The seed should preserve their native status as **proposed** candidates. **Inclusion in the experimental crystal must not imply ratification.**"
+
+The ruling's four experimental-metadata fields are mapped onto the seed file's **actual** record shape (verified first: 365/365 pre-existing records carry exactly `{id, namespace, semantic_type, statement, status, contexts, provenance:{source}}`), not bolted on as a foreign block:
+
+| Ruling field | Where it lands | Why |
+|---|---|---|
+| `canonicalStatus: "proposed"` | the record's own **`status`** field | It is the file's native status field. A second status field would be two sources of truth for one fact |
+| `observedDomains` | **`contexts`** — `financial-services`, `media`, `human-mobility-services` | `contexts` is already a flat tag array used for exactly this classification. Structural, so the population is machine-partitionable without parsing prose. **Derived from the registry's `observedIn`, not hand-typed** — a canary compares them, which is what catches `human-mobility` vs `human-mobility-services` |
+| `inclusionBasis: "cross-domain-recurrence"`, `recurrence: 3`, `experimentalStatus: "seeded-for-evaluation"` | **`provenance.source`**, in deterministic `key=value` form | `{source}` is the only provenance slot the uniform record shape has. Written greppably so a canary and a reader parse the same string |
+
+Each record additionally carries `NOT ratification`, `UNVALIDATED`, its PRD candidate id, and the shared-platform common-cause limitation **on the record itself**, so a reader who encounters the invariant without the PRD still sees its epistemic standing. A canary fails the build if any commercialisation record is ever `canonical` or `validated`.
+
+### 10.4 Freeze composition — and a conflict the operator must resolve
+
+> "The next P1 crystal can now be described as containing three distinct invariant populations: Constitutional invariants…; Financial-services invariants…; Commercialisation invariants… **The experiment record must preserve the population boundaries so results can be analysed by class rather than treating the crystal as one undifferentiated set.**"
+
+**Can the crystal be partitioned by population today? Partly — and one population cannot.**
+
+| Population | Partitionable? | By what |
+|---|---|---|
+| Commercialisation | **Yes** | `namespace === 'commercialisation'`, plus `contexts[0]` as an explicit population marker |
+| Constitutional | **Yes, approximately** | `namespace` — though "constitutional invariants" spans `constitutional`, `polity`, `epistemology` and others; the boundary is a family of namespaces, not one |
+| **Financial services** | **No** | The seed crystal contains **zero `finance` records**, and `promoteCandidate` hardcodes `namespace: 'constitutional'` for every discovered invariant regardless of domain (`discoveryEngine.ts`). A promoted FS invariant is therefore indistinguishable from a constitutional one by namespace; its domain survives only inside `contexts[].domain` and the provenance blob |
+
+**Smallest change that would make it possible — proposed, not made** (it alters promotion behaviour for the FS programme, which is outside this ruling's scope): resolve the promotion namespace from the Discovery Domain Registry instead of hardcoding `'constitutional'`, falling back to `'constitutional'` for an unregistered domain. The machinery is already fully in place and unused — `finance` is in the `InvariantNamespace` union, has its `normative` composition law, and has its CHECK constraint widened (migration `20260721000000`), all declared by PRD-MPY-001 §9 D5 as *"the class of the FS Invariant Library (`inv.finance.*`)"*. Nothing needs building; one line needs unhardcoding.
+
+**⚠ Conflict requiring an operator decision — do not treat the seed as settling it.** `CRYSTAL-ENLARGEMENT_plan.md` §2a (operator instruction, 2026-07-22, *"binding now"*) rules that **only `external-established` and `external-empirical` invariants are eligible for `Crystal vP1`**, and that `platform-derived` and `platform-hypothesized` invariants *"may inform platform operation but are never promoted into this experiment's collection."* **All eight commercialisation invariants are `platform-derived`** (§6, §9.4).
+
+Two artefacts are involved and they are not the same thing: this seed lands the eight in **`canonical-invariants.seed.json`** — the platform's invariant ontology, which §2a does not govern. Whether they may also enter **`Crystal vP1`** — the EXP-P1 experimental collection §2a does govern — is a question this PRD cannot answer and has not assumed. Three routes, for the operator:
+
+1. **Keep them out of `Crystal vP1`.** They inform platform operation and Venture Lab pilots; EXP-P1's collection stays externally-sourced. Requires no amendment.
+2. **Invoke §2a's own ablation clause** — *"EXP-P1 results should be reportable both with and without any platform-originated invariant"* — which is *already* the population-boundary requirement the ruling states, arriving from the other direction. The commercialisation population enters as an explicitly ablatable arm.
+3. **Amend §2a.** An amendment to a ratified experiment plan, and an operator act under IRL-016.
+
+This PRD takes route 0: it records the conflict and changes nothing in EXP-P1. `CRYSTAL-ENLARGEMENT_plan.md` is untouched.
 
 ## 11. Experiment recommendations (Deliverable 8)
 
@@ -441,8 +426,10 @@ Resolve the relevant candidates into a pilot, apply them, generate receipts, and
 - **No second discovery pipeline, and no change to Stages 2–5.** The engine change is additive: one new derivation, one new multi-domain lister, and three read paths routed through the registry.
 - **No second acquisition pipeline.** §7 is a campaign brief for the built Corpus Scout.
 - **No external corpus has been acquired, and no external source is cited.** Every citation in §9 is a repo path that was read. No DOI, page number, author or finding from any paper is asserted anywhere in this document.
-- **No invariant status is changed, and `canonical-invariants.seed.json` is not modified.**
+- **No invariant status is changed.** The eight seeded records enter at `proposed` by the operator's explicit ruling (§10.3); nothing is canonised, and no pre-existing record is altered. `canonical-invariants.seed.json` was amended ONLY under that ruling — Law XI is satisfied because the operator made the call, which is not a licence to widen scope.
 - **No `MetaCommonsResource`, no proof type, no Commons submission flow** — CFS-052 §8 stands unaltered.
+- **No change to `CRYSTAL-ENLARGEMENT_plan.md`, EXP-P1, or any experiment protocol.** The §2a conflict in §10.4 is recorded for the operator, not resolved here (IRL-016).
+- **No change to `promoteCandidate`'s namespace resolution.** §10.4 proposes it; this PRD does not make it.
 - **No coupling to `domain_profiles` / SPEC-CDR-001.**
 - **No L4 claim** is made from this corpus (§9.4).
 - **The eight sub-domains with thin in-repo evidence are recorded as gaps, not filled.** `customer-discovery`, `commercial-failure-modes`, `value-proposition` and `revenue-architecture` each rest on one or two artefacts; `settlement-exchange` has **no HMS evidence at all** (HMS has no settlement path in code). An honest empty cell is a finding; a filled one would be fabrication.
@@ -464,7 +451,15 @@ Resolve the relevant candidates into a pilot, apply them, generate receipts, and
 | No `recurrence_*` / `observed_domains` column exists in the engine | §8.1 — derived, never stored |
 | Route, Corpus Scout tab and discovery tab all DERIVE the domain list | §0 — the three-hand-copies defect cannot return |
 | Promotion still lands `proposed`/`agent_verified`; no path writes `canonical` | §2.1, Law XI |
-| The seed crystal contains no commercialisation entry | §10 — amending canon is an operator act |
+| The seed carries EXACTLY the eight the operator named | §10.2 — not seven, not nine |
+| Every commercialisation record is `proposed`, never `canonical`/`validated` | §10.3 — inclusion is not ratification |
+| C-006, C-009, C-010 are ABSENT from the seed but PRESENT in §9.1 | §10.2 — excluded is not discarded |
+| The namespace is flat and first-class; ids are `inv.commercialisation.NNN` | §10.1 — never nested under an application domain |
+| Observed-domain contexts equal the registry's `observedIn` | §10.3 — derived, so `human-mobility` can never drift from `human-mobility-services` |
+| Each record names a registered §4 sub-domain | §10.3 — taxonomy and crystal cannot drift |
+| Provenance carries inclusionBasis / recurrence / experimentalStatus / observedDomains | §10.3 |
+| `COMPOSITION_LAWS.commercialisation` is declared and is `contextual` | §10.1 — CFS-013 §3, algebra before members |
+| The SQL namespace CHECK admits exactly `INVARIANT_NAMESPACES` | §10.1 — the constraint-drift bug class |
 | The registry's definition is verbatim in this PRD | §1 |
 | The §4 taxonomy table and the registry sub-domains are the same set | §4 |
 | §5 records Merged / Split / Added / Rejected | §5 — an untested taxonomy is a red flag |
@@ -474,8 +469,12 @@ Resolve the relevant candidates into a pilot, apply them, generate receipts, and
 
 ## Ratification record
 
-- [ ] **Operator ratification of this PRD** — the docs-first gate. Nothing in §9 is validated and nothing in §10 is applied until this is signed.
-- [ ] **Operator decision 1** — namespace for commercialisation invariants (§10.1).
-- [ ] **Operator decision 2** — how many candidates enter the crystal (§10.2; recommendation: the eight in §10.3).
+- [x] **Operator decision 1 — RULED 2026-07-27.** First-class `commercialisation` namespace, not nested beneath Financial Services (§10.1). **Applied.**
+- [x] **Operator decision 2 — RULED 2026-07-27.** The eight recurrence-3 candidates, excluding the `equivalent` one; specialised and lower-recurrence candidates retained in the discovered library but outside the initial frozen crystal (§10.2). **Applied.**
+- [x] **Status — RULED 2026-07-27.** All eight preserve `proposed`; inclusion in the experimental crystal does not imply ratification (§10.3). **Applied, canary-enforced.**
+- [ ] **Operator ratification of the PRD as a whole** — nothing in §9 is validated by the seed ruling; the candidate library, taxonomy and acquisition plan still await the docs-first gate.
+- [ ] **Operator decision 3 — the §2a conflict (§10.4).** All eight are `platform-derived`; `CRYSTAL-ENLARGEMENT_plan.md` §2a bars `platform-derived` invariants from `Crystal vP1`. Three routes are set out in §10.4; nothing in EXP-P1 has been changed.
+- [ ] **Operator decision 4 — FS population boundary (§10.4).** Financial-services invariants are not partitionable from constitutional ones today. The one-line unhardcoding is proposed, not made.
+- [ ] **Run the migration** `supabase/migrations/20260801000000_commercialisation_invariant_namespace.sql` before any commercialisation invariant is ingested into Supabase.
 - [ ] **Corpus Scout campaign** for the §7.4 lanes, run in the pre-freeze "enlarge (receipted)" phase.
 - [ ] **Recurrence-predicts-survival experiment** (§11.1) registered once the external corpus lands.

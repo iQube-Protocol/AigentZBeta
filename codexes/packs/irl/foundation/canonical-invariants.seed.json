@@ -15,7 +15,8 @@
     "interaction",
     "epistemology",
     "representation",
-    "polity"
+    "polity",
+    "commercialisation"
   ],
   "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
   "invariants": [
@@ -310,13 +311,20 @@
       "namespace": "constitutional",
       "semantic_type": "principle",
       "statement": "Humans define semantics; AI optimizes implementation.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "governance",
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law XI"
+        "source": "CFS-009 Law XI",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XI"
+        }
       }
     },
     {
@@ -366,12 +374,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Preserve before replace.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law I"
+        "source": "CFS-009 Law I",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "I"
+        }
       }
     },
     {
@@ -379,12 +394,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Extend before recreate.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law II"
+        "source": "CFS-009 Law II",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "II"
+        }
       }
     },
     {
@@ -392,12 +414,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Compose before specialize.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law III"
+        "source": "CFS-009 Law III",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "III"
+        }
       }
     },
     {
@@ -405,12 +434,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Discover invariants before designing abstractions.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law IV"
+        "source": "CFS-009 Law IV",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "IV"
+        }
       }
     },
     {
@@ -418,12 +454,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Compress expertise before automating it.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law V"
+        "source": "CFS-009 Law V",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "V"
+        }
       }
     },
     {
@@ -431,13 +474,20 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Separate architecture from rendering.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering",
         "experience"
       ],
       "provenance": {
-        "source": "CFS-009 Law VI"
+        "source": "CFS-009 Law VI",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "VI"
+        }
       }
     },
     {
@@ -445,13 +495,20 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Separate reasoning from inference.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering",
         "epistemics"
       ],
       "provenance": {
-        "source": "CFS-009 Law VII"
+        "source": "CFS-009 Law VII",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "VII"
+        }
       }
     },
     {
@@ -459,12 +516,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Treat invariants as first-class computational primitives.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law VIII"
+        "source": "CFS-009 Law VIII",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "VIII"
+        }
       }
     },
     {
@@ -472,13 +536,20 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Adaptive systems render; canonical systems govern.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering",
         "runtime"
       ],
       "provenance": {
-        "source": "CFS-009 Law IX"
+        "source": "CFS-009 Law IX",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "IX"
+        }
       }
     },
     {
@@ -486,12 +557,19 @@
       "namespace": "engineering",
       "semantic_type": "law",
       "statement": "Every evolution must strengthen the invariant ontology.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "engineering"
       ],
       "provenance": {
-        "source": "CFS-009 Law X"
+        "source": "CFS-009 Law X",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "X"
+        }
       }
     },
     {
@@ -841,13 +919,20 @@
       "namespace": "constitutional",
       "semantic_type": "epistemic",
       "statement": "Truth is established through validation within a domain of applicability, not by popularity.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "epistemics",
         "governance"
       ],
       "provenance": {
-        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+        "source": "CFS-009 Law XII — Truth, Standing and Reach",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XII"
+        }
       }
     },
     {
@@ -855,14 +940,21 @@
       "namespace": "constitutional",
       "semantic_type": "epistemic",
       "statement": "Standing expresses constitutional confidence in an invariant and shall never be interpreted as a measure of truth.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "epistemics",
         "governance",
         "registry"
       ],
       "provenance": {
-        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+        "source": "CFS-009 Law XII — Truth, Standing and Reach",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XII"
+        }
       }
     },
     {
@@ -870,14 +962,21 @@
       "namespace": "constitutional",
       "semantic_type": "epistemic",
       "statement": "Reach measures adoption rather than validity; constitutional knowledge preserves the distinction between Truth, Standing, and Reach.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "epistemics",
         "governance",
         "registry"
       ],
       "provenance": {
-        "source": "CFS-009 Law XII — Truth, Standing and Reach"
+        "source": "CFS-009 Law XII — Truth, Standing and Reach",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XII"
+        }
       }
     },
     {
@@ -885,13 +984,20 @@
       "namespace": "constitutional",
       "semantic_type": "principle",
       "statement": "Personhood precedes individualization. Individualization precedes standing. Identity is an optional derivative of individualization rather than a prerequisite for constitutional participation.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "governance",
         "identity"
       ],
       "provenance": {
-        "source": "CFS-009 Law XIII — Individualization"
+        "source": "CFS-009 Law XIII — Individualization",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XIII"
+        }
       }
     },
     {
@@ -899,13 +1005,20 @@
       "namespace": "constitutional",
       "semantic_type": "definition",
       "statement": "Individualization is the establishment of a constitutional subject capable of accruing Standing without that subject being identifiable.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "governance",
         "identity"
       ],
       "provenance": {
-        "source": "CFS-009 Law XIII — Individualization"
+        "source": "CFS-009 Law XIII — Individualization",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XIII"
+        }
       }
     },
     {
@@ -1152,13 +1265,20 @@
       "namespace": "experience",
       "semantic_type": "principle",
       "statement": "Every experience is the coherent composition of multiple invariant classes operating simultaneously within a shared constitutional context.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "experience",
         "rendering"
       ],
       "provenance": {
-        "source": "CFS-014 / Law XIV — Constitutional Coherence"
+        "source": "CFS-014 / Law XIV — Constitutional Coherence",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XIV"
+        }
       }
     },
     {
@@ -1180,14 +1300,21 @@
       "namespace": "experience",
       "semantic_type": "law",
       "statement": "Every constitutional experience is the multiplicative composition of independently verifiable invariant fields; changing any field changes the whole experience.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "experience",
         "rendering",
         "composition"
       ],
       "provenance": {
-        "source": "Law XV — Compositional Fields (discovered by EXP-002's first production brief, 2026-07-04)"
+        "source": "Law XV — Compositional Fields (discovered by EXP-002's first production brief, 2026-07-04)",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XV"
+        }
       }
     },
     {
@@ -1337,13 +1464,20 @@
       "namespace": "reasoning",
       "semantic_type": "law",
       "statement": "Every coherent system is the composition of independently verifiable invariant fields; constitutional experiences are one expression of this general principle.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "ontology",
         "composition"
       ],
       "provenance": {
-        "source": "Law XV, generalized 2026-07-06 (CFS-009 amendment). Broadens the SCOPE of inv.experience.072, not its content — 072 remains constitutionally recorded and true as the constitutional-scoped instance of this universal law."
+        "source": "Law XV, generalized 2026-07-06 (CFS-009 amendment). Broadens the SCOPE of inv.experience.072, not its content — 072 remains constitutionally recorded and true as the constitutional-scoped instance of this universal law.",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XV"
+        }
       }
     },
     {
@@ -1997,14 +2131,21 @@
       "namespace": "constitutional",
       "semantic_type": "law",
       "statement": "Personhood shall remain continuously individualizable without identity exposure: a constitutional subject persists across time, interactions, and substrates — provably the same subject through personhood proof, a sovereign continuity root, and accrued standing — while identity disclosure remains a discrete, consent-gated act that continuity never requires.",
-      "status": "proposed",
+      "status": "canonical",
       "contexts": [
         "governance",
         "identity",
         "privacy"
       ],
       "provenance": {
-        "source": "CFS-009 Law XIII — Individualization (binding law); operator articulation 2026-07-14; implementation witness IRL-010 §2.11"
+        "source": "CFS-009 Law XIII — Individualization (binding law); operator articulation 2026-07-14; implementation witness IRL-010 §2.11",
+        "canonical_basis": {
+          "source": "CFS-009",
+          "ratified": true
+        },
+        "derived_from": {
+          "law": "XIII"
+        }
       }
     },
     {
@@ -5304,6 +5445,142 @@
       "status": "canonical",
       "provenance": {
         "source": "First Invariant Retrospective (IRL-017 §2), run 2026-07-22 over the EXP-P1 infrastructure/corpus programme; operator-ratified 2026-07-22; operationalized in PRD-EPI-001 §5 (judge-config label blinding)"
+      }
+    },
+    {
+      "id": "inv.commercialisation.001",
+      "namespace": "commercialisation",
+      "semantic_type": "constraint",
+      "statement": "Delegated execution requires a prior, attributable record of the authority granted for it.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "commercial-governance",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-001; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4)."
+      }
+    },
+    {
+      "id": "inv.commercialisation.002",
+      "namespace": "commercialisation",
+      "semantic_type": "constraint",
+      "statement": "Value-bearing information is released in graded packages against demonstrated counterparty capability, not wholesale on request.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "trust-formation",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-002; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4). Classified candidate-novel against the tangential domains — a hypothesis for attack, not a result."
+      }
+    },
+    {
+      "id": "inv.commercialisation.003",
+      "namespace": "commercialisation",
+      "semantic_type": "principle",
+      "statement": "Status conferred by payment is separable from status earned by verified contribution; the apex state cannot be purchased.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "trust-formation",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-003; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4). Candidate-novel, but its apparent novelty may be an artefact of a Standing implementation shared by all three evidence domains."
+      }
+    },
+    {
+      "id": "inv.commercialisation.004",
+      "namespace": "commercialisation",
+      "semantic_type": "principle",
+      "statement": "A commercial relationship is a state machine, and its transitions rather than its stock are the actionable unit.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "adoption",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-004; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4). Expect reclassification to equivalent/specialized once platform-economics literature is acquired."
+      }
+    },
+    {
+      "id": "inv.commercialisation.005",
+      "namespace": "commercialisation",
+      "semantic_type": "principle",
+      "statement": "The reusable template, not the delivered instance, is the unit of commercial scale.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "scaling",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-005; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4)."
+      }
+    },
+    {
+      "id": "inv.commercialisation.006",
+      "namespace": "commercialisation",
+      "semantic_type": "constraint",
+      "statement": "A partner is qualified by referral authority, not by execution capacity.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "partnerships",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-013; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4). Classified candidate-novel against the tangential domains — a hypothesis for attack, not a result."
+      }
+    },
+    {
+      "id": "inv.commercialisation.007",
+      "namespace": "commercialisation",
+      "semantic_type": "constraint",
+      "statement": "Outcome is assured against a derived composite of verified state, never against activity volume.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "outcome-assurance",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-014; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4)."
+      }
+    },
+    {
+      "id": "inv.commercialisation.008",
+      "namespace": "commercialisation",
+      "semantic_type": "principle",
+      "statement": "A commercial vertical is a stage of one shared progression spine, not a peer rail.",
+      "status": "proposed",
+      "contexts": [
+        "commercialisation",
+        "venture-operations",
+        "financial-services",
+        "media",
+        "human-mobility-services"
+      ],
+      "provenance": {
+        "source": "PRD-IDE-002 §9.1 C-016; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation. Inclusion in the experimental crystal is NOT ratification — canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 §9.4)."
       }
     }
   ]
