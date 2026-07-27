@@ -51,6 +51,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EXPERIMENT_REGISTRY } from '../types/research';
@@ -502,6 +503,80 @@ describe('SPEC-CDR-001 domain profile registry (D-15)', () => {
     for (const profile of DOMAIN_PROFILES) {
       expect('executionDomains' in profile).toBe(false);
       expect(profile.capabilityModules.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-27)', () => {
+  // WHAT WENT WRONG. `InvariantExperimentLab` hand-authors its navigator —
+  // grouping and one-line overviews — because several entries have no registry
+  // id and cannot be derived. That is legitimate. What is NOT legitimate is a
+  // hand-authored entry whose EXPERIMENT ID has been reassigned underneath it:
+  // when EXP-P3 was reassigned from Capability Validation to Representation of
+  // Structural Invariants, the Lab kept presenting the capability RUNNER under
+  // the EXP-P3 designation, so the Laboratory showed one experiment while the
+  // registry, the docs, and the partner packet said another (operator: "EXP P3
+  // is still showing the old experiment").
+  //
+  // These pin the join, not the prose — labels are deliberately shorter than
+  // registry families and must stay free to differ.
+  const LAB = 'components/composer/InvariantExperimentLab.tsx';
+
+  function itemExperimentMap(src: string): Record<string, string> {
+    const block = src.slice(
+      src.indexOf('const ITEM_EXPERIMENT'),
+      src.indexOf('};', src.indexOf('const ITEM_EXPERIMENT')),
+    );
+    const out: Record<string, string> = {};
+    for (const m of block.matchAll(/["']?([\w-]+)["']?:\s*"([A-Z]+-[\w-]+)"/g)) {
+      out[m[1]] = m[2];
+    }
+    return out;
+  }
+
+  it('every experiment id the Lab mounts exists in the registry', () => {
+    const ids = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
+    const map = itemExperimentMap(stripComments(readSource(LAB)));
+    expect(Object.keys(map).length).toBeGreaterThan(5); // guards a vacuous parse
+    for (const [tab, expId] of Object.entries(map)) {
+      expect(ids.has(expId), `Lab tab '${tab}' mounts unknown experiment '${expId}'`).toBe(true);
+    }
+  });
+
+  it('a reserved P-slot is never bound to a renumbered legacy harness', () => {
+    // The four core designations are reserved. EXP-P1 has a harness; P2/P3/P4
+    // do not, so they must NOT be hand-mounted — that way their panel text is
+    // read from EXPERIMENT_REGISTRY and cannot go stale. The two legacy
+    // harnesses belong to the renumbered ids.
+    const map = itemExperimentMap(stripComments(readSource(LAB)));
+    const mounted = new Set(Object.values(map));
+    expect(mounted.has('EXP-P1')).toBe(true);
+    for (const reserved of ['EXP-P2', 'EXP-P3', 'EXP-P4']) {
+      expect(
+        mounted.has(reserved),
+        `${reserved} is hand-mounted in the Lab — it has no runner, so its panel must come from the registry`,
+      ).toBe(false);
+    }
+    expect(map.vp2, 'the structural-invariance harness is not bound to EXP-011').toBe('EXP-011');
+    expect(map.vp3, 'the capability harness is not bound to EXP-012').toBe('EXP-012');
+  });
+
+  it('no hand-authored Lab label claims a designation the map assigns elsewhere', () => {
+    // The precise drift: a label reading "EXP-P3 · …" while the entry is bound
+    // to a different id (or vice versa). Label prefix and mapped id must agree.
+    const src = stripComments(readSource(LAB));
+    const map = itemExperimentMap(src);
+    const labels = [...src.matchAll(/\{\s*id:\s*"([\w:-]+)",\s*label:\s*"([^"]+)"/g)];
+    expect(labels.length).toBeGreaterThan(5);
+    for (const [, tabId, label] of labels) {
+      const prefix = label.match(/^([A-Z]+-[\w]+)\s*·/)?.[1];
+      if (!prefix) continue; // labels without a designation are free text
+      const mappedId = map[tabId];
+      if (!mappedId) continue; // unmapped entries carry no registry claim
+      expect(
+        prefix,
+        `Lab tab '${tabId}' is labelled '${prefix}' but mounts '${mappedId}'`,
+      ).toBe(mappedId);
     }
   });
 });

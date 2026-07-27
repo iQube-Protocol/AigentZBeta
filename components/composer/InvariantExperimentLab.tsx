@@ -58,7 +58,9 @@ const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
   entropy: "EXP-007",
   propagation: "EXP-008",
   vp1: "EXP-P1",
-  // vp2 (EXP-P2) + vp3 (EXP-P3) have real harnesses — mounted below, not design-stage panels.
+  // vp2 (EXP-011) + vp3 (EXP-012) have real harnesses — mounted below, not
+  // design-stage panels. EXP-P2 / EXP-P3 / EXP-P4 have none, so the registry
+  // completeness guard surfaces them from EXPERIMENT_REGISTRY metadata.
 };
 
 interface LabEntry {
@@ -109,11 +111,27 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     ],
   },
   {
+    // The four RESERVED core designations (operator, 2026-07-27). Only EXP-P1
+    // has a harness; P2/P3 are design-stage and P4 is reserved, so they are
+    // NOT hand-mounted here — the registry completeness guard below surfaces
+    // them with text read straight from EXPERIMENT_REGISTRY. That is why the
+    // Lab now shows the representation experiment for EXP-P3: there is no
+    // hand-authored label left to go stale.
     title: "Validation Programme",
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
-      { id: "vp2", label: "EXP-P2 · Structural Invariance", icon: FlaskConical, blurb: "Do discovered invariants have operational utility as a reasoning substrate? Three arms (cold · manual baseline · earned) + root ablation, representation-vs-representation on one corpus — the empirical test of inv.reasoning.323." },
-      { id: "vp3", label: "EXP-P3 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set." },
+    ],
+  },
+  {
+    // RENUMBERED 2026-07-27. These two harnesses implement the designs that
+    // used to hold the P2 / P3 designations; the designations moved, the
+    // harnesses did not. Binding them to EXP-011 / EXP-012 is what stops the
+    // Lab presenting a legacy runner under a reassigned number — the exact
+    // drift the operator caught ("EXP P3 is still showing the old experiment").
+    title: "Structural & Capability Studies",
+    items: [
+      { id: "vp2", label: "EXP-011 · Structural Invariance", icon: FlaskConical, blurb: "Do discovered invariants have operational utility as a reasoning substrate? Three arms (cold · manual baseline · earned) + root ablation, representation-vs-representation on one corpus — the empirical test of inv.reasoning.323. Formerly EXP-P2." },
+      { id: "vp3", label: "EXP-012 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set. Formerly EXP-P3." },
     ],
   },
   {
@@ -154,8 +172,11 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
   irv: "IRV-001",
   ipv: "IPV-001",
   vp1: "EXP-P1",
-  vp2: "EXP-P2",
-  vp3: "EXP-P3",
+  // The harnesses behind these two implement the RENUMBERED designs (2026-07-27).
+  // A P-slot must never be bound to a legacy harness: the designation moved, the
+  // implementation did not.
+  vp2: "EXP-011",
+  vp3: "EXP-012",
 };
 
 /** Tab id → experiment id, including dynamic `reg:<id>` guard entries. */
