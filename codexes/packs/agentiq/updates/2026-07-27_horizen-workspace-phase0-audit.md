@@ -649,3 +649,183 @@ whatever the campaign has promoted by the time Phase 3 lands.
 - The §B.7 decision item 4 ("confirm no commercial/operational namespace is created") is
   **superseded**: the question is not whether to create a namespace but whether to charter a
   **commercialisation discovery campaign** scoped as an FS sub-domain (§C.4).
+
+---
+
+# Amendment D — The Proof Commons (constitutional design principles, operator ruling 2026-07-27)
+
+Four rulings, recorded as constitutional design principles governing this workstream and the
+metaCommons implementation. Plus one naming collision the audit is obliged to flag before the name
+is adopted.
+
+## D.1 PRINCIPLE — The Commons is a Proof Commons, not a knowledge commons
+
+> *"The thing that both Labs genuinely have in common is not knowledge. It's evidence."*
+
+```
+        Research → Knowledge → Commons        (superseded)
+        Research → Proof     → Commons        (canonical)
+```
+
+**Knowledge becomes a projection of proof, not the other way round.** The four native proof
+classes — **scientific · operational · commercial · constitutional** — are the commons' primary
+discriminator, established in Amendment B §9 and now promoted from a classification scheme to the
+commons' *reason for existing*.
+
+**Immediate consequence for the implementation — the promotion verb changes.** Not *Publish to
+Commons*. **Submit Proof** / **Promote Evidence**. Everything entering carries an evidence
+posture, a claim scope and supporting evidence references. Opinion, documentation, chat and notes
+are **not** commons-eligible; they are Tier 1 or Tier 2 material that may *support* a proof
+submission without being one.
+
+This is a stricter gate than the earlier "governed projection" framing, and it is the right one: it
+makes the commons falsifiable by construction. A submission that cannot name its evidence cannot
+enter.
+
+## D.2 PRINCIPLE — Constitutional proof is the spine
+
+```
+                Constitutional Proof
+        /               |               \
+  Scientific       Commercial       Operational
+```
+
+The audit's observation is ratified as architecture: **constitutional proof is the only class both
+Labs already produce natively**, and the platform already generates it continuously —
+
+| Producer | Constitutional proof it emits |
+|---|---|
+| Passport | personhood continuity, credential validity |
+| Standing | accrual correctness, calibration-not-gating (`inv.polity.166`) |
+| Delegation | boundedness, sponsorship, revocation |
+| Receipts + DVN | attribution, tamper-evidence, anchoring |
+| Access spine | policy operated correctly, protected information stayed protected |
+
+**Implementation consequence: constitutional proof is the FIRST proof class to implement**, in
+Phase 5. It is the cheapest to make real (the producers already exist and are receipted) and it is
+the substrate the other three hang from. Building scientific or commercial proof first would mean
+building the branches before the trunk.
+
+## D.3 PRINCIPLE — Resolved invariants with provenance, never stored ids
+
+> *"The Workspace should never store: Invariant 143, Invariant 201, Invariant 98. It stores
+> Resolved Invariants with provenance. Exactly like Blueprint Handoff already does."*
+
+Ratified, and it has a working precedent to copy verbatim: `services/venture/blueprintHandoff.ts`
+resolves invariants at runtime and records `invariantsUsed` with a consequence forecast, rather
+than hardcoding ids.
+
+**The rule for the spine (Phase 2):** `invariantReferences` on an `ExperimentWorkspace` records
+*what was resolved, when, by which resolution, and with what provenance* — never a literal id list
+authored by hand. A hand-authored id list would make the workspace a second source of truth for
+canon, which is the `inv.engineering.036` defect this whole session has been eliminating. It would
+also silently rot the moment an invariant is renumbered — the exact failure mode the EXP-P2/P3
+renumbering exposed earlier today.
+
+## D.4 PRINCIPLE — Commercialisation discovery is its own programme
+
+Ratified as two independent programmes, with the dependency running one way only:
+
+```
+Programme A — Commercialisation Invariant Discovery
+  GTM literature · pricing research · adoption studies · commercial failures ·
+  post-mortems · SaaS metrics · marketplaces · venture scaling · network effects
+        ↓ IDE
+  Commercialisation invariant candidates (status: proposed)
+
+Programme B — Horizen Pilot
+  consumes A's candidates → tests them in operation → operational + commercial proof
+        ↓ feeds back
+  Programme A
+```
+
+**Horizen is the first CONSUMER of the discovery, not the discovery itself.** Programme B must not
+be gated on Programme A: if A has promoted nothing by the time Phase 3 lands, Horizen runs against
+existing constitutional and financial invariants and contributes its evidence back regardless.
+
+### D.4a Operator refinement — platform campaign, Financial Services as first corpus
+
+> *"I'd make it a platform discovery campaign with Financial Services as its first instantiated
+> corpus… commercialisation invariants almost certainly transcend sectors."*
+
+**Accepted, and it is stronger than the audit's own recommendation.** Amendment C §C.4 advised
+scoping commercialisation as an FS *sub-domain* so Compare could classify against the FS baseline.
+That was too conservative: a cross-sector commercialisation domain is precisely the path to **L4
+(domain-independent)** invariants, which the discovery engine already defines as *"discovered later
+by cross-domain comparison."* The operator's framing targets L4 deliberately rather than settling
+for L3.
+
+**One sequencing caution that follows, in the engine's own vocabulary.** With only one sector's
+corpus ingested, discovery *cannot yet distinguish* a commercialisation invariant from a
+financial-services commercialisation invariant. The engine already has the right word for this:
+`specialized` (one branch only) versus `supported` (recurs across ≥2 sub-domains).
+
+**Rule: anything discovered from a single sector's corpus is classified `specialized` until a
+second sector's corpus confirms it.** Promotion to `supported` requires the second sector. This
+keeps the L4 ambition honest without waiting for it — FS runs first, and the claim strengthens as
+AI, healthcare, manufacturing, mobility and energy corpora land.
+
+## D.5 The recursive loop, closed
+
+```
+Discovery → Candidate Invariants → Canonical Invariants → Applied in Ventures
+    ↑                                                              ↓
+New Questions ← Operational Proof ← Commercial Proof ←─────────────┘
+```
+
+Recorded as the governing loop. Two disciplines keep it honest, both already canon:
+
+- **Direction of canonisation.** Only the Research Lab canonises. The Venture Lab applies, tests,
+  and *proposes* — a commercial success never promotes an invariant to `canonical` (Amendment B
+  §B.1, Hypothesis-vs-Canon).
+- **Falsification travels too.** The loop must carry failures: an invariant that fails under real
+  operating conditions is a first-class commons submission (a proof of the negative), not an
+  omission. The evidence posture must be able to express *falsified in deployment*.
+
+## D.6 Lab articulation (recorded as canon for this workstream)
+
+| Lab | Primary function | Primary output | Asks |
+|---|---|---|---|
+| **Research Lab** | Discover and validate invariants | Scientific & structural proof | *"What is true?"* |
+| **Venture Lab** | Apply invariants in real ventures | Commercial & operational proof | *"Does it work in the real world?"* |
+| **Proof Commons** | Preserve and govern validated proof | Constitutional memory | *"What has now been demonstrated?"* |
+
+## D.7 NAMING — a three-way collision the audit must flag
+
+The operator's ruling: *"We can call it the metaProof Commons aka metaCommons."* Recorded. But
+**`metaProof` is already a load-bearing platform term with two distinct existing meanings**, and
+adopting a third without deciding is how ontology drift starts:
+
+| Existing usage | Where | What it names |
+|---|---|---|
+| **metaProof Agent Harness** | `CLAUDE.md` §"metaProof Agent Harness"; `docs/agent-harness/metaproof-core.md` — *"Source of truth. All tool-specific instruction layers are derived from this file"* | The canonical agent-harness spec (role hierarchy, NBE contract, DVN receipt taxonomy, QubeTalk conventions) |
+| **MetaProof operators** | The Horizen Workspace spec, §5.2 and §6 — *"authorised MetaProof operators"* | The organisation / platform side of the partnership, as distinct from Horizen |
+| **metaProof Commons** | This ruling | The proof commons |
+
+These are reconcilable — arguably they share a root idea (the platform *is* the proof system) — but
+the ontology must say so explicitly rather than leave three referents sharing one word.
+
+**Recommendation (operator decision required):**
+
+- **Canonical concept:** **Proof Commons** — this is the constitutional term, and it is unambiguous.
+- **Canonical implementation:** **metaCommons** — already in the codebase (`metacommonsSignals.ts`,
+  the metaCommons Charter in Polity Core) and already ontologically distinct.
+- **Use "metaProof Commons" as a descriptive alias only**, not as an identifier — no type, service,
+  route, or table takes the name.
+- If `metaProof` is to become the umbrella brand for the proof system as a whole, that is a
+  **separate ontology ruling** that would need to reconcile the harness and the operator-side usages
+  in `docs/platform-ontology.md`. Not decided here.
+
+This keeps the ruling's intent (the Commons is about proof) while preventing a single word from
+naming an agent harness, an organisation and a knowledge substrate simultaneously.
+
+## D.8 Consequences for the implementation plan
+
+| Change | Effect |
+|---|---|
+| Promotion verb becomes **Submit Proof** | Phase 5 gains an evidence-posture requirement at the gate; submissions without evidence references are refused |
+| **Constitutional proof implemented first** | Phase 5 reorders: constitutional → operational → commercial → scientific |
+| **Resolved invariants, never ids** | Phase 2 `invariantReferences` copies the `blueprintHandoff` pattern; a canary should forbid hand-authored id arrays on workspace records |
+| **Programme A independent** | Commercialisation discovery chartered separately; Horizen is not gated on it |
+| **Single-sector = `specialized`** | Programme A's promotion rule; L4 claims require a second sector |
+| **Falsification is submissible** | The evidence posture must express failure in deployment, not only success |
