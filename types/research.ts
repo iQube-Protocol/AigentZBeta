@@ -227,13 +227,25 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
   },
   {
+    // DESIGNATION REASSIGNED 2026-07-27 (operator: "EXP P3 is supposed to be
+    // about invariant representation not capability. What's in the lab does not
+    // seem to be in line with the file I shared"). EXP-P3 is the Representation
+    // of Structural Invariants experiment — the third question of the series
+    // (P1 compression → P2 consequence → P3 representation), authored from the
+    // operator-supplied source and shipped as the six-doc set below.
+    //
+    // The former occupant of this designation — the Capability Validation
+    // demonstration at `exp-p3-capability-validation/` — is NOT deleted; it is
+    // no longer what EXP-P3 names. Its own renumbering is unresolved and is
+    // tracked in the series ratification packet.
     id: 'EXP-P3',
     layer: 'I',
-    family: 'Capability Validation (Capability)',
+    family: 'Representation of Structural Invariants (Representational)',
     seriesId: 'VP1',
     hypothesis:
-      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes.',
-    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p3-capability-validation/README.md',
+      'Under conditions of audited informational equivalence, does representational substrate materially affect computational reasoning over structural knowledge? Isolates representation as the causal variable — P1 tests compression, P2 tests consequence, P3 tests representation itself.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/02_experimental-protocol.md',
     governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
   },
   // ─── Constitutional Knowledge Evolution (the institute's first longitudinal

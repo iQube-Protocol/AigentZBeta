@@ -1,5 +1,18 @@
 # EXP-P3 — Capability Validation
 
+> **DESIGNATION REASSIGNED — operator ruling, 2026-07-27.** "EXP-P3" no longer names this
+> design. The **EXP-P3** slot of the Validation Programme series (P1 / P2 / P3) is now
+> **Representation of Structural Invariants** —
+> `../exp-p3-representation-of-structural-invariants/` — per the operator: *"EXP P3 is supposed
+> to be about invariant representation not capability."* `EXPERIMENT_REGISTRY` and the Laboratory
+> view point there.
+>
+> **This design is retained, not withdrawn.** Its Capability hypothesis class is unchanged and
+> its content is untouched below. What is unresolved is its **number**: renumbering (under the
+> no-number-reuse rule), archiving, or re-slotting is an operator decision, tracked in
+> `../SERIES-RATIFICATION_p1-p2-p3.md` §6. Until that ruling, cite this document by its title —
+> Capability Validation — never as "EXP-P3".
+
 **Chrysalis Foundation · Validation Programme v1 · Experiment C (Capability) · Status: DESIGN — pre-registration draft v0.1**
 **Hypothesis class:** Capability (see `foundation/IRL_VALIDATION_ROADMAP.md`).
 **Constitutional anchor:** `foundation/CFS-033_constitutional-evaluation.md`. Runs on the live IRL OS + AgentiQ OS instrument.

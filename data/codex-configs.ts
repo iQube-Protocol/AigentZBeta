@@ -2590,12 +2590,20 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // first with Horizen (Pilot Series 001, CRP-003a). Partner instances live
       // in services/venture/partnerWorkspace.ts (single source); this tab only
       // renders that registry. adminOnly during the pilot.
+      //
+      // GROUP + TIER (operator, 2026-07-27): moved from `connect` to `grow`,
+      // and the five workspace surfaces promoted from an in-component row to
+      // real TIER-3 `subTabs` — the same three-level shape AgentiQ OS uses
+      // (group → tab → subTabs), which `CodexPanelDynamic` already renders as
+      // its own row. Buried two tiers down under Connect, the workspace was
+      // reading as a sub-item of its neighbours; under Grow with its surfaces
+      // exposed it is navigable in one glance.
       id: 'partner-programmes',
       label: 'Partner Programmes',
       slug: 'partner-programmes',
       enabled: true,
       adminOnly: true,
-      group: 'connect',
+      group: 'grow',
       order: 2,
       type: 'static',
       config: {
@@ -2606,7 +2614,78 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'Briefcase',
         description: 'Partner Workspace — pilot command center, collaboration (invitations, peer exchange, locker), operations, evidence, and communications for partner pilot programmes',
         color: 'amber'
-      }
+      },
+      // Tier 3. Each entry renders the SAME component with its surface
+      // pre-selected — one implementation, five entrances (`inv.engineering.036`:
+      // a second Partner Workspace component per surface would be the parallel
+      // implementation this pattern exists to avoid). `initialSurface` also
+      // tells the component the menu above owns surface selection, so it drops
+      // its own row rather than showing two navigations for one concept.
+      // adminOnly repeated per child: `CodexPanelDynamic` re-applies the gates
+      // at every tier (defense in depth), and inheriting silently would leave
+      // the children's gate implicit.
+      subTabs: [
+        {
+          id: 'partner-programmes-overview',
+          label: 'Overview',
+          slug: 'partner-programmes-overview',
+          enabled: true,
+          adminOnly: true,
+          group: 'grow',
+          order: 0,
+          type: 'static' as const,
+          config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'overview' } },
+          metadata: { icon: 'LayoutDashboard', description: 'Pilot Command Center — phase, owner, partner, open actions', color: 'amber' },
+        },
+        {
+          id: 'partner-programmes-collaborate',
+          label: 'Collaborate',
+          slug: 'partner-programmes-collaborate',
+          enabled: true,
+          adminOnly: true,
+          group: 'grow',
+          order: 1,
+          type: 'static' as const,
+          config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'collaborate' } },
+          metadata: { icon: 'Users', description: 'Invitations, peer exchange, and the venture-scoped locker', color: 'amber' },
+        },
+        {
+          id: 'partner-programmes-operate',
+          label: 'Operate',
+          slug: 'partner-programmes-operate',
+          enabled: true,
+          adminOnly: true,
+          group: 'grow',
+          order: 2,
+          type: 'static' as const,
+          config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'operate' } },
+          metadata: { icon: 'Rocket', description: 'Delivery surfaces the pilot runs on', color: 'amber' },
+        },
+        {
+          id: 'partner-programmes-evidence',
+          label: 'Evidence',
+          slug: 'partner-programmes-evidence',
+          enabled: true,
+          adminOnly: true,
+          group: 'grow',
+          order: 3,
+          type: 'static' as const,
+          config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'evidence' } },
+          metadata: { icon: 'FileCheck', description: 'Receipts and the canonical evidence record', color: 'amber' },
+        },
+        {
+          id: 'partner-programmes-communicate',
+          label: 'Communicate',
+          slug: 'partner-programmes-communicate',
+          enabled: true,
+          adminOnly: true,
+          group: 'grow',
+          order: 4,
+          type: 'static' as const,
+          config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'communicate' } },
+          metadata: { icon: 'MessageSquare', description: 'Partner communication surfaces — linked, never forked', color: 'amber' },
+        },
+      ],
     },
     {
       id: 'alpha-programme',

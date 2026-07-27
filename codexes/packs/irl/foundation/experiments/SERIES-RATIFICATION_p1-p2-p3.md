@@ -131,7 +131,8 @@ before signature. The P1 protocol's own discipline applies either way: enlargeme
 
 ## 5. Proposed ratification sequence
 
-1. Operator resolves the remaining flag in §6 (designation collision).
+1. Operator resolves the remaining half of §6 FLAG 1 — the **EXP-P2** designation (the P3 half
+   was ruled 2026-07-27; P2 still points the Laboratory at the older Structural Invariance design).
 2. IRL completes the P1 Crystal close-out deliverable (§4 — interpretation operator-confirmed;
    landing the Financial Services invariants in the invariant register before P1 freeze).
 3. P1: predictions locked (§2) → bundle assembled and hashed (§10) → joint signature (§15).
@@ -149,7 +150,7 @@ before signature. The P1 protocol's own discipline applies either way: enlargeme
 
 ## 6. Flags (do not send externally until the open flag is resolved)
 
-### FLAG 1 (OPEN) — EXP-P2 / EXP-P3 designation collision (naming, not superseding)
+### FLAG 1 (P3 RESOLVED 2026-07-27 · P2 OPEN) — EXP-P2 / EXP-P3 designation collision (naming, not superseding)
 
 The designations P2 and P3 are each now claimed by two different designs:
 
@@ -166,6 +167,24 @@ meaning, and P1's own directory is named `…representation-runtime-gauntlet` wh
 is the representation experiment — external reviewers will hit this ambiguity immediately if it
 is not resolved or explicitly glossed in the transmittal. Both new directories carry a
 designation-note warning in the meantime.
+
+**P3 — RESOLVED (operator, 2026-07-27):** *"EXP P3 is supposed to be about invariant
+representation not capability. What's in the lab does not seem to be in line with the file I
+shared."* The **EXP-P3** designation now names **Representation of Structural Invariants**.
+Applied: `EXPERIMENT_REGISTRY`'s EXP-P3 entry (family, hypothesis, `protocolRef`) points at the
+new six-doc set, so the Laboratory view shows the representation experiment; the Capability
+Validation design is retained with a reassignment banner and must not be cited as "EXP-P3"
+until its own number is settled.
+
+**P2 — STILL OPEN, and it is the same question.** The registry's EXP-P2 entry still names the
+**Structural Invariance** battery, not the **Invariant-Governed Physical Design** protocol in
+this packet — so the Lab shows the old design for P2 exactly as it did for P3. The identical fix
+is available and takes one edit. It is held for an explicit ruling for one reason: **EXP-P1 §14
+names the old P2 meaning in ratified, externally-countersigned text**, so reassigning P2 changes
+what a document already in the partner's hands refers to. Recommended: reassign P2 to match P3
+(the series then reads P1 compression → P2 consequence → P3 representation, which is how the
+briefs themselves describe it) and gloss the P1 §14 reference in the transmittal rather than
+silently re-pointing it.
 
 ### FLAG 2 (RESOLVED 2026-07-27) — "the Crystal" interpretation (see §4)
 

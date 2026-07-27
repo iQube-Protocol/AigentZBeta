@@ -97,6 +97,15 @@ type AgreementsState =
 interface PartnerProgrammesTabProps {
   personaId?: string;
   isAdmin?: boolean;
+  /**
+   * Which surface to open on — supplied by the TIER-3 sub-tabs the Venture Lab
+   * config declares (operator, 2026-07-27). Its presence also means the menu
+   * ABOVE owns surface selection, so this component drops its own surface row:
+   * two navigations for one concept is the duplication the tiering removes.
+   * Absent (a direct mount, or any host without the sub-tab row) keeps the
+   * in-component row, so the tab still works standalone.
+   */
+  initialSurface?: string;
 }
 
 // ─── Small presentational pieces ─────────────────────────────────────────────
@@ -145,10 +154,23 @@ function AreaLinks({ ws, area, personaId, isAdmin }: { ws: PartnerWorkspace; are
 
 // ─── The tab ─────────────────────────────────────────────────────────────────
 
-export function PartnerProgrammesTab({ personaId, isAdmin }: PartnerProgrammesTabProps) {
+/** Narrows the tier-3 prop to a real surface — an unknown value opens Overview
+ *  rather than rendering nothing, so a mistyped config degrades visibly. */
+function asSubSurface(value: string | undefined): SubSurface | null {
+  if (!value) return null;
+  return (SUB_SURFACES as readonly string[]).includes(value) ? (value as SubSurface) : "overview";
+}
+
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: PartnerProgrammesTabProps) {
   const workspaces = listPartnerWorkspaces();
   const [activeId, setActiveId] = useState<string | null>(workspaces[0]?.id ?? null);
-  const [surface, setSurface] = useState<SubSurface>("overview");
+  const menuSurface = asSubSurface(initialSurface);
+  const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
+  // The tier-3 row keeps this component mounted and swaps the prop, so state
+  // initialised once would stick on whichever surface was opened first.
+  useEffect(() => {
+    if (menuSurface) setSurface(menuSurface);
+  }, [menuSurface]);
   const [collabView, setCollabView] = useState<CollabView>("invitations");
   const [agreements, setAgreements] = useState<AgreementsState>({ kind: "loading" });
 
@@ -248,7 +270,8 @@ export function PartnerProgrammesTab({ personaId, isAdmin }: PartnerProgrammesTa
         </div>
       </div>
 
-      {/* Sub-surface navigation */}
+      {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
+      {menuSurface === null && (
       <div className="flex flex-wrap gap-1.5">
         {SUB_SURFACES.map((s) => (
           <button
@@ -264,6 +287,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin }: PartnerProgrammesTa
           </button>
         ))}
       </div>
+      )}
 
       {/* ── Overview ── */}
       {surface === "overview" && (

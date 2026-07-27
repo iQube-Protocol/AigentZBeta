@@ -150,6 +150,55 @@ describe('tab registration — adminOnly on the hand-curated Venture Lab cartrid
     const src = stripComments(readSource('app/triad/components/codex/TabRenderer.tsx'));
     expect(src).toContain('PartnerProgrammesTab');
   });
+
+  it('lives under Grow and exposes its surfaces as a real third tier', async () => {
+    // Operator, 2026-07-27: moved out of `connect` (where it read as a sub-item
+    // of its neighbours) into `grow`, with the five workspace surfaces promoted
+    // from an in-component button row to `subTabs` — the group → tab → subTabs
+    // shape `CodexPanelDynamic` already renders as its own row.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
+    expect(tab!.group).toBe('grow');
+    expect((VENTURE_LAB_CODEX.tabGroups ?? []).some((g: { id: string }) => g.id === 'grow')).toBe(true);
+
+    const subs = tab!.subTabs ?? [];
+    expect(subs.map((s: { label: string }) => s.label)).toEqual([
+      'Overview',
+      'Collaborate',
+      'Operate',
+      'Evidence',
+      'Communicate',
+    ]);
+    for (const sub of subs) {
+      // The gate is re-applied at every tier by the panel, so it must be
+      // declared at every tier — an implicitly-inherited gate is not a gate.
+      expect(sub.adminOnly, `${sub.id} is not adminOnly`).toBe(true);
+      expect(sub.enabled).toBe(true);
+      // ONE implementation, five entrances. A per-surface component would be
+      // the parallel implementation `inv.engineering.036` forbids.
+      expect(sub.config.component).toBe('PartnerProgrammesTab');
+      expect(typeof sub.config.props?.initialSurface).toBe('string');
+    }
+    // Slugs must be unique across the cartridge or tier routing collides.
+    const allSlugs = [
+      ...VENTURE_LAB_CODEX.tabs.map((t: { slug: string }) => t.slug),
+      ...subs.map((s: { slug: string }) => s.slug),
+    ];
+    expect(new Set(allSlugs).size).toBe(allSlugs.length);
+  });
+
+  it('the component defers surface selection to the tier-3 menu when driven by it', () => {
+    // Two navigations for one concept is the duplication the tiering removes:
+    // with `initialSurface` supplied, the in-component row must not render.
+    const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
+    expect(src).toMatch(/initialSurface/);
+    expect(src, 'the in-component surface row is not gated on the menu').toMatch(
+      /menuSurface === null &&/,
+    );
+    // …and the prop must drive state on change, or the surface sticks on
+    // whichever sub-tab was opened first (the component stays mounted).
+    expect(src).toMatch(/useEffect\(\(\) => \{\s*if \(menuSurface\) setSurface\(menuSurface\);/);
+  });
 });
 
 describe('command center honesty', () => {
