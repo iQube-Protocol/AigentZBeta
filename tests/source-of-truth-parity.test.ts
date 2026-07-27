@@ -34,6 +34,14 @@
  *    projection of two sources of truth, so a renamed/disabled tab must fail
  *    the build rather than ship a dead link:
  *      tests/companion-observer.test.ts
+ *  - STEP_UP_POLICY / GRADE_RANK (the canonical risk→grade binding,
+ *    PRD-PAG-001 Amendment A §A.6) pinned as the source of truth, incl.
+ *    money-moving = world_id and grade monotonicity:
+ *      tests/passport-step-up-policy.test.ts
+ *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
+ *    requested_action CHECK on passport_connection_challenges (SQL, latest
+ *    rebuild) -- the constraint-drift bug class:
+ *      tests/passport-passkey.test.ts
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY

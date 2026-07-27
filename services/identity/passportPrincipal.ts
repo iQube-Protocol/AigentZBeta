@@ -184,6 +184,66 @@ export async function resolvePassportPrincipal(
   const authUserId = authUserIds[0];
 
   // 4. Personhood → Passport. Keyed by kybe, never by persona or wallet.
+  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
+  if (!passportResult.ok) return passportResult;
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
+  };
+}
+
+/**
+ * Resolve the constitutional principal behind an auth user a caller has
+ * ALREADY authenticated cryptographically — the passkey unlock path (§A.6
+ * level 2). Same chain, entered one link later: the credential store binds
+ * passkey → auth user, and this walks auth user → root → kybe → Passport so
+ * a passkey unlock still refuses without an ACTIVE Passport, exactly like the
+ * wallet path.
+ *
+ * The caller must have a verified WebAuthn assertion in hand
+ * (`completePasskeyAuthentication`) — this function does no signature work.
+ * The auth user id comes from the server-side credential row, never from the
+ * caller (ruling 8 stays intact: the pre-session caller supplies only its
+ * assertion).
+ */
+export async function resolvePassportPrincipalForAuthUser(
+  authUserId: string,
+): Promise<PrincipalResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  // 1. Auth user → roots → kybe. One personhood or refusal: two kybes under
+  //    one auth user is the consolidation problem (§A.5) — refuse rather than
+  //    choose, the same posture as the wallet walk.
+  const { data: rootRows, error: rootErr } = await supabase
+    .from('root_identity')
+    .select('id, kybe_id')
+    .eq('auth_user_id', authUserId);
+  if (rootErr) return { ok: false, reason: 'unavailable' };
+  const roots = (rootRows ?? []) as Array<{ id?: string; kybe_id?: string }>;
+  const kybeIds = [...new Set(roots.map((r) => r.kybe_id).filter((v): v is string => Boolean(v)))];
+  if (kybeIds.length === 0) return { ok: false, reason: 'lineage_incomplete' };
+  if (kybeIds.length > 1) return { ok: false, reason: 'lineage_incomplete' };
+  const kybeId = kybeIds[0];
+  const rootIdentityId = String(roots.find((r) => r.kybe_id === kybeId)?.id ?? '');
+  if (!rootIdentityId) return { ok: false, reason: 'lineage_incomplete' };
+
+  // 2. Personhood → Passport — the same lookup the wallet walk ends in.
+  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
+  if (!passportResult.ok) return passportResult;
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
+  };
+}
+
+/** The one passport-by-personhood lookup both entry points end in. */
+async function loadUsablePassportByKybe(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  kybeId: string,
+): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {
   const { data: passportRow, error: ppErr } = await supabase
     .from('polity_passport_records')
     .select('passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at')
@@ -204,6 +264,5 @@ export async function resolvePassportPrincipal(
     expiresAt: (row.expires_at as string) ?? null,
   };
   if (!isPassportUsable(passport)) return { ok: false, reason: 'passport_inactive' };
-
-  return { ok: true, principal: { kybeId, rootIdentityId, authUserId, passport } };
+  return { ok: true, passport };
 }
