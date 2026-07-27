@@ -132,10 +132,15 @@ function MyRefChip({ myRef }: { myRef: string | null }) {
 /**
  * QubeTalk inbox. The Locker mounts it unfiltered (canonical). The Laboratory
  * mounts it with `researchOnly` — a FILTERED research view (channels opened from
- * a research-lab context). Both resolve to the SAME channel/message/receipt store
- * (Aletheon: "do not create separate inboxes; both surfaces are one system").
+ * a research-lab context). Every mount resolves to the SAME channel/message/receipt
+ * store (Aletheon: "do not create separate inboxes; both surfaces are one system").
+ *
+ * `domainFilter` generalises the same filter to any access domain (e.g. the
+ * Venture Lab's Partner Programmes surface passes 'venture-lab'); `researchOnly`
+ * is kept as the pre-existing shorthand for 'research-lab' and wins when set.
  */
-export default function QubeTalkInboxTab({ researchOnly = false }: { researchOnly?: boolean }) {
+export default function QubeTalkInboxTab({ researchOnly = false, domainFilter }: { researchOnly?: boolean; domainFilter?: string }) {
+  const originFilter = researchOnly ? "research-lab" : domainFilter ?? null;
   const [myRef, setMyRef] = useState<string | null>(null);
   const [allChannels, setAllChannels] = useState<PeerChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,10 +150,10 @@ export default function QubeTalkInboxTab({ researchOnly = false }: { researchOnl
   const [newRef, setNewRef] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Same store; the Lab view is a filter, not a separate inbox.
+  // Same store; a domain view is a filter, not a separate inbox.
   const channels = useMemo(
-    () => (researchOnly ? allChannels.filter((c) => c.originDomain === "research-lab") : allChannels),
-    [allChannels, researchOnly],
+    () => (originFilter ? allChannels.filter((c) => c.originDomain === originFilter) : allChannels),
+    [allChannels, originFilter],
   );
 
   const loadChannels = useCallback(async () => {
@@ -160,14 +165,14 @@ export default function QubeTalkInboxTab({ researchOnly = false }: { researchOnl
       setAllChannels(data.channels ?? []);
       // Auto-select the first VISIBLE channel only when nothing is selected yet
       // (functional update avoids a `selected`-dependency reload cycle).
-      const visible = researchOnly ? (data.channels ?? []).filter((c) => c.originDomain === "research-lab") : (data.channels ?? []);
+      const visible = originFilter ? (data.channels ?? []).filter((c) => c.originDomain === originFilter) : (data.channels ?? []);
       if (visible.length) setSelected((prev) => prev ?? visible[0].id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load channels");
     } finally {
       setLoading(false);
     }
-  }, [researchOnly]);
+  }, [originFilter]);
 
   useEffect(() => {
     loadChannels();
