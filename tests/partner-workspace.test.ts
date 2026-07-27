@@ -123,6 +123,51 @@ describe('layer owners — canonical agent vocabulary only', () => {
 });
 
 describe('canonical spellings (platform ontology)', () => {
+  it('metaProof is spelled canonically wherever it is used as prose', () => {
+    // Operator ruling 2026-07-27: metaProof is the ORGANISATION — lowercase m,
+    // capital P, exactly like metaMe — and its products carry its name
+    // (metaProof Commons / metaCommons, metaProof Agent Harness), staffed by
+    // metaProof Operators. "MetaProof" is a non-canonical variant.
+    //
+    // Scoped to the docs and services this workstream owns. The two known
+    // remaining occurrences quote an operator-supplied PRD's own title
+    // ("PRD v1.0 (MetaProof Internal)") and are PROVENANCE — correcting a source
+    // document's self-identification would falsify the record, the same
+    // discipline applied to EXP-P1's countersigned §14.
+    const banned = new RegExp('Meta' + 'Proof');
+    for (const path of [
+      'docs/platform-ontology.md',
+      'services/venture/partnerWorkspace.ts',
+      'app/triad/components/codex/tabs/PartnerProgrammesTab.tsx',
+    ]) {
+      // RAW — spelling matters in comments too. But a canon document has to
+      // NAME the variant it forbids, so its "Never …" declaration lines are
+      // dropped before scanning: quoting a bug to outlaw it is not committing it.
+      const raw = readSource(path)
+        .split('\n')
+        .filter((line) => !/\bnever\b/i.test(line))
+        .join('\n');
+      expect(banned.test(raw), `${path} uses the non-canonical MetaProof spelling`).toBe(false);
+    }
+    // …and the ontology must actually declare the variant forbidden, or the
+    // filter above would be hiding a gap rather than exempting a declaration.
+    expect(readSource('docs/platform-ontology.md')).toMatch(
+      new RegExp('Never "' + 'Meta' + 'Proof"'),
+    );
+  });
+
+  it('the ontology declares metaProof and the metaProof Commons as canonical terms', () => {
+    // The pairing must live in the ontology, not only in a workstream doc —
+    // every agent reads the ontology, and the canon parser harvests its
+    // `## Term` sections.
+    const ontology = readSource('docs/platform-ontology.md');
+    expect(ontology).toMatch(/^## metaProof$/m);
+    expect(ontology).toMatch(/^## metaProof Commons$/m);
+    // Concept vs product name — the distinction the ruling turns on.
+    expect(ontology).toMatch(/Canonical concept:\*\* \*\*metaProof Commons/);
+    expect(ontology).toMatch(/Canonical product \/ UI name:\*\* \*\*metaCommons/);
+  });
+
   it('the new surfaces never use the non-canonical Marketa/QubeTalk variants', () => {
     // Built by concatenation so this test file does not trip its own canary.
     const banned = [new RegExp('Marq' + 'ueta', 'i'), new RegExp('Cube' + 'Talk')];

@@ -856,21 +856,38 @@ repository, **not** a social feed, **not** a wiki, **not** simply a knowledge ba
 **governed proof substrate**, and knowledge is an interpretation or projection of accumulated
 proof.
 
-## E.2 The `metaProof` prefix — collision reconciled, not merely tolerated
+## E.2 CORRECTED — metaProof is the organisation (operator, 2026-07-27)
 
-The D.7 flag is answered by reading `metaProof` as an **ecosystem prefix** rather than a single
-referent. Three canonical uses coexist without ambiguity because each names a distinct part of one
-constitutional operating model:
+**The D.7 "collision" was not a collision, and E.2's first answer over-thought it.** I framed
+`metaProof` as an *ecosystem prefix* naming three referents that needed disambiguation. The
+operator's correction is simpler and correct:
 
-| Usage | Names |
+> *"metaProof is an organisation that produces various organisation branded products eg metaProof
+> Commons, metaProof Agent Harness and has metaProof Operators. Like metaMe, metaProof is the
+> canonical spelling."*
+
+So there is nothing to reconcile — this is the ordinary relationship between a company and its
+branded products:
+
+| | |
 |---|---|
-| **MetaProof** | the operating entity |
-| **metaProof Agent Harness** (`docs/agent-harness/metaproof-core.md`) | the canonical agent-harness spec |
-| **metaProof Commons** | the proof layer |
+| **metaProof** | the organisation |
+| **metaProof Commons** (product: **metaCommons**) | an organisation-branded product |
+| **metaProof Agent Harness** | an organisation-branded product |
+| **metaProof Operators** | people of the organisation |
 
-**Rule recorded in the ontology:** none may be shortened to bare "metaProof" where the referent
-would be ambiguous. This is what makes the third meaning safe to adopt — the prefix was always
-doing ecosystem work; it simply had not been said.
+**Canonical spelling: `metaProof`** — lowercase `m`, capital `P`, exactly as **metaMe**. The two
+are siblings. "MetaProof" is a non-canonical variant and is now a spelling bug under the ontology's
+Enforcement rule.
+
+**Recorded in `docs/platform-ontology.md`** as its own canonical term, alongside the metaProof
+Commons entry. A spelling canary enforces it.
+
+**Two occurrences left uncorrected, deliberately:** `CHRYSALIS_WORKSTREAM_TRACKER.md` row 98 and
+`CRP-003a` §front-matter both quote an operator-supplied PRD's own label — *"PRD v1.0 (MetaProof
+Internal)"*. Those are provenance, not prose: correcting the title of a source document would
+falsify how that document identified itself, which is the same discipline applied to EXP-P1's
+countersigned §14. Every non-quoted use is canonical.
 
 ## E.3 PRINCIPLE 5 — Only governed proof enters the metaProof Commons
 

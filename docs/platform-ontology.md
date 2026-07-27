@@ -148,6 +148,33 @@ introduce other lab names.
 
 ---
 
+## metaProof
+
+**Canonical spelling:** **metaProof** — lowercase `m`, capital `P`, one word. Never "MetaProof",
+never "Metaproof", never "meta Proof", never "METAPROOF" outside all-caps display contexts.
+
+**Definition:** The organisation. metaProof produces organisation-branded products and is staffed
+by **metaProof Operators**. The spelling convention is the same as **metaMe** — lowercase prefix,
+capitalised second element — and the two are siblings, not variants of one another.
+
+**Organisation-branded products** carry the organisation name as a prefix:
+
+| Product | What it is |
+|---|---|
+| **metaProof Commons** (product name **metaCommons**) | the governed constitutional proof commons |
+| **metaProof Agent Harness** | the canonical agent-harness spec (`docs/agent-harness/metaproof-core.md`) |
+
+**Usage rule:** "metaProof" alone names the ORGANISATION. A product is named by its full branded
+form (metaProof Commons, metaProof Agent Harness), and may then be referred to by its product name
+where one exists (metaCommons). People employed by or acting for the organisation are **metaProof
+Operators** — never "MetaProof operators".
+
+**Note on file names:** `docs/agent-harness/metaproof-core.md` uses an all-lowercase filename by
+repository convention. Filenames are not display copy; the document's own heading and every prose
+reference use **metaProof**.
+
+---
+
 ## metaProof Commons
 
 **Canonical concept:** **metaProof Commons**
@@ -182,15 +209,14 @@ never "publish to" it.
 
 **Usage rule:** use **metaProof Commons** for the constitutional object (specs, charters,
 governance text) and **metaCommons** in product and UI copy ("Submit to metaCommons", "Review in
-metaCommons", "Search metaCommons"). The pairing mirrors **MetaProof** (the operating entity) and
+metaCommons", "Search metaCommons"). The pairing mirrors **metaProof** (the organisation) and
 **metaMe** (the experiential runtime). Never "Proof Commons" alone as an identifier, and never
 "meta commons", "Meta-Commons" or "MetaCommons" as spellings.
 
-**Naming note — `metaProof` is an ecosystem prefix, not a single referent.** Three canonical uses
-coexist and are reconciled by the ecosystem reading: **MetaProof** the operating entity, the
-**metaProof Agent Harness** (`docs/agent-harness/metaproof-core.md`), and the **metaProof
-Commons**. Each names a distinct part of one constitutional operating model; none may be shortened
-to bare "metaProof" where the referent would be ambiguous.
+**Naming note — metaProof is the ORGANISATION; its products carry its name.** There is no
+ambiguity to reconcile: **metaProof** (the organisation) produces **metaProof Commons** and the
+**metaProof Agent Harness**, and employs **metaProof Operators** — the ordinary relationship
+between a company and its branded products. See the `metaProof` entry above.
 
 ---
 
