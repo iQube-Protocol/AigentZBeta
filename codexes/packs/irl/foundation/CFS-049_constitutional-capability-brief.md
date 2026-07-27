@@ -150,10 +150,15 @@ half the Brief does not yet carry:
 **Explicitly NOT a second artifact family.** The Capability Completion Artifact is this Brief with
 the completion sections added (§7.7–7.14 of CCR-001). The `briefUrl` field on
 `services/constitutional/capabilityRegistry.ts` remains the single pointer; CFS-032's registry
-registration remains the acceptance ceremony. Whether the extended format keeps the **CCB** name or
-takes CCR-001's proposed `CAPABILITY-<id>-<slug>.md` is an open operator decision recorded in
-CCR-001 — the recommendation is to keep this name and version the format, since "CCB" already
-appears in the registry, in `scripts/register-ccb-capabilities.ts`, and in three shipped Briefs.
+registration remains the acceptance ceremony.
+
+**Naming — RATIFIED (operator, 2026-07-27):** the extended format keeps the **CCB** name and
+versions the format. `CAPABILITY-<id>-<slug>.md` is **not** introduced alongside it. Operator:
+*"My recommendation is to keep the name and version the format rather than introduce
+CAPABILITY-<id>-<slug>.md alongside it. Agreed."* The name already appears in the registry, in
+`scripts/register-ccb-capabilities.ts`, and in the shipped Briefs; a second filename convention
+would have made one artifact family look like two — the defect class CCR-001 exists to prevent.
+The current format version is **CCB v2** (`capability-completion-artifact/v1.0`).
 
 **Status:** CCR-001 is *proposed*; this charter stays RATIFIED and unchanged in substance. Nothing
 here alters the CCB's current obligations.

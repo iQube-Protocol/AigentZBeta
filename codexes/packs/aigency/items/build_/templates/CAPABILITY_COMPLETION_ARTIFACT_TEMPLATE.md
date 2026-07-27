@@ -7,9 +7,9 @@
   CFS-049 Amendment A is binding here: the Capability Completion Artifact IS
   this Brief. `briefUrl` on services/constitutional/capabilityRegistry.ts stays
   the single pointer, and CFS-032 registration stays the acceptance ceremony.
-  Whether the extended format keeps the CCB name or takes CCR-001's proposed
-  `CAPABILITY-<id>-<slug>.md` is an OPEN OPERATOR DECISION (CCR-001, decision
-  #2) — this template keeps the shipped name, per the standing recommendation.
+
+  NAMING IS RATIFIED (operator, 2026-07-27): the format keeps the CCB name and
+  is versioned. `CAPABILITY-<id>-<slug>.md` is NOT introduced alongside it.
 
   WHERE THE FILE GOES: `codexes/packs/agentiq/updates/YYYY-MM-DD_ccb-<slug>.md`,
   registered in `codexes/packs/agentiq/collections.json` under `col_updates`

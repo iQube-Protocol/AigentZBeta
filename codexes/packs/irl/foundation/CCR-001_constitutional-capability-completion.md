@@ -143,12 +143,33 @@ No formal proof for every feature; no documentation of every source file; no fro
 implementation; no treating every bug as a universal invariant; no publishing protected details;
 no speculative invariants forced into canon; no prose replacing tests.
 
-## Open operator decisions
+## Operator decisions
 
-1. **§9 lifecycle conflict** — map software-invariant status onto the pinned `FINDING_LIFECYCLE` /
-   seed statuses (recommended), or ratify a second ladder?
-2. **Artifact naming** — adopt `CAPABILITY-<id>-<slug>.md` as proposed, or keep the shipped **CCB**
-   name and treat the CCA as CCB v2? *Recommendation: keep CCB as the name, version the format —
-   the term is already in the registry, in scripts, and in three shipped briefs.*
+### RESOLVED — 1. §9 lifecycle conflict (operator, 2026-07-27)
+
+> *"Recommended resolution is the discipline you already ratified for proof postures: map, don't
+> unify. Agreed."*
+
+**Map, do not unify.** `FINDING_LIFECYCLE` stays pinned canon and is never rewritten, extended or
+re-ordered. CCR-001's completion lifecycle is a **separate ladder** that MAPS onto it, carrying the
+source lifecycle value alongside its own — exactly as `CommonsEvidencePosture` carries
+`sourceLifecycle` (Horizen audit Amendment B §B.4). The two ladders govern different things
+(empirical findings earning canonisation through replication; engineering invariants earning
+enforcement through canaries) and neither is rewritten into the other.
+
+Implemented in `types/capabilityCompletion.ts` (`COMPLETION_LIFECYCLE`, `mapCompletionStage`) and
+enforced by `tests/capability-completion.test.ts`, whose canary now fails if anyone **unifies** the
+ladders rather than if §9 is implemented at all.
+
+### RESOLVED — 2. Artifact naming (operator, 2026-07-27)
+
+> *"My recommendation is to keep the name and version the format rather than introduce
+> CAPABILITY-<id>-<slug>.md alongside it. Agreed."*
+
+**Keep the Constitutional Capability Brief (CCB) name; version the format.**
+`CAPABILITY-<id>-<slug>.md` is not introduced. Recorded in CFS-049 Amendment A.
+
+### Still open
+
 3. **Migration priority** — §18's three-tier order accepted as-is?
 4. **Enforcement staging** — should CI block PRD closure from Phase 3, or warn first?
