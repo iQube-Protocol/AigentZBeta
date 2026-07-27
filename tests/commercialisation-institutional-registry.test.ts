@@ -39,6 +39,7 @@ import { join } from 'node:path';
 import {
   COMMERCIALISATION_REGISTRY,
   COMMERCIALISATION_REGISTRY_WAVE_2,
+  COMMERCIALISATION_REGISTRY_WAVE_3,
   COMMERCIALISATION_ACQUISITION_SEEDS,
   FINANCIAL_SERVICES_REGISTRY,
   INSTITUTIONAL_REGISTRIES,
@@ -90,6 +91,7 @@ const PRD_ICA_PATH = 'codexes/packs/irl/foundation/PRD-ICA-001_invariant-corpus-
 const FS_SEED_PATH = 'supabase/migrations/20260817000000_corpus_domain_constitution.sql';
 const COM_SEED_PATH = 'supabase/migrations/20260827000000_commercialisation_institutional_registry.sql';
 const VERIFY_SEED_PATH = 'supabase/migrations/20260828000000_corpus_registry_verification.sql';
+const LAW_II_SEED_PATH = 'supabase/migrations/20260829000000_commercialisation_law_ii_closure.sql';
 
 const SPEC = read(SPEC_PATH);
 const PRD_IDE = read(PRD_IDE_PATH);
@@ -97,6 +99,7 @@ const PRD_ICA = read(PRD_ICA_PATH);
 const FS_SEED = read(FS_SEED_PATH);
 const COM_SEED = read(COM_SEED_PATH);
 const VERIFY_SEED = read(VERIFY_SEED_PATH);
+const LAW_II_SEED = read(LAW_II_SEED_PATH);
 
 const PILLAR_KEYS = discoveryDomain('commercialisation')!.subDomains.map((s) => s.value);
 
@@ -140,18 +143,27 @@ describe('SPEC-CIR-001 · pillar reality', () => {
       uncovered,
       'a pillar has no institutional authority — the operator ruled "Do not waive the five empty pillars"',
     ).toEqual([]);
-    // And specifically the five the ruling named.
-    for (const pillar of ['trust-formation', 'pricing', 'distribution', 'settlement-exchange', 'commercial-failure-modes']) {
-      expect(tier1.filter((e) => e.pillarKey === pillar).length, `'${pillar}' lost its wave-2 authorities`).toBeGreaterThanOrEqual(2);
+    // Every pillar carries at least the two authorities Law II needs — the
+    // five the first ruling named AND the two the Law II ruling closed.
+    for (const pillar of PILLAR_KEYS) {
+      expect(
+        tier1.filter((e) => e.pillarKey === pillar).length,
+        `'${pillar}' has fewer than two institutional authorities`,
+      ).toBeGreaterThanOrEqual(2);
     }
   });
 
   it('the two seed migrations and the curated template are the same set', () => {
-    const seeded = [...seededInstitutionRows(COM_SEED, 'commercialisation'), ...seededInstitutionRows(VERIFY_SEED, 'commercialisation')].sort();
+    const seeded = [
+      ...seededInstitutionRows(COM_SEED, 'commercialisation'),
+      ...seededInstitutionRows(VERIFY_SEED, 'commercialisation'),
+      ...seededInstitutionRows(LAW_II_SEED, 'commercialisation'),
+    ].sort();
     const template = tier1.map((e) => `${e.pillarKey}::${e.institution}`).sort();
     expect(seeded).toEqual(template);
-    expect(seeded.length).toBe(38); // 28 wave 1 + 10 wave 2
+    expect(seeded.length).toBe(40); // 28 wave 1 + 10 wave 2 + 2 wave 3
     expect(COMMERCIALISATION_REGISTRY_WAVE_2).toHaveLength(10);
+    expect(COMMERCIALISATION_REGISTRY_WAVE_3).toHaveLength(2);
   });
 });
 
@@ -163,7 +175,7 @@ describe('SPEC-CIR-001 · the tier boundary is structural', () => {
       'Accenture Research', 'Andreessen Horowitz (a16z)', 'BCG Insights', 'Bain Insights',
       'Deloitte Insights', 'First Round Review', 'McKinsey Insights', 'PwC Strategy', 'Y Combinator Library',
     ]);
-    expect(tier1).toHaveLength(38);
+    expect(tier1).toHaveLength(40);
   });
 
   it('a practitioner source carries no pillar and resolves to no URL — so it cannot be acquired', () => {
@@ -282,6 +294,44 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
     expect(findRegistryEntry('commercialisation', 'trust-formation', 'OECD')!.evidenceType).toBe('research-papers');
   });
 
+  it('the Law II closures use DIFFERENT traditions from the authority already on the pillar', () => {
+    // The whole point of wave 3. If NBER's partnerships mapping reused
+    // Kauffman's `Entrepreneurship Research`, or NISTA reused INCOSE's
+    // `Systems`, the pillar would still read `unsatisfied` with two authorities
+    // registered — a fix that looks applied and is not.
+    const nber = findRegistryEntry('commercialisation', 'partnerships', 'NBER')!;
+    const kauffman = findRegistryEntry('commercialisation', 'partnerships', 'Kauffman Foundation')!;
+    expect(nber.category).toBe('Academic Economics / Empirical Entrepreneurship Research');
+    expect(nber.category, 'NBER reuses Kauffman\'s tradition on this pillar').not.toBe(kauffman.category);
+    // …and it is NBER's own fourth tradition and third pillar, which the
+    // per-(institution, pillar) keying is what makes possible.
+    expect(nber.category).not.toBe(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.category);
+    expect(COMMERCIALISATION_REGISTRY.filter((e) => e.institution === 'NBER').map((e) => e.pillarKey).sort())
+      .toEqual(['adoption', 'commercial-failure-modes', 'partnerships', 'pricing', 'venture-operations']);
+
+    const nista = findRegistryEntry('commercialisation', 'outcome-assurance', 'National Infrastructure and Service Transformation Authority')!;
+    const incose = findRegistryEntry('commercialisation', 'outcome-assurance', 'INCOSE')!;
+    expect(nista.category).toBe('Public Project-Delivery Assurance / Independent Stage-Gate Review');
+    expect(nista.category, 'NISTA reuses INCOSE\'s tradition on this pillar').not.toBe(incose.category);
+    // Same evidence type is FINE — Law II counts traditions, not evidence
+    // types — and asserting it keeps that distinction from being "tidied".
+    expect(nista.evidenceType).toBe(incose.evidenceType);
+  });
+
+  it('the NISTA institutional lineage is recorded where a reviewer will see it', () => {
+    // The seed's path says infrastructure-and-projects-authority; the
+    // institution is NISTA. Correct, but it reads as an error. The explanation
+    // must travel with the DATA (the seed's claim, which lands in the DB row),
+    // not only in a migration comment.
+    const seed = acquisitionSeedsFor('commercialisation', 'outcome-assurance', 'National Infrastructure and Service Transformation Authority')[0];
+    expect(seed.url).toContain('infrastructure-and-projects-authority');
+    expect(seed.claim, 'the lineage is not recorded on the seed itself').toMatch(/LINEAGE/i);
+    expect(seed.claim).toMatch(/Infrastructure and Projects Authority/);
+    expect(seed.claim).toMatch(/National Infrastructure Commission/);
+    expect(LAW_II_SEED, 'the lineage does not reach the database row').toMatch(/LINEAGE \(do not "correct"\)/);
+    expect(SPEC).toMatch(/recorded so it is not "corrected"/i);
+  });
+
   it('the ruling REUSED institutions rather than inventing new ones where it could', () => {
     // "Reuse is preferable to inventing a new institution merely to make the
     // matrix look complete." Four of wave 2's ten entries reuse an institution
@@ -353,12 +403,15 @@ describe('SPEC-CIR-001 · the operator-supplied URLs, and nothing else', () => {
     'UN Trade and Development (UNCTAD)': 'https://unctad.org',
     UNCITRAL: 'https://uncitral.un.org',
     'U.S. Bureau of Labor Statistics': 'https://www.bls.gov',
+    // Wave 3 — the Law II ruling. NBER is REUSED and needs no new key.
+    'National Infrastructure and Service Transformation Authority':
+      'https://www.gov.uk/government/organisations/national-infrastructure-and-service-transformation-authority',
     // Reconciled, NOT the operator's bare https://www.bis.org — see below.
     'BIS Committee on Payments and Market Infrastructures': 'https://www.bis.org/cpmi/',
   };
 
   it('every tier-1 institution resolves to exactly the URL the operator supplied', () => {
-    expect(Object.keys(OPERATOR_URLS)).toHaveLength(21);
+    expect(Object.keys(OPERATOR_URLS)).toHaveLength(22);
     for (const entry of tier1) {
       const expected = OPERATOR_URLS[entry.institution];
       expect(expected, `'${entry.institution}' is in tier 1 but not in the operator's tables`).toBeTruthy();
@@ -453,17 +506,23 @@ describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
     const rows = assessRegistryDiversity(inputs, PILLAR_KEYS);
     const byVerdict = (v: string) => rows.filter((r) => r.verdict === v).map((r) => r.pillarKey).sort();
 
-    // Wave 2 closed five pillars; two pillars the ruling did not address stay
-    // open, and the verdict is REPORTED rather than tuned to look nicer.
-    expect(byVerdict('unsatisfied')).toEqual(['outcome-assurance', 'partnerships']);
-    expect(byVerdict('satisfied')).toHaveLength(12);
+    // Wave 2 closed five pillars, wave 3 the last two. FOURTEEN of fourteen,
+    // reached by adding sources — the thresholds are untouched at 2 and 2, and
+    // both attempts to move them are mutation-tested.
+    expect(byVerdict('unsatisfied')).toEqual([]);
     expect(byVerdict('undeterminable')).toEqual([]);
-    // Both remaining failures are the same shape: exactly one authority.
+    expect(byVerdict('satisfied')).toHaveLength(14);
+    expect(LAW_II_MIN_AUTHORITIES).toBe(2);
+    expect(LAW_II_MIN_TRADITIONS).toBe(2);
+    // The two the Law II ruling closed sit at exactly the bar — two
+    // authorities, two traditions — so any regression in either shows here.
     for (const key of ['partnerships', 'outcome-assurance']) {
-      expect(rows.find((r) => r.pillarKey === key)!.authorityCount).toBe(1);
+      const row = rows.find((r) => r.pillarKey === key)!;
+      expect(row.authorityCount, `'${key}' lost its second authority`).toBe(2);
+      expect(row.traditions, `'${key}' collapsed to one tradition`).toHaveLength(2);
     }
-    // The document must report the same verdict it produced.
-    expect(SPEC).toMatch(/twelve of the fourteen pillars/i);
+    // The document must report the same verdict the function produced.
+    expect(SPEC).toMatch(/Fourteen of fourteen satisfied\. Zero unsatisfied\. Zero undeterminable\./);
 
     // Financial Services, whose registry records no traditions, stays
     // undeterminable everywhere — never silently "satisfied".
@@ -689,7 +748,7 @@ describe('SPEC-CIR-001 · registry verification', () => {
 
 describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () => {
   it('every commercialisation row either migration seeds lands `proposed`', () => {
-    for (const [name, sql] of [['20260827', COM_SEED], ['20260828', VERIFY_SEED]] as const) {
+    for (const [name, sql] of [['20260827', COM_SEED], ['20260828', VERIFY_SEED], ['20260829', LAW_II_SEED]] as const) {
       for (const line of sql.split('\n').filter((l) => l.includes("'commercialisation'") && !l.trim().startsWith('--'))) {
         expect(line, `${name} seeds a ratified commercialisation row: ${line.trim()}`).not.toMatch(/'ratified'/);
       }
@@ -710,8 +769,25 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
     expect(SPEC).toMatch(/Do not treat the URLs as verified merely because they are operator-supplied/);
   });
 
+  it('the wave-3 migration lands `proposed` / `pending_verification` — the browser check is not verification', () => {
+    // "They have been live-checked here, but only the deployed Corpus Scout
+    // inspection run may award `verified`."
+    const sql = LAW_II_SEED.replace(/^\s*--.*$/gm, '');
+    expect(sql, 'wave 3 marks something verified without a run').not.toMatch(/'verified'/);
+    expect(sql, 'wave 3 ratifies something').not.toMatch(/'ratified'/);
+    // Two institution rows and two seeds, each explicitly pending.
+    expect((sql.match(/'pending_verification'/g) ?? []).length).toBe(4);
+    for (const institution of ['NBER', 'National Infrastructure and Service Transformation Authority']) {
+      expect(sql).toContain(institution);
+    }
+    // A NEW file — the two applied migrations must not be edited to carry it.
+    expect(COM_SEED).not.toContain('National Infrastructure and Service Transformation Authority');
+    expect(VERIFY_SEED).not.toContain('National Infrastructure and Service Transformation Authority');
+    expect(VERIFY_SEED).not.toContain('w17181');
+  });
+
   it('the acquisition seeds are DOCUMENTS, not institutional seed URLs', () => {
-    expect(COMMERCIALISATION_ACQUISITION_SEEDS).toHaveLength(17);
+    expect(COMMERCIALISATION_ACQUISITION_SEEDS).toHaveLength(19);
     for (const seed of COMMERCIALISATION_ACQUISITION_SEEDS) {
       // Every seed hangs off a (pillar, institution) that is really registered.
       expect(
@@ -725,10 +801,35 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
       ).not.toBe(seed.url);
       // The operator's page counts are CLAIMS, never measured facts.
       expect(seed.claim, `seed ${seed.url} states its claim as a fact`).toMatch(/^Operator claim:/);
-      expect(VERIFY_SEED, `seed ${seed.url} is not in the migration`).toContain(seed.url);
+      expect(
+        VERIFY_SEED.includes(seed.url) || LAW_II_SEED.includes(seed.url),
+        `seed ${seed.url} is in no migration`,
+      ).toBe(true);
     }
     expect(acquisitionSeedsFor('commercialisation', 'pricing', 'OECD')).toHaveLength(2);
     expect(acquisitionSeedsFor('commercialisation', 'pricing', 'Santa Fe Institute')).toEqual([]);
+
+    // EVERY operator-supplied entry (waves 2 and 3) carries the acquisition
+    // seed that justifies it. Asserting only that a seed's (pillar,
+    // institution) exists somewhere in the registry is not enough: NBER is
+    // registered on five pillars, so moving its `partnerships` seed to
+    // `venture-operations` leaves the seed "valid" while the pillar the
+    // operator closed has no evidential target at all. An institution added to
+    // close a Law II gap without its seed is a name, not a source.
+    for (const entry of [...COMMERCIALISATION_REGISTRY_WAVE_2, ...COMMERCIALISATION_REGISTRY_WAVE_3]) {
+      expect(
+        acquisitionSeedsFor('commercialisation', entry.pillarKey!, entry.institution),
+        `${entry.pillarKey}/${entry.institution} was registered with no acquisition seed`,
+      ).not.toHaveLength(0);
+    }
+    // The two the Law II ruling supplied, pinned to their pillars by URL — the
+    // operator called the NBER paper "unusually well targeted", which is a
+    // property of the pairing, not of the URL on its own.
+    expect(acquisitionSeedsFor('commercialisation', 'partnerships', 'NBER').map((x) => x.url))
+      .toEqual(['https://www.nber.org/papers/w17181']);
+    expect(acquisitionSeedsFor('commercialisation', 'outcome-assurance', 'National Infrastructure and Service Transformation Authority')
+      .map((x) => x.url))
+      .toEqual(['https://www.gov.uk/government/collections/infrastructure-and-projects-authority-assurance-review-toolkit']);
     // The table exists and is its own thing, not a column on the registry.
     // Word-bounded: `corpus_acquisition_seeds_x` contains the substring, so a
     // bare toMatch survives a rename of the table the seeds are inserted into.
@@ -746,7 +847,7 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
   });
 
   it('both migrations are additive and idempotent (CFS-010 §3)', () => {
-    for (const sql of [COM_SEED, VERIFY_SEED]) {
+    for (const sql of [COM_SEED, VERIFY_SEED, LAW_II_SEED]) {
       const stripped = sql.replace(/^\s*--.*$/gm, '');
       const inserts = (stripped.match(/INSERT INTO/g) ?? []).length;
       const conflicts = (stripped.match(/ON CONFLICT[\s\S]{0,120}?DO NOTHING/g) ?? []).length;

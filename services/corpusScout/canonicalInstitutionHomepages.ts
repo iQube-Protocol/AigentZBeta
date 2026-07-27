@@ -113,6 +113,20 @@ const CANONICAL_INSTITUTION_HOMEPAGES: Readonly<Record<string, string>> = {
   'un trade and development (unctad)': 'https://unctad.org',
   uncitral: 'https://uncitral.un.org',
   'u.s. bureau of labor statistics': 'https://www.bls.gov',
+
+  // ── Commercialisation, wave 3 (operator RULING on Law II, 2026-07-27) ────
+  //
+  // "Do not waive Law II. Add a second authority from a different tradition
+  // for each pillar." NBER is REUSED for `partnerships` (a third pillar for
+  // one institution) and needs no new key — one institution, one homepage
+  // fact. Only NISTA is new.
+  //
+  // The operator live-checked both URLs in a browser. **That is not
+  // verification** under the protocol in `registryVerification.ts`: nothing
+  // reaches `verified` except through the four-conjunct run on the deployed
+  // app. Both enter at `pending_verification` like every other URL here.
+  'national infrastructure and service transformation authority':
+    'https://www.gov.uk/government/organisations/national-infrastructure-and-service-transformation-authority',
 };
 
 function normalize(name: string): string {

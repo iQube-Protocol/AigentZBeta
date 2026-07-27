@@ -10,7 +10,7 @@
 
 > **Nothing here is ratified, and nothing here is verified.** Every row lands `status = proposed`. Every URL lands `verification_status = pending_verification`. The operator's ruling is explicit: *"Do not treat the URLs as verified merely because they are operator-supplied or resolve in an ordinary browser."*
 
-> **The ratification bar (operator ruling).** *"Do not ratify the Commercialisation domain until all fourteen pillars are served AND the diversity verdict is satisfied or explicitly ruled upon by the operator."* All fourteen are now served (§5). Twelve of the fourteen pillars satisfy Law II; **two do not** and await an operator ruling (§5.2).
+> **The ratification bar (operator ruling).** *"Do not ratify the Commercialisation domain until all fourteen pillars are served AND the diversity verdict is satisfied or explicitly ruled upon by the operator."* **Both halves are now met: all fourteen pillars are served, and all fourteen satisfy Law II** (§5, §8.2). What remains before ratification is the verification run (§9, §11 step 2) and the operator's ruling on the wave-1 pillar mapping (§4.1).
 
 ---
 
@@ -154,7 +154,28 @@ The operator's institutional seed for CPMI is `https://www.bis.org`. The curated
 
 **The existing, more specific value is kept, and no second key is added.** Three reasons: this file's own header already anticipates a steward needing *"a more specific starting page than its bare homepage"*; `bis.org/cpmi/` is strictly better for Agent B, whose job is to find the institution's publication listing (bis.org surfaces all of BIS's output, bis.org/cpmi/ the committee's); and a bare `bis.org` key would **collide with the existing plain `bis` entry**, giving two distinct institutions one starting page. A canary asserts exactly one CPMI key, at the committee page.
 
-## 5. Pillar coverage — the five are closed, two remain unsatisfied
+### 4.4 Wave 3 — the Law II ruling
+
+> "**Do not waive Law II. Add a second authority from a different tradition for each pillar.**"
+
+`partnerships` and `outcome-assurance` each carried exactly one institutional authority (§5.2 as originally written). Neither is closed by lowering a threshold — `LAW_II_MIN_AUTHORITIES` and `LAW_II_MIN_TRADITIONS` are unchanged at 2, and both attempts to move them are mutation-tested.
+
+| # | Pillar | Institution | Category (tradition) | Authority | URL | Evidence Type | Priority |
+|---|---|---|---|---|---|---|---|
+| 39 | `partnerships` | NBER | Academic Economics / Empirical Entrepreneurship Research | Academic economics / empirical entrepreneurship research; working papers and peer-reviewed economic research | https://www.nber.org | research-papers | 3 |
+| 40 | `outcome-assurance` | National Infrastructure and Service Transformation Authority | Public Project-Delivery Assurance / Independent Stage-Gate Review | Public project-delivery assurance / independent stage-gate review; assurance standards, review guidance, templates and benefits-realisation guidance | https://www.gov.uk/government/organisations/national-infrastructure-and-service-transformation-authority | standards | 5 |
+
+**The tradition strings are load-bearing, not decoration.** Law II counts *distinct* `category` values per pillar. NBER's `partnerships` mapping deliberately does **not** reuse Kauffman's `Entrepreneurship Research` — reusing it would leave `partnerships` reading `unsatisfied` with two authorities registered, which is the exact failure the ruling asks to avoid. It carries the operator's own phrasing instead, which makes it NBER's **fourth** distinct tradition in this registry and its **third** pillar (after `venture-operations`/`adoption` as `Entrepreneurship Research`, and `pricing`/`commercial-failure-modes` as `Academic Economics`). That is the per-(institution, pillar) keying working as designed, not drift — and the operator's acquisition seed is pillar-specific research rather than generic partnership commentary.
+
+NISTA's evidence type is `standards`, the same as INCOSE's on the same pillar. That is fine: **Law II counts traditions, not evidence types**, and `Public Project-Delivery Assurance / Independent Stage-Gate Review` is a genuinely independent tradition beside `Systems`.
+
+#### The NISTA institutional lineage — recorded so it is not "corrected"
+
+The acquisition seed is `https://www.gov.uk/government/collections/infrastructure-and-projects-authority-assurance-review-toolkit` — an **Infrastructure and Projects Authority** collection, registered under the **NISTA** institution.
+
+**This is deliberate and correct.** NISTA is the current body formed from the Infrastructure and Projects Authority and the National Infrastructure Commission, and it inherits IPA's assurance material. But the seed URL's path does not match its institution's name, and a naive audit — human or automated — would read that as an error and "fix" a URL that is right. The lineage is therefore recorded in three places that travel with the data: the registry entry's `notes`, the acquisition seed's `claim` text (so it survives into the database row), and this section.
+
+## 5. Pillar coverage — all fourteen served, all fourteen satisfied
 
 ### 5.1 What the ruling closed
 
@@ -170,16 +191,16 @@ The operator's institutional seed for CPMI is `https://www.bis.org`. The curated
 
 **All fourteen pillars are now served.** A canary asserts it, and asserts that each of the five carries at least two authorities.
 
-### 5.2 What is still open — reported, not tuned
+### 5.2 What the Law II ruling closed
 
-Two pillars the ruling did not address carry exactly **one** institutional authority each, and therefore fail Law II:
+Two pillars carried exactly **one** institutional authority each and therefore failed Law II. The operator declined to waive it and supplied a second authority from a different tradition for each (§4.4):
 
-| Pillar | Sole authority | Tradition |
-|---|---|---|
-| `partnerships` | Kauffman Foundation | Entrepreneurship Research |
-| `outcome-assurance` | INCOSE | Systems |
+| Pillar | Was | Now | Verdict |
+|---|---|---|---|
+| `partnerships` | Kauffman Foundation (Entrepreneurship Research) — **unsatisfied** | + NBER (Academic Economics / Empirical Entrepreneurship Research) | **satisfied** |
+| `outcome-assurance` | INCOSE (Systems) — **unsatisfied** | + NISTA (Public Project-Delivery Assurance / Independent Stage-Gate Review) | **satisfied** |
 
-Neither is a fabrication risk — the fix is a second authority from a different tradition, and no operator source supplies one. **The thresholds were not lowered to make these pass.** Under the ratification bar (*"all fourteen pillars served AND the diversity verdict satisfied or explicitly ruled upon"*), these two are the outstanding item: the operator either supplies a second authority for each, or explicitly rules the single-authority state acceptable for them.
+**No threshold was moved.** Both stayed at 2 authorities from 2 traditions throughout; the pillars were closed with sources, which is what the ruling asked for.
 
 ## 6. Tier 2 — practitioner sources, and why they are not seeded
 
@@ -303,7 +324,30 @@ Three checks. **One is built and bound today**; two are specified and explicitly
 | **2** | **Ratification-time.** `confirmPillarSaturation` refuses while a pillar's verdict is not `satisfied` | `confirmPillarSaturation` | **PROPOSED, NOT BUILT** — it changes a ratified Phase-2 function's behaviour |
 | **3** | **Corpus-time.** Per pillar, no single `corpus_candidate_sources.issuer` may supply a pillar's whole approved corpus. `issuer` already exists on the row; the natural home is `assessLaneCoverage()` | `services/corpusScout/intelligence.ts` | **PROPOSED, NOT BUILT** — cannot run before a corpus exists |
 
-**The current verdict, reported not tuned: twelve of the fourteen pillars satisfy Law II; `partnerships` and `outcome-assurance` do not** (§5.2), and every Financial Services pillar is `undeterminable` (§3.2). A rule whose first run reports compliance everywhere would be the CFS-053 defect wearing a rosette.
+### 8.3 The current verdict — all fourteen pillars
+
+Computed by `assessRegistryDiversity` over the registry as it now stands, and pinned by canary:
+
+| Pillar | Authorities | Distinct traditions | Verdict |
+|---|---|---|---|
+| `value-proposition` | 3 | Customer Development · Product | satisfied |
+| `customer-discovery` | 3 | Customer Development · Product | satisfied |
+| `trust-formation` | 2 | Competition & Consumer Enforcement · International Policy Research | satisfied |
+| `pricing` | 2 | Academic Economics · Competition Policy | satisfied |
+| `distribution` | 2 | Development Economics · International Trade Doctrine | satisfied |
+| `adoption` | 5 | Economics · Entrepreneurship Research · Innovation · Research Repository | satisfied |
+| `revenue-architecture` | 3 | Customer Development · Innovation · Strategy | satisfied |
+| `settlement-exchange` | 2 | International Commercial Law · Payment & Settlement Infrastructure | satisfied |
+| `partnerships` | 2 | Academic Economics / Empirical Entrepreneurship Research · Entrepreneurship Research | satisfied |
+| `outcome-assurance` | 2 | Public Project-Delivery Assurance / Independent Stage-Gate Review · Systems | satisfied |
+| `scaling` | 3 | Economics · Innovation · Systems | satisfied |
+| `venture-operations` | 6 | Economics · Entrepreneurship Research · Innovation · Research Repository | satisfied |
+| `commercial-governance` | 3 | Economics · Strategy · Systems | satisfied |
+| `commercial-failure-modes` | 2 | Academic Economics · Official Statistics | satisfied |
+
+**Fourteen of fourteen satisfied. Zero unsatisfied. Zero undeterminable.** Reached by adding sources, never by moving a threshold.
+
+**The check has not become vacuous.** Every Financial Services pillar still reports `undeterminable` (§3.2), because that registry records no traditions — the same function, the same run, a different and honest answer. And the check still fails on demand: a canary drives one authority, two-from-one-tradition, and an unclassified authority through it and asserts each is refused.
 
 ## 9. Registry verification — the binding, and the gate
 
@@ -404,13 +448,13 @@ Paste **both** migrations, in order, into the Supabase SQL editor. Both are addi
 
 ```bash
 git fetch iqp dev && \
-git checkout iqp/dev -- supabase/migrations/20260827000000_commercialisation_institutional_registry.sql \
-                        supabase/migrations/20260828000000_corpus_registry_verification.sql && \
-cat supabase/migrations/20260827000000_commercialisation_institutional_registry.sql \
-    supabase/migrations/20260828000000_corpus_registry_verification.sql
+git checkout iqp/dev -- supabase/migrations/20260829000000_commercialisation_law_ii_closure.sql && \
+cat supabase/migrations/20260829000000_commercialisation_law_ii_closure.sql
 ```
 
-`20260827000000` creates the `source_tier` column, 1 Domain Definition, 14 Coverage Pillars, 16 Dependency entries, 28 wave-1 institutions. `20260828000000` adds the verification columns, creates `corpus_acquisition_seeds`, seeds the 10 wave-2 institutions and 17 acquisition seeds, and moves the whole Commercialisation registry to `pending_verification`.
+`20260827000000` and `20260828000000` **have been run** and are not to be edited. `20260829000000` is the only outstanding one: it adds the two Law II closing authorities and their two acquisition seeds, all `proposed` / `pending_verification`.
+
+For the record, what the three migrations do in total: `20260827000000` creates the `source_tier` column, 1 Domain Definition, 14 Coverage Pillars, 16 Dependency entries and 28 wave-1 institutions; `20260828000000` adds the verification columns, creates `corpus_acquisition_seeds`, seeds 10 wave-2 institutions and 17 acquisition seeds, and moves the Commercialisation registry to `pending_verification`; `20260829000000` seeds the 2 wave-3 institutions and 2 seeds — **40 institution rows and 19 acquisition seeds in all.**
 
 ### Step 2 — VERIFY, before ratifying (deployed app only)
 
@@ -423,9 +467,9 @@ GET  /api/corpus-scout/domain-constitution?domain=commercialisation   ← read t
 
 Expect failures, and read them: `verification_failed` means the URL is wrong; `insufficient_corpus` means reachable but nothing acquirable; `redirect_changed` means the institution moved and a steward must re-confirm; `temporarily_unavailable` means re-run. **This is where the operator-supplied URLs and the seventeen document claims are first tested against reality.**
 
-### Step 3 — rule on the two open questions, then ratify
+### Step 3 — rule on the pillar mapping, then ratify
 
-Before ratifying, rule on: the wave-1 pillar mapping (§4.1, 28 rows, correctable individually), and **the two pillars that fail Law II** (§5.2 — supply a second authority for `partnerships` and `outcome-assurance`, or explicitly accept the single-authority state). Then:
+Law II is now satisfied on all fourteen pillars (§8.3), so the remaining pre-ratification judgment is the **wave-1 pillar mapping** (§4.1, 28 agent-proposed rows, correctable individually — wave 2 and wave 3 were operator-supplied and need no such ruling). Then:
 
 ```
 POST /api/corpus-scout/domain-constitution { action: "ratify-definition",  domain: "commercialisation" }
@@ -453,8 +497,10 @@ Every candidate lands `pending_review`. A steward reviews each through `POST /ap
 
 - **No acquisition and no verification run.** Nothing was fetched. No URL was resolved, no document inspected, no claim measured. Nothing anywhere is marked `verified`.
 - **No ratification.** Every row lands `proposed`. Not one `ratify-*` call was made.
-- **No invented URL, institution, claim or fact.** Tier 2 has no URLs because none was supplied. The two pillars that fail Law II were not closed by inference; `commercial-failure-modes` was left empty in wave 1 even though Santa Fe Institute could plausibly have been mapped to it — plausibly is not a basis.
-- **No threshold tuned to produce a nicer verdict.** Two pillars fail Law II and are reported as failing.
+- **No invented URL, institution, claim or fact.** Tier 2 has no URLs because none was supplied. No pillar was closed by inference; `commercial-failure-modes` was left empty in wave 1 even though Santa Fe Institute could plausibly have been mapped to it — plausibly is not a basis.
+- **No threshold tuned to produce a nicer verdict.** `LAW_II_MIN_AUTHORITIES` and `LAW_II_MIN_TRADITIONS` are unchanged at 2 across all three waves; the two failing pillars were closed with sources.
+- **The operator's browser check is not treated as verification.** Both wave-3 URLs were live-checked by the operator and both still enter at `pending_verification`, because only the four-conjunct run may award `verified`.
+- **No edit to an applied migration.** `20260827000000` and `20260828000000` have been run; wave 3 is a new file.
 - **No amendment to a ratified document.** Law II is recommended for PRD-ICA-001's amendment §2.0 (§8.1) with the exact text supplied. Amending is an operator act under Law XI.
 - **No new inspection numbers.** The Corpus Qualification Standard is PRD-ICA-001 §7's, promoted.
 - **No edit to `services/invariants/discoveryDomains.ts`.** A canary pins the relationship instead (§6.1).
@@ -477,7 +523,9 @@ Every candidate lands `pending_review`. A steward reviews each through `POST /ap
 | Acquisition seeds are documents, hang off real registry entries, never equal an institution's homepage, and record claims AS claims | §7 |
 | `assessRegistryDiversity` fails: 1 authority ⇒ unsatisfied; 2 from one tradition ⇒ unsatisfied; unclassified ⇒ undeterminable; undeclared tier never counted | §8.2 |
 | The diversity check is BOUND: `getDomainConstitution` calls it and returns it | §8.2 |
-| The real registry produces the REPORTED verdict — 12 satisfied, `partnerships` + `outcome-assurance` not | §5.2 |
+| The real registry produces the REPORTED verdict — 14 of 14 satisfied, none unsatisfied, none undeterminable | §8.3 |
+| NBER's `partnerships` tradition differs from Kauffman's on the same pillar | §4.4 — an identical label would leave the pillar unsatisfied with two authorities registered |
+| The NISTA lineage is recorded on the entry AND in the seed's claim text | §4.4 — so a reviewer cannot "correct" a correct URL |
 | The Corpus Qualification Standard is PRD-ICA-001 §7's numbers; states CHARACTERS; `inspection.ts` re-declares none | §9.1 |
 | Exactly the operator's eight verification statuses, all present in the CHECK | §9.2 |
 | `verified` is reachable ONLY from `pending_verification`, for all eight statuses | §9.3 |
@@ -494,10 +542,11 @@ Every candidate lands `pending_review`. A steward reviews each through `POST /ap
 ## Ratification record
 
 - [ ] **Operator ratification of this registry as a whole.** Nothing here is ratified by being written.
-- [ ] **Run both migrations** (§11 step 1) — safe now; every row stays `proposed`.
+- [x] **Run `20260827000000` and `20260828000000`** — DONE. Seeded rows are `proposed` / `pending_verification`; running them verified and ratified nothing.
+- [ ] **Run `20260829000000`** (§11 step 1) — the wave-3 Law II closure. Safe now; both rows stay `proposed` / `pending_verification`.
 - [ ] **Run verification** on `commercialisation` AND `financial-services` (§11 step 2) — the deployed app. **Precondition for both acquisition and ratification.**
 - [ ] **Operator ruling on the wave-1 pillar mapping** (§4.1) — 28 rows, correctable individually.
-- [ ] **Operator ruling on the two pillars that fail Law II** (§5.2) — a second authority for `partnerships` and `outcome-assurance`, or explicit acceptance. **This is the outstanding half of the ratification bar.**
+- [x] **Operator ruling on the two pillars that failed Law II — RULED 2026-07-27.** *"Do not waive Law II. Add a second authority from a different tradition for each pillar."* NBER → `partnerships`, NISTA → `outcome-assurance` (§4.4). **Applied; all fourteen pillars now satisfy Law II (§8.3).**
 - [ ] **Operator ruling on Law II** (§8.1) — adopt as Law II of Constitutional Discovery by amendment to PRD-ICA-001's amendment §2.0 + PRD-ICA-001 §5.
 - [ ] **Operator ruling on §8.2 checks 2 and 3** — whether `confirmPillarSaturation` should refuse on an unsatisfied verdict, and whether issuer-concentration lands in `assessLaneCoverage`.
 - [ ] **Operator ruling on the three neighbouring dependency pairs** (§6.1) — merge or keep.

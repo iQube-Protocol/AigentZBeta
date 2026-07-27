@@ -387,8 +387,38 @@ const COMMERCIALISATION_WAVE_2: readonly InstitutionalRegistryEntry[] = [
     'New institution. Official statistics is a tradition no other entry carries.'),
 ];
 
-// ── The Commercialisation registry — TIER 2 (practitioner) ──────────────────
+/**
+ * WAVE 3 — the operator's RULING of 2026-07-27 closing the last two Law II
+ * gaps: *"Do not waive Law II. Add a second authority from a different
+ * tradition for each pillar."*
+ *
+ * `partnerships` and `outcome-assurance` each carried exactly ONE institutional
+ * authority and therefore failed Law II. Neither was closed by lowering a
+ * threshold — the thresholds are unchanged and both attempts to move them are
+ * mutation-tested. Each pillar gains a second authority from a genuinely
+ * different tradition.
+ *
+ * **The tradition strings here are load-bearing, not decoration.** Law II
+ * counts DISTINCT `category` values per pillar. NBER's `partnerships` mapping
+ * must not reuse Kauffman's `Entrepreneurship Research`, or the pillar still
+ * reads `unsatisfied` with two authorities on the board — the exact failure the
+ * ruling asks to avoid. It carries the operator's own phrasing instead, which
+ * is also a fourth distinct NBER tradition in this registry (after
+ * `Entrepreneurship Research` on venture-operations/adoption and `Academic
+ * Economics` on pricing/commercial-failure-modes). That is the per-pillar
+ * keying working as designed, not drift.
+ */
+const COMMERCIALISATION_WAVE_3: readonly InstitutionalRegistryEntry[] = [
+  A('NBER', 'partnerships', 'Academic Economics / Empirical Entrepreneurship Research',
+    'Operator-designated: academic economics / empirical entrepreneurship research; working papers and peer-reviewed economic research.', 'research-papers',
+    'NBER\'s FOURTH tradition in this registry and its THIRD pillar. Deliberately NOT `Entrepreneurship Research` — that is Kauffman\'s tradition on this same pillar, and reusing it would leave `partnerships` failing Law II with two authorities registered. The operator\'s acquisition seed is pillar-specific rather than generic partnership commentary.'),
+  A('National Infrastructure and Service Transformation Authority', 'outcome-assurance',
+    'Public Project-Delivery Assurance / Independent Stage-Gate Review',
+    'Operator-designated: public project-delivery assurance / independent stage-gate review; assurance standards, review guidance, templates and benefits-realisation guidance.', 'standards',
+    'An independent assurance tradition beside INCOSE\'s `Systems`. Same evidence type (standards), different tradition — which is what Law II counts. NISTA is the current body formed from the Infrastructure and Projects Authority and the National Infrastructure Commission; see the lineage note on its acquisition seed.'),
+];
 
+// ── The Commercialisation registry — TIER 2 (practitioner) ──────────────────
 /**
  * The operator's second tier, verbatim:
  *
@@ -428,11 +458,17 @@ const COMMERCIALISATION_TIER_2: readonly InstitutionalRegistryEntry[] = [
 export const COMMERCIALISATION_REGISTRY: readonly InstitutionalRegistryEntry[] = [
   ...COMMERCIALISATION_WAVE_1,
   ...COMMERCIALISATION_WAVE_2,
+  ...COMMERCIALISATION_WAVE_3,
   ...COMMERCIALISATION_TIER_2,
 ];
 
 /** The wave-2 additions alone — what migration `20260828000000` seeds. */
 export const COMMERCIALISATION_REGISTRY_WAVE_2: readonly InstitutionalRegistryEntry[] = COMMERCIALISATION_WAVE_2;
+
+/** The wave-3 additions alone — what migration `20260829000000` seeds. The
+ *  three earlier migrations have been RUN; a new one is the only additive way
+ *  to land these without editing applied SQL. */
+export const COMMERCIALISATION_REGISTRY_WAVE_3: readonly InstitutionalRegistryEntry[] = COMMERCIALISATION_WAVE_3;
 
 // ── The Financial Services registry, expressed in the SAME template ─────────
 
@@ -626,6 +662,15 @@ export const COMMERCIALISATION_ACQUISITION_SEEDS: readonly AcquisitionSeed[] = [
   S('commercial-failure-modes', 'U.S. Bureau of Labor Statistics',
     'https://www.bls.gov/osmr/research-papers/2004/st040060.htm',
     'Operator claim: establishment survival, Business Employment Dynamics.'),
+
+  // ── Wave 3 (the Law II ruling) ───────────────────────────────────────────
+  S('partnerships', 'NBER',
+    'https://www.nber.org/papers/w17181',
+    'Operator claim: "Business Partners, Financing, and the Commercialization of Inventions" — studies how partners affect commercialisation probability and revenue outcomes. Operator note: "unusually well targeted… supports the pillar without relying on generic partnership commentary."'),
+  S('outcome-assurance', 'National Infrastructure and Service Transformation Authority',
+    'https://www.gov.uk/government/collections/infrastructure-and-projects-authority-assurance-review-toolkit',
+    'Operator claim: assurance review toolkit — independent review guidance across strategic assessment, business justification, delivery strategy, readiness for service, operations and benefits realisation. ' +
+    'LINEAGE, RECORDED SO IT IS NOT "CORRECTED": the collection path says infrastructure-and-projects-authority while the institution is NISTA. That is not an error — NISTA is the current body formed from the Infrastructure and Projects Authority and the National Infrastructure Commission, and it inherits IPA\'s assurance material. A naive audit reading the path against the institution name would flag a mismatch that does not exist.'),
 ];
 
 /** Every seed for one (pillar, institution) pair. */
