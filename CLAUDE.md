@@ -491,6 +491,37 @@ This is a mature, actively evolving codebase. Before writing any new code:
 
 ---
 
+## Companion Menu System — Invariants (PARAMOUNT, read before touching the Companion or the copilot)
+
+**Full definition with the defect and canary behind each rule:
+`codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md`.**
+
+Nine invariants, every one learned from a live regression. Six of the nine failures were the SAME
+shape — **two things owning or describing one thing, and the stale one winning** — which is why
+fixing one kept breaking another.
+
+| # | Invariant |
+|---|---|
+| **MS-1** | **One navigation.** The copilot's menu row is the only navigation; no surface renders a second control for a concept the menu owns. |
+| **MS-2** | **One owner per surface.** A host supplying `bodySlot`/`onWalletLaunch` owns the body; the copilot keeps NO parallel state for the same surface. |
+| **MS-3** | **One state, two views.** Mode (chat/avatar) is one value, synced in both directions; neither view keeps its own idea of the active surface. |
+| **MS-4** | **Measure what is mounted.** Geometry from a conditionally rendered node must re-measure when that node changes; a zero measurement is a teardown artifact, never a layout value. |
+| **MS-5** | **A deliberate act outranks an ambient observation.** Surface selection is a choice; the observed page is context. Context refines the offer, never overrides the choice. |
+| **MS-6** | **Gate, then rank; never subtract.** Ranking runs after gating; it may reorder but never widen, empty, or change the count offered. |
+| **MS-7** | **An inert mechanism is a defect.** A needle/observer that can never fire is a bug even though nothing errors. |
+| **MS-8** | **An overlay is anchored to the box it occupies and does not intercept.** One rect for position AND size; a high-z layer without `pointer-events: none` swallows clicks. |
+| **MS-9** | **A control that cannot act must not render.** |
+
+**Third-party embeds render outside the container you give them.** The D-ID avatar SDK injects at
+`document.body` level and can write `document.body.style` — no host-wrapper styling reaches it.
+Unmount when unused, sweep artifacts on teardown, restore document-level styles.
+
+Before changing the menu system, name the invariant your change relies on. A change that would
+violate one is a discussion, not an implementation. A defect that fits none of the nine is a tenth
+invariant — add it, with its canary, in the same change that fixes it.
+
+---
+
 ## Canonical Surface Styling — SLATE house style, NOT white hairlines (PARAMOUNT)
 
 **The AgentiQ / metaMe house style for panels, cards, capsules, and glass surfaces is TRANSLUCENT SLATE with SLATE borders. White hairline borders are an OLDER RESIDUAL pattern — a bug, not the style guide. Do not introduce them, and do not "correct" a slate surface back to a white-hairline one.**

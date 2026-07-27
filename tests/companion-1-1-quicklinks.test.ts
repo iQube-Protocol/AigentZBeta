@@ -313,17 +313,42 @@ describe('the ranking signal is one that is actually present', () => {
     expect(quickLinkSurfaceNeedle('not-a-surface')).toBeNull();
   });
 
-  it('the page prefers the observed shape, then the host, then the surface', () => {
-    // Strongest observation first. The HOST tier (added 2026-07-27) is what
-    // makes the Overlay surface responsive on pages with no Domain Profile —
-    // `shapeForDomain` correctly abstains there, and abstention alone left the
-    // strip frozen on registry order.
+  it('MS-5 — the chosen surface outranks the observed page', () => {
+    // THE DEFECT (operator, 2026-07-27: "the quicklinks carousel is getting
+    // stuck and not changing with the tabs"). The first cut read
+    // shape ?? domain ?? surface. `dev-beta.aigentz.me` carries a VERIFIED
+    // Domain Profile, so the shape always resolved while testing and pinned the
+    // strip to one needle on every surface — switching tabs changed nothing.
+    //
+    // Selecting a surface is a deliberate act; the page underneath is ambient.
+    // Surface first, observation as the fallback — which is exactly right for
+    // `overlay` (about the page) and `agent-me` (no topic), the two surfaces
+    // that deliberately have no needle of their own.
     const page = stripComments(readSource(COMPANION_PAGE));
-    expect(page).toMatch(
-      /quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkDomainNeedle\(observedDomain\)\s*\?\?\s*quickLinkSurfaceNeedle\(activeSurface\)/,
+    expect(page, 'the observation still overrides the chosen surface').toMatch(
+      /quickLinkSurfaceNeedle\(activeSurface\)\s*\?\?\s*quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkDomainNeedle\(observedDomain\)/,
     );
     // …and re-ranks when any of the three changes, or it is static again.
     expect(page).toMatch(/\[access, observedShape, observedDomain, activeSurface\]/);
+  });
+
+  it('MS-5/MS-7 — every needled surface visibly changes the strip', () => {
+    // A precedence that is correct on paper is still inert if the surfaces it
+    // prefers all rank to the same six links. This asserts the OBSERVABLE
+    // outcome the operator is looking at: switching to a needled surface
+    // reorders the visible strip away from the unranked baseline.
+    const baseline = resolveQuickLinks({ access: NOBODY, limit: 6 }).map((l) => l.id);
+    for (const surface of ['wallet', 'search', 'workspace', 'activity', 'permissions']) {
+      const ranked = resolveQuickLinks({
+        access: NOBODY,
+        context: quickLinkSurfaceNeedle(surface),
+        limit: 6,
+      }).map((l) => l.id);
+      expect(
+        ranked.join('|'),
+        `surface '${surface}' produces the same six links as no ranking at all — the strip cannot appear to change`,
+      ).not.toBe(baseline.join('|'));
+    }
   });
 
   it('the declared host destinations reach a real, offerable link', () => {

@@ -322,26 +322,28 @@ function CompanionShell() {
     () =>
       resolveQuickLinks({
         access,
-        // Observer- AND surface-driven ranking (§6.1: shipped signals
-        // informing a second surface). Gating still runs first and is
-        // untouched — context can only reorder what the persona may already
-        // see, never widen it.
+        // PRECEDENCE — the deliberate act outranks the ambient observation.
         //
-        // The observed page shape wins when it resolves, because it is the
-        // stronger signal; the active surface carries the rest of the time.
-        // Ranking on the shape ALONE was effectively inert: it abstains on
-        // every unrecognised domain, which is nearly all of them.
+        // CORRECTED 2026-07-27 (operator: "the quicklinks carousel is getting
+        // stuck and not changing with the tabs"). The first cut read
+        // shape ?? domain ?? surface, on the reasoning that an asserted page
+        // shape is "the stronger signal". That was wrong, and provably so:
+        // `dev-beta.aigentz.me` carries a verified Domain Profile, so while the
+        // operator tests, the shape ALWAYS resolves — pinning the strip to the
+        // observation's needle on every surface. Switching tabs changed nothing,
+        // which is exactly the mechanism-is-inert failure the surface needles
+        // were introduced to fix.
         //
-        // Precedence, strongest observation first: the asserted overlay SHAPE,
-        // then the operator-declared destination for the observed HOST, then
-        // the surface the citizen is on. The host table is what makes the
-        // Overlay surface responsive on pages that have no Domain Profile —
-        // `shapeForDomain` correctly abstains there, and abstention left the
-        // strip frozen (operator, 2026-07-27).
+        // Selecting a surface is something the citizen DID; the page under the
+        // Companion is something that merely happens to be there. So the surface
+        // needle wins wherever one exists, and the observation is the fallback —
+        // which is precisely right for the surfaces that have no needle of their
+        // own because they are ABOUT the page (`overlay`) or have no topic at all
+        // (`agent-me`). Context refines the offer; it never overrides the choice.
         context:
+          quickLinkSurfaceNeedle(activeSurface) ??
           quickLinkContextNeedle(observedShape) ??
-          quickLinkDomainNeedle(observedDomain) ??
-          quickLinkSurfaceNeedle(activeSurface),
+          quickLinkDomainNeedle(observedDomain),
         limit: 6,
       }),
     [access, observedShape, observedDomain, activeSurface]
