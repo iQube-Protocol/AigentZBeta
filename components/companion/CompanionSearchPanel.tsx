@@ -33,6 +33,7 @@ const SOURCE_LABEL: Record<CompanionSearchResult["source"], string> = {
   capability: "Capability",
   "my-software": "mySoftware",
   moneypenny: "MoneyPenny",
+  "knowledge-doc": "Knowledge Field",
 };
 
 export interface CompanionSearchPanelProps {

@@ -297,9 +297,11 @@ describe('the ranking signal is one that is actually present', () => {
   it('the active surface always yields a needle where a topic exists', () => {
     // The shape-only version abstained on nearly every page, so nothing ever
     // reordered and the strip looked static (operator, 2026-07-26).
-    expect(quickLinkSurfaceNeedle('wallet')).toBe('wallet');
-    expect(quickLinkSurfaceNeedle('workspace')).toBe('workspace');
-    expect(quickLinkSurfaceNeedle('permissions')).toBe('passport');
+    // Operator-specified associations (2026-07-26): wallet offers the
+    // money-shaped destinations, workspace offers myCluster.
+    expect(quickLinkSurfaceNeedle('wallet')).toEqual(['moneypenny', 'financial']);
+    expect(quickLinkSurfaceNeedle('workspace')).toEqual(['mycluster', 'cluster']);
+    expect(quickLinkSurfaceNeedle('permissions')).toEqual(['passport']);
   });
 
   it('the conversation surface claims no topic of its own', () => {

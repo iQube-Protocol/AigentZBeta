@@ -72,17 +72,14 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
     //
     // Zero-size + hidden + behind everything: mounted, costless, invisible.
     if (!activeContainer) {
-      return {
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-        overflow: 'hidden',
-        visibility: 'hidden',
-        pointerEvents: 'none',
-        zIndex: -1,
-      };
+      // display:none, nothing weaker. The first fix used visibility+zIndex on a
+      // zero-size box — but a zero-size overflow:hidden wrapper does NOT clip
+      // position:fixed descendants (fixed positions against the viewport), a
+      // child can override inherited visibility, and an opacity-0 layer still
+      // composites. display:none removes the entire subtree from rendering; no
+      // child can escape it by any positioning scheme. This is the property the
+      // operator's "once and for all" requires (third report, 2026-07-26).
+      return { display: 'none' };
     }
     return { position: 'fixed', zIndex: 140 };
   };

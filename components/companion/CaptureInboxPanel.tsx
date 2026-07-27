@@ -160,14 +160,25 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
   }, [loadCaptures]);
 
   const assign = useCallback(
-    async (captureId: string, destination: "intent" | "venture", existingId?: string) => {
+    async (
+      captureId: string,
+      destination: "intent" | "venture",
+      existingId?: string,
+      newName?: string,
+    ) => {
       setPending(captureId, true);
       try {
         const res = await personaFetch(`${CAPTURE_ENDPOINT}/${captureId}/assign`, {
           method: "POST",
           personaIdHint,
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ destination, ...(existingId ? { existingId } : {}) }),
+          body: JSON.stringify({
+            destination,
+            ...(existingId ? { existingId } : {}),
+            // Free-form declaration (operator, 2026-07-26): the citizen names
+            // the intent themselves instead of inheriting the capture title.
+            ...(newName ? { intentName: newName } : {}),
+          }),
         });
         if (!res.ok) {
           setError(await readErrorMessage(res, `Failed to bring this into ${destination} (${res.status}).`));
@@ -227,16 +238,17 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                     ) : null}
                   </div>
                 </div>
+                {/* DECLARED WORK FIRST (operator, 2026-07-26). A capture is
+                    matched to the citizen's OWN experience queue — the intents
+                    and ventures they have already declared — before anything
+                    offers to create. Creation-first was backwards twice over:
+                    it produced orphan intents beside declared work, and
+                    "Bring into new Venture" ran a free citizen straight into
+                    the venture-cap error when attaching was what they meant.
+                    Personal (intent) is the default; venture is the
+                    experience-declared alternative; free-form declaration
+                    covers work not yet in the queue. */}
                 <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-2">
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => void assign(capture.id, "intent")}
-                    className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900 disabled:opacity-50"
-                  >
-                    <Sparkles className="h-3 w-3" />
-                    {isPending ? "…" : "Bring into new Intent"}
-                  </button>
                   {intents.length > 0 ? (
                     <select
                       disabled={isPending}
@@ -246,7 +258,7 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                       }}
                       className="rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 disabled:opacity-50"
                     >
-                      <option value="">…or attach to existing Intent</option>
+                      <option value="">Attach to a declared Intent</option>
                       {intents.map((intent) => (
                         <option key={intent.id} value={intent.id}>
                           {intent.name}
@@ -254,15 +266,6 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                       ))}
                     </select>
                   ) : null}
-                  <button
-                    type="button"
-                    disabled={isPending}
-                    onClick={() => void assign(capture.id, "venture")}
-                    className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900 disabled:opacity-50"
-                  >
-                    <Rocket className="h-3 w-3" />
-                    {isPending ? "…" : "Bring into new Venture"}
-                  </button>
                   {ventures.length > 0 ? (
                     <select
                       disabled={isPending}
@@ -272,7 +275,7 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                       }}
                       className="rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 disabled:opacity-50"
                     >
-                      <option value="">…or attach to existing Venture</option>
+                      <option value="">Attach to a declared Venture</option>
                       {ventures.map((venture) => (
                         <option key={venture.id} value={venture.id}>
                           {venture.name}
@@ -280,6 +283,41 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
                       ))}
                     </select>
                   ) : null}
+                  <form
+                    className="flex items-center gap-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const field = e.currentTarget.elements.namedItem("newIntent");
+                      const value = field instanceof HTMLInputElement ? field.value.trim() : "";
+                      if (!value) return;
+                      void assign(capture.id, "intent", undefined, value);
+                    }}
+                  >
+                    <input
+                      name="newIntent"
+                      disabled={isPending}
+                      placeholder="…or declare a new intent"
+                      className="w-40 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 placeholder:text-slate-600 disabled:opacity-50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-900 disabled:opacity-50"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {isPending ? "…" : "Declare"}
+                    </button>
+                  </form>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => void assign(capture.id, "venture")}
+                    title="Creates a venture — subject to your tier's venture capacity"
+                    className="inline-flex items-center gap-1 rounded-sm border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-400 hover:bg-slate-900 disabled:opacity-50"
+                  >
+                    <Rocket className="h-3 w-3" />
+                    {isPending ? "…" : "New Venture"}
+                  </button>
                 </div>
               </div>
             );

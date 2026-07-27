@@ -50,6 +50,20 @@ interface CodexCopilotLayerProps {
   /** Which existing copilot mode to open in. Defaults to 'chat' (unchanged
    *  for every current mount). Companion 1.1 / SCOPE-MMC-004 D-8. */
   initialCopilotMode?: "chat" | "avatar";
+  /**
+   * Told whenever the copilot's mode changes, whoever changed it.
+   *
+   * THE DEFECT THIS PAIR CLOSES (operator, 2026-07-26, third report: "coming
+   * back from the avatar... something is diabolically broken"). Mode lived in
+   * two places that never spoke: `initialCopilotMode` was read ONCE into
+   * useState, and the copilot's own footer toggles changed internal state the
+   * host never heard about. So after entering avatar via the copilot's toggle,
+   * the host still believed the mode was chat — every nav click updated host
+   * state into a surface the avatar branch never renders, and the menu system
+   * appeared dead. Not a rendering bug: a two-sources-of-truth bug, the exact
+   * Capsule/layout defect class CLAUDE.md documents.
+   */
+  onCopilotModeChange?: (mode: "chat" | "avatar") => void;
   contextOptions?: Array<{ id: string; label: string }>;
   contextId?: string;
   onContextChange?: (contextId: string) => void;
@@ -253,6 +267,7 @@ export function CodexCopilotLayer({
   className,
   hideAvatarToggle = false,
   initialCopilotMode,
+  onCopilotModeChange,
   contextOptions,
   contextId,
   onContextChange,
@@ -496,6 +511,27 @@ export function CodexCopilotLayer({
   // parallel). Additive and defaulted — no existing mount changes behaviour,
   // and no new capability is introduced: both modes already shipped.
   const [copilotMode, setCopilotMode] = useState<CopilotMode>(initialCopilotMode ?? "chat");
+
+  /** Every mode change goes through here so the host always hears about it. */
+  const switchCopilotMode = useCallback(
+    (mode: CopilotMode) => {
+      setCopilotMode(mode);
+      onCopilotModeChange?.(mode);
+    },
+    [onCopilotModeChange],
+  );
+
+  // HOST → COPILOT half of the sync. The prop used to be initial-only, so a
+  // host-driven mode change (clicking a nav item while in avatar) was silently
+  // ignored. Keyed on prop TRANSITIONS via a ref — the copilot's own toggles
+  // still work between prop changes without being fought.
+  const lastModePropRef = useRef(initialCopilotMode);
+  useEffect(() => {
+    if (initialCopilotMode === undefined) return;
+    if (initialCopilotMode === lastModePropRef.current) return;
+    lastModePropRef.current = initialCopilotMode;
+    setCopilotMode(initialCopilotMode);
+  }, [initialCopilotMode]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<CopilotMessage[]>([]);
@@ -534,9 +570,9 @@ export function CodexCopilotLayer({
 
   useEffect(() => {
     if (hideAvatarToggle && copilotMode !== "chat") {
-      setCopilotMode("chat");
+      switchCopilotMode("chat");
     }
-  }, [hideAvatarToggle, copilotMode]);
+  }, [hideAvatarToggle, copilotMode, switchCopilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
 
   // ── Voice (Vapi) — speaks as THIS SURFACE'S agent ───────────────────────────
@@ -1895,7 +1931,7 @@ export function CodexCopilotLayer({
                               {pauseButton}
                               {micButton}
                               <button
-                                onClick={() => setCopilotMode("avatar")}
+                                onClick={() => switchCopilotMode("avatar")}
                                 title="Avatar"
                                 aria-label="Avatar"
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
@@ -1907,7 +1943,7 @@ export function CodexCopilotLayer({
                                 <User className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => setCopilotMode("chat")}
+                                onClick={() => switchCopilotMode("chat")}
                                 title={agent?.name ?? "Chat"}
                                 aria-label={agent?.name ?? "Chat"}
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
@@ -2054,7 +2090,7 @@ export function CodexCopilotLayer({
                             {pauseButton}
                             {micButton}
                             <button
-                              onClick={() => setCopilotMode("avatar")}
+                              onClick={() => switchCopilotMode("avatar")}
                               title="Avatar"
                               aria-label="Avatar"
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
@@ -2066,7 +2102,7 @@ export function CodexCopilotLayer({
                               <User className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => setCopilotMode("chat")}
+                              onClick={() => switchCopilotMode("chat")}
                               title={agent?.name ?? "Chat"}
                               aria-label={agent?.name ?? "Chat"}
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${

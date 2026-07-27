@@ -564,10 +564,13 @@ describe('the avatar leaves nothing behind when released', () => {
       expect(styleFn, `${file} has no style resolver`).toBeGreaterThan(-1);
       const branch = code.indexOf('if (!activeContainer)', styleFn);
       expect(branch, `${file} has no inert branch for the released host`).toBeGreaterThan(-1);
-      const body = code.slice(branch, branch + 400);
-      expect(body, `${file} keeps the released host visible`).toContain('visibility:');
-      expect(body, `${file} keeps the released host above content`).toMatch(/zIndex:\s*-1/);
-      expect(body, `${file} keeps the released host sized`).toMatch(/width:\s*0/);
+      // Window sized past the stripped explanatory comment (stripComments
+      // blanks comments in place, preserving offsets).
+      const body = code.slice(branch, branch + 1400);
+      // display:none, nothing weaker — visibility can be overridden by a
+      // child, opacity-0 still composites, and a zero-size clip does not
+      // contain position:fixed descendants.
+      expect(body, `${file} released host is not display:none`).toMatch(/display:\s*['"]none['"]/);
     }
   });
 

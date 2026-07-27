@@ -26,7 +26,11 @@ export type CompanionSearchSource =
   | 'registry-library'
   | 'capability'
   | 'my-software'
-  | 'moneypenny';
+  | 'moneypenny'
+  // The knowledge field itself — docs from the pack corpus (operator,
+  // 2026-07-26: a search for "iQube" must return content ABOUT iQubes as a
+  // class, not a listing of every iQube in the registry).
+  | 'knowledge-doc';
 
 /** Static, identifier-free routing metadata for `buildCodexUrl(target.slug, { tab: target.tab, ... })`. */
 export interface CompanionSearchTarget {

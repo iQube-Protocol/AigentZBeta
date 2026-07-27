@@ -148,17 +148,27 @@ export const QUICK_LINK_CONTEXT_NEEDLE: Readonly<Record<string, string>> = {
  * has no topic of its own, and inventing one would be exactly the fabricated
  * association `overlayMapping` refuses to make.
  */
-export const QUICK_LINK_SURFACE_NEEDLE: Readonly<Record<string, string>> = {
-  wallet: 'wallet',
-  search: 'registry',
-  workspace: 'workspace',
-  permissions: 'passport',
-  activity: 'ledger',
+/**
+ * Operator-specified associations (2026-07-26): the wallet surface offers the
+ * money-shaped destinations — MoneyPenny and the Financial Services programme
+ * — not generic wallet-labelled tabs; Workspace offers myCluster. Multiple
+ * needles per surface because one surface legitimately relates to several
+ * destinations. `overlay` is deliberately absent: its context comes from the
+ * OBSERVED PAGE shape (the `??` chain in the page), not from the surface name.
+ */
+export const QUICK_LINK_SURFACE_NEEDLES: Readonly<Record<string, readonly string[]>> = {
+  wallet: ['moneypenny', 'financial'],
+  search: ['registry'],
+  workspace: ['mycluster', 'cluster'],
+  permissions: ['passport'],
+  activity: ['ledger'],
 };
 
-export function quickLinkSurfaceNeedle(surface: string | null | undefined): string | null {
+export function quickLinkSurfaceNeedle(
+  surface: string | null | undefined,
+): readonly string[] | null {
   if (!surface) return null;
-  return QUICK_LINK_SURFACE_NEEDLE[surface] ?? null;
+  return QUICK_LINK_SURFACE_NEEDLES[surface] ?? null;
 }
 
 export function quickLinkContextNeedle(shape: string | null | undefined): string | null {
@@ -181,7 +191,7 @@ export function resolveQuickLinks(input: {
    * It also cannot WIDEN the set: ranking happens after `quickLinkVisibility`,
    * so an observation can never promote a surface the persona may not see.
    */
-  context?: string | null;
+  context?: string | readonly string[] | null;
   limit?: number;
 }): QuickLink[] {
   const needle = input.matching?.trim().toLowerCase() ?? '';
@@ -209,12 +219,14 @@ export function resolveQuickLinks(input: {
 
   // Context ranking — stable partition, matches first. Applied BEFORE the
   // limit so a context-relevant link can actually reach the visible set.
-  const context = input.context?.trim().toLowerCase() ?? '';
-  const ranked = context
-    ? [
-        ...out.filter((l) => l.label.toLowerCase().includes(context)),
-        ...out.filter((l) => !l.label.toLowerCase().includes(context)),
-      ]
+  const needles = (
+    typeof input.context === 'string' ? [input.context] : (input.context ?? [])
+  )
+    .map((n) => n.trim().toLowerCase())
+    .filter(Boolean);
+  const hit = (l: QuickLink) => needles.some((n) => l.label.toLowerCase().includes(n));
+  const ranked = needles.length > 0
+    ? [...out.filter(hit), ...out.filter((l) => !hit(l))]
     : out;
 
   return typeof input.limit === 'number' ? ranked.slice(0, input.limit) : ranked;

@@ -214,13 +214,39 @@ function CompanionShell() {
   // the gate treats as "offer ungated links only" rather than as "no
   // privileges": fail closed while unknown.
   const [access, setAccess] = useState<QuickLinkAccessContext | null>(null);
+  /**
+   * The header names WHO IS ACTING (operator, 2026-07-26): the citizen's
+   * delegated aigentMe persona by default, their active persona when no
+   * aigentMe is delegated, and the generic "Agent Me" only when neither
+   * resolves. A generic label where a delegate exists hides the delegation —
+   * the one fact the header exists to surface.
+   */
+  const [agentLabel, setAgentLabel] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!personaId) {
       setAccess(null);
+      setAgentLabel(null);
       return;
     }
     (async () => {
+      // Delegated aigentMe first — person-scoped, so it resolves whichever
+      // owned persona sponsors it.
+      try {
+        const res = await personaFetch("/api/agents/aigentme", {
+          cache: "no-store",
+          personaIdHint: personaId,
+        });
+        if (res.ok) {
+          const body = await res.json();
+          const name = body?.agent?.display_name ?? body?.agent?.displayName;
+          if (!cancelled && typeof name === "string" && name.trim()) {
+            setAgentLabel(name.trim());
+          }
+        }
+      } catch {
+        // No delegate resolvable — the active-persona label below carries it.
+      }
       try {
         const res = await personaFetch("/api/wallet/active-persona", {
           cache: "no-store",
@@ -229,6 +255,10 @@ function CompanionShell() {
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
+        // Fallback half of the label chain: only fills when no aigentMe won.
+        if (typeof data?.displayLabel === "string" && data.displayLabel.trim()) {
+          setAgentLabel((current) => current ?? data.displayLabel.trim());
+        }
         setAccess({
           isAdmin: Boolean(data?.cartridgeFlags?.isAdmin),
           isPartner: Boolean(data?.cartridgeFlags?.isPartner),
@@ -440,6 +470,21 @@ function CompanionShell() {
             variant="embedded"
             className="h-full w-full"
             initialCopilotMode={copilotModeForNavItem(activeNavItem)}
+            /* COPILOT → HOST half of the mode sync. The copilot's own footer
+               toggles change its mode internally; without this echo the host's
+               activeNavItem froze on whatever it last was, so after entering
+               avatar via the toggle every nav click updated state into a
+               surface the avatar branch never renders — the "menu breaks after
+               avatar" report, third time (2026-07-26). One mode, two views,
+               kept in agreement from both directions. */
+            onCopilotModeChange={(mode) => {
+              setActiveNavItem((current) => {
+                if (mode === "avatar") return "avatar";
+                // Leaving avatar returns to the conversation; any other
+                // surface selection arrives as its own nav click.
+                return current === "avatar" ? "agent-me" : current;
+              });
+            }}
             /* QUICK LINKS as Class 2 Context Actions (§3.2.4/§3.2.5).
                Rendered through the copilot's OWN carousel — the single row
                above the composer that is already the standard here — rather
@@ -487,7 +532,7 @@ function CompanionShell() {
             hideComposer={activeSurface !== "agent-me" && activeSurface !== "search"}
             composerMode={activeSurface === "search" ? "search" : "chat"}
             onComposerSubmit={setSearchQuery}
-            agent={{ id: "aigent-me", name: "Agent Me" }}
+            agent={{ id: "aigent-me", name: agentLabel ?? "Agent Me" }}
             personaId={personaId}
             bodySlot={activeSurface === "activity" ? (
           /* Pre-1.1 rail, preserved verbatim (§14.6): Timeline + Observer

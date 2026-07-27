@@ -69,6 +69,7 @@ import { MONEYPENNY_CARTRIDGE } from '@/data/codex-configs';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { ResearchExperiment, ResearchSeries } from '@/types/research';
 import type { RegistryPublicView } from '@/types/registry-canonical';
+import { searchKnowledgeDocs } from '@/services/companion/knowledgeDocSearch';
 import type { CompanionSearchResult, CompanionSearchTarget } from '@/types/companionSearch';
 
 // ─── Ranking ────────────────────────────────────────────────────────────────
@@ -413,7 +414,7 @@ export async function federateSearch(
       return [];
     });
 
-  const [research, registryIQube, registryAsset, registryLibrary, capability, mySoftware, moneyPenny] =
+  const [research, registryIQube, registryAsset, registryLibrary, capability, mySoftware, moneyPenny, knowledgeDocs] =
     await Promise.all([
       guard('research', searchResearch(query)),
       guard('registry-iqube', searchRegistryIQube(query)),
@@ -422,16 +423,20 @@ export async function federateSearch(
       guard('capability', Promise.resolve(searchCapability(query))),
       guard('my-software', searchMySoftware(query, personaId)),
       guard('moneypenny', Promise.resolve(searchMoneyPenny(query))),
+      // The knowledge field itself (operator ruling, 2026-07-26): class-level
+      // queries — "iQube", "Constitutional Plates" — answer with the CORPUS
+      // docs about the concept, never an enumeration of registry instances.
+      guard('knowledge-doc', searchKnowledgeDocs(query)),
     ]);
 
   console.log(
     `[CompanionSearch] "${query}": research=${research.length} registry-iqube=${registryIQube.length} ` +
       `registry-asset=${registryAsset.length} registry-library=${registryLibrary.length} capability=${capability.length} ` +
-      `my-software=${mySoftware.length} moneypenny=${moneyPenny.length}`,
+      `my-software=${mySoftware.length} moneypenny=${moneyPenny.length} knowledge-doc=${knowledgeDocs.length}`,
   );
 
   return rankSearchResults(
-    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability, ...mySoftware, ...moneyPenny],
+    [...research, ...registryIQube, ...registryAsset, ...registryLibrary, ...capability, ...mySoftware, ...moneyPenny, ...knowledgeDocs],
     query,
   );
 }
