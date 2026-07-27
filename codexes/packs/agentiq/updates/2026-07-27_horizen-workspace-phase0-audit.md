@@ -1070,3 +1070,139 @@ ALTER TABLE public.experiment_workspace_items ENABLE ROW LEVEL SECURITY;
   a placeholder for a parallel store.
 - **No Locker items.** `lockers` is empty until Phase 3 attaches participant Lockers by commitment.
 - **No research variant.** Phase 4, and it does not gate Horizen.
+
+---
+
+# Delivery record — Phase 3: the Horizen Workspace becomes operational
+
+**Shipped 2026-07-27.** `85b587476` (3a) + `7bf5f1227` (3b). Suite 1967/1967 (148 files).
+
+Per Amendment B §B.5, **Horizen becomes operational at the end of Phase 3.** Phases 4–5 do not
+gate it.
+
+## 3a — the tier split (§B.3, operator ruling "Partner gate = split agreed")
+
+| Partner view | Tier | Gate |
+|---|---|---|
+| Overview · Collaborate · Operate · Evidence | **2** | `participationDomain: 'venture-lab'` |
+| Communicate | **0** | `adminOnly` — until the two-stage draft/share behaviour exists |
+| **Administration** (new) | **0** | `adminOnly` |
+
+**This resolves the hard blocker** (base audit §7 item 4): partner operators see the shared record
+without becoming platform admins.
+
+**Communicate deliberately stayed Tier 0.** The audit's target is two-stage — internal drafting,
+shared on approval. Until the approval step exists, widening it would publish drafts, which is the
+failure the two-stage design prevents. Only the safe half shipped.
+
+### The gate
+
+`services/passport/participationTabGate.ts` — ONE implementation, called by `getEnabledTabs` and all
+four tab tiers in `CodexPanelDynamic`. Two properties are load-bearing and canary-enforced:
+
+1. **It never widens `adminOnly`.** A tab carrying both stays admin-only, so adding a domain to an
+   existing tab cannot open it by accident.
+2. **It fails closed.** Before grants resolve, a gated tab is hidden — "not answered yet" must not
+   be readable as "yes".
+
+The group-level `adminOnly` it replaced existed so a non-admin would not see a Partner pill that
+filters to empty. That is now **structural**: a group with no visible tabs does not render
+(**MS-9** — a control that cannot act must not render).
+
+### The server still decides
+
+`GET /api/venture/workspace/[workspaceId]` resolves membership through
+`resolveParticipationSelfView` — the same resolver `/api/participation/my-access` and the client
+gate use, so the three can never disagree about who is a member (CS-001 discipline). Tier 0 content
+is returned to admins only. The tab gate governs what RENDERS; the route governs what is PERMITTED.
+
+### Administration renders the Phase 2 spine
+
+Reference integrity · invariants resolved with provenance (canon version, resolving term, source) ·
+projected decisions · milestones · blockers. Empty sections say they are empty and why.
+
+## 3b — Aigent Z workspace administration (tracker row 102, built ONCE)
+
+`services/experiments/workspaceReport.ts` + `GET|POST /api/venture/workspace/[workspaceId]/report`.
+
+- **Daily and weekly are one composer with two windows**, not two reports. A canary fails on a
+  second builder or a period-branched body.
+- **No new data source** — projected actions, projected decisions, workspace-local
+  milestones/blockers, reference integrity, invariant resolution. A direct database read in the
+  composer fails the suite.
+- **Gaps are reported, not dropped.** No working-group channel is convened yet, so the
+  communication section says exactly that.
+- **GET composes · POST publishes.** Publishing additionally requires admin: a member may read
+  programme state without minting a record of it.
+- **`workspace_report_published`** added to the TS union, `ANCHORABLE_ACTION_TYPES` and the CHECK
+  constraint **in one commit** — the 2026-07-15 and 2026-07-26 drift incidents were both a type
+  present in some of those and not others, failing in silence. The DVN change is an **action-type
+  addition only**, the one change that file permits unilaterally.
+
+## Operator actions required
+
+**1. Run this SQL** (in addition to the Phase 2 table above) so report receipts can be written —
+without it every report write is rejected by the CHECK constraint and discarded silently:
+
+```sql
+ALTER TABLE activity_receipts
+  DROP CONSTRAINT IF EXISTS activity_receipts_action_type_check;
+
+ALTER TABLE activity_receipts
+  ADD CONSTRAINT activity_receipts_action_type_check
+  CHECK (action_type IN (
+    'intent_queued','specialist_consulted','artifact_created','artifact_published','artifact_sent',
+    'approval_granted','approval_rejected','experience_model_updated','session_started','session_completed',
+    'passport_application_submitted','passport_issued','passport_status_changed',
+    'passport_revoked','passport_privilege_changed','passport_infraction_recorded',
+    'governance_decision_ratified','governance_decision_amended',
+    'governance_authority_exercised','governance_escalation_triggered',
+    'experience_task_completed',
+    'agent_revocation_state_changed',
+    'agent_delegated','agent_delegation_revoked',
+    'plan_purchased','plan_renewed',
+    'invariant_discovered','invariant_validated','invariant_canonized','invariant_superseded',
+    'invariant_qube_published',
+    'knowledge_curated','consequence_forecast_recorded','knowledge_evolved',
+    'experience_render_validated',
+    'implementation_pack_generated',
+    'implementation_dispatched',
+    'deployment_proposed',
+    'constitutional_validation_recorded',
+    'remediation_recorded',
+    'deployment_authorized',
+    'validation_override_granted',
+    'research_lifecycle_transition',
+    'experiment_result_published',
+    'venture_blueprint_handoff',
+    'standing_accrued',
+    'capability_registered',
+    'capability_operationally_validated',
+    'invariant_node_flipped',
+    'agreement_formed',
+    'agreement_authorized',
+    'qubetalk_artifact_shared',
+    'qubetalk_artifact_opened',
+    'qubetalk_artifact_copied',
+    'finance_authoritative_execution',
+    'capability_deprecated',
+    'canonical_plate_composed',
+    'plan_cancelled',
+    'workspace_report_published'
+  ));
+```
+
+**2. Grant the first partner operators.** The Tier 2 views are gated on an active `venture-lab`
+participation grant. Issue those from **Venture Lab → Participate → Steward**. Until a grant exists,
+only admins see the Partner group — which is the correct fail-closed posture, not a bug.
+
+**3. Wire the report schedule.** The composer and route are live; the cadence is a Routine calling
+`POST /api/venture/workspace/horizen-pilot-series-001/report?period=daily` (and `weekly`).
+
+## What Phase 3 deliberately did NOT build
+
+- **Two-stage Communicate.** Named above; it needs an approval step, not a gate change.
+- **Channel provisioning for working groups.** Still empty, still reported honestly as a gap.
+- **Participant Lockers attached by commitment.** `lockers` remains empty on the spine.
+- **Phases 4–5.** Research Workspace adoption and the metaProof Commons proof layer, in that order,
+  neither gating Horizen.
