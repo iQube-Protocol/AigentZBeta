@@ -474,22 +474,14 @@ describe('§9 lifecycle — the two ladders MAP and are never unified', () => {
     // If CCR-001's stages started appearing in the research ladder (or the
     // reverse), the mapping would have quietly become a merge.
     const research = new Set<string>(FINDING_LIFECYCLE);
-    const completion = new Set<string>(COMPLETION_LIFECYCLE);
     const SHARED = 'observed'; // the one word both vocabularies legitimately use
-    for (const stage of completion) {
-      if (stage === SHARED) continue;
-      expect(
-        research.has(stage),
-        `'${stage}' has entered FINDING_LIFECYCLE — the ladders are being unified rather than mapped`,
-      ).toBe(false);
-    }
-    for (const stage of research) {
-      if (stage === SHARED) continue;
-      expect(
-        completion.has(stage),
-        `'${stage}' has entered COMPLETION_LIFECYCLE — the ladders are being unified rather than mapped`,
-      ).toBe(false);
-    }
+    // Symmetric: overlap is the defect, and the message must not guess which
+    // ladder the stage was added to — either direction is the same unification.
+    const overlap = [...COMPLETION_LIFECYCLE].filter((s) => s !== SHARED && research.has(s));
+    expect(
+      overlap,
+      `${overlap.join(', ')} appears in BOTH COMPLETION_LIFECYCLE and FINDING_LIFECYCLE — the ladders are being unified rather than mapped`,
+    ).toEqual([]);
   });
 
   it('the projection onto the crystal is total, so a new stage cannot be undecided', () => {
@@ -502,9 +494,10 @@ describe('§9 lifecycle — the two ladders MAP and are never unified', () => {
     }
     // `deprecated` asserts NO crystal status: the crystal has none, and
     // inventing one would be exactly the unification the ruling forbids.
-    expect(mapCompletionStage('deprecated')).toBeNull();
-    expect(mapCompletionStage('ratified')).toBe('canonical');
-    expect(mapCompletionStage('candidate')).toBe('proposed');
+    const DRIFT = 'the projection onto the crystal has been redefined — a stage now means something different to the seed vocabulary than it did when the ruling was made';
+    expect(mapCompletionStage('deprecated'), DRIFT).toBeNull();
+    expect(mapCompletionStage('ratified'), DRIFT).toBe('canonical');
+    expect(mapCompletionStage('candidate'), DRIFT).toBe('proposed');
   });
 
   it('the reference artifact carries BOTH values, and they agree', () => {
