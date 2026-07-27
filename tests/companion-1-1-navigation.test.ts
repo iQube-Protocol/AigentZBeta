@@ -607,6 +607,58 @@ describe('the avatar leaves nothing behind when released', () => {
     ).toMatch(/sweepDidArtifacts/);
   });
 
+  it('the footer measurement survives an avatar round-trip (the ten-cycle defect)', () => {
+    // ROOT CAUSE, 2026-07-27. The footer element carries the ENTIRE menu row and
+    // is rendered only inside the `copilotMode === "chat"` branch. Its height
+    // drives `bottom:` on both the bodySlot overlay and the chat scroll
+    // container. A ResizeObserver attached in `useEffect(..., [])` measured the
+    // node that existed at mount; entering avatar detached that node (offsetHeight
+    // 0 → footer height 0) and returning to chat mounted a NEW node the observer
+    // was never re-attached to. Result: `bottom: 0` forever — the body renders
+    // UNDER the near-transparent menu bar. "Menu broken" and "opacity gone" are
+    // the same defect, and no fix to the D-ID host could ever have reached it.
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+
+    // A callback ref — the observer must follow whichever node is mounted.
+    expect(code, 'the footer is not bound by a callback ref').toMatch(
+      /ref=\{attachFooterNode\}/,
+    );
+    expect(code).toMatch(/const attachFooterNode = useCallback\(/);
+    expect(code, 'the callback ref does not disconnect the previous observer').toMatch(
+      /attachFooterNode[\s\S]{0,400}footerObserverRef\.current\?\.disconnect\(\)/,
+    );
+
+    // A zero reading is a teardown artifact, never a real footer height.
+    expect(code, 'a 0-height measurement is not guarded').toMatch(
+      /if \(next > 0\) setFooterMeasuredHeight\(next\)/,
+    );
+
+    // And the old shape must not come back: a ResizeObserver on footerRef bound
+    // with empty deps is exactly the bug.
+    expect(
+      /new ResizeObserver\(\(\) => setFooterMeasuredHeight\(el\.offsetHeight\)\)/.test(code),
+      'the mount-once footer observer has been reintroduced',
+    ).toBe(false);
+  });
+
+  it('the avatar overlay anchors to the frame it occupies, not the panel origin', () => {
+    // The fixed z-180 avatar host took its POSITION from the panel and its SIZE
+    // from the frame. Wherever those differ, the overlay lands over the wrong
+    // region — and with no pointer-events:none it swallows clicks there. One
+    // rect, the frame's own.
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    const loop = code.indexOf('--metaavatar-codex-x');
+    expect(loop).toBeGreaterThan(-1);
+    const body = code.slice(Math.max(0, loop - 600), loop + 600);
+    expect(body, 'the anchor still measures the panel').toMatch(
+      /metaAvatarFrameRef\.current \?\? copilotPanelRef\.current/,
+    );
+    expect(
+      /const rect = copilotPanelRef\.current\.getBoundingClientRect\(\)/.test(code),
+      'the anchor reads the panel rect again',
+    ).toBe(false);
+  });
+
   it('the avatar anchor loop runs only while the avatar is showing', () => {
     // It writes CSS custom properties on the document root every animation
     // frame. Ungated, it ran for the lifetime of the mount — which in the
@@ -614,7 +666,10 @@ describe('the avatar leaves nothing behind when released', () => {
     const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
     const loop = code.indexOf('--metaavatar-codex-x');
     expect(loop).toBeGreaterThan(-1);
-    const guardWindow = code.slice(Math.max(0, loop - 600), loop);
+    // Window widened 2026-07-27: the anchor now carries an explanatory comment
+    // (stripComments blanks in place, preserving offsets) so the guard sits
+    // further above the first CSS-variable write.
+    const guardWindow = code.slice(Math.max(0, loop - 1600), loop);
     expect(guardWindow, 'the anchor rAF loop is no longer gated on avatar mode').toMatch(
       /copilotMode !== "avatar"\)\s*return/,
     );

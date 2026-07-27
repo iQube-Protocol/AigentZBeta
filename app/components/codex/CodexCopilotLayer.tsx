@@ -661,9 +661,69 @@ export function CodexCopilotLayer({
 
   const headerHeight = 44;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
-  const footerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const [footerMeasuredHeight, setFooterMeasuredHeight] = useState(floatingInput ? 100 : 80);
   const resolvedFooterHeight = disablePromptInput ? 0 : footerMeasuredHeight;
+
+  /**
+   * THE AVATAR/MENU DEFECT — root cause, found 2026-07-27 after ten cycles of
+   * fixing the wrong layer.
+   *
+   * The footer element this measures is rendered ONLY inside the
+   * `copilotMode === "chat"` branch, and it CONTAINS THE ENTIRE MENU ROW
+   * (nav items, avatar/chat toggles, mic, pause) as well as the composer.
+   * `resolvedFooterHeight` is what tells the body region — both `bodySlot` and
+   * the chat scroll container, each absolutely positioned with
+   * `bottom: resolvedFooterHeight` — how much room to leave for it.
+   *
+   * The previous implementation attached one `ResizeObserver` in a
+   * `useEffect(..., [])`. That is correct only if the observed node lives for
+   * the lifetime of the component. This one does not:
+   *
+   *   1. mount in chat  → observer attaches to footer node A → height ~96px
+   *   2. enter avatar   → the chat branch UNMOUNTS; node A detaches. The
+   *                       observer fires, and `offsetHeight` on an element with
+   *                       no layout box is **0** → footerMeasuredHeight = 0
+   *   3. return to chat → a NEW footer node B mounts, but `[]` deps mean the
+   *                       effect never re-runs: the observer is still watching
+   *                       the detached node A, so node B is never measured and
+   *                       the height stays **0 for the rest of the mount**
+   *
+   * From then on the body renders with `bottom: 0` — extending underneath the
+   * whole menu row, which is a near-transparent `bg-white/5` bar. That is
+   * simultaneously "the menu is broken" and "the opacity has disappeared": the
+   * chat/wallet/search body is now painting behind the menu instead of stopping
+   * above it. In the Companion the copilot never unmounts, so one visit to the
+   * avatar corrupts the layout permanently.
+   *
+   * Every earlier fix targeted the D-ID host — inerting it, hiding it,
+   * unmounting it, sweeping its artifacts. None of them could have helped,
+   * because the broken geometry is the COPILOT'S OWN, and it survives the
+   * avatar being gone.
+   *
+   * The fix is a callback ref, so the observer always tracks the node that is
+   * actually mounted, plus a zero-guard so a teardown measurement can never be
+   * mistaken for a real height.
+   */
+  const footerObserverRef = useRef<ResizeObserver | null>(null);
+  const attachFooterNode = useCallback((node: HTMLDivElement | null) => {
+    footerRef.current = node;
+    footerObserverRef.current?.disconnect();
+    footerObserverRef.current = null;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const next = node.offsetHeight;
+      // 0 means "no layout box" — detached, or measured before first layout.
+      // Keeping the last good height is always closer to the truth than
+      // collapsing the footer the menu row lives in.
+      if (next > 0) setFooterMeasuredHeight(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    footerObserverRef.current = ro;
+  }, []);
+  useEffect(() => () => footerObserverRef.current?.disconnect(), []);
   const seededRef = useRef(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -784,13 +844,6 @@ export function CodexCopilotLayer({
     };
   }, []);
 
-  useEffect(() => {
-    const el = footerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setFooterMeasuredHeight(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -829,17 +882,23 @@ export function CodexCopilotLayer({
     if (copilotMode !== "avatar") return;
 
     const updateAnchor = () => {
-      const node = copilotPanelRef.current;
-      if (!node) return;
-      const rect = node.getBoundingClientRect();
+      // ONE rect, the frame's own. Position used to come from the PANEL while
+      // size came from the frame — a mismatch that drew the fixed, z-180 avatar
+      // layer at the panel's origin with the frame's dimensions. Wherever the
+      // frame is not flush with the panel's top-left (any surface with a
+      // header, any padding), the overlay lands over the wrong region and, at
+      // z-180 with no `pointer-events: none`, swallows clicks there. The frame
+      // IS the box the avatar is supposed to occupy; anchoring to anything else
+      // is how an overlay ends up on top of controls (cf. the historical
+      // "raise compose modals and wallet drawer above MetaAvatar overlay" fix).
+      const frameNode = metaAvatarFrameRef.current ?? copilotPanelRef.current;
+      if (!frameNode) return;
+      const rect = frameNode.getBoundingClientRect();
       const root = document.documentElement;
       root.style.setProperty("--metaavatar-codex-x", `${Math.round(rect.left)}px`);
       root.style.setProperty("--metaavatar-codex-y", `${Math.round(rect.top)}px`);
-      const frame = metaAvatarFrameRef.current?.getBoundingClientRect();
-      const width = frame?.width ?? 320;
-      const height = frame?.height ?? 240;
-      root.style.setProperty("--metaavatar-codex-w", `${Math.round(width)}px`);
-      root.style.setProperty("--metaavatar-codex-h", `${Math.round(height)}px`);
+      root.style.setProperty("--metaavatar-codex-w", `${Math.round(rect.width) || 320}px`);
+      root.style.setProperty("--metaavatar-codex-h", `${Math.round(rect.height) || 240}px`);
     };
 
     updateAnchor();
@@ -1689,7 +1748,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
-                        ref={footerRef}
+                        ref={attachFooterNode}
                         className={`absolute inset-x-0 bottom-0 px-3 pb-0 pt-0 z-30 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
