@@ -97,8 +97,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // T0 law: nothing below names a persona, an auth profile, a root or a kybe.
+  // Both token hashes are single-use, short-lived, and carry no identity on
+  // their face; the handoff one exists because iframe storage partitioning
+  // means the Companion's session cannot reach the top-level application.
   return NextResponse.json(
-    { ok: true, tokenHash: session.grant.tokenHash, passport: session.grant.passport },
+    {
+      ok: true,
+      tokenHash: session.grant.tokenHash,
+      handoffTokenHash: session.grant.handoffTokenHash,
+      passport: session.grant.passport,
+    },
     { headers: noStore },
   );
 }

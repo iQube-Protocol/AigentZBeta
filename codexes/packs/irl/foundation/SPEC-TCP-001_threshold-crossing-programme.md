@@ -194,6 +194,14 @@ The operator's clarification — *"Technical Founder Operator … this IS the de
 
 `upsertExperienceQube` writes with `.upsert(row, { onConflict: 'persona_id' })` (`services/iqube/experienceQube.ts:491`) and `getExperienceQube` reads by `persona_id`. **There is exactly one ExperienceQube per persona.** `ExperienceType` (`'personal' | 'creative' | 'venture' | 'client' | 'portfolio' | 'venture_building'`) is a single enum **field on that one record**, not a multiplicity. The operator's §6 module list ("Personal Experience Qube · Venture Experience Qube (optional)") therefore either (a) means one qube whose `experienceType` is set, with venture strategy living in the existing `blak` fields (`strategicGoals`, `commercialGoals`, `activeKpis`, `franchiseProposition`, …), or (b) requires a schema change to hold two. D-6 in §20 makes the operator choose; this SPEC does not choose for them.
 
+> **D-4 RESOLVED (operator ruling, 2026-07-26): the per-journey guides are named
+> "Threshold Guides."** "Experience Guide" stays with the shipped 7×7
+> PersonalGuide self-assessment; §8–§10's layer is "Guided Configuration" per
+> the earlier note. Code applied same day: `journeyRegistry.ts` field
+> `thresholdGuide`, ids `*-threshold-guide`; gateway copy updated. The
+> paragraph below is retained as the record of the collision the ruling
+> settled.
+
 **And a naming collision that must be settled before any guide is built (D-4):** "Experience Guide" already means two *different* shipped things and this SPEC introduces a third sense. (1) `PersonalGuideData` (`types/experienceGuide.ts`) — a 7×7 *Sphere of Agency* × *Experience Maturity* **self-assessment lattice** with alignment state and repair risks, persisted at `blak.personalGuide`, edited through `PersonalGuideSetupWizard.tsx` (a modal form wizard, not a tour). (2) PRD-THR-001 §9.1's per-journey guides (`citizen-experience-guide`, `entrepreneur-experience-guide`, …), a `ConstitutionalJourney` field. (3) This SPEC's §8–§10 "guided experiences." **Three senses, one term.** Shipping a third without renaming would guarantee confusion in every future conversation.
 
 ---

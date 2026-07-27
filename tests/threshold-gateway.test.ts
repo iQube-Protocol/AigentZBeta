@@ -99,7 +99,10 @@ describe('Journey registry', () => {
     for (const j of snap.journeys) {
       expect(j.ladder[j.ladder.length - 1]).toBe(FOUNDER_OFFICE_RUNG);
       expect(j.unlocks).toContain('founder-office');
-      expect(j.experienceGuide).toMatch(/experience-guide$/);
+      // Operator ruling 2026-07-26: the per-journey guides are THRESHOLD
+      // Guides — "Experience Guide" stays with the 7x7 PersonalGuide
+      // self-assessment, resolving SPEC-TCP-001 D-4's naming collision.
+      expect(j.thresholdGuide).toMatch(/threshold-guide$/);
     }
   });
 

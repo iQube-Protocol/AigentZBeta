@@ -64,7 +64,7 @@ export function listTools() {
     {
       name: 'list_journeys',
       description:
-        'List the five constitutional journeys a principal chooses AFTER their Polity Passport is issued — Citizen, Entrepreneur, Researcher, Creative, Technical. Each is a goal (not a service menu): it activates an Experience Guide, has a progressive Sovereignty Ladder converging on the Founder Office, and progressively unlocks services. Present these first; services are destinations within a journey.',
+        'List the five constitutional journeys a principal chooses AFTER their Polity Passport is issued — Citizen, Entrepreneur, Researcher, Creative, Technical. Each is a goal (not a service menu): it activates an Threshold Guide, has a progressive Sovereignty Ladder converging on the Founder Office, and progressively unlocks services. Present these first; services are destinations within a journey.',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
@@ -511,7 +511,7 @@ export async function readResource(uri: string, ctx: GatewayContext) {
             '3. **Bind the agent** — create/link an Agent Card.\n' +
             '4. **Delegate** — the principal authorizes a bounded scope.\n' +
             '5. **Activate** a revocable Agent Passport.\n' +
-            '6. **Choose a journey** — Citizen, Entrepreneur, Researcher, Creative, or Technical. Each activates an Experience Guide and a progressive Sovereignty Ladder converging on the Founder Office; services are destinations reached within the chosen journey (see `metame://journeys`).\n\n' +
+            '6. **Choose a journey** — Citizen, Entrepreneur, Researcher, Creative, or Technical. Each activates an Threshold Guide and a progressive Sovereignty Ladder converging on the Founder Office; services are destinations reached within the chosen journey (see `metame://journeys`).\n\n' +
             '_This gateway increment supports step 1, journey discovery, and service discovery; the authenticated steps land next._',
         },
       ],

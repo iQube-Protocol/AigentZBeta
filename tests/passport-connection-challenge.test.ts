@@ -280,3 +280,57 @@ describe('the Companion is preferred, never exclusive — ruling 6', () => {
     expect(page, 'a sign-in wall survives on a gated surface').not.toContain('Sign in to');
   });
 });
+
+// ─── The application handshake — the partition gap (operator, 2026-07-26) ───
+
+describe('the Companion session reaches the application', () => {
+  const COMPLETE_PAGE = 'app/passport-connect/complete/page.tsx';
+
+  it('the proof mints one grant per storage world', () => {
+    // Iframe storage partitioning means the Companion partition and the
+    // top-level app never share a session; one single-use token cannot serve
+    // both. The handoff grant is best-effort — its failure degrades to the
+    // pre-handoff behaviour, never blocks the Companion's own session.
+    const code = stripComments(readSource(SESSION));
+    expect(code).toContain('handoffTokenHash');
+    expect((code.match(/generateLink\(/g) ?? []).length).toBe(2);
+    const proof = stripComments(readSource(PROOF_ROUTE));
+    expect(proof).toContain('handoffTokenHash: session.grant.handoffTokenHash');
+  });
+
+  it('the handoff is exchanged top-level, and the panel opens it in the browser', () => {
+    const panel = stripComments(readSource(CONNECT_PANEL));
+    expect(panel).toContain('/passport-connect/complete?token_hash=');
+    expect(panel, 'the handoff must leave the iframe').toMatch(/window\.open\(\s*`\/passport-connect\/complete/);
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    expect(page).toContain("type: \"magiclink\"");
+  });
+
+  it('the complete page permits no open redirect', async () => {
+    const { safeNextPath } = await import('@/app/passport-connect/complete/page');
+    expect(safeNextPath('/metame/runtime')).toBe('/metame/runtime');
+    expect(safeNextPath('/codex/viewer')).toBe('/codex/viewer');
+    for (const evil of [
+      'https://evil.example',
+      '//evil.example',
+      'javascript:alert(1)',
+      'http://evil',
+      '\\\\evil',
+      null,
+      '',
+      'relative-no-slash',
+    ]) {
+      expect(safeNextPath(evil as string | null)).toBe('/metame/runtime');
+    }
+  });
+
+  it('the token is scrubbed from the URL before the exchange', () => {
+    // The single-use token must not survive into history/bookmarks even if
+    // the exchange hangs.
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    const scrub = page.indexOf('history.replaceState');
+    const exchange = page.indexOf('verifyOtp');
+    expect(scrub).toBeGreaterThan(-1);
+    expect(scrub, 'the scrub no longer precedes the exchange').toBeLessThan(exchange);
+  });
+});

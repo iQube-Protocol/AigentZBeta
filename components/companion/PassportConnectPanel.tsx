@@ -168,8 +168,8 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
           return;
         }
 
-        // Exchange for the application session. Supabase owns the token's
-        // single-use and expiry semantics; we never hand-roll a session.
+        // Exchange for the Companion's OWN session (this iframe's storage
+        // partition). Supabase owns single-use and expiry; we never hand-roll.
         setState({ kind: "working", step: "Opening your session…" });
         const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
           token_hash: pr.tokenHash,
@@ -178,6 +178,20 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
         if (error) {
           setState({ kind: "error", message: "Your Passport verified, but the session could not open." });
           return;
+        }
+
+        // THE APPLICATION HANDOFF (the partition gap, operator 2026-07-26).
+        // This iframe's session cannot reach the top-level app tabs — the
+        // browser partitions third-party iframe storage — so the second
+        // single-use grant is exchanged by a top-level page in the left-hand
+        // browser, where the application actually lives. Without this, the
+        // citizen connected here and still hit a sign-in wall over there.
+        if (typeof pr.handoffTokenHash === "string" && pr.handoffTokenHash) {
+          window.open(
+            `/passport-connect/complete?token_hash=${encodeURIComponent(pr.handoffTokenHash)}&next=${encodeURIComponent("/metame/runtime")}`,
+            "_blank",
+            "noreferrer",
+          );
         }
 
         setState({ kind: "connected", passport: pr.passport as PassportFacts }); // E

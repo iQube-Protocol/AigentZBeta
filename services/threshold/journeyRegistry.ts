@@ -5,7 +5,11 @@
  * not cross the Threshold to "access services" — they cross to pursue a goal.
  * Immediately after the Polity Passport is issued, the Threshold Companion asks
  * "What would you like to do first?" and presents FIVE constitutional journeys.
- * Each journey activates an Experience Guide, establishes a progressive
+ * Each journey activates a THRESHOLD GUIDE (operator ruling 2026-07-26 —
+ * renamed from "Experience Guide", resolving SPEC-TCP-001 D-4's three-way
+ * naming collision: "Experience Guide" stays with the shipped 7x7
+ * PersonalGuide self-assessment; the per-journey guides are Threshold
+ * Guides), establishes a progressive
  * Sovereignty Ladder, and progressively unlocks services — all of which converge
  * on the Founder Office as the highest rung of sovereign participation.
  *
@@ -32,8 +36,8 @@ export interface ConstitutionalJourney {
   title: string;
   /** The one-line "why you're joining" a Companion reads aloud. */
   goal: string;
-  /** The Experience Guide this journey activates (first-class; owns progression). */
-  experienceGuide: string;
+  /** The Threshold Guide this journey activates (first-class; owns progression). */
+  thresholdGuide: string;
   /** The existing participation domain this journey is a user-facing view of. */
   accessDomain: AccessDomain;
   /**
@@ -57,7 +61,7 @@ export const CONSTITUTIONAL_JOURNEYS: ConstitutionalJourney[] = [
     id: 'citizen',
     title: 'Citizen',
     goal: 'Participate in the constitutional internet.',
-    experienceGuide: 'citizen-experience-guide',
+    thresholdGuide: 'citizen-threshold-guide',
     accessDomain: 'passport',
     ladder: ['Citizen', 'Standing', 'Delegation', 'Steward', FOUNDER_OFFICE_RUNG],
     unlocks: ['polity-passport', 'founder-office'],
@@ -74,7 +78,7 @@ export const CONSTITUTIONAL_JOURNEYS: ConstitutionalJourney[] = [
     id: 'entrepreneur',
     title: 'Entrepreneur',
     goal: 'Build businesses on the constitutional internet.',
-    experienceGuide: 'entrepreneur-experience-guide',
+    thresholdGuide: 'entrepreneur-threshold-guide',
     accessDomain: 'venture-lab',
     ladder: ['Entrepreneur', 'Experience Builder', 'Business Operations', FOUNDER_OFFICE_RUNG],
     unlocks: ['metame-studio', 'founder-office'],
@@ -91,7 +95,7 @@ export const CONSTITUTIONAL_JOURNEYS: ConstitutionalJourney[] = [
     id: 'researcher',
     title: 'Researcher',
     goal: 'Advance the Invariant Intelligence research programme.',
-    experienceGuide: 'research-experience-guide',
+    thresholdGuide: 'research-threshold-guide',
     accessDomain: 'research-lab',
     ladder: ['Researcher', 'IRL', 'Publications', 'Steward Research', FOUNDER_OFFICE_RUNG],
     unlocks: ['irl', 'founder-office'],
@@ -108,7 +112,7 @@ export const CONSTITUTIONAL_JOURNEYS: ConstitutionalJourney[] = [
     id: 'creative',
     title: 'Creative',
     goal: 'Create, publish, and tell stories sovereignly.',
-    experienceGuide: 'creative-experience-guide',
+    thresholdGuide: 'creative-threshold-guide',
     accessDomain: 'metame-studio',
     ladder: ['Creative', 'Creative Studio', 'Publishing', 'metaKnyt', FOUNDER_OFFICE_RUNG],
     unlocks: ['metame-studio', 'founder-office'],
@@ -118,7 +122,7 @@ export const CONSTITUTIONAL_JOURNEYS: ConstitutionalJourney[] = [
     id: 'technical',
     title: 'Technical',
     goal: 'Build agents and constitutional software.',
-    experienceGuide: 'technical-experience-guide',
+    thresholdGuide: 'technical-threshold-guide',
     accessDomain: 'developer-studio',
     ladder: ['Developer', 'DevOn', 'AgentiQ Builder', 'Studio', FOUNDER_OFFICE_RUNG],
     unlocks: ['devon', 'agentiq-builder', 'metame-studio', 'founder-office'],
@@ -140,16 +144,16 @@ export function isJourneyId(v: string): v is JourneyId {
 
 /** The machine-readable registry shape surfaced at `metame://journeys`. */
 export function journeyRegistrySnapshot(): {
-  journeys: Array<Pick<ConstitutionalJourney, 'id' | 'title' | 'goal' | 'experienceGuide' | 'ladder' | 'unlocks' | 'capabilities'>>;
+  journeys: Array<Pick<ConstitutionalJourney, 'id' | 'title' | 'goal' | 'thresholdGuide' | 'ladder' | 'unlocks' | 'capabilities'>>;
   apex: string;
 } {
   return {
     apex: FOUNDER_OFFICE_RUNG,
-    journeys: CONSTITUTIONAL_JOURNEYS.map(({ id, title, goal, experienceGuide, ladder, unlocks, capabilities }) => ({
+    journeys: CONSTITUTIONAL_JOURNEYS.map(({ id, title, goal, thresholdGuide, ladder, unlocks, capabilities }) => ({
       id,
       title,
       goal,
-      experienceGuide,
+      thresholdGuide,
       ladder,
       unlocks,
       capabilities,

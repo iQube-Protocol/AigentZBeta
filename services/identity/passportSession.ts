@@ -55,6 +55,20 @@ export interface PassportSessionGrant {
    * on its face and is useless without the exchange.
    */
   tokenHash: string;
+  /**
+   * A SECOND single-use handle, for the application handoff.
+   *
+   * WHY TWO (the partition gap, operator report 2026-07-26): the Companion is
+   * an iframe inside the extension's side panel, and the browser PARTITIONS
+   * third-party iframe storage — a session established inside the Companion
+   * never reaches the top-level application tabs. One single-use token cannot
+   * serve both storage worlds, so the proof mints one grant per world: the
+   * Companion consumes `tokenHash` in its own partition, and hands
+   * `handoffTokenHash` to a top-level page (/passport-connect/complete) that
+   * establishes the session where the application actually lives. This is the
+   * spec's "Companion and application handshake", closed.
+   */
+  handoffTokenHash: string | null;
   /** T2-safe passport facts, safe to render in the connect confirmation. */
   passport: PassportPrincipal['passport'];
 }
@@ -105,5 +119,15 @@ export async function issuePassportSession(
   const tokenHash = link?.properties?.hashed_token ?? null;
   if (linkErr || !tokenHash) return { ok: false, reason: 'session_mint_failed' };
 
-  return { ok: true, grant: { tokenHash, passport: principal.passport } };
+  // The application-handoff grant (see PassportSessionGrant.handoffTokenHash).
+  // Best-effort: the Companion's own session must not fail because the second
+  // mint did — a null handoff degrades to "connect worked here; the app tab
+  // still needs its own connect", which is exactly the pre-handoff behaviour.
+  const { data: handoffLink } = await admin.auth.admin
+    .generateLink({ type: 'magiclink', email })
+    .then((r) => r)
+    .catch(() => ({ data: null }));
+  const handoffTokenHash = handoffLink?.properties?.hashed_token ?? null;
+
+  return { ok: true, grant: { tokenHash, handoffTokenHash, passport: principal.passport } };
 }

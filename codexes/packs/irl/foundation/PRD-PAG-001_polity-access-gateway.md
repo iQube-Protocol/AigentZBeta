@@ -633,6 +633,17 @@ lineage, which §8 puts explicitly out of scope. `resolvePassportPrincipal` retu
 `principal_unprovisioned` for that case rather than inventing a synthetic principal —
 **a separate charter is needed.**
 
+### A.10.2a Increment 7 — the Companion↔application handshake (SHIPPED 2026-07-26)
+
+The gap the operator hit live: the Companion is an iframe in the extension side panel, and
+browsers partition third-party iframe storage — so a session established by Connect never
+reached the top-level application tabs, which kept demanding the username/password this whole
+programme abolishes. Closed by minting **one grant per storage world**: the proof returns a
+second single-use `handoffTokenHash`; the Companion opens `/passport-connect/complete` in the
+left-hand browser, which scrubs the token from the URL, exchanges it top-level, and redirects
+(`next` confined to same-origin paths — no open redirect). Handoff failure degrades to the
+pre-handoff behaviour, never blocks the Companion's own session. Canaried (4).
+
 ### A.10.3 Still open
 
 - **SessionQube recording (ruling 5)** — the Passport-backed session is not yet written to the

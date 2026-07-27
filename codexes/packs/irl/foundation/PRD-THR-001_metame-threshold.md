@@ -224,7 +224,7 @@ Immediately after the Passport is active, the Companion says *"Your Polity Passp
 
 *The journeys are a **view over existing platform structure**, not a new model: each maps to an `AccessDomain` and its `DOMAIN_ROLES` ladder in `services/passport/participationAccess.ts`. `services/threshold/journeyRegistry.ts` is the pure-data source of truth.
 
-**Experience Guides are first-class.** Each journey simply activates a different guide (`citizen-experience-guide`, `entrepreneur-experience-guide`, …). The guide already owns recommended services, progression, onboarding, achievements, delegation opportunities, and standing milestones — so Threshold needs no bespoke onboarding logic beyond the constitutional crossing. It **hands the principal to the appropriate guide**, which introduces services *contextually* as the principal climbs.
+**Threshold Guides are first-class** *(renamed from “Experience Guides” by operator ruling 2026-07-26 — SPEC-TCP-001 D-4)*. Each journey simply activates a different guide (`citizen-threshold-guide`, `entrepreneur-threshold-guide`, …). The guide already owns recommended services, progression, onboarding, achievements, delegation opportunities, and standing milestones — so Threshold needs no bespoke onboarding logic beyond the constitutional crossing. It **hands the principal to the appropriate guide**, which introduces services *contextually* as the principal climbs.
 
 ### 9.2 Service Registry (platform-facing — the implementation abstraction)
 
