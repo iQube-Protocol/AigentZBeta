@@ -1,7 +1,8 @@
 /**
- * Corpus Scout — the GENERALISED Institutional Registry template, and the
- * Commercialisation instance of it (Phase 1 of the operator direction of
- * 2026-07-27; specified in
+ * Corpus Scout — the GENERALISED Institutional Registry template, the
+ * Commercialisation instance of it, and the document-level acquisition seeds
+ * that go with it (Phase 1 of the operator direction of 2026-07-27, extended
+ * by the ruling of the same day; specified in
  * `codexes/packs/irl/foundation/SPEC-CIR-001_commercialisation-institutional-registry.md`).
  *
  * ── Why this module exists ──────────────────────────────────────────────────
@@ -19,25 +20,39 @@
  * A template that Commercialisation uses and Financial Services does not is
  * two registries again — the `inv.engineering.036/037` defect this repo fails
  * builds over. So BOTH domains are declared here, in ONE type, consumed by ONE
- * set of functions. Financial Services' four un-captured fields are `null`,
- * NOT invented (see `FINANCIAL_SERVICES_REGISTRY`); the template is shared by
- * type and by code path today, and by data when a steward completes them.
+ * set of functions. Financial Services' un-captured fields are `null`, NOT
+ * invented (see `FINANCIAL_SERVICES_REGISTRY`).
+ *
+ * ── ONE ENTRY PER (INSTITUTION, PILLAR) ─────────────────────────────────────
+ *
+ * The operator's ruling is explicit: *"The existing institutions may serve more
+ * than one pillar where their published corpus genuinely supports it. Reuse is
+ * preferable to inventing a new institution merely to make the matrix look
+ * complete. The provenance must attach to the specific pillar and acquired
+ * document."*
+ *
+ * So the entry is keyed by (institution, pillar), exactly like the DB row it
+ * seeds — NOT by institution with a list of pillars. That is what lets NBER
+ * carry `Entrepreneurship Research` on `venture-operations` and `Academic
+ * Economics` on `pricing`, and OECD carry three different traditions across
+ * three pillars. Collapsing those to one per-institution tradition would erase
+ * precisely the distinction Law II's diversity check counts.
  *
  * ── What is NOT here (deliberately) ─────────────────────────────────────────
  *
  * The URL. `canonicalInstitutionHomepages.ts` is the single authoritative
- * institution→homepage directory, and `registryEntryUrl()` reads it. Restating
- * a URL here would be the same duplicate defect one field down.
+ * institution→homepage directory, and `registryEntryUrl()` reads it.
  *
  * The registry ITSELF. The live registry is DB rows in
  * `corpus_institutional_registry`; this module is the curated INPUT that seeds
- * and classifies them, and the only place the tier/category/evidence-type
- * classification of a named institution is declared.
+ * and classifies them.
  *
- * ── Nothing here is ratified by being written ───────────────────────────────
+ * ── Nothing here is ratified, and nothing here is verified ──────────────────
  *
- * Every entry lands as `proposed`. Ratification is a steward act
- * (`ratifyInstitutionEntry`) and is explicitly Phase 2, not Phase 1.
+ * Every entry seeds as `status: proposed` and `verification_status: proposed`.
+ * Ratification is a steward act; verification is a run against the live web
+ * that cannot happen in this environment. An operator-supplied URL is not a
+ * verified URL (`registryVerification.ts`).
  */
 
 import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
@@ -55,7 +70,7 @@ import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
  * analysis that treats a consultancy insight piece as equivalent evidence to
  * an NBER working paper is a serious methodological error, and a Notes column
  * cannot prevent it. `source_tier` exists on the DB row too (migration
- * `20260818000000`) so the distinction survives into SQL-level analysis.
+ * `20260827000000`) so the distinction survives into SQL-level analysis.
  *
  * ORTHOGONAL to `evidenceType` — the operator's own first tier contains
  * practitioner-guidance publishers (Strategyzer, SVPG, Product School, Lean
@@ -83,15 +98,14 @@ export const EVIDENCE_TYPE_CLASSES: readonly EvidenceTypeClass[] = [
   'research-papers', 'standards', 'policy', 'practitioner-guidance', 'datasets',
 ];
 
-/** Where an entry's homepage came from — recorded because the sandbox cannot
- *  verify a URL and must never claim to have. */
+/** Where an entry's homepage came from — recorded because this environment
+ *  cannot verify a URL and must never claim to have. */
 export type UrlProvenance =
-  /** Supplied verbatim by the operator in the 2026-07-27 direction. */
+  /** Supplied verbatim by the operator (2026-07-27 direction or ruling). */
   | 'operator-supplied'
-  /** Already in the curated directory before this registry existed (FS). */
+  /** Already in the curated directory before this registry existed. */
   | 'pre-existing'
-  /** No URL supplied by anyone. Resolution fails honestly; the entry is not
-   *  eligible for Agent B/C until a steward provides a seedUrl. */
+  /** No URL supplied by anyone. Resolution fails honestly. */
   | 'none';
 
 /**
@@ -100,9 +114,9 @@ export type UrlProvenance =
  * Notes) map on as:
  *
  *   Institution   → `institution`
- *   Category      → `category`      (the institutional TRADITION — also the
- *                                    axis Law II's diversity check counts)
- *   Authority     → `authority`     (WHY this source is authoritative)
+ *   Category      → `category`      (the institutional TRADITION for THIS
+ *                                    pillar — the axis Law II counts)
+ *   Authority     → `authority`     (WHY this source is authoritative here)
  *   URL           → derived, `registryEntryUrl()`
  *   Evidence Type → `evidenceType`
  *   Priority      → derived, `acquisitionPriority()`
@@ -110,12 +124,19 @@ export type UrlProvenance =
  *
  * Two columns are DERIVED rather than stored. URL, because the homepage
  * directory already owns that fact. Priority, because acquisition order is a
- * function of which coverage pillars an institution serves and which pillars
- * are the widest evidential gaps (PRD-IDE-002 §11.2) — a hand-typed number
- * would go stale the moment either changes.
+ * function of which coverage pillar an entry serves and which pillars are the
+ * widest evidential gaps (PRD-IDE-002 §11.2).
  */
 export interface InstitutionalRegistryEntry {
   institution: string;
+  /**
+   * The Constitutional Coverage Model pillar this entry is registered against
+   * — the natural key half of `corpus_institutional_registry`. `null` means
+   * no pillar basis was supplied, and `upsertInstitutionEntry` cannot insert
+   * such an entry at all: a pillar-less institution is structurally
+   * un-acquirable until a steward assigns one.
+   */
+  pillarKey: string | null;
   /** Null where the source registry never captured it. NEVER invented. */
   category: string | null;
   /** Null where the source registry never captured it. NEVER invented. */
@@ -123,14 +144,6 @@ export interface InstitutionalRegistryEntry {
   /** Null where the source registry never captured it. NEVER invented. */
   evidenceType: EvidenceTypeClass | null;
   tier: SourceTier;
-  /**
-   * The Constitutional Coverage Model pillars this institution is registered
-   * against — the natural key half of `corpus_institutional_registry`.
-   * EMPTY means "no pillar basis was supplied", and `upsertInstitutionEntry`
-   * cannot insert such an entry at all: a pillar-less institution is
-   * structurally un-acquirable until a steward assigns one.
-   */
-  pillarKeys: readonly string[];
   notes: string | null;
   urlProvenance: UrlProvenance;
 }
@@ -138,7 +151,7 @@ export interface InstitutionalRegistryEntry {
 /** The entry's seed URL — read from the curated homepage directory, never
  *  restated here and never searched for. `null` when the institution isn't in
  *  the directory, which is an honest failure, not a gap to fill with a guess. */
-export function registryEntryUrl(entry: InstitutionalRegistryEntry): string | null {
+export function registryEntryUrl(entry: Pick<InstitutionalRegistryEntry, 'institution'>): string | null {
   return resolveCanonicalHomepage(entry.institution);
 }
 
@@ -165,13 +178,11 @@ export const ACQUISITION_PRIORITY_ORDER: readonly {
 /** An entry serving no gap-ranked pillar acquires after every ranked one. */
 export const ACQUISITION_PRIORITY_UNRANKED = ACQUISITION_PRIORITY_ORDER.length + 1;
 
-/** The strongest (lowest) §11.2 rank among the pillars this entry serves. */
-export function acquisitionPriority(entry: Pick<InstitutionalRegistryEntry, 'pillarKeys'>): number {
-  let best = ACQUISITION_PRIORITY_UNRANKED;
-  for (const band of ACQUISITION_PRIORITY_ORDER) {
-    if (entry.pillarKeys.some((p) => band.pillarKeys.includes(p)) && band.rank < best) best = band.rank;
-  }
-  return best;
+/** The §11.2 rank of the pillar this entry serves. */
+export function acquisitionPriority(entry: Pick<InstitutionalRegistryEntry, 'pillarKey'>): number {
+  const pillarKey = entry.pillarKey;
+  if (!pillarKey) return ACQUISITION_PRIORITY_UNRANKED;
+  return ACQUISITION_PRIORITY_ORDER.find((b) => b.pillarKeys.includes(pillarKey))?.rank ?? ACQUISITION_PRIORITY_UNRANKED;
 }
 
 // ── Law II of Constitutional Discovery — the diversity check ────────────────
@@ -186,16 +197,8 @@ export function acquisitionPriority(entry: Pick<InstitutionalRegistryEntry, 'pil
  *    institution, publisher, methodology, or ideological perspective."
  *
  * Carried verbatim, pinned to SPEC-CIR-001 by canary. A rule nothing can check
- * is the CFS-053 latent-mechanism defect, so it is checked in three places,
- * of which ONE is built:
- *
- *   registry-time  (BUILT, here + surfaced by `getDomainConstitution`) — a
- *                  pillar must register ≥2 institutional-authority sources
- *                  from ≥2 distinct traditions before its corpus is trusted.
- *   ratification   (PROPOSED, SPEC-CIR-001 §7) — `confirmPillarSaturation`
- *                  refuses while a pillar's verdict is not `satisfied`.
- *   corpus-time    (PROPOSED, SPEC-CIR-001 §7) — issuer concentration over
- *                  `corpus_candidate_sources.issuer` per pillar.
+ * is the CFS-053 latent-mechanism defect, so it is checked in three places, of
+ * which ONE is built (SPEC-CIR-001 §8.2).
  */
 export const LAW_II_TEXT =
   'Every IDE corpus shall contain multiple independent schools of thought and institutional traditions. ' +
@@ -223,11 +226,11 @@ export interface PillarDiversityRow {
  *  and by a DB row joined to its template entry alike. */
 export interface DiversityInput {
   institution: string;
+  pillarKey: string | null;
   category: string | null;
   evidenceType: EvidenceTypeClass | null;
   /** `null` = the row does not declare a tier. Never counted as an authority. */
   tier: SourceTier | null;
-  pillarKeys: readonly string[];
 }
 
 /**
@@ -242,7 +245,7 @@ export function assessRegistryDiversity(
   pillarKeys: readonly string[],
 ): PillarDiversityRow[] {
   return pillarKeys.map((pillarKey) => {
-    const forPillar = entries.filter((e) => e.pillarKeys.includes(pillarKey));
+    const forPillar = entries.filter((e) => e.pillarKey === pillarKey);
     const authorities = forPillar.filter((e) => e.tier === 'institutional-authority');
     const traditions = [...new Set(authorities.map((e) => e.category).filter((c): c is string => !!c))].sort();
     const evidenceTypes = [...new Set(authorities.map((e) => e.evidenceType).filter((t): t is EvidenceTypeClass => !!t))].sort();
@@ -286,176 +289,102 @@ export function assessRegistryDiversity(
 
 // ── The Commercialisation registry — TIER 1 ─────────────────────────────────
 
+const A = (
+  institution: string,
+  pillarKey: string,
+  category: string,
+  authority: string,
+  evidenceType: EvidenceTypeClass,
+  notes: string,
+  urlProvenance: UrlProvenance = 'operator-supplied',
+): InstitutionalRegistryEntry => ({
+  institution, pillarKey, category, authority, evidenceType,
+  tier: 'institutional-authority', notes, urlProvenance,
+});
+
 /**
- * The operator's first-tier table, 2026-07-27, verbatim in name, category,
- * and URL. **The URLs are OPERATOR-SUPPLIED.** They were not verified from
- * this sandbox — outbound HTTPS is blocked here — and nothing in this module
- * claims otherwise. The first discovery run on the deployed app is what
- * verifies them; a dead entry surfaces as an honest Agent B/C failure, never
- * as a search fallback.
- *
- * `authority` restates the operator's own "Purpose" column — it is a record
- * of what the operator asserted, not an independent claim about what any of
- * these institutions publishes.
- *
- * `pillarKeys` is AGENT-PROPOSED. The operator supplied Category and Purpose,
- * not coverage pillars; every mapping below is derived from the operator's own
- * words against PRD-IDE-002 §4's pillar definitions, and each one is argued in
- * SPEC-CIR-001 §4. A steward ratifies or corrects them in Phase 2. Where the
- * operator's words give no basis for a pillar, none is asserted — which is why
- * five of the fourteen pillars have no tier-1 institution (SPEC-CIR-001 §5).
+ * WAVE 1 — the operator's first-tier table of 2026-07-27, verbatim in name,
+ * category, purpose and URL. The PILLAR mapping is AGENT-PROPOSED and argued
+ * per row in SPEC-CIR-001 §4.1; a steward ratifies or corrects it.
  */
-const COMMERCIALISATION_TIER_1: readonly InstitutionalRegistryEntry[] = [
-  {
-    institution: 'NBER',
-    category: 'Entrepreneurship Research',
-    authority: 'Operator-designated: entrepreneurship, innovation, venture research (National Bureau of Economic Research).',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['venture-operations', 'adoption'],
-    notes: 'Pillars proposed from the operator Purpose: "venture research" → venture-operations; "innovation" → adoption (§4: how a party moves through the states of using the offer).',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Kauffman Foundation',
-    category: 'Entrepreneurship Research',
-    authority: 'Operator-designated: entrepreneurship and startup ecosystems.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['venture-operations', 'partnerships'],
-    notes: 'Pillars proposed from the operator Purpose: "startup ecosystems" is a direct word match for §4 partnerships ("Partnerships & Ecosystem Development").',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'SSRN',
-    category: 'Research Repository',
-    authority: 'Operator-designated: entrepreneurship, strategy, innovation papers.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['venture-operations', 'adoption'],
-    notes: 'A repository, not an issuer — cross-pillar by nature. Registered only against the pillars its operator Purpose names. "strategy" has no §4 pillar and is deliberately not mapped.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'OECD',
-    category: 'Economics',
-    authority: 'Operator-designated: innovation, productivity, digital economy.',
-    evidenceType: 'policy',
-    tier: 'institutional-authority',
-    pillarKeys: ['adoption', 'scaling'],
-    notes: 'Pillars proposed from the operator Purpose: "innovation" → adoption; "productivity" → scaling (§4: how delivery is repeated without linear cost).',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'World Bank',
-    category: 'Economics',
-    authority: 'Operator-designated: private sector development, entrepreneurship.',
-    evidenceType: 'policy',
-    tier: 'institutional-authority',
-    pillarKeys: ['venture-operations', 'commercial-governance'],
-    notes: 'Already present in the curated homepage directory as a Financial Services authority — one institution, two domains, one URL fact. Not re-declared.',
-    urlProvenance: 'pre-existing',
-  },
-  {
-    institution: 'MIT Sloan',
-    category: 'Innovation',
-    authority: 'Operator-designated: innovation management research.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['adoption', 'venture-operations'],
-    notes: 'Pillars proposed from the operator Purpose: "innovation" → adoption; "management" → venture-operations (§4: how the commercialising organisation is structured and progressed).',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Stanford Graduate School of Business',
-    category: 'Innovation',
-    authority: 'Operator-designated: entrepreneurship and scaling.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['scaling', 'venture-operations'],
-    notes: 'Both pillars are verbatim word matches in the operator Purpose — the least inferential mapping in the tier.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Harvard Business School',
-    category: 'Innovation',
-    authority: 'Operator-designated: strategy, innovation, commercialisation.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['revenue-architecture', 'adoption'],
-    notes: 'Pillars proposed from the operator Purpose: "commercialisation"/"strategy" → revenue-architecture (§4: where revenue originates and how offers compose); "innovation" → adoption.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Strategic Management Society',
-    category: 'Strategy',
-    authority: 'Operator-designated: strategy research.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['revenue-architecture', 'commercial-governance'],
-    notes: 'Weakest mapping in the tier — §4 has no "strategy" pillar. Flagged in SPEC-CIR-001 §4 as the entry most likely to be re-pillared by a steward.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Santa Fe Institute',
-    category: 'Systems',
-    authority: 'Operator-designated: complex adaptive systems, emergence.',
-    evidenceType: 'research-papers',
-    tier: 'institutional-authority',
-    pillarKeys: ['scaling'],
-    notes: 'Deliberately NOT mapped to commercial-failure-modes: "complex adaptive systems, emergence" does not say failure studies, and the pillar PRD-IDE-002 §11.2 ranks as the widest gap must not be closed by inference.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'INCOSE',
-    category: 'Systems',
-    authority: 'Operator-designated: systems engineering and organisational systems.',
-    evidenceType: 'standards',
-    tier: 'institutional-authority',
-    pillarKeys: ['outcome-assurance', 'commercial-governance'],
-    notes: 'The tier\'s only standards issuer — the sole source of evidence-type diversity for both pillars it serves.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Silicon Valley Product Group',
-    category: 'Product',
-    authority: 'Operator-designated: product management and product-market fit.',
-    evidenceType: 'practitioner-guidance',
-    tier: 'institutional-authority',
-    pillarKeys: ['customer-discovery', 'value-proposition'],
-    notes: '"product-market fit" is a verbatim match for §4 customer-discovery ("Customer Discovery & Fit"). Tier 1 by the operator\'s own table despite practitioner-guidance evidence — the two axes are orthogonal.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Product School',
-    category: 'Product',
-    authority: 'Operator-designated: product management practice.',
-    evidenceType: 'practitioner-guidance',
-    tier: 'institutional-authority',
-    pillarKeys: ['customer-discovery', 'value-proposition'],
-    notes: 'Same tradition and evidence type as Silicon Valley Product Group — the pair adds no Law II diversity to the pillars it shares with it.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Strategyzer',
-    category: 'Customer Development',
-    authority: 'Operator-designated: business models, value propositions.',
-    evidenceType: 'practitioner-guidance',
-    tier: 'institutional-authority',
-    pillarKeys: ['value-proposition', 'revenue-architecture'],
-    notes: 'Pillars proposed from the operator Purpose: "value propositions" verbatim; "business models" → revenue-architecture.',
-    urlProvenance: 'operator-supplied',
-  },
-  {
-    institution: 'Lean Startup',
-    category: 'Customer Development',
-    authority: 'Operator-designated: customer discovery methodology.',
-    evidenceType: 'practitioner-guidance',
-    tier: 'institutional-authority',
-    pillarKeys: ['customer-discovery'],
-    notes: '"customer discovery" is a verbatim pillar match. Not mapped to value-proposition — the operator Purpose names a discovery method, not an offer structure.',
-    urlProvenance: 'operator-supplied',
-  },
+const COMMERCIALISATION_WAVE_1: readonly InstitutionalRegistryEntry[] = [
+  A('NBER', 'venture-operations', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"venture research" → §4 venture-operations.'),
+  A('NBER', 'adoption', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"innovation" → §4 adoption.'),
+  A('Kauffman Foundation', 'venture-operations', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship and startup ecosystems.', 'research-papers', '"entrepreneurship" → §4 venture-operations.'),
+  A('Kauffman Foundation', 'partnerships', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship and startup ecosystems.', 'research-papers', '"startup ecosystems" is a direct word match for §4 Partnerships & Ecosystem Development.'),
+  A('SSRN', 'venture-operations', 'Research Repository', 'Operator-designated: entrepreneurship, strategy, innovation papers.', 'research-papers', 'A repository, cross-pillar by nature; registered only against the pillars its Purpose names. "strategy" has no §4 pillar and is deliberately not mapped.'),
+  A('SSRN', 'adoption', 'Research Repository', 'Operator-designated: entrepreneurship, strategy, innovation papers.', 'research-papers', '"innovation" → §4 adoption.'),
+  A('OECD', 'adoption', 'Economics', 'Operator-designated: innovation, productivity, digital economy.', 'policy', '"innovation" → §4 adoption.'),
+  A('OECD', 'scaling', 'Economics', 'Operator-designated: innovation, productivity, digital economy.', 'policy', '"productivity" → §4 scaling (repeated without linear cost).'),
+  A('World Bank', 'venture-operations', 'Economics', 'Operator-designated: private sector development, entrepreneurship.', 'policy', 'Already in the homepage directory as a Financial Services authority — one institution, two domains, one URL fact.', 'pre-existing'),
+  A('World Bank', 'commercial-governance', 'Economics', 'Operator-designated: private sector development, entrepreneurship.', 'policy', 'A multilateral policy issuer → §4 commercial-governance (authority, attribution and disclosure rules).', 'pre-existing'),
+  A('MIT Sloan', 'adoption', 'Innovation', 'Operator-designated: innovation management research.', 'research-papers', '"innovation" → §4 adoption.'),
+  A('MIT Sloan', 'venture-operations', 'Innovation', 'Operator-designated: innovation management research.', 'research-papers', '"management" → §4 venture-operations.'),
+  A('Stanford Graduate School of Business', 'scaling', 'Innovation', 'Operator-designated: entrepreneurship and scaling.', 'research-papers', 'Verbatim word match — the least inferential mapping in the wave.'),
+  A('Stanford Graduate School of Business', 'venture-operations', 'Innovation', 'Operator-designated: entrepreneurship and scaling.', 'research-papers', 'Verbatim word match.'),
+  A('Harvard Business School', 'revenue-architecture', 'Innovation', 'Operator-designated: strategy, innovation, commercialisation.', 'research-papers', '"commercialisation"/"strategy" → §4 revenue-architecture (where revenue originates, how offers compose).'),
+  A('Harvard Business School', 'adoption', 'Innovation', 'Operator-designated: strategy, innovation, commercialisation.', 'research-papers', '"innovation" → §4 adoption.'),
+  A('Strategic Management Society', 'revenue-architecture', 'Strategy', 'Operator-designated: strategy research.', 'research-papers', 'WEAKEST mapping in the wave — §4 has no "strategy" pillar. Most likely to be re-pillared by a steward.'),
+  A('Strategic Management Society', 'commercial-governance', 'Strategy', 'Operator-designated: strategy research.', 'research-papers', 'Weak mapping; see the revenue-architecture note.'),
+  A('Santa Fe Institute', 'scaling', 'Systems', 'Operator-designated: complex adaptive systems, emergence.', 'research-papers', 'Deliberately NOT mapped to commercial-failure-modes: "complex adaptive systems, emergence" does not say failure studies.'),
+  A('INCOSE', 'outcome-assurance', 'Systems', 'Operator-designated: systems engineering and organisational systems.', 'standards', 'Systems engineering → §4 outcome-assurance (how delivered outcome is measured and sustained).'),
+  A('INCOSE', 'commercial-governance', 'Systems', 'Operator-designated: systems engineering and organisational systems.', 'standards', 'A professional standards body → §4 commercial-governance.'),
+  A('Silicon Valley Product Group', 'customer-discovery', 'Product', 'Operator-designated: product management and product-market fit.', 'practitioner-guidance', '"product-market fit" is a verbatim match for §4 Customer Discovery & Fit.'),
+  A('Silicon Valley Product Group', 'value-proposition', 'Product', 'Operator-designated: product management and product-market fit.', 'practitioner-guidance', 'Tier 1 by the operator\'s own table despite practitioner-guidance evidence — the two axes are orthogonal.'),
+  A('Product School', 'customer-discovery', 'Product', 'Operator-designated: product management practice.', 'practitioner-guidance', 'Same tradition and evidence type as Silicon Valley Product Group — adds no Law II diversity to the pillars it shares with it.'),
+  A('Product School', 'value-proposition', 'Product', 'Operator-designated: product management practice.', 'practitioner-guidance', 'See the customer-discovery note.'),
+  A('Strategyzer', 'value-proposition', 'Customer Development', 'Operator-designated: business models, value propositions.', 'practitioner-guidance', '"value propositions" verbatim.'),
+  A('Strategyzer', 'revenue-architecture', 'Customer Development', 'Operator-designated: business models, value propositions.', 'practitioner-guidance', '"business models" → §4 revenue-architecture.'),
+  A('Lean Startup', 'customer-discovery', 'Customer Development', 'Operator-designated: customer discovery methodology.', 'practitioner-guidance', 'Verbatim pillar match. Not mapped to value-proposition — the Purpose names a discovery method, not an offer structure.'),
+];
+
+/**
+ * WAVE 2 — the operator's RULING of 2026-07-27, closing the five pillars
+ * SPEC-CIR-001 §5 reported as empty:
+ *
+ *   "Do not waive the five empty pillars… Populate them with authoritative
+ *    sources… The existing institutions may serve more than one pillar where
+ *    their published corpus genuinely supports it. Reuse is preferable to
+ *    inventing a new institution merely to make the matrix look complete."
+ *
+ * Institutions, traditions, evidence types, URLs **and pillars** are the
+ * operator's — unlike wave 1, these mappings were supplied, not inferred.
+ * OECD picks up two more pillars and NBER two more, each under a DIFFERENT
+ * tradition: exactly the reuse the ruling prefers, and exactly why the entry
+ * is keyed per pillar.
+ */
+const COMMERCIALISATION_WAVE_2: readonly InstitutionalRegistryEntry[] = [
+  A('OECD', 'trust-formation', 'International Policy Research',
+    'Operator-designated: international policy research; empirical consumer survey.', 'research-papers',
+    'Reuse of a wave-1 institution under a DIFFERENT tradition — OECD is `Economics` on adoption/scaling and `International Policy Research` here. Per-pillar provenance, per the ruling.'),
+  A('UK Competition and Markets Authority', 'trust-formation', 'Competition & Consumer Enforcement',
+    'Operator-designated: competition/consumer enforcement; market evidence.', 'policy',
+    'New institution — no existing entry covers enforcement-derived consumer-trust evidence.'),
+  A('NBER', 'pricing', 'Academic Economics',
+    'Operator-designated: academic economics; empirical and formal modelling.', 'research-papers',
+    'Reuse under a different tradition: NBER is `Entrepreneurship Research` on venture-operations/adoption and `Academic Economics` here.'),
+  A('OECD', 'pricing', 'Competition Policy',
+    'Operator-designated: competition policy; digital-market pricing.', 'policy',
+    'OECD\'s THIRD tradition in this registry. Collapsing these to one per-institution category would erase the diversity Law II counts.'),
+  A('World Trade Organization', 'distribution', 'International Trade Doctrine',
+    'Operator-designated: international trade and market-access doctrine.', 'policy',
+    'New institution.'),
+  A('UN Trade and Development (UNCTAD)', 'distribution', 'Development Economics',
+    'Operator-designated: development economics; digital commerce and trade measurement.', 'datasets',
+    'New institution. The registry\'s first `datasets` evidence type — "measurement" is the operator\'s own framing.'),
+  A('BIS Committee on Payments and Market Infrastructures', 'settlement-exchange', 'Payment & Settlement Infrastructure',
+    'Operator-designated: payment, clearing and settlement infrastructure.', 'standards',
+    'Already in the homepage directory as a Financial Services authority at the MORE SPECIFIC https://www.bis.org/cpmi/ — the operator\'s seed https://www.bis.org is its parent. The specific entry is kept and NOT duplicated (SPEC-CIR-001 §4.3).',
+    'pre-existing'),
+  A('UNCITRAL', 'settlement-exchange', 'International Commercial Law',
+    'Operator-designated: international commercial law; electronic contracting and transferable records.', 'standards',
+    'New institution.'),
+  A('NBER', 'commercial-failure-modes', 'Academic Economics',
+    'Operator-designated: academic entrepreneurship and market-failure research.', 'research-papers',
+    'Closes PRD-IDE-002 §11.2\'s #1-ranked evidential gap, which SPEC-CIR-001 §5 refused to close by inference.'),
+  A('U.S. Bureau of Labor Statistics', 'commercial-failure-modes', 'Official Statistics',
+    'Operator-designated: official longitudinal business-demography evidence.', 'datasets',
+    'New institution. Official statistics is a tradition no other entry carries.'),
 ];
 
 // ── The Commercialisation registry — TIER 2 (practitioner) ──────────────────
@@ -468,20 +397,12 @@ const COMMERCIALISATION_TIER_1: readonly InstitutionalRegistryEntry[] = [
  *    authorities, but they provide a rich source of operational patterns that
  *    can be compared against the academic corpus."
  *
- * Two structural consequences, both deliberate:
- *
- *  1. **No URL.** The operator supplied none, and this sandbox cannot verify
- *     one. None is invented, so `registryEntryUrl()` returns `null` and Agent
- *     B/C cannot start from these entries at all.
- *  2. **No pillar.** The operator supplied no pillar basis either, and
- *     `upsertInstitutionEntry` refuses an entry whose pillar does not exist.
- *     A tier-2 source therefore cannot enter the corpus until a steward
- *     assigns it a pillar — which is exactly the §7 gating the operator
- *     described ("once the institutional corpus has been exhausted"),
- *     enforced by the shape of the data rather than by a reviewer's memory.
- *
- * They are declared here so the registry is complete and the tier boundary is
- * legible — not so they can be acquired today.
+ * Two structural consequences, both deliberate: **no URL** (none was supplied,
+ * so `registryEntryUrl` returns null and Agent B/C cannot start), and **no
+ * pillar** (`upsertInstitutionEntry` refuses an entry whose pillar does not
+ * exist). A practitioner source therefore cannot enter the corpus until a
+ * steward supplies both — the "once the institutional corpus has been
+ * exhausted" gate, expressed as the shape of the data.
  */
 const COMMERCIALISATION_TIER_2: readonly InstitutionalRegistryEntry[] = [
   'Andreessen Horowitz (a16z)',
@@ -495,19 +416,23 @@ const COMMERCIALISATION_TIER_2: readonly InstitutionalRegistryEntry[] = [
   'Accenture Research',
 ].map((institution) => ({
   institution,
+  pillarKey: null,
   category: 'Practitioner',
   authority: 'Operator-designated: NOT a primary scientific authority — a source of operational patterns for comparison against the academic corpus.',
   evidenceType: 'practitioner-guidance' as const,
   tier: 'practitioner-pattern' as const,
-  pillarKeys: [] as readonly string[],
-  notes: 'No URL and no pillar supplied by the operator; neither is invented. Un-acquirable until a steward supplies both — the tier boundary enforced structurally.',
+  notes: 'No URL and no pillar supplied by the operator; neither is invented. Un-acquirable until a steward supplies both.',
   urlProvenance: 'none' as const,
 }));
 
 export const COMMERCIALISATION_REGISTRY: readonly InstitutionalRegistryEntry[] = [
-  ...COMMERCIALISATION_TIER_1,
+  ...COMMERCIALISATION_WAVE_1,
+  ...COMMERCIALISATION_WAVE_2,
   ...COMMERCIALISATION_TIER_2,
 ];
+
+/** The wave-2 additions alone — what migration `20260828000000` seeds. */
+export const COMMERCIALISATION_REGISTRY_WAVE_2: readonly InstitutionalRegistryEntry[] = COMMERCIALISATION_WAVE_2;
 
 // ── The Financial Services registry, expressed in the SAME template ─────────
 
@@ -516,28 +441,28 @@ export const COMMERCIALISATION_REGISTRY: readonly InstitutionalRegistryEntry[] =
  * template. Pinned set-for-set against
  * `supabase/migrations/20260817000000_corpus_domain_constitution.sql` by
  * canary — the seed SQL is already applied to the database and cannot be
- * derived from, so parity is enforced instead of derivation (CLAUDE.md's
- * source-of-truth rule).
+ * derived from, so parity is enforced instead of derivation.
  *
  * **`category`, `authority`, `evidenceType` and `notes` are `null` for every
  * entry, and that is the honest state, not an oversight.** The FS registry was
  * captured before the template existed and recorded only pillar + institution
- * name. Populating those four fields here would mean asserting facts about
- * what BIS, FATF, ESMA et al. publish — facts this sandbox cannot verify and
- * CLAUDE.md's zero-tolerance rule forbids inventing. A steward completes them.
+ * name. Populating those fields would mean asserting facts about what BIS,
+ * FATF, ESMA et al. publish — facts this environment cannot verify and
+ * CLAUDE.md's zero-tolerance rule forbids inventing.
  *
- * The visible consequence is intentional: `assessRegistryDiversity` reports
- * every Financial Services pillar as `undeterminable` rather than `satisfied`.
- * Law II cannot be verified for a registry that records no traditions, and
- * saying so is the point.
+ * Backfilling them is tracked as its OWN remediation item (SPEC-CIR-001 §10),
+ * per the operator's ruling that it *"should not be used to weaken Law II or
+ * block completion of the properly constituted Commercialisation registry."*
+ * The visible consequence stays intentional: every FS pillar reports
+ * `undeterminable`, never `satisfied`.
  */
 const FS = (pillarKey: string, institution: string): InstitutionalRegistryEntry => ({
   institution,
+  pillarKey,
   category: null,
   authority: null,
   evidenceType: null,
   tier: 'institutional-authority',
-  pillarKeys: [pillarKey],
   notes: null,
   urlProvenance: 'pre-existing',
 });
@@ -575,13 +500,139 @@ export function registryEntriesForDomain(domain: string): readonly Institutional
   return INSTITUTIONAL_REGISTRIES[domain] ?? [];
 }
 
-/** The template entry for a named institution in a domain, or `null`. Case-
- *  insensitive on the name, matching the homepage directory's normalisation.
- *  For Financial Services an institution can appear under several pillars —
- *  the first match carries the same classification fields as the rest. */
-export function findRegistryEntry(domain: string, institutionName: string): InstitutionalRegistryEntry | null {
+/**
+ * The template entry for a (pillar, institution) pair, or `null`. Keyed by
+ * BOTH, because the ruling attaches provenance to the specific pillar: an
+ * institution-only lookup would return OECD's `Economics` tradition when the
+ * caller asked about `pricing`, where it is `Competition Policy`.
+ */
+export function findRegistryEntry(
+  domain: string,
+  pillarKey: string,
+  institutionName: string,
+): InstitutionalRegistryEntry | null {
   const needle = institutionName.trim().toLowerCase();
-  return registryEntriesForDomain(domain).find((e) => e.institution.toLowerCase() === needle) ?? null;
+  return registryEntriesForDomain(domain).find(
+    (e) => e.pillarKey === pillarKey && e.institution.toLowerCase() === needle,
+  ) ?? null;
+}
+
+// ── Acquisition seeds — DOCUMENT level, deliberately NOT `seed_url` ─────────
+
+/**
+ * The operator's substantive acquisition seeds: specific publications, one or
+ * more per (pillar, institution).
+ *
+ * **Why these are not `corpus_institutional_registry.seed_url`.** That column
+ * is ONE URL per institution row and it means "the institution's own
+ * publication entry point" — Agent B's starting page for navigation
+ * (`runInstitutionDiscovery(seedUrl)` fetches it and walks its links). A
+ * publication URL is not an institutional seed: it TERMINATES navigation
+ * rather than starting it, there are several per institution, and each carries
+ * its own claim and its own verification state. Overloading `seed_url` would
+ * break Agent B's contract and reduce several documents to one.
+ *
+ * **Why they are not candidate sources either.** `createCandidateSource`
+ * RETRIEVES bytes and hashes them; a candidate row without them would assert a
+ * Level-4 acquisition that never happened (PRD-ICA-001 §2). A seed is a *plan*,
+ * not an acquisition.
+ *
+ * **The model had no slot, and this is the smallest addition.** PRD-ICA-001 §5
+ * already specifies a "Corpus Acquisition Plan per source lane… target source
+ * types, likely primary institutions… indicative document count, priority",
+ * reviewed before broad acquisition begins — Agent A's output. Only its
+ * INSTITUTION half was ever persisted (the Institutional Registry). The
+ * document half has always been specified and never had a table.
+ * `corpus_acquisition_seeds` is that missing half: one row per planned
+ * document, carrying its own provenance and its own verification status, and
+ * linking to the candidate source it eventually produces.
+ *
+ * **`claim` is the operator's description, recorded AS A CLAIM.** "76-page
+ * survey, 10,000 consumers, ten countries" is what the operator recorded, not
+ * something this environment measured. It is stored so the first verification
+ * run can be compared against it — a page count that comes back at 4 is a
+ * finding, and it can only be a finding if the claim was written down first.
+ */
+export interface AcquisitionSeed {
+  domain: string;
+  pillarKey: string;
+  institution: string;
+  url: string;
+  /** The operator's own description — a CLAIM pending verification, never a
+   *  measured fact. Compared against the inspection result on first run. */
+  claim: string;
+}
+
+const S = (pillarKey: string, institution: string, url: string, claim: string): AcquisitionSeed => ({
+  domain: 'commercialisation', pillarKey, institution, url, claim,
+});
+
+/**
+ * Operator-supplied, 2026-07-27 ruling. Not verified here and not verifiable
+ * here — outbound HTTPS is blocked from the build environment. Every seed
+ * enters at `pending_verification`, per the operator's own instruction:
+ * *"Do not treat the URLs as verified merely because they are operator-supplied
+ * or resolve in an ordinary browser."*
+ */
+export const COMMERCIALISATION_ACQUISITION_SEEDS: readonly AcquisitionSeed[] = [
+  S('trust-formation', 'OECD',
+    'https://www.oecd.org/en/publications/trust-in-peer-platform-markets_1a893b58-en.html',
+    'Operator claim: 76-page survey, 10,000 consumers, ten countries.'),
+  S('trust-formation', 'OECD',
+    'https://www.oecd.org/en/publications/oecd-business-and-finance-outlook-2019_af784794-en.html',
+    'Operator claim: 140 pages, trust in business and online markets.'),
+  S('trust-formation', 'UK Competition and Markets Authority',
+    'https://www.gov.uk/government/consultations/online-reviews-and-endorsements',
+    'Operator claim: 71-page findings report on reviews, endorsements, consumer reliance.'),
+  S('pricing', 'NBER',
+    'https://www.nber.org/papers/w21679',
+    'Operator claim: "Pricing with Limited Knowledge of Demand".'),
+  S('pricing', 'OECD',
+    'https://www.oecd.org/en/publications/personalised-pricing-in-the-digital-era_db4d9c9c-en.html',
+    'Operator claim: 49 pages.'),
+  S('pricing', 'OECD',
+    'https://www.oecd.org/en/publications/algorithmic-pricing-and-competition-in-g7-jurisdictions_f36dacf8-en.html',
+    'Operator claim: 26 pages.'),
+  S('distribution', 'World Trade Organization',
+    'https://www.wto.org/english/tratop_e/serv_e/distribution_e/distribution_e.htm',
+    'Operator claim: distribution-services gateway — wholesale, retail, franchising, commission agents, e-commerce.'),
+  S('distribution', 'UN Trade and Development (UNCTAD)',
+    'https://unctad.org/topic/ecommerce-and-digital-economy/measuring-ecommerce-digital-economy',
+    'Operator claim: measuring e-commerce and the digital economy.'),
+  S('distribution', 'UN Trade and Development (UNCTAD)',
+    'https://tft.unctad.org/en/publications/statistics-on-the-digital-economy-e-commerce-and-digital-trade-report-2025/',
+    'Operator claim: statistics on the digital economy, e-commerce and digital trade, 2025 report.'),
+  S('settlement-exchange', 'BIS Committee on Payments and Market Infrastructures',
+    'https://www.bis.org/cpmi/publ/d216.htm',
+    'Operator claim: 33 pages, PvP adoption, settlement risk.'),
+  S('settlement-exchange', 'BIS Committee on Payments and Market Infrastructures',
+    'https://www.bis.org/cpmi/publ/d202.htm',
+    'Operator claim: 65 pages, access to payment systems.'),
+  S('settlement-exchange', 'UNCITRAL',
+    'https://uncitral.un.org/en/texts/ecommerce',
+    'Operator claim: electronic commerce texts.'),
+  S('settlement-exchange', 'UNCITRAL',
+    'https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_commerce',
+    'Operator claim: Model Law on Electronic Commerce.'),
+  S('settlement-exchange', 'UNCITRAL',
+    'https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_transferable_records',
+    'Operator claim: Model Law on Electronic Transferable Records.'),
+  S('commercial-failure-modes', 'NBER',
+    'https://www.nber.org/papers/w19679',
+    'Operator claim: "Deals Not Done: Sources of Failure in the Market for Ideas".'),
+  S('commercial-failure-modes', 'NBER',
+    'https://www.nber.org/papers/w34755',
+    'Operator claim: randomized evidence on venture shutdown, survival, "rational quitting".'),
+  S('commercial-failure-modes', 'U.S. Bureau of Labor Statistics',
+    'https://www.bls.gov/osmr/research-papers/2004/st040060.htm',
+    'Operator claim: establishment survival, Business Employment Dynamics.'),
+];
+
+/** Every seed for one (pillar, institution) pair. */
+export function acquisitionSeedsFor(domain: string, pillarKey: string, institution: string): AcquisitionSeed[] {
+  return COMMERCIALISATION_ACQUISITION_SEEDS.filter(
+    (s) => s.domain === domain && s.pillarKey === pillarKey && s.institution === institution,
+  );
 }
 
 // ── Constitutional Dependency Registry — where the DISCIPLINES belong ───────
@@ -596,26 +647,19 @@ export function findRegistryEntry(domain: string, institutionName: string): Inst
  * They cannot be Institutional Registry rows: that table is keyed
  * `(domain, pillar_key, institution_name)` and its `seed_url` drives Agent B's
  * institution-targeted navigation. "Behavioural economics" has no homepage,
- * publishes nothing, and cannot be navigated to — registering it as an
- * institution would break seed-URL resolution for a row that could never
- * resolve.
+ * publishes nothing, and cannot be navigated to.
  *
  * Law I of Constitutional Discovery leaves exactly two homes: a lane either
  * CONSTITUTES the domain (→ `corpus_coverage_pillars`) or CONSTRAINS it (→
- * `corpus_dependency_registry`). Behavioural economics does not constitute
- * commercialisation — it explains it. So: the **Constitutional Dependency
- * Registry**, each entry carrying its relationship edge, which is the point.
+ * `corpus_dependency_registry`). A discipline explains commercialisation
+ * rather than constituting it. So: the Constitutional Dependency Registry,
+ * each entry carrying its relationship edge, which is the point.
  *
- * This list is PRD-IDE-002 §7.3's ten tangential domains PLUS the six of the
- * operator's eight that are not already among them ("Platform economics" is
- * already `platform-economics`; "Operations management" is already
- * `operations`). Neighbouring-but-distinct pairs — `organisation-design` vs
- * `organisational-behaviour`, `service-science` vs `service-design`,
- * `diffusion-of-innovation` vs `innovation-management` — are registered
- * separately with the neighbour named in `note`, for a steward to merge or
- * keep at ratification. Proposing both and letting a steward decide is the
- * ratification model working; silently merging them would be an agent
- * deciding a taxonomy question that is not its to decide.
+ * PRD-IDE-002 §7.3's ten PLUS the six of the operator's eight that are not
+ * already among them ("Platform economics" is already `platform-economics`;
+ * "Operations management" is already `operations`). Neighbouring-but-distinct
+ * pairs are registered separately with the neighbour named, for a steward to
+ * merge or keep at ratification.
  */
 export interface DependencyRegistryEntry {
   name: string;

@@ -12,6 +12,7 @@
 // copy. `institutionalRegistry.ts` imports only the homepage directory, so
 // there is no cycle.
 import type { SourceTier, PillarDiversityRow } from './institutionalRegistry';
+import type { VerificationStatus } from './registryVerification';
 
 /**
  * The EVIDENCE-PROVENANCE vocabulary — "where did the evidence come from".
@@ -277,6 +278,56 @@ export interface InstitutionalRegistryRow {
    *  Law II. Fail-closed, so a practitioner source can never be silently
    *  counted as a primary scientific authority. */
   sourceTier: SourceTier | null;
+  /**
+   * SPEC-CIR-001 §9 — does this URL still lead to a qualifying corpus?
+   * ORTHOGONAL to `status` (proposed | ratified): ratification is a steward's
+   * acceptance of the AUTHORITY, verification is a machine's finding about the
+   * URL. An entry can be ratified and `verification_failed`. Only `verified`
+   * opens the discovery gate (`canRunInstitutionDiscovery`).
+   */
+  verificationStatus: VerificationStatus | null;
+  /** When the entry last became `verified`. Null in every other state — a
+   *  failed re-verification clears it rather than leaving a stale success. */
+  verifiedAt: string | null;
+  /** When verification was last ATTEMPTED, whatever the outcome. */
+  verificationCheckedAt: string | null;
+  /** The URL the seed actually resolved to after redirects. */
+  resolvedUrl: string | null;
+  /** The run's recorded evidence: standard applied, candidates found,
+   *  documents inspected, and the qualifying documents with their content
+   *  hashes. Opaque to the row mapper; shaped by `VerificationOutcome`. */
+  verificationDetail: Record<string, unknown> | null;
+}
+
+/**
+ * SPEC-CIR-001 §7 — ONE PLANNED DOCUMENT. The missing half of PRD-ICA-001 §5's
+ * Corpus Acquisition Plan: the registry persisted its "likely primary
+ * institutions" and never its target documents.
+ *
+ * Deliberately NOT `corpus_institutional_registry.seed_url` (that is ONE
+ * navigation entry point per institution, and a publication URL terminates
+ * navigation rather than starting it), and deliberately NOT a candidate source
+ * (that asserts retrieved, hashed bytes — a seed is a plan, not an
+ * acquisition).
+ */
+export interface AcquisitionSeedRow {
+  id: string;
+  domain: string;
+  pillarKey: string;
+  institutionName: string;
+  documentUrl: string;
+  /** The operator's own description, recorded AS A CLAIM — never a measured
+   *  fact. Compared against the inspection result on the first run, which is
+   *  only possible because the claim was written down first. */
+  claim: string;
+  verificationStatus: VerificationStatus | null;
+  verificationCheckedAt: string | null;
+  resolvedUrl: string | null;
+  contentHash: string | null;
+  /** Set once the seed has produced a real candidate source. */
+  candidateSourceId: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** The full constitutional substrate for one domain — what `GET
@@ -295,4 +346,6 @@ export interface DomainConstitution {
    * does not exist).
    */
   diversity: PillarDiversityRow[];
+  /** SPEC-CIR-001 §7 — the document-level acquisition plan for this domain. */
+  acquisitionSeeds: AcquisitionSeedRow[];
 }

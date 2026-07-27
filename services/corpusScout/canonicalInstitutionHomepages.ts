@@ -78,6 +78,41 @@ const CANONICAL_INSTITUTION_HOMEPAGES: Readonly<Record<string, string>> = {
   'product school': 'https://productschool.com',
   strategyzer: 'https://www.strategyzer.com',
   'lean startup': 'https://theleanstartup.com',
+
+  // ── Commercialisation, wave 2 (operator RULING, 2026-07-27) ─────────────
+  //
+  // The five pillars the first-tier list left empty, populated on the
+  // operator's own instruction ("Do not waive the five empty pillars").
+  // Same provenance posture as above: OPERATOR-SUPPLIED, unverified here,
+  // and — per the ruling — explicitly NOT to be treated as verified merely
+  // because they are operator-supplied or resolve in an ordinary browser.
+  // Every registry entry using them enters at `pending_verification`.
+  //
+  // FOUR institutions the ruling reuses are NOT restated here, because they
+  // are already in this directory and one institution has one homepage fact:
+  //   · OECD          (trust-formation, pricing — added above for adoption/scaling)
+  //   · NBER          (pricing, commercial-failure-modes — added above)
+  //   · World Bank    (Financial Services entry, above)
+  //   · BIS Committee on Payments and Market Infrastructures — RECONCILED,
+  //     see the note below.
+  //
+  // ── BIS CPMI reconciliation ────────────────────────────────────────────
+  // The operator's institutional seed for CPMI is `https://www.bis.org`; the
+  // directory already holds `https://www.bis.org/cpmi/` for the same named
+  // institution. These are not in conflict — the operator's value is the
+  // PARENT of the existing one. The existing, more specific value is KEPT and
+  // no second key is added, for the reason this file's own header gives: a
+  // steward may need "a more specific starting page than its bare homepage".
+  // It is also strictly better for Agent B, whose job is to find the
+  // institution's publication listing: bis.org surfaces all of BIS's output,
+  // bis.org/cpmi/ surfaces the committee's. A bare `bis.org` key would ALSO
+  // collide with the plain `bis` entry above and give two institutions one
+  // starting page.
+  'uk competition and markets authority': 'https://www.gov.uk/government/organisations/competition-and-markets-authority',
+  'world trade organization': 'https://www.wto.org',
+  'un trade and development (unctad)': 'https://unctad.org',
+  uncitral: 'https://uncitral.un.org',
+  'u.s. bureau of labor statistics': 'https://www.bls.gov',
 };
 
 function normalize(name: string): string {

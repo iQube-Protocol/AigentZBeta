@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
+  AcquisitionSeedRow,
   DomainConstitution,
   DomainDefinitionRow,
   CoveragePillarRow,
@@ -33,6 +34,7 @@ import {
   type DiversityInput,
   type SourceTier,
 } from './institutionalRegistry';
+import { isVerificationStatus, type VerificationStatus } from './registryVerification';
 
 type Result<T> = { ok: true } & T | { ok: false; error: string };
 
@@ -96,6 +98,31 @@ function toInstitutionRow(r: Record<string, unknown>): InstitutionalRegistryRow 
     // Fail-closed: anything that isn't one of the two declared tiers reads as
     // UNDECLARED, never as an authority (SPEC-CIR-001 §3).
     sourceTier: isSourceTier(r.source_tier) ? r.source_tier : null,
+    // Same discipline: an unrecognised verification value is NOT 'verified',
+    // so the discovery gate stays shut (SPEC-CIR-001 §9).
+    verificationStatus: isVerificationStatus(r.verification_status) ? r.verification_status : null,
+    verifiedAt: (r.verified_at as string | null) ?? null,
+    verificationCheckedAt: (r.verification_checked_at as string | null) ?? null,
+    resolvedUrl: (r.resolved_url as string | null) ?? null,
+    verificationDetail: (r.verification_detail as Record<string, unknown> | null) ?? null,
+  };
+}
+
+function toAcquisitionSeedRow(r: Record<string, unknown>): AcquisitionSeedRow {
+  return {
+    id: String(r.id),
+    domain: String(r.domain),
+    pillarKey: String(r.pillar_key),
+    institutionName: String(r.institution_name),
+    documentUrl: String(r.document_url),
+    claim: String(r.claim ?? ''),
+    verificationStatus: isVerificationStatus(r.verification_status) ? (r.verification_status as VerificationStatus) : null,
+    verificationCheckedAt: (r.verification_checked_at as string | null) ?? null,
+    resolvedUrl: (r.resolved_url as string | null) ?? null,
+    contentHash: (r.content_hash as string | null) ?? null,
+    candidateSourceId: (r.candidate_source_id as string | null) ?? null,
+    createdAt: String(r.created_at),
+    updatedAt: String(r.updated_at),
   };
 }
 
@@ -112,11 +139,12 @@ export async function getDomainConstitution(
   admin: SupabaseClient,
   domain: string,
 ): Promise<DomainConstitution> {
-  const [definitionRes, pillarsRes, dependenciesRes, institutionsRes] = await Promise.all([
+  const [definitionRes, pillarsRes, dependenciesRes, institutionsRes, seedsRes] = await Promise.all([
     admin.from('corpus_domain_definitions').select('*').eq('domain', domain).maybeSingle(),
     admin.from('corpus_coverage_pillars').select('*').eq('domain', domain).order('pillar_label', { ascending: true }),
     admin.from('corpus_dependency_registry').select('*').eq('domain', domain).order('dependency_name', { ascending: true }),
     admin.from('corpus_institutional_registry').select('*').eq('domain', domain).order('institution_name', { ascending: true }),
+    admin.from('corpus_acquisition_seeds').select('*').eq('domain', domain).order('document_url', { ascending: true }),
   ]);
 
   const institutions = ((institutionsRes.data ?? []) as Record<string, unknown>[]).map(toInstitutionRow);
@@ -140,6 +168,7 @@ export async function getDomainConstitution(
       toDiversityInputs(domain, backfilled),
       pillars.map((p) => p.pillarKey),
     ),
+    acquisitionSeeds: ((seedsRes.data ?? []) as Record<string, unknown>[]).map(toAcquisitionSeedRow),
   };
 }
 
@@ -156,7 +185,7 @@ function toDiversityInputs(
   institutions: readonly InstitutionalRegistryRow[],
 ): DiversityInput[] {
   return institutions.map((row) => {
-    const template = findRegistryEntry(domain, row.institutionName);
+    const template = findRegistryEntry(domain, row.pillarKey, row.institutionName);
     return {
       institution: row.institutionName,
       category: template?.category ?? null,
@@ -164,7 +193,7 @@ function toDiversityInputs(
       // The ROW's declared tier wins — the database is the registry. The
       // template only fills in for a row that declares none.
       tier: (row.sourceTier ?? template?.tier ?? null) as SourceTier | null,
-      pillarKeys: [row.pillarKey],
+      pillarKey: row.pillarKey,
     };
   });
 }
@@ -367,7 +396,7 @@ export async function upsertInstitutionEntry(
   // template fills the gap, and neither present means UNDECLARED (null).
   const sourceTier: SourceTier | null =
     (isSourceTier(input.sourceTier) ? input.sourceTier : null) ??
-    findRegistryEntry(input.domain, input.institutionName)?.tier ??
+    findRegistryEntry(input.domain, input.pillarKey, input.institutionName)?.tier ??
     null;
 
   const { data, error } = await admin

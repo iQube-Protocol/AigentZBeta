@@ -16,20 +16,18 @@
 
 import { getPDFExtractionService } from '@/services/content/pdfExtractionService';
 import type { InspectionResult } from './types';
-
-// Illustrative thresholds (PRD-ICA-001 §7) — configurable by source type, not
-// fixed by the PRD. Kept as named constants so a future campaign config can
-// override them without touching the check logic.
-const PDF_MIN_PAGE_COUNT = 5;
-const PDF_MIN_SUBSTANTIVE_CHARS = 5_000;
-const PDF_MAX_BLANK_PAGE_RATIO = 0.25;
-const BLANK_PAGE_WORD_THRESHOLD = 10;
-
-// Deliberate adaptation, not an oversight: HTML/plain-text sources have no
-// page concept, so the §7 threshold (page-count-shaped) does not apply. This
-// lighter-weight, text-only threshold is the explicit substitute for
-// non-paginated content.
-const TEXT_ONLY_MIN_SUBSTANTIVE_CHARS = 2_000;
+// The thresholds are the CORPUS QUALIFICATION STANDARD (operator ruling,
+// 2026-07-27) — PRD-ICA-001 §7's ratified numbers, promoted into one named
+// module because registry verification now applies the same standard. Declared
+// there, consumed here; a second copy of a threshold is inv.engineering.036
+// applied to a number.
+import {
+  CQS_PDF_MIN_PAGE_COUNT as PDF_MIN_PAGE_COUNT,
+  CQS_PDF_MIN_SUBSTANTIVE_CHARACTERS as PDF_MIN_SUBSTANTIVE_CHARS,
+  CQS_PDF_MAX_BLANK_PAGE_RATIO as PDF_MAX_BLANK_PAGE_RATIO,
+  CQS_BLANK_PAGE_WORD_THRESHOLD as BLANK_PAGE_WORD_THRESHOLD,
+  CQS_TEXT_ONLY_MIN_SUBSTANTIVE_CHARACTERS as TEXT_ONLY_MIN_SUBSTANTIVE_CHARS,
+} from './corpusQualificationStandard';
 
 function stripHtmlTags(html: string): string {
   return html

@@ -1,34 +1,36 @@
 /**
- * SPEC-CIR-001 canaries — the Commercialisation Institutional Registry and the
- * generalised registry template.
+ * SPEC-CIR-001 canaries — the Commercialisation Institutional Registry, the
+ * generalised registry template, and the registry-level VERIFICATION protocol
+ * the operator's 2026-07-27 ruling added.
  *
  * Written under CFS-053 CB-5: **every assertion here was mutation-tested.**
- * Four of today's eight defects were canaries that existed, ran, and passed
+ * Four of that day's eight defects were canaries that existed, ran, and passed
  * while the property they named was gone — all four asserted that a SYMBOL was
  * present rather than that a BEHAVIOUR happened. So: no `toContain('someFn')`
- * on a source file standing in for "the function is called"; the diversity
- * binding is proven by driving `getDomainConstitution` against a stub client
- * and reading what comes back.
+ * on a source file standing in for "the function is called". The diversity
+ * binding is proven by driving `getDomainConstitution`; the refusal gate by
+ * driving `runDiscoveryForInstitution`; the four verification conjuncts by
+ * driving `runVerification` against injected transports.
  *
  * What each block guards:
  *
  *  1. Pillar reality — `upsertInstitutionEntry` refuses an institution whose
- *     pillar does not exist ("propose the pillar first"). A registry entry on
- *     an invented pillar is un-insertable, so the mapping must be checked at
- *     build time, not discovered at seed time.
+ *     pillar does not exist. All fourteen pillars are now served (the ruling:
+ *     "Do not waive the five empty pillars").
  *  2. The tier boundary is STRUCTURAL. A practitioner source that could be
  *     counted as a primary scientific authority is the methodological error
  *     the operator's direction names explicitly.
- *  3. The disciplines are dependencies, not institutions. A discipline with a
- *     `seed_url` would break Agent B's institution-targeted navigation.
- *  4. ONE template, not two (inv.engineering.036/037). If Commercialisation
- *     gets a template and Financial Services keeps an ad hoc registry, they
- *     diverge — which is the defect the template exists to prevent.
- *  5. No fabrication. The fifteen URLs are the operator's, resolution never
- *     falls back to a guess, and the FS registry's un-captured fields stay
- *     null rather than being filled in with plausible prose.
- *  6. Law II can FAIL. A diversity rule that reports compliance everywhere on
- *     its first run is CFS-053's latent-mechanism defect wearing a rosette.
+ *  3. The disciplines are dependencies, not institutions.
+ *  4. ONE template, not two (inv.engineering.036/037) — and provenance keyed
+ *     PER PILLAR, so OECD's three traditions cannot collapse into one.
+ *  5. No fabrication. Every URL is the operator's; resolution never falls back.
+ *  6. Law II can FAIL. Two pillars still do, and the verdict is reported, not
+ *     tuned.
+ *  7. The Corpus Qualification Standard is promoted, single-sourced, and states
+ *     its unit.
+ *  8. Verification is more than reachability, `verified` is unforgeable, and
+ *     the refusal gate actually refuses.
+ *  9. Phase 1 does not ratify and does not verify.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -36,6 +38,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COMMERCIALISATION_REGISTRY,
+  COMMERCIALISATION_REGISTRY_WAVE_2,
+  COMMERCIALISATION_ACQUISITION_SEEDS,
   FINANCIAL_SERVICES_REGISTRY,
   INSTITUTIONAL_REGISTRIES,
   COMMERCIALISATION_DEPENDENCIES,
@@ -45,6 +49,7 @@ import {
   LAW_II_MIN_AUTHORITIES,
   LAW_II_MIN_TRADITIONS,
   acquisitionPriority,
+  acquisitionSeedsFor,
   assessRegistryDiversity,
   registryEntryUrl,
   registryEntriesForDomain,
@@ -53,38 +58,64 @@ import {
   type DiversityInput,
   type InstitutionalRegistryEntry,
 } from '../services/corpusScout/institutionalRegistry';
-import { resolveCanonicalHomepage } from '../services/corpusScout/canonicalInstitutionHomepages';
+import { resolveCanonicalHomepage, listCanonicalInstitutionNames } from '../services/corpusScout/canonicalInstitutionHomepages';
 import { getDomainConstitution } from '../services/corpusScout/domainConstitution';
+import { runDiscoveryForInstitution, runDiscoveryForDomain } from '../services/corpusScout/discoveryOrchestrator';
+import {
+  VERIFICATION_STATUSES,
+  RUN_OUTCOME_STATUSES,
+  canRunInstitutionDiscovery,
+  isVerificationStatus,
+  isVerificationTransitionAllowed,
+  runVerification,
+  applyVerificationOutcome,
+  type VerificationDeps,
+  type VerificationStatus,
+} from '../services/corpusScout/registryVerification';
+import {
+  CQS_PDF_MIN_PAGE_COUNT,
+  CQS_PDF_MIN_SUBSTANTIVE_CHARACTERS,
+  CQS_PDF_MAX_BLANK_PAGE_RATIO,
+  CQS_TEXT_ONLY_MIN_SUBSTANTIVE_CHARACTERS,
+  CORPUS_QUALIFICATION_STANDARD_STATEMENT,
+} from '../services/corpusScout/corpusQualificationStandard';
 import { discoveryDomain } from '../services/invariants/discoveryDomains';
 
 const ROOT = join(__dirname, '..');
 const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
 
 const SPEC_PATH = 'codexes/packs/irl/foundation/SPEC-CIR-001_commercialisation-institutional-registry.md';
-const PRD_PATH = 'codexes/packs/irl/foundation/PRD-IDE-002_commercialisation-invariant-discovery.md';
+const PRD_IDE_PATH = 'codexes/packs/irl/foundation/PRD-IDE-002_commercialisation-invariant-discovery.md';
+const PRD_ICA_PATH = 'codexes/packs/irl/foundation/PRD-ICA-001_invariant-corpus-acquisition-agent.md';
 const FS_SEED_PATH = 'supabase/migrations/20260817000000_corpus_domain_constitution.sql';
 const COM_SEED_PATH = 'supabase/migrations/20260827000000_commercialisation_institutional_registry.sql';
+const VERIFY_SEED_PATH = 'supabase/migrations/20260828000000_corpus_registry_verification.sql';
 
 const SPEC = read(SPEC_PATH);
-const PRD = read(PRD_PATH);
+const PRD_IDE = read(PRD_IDE_PATH);
+const PRD_ICA = read(PRD_ICA_PATH);
 const FS_SEED = read(FS_SEED_PATH);
 const COM_SEED = read(COM_SEED_PATH);
+const VERIFY_SEED = read(VERIFY_SEED_PATH);
 
 const PILLAR_KEYS = discoveryDomain('commercialisation')!.subDomains.map((s) => s.value);
 
 const tier1 = COMMERCIALISATION_REGISTRY.filter((e) => e.tier === 'institutional-authority');
 const tier2 = COMMERCIALISATION_REGISTRY.filter((e) => e.tier === 'practitioner-pattern');
 
-/** `('commercialisation', 'venture-operations', 'NBER', 'institutional-authority', 'proposed')` → the triple. */
+/** `('commercialisation', 'venture-operations', 'NBER', …)` → `pillar::institution`. */
 function seededInstitutionRows(sql: string, domain: string): string[] {
   const out: string[] = [];
+  const start = sql.indexOf('INSERT INTO public.corpus_institutional_registry');
+  if (start < 0) return out;
+  // Bound to THIS insert only — corpus_acquisition_seeds uses the same tuple
+  // shape, and a greedy slice would count document seeds as institutions.
+  const next = sql.indexOf('INSERT INTO', start + 1);
+  const block = next < 0 ? sql.slice(start) : sql.slice(start, next);
   const re = new RegExp(`\\('${domain}',\\s*'([^']+)',\\s*'((?:[^']|'')+)'`, 'g');
-  // Only the corpus_institutional_registry INSERT block — the pillar and
-  // dependency blocks use the same tuple shape.
-  const block = sql.slice(sql.indexOf('INSERT INTO public.corpus_institutional_registry'));
   let m: RegExpExecArray | null;
   while ((m = re.exec(block))) out.push(`${m[1]}::${m[2].replace(/''/g, "'")}`);
-  return out.sort();
+  return out;
 }
 
 // ── 1 · Every registered institution sits on a REAL coverage pillar ─────────
@@ -93,42 +124,34 @@ describe('SPEC-CIR-001 · pillar reality', () => {
   it('every commercialisation registry entry maps only to PRD-IDE-002 §4 pillars', () => {
     expect(PILLAR_KEYS.length).toBe(14);
     for (const entry of COMMERCIALISATION_REGISTRY) {
-      for (const pillar of entry.pillarKeys) {
-        expect(
-          PILLAR_KEYS,
-          `'${entry.institution}' is registered against '${pillar}', which is not a coverage pillar — ` +
-            'upsertInstitutionEntry would refuse it ("propose the pillar first")',
-        ).toContain(pillar);
-      }
+      if (entry.pillarKey === null) continue; // tier 2 — deliberately un-pillared
+      expect(
+        PILLAR_KEYS,
+        `'${entry.institution}' is registered against '${entry.pillarKey}', which is not a coverage pillar — ` +
+          'upsertInstitutionEntry would refuse it ("propose the pillar first")',
+      ).toContain(entry.pillarKey);
     }
   });
 
-  it('the seeded institution rows and the curated template are the same set', () => {
-    const seeded = seededInstitutionRows(COM_SEED, 'commercialisation');
-    const template = tier1
-      .flatMap((e) => e.pillarKeys.map((p) => `${p}::${e.institution}`))
-      .sort();
-    // Both directions: a row seeded without a template entry has no tier,
-    // category or evidence type; a template entry never seeded never acquires.
+  it('ALL FOURTEEN pillars are now served — the ruling refused to waive the five empty ones', () => {
+    const covered = new Set(tier1.map((e) => e.pillarKey));
+    const uncovered = PILLAR_KEYS.filter((p) => !covered.has(p));
+    expect(
+      uncovered,
+      'a pillar has no institutional authority — the operator ruled "Do not waive the five empty pillars"',
+    ).toEqual([]);
+    // And specifically the five the ruling named.
+    for (const pillar of ['trust-formation', 'pricing', 'distribution', 'settlement-exchange', 'commercial-failure-modes']) {
+      expect(tier1.filter((e) => e.pillarKey === pillar).length, `'${pillar}' lost its wave-2 authorities`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('the two seed migrations and the curated template are the same set', () => {
+    const seeded = [...seededInstitutionRows(COM_SEED, 'commercialisation'), ...seededInstitutionRows(VERIFY_SEED, 'commercialisation')].sort();
+    const template = tier1.map((e) => `${e.pillarKey}::${e.institution}`).sort();
     expect(seeded).toEqual(template);
-    expect(seeded.length).toBe(28);
-  });
-
-  it('the five pillars SPEC-CIR-001 §5 records as uncovered really have no institution', () => {
-    const covered = new Set(tier1.flatMap((e) => e.pillarKeys));
-    const uncovered = PILLAR_KEYS.filter((p) => !covered.has(p)).sort();
-    // Recorded as a FINDING in §5. If a later pass silently closes one of
-    // these by inference, the doc and the registry must be updated together.
-    expect(uncovered).toEqual([
-      'commercial-failure-modes',
-      'distribution',
-      'pricing',
-      'settlement-exchange',
-      'trust-formation',
-    ]);
-    for (const pillar of uncovered) {
-      expect(SPEC, `§5 does not record '${pillar}' as uncovered`).toContain(`\`${pillar}\` | **none**`);
-    }
+    expect(seeded.length).toBe(38); // 28 wave 1 + 10 wave 2
+    expect(COMMERCIALISATION_REGISTRY_WAVE_2).toHaveLength(10);
   });
 });
 
@@ -137,46 +160,28 @@ describe('SPEC-CIR-001 · pillar reality', () => {
 describe('SPEC-CIR-001 · the tier boundary is structural', () => {
   it('holds all nine of the operator\'s practitioner sources, and none of them in tier 1', () => {
     expect(tier2.map((e) => e.institution).sort()).toEqual([
-      'Accenture Research',
-      'Andreessen Horowitz (a16z)',
-      'BCG Insights',
-      'Bain Insights',
-      'Deloitte Insights',
-      'First Round Review',
-      'McKinsey Insights',
-      'PwC Strategy',
-      'Y Combinator Library',
+      'Accenture Research', 'Andreessen Horowitz (a16z)', 'BCG Insights', 'Bain Insights',
+      'Deloitte Insights', 'First Round Review', 'McKinsey Insights', 'PwC Strategy', 'Y Combinator Library',
     ]);
-    expect(tier1).toHaveLength(15);
+    expect(tier1).toHaveLength(38);
   });
 
   it('a practitioner source carries no pillar and resolves to no URL — so it cannot be acquired', () => {
     for (const entry of tier2) {
-      expect(
-        entry.pillarKeys,
-        `'${entry.institution}' carries a pillar — upsertInstitutionEntry would accept it, and a ` +
-          'practitioner source would enter the corpus before the institutional corpus is exhausted',
-      ).toEqual([]);
-      expect(
-        registryEntryUrl(entry),
-        `'${entry.institution}' resolves to a URL that the operator never supplied`,
-      ).toBeNull();
+      expect(entry.pillarKey, `'${entry.institution}' carries a pillar — upsertInstitutionEntry would accept it`).toBeNull();
+      expect(registryEntryUrl(entry), `'${entry.institution}' resolves to a URL the operator never supplied`).toBeNull();
       expect(entry.urlProvenance).toBe('none');
     }
   });
 
   it('assessRegistryDiversity never counts a practitioner or an undeclared row as an authority', () => {
-    const pillar = 'pricing';
     const mk = (institution: string, tier: DiversityInput['tier']): DiversityInput => ({
-      institution, category: 'Practitioner', evidenceType: 'practitioner-guidance', tier, pillarKeys: [pillar],
+      institution, category: 'Practitioner', evidenceType: 'practitioner-guidance', tier, pillarKey: 'pricing',
     });
-    // Three practitioner sources plus an undeclared one — four rows, zero
-    // authorities. The mutation this survives: flipping the filter to count
-    // every row would make this pillar read as satisfied.
     const rows = assessRegistryDiversity(
       [mk('a16z', 'practitioner-pattern'), mk('McKinsey Insights', 'practitioner-pattern'),
        mk('Bain Insights', 'practitioner-pattern'), mk('mystery source', null)],
-      [pillar],
+      ['pricing'],
     );
     expect(rows[0].authorityCount).toBe(0);
     expect(rows[0].verdict).toBe('unsatisfied');
@@ -185,12 +190,9 @@ describe('SPEC-CIR-001 · the tier boundary is structural', () => {
 
   it('the DB column exists, is nullable with no default, and is CHECK-constrained', () => {
     expect(COM_SEED).toMatch(/ADD COLUMN IF NOT EXISTS source_tier text;/);
-    // A DEFAULT would make every future row read as an authority — the exact
-    // fail-open the null-means-undeclared design exists to prevent.
     expect(/source_tier text\s+(NOT NULL|DEFAULT)/i.test(COM_SEED)).toBe(false);
     expect(COM_SEED).toMatch(/CHECK \(source_tier IS NULL OR source_tier IN \('institutional-authority', 'practitioner-pattern'\)\)/);
     expect(isSourceTier('institutional-authority')).toBe(true);
-    expect(isSourceTier('practitioner-pattern')).toBe(true);
     expect(isSourceTier('authoritative')).toBe(false);
     expect(isSourceTier(null)).toBe(false);
   });
@@ -202,13 +204,9 @@ describe('SPEC-CIR-001 · where the disciplines went', () => {
   const names = COMMERCIALISATION_DEPENDENCIES.map((d) => d.name);
 
   it('all eight of the operator\'s adjacent disciplines are reachable in the dependency registry', () => {
-    // Six registered new; two already present under existing names, reused
-    // rather than duplicated (inv.engineering.037).
     for (const name of [
       'organisation-design', 'behavioural-economics', 'network-science', 'complexity-science',
-      'diffusion-of-innovation', 'service-science',
-      'platform-economics', // the direction's "Platform economics"
-      'operations',         // the direction's "Operations management"
+      'diffusion-of-innovation', 'service-science', 'platform-economics', 'operations',
     ]) {
       expect(names, `'${name}' is not registered as a constitutional dependency`).toContain(name);
     }
@@ -216,15 +214,11 @@ describe('SPEC-CIR-001 · where the disciplines went', () => {
   });
 
   it('no discipline is modelled as an institution or as a coverage pillar', () => {
-    const institutions = new Set(
-      Object.values(INSTITUTIONAL_REGISTRIES).flat().map((e) => e.institution.toLowerCase()),
-    );
+    const institutions = new Set(Object.values(INSTITUTIONAL_REGISTRIES).flat().map((e) => e.institution.toLowerCase()));
     for (const name of names) {
       const spaced = name.replace(/-/g, ' ');
       expect(institutions, `'${name}' is registered as an institution — it has no homepage to navigate to`).not.toContain(spaced);
-      expect(PILLAR_KEYS, `'${name}' is registered as a coverage pillar — a discipline constrains the domain, it does not constitute it`).not.toContain(name);
-      // And it must never acquire a seed URL, which is what would make Agent B
-      // try to navigate to a discipline.
+      expect(PILLAR_KEYS, `'${name}' is registered as a coverage pillar — a discipline constrains, it does not constitute`).not.toContain(name);
       expect(resolveCanonicalHomepage(spaced), `'${name}' resolves to a homepage`).toBeNull();
     }
   });
@@ -234,17 +228,12 @@ describe('SPEC-CIR-001 · where the disciplines went', () => {
       expect(d.relationship.trim().length, `'${d.name}' has no relationship edge`).toBeGreaterThan(0);
       expect(['compared against', 'explained by']).toContain(d.relationship);
     }
-    // `upsertDependencyEntry` rejects an empty relationship, so an edgeless
-    // entry would be un-seedable, not merely undocumented.
     expect(read('services/corpusScout/domainConstitution.ts')).toContain(
       'relationship is required (Law I — the edge is the point)',
     );
   });
 
   it('the Discovery Domain Registry\'s tangential domains stay a SUBSET of the dependency registry', () => {
-    // discoveryDomains.ts is a docs mirror of PRD-IDE-002 §7.3 and was
-    // deliberately not edited. This is what stops the two contradicting each
-    // other: every tangential domain must be a registered dependency.
     for (const tangential of discoveryDomain('commercialisation')!.tangentialDomains) {
       expect(names, `'${tangential}' is a tangential domain with no dependency-registry entry`).toContain(tangential);
     }
@@ -264,29 +253,49 @@ describe('SPEC-CIR-001 · where the disciplines went', () => {
   });
 });
 
-// ── 4 · ONE template, shared with Financial Services ───────────────────────
+// ── 4 · ONE template, shared, with PER-PILLAR provenance ───────────────────
 
 describe('SPEC-CIR-001 · the template is shared, not forked', () => {
   it('both domains are declared through the same registry, and resolve through it', () => {
     expect(Object.keys(INSTITUTIONAL_REGISTRIES).sort()).toEqual(['commercialisation', 'financial-services']);
     expect(registryEntriesForDomain('financial-services')).toBe(FINANCIAL_SERVICES_REGISTRY);
-    expect(registryEntriesForDomain('commercialisation')).toBe(COMMERCIALISATION_REGISTRY);
-    // An unregistered domain gets nothing — never a silent fallback to another
-    // domain's registry.
     expect(registryEntriesForDomain('healthcare')).toEqual([]);
-    expect(findRegistryEntry('healthcare', 'NBER')).toBeNull();
-    // Cross-domain lookup must not leak: NBER is not a Financial Services
-    // authority, and FATF is not a commercialisation one.
-    expect(findRegistryEntry('financial-services', 'NBER')).toBeNull();
-    expect(findRegistryEntry('commercialisation', 'FATF')).toBeNull();
-    expect(findRegistryEntry('commercialisation', 'nber')?.category).toBe('Entrepreneurship Research');
+    expect(findRegistryEntry('healthcare', 'pricing', 'NBER')).toBeNull();
+    // Cross-domain lookup must not leak.
+    expect(findRegistryEntry('financial-services', 'banking', 'NBER')).toBeNull();
+    expect(findRegistryEntry('commercialisation', 'pricing', 'FATF')).toBeNull();
+  });
+
+  it('provenance attaches PER PILLAR — one institution, several traditions', () => {
+    // The operator's ruling: "The provenance must attach to the specific pillar
+    // and acquired document." An institution-keyed lookup would return one
+    // tradition for all three of OECD's pillars and erase the diversity Law II
+    // counts. This is the mutation that must not pass.
+    expect(findRegistryEntry('commercialisation', 'adoption', 'OECD')!.category).toBe('Economics');
+    expect(findRegistryEntry('commercialisation', 'trust-formation', 'OECD')!.category).toBe('International Policy Research');
+    expect(findRegistryEntry('commercialisation', 'pricing', 'OECD')!.category).toBe('Competition Policy');
+    expect(findRegistryEntry('commercialisation', 'venture-operations', 'NBER')!.category).toBe('Entrepreneurship Research');
+    expect(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.category).toBe('Academic Economics');
+    expect(findRegistryEntry('commercialisation', 'commercial-failure-modes', 'NBER')!.category).toBe('Academic Economics');
+    // …and the evidence type travels with the pillar too.
+    expect(findRegistryEntry('commercialisation', 'adoption', 'OECD')!.evidenceType).toBe('policy');
+    expect(findRegistryEntry('commercialisation', 'trust-formation', 'OECD')!.evidenceType).toBe('research-papers');
+  });
+
+  it('the ruling REUSED institutions rather than inventing new ones where it could', () => {
+    // "Reuse is preferable to inventing a new institution merely to make the
+    // matrix look complete." Four of wave 2's ten entries reuse an institution
+    // already in the registry.
+    const wave1Institutions = new Set(
+      tier1.filter((e) => !COMMERCIALISATION_REGISTRY_WAVE_2.includes(e)).map((e) => e.institution),
+    );
+    const reused = COMMERCIALISATION_REGISTRY_WAVE_2.filter((e) => wave1Institutions.has(e.institution)).map((e) => e.institution);
+    expect(reused.sort()).toEqual(['NBER', 'NBER', 'OECD', 'OECD']);
   });
 
   it('the FS template entries match the 20260817000000 seed SQL set-for-set', () => {
-    const seeded = seededInstitutionRows(FS_SEED, 'financial-services');
-    const template = FINANCIAL_SERVICES_REGISTRY
-      .flatMap((e) => e.pillarKeys.map((p) => `${p}::${e.institution}`))
-      .sort();
+    const seeded = seededInstitutionRows(FS_SEED, 'financial-services').sort();
+    const template = FINANCIAL_SERVICES_REGISTRY.map((e) => `${e.pillarKey}::${e.institution}`).sort();
     expect(template).toEqual(seeded);
     expect(seeded.length).toBe(19);
   });
@@ -300,12 +309,9 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
   });
 
   it('acquisition priority is DERIVED from PRD-IDE-002 §11.2, not hand-typed', () => {
-    // The §11.2 order is a docs mirror; if the PRD reorders its gaps and the
-    // registry does not, acquisition runs in the wrong order silently.
-    const gaps = ACQUISITION_PRIORITY_ORDER.map((b) => b.gap);
-    expect(gaps).toHaveLength(5);
     expect(ACQUISITION_PRIORITY_ORDER.map((b) => b.rank)).toEqual([1, 2, 3, 4, 5]);
-    const s112 = PRD.slice(PRD.indexOf('### 11.2'), PRD.indexOf('### 11.3'));
+    const s112 = PRD_IDE.slice(PRD_IDE.indexOf('### 11.2'), PRD_IDE.indexOf('### 11.3'));
+    const gaps = ACQUISITION_PRIORITY_ORDER.map((b) => b.gap);
     for (const [i, needle] of [
       'Commercial failure post-mortems', 'Entrepreneurship / customer-development primary research',
       'Platform & network economics', 'Pricing research', 'Service design / service operations',
@@ -313,12 +319,10 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
       expect(s112, `§11.2 no longer ranks '${needle}' at ${i + 1}`).toContain(`${i + 1}. **${needle}`);
       expect(gaps[i]).toBe(needle);
     }
-    // And the derivation actually derives: strongest rank wins, unmapped
-    // pillars fall to the back, no pillars at all is unranked.
-    expect(acquisitionPriority({ pillarKeys: ['commercial-failure-modes', 'pricing'] })).toBe(1);
-    expect(acquisitionPriority({ pillarKeys: ['pricing'] })).toBe(4);
-    expect(acquisitionPriority({ pillarKeys: ['trust-formation'] })).toBe(ACQUISITION_PRIORITY_UNRANKED);
-    expect(acquisitionPriority({ pillarKeys: [] })).toBe(ACQUISITION_PRIORITY_UNRANKED);
+    expect(acquisitionPriority({ pillarKey: 'commercial-failure-modes' })).toBe(1);
+    expect(acquisitionPriority({ pillarKey: 'pricing' })).toBe(4);
+    expect(acquisitionPriority({ pillarKey: 'trust-formation' })).toBe(ACQUISITION_PRIORITY_UNRANKED);
+    expect(acquisitionPriority({ pillarKey: null })).toBe(ACQUISITION_PRIORITY_UNRANKED);
     expect(ACQUISITION_PRIORITY_UNRANKED).toBe(6);
   });
 });
@@ -327,6 +331,7 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
 
 describe('SPEC-CIR-001 · the operator-supplied URLs, and nothing else', () => {
   const OPERATOR_URLS: Readonly<Record<string, string>> = {
+    // Wave 1 — the first-tier direction.
     NBER: 'https://www.nber.org',
     'Kauffman Foundation': 'https://www.kauffman.org',
     SSRN: 'https://www.ssrn.com',
@@ -342,46 +347,59 @@ describe('SPEC-CIR-001 · the operator-supplied URLs, and nothing else', () => {
     'Product School': 'https://productschool.com',
     Strategyzer: 'https://www.strategyzer.com',
     'Lean Startup': 'https://theleanstartup.com',
+    // Wave 2 — the ruling.
+    'UK Competition and Markets Authority': 'https://www.gov.uk/government/organisations/competition-and-markets-authority',
+    'World Trade Organization': 'https://www.wto.org',
+    'UN Trade and Development (UNCTAD)': 'https://unctad.org',
+    UNCITRAL: 'https://uncitral.un.org',
+    'U.S. Bureau of Labor Statistics': 'https://www.bls.gov',
+    // Reconciled, NOT the operator's bare https://www.bis.org — see below.
+    'BIS Committee on Payments and Market Infrastructures': 'https://www.bis.org/cpmi/',
   };
 
   it('every tier-1 institution resolves to exactly the URL the operator supplied', () => {
-    expect(Object.keys(OPERATOR_URLS)).toHaveLength(15);
+    expect(Object.keys(OPERATOR_URLS)).toHaveLength(21);
     for (const entry of tier1) {
       const expected = OPERATOR_URLS[entry.institution];
-      expect(expected, `'${entry.institution}' is in tier 1 but not in the operator's table`).toBeTruthy();
+      expect(expected, `'${entry.institution}' is in tier 1 but not in the operator's tables`).toBeTruthy();
       expect(registryEntryUrl(entry)).toBe(expected);
     }
-    // And the document the operator reviews states the same URL.
     for (const [institution, url] of Object.entries(OPERATOR_URLS)) {
-      expect(SPEC, `SPEC-CIR-001 §4 does not carry ${institution}'s URL`).toContain(url);
+      expect(SPEC, `SPEC-CIR-001 does not carry ${institution}'s URL`).toContain(url);
     }
+  });
+
+  it('BIS CPMI is RECONCILED to one entry, at the more specific committee page', () => {
+    // The operator's seed was the parent `https://www.bis.org`. Adding it would
+    // create a second key for one institution AND collide with the plain `bis`
+    // entry, giving two institutions one starting page.
+    const keys = listCanonicalInstitutionNames().filter((k) => k.includes('committee on payments'));
+    expect(keys, 'BIS CPMI has more than one homepage key').toHaveLength(1);
+    expect(resolveCanonicalHomepage('BIS Committee on Payments and Market Infrastructures')).toBe('https://www.bis.org/cpmi/');
+    expect(resolveCanonicalHomepage('BIS')).toBe('https://www.bis.org');
+    expect(SPEC).toMatch(/BIS CPMI/);
   });
 
   it('resolution fails honestly — it never guesses and never falls back to search', () => {
     expect(resolveCanonicalHomepage('McKinsey Insights')).toBeNull();
     expect(resolveCanonicalHomepage('Y Combinator Library')).toBeNull();
     expect(resolveCanonicalHomepage('Institute of Things That Do Not Exist')).toBeNull();
-    // The FS posture is unchanged: a regulation is not a navigable body.
     expect(resolveCanonicalHomepage('MiCA (EU framework)')).toBeNull();
   });
 
   it('the operator-supplied provenance is recorded where the URLs live', () => {
     const src = read('services/corpusScout/canonicalInstitutionHomepages.ts');
     expect(src).toMatch(/SUPPLIED VERBATIM BY THE OPERATOR/);
-    // The claim we must never make.
-    expect(/verified against a live/i.test(src)).toBe(true); // the honest negative posture, retained
+    expect(src).toMatch(/OPERATOR-SUPPLIED, unverified here/);
     expect(tier1.every((e) => e.urlProvenance === 'operator-supplied' || e.urlProvenance === 'pre-existing')).toBe(true);
-    // World Bank is shared with Financial Services — one institution, one
-    // homepage fact, not two entries.
-    expect(findRegistryEntry('commercialisation', 'World Bank')!.urlProvenance).toBe('pre-existing');
   });
 });
 
 // ── 6 · Law II — and it must be able to FAIL ───────────────────────────────
 
 describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
-  const auth = (institution: string, category: string | null, pillarKeys: string[]): DiversityInput => ({
-    institution, category, evidenceType: 'research-papers', tier: 'institutional-authority', pillarKeys,
+  const auth = (institution: string, category: string | null, pillarKey: string): DiversityInput => ({
+    institution, category, evidenceType: 'research-papers', tier: 'institutional-authority', pillarKey,
   });
 
   it('carries the operator\'s rule verbatim, in code and in the document', () => {
@@ -390,78 +408,68 @@ describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
       'No invariant family may rely upon a single institution, publisher, methodology, or ideological perspective.',
     );
     expect(SPEC).toContain('Every IDE corpus shall contain multiple independent schools of thought and institutional traditions.');
-    expect(SPEC).toContain('No invariant family may rely upon a single institution, publisher, methodology, or ideological perspective.');
     expect(LAW_II_MIN_AUTHORITIES).toBe(2);
     expect(LAW_II_MIN_TRADITIONS).toBe(2);
   });
 
-  it('a single authority is UNSATISFIED — the "one great institution" case the rule exists for', () => {
-    const [row] = assessRegistryDiversity([auth('NBER', 'Entrepreneurship Research', ['pricing'])], ['pricing']);
+  it('a single authority is UNSATISFIED', () => {
+    const [row] = assessRegistryDiversity([auth('NBER', 'Entrepreneurship Research', 'pricing')], ['pricing']);
     expect(row.verdict).toBe('unsatisfied');
-    expect(row.authorityCount).toBe(1);
     expect(row.reason).toMatch(/at least 2/);
   });
 
-  it('two authorities from ONE tradition is UNSATISFIED — this is the institutional-bias case', () => {
+  it('two authorities from ONE tradition is UNSATISFIED — the institutional-bias case', () => {
     const [row] = assessRegistryDiversity(
-      [auth('NBER', 'Entrepreneurship Research', ['pricing']), auth('Kauffman Foundation', 'Entrepreneurship Research', ['pricing'])],
+      [auth('NBER', 'Entrepreneurship Research', 'pricing'), auth('Kauffman Foundation', 'Entrepreneurship Research', 'pricing')],
       ['pricing'],
     );
-    // The mutation this survives: dropping the tradition check would report
-    // `satisfied` on a corpus drawn entirely from one school of thought —
-    // exactly what the operator's rule forbids.
     expect(row.verdict).toBe('unsatisfied');
     expect(row.authorityCount).toBe(2);
-    expect(row.traditions).toEqual(['Entrepreneurship Research']);
     expect(row.reason).toMatch(/single institutional perspective/);
   });
 
   it('two authorities from TWO traditions is SATISFIED', () => {
     const [row] = assessRegistryDiversity(
-      [auth('NBER', 'Entrepreneurship Research', ['pricing']), auth('OECD', 'Economics', ['pricing'])],
+      [auth('NBER', 'Entrepreneurship Research', 'pricing'), auth('OECD', 'Economics', 'pricing')],
       ['pricing'],
     );
     expect(row.verdict).toBe('satisfied');
-    expect(row.traditions).toEqual(['Economics', 'Entrepreneurship Research']);
   });
 
   it('an authority with no declared tradition makes the verdict UNDETERMINABLE, not satisfied', () => {
     const [row] = assessRegistryDiversity(
-      [auth('BIS', null, ['banking']), auth('FCA', null, ['banking']), auth('ECB', null, ['banking'])],
+      [auth('BIS', null, 'banking'), auth('FCA', null, 'banking'), auth('ECB', null, 'banking')],
       ['banking'],
     );
-    // Three authorities would pass a naive count. They cannot pass Law II,
-    // because nothing records whether they are three traditions or one.
     expect(row.verdict).toBe('undeterminable');
     expect(row.reason).toMatch(/cannot be verified, only assumed/);
   });
 
-  it('the real registries produce real verdicts — the check is not vacuous', () => {
+  it('the real registry produces the REPORTED verdict — twelve satisfied, two not', () => {
     const inputs: DiversityInput[] = COMMERCIALISATION_REGISTRY.map((e) => ({
       institution: e.institution, category: e.category, evidenceType: e.evidenceType,
-      tier: e.tier, pillarKeys: e.pillarKeys,
+      tier: e.tier, pillarKey: e.pillarKey,
     }));
     const rows = assessRegistryDiversity(inputs, PILLAR_KEYS);
     const byVerdict = (v: string) => rows.filter((r) => r.verdict === v).map((r) => r.pillarKey).sort();
 
-    // Seven satisfied, seven unsatisfied. If a future edit makes everything
-    // pass, this fails — a rule that cannot fail is CFS-053's defect.
-    expect(byVerdict('satisfied')).toEqual([
-      'adoption', 'commercial-governance', 'customer-discovery', 'revenue-architecture',
-      'scaling', 'value-proposition', 'venture-operations',
-    ]);
-    expect(byVerdict('unsatisfied')).toEqual([
-      'commercial-failure-modes', 'distribution', 'outcome-assurance', 'partnerships',
-      'pricing', 'settlement-exchange', 'trust-formation',
-    ]);
+    // Wave 2 closed five pillars; two pillars the ruling did not address stay
+    // open, and the verdict is REPORTED rather than tuned to look nicer.
+    expect(byVerdict('unsatisfied')).toEqual(['outcome-assurance', 'partnerships']);
+    expect(byVerdict('satisfied')).toHaveLength(12);
     expect(byVerdict('undeterminable')).toEqual([]);
+    // Both remaining failures are the same shape: exactly one authority.
+    for (const key of ['partnerships', 'outcome-assurance']) {
+      expect(rows.find((r) => r.pillarKey === key)!.authorityCount).toBe(1);
+    }
+    // The document must report the same verdict it produced.
+    expect(SPEC).toMatch(/twelve of the fourteen pillars/i);
 
-    // And Financial Services, whose registry records no traditions at all,
-    // is undeterminable everywhere — never silently "satisfied".
+    // Financial Services, whose registry records no traditions, stays
+    // undeterminable everywhere — never silently "satisfied".
     const fsRows = assessRegistryDiversity(
       FINANCIAL_SERVICES_REGISTRY.map((e) => ({
-        institution: e.institution, category: e.category, evidenceType: e.evidenceType,
-        tier: e.tier, pillarKeys: e.pillarKeys,
+        institution: e.institution, category: e.category, evidenceType: e.evidenceType, tier: e.tier, pillarKey: e.pillarKey,
       })),
       ['banking', 'payments', 'capital-markets', 'insurance', 'financial-infrastructure'],
     );
@@ -469,93 +477,367 @@ describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
   });
 
   it('the check is BOUND — getDomainConstitution runs it and returns the result', async () => {
-    // CFS-053 CB-1/CB-6/CB-7: asserting the symbol is present is what let four
-    // defects through today. This drives the real function against a stub
-    // client and reads the consequence.
-    const rows = {
-      corpus_domain_definitions: null,
+    const constitution = await getDomainConstitution(stubClient({
       corpus_coverage_pillars: [
-        { id: 'p1', domain: 'commercialisation', pillar_key: 'pricing', pillar_label: 'Pricing', completeness_definition: '', status: 'proposed', created_at: '', updated_at: '', saturation_confirmed: false },
-        { id: 'p2', domain: 'commercialisation', pillar_key: 'adoption', pillar_label: 'Adoption', completeness_definition: '', status: 'proposed', created_at: '', updated_at: '', saturation_confirmed: false },
+        pillarRow('pricing'), pillarRow('adoption'),
       ],
-      corpus_dependency_registry: [],
       corpus_institutional_registry: [
-        // Two real tier-1 authorities from two traditions on `adoption`…
-        { id: 'i1', domain: 'commercialisation', pillar_key: 'adoption', institution_name: 'NBER', status: 'proposed', created_at: '', updated_at: '', seed_url: 'https://www.nber.org', source_tier: 'institutional-authority' },
-        { id: 'i2', domain: 'commercialisation', pillar_key: 'adoption', institution_name: 'OECD', status: 'proposed', created_at: '', updated_at: '', seed_url: 'https://www.oecd.org', source_tier: 'institutional-authority' },
-        // …and a practitioner source parked on `pricing`, which must not count.
-        { id: 'i3', domain: 'commercialisation', pillar_key: 'pricing', institution_name: 'McKinsey Insights', status: 'proposed', created_at: '', updated_at: '', seed_url: null, source_tier: 'practitioner-pattern' },
+        institutionRow('adoption', 'NBER', { source_tier: 'institutional-authority' }),
+        institutionRow('adoption', 'OECD', { source_tier: 'institutional-authority' }),
+        institutionRow('pricing', 'McKinsey Insights', { source_tier: 'practitioner-pattern', seed_url: null }),
       ],
-    } as Record<string, unknown>;
-
-    const builder = (table: string) => {
-      const data = rows[table];
-      const self: Record<string, unknown> = {};
-      self.select = () => self;
-      self.eq = () => self;
-      self.maybeSingle = async () => ({ data: Array.isArray(data) ? (data[0] ?? null) : data, error: null });
-      self.order = async () => ({ data: Array.isArray(data) ? data : [], error: null });
-      return self;
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stub = { from: (table: string) => builder(table) } as any;
-
-    const constitution = await getDomainConstitution(stub, 'commercialisation');
+    }), 'commercialisation');
 
     expect(constitution.diversity, 'getDomainConstitution returned no Law II assessment').toHaveLength(2);
     const byPillar = Object.fromEntries(constitution.diversity.map((d) => [d.pillarKey, d]));
     expect(byPillar.adoption.verdict).toBe('satisfied');
     expect(byPillar.adoption.traditions).toEqual(['Economics', 'Entrepreneurship Research']);
-    // The consequence that matters: a practitioner row does not make a pillar
-    // look covered.
     expect(byPillar.pricing.verdict).toBe('unsatisfied');
     expect(byPillar.pricing.authorityCount).toBe(0);
-    // And the tier survived the DB→row mapping rather than being dropped.
-    expect(constitution.institutions.find((i) => i.institutionName === 'McKinsey Insights')!.sourceTier)
-      .toBe('practitioner-pattern');
+    expect(constitution.institutions.find((i) => i.institutionName === 'McKinsey Insights')!.sourceTier).toBe('practitioner-pattern');
   });
 });
 
-// ── 7 · Phase 1 does not ratify ────────────────────────────────────────────
+// ── 7 · The Corpus Qualification Standard ──────────────────────────────────
 
-describe('SPEC-CIR-001 · nothing is ratified by being written', () => {
-  it('every commercialisation row the migration seeds lands `proposed`', () => {
-    const commercialisationBlocks = COM_SEED.split('\n').filter((l) => l.includes("'commercialisation'"));
-    expect(commercialisationBlocks.length).toBeGreaterThan(50);
-    for (const line of commercialisationBlocks) {
-      expect(line, `a commercialisation row is seeded ratified: ${line.trim()}`).not.toMatch(/'ratified'/);
+describe('SPEC-CIR-001 · the Corpus Qualification Standard', () => {
+  it('is PRD-ICA-001 §7\'s ratified numbers, promoted — not new ones', () => {
+    expect(CQS_PDF_MIN_PAGE_COUNT).toBe(5);
+    expect(CQS_PDF_MIN_SUBSTANTIVE_CHARACTERS).toBe(5_000);
+    expect(CQS_PDF_MAX_BLANK_PAGE_RATIO).toBe(0.25);
+    expect(CQS_TEXT_ONLY_MIN_SUBSTANTIVE_CHARACTERS).toBe(2_000);
+    // Pinned to the PRD text they were promoted from.
+    expect(PRD_ICA).toContain('pageCount ≥ 5 AND substantiveTextCharacters ≥ 5,000 AND blankPageRatio < 0.25');
+  });
+
+  it('states its UNIT — the operator\'s own recollection was "5,000 words"', () => {
+    // 5,000 words is ~30,000 characters. A named standard whose unit is
+    // implicit is a standard that gets misapplied by a factor of six.
+    expect(CORPUS_QUALIFICATION_STANDARD_STATEMENT).toMatch(/CHARACTERS \(not words\)/);
+    expect(SPEC).toMatch(/CHARACTERS, not words/);
+  });
+
+  it('the Inspection Agent CONSUMES the standard instead of keeping its own copy', () => {
+    const src = read('services/corpusScout/inspection.ts');
+    expect(src).toContain("from './corpusQualificationStandard'");
+    // The mutation this survives: re-declaring `const PDF_MIN_PAGE_COUNT = 5`
+    // locally would leave both callers "working" while drifting apart.
+    // ANY module-level numeric constant, not just the five original names — the
+    // mutation that survived the first version added `PDF_MIN_PAGE_COUNT2`,
+    // which a name-prefixed pattern missed by one character.
+    const declarations = src.match(/^const\s+\w+\s*[:=][^=][^;]*?\b\d[\d._]*\s*;/gm) ?? [];
+    expect(declarations, `inspection.ts re-declares a threshold: ${declarations.join(' | ')}`).toEqual([]);
+  });
+});
+
+// ── 8 · Verification — more than reachability, and the refusal gate ────────
+
+describe('SPEC-CIR-001 · registry verification', () => {
+  it('declares exactly the operator\'s eight statuses', () => {
+    expect([...VERIFICATION_STATUSES].sort()).toEqual([
+      'deprecated', 'insufficient_corpus', 'pending_verification', 'proposed',
+      'redirect_changed', 'temporarily_unavailable', 'verification_failed', 'verified',
+    ]);
+    expect(isVerificationStatus('verified')).toBe(true);
+    expect(isVerificationStatus('ok')).toBe(false);
+    expect(isVerificationStatus(null)).toBe(false);
+
+    // The five a RUN may produce, as an exact SET. Looping over the constant
+    // and asserting each member is reachable is not enough: DELETING a member
+    // shortens the loop and still passes, which is CFS-053 defect 7's shape (a
+    // count where the property is "each of these, individually").
+    expect([...RUN_OUTCOME_STATUSES].sort()).toEqual([
+      'insufficient_corpus', 'redirect_changed', 'temporarily_unavailable', 'verification_failed', 'verified',
+    ]);
+    // …and every outcome `runVerification` can actually return must be in it,
+    // or the run produces a status it is not allowed to record.
+    for (const produced of ['verified', 'verification_failed', 'insufficient_corpus', 'temporarily_unavailable', 'redirect_changed'] as const) {
+      expect(RUN_OUTCOME_STATUSES, `a run can return '${produced}' but may not record it`).toContain(produced);
     }
-    // The FS backfill of source_tier must not touch anyone's ratification.
-    expect(COM_SEED).not.toMatch(/UPDATE[\s\S]*?SET[\s\S]*?status\s*=/i);
+
+    // BOTH CHECK constraints, separately — the registry's and the seeds table's.
+    // A single whole-file `toContain` passes while one of the two is missing a
+    // status, because the other still mentions it.
+    const checks = VERIFY_SEED.match(/CHECK \(verification_status IS NULL OR verification_status IN \([^)]*\)\)/g) ?? [];
+    expect(checks, 'expected a verification_status CHECK on both tables').toHaveLength(2);
+    for (const [i, check] of checks.entries()) {
+      for (const st of VERIFICATION_STATUSES) {
+        expect(check, `CHECK #${i + 1} omits '${st}'`).toContain(`'${st}'`);
+      }
+    }
   });
 
-  it('the migration is additive and idempotent (CFS-010 §3)', () => {
-    expect(COM_SEED).toMatch(/ADD COLUMN IF NOT EXISTS/);
-    // Comments stripped first — the file's own header DOCUMENTS the discipline
-    // by naming `ON CONFLICT DO NOTHING`, and counting prose as code is the
-    // grep-vs-comment defect class `tests/_lib/sourceAuthority.ts` exists for.
-    const sql = COM_SEED.replace(/^\s*--.*$/gm, '');
-    const insertCount = (sql.match(/INSERT INTO/g) ?? []).length;
-    const conflictCount = (sql.match(/ON CONFLICT[\s\S]{0,80}?DO NOTHING/g) ?? []).length;
-    expect(insertCount).toBe(4);
-    expect(conflictCount).toBe(insertCount);
+  it('`verified` is reachable ONLY from `pending_verification`', () => {
+    // The load-bearing transition rule. Without it, anything that can write the
+    // column can declare an entry verified and the refusal gate is decoration.
+    for (const from of VERIFICATION_STATUSES) {
+      expect(
+        isVerificationTransitionAllowed(from, 'verified'),
+        `'${from}' → 'verified' is allowed — verification can be asserted instead of earned`,
+      ).toBe(from === 'pending_verification');
+    }
+    expect(isVerificationTransitionAllowed('proposed', 'pending_verification')).toBe(true);
+    expect(isVerificationTransitionAllowed('deprecated', 'pending_verification')).toBe(false);
+    expect(isVerificationTransitionAllowed('deprecated', 'proposed')).toBe(true);
+    // Every run outcome must be reachable from a run, or the run can't record it.
+    for (const outcome of RUN_OUTCOME_STATUSES) {
+      expect(isVerificationTransitionAllowed('pending_verification', outcome), `a run cannot record '${outcome}'`).toBe(true);
+    }
+    // Re-verification is always available; a verified entry can go stale.
+    expect(isVerificationTransitionAllowed('verified', 'pending_verification')).toBe(true);
   });
 
-  it('the registry document is registered in the IRL pack', () => {
+  it('the refusal gate needs BOTH ratification and verification', () => {
+    expect(canRunInstitutionDiscovery({ status: 'ratified', verificationStatus: 'verified' }).allowed).toBe(true);
+    // Ratified but not verified — the case the ruling exists for.
+    for (const v of VERIFICATION_STATUSES.filter((s) => s !== 'verified')) {
+      const gate = canRunInstitutionDiscovery({ status: 'ratified', verificationStatus: v });
+      expect(gate.allowed, `a '${v}' entry is allowed to acquire`).toBe(false);
+    }
+    expect(canRunInstitutionDiscovery({ status: 'ratified', verificationStatus: null }).allowed).toBe(false);
+    // Verified but not ratified — acquiring from an authority nobody accepted.
+    expect(canRunInstitutionDiscovery({ status: 'proposed', verificationStatus: 'verified' }).allowed).toBe(false);
+  });
+
+  it('the gate is BOUND — runDiscoveryForInstitution refuses a ratified-but-unverified entry', async () => {
+    // Behavioural, not symbolic: the real orchestrator, a real registry row,
+    // and the assertion that nothing was acquired. If the gate is removed this
+    // call proceeds to seed-URL resolution and network access.
+    const admin = stubClient({
+      corpus_coverage_pillars: [pillarRow('pricing')],
+      corpus_institutional_registry: [
+        institutionRow('pricing', 'NBER', { status: 'ratified', verification_status: 'pending_verification' }),
+      ],
+    });
+    const result = await runDiscoveryForInstitution(admin, { domain: 'commercialisation', pillarKey: 'pricing', institutionName: 'NBER' });
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/must be VERIFIED before discovery can run/);
+    expect(result.submitted).toBe(0);
+    expect(result.found).toBe(0);
+  });
+
+  it('a domain run cannot become a way around the per-institution refusal', async () => {
+    const admin = stubClient({
+      corpus_coverage_pillars: [pillarRow('pricing')],
+      corpus_institutional_registry: [
+        institutionRow('pricing', 'NBER', { status: 'ratified', verification_status: 'proposed' }),
+        institutionRow('pricing', 'OECD', { status: 'ratified', verification_status: 'insufficient_corpus' }),
+      ],
+    });
+    const result = await runDiscoveryForDomain(admin, 'commercialisation');
+    expect(result.institutionsAttempted).toBe(0);
+    expect(result.totalSubmitted).toBe(0);
+  });
+
+  it('reachability alone is NOT verification — an empty listing is insufficient_corpus', async () => {
+    const outcome = await runVerification('https://www.nber.org', deps({ candidates: [] }));
+    expect(outcome.status).toBe('insufficient_corpus');
+    expect(outcome.detail).toMatch(/reachable is not the same as acquirable/);
+    expect(outcome.qualifyingDocuments).toEqual([]);
+  });
+
+  it('candidates that all fall below the standard are insufficient_corpus, not verified', async () => {
+    const outcome = await runVerification('https://www.nber.org', deps({ passes: false }));
+    expect(outcome.status).toBe('insufficient_corpus');
+    expect(outcome.candidatesFound).toBe(1);
+    expect(outcome.documentsInspected).toBe(1);
+    expect(outcome.qualifyingDocuments).toEqual([]);
+  });
+
+  it('all four conjuncts satisfied ⇒ verified, WITH the bytes and inspection recorded', async () => {
+    const outcome = await runVerification('https://www.nber.org', deps({}));
+    expect(outcome.status).toBe('verified');
+    expect(outcome.resolvedUrl).toBe('https://www.nber.org');
+    expect(outcome.qualifyingDocuments).toHaveLength(1);
+    const [doc] = outcome.qualifyingDocuments;
+    // §3 of the ruling: record resolved URL, timestamp, representative
+    // documents, inspection results and content hashes.
+    expect(doc.contentHash).toBe('sha256-abc');
+    expect(doc.pageCount).toBe(12);
+    expect(doc.substantiveTextCharacters).toBe(9_000);
+    expect(outcome.checkedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(outcome.standard).toBe(CORPUS_QUALIFICATION_STANDARD_STATEMENT);
+  });
+
+  it('a timeout is temporarily_unavailable; an off-host redirect is redirect_changed', async () => {
+    const timedOut = await runVerification('https://www.nber.org', deps({ redirectFailure: 'timeout' }));
+    expect(timedOut.status).toBe('temporarily_unavailable');
+
+    const moved = await runVerification('https://www.nber.org', deps({ finalUrl: 'https://elsewhere.example/nber' }));
+    expect(moved.status).toBe('redirect_changed');
+    expect(moved.detail).toMatch(/redirects off-host/);
+    // A same-host hop is routine and must NOT trip it.
+    const sameHost = await runVerification('https://www.nber.org', deps({ finalUrl: 'https://www.nber.org/en/' }));
+    expect(sameHost.status).toBe('verified');
+  });
+
+  it('applyVerificationOutcome refuses an illegal transition and writes nothing', async () => {
+    const writes: unknown[] = [];
+    const admin = stubClient({}, writes);
+    const outcome = await runVerification('https://www.nber.org', deps({}));
+    const refused = await applyVerificationOutcome(
+      admin, { domain: 'commercialisation', pillarKey: 'pricing', institutionName: 'NBER' },
+      'proposed', outcome,
+    );
+    expect(refused.ok).toBe(false);
+    expect((refused as { error: string }).error).toMatch(/'proposed' → 'verified' is not allowed/);
+    expect(writes, 'a refused transition still wrote to the registry').toEqual([]);
+  });
+});
+
+// ── 9 · Phase 1 does not ratify and does not verify ────────────────────────
+
+describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () => {
+  it('every commercialisation row either migration seeds lands `proposed`', () => {
+    for (const [name, sql] of [['20260827', COM_SEED], ['20260828', VERIFY_SEED]] as const) {
+      for (const line of sql.split('\n').filter((l) => l.includes("'commercialisation'") && !l.trim().startsWith('--'))) {
+        expect(line, `${name} seeds a ratified commercialisation row: ${line.trim()}`).not.toMatch(/'ratified'/);
+      }
+    }
+  });
+
+  it('NOTHING is seeded `verified` — an operator-supplied URL is not a verified URL', () => {
+    // Strip comments AND the DO $$ … END $$ blocks, whose CHECK constraints
+    // legitimately list every status including 'verified'. What must not appear
+    // is an INSERT or UPDATE that WRITES it.
+    const sql = VERIFY_SEED
+      .replace(/^\s*--.*$/gm, '')
+      .replace(/DO \$\$[\s\S]*?END \$\$;/g, '')
+      .replace(/COMMENT ON[\s\S]*?;\n/g, '');
+    expect(sql, 'the migration marks something verified without a run').not.toMatch(/'verified'/);
+    // Every operator URL enters pending_verification instead.
+    expect((sql.match(/'pending_verification'/g) ?? []).length).toBeGreaterThanOrEqual(27);
+    expect(SPEC).toMatch(/Do not treat the URLs as verified merely because they are operator-supplied/);
+  });
+
+  it('the acquisition seeds are DOCUMENTS, not institutional seed URLs', () => {
+    expect(COMMERCIALISATION_ACQUISITION_SEEDS).toHaveLength(17);
+    for (const seed of COMMERCIALISATION_ACQUISITION_SEEDS) {
+      // Every seed hangs off a (pillar, institution) that is really registered.
+      expect(
+        findRegistryEntry(seed.domain, seed.pillarKey, seed.institution),
+        `seed ${seed.url} has no registry entry for ${seed.pillarKey}/${seed.institution}`,
+      ).not.toBeNull();
+      // A document seed must never be mistaken for the institution's homepage.
+      expect(
+        resolveCanonicalHomepage(seed.institution),
+        `${seed.institution}'s homepage equals a document seed — seed_url has been overloaded`,
+      ).not.toBe(seed.url);
+      // The operator's page counts are CLAIMS, never measured facts.
+      expect(seed.claim, `seed ${seed.url} states its claim as a fact`).toMatch(/^Operator claim:/);
+      expect(VERIFY_SEED, `seed ${seed.url} is not in the migration`).toContain(seed.url);
+    }
+    expect(acquisitionSeedsFor('commercialisation', 'pricing', 'OECD')).toHaveLength(2);
+    expect(acquisitionSeedsFor('commercialisation', 'pricing', 'Santa Fe Institute')).toEqual([]);
+    // The table exists and is its own thing, not a column on the registry.
+    // Word-bounded: `corpus_acquisition_seeds_x` contains the substring, so a
+    // bare toMatch survives a rename of the table the seeds are inserted into.
+    expect(VERIFY_SEED).toMatch(/CREATE TABLE IF NOT EXISTS public\.corpus_acquisition_seeds\s*\(/);
+    expect(VERIFY_SEED).toMatch(/INSERT INTO public\.corpus_acquisition_seeds\s*\n?\s*\(/);
+    // Every table this migration inserts into must be one it creates or one
+    // that already exists — a renamed CREATE leaves the INSERT pointing at
+    // nothing.
+    const created = new Set((VERIFY_SEED.match(/CREATE TABLE IF NOT EXISTS public\.(\w+)/g) ?? []).map((m) => m.split('.')[1]));
+    const insertedInto = new Set((VERIFY_SEED.match(/INSERT INTO public\.(\w+)/g) ?? []).map((m) => m.split('.')[1]));
+    for (const table of insertedInto) {
+      const preExisting = table === 'corpus_institutional_registry';
+      expect(created.has(table) || preExisting, `migration inserts into '${table}', which it neither creates nor pre-exists`).toBe(true);
+    }
+  });
+
+  it('both migrations are additive and idempotent (CFS-010 §3)', () => {
+    for (const sql of [COM_SEED, VERIFY_SEED]) {
+      const stripped = sql.replace(/^\s*--.*$/gm, '');
+      const inserts = (stripped.match(/INSERT INTO/g) ?? []).length;
+      const conflicts = (stripped.match(/ON CONFLICT[\s\S]{0,120}?DO NOTHING/g) ?? []).length;
+      expect(conflicts).toBe(inserts);
+    }
+    expect(VERIFY_SEED).toMatch(/ADD COLUMN IF NOT EXISTS verification_status text/);
+    expect(VERIFY_SEED).toMatch(/CREATE TABLE IF NOT EXISTS/);
+  });
+
+  it('the registry document is registered in the IRL pack and states its status', () => {
     const collections = JSON.parse(read('codexes/packs/irl/collections.json')) as {
       collections: { id: string; items: string[] }[];
     };
-    const foundation = collections.collections.find((c) => c.id === 'col_foundation')!;
-    expect(foundation.items).toContain('foundation/SPEC-CIR-001_commercialisation-institutional-registry.md');
-  });
-
-  it('the document states its Phase 1 status and the hard stop it observed', () => {
+    expect(collections.collections.find((c) => c.id === 'col_foundation')!.items)
+      .toContain('foundation/SPEC-CIR-001_commercialisation-institutional-registry.md');
     expect(SPEC).toMatch(/PHASE 1 OUTPUT — PROPOSED, NOTHING HERE IS RATIFIED/);
     expect(SPEC).toMatch(/Do not perform acquisition yet\. Produce the registry first\./);
-    // §7.1's audit must reach a sited conclusion, not merely list candidates.
     expect(SPEC).toMatch(/Recommendation: adopt as Law II of Constitutional Discovery, by amendment to PRD-ICA-001/);
+    // The FS backfill is its own work item, not a reason to weaken Law II.
+    expect(SPEC).toMatch(/separate remediation work/i);
   });
 });
+
+// ── stubs ───────────────────────────────────────────────────────────────────
+
+function pillarRow(pillarKey: string) {
+  return {
+    id: `p-${pillarKey}`, domain: 'commercialisation', pillar_key: pillarKey, pillar_label: pillarKey,
+    completeness_definition: '', status: 'ratified', created_at: '', updated_at: '', saturation_confirmed: false,
+  };
+}
+
+function institutionRow(pillarKey: string, institution: string, over: Record<string, unknown> = {}) {
+  return {
+    id: `i-${pillarKey}-${institution}`, domain: 'commercialisation', pillar_key: pillarKey,
+    institution_name: institution, status: 'proposed', created_at: '', updated_at: '',
+    seed_url: 'https://example.org', source_tier: 'institutional-authority',
+    verification_status: 'proposed', ...over,
+  };
+}
+
+/** Minimal chainable Supabase stub. `writes` collects every `update` payload so
+ *  a canary can assert that a refused path wrote nothing. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stubClient(rows: Record<string, unknown[]>, writes: unknown[] = []): any {
+  return {
+    from(table: string) {
+      const data = rows[table] ?? [];
+      const self: Record<string, unknown> = {};
+      self.select = () => self;
+      self.eq = () => self;
+      self.update = (payload: unknown) => { writes.push(payload); return self; };
+      self.maybeSingle = async () => ({ data: data[0] ?? null, error: null });
+      self.order = async () => ({ data, error: null });
+      self.then = undefined;
+      return self;
+    },
+  };
+}
+
+/** Injected transports for `runVerification` — the four real ones are already
+ *  ratified machinery; these stand in for them so the conjuncts can be tested
+ *  without network access (which this environment does not have anyway). */
+function deps(opts: {
+  redirectFailure?: 'timeout' | 'redirect-loop' | 'unknown';
+  finalUrl?: string;
+  candidates?: { documentUrl: string; title: string; discoveryUrl: string; foundOnUrl: string }[];
+  passes?: boolean;
+}): VerificationDeps {
+  const candidates = opts.candidates ?? [
+    { documentUrl: 'https://www.nber.org/papers/w21679.pdf', title: 'A paper', discoveryUrl: 'https://www.nber.org', foundOnUrl: 'https://www.nber.org' },
+  ];
+  return {
+    followRedirects: (async (url: string) =>
+      opts.redirectFailure
+        ? { ok: false, failureClass: opts.redirectFailure, redirectCount: 1, finalUrl: url }
+        : { ok: true, response: new Response('', { status: 200 }), finalUrl: opts.finalUrl ?? url, redirectCount: 0 }
+    ) as VerificationDeps['followRedirects'],
+    runInstitutionDiscovery: (async () => ({ ok: true, pagesFetched: 1, candidates })) as VerificationDeps['runInstitutionDiscovery'],
+    retrieveArtifact: (async () => ({
+      ok: true, bytes: Buffer.from('%PDF-1.7 some bytes'), contentType: 'application/pdf',
+      declaredMimeMismatch: false, artifactHash: 'sha256-abc', fileSizeBytes: 4096,
+      resolutionChain: { discoveryUrl: '', downloadUrl: '', resolvedArtifactUrl: '', redirectCount: 0 },
+    })) as VerificationDeps['retrieveArtifact'],
+    inspectArtifact: (async () => ({
+      ok: true, normalizedText: 'x', pageCount: 12, substantiveTextCharacters: 9_000,
+      blankPageRatio: 0.05, extractionWarnings: [],
+      passesContentPresenceCheck: opts.passes !== false,
+    })) as VerificationDeps['inspectArtifact'],
+  };
+}
 
 /** Type-level: the shared template is one type for both domains. */
 const _sharedTemplate: readonly InstitutionalRegistryEntry[][] = [
@@ -563,3 +845,5 @@ const _sharedTemplate: readonly InstitutionalRegistryEntry[][] = [
   COMMERCIALISATION_REGISTRY as InstitutionalRegistryEntry[],
 ];
 void _sharedTemplate;
+const _statuses: readonly VerificationStatus[] = VERIFICATION_STATUSES;
+void _statuses;

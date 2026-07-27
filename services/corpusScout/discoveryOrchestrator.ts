@@ -20,6 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDomainConstitution, ensureInstitutionSeedUrl } from './domainConstitution';
 import { runInstitutionDiscovery } from './institutionNavigator';
 import { createCandidateSource } from './provenance';
+import { canRunInstitutionDiscovery } from './registryVerification';
 
 export interface InstitutionDiscoveryRunResult {
   ok: boolean;
@@ -45,7 +46,15 @@ export async function runDiscoveryForInstitution(
   const constitution = await getDomainConstitution(admin, domain);
   const institution = constitution.institutions.find((i) => i.pillarKey === pillarKey && i.institutionName === institutionName);
   if (!institution) return { ok: false, error: `no institution '${institutionName}' found for pillar '${pillarKey}' in '${domain}'`, ...base };
-  if (institution.status !== 'ratified') return { ok: false, error: `institution '${institutionName}' must be ratified before discovery can run`, ...base };
+
+  // THE REFUSAL GATE (SPEC-CIR-001 §9.5, operator ruling 2026-07-27). Steward
+  // ratification AND completed verification, both, before a single byte is
+  // acquired from this institution. Previously only ratification was checked,
+  // so the pipeline would happily acquire from a URL nobody had ever resolved.
+  // One authority answers the question (`canRunInstitutionDiscovery`); this
+  // route does not re-implement the condition.
+  const gate = canRunInstitutionDiscovery(institution);
+  if (!gate.allowed) return { ok: false, error: `institution '${institutionName}': ${gate.reason}`, ...base };
 
   const seedResolution = await ensureInstitutionSeedUrl(admin, domain, pillarKey, institutionName);
   if (!seedResolution.ok) return { ok: false, error: seedResolution.error, ...base };
@@ -93,7 +102,9 @@ export interface DomainDiscoveryRunResult {
  */
 export async function runDiscoveryForDomain(admin: SupabaseClient, domain: string): Promise<DomainDiscoveryRunResult> {
   const constitution = await getDomainConstitution(admin, domain);
-  const ratifiedInstitutions = constitution.institutions.filter((i) => i.status === 'ratified');
+  // Same gate, same authority — a domain run must not become a way around the
+  // per-institution refusal.
+  const ratifiedInstitutions = constitution.institutions.filter((i) => canRunInstitutionDiscovery(i).allowed);
 
   const perInstitution: InstitutionDiscoveryRunResult[] = [];
   for (const institution of ratifiedInstitutions) {

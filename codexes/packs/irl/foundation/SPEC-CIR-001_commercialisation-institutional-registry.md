@@ -1,14 +1,16 @@
 # SPEC-CIR-001 — Commercialisation Institutional Registry
 
 **metaMe IRL · Curated corpus registry · Status: PHASE 1 OUTPUT — PROPOSED, NOTHING HERE IS RATIFIED**
-**Owner:** Invariant Research Lab (IRL) · **Origin:** operator direction, 2026-07-27
-**Governs:** the curated, authoritative source registry that Commercialisation corpus acquisition (PRD-IDE-002 §7) begins from, and the **generalised registry template** every future horizontal domain uses.
+**Owner:** Invariant Research Lab (IRL) · **Origin:** operator direction, 2026-07-27, extended by the operator ruling of the same day
+**Governs:** the curated, authoritative source registry that Commercialisation corpus acquisition (PRD-IDE-002 §7) begins from, the **generalised registry template** every future horizontal domain uses, and the **registry-level verification protocol** that must pass before any of it is ratified.
 **Composes (does not fork):** `PRD-ICA-001` + its ratified Constitutional Discovery amendment (2026-07-23) · `PRD-IDE-002` §4/§7/§11.2 · `CFS-053` (Constitutional Binding) · CLAUDE.md's *No Guessing or Hallucinating* rule.
 
 > **The hard stop this document observes.** *"Do not perform acquisition yet. Produce the registry first."*
-> Nothing was fetched. Outbound HTTPS is blocked from the build sandbox (verified: `403 CONNECT tunnel failed` for both `fatf-gafi.org` and `arxiv.org`), so any "acquired" content would be fabricated. Acquisition runs on the deployed app, in Phase 3.
+> Nothing was fetched. Outbound HTTPS is blocked from the build sandbox (verified: `403 CONNECT tunnel failed` for both `fatf-gafi.org` and `arxiv.org`), so any "acquired" content would be fabricated. Acquisition — and verification — run on the deployed app.
 
-> **Nothing here is ratified by being written.** Every row this document produces lands in the database as `proposed`. Ratification is a steward act (§8, Phase 2) and is deliberately not performed here.
+> **Nothing here is ratified, and nothing here is verified.** Every row lands `status = proposed`. Every URL lands `verification_status = pending_verification`. The operator's ruling is explicit: *"Do not treat the URLs as verified merely because they are operator-supplied or resolve in an ordinary browser."*
+
+> **The ratification bar (operator ruling).** *"Do not ratify the Commercialisation domain until all fourteen pillars are served AND the diversity verdict is satisfied or explicitly ruled upon by the operator."* All fourteen are now served (§5). Twelve of the fourteen pillars satisfy Law II; **two do not** and await an operator ruling (§5.2).
 
 ---
 
@@ -21,29 +23,35 @@
 The canonical pipeline, now domain-independent:
 
 ```
-Curated Institutional Registry → Corpus Acquisition → Corpus Validation
-  → IDE Discovery → Invariant Library → Crystal Eligibility
+Curated Institutional Registry → Registry Verification → Corpus Acquisition
+  → Corpus Validation → IDE Discovery → Invariant Library → Crystal Eligibility
 ```
 
 ## 2. Audit — how Financial Services actually did it, and what is reused
 
-Per CCR-001 §25's standing instruction, recorded before any of this is treated as new. **The FS pattern is already fully mechanised; this document reuses all of it and builds exactly one new thing.**
+Per CCR-001 §25's standing instruction, recorded before any of this is treated as new. **Almost everything already existed; what was missing was binding, not capability.**
 
 | What this registry needs | Already exists as | Disposition |
 |---|---|---|
 | A "what is this domain" statement | `corpus_domain_definitions` + `upsertDomainDefinition` / `ratifyDomainDefinition` (§2.1) | **EXISTS.** Reused verbatim |
-| A coverage model of required pillars | `corpus_coverage_pillars` + `upsertCoveragePillar`; saturation confirmed explicitly by a steward (`confirmPillarSaturation`), never inferred from a count (§6.1) | **EXISTS.** Reused verbatim |
-| A place for adjacent disciplines | `corpus_dependency_registry` — external domains that CONSTRAIN the domain, each carrying its relationship edge (§2.3, Law I) | **EXISTS.** This is where the operator's third tier lands — §6 |
-| The registry itself | `corpus_institutional_registry`, keyed `(domain, pillar_key, institution_name)`, `status ∈ proposed \| ratified`, `seed_url` from the steward or resolved from the curated homepage directory | **EXISTS.** Reused verbatim |
-| A curated institution→homepage directory that never falls back to search | `services/corpusScout/canonicalInstitutionHomepages.ts` — already states the accepted posture ("curated by the operator/agent at build time, not verified against a live registry") and fails honestly (`null`) rather than searching | **EXISTS.** Extended with the operator's fifteen URLs |
+| A coverage model of required pillars | `corpus_coverage_pillars`; saturation confirmed explicitly by a steward (`confirmPillarSaturation`), never inferred | **EXISTS.** Reused verbatim |
+| A place for adjacent disciplines | `corpus_dependency_registry` — external domains that CONSTRAIN the domain, each carrying its relationship edge (§2.3, Law I) | **EXISTS.** This is where the operator's third tier lands — §6.1 |
+| The registry itself | `corpus_institutional_registry`, keyed `(domain, pillar_key, institution_name)` | **EXISTS.** Reused verbatim |
+| A curated institution→homepage directory that never falls back to search | `canonicalInstitutionHomepages.ts` — already fails honestly (`null`) rather than searching | **EXISTS.** Extended with the operator's URLs |
+| Redirect resolution | `followRedirects()` in `retrieval.ts` | **EXISTS.** Invoked by verification, not reimplemented |
+| Institution-targeted navigation | `runInstitutionDiscovery(seedUrl)` in `institutionNavigator.ts` (Agent B + bounded Agent C) | **EXISTS.** Invoked by verification |
+| Byte retrieval + hashing | `retrieveArtifact()` | **EXISTS.** Invoked by verification |
+| Content-presence inspection | `inspectArtifact()` — *"never infers validity from a URL or declared MIME type alone"* | **EXISTS.** Invoked by verification |
+| Inspection thresholds | PRD-ICA-001 §7's ratified `pageCount ≥ 5 AND substantiveTextCharacters ≥ 5,000 AND blankPageRatio < 0.25`, living as private constants in `inspection.ts` | **EXISTS.** **PROMOTED** into the named Corpus Qualification Standard (§9.1) — not re-invented |
 | Ratification | `ratifyInstitutionEntry` | **EXISTS.** Phase 2, not this document |
-| Institution-targeted navigation from a seed URL | Agent B/C — `institutionNavigator.ts`, `POST /api/corpus-scout/institution-discovery[/domain]` | **EXISTS.** Phase 3, not this document |
-| The seven-column template, shared across domains | **Nothing.** The FS registry records three facts per authority: domain, pillar, institution name | **NEW — §3** |
-| A rule forbidding single-institution reliance, and a check for it | **Nothing** | **NEW — §7** |
+| The seven-column template, shared across domains | **Nothing.** The FS registry records three facts per authority | **NEW — §3** |
+| A document-level acquisition plan | **Nothing** — PRD-ICA-001 §5 specifies one; only its institution half was ever persisted | **NEW — §7** |
+| Verification STATE on a registry entry, and a gate that refuses without it | **Nothing** | **NEW — §9.** The gap was the binding, not the capability |
+| A rule forbidding single-institution reliance, and a check for it | **Nothing** | **NEW — §8** |
 
-**The hard prerequisite handled.** `upsertInstitutionEntry` refuses when the pillar does not exist — *"propose the pillar first"*. The sequence is therefore Domain Definition → Coverage Pillars → Institutions, and the migration in §8 follows it in that order. PRD-IDE-002 §7.2 already proposes the fourteen commercialisation sub-domains as coverage pillars; §4 below maps every institution onto one of those fourteen and invents no new pillar.
+**The hard prerequisite handled.** `upsertInstitutionEntry` refuses when the pillar does not exist — *"propose the pillar first"*. The sequence is Domain Definition → Coverage Pillars → Institutions, and the migrations follow it in that order.
 
-**Where the registry actually lives.** In the database, not in code. Phase 1's deliverable is therefore necessarily two-part: the code-side curated directory + template (`services/corpusScout/canonicalInstitutionHomepages.ts`, `services/corpusScout/institutionalRegistry.ts`), and a runnable path that populates the DB rows (§8).
+**Where the registry actually lives.** In the database, not in code. Phase 1's deliverable is two-part: the code-side curated directory + template, and runnable SQL that populates the DB rows (§11).
 
 ## 3. The generalised registry template
 
@@ -53,98 +61,153 @@ Declared once, in `services/corpusScout/institutionalRegistry.ts`, as `Instituti
 
 | Operator column | Field | Note |
 |---|---|---|
-| Institution | `institution` | The natural key half of the DB row |
-| Category | `category` | The institutional **tradition** — and the axis Law II's diversity check counts (§7) |
-| Authority | `authority` | *Why* this source is authoritative |
-| URL | **derived** — `registryEntryUrl()` | Read from `canonicalInstitutionHomepages.ts`. Restating a URL in the template would duplicate a fact that directory already owns |
+| Institution | `institution` | |
+| Category | `category` | The institutional **tradition** — and the axis Law II's diversity check counts (§8) |
+| Authority | `authority` | *Why* this source is authoritative **for this pillar** |
+| URL | **derived** — `registryEntryUrl()` | Read from `canonicalInstitutionHomepages.ts` |
 | Evidence Type | `evidenceType` | `research-papers \| standards \| policy \| practitioner-guidance \| datasets` |
-| Priority | **derived** — `acquisitionPriority()` | The strongest PRD-IDE-002 §11.2 evidential-gap rank among the pillars the entry serves. A hand-typed number goes stale the moment either the gaps or the pillar mapping changes |
+| Priority | **derived** — `acquisitionPriority()` | The PRD-IDE-002 §11.2 evidential-gap rank of the pillar the entry serves |
 | Notes | `notes` | |
 
 Plus two **structural** fields the operator's prose requires but a seven-column table cannot carry:
 
-- **`tier`** — `institutional-authority` | `practitioner-pattern`. §5's reasoning.
-- **`pillarKeys`** — the coverage pillars the entry is registered against. Empty means un-acquirable: `upsertInstitutionEntry` refuses an entry whose pillar does not exist.
+- **`tier`** — `institutional-authority` | `practitioner-pattern` (§6).
+- **`pillarKey`** — the single coverage pillar this entry is registered against. `null` means un-acquirable: `upsertInstitutionEntry` refuses an entry whose pillar does not exist.
 
-### 3.1 Is the template genuinely shared with Financial Services?
+### 3.1 One entry per (institution, pillar) — the ruling requires it
+
+> "The existing institutions may serve **more than one pillar** where their published corpus genuinely supports it. **Reuse is preferable to inventing a new institution** merely to make the matrix look complete. The provenance must attach to the specific pillar and acquired document."
+
+So the template entry is keyed by (institution, pillar), exactly like the DB row it seeds — **not** by institution with a list of pillars. That is what lets OECD carry three different traditions across three pillars (`Economics` on adoption/scaling, `International Policy Research` on trust-formation, `Competition Policy` on pricing) and NBER two (`Entrepreneurship Research`, `Academic Economics`). Collapsing those into one per-institution category would erase precisely the diversity Law II counts — a canary pins all five distinctions.
+
+### 3.2 Is the template genuinely shared with Financial Services?
 
 **Structurally yes; by data, partly — and the gap is recorded rather than papered over.**
 
-`FINANCIAL_SERVICES_REGISTRY` declares all nineteen ratified FS authorities in the *same* `InstitutionalRegistryEntry` type, consumed by the *same* `registryEntryUrl` / `acquisitionPriority` / `assessRegistryDiversity` functions, pinned set-for-set against the `20260817000000` seed SQL by canary. There is one template and one code path, not two.
+`FINANCIAL_SERVICES_REGISTRY` declares all nineteen ratified FS authorities in the *same* type, consumed by the *same* functions, pinned set-for-set against the `20260817000000` seed SQL by canary. One template, one code path.
 
-**But `category`, `authority`, `evidenceType` and `notes` are `null` for every FS entry.** The FS registry was captured before the template existed and recorded only pillar + institution name. Populating those four fields would mean asserting facts about what BIS, FATF, ESMA et al. publish — facts this environment cannot verify and CLAUDE.md's zero-tolerance rule forbids inventing. A steward completes them; until then the honest value is `null`.
+**But `category`, `authority`, `evidenceType` and `notes` are `null` for every FS entry.** The FS registry was captured before the template existed. Populating those fields would mean asserting facts about what BIS, FATF, ESMA et al. publish — facts this environment cannot verify and CLAUDE.md's zero-tolerance rule forbids inventing. The visible consequence is intentional: `assessRegistryDiversity` reports every FS pillar as `undeterminable`, never `satisfied`. Backfilling is tracked as **separate remediation work** in §10, per the operator's ruling.
 
-The visible consequence is intentional and is the point of §7: `assessRegistryDiversity` reports **every Financial Services pillar as `undeterminable`**, not `satisfied`. Law II cannot be verified for a registry that records no institutional traditions, and reporting that as compliance would be as dishonest as reporting it as violation.
+## 4. Tier 1 — the institutional registry
 
-## 4. Tier 1 — the operator-supplied institutional registry
+**Provenance: every institution, category, purpose and URL below was supplied verbatim by the operator.** None was searched for, inferred, or constructed. None has been verified from this environment. Verification runs on the deployed app (§9) and is a precondition of both acquisition and ratification.
 
-**Provenance: these fifteen institutions, their categories, their purposes and their URLs were supplied verbatim by the operator on 2026-07-27.** None was searched for, inferred, or constructed. None has been verified from this environment — outbound HTTPS is blocked, so any claim of verification would be false. The first Agent B/C discovery run on the deployed app is what verifies them; a dead entry surfaces as an honest retrieval failure, never as a search fallback.
+### 4.1 Wave 1 — the first-tier direction (pillar mapping AGENT-PROPOSED)
 
-**The pillar column is AGENT-PROPOSED.** The operator supplied Category and Purpose, not coverage pillars. Every mapping below is derived from the operator's own words against PRD-IDE-002 §4's pillar definitions, and the basis is stated for each. A steward ratifies or corrects them in Phase 2.
+The operator supplied Category and Purpose, not coverage pillars. Every mapping below is derived from the operator's own words against PRD-IDE-002 §4's pillar definitions; the basis is stated for each. A steward ratifies or corrects them.
 
-| # | Institution | Category | Authority (operator's Purpose) | URL (operator-supplied) | Evidence Type | Pillars (agent-proposed) | Basis for the pillar mapping | Priority |
+| # | Institution | Category | Authority (operator's Purpose) | URL | Evidence Type | Pillar | Basis | Priority |
 |---|---|---|---|---|---|---|---|---|
-| 1 | NBER | Entrepreneurship Research | Entrepreneurship, innovation, venture research | https://www.nber.org | research-papers | `venture-operations`, `adoption` | "venture research" → §4 venture-operations; "innovation" → §4 adoption | 2 |
-| 2 | Kauffman Foundation | Entrepreneurship Research | Entrepreneurship and startup ecosystems | https://www.kauffman.org | research-papers | `venture-operations`, `partnerships` | "startup ecosystems" is a direct word match for §4 *Partnerships & Ecosystem Development* | 2 |
-| 3 | SSRN | Research Repository | Entrepreneurship, strategy, innovation papers | https://www.ssrn.com | research-papers | `venture-operations`, `adoption` | A repository, cross-pillar by nature; registered only against the pillars its Purpose names. "strategy" has no §4 pillar and is deliberately not mapped | 2 |
-| 4 | OECD | Economics | Innovation, productivity, digital economy | https://www.oecd.org | policy | `adoption`, `scaling` | "innovation" → adoption; "productivity" → §4 scaling (*repeated without linear cost*) | 3 |
-| 5 | World Bank | Economics | Private sector development, entrepreneurship | https://www.worldbank.org | policy | `venture-operations`, `commercial-governance` | "entrepreneurship" → venture-operations; a multilateral policy issuer → §4 commercial-governance (*authority, attribution and disclosure rules*) | 2 |
-| 6 | MIT Sloan | Innovation | Innovation management research | https://mitsloan.mit.edu | research-papers | `adoption`, `venture-operations` | "innovation" → adoption; "management" → venture-operations | 2 |
-| 7 | Stanford Graduate School of Business | Innovation | Entrepreneurship and scaling | https://www.gsb.stanford.edu | research-papers | `scaling`, `venture-operations` | Both are verbatim word matches — the least inferential mapping in the tier | 2 |
-| 8 | Harvard Business School | Innovation | Strategy, innovation, commercialisation | https://www.hbs.edu | research-papers | `revenue-architecture`, `adoption` | "commercialisation"/"strategy" → §4 revenue-architecture (*where revenue originates, how offers compose*); "innovation" → adoption | 3 |
-| 9 | Strategic Management Society | Strategy | Strategy research | https://www.strategicmanagement.net | research-papers | `revenue-architecture`, `commercial-governance` | **Weakest mapping in the tier** — §4 has no "strategy" pillar. Most likely to be re-pillared by a steward | 6 |
-| 10 | Santa Fe Institute | Systems | Complex adaptive systems, emergence | https://www.santafe.edu | research-papers | `scaling` | Emergence/repeatability at scale. **Deliberately NOT mapped to `commercial-failure-modes`** — the Purpose does not say failure studies, and the widest evidential gap must not be closed by inference | 6 |
-| 11 | INCOSE | Systems | Systems engineering and organisational systems | https://www.incose.org | standards | `outcome-assurance`, `commercial-governance` | Systems engineering → §4 outcome-assurance (*how delivered outcome is measured and sustained*); a professional standards body → commercial-governance. **The tier's only standards issuer** | 5 |
-| 12 | Silicon Valley Product Group | Product | Product management and product-market fit | https://www.svpg.com | practitioner-guidance | `customer-discovery`, `value-proposition` | "product-market fit" is a verbatim match for §4 *Customer Discovery & Fit* | 2 |
-| 13 | Product School | Product | Product management practice | https://productschool.com | practitioner-guidance | `customer-discovery`, `value-proposition` | Same tradition and evidence type as #12 — adds no Law II diversity to the pillars it shares with it | 2 |
-| 14 | Strategyzer | Customer Development | Business models, value propositions | https://www.strategyzer.com | practitioner-guidance | `value-proposition`, `revenue-architecture` | "value propositions" verbatim; "business models" → revenue-architecture | 5 |
-| 15 | Lean Startup | Customer Development | Customer discovery methodology | https://theleanstartup.com | practitioner-guidance | `customer-discovery` | Verbatim pillar match. Not mapped to value-proposition — the Purpose names a discovery *method*, not an offer structure | 2 |
+| 1 | NBER | Entrepreneurship Research | Entrepreneurship, innovation, venture research | https://www.nber.org | research-papers | `venture-operations` | "venture research" | 2 |
+| 2 | NBER | Entrepreneurship Research | ″ | ″ | research-papers | `adoption` | "innovation" | 3 |
+| 3 | Kauffman Foundation | Entrepreneurship Research | Entrepreneurship and startup ecosystems | https://www.kauffman.org | research-papers | `venture-operations` | "entrepreneurship" | 2 |
+| 4 | Kauffman Foundation | Entrepreneurship Research | ″ | ″ | research-papers | `partnerships` | "startup ecosystems" is a direct word match for §4 *Partnerships & Ecosystem Development* | 3 |
+| 5 | SSRN | Research Repository | Entrepreneurship, strategy, innovation papers | https://www.ssrn.com | research-papers | `venture-operations` | A repository, cross-pillar by nature; only the pillars its Purpose names. "strategy" has no §4 pillar and is deliberately not mapped | 2 |
+| 6 | SSRN | Research Repository | ″ | ″ | research-papers | `adoption` | "innovation" | 3 |
+| 7 | OECD | Economics | Innovation, productivity, digital economy | https://www.oecd.org | policy | `adoption` | "innovation" | 3 |
+| 8 | OECD | Economics | ″ | ″ | policy | `scaling` | "productivity" → §4 scaling (*repeated without linear cost*) | 6 |
+| 9 | World Bank | Economics | Private sector development, entrepreneurship | https://www.worldbank.org | policy | `venture-operations` | "entrepreneurship" | 2 |
+| 10 | World Bank | Economics | ″ | ″ | policy | `commercial-governance` | A multilateral policy issuer → §4 commercial-governance | 6 |
+| 11 | MIT Sloan | Innovation | Innovation management research | https://mitsloan.mit.edu | research-papers | `adoption` | "innovation" | 3 |
+| 12 | MIT Sloan | Innovation | ″ | ″ | research-papers | `venture-operations` | "management" | 2 |
+| 13 | Stanford Graduate School of Business | Innovation | Entrepreneurship and scaling | https://www.gsb.stanford.edu | research-papers | `scaling` | Verbatim word match | 6 |
+| 14 | Stanford Graduate School of Business | Innovation | ″ | ″ | research-papers | `venture-operations` | Verbatim word match | 2 |
+| 15 | Harvard Business School | Innovation | Strategy, innovation, commercialisation | https://www.hbs.edu | research-papers | `revenue-architecture` | "commercialisation"/"strategy" → §4 revenue-architecture | 6 |
+| 16 | Harvard Business School | Innovation | ″ | ″ | research-papers | `adoption` | "innovation" | 3 |
+| 17 | Strategic Management Society | Strategy | Strategy research | https://www.strategicmanagement.net | research-papers | `revenue-architecture` | **Weakest mapping** — §4 has no "strategy" pillar | 6 |
+| 18 | Strategic Management Society | Strategy | ″ | ″ | research-papers | `commercial-governance` | Weak; see above | 6 |
+| 19 | Santa Fe Institute | Systems | Complex adaptive systems, emergence | https://www.santafe.edu | research-papers | `scaling` | Emergence/repeatability at scale. **Deliberately NOT mapped to `commercial-failure-modes`** | 6 |
+| 20 | INCOSE | Systems | Systems engineering and organisational systems | https://www.incose.org | standards | `outcome-assurance` | Systems engineering → §4 outcome-assurance | 5 |
+| 21 | INCOSE | Systems | ″ | ″ | standards | `commercial-governance` | A professional standards body | 6 |
+| 22 | Silicon Valley Product Group | Product | Product management and product-market fit | https://www.svpg.com | practitioner-guidance | `customer-discovery` | "product-market fit" verbatim | 2 |
+| 23 | Silicon Valley Product Group | Product | ″ | ″ | practitioner-guidance | `value-proposition` | | 5 |
+| 24 | Product School | Product | Product management practice | https://productschool.com | practitioner-guidance | `customer-discovery` | | 2 |
+| 25 | Product School | Product | ″ | ″ | practitioner-guidance | `value-proposition` | | 5 |
+| 26 | Strategyzer | Customer Development | Business models, value propositions | https://www.strategyzer.com | practitioner-guidance | `value-proposition` | "value propositions" verbatim | 5 |
+| 27 | Strategyzer | Customer Development | ″ | ″ | practitioner-guidance | `revenue-architecture` | "business models" | 6 |
+| 28 | Lean Startup | Customer Development | Customer discovery methodology | https://theleanstartup.com | practitioner-guidance | `customer-discovery` | Verbatim. Not mapped to value-proposition — the Purpose names a discovery *method* | 2 |
 
-**28 registry rows** (one per pillar × institution pair).
+**Tier and evidence type are orthogonal, and the operator's own table proves it.** Entries 22–28 publish practitioner guidance and are tier 1. Tier answers *which acquisition wave*; evidence type answers *what kind of artefact*. Both are carried structurally so a later analysis can filter on either.
 
-**Tier and evidence type are orthogonal, and the operator's own table proves it.** Four of the fifteen first-tier entries (#12–#15) publish practitioner guidance. The tier axis answers *which acquisition wave*; the evidence-type axis answers *what kind of artefact*. Neither substitutes for the other, and the concern the tier boundary exists to prevent — treating an insight piece as equivalent to a working paper — is therefore already live *inside* tier 1. Both axes are carried structurally so a later analysis can filter on either.
+### 4.2 Wave 2 — the ruling (pillar mapping OPERATOR-SUPPLIED)
 
-## 5. What the registry does NOT cover — five pillars with no institution
+The ruling closed the five pillars §5 reported as empty. Unlike wave 1, the pillar is the operator's too.
 
-| Pillar | Tier-1 institutions | PRD-IDE-002 §11.2 gap rank |
+| # | Pillar | Institution | Category (tradition) | Authority | URL | Evidence Type | Priority |
+|---|---|---|---|---|---|---|---|
+| 29 | `trust-formation` | OECD | International Policy Research | International policy research; empirical consumer survey | https://www.oecd.org | research-papers | 6 |
+| 30 | `trust-formation` | UK Competition and Markets Authority | Competition & Consumer Enforcement | Competition/consumer enforcement; market evidence | https://www.gov.uk/government/organisations/competition-and-markets-authority | policy | 6 |
+| 31 | `pricing` | NBER | Academic Economics | Academic economics; empirical + formal modelling | https://www.nber.org | research-papers | 4 |
+| 32 | `pricing` | OECD | Competition Policy | Competition policy; digital-market pricing | https://www.oecd.org | policy | 4 |
+| 33 | `distribution` | World Trade Organization | International Trade Doctrine | International trade and market-access doctrine | https://www.wto.org | policy | 3 |
+| 34 | `distribution` | UN Trade and Development (UNCTAD) | Development Economics | Development economics; digital commerce and trade measurement | https://unctad.org | datasets | 3 |
+| 35 | `settlement-exchange` | BIS Committee on Payments and Market Infrastructures | Payment & Settlement Infrastructure | Payment, clearing and settlement infrastructure | https://www.bis.org/cpmi/ (see §4.3) | standards | 6 |
+| 36 | `settlement-exchange` | UNCITRAL | International Commercial Law | International commercial law; electronic contracting and transferable records | https://uncitral.un.org | standards | 6 |
+| 37 | `commercial-failure-modes` | NBER | Academic Economics | Academic entrepreneurship and market-failure research | https://www.nber.org | research-papers | 1 |
+| 38 | `commercial-failure-modes` | U.S. Bureau of Labor Statistics | Official Statistics | Official longitudinal business-demography evidence | https://www.bls.gov | datasets | 1 |
+
+**Reuse over invention, as the ruling prefers.** Four of the ten wave-2 entries reuse an institution already in the registry (OECD ×2, NBER ×2), each under a **different** institutional tradition. Six are new institutions, added only where no existing entry could genuinely serve the pillar. Two new evidence types enter the registry for the first time: `datasets` (UNCTAD, BLS).
+
+### 4.3 BIS CPMI — the reconciled entry
+
+The operator's institutional seed for CPMI is `https://www.bis.org`. The curated directory already holds **`https://www.bis.org/cpmi/`** for the same named institution (a Financial Services authority since the `20260817000000` seed). These are not in conflict — the operator's value is the *parent* of the existing one.
+
+**The existing, more specific value is kept, and no second key is added.** Three reasons: this file's own header already anticipates a steward needing *"a more specific starting page than its bare homepage"*; `bis.org/cpmi/` is strictly better for Agent B, whose job is to find the institution's publication listing (bis.org surfaces all of BIS's output, bis.org/cpmi/ the committee's); and a bare `bis.org` key would **collide with the existing plain `bis` entry**, giving two distinct institutions one starting page. A canary asserts exactly one CPMI key, at the committee page.
+
+## 5. Pillar coverage — the five are closed, two remain unsatisfied
+
+### 5.1 What the ruling closed
+
+> "**Do not waive the five empty pillars**… Populate them with authoritative sources."
+
+| Pillar | Wave-1 authorities | Wave-2 authorities | PRD-IDE-002 §11.2 gap rank |
+|---|---|---|---|
+| `trust-formation` | none | OECD · CMA | not ranked (but PRD-IDE-002 §5 calls it *"the single strongest omission"*) |
+| `pricing` | none | NBER · OECD | **#4** |
+| `distribution` | none | WTO · UNCTAD | #3 |
+| `settlement-exchange` | none | BIS CPMI · UNCITRAL | not ranked |
+| `commercial-failure-modes` | none | NBER · BLS | **#1 — the widest gap** |
+
+**All fourteen pillars are now served.** A canary asserts it, and asserts that each of the five carries at least two authorities.
+
+### 5.2 What is still open — reported, not tuned
+
+Two pillars the ruling did not address carry exactly **one** institutional authority each, and therefore fail Law II:
+
+| Pillar | Sole authority | Tradition |
 |---|---|---|
-| `trust-formation` | **none** | not ranked |
-| `pricing` | **none** | **#4** |
-| `distribution` | **none** | #3 (platform & network economics) |
-| `settlement-exchange` | **none** | not ranked |
-| `commercial-failure-modes` | **none** | **#1 — the widest gap** |
+| `partnerships` | Kauffman Foundation | Entrepreneurship Research |
+| `outcome-assurance` | INCOSE | Systems |
 
-This is a **finding, not an omission.** The operator's list supplies no basis for mapping any of the fifteen onto these five, and inventing one would be fabrication. Two of the five corroborate PRD-IDE-002 §11.2's own ordering from an independent direction: commercial failure post-mortems are ranked the highest-value acquisition gap there, and the first-tier registry contains no institution for them. `trust-formation` is the more striking absence — PRD-IDE-002 §5 calls it *"the single strongest omission"* in the taxonomy and the strongest cross-domain signal in the initial library, and the curated registry has no authority for it at all.
+Neither is a fabrication risk — the fix is a second authority from a different tradition, and no operator source supplies one. **The thresholds were not lowered to make these pass.** Under the ratification bar (*"all fourteen pillars served AND the diversity verdict satisfied or explicitly ruled upon"*), these two are the outstanding item: the operator either supplies a second authority for each, or explicitly rules the single-authority state acceptable for them.
 
-**Recommended to the operator:** supply, or authorise the agent to propose, institutions for these five before Phase 3 discovery runs — otherwise the first acquisition wave structurally cannot produce evidence for the pillars the programme most needs it for.
-
-## 6. Tier 2 — practitioner sources, and why they are not seeded yet
+## 6. Tier 2 — practitioner sources, and why they are not seeded
 
 > "Once the institutional corpus has been exhausted, the IDE should expand to curated practitioner sources: Andreessen Horowitz (a16z) · First Round Review · Y Combinator Library · McKinsey Insights · Bain Insights · BCG Insights · Deloitte Insights · PwC Strategy · Accenture Research. **These are not primary scientific authorities**, but they provide a rich source of operational patterns that can be compared against the academic corpus."
 
-All nine are declared in `COMMERCIALISATION_REGISTRY` at `tier: 'practitioner-pattern'`. **None is seeded into the database, and neither a URL nor a pillar is invented for any of them,** because the operator supplied neither. That produces three independent structural brakes, all of which follow from the data rather than from a reviewer remembering the rule:
+All nine are declared at `tier: 'practitioner-pattern'`. **None is seeded, and neither a URL nor a pillar is invented for any of them,** because the operator supplied neither. Three structural brakes follow from the data rather than from a reviewer remembering the rule:
 
-1. **`source_tier` is a column** (migration `20260827000000`), so a SQL-level analysis can separate the tiers without reading prose. It is nullable with **no default**: an undeclared row is never counted as an authority.
-2. **No URL** → `resolveCanonicalHomepage` returns `null` → Agent B/C cannot start from the entry at all.
+1. **`source_tier` is a column** (migration `20260827000000`), nullable with **no default**, so a SQL-level analysis can separate the tiers and an undeclared row is never counted as an authority.
+2. **No URL** → `resolveCanonicalHomepage` returns `null` → Agent B/C cannot start from the entry.
 3. **No pillar** → `upsertInstitutionEntry` refuses the row outright.
 
-Which is precisely the operator's gate — *"once the institutional corpus has been exhausted"* — expressed as the shape of the data. The existing `confirmPillarSaturation` step (amendment §6.1) is the steward act that opens it.
+Which is precisely the operator's gate — *"once the institutional corpus has been exhausted"* — expressed as the shape of the data. `confirmPillarSaturation` (amendment §6.1) is the steward act that opens it.
 
 ### 6.1 The third tier — DISCIPLINES, which are not institutions
 
-> "To avoid commercialisation becoming synonymous with 'startup advice', deliberately include adjacent disciplines: Organisation design · Behavioural economics · Network science · Platform economics · Complexity science · Diffusion of innovation · Service science · Operations management. Those perspectives often reveal structural invariants that are invisible within entrepreneurship literature alone."
+> "To avoid commercialisation becoming synonymous with 'startup advice', deliberately include adjacent disciplines: Organisation design · Behavioural economics · Network science · Platform economics · Complexity science · Diffusion of innovation · Service science · Operations management."
 
-**These cannot be Institutional Registry rows.** That table is keyed `(domain, pillar_key, institution_name)` and its `seed_url` drives Agent B's institution-targeted navigation. "Behavioural economics" has no homepage, issues nothing, and cannot be navigated to — registering it as an institution would break seed-URL resolution for a row that could never resolve, and would put a discipline in a list whose every other member is an issuer.
+**These cannot be Institutional Registry rows.** That table is keyed `(domain, pillar_key, institution_name)` and its `seed_url` drives Agent B's institution-targeted navigation. "Behavioural economics" has no homepage, issues nothing, and cannot be navigated to.
 
-**Nor are they coverage pillars.** A pillar is what *constitutes* the domain (Law I, amendment §2.0). Behavioural economics does not constitute commercialisation; the fourteen §4 sub-domains do.
+**Nor are they coverage pillars.** A pillar is what *constitutes* the domain (Law I). Behavioural economics does not constitute commercialisation; the fourteen §4 sub-domains do.
 
-**They belong in the Constitutional Dependency Registry** — `corpus_dependency_registry`, the existing home for external domains that *constrain* the domain, each carrying its relationship edge because "the edge is the point". Law I leaves exactly two cases, and a discipline that *explains* commercialisation is the second one. This also means no new concept is invented for them: the model already had the right slot.
+**They belong in the Constitutional Dependency Registry** — the existing home for external domains that *constrain* the domain, each carrying its relationship edge. Law I leaves exactly two cases, and a discipline that *explains* commercialisation is the second one. No new concept is invented: the model already had the right slot.
 
 Sixteen entries: PRD-IDE-002 §7.3's ten, plus six of the operator's eight. **"Platform economics" is already `platform-economics` and "Operations management" is already `operations`** — reused, not duplicated.
 
 | Dependency | Relationship | Source | Note |
 |---|---|---|---|
-| `financial-services` | compared against | PRD-IDE-002 §7.3 | Also an observed-in vertical; a comparison reference here, not a corpus |
+| `financial-services` | compared against | PRD-IDE-002 §7.3 | Also an observed-in vertical |
 | `economics` | explained by | PRD-IDE-002 §7.3 | |
 | `operations` | explained by | PRD-IDE-002 §7.3 | Covers the direction's "Operations management" |
 | `product-management` | compared against | PRD-IDE-002 §7.3 | |
@@ -153,34 +216,76 @@ Sixteen entries: PRD-IDE-002 §7.3's ten, plus six of the operator's eight. **"P
 | `service-design` | compared against | PRD-IDE-002 §7.3 | Neighbours `service-science` |
 | `innovation-management` | compared against | PRD-IDE-002 §7.3 | Neighbours `diffusion-of-innovation` |
 | `entrepreneurship` | compared against | PRD-IDE-002 §7.3 | |
-| `platform-economics` | explained by | PRD-IDE-002 §7.3 | The direction's "Platform economics" — already registered |
-| `organisation-design` | explained by | operator direction 2026-07-27 | Design vs behaviour — registered distinctly for a steward to rule on |
-| `behavioural-economics` | explained by | operator direction 2026-07-27 | |
-| `network-science` | explained by | operator direction 2026-07-27 | |
-| `complexity-science` | explained by | operator direction 2026-07-27 | |
-| `diffusion-of-innovation` | explained by | operator direction 2026-07-27 | Neighbours `innovation-management` |
-| `service-science` | explained by | operator direction 2026-07-27 | Discipline vs practice — neighbours `service-design` |
+| `platform-economics` | explained by | PRD-IDE-002 §7.3 | The direction's "Platform economics" |
+| `organisation-design` | explained by | ruling 2026-07-27 | Design vs behaviour |
+| `behavioural-economics` | explained by | ruling 2026-07-27 | |
+| `network-science` | explained by | ruling 2026-07-27 | |
+| `complexity-science` | explained by | ruling 2026-07-27 | |
+| `diffusion-of-innovation` | explained by | ruling 2026-07-27 | Neighbours `innovation-management` |
+| `service-science` | explained by | ruling 2026-07-27 | Discipline vs practice |
 
-**Three neighbouring-but-distinct pairs are registered separately, not merged.** Proposing both and letting a steward decide is the ratification model working correctly; silently merging them would be an agent settling a taxonomy question that is not its to settle.
+Three neighbouring-but-distinct pairs are registered **separately, not merged** — proposing both and letting a steward decide is the ratification model working. A dependency entry records the edge; it does **not** trigger acquisition of that discipline's own corpus (amendment §2.3).
 
-**Scope discipline, inherited from amendment §2.3:** a dependency entry is a name and a relationship label. It records the edge. It does **not** trigger acquisition of that discipline's own corpus. The operator's stated purpose — keeping commercialisation from collapsing into startup advice — is served in Phase 3 by the tier-1 institutions whose Purpose spans these disciplines (Santa Fe Institute is operator-designated "complex adaptive systems, emergence"; INCOSE "systems engineering and organisational systems"), and by the `equivalent`/`specialized` classification pass PRD-IDE-002 §9.2 runs against them. **No claim is made here about what any of these institutions publishes** beyond the operator's own Purpose column.
+**Recorded for ratification:** `discoveryDomains.ts`'s `tangentialDomains` holds §7.3's ten and is a docs mirror of the PRD. It was deliberately **not** edited; a canary asserts it is a subset of the sixteen instead. On ratification of the six additions, §7.3 and `tangentialDomains` should be extended together.
 
-**Recorded for ratification:** `services/invariants/discoveryDomains.ts`'s `COMMERCIALISATION.tangentialDomains` currently holds PRD-IDE-002 §7.3's ten, and is pinned to §7.3 as a docs mirror. It was **deliberately not edited** — extending it without PRD-IDE-002 saying so would create exactly the code/doc divergence the parity rule forbids. A canary instead asserts it is a subset of the sixteen above, so the two can never contradict each other. On ratification of these six additions, §7.3 and `tangentialDomains` should be extended together.
+## 7. Acquisition seeds — where document-level targets actually belong
 
-## 7. Law II of Constitutional Discovery — the constitutional acquisition rule
+The ruling supplies **substantive acquisition seeds**: specific publications, one or more per (pillar, institution). These are a different kind of thing from an institutional seed, and the model had no slot for them.
+
+### 7.1 Why not `corpus_institutional_registry.seed_url`
+
+That column is **one URL per institution row**, and it means *"the institution's own publication entry point"* — `runInstitutionDiscovery(seedUrl)` fetches it and walks its links. A publication URL **terminates** navigation rather than starting it; there are several per institution; and each carries its own claim and its own verification state. Overloading `seed_url` would break Agent B's contract and reduce several documents to one.
+
+### 7.2 Why not a candidate source either
+
+`createCandidateSource` **retrieves and hashes bytes**. A candidate row without them would assert a Level-4 acquisition that never happened (PRD-ICA-001 §2). A seed is a *plan*, not an acquisition.
+
+### 7.3 The smallest addition: `corpus_acquisition_seeds`
+
+PRD-ICA-001 §5 already specifies a *"Corpus Acquisition Plan per source lane — target source types, likely primary institutions… indicative document count, priority"*, reviewed before broad acquisition begins. That is Agent A's output, and **only its institution half was ever persisted**. The document half has always been specified and never had a table.
+
+`corpus_acquisition_seeds` is that missing half: one row per planned document, keyed `(domain, pillar_key, institution_name, document_url)`, carrying its own `claim`, its own `verification_status`, and a `candidate_source_id` that links to the candidate it eventually produces through the normal retrieval pipeline.
+
+**`claim` records the operator's description AS A CLAIM.** "76-page survey, 10,000 consumers, ten countries" is what the operator recorded, not something this system measured. Every claim is stored prefixed `Operator claim:` so no reader mistakes it for a measurement — and so the first verification run can be *compared* against it. A page count that comes back at 4 is a finding, and it can only be a finding because the claim was written down first.
+
+### 7.4 The seventeen seeds
+
+| Pillar | Institution | Document URL | Operator's claim |
+|---|---|---|---|
+| `trust-formation` | OECD | https://www.oecd.org/en/publications/trust-in-peer-platform-markets_1a893b58-en.html | 76-page survey, 10,000 consumers, ten countries |
+| `trust-formation` | OECD | https://www.oecd.org/en/publications/oecd-business-and-finance-outlook-2019_af784794-en.html | 140 pages, trust in business and online markets |
+| `trust-formation` | UK Competition and Markets Authority | https://www.gov.uk/government/consultations/online-reviews-and-endorsements | 71-page findings report on reviews, endorsements, consumer reliance |
+| `pricing` | NBER | https://www.nber.org/papers/w21679 | *Pricing with Limited Knowledge of Demand* |
+| `pricing` | OECD | https://www.oecd.org/en/publications/personalised-pricing-in-the-digital-era_db4d9c9c-en.html | 49 pages |
+| `pricing` | OECD | https://www.oecd.org/en/publications/algorithmic-pricing-and-competition-in-g7-jurisdictions_f36dacf8-en.html | 26 pages |
+| `distribution` | World Trade Organization | https://www.wto.org/english/tratop_e/serv_e/distribution_e/distribution_e.htm | Distribution-services gateway — wholesale, retail, franchising, commission agents, e-commerce |
+| `distribution` | UN Trade and Development (UNCTAD) | https://unctad.org/topic/ecommerce-and-digital-economy/measuring-ecommerce-digital-economy | Measuring e-commerce and the digital economy |
+| `distribution` | UN Trade and Development (UNCTAD) | https://tft.unctad.org/en/publications/statistics-on-the-digital-economy-e-commerce-and-digital-trade-report-2025/ | Statistics on the digital economy, e-commerce and digital trade, 2025 report |
+| `settlement-exchange` | BIS CPMI | https://www.bis.org/cpmi/publ/d216.htm | 33 pages, PvP adoption, settlement risk |
+| `settlement-exchange` | BIS CPMI | https://www.bis.org/cpmi/publ/d202.htm | 65 pages, access to payment systems |
+| `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce | Electronic commerce texts |
+| `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_commerce | Model Law on Electronic Commerce |
+| `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_transferable_records | Model Law on Electronic Transferable Records |
+| `commercial-failure-modes` | NBER | https://www.nber.org/papers/w19679 | *Deals Not Done: Sources of Failure in the Market for Ideas* |
+| `commercial-failure-modes` | NBER | https://www.nber.org/papers/w34755 | Randomized evidence on venture shutdown, survival, "rational quitting" |
+| `commercial-failure-modes` | U.S. Bureau of Labor Statistics | https://www.bls.gov/osmr/research-papers/2004/st040060.htm | Establishment survival, Business Employment Dynamics |
+
+A canary asserts every seed hangs off a really-registered (pillar, institution), that no seed URL equals its institution's homepage (which would mean `seed_url` had been overloaded after all), and that every claim is recorded as a claim.
+
+## 8. Law II of Constitutional Discovery — the constitutional acquisition rule
 
 > **"Every IDE corpus shall contain multiple independent schools of thought and institutional traditions. No invariant family may rely upon a single institution, publisher, methodology, or ideological perspective."**
 
 > "That is stronger than the Financial Services approach because it guards against **institutional bias as well as platform bias.**"
 
-### 7.1 Where it belongs — the audit
+### 8.1 Where it belongs — the audit
 
 | Candidate home | Verdict |
 |---|---|
-| **PRD-ICA-001 + its ratified Constitutional Discovery amendment** — the corpus-acquisition PRD, whose §2.0 already holds **Law I of Constitutional Discovery**, and whose §5 already holds the inclusion/exclusion policy this rule constrains | **RECOMMENDED.** The rule is a sibling of Law I in scope, in form, and in the artefact it governs. Its natural insertion points are amendment §2.0 (as Law II, immediately after Law I) and PRD-ICA-001 §5 (as an inclusion-policy clause) |
-| A new CFS | **REJECTED.** Founding a specification for one clause that extends an existing law in an existing ratified document is the parallel-structure defect CCR-001 §25 forbids and CS-001 names as constitutional drift |
-| CFS-052 (Evidence Architecture) | **REJECTED.** CFS-052 governs what kind of *evidence* an invariant rests on and who may canonise it. Law II governs the *composition of the corpus* upstream of that. Adjacent, not the same question |
-| CFS-009 (the Laws) | **REJECTED for now.** CFS-009's Laws are platform-development constitution; Constitutional Discovery's Laws are corpus-acquisition constitution. Law I is not in CFS-009 either. Promotion is available later if the operator wants it |
+| **PRD-ICA-001 + its ratified Constitutional Discovery amendment** — whose §2.0 already holds **Law I of Constitutional Discovery**, and whose §5 holds the inclusion/exclusion policy this rule constrains | **RECOMMENDED.** A sibling of Law I in scope, form and governed artefact |
+| A new CFS | **REJECTED.** Founding a specification for one clause that extends an existing law in an existing ratified document is the parallel-structure defect CCR-001 §25 forbids |
+| CFS-052 (Evidence Architecture) | **REJECTED.** CFS-052 governs what evidence an invariant rests on; Law II governs corpus composition upstream of that |
+| CFS-009 (the Laws) | **REJECTED for now.** Law I is not in CFS-009 either |
 
 **Recommendation: adopt as Law II of Constitutional Discovery, by amendment to PRD-ICA-001's ratified Constitutional Discovery amendment §2.0, with a companion clause in PRD-ICA-001 §5.** Both documents are ratified, so **the amendment is an operator act under Law XI** and is not performed here. The exact proposed text:
 
@@ -188,103 +293,214 @@ Sixteen entries: PRD-IDE-002 §7.3's ten, plus six of the operator's eight. **"P
 >
 > A pillar's institutional corpus is not saturated (§6.1) while its registry draws on fewer than two institutional authorities, or on authorities from a single institutional tradition.
 
-### 7.2 How it is enforced — because a rule nothing can check is CFS-053's defect class
+### 8.2 How it is enforced
 
 Three checks. **One is built and bound today**; two are specified and explicitly not built.
 
 | # | Check | Where | Status |
 |---|---|---|---|
-| **1** | **Registry-time.** Per pillar: ≥2 `institutional-authority` sources drawn from ≥2 distinct `category` traditions. Three verdicts — `satisfied` / `unsatisfied` / `undeterminable` (the last when a registered authority declares no tradition, so the rule cannot be *verified*, only assumed) | `assessRegistryDiversity()` in `services/corpusScout/institutionalRegistry.ts`, **called by `getDomainConstitution()`** and returned on `GET /api/corpus-scout/domain-constitution` as `constitution.diversity` | **BUILT AND BOUND.** Fires on every steward load of the domain constitution |
-| **2** | **Ratification-time.** `confirmPillarSaturation` refuses while a pillar's verdict is not `satisfied` — the gate before the gate, made mechanical | `confirmPillarSaturation` in `domainConstitution.ts` | **PROPOSED, NOT BUILT.** It changes the behaviour of a ratified Phase-2 function; an operator decision, not an agent's |
-| **3** | **Corpus-time.** Per pillar, over approved candidates: no single `corpus_candidate_sources.issuer` may supply the whole of a pillar's approved corpus, and no invariant candidate may cite evidence from a single issuer. `issuer` already exists on `CandidateSourceRow`; the natural home is `assessLaneCoverage()`, which already takes `requiredLanes` | `services/corpusScout/intelligence.ts` | **PROPOSED, NOT BUILT.** Cannot run until a corpus exists (Phase 3+) |
+| **1** | **Registry-time.** Per pillar: ≥2 `institutional-authority` sources from ≥2 distinct `category` traditions. Three verdicts — `satisfied` / `unsatisfied` / `undeterminable` (the last when a registered authority declares no tradition, so the rule cannot be *verified*, only assumed) | `assessRegistryDiversity()`, **called by `getDomainConstitution()`** and returned on `GET /api/corpus-scout/domain-constitution` as `constitution.diversity` | **BUILT AND BOUND** |
+| **2** | **Ratification-time.** `confirmPillarSaturation` refuses while a pillar's verdict is not `satisfied` | `confirmPillarSaturation` | **PROPOSED, NOT BUILT** — it changes a ratified Phase-2 function's behaviour |
+| **3** | **Corpus-time.** Per pillar, no single `corpus_candidate_sources.issuer` may supply a pillar's whole approved corpus. `issuer` already exists on the row; the natural home is `assessLaneCoverage()` | `services/corpusScout/intelligence.ts` | **PROPOSED, NOT BUILT** — cannot run before a corpus exists |
 
-Check 1 fires today, and its first output is informative rather than decorative: **7 of the 14 commercialisation pillars are `unsatisfied`** (the five with no institution, plus `partnerships` and `outcome-assurance`, which have exactly one authority each), and **every Financial Services pillar is `undeterminable`** because that registry records no traditions. A rule whose first run reports compliance everywhere would be the CFS-053 defect — a mechanism that cannot fail is indistinguishable from one that does not exist.
+**The current verdict, reported not tuned: twelve of the fourteen pillars satisfy Law II; `partnerships` and `outcome-assurance` do not** (§5.2), and every Financial Services pillar is `undeterminable` (§3.2). A rule whose first run reports compliance everywhere would be the CFS-053 defect wearing a rosette.
 
-## 8. The operator's runnable path
+## 9. Registry verification — the binding, and the gate
 
-### Phase 2 — ratification (the next act, and it is a steward's)
+> 1. Promote the ratified inspection thresholds into the named **Corpus Qualification Standard**.
+> 2. At registry verification time, invoke the existing redirect resolver, institution navigator and Inspection Agent.
+> 3. Record the resolved URL, verification timestamp, representative qualifying documents, inspection results and content hashes.
+> 4. Introduce the explicit verification-status vocabulary.
+> 5. Refuse institutional discovery unless the entry is both steward-ratified **and** verified.
+> 6. Mutation-test the refusal gate and the status transitions.
 
-**Step 1 — seed the registry.** Paste the whole of `supabase/migrations/20260827000000_commercialisation_institutional_registry.sql` into the Supabase SQL editor. It is additive and idempotent (`ADD COLUMN IF NOT EXISTS` / `ON CONFLICT DO NOTHING`); re-running changes nothing and un-ratifies nothing. To print it for pasting:
+**The gap was the binding, not the capability.** Verification already ran at *document* level, after acquisition had begun. A registry entry carried no verification state, and nothing refused to acquire from an unverified institution — a registry of URLs with no binding to the real-world property it depends on, whose absence is undetectable because nothing errors. That is exactly CFS-053's shape.
+
+### 9.1 The Corpus Qualification Standard — promoted, not invented
+
+PRD-ICA-001 §7 already ratifies the numbers: *"Illustrative threshold (configurable by source type, not fixed by this PRD): `pageCount ≥ 5 AND substantiveTextCharacters ≥ 5,000 AND blankPageRatio < 0.25`"*. They lived as private constants in `inspection.ts`; registry verification needs the same numbers, and two copies of a threshold is `inv.engineering.036` applied to a number.
+
+Sited in `services/corpusScout/corpusQualificationStandard.ts`. `inspection.ts` now **imports** them; a canary asserts it re-declares none.
+
+| Constant | Value | Applies to |
+|---|---|---|
+| `CQS_PDF_MIN_PAGE_COUNT` | 5 | paginated |
+| `CQS_PDF_MIN_SUBSTANTIVE_CHARACTERS` | 5,000 | paginated |
+| `CQS_PDF_MAX_BLANK_PAGE_RATIO` | 0.25 | paginated |
+| `CQS_BLANK_PAGE_WORD_THRESHOLD` | 10 | paginated |
+| `CQS_TEXT_ONLY_MIN_SUBSTANTIVE_CHARACTERS` | 2,000 | non-paginated (HTML/text) — a deliberate adaptation, since a web page has no page count |
+
+**THE UNIT IS CHARACTERS, not words.** Stated in capitals because the ambiguity is live: the operator's own recollection was "5,000 words", and PRD-ICA-001 §7's field name is `substantiveTextCharacters`. 5,000 words is roughly 30,000 characters — a six-fold difference that would silently reject most qualifying documents. The unit is in the constant name, in the module comment, and in the standard's human-readable statement, which a canary pins.
+
+### 9.2 The status vocabulary
+
+Orthogonal to `status` (`proposed | ratified`), exactly as `provenanceClass` is orthogonal to `reviewWorkflowStatus`. Ratification answers *"does a steward accept this authority"*; verification answers *"does this URL still lead to a qualifying corpus"*. An entry can be ratified and `verification_failed`. Collapsing them would make a dead link indistinguishable from an unapproved one.
+
+| Status | Meaning | Set by |
+|---|---|---|
+| `proposed` | Never submitted for verification. The seeding default | seed / steward |
+| `pending_verification` | A run is in flight. **The only state `verified` may follow** | the run |
+| `verified` | All four conjuncts satisfied, with the evidence recorded | the run |
+| `verification_failed` | The seed URL could not be resolved, or the run errored | the run |
+| `insufficient_corpus` | Reachable, but no document passed the Corpus Qualification Standard | the run |
+| `temporarily_unavailable` | A transient failure (timeout). Re-runnable; not a judgment on the source | the run |
+| `redirect_changed` | The seed now redirects to a **different host** — a steward must re-confirm | the run |
+| `deprecated` | No longer an authority for this pillar | steward |
+
+### 9.3 The transition table
+
+```
+proposed                 → pending_verification | deprecated
+pending_verification     → verified | verification_failed | insufficient_corpus
+                           | temporarily_unavailable | redirect_changed | deprecated
+verified                 → pending_verification | deprecated      (re-verification; entries go stale)
+verification_failed      → pending_verification | deprecated
+insufficient_corpus      → pending_verification | deprecated
+temporarily_unavailable  → pending_verification | deprecated
+redirect_changed         → pending_verification | deprecated
+deprecated               → proposed                              (re-opened, unverified)
+```
+
+**The load-bearing rule is one line: `verified` is reachable only from `pending_verification`.** Without it, anything that can write the column can declare an entry verified and the gate below becomes decoration. `applyVerificationOutcome` refuses any other transition and writes nothing; a canary drives all eight statuses through it.
+
+### 9.4 Verification is more than reachability
+
+All four conjuncts, in order — and the order matters, because each status names a different remediation:
+
+```
+institution URL resolves
+  + document candidates discovered
+  + at least one document passes the Corpus Qualification Standard
+  + retrieved bytes and inspection result are recorded
+```
+
+A 200 response is not verification. An institution whose homepage loads but whose publication listing yields nothing acquirable is `insufficient_corpus`, and `insufficient_corpus` does not open the gate. `runVerification` invokes `followRedirects` → `runInstitutionDiscovery` → `retrieveArtifact` → `inspectArtifact` — the existing, ratified machinery, none of it reimplemented — and records `resolvedUrl`, `checkedAt`, `candidatesFound`, `documentsInspected`, and each qualifying document's `contentHash`, `mimeType`, `fileSizeBytes`, `pageCount`, `substantiveTextCharacters` and `blankPageRatio`, plus the standard applied.
+
+An **off-host** redirect returns `redirect_changed` rather than being auto-accepted; a same-host hop (a locale or trailing-slash redirect) is routine and passes.
+
+### 9.5 The refusal gate
+
+`canRunInstitutionDiscovery` requires **both** `status === 'ratified'` **and** `verification_status === 'verified'`. Neither alone suffices: ratification without verification acquires from a URL nobody has resolved; verification without ratification acquires from an authority nobody accepted. It fails closed on every unknown value. Both `runDiscoveryForInstitution` and `runDiscoveryForDomain` route through the same function, so a domain-wide run cannot become a way around the per-institution refusal.
+
+> **⚠ Operational consequence the operator must know.** The gate applies to **every** domain. The nineteen Financial Services entries have never been verified, so **FS institutional discovery will refuse until an FS verification run completes.** That is the gate working, not a regression. One call clears it: `POST /api/corpus-scout/institution-verification/domain { "domain": "financial-services" }`.
+
+## 10. Financial Services metadata — separate remediation work
+
+> "Should be captured as **separate remediation work**: backfill its authority, category, evidence type and tradition metadata using the same shared template. **It should not be used to weaken Law II or block completion of the properly constituted Commercialisation registry.**"
+
+**Work item FS-META-001 — backfill the Financial Services registry's template metadata.**
+
+- **Scope:** `category` (institutional tradition), `authority`, `evidenceType` and `notes` for all nineteen entries in `FINANCIAL_SERVICES_REGISTRY`, using the shared template unchanged.
+- **Current state:** all four are `null` for all nineteen. Consequence: every FS pillar reports `undeterminable`, never `satisfied`.
+- **Constraint (unchanged):** **do not backfill by inference.** Assigning BIS a tradition or FATF an evidence type from an agent's background knowledge is the same fabrication bar this whole registry was built to respect. The metadata must come from the operator, or from a verified FS corpus.
+- **Not a blocker:** per the ruling, this does not weaken Law II and does not gate Commercialisation ratification. `undeterminable` is the honest verdict for an unclassified registry and is designed to be visible without being fatal.
+- **Natural sequencing:** after the FS verification run (§9.5), whose retrieved documents supply real evidence of what each institution issues.
+
+## 11. The operator's runnable path
+
+### Step 1 — seed (safe to run now; every row stays `proposed`)
+
+Paste **both** migrations, in order, into the Supabase SQL editor. Both are additive and idempotent (`ADD COLUMN IF NOT EXISTS` / `CREATE TABLE IF NOT EXISTS` / `ON CONFLICT DO NOTHING`); re-running changes nothing and un-ratifies nothing. To print them for pasting:
 
 ```bash
-git fetch iqp dev && git checkout iqp/dev -- supabase/migrations/20260827000000_commercialisation_institutional_registry.sql && cat supabase/migrations/20260827000000_commercialisation_institutional_registry.sql
+git fetch iqp dev && \
+git checkout iqp/dev -- supabase/migrations/20260827000000_commercialisation_institutional_registry.sql \
+                        supabase/migrations/20260828000000_corpus_registry_verification.sql && \
+cat supabase/migrations/20260827000000_commercialisation_institutional_registry.sql \
+    supabase/migrations/20260828000000_corpus_registry_verification.sql
 ```
 
-It creates, all as `proposed`: the `source_tier` column (+ CHECK, + backfill of the existing FS rows), 1 Domain Definition, 14 Coverage Pillars, 16 Dependency entries, 28 Institutional Registry rows.
+`20260827000000` creates the `source_tier` column, 1 Domain Definition, 14 Coverage Pillars, 16 Dependency entries, 28 wave-1 institutions. `20260828000000` adds the verification columns, creates `corpus_acquisition_seeds`, seeds the 10 wave-2 institutions and 17 acquisition seeds, and moves the whole Commercialisation registry to `pending_verification`.
 
-**Step 2 — review and ratify, in this order** (the service refuses out-of-order work: an institution cannot attach to a pillar that does not exist, and a pillar's saturation cannot be confirmed before it is ratified). All calls are `POST /api/corpus-scout/domain-constitution`, admin-gated, `domain: "commercialisation"`, from the Corpus Scout tab's Domain Constitution panel or directly:
-
-```
-GET  /api/corpus-scout/domain-constitution?domain=commercialisation     ← read it all, incl. `diversity`
-POST { action: "ratify-definition",  domain: "commercialisation" }
-POST { action: "ratify-pillar",      domain: "commercialisation", pillarKey: "<each of the 14>" }
-POST { action: "ratify-dependency",  domain: "commercialisation", dependencyName: "<each of the 16>" }
-POST { action: "ratify-institution", domain: "commercialisation", pillarKey: "<pillar>", institutionName: "<institution>" }
-```
-
-Before ratifying the institutions, **rule on the two open questions §4 and §5 raise**: the agent-proposed pillar mapping (correct any of the 28), and the five pillars with no institution (supply institutions, or accept the gap and record it).
-
-### Phase 3 — acquisition (only after Phase 2, and only on the deployed app)
+### Step 2 — VERIFY, before ratifying (deployed app only)
 
 ```
-POST /api/corpus-scout/institution-discovery/domain   { domain: "commercialisation" }
-   → runs Agent B/C for EVERY ratified institution in the domain
+POST /api/corpus-scout/institution-verification/domain   { "domain": "commercialisation" }
+POST /api/corpus-scout/institution-verification/domain   { "domain": "financial-services" }
+POST /api/corpus-scout/institution-verification          { "domain", "pillarKey", "institutionName" }   ← one entry
+GET  /api/corpus-scout/domain-constitution?domain=commercialisation   ← read the outcomes + `diversity`
+```
+
+Expect failures, and read them: `verification_failed` means the URL is wrong; `insufficient_corpus` means reachable but nothing acquirable; `redirect_changed` means the institution moved and a steward must re-confirm; `temporarily_unavailable` means re-run. **This is where the operator-supplied URLs and the seventeen document claims are first tested against reality.**
+
+### Step 3 — rule on the two open questions, then ratify
+
+Before ratifying, rule on: the wave-1 pillar mapping (§4.1, 28 rows, correctable individually), and **the two pillars that fail Law II** (§5.2 — supply a second authority for `partnerships` and `outcome-assurance`, or explicitly accept the single-authority state). Then:
+
+```
+POST /api/corpus-scout/domain-constitution { action: "ratify-definition",  domain: "commercialisation" }
+POST … { action: "ratify-pillar",      domain: "commercialisation", pillarKey: "<each of the 14>" }
+POST … { action: "ratify-dependency",  domain: "commercialisation", dependencyName: "<each of the 16>" }
+POST … { action: "ratify-institution", domain: "commercialisation", pillarKey, institutionName }
+```
+
+### Step 4 — acquisition (only after ratification AND verification)
+
+```
+POST /api/corpus-scout/institution-discovery/domain   { "domain": "commercialisation" }
 POST /api/corpus-scout/institution-discovery          { domain, pillarKey, institutionName }
-   → one institution at a time
 ```
 
-Every candidate lands `pending_review` (or `needs_retrieval_fix`). Discovery finds candidates; it never approves them. A steward reviews each through `POST /api/corpus-scout/candidates/[sourceId]/review`, exactly as for a manually submitted URL. **This is where the operator-supplied URLs are first verified** — a dead entry surfaces as an honest retrieval failure.
+Every candidate lands `pending_review`. A steward reviews each through `POST /api/corpus-scout/candidates/[sourceId]/review`.
 
-### Phase 4 — IDE discovery
+### Step 5 — IDE discovery, then comparison
 
-Approved sources hand off through the Ingestion Broker to `POST /api/invariants/discovery` `add-evidence`, with `domain = commercialisation/<observed vertical>` and `subDomain = <§4 pillar key>` (PRD-IDE-002 §7.6). Then `extract` → `compare` → `compress-domain` → `promote`. Promotion lands `proposed`, never canonical.
+`add-evidence` with `domain = commercialisation/<observed vertical>` and `subDomain = <§4 pillar key>` (PRD-IDE-002 §7.6), then `extract` → `compare` → `compress-domain` → `promote`. Promotion lands `proposed`, never canonical. Comparison runs against the §6.1 dependency registry.
 
-### Phase 5 — comparison
+**Gate between 4 and 5:** `confirmPillarSaturation` per pillar, plus Gap Detection. Open Discovery unlocks only after both, per pillar — never globally.
 
-`compareSubDomains` against the §6.1 dependency registry, per PRD-IDE-002 §9.2. Recurrence is derived, never stored.
+## 12. What this document deliberately did NOT do
 
-**Gate between 3 and 4:** `confirmPillarSaturation` per pillar, plus Gap Detection. Open Discovery (general search) unlocks only after **both**, per pillar — never globally.
-
-## 9. What this document deliberately did NOT do
-
-- **No acquisition.** Nothing was fetched. No URL was verified, no institution's publications were inspected, no claim is made anywhere about what any source contains.
+- **No acquisition and no verification run.** Nothing was fetched. No URL was resolved, no document inspected, no claim measured. Nothing anywhere is marked `verified`.
 - **No ratification.** Every row lands `proposed`. Not one `ratify-*` call was made.
-- **No invented URL, institution, or fact.** The operator's second tier has no URLs because none was supplied. Five pillars have no institution because no basis was supplied. `commercial-failure-modes` was left empty even though the Santa Fe Institute could plausibly have been mapped to it — plausibly is not a basis.
-- **No amendment to a ratified document.** Law II is recommended for PRD-ICA-001's amendment §2.0 (§7.1) with the exact text supplied. Amending is an operator act under Law XI.
-- **No edit to `services/invariants/discoveryDomains.ts`.** Its `tangentialDomains` is a docs mirror of PRD-IDE-002 §7.3; a canary pins the relationship instead (§6.1).
-- **No new pillar.** Every institution maps to one of PRD-IDE-002 §7.2's fourteen, or to none.
-- **Checks 2 and 3 of §7.2 are not built** — one changes a ratified function's behaviour, one cannot run before a corpus exists. Both are specified precisely enough to build without re-deriving them.
+- **No invented URL, institution, claim or fact.** Tier 2 has no URLs because none was supplied. The two pillars that fail Law II were not closed by inference; `commercial-failure-modes` was left empty in wave 1 even though Santa Fe Institute could plausibly have been mapped to it — plausibly is not a basis.
+- **No threshold tuned to produce a nicer verdict.** Two pillars fail Law II and are reported as failing.
+- **No amendment to a ratified document.** Law II is recommended for PRD-ICA-001's amendment §2.0 (§8.1) with the exact text supplied. Amending is an operator act under Law XI.
+- **No new inspection numbers.** The Corpus Qualification Standard is PRD-ICA-001 §7's, promoted.
+- **No edit to `services/invariants/discoveryDomains.ts`.** A canary pins the relationship instead (§6.1).
+- **Law II checks 2 and 3 are not built** (§8.2), and the FS metadata backfill is recorded, not performed (§10).
 
-## 10. Enforcement
+## 13. Enforcement
 
 `tests/commercialisation-institutional-registry.test.ts` — indexed in `tests/source-of-truth-parity.test.ts`.
 
 | Canary | Guards |
 |---|---|
-| Every registered institution maps to a real PRD-IDE-002 §4 coverage pillar | The `upsertInstitutionEntry` prerequisite — an institution on a nonexistent pillar is un-insertable |
-| Tier 1 and tier 2 cannot be conflated: no practitioner entry carries a pillar or resolves to a URL, and `assessRegistryDiversity` never counts one as an authority | §6 — the structural tier boundary |
-| The disciplines are in the Dependency Registry, and none of them is an institution or a pillar | §6.1 |
-| `tangentialDomains` ⊆ the dependency registry | §6.1 — code and doc can never contradict |
-| The template is shared, not forked: FS and Commercialisation are the same type through the same functions; the FS entries match the `20260817000000` seed SQL set-for-set | §3.1, `inv.engineering.036/037` |
-| No FS entry carries an invented category/authority/evidence type | §3.1 — nulls are the honest value |
-| The fifteen tier-1 URLs are exactly the operator's, and resolution never falls back | §4, CLAUDE.md zero-tolerance |
-| `assessRegistryDiversity` actually fails: one authority ⇒ `unsatisfied`; two from one tradition ⇒ `unsatisfied`; an unclassified authority ⇒ `undeterminable`; an undeclared tier is never counted | §7.2 check 1 — CFS-053 CB-5 |
-| The check is BOUND: `getDomainConstitution` calls it and returns it | §7.2 — CFS-053 CB-1/CB-6 |
-| Law II's text is verbatim in code and in this document | §7 |
-| Acquisition priority is derived from PRD-IDE-002 §11.2, and §11.2's order is unchanged | §3 |
-| The migration seeds `proposed`, never `ratified` | §8 — Phase 1 does not ratify |
-| This document is registered in `codexes/packs/irl/collections.json` | reachability |
+| Every registered institution maps to a real PRD-IDE-002 §4 pillar; all fourteen are served; each of the five closed pillars carries ≥2 authorities | §5.1 |
+| Both seed migrations and the curated template are the same 38 rows | §4, `inv.engineering.036` |
+| Provenance attaches PER PILLAR — OECD's three traditions and NBER's two cannot collapse | §3.1 |
+| Wave 2 REUSED institutions where it could (OECD ×2, NBER ×2) | §4.2 |
+| Tier 1 and tier 2 cannot be conflated; no practitioner entry carries a pillar or a URL; diversity never counts one as an authority | §6 |
+| The disciplines are dependencies, never institutions or pillars; `tangentialDomains` ⊆ the dependency registry | §6.1 |
+| The template is shared, not forked; FS matches its seed SQL; no FS entry carries invented metadata | §3.2 |
+| All 21 tier-1 URLs are exactly the operator's; resolution never falls back; BIS CPMI has exactly ONE key, at the committee page | §4, §4.3 |
+| Acquisition seeds are documents, hang off real registry entries, never equal an institution's homepage, and record claims AS claims | §7 |
+| `assessRegistryDiversity` fails: 1 authority ⇒ unsatisfied; 2 from one tradition ⇒ unsatisfied; unclassified ⇒ undeterminable; undeclared tier never counted | §8.2 |
+| The diversity check is BOUND: `getDomainConstitution` calls it and returns it | §8.2 |
+| The real registry produces the REPORTED verdict — 12 satisfied, `partnerships` + `outcome-assurance` not | §5.2 |
+| The Corpus Qualification Standard is PRD-ICA-001 §7's numbers; states CHARACTERS; `inspection.ts` re-declares none | §9.1 |
+| Exactly the operator's eight verification statuses, all present in the CHECK | §9.2 |
+| `verified` is reachable ONLY from `pending_verification`, for all eight statuses | §9.3 |
+| The refusal gate needs both ratification and verification, and refuses on every other value | §9.5 |
+| The gate is BOUND: `runDiscoveryForInstitution` refuses and acquires nothing; a domain run is not a way around it | §9.5 |
+| Reachability alone ⇒ `insufficient_corpus`; below-standard documents ⇒ `insufficient_corpus`; four conjuncts ⇒ `verified` with hash + inspection recorded | §9.4 |
+| Timeout ⇒ `temporarily_unavailable`; off-host redirect ⇒ `redirect_changed`; same-host hop still verifies | §9.4 |
+| `applyVerificationOutcome` refuses an illegal transition and writes nothing | §9.3 |
+| Nothing is seeded `ratified` or `verified`; both migrations are additive and idempotent | §12 |
+| This document is registered in `codexes/packs/irl/collections.json` and states its status | reachability |
 
 ---
 
 ## Ratification record
 
 - [ ] **Operator ratification of this registry as a whole.** Nothing here is ratified by being written.
-- [ ] **Operator ruling on the agent-proposed pillar mapping** (§4) — 28 rows, correctable individually.
-- [ ] **Operator ruling on the five uncovered pillars** (§5) — supply institutions, or accept and record the gap. `commercial-failure-modes` and `trust-formation` are the consequential ones.
-- [ ] **Operator ruling on Law II** (§7.1) — adopt as Law II of Constitutional Discovery by amendment to PRD-ICA-001's Constitutional Discovery amendment §2.0 + PRD-ICA-001 §5.
-- [ ] **Operator ruling on §7.2 checks 2 and 3** — whether `confirmPillarSaturation` should refuse on an unsatisfied verdict, and whether issuer-concentration lands in `assessLaneCoverage`.
+- [ ] **Run both migrations** (§11 step 1) — safe now; every row stays `proposed`.
+- [ ] **Run verification** on `commercialisation` AND `financial-services` (§11 step 2) — the deployed app. **Precondition for both acquisition and ratification.**
+- [ ] **Operator ruling on the wave-1 pillar mapping** (§4.1) — 28 rows, correctable individually.
+- [ ] **Operator ruling on the two pillars that fail Law II** (§5.2) — a second authority for `partnerships` and `outcome-assurance`, or explicit acceptance. **This is the outstanding half of the ratification bar.**
+- [ ] **Operator ruling on Law II** (§8.1) — adopt as Law II of Constitutional Discovery by amendment to PRD-ICA-001's amendment §2.0 + PRD-ICA-001 §5.
+- [ ] **Operator ruling on §8.2 checks 2 and 3** — whether `confirmPillarSaturation` should refuse on an unsatisfied verdict, and whether issuer-concentration lands in `assessLaneCoverage`.
 - [ ] **Operator ruling on the three neighbouring dependency pairs** (§6.1) — merge or keep.
-- [ ] **Run the migration** `supabase/migrations/20260827000000_commercialisation_institutional_registry.sql` (§8 step 1).
-- [ ] **Phase 2 ratification pass** (§8 step 2) — a steward act.
-- [ ] **Phase 3 acquisition** — only after Phase 2, only on the deployed app.
+- [ ] **FS-META-001** (§10) — backfill the Financial Services template metadata, from the operator or a verified corpus, never by inference.
+- [ ] **Phase 2 ratification pass** (§11 step 3) — a steward act, after verification.
+- [ ] **Phase 3 acquisition** (§11 step 4) — only after ratification AND verification.
