@@ -30,33 +30,21 @@ import {
   rejectCandidate,
   type EvidenceKind,
 } from '@/services/invariants/discoveryEngine';
+import {
+  DISCOVERY_DOMAINS,
+  DEFAULT_DISCOVERY_DOMAIN,
+  discoveryDomain,
+  subDomainPresets,
+} from '@/services/invariants/discoveryDomains';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const DEFAULT_DOMAIN = 'financial-services';
-
-// Sub-domain presets for the Financial Services domain: CRP-003's five capability
-// domains + the sector-native areas the operator named. The UI offers these plus
-// free-text — laddering beneath the domain baseline (CFS-048 Phase 1a).
-const SUB_DOMAIN_PRESETS: Record<string, { value: string; label: string }[]> = {
-  'financial-services': [
-    { value: 'investment-operations', label: 'Investment Operations (CRP-003 D1)' },
-    { value: 'market-operations', label: 'Market Operations (CRP-003 D2)' },
-    { value: 'financial-intelligence', label: 'Financial Intelligence (CRP-003 D3)' },
-    { value: 'financial-integrity', label: 'Constitutional Financial Integrity (CRP-003 D4)' },
-    { value: 'constitutional-commerce', label: 'Constitutional Commerce (CRP-003 D5)' },
-    { value: 'payments', label: 'Payments' },
-    { value: 'trading', label: 'Trading' },
-    { value: 'banking', label: 'Banking' },
-    { value: 'custody', label: 'Custody' },
-    { value: 'cross-border', label: 'Cross-border' },
-    // QriptoCENT — the finance/qriptocent sub-domain (PRD-MPY-001 §3.5, D6).
-    // Source sub-corpus from which MoneyPenny's inv.finance.* library is DERIVED
-    // by the Discovery Engine — never hand-authored (col_qriptocent_corpus).
-    { value: 'qriptocent', label: 'QriptoCENT (PRD-MPY-001 D6)' },
-  ],
-};
+// Domain list, default, and sub-domain presets are DERIVED from the Discovery
+// Domain Registry (PRD-IDE-002). They used to be hand-maintained literals here
+// AND in two client surfaces — three copies of one list, the stale-duplicate
+// defect `tests/source-of-truth-parity.test.ts` exists to catch.
+const DEFAULT_DOMAIN = DEFAULT_DISCOVERY_DOMAIN;
 
 export async function GET(req: NextRequest) {
   const persona = await getActivePersona(req);
@@ -72,8 +60,22 @@ export async function GET(req: NextRequest) {
     listEvidence(admin, domain, subDomain),
     listCandidates(admin, domain, subDomain),
   ]);
+  const registered = discoveryDomain(domain);
   return NextResponse.json(
-    { ok: true, domain, subDomain, subDomainPresets: SUB_DOMAIN_PRESETS[domain] ?? [], evidence, candidates },
+    {
+      ok: true,
+      domain,
+      subDomain,
+      subDomainPresets: subDomainPresets(domain),
+      // The registry, projected for the surface's domain picker + the
+      // observed-domain legend a horizontal domain's recurrence scores need.
+      domains: DISCOVERY_DOMAINS.map((d) => ({ key: d.key, label: d.label, kind: d.kind })),
+      domainKind: registered?.kind ?? null,
+      domainDefinition: registered?.definition ?? null,
+      observedIn: registered ? [...registered.observedIn] : [],
+      evidence,
+      candidates,
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

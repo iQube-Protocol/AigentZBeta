@@ -49,6 +49,13 @@
  *    template renames a heading the parser reads, artifacts authored from it
  *    parse to empty and validate as incomplete for no visible reason:
  *      tests/capability-completion.test.ts
+ *  - DISCOVERY_DOMAINS (the Discovery Domain Registry, PRD-IDE-002) ↔ the
+ *    discovery route's sub-domain presets + default domain, CorpusScoutTab's
+ *    KNOWN_DOMAINS, and InvariantDiscoveryTab's default domain -- one list that
+ *    used to be hand-copied into three surfaces. Plus the PRD's §4 taxonomy
+ *    table and its verbatim constitutional definition, mirrored in a docs file
+ *    that cannot be derived from the code:
+ *      tests/commercialisation-discovery.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:

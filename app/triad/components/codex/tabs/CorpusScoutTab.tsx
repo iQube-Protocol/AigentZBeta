@@ -42,15 +42,19 @@ import {
   type LaneCoverageRow,
 } from '@/services/corpusScout/intelligence';
 import { DomainConstitutionPanel } from '@/components/corpusScout/DomainConstitutionPanel';
+import { DISCOVERY_DOMAINS, DEFAULT_DISCOVERY_DOMAIN } from '@/services/invariants/discoveryDomains';
 
-const DEFAULT_CAMPAIGN_DOMAIN = 'financial-services';
+const DEFAULT_CAMPAIGN_DOMAIN = DEFAULT_DISCOVERY_DOMAIN;
 const PREVIEW_CHARS = 1500;
 
-/** Domains with a ratified Constitutional Coverage Model (Constitutional
- *  Discovery amendment) — prepopulated so a steward never has to type the
- *  name of an already-chartered domain. "Custom…" reveals a free-text input
- *  for a domain not yet chartered (e.g. medicine, media). */
-const KNOWN_DOMAINS = ['financial-services'] as const;
+/** Domains carried by the Discovery Domain Registry — prepopulated so a steward
+ *  never has to type the name of an already-registered domain. DERIVED, not
+ *  hand-listed: this used to be a literal `['financial-services']` that would
+ *  silently omit any newly registered domain (inv.engineering.036). Whether a
+ *  given domain also has a RATIFIED Constitutional Coverage Model is a separate
+ *  question the DomainConstitutionPanel answers per domain. "Custom…" still
+ *  reveals a free-text input for a domain not in the registry at all. */
+const KNOWN_DOMAINS = DISCOVERY_DOMAINS.map((d) => d.key);
 const CUSTOM_DOMAIN_OPTION = '__custom__';
 
 type ReviewDecision =

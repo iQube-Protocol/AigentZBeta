@@ -26,6 +26,7 @@ import { callSovereign } from '@/services/constitutional/modelRouter';
 import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
 import { listEdgesForInvariants } from '@/services/invariants/store';
 import { similarity } from '@/services/invariants/comparison';
+import { evidenceDomainsFor, parseObservationDomain } from '@/services/invariants/discoveryDomains';
 import type { InvariantNamespace, InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -77,6 +78,40 @@ export interface ConvergenceInfo {
   tier: 'single' | 'strong' | 'broad';
 }
 
+/**
+ * Cross-Domain Recurrence — in how many DISTINCT domains does evidence for this
+ * candidate exist (PRD-IDE-002 Addendum A). Distinct from `ConvergenceInfo`,
+ * which counts distinct SOURCE DOCUMENTS within one corpus: five FATF documents
+ * are broad convergence but still ONE domain. Recurrence is the stronger signal —
+ * "a candidate that emerges independently in Financial Services, media, and
+ * Human Mobility Services is a much stronger prospect than one observed only
+ * within a single vertical."
+ *
+ * DERIVED at read time from the candidate's evidence rows, never stored. A
+ * persisted score is a second source of truth for a fact the evidence already
+ * carries, and it silently goes stale the moment evidence is added or
+ * reclassified (inv.engineering.036). It is a query, not a field.
+ */
+export interface RecurrenceInfo {
+  /** The distinct domains the supporting evidence was observed in, sorted. */
+  observedDomains: string[];
+  /** = observedDomains.length. */
+  recurrenceCount: number;
+  tier: 'single-domain' | 'cross-domain' | 'broad-cross-domain';
+  /**
+   * Amendment D §D.4a, made MECHANICAL rather than a matter of judgement: a
+   * finding present in only ONE domain is `specialized`, never universal. This
+   * is the WEAKEST classification the evidence permits — a reviewer may
+   * classify lower (e.g. `novel` is orthogonal), never higher.
+   */
+  classificationFloor: 'specialized' | 'supported';
+  /**
+   * Amendment D §D.4a again: an L4 (domain-independent) claim requires a second
+   * domain. One domain caps the ladder at L3.
+   */
+  maxAbstractionLevel: 'L3' | 'L4';
+}
+
 export interface CandidateRow {
   id: string;
   domain: string;
@@ -106,6 +141,8 @@ export interface CandidateRow {
   } | null;
   /** Enriched at read time (route/service), not stored. */
   convergence?: ConvergenceInfo;
+  /** Enriched at read time (route/service), not stored — see RecurrenceInfo. */
+  recurrence?: RecurrenceInfo;
 }
 
 function committer(personaId: string): string {
@@ -144,10 +181,26 @@ export async function addEvidence(
  * domain corpus refined by its sub-domain sources.
  */
 export async function listEvidence(admin: SupabaseClient, domain: string, subDomain?: string | null): Promise<EvidenceRow[]> {
+  return listEvidenceForDomains(admin, [domain], subDomain);
+}
+
+/**
+ * The multi-domain form. A HORIZONTAL capability domain (PRD-IDE-002) has no
+ * corpus of its own — its evidence is observed inside several verticals and
+ * stored under qualified `<domain>/<observedDomain>` keys — so a discovery run
+ * for it must read across all of them. `evidenceDomainsFor` decides the list;
+ * a vertical resolves to `[itself]`, which is byte-for-byte the previous
+ * behaviour.
+ */
+export async function listEvidenceForDomains(
+  admin: SupabaseClient,
+  domains: string[],
+  subDomain?: string | null,
+): Promise<EvidenceRow[]> {
   let query = admin
     .from('discovery_evidence')
     .select('id, domain, sub_domain, title, source_kind, content, source_ref, created_at')
-    .eq('domain', domain);
+    .in('domain', domains);
   if (subDomain) query = query.or(`sub_domain.is.null,sub_domain.eq.${subDomain}`);
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) return [];
@@ -238,7 +291,9 @@ export async function runConstitutionalDiscovery(
 ): Promise<{ ok: true; candidates: CandidateRow[] } | { ok: false; error: string }> {
   const subDomain = opts.subDomain?.trim() || null;
   const scopeLevel: DiscoveryScopeLevel = subDomain ? (opts.scopeLevel ?? 'sub-domain') : 'domain';
-  const evidence = await listEvidence(admin, domain, subDomain);
+  // A horizontal-capability domain reads its evidence from the verticals it is
+  // observed in; a vertical reads its own corpus. One decision point, in the registry.
+  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain), subDomain);
   if (evidence.length === 0) {
     return {
       ok: false,
@@ -309,7 +364,13 @@ export async function runConstitutionalDiscovery(
   const { data, error } = await admin.from('discovery_candidates').insert(rows).select('*');
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
-  return { ok: true, candidates: enrichConvergence(inserted, evidence) };
+  return { ok: true, candidates: enrichSignals(inserted, evidence) };
+}
+
+/** Both read-time signals in one pass — convergence (within-corpus support) and
+ *  recurrence (across-domain support). Neither is persisted. */
+function enrichSignals(candidates: CandidateRow[], evidence: EvidenceRow[]): CandidateRow[] {
+  return enrichRecurrence(enrichConvergence(candidates, evidence), evidence);
 }
 
 export async function listCandidates(admin: SupabaseClient, domain: string, subDomain?: string | null): Promise<CandidateRow[]> {
@@ -322,8 +383,8 @@ export async function listCandidates(admin: SupabaseClient, domain: string, subD
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) return [];
   const rows = (data ?? []).map(toCandidateRow);
-  const evidence = await listEvidence(admin, domain, subDomain);
-  return enrichConvergence(rows, evidence);
+  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain), subDomain);
+  return enrichSignals(rows, evidence);
 }
 
 // ── Cross-framework convergence (derived; a priority signal, not validity) ───
@@ -349,6 +410,43 @@ export function computeConvergence(evidenceIds: string[], evidence: EvidenceRow[
  *  or UI sorts by convergence for display). */
 export function enrichConvergence(candidates: CandidateRow[], evidence: EvidenceRow[]): CandidateRow[] {
   return candidates.map((c) => ({ ...c, convergence: computeConvergence(c.evidenceIds, evidence) }));
+}
+
+// ── Cross-domain recurrence (derived; PRD-IDE-002 Addendum A) ────────────────
+
+/**
+ * Count the DISTINCT domains a candidate's evidence was observed in. The
+ * observed domain is read straight off each evidence row's `domain`, with a
+ * qualified `<discoveryDomain>/<observedDomain>` key parsed down to its observed
+ * half — so nothing is inferred, stored, or maintained in parallel.
+ *
+ * Evidence ids that no longer resolve are ignored (same discipline as
+ * `computeConvergence`): a stale reference must not inflate a recurrence score.
+ */
+export function computeRecurrence(evidenceIds: string[], evidence: EvidenceRow[]): RecurrenceInfo {
+  const byId = new Map(evidence.map((e) => [e.id, e]));
+  const observed = new Set<string>();
+  for (const id of evidenceIds) {
+    const e = byId.get(id);
+    if (!e) continue;
+    observed.add(parseObservationDomain(e.domain).observedDomain);
+  }
+  const observedDomains = [...observed].sort();
+  const recurrenceCount = observedDomains.length;
+  const tier: RecurrenceInfo['tier'] =
+    recurrenceCount >= 3 ? 'broad-cross-domain' : recurrenceCount === 2 ? 'cross-domain' : 'single-domain';
+  return {
+    observedDomains,
+    recurrenceCount,
+    tier,
+    classificationFloor: recurrenceCount >= 2 ? 'supported' : 'specialized',
+    maxAbstractionLevel: recurrenceCount >= 2 ? 'L4' : 'L3',
+  };
+}
+
+/** Attach recurrence to each candidate; order is preserved (callers sort). */
+export function enrichRecurrence(candidates: CandidateRow[], evidence: EvidenceRow[]): CandidateRow[] {
+  return candidates.map((c) => ({ ...c, recurrence: computeRecurrence(c.evidenceIds, evidence) }));
 }
 
 // ── Cross-sub-domain Compare (CFS-048 Phase 2 — earned domain invariants) ─────
@@ -499,9 +597,9 @@ export async function compareSubDomains(
   const { data, error } = await admin.from('discovery_candidates').insert(rows).select('*');
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
-  // Convergence over the domain's whole evidence corpus.
-  const evidence = await listEvidence(admin, domain);
-  return { ok: true, candidates: enrichConvergence(inserted, evidence), comparedSubDomains, inputInvariantCount };
+  // Convergence + recurrence over the domain's whole evidence corpus.
+  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain));
+  return { ok: true, candidates: enrichSignals(inserted, evidence), comparedSubDomains, inputInvariantCount };
 }
 
 // ── Recursive compression (parent-child keystone) ────────────────────────────

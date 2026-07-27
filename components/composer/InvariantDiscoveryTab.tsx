@@ -19,6 +19,15 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { DEFAULT_DISCOVERY_DOMAIN } from "@/services/invariants/discoveryDomains";
+
+interface DomainOption { key: string; label: string; kind: string }
+interface Recurrence {
+  observedDomains: string[]; recurrenceCount: number;
+  tier: "single-domain" | "cross-domain" | "broad-cross-domain";
+  classificationFloor: "specialized" | "supported";
+  maxAbstractionLevel: "L3" | "L4";
+}
 
 interface Evidence {
   id: string; domain: string; subDomain: string | null; title: string;
@@ -34,7 +43,7 @@ interface Candidate {
   discoveryClass: string; statement: string;
   rationale: string; evidenceIds: string[]; confidence: number;
   status: "candidate" | "promoted" | "rejected"; promotedInvariantId: string | null;
-  createdAt: string; convergence?: Convergence;
+  createdAt: string; convergence?: Convergence; recurrence?: Recurrence;
   stage?: "constitutional" | "compare";
   classification?: Classification | null;
   coverage?: string[] | null;
@@ -72,7 +81,12 @@ const CONVERGENCE_META: Record<Convergence["tier"], string> = {
 };
 
 export default function InvariantDiscoveryTab() {
-  const [domain] = useState("financial-services");
+  // Domain, its label, and its sub-domain ladder all come from the Discovery
+  // Domain Registry via the route (PRD-IDE-002) — never a literal here.
+  const [domain, setDomain] = useState<string>(DEFAULT_DISCOVERY_DOMAIN);
+  const [domains, setDomains] = useState<DomainOption[]>([]);
+  const [domainKind, setDomainKind] = useState<string | null>(null);
+  const [observedIn, setObservedIn] = useState<string[]>([]);
   const [subDomain, setSubDomain] = useState<string>(""); // "" = domain baseline
   const [presets, setPresets] = useState<Preset[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -101,6 +115,9 @@ export default function InvariantDiscoveryTab() {
         setEvidence(data.evidence ?? []);
         setCandidates(data.candidates ?? []);
         if (Array.isArray(data.subDomainPresets)) setPresets(data.subDomainPresets);
+        if (Array.isArray(data.domains)) setDomains(data.domains);
+        setDomainKind(typeof data.domainKind === "string" ? data.domainKind : null);
+        setObservedIn(Array.isArray(data.observedIn) ? data.observedIn : []);
       } else setNotice(`⚠ ${data?.error ?? "Load failed"}`);
     } catch (e) {
       setNotice(`⚠ ${e instanceof Error ? e.message : "Load failed"}`);
@@ -286,7 +303,9 @@ export default function InvariantDiscoveryTab() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
-        <h3 className="text-base font-semibold text-slate-100">Invariant Discovery Engine — Financial Services</h3>
+        <h3 className="text-base font-semibold text-slate-100">
+          Invariant Discovery Engine — {domains.find((d) => d.key === domain)?.label ?? domain}
+        </h3>
         <p className="text-sm text-slate-400 mt-1">
           CFS-048 · constitutional arm. Assemble evidence → discover candidate invariants (compression, not
           summarisation) → promote into the registry as <span className="text-violet-300">proposed</span>. Discovery is
@@ -298,7 +317,16 @@ export default function InvariantDiscoveryTab() {
       {/* Scope bar — domain baseline vs a sub-domain rung */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Layers className="h-3.5 w-3.5 text-slate-400" /> Scope</span>
-        <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">Financial Services</span>
+        <select
+          value={domain}
+          onChange={(e) => { setDomain(e.target.value); setSubDomain(""); }}
+          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
+          title="Discovery domain — vertical (own corpus) or horizontal capability (observed across verticals)"
+        >
+          {(domains.length ? domains : [{ key: domain, label: domain, kind: "" }]).map((d) => (
+            <option key={d.key} value={d.key}>{d.label}</option>
+          ))}
+        </select>
         <span className="text-slate-600">›</span>
         <select
           value={subDomain}
@@ -311,6 +339,11 @@ export default function InvariantDiscoveryTab() {
         <span className="text-[11px] text-slate-500">
           {subDomain ? "sub-domain invariants refine the baseline" : "the invariants that hold across the whole domain"}
         </span>
+        {domainKind === "horizontal-capability" && observedIn.length > 0 && (
+          <span className="text-[11px] text-amber-300/80" title="A horizontal capability domain has no corpus of its own — its evidence is observed inside these verticals, and recurrence across them is the confidence signal.">
+            horizontal · observed in {observedIn.join(", ")}
+          </span>
+        )}
       </div>
       {notice && <p className="text-xs text-slate-300">{notice}</p>}
 
@@ -418,6 +451,20 @@ export default function InvariantDiscoveryTab() {
                       </span>
                     )}
                     {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
+                    {c.recurrence && c.recurrence.recurrenceCount > 0 && (
+                      <span
+                        title={`Cross-Domain Recurrence — evidence observed in: ${c.recurrence.observedDomains.join(" · ")}. Floor: ${c.recurrence.classificationFloor}; max abstraction ${c.recurrence.maxAbstractionLevel} (Amendment D §D.4a). Derived from the evidence, never stored.`}
+                        className={`rounded-full border px-1.5 py-0.5 text-[9px] ${
+                          c.recurrence.tier === "broad-cross-domain"
+                            ? "border-amber-400/50 bg-amber-400/10 text-amber-200"
+                            : c.recurrence.tier === "cross-domain"
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                              : "border-slate-600 bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        ↻ {c.recurrence.recurrenceCount} domain{c.recurrence.recurrenceCount === 1 ? "" : "s"}
+                      </span>
+                    )}
                     {c.compression && (
                       c.compression.role === "root" ? (
                         <span title="Foundational — proposed as a root (does not derive from another invariant in the set); a constitutional candidate for this domain"
