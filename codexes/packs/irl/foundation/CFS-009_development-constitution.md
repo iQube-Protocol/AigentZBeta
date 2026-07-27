@@ -176,6 +176,32 @@ The progression this corollary completes:
 Fields → Composition → Sequencing → Coherence → Experience
 ```
 
+## Law XVI — Constitutional Evidence
+*(Amendment, ratified by operator direction 2026-07-27. Full specification: CFS-052 — Evidence Architecture & Dual Validation.)*
+
+> **Truth is discovered through research.**
+> **Trust is earned through operation.**
+> **Knowledge is preserved as evidence.**
+> **Confidence is preserved as proof.**
+
+Four clauses, four institutions, and — read as a sequence — the platform's constitutional knowledge architecture stated in four lines.
+
+**Truth is discovered through research.** Structural invariants describe stable properties of reality and are validated scientifically: reproducibility, falsifiability, compression, predictive capability, cross-domain transferability, independent verification. This is the Invariant Research Lab's mandate, and it is why only the Research Lab canonises (Horizen audit Amendment D §D.5).
+
+**Trust is earned through operation.** Constitutional invariants describe stable properties of *successful systems* and are validated operationally: fewer defects, lower coordination cost, less repair effort, successful governance, regulatory compliance, successful delegation, commercial adoption, measurable customer and societal benefit, repeatable deployment. This is the Venture Lab's mandate. Commercialisation is therefore an evidentiary process, not merely a revenue mechanism.
+
+**Neither regime is subordinate to the other, and neither is rewritten into the other.** They *map* (Law XII's discipline applied to validation: Truth, Standing and Reach are orthogonal, and so are these). Operational proof may precede scientific proof; scientific validation strengthens a constitutional invariant's transferability but is not a prerequisite for its operational use. Equally — and this is the boundary that keeps the loop honest — operational success never promotes a *structural* claim to `canonical`. The Venture Lab applies, tests and proposes; it does not canonise.
+
+**Knowledge is preserved as evidence. Confidence is preserved as proof.** The Registry answers *what exists* and admits objects because they exist. The metaCommons answers *what has been demonstrated* and admits objects because they prove something. A proof is a constitutional **compression** of an evidence suite — it carries only what is needed to verify the proposition, while its supporting evidence stays in the Registry — and it must remain sufficient to **regenerate** that evidence trail. This is the same relation a receipt has to a transaction, which is what makes commerce, governance and knowledge structurally symmetric under this constitution.
+
+```
+Reality → Evidence → Registry → Proof → metaCommons → Invariant Intelligence
+                  "what exists?"     "what has been      "what can now be
+                                      demonstrated?"      relied upon?"
+```
+
+Each layer is derived from, but never interchangeable with, the layer beneath it. Collapsing any two — evidence into proof, Registry into Commons, operational validation into scientific validation — destroys the compression that makes the layer above it worth having.
+
 ## Constitutional principle — Constitutional Evolution
 *(Ratified by operator direction 2026-07-04. A principle, not a law: it describes how laws come to be, so it stands above the numbered sequence rather than inside it.)*
 
