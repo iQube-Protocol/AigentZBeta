@@ -148,6 +148,52 @@ introduce other lab names.
 
 ---
 
+## metaProof Commons
+
+**Canonical concept:** **metaProof Commons**
+**Canonical product / UI name:** **metaCommons**
+
+**Definition:** The governed constitutional commons of scientific, operational, commercial and
+constitutional proof generated across the metaProof ecosystem. It is a **governed proof
+substrate** — knowledge is an interpretation or projection of accumulated proof, never the other
+way round.
+
+**What it is NOT** (operator ruling 2026-07-27, stated as exclusions because each was a live
+misreading): it is not a document repository, not a social feed, not a wiki, and not simply a
+knowledge base.
+
+**The four proof classes** are first-class constitutional concepts:
+
+| Class | Produced primarily by | Answers |
+|---|---|---|
+| **Scientific Proof** | Research Lab | What is structurally true? |
+| **Commercial Proof** | Venture Lab | Does this create demonstrable value? |
+| **Operational Proof** | Venture Lab + platform operations | Can this be deployed repeatedly and reliably? |
+| **Constitutional Proof** | **Everywhere** | Did the platform preserve constitutional guarantees? |
+
+Constitutional proof — Passport validity, delegation bounds, Standing attribution, receipt
+generation, access decisions, governance interventions, personhood continuity — is the substrate
+both Labs natively share, and therefore the spine the other three classes hang from.
+
+**Governing principle:** *Only governed proof enters the metaProof Commons.* Not every
+observation, discussion or report — only proof that has passed the governance appropriate to its
+domain and classification. The promotion verb is **Submit Proof** / **Promote to metaCommons**,
+never "publish to" it.
+
+**Usage rule:** use **metaProof Commons** for the constitutional object (specs, charters,
+governance text) and **metaCommons** in product and UI copy ("Submit to metaCommons", "Review in
+metaCommons", "Search metaCommons"). The pairing mirrors **MetaProof** (the operating entity) and
+**metaMe** (the experiential runtime). Never "Proof Commons" alone as an identifier, and never
+"meta commons", "Meta-Commons" or "MetaCommons" as spellings.
+
+**Naming note — `metaProof` is an ecosystem prefix, not a single referent.** Three canonical uses
+coexist and are reconciled by the ecosystem reading: **MetaProof** the operating entity, the
+**metaProof Agent Harness** (`docs/agent-harness/metaproof-core.md`), and the **metaProof
+Commons**. Each names a distinct part of one constitutional operating model; none may be shortened
+to bare "metaProof" where the referent would be ambiguous.
+
+---
+
 ## Enforcement
 
 All agents (Claude Code, Codex, Lovable, any future agent) must:
@@ -156,4 +202,4 @@ All agents (Claude Code, Codex, Lovable, any future agent) must:
 3. Never introduce a variant spelling, even in comments or variable names
 4. Treat a non-canonical spelling as a bug to be fixed, not a style preference
 
-Last updated: 2026-06-17
+Last updated: 2026-07-27

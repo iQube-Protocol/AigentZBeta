@@ -829,3 +829,118 @@ naming an agent harness, an organisation and a knowledge substrate simultaneousl
 | **Programme A independent** | Commercialisation discovery chartered separately; Horizen is not gated on it |
 | **Single-sector = `specialized`** | Programme A's promotion rule; L4 claims require a second sector |
 | **Falsification is submissible** | The evidence posture must express failure in deployment, not only success |
+
+---
+
+# Amendment E — metaProof Commons formalised (operator ruling, 2026-07-27)
+
+**Resolves the D.7 naming collision.** The ruling separates the constitutional object from the
+product surface, exactly as the platform already does elsewhere:
+
+| Layer | Name | Precedent |
+|---|---|---|
+| Constitutional concept | **metaProof Commons** | *MetaProof* — the operating entity |
+| Product / UI name | **metaCommons** | *metaMe* — the experiential runtime |
+
+**Canonised in `docs/platform-ontology.md`** (mandatory reading for every agent) so the pairing
+travels beyond this workstream. The terminology canon parser (`loadTerminologyCanon`) picks the
+section up automatically; the ontology canary passes.
+
+## E.1 Constitutional definition (recorded verbatim)
+
+> The **metaProof Commons (metaCommons)** is the governed constitutional commons of scientific,
+> operational, commercial and constitutional proof generated across the metaProof ecosystem.
+
+Stated as exclusions, because each was a live misreading during this audit: **not** a document
+repository, **not** a social feed, **not** a wiki, **not** simply a knowledge base. It is a
+**governed proof substrate**, and knowledge is an interpretation or projection of accumulated
+proof.
+
+## E.2 The `metaProof` prefix — collision reconciled, not merely tolerated
+
+The D.7 flag is answered by reading `metaProof` as an **ecosystem prefix** rather than a single
+referent. Three canonical uses coexist without ambiguity because each names a distinct part of one
+constitutional operating model:
+
+| Usage | Names |
+|---|---|
+| **MetaProof** | the operating entity |
+| **metaProof Agent Harness** (`docs/agent-harness/metaproof-core.md`) | the canonical agent-harness spec |
+| **metaProof Commons** | the proof layer |
+
+**Rule recorded in the ontology:** none may be shortened to bare "metaProof" where the referent
+would be ambiguous. This is what makes the third meaning safe to adopt — the prefix was always
+doing ecosystem work; it simply had not been said.
+
+## E.3 PRINCIPLE 5 — Only governed proof enters the metaProof Commons
+
+> *"Not every observation. Not every discussion. Not every report. Only proof that has passed the
+> appropriate governance for its domain and classification."*
+
+This sits **above** the four proof classes and is the strictest gate in the architecture. Its
+implementation consequences:
+
+1. **Submission is refused, not filtered.** A submission without evidence references, a claim scope
+   and an evidence posture never enters — it is not accepted-then-hidden. The Commons has no
+   ungoverned tier.
+2. **Governance is domain-appropriate, not uniform.** Scientific proof answers to the research
+   lifecycle (`observed → replicated → canonized-as-invariant`, pinned canon); commercial and
+   operational proof answer to their own postures; constitutional proof answers to receipts and
+   access decisions. **One gate, four rulebooks** — the mapping discipline of Amendment B §8.
+3. **The BlakQube refusal is a special case of this principle**, not a separate rule: unapproved
+   Tier 0/Tier 1 material is by definition ungoverned proof.
+4. **Canary:** no code path may write a commons record without an `ApprovalRecord` and at least one
+   evidence reference. This is the single most important canary in Phase 5 — it is what stops the
+   Commons decaying into the document repository the definition excludes.
+
+## E.4 The complete architecture (recorded as canon for this workstream)
+
+```
+Research Lab ──── Scientific Proof ────► Research Workspace ─────┐
+                                                                 ▼
+                                                    metaProof Commons
+                                                       (metaCommons)
+                                                                 ▲
+Venture Lab ◄──── Venture Workspace ◄──── Commercial / Operational / Constitutional Proof
+```
+
+And the recursive loop, with the direction of canonisation preserved:
+
+```
+Invariant Discovery → Candidate Invariants → Canonical Invariants
+        ▲                                            │
+        │                                   ┌────────┴────────┐
+   New Questions                    Applied in Research   Applied in Ventures
+        ▲                                   │                 │
+        │                          Scientific Proof   Commercial · Operational
+        └──────────────────────────────────┴─────────┬───────┘   · Constitutional Proof
+                                                      ▼
+                                             metaProof Commons
+```
+
+**Only the Research Lab canonises.** The Venture Lab applies, tests and proposes; commercial
+success never promotes an invariant to `canonical` (Amendment B §B.1, D.5).
+
+## E.5 UI vocabulary (product surface)
+
+Recorded so the surfaces are built with one voice:
+
+- *Submit to metaCommons* · *Promote to metaCommons* · *Review in metaCommons* ·
+  *Search metaCommons* · *Publish from metaCommons*
+- **Never** *"publish to metaCommons"* — publication is what happens **from** the Commons, after
+  governance; submission is what happens **to** it.
+
+## E.6 Consolidated principles governing this workstream
+
+| # | Principle | Source |
+|---|---|---|
+| **P1** | The Commons holds **proof**, not knowledge; knowledge is a projection of proof | D.1 |
+| **P2** | **Constitutional proof is the spine** — produced everywhere, implemented first | D.2 |
+| **P3** | Workspaces record **resolved invariants with provenance**, never hand-authored ids | D.3 |
+| **P4** | **Commercialisation discovery is its own programme**; Horizen is its first consumer, never its gate | D.4 |
+| **P5** | **Only governed proof enters the metaProof Commons** | E.3 |
+
+Supporting disciplines already recorded: single-sector findings stay `specialized` until a second
+corpus confirms them (D.4a); falsification is a first-class submission (D.5); the four tiers are
+information boundaries, not four authentication systems (B); evidence postures **map**, never
+unify (B.4).
