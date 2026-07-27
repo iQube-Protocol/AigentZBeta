@@ -961,3 +961,112 @@ Supporting disciplines already recorded: single-sector findings stay `specialize
 corpus confirms them (D.4a); falsification is a first-class submission (D.5); the four tiers are
 information boundaries, not four authentication systems (B); evidence postures **map**, never
 unify (B.4).
+
+---
+
+# Delivery record — Phase 2: the common `ExperimentWorkspace` spine
+
+**Shipped 2026-07-27.** `f14bb33af`. Suite 1918/1918 (145 files).
+
+## What was built
+
+| File | Role |
+|---|---|
+| `services/experiments/experimentWorkspace.ts` | The spine — domain-discriminated workspace, all references, invariant resolution, action + decision projections |
+| `services/experiments/workspaceTracking.ts` | The only workspace-local state: milestones + blockers |
+| `supabase/migrations/20260824000000_experiment_workspace_tracking.sql` | One table, RLS-enabled, service-role only |
+| `tests/experiment-workspace.test.ts` | 11 canaries, mutation-tested |
+
+## The reference table (what is stored vs. what is resolved)
+
+| Concern | Where it lives | On the workspace |
+|---|---|---|
+| Participants | `participationAccess` grants | `{ domain, roles }` — where to look, never who |
+| Agents | canonical agent ids + Constitutional Agreements | agent ids only; agreements resolved live |
+| Actions | IntentQubes (`nbe_plans`) | **projected**, `projectWorkspaceActions()` |
+| Decisions | Constitutional Agreement lifecycle | **projected**, `projectWorkspaceDecisions()` |
+| Evidence | activity receipts | `{ cartridge, actionTypes }` |
+| Invariants | the runtime invariant store | **resolved with provenance**, `resolveWorkspaceInvariants()` |
+| Channels | QubeTalk peer channels | working groups = named sets of channel ids |
+| **Milestones · blockers** | **nowhere else** | **the only new state** |
+
+Operator ruling honoured verbatim: *actions substrate = **Hybrid***.
+
+## The venture variant is a derivation, not a second list
+
+`experimentWorkspaceFromPartner()` projects `PARTNER_WORKSPACES` onto the spine. The partner record
+is carried by identity (`ws.partner === partner`), not reshaped — so the registry stays the single
+authoritative source and the next partner is one new entry there and zero here
+(`inv.engineering.036` / `.037`). The research variant binds `EXPERIMENT_REGISTRY` entries in
+Phase 4; the registry is not modified to do it.
+
+## Amendment D Principle 3, enforced
+
+`resolveWorkspaceInvariants()` copies `services/venture/blueprintHandoff.ts` in shape: resolve the
+workspace's own operator-facing text through the canonical ontology, look the seed ids up in the
+runtime store, and record **what resolved, against which canon version, via which resolution
+source**, plus the concepts canon does **not** govern (`unresolved` — surfaced, never hidden). A
+canary fails the build on any literal `inv.*` id in the spine's executable source.
+
+## The refusal teaches the architecture
+
+`assertTrackableKind()` rejects `action`, `decision`, `participant`, `evidence` and `invariant` **by
+name**, each with the substrate that owns it — so the next agent to reach for a workspace action
+store is told where actions already live rather than left to rediscover the ruling.
+
+## Mutations verified to fail the suite
+
+literal invariant id in the spine · an invented participation role · a dropped refusal · a
+`messages` field on the spine · a `persona_id` column in the migration · a blocker reaching `done`.
+
+## Operator action required — run this SQL in the Supabase SQL editor
+
+The Phase 2 code soft-fails to empty until this table exists (milestones and blockers read as
+none; every projection and resolution works without it).
+
+```sql
+CREATE TABLE IF NOT EXISTS public.experiment_workspace_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id text NOT NULL,
+  kind text NOT NULL,
+  title text NOT NULL,
+  detail text,
+  status text NOT NULL DEFAULT 'open',
+  layer text,
+  owner_agent_id text,
+  due_date date,
+  linked_intent_id text,
+  linked_agreement_id text,
+  created_by_ref text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.experiment_workspace_items
+  DROP CONSTRAINT IF EXISTS experiment_workspace_items_kind_check;
+ALTER TABLE public.experiment_workspace_items
+  ADD CONSTRAINT experiment_workspace_items_kind_check
+  CHECK (kind IN ('milestone', 'blocker'));
+
+ALTER TABLE public.experiment_workspace_items
+  DROP CONSTRAINT IF EXISTS experiment_workspace_items_status_check;
+ALTER TABLE public.experiment_workspace_items
+  ADD CONSTRAINT experiment_workspace_items_status_check
+  CHECK (status IN ('open', 'in_progress', 'done', 'cleared'));
+
+CREATE INDEX IF NOT EXISTS experiment_workspace_items_workspace_idx
+  ON public.experiment_workspace_items (workspace_id, kind, status);
+
+CREATE INDEX IF NOT EXISTS experiment_workspace_items_created_idx
+  ON public.experiment_workspace_items (created_at DESC);
+
+ALTER TABLE public.experiment_workspace_items ENABLE ROW LEVEL SECURITY;
+```
+
+## What Phase 2 deliberately did NOT build
+
+- **No surface.** The spine has no tab; Phase 3 renders it inside the Horizen Workspace.
+- **No channel provisioning.** Working groups carry empty `channelIds` until convened — honest, not
+  a placeholder for a parallel store.
+- **No Locker items.** `lockers` is empty until Phase 3 attaches participant Lockers by commitment.
+- **No research variant.** Phase 4, and it does not gate Horizen.
