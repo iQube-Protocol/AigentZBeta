@@ -190,3 +190,163 @@ worth projecting — never a copy.
    following, or is the whole spec one delivery?
 
 **Item 4 is the one hard blocker.** Everything else can proceed under the recommendations above.
+
+---
+
+# Amendment A — Cross-Lab audit (operator architectural ruling, 2026-07-27)
+
+**Ruling:** *"The Research Lab and Venture Lab should not have separate collaboration
+architectures. They are two domain-specific expressions of the same experimental substrate."*
+**Instruction:** *"Do not copy Research Lab Participation into Venture Lab. Extract the shared
+experimental-participation substrate, preserve Research and Venture specialisation, and make both
+flow through sovereign Lockers, collective Workspaces and the governed metaCommons."*
+
+This amendment answers the ten expanded audit points. Still **audit only** — no code.
+
+## A.1 Headline: the participation substrate is ALREADY extracted
+
+The instruction assumes Research Lab participation is a Research-Lab-shaped implementation that
+would have to be copied. **It is not, and it never was.** `services/passport/participationAccess.ts`
+was built as a domain-parameterised mechanism on 2026-07-18 (operator + Aletheon), and
+`StewardParticipationTab`'s own header states the design intent verbatim:
+
+> *"One mechanism, five access domains (Passport, Research Lab, Venture Lab, metaMe Studio,
+> Developer Studio) as a left side-menu… Per domain: issue bounded bearer invitations, see issued
+> invitations with claim state, revoke, and read the canonical access-grant record."*
+
+`ACCESS_DOMAINS` already contains `venture-lab`, and `DOMAIN_ROLES['venture-lab']` already carries
+five roles. Invitations, claims, revocation, grant records, application validation
+(`participantApplicationValidator`), the participant self-view (`participationSelfView`) and the
+Passport linkage are all domain-scoped today.
+
+**So the extraction the ruling calls for is roughly 80% done, and the anti-goal it warns against is
+structurally impossible to commit by accident** — there is only one implementation to reuse.
+
+What is genuinely missing is **not** the substrate. It is:
+
+1. a **participant-facing surface** — both Labs today expose participation through a *steward*
+   workspace plus a self-view API. There is no "Participate" area for a participant in either Lab;
+2. the **experiment/workspace spine** that sits above participation; and
+3. the **commons** that sits below it.
+
+## A.2 The real asymmetry — the two Labs model different objects
+
+This is the finding that reshapes the plan.
+
+| | Research Lab | Venture Lab |
+|---|---|---|
+| What is richly modelled | **The experiment.** `EXPERIMENT_REGISTRY`, `ResearchSeries`, `ResearchFinding`, `ResearchPublication`, three pinned lifecycles, `programmeFocus`, `formerly` lineage | **The venture.** `VentureQubeV1` — identity, thesis, intent, signal evidence, archetypes, revenue architecture, commercial model… |
+| What is thin | The *workspace* around an experiment (participants, working groups, actions — none exist) | **The experiment.** `PartnerWorkspace` has objectives, phase, layer owners, links — and no hypothesis, milestones, actions, evidence or reports |
+
+**Research models the experiment but not the collaboration. Venture models the entity but not the
+experiment.** Neither Lab has the object the ruling names — `ExperimentProgramme` — and neither has
+a workspace spine. That is precisely why this is a platform capability rather than a partner portal.
+
+**Corollary:** the common spine is genuinely new in both Labs. It is not extractable from either,
+because neither contains it. What IS extractable — participation, Locker, QubeTalk, receipts — is
+already shared.
+
+## A.3 Lifecycle mapping (and where it honestly breaks)
+
+The ruling proposes `evidencePosture: observed | validated | reproduced | deployed`. The platform
+already pins `FINDING_LIFECYCLE = observed → replicated → canonized-as-invariant` as constitutional
+data (order is meaning, canary-enforced).
+
+| Ruling's posture | Existing research lifecycle | Fit |
+|---|---|---|
+| observed | `observed` | exact |
+| validated | — | new; sits between observed and replicated |
+| reproduced | `replicated` | same concept, different word |
+| deployed | — | **no research counterpart** — a commercial-only terminus |
+| — | `canonized-as-invariant` | **no venture counterpart** — a research-only terminus |
+
+**Recommendation:** do NOT unify these into one enum. Keep `FINDING_LIFECYCLE` untouched (it is
+pinned canon) and give the commons an `evidencePosture` that *maps* to it per domain. Forcing one
+ladder would either falsify a commercial result as canonizable or strand `deployed` outside the
+model — exactly the misrepresentation the ruling warns against ("a commercial result should not
+silently be represented as a scientific result").
+
+## A.4 Answers to the ten expanded audit points
+
+| # | Point | Finding |
+|---|---|---|
+| 1 | Extract the Research Lab participation model | **Already extracted** (§A.1). Nothing to extract; something to *surface*. |
+| 2 | Identify the reusable participation substrate | `participationAccess.ts` (domains, roles, invitations, grants) + `participationSelfView.ts` + `participantApplicationValidator.ts` + `/api/participation/{claim,my-access}` + `/api/steward/participation/*` |
+| 3 | Common Locker + QubeTalk substrate | `services/passport/locker{Items,Storage}.ts`; `services/qubetalk/peerChannel.ts` (channels · messages · `RightsEnvelope` · `SharedArtifact`). Domain-neutral already. |
+| 4 | How Research experiments are represented | `types/research.ts` — registry + series + findings + publications + three lifecycles. Rich, canary-pinned, **no participants or workspace** |
+| 5 | How Venture pilots are represented | `services/venture/partnerWorkspace.ts` — thin (§A.2). Ventures themselves: `types/ventureQube.ts`, rich but a different object |
+| 6 | Define the common Experiment Workspace abstraction | **Net-new in both Labs.** Proposed seam in §A.5 |
+| 7 | Configure Research + Venture variants | Domain discriminator + per-domain extension, mirroring the `ACCESS_DOMAINS` pattern that already works |
+| 8 | Common metaCommons promotion model | **Net-new.** Doctrine (`services/polity/constitution.ts`) + deterministic stub (`metacommonsSignals.ts`) only |
+| 9 | Avoid duplicated participation implementations | **Structurally satisfied** — one implementation exists. The risk is a second *surface*, not a second substrate |
+| 10 | Both Labs project into one evidence substrate | Receipts already shared (`activityReceiptService`, DVN pipeline, `capabilityReceiptService`). The commons projection is the missing half |
+
+## A.5 The smallest common abstraction that unblocks Horizen
+
+The ruling's constraint is explicit: *"Horizen should not be delayed by an attempt to redesign the
+entire Research Lab."* So the seam is deliberately narrow:
+
+```
+ExperimentWorkspace                      ← NEW, minimal, domain-discriminated
+  ├─ domain: 'research' | 'venture'
+  ├─ experimentClass: scientific | commercial | operational | hybrid
+  ├─ participants  → participationAccess grants   (REFERENCE, not a copy)
+  ├─ agents        → constitutional agreements    (REFERENCE)
+  ├─ lockerLinks   → locker items                 (REFERENCE)
+  ├─ workingGroups → named sets of peer channels  (COMPOSITION)
+  ├─ milestones · actions · blockers · decisions  ← the only new state
+  ├─ evidence      → receipts                     (REFERENCE)
+  └─ commonsCandidates → MetaCommonsResource      (NEW, Phase 4)
+```
+
+`PartnerWorkspace` becomes the **venture variant** of this — it keeps `partnerName`, `series`,
+`layerOwners`, `partnershipContext`, `links`. The research variant is authored later (Phase 4) by
+binding `EXPERIMENT_REGISTRY` entries to a workspace; **the registry is not modified to do it.**
+
+Everything marked REFERENCE is the discipline that prevents the second programme-management system
+identified in §2 of the base audit.
+
+## A.6 A material defect found during this audit (needs its own decision)
+
+`StewardParticipationTab` calls `/api/steward/participation*` with `authedFetchHeaders` + raw
+`fetch`. Those routes resolve the caller through **`getActivePersona`** — they are spine endpoints.
+CLAUDE.md's Identity & Access Spine section names this exact pattern as forbidden and
+persona-UNAWARE: it attaches the Bearer (so it does not 401) but carries no persona selection, so
+the spine resolves a **fallback** persona for an operator who owns several.
+
+Today the blast radius is bounded: the routes gate on `cartridgeFlags.isAdmin`, a global flag, so a
+fallback persona belonging to the same admin still passes. **That bound disappears the moment
+participation becomes participant-facing** — which is exactly what the Venture Lab Participate area
+requires. A partner operator would then read *someone else's* grants, silently and plausibly.
+
+**Additionally: `tests/persona-spine-fetch.test.ts` — the canary CLAUDE.md names as the enforcement
+for this rule — does not exist in the repository.** The rule is documented but unenforced.
+
+**Recommendation:** fix the transport (`personaFetch` with a persona hint) and create the missing
+canary as a prerequisite of the participant-facing work — not as part of it. Flagged for operator
+decision; not fixed in this audit pass.
+
+## A.7 Amended phase sequence
+
+Adopting the ruling's sequence, adjusted for what the audit found:
+
+| Phase | Scope | Change from the ruling |
+|---|---|---|
+| **0** | Cross-Lab audit | **This document.** Complete |
+| **1** | Common participation substrate | **Mostly a SURFACE, not a substrate** — the substrate exists. Add the participant-facing Participate area, domain-configured. Prerequisite: §A.6 |
+| **2** | Common three-tier collaboration model | `ExperimentWorkspace` seam (§A.5) + working groups over existing channels + Locker references |
+| **3** | Horizen Workspace instance | `PartnerWorkspace` as the venture variant; Aigent Z daily/weekly administration (**one increment with tracker row 102 — do not build twice**) |
+| **4** | Research Lab adoption | Bind `EXPERIMENT_REGISTRY` entries to research workspaces **incrementally**; no migration of the registry itself |
+| **5** | metaCommons promotion + cross-Lab projections | Resource model, promotion flow, BlakQube refusal, domain provenance (`sourceDomain` · `experimentClass` · `evidencePosture`) |
+
+Horizen becomes operational at the end of Phase 3. Phases 4–5 do not gate it.
+
+## A.8 Decisions this amendment adds to §7
+
+6. **Spine transport defect (§A.6)** — fix + write the missing canary before participant-facing
+   participation ships? *Recommendation: yes, as a prerequisite.*
+7. **Evidence posture** — keep `FINDING_LIFECYCLE` untouched and map a domain-aware
+   `evidencePosture` onto it (recommended), or unify the ladders?
+8. **Where the Participate area lives** — a new Venture Lab group (`Venture Lab → Participate`),
+   or inside the Partner domain? *Recommendation: its own group — participation is cross-programme,
+   not partner-specific.*
