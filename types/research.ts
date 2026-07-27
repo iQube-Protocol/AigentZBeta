@@ -46,6 +46,21 @@ export interface ResearchExperiment {
   /** Seed ids of governing invariants (invariantsUsed rides receipts). */
   governingInvariants: string[];
   /**
+   * PROGRAMME FOCUS — the one-word-ish role this experiment plays in the
+   * foundational sequence (Compression → Consequence → Representation →
+   * Interaction). Distinct from `family`, which carries the PROTOCOL TITLE.
+   *
+   * Two fields rather than one label (operator, 2026-07-27): compressing them
+   * into "Reasoning Compression — Representation & Runtime Gauntlet" made the
+   * focus and the title read as competing descriptions of the same thing. They
+   * are different truths, so surfaces render whichever one their context needs:
+   * a SERIES view shows `EXP-P1 — {programmeFocus}`, a DETAIL view shows the
+   * protocol title, and metadata shows "Foundational focus: {programmeFocus}".
+   * Set on the four reserved P-slots; absent elsewhere, where `family` alone is
+   * the hypothesis class.
+   */
+  programmeFocus?: string;
+  /**
    * LINEAGE — the designation this experiment previously carried, if it was
    * renumbered. Structured rather than buried in prose so the parity canaries
    * can assert it and no renumbered design can be silently returned to the
@@ -216,11 +231,10 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
   {
     id: 'EXP-P1',
     layer: 'I',
-    // Programme focus first, protocol title second: the P-series reads
-    // Compression → Consequence → Representation → Interaction on every surface
-    // that shows a family. The ratified protocol title is preserved verbatim
-    // after the dash — normalization of the programme label, not of signed text.
-    family: 'Reasoning Compression — Representation & Runtime Gauntlet (Comparative)',
+    // `family` is the PROTOCOL TITLE; `programmeFocus` is the sequence role.
+    // Kept apart so neither has to be bent into the other (see the field docs).
+    family: 'Representation & Runtime Gauntlet (Comparative)',
+    programmeFocus: 'Reasoning Compression',
     seriesId: 'VP1',
     hypothesis:
       'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
@@ -236,7 +250,8 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // renumbered EXP-011 below: renumbered, never withdrawn.
     id: 'EXP-P2',
     layer: 'I',
-    family: 'Consequential Performance — Invariant-Governed Physical Design',
+    family: 'Invariant-Governed Physical Design',
+    programmeFocus: 'Consequential Performance',
     seriesId: 'VP1',
     hypothesis:
       'Do invariant-guided workflows produce measurably better consequential outcomes than equivalent prose-based workflows? Five-arm confirmatory protocol (B / C / B+R / B+R-D / D) on physical design generation and verification; primary contrast D vs B+R-D.',
@@ -256,7 +271,8 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // renumbered EXP-012 below: renumbered, never withdrawn.
     id: 'EXP-P3',
     layer: 'I',
-    family: 'Representation — Representation of Structural Invariants',
+    family: 'Representation of Structural Invariants',
+    programmeFocus: 'Representation',
     seriesId: 'VP1',
     hypothesis:
       'Under conditions of audited informational equivalence, does representational substrate materially affect computational reasoning over structural knowledge? Isolates representation as the causal variable — P1 tests compression, P2 tests consequence, P3 tests representation itself.',
@@ -275,7 +291,8 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // invariants themselves, not their representation.
     id: 'EXP-P4',
     layer: 'I',
-    family: 'Interaction — Invariant Interaction · RESERVED, not yet designed',
+    family: 'Invariant Interaction — RESERVED, not yet designed',
+    programmeFocus: 'Interaction',
     seriesId: 'VP1',
     hypothesis:
       'RESERVED — no protocol yet. The reserved question: do structural invariants exhibit interaction or field-like behaviour? Deferred from EXP-P3 deliberately, because interaction concerns properties of the invariants themselves rather than their representation.',

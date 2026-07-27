@@ -199,7 +199,13 @@ function expIdForTab(id: LabTab): string | undefined {
       title: "Registered — pending surface",
       items: unmounted.map((e) => ({
         id: `reg:${e.id}`,
-        label: `${e.id} · ${e.family}`,
+        // SERIES view — the navigator is a list of experiments in sequence, so
+        // it shows the PROGRAMME FOCUS where one exists (EXP-P1 · Reasoning
+        // Compression) and falls back to the family/hypothesis class otherwise.
+        // The protocol title belongs to the DETAIL panel, not to a list entry
+        // (operator, 2026-07-27: focus and title are different truths and must
+        // not be forced into one label).
+        label: `${e.id} · ${e.programmeFocus ?? e.family}`,
         icon: FlaskConical,
         blurb: e.hypothesis.length > 160 ? `${e.hypothesis.slice(0, 160)}…` : e.hypothesis,
       })),
@@ -429,6 +435,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
               family={reg?.family ?? expId}
               hypothesis={reg?.hypothesis ?? ""}
               protocolRef={reg?.protocolRef}
+              programmeFocus={reg?.programmeFocus}
             />
           );
         })()}

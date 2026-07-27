@@ -56,12 +56,17 @@ Runner: `scripts/run-instrument-validation.mjs` (public `/api/public/irl/resolve
 The **EXP-P1 … EXP-P4** designations are **reserved for the four foundational experiments** that
 cover the breadth of the programme — one per fundamental question:
 
-| Slot | Foundational question | Programme role |
-|---|---|---|
-| **EXP-P1** | Can reasoning be compressed into structural invariants? | **Compression** |
-| **EXP-P2** | Do invariant-guided workflows improve consequential outcomes? | **Consequence** |
-| **EXP-P3** | Does representational substrate materially affect reasoning? | **Representation** |
-| **EXP-P4** | Do invariants exhibit interaction or field-like behaviour? | **Interaction — RESERVED, not yet designed** |
+| Slot | Programme focus | Protocol title | Foundational question |
+|---|---|---|---|
+| **EXP-P1** | **Reasoning Compression** | Representation & Runtime Gauntlet | Can reasoning be compressed into structural invariants? |
+| **EXP-P2** | **Consequential Performance** | Invariant-Governed Physical Design | Do invariant-guided workflows improve consequential outcomes? |
+| **EXP-P3** | **Representation** | Representation of Structural Invariants | Does representational substrate materially affect reasoning? |
+| **EXP-P4** | **Interaction** | *Reserved — not yet designed* | Do invariants exhibit interaction or field-like behaviour? |
+
+**Focus and title are separate fields, not one label** (`programmeFocus` / `family` in
+`EXPERIMENT_REGISTRY`). A series view shows `EXP-P1 — Reasoning Compression`; a detail view leads
+with the protocol title and carries "Foundational focus: Reasoning Compression" beneath it.
+Compressing them into a single string made them read as competing descriptions of one thing.
 
 ```
 P1 — Compression

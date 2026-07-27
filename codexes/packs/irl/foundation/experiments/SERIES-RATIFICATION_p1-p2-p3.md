@@ -234,11 +234,16 @@ as-is, and states the change without overstating its significance:
 > EXP-P4** for the four experiments that cover the core breadth of the invariant research
 > programme — one per fundamental question:
 >
-> - **EXP-P1 — Compression:** can reasoning be compressed into structural invariants?
-> - **EXP-P2 — Consequence:** do invariant-guided workflows improve consequential outcomes?
-> - **EXP-P3 — Representation:** does representational substrate materially affect reasoning?
-> - **EXP-P4 — Interaction:** do structural invariants exhibit interaction or field-like
+> - **EXP-P1 — Reasoning Compression** *(Representation & Runtime Gauntlet)*: can reasoning be
+>   compressed into structural invariants?
+> - **EXP-P2 — Consequential Performance** *(Invariant-Governed Physical Design)*: do
+>   invariant-guided workflows improve consequential outcomes?
+> - **EXP-P3 — Representation** *(Representation of Structural Invariants)*: does
+>   representational substrate materially affect reasoning?
+> - **EXP-P4 — Interaction**: do structural invariants exhibit interaction or field-like
 >   behaviour? *(Reserved; not yet designed.)*
+>
+> Each experiment keeps its full protocol title; the bolded term is its role in the sequence.
 >
 > Two earlier designs previously carried the P2 and P3 numbers. They are **renumbered, not
 > withdrawn** — both keep their full designs and remain in the Lab register:

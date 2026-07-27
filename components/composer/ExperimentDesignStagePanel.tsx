@@ -61,11 +61,20 @@ export function ExperimentDesignStagePanel({
   family,
   hypothesis,
   protocolRef,
+  programmeFocus,
 }: {
   experimentId: string;
+  /** The PROTOCOL TITLE — what this experiment is called in its own documents. */
   family: string;
   hypothesis: string;
   protocolRef?: string;
+  /**
+   * The experiment's role in the foundational sequence, when it has one. A
+   * DETAIL view leads with the protocol title and carries the focus as
+   * metadata beneath it — the series list is where the focus leads instead
+   * (operator, 2026-07-27).
+   */
+  programmeFocus?: string;
 }) {
   const readiness = READINESS[experimentId];
 
@@ -88,6 +97,11 @@ export function ExperimentDesignStagePanel({
       </div>
       <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
         <div className="text-sm font-semibold text-slate-100">{experimentId} · {family}</div>
+        {programmeFocus && (
+          <p className="text-[11px] text-slate-500">
+            Foundational focus: <span className="text-slate-400">{programmeFocus}</span>
+          </p>
+        )}
         <p className="text-xs text-slate-400">{hypothesis}</p>
         {protocolRef && (
           <p className="text-[11px] text-slate-500">

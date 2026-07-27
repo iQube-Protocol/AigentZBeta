@@ -584,19 +584,52 @@ describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-2
     // The family carries the programme focus FIRST so every surface that renders
     // a family reads the sequence; the protocol title may follow after a dash.
     const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
-    const FOCUS: Record<string, RegExp> = {
-      'EXP-P1': /^Reasoning Compression\b/,
-      'EXP-P2': /^Consequential Performance\b/,
-      'EXP-P3': /^Representation\b/,
-      'EXP-P4': /^Interaction\b/,
+    // Focus and protocol title are SEPARATE fields (operator, 2026-07-27):
+    // forcing them into one label made them read as competing descriptions.
+    // The slot is pinned on `programmeFocus`; `family` stays the protocol title
+    // and is deliberately NOT asserted to contain the focus.
+    const FOCUS: Record<string, string> = {
+      'EXP-P1': 'Reasoning Compression',
+      'EXP-P2': 'Consequential Performance',
+      'EXP-P3': 'Representation',
+      'EXP-P4': 'Interaction',
     };
-    for (const [id, re] of Object.entries(FOCUS)) {
+    for (const [id, focus] of Object.entries(FOCUS)) {
       const entry = byId.get(id);
       expect(entry, `${id} is missing from the registry`).toBeTruthy();
-      expect(entry!.family, `${id} family does not lead with its programme focus`).toMatch(re);
+      expect(entry!.programmeFocus, `${id} does not declare its programme focus`).toBe(focus);
+      expect(entry!.family, `${id} has no protocol title`).toBeTruthy();
       // A displaced design must never reclaim a foundational slot.
       expect(entry!.formerly, `${id} carries renumbering lineage — a P-slot must not be a renumbered design`).toBeUndefined();
     }
+  });
+
+  it('only the foundational slots carry a programme focus', () => {
+    // The focus names a role in the four-part sequence. An experiment outside
+    // that sequence declaring one would imply a fifth slot.
+    for (const e of EXPERIMENT_REGISTRY) {
+      if (e.programmeFocus) {
+        expect(['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4'], `${e.id} declares a programme focus`).toContain(e.id);
+      }
+    }
+  });
+
+  it('the Laboratory renders focus in the series list and title in the detail view', () => {
+    // Two truths, two contexts. A list entry reads EXP-P1 · Reasoning
+    // Compression; the panel leads with the protocol title and carries the
+    // focus as metadata beneath it.
+    const lab = stripComments(readSource(LAB));
+    expect(lab, 'the series list does not prefer the programme focus').toMatch(
+      /label: `\$\{e\.id\} · \$\{e\.programmeFocus \?\? e\.family\}`/,
+    );
+    expect(lab).toMatch(/programmeFocus=\{reg\?\.programmeFocus\}/);
+    const panel = stripComments(readSource('components/composer/ExperimentDesignStagePanel.tsx'));
+    expect(panel, 'the detail panel does not lead with the protocol title').toMatch(
+      /\{experimentId\} · \{family\}/,
+    );
+    expect(panel, 'the detail panel does not carry the focus as metadata').toMatch(
+      /Foundational focus:/,
+    );
   });
 
   it('Canary 5 — EXP-P4 stays a reservation, not an experiment', () => {

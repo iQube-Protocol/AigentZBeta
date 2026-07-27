@@ -489,14 +489,12 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
 
     // One fundamental question each — the family names carry the class.
-    // Normalized 2026-07-27: the family LEADS with the programme focus, so the
-    // P-sequence reads Compression → Consequence → Representation → Interaction
-    // on every surface that renders a family. Anchored at the start, not merely
-    // contained, so a focus cannot drift into a subtitle.
-    expect(byId.get('EXP-P1')!.family).toMatch(/^Reasoning Compression\b/);
-    expect(byId.get('EXP-P2')!.family).toMatch(/^Consequential Performance\b/);
-    expect(byId.get('EXP-P3')!.family).toMatch(/^Representation\b/);
-    expect(byId.get('EXP-P4')!.family).toMatch(/^Interaction\b/);
+    // The sequence lives in `programmeFocus`; `family` is the protocol title.
+    // Kept as separate fields so neither has to be bent into the other.
+    expect(byId.get('EXP-P1')!.programmeFocus).toBe('Reasoning Compression');
+    expect(byId.get('EXP-P2')!.programmeFocus).toBe('Consequential Performance');
+    expect(byId.get('EXP-P3')!.programmeFocus).toBe('Representation');
+    expect(byId.get('EXP-P4')!.programmeFocus).toBe('Interaction');
 
     // P3 is the REPRESENTATION experiment, not the capability demonstration —
     // the Laboratory reads protocolRef, so a stale ref shows the wrong design.
