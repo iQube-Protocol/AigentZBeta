@@ -204,3 +204,41 @@ describe('workspace-local state is bounded to the two concerns with no home', ()
     }
   });
 });
+
+describe('the amendments that govern this spine are on the constitutional register', () => {
+  // CFS-009 requires a constitutional amendment to enter
+  // codexes/packs/polity-core/items/AMENDMENT_RECORDS.md. Horizen Amendments
+  // A-E were ratified on 2026-07-27 and — found during the Law XVI pass — were
+  // never registered. An amendment that governs live architecture while being
+  // absent from the register is canon nobody can audit.
+  //
+  // This is a PARITY canary, not a spot check: it reads the amendment letters
+  // the audit document actually declares, so a sixth amendment added tomorrow
+  // fails the build until it is registered too. That closes the CLASS, not the
+  // instance.
+  const AUDIT_PATH = 'codexes/packs/agentiq/updates/2026-07-27_horizen-workspace-phase0-audit.md';
+  const LEDGER_PATH = 'codexes/packs/polity-core/items/AMENDMENT_RECORDS.md';
+
+  it('every amendment the audit declares is recorded, and the register points back', () => {
+    const audit = readSource(AUDIT_PATH);
+    const declared = Array.from(
+      new Set(Array.from(audit.matchAll(/^# Amendment ([A-Z]) /gm)).map((m) => m[1])),
+    );
+    expect(declared.length, 'no amendments parsed — the canary would pass vacuously').toBeGreaterThan(0);
+
+    const ledger = readSource(LEDGER_PATH);
+    const row = ledger
+      .split('\n')
+      .find((l) => l.includes('Horizen Workspace Architecture'));
+    expect(row, 'the Horizen amendments are not on the constitutional register').toBeTruthy();
+
+    for (const letter of declared) {
+      expect(
+        new RegExp(`\\*\\*${letter}\\*\\*`).test(row!),
+        `Amendment ${letter} is declared in the audit but absent from its register row`,
+      ).toBe(true);
+    }
+    // The register must point back at the full text, or the row is a stub.
+    expect(row!).toContain(AUDIT_PATH);
+  });
+});
