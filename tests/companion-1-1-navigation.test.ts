@@ -607,6 +607,27 @@ describe('the avatar leaves nothing behind when released', () => {
     ).toMatch(/sweepDidArtifacts/);
   });
 
+  it('a host that owns wallet surfacing leaves the copilot no wallet of its own', () => {
+    // Operator regression, 2026-07-27: after visiting the wallet, pressing Agent
+    // Me opened the wallet AGAIN on top of the conversation, escapable only via
+    // the wallet's own X. Cause: `launchWallet` set the copilot's private
+    // `walletPanelOpen` AND notified the host. `bodySlot` outranks the copilot's
+    // wallet, so while the host was on its wallet surface the copilot's copy sat
+    // masked and uncleared; the moment `bodySlot` went away it surfaced. Two
+    // owners of one surface — the hidden one won.
+    const code = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(code).toMatch(/const hostOwnsWalletSurface = typeof onWalletLaunch === "function"/);
+    // The launcher must HAND OVER, not open-and-notify.
+    expect(code, 'launchWallet still opens a private wallet for a host-owned surface').toMatch(
+      /if \(hostOwnsWalletSurface\)\s*\{[\s\S]{0,200}onWalletLaunch\?\.\(\);[\s\S]{0,40}return;/,
+    );
+    // …and the body-filling wallet must be off entirely in that arrangement.
+    expect(code).toMatch(/walletFillsSurface =\s*!hostOwnsWalletSurface/);
+    // One opener, so the hand-over cannot be bypassed.
+    const openers = code.match(/setWalletPanelOpen\(true\)/g) ?? [];
+    expect(openers.length, 'a second wallet opener bypasses launchWallet').toBe(1);
+  });
+
   it('the footer measurement survives an avatar round-trip (the ten-cycle defect)', () => {
     // ROOT CAUSE, 2026-07-27. The footer element carries the ENTIRE menu row and
     // is rendered only inside the `copilotMode === "chat"` branch. Its height

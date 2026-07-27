@@ -1176,14 +1176,34 @@ export function CodexCopilotLayer({
    * other surface changed state that could never render. It read as "the
    * wallet is broken" (operator, 2026-07-26).
    */
+  /**
+   * A host that supplies `onWalletLaunch` OWNS wallet surfacing — it renders the
+   * wallet itself through `bodySlot` when its own surface selection says so
+   * (the Companion does exactly this). In that arrangement the copilot must NOT
+   * also keep a wallet of its own.
+   *
+   * Why (operator regression, 2026-07-27): the copilot used to set
+   * `walletPanelOpen` AND notify the host. `bodySlot` takes precedence, so
+   * while the host was on its wallet surface the copilot's private wallet was
+   * masked and invisible — but nothing ever cleared it. The moment the citizen
+   * pressed Agent Me, the host's `bodySlot` went away and the copilot's own
+   * stale wallet surfaced ON TOP of the conversation, reachable only by the
+   * wallet's own X. Two owners of one surface, and the hidden one won.
+   */
+  const hostOwnsWalletSurface = typeof onWalletLaunch === "function";
+
   const launchWallet = useCallback(
     (tab: WalletTab = "wallet") => {
+      if (hostOwnsWalletSurface) {
+        // Hand it over entirely — no private wallet state to go stale.
+        onWalletLaunch?.();
+        return;
+      }
       setWalletPanelTab(tab);
       setWalletPanelOpen(true);
       setWalletPanelCollapsed(false);
-      onWalletLaunch?.();
     },
-    [onWalletLaunch],
+    [hostOwnsWalletSurface, onWalletLaunch],
   );
 
   const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
@@ -1468,8 +1488,14 @@ export function CodexCopilotLayer({
   // attempt hid the whole copilot panel instead, which took the navigation
   // with it and stranded the citizen in the wallet (operator, 2026-07-26) —
   // the same defect as the surfaces, reached by a different route.
+  // `!hostOwnsWalletSurface` is the second half of the one-owner rule above: a
+  // host that renders the wallet itself must never find the copilot's wallet
+  // underneath its own surfaces waiting to reappear.
   const walletFillsSurface =
-    walletEmbeddedWidth === "fill" && walletPanelOpen && !walletPanelCollapsed;
+    !hostOwnsWalletSurface &&
+    walletEmbeddedWidth === "fill" &&
+    walletPanelOpen &&
+    !walletPanelCollapsed;
   // One wallet definition, mounted in one of two places. Duplicating the JSX
   // for the two placements would be the parallel-implementation defect
   // (`inv.engineering.037`) and would drift on the next prop change.
