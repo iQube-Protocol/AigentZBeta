@@ -38,6 +38,11 @@
  *    PRD-PAG-001 Amendment A §A.6) pinned as the source of truth, incl.
  *    money-moving = world_id and grade monotonicity:
  *      tests/passport-step-up-policy.test.ts
+ *  - CFS-009 Law XVI's ratified text ↔ CFS-052's reproduction of it, and
+ *    COMMONS_PROOF_CLASSES ↔ the four proof classes Amendment D §D.1 ratified.
+ *    Constitutional text mirrored across two documents and one constant, none
+ *    derivable from the others:
+ *      tests/evidence-architecture.test.ts
  *  - The CCR-001 completion-artifact template's machine-read headings ↔ the
  *    section names `parseCompletionArtifact` looks for ↔ the reference
  *    artifact's own headings. A docs-file mirror that cannot be derived: if the
