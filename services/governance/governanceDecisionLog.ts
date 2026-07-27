@@ -51,7 +51,31 @@ export interface GovernanceDecision {
   registryReady: boolean;
 }
 
-// ─── Ratified decisions from Operation Chrysalis ────────────────────────────
+// ─── SEED DATA — no longer the event source ─────────────────────────────────
+//
+// OPERATOR RULING, 2026-07-27: *"GOVERNANCE_DECISIONS should cease to be the
+// event source. It may remain temporarily as: a compatibility projection; seed
+// data; a read model; a generated index. But ratification should write to an
+// observable governance record, and the decision log should be derived from
+// those records."*
+//
+// The array below is SEED. Its entries record decisions taken during Operation
+// Chrysalis; they are NOT evidence that a ratification act occurred, because
+// no act existed to perform. Editing this array does not ratify anything, does
+// not create a receipt, and does not anchor:
+//
+//     ✗  Developer edits hardcoded array → System assumes ratification happened
+//     ✓  Explicit authorised act → governance record → receipt → DVN anchor
+//
+// The event source is `governance_ratifications`
+// (services/governance/governanceRatification.ts, migration 20260825000000).
+// The decision log is PROJECTED from it by `projectGovernanceDecisionLog()`,
+// which flags every entry's provenance as 'ratified' or 'seed'.
+//
+// The helpers below read this array directly and are retained for compatibility
+// ONLY. New code must call `projectGovernanceDecisionLog()` / `resolveDecision()`.
+// tests/governance-ratification.test.ts pins the set of modules allowed to read
+// this array and fails the build when a new one appears.
 
 export const GOVERNANCE_DECISIONS: GovernanceDecision[] = [
   {

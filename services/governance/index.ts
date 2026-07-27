@@ -54,3 +54,29 @@ export {
   type GovernanceReceiptInput,
   createGovernanceReceipt,
 } from './governanceReceiptHelper';
+
+/**
+ * The ratification EVENT SOURCE (operator ruling 2026-07-27). The decision log
+ * re-exported above is seed/compatibility data projected over these records —
+ * `projectGovernanceDecisionLog()` is what new code reads.
+ */
+export {
+  type GovernanceRatification,
+  type RatificationAct,
+  type RatificationKind,
+  type ContentHashScope,
+  type AnchorStatus,
+  type ProjectedGovernanceDecision,
+  type DecisionProvenance,
+  RATIFICATION_ACTS,
+  RATIFIABLE_ROOTS,
+  ratifierCommitment,
+  anchorStatusFromReceipt,
+  resolveRatificationCandidate,
+  recordRatification,
+  attachPublication,
+  listRatifications,
+  getRatification,
+  projectGovernanceDecisionLog,
+  resolveDecision,
+} from './governanceRatification';
