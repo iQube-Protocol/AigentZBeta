@@ -2585,6 +2585,30 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // Partner Workspace pattern (operator + Aletheon, 2026-07-26) — a pilot
+      // workspace COMPOSED from existing Venture Lab capabilities, instantiated
+      // first with Horizen (Pilot Series 001, CRP-003a). Partner instances live
+      // in services/venture/partnerWorkspace.ts (single source); this tab only
+      // renders that registry. adminOnly during the pilot.
+      id: 'partner-programmes',
+      label: 'Partner Programmes',
+      slug: 'partner-programmes',
+      enabled: true,
+      adminOnly: true,
+      group: 'connect',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Briefcase',
+        description: 'Partner Workspace — pilot command center, collaboration (invitations, peer exchange, locker), operations, evidence, and communications for partner pilot programmes',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
