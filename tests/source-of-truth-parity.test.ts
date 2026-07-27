@@ -64,6 +64,19 @@
  *    which is `inv.engineering.036`'s failure mode applied to ENFORCEMENT
  *    rather than to data (a rule with two homes, one of which is empty):
  *      tests/constitutional-binding.test.ts
+ *  - ProvenanceClass (the ONE evidence-provenance vocabulary,
+ *    services/corpusScout/types.ts) ↔ the provenance_class CHECK on
+ *    corpus_candidate_sources (SQL, latest rebuild) ↔ the
+ *    POPULATION_BY_EVIDENCE_PROVENANCE map, which the Record type keeps
+ *    exhaustive. Plus the A/B/C partition DERIVED from that one vocabulary
+ *    rather than re-listed in crystalReadiness, which used to keep its own copy
+ *    of the eligible set:
+ *      tests/evidence-provenance-populations.test.ts
+ *  - DISCOVERY_DOMAINS[].namespace (the Discovery Domain Registry) ↔ the
+ *    namespace promoteCandidate actually passes to discoverInvariant -- a
+ *    hardcoded 'constitutional' literal that shadowed the registry, asserted by
+ *    CALLING the promotion rather than by reading the registry value:
+ *      tests/evidence-provenance-populations.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:

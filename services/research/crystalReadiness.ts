@@ -28,14 +28,24 @@ import { listInvariants } from '@/services/invariants/store';
 import type { InvariantRecord } from '@/types/invariants';
 
 /**
- * PRD-EPI-001 §9 / CRYSTAL-ENLARGEMENT_plan.md §2a — only these two
- * provenance classes are eligible for the EXP-P1 crystal. Read from
- * `InvariantRecord.provenance.provenanceClass` (the vocabulary
- * PRD-ICA-001 §0.3 ratifies) — a JSON blob field on `invariants.provenance`,
- * not yet a first-class column. A missing/unset tag is treated as NOT
- * eligible (fail closed — eligibility is never assumed).
+ * PRD-EPI-001 §9 / CRYSTAL-ENLARGEMENT_plan.md §2a as REFINED by the operator
+ * ruling of 2026-07-27 — the primary EXP-P1 population is Population A, whose
+ * membership is decided by EVIDENCE provenance alone (never by where the
+ * invariant was discovered). This module no longer keeps its own copy of the
+ * eligible set: `inPrimaryPopulation` / `partitionByPopulation` in
+ * `experimentalPopulations` are the single authority (inv.engineering.036), and
+ * they read both the structured `provenance.provenanceClass` field and the
+ * `evidenceProvenance=` key=value idiom the seed file uses. A missing/unset
+ * tag is still NOT eligible (fail closed — eligibility is never assumed).
+ *
+ * The ABLATION arm (Populations A ∪ B) is reported alongside the primary count
+ * below, permanently: a conclusion that survives both analyses is stronger
+ * than one obtained by relaxing the rule.
  */
-const ELIGIBLE_PROVENANCE_CLASSES = new Set(['external-established', 'external-empirical']);
+import {
+  inPrimaryPopulation,
+  partitionByPopulation,
+} from '@/services/research/experimentalPopulations';
 
 /** Heuristic-only statement-shape signal for "this looks relational or
  * conditional, not a bare atomic assertion" — see looksDerivationEligible. */
@@ -85,7 +95,21 @@ export interface CrystalReadinessReport {
   ok: boolean;
   checks: CrystalReadinessCheck[];
   invariantCount: number;
+  /** Population A — the PRIMARY EXP-P1 evaluation population. */
   eligibleCount: number;
+  /**
+   * The mechanical A/B/C/unclassified split (operator ruling 2026-07-27),
+   * reported on EVERY readiness report so the ablation arm is a permanent
+   * feature rather than something a reader has to reconstruct from prose.
+   * `ablationCount` = A + B.
+   */
+  populations: {
+    A: number;
+    B: number;
+    C: number;
+    unclassified: number;
+    ablationCount: number;
+  };
 }
 
 function normalizeStatement(statement: string): string {
@@ -182,6 +206,7 @@ export async function runCrystalReadinessReport(
       ok: false,
       invariantCount: 0,
       eligibleCount: 0,
+      populations: { A: 0, B: 0, C: 0, unclassified: 0, ablationCount: 0 },
       checks: [
         {
           name: 'invariant-fetch',
@@ -265,19 +290,33 @@ export async function runCrystalReadinessReport(
             `${duplicatePairs[0][1]}) — unresolved duplicates fail this check`,
   });
 
-  // 5. Provenance eligibility — only external-established | external-empirical.
-  const eligibleInvariants = invariants.filter((inv) => {
-    const tag = inv.provenance?.provenanceClass;
-    return typeof tag === 'string' && ELIGIBLE_PROVENANCE_CLASSES.has(tag);
-  });
+  // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
+  //    Membership is decided by EVIDENCE provenance alone. An invariant the IDE
+  //    discovered from an independently authored external corpus is Population
+  //    A; where the discovery happened is recorded separately and is not
+  //    consulted here.
+  const partition = partitionByPopulation(invariants, (inv) => inv.provenance);
+  const eligibleInvariants = invariants.filter((inv) => inPrimaryPopulation(inv.provenance));
   const eligibleCount = eligibleInvariants.length;
+  const ablationCount = partition.A.length + partition.B.length;
   checks.push({
     name: 'provenance-eligibility',
     passed: invariantCount > 0 && eligibleCount === invariantCount,
+    // The A/B/C/unclassified split rides in THIS check's detail rather than in
+    // a row of its own. The ablation is a reporting obligation, not a gate, and
+    // a non-gating row in a list where every entry must fail closed on an empty
+    // collection is exactly the decorative-mechanism defect the sibling canary
+    // catches (it did, on the first run). Structured counts: `populations`.
     detail:
-      `${eligibleCount}/${invariantCount} invariants carry an eligible provenance.provenanceClass ` +
-      `(external-established | external-empirical); any invariant with a missing, platform-derived, or ` +
-      `platform-hypothesized tag blocks this check (PRD-EPI-001 §9)`,
+      `${eligibleCount}/${invariantCount} invariants are Population A (evidence provenance ` +
+      `external-established | external-empirical); any invariant with a missing, platform-derived, ` +
+      `platform-hypothesized or platform-doctrine evidence provenance blocks this check ` +
+      `(PRD-EPI-001 §9; CRYSTAL-ENLARGEMENT_plan.md §2a as refined 2026-07-27). ` +
+      `Populations — A (external-derived) ${partition.A.length} · B (platform-derived) ${partition.B.length} · ` +
+      `C (platform doctrine) ${partition.C.length} · unclassified ${partition.unclassified.length}; ` +
+      `P1 Core = A (${eligibleCount}), P1 Ablation = A ∪ B (${ablationCount}). Both results are reported ` +
+      `for every crystal — a conclusion that survives both analyses is stronger than one obtained by ` +
+      `relaxing the rule (operator ruling 2026-07-27).`,
   });
 
   // 6. Lifecycle/validation integrity — no zero-validation filler.
@@ -293,5 +332,17 @@ export async function runCrystalReadinessReport(
   });
 
   const ok = checks.every((c) => c.passed);
-  return { ok, checks, invariantCount, eligibleCount };
+  return {
+    ok,
+    checks,
+    invariantCount,
+    eligibleCount,
+    populations: {
+      A: partition.A.length,
+      B: partition.B.length,
+      C: partition.C.length,
+      unclassified: partition.unclassified.length,
+      ablationCount,
+    },
+  };
 }

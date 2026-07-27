@@ -91,6 +91,63 @@ describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
     expect(Array.isArray(report.checks)).toBe(true);
   });
 
+  // ── §2a as refined 2026-07-27 — evidence provenance decides the population ──
+
+  function inv(id: string, provenance: Record<string, unknown>) {
+    return {
+      id,
+      statement: `If ${id} holds then the successor state is entailed, provided that the predicate is met.`,
+      semanticType: id.endsWith('1') ? 'constraint' : 'principle',
+      timesValidated: 3,
+      provenance,
+    } as unknown as Awaited<ReturnType<typeof listInvariants>>[number];
+  }
+
+  it('reports the A/B/C/unclassified split and BOTH the core and ablation counts', async () => {
+    // Mutation: drop `populations` from the report, or stop counting the
+    // ablation as A ∪ B, and this fails. The ablation is now a permanent
+    // feature of every crystal report, not a "where feasible".
+    vi.mocked(listInvariants).mockResolvedValueOnce([
+      inv('x1', { provenanceClass: 'external-established' }),
+      inv('x2', { provenanceClass: 'platform-derived' }),
+      inv('x3', { provenanceClass: 'platform-hypothesized' }),
+      inv('x4', { provenanceClass: 'platform-doctrine' }),
+      inv('x5', { source: 'CFS-009 Law XVI' }),
+    ]);
+    const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    expect(report.populations).toEqual({ A: 1, B: 2, C: 1, unclassified: 1, ablationCount: 3 });
+    expect(report.eligibleCount).toBe(1);
+    const check = report.checks.find((c) => c.name === 'provenance-eligibility');
+    expect(check?.detail).toContain('P1 Ablation');
+    // Not eligible: only 1 of 5 is Population A.
+    expect(check?.passed).toBe(false);
+  });
+
+  it('admits an IDE-discovered invariant from an EXTERNAL corpus to the primary population', async () => {
+    // The ruling's central case, asserted through the real report path:
+    // discovery provenance `ide` must not exclude it. Mutation: make
+    // eligibility consult discoveryProvenance → eligibleCount drops to 0.
+    vi.mocked(listInvariants).mockResolvedValueOnce([
+      inv('f1', { provenanceClass: 'external-established', discoveryProvenance: 'ide', source: 'FATF R.16' }),
+      inv('f2', { provenanceClass: 'external-empirical', discoveryProvenance: 'ide', source: 'Basel III' }),
+    ]);
+    const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    expect(report.populations.A).toBe(2);
+    expect(report.populations.B).toBe(0);
+    expect(report.eligibleCount).toBe(2);
+    expect(report.checks.find((c) => c.name === 'provenance-eligibility')?.passed).toBe(true);
+  });
+
+  it('keeps an IDE-discovered invariant from the PLATFORM corpus out of the primary population', async () => {
+    vi.mocked(listInvariants).mockResolvedValueOnce([
+      inv('p1', { source: 'PRD-IDE-002 §9.1 C-001; evidenceProvenance=platform-derived; discoveryProvenance=ide.' }),
+    ]);
+    const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    expect(report.populations).toMatchObject({ A: 0, B: 1, ablationCount: 1 });
+    expect(report.eligibleCount).toBe(0);
+    expect(report.checks.find((c) => c.name === 'provenance-eligibility')?.passed).toBe(false);
+  });
+
   it('applies the illustrative override parameters without throwing', async () => {
     const report = await runCrystalReadinessReport({
       experimentId: 'EXP-P1',

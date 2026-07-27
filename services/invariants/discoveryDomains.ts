@@ -45,6 +45,8 @@
  * answers a RESEARCH question ("which domain is this candidate discovered for").
  */
 
+import type { InvariantNamespace } from '@/types/invariants';
+
 export type DiscoveryDomainKind = 'vertical' | 'horizontal-capability';
 
 export interface DiscoverySubDomain {
@@ -57,6 +59,26 @@ export interface DiscoveryDomainDefinition {
   key: string;
   label: string;
   kind: DiscoveryDomainKind;
+  /**
+   * The invariant NAMESPACE this domain's promoted candidates land in.
+   *
+   * Operator ruling 2026-07-27: *"Hardcoding `namespace = constitutional` for
+   * every promoted invariant undermines exactly the population separation we're
+   * trying to establish. The constitutional namespace should contain only
+   * constitutional invariants. Financial Services should promote into
+   * `finance.*`, Commercialisation into `commercialisation.*`, Constitution
+   * into `constitutional.*`. That preserves experimental traceability."*
+   *
+   * Both namespaces already existed in the union with declared composition laws
+   * (`finance` by PRD-MPY-001 §9 D5 + migration 20260721000000;
+   * `commercialisation` by the PRD-IDE-002 ruling) — CFS-013 §3's "declare the
+   * algebra before members land" was already satisfied. Only the RESOLUTION was
+   * missing: `promoteCandidate` hardcoded `'constitutional'`, so every
+   * Financial Services discovery would have landed in the constitutional
+   * namespace and destroyed the population separation at the point of entry.
+   * The machinery was present and unused — a CB-6 defect.
+   */
+  namespace: InvariantNamespace;
   /**
    * The domain's CONSTITUTIONAL DEFINITION — carried verbatim from its charter
    * and pinned against the charter text by a docs-mirror canary, so the code
@@ -110,6 +132,8 @@ const FINANCIAL_SERVICES: DiscoveryDomainDefinition = {
   key: 'financial-services',
   label: 'Financial Services',
   kind: 'vertical',
+  // inv.finance.* — PRD-MPY-001 §9 D5. NOT 'constitutional'.
+  namespace: 'finance',
   definition:
     'An IRL-catalogued area of work with three SIMULTANEOUS outputs — Scientific (candidate invariants + experimental evidence), Platform (reusable constitutional primitives implemented in code), and Commercial (a Founder Office capability or service).',
   charter: 'codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md',
@@ -146,6 +170,9 @@ const COMMERCIALISATION: DiscoveryDomainDefinition = {
   key: 'commercialisation',
   label: 'Commercialisation',
   kind: 'horizontal-capability',
+  // inv.commercialisation.* — a FIRST-CLASS horizontal class, deliberately not
+  // nested beneath finance (types/invariants.ts).
+  namespace: 'commercialisation',
   // Operator-supplied, verbatim (PRD-IDE-002 §1). Pinned by canary.
   definition:
     'Commercialisation is the discovery of recurring structural patterns governing the creation, delivery, adoption, exchange and sustainable capture of value across domains.',
@@ -209,4 +236,24 @@ export function evidenceDomainsFor(key: string): string[] {
   const d = discoveryDomain(key);
   if (!d || d.kind !== 'horizontal-capability' || d.observedIn.length === 0) return [key];
   return d.observedIn.map((observed) => observationDomainKey(key, observed));
+}
+
+/**
+ * The invariant namespace a promoted candidate from `key` lands in.
+ *
+ * Accepts a plain domain key (`financial-services`) or a qualified observation
+ * key (`commercialisation/media`) — the qualified form resolves to its
+ * DISCOVERY domain, which is the domain that owns the candidate.
+ *
+ * An UNREGISTERED domain falls back to `'constitutional'`, which is the
+ * pre-2026-07-27 behaviour for every domain. That fallback is deliberately
+ * narrow: it applies only where no registry entry declares otherwise, so
+ * adding a domain to the registry is what moves its invariants out of the
+ * constitutional namespace. This is the ONLY place the domain→namespace
+ * question is answered (inv.engineering.036); `promoteCandidate` calls it
+ * rather than carrying a literal.
+ */
+export function discoveryNamespace(key: string): InvariantNamespace {
+  const { discoveryDomain: root } = parseObservationDomain(key);
+  return discoveryDomain(root)?.namespace ?? 'constitutional';
 }

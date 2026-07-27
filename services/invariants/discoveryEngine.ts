@@ -26,8 +26,8 @@ import { callSovereign } from '@/services/constitutional/modelRouter';
 import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
 import { listEdgesForInvariants } from '@/services/invariants/store';
 import { similarity } from '@/services/invariants/comparison';
-import { evidenceDomainsFor, parseObservationDomain } from '@/services/invariants/discoveryDomains';
-import type { InvariantNamespace, InvariantSemanticType } from '@/types/invariants';
+import { evidenceDomainsFor, parseObservationDomain, discoveryNamespace } from '@/services/invariants/discoveryDomains';
+import type { InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
 export type EvidenceKind =
@@ -953,13 +953,21 @@ export async function promoteCandidate(
   if (error || !c) return { ok: false, error: error?.message ?? 'candidate not found' };
   if (c.status !== 'candidate') return { ok: false, error: `candidate is already ${c.status}` };
 
-  // Constitutional-class discoveries land in the 'constitutional' namespace,
-  // tagged with the domain context so IRE resolves them for that field.
+  // The namespace is RESOLVED FROM THE DISCOVERY DOMAIN REGISTRY, never
+  // hardcoded (operator ruling 2026-07-27). Hardcoding 'constitutional' for
+  // every promoted candidate would put Financial Services discoveries in the
+  // constitutional namespace and destroy the experimental population
+  // separation at the point of entry: `constitutional.*` must contain only
+  // constitutional invariants, Financial Services promotes into `finance.*`,
+  // Commercialisation into `commercialisation.*`. An unregistered domain still
+  // resolves to 'constitutional' (unchanged behaviour). Candidates are tagged
+  // with the domain context either way so IRE resolves them for that field.
+  const namespace = discoveryNamespace(String(c.domain));
   try {
     const result = await discoverInvariant(
       {
         statement: String(c.statement),
-        namespace: 'constitutional' as InvariantNamespace,
+        namespace,
         semanticType: 'constraint' as InvariantSemanticType,
         status: 'proposed',
         confidence: Number(c.confidence) || 0.5,
@@ -969,7 +977,19 @@ export async function promoteCandidate(
         confidenceBasis: 'agent_verified',
         provenance: {
           source: 'CFS-048 Invariant Discovery Engine (constitutional arm)',
+          // ── The two ORTHOGONAL provenance axes (operator ruling 2026-07-27) ──
+          // WHO DISCOVERED IT: the IDE. Knowable here, and recorded here.
+          discoveryProvenance: 'ide',
+          // WHERE THE EVIDENCE CAME FROM: deliberately NOT set. `discovery_evidence`
+          // carries no provenance class, so the engine cannot know whether the
+          // rows it compressed were FATF/Basel/MiCA or this repo's own artefacts.
+          // Writing a guess here would be the exact conflation the ruling
+          // abolishes — "discovered by the IDE" is not evidence of independence.
+          // Unset ⇒ `experimentalPopulation()` returns null (unclassified) ⇒ the
+          // invariant is admitted to NO population until a human classifies it or
+          // a recorded reclassification supplies the evidence. Fail closed.
           domain: String(c.domain),
+          namespace,
           sub_domain: (c.sub_domain as string | null) ?? null,
           scope_level: String(c.scope_level ?? 'domain'),
           abstraction_level: (c.abstraction_level as string | null) ?? null,

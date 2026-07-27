@@ -7,16 +7,57 @@
  *   ReviewWorkflowStatus  — pipeline-state question ("what did the reviewer decide").
  */
 
-/** The four ratified values (CRYSTAL-ENLARGEMENT_plan.md §2a). Corpus Scout
- *  adopts this vocabulary; it does not invent a second one. */
+/**
+ * The EVIDENCE-PROVENANCE vocabulary — "where did the evidence come from".
+ * Originally the four values ratified by `CRYSTAL-ENLARGEMENT_plan.md` §2a;
+ * a fifth (`platform-doctrine`) was added by the operator ruling of
+ * 2026-07-27. Corpus Scout adopts this vocabulary; it does not invent a
+ * second one, and neither does anything else — this declaration is the single
+ * authoritative list (inv.engineering.036).
+ *
+ * ── Reconciliation of the two four-value lists (2026-07-27) ────────────────
+ *
+ * §2a ratified:  external-established | external-empirical | platform-derived | platform-hypothesized
+ * The ruling named: external-established | external-empirical | platform-derived | platform-doctrine
+ *
+ * These are NOT the same four. `platform-hypothesized` and `platform-doctrine`
+ * denote different things and neither subsumes the other:
+ *
+ *   platform-hypothesized  a claim asserted in a platform DOCUMENT with no
+ *                          evidence compressed from artefacts behind it —
+ *                          "a doc-only claim" (PRD-IDE-002 §6). It is in live
+ *                          use in the Corpus Scout review path and in
+ *                          `crystalReadiness`'s ineligibility message.
+ *   platform-doctrine      deliberately PROPRIETARY constitutional doctrine
+ *                          (MoneyPenny / Q¢) — "neither externally established
+ *                          nor intended as general scientific evidence"
+ *                          (operator ruling 2026-07-27). It is not a weaker
+ *                          form of evidence; it is evidence offered for a
+ *                          different purpose, which is why the ruling gives it
+ *                          its own experimental population (C) rather than
+ *                          folding it into the ablation (B).
+ *
+ * Resolution: KEEP all four §2a values and ADD `platform-doctrine` — five
+ * values in ONE vocabulary. Dropping `platform-hypothesized` to hit a count of
+ * four would silently reclassify every doc-only claim as either compressed-
+ * from-artefacts evidence or proprietary doctrine, both of which are false.
+ *
+ * The ORTHOGONAL axis — "who discovered the invariant" — is
+ * `DiscoveryProvenance` in `services/research/experimentalPopulations.ts`,
+ * which also holds the A/B/C population partition these five values induce.
+ * The two axes are never conflated: discovery provenance has NO bearing on
+ * which experimental population an invariant belongs to.
+ */
 export type ProvenanceClass =
   | 'external-established'
   | 'external-empirical'
   | 'platform-derived'
-  | 'platform-hypothesized';
+  | 'platform-hypothesized'
+  | 'platform-doctrine';
 
 export const PROVENANCE_CLASSES: readonly ProvenanceClass[] = [
   'external-established', 'external-empirical', 'platform-derived', 'platform-hypothesized',
+  'platform-doctrine',
 ];
 
 /** PRD-ICA-001 §8's eleven reviewWorkflowStatus values. */

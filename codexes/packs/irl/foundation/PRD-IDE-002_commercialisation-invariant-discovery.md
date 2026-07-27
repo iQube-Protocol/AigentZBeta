@@ -399,6 +399,23 @@ Two artefacts are involved and they are not the same thing: this seed lands the 
 
 This PRD takes route 0: it records the conflict and changes nothing in EXP-P1. `CRYSTAL-ENLARGEMENT_plan.md` is untouched.
 
+> **RESOLVED — operator ruling, 2026-07-27.** §2a is refined (not amended away) to turn on
+> **evidentiary basis** rather than on where discovery occurred, and the conflict is settled along
+> **routes 1 + 2 together**: the eight are **Population B** — excluded from the primary EXP-P1
+> evaluation population, admitted to the ablation arm, which §2a now makes a **permanent** feature
+> of every crystal report rather than a *"where feasible"*. §9.4's own finding is what decides it —
+> the entire §9.1 library is `platform-derived`, and "discovered by the IDE" is not evidence of
+> independence. When §7's external corpus lands and re-derives a candidate from an independently
+> authored source, its evidence provenance changes through a **recorded reclassification carrying
+> its own evidence refs**, and it becomes eligible then. See `CRYSTAL-ENLARGEMENT_plan.md` §2a.1–2a.7;
+> the partition is computed by `services/research/experimentalPopulations.ts` and pinned by
+> `tests/evidence-provenance-populations.test.ts`.
+>
+> **The namespace change above is also made** (it was the ruling's second half): `promoteCandidate`
+> now resolves the namespace from the Discovery Domain Registry — Financial Services promotes into
+> `finance.*`, Commercialisation into `commercialisation.*`, an unregistered domain still falls back
+> to `constitutional`. *"That preserves experimental traceability."*
+
 ## 11. Experiment recommendations (Deliverable 8)
 
 ### 11.1 The experiment the library is actually FOR
@@ -473,7 +490,7 @@ Resolve the relevant candidates into a pilot, apply them, generate receipts, and
 - [x] **Operator decision 2 — RULED 2026-07-27.** The eight recurrence-3 candidates, excluding the `equivalent` one; specialised and lower-recurrence candidates retained in the discovered library but outside the initial frozen crystal (§10.2). **Applied.**
 - [x] **Status — RULED 2026-07-27.** All eight preserve `proposed`; inclusion in the experimental crystal does not imply ratification (§10.3). **Applied, canary-enforced.**
 - [ ] **Operator ratification of the PRD as a whole** — nothing in §9 is validated by the seed ruling; the candidate library, taxonomy and acquisition plan still await the docs-first gate.
-- [ ] **Operator decision 3 — the §2a conflict (§10.4).** All eight are `platform-derived`; `CRYSTAL-ENLARGEMENT_plan.md` §2a bars `platform-derived` invariants from `Crystal vP1`. Three routes are set out in §10.4; nothing in EXP-P1 has been changed.
+- [x] **Operator decision 3 — the §2a conflict (§10.4). RESOLVED 2026-07-27.** §2a refined to turn on evidentiary basis, not discovery locus. The eight are **Population B**: out of the primary EXP-P1 population, into the now-permanent ablation arm (routes 1 + 2). The FS namespace hardcode is unhardcoded in the same ruling.
 - [ ] **Operator decision 4 — FS population boundary (§10.4).** Financial-services invariants are not partitionable from constitutional ones today. The one-line unhardcoding is proposed, not made.
 - [ ] **Run the migration** `supabase/migrations/20260801000000_commercialisation_invariant_namespace.sql` before any commercialisation invariant is ingested into Supabase.
 - [ ] **Corpus Scout campaign** for the §7.4 lanes, run in the pre-freeze "enlarge (receipted)" phase.
