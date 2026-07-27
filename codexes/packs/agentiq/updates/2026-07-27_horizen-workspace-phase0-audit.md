@@ -513,3 +513,139 @@ and 6 (transport → prerequisite). Still open:
    in this phase, and that Venture invariant candidates enter at `proposed` via the existing
    seed-and-ratify path (§B.1). *(recommend yes)*
 5. **Scope** — authorise Prerequisite + Phases 1–3 as the Horizen delivery, with 4–5 following?
+
+---
+
+# Amendment C — CORRECTION to §B.1, and the commercialisation discovery proposal
+
+**The operator challenged §B.1 on two points. Both challenges are correct, and §B.1 was wrong in
+an important way. This amendment supersedes it.**
+
+## C.1 What §B.1 got wrong — a methodological error
+
+§B.1 concluded that "the Venture Lab has essentially no invariant underpinning" and that "no
+`commercial` or `operational` namespace exists". **That conclusion was drawn from the wrong
+source.** I counted `codexes/packs/irl/foundation/canonical-invariants.seed.json` — the **canonical
+seed crystal** — and treated it as the whole invariant population. It is not.
+
+**Discovered invariants live in the runtime invariant STORE, not the seed file.** The seed is what
+has been ratified into canon; discovery output lands in the store as `proposed`, scoped by domain.
+`services/experiments/expP2Utility.ts` reads them live:
+
+```ts
+const slice = await buildInvariantSlice({ domains: [domain], statuses: ['proposed'], limit: 40 });
+// DEFAULT_DOMAIN = 'financial-services'
+```
+
+…and its failure message names the population explicitly: *"discovered FS invariant library is
+empty — promote some discovered financial-services invariants (they land as `proposed`)."*
+
+Likewise a `finance` namespace **does** exist and is grounded against in production —
+`services/constitutional/moneyPennyArchitect.ts` calls
+`buildInvariantSlice({ namespaces: ['finance'], limit: 8 })`. My namespace census was seed-scoped
+and therefore incomplete.
+
+**Correct statement of the finding:** the seed crystal contains no commercial/operational
+namespace. The runtime store contains a **discovered financial-services invariant library**,
+`proposed`-status, produced by the Invariant Discovery Engine and already under experimental test
+by EXP-011.
+
+## C.2 Answering "do you have sight of the proposed FS invariants?"
+
+**Honestly: I can see the machinery and the seam, not the rows.** The discovered library lives in
+Supabase, and this sandbox has no database access. What I can confirm from source:
+
+| Question | Answer from source |
+|---|---|
+| Does an IDE exist? | **Yes** — `services/invariants/discoveryEngine.ts` (CFS-048, chartered 2026-07-20) |
+| Is it aimed at Financial Services? | **Yes** — `expP2Utility` defaults `domain: 'financial-services'` |
+| What documents does it ingest? | `EvidenceKind`: legislation · regulation · compliance · standard · contract · policy, plus (PRD-ICA-001 §6, 2026-07-22) **academic-literature** (actuarial standards, risk-science papers), **incident-report** (bank/insurance/operational post-mortems), **disclosure-report** (annual/risk/stress-test reports, aggregate-only per Crystal Canon Collection H) |
+| At what abstraction? | Ladder `L0 verbatim → L1 summary → L2 cross-regulation → L3 domain-constitutional → L4 domain-independent`. **Discovery targets L2–L3**; L4 emerges from cross-domain comparison |
+| Scope ladder | `domain · sub-domain · capability` — so a new commercialisation scope needs **no engine change** |
+| Compare semantics | `supported · specialized · split · novel · equivalent` (Aletheon, 2026-07-20) |
+| Recorded runs | Charter + four build records in `agentiq/updates/2026-07-20_cfs-048-*` and `2026-07-21_cfs-048-recursive-compression.md`. **Run *results* are DB state — not visible here** |
+
+To answer the question properly I would need either a DB read or the Laboratory's Invariant
+Discovery / Invariant Registry view filtered to `domains: ['financial-services'], status: proposed`.
+**That is a five-minute check on the deployed app, and I'd rather you point me at it than have me
+infer a count.**
+
+## C.3 Answering "is the platform not already observer- and invariant-driven, including Venture Lab?"
+
+**Yes — and §B.1 understated it.** The correction matters because it changes what Phase 2 has to
+build. Invariant grounding is applied at the **engine** level, so surfaces inherit it without
+citing invariant ids:
+
+| Seam | Where | Reaches Venture Lab? |
+|---|---|---|
+| `groundReasoning` | `/api/assistant/ask-agent` | Yes — the assistant path serves venture surfaces |
+| `resolveConstitutionalField` | `constitutionalServicePipeline`, `services/companion/observerContext.ts` | Yes |
+| Five Invariant Decision Nodes | `services/invariants/nodes/` — `discoveryRanking · journeyProgression · nbeRanking · routingStage · standingScore` | Yes — `standingScore` and `nbeRanking` are venture-facing |
+| `buildInvariantSlice` | `moneyPennyArchitect` (`namespaces: ['finance']`) | **Directly** — Financial Services |
+| **`invariantsUsed` + `forecastConsequences`** | **`services/venture/blueprintHandoff.ts`** | **Directly — this is Venture Lab code resolving invariants and recording which were used** |
+
+So my claim that "no venture code cites a single invariant id" was **literally true but misleading**.
+`blueprintHandoff` doesn't hardcode ids — it *resolves* them at runtime and records `invariantsUsed`,
+which is the better pattern and exactly what the spine intends. Reading absence of literals as
+absence of grounding was the error.
+
+**Revised finding:** the Venture Lab **is** invariant- and observer-driven through the shared
+engines. What it lacks is not grounding — it is a **domain substrate to ground *against***. The
+discovered FS library is about financial-services *practice* (drawn from regulation, standards and
+incident post-mortems); nothing in it is about **commercialisation**.
+
+**Consequence for the plan:** Phase 2's `invariantReferences` is now *smaller* than Amendment B
+implied — the resolution seam exists and is proven in `blueprintHandoff`. The workspace records
+which invariants a pilot resolved; it does not need new grounding machinery.
+
+## C.4 The operator's proposal — Financial Services Commercialisation as the next IDE target
+
+**Assessment: well-formed, supported by the existing engine, and it fills the precise gap C.3
+identifies.** No engine change is required — `DiscoveryScopeLevel` already admits
+`domain | sub-domain | capability`.
+
+What a commercialisation substrate would cover, and which existing corpus does *not*:
+
+| Existing FS discovery | Proposed FS Commercialisation discovery |
+|---|---|
+| regulation · compliance · standards · contracts · policy · incident post-mortems | pricing · packaging · demand evidence · adoption · conversion · unit economics · partner operations · distribution · retention · service-delivery economics |
+| Answers *"what must hold for a financial service to be sound?"* | Answers *"what must hold for a financial service to be commercially viable and repeatable?"* |
+| L2–L3 domain-constitutional | L2–L3, with genuine L4 potential — commercialisation invariants likely generalise beyond finance |
+
+**Three design cautions, offered before rather than after:**
+
+1. **Scope it as a sub-domain, not a new domain.** `financial-services / commercialisation` keeps
+   the Compare machinery able to classify against the existing FS baseline (`supported ·
+   specialized · split · novel · equivalent`). A sibling top-level domain would forfeit that, and
+   the comparison is where the value is.
+2. **Corpus honesty.** The current `EvidenceKind` set is regulatory/actuarial. Commercialisation
+   evidence is a different literature — pricing studies, adoption research, go-to-market
+   post-mortems, disclosed unit economics. Either the corpus campaign targets those explicitly, or
+   discovery will re-derive compliance invariants wearing commercial labels. **`disclosure-report`
+   already exists and is aggregate-only per Crystal Canon Collection H** — that constraint carries
+   over.
+3. **Everything enters `proposed`.** Commercialisation claims are empirical claims about the world.
+   The Hypothesis-vs-Canon rule applies with full force: no commercialisation invariant becomes
+   `canonical` because a pilot succeeded. The Venture Lab **applies and tests**; it does not
+   canonise.
+
+**Why this sequences well with Horizen:** the Horizen pilot is precisely a commercialisation
+experiment in financial services. It would be the **first field test** of a commercialisation
+substrate — the recursive loop the ruling describes (Research discovers → Venture applies →
+commercial evidence appends → refined pattern returns to metaCommons), instantiated on its natural
+first case.
+
+**Recommendation:** charter it as its own increment — **not** inside the Horizen delivery. It is a
+discovery campaign with its own corpus acquisition, and folding it into a workspace build would
+delay Horizen and blur two very different kinds of work. Run them in parallel; let Horizen consume
+whatever the campaign has promoted by the time Phase 3 lands.
+
+## C.5 Corrections to record
+
+- §B.1's headline claim is **withdrawn**. The Venture Lab is invariant-driven through shared
+  engines; `blueprintHandoff` is the proof.
+- §B.1's namespace census stands **only for the seed crystal** and must not be read as the whole
+  invariant population.
+- The §B.7 decision item 4 ("confirm no commercial/operational namespace is created") is
+  **superseded**: the question is not whether to create a namespace but whether to charter a
+  **commercialisation discovery campaign** scoped as an FS sub-domain (§C.4).
