@@ -67,11 +67,31 @@ function maskPersonaId(personaId) {
   return personaId.length > 12 ? `${personaId.slice(0, 8)}…${personaId.slice(-4)}` : personaId;
 }
 
+/**
+ * PASSPORT IS A ROUTE OUT OF EVERY ONE OF THESE STATES (operator, 2026-07-27:
+ * "Wallet still not connecting without signing in… in fact regressed, not even
+ * letting me in initially").
+ *
+ * This popup pairs by reading an EXISTING metaMe web session off the active
+ * tab, so with no such tab — or no sign-in on it — Connect stays disabled and
+ * the citizen dead-ends at a sign-in demand. That is the exact demand the
+ * passport-native programme (PRD-PAG-001 Amendment A) exists to abolish, and
+ * the Companion already ships the alternative: Open Companion → connect with
+ * the Passport in the wallet → the handoff establishes a top-level session in
+ * the browser → "Check again" here then finds it.
+ *
+ * So every blocked probe state now NAMES that route rather than only asking
+ * for a password. The popup itself is unchanged in what it can do — this is
+ * signposting an existing capability, not a second connect mechanism.
+ */
+const PASSPORT_ROUTE_HINT =
+  ' Or open the Companion below and connect with your Passport — no password needed.';
+
 const PROBE_MESSAGES = {
-  'no-active-tab': 'No active tab. Open metaMe in this window, then check again.',
+  'no-active-tab': `No active tab. Open metaMe in this window, then check again.${PASSPORT_ROUTE_HINT}`,
   'active-tab-not-metame':
-    'The active tab is not metaMe. Open dev-beta.aigentz.me in this tab, then check again.',
-  'not-signed-in': 'Not signed in on this tab. Sign in to metaMe, then check again.',
+    `The active tab is not metaMe. Open dev-beta.aigentz.me in this tab, then check again.${PASSPORT_ROUTE_HINT}`,
+  'not-signed-in': `Not signed in on this tab.${PASSPORT_ROUTE_HINT}`,
   'no-active-persona':
     'No active persona selected. Open your wallet on metaMe and pick a persona, then check again — pairing without one would resolve to the wrong persona.',
   'probe-returned-nothing': 'Could not read the page. Reload the metaMe tab, then check again.',
@@ -122,6 +142,15 @@ function runVerification({ announceStart = false } = {}) {
         VERIFY_FAILING_MESSAGES[response.failing] ||
         `${response.failing} check failed${response.reason ? ` (${response.reason})` : ''}`;
       setStatus('warn', `Connected, needs attention — ${detail}`);
+      return;
+    }
+    // `session-expired` is the worker's terminal-refresh signal: the cached
+    // credential was rejected and has been CLEARED, so this is a clean
+    // disconnected state, not a stuck one. Say so in words the citizen can act
+    // on — the old surface reported the raw `refresh-http-401` and left them
+    // with no next step (operator report, 2026-07-27).
+    if (response.reason === 'session-expired') {
+      setStatus('idle', `Session expired — reconnect from a metaMe tab.${PASSPORT_ROUTE_HINT}`);
       return;
     }
     setStatus(

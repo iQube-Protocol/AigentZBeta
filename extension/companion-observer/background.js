@@ -99,6 +99,35 @@ function persistAuthSession(session) {
   return chrome.storage.local.set({ [STORAGE_KEY_AUTH_SESSION]: session });
 }
 
+/**
+ * Drops the cached session entirely.
+ *
+ * WHY (operator, 2026-07-27: "Not connected: refresh-http-401 … in fact
+ * regressed, not even letting me in initially"). A 401 from the refresh proxy
+ * means GoTrue REJECTED the refresh token — invalid, revoked, or already
+ * spent. That is terminal, not transient: retrying the same token can only
+ * fail again. The worker kept it anyway, so every subsequent call re-attempted
+ * the same dead credential and the popup showed the same opaque
+ * `refresh-http-401` forever, with no route back to a clean state.
+ *
+ * Clearing it returns the extension to an honest "Not connected" that CAN be
+ * reconnected — via the metaMe tab, or via the Companion's own Passport
+ * connect. A stuck credential is worse than no credential.
+ */
+function clearAuthSession() {
+  return chrome.storage.local.remove([STORAGE_KEY_AUTH_SESSION]);
+}
+
+/**
+ * HTTP statuses from the refresh proxy that mean "this refresh token will
+ * never work again". 401 is what the route returns when GoTrue rejects it;
+ * 400 covers a malformed/absent token. Anything else (500, 502, a timeout) is
+ * treated as transient and the cached session is KEPT, because throwing away a
+ * good credential because the server hiccuped would log the citizen out for a
+ * reason that has nothing to do with their session.
+ */
+const TERMINAL_REFRESH_STATUSES = new Set([400, 401]);
+
 function persistActivePersonaId(personaId) {
   return chrome.storage.local.set({ [STORAGE_KEY_ACTIVE_PERSONA_ID]: personaId });
 }
@@ -161,7 +190,16 @@ async function performRefresh(session) {
       body: JSON.stringify({ refreshToken: session.refreshToken }),
       cache: 'no-store',
     });
-    if (!res.ok) return { ok: false, reason: `refresh-http-${res.status}` };
+    if (!res.ok) {
+      // Terminal rejection ⇒ the cached credential is unusable. Drop it so the
+      // extension reports a clean "Not connected" the citizen can act on,
+      // instead of looping on a dead token (see `clearAuthSession`).
+      if (TERMINAL_REFRESH_STATUSES.has(res.status)) {
+        await clearAuthSession();
+        return { ok: false, reason: 'session-expired', cleared: true };
+      }
+      return { ok: false, reason: `refresh-http-${res.status}` };
+    }
     const body = await res.json();
     if (!body?.accessToken) return { ok: false, reason: 'refresh-response-missing-access-token' };
     const nextSession = {

@@ -160,8 +160,13 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
         </SmartContentActionProvider>
       </AGUIProvider>
       
-      {/* GLOBAL PERSISTENT METAAVATAR */}
-      {avatarInitialized && (
+      {/* GLOBAL PERSISTENT METAAVATAR — mounted only while a container owns it.
+          `avatarInitialized` latches true permanently, so gating on it alone
+          kept the D-ID SDK's DOCUMENT-BODY-level nodes alive for the rest of
+          the session after one avatar use; no wrapper style can reach those,
+          which is why every "hide the host" fix left the panel beneath it
+          broken. Unmounting sweeps them (MetaAvatar.tsx, 2026-07-27). */}
+      {avatarInitialized && activeContainer && (
         <div 
           className={getAvatarPositionClasses()}
           style={getAvatarPositionStyle()}

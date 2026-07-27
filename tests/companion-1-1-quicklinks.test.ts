@@ -320,6 +320,47 @@ describe('the ranking signal is one that is actually present', () => {
     expect(page).toMatch(/\[access, observedShape, activeSurface\]/);
   });
 
+  it('every surface needle actually reaches a real destination', () => {
+    // THE DEFECT THIS PINS (operator, 2026-07-27: "still not seeing quick link
+    // changes for workspace"). A needle that matches nothing is a mechanism
+    // that cannot fire — the strip stays frozen on whatever the registry order
+    // happens to be, which is exactly what "still showing KNYT" was. Ranking
+    // matched only the DISPLAY LABEL, so `mycluster` could never hit: myCluster
+    // is a tab GROUP whose members are labelled myCanvas / myWorkspace /
+    // myCartridge / myLedger. Matching now includes the group id.
+    //
+    // Asserted against the real registry with the LEAST-privileged access, so
+    // the destination has to be one an ordinary citizen can actually be
+    // offered — a needle that only resolves for an admin is still inert for
+    // everyone else.
+    const offered = resolveQuickLinks({ access: NOBODY });
+    for (const surface of ['wallet', 'workspace', 'permissions', 'activity', 'search']) {
+      const needles = quickLinkSurfaceNeedle(surface);
+      expect(needles, `surface '${surface}' has no needle`).not.toBeNull();
+      const reached = offered.filter((l) =>
+        (needles ?? []).some((n) => (l.rankKey ?? l.label.toLowerCase()).includes(n)),
+      );
+      expect(
+        reached.length,
+        `surface '${surface}' needle ${JSON.stringify(needles)} matches no offered link — the strip cannot respond`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('ranking matches the tab group, not only the visible label', () => {
+    // The specific repair: the Workspace surface's operator-named association
+    // is myCluster, which appears nowhere in any link's text.
+    const ranked = resolveQuickLinks({
+      access: NOBODY,
+      context: quickLinkSurfaceNeedle('workspace'),
+      limit: 6,
+    });
+    expect(
+      ranked.some((l) => (l.rankKey ?? '').includes('mycluster')),
+      'no myCluster-group link reached the visible strip on the Workspace surface',
+    ).toBe(true);
+  });
+
   it('a surface needle still cannot subtract or widen', () => {
     const base = resolveQuickLinks({ access: NOBODY, limit: 6 });
     const permitted = new Set(resolveQuickLinks({ access: NOBODY }).map((l) => l.id));

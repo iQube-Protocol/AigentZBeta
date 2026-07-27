@@ -77,8 +77,13 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
       // position:fixed descendants (fixed positions against the viewport), a
       // child can override inherited visibility, and an opacity-0 layer still
       // composites. display:none removes the entire subtree from rendering; no
-      // child can escape it by any positioning scheme. This is the property the
-      // operator's "once and for all" requires (third report, 2026-07-26).
+      // child can escape it by any positioning scheme.
+      //
+      // As of 2026-07-27 this branch is belt-and-braces only: the host is no
+      // longer RENDERED at all without an active container (see the mount gate
+      // below), because the residue that kept breaking the panel beneath was
+      // never inside this wrapper — the D-ID SDK injects nodes at document-body
+      // level, which no wrapper style can reach. See MetaAvatar.tsx's header.
       return { display: 'none' };
     }
     return { position: 'fixed', zIndex: 140 };
@@ -87,7 +92,14 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {avatarInitialized && (
+      {/* MOUNT GATE (2026-07-27). `avatarInitialized` latches true forever, so
+          on its own it kept the host — and the SDK's body-level nodes — alive
+          for the rest of the session after a single avatar use. Requiring an
+          ACTIVE CONTAINER means releasing the avatar unmounts it, and unmount
+          sweeps the SDK's artifacts out of the document (MetaAvatar.tsx).
+          Re-entering avatar mode re-injects the SDK: a deliberate reload cost,
+          traded for a surface that is genuinely clean when the avatar is away. */}
+      {avatarInitialized && activeContainer && (
         <div className={getAvatarPositionClasses()} style={getAvatarPositionStyle()}>
           <MetaAvatar key={avatarRefreshKey} />
         </div>

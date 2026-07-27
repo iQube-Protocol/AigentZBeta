@@ -574,6 +574,39 @@ describe('the avatar leaves nothing behind when released', () => {
     }
   });
 
+  it('the avatar host is not RENDERED without an active container', () => {
+    // The fourth opacity report (operator, 2026-07-27) proved the wrapper was
+    // never the problem: the D-ID SDK injects nodes at DOCUMENT BODY level,
+    // outside anything the layout positions, so no wrapper style — opacity,
+    // visibility, zero size, or display:none — can reach them. Gating the
+    // MOUNT on an active container is what lets unmount clean them up.
+    for (const file of LAYOUTS) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} mounts the avatar host without an active container`).toMatch(
+        /avatarInitialized\s*&&\s*activeContainer\s*&&/,
+      );
+    }
+  });
+
+  it('releasing the avatar sweeps the SDK artifacts out of the document', () => {
+    // The sweep already existed on the way IN (init cleared prior artifacts,
+    // because the SDK was known to leave them around the document) but never
+    // on the way OUT. Unmount must sweep, or the body-level residue survives
+    // every release and keeps breaking backdrop-filter on the panel beneath.
+    const code = stripComments(readSource('app/components/metaVatar/MetaAvatar.tsx'));
+    expect(code, 'no artifact sweep helper').toMatch(/function sweepDidArtifacts/);
+    // The selector must reach beyond our own container — a sweep that only
+    // knows about `did-avatar-container-` is the old, insufficient cleanup.
+    expect(code, 'sweep does not target body-level SDK nodes').toMatch(/did-agent/);
+    // Called from the unmount cleanup, not only from init.
+    const cleanup = code.indexOf('removeEventListener(\'metaAvatarRefresh\'');
+    expect(cleanup, 'no unmount cleanup found').toBeGreaterThan(-1);
+    expect(
+      code.slice(cleanup, cleanup + 800),
+      'unmount cleanup does not sweep SDK artifacts',
+    ).toMatch(/sweepDidArtifacts/);
+  });
+
   it('the avatar anchor loop runs only while the avatar is showing', () => {
     // It writes CSS custom properties on the document root every animation
     // frame. Ungated, it ran for the lifetime of the mount — which in the

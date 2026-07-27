@@ -68,6 +68,14 @@ export interface QuickLink {
   readonly tabSlug: string;
   /** Why it was allowed. Diagnostic — makes a wrong decision legible. */
   readonly allowedBecause: 'ungated' | 'global-admin' | 'cartridge-admin' | 'partner';
+  /**
+   * Lower-cased match surface for context ranking: codex name + tab label +
+   * slug + tab GROUP. Separate from `label` because the group a tab belongs to
+   * is a real association the citizen navigates by ("myCluster") without it
+   * ever appearing in the link's own text. Optional so a hand-built QuickLink
+   * in a test stays valid; ranking falls back to the label when absent.
+   */
+  readonly rankKey?: string;
 }
 
 /**
@@ -213,6 +221,17 @@ export function resolveQuickLinks(input: {
         codexSlug: codex.slug,
         tabSlug: tab.slug,
         allowedBecause,
+        // What context ranking matches against — NOT the display label.
+        //
+        // WHY (operator, 2026-07-27: "still not seeing quick link changes for
+        // workspace"). Ranking read the visible label only, so the Workspace
+        // surface's `myCluster` needle matched nothing: myCluster is a tab
+        // GROUP, and its members are labelled myCanvas / myWorkspace /
+        // myCartridge / myLedger. A needle naming the group the operator
+        // actually named could never hit a tab. Including the group id (and
+        // the slug, already used by `matching`) makes the association the
+        // operator specified resolvable without renaming anything they see.
+        rankKey: `${codex.name ?? codex.slug} ${tab.label ?? ''} ${tab.slug} ${tab.group ?? ''}`.toLowerCase(),
       });
     }
   }
@@ -224,7 +243,8 @@ export function resolveQuickLinks(input: {
   )
     .map((n) => n.trim().toLowerCase())
     .filter(Boolean);
-  const hit = (l: QuickLink) => needles.some((n) => l.label.toLowerCase().includes(n));
+  const hit = (l: QuickLink) =>
+    needles.some((n) => (l.rankKey ?? l.label.toLowerCase()).includes(n));
   const ranked = needles.length > 0
     ? [...out.filter(hit), ...out.filter((l) => !hit(l))]
     : out;
