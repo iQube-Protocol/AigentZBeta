@@ -1,6 +1,14 @@
 # CFS-053 — Constitutional Binding
 
-**Chrysalis Foundation Specification · v1.0 · Status: PROPOSED for ratification (operator ruling, 2026-07-27)**
+**Chrysalis Foundation Specification · v1.0 · Status: PROPOSED — deliberately held (operator ruling, 2026-07-27)**
+
+> **Why this stays proposed.** The operator declined to ratify Law XVII now, and not for want of
+> evidence: *"The specification appears mature. The evidence is compelling. But I'd deliberately
+> wait until after the software expansion of P2."* Today's thirteen defects are all software
+> engineering observations — enough to justify a specification, not enough to make Constitutional
+> Binding an *experimentally supported* principle rather than an engineering lesson. It promotes
+> when P2A exists, software consequence is formally in the programme, and at least one
+> experimental result supports it. See §10.0.
 **Constitutional anchor:** recommended as **CFS-009 Law XVII — Constitutional Binding** (§10.1). *Not added by this document — amending the constitution is an operator act under Law XI.*
 **Composes:** CFS-009 (Laws XI, XII, XVI) · CFS-032 (Capability Registry) · CFS-049 / CCR-001 (Capability Briefs and Completion) ·
 CS-001 (duplicate capability as constitutional drift) · the Companion Menu System invariants (MS-1…MS-10) ·
@@ -418,6 +426,101 @@ be the defect performing itself.
 
 ## §10 Operator actions outstanding
 
+### §10.0 OPERATOR RULINGS, 2026-07-27 (received after this document was drafted)
+
+Two rulings settle two of the questions §10 raised. Both are recorded here verbatim because they
+change what this document is *for*, not merely what it says.
+
+#### RATIFIED — the CB-3 scope wording
+
+The operator ratified the §5.3 boundary in these words, and this wording is now canonical for the
+clause:
+
+> "Earlier we spoke about *every constitutional mechanism emits a receipt.* That was too broad. The
+> better constitutional definition is: **Every constitutional mechanism that effects a state
+> transition of record must produce observable evidence of that transition.** That excludes icon
+> maps, static lookup tables, presentation metadata, while including governance ratification,
+> delegation, standing changes, receipts, constitutional state, anchoring. I would ratify exactly
+> that wording."
+
+Note the ratified form says **"produce observable evidence of that transition"**, not "emit a
+receipt". That is a deliberate widening of the *consequence* while keeping the *scope* narrow: a
+receipt is the canonical evidence form (`inv.engineering.040`), but the clause binds on evidence,
+not on one implementation of it. The narrower reading would have made CB-3 unsatisfiable by any
+mechanism whose evidence is a durable record rather than a receipt row.
+
+#### DEFERRED — Law XVII waits for experimental support, deliberately
+
+The operator declined to ratify Law XVII now, and the reasoning is a methodological improvement
+rather than a delay:
+
+> "The specification appears mature. The evidence is compelling. But I'd deliberately wait until
+> after the software expansion of P2… Today's twelve or thirteen examples are all software
+> engineering observations. That's already enough to justify a specification. But if P2A becomes an
+> explicit experiment, then Constitutional Binding ceases to be *an engineering lesson* and instead
+> becomes **an experimentally supported constitutional principle.** That is much stronger."
+
+**CFS-053 therefore stays `PROPOSED`** until all three hold: P2A exists; software consequence is
+formally in the programme; at least one experimental result supports the principle. Only then does
+Law XVII become "grounded not merely in architectural observation, but in experimental evidence."
+
+This is the hypothesis-vs-canon discipline (CLAUDE.md) applied to the platform's own doctrine, and
+it is worth naming as such: the specification is a claim about how systems fail, which is an
+empirical claim, and empirical claims wait for evidence. A document arguing that mechanisms must be
+bound to observable events would be poorly served by being ratified on assertion alone.
+
+#### §10.0a The representation reading — recorded for the P3 team
+
+The operator identified something this document did not: **the latent-mechanism class is also a
+representation invariant.**
+
+```
+Intent → Mechanism → Invocation → Effect → Evidence
+```
+
+> "What today demonstrated is that representation can preserve intent, mechanism, and
+> implementation, while losing **invocation**. That is a representational failure… **A
+> representation is incomplete if it preserves structure while failing to preserve activation.**"
+
+That links Constitutional Binding to Representation (EXP-P3) and to Consequence (EXP-P2) directly:
+every one of the eight defects in §1 is a representation that survived review because everything
+*except* its activation was intact. A reviewer reading the icon map, the lifecycle comment, or the
+governance helper would have found each one complete — because the missing element is not part of
+what the representation shows.
+
+**Recorded here rather than acted on.** EXP-P3 is not this document's to design, and the claim
+"a representation is incomplete if it preserves structure while failing to preserve activation"
+is a *hypothesis* about representation, not a governance rule — so it enters at `proposed` if it
+enters at all, and belongs to the P3 charter.
+
+#### §10.0b The programme is cybernetic, not sequential — recorded for the P-series
+
+Also recorded, because it reframes the experiment series and should not be lost in a chat log:
+
+> "Originally the programme looked like P1 → P2 → P3 → P4. I don't think that's the right mental
+> model anymore… **P3 doesn't come after P2. P3 continually refines the representation used by P1
+> and P2. P4 continually studies interactions among those represented fields.** That makes the
+> programme genuinely cybernetic rather than sequential."
+
+```
+                    P4  Interaction Fields
+                          ▲
+                          │
+        P1 ─────► P2 ─────► Reality
+         ▲         │
+         │         ▼
+         └──── P3 Representation
+```
+
+> "Inference isn't the subject. It is simply **the least consequential substrate on which invariant
+> discovery begins.** Everything after that is about increasing consequence, improving
+> representation, and understanding interaction."
+
+This bears on EXP-P4, which is currently RESERVED and undesigned (`types/research.ts`,
+`codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/`). It is narrative and
+architecture, not a change to any experiment definition, and **nothing in the P-series has been
+modified here.**
+
 ### §10.1 RECOMMENDED — CFS-009 Law XVII — Constitutional Binding
 
 The ruling's central law is a statement about how every future feature is built, which is the
@@ -439,7 +542,7 @@ A mechanism that cannot fire is constitutionally indistinguishable from a mechan
 
 **Produces an observable consequence.** Invocation is not enough. A mechanism that runs and whose effect never lands is inert, and inertness reads as a design choice rather than a fault — which is why it survives for months. This is MS-7 raised from component scope to constitutional scope.
 
-**Emits constitutional proof.** Where the consequence is a state transition of record — a change in what the platform will later assert to be true to a third party — it emits a receipt, and that receipt is attributable (`inv.engineering.040/041`, Law XVI). Where it is not, this clause does not bind: an icon map owes no receipt, and a law that demanded one would be ignored rather than obeyed.
+**Emits constitutional proof.** RATIFIED WORDING (operator, 2026-07-27): *every constitutional mechanism that effects a state transition of record must produce observable evidence of that transition.* Where the consequence is a state transition of record — a change in what the platform will later assert to be true to a third party — it emits a receipt, and that receipt is attributable (`inv.engineering.040/041`, Law XVI). Where it is not, this clause does not bind: an icon map owes no receipt, and a law that demanded one would be ignored rather than obeyed.
 
 **Its absence is detectable through mutation.** Coverage asks whether code executed. Mutation asks whether the system would notice if the mechanism stopped working. Those are different questions, and only the second is constitutional. A canary that survives the deletion of the property it names is not evidence; it is decoration.
 
