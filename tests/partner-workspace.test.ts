@@ -137,10 +137,12 @@ describe('canonical spellings (platform ontology)', () => {
 
 describe('tab registration — adminOnly on the hand-curated Venture Lab cartridge', () => {
   it('partner-programmes is an enabled adminOnly tab mounting PartnerProgrammesTab', async () => {
+    // Retained id/slug: it is the Partner group's OVERVIEW tab since 2026-07-27,
+    // kept under this id so links issued before the regroup still resolve.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     expect(tab).toBeTruthy();
-    expect(tab!.label).toBe('Partner Programmes');
+    expect(tab!.label).toBe('Overview');
     expect(tab!.adminOnly).toBe(true);
     expect(tab!.enabled).toBe(true);
     expect(tab!.config.component).toBe('PartnerProgrammesTab');
@@ -151,45 +153,57 @@ describe('tab registration — adminOnly on the hand-curated Venture Lab cartrid
     expect(src).toContain('PartnerProgrammesTab');
   });
 
-  it('lives under Grow and exposes its surfaces as a real third tier', async () => {
-    // Operator, 2026-07-27: moved out of `connect` (where it read as a sub-item
-    // of its neighbours) into `grow`, with the five workspace surfaces promoted
-    // from an in-component button row to `subTabs` — the group → tab → subTabs
-    // shape `CodexPanelDynamic` already renders as its own row.
+  it('Partner is a first-class group between Grow and Administer, driving the content itself', async () => {
+    // Operator, 2026-07-27, seeing it in situ: "Partner should be a first class
+    // menu item between grow and administer and that sub menu should then drive
+    // the content that is across the sub sections … we don't need the duplicate
+    // sub menus." The first cut put the five areas in a tier-3 row while the
+    // component ALSO drew its own row — two menus for one concept. They are now
+    // the standard cartridge tabs of a Partner group.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
-    const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
-    expect(tab!.group).toBe('grow');
-    expect((VENTURE_LAB_CODEX.tabGroups ?? []).some((g: { id: string }) => g.id === 'grow')).toBe(true);
+    const groups = VENTURE_LAB_CODEX.tabGroups ?? [];
+    const partner = groups.find((g: { id: string }) => g.id === 'partner');
+    const grow = groups.find((g: { id: string }) => g.id === 'grow');
+    const administer = groups.find((g: { id: string }) => g.id === 'administer');
+    expect(partner, 'no Partner group').toBeTruthy();
+    expect(partner!.label).toBe('Partner');
+    // Position is the operator's instruction, not decoration.
+    expect(partner!.order).toBeGreaterThan(grow!.order);
+    expect(partner!.order).toBeLessThan(administer!.order);
+    // Group-level gate, matching the Administer precedent: a non-admin founder
+    // must never see a Partner pill that filters to nothing.
+    expect(partner!.adminOnly).toBe(true);
 
-    const subs = tab!.subTabs ?? [];
-    expect(subs.map((s: { label: string }) => s.label)).toEqual([
+    const tabs = VENTURE_LAB_CODEX.tabs
+      .filter((t: { group?: string }) => t.group === 'partner')
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
+    expect(tabs.map((t: { label: string }) => t.label)).toEqual([
       'Overview',
       'Collaborate',
       'Operate',
       'Evidence',
       'Communicate',
     ]);
-    for (const sub of subs) {
-      // The gate is re-applied at every tier by the panel, so it must be
-      // declared at every tier — an implicitly-inherited gate is not a gate.
-      expect(sub.adminOnly, `${sub.id} is not adminOnly`).toBe(true);
-      expect(sub.enabled).toBe(true);
-      // ONE implementation, five entrances. A per-surface component would be
-      // the parallel implementation `inv.engineering.036` forbids.
-      expect(sub.config.component).toBe('PartnerProgrammesTab');
-      expect(typeof sub.config.props?.initialSurface).toBe('string');
+    for (const t of tabs) {
+      expect(t.adminOnly, `${t.id} is not adminOnly`).toBe(true);
+      expect(t.enabled).toBe(true);
+      // ONE component, five entrances.
+      expect(t.config.component).toBe('PartnerProgrammesTab');
+      expect(typeof t.config.props?.initialSurface).toBe('string');
+      // No second menu: the area tabs must not carry their own subTabs.
+      expect(t.subTabs, `${t.id} reintroduces a nested menu`).toBeUndefined();
     }
-    // Slugs must be unique across the cartridge or tier routing collides.
-    const allSlugs = [
-      ...VENTURE_LAB_CODEX.tabs.map((t: { slug: string }) => t.slug),
-      ...subs.map((s: { slug: string }) => s.slug),
-    ];
-    expect(new Set(allSlugs).size).toBe(allSlugs.length);
+    // The pre-regroup deep-link target still resolves.
+    expect(tabs[0].slug).toBe('partner-programmes');
+    // Slugs unique across the cartridge.
+    const slugs = VENTURE_LAB_CODEX.tabs.map((t: { slug: string }) => t.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
   });
 
-  it('the component defers surface selection to the tier-3 menu when driven by it', () => {
-    // Two navigations for one concept is the duplication the tiering removes:
-    // with `initialSurface` supplied, the in-component row must not render.
+  it('the component never draws a second surface menu when the cartridge menu drives it', () => {
+    // Two navigations for one concept is what the operator saw in situ: with
+    // `initialSurface` supplied — which every Partner tab now supplies — the
+    // in-component row must not render at all.
     const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
     expect(src).toMatch(/initialSurface/);
     expect(src, 'the in-component surface row is not gated on the menu').toMatch(
