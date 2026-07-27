@@ -89,6 +89,12 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'invariant_superseded',
   // InvariantQube publication (Phase 2) — compressed-expertise provenance
   'invariant_qube_published',
+  // Experiment Workspace administration (Horizen Phase 3) — Aigent Z's daily
+  // and weekly report over a workspace. Anchoring makes the record of
+  // programme state at a point in time tamper-evident, like every other
+  // governance artifact above. (Action-type addition only — the one change
+  // this file permits unilaterally.)
+  'workspace_report_published',
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',

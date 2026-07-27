@@ -174,7 +174,10 @@ export type ActivityActionType =
   | 'canonical_plate_composed'   // app/api/constitutional/canonical-plates/route.ts
   | 'plan_cancelled'             // services/billing/planRenewal.ts
   | 'venture_blueprint_handoff'  // services/venture/blueprintHandoff.ts
-  | 'standing_accrued';          // services/crm/standingAccrualService.ts
+  | 'standing_accrued'           // services/crm/standingAccrualService.ts
+  // Aigent Z's administration of an ExperimentWorkspace — the daily wakeup and
+  // the weekly report (Horizen Phase 3). Anchorable.
+  | 'workspace_report_published';// services/experiments/workspaceReport.ts
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
