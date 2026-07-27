@@ -39,8 +39,44 @@ function readPeriod(req: NextRequest): ReportPeriod {
     : 'daily';
 }
 
-/** Shared gate: authenticated + (admin or workspace member). */
+/**
+ * Shared gate: the ops token (scheduled runs) OR an authenticated caller who
+ * is an admin or a workspace member.
+ *
+ * The ops-token branch mirrors the established scheduled-job convention
+ * (`/api/access/finalize-receipts`, `/api/admin/kb/ingest-polity-commentary`):
+ * a cron has no session and no persona, so it authenticates with
+ * `ADMIN_OPS_TOKEN` and the receipt is attributed to an explicitly configured
+ * persona. That persona is NEVER guessed — with `WORKSPACE_REPORT_PERSONA_ID`
+ * unset the route refuses and says which variable is missing, rather than
+ * attributing a governance receipt to whoever happens to resolve.
+ */
 async function authorize(req: NextRequest, workspaceId: string) {
+  const opsToken = process.env.ADMIN_OPS_TOKEN;
+  if (opsToken) {
+    const header = req.headers.get('authorization') ?? req.headers.get('Authorization') ?? '';
+    const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (presented === opsToken) {
+      const attributedPersona = process.env.WORKSPACE_REPORT_PERSONA_ID;
+      if (!attributedPersona) {
+        return {
+          error: NextResponse.json(
+            {
+              ok: false,
+              error:
+                'WORKSPACE_REPORT_PERSONA_ID is not set — a scheduled report has no caller, and its receipt must be attributed to a configured persona rather than a guessed one',
+            },
+            { status: 500 },
+          ),
+        };
+      }
+      if (!getExperimentWorkspace(workspaceId)) {
+        return { error: NextResponse.json({ ok: false, error: 'Workspace not found' }, { status: 404 }) };
+      }
+      return { personaId: attributedPersona, isAdmin: true };
+    }
+  }
+
   const persona = await getActivePersona(req);
   if (!persona?.personaId) {
     return { error: NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 }) };

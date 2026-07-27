@@ -156,6 +156,29 @@ describe('reading never writes', () => {
     expect(post).toMatch(/status: 403/);
   });
 
+  it('a scheduled run authenticates with the ops token and never guesses a persona', () => {
+    // A cron has no session. The established convention (finalize-receipts,
+    // ingest-polity-commentary) is an ADMIN_OPS_TOKEN bearer — but a receipt
+    // still needs an attributed persona, and guessing one would attribute a
+    // governance record to whoever happens to resolve.
+    const src = stripComments(readSource(ROUTE_PATH));
+    expect(src).toMatch(/ADMIN_OPS_TOKEN/);
+    expect(src).toMatch(/WORKSPACE_REPORT_PERSONA_ID/);
+    // Unset → refuse, naming the variable. Never a fallback persona.
+    expect(src).toMatch(/if \(!attributedPersona\)/);
+    expect(src).toMatch(/status: 500/);
+    expect(src, 'the ops path falls back to a resolved persona').not.toMatch(
+      /attributedPersona \?\?|attributedPersona \|\|/,
+    );
+
+    // The workflow must call the route the surface reads — not a second path.
+    const wf = readSource('.github/workflows/workspace-report.yml');
+    expect(wf).toMatch(/\/api\/venture\/workspace\/horizen-pilot-series-001\/report\?period=/);
+    expect(wf).toMatch(/ADMIN_OPS_TOKEN/);
+    expect(wf).toMatch(/cron: '0 7 \* \* \*'/);
+    expect(wf).toMatch(/cron: '30 7 \* \* 1'/);
+  });
+
   it('membership is resolved through the shared self-view resolver', () => {
     const src = stripComments(readSource(ROUTE_PATH));
     expect(src).toMatch(/getActivePersona\(req\)/);
