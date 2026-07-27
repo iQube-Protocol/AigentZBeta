@@ -292,7 +292,11 @@ describe('CAN-CCR-7 (dangling-reference half) — no capability points at a Brie
     // commitment and is deferred (see the file header).
     const script = readSource('scripts/register-ccb-capabilities.ts');
     const urls = [...script.matchAll(/briefUrl:\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(urls.length, 'no briefUrl parsed from the registration script').toBe(3);
+    // Lower bound, not an exact count: the guard exists so the loop below
+    // cannot pass vacuously on a parse failure, and a canary that also freezes
+    // the number fails on legitimate growth. Registering a new capability with
+    // a brief (companion-menu-system, 2026-07-27) broke the exact-count form.
+    expect(urls.length, 'no briefUrl parsed from the registration script').toBeGreaterThanOrEqual(3);
     for (const u of urls) {
       expect(resolves(u), `a capability is registered with briefUrl ${u}, which does not exist`).toBe(
         true,

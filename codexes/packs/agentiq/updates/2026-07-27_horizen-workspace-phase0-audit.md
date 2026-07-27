@@ -1142,7 +1142,15 @@ projected decisions · milestones · blockers. Empty sections say they are empty
 ## Operator actions required
 
 **1. Run this SQL** (in addition to the Phase 2 table above) so report receipts can be written —
-without it every report write is rejected by the CHECK constraint and discarded silently:
+without it every report write is rejected by the CHECK constraint and discarded silently.
+
+> **Corrected 2026-07-27.** The block first published here was hand-transcribed and dropped
+> `operator_action_logged` and `standing_document_added` — two Standing-signal types with live rows
+> — so the `ADD CONSTRAINT` failed with *"violated by some row"*. The authoritative list is
+> `supabase/migrations/20260824000100_receipt_action_type_workspace_report.sql`; the block below is
+> generated from it. **Never hand-transcribe a constraint list** — that is the same
+> single-source-of-truth failure the migration itself exists to prevent, committed in the prose
+> describing it.
 
 ```sql
 ALTER TABLE activity_receipts
@@ -1160,6 +1168,7 @@ ALTER TABLE activity_receipts
     'experience_task_completed',
     'agent_revocation_state_changed',
     'agent_delegated','agent_delegation_revoked',
+    'operator_action_logged','standing_document_added',
     'plan_purchased','plan_renewed',
     'invariant_discovered','invariant_validated','invariant_canonized','invariant_superseded',
     'invariant_qube_published',

@@ -1851,6 +1851,42 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
 
+    {
+      // CAPABILITY ARTEFACT HOME (operator ruling 2026-07-27: "the natural home
+      // for these would be the registries tabs for AgentiQ and AgentiQ OS —
+      // AgentiQ should be the home and AgentiQ OS a mirror").
+      //
+      // Constitutional Capability Briefs previously existed ONLY as dated
+      // entries in the Updates tab, indistinguishable from a deploy note among
+      // 300+ other docs. They are registry material — the backward-looking
+      // record of what exists — so they belong beside the Factory, the Supply
+      // registry and the Invariant Registry.
+      //
+      // Composition, not a new surface: `AgentiqCartridgeTab` over a dedicated
+      // `col_capabilities` collection. The DOCS are unmoved and unduplicated —
+      // the collection references the same files the Updates collection does,
+      // so there is one copy of every brief and no second source of truth.
+      id: 'capability-briefs',
+      label: 'Capabilities',
+      slug: 'capabilities',
+      enabled: true,
+      group: 'registry',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_capabilities'
+        }
+      },
+      metadata: {
+        icon: 'FileBadge',
+        description: 'Constitutional Capability Briefs — what shipped, where it lives, how to use it, and what must stay true (CFS-049 + CCR-001)',
+        color: 'violet'
+      }
+    },
+
     // ── Governance group (Operation Chrysalis Phase 0) ────────
     {
       id: 'governance-constitution',
@@ -2281,6 +2317,28 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'BoundedDelegationTab', props: {} },
       metadata: { icon: 'Shield', description: 'Grant bounded authority to Aigent C with audit logs' },
+    },
+
+    {
+      // MIRROR of the AgentiQ cartridge's capability-artefact home (same
+      // operator ruling). Same pack, same collection, same component — a
+      // mirror is a second ENTRANCE, never a second copy. Editing a brief in
+      // one place changes it in both because there is only one file.
+      id: 'agentiq-os-capability-briefs',
+      label: 'Capabilities',
+      slug: 'os-capabilities',
+      enabled: true,
+      group: 'registry',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_capabilities'
+        }
+      },
+      metadata: { icon: 'FileBadge', description: 'Constitutional Capability Briefs (mirrors the AgentiQ cartridge home)' },
     },
 
     // ── Governance group (Operation Chrysalis Phase 0) ─────────

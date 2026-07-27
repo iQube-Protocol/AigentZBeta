@@ -86,6 +86,18 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
     governingInvariants: ["CFS-011", "CFS-012", "CVR-002", "CVR-003"],
     reuseDisposition: "compose",
   },
+  {
+    // Added 2026-07-27 — the CCR-001 reference artifact. It had a Brief from
+    // the day it was written and no registry row, so the newest capability
+    // artefact was the only one with nothing to hang off in mySoftware.
+    capabilityId: "companion-menu-system",
+    displayLabel: "Companion Menu System",
+    description:
+      "The copilot's navigation, mode and overlay system -- nine invariants (MS-1..MS-9), each learned from a live regression and each enforced by a canary. The first capability documented in the CCR-001 completion format.",
+    governingInvariants: ["MS-1", "MS-2", "MS-3", "MS-4", "MS-5", "MS-6", "MS-7", "MS-8", "MS-9"],
+    briefUrl: "codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md",
+    reuseDisposition: "compose",
+  },
 ];
 
 async function main() {

@@ -102,6 +102,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import { STAGE_ORDER, getStageLabel } from "@/services/devCommandCenter/devLoop";
 import type { DevLoopStage, DevLoopReceipt, DevReceiptClass } from "@/types/devCommandCenter";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { buildCodexUrl } from "@/utils/codex-nav";
 
 interface DevLoopSessionSummary {
   sessionId: string;
@@ -640,9 +641,26 @@ export function MySoftwareTab({ personaId, isAdmin }: Props) {
                         Read the brief
                       </a>
                     ) : (
-                      <span className="font-mono text-slate-600" title={cap.briefUrl}>
-                        {cap.briefUrl.split("/").pop()}
-                      </span>
+                      // A repo-relative briefUrl used to render as dead grey
+                      // monospace: you could see that a brief existed and had
+                      // no way to open it (operator, 2026-07-27). Every brief
+                      // now has an in-app home — the AgentiQ cartridge's
+                      // Capabilities tab — so the link goes there rather than
+                      // nowhere. Cross-cartridge, so buildCodexUrl carries the
+                      // identity params (the canonical inter-cartridge rule);
+                      // never a hand-built embed URL.
+                      <a
+                        href={buildCodexUrl("agentiq", {
+                          tab: "capabilities",
+                          personaId,
+                          from: "metame",
+                          fromTab: "my-software",
+                        })}
+                        title={cap.briefUrl}
+                        className="text-violet-400 hover:text-violet-300"
+                      >
+                        Read the brief
+                      </a>
                     )
                   )}
                   {cap.registeredReceiptId && (

@@ -359,6 +359,16 @@
       ]
     },
     {
+      "id": "col_capabilities",
+      "title": "Capabilities",
+      "items": [
+        "updates/2026-07-24_ccb-metame-companion.md",
+        "updates/2026-07-24_ccb-financial-services-capability-suite.md",
+        "updates/2026-07-24_ccb-moneypenny-runtime.md",
+        "updates/2026-07-27_companion-menu-system-invariants.md"
+      ]
+    },
+    {
       "id": "col_retrieval_index",
       "title": "Retrieval Index",
       "items": [
@@ -448,7 +458,7 @@
     {
       "id": "col_network_economics",
       "title": "Network Economics",
-      "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
+      "description": "Canonical reference for what it costs to run the AgentiQ network \u2014 anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
       "items": [
         "items/AGENTIQ_NETWORK_COSTS.md"
       ]
@@ -456,7 +466,7 @@
     {
       "id": "col_intent_chains",
       "title": "Intent Chains",
-      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator \u2014 turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
       "items": [
         "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
       ]
