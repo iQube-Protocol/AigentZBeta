@@ -50,7 +50,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { readSource } from './_lib/sourceAuthority';
 import {
@@ -89,6 +89,121 @@ const firstRef = (item: string): string | null => /`([^`]+)`/.exec(item)?.[1] ??
 
 const resolves = (repoRelative: string): boolean =>
   existsSync(join(process.cwd(), repoRelative));
+
+// ───────────────────────────────────────────────────────────────────────────
+// EVERY CCR-001 artifact, not just the reference one.
+//
+// This file originally asserted against the Companion artifact alone, which was
+// right when it was the only one. Three instrument briefs (IDE / IRE / IPE) were
+// added on 2026-07-27, and a standard whose canaries only ever read its own
+// reference example enforces nothing about the artifacts that come after it.
+//
+// The set is DERIVED, never hand-listed: any update-pack document that declares
+// the `capability-completion-artifact/v1.0` schema is in scope. A hand-kept list
+// here would be the stale-duplicate defect the standard exists to eliminate, and
+// an exact count would break on legitimate growth (the lesson already learned
+// twice in this file). The guard against a vacuous scan is a LOWER BOUND plus
+// the requirement that the reference artifact is among what was found.
+// ───────────────────────────────────────────────────────────────────────────
+
+const UPDATES_DIR = 'codexes/packs/agentiq/updates';
+
+const completionArtifacts = readdirSync(join(process.cwd(), UPDATES_DIR))
+  .filter((f) => f.endsWith('.md'))
+  .map((f) => `${UPDATES_DIR}/${f}`)
+  .map((path) => ({ path, markdown: readSource(path) }))
+  .filter((d) => d.markdown.includes(CAPABILITY_COMPLETION_SCHEMA_VERSION))
+  .map((d) => ({ ...d, parsed: parseCompletionArtifact(d.markdown) }));
+
+describe('every CCR-001 completion artifact in the pack, not only the reference one', () => {
+  it('finds the artifacts by their declared schema, including the reference one', () => {
+    expect(
+      completionArtifacts.length,
+      'no completion artifact found — every check in this block would be vacuous',
+    ).toBeGreaterThanOrEqual(4);
+    expect(completionArtifacts.map((a) => a.path)).toContain(ARTIFACT_PATH);
+  });
+
+  it('each one validates against capability-completion-artifact/v1.0', () => {
+    for (const { path, parsed } of completionArtifacts) {
+      const result = validateCompletionArtifact(parsed);
+      expect(
+        result.valid,
+        `${path} is not constitutionally complete:\n${result.issues
+          .map((i) => `  ${i.canary ? `[${i.canary}] ` : ''}${i.path}: ${i.message}`)
+          .join('\n')}`,
+      ).toBe(true);
+    }
+  });
+
+  it('each one declares a distinct capability id that its own path claims (CAN-CCR-8 lineage)', () => {
+    const seen = new Map<string, string>();
+    for (const { path, parsed } of completionArtifacts) {
+      const id = parsed.identity.capabilityId;
+      expect(id.length, `${path} declares no capability id`).toBeGreaterThan(0);
+      expect(seen.has(id), `${id} is claimed by both ${seen.get(id)} and ${path}`).toBe(false);
+      seen.set(id, path);
+      expect(
+        parsed.identity.artifactPath,
+        `${path} declares a different artifact path than the file it is`,
+      ).toBe(path);
+    }
+  });
+
+  it('every proof, source path and commons evidence reference resolves on disk (CAN-CCR-5)', () => {
+    let checked = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      for (const p of declaredProofPaths(parsed)) {
+        expect(resolves(p), `${path} names proof ${p}, which does not resolve on disk`).toBe(true);
+        checked++;
+      }
+      for (const item of parsed.location.sourcePaths) {
+        const p = firstRef(item);
+        if (!p) continue;
+        expect(resolves(p), `${path} locates the capability at ${p}, which does not resolve`).toBe(true);
+        checked++;
+      }
+      for (const r of parsed.commons.evidenceRefs.filter((x) => x.includes('/'))) {
+        expect(resolves(r), `${path} names evidence ${r}, which does not resolve`).toBe(true);
+        checked++;
+      }
+      for (const r of parsed.commons.lineage.sourceReferences.filter((x) => x.includes('/'))) {
+        expect(resolves(r), `${path} names lineage source ${r}, which does not resolve`).toBe(true);
+        checked++;
+      }
+    }
+    expect(checked, 'no references were checked — the loop ran on nothing').toBeGreaterThan(30);
+  });
+
+  it('no artifact claims a canonical invariant without a canary, or an evidenced one without provenance', () => {
+    // The two rules most likely to be quietly broken by a later author writing
+    // an artifact from the template: CAN-CCR-3 and CAN-CCR-2, applied across
+    // every artifact rather than only the reference one.
+    let invariants = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      for (const inv of parsed.reproductionInvariants) {
+        invariants++;
+        expect(
+          INVARIANT_PROVENANCE_KINDS as readonly string[],
+          `${path}:${inv.id} carries provenance '${inv.provenance}'`,
+        ).toContain(inv.provenance);
+        if (inv.status === 'canonical') {
+          expect(inv.canaries.length, `${path}:${inv.id} is canonical but names no canary`).toBeGreaterThan(0);
+        }
+        if (EVIDENCED_STATUSES.includes(inv.status)) {
+          expect(inv.provenance, `${path}:${inv.id} is '${inv.status}' but unevidenced`).not.toBe(
+            UNEVIDENCED_PROVENANCE,
+          );
+          expect(
+            inv.defect.length,
+            `${path}:${inv.id} is '${inv.status}' but records no defect`,
+          ).toBeGreaterThan(20);
+        }
+      }
+    }
+    expect(invariants, 'no invariants parsed across the pack').toBeGreaterThan(25);
+  });
+});
 
 // ───────────────────────────────────────────────────────────────────────────
 // The artifact parses, and parses to something real

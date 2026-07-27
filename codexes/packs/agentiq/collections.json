@@ -40,6 +40,9 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-27_ccb-invariant-discovery-engine.md",
+        "updates/2026-07-27_ccb-invariant-resolution-engine.md",
+        "updates/2026-07-27_ccb-invariant-projection-engine.md",
         "updates/2026-07-27_governance-ratification-as-an-institutional-act.md",
         "updates/2026-07-26_partner-workspace-horizen-pilot.md",
         "updates/2026-07-27_companion-menu-system-invariants.md",
@@ -367,7 +370,10 @@
         "updates/2026-07-24_ccb-metame-companion.md",
         "updates/2026-07-24_ccb-financial-services-capability-suite.md",
         "updates/2026-07-24_ccb-moneypenny-runtime.md",
-        "updates/2026-07-27_companion-menu-system-invariants.md"
+        "updates/2026-07-27_companion-menu-system-invariants.md",
+        "updates/2026-07-27_ccb-invariant-discovery-engine.md",
+        "updates/2026-07-27_ccb-invariant-resolution-engine.md",
+        "updates/2026-07-27_ccb-invariant-projection-engine.md"
       ]
     },
     {

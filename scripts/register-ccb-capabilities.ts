@@ -98,6 +98,38 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
     briefUrl: "codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md",
     reuseDisposition: "compose",
   },
+  // ── The three research instruments (added 2026-07-27) ─────────────────────
+  // Discover → Resolve → Project. All three shipped and none had a capability
+  // brief, even though EXP-P1 Stage 0 is chartered to validate the IRE and IPE
+  // as instruments (types/research.ts). Registered together because they are
+  // one pipeline: a reader who finds one must be able to reach the other two.
+  {
+    capabilityId: "invariant-discovery-engine",
+    displayLabel: "Invariant Discovery Engine (IDE)",
+    description:
+      "The upstream instrument: turns a cold domain's source documents into a reviewable library of candidate invariants and stops short of admitting any of them to canon. Evidence -> extraction -> cross-sub-domain compare -> recursive compression -> operator promotion at status 'proposed'. Support signals (cross-framework convergence, cross-domain recurrence) are derived from the evidence at read time, never stored.",
+    governingInvariants: ["CFS-048", "PRD-IDE-002", "IDE-1", "IDE-2", "IDE-3", "IDE-4", "IDE-5", "IDE-6"],
+    briefUrl: "codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-discovery-engine.md",
+    reuseDisposition: "compose",
+  },
+  {
+    capabilityId: "invariant-resolution-engine",
+    displayLabel: "Invariant Resolution Engine (IRE)",
+    description:
+      "The constitutional query planner: RESOLUTION PRECEDES REASONING. Given an intent it qualifies the intent, grounds a universal constitutional baseline, expands into the perceived domains, calibrates each invariant against the axes the record has earned, and assembles one Resolved Constitutional Field with its confidence, citations and honest phase marker. Read-only and shadow-first: it gates nothing and writes nothing.",
+    governingInvariants: ["CFS-037", "CFS-038", "CFS-041", "IRE-1", "IRE-2", "IRE-3", "IRE-4", "IRE-5", "IRE-6", "IRE-7"],
+    briefUrl: "codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-resolution-engine.md",
+    reuseDisposition: "compose",
+  },
+  {
+    capabilityId: "invariant-projection-engine",
+    displayLabel: "Invariant Projection Engine (IPE)",
+    description:
+      "The projector (CFS-035 renamed): one shared Field Snapshot every face reads, per-dimension weights derived from what each dimension's governing invariant has earned, and Invariant Decision Nodes that run in shadow beside the heuristic they would replace. The comparison is emitted and persisted as a time series; making a node's projection the served answer is a separate, operator-gated, receipted flip, and every absent or failed condition defaults to serving the incumbent.",
+    governingInvariants: ["CFS-039", "CFS-035", "CFS-017", "IPE-1", "IPE-2", "IPE-3", "IPE-4", "IPE-5", "IPE-6"],
+    briefUrl: "codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-projection-engine.md",
+    reuseDisposition: "compose",
+  },
 ];
 
 async function main() {
