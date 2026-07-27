@@ -56,6 +56,14 @@
  *    table and its verbatim constitutional definition, mirrored in a docs file
  *    that cannot be derived from the code:
  *      tests/commercialisation-discovery.test.ts
+ *  - The CB-1…CB-7 clause statements (CFS-053 §4) ↔ the canary's own copy of
+ *    the operator's ruling, and the mechanism-binding registry ↔ CFS-053 §8.1's
+ *    table of the same. Constitutional text mirrored across a document and a
+ *    hand-maintained registry, neither derivable from the other — plus the
+ *    check that no constitutional text names a canary file that does not exist,
+ *    which is `inv.engineering.036`'s failure mode applied to ENFORCEMENT
+ *    rather than to data (a rule with two homes, one of which is empty):
+ *      tests/constitutional-binding.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:
