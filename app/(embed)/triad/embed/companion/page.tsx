@@ -93,6 +93,7 @@ import {
   quickLinkTarget,
   quickLinkContextNeedle,
   quickLinkSurfaceNeedle,
+  quickLinkDomainNeedle,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
 import {
@@ -284,10 +285,12 @@ function CompanionShell() {
    * unrecognised one, which is the honest majority case.
    */
   const [observedShape, setObservedShape] = useState<string | null>(null);
+  const [observedDomain, setObservedDomain] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     if (!personaId) {
       setObservedShape(null);
+      setObservedDomain(null);
       return;
     }
     (async () => {
@@ -300,6 +303,11 @@ function CompanionShell() {
         const data = await res.json();
         if (cancelled) return;
         setObservedShape(typeof data?.shape === "string" ? data.shape : null);
+        // The host itself, for the operator-declared destination table. The
+        // overlay route already returns it alongside the shape — no new
+        // observation, no new permission (the domain is only present here when
+        // the grant that produced it is still live).
+        setObservedDomain(typeof data?.domain === "string" ? data.domain : null);
       } catch {
         // No observation available — quick links stay exactly as they are
         // without one. Context specialises the set; it never gates it.
@@ -323,11 +331,20 @@ function CompanionShell() {
         // stronger signal; the active surface carries the rest of the time.
         // Ranking on the shape ALONE was effectively inert: it abstains on
         // every unrecognised domain, which is nearly all of them.
+        //
+        // Precedence, strongest observation first: the asserted overlay SHAPE,
+        // then the operator-declared destination for the observed HOST, then
+        // the surface the citizen is on. The host table is what makes the
+        // Overlay surface responsive on pages that have no Domain Profile —
+        // `shapeForDomain` correctly abstains there, and abstention left the
+        // strip frozen (operator, 2026-07-27).
         context:
-          quickLinkContextNeedle(observedShape) ?? quickLinkSurfaceNeedle(activeSurface),
+          quickLinkContextNeedle(observedShape) ??
+          quickLinkDomainNeedle(observedDomain) ??
+          quickLinkSurfaceNeedle(activeSurface),
         limit: 6,
       }),
-    [access, observedShape, activeSurface]
+    [access, observedShape, observedDomain, activeSurface]
   );
 
   /** The copilot's own carousel shape. Labels are the visible affordance. */
@@ -476,14 +493,24 @@ function CompanionShell() {
                avatar via the toggle every nav click updated state into a
                surface the avatar branch never renders — the "menu breaks after
                avatar" report, third time (2026-07-26). One mode, two views,
-               kept in agreement from both directions. */
+               kept in agreement from both directions.
+
+               CORRECTED 2026-07-27 (operator: "aigentMe link is not working to
+               reload aigentMe copilot once moved off of it"). The chat branch
+               used to return the CURRENT nav item unless it was `avatar`,
+               written when avatar was the only way to be off the conversation.
+               It is not: wallet, search, overlay, workspace, activity and
+               permissions all render through `bodySlot`, which takes
+               precedence over the copilot's own body. So from any of them,
+               pressing Agent Me flipped the copilot's internal mode to chat
+               while the host kept rendering the other surface on top — the
+               button looked dead. `switchCopilotMode` fires ONLY from the two
+               explicit footer toggles, never from `launchWallet` or any
+               internal transition, so treating a chat emission as "take me
+               back to the conversation" cannot yank the citizen off a surface
+               they did not just leave. */
             onCopilotModeChange={(mode) => {
-              setActiveNavItem((current) => {
-                if (mode === "avatar") return "avatar";
-                // Leaving avatar returns to the conversation; any other
-                // surface selection arrives as its own nav click.
-                return current === "avatar" ? "agent-me" : current;
-              });
+              setActiveNavItem((mode === "avatar" ? "avatar" : "agent-me"));
             }}
             /* QUICK LINKS as Class 2 Context Actions (§3.2.4/§3.2.5).
                Rendered through the copilot's OWN carousel — the single row

@@ -51,12 +51,18 @@ const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID || 'v2_agt_dY78cKv2';
  * carries a `did-` identity.
  */
 const DID_ARTIFACT_SELECTOR = [
-  'script[src*="agent.d-id.com"]',
+  // Anything the SDK serves — its module script AND the iframe this file's own
+  // header documents it injecting. The iframe is the node most likely to be the
+  // stray fixed layer, and `[id^=…]`/`[data-name=…]` alone would never catch it.
+  '[src*="d-id.com"]',
   '[id^="did-avatar-container-"]',
   '[data-name="did-agent"]',
   'did-agent',
   '[id*="did-agent"]',
   '[class*="did-agent"]',
+  // The SDK's own attribute set, verified absent everywhere else in this
+  // codebase — nothing outside this file declares `data-agent-id`.
+  '[data-agent-id]',
 ].join(',');
 
 /**
@@ -83,6 +89,19 @@ export function MetaAvatar() {
   const { activeAgent } = useMetaAvatar();
 
   useEffect(() => {
+    // The document-level styles the SDK is known to reach for BEFORE it loads.
+    // An embedded third-party widget commonly writes `document.body.style`
+    // (overflow / position) to manage its own overlay; those writes are not
+    // nodes, so no amount of element sweeping undoes them, and they outlive
+    // the avatar — a leftover `overflow: hidden` reads as "the panel stopped
+    // scrolling", which the operator has also reported.
+    //
+    // Only these two properties are captured and restored — NOT the whole
+    // style attribute. A blanket restore would also wipe anything another
+    // component legitimately set while the avatar happened to be open.
+    const bodyOverflowBeforeSdk = document.body.style.overflow;
+    const bodyPositionBeforeSdk = document.body.style.position;
+
     const init = () => {
       // Generate unique container ID for this instance
       const containerId = `did-avatar-container-${Math.random().toString(36).slice(2)}`;
@@ -157,6 +176,14 @@ export function MetaAvatar() {
         containerRef.current.innerHTML = '';
       }
       sweepDidArtifacts(containerRef.current);
+
+      // Put back only what the SDK may have taken (see the capture above).
+      if (document.body.style.overflow !== bodyOverflowBeforeSdk) {
+        document.body.style.overflow = bodyOverflowBeforeSdk;
+      }
+      if (document.body.style.position !== bodyPositionBeforeSdk) {
+        document.body.style.position = bodyPositionBeforeSdk;
+      }
     };
   }, []);
 

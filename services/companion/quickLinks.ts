@@ -179,6 +179,41 @@ export function quickLinkSurfaceNeedle(
   return QUICK_LINK_SURFACE_NEEDLES[surface] ?? null;
 }
 
+/**
+ * OBSERVED HOST → destination needles.
+ *
+ * The Overlay surface deliberately has no needle of its own: its context is
+ * the page the citizen is on, not the word "overlay". But that context only
+ * ever arrived via `shapeForDomain`, which asserts a shape for GitHub and the
+ * verified financial-profile hosts and abstains everywhere else — so on the
+ * hosts the operator actually works on, the strip never moved.
+ *
+ * This is the same SMALL, EXPLICIT table `overlayMapping` uses, at the one
+ * level that table does not cover: a host that has no Domain Profile and no
+ * overlay shape can still have an operator-declared DESTINATION. It ranks
+ * only; it asserts nothing about the host, renders no card, and creates no
+ * profile — an unlisted host still yields nothing rather than a guess.
+ *
+ * Seeded from the operator's own mapping (2026-07-27): on `claude.ai`, the
+ * relevant destination is the **AgentiQ OS** cartridge — the home of the
+ * `aigent-z` development command-centre agent (RUNTIME_AGENT_IDS' "aigentZ —
+ * development command center agent"). The needle matches the codex NAME via
+ * `rankKey`, so it reaches whichever AgentiQ OS tabs the citizen may see
+ * rather than naming a tab that might be gated for them.
+ */
+export const QUICK_LINK_DOMAIN_NEEDLES: Readonly<Record<string, readonly string[]>> = {
+  'claude.ai': ['agentiq os'],
+};
+
+export function quickLinkDomainNeedle(
+  domain: string | null | undefined,
+): readonly string[] | null {
+  if (!domain) return null;
+  const host = domain.trim().toLowerCase().replace(/^www\./, '');
+  if (!host) return null;
+  return QUICK_LINK_DOMAIN_NEEDLES[host] ?? null;
+}
+
 export function quickLinkContextNeedle(shape: string | null | undefined): string | null {
   if (!shape) return null;
   return QUICK_LINK_CONTEXT_NEEDLE[shape] ?? null;

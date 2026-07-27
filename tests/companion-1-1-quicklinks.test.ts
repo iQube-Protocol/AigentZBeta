@@ -24,6 +24,8 @@ import {
   quickLinkTarget,
   quickLinkContextNeedle,
   quickLinkSurfaceNeedle,
+  quickLinkDomainNeedle,
+  QUICK_LINK_DOMAIN_NEEDLES,
   type QuickLinkAccessContext,
 } from '@/services/companion/quickLinks';
 import {
@@ -311,13 +313,42 @@ describe('the ranking signal is one that is actually present', () => {
     expect(quickLinkSurfaceNeedle('not-a-surface')).toBeNull();
   });
 
-  it('the page prefers the observed shape and falls back to the surface', () => {
+  it('the page prefers the observed shape, then the host, then the surface', () => {
+    // Strongest observation first. The HOST tier (added 2026-07-27) is what
+    // makes the Overlay surface responsive on pages with no Domain Profile —
+    // `shapeForDomain` correctly abstains there, and abstention alone left the
+    // strip frozen on registry order.
     const page = stripComments(readSource(COMPANION_PAGE));
     expect(page).toMatch(
-      /quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkSurfaceNeedle\(activeSurface\)/,
+      /quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkDomainNeedle\(observedDomain\)\s*\?\?\s*quickLinkSurfaceNeedle\(activeSurface\)/,
     );
-    // …and re-ranks when the surface changes, or it is static again.
-    expect(page).toMatch(/\[access, observedShape, activeSurface\]/);
+    // …and re-ranks when any of the three changes, or it is static again.
+    expect(page).toMatch(/\[access, observedShape, observedDomain, activeSurface\]/);
+  });
+
+  it('the declared host destinations reach a real, offerable link', () => {
+    // Operator mapping (2026-07-27): claude.ai → the AgentiQ OS cartridge, home
+    // of the aigent-z development command-centre agent. A declared destination
+    // that matches nothing would be the same inert mechanism as the label-only
+    // ranking it replaces.
+    const offered = resolveQuickLinks({ access: NOBODY });
+    for (const [host, needles] of Object.entries(QUICK_LINK_DOMAIN_NEEDLES)) {
+      const reached = offered.filter((l) =>
+        needles.some((n) => (l.rankKey ?? l.label.toLowerCase()).includes(n)),
+      );
+      expect(
+        reached.length,
+        `host '${host}' needle ${JSON.stringify(needles)} matches no offered link`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('an unlisted host still yields nothing — the table asserts, it does not guess', () => {
+    expect(quickLinkDomainNeedle('example.com')).toBeNull();
+    expect(quickLinkDomainNeedle(null)).toBeNull();
+    expect(quickLinkDomainNeedle('')).toBeNull();
+    // Host normalisation, not host invention.
+    expect(quickLinkDomainNeedle('WWW.Claude.ai')).toEqual(['agentiq os']);
   });
 
   it('every surface needle actually reaches a real destination', () => {
