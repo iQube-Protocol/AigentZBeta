@@ -16,7 +16,18 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Award, Check, Copy, Gavel, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
-import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+// PERSONA-AWARE TRANSPORT (prerequisite fix, 2026-07-27). These routes resolve
+// the caller through `getActivePersona` — they are SPINE endpoints — so the
+// transport must carry persona selection, not merely a Bearer.
+//
+// `authedFetchHeaders` + raw `fetch` attaches the token (so it never 401s) but
+// carries NO persona, leaving the spine to resolve a FALLBACK persona for an
+// operator who owns several. Today the routes' own `isAdmin` gate bounds the
+// damage; that bound disappears the moment participation becomes
+// participant-facing, where a partner operator would read someone ELSE's grants
+// — silently and plausibly. CLAUDE.md names this pattern forbidden; the canary
+// it names (`tests/persona-spine-fetch.test.ts`) did not exist until this pass.
+import { personaFetch } from '@/utils/personaSpine';
 
 interface DomainDef { id: string; label: string; roles: string[] }
 interface AssignableExperiment { id: string; label: string }
@@ -88,8 +99,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
     setLoading(true);
     setError(null);
     try {
-      const headers = await authedFetchHeaders({ Accept: 'application/json' });
-      const res = await fetch('/api/steward/participation', { cache: 'no-store', headers: headers ?? undefined });
+      const res = await personaFetch('/api/steward/participation', { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         setError(data?.error || 'Failed to load participation data');
@@ -109,8 +119,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
 
   const loadResults = useCallback(async () => {
     try {
-      const headers = await authedFetchHeaders({ Accept: "application/json" });
-      const res = await fetch("/api/steward/participation/results", { cache: "no-store", headers: headers ?? undefined });
+      const res = await personaFetch("/api/steward/participation/results", { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data?.ok) setPendingResults(data.pending ?? []);
     } catch { /* non-fatal */ }
@@ -119,10 +128,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
   const decideResult = useCallback(async (resultId: string, action: "approve" | "reject") => {
     setResultBusy(resultId);
     try {
-      const headers = await authedFetchHeaders({ "Content-Type": "application/json" });
-      await fetch("/api/steward/participation/results", {
+      await personaFetch("/api/steward/participation/results", {
         method: "PATCH",
-        headers: headers ?? undefined,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resultId, action }),
       });
       await loadResults();
@@ -148,10 +156,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
     setIssuing(true);
     setError(null);
     try {
-      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
-      const res = await fetch('/api/steward/participation/invitations', {
+      const res = await personaFetch('/api/steward/participation/invitations', {
         method: 'POST',
-        headers: headers ?? undefined,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           domain: domain.id,
           role: formRole,
@@ -191,10 +198,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
   const revokeInvitation = useCallback(async (invitationId: string) => {
     setRevokeBusy(invitationId);
     try {
-      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
-      await fetch('/api/steward/participation/invitations', {
+      await personaFetch('/api/steward/participation/invitations', {
         method: 'PATCH',
-        headers: headers ?? undefined,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invitationId, action: 'revoke' }),
       });
       await load();
@@ -212,13 +218,12 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
     setReissueBusy(inv.id);
     setError(null);
     try {
-      const headers = await authedFetchHeaders({ 'Content-Type': 'application/json' });
       const remainingDays = inv.expiresAt
         ? Math.max(1, Math.ceil((new Date(inv.expiresAt).getTime() - Date.now()) / 86_400_000))
         : undefined;
-      const res = await fetch('/api/steward/participation/invitations', {
+      const res = await personaFetch('/api/steward/participation/invitations', {
         method: 'POST',
-        headers: headers ?? undefined,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           domain: inv.accessDomain,
           role: inv.role,
@@ -241,9 +246,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
         allowedExperiments: data.invitation?.allowedExperiments ?? null,
       });
       // Revoke the old invitation so only the freshly-issued code can claim.
-      await fetch('/api/steward/participation/invitations', {
+      await personaFetch('/api/steward/participation/invitations', {
         method: 'PATCH',
-        headers: headers ?? undefined,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invitationId: inv.id, action: 'revoke' }),
       });
       await load();
