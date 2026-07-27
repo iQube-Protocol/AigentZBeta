@@ -126,3 +126,34 @@ metaMe Companion's Universal Search (PRD-MMC-001) should index Constitutional Ca
 ## 8. Naming
 
 **Constitutional Capability Brief (CCB)** is the canonical name. Not "completion document," not "capability report" — the name signals what it structurally is: generated after implementation, attached permanently to the Registry, operator- and user-facing, discoverable through Companion Search, and the canonical explanation of what now exists. It is the living front door to every capability in the platform — the bridge between code and the people who need to use it.
+
+---
+
+## Amendment A — extended by CCR-001 (proposed 2026-07-27)
+
+**`CCR-001_constitutional-capability-completion.md` extends this charter rather than replacing it.**
+
+CFS-049's governing principle — *"A capability is not constitutionally complete when it deploys.
+It is complete when it is understood"* — is affirmed and carried forward. CCR-001 adds the second
+half the Brief does not yet carry:
+
+> …and it is complete only when its **reproduction conditions, discovered invariants and proof of
+> enforcement** have been captured as a reusable constitutional artifact.
+
+| CFS-049 (the Brief) answers | CCR-001 adds |
+|---|---|
+| What just shipped? | What must remain true for it to keep working? |
+| Where is it in the running app? | Which boundary may not be duplicated? |
+| How do I use it? | How is it reproduced, and how may it be safely changed? |
+| — | Which defects revealed which invariants, and which canary enforces each? |
+
+**Explicitly NOT a second artifact family.** The Capability Completion Artifact is this Brief with
+the completion sections added (§7.7–7.14 of CCR-001). The `briefUrl` field on
+`services/constitutional/capabilityRegistry.ts` remains the single pointer; CFS-032's registry
+registration remains the acceptance ceremony. Whether the extended format keeps the **CCB** name or
+takes CCR-001's proposed `CAPABILITY-<id>-<slug>.md` is an open operator decision recorded in
+CCR-001 — the recommendation is to keep this name and version the format, since "CCB" already
+appears in the registry, in `scripts/register-ccb-capabilities.ts`, and in three shipped Briefs.
+
+**Status:** CCR-001 is *proposed*; this charter stays RATIFIED and unchanged in substance. Nothing
+here alters the CCB's current obligations.
