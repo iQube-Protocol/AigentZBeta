@@ -30,6 +30,8 @@ import { useSmartTriadContext } from "@/app/hooks/useSmartTriadContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
+import { tabPassesAccessGates } from "@/services/passport/participationTabGate";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { AccessionProgressBar } from "./codex/AccessionProgressBar";
@@ -242,6 +244,9 @@ export default function CodexPanelDynamic({
   // Order group) stay hidden during the brief fetch window for
   // non-admin personas.
   const cartridgeAdminGrants = useCartridgeAdminGrants();
+  // Tier 2 participation grants (Horizen §B.3). Hinted with the resolved
+  // persona so every read on this surface resolves the SAME identity.
+  const participationAccess = useParticipationAccess(resolvedPersonaId ?? null);
 
   // Published personal cartridges — only fetched when rendering metame-codex.
   // Each published cartridge surfaces as a dynamic sub-tab in the mycluster
@@ -305,14 +310,14 @@ export default function CodexPanelDynamic({
 
   const enabledTabs = useMemo(
     () => [
-      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
       // Inject published personal cartridge tabs into the mycluster group.
       // Gated on 'mycanvas' activation to match the group's own activationId.
       ...(activeActivations.has('mycanvas')
         ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
         : []),
     ],
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -462,7 +467,9 @@ export default function CodexPanelDynamic({
   const activeSubTabs = useMemo(
     () => (activeTab?.subTabs ?? []).filter((t) => {
       if (!t.enabled) return false;
-      if (t.adminOnly && !isAdmin) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
       if (t.adminOfCartridge) {
         if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
           return false;
@@ -470,7 +477,7 @@ export default function CodexPanelDynamic({
       }
       return true;
     }),
-    [activeTab, isAdmin, cartridgeAdminGrants]
+    [activeTab, isAdmin, cartridgeAdminGrants, participationAccess]
   );
   const activeSubSubTab = useMemo(() => {
     if (activeSubTabs.length === 0) return null;
@@ -495,7 +502,9 @@ export default function CodexPanelDynamic({
   const activeSubSubTabSubTabs = useMemo(
     () => (activeSubSubTab?.subTabs ?? []).filter((t) => {
       if (!t.enabled) return false;
-      if (t.adminOnly && !isAdmin) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
       if (t.adminOfCartridge) {
         if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
           return false;
@@ -503,7 +512,7 @@ export default function CodexPanelDynamic({
       }
       return true;
     }),
-    [activeSubSubTab, isAdmin, cartridgeAdminGrants]
+    [activeSubSubTab, isAdmin, cartridgeAdminGrants, participationAccess]
   );
   const activeSubSubSubTab = useMemo(() => {
     if (activeSubSubTabSubTabs.length === 0) return null;
@@ -730,6 +739,13 @@ export default function CodexPanelDynamic({
           const visibleGroups = groups.filter(g => {
             if (g.adminOnly && !isAdmin) return false;
             if (g.activationId && !activeActivations.has(g.activationId)) return false;
+            // MS-9 (Companion Menu System invariants): a control that cannot
+            // act must not render. A group whose every tab is gated away —
+            // e.g. Partner for a caller with no venture-lab participation
+            // grant — has nothing for handleGroupClick to select, so the chip
+            // would be inert. This is also what lets a group carry a mix of
+            // Tier 0 and Tier 2 tabs without a group-level gate of its own.
+            if (!enabledTabs.some(t => t.group === g.id)) return false;
             return true;
           });
           // Standalone tabs: enabled tabs with no group, sorted by order

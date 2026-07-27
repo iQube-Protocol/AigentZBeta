@@ -11,7 +11,8 @@
  *     never an invented id.
  *  3. Canonical spellings (platform ontology): the non-canonical variants of
  *     Marketa / QubeTalk never appear in the new surfaces.
- *  4. The Partner Programmes tab stays adminOnly and registered.
+ *  4. The Partner group's TIER SPLIT holds (audit §B.3): Tier 2 views are
+ *     participation-gated, Tier 0 views stay adminOnly.
  *  5. Command Center honesty: unwireable metrics render the explicit
  *     "Not yet wired" state — no fabricated health glyphs or counts.
  *  6. Transport + navigation discipline: personaFetch only (spine endpoint),
@@ -180,15 +181,20 @@ describe('canonical spellings (platform ontology)', () => {
   });
 });
 
-describe('tab registration — adminOnly on the hand-curated Venture Lab cartridge', () => {
-  it('partner-programmes is an enabled adminOnly tab mounting PartnerProgrammesTab', async () => {
+describe('tab registration — the Partner tier split on the hand-curated Venture Lab cartridge', () => {
+  it('partner-programmes is the enabled Tier 2 Overview tab mounting PartnerProgrammesTab', async () => {
     // Retained id/slug: it is the Partner group's OVERVIEW tab since 2026-07-27,
     // kept under this id so links issued before the regroup still resolve.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     expect(tab).toBeTruthy();
     expect(tab!.label).toBe('Overview');
-    expect(tab!.adminOnly).toBe(true);
+    // TIER 2 since the split (audit §B.3; operator "Partner gate = split
+    // agreed", 2026-07-27): a partner operator must be able to see the shared
+    // record WITHOUT becoming a platform admin. adminOnly here would restore
+    // the hard blocker the split resolved.
+    expect(tab!.adminOnly).toBeUndefined();
+    expect(tab!.participationDomain).toBe('venture-lab');
     expect(tab!.enabled).toBe(true);
     expect(tab!.config.component).toBe('PartnerProgrammesTab');
   });
@@ -215,9 +221,11 @@ describe('tab registration — adminOnly on the hand-curated Venture Lab cartrid
     // Position is the operator's instruction, not decoration.
     expect(partner!.order).toBeGreaterThan(grow!.order);
     expect(partner!.order).toBeLessThan(administer!.order);
-    // Group-level gate, matching the Administer precedent: a non-admin founder
-    // must never see a Partner pill that filters to nothing.
-    expect(partner!.adminOnly).toBe(true);
+    // NO group-level gate since the tier split — the group now carries both
+    // tiers, so membership decides per tab. The "pill that filters to nothing"
+    // concern it used to serve is handled structurally instead: a group with
+    // no visible tabs does not render (MS-9), asserted below.
+    expect(partner!.adminOnly).toBeUndefined();
 
     const tabs = VENTURE_LAB_CODEX.tabs
       .filter((t: { group?: string }) => t.group === 'partner')
@@ -228,11 +236,21 @@ describe('tab registration — adminOnly on the hand-curated Venture Lab cartrid
       'Operate',
       'Evidence',
       'Communicate',
+      'Administration',
     ]);
+    // The ratified split: four Tier 2 views, two Tier 0 views.
+    const TIER2 = new Set(['partner-programmes', 'partner-collaborate', 'partner-operate', 'partner-evidence']);
+    const TIER0 = new Set(['partner-communicate', 'partner-administration']);
     for (const t of tabs) {
-      expect(t.adminOnly, `${t.id} is not adminOnly`).toBe(true);
+      if (TIER2.has(t.id)) {
+        expect(t.adminOnly, `${t.id} is Tier 2 but adminOnly`).toBeUndefined();
+        expect(t.participationDomain, `${t.id} is Tier 2 but ungated`).toBe('venture-lab');
+      } else {
+        expect(TIER0.has(t.id), `${t.id} is in neither tier`).toBe(true);
+        expect(t.adminOnly, `${t.id} is Tier 0 but not adminOnly`).toBe(true);
+      }
       expect(t.enabled).toBe(true);
-      // ONE component, five entrances.
+      // ONE component, six entrances.
       expect(t.config.component).toBe('PartnerProgrammesTab');
       expect(typeof t.config.props?.initialSurface).toBe('string');
       // No second menu: the area tabs must not carry their own subTabs.

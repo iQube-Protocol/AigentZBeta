@@ -62,7 +62,11 @@ const LAYER_LABELS: Record<(typeof PARTNER_WORKSPACE_LAYERS)[number], string> = 
   governance: "Governance",
 };
 
-const SUB_SURFACES = ["overview", "collaborate", "operate", "evidence", "communicate"] as const;
+// "administration" is the TIER 0 surface (Horizen Phase 3, audit §B.3) — the
+// internal programme space. It is reachable only from an adminOnly tab; the
+// server enforces the same boundary independently (the route returns `tier0`
+// to admins only), so a client mistake cannot leak it.
+const SUB_SURFACES = ["overview", "collaborate", "operate", "evidence", "communicate", "administration"] as const;
 type SubSurface = (typeof SUB_SURFACES)[number];
 const SUB_LABELS: Record<SubSurface, string> = {
   overview: "Overview",
@@ -70,6 +74,7 @@ const SUB_LABELS: Record<SubSurface, string> = {
   operate: "Operate",
   evidence: "Evidence",
   communicate: "Communicate",
+  administration: "Administration",
 };
 
 const COLLAB_VIEWS = ["invitations", "peer-exchange", "locker"] as const;
@@ -159,6 +164,202 @@ function AreaLinks({ ws, area, personaId, isAdmin }: { ws: PartnerWorkspace; are
 function asSubSurface(value: string | undefined): SubSurface | null {
   if (!value) return null;
   return (SUB_SURFACES as readonly string[]).includes(value) ? (value as SubSurface) : "overview";
+}
+
+// ─── Tier 0 — Administration (the internal programme space) ──────────────────
+
+interface WorkspaceSpineResponse {
+  ok?: boolean;
+  viewerTier?: string;
+  workspace?: {
+    experimentClass?: string;
+    participation?: { domain?: string; roles?: string[]; memberCount?: number };
+    workingGroups?: Array<{ id: string; label: string; channelCount: number }>;
+    invariants?: {
+      canonVersion?: string;
+      resolvedAt?: string;
+      references?: Array<{ invariantId: string; seedId: string | null; statement: string; status: string; canonicalTerm: string }>;
+      unresolved?: string[];
+    } | null;
+    milestones?: Array<{ id: string; title: string; status: string; dueDate: string | null }>;
+  };
+  tier0?: {
+    referenceIssues?: string[];
+    blockers?: Array<{ id: string; title: string; status: string }>;
+    decisions?: Array<{ agreementId: string; label: string; status: string; agentRef: string | null }>;
+  } | null;
+}
+
+/**
+ * The internal programme space. Everything here is RESOLVED through the
+ * ExperimentWorkspace spine — reference integrity, the invariants the
+ * workspace's own text resolves to (with provenance), the projected decisions,
+ * and the two workspace-local concerns (milestones, blockers).
+ *
+ * Honesty rule (as everywhere on this tab): an empty section says it is empty
+ * and why. Milestones and blockers read empty until the Phase 2 migration is
+ * applied — that is a real state, not a loading artifact.
+ */
+function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
+  const [state, setState] = useState<{ kind: "loading" } | { kind: "ready"; data: WorkspaceSpineResponse } | { kind: "error"; message: string }>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch(`/api/venture/workspace/${encodeURIComponent(workspaceId)}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          if (!cancelled) {
+            setState({
+              kind: "error",
+              message: res.status === 403 ? "Workspace membership required" : `Spine unavailable (${res.status})`,
+            });
+          }
+          return;
+        }
+        const data = (await res.json()) as WorkspaceSpineResponse;
+        if (!cancelled) setState({ kind: "ready", data });
+      } catch {
+        if (!cancelled) setState({ kind: "error", message: "Spine unreachable" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+
+  if (state.kind === "loading") {
+    return <div className={`${PANEL} p-4 text-xs text-slate-400`}>Resolving the workspace spine…</div>;
+  }
+  if (state.kind === "error") {
+    return <div className={`${PANEL} p-4 text-xs text-rose-300`}>{state.message}</div>;
+  }
+
+  const { workspace, tier0 } = state.data;
+  const invariants = workspace?.invariants ?? null;
+  const milestones = workspace?.milestones ?? [];
+  const blockers = tier0?.blockers ?? [];
+  const decisions = tier0?.decisions ?? [];
+  const issues = tier0?.referenceIssues ?? [];
+
+  return (
+    <div className="space-y-4">
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100">Internal programme space</h3>
+        <p className="mt-1 text-xs text-slate-400">
+          Tier 0 — internal assessment, posture and risk. Never shared with the partner. The four
+          workspace views (Overview, Collaborate, Operate, Evidence) are Tier 2 and open to anyone
+          holding a venture-lab participation grant.
+        </p>
+        {!isAdmin && (
+          <p className="mt-2 text-xs text-amber-300">
+            You are viewing this without platform admin — the server returns no Tier 0 content.
+          </p>
+        )}
+      </div>
+
+      {/* Reference integrity — the spine's own self-check. */}
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100">Reference integrity</h3>
+        {issues.length === 0 ? (
+          <p className="mt-1 text-xs text-emerald-300">
+            Every declared reference resolves against the substrate.
+          </p>
+        ) : (
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-rose-300">
+            {issues.map((i, n) => (
+              <li key={n}>{i}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Resolved invariants — with provenance, never a stored id list. */}
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100">Governing invariants</h3>
+        <p className="mt-1 text-[10px] text-slate-500">
+          Resolved from the workspace&apos;s own text at read time — never stored on the workspace.
+          {invariants?.canonVersion ? ` Canon ${invariants.canonVersion}.` : ""}
+        </p>
+        {!invariants || (invariants.references ?? []).length === 0 ? (
+          <p className="mt-2 text-xs italic text-slate-500">
+            No invariant resolved from this workspace&apos;s text.
+            {invariants && (invariants.unresolved ?? []).length > 0
+              ? ` ${(invariants.unresolved ?? []).length} concept(s) named but not governed by canon.`
+              : ""}
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {(invariants.references ?? []).map((r) => (
+              <li key={r.invariantId} className="text-xs text-slate-300">
+                <span className="text-slate-500">{r.seedId ?? r.invariantId}</span> · {r.statement}
+                <span className="ml-1 text-[10px] text-slate-500">
+                  (via &ldquo;{r.canonicalTerm}&rdquo;, {r.status})
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* The two workspace-local concerns. */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold text-slate-100">Milestones</h3>
+          {milestones.length === 0 ? (
+            <p className="mt-1 text-xs italic text-slate-500">None recorded.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-xs text-slate-300">
+              {milestones.map((m) => (
+                <li key={m.id}>
+                  {m.title} <span className="text-slate-500">· {m.status}</span>
+                  {m.dueDate ? <span className="text-slate-500"> · due {m.dueDate}</span> : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className={`${PANEL} p-4`}>
+          <h3 className="text-sm font-semibold text-slate-100">Blockers</h3>
+          {blockers.length === 0 ? (
+            <p className="mt-1 text-xs italic text-slate-500">None recorded.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-xs text-slate-300">
+              {blockers.map((b) => (
+                <li key={b.id}>
+                  {b.title} <span className="text-slate-500">· {b.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* Projected, not stored. */}
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100">Decisions</h3>
+        <p className="mt-1 text-[10px] text-slate-500">
+          Projected from Constitutional Agreements — the workspace keeps no decision store.
+        </p>
+        {decisions.length === 0 ? (
+          <p className="mt-2 text-xs italic text-slate-500">
+            No agreement yet names one of this workspace&apos;s agents.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-xs text-slate-300">
+            {decisions.map((d) => (
+              <li key={d.agreementId}>
+                {d.label} <span className="text-slate-500">· {d.status}</span>
+                {d.agentRef ? <span className="text-slate-500"> · {d.agentRef}</span> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: PartnerProgrammesTabProps) {
@@ -273,7 +474,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
       {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
       {menuSurface === null && (
       <div className="flex flex-wrap gap-1.5">
-        {SUB_SURFACES.map((s) => (
+        {SUB_SURFACES.filter((s) => s !== "administration").map((s) => (
           <button
             key={s}
             onClick={() => setSurface(s)}
@@ -439,6 +640,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
           </div>
           <AreaLinks ws={ws} area="communicate" personaId={personaId} isAdmin={isAdmin} />
         </div>
+      )}
+
+      {/* ── Administration (Tier 0 — internal programme space) ── */}
+      {surface === "administration" && (
+        <WorkspaceAdministration workspaceId={ws.id} isAdmin={isAdmin === true} />
       )}
     </div>
   );

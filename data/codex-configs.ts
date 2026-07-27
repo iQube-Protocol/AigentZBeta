@@ -2494,10 +2494,29 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     // … we don't need the duplicate sub menus." The Partner Workspace's five
     // areas are now the STANDARD cartridge tabs of this group — the cartridge's
     // own navigation drives what renders beneath the Pilot Command Center,
-    // instead of a second surface row inside the tab body. adminOnly on the
-    // GROUP, matching the Administer precedent below, so a non-admin founder
-    // never sees a Partner pill that would filter to empty.
-    { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.5, adminOnly: true },
+    // instead of a second surface row inside the tab body.
+    //
+    // TIER SPLIT (Horizen Phase 3, audit §B.3; operator ruling "Partner gate =
+    // split agreed", 2026-07-27). The group is NO LONGER adminOnly, because it
+    // now holds two tiers at once:
+    //
+    //   Tier 2 — Overview · Collaborate · Operate · Evidence
+    //            `participationDomain: 'venture-lab'`: the SHARED workspace
+    //            record a partner operator must be able to see, without
+    //            becoming a platform admin. That requirement was the hard
+    //            blocker recorded in the base audit (§7 item 4).
+    //   Tier 0 — Communicate · Administration
+    //            `adminOnly`: internal drafting and internal partner
+    //            assessment. Communicate becomes two-stage (draft internal,
+    //            share approved output) in a later increment; until then the
+    //            SAFE half is the one that ships.
+    //
+    // The group-level `adminOnly` it replaced existed so a non-admin founder
+    // would not see a Partner pill that filters to empty. That concern is now
+    // handled structurally in CodexPanelDynamic: a group with no visible tabs
+    // does not render (MS-9 — a control that cannot act must not render), so
+    // membership alone decides.
+    { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.5 },
     // PARTICIPATE (Phase 1, 2026-07-27) — the participant-facing expression of
     // the SAME domain-scoped participation substrate the Research Lab already
     // surfaces (`ACCESS_DOMAINS` × `DOMAIN_ROLES`, one mechanism, five domains).
@@ -2709,7 +2728,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Overview',
       slug: 'partner-programmes',
       enabled: true,
-      adminOnly: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
       group: 'partner',
       order: 0,
       type: 'static',
@@ -2728,7 +2748,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Collaborate',
       slug: 'partner-collaborate',
       enabled: true,
-      adminOnly: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
       group: 'partner',
       order: 1,
       type: 'static',
@@ -2747,7 +2768,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Operate',
       slug: 'partner-operate',
       enabled: true,
-      adminOnly: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
       group: 'partner',
       order: 2,
       type: 'static',
@@ -2766,7 +2788,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Evidence',
       slug: 'partner-evidence',
       enabled: true,
-      adminOnly: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
       group: 'partner',
       order: 3,
       type: 'static',
@@ -2785,6 +2808,10 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Communicate',
       slug: 'partner-communicate',
       enabled: true,
+      // Tier 0 for now. The audit's target posture is two-stage — drafting
+      // internal, approved output shared (§B.3) — and until the approval step
+      // exists, the whole surface stays internal. Widening it first would
+      // publish drafts, which is the failure the two-stage design prevents.
       adminOnly: true,
       group: 'partner',
       order: 4,
@@ -2797,6 +2824,30 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'MessageSquare',
         description: 'Partner communication surfaces — linked, never forked',
         color: 'amber'
+      }
+    },
+    {
+      // TIER 0 — Partner Administration. The internal programme space the
+      // audit found had no home (§B.3): internal partner assessment,
+      // negotiation posture, commercial assumptions, internal risk analysis,
+      // pre-release reporting. Splitting it out is what lets the four views
+      // above open to partner operators without exposing any of this.
+      id: 'partner-administration',
+      label: 'Administration',
+      slug: 'partner-administration',
+      enabled: true,
+      adminOnly: true,
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'administration' }
+      },
+      metadata: {
+        icon: 'Lock',
+        description: 'Internal programme space — assessment, posture, assumptions, risk. Never shared with the partner',
+        color: 'slate'
       }
     },
     {

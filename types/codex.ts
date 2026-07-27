@@ -129,6 +129,25 @@ export interface CodexTab {
   inviteOnly?: boolean;
   tokenGated?: { tokenId: string; minBalance: string };
   roleRequired?: string;
+  /**
+   * Tier 2 participation gate (Horizen Phase 3, audit §B.3). Tab is visible to
+   * anyone holding an ACTIVE participation grant in this access domain — a
+   * partner operator sees the shared workspace record WITHOUT becoming a
+   * platform admin, which is the hard blocker this resolves.
+   *
+   * Distinct from the cartridge-membership gates above: those resolve through
+   * `evaluateAccess` with `member:<cartridgeSlug>` credentials; this resolves
+   * through `participationAccess` grants (`ACCESS_DOMAINS` × `DOMAIN_ROLES`),
+   * the substrate both Labs already share.
+   *
+   * Typed as `string` (an `AccessDomain`) so types/codex.ts stays free of the
+   * participation import. Evaluated ONLY by
+   * `services/passport/participationTabGate.ts` — never re-implemented in a
+   * filter. Fails CLOSED before grants resolve, and never widens `adminOnly`.
+   */
+  participationDomain?: string;
+  /** Optional narrowing to specific roles within the domain; omit = any role. */
+  participationRoles?: string[];
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;
