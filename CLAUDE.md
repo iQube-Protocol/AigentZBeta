@@ -496,7 +496,7 @@ This is a mature, actively evolving codebase. Before writing any new code:
 **Full definition with the defect and canary behind each rule:
 `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md`.**
 
-Nine invariants, every one learned from a live regression. Six of the nine failures were the SAME
+Ten invariants, every one learned from a live regression. Seven of the ten failures were the SAME
 shape — **two things owning or describing one thing, and the stale one winning** — which is why
 fixing one kept breaking another.
 
@@ -511,6 +511,7 @@ fixing one kept breaking another.
 | **MS-7** | **An inert mechanism is a defect.** A needle/observer that can never fire is a bug even though nothing errors. |
 | **MS-8** | **An overlay is anchored to the box it occupies and does not intercept.** One rect for position AND size; a high-z layer without `pointer-events: none` swallows clicks. |
 | **MS-9** | **A control that cannot act must not render.** |
+| **MS-10** | **One observer, one record.** The observation of the page is ONE shared row; any "nothing changed, skip the write" decision must be made where that record lives, never in a per-observer cache of what that observer last sent. A stale observation must never render as current. |
 
 **Third-party embeds render outside the container you give them.** The D-ID avatar SDK injects at
 `document.body` level and can write `document.body.style` — no host-wrapper styling reaches it.

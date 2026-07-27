@@ -10,7 +10,7 @@ CCR-001's completion sections — **not a second artifact family** (CFS-049 Amen
 system are so we don't have to keep playing this game of whack-a-mole where fixing one thing
 breaks another persistently."*
 
-This is that definition. Nine invariants, each with the defect that proved it and the canary that
+This is that definition. Ten invariants, each with the defect that proved it and the canary that
 enforces it. **Every one of them was learned from a live regression** — none is speculative.
 
 ## Capability identity
@@ -39,8 +39,8 @@ row's geometry stays true through every surface change.
 
 ## Purpose
 
-The menu system took ten fix cycles because nothing named the rule each fix was breaking. Six of
-its nine defects were the same shape, and each fix was locally correct and invisible to the next
+The menu system took ten fix cycles because nothing named the rule each fix was breaking. Seven of
+its ten defects were the same shape, and each fix was locally correct and invisible to the next
 one. This artifact exists so the next person to touch it — a new session, another agent, a
 reimplementer on a different stack — inherits the rules rather than rediscovering them one
 regression at a time.
@@ -56,6 +56,8 @@ regression at a time.
 - `app/components/codex/CodexCopilotLayer.tsx` — the copilot that hosts it
 - `services/companion/companionNavigation.ts` — the nav vocabulary
 - `services/companion/quickLinks.ts` — quick links
+- `extension/companion-observer/content.js` — the per-tab observer that produces the observed-page signal
+- `extension/companion-observer/background.js` — the single writer of the shared observation record
 
 ## Invocation
 
@@ -95,14 +97,14 @@ Nothing here fixes the framework, the styling, the control shapes, the transport
 copilot, or the number of surfaces. A reimplementation may use different components, a different
 event mechanism, and a different visual language and still be correct. What may not differ is the
 *arity*: one navigation, one owner per surface, one state behind two views, one rect per overlay,
-and one measurement that tracks the node actually mounted. Every invariant below constrains how
+one measurement that tracks the node actually mounted, and one record of what has been observed. Every invariant below constrains how
 many things may describe or own one thing — not what any of them is made of.
 
 ## Why whack-a-mole kept happening
 
-Six of the nine failures below are the SAME shape: **two things describing or owning one thing,
+Seven of the ten failures below are the SAME shape: **two things describing or owning one thing,
 and the stale one winning.** Two wallets, two menus, two modes, two measurements, two labels, two
-signals. Each fix was correct locally and invisible to the next defect, because nothing named the
+signals — and, in MS-10, one cache PER TAB all claiming to describe one shared row. Each fix was correct locally and invisible to the next defect, because nothing named the
 rule being broken. Naming them turns "a fix broke something else" into "a canary failed."
 
 The second recurring shape is a **mechanism that is present but inert** — a needle that matches
@@ -248,6 +250,45 @@ different deployment is a dead control and must be gated out, not left as decora
 - **Enforced by:** `tests/companion-1-1-navigation.test.ts` — the chevron is present by default
   and gated only by `hideCloseControl`.
 
+## MS-10 — One observer, one record
+
+The Companion's observation of the page the citizen is on is **one shared record** —
+`companion_observation_latest`, one row per persona, last writer wins. Any decision to SKIP writing
+it — a dedupe, a cache, a "nothing changed" check — must be made **where that record lives**. An
+observer that remembers only what *it* last sent cannot know the record still holds it, and will
+suppress the very write that would correct it.
+
+Two corollaries, both of which the defect below produced:
+
+- **A stale observation must never render as current.** The record describes the tab in view; when
+  it describes a different one, every surface reading it is wrong at once — the Overlay card, the
+  quick-link ranking, and anything that grounds on the observed domain.
+- **A refresh mechanism above a suppression it cannot see is inert (MS-7).** The Overlay's Refresh
+  button and its 5s poll both worked perfectly: they asked the active tab to re-observe, and the
+  re-observation was then discarded below them. Nothing errored, and the button read as dead.
+
+- **Provenance:** regression-derived
+- **Status:** canonical
+- **Stage:** canonical
+- **Broke it:** the per-tab `lastSentSignature` in `content.js` (added 2026-07-25 to stop a network
+  write per tab flick, which was a real cost and a correct concern — in the wrong place). The
+  content script runs once per tab, so every open tab held its own copy of a claim about one shared
+  row. Observe `claude.ai`, switch to a `github.com` tab, switch back: `claude.ai`'s script compared
+  against its own last send, found it identical, and suppressed. The row stayed on `github.com`
+  permanently. The operator's Overlay read **REPOSITORY — GITHUB.COM** while their active tab was
+  `claude.ai`, the quick-link strip ranked on the github `software` needle (MS-5's `??` chain never
+  reaching the `claude.ai` host needle), and Refresh could not help because its re-observe hop lands
+  in `observeAndSend` — the function doing the suppressing (2026-07-27).
+- **Fixed by:** relocating the suppression to `forwardObservationToServer` in `background.js` — the
+  one thing that writes the record for every tab — and recording the signature only once the SERVER
+  accepted the write. The per-tab version recorded on the local consent ack, so a refused forward
+  also suppressed its own retry.
+- **Enforced by:** `tests/companion-observer.test.ts` — the real shipped `content.js` and
+  `background.js` run in `node:vm` with a fake `chrome`, one page context per tab over one message
+  bus and one server. Three canaries: returning to an already-observed tab after another tab wrote
+  must write again; an unchanged page with no intervening tab must still cost no write (so the fix
+  cannot be a revert); and a forward the server refused must be retried, not suppressed.
+
 ---
 
 ## Third-party embeds — the standing caution
@@ -269,13 +310,14 @@ document-level styles it may have taken.
 7. Gate out every control whose effect belongs to a different deployment, and let each remaining control act on this surface.
 8. Anchor any floating layer to the single rect of the box it fills, with `pointer-events: none` unless it is meant to receive input.
 9. Unmount third-party embeds when unused and sweep the document-level artifacts they leave behind.
-10. Ship one canary per invariant, in the same change as the behaviour it guards.
+10. Make every "nothing changed, skip the write" decision where the record being written lives — never in a per-observer cache of what that observer last sent — and record the skip-key only once the write was actually accepted.
+11. Ship one canary per invariant, in the same change as the behaviour it guards.
 
 ## Modification rules
 
 - Before changing anything in the menu system, name which invariant your change relies on.
 - A change that would violate an invariant is a discussion, not an implementation.
-- A defect that fits none of the nine is a tenth invariant — add it here with its defect and its canary in the same change that fixes it.
+- A defect that fits none of the ten is an eleventh invariant — add it here with its defect and its canary in the same change that fixes it.
 - Never add a second control, a second owner, a second mode value, or a second measurement for something the list above already assigns to one place.
 - Never widen a canary's tolerance to make a violating change pass; the canary is the invariant's only enforceable form.
 - Changing the vocabulary in `services/companion/companionNavigation.ts` is a vocabulary EXTENSION and needs the operator's sign-off — the ratified set is pinned by canary.
@@ -287,12 +329,15 @@ document-level styles it may have taken.
 - A needle or filter that matches only a visible label will silently miss anything addressed by group, id, or route — an inert mechanism, not an empty result.
 - Raising z-index to escape a mis-anchored overlay spreads the defect: the repo already carries six unrelated components raised to `z-200` for exactly this reason.
 - `bodySlot` precedence hides parallel copilot state until the arrangement changes, so a "harmless" duplicate field can sit latent for weeks before surfacing as a stale wallet.
+- A browser-extension content script runs once PER TAB. Any module-level state in it is per-tab by construction, so it can never describe a resource shared across tabs — and the failure is silent, because the tab's own view of that state is internally consistent.
+- "Vitest cannot execute the extension's plain JS" was assumed, and left the extension guarded by structural greps only. It can: `node:vm` runs the shipped files against a fake `chrome`. A structural canary could never have caught MS-10, whose defect is in WHERE state lives rather than in what any line says.
 
 ## Operational evidence
 
 - 2026-07-26 — the retired Companion bottom nav row and the wallet-remount fix shipped; the duplicate-navigation and stale-wallet symptoms stopped reproducing.
 - 2026-07-27 — the ten-cycle geometry defect was diagnosed and fixed only after MS-4 was written down; the body stopped rendering underneath the menu bar.
 - 2026-07-27 — the quick-link strip began changing with the selected surface once precedence was pinned surface-first (MS-5) and the inert `mycluster` needle was repaired (MS-7).
+- 2026-07-27 — the shared observation record stopped going stale on tab return once the write-suppression moved to the single writer (MS-10); the Overlay and the quick-link strip both follow the active tab again.
 - The canaries named against each invariant above run in the repo's vitest suite and pass on this commit.
 
 ## Commons publication record
@@ -300,17 +345,17 @@ document-level styles it may have taken.
 | Field | Value |
 |-------|-------|
 | Proof class | constitutional |
-| Claim scope | These nine invariants, as governing the Companion menu system on this platform. NOT a claim that they generalise to menu systems at large — the recurrence shape (two owners, stale one wins) is a candidate for cross-capability promotion, which is a separate finding requiring its own evidence. |
-| Evidence references | `tests/companion-1-1-navigation.test.ts`, `tests/companion-1-1-quicklinks.test.ts`, `tests/partner-workspace.test.ts`, `tests/capability-completion.test.ts` |
+| Claim scope | These ten invariants, as governing the Companion menu system on this platform. NOT a claim that they generalise to menu systems at large — the recurrence shape (two owners, stale one wins) is a candidate for cross-capability promotion, which is a separate finding requiring its own evidence. |
+| Evidence references | `tests/companion-1-1-navigation.test.ts`, `tests/companion-1-1-quicklinks.test.ts`, `tests/companion-observer.test.ts`, `tests/partner-workspace.test.ts`, `tests/capability-completion.test.ts` |
 | Approval record | None — not yet submitted |
 | Published | no |
 | Lineage — capability | `companion-menu-system` |
 | Lineage — artifact | `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md` |
-| Lineage — sources | `app/(embed)/triad/embed/companion/page.tsx`, `app/components/codex/CodexCopilotLayer.tsx`, `services/companion/companionNavigation.ts`, `services/companion/quickLinks.ts` |
+| Lineage — sources | `app/(embed)/triad/embed/companion/page.tsx`, `app/components/codex/CodexCopilotLayer.tsx`, `services/companion/companionNavigation.ts`, `services/companion/quickLinks.ts`, `extension/companion-observer/content.js`, `extension/companion-observer/background.js` |
 
 ## Applying these
 
 Before changing anything in the menu system, name which invariant your change relies on. If a
 change would violate one, that is the discussion — not the implementation. If a new defect turns
-out to fit none of these nine, it is a tenth invariant: add it here with its defect and its canary
+out to fit none of these ten, it is an eleventh invariant: add it here with its defect and its canary
 in the same change that fixes it.

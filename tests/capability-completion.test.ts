@@ -105,7 +105,7 @@ describe('the reference completion artifact (CCR-001 §17, the Companion menu sy
     ).toBe(true);
   });
 
-  it('preserves all nine menu-system invariants (guards a vacuous parse)', () => {
+  it('preserves all ten menu-system invariants (guards a vacuous parse)', () => {
     // Every canary below is quantified over the parsed invariants. If the
     // parser silently returned [], they would all pass on nothing — the exact
     // false-green this file exists to prevent.
@@ -119,6 +119,7 @@ describe('the reference completion artifact (CCR-001 §17, the Companion menu sy
       'MS-7',
       'MS-8',
       'MS-9',
+      'MS-10',
     ]);
     for (const inv of artifact.reproductionInvariants) {
       expect(inv.statement.length, `${inv.id} parsed no statement`).toBeGreaterThan(30);
@@ -192,7 +193,7 @@ describe('CAN-CCR-3 — every canonical invariant is enforceable', () => {
     const canonical = artifact.reproductionInvariants.filter((i) => i.status === 'canonical');
     // Guard the guard: if statuses stopped parsing, this set would be empty and
     // the loop would assert nothing.
-    expect(canonical.length, 'no canonical invariant parsed — the check would be vacuous').toBe(9);
+    expect(canonical.length, 'no canonical invariant parsed — the check would be vacuous').toBe(10);
     for (const inv of canonical) {
       expect(
         inv.canaries.length,
@@ -265,7 +266,7 @@ describe('CAN-CCR-5 — every reference the artifact makes resolves on disk', ()
     // A doc naming a moved or deleted module is stale, and a stale artifact is
     // a constitutional defect (CCR-INV-11).
     const paths = artifact.location.sourcePaths.map(firstRef).filter((p): p is string => !!p);
-    expect(paths.length, 'no source paths parsed').toBe(4);
+    expect(paths.length, 'no source paths parsed').toBe(6);
     for (const p of paths) {
       expect(resolves(p), `Location names ${p}, which does not resolve on disk`).toBe(true);
     }
