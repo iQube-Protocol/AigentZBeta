@@ -254,7 +254,49 @@ async function ensureFreshToken({ force = false } = {}) {
  * failure here only means "the Overlay has stale/no context," never a
  * consent-safety gap.
  */
+/**
+ * MS-10 — the ONE record of what the shared observation row currently holds.
+ *
+ * The server keeps ONE observation per persona (`companion_observation_latest`,
+ * upsert on `persona_id`, last writer wins). This worker is the ONLY thing in
+ * the extension that writes it, for every tab. So this is the only place that
+ * can honestly answer "would this write change anything?".
+ *
+ * IT USED TO LIVE IN content.js, WHICH RUNS ONCE PER TAB (`lastSentSignature`).
+ * Every open tab held its own copy of a claim about one shared row, and the
+ * moment a second tab wrote, the first tab's copy became false — it believed
+ * the server still held its observation and suppressed the write that would
+ * have corrected it. Observe claude.ai, switch to github.com, switch back:
+ * the row stayed on github.com for good, and the Overlay's Refresh button and
+ * its 5s poll were both inert, because the re-observation they triggered ran
+ * straight into that suppression (operator, 2026-07-27: "overlay is not
+ * picking up the current site"). The quick-link strip went with it, since it
+ * ranks on the same observed shape/domain.
+ *
+ * Null on every worker start — MV3 tears this worker down after ~30s idle, so
+ * the first observation after a restart always writes. That is the safe
+ * direction: at worst one redundant write, never a suppressed necessary one.
+ */
+let lastForwardedSignature = null;
+
+/**
+ * The material content of an observation — everything the server actually
+ * stores or renders. `observedAt` is excluded because it changes on every
+ * build by definition; including it would make every observation "changed" and
+ * defeat the comparison entirely.
+ */
+function observationSignature(observation) {
+  const { observedAt: _observedAt, ...material } = observation;
+  return JSON.stringify(material);
+}
+
 async function forwardObservationToServer(observation) {
+  // Suppression, made against the state it actually guards.
+  const signature = observationSignature(observation);
+  if (signature === lastForwardedSignature) {
+    return { ok: true, skipped: 'unchanged' };
+  }
+
   const fresh = await ensureFreshToken();
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
 
@@ -282,6 +324,11 @@ async function forwardObservationToServer(observation) {
     }
 
     if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+    // Recorded ONLY once the SERVER accepted the write — that is what makes
+    // this an honest record of the shared row's contents. The old per-tab
+    // version recorded on the LOCAL consent ack instead, so a forward the
+    // server refused suppressed its own retry.
+    lastForwardedSignature = signature;
     return { ok: true };
   } catch (err) {
     return { ok: false, reason: String(err) };

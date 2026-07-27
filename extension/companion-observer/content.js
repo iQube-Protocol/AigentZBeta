@@ -132,10 +132,24 @@ let lastGrantRefreshAt = 0;
 const OBSERVE_DEBOUNCE_MS = 400;
 let observeTimer = null;
 
-/** The last payload actually POSTed, minus its timestamp. An observation
- *  identical to it carries no new information, so sending it would cost a
- *  write and a row update to say nothing. */
-let lastSentSignature = null;
+// NO PER-TAB "unchanged since last send" MEMORY LIVES HERE. It used to
+// (`lastSentSignature`), and that was the MS-10 defect (2026-07-27, operator:
+// "overlay is not picking up the current site").
+//
+// The observation is ONE shared row on the server — `companion_observation_latest`,
+// one per persona, last writer wins. This file runs once PER TAB, so a
+// signature cached here describes only what THIS tab last sent. The moment any
+// other tab writes, that memory is a false claim about the shared row: the tab
+// believes the server already holds its observation when it no longer does, and
+// suppresses the very write that would correct it. Observing claude.ai, then
+// github.com, then returning to claude.ai left the row permanently on
+// github.com — and Refresh could not help, because Refresh's re-observe hop
+// lands in `observeAndSend` below, which was doing the suppressing.
+//
+// The suppression is not gone, it is RELOCATED to `forwardObservationToServer`
+// in background.js — the one place that both makes every write and knows what
+// the shared row currently holds. See MS-10 in
+// codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md.
 
 async function buildObservation() {
   // Refresh the background worker's grant cache from the server FIRST. The
@@ -194,23 +208,13 @@ async function observeAndSend() {
   const observation = await buildObservation();
   console.log('[metaMe Observer] observation built (fields gated by live grant check):', observation);
 
-  // Identical-payload suppression. `observedAt` is excluded because it
-  // changes on every build by definition — including it would defeat the
-  // check entirely. Everything the server actually stores or renders IS
-  // compared, so a genuinely changed observation (new domain, new title, a
-  // selection made or cleared, page text changed) always sends.
-  const { observedAt: _observedAt, ...material } = observation;
-  const signature = JSON.stringify(material);
-  if (signature === lastSentSignature) {
-    console.log('[metaMe Observer] observation unchanged since last send — skipped');
-    return;
-  }
-
+  // ALWAYS SEND. Deciding that an observation carries no new information is a
+  // judgement about the SHARED server row, and this tab cannot make it — see
+  // the MS-10 note above `buildObservation`. The background worker suppresses
+  // the redundant write; the debounce above still collapses tab-flicking, so
+  // "re-observe whenever the tab is looked at" costs no more than it did.
   const result = await sendMessage({ type: 'OBSERVATION', observation });
   console.log('[metaMe Observer] background observation handling result:', result);
-  // Only record the signature once the consent choke point ACCEPTED it. A
-  // rejected observation must not suppress the next attempt.
-  if (result && result.ok) lastSentSignature = signature;
 }
 
 /**

@@ -33,6 +33,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import vm from 'node:vm';
 
 import {
   OBSERVER_CAPABILITIES,
@@ -633,5 +634,214 @@ describe('Companion Overlay — related-matches generalisation', () => {
     expect(definitions).toHaveLength(1);
     const callSites = source.match(/resolveRelatedMatches\(/g) ?? [];
     expect(callSites.length).toBeGreaterThanOrEqual(4); // 1 definition + >=3 calls
+  });
+});
+
+// ─── MS-10 — One observer, one record ──────────────────────────────────────
+//
+// THE DEFECT (operator, 2026-07-27: "overlay is not picking up the current
+// site"). The Companion's browser observation is ONE shared row --
+// `companion_observation_latest`, keyed by persona, last writer wins. But the
+// decision to SKIP a write lived in `content.js`, whose `lastSentSignature` is
+// module state inside ONE tab's content script. Every open tab held its own
+// copy, each claiming to describe the same single row.
+//
+// So: observe claude.ai (row = claude.ai), switch to a github.com tab (row =
+// github.com), switch back to claude.ai -- and that tab's content script
+// compares against ITS OWN last send, finds it identical, and suppresses. The
+// row keeps saying github.com forever. The Overlay renders "REPOSITORY --
+// GITHUB.COM" while the citizen is on claude.ai, the quick-link strip ranks on
+// the github needle, and Refresh cannot help because Refresh's re-observe hop
+// lands in the very function that is suppressing.
+//
+// The harness below runs the REAL shipped `background.js` + `content.js` in
+// `node:vm` with a fake `chrome`, one page context per tab sharing one message
+// bus and one server. The file's older structural canaries were written on the
+// premise that "vitest cannot execute" these files; it can, and a structural
+// grep could never have caught this -- the defect is in WHERE state lives, not
+// in what any line says.
+
+describe('extension/companion-observer — MS-10: one observer, one record', () => {
+  const EXT_DIR = join(process.cwd(), 'extension', 'companion-observer');
+  const extSource = (file: string) => readFileSync(join(EXT_DIR, file), 'utf8');
+
+  /** Lets every pending promise + 0ms timer in both vm realms settle. */
+  const flush = async () => {
+    for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 5));
+  };
+
+  function buildBrowser(opts?: { observationStatus?: () => number }) {
+    /** The single shared server row the whole defect is about. */
+    const posted: Array<Record<string, unknown>> = [];
+    const storage: Record<string, unknown> = {
+      observerGrantState: {
+        'current-tab': [{ capability: 'current-tab', scope: 'global', grantedAt: '2026-01-01T00:00:00.000Z' }],
+        selection: [],
+        'page-document': [],
+        downloads: [],
+        clipboard: [],
+        notifications: [],
+        history: [],
+      },
+      metameAuthSession: { accessToken: 'test-access', refreshToken: 'test-refresh', expiresAt: 4102444800 },
+      metamePersonaId: 'persona-under-test',
+    };
+    const workerListeners: Array<(m: unknown, s: unknown, r: (v: unknown) => void) => unknown> = [];
+
+    const localStorageArea = {
+      get: (keys: string[], cb?: (r: Record<string, unknown>) => void) => {
+        const out: Record<string, unknown> = {};
+        for (const k of keys) out[k] = storage[k];
+        if (cb) { cb(out); return undefined; }
+        return Promise.resolve(out);
+      },
+      set: (obj: Record<string, unknown>) => { Object.assign(storage, obj); return Promise.resolve(); },
+      remove: (keys: string[]) => { for (const k of keys) delete storage[k]; return Promise.resolve(); },
+    };
+
+    const fetchStub = async (url: unknown, init?: { body?: string }) => {
+      const href = String(url);
+      if (href.endsWith('/grants')) {
+        return { ok: true, status: 200, json: async () => ({ grants: [storage.observerGrantState] && [
+          { capability: 'current-tab', scope: 'global', grantedAt: '2026-01-01T00:00:00.000Z' },
+        ] }) };
+      }
+      if (href.endsWith('/observation')) {
+        const status = opts?.observationStatus ? opts.observationStatus() : 200;
+        // Recorded on ATTEMPT, so a rejected forward is still visible to the
+        // test -- what matters is whether the write was attempted at all.
+        posted.push({ ...(JSON.parse(init?.body ?? '{}') as Record<string, unknown>), __status: status });
+        return { ok: status < 400, status, json: async () => ({ ok: status < 400 }) };
+      }
+      return { ok: false, status: 404, json: async () => ({}) };
+    };
+
+    const workerSandbox: Record<string, unknown> = {
+      console: { log: () => {}, warn: () => {}, info: () => {}, error: () => {} },
+      setTimeout, clearTimeout, URL, AbortSignal,
+      fetch: fetchStub,
+      chrome: {
+        storage: { local: localStorageArea, onChanged: { addListener: () => {} } },
+        runtime: {
+          onMessage: { addListener: (fn: never) => workerListeners.push(fn) },
+          onInstalled: { addListener: () => {} },
+          onStartup: { addListener: () => {} },
+        },
+        contextMenus: { create: () => {}, onClicked: { addListener: () => {} } },
+        tabs: { query: async () => [], sendMessage: async () => undefined },
+        scripting: { executeScript: async () => [] },
+        action: { setBadgeText: () => {}, setBadgeBackgroundColor: () => {} },
+      },
+    };
+    const workerCtx = vm.createContext(workerSandbox);
+    workerSandbox.importScripts = (...files: string[]) => {
+      for (const f of files) vm.runInContext(extSource(f), workerCtx, { filename: f });
+    };
+    vm.runInContext(extSource('background.js'), workerCtx, { filename: 'background.js' });
+
+    /** One page context per open tab — each gets its own content script, as
+     *  in a real browser. They share only the message bus and the server. */
+    function openTab(domain: string, title: string) {
+      const pageSandbox: Record<string, unknown> = {
+        console: { log: () => {}, warn: () => {}, info: () => {}, error: () => {} },
+        setTimeout, clearTimeout,
+        location: { hostname: domain, href: `https://${domain}/` },
+        document: {
+          title,
+          visibilityState: 'visible',
+          body: { innerText: '' },
+          addEventListener: () => {},
+        },
+        chrome: {
+          runtime: {
+            lastError: undefined,
+            onMessage: { addListener: () => {} },
+            sendMessage: (message: unknown, cb?: (v: unknown) => void) => {
+              let answered = false;
+              const sendResponse = (v: unknown) => { if (!answered) { answered = true; cb?.(v); } };
+              for (const fn of workerListeners) {
+                const isAsync = fn(message, {}, sendResponse);
+                if (isAsync === true) return;
+              }
+            },
+          },
+        },
+      };
+      pageSandbox.window = pageSandbox;
+      const pageCtx = vm.createContext(pageSandbox);
+      vm.runInContext(extSource('constants.js'), pageCtx, { filename: 'constants.js' });
+      vm.runInContext(extSource('content.js'), pageCtx, { filename: 'content.js' });
+      return {
+        /** The real shipped entry point every re-observation runs through. */
+        observe: async () => {
+          await (pageSandbox.safeObserve as () => Promise<void>)();
+          await flush();
+        },
+      };
+    }
+
+    return { posted, openTab, flush };
+  }
+
+  const domainsOf = (posted: Array<Record<string, unknown>>) =>
+    posted.map((p) => p.currentTabDomain);
+
+  it('re-observing a tab AFTER another tab overwrote the shared row writes again', async () => {
+    const browser = buildBrowser();
+    // Two open tabs. Each observes once on load, exactly as a real browser
+    // does; then the citizen comes back to the first one.
+    const claude = browser.openTab('claude.ai', 'Claude');
+    await browser.flush();
+    const github = browser.openTab('github.com', 'iQube-Protocol/AigentZBeta');
+    await browser.flush();
+
+    await claude.observe(); // the return — the write that must not be skipped
+
+    // THE ASSERTION THE DEFECT FAILS. On the unfixed code the third write is
+    // suppressed by claude.ai's own per-tab `lastSentSignature`, so the shared
+    // row still says github.com while the citizen is looking at claude.ai --
+    // exactly the operator's screenshot.
+    expect(
+      domainsOf(browser.posted),
+      'returning to an already-observed tab must re-write the shared observation row: ' +
+        'a per-observer "nothing changed" memory cannot know another tab has since overwritten it',
+    ).toEqual(['claude.ai', 'github.com', 'claude.ai']);
+  });
+
+  it('re-observing the SAME unchanged page with no other tab between still costs no write', async () => {
+    // The suppression is not deleted, it is relocated to the one place that
+    // knows what the row holds. Its original purpose -- no network write per
+    // tab flick when nothing actually changed -- must survive the move, or the
+    // "fix" is just a revert of the write-per-flick work.
+    const browser = buildBrowser();
+    const claude = browser.openTab('claude.ai', 'Claude');
+    await browser.flush();
+
+    await claude.observe();
+    await claude.observe();
+    await claude.observe();
+
+    expect(
+      domainsOf(browser.posted),
+      'an unchanged observation with no intervening tab must be written exactly once',
+    ).toEqual(['claude.ai']);
+  });
+
+  it('a REJECTED forward is retried on the next identical observation, never suppressed', async () => {
+    // The old content-script suppression recorded its signature on the LOCAL
+    // consent ack (`{ ok: true }` from the grant check), which says nothing
+    // about whether the SERVER accepted the write. A failed forward therefore
+    // suppressed its own retry.
+    let status = 500;
+    const browser = buildBrowser({ observationStatus: () => status });
+    const claude = browser.openTab('claude.ai', 'Claude'); // page-load: rejected
+    await browser.flush();
+    status = 200;
+    await claude.observe(); // identical payload — must be attempted again
+
+    expect(
+      browser.posted.length,
+      'an observation the server refused was never recorded, so the identical retry must go out',
+    ).toBe(2);
   });
 });
