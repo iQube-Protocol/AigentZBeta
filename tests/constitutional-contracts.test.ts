@@ -465,6 +465,8 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const onDisk = fs
       .readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
+      // Underscore-prefixed dirs (e.g. _source) are staging areas, not experiment design docs.
+      .filter((d) => !d.name.startsWith('_'))
       .map((d) => d.name.split('-').slice(0, 2).join('-').toUpperCase()); // exp-p1-… → EXP-P1
     for (const id of onDisk) {
       expect(registered.has(id), `${id} has a doc on disk but is missing from EXPERIMENT_REGISTRY`).toBe(true);
