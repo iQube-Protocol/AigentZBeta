@@ -45,6 +45,13 @@ export interface ResearchExperiment {
   protocolRef: string;
   /** Seed ids of governing invariants (invariantsUsed rides receipts). */
   governingInvariants: string[];
+  /**
+   * LINEAGE — the designation this experiment previously carried, if it was
+   * renumbered. Structured rather than buried in prose so the parity canaries
+   * can assert it and no renumbered design can be silently returned to the
+   * foundational slot it vacated. Absent for experiments that never moved.
+   */
+  formerly?: string;
 }
 
 export interface ResearchSeries {
@@ -209,7 +216,11 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
   {
     id: 'EXP-P1',
     layer: 'I',
-    family: 'Representation & Runtime Gauntlet (Comparative)',
+    // Programme focus first, protocol title second: the P-series reads
+    // Compression → Consequence → Representation → Interaction on every surface
+    // that shows a family. The ratified protocol title is preserved verbatim
+    // after the dash — normalization of the programme label, not of signed text.
+    family: 'Reasoning Compression — Representation & Runtime Gauntlet (Comparative)',
     seriesId: 'VP1',
     hypothesis:
       'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
@@ -225,7 +236,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // renumbered EXP-011 below: renumbered, never withdrawn.
     id: 'EXP-P2',
     layer: 'I',
-    family: 'Invariant-Governed Physical Design (Consequence)',
+    family: 'Consequential Performance — Invariant-Governed Physical Design',
     seriesId: 'VP1',
     hypothesis:
       'Do invariant-guided workflows produce measurably better consequential outcomes than equivalent prose-based workflows? Five-arm confirmatory protocol (B / C / B+R / B+R-D / D) on physical design generation and verification; primary contrast D vs B+R-D.',
@@ -245,7 +256,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // renumbered EXP-012 below: renumbered, never withdrawn.
     id: 'EXP-P3',
     layer: 'I',
-    family: 'Representation of Structural Invariants (Representational)',
+    family: 'Representation — Representation of Structural Invariants',
     seriesId: 'VP1',
     hypothesis:
       'Under conditions of audited informational equivalence, does representational substrate materially affect computational reasoning over structural knowledge? Isolates representation as the causal variable — P1 tests compression, P2 tests consequence, P3 tests representation itself.',
@@ -264,7 +275,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // invariants themselves, not their representation.
     id: 'EXP-P4',
     layer: 'I',
-    family: 'Invariant Interaction (Interaction) — RESERVED, not yet designed',
+    family: 'Interaction — Invariant Interaction · RESERVED, not yet designed',
     seriesId: 'VP1',
     hypothesis:
       'RESERVED — no protocol yet. The reserved question: do structural invariants exhibit interaction or field-like behaviour? Deferred from EXP-P3 deliberately, because interaction concerns properties of the invariants themselves rather than their representation.',
@@ -284,9 +295,10 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     family: 'Structural Invariance (Structural)',
     seriesId: 'SCS',
     hypothesis:
-      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323. (Formerly EXP-P2.)',
+      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323.',
     protocolRef: 'codexes/packs/irl/foundation/experiments/exp-011-structural-invariance/README.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    formerly: 'EXP-P2',
   },
   {
     id: 'EXP-012',
@@ -294,9 +306,10 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     family: 'Capability Validation (Capability)',
     seriesId: 'SCS',
     hypothesis:
-      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes. (Formerly EXP-P3.)',
+      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes.',
     protocolRef: 'codexes/packs/irl/foundation/experiments/exp-012-capability-validation/README.md',
     governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
+    formerly: 'EXP-P3',
   },
   // ─── Constitutional Knowledge Evolution (the institute's first longitudinal
   //     series — dynamical, not static). DESIGN (deferred 2026-07-14). ──────────

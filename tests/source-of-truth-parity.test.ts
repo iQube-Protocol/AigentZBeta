@@ -54,7 +54,7 @@ import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { EXPERIMENT_REGISTRY } from '../types/research';
+import { EXPERIMENT_REGISTRY, SERIES_REGISTRY } from '../types/research';
 import { ASSIGNABLE_EXPERIMENTS } from '../services/passport/participationAccess';
 import { FINANCIAL_DOMAINS } from '../services/constitutional/financialIntelligenceExecutor';
 import { EXECUTION_DOMAINS, isExecutionDomain } from '../services/resolution/executionTaxonomy';
@@ -578,5 +578,83 @@ describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-2
         `Lab tab '${tabId}' is labelled '${prefix}' but mounts '${mappedId}'`,
       ).toBe(mappedId);
     }
+  });
+  it('Canary 2 — the foundational slots are reserved to their programme focus', () => {
+    // P1 Compression → P2 Consequence → P3 Representation → P4 Interaction.
+    // The family carries the programme focus FIRST so every surface that renders
+    // a family reads the sequence; the protocol title may follow after a dash.
+    const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
+    const FOCUS: Record<string, RegExp> = {
+      'EXP-P1': /^Reasoning Compression\b/,
+      'EXP-P2': /^Consequential Performance\b/,
+      'EXP-P3': /^Representation\b/,
+      'EXP-P4': /^Interaction\b/,
+    };
+    for (const [id, re] of Object.entries(FOCUS)) {
+      const entry = byId.get(id);
+      expect(entry, `${id} is missing from the registry`).toBeTruthy();
+      expect(entry!.family, `${id} family does not lead with its programme focus`).toMatch(re);
+      // A displaced design must never reclaim a foundational slot.
+      expect(entry!.formerly, `${id} carries renumbering lineage — a P-slot must not be a renumbered design`).toBeUndefined();
+    }
+  });
+
+  it('Canary 5 — EXP-P4 stays a reservation, not an experiment', () => {
+    const p4 = EXPERIMENT_REGISTRY.find((e) => e.id === 'EXP-P4')!;
+    // Declared reserved in both the family and the hypothesis, so no surface can
+    // render it as an active design by reading either one.
+    expect(p4.family).toMatch(/RESERVED/);
+    expect(p4.hypothesis).toMatch(/^RESERVED/);
+    // No runner may be bound to it.
+    const map = itemExperimentMap(stripComments(readSource(LAB)));
+    expect(Object.values(map)).not.toContain('EXP-P4');
+    // Its reference is a reservation note, never a protocol set.
+    expect(p4.protocolRef).toContain('exp-p4-invariant-interaction');
+    const note = readSource(p4.protocolRef);
+    expect(note, 'the P4 note does not declare itself a reservation').toMatch(/RESERVED/);
+    expect(note, 'the P4 note reads as a design').toMatch(/reservation, not a design/i);
+    // The candidate topics must stay candidates — not settled scope.
+    expect(note).toMatch(/candidates, not scope/i);
+    // And it must not claim results or predictions.
+    expect(/\bpredictions:/i.test(note)).toBe(false);
+  });
+
+  it('Canary 6 — the canonical documentation joins are pinned', () => {
+    const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
+    const JOINS: Record<string, string> = {
+      'EXP-P2': 'exp-p2-invariant-governed-physical-design',
+      'EXP-P3': 'exp-p3-representation-of-structural-invariants',
+      'EXP-P4': 'exp-p4-invariant-interaction',
+      'EXP-011': 'exp-011-structural-invariance',
+      'EXP-012': 'exp-012-capability-validation',
+    };
+    for (const [id, dir] of Object.entries(JOINS)) {
+      const ref = byId.get(id)!.protocolRef;
+      expect(ref, `${id} protocolRef does not point at ${dir}`).toContain(dir);
+      // The referenced document must actually exist — a dangling join is the
+      // same failure as a stale one, just quieter.
+      expect(() => readSource(ref), `${id} protocolRef does not resolve on disk`).not.toThrow();
+    }
+  });
+
+  it('Canary 7 — the renumbered designs keep their lineage and stay out of the P-series', () => {
+    const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
+    for (const [id, was] of [['EXP-011', 'EXP-P2'], ['EXP-012', 'EXP-P3']] as const) {
+      const e = byId.get(id)!;
+      expect(e.formerly, `${id} lost its lineage metadata`).toBe(was);
+      // Never silently returned to the foundational grouping.
+      expect(e.seriesId, `${id} is back in the foundational series`).not.toBe('VP1');
+      expect(e.seriesId).toBe('SCS');
+      // The document itself must state the lineage in words too.
+      const doc = readSource(e.protocolRef);
+      expect(doc, `${id} has no lineage banner`).toMatch(
+        new RegExp(`Formerly designated ${was}`),
+      );
+    }
+    // The foundational series holds exactly the four reserved slots.
+    const vp1 = SERIES_REGISTRY.find((x) => x.id === 'VP1')!;
+    expect(vp1.members).toEqual(['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']);
+    const scs = SERIES_REGISTRY.find((x) => x.id === 'SCS')!;
+    expect(scs.members).toEqual(['EXP-011', 'EXP-012']);
   });
 });

@@ -489,10 +489,14 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
 
     // One fundamental question each — the family names carry the class.
-    expect(byId.get('EXP-P1')!.family).toMatch(/Gauntlet|Comparative|Compression/i);
-    expect(byId.get('EXP-P2')!.family).toMatch(/Consequence/i);
-    expect(byId.get('EXP-P3')!.family).toMatch(/Representation/i);
-    expect(byId.get('EXP-P4')!.family).toMatch(/Interaction/i);
+    // Normalized 2026-07-27: the family LEADS with the programme focus, so the
+    // P-sequence reads Compression → Consequence → Representation → Interaction
+    // on every surface that renders a family. Anchored at the start, not merely
+    // contained, so a focus cannot drift into a subtitle.
+    expect(byId.get('EXP-P1')!.family).toMatch(/^Reasoning Compression\b/);
+    expect(byId.get('EXP-P2')!.family).toMatch(/^Consequential Performance\b/);
+    expect(byId.get('EXP-P3')!.family).toMatch(/^Representation\b/);
+    expect(byId.get('EXP-P4')!.family).toMatch(/^Interaction\b/);
 
     // P3 is the REPRESENTATION experiment, not the capability demonstration —
     // the Laboratory reads protocolRef, so a stale ref shows the wrong design.
@@ -506,8 +510,9 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     // The renumbered pair is retained and registered — renumbered, never lost.
     expect(byId.get('EXP-011')!.family).toMatch(/Structural/i);
     expect(byId.get('EXP-012')!.family).toMatch(/Capability/i);
-    expect(byId.get('EXP-011')!.hypothesis).toMatch(/Formerly EXP-P2/);
-    expect(byId.get('EXP-012')!.hypothesis).toMatch(/Formerly EXP-P3/);
+    // Lineage is structured metadata now, not a phrase inside prose.
+    expect(byId.get('EXP-011')!.formerly).toBe('EXP-P2');
+    expect(byId.get('EXP-012')!.formerly).toBe('EXP-P3');
 
     // Numbers are never reused: no renumbered design may sit back in a P slot.
     for (const id of ['EXP-011', 'EXP-012']) {

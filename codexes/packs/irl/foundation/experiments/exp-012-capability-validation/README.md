@@ -1,18 +1,14 @@
 # EXP-012 — Capability Validation
 
-> **RENUMBERED from EXP-P3 — operator ruling, 2026-07-27.** The designations **EXP-P1 / P2 / P3 /
-> P4 are reserved** for the four strategically core experiments (compression · consequence ·
-> representation · interaction). This Capability demonstration keeps its full scientific content
-> and its place in the Laboratory; only its NUMBER changed. Per the no-number-reuse rule it takes
-> the next free number in the EXP-0NN sequence.
+> **Formerly designated EXP-P3.** Renumbered **EXP-012** on 2026-07-27, when the EXP-P3
+> designation was assigned to **Representation of Structural Invariants**
+> (`../exp-p3-representation-of-structural-invariants/`). References created before 2026-07-27
+> may use the former designation and remain correct as historical record. The designation moved;
+> the design, its hypothesis class, its governing invariants, and its capability runner did not.
 >
-> **EXP-P3** now names *Representation of Structural Invariants*
-> (`../exp-p3-representation-of-structural-invariants/`), per the operator: *"EXP P3 is supposed
-> to be about invariant representation not capability."* External reviewers were notified of the
-> renumbering via the transmittal note in `../SERIES-RATIFICATION_p1-p2-p3.md` §7.
->
-> Cross-references written before 2026-07-27 that name "EXP-P3" for the Capability Validation
-> demonstration refer to THIS document.
+> Numbers are never reused: EXP-012 is the next free value in the EXP-0NN sequence. This
+> experiment remains registered in the Laboratory under the **SCS — Structural & Capability
+> Studies** series, with its harness bound to EXP-012.
 
 **Chrysalis Foundation · Validation Programme v1 · Experiment C (Capability) · Status: DESIGN — pre-registration draft v0.1**
 **Hypothesis class:** Capability (see `foundation/IRL_VALIDATION_ROADMAP.md`).

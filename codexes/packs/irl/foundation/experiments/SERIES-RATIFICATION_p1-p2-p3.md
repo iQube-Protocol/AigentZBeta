@@ -12,12 +12,12 @@ the packet.**
 
 ## 1. The series at a glance
 
-| Slot | Experiment | Canonical doc set | Status | Ratification instrument |
-|---|---|---|---|---|
-| **P1** | **The Representation & Runtime Gauntlet** — four-arm comparative design (Cold / Expert Prose / Flattened Invariants / Full Runtime) + sufficiency and mutation probes | `exp-p1-representation-runtime-gauntlet/` | REGISTERED 2026-07-17 as the joint pre-registration instance of EXP-010's frozen design. Pending: predictions lock (§2), pre-registration bundle (§10), joint signature (§15). **Operator-stated exit condition on our side before signing — see §4.** | Joint sign-off (P1 §15): both signatures → bundle assembled, hashed, published → design frozen |
-| **P2** | **Invariant-Governed Generation and Verification for Physical Design** — arms B / C / B+R / B+R-D / D; primary confirmatory contrast **D versus B+R-D** | `exp-p2-invariant-governed-physical-design/` | **v1.0 Candidate — pending series ratification.** Consolidated after multiple independent adversarial reviews; intermediate versions deliberately not republished (protocol §29 records the review history) | One narrow certification question to the requested reviewers — verbatim in §2 |
-| **P3** | **Representation of Structural Invariants** — arms L / M / D / S / H under audited informational equivalence; two-tier claim architecture; RSS-001 methodology standard | `exp-p3-representation-of-structural-invariants/` (six-doc set: Brief · Protocol · RSS-001 · SAP · Implementation Guide · Internal Research Record) | **v1.0 Candidate — pending series ratification.** Protocol for external scientific review; two adversarial review cycles absorbed; documentation refactored per the governing Implementation Brief | Seven registered review questions + review posture — verbatim in §2 |
-| **P4** | **Invariant Interaction** — do structural invariants exhibit interaction or field-like behaviour? | `exp-p4-invariant-interaction/` (reservation note only) | **RESERVED — designation held, protocol NOT yet designed.** Deferred from P3 deliberately: interaction concerns properties of the invariants themselves, not their representation | None yet — nothing to ratify until a protocol exists |
+| Slot | Programme role | Experiment | Canonical doc set | Status | Ratification instrument |
+|---|---|---|---|---|---|
+| **P1** | **Compression** | **The Representation & Runtime Gauntlet** — four-arm comparative design (Cold / Expert Prose / Flattened Invariants / Full Runtime) + sufficiency and mutation probes | `exp-p1-representation-runtime-gauntlet/` | REGISTERED 2026-07-17 as the joint pre-registration instance of EXP-010's frozen design. Pending: predictions lock (§2), pre-registration bundle (§10), joint signature (§15). **Operator-stated exit condition on our side before signing — see §4.** | Joint sign-off (P1 §15): both signatures → bundle assembled, hashed, published → design frozen |
+| **P2** | **Consequence** | **Invariant-Governed Generation and Verification for Physical Design** — arms B / C / B+R / B+R-D / D; primary confirmatory contrast **D versus B+R-D** | `exp-p2-invariant-governed-physical-design/` | **v1.0 Candidate — pending series ratification.** Consolidated after multiple independent adversarial reviews; intermediate versions deliberately not republished (protocol §29 records the review history) | One narrow certification question to the requested reviewers — verbatim in §2 |
+| **P3** | **Representation** | **Representation of Structural Invariants** — arms L / M / D / S / H under audited informational equivalence; two-tier claim architecture; RSS-001 methodology standard | `exp-p3-representation-of-structural-invariants/` (six-doc set: Brief · Protocol · RSS-001 · SAP · Implementation Guide · Internal Research Record) | **v1.0 Candidate — pending series ratification.** Protocol for external scientific review; two adversarial review cycles absorbed; documentation refactored per the governing Implementation Brief | Seven registered review questions + review posture — verbatim in §2 |
+| **P4** | **Interaction** | **Invariant Interaction** — do structural invariants exhibit interaction or field-like behaviour? | `exp-p4-invariant-interaction/` (reservation note only) | **RESERVED — designation held, protocol NOT yet designed.** Deferred from P3 deliberately: interaction concerns properties of the invariants themselves, not their representation | None yet — nothing to ratify until a protocol exists |
 
 Epistemic status, uniformly: every P-series hypothesis (P1 §2 predictions; P2 §4 primary
 hypothesis; P3 H3.1–H3.4) is an empirical hypothesis under test — `proposed`, never canon —
@@ -250,10 +250,24 @@ as-is, and states the change without overstating its significance:
 >
 > New numbers are the next free values in our EXP-0NN sequence; numbers are never reused.
 >
-> **One cross-reference to flag:** §14 of the EXP-P1 protocol names "EXP-P2" as the Structural
-> Invariance companion experiment. That reference now reads **EXP-011**. We have not altered the
-> P1 text — the reference is glossed here rather than edited, so the countersigned document
-> stands exactly as it was signed.
+> **Numbers are never reused.** EXP-011 and EXP-012 are the next free values in our EXP-0NN
+> sequence; a retired designation is never reassigned to a different design.
+>
+> **Historical references stay valid.** Documents written before 2026-07-27 that say "EXP-P2" for
+> Structural Invariance, or "EXP-P3" for Capability Validation, remain correct as historical
+> record. We have glossed them rather than rewritten them, so provenance is preserved.
+>
+> **One cross-reference to flag specifically:** §14 of the EXP-P1 protocol names "EXP-P2" as the
+> Structural Invariance companion experiment. **That reference now resolves to EXP-011.** We have
+> **not altered the P1 text** — the countersigned wording stands exactly as signed, and the
+> mapping is recorded here and in the EXP-011 document's own lineage banner.
+>
+> **EXP-P4 is reserved, not designed.** It has no protocol, no predictions, and no results, and
+> nothing is being asked of reviewers in respect of it. Its candidate topics remain candidates.
+>
+> This is programme **normalization** — a numbering and presentation change so the foundational
+> sequence reads coherently. **No experiment design, hypothesis, prediction, or finding has been
+> revised.**
 
 ## 7. Document inventory (what the partner receives)
 

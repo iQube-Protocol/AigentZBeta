@@ -159,7 +159,7 @@ export function listTools() {
       inputSchema: {
         type: 'object',
         properties: {
-          experiment: { type: 'string', description: 'One of: EXP-P1, EXP-P2, EXP-P3, IRV-001, IPV-001.' },
+          experiment: { type: 'string', description: 'One of: EXP-P1, EXP-P2, EXP-P3, EXP-011, EXP-012, IRV-001, IPV-001. (EXP-011 / EXP-012 were chartered as EXP-P2 / EXP-P3 and renumbered 2026-07-27 when the P-slots were reserved for the four foundational experiments; EXP-P4 is reserved and has no results.)' },
           provider: { type: 'string', description: 'The model provider used.' },
           model: { type: 'string', description: 'The model id used.' },
           results: { description: 'The result payload (verbatim; content-hashed on submit).' },

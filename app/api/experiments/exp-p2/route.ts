@@ -10,6 +10,13 @@
  *
  * Research-access-gated (spine): experiments spend provider credits (same gate
  * as EXP-003).
+ *
+ * DESIGNATION (2026-07-27): this implementation belongs to **EXP-011 — Structural
+ * Invariance**, chartered as EXP-P2 and renumbered when the P-slots were reserved
+ * for the four foundational experiments. File names, service paths and API routes
+ * deliberately keep their `expP2` / `exp-p2` identifiers: renaming them would
+ * churn live routes and stored results for a cosmetic gain. The REGISTRY binding
+ * (`ITEM_EXPERIMENT.vp2 -> 'EXP-011'`) is what carries the designation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

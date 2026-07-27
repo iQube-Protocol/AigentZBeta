@@ -51,7 +51,40 @@ Experience → Synthetic Expert Extraction → IRE → IPE → Runtime → LLM
 ```
 Runner: `scripts/run-instrument-validation.mjs` (public `/api/public/irl/resolve` for IRE/IPE, one provider key for the personas + judge). Both are **runnable now** — they need no external sign-off. Passing Stage 0 lets us honestly tell an external reviewer *"the engineering validation completed before the science began"*, and — if a later science result surprises — distinguishes an immature engine from a real finding.
 
-## The three programmes (running now)
+## DESIGNATION NORMALIZATION — 2026-07-27 (read before citing any P-number)
+
+The **EXP-P1 … EXP-P4** designations are **reserved for the four foundational experiments** that
+cover the breadth of the programme — one per fundamental question:
+
+| Slot | Foundational question | Programme role |
+|---|---|---|
+| **EXP-P1** | Can reasoning be compressed into structural invariants? | **Compression** |
+| **EXP-P2** | Do invariant-guided workflows improve consequential outcomes? | **Consequence** |
+| **EXP-P3** | Does representational substrate materially affect reasoning? | **Representation** |
+| **EXP-P4** | Do invariants exhibit interaction or field-like behaviour? | **Interaction — RESERVED, not yet designed** |
+
+```
+P1 — Compression
+P2 — Consequence
+P3 — Representation
+P4 — Interaction
+```
+
+Two designs previously held the P2 and P3 numbers and were **renumbered, not withdrawn**. Numbers
+are never reused:
+
+| Formerly | Now | Design | Series |
+|---|---|---|---|
+| EXP-P2 | **EXP-011** | Structural Invariance | SCS — Structural & Capability Studies |
+| EXP-P3 | **EXP-012** | Capability Validation | SCS — Structural & Capability Studies |
+
+**This document predates the normalization and is left substantially as written**, because it is
+the historical charter of the three-programme era. Where the sections below say "EXP-P2" for
+Structural Invariance and "EXP-P3" for Capability Validation, they mean **EXP-011** and
+**EXP-012** respectively — the designs are unchanged, only their numbers moved. The same applies
+to EXP-P1 §14's cross-reference. Nothing here is a scientific revision.
+
+## The three programmes (as chartered — see the normalization note above for current numbers)
 
 ### Programme A — External Comparative Validation · **EXP-P1** (Austin protocol)
 **Class:** Comparative. **Owner:** external protocol (Austin Ambrozi / Autonomi Solutions), joint sign-off.
@@ -59,12 +92,12 @@ Runner: `scripts/run-instrument-validation.mjs` (public `/api/public/irl/resolve
 The disciplined, pre-registered, hash-committed four-arm gauntlet (Cold / Expert-Prose / Flattened-Invariants / Full-Runtime) + generative-sufficiency probe + mutation probe. Value is **external credibility** regardless of outcome, precisely because the protocol is externally specified and its interpretations are signed before data exists. Run substantially as specified.
 *Explicitly does NOT test IRL's primary structural hypothesis — its own §1 says so.*
 
-### Programme B — Structural Invariance Validation · **EXP-P2** (IRL companion)
+### Programme B — Structural Invariance Validation · **EXP-011** *(chartered as EXP-P2)* (IRL companion)
 **Class:** Structural. **Owner:** the Institute.
 **Question:** Can structural invariants be discovered, composed, and reused as a reasoning substrate **independently of prompt engineering and context engineering**?
-Where the science lives: raw-corpus → invariant extraction, invariant-field formation, minimal sufficiency, reasoning ablation, projection (K*), structural convergence, causal-vs-correlated properties. **No Austin comparison — this is science, not benchmarking.** The one control it must not miss (EXP-P1 §14): the invariant substrate must be extracted from the *same corpus* the raw arm uses, or the comparison silently becomes corpus-vs-corpus. This is the programme that tests **`inv.reasoning.323`** (intelligence as a property of fields, not models).
+Where the science lives: raw-corpus → invariant extraction, invariant-field formation, minimal sufficiency, reasoning ablation, projection (K*), structural convergence, causal-vs-correlated properties. **No Austin comparison — this is science, not benchmarking.** The one control it must not miss (EXP-P1 §14 — whose "EXP-P2" reference resolves here): the invariant substrate must be extracted from the *same corpus* the raw arm uses, or the comparison silently becomes corpus-vs-corpus. This is the programme that tests **`inv.reasoning.323`** (intelligence as a property of fields, not models).
 
-### Programme C — Capability Validation · **EXP-P3**
+### Programme C — Capability Validation · **EXP-012** *(chartered as EXP-P3)*
 **Class:** Capability. **Owner:** the Institute (demonstrations, using live IRL OS + AgentiQ OS).
 **Question:** What new capabilities become *practical* because reasoning has become reusable structural invariants?
 Demonstrations, not proofs: consequence engineering, forecasting, finance, software engineering, legal reasoning, scientific discovery. The point shifts from *"does it work?"* to *"what becomes possible that wasn't previously practical?"* — the evidence investors remember.
@@ -92,10 +125,10 @@ Stage 0 — Instrument Validation               [NOW]   IRV-001 · IPV-001
 Phase 1 — External Validation                 [NEXT]  Programme A · EXP-P1
         │  run Austin's protocol · publish either way
         ▼
-Phase 2 — Structural Validation               [NOW/NEXT]  Programme B · EXP-P2
+Phase 2 — Structural Validation               [NOW/NEXT]  Programme B · EXP-011
         │  discover/validate the substrate itself
         ▼
-Phase 3 — Capability Validation               [SOON]  Programme C · EXP-P3
+Phase 3 — Capability Validation               [SOON]  Programme C · EXP-012
         │  demonstrate what the substrate enables
         ▼
 Replication      independent parties re-run from the published bundle
@@ -115,7 +148,7 @@ Austin has become an **independent protocol designer** — enormously valuable, 
 - **The Institute owns the hypotheses** (what is being claimed and tested).
 - **External reviewers harden the validation methodology** (design experiments a sceptical third party would accept).
 
-You do not want an external reviewer designing your science; you do want them designing experiments whose controls a sceptic cannot dismiss. EXP-P1 is exactly that — bank it as the credibility asset. EXP-P2 is the Institute's own.
+You do not want an external reviewer designing your science; you do want them designing experiments whose controls a sceptic cannot dismiss. EXP-P1 is exactly that — bank it as the credibility asset. EXP-011 (chartered as EXP-P2) is the Institute's own.
 
 ---
 
@@ -145,7 +178,7 @@ Replication is one direction (fetch → re-run → hash-compare); **submission**
 
 The scientific novelty is not ultimately *"we have better context"* or even *"we have reasoning compression."* Two central hypotheses, both proposed and under test:
 
-- **`inv.reasoning.323`** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. EXP-P2 is where that test begins.
+- **`inv.reasoning.323`** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. EXP-011 (chartered as EXP-P2) is where that test begins.
 - **`inv.reasoning.329` — the Hybrid Intelligence Thesis** — the highest-performing intelligence systems will be neither purely human nor purely artificial, but hybrid systems in which invariants provide the shared substrate through which validated reasoning accumulates and is reused across both human and machine cognition. The programme's primary claim is not that an extraction algorithm outperforms experts; it is that **a shared invariant substrate enables cumulative hybrid intelligence neither achieves in isolation** — distinctive, and falsifiable. Its companion, the **Cumulative Intelligence Hypothesis** (`inv.reasoning.333`), frames the generational version: validated reasoning accumulating into a reusable substrate, as DNA accumulates biological adaptation.
 
 Both are empirically testable for the first time, because there is now a sufficiently rich invariant corpus and an instrument capable of running controlled experiments against it.

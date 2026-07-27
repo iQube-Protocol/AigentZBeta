@@ -604,10 +604,10 @@ Format mirrors the polity section of the canonical appendix: `N. *(polity · pri
 
 ## Additions — Invariant-field first principles (2026-07-17) — `proposed`
 
-*(Authored as the corpus crossed 319 invariants and the Institute became an experimental instrument. The programme's emphasis shifts from library to field. 323 is the central hypothesis the Structural Invariance experiment programme (EXP-P2) exists to test — proposed, not validated.)*
+*(Authored as the corpus crossed 319 invariants and the Institute became an experimental instrument. The programme's emphasis shifts from library to field. 323 is the central hypothesis the Structural Invariance experiment programme (chartered EXP-P2, renumbered EXP-011 on 2026-07-27) exists to test — proposed, not validated.)*
 
 322. *(reasoning · principle)* **Value scales with relationships, not count** — the value of an invariant intelligence system is proportional not to how many invariants it stores but to the quality of relationships it can discover, validate, and operationalise between them; invariants are basis vectors, the field is where intelligence emerges.
-323. *(reasoning · principle)* **Intelligence is a property of fields, not models** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. *(The central hypothesis EXP-P2 tests — proposed, not validated.)*
+323. *(reasoning · principle)* **Intelligence is a property of fields, not models** — intelligence is a property of structured invariant fields and the transformations between them; models are one mechanism for traversing those fields, not the field itself. *(The central hypothesis the Structural Invariance experiment tests — chartered EXP-P2, renumbered EXP-011 on 2026-07-27; proposed, not validated.)*
 
 
 ## Additions — The hybrid-intelligence thesis clarification (2026-07-18) — `canonical` (operator-ratified 2026-07-18)
