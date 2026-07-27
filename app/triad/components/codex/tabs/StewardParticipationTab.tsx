@@ -48,7 +48,13 @@ interface GrantRow {
 }
 interface AppCounts { total: number; pending: number; agentAssisted: number }
 
-export function StewardParticipationTab() {
+/**
+ * `initialDomain` — the access domain the tab opens on (default 'passport').
+ * The Venture Lab's Partner Programmes surface mounts this with 'venture-lab'
+ * so partner-pilot invitations open on the right domain; the mechanism and
+ * store stay ONE system (no parallel invitation surface).
+ */
+export function StewardParticipationTab({ initialDomain }: { initialDomain?: string } = {}) {
   const [domains, setDomains] = useState<DomainDef[]>([]);
   const [assignableExperiments, setAssignableExperiments] = useState<AssignableExperiment[]>([]);
   interface PendingResult { id: string; experiment: string; provider: string; model: string; contentHash: string; submitterRef: string | null; createdAt: string }
@@ -57,7 +63,7 @@ export function StewardParticipationTab() {
   const [invitations, setInvitations] = useState<InvitationRow[]>([]);
   const [grants, setGrants] = useState<GrantRow[]>([]);
   const [applications, setApplications] = useState<AppCounts | null>(null);
-  const [activeDomain, setActiveDomain] = useState<string>('passport');
+  const [activeDomain, setActiveDomain] = useState<string>(initialDomain ?? 'passport');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-26_partner-workspace-horizen-pilot.md",
         "updates/2026-07-26_passport-native-access-reconciliation.md",
         "updates/2026-07-26_companion-live-drive-fixes.md",
         "updates/2026-07-26_constitutional-ground-base-vs-overlay.md",
