@@ -845,3 +845,76 @@ describe('extension/companion-observer — MS-10: one observer, one record', () 
     ).toBe(2);
   });
 });
+
+// ─── Refresh proxy — terminal vs transient must match what the extension does
+//
+// `extension/companion-observer/background.js` deletes the citizen's cached
+// session outright when this route answers with a status in its
+// `TERMINAL_REFRESH_STATUSES` set. The route used to answer a flat 401 for
+// EVERY failure of `refreshSession` — a GoTrue rate limit, a 5xx, a network
+// error and a genuinely rejected token all arrive as a populated `error`. So
+// one upstream blip logged the extension out: the Observer stopped writing and
+// every "Pull Across" capture died at `ensureFreshToken()` with
+// `no-auth-session`, silently, until the operator re-paired by hand.
+//
+// The two sides are pinned to each other here rather than to a literal, so the
+// contract cannot drift on either side of the TS/extension boundary.
+
+describe('POST /api/companion/observer/refresh-session — terminal vs transient', () => {
+  /** The extension's own set, read from the shipped file — never re-listed. */
+  const terminalStatuses = (() => {
+    const src = readFileSync(
+      join(process.cwd(), 'extension', 'companion-observer', 'background.js'),
+      'utf8',
+    );
+    const m = src.match(/const TERMINAL_REFRESH_STATUSES = new Set\(\[([^\]]*)\]\)/);
+    expect(m, 'background.js no longer declares TERMINAL_REFRESH_STATUSES').toBeTruthy();
+    return m![1].split(',').map((n) => Number(n.trim())).filter((n) => Number.isFinite(n));
+  })();
+
+  const callRefresh = async (refreshError: unknown) => {
+    vi.resetModules();
+    vi.doMock('@supabase/supabase-js', () => ({
+      createClient: () => ({
+        auth: { refreshSession: async () => ({ data: { session: null }, error: refreshError }) },
+      }),
+    }));
+    const { POST } = await import('@/app/api/companion/observer/refresh-session/route');
+    const res = await POST(
+      makeRequest('http://localhost:3000/api/companion/observer/refresh-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: 'a-token' }),
+      }),
+    );
+    vi.doUnmock('@supabase/supabase-js');
+    return res;
+  };
+
+  it('a genuinely rejected refresh token answers terminally, so the dead credential is cleared', async () => {
+    // GoTrue rejects an invalid/spent/revoked refresh token with a 4xx. This
+    // is the case `clearAuthSession` exists for and it must keep working.
+    const res = await callRefresh(Object.assign(new Error('Invalid Refresh Token'), { status: 400 }));
+    expect(
+      terminalStatuses.includes(res.status),
+      `a rejected token must answer with a status the extension treats as terminal (${terminalStatuses.join('/')}), got ${res.status}`,
+    ).toBe(true);
+  });
+
+  it('a TRANSIENT upstream failure must NOT answer terminally — a hiccup may not log the citizen out', async () => {
+    for (const transient of [
+      Object.assign(new Error('service unavailable'), { status: 503 }),
+      // A 4xx, but it says "try again later", not "this token is dead".
+      Object.assign(new Error('over_request_rate_limit'), { status: 429 }),
+      Object.assign(new Error('fetch failed'), { status: undefined }), // network layer: AuthError.status is optional
+      null, // no error, but no session either — unexplained, so not terminal
+    ]) {
+      const res = await callRefresh(transient);
+      expect(
+        terminalStatuses.includes(res.status),
+        `a transient upstream failure (${String((transient as Error | null)?.message ?? 'no-error')}) must not answer with a terminal status; ` +
+          'the extension deletes the cached session on those, which kills the Observer and every Pull Across capture',
+      ).toBe(false);
+    }
+  });
+});
