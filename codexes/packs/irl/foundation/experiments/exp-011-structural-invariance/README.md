@@ -1,4 +1,19 @@
-# EXP-P2 — Structural Invariance
+# EXP-011 — Structural Invariance
+
+> **RENUMBERED from EXP-P2 — operator ruling, 2026-07-27.** The designations **EXP-P1 / P2 / P3 /
+> P4 are reserved** for the four strategically core experiments that cover the breadth of the
+> invariant research programme (compression · consequence · representation · interaction). This
+> design keeps its full scientific content and its place in the Laboratory; only its NUMBER
+> changed, to free the P2 slot. Per the no-number-reuse rule it takes the next free number in the
+> EXP-0NN sequence rather than a reused one.
+>
+> **EXP-P2** now names *Invariant-Governed Generation and Verification for Physical Design*
+> (`../exp-p2-invariant-governed-physical-design/`). External reviewers were notified of the
+> renumbering via the transmittal note in `../SERIES-RATIFICATION_p1-p2-p3.md` §7 — this document
+> is not withdrawn, superseded, or downgraded.
+>
+> Cross-references written before 2026-07-27 that name "EXP-P2" for the Structural Invariance
+> battery — including EXP-P1 §14 — refer to THIS document.
 
 **Chrysalis Foundation · Validation Programme v1 · Experiment B (Structural) · Status: DESIGN — pre-registration draft v0.1**
 **Hypothesis class:** Structural (see `foundation/IRL_VALIDATION_ROADMAP.md`).

@@ -433,7 +433,13 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     // with the disk-parity guard below so the Lab can never silently drop one.
     expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual([
       'EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-005', 'EXP-006', 'EXP-007', 'EXP-008',
-      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P3',
+      // EXP-P1…P4 are the four RESERVED core designations (operator ruling,
+      // 2026-07-27): compression · consequence · representation · interaction.
+      // P4 is registered as reserved-with-no-protocol so the slot cannot be
+      // taken silently. EXP-011 / EXP-012 are the two designs renumbered out of
+      // the P2 / P3 slots the same day — renumbered, never withdrawn, and
+      // numbers are never reused.
+      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4', 'EXP-011', 'EXP-012',
       'EXP-009', 'EXP-010', 'CCE-006', 'CCE-007', 'ISR-001',
     ]);
     // Every registry member belongs to a registered series; every governing
@@ -471,6 +477,44 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     for (const id of onDisk) {
       expect(registered.has(id), `${id} has a doc on disk but is missing from EXPERIMENT_REGISTRY`).toBe(true);
     }
+  });
+
+  it('EXP-P1…P4 are reserved for the four core experiments, and P4 stays honestly reserved', async () => {
+    // Operator ruling 2026-07-27: "EXP P1/2/3/4 are four fundamental experiments
+    // that cover the core breadth of invariant research … P1/2/3/4 need to be
+    // reserved for these strategically core experiments." Two designs were
+    // renumbered out of the P2/P3 slots to make that true; this canary stops the
+    // slots being quietly re-taken or re-pointed.
+    const { EXPERIMENT_REGISTRY, SERIES_REGISTRY } = await import('@/types/research');
+    const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
+
+    // One fundamental question each — the family names carry the class.
+    expect(byId.get('EXP-P1')!.family).toMatch(/Gauntlet|Comparative|Compression/i);
+    expect(byId.get('EXP-P2')!.family).toMatch(/Consequence/i);
+    expect(byId.get('EXP-P3')!.family).toMatch(/Representation/i);
+    expect(byId.get('EXP-P4')!.family).toMatch(/Interaction/i);
+
+    // P3 is the REPRESENTATION experiment, not the capability demonstration —
+    // the Laboratory reads protocolRef, so a stale ref shows the wrong design.
+    expect(byId.get('EXP-P3')!.protocolRef).toContain('exp-p3-representation-of-structural-invariants');
+    expect(byId.get('EXP-P2')!.protocolRef).toContain('exp-p2-invariant-governed-physical-design');
+
+    // P4 is RESERVED: no protocol, and it must say so rather than implying one.
+    expect(byId.get('EXP-P4')!.family).toMatch(/RESERVED/);
+    expect(byId.get('EXP-P4')!.hypothesis).toMatch(/^RESERVED/);
+
+    // The renumbered pair is retained and registered — renumbered, never lost.
+    expect(byId.get('EXP-011')!.family).toMatch(/Structural/i);
+    expect(byId.get('EXP-012')!.family).toMatch(/Capability/i);
+    expect(byId.get('EXP-011')!.hypothesis).toMatch(/Formerly EXP-P2/);
+    expect(byId.get('EXP-012')!.hypothesis).toMatch(/Formerly EXP-P3/);
+
+    // Numbers are never reused: no renumbered design may sit back in a P slot.
+    for (const id of ['EXP-011', 'EXP-012']) {
+      expect(byId.get(id)!.seriesId).not.toBe('VP1');
+    }
+    const vp1 = SERIES_REGISTRY.find((s) => s.id === 'VP1')!;
+    expect(vp1.members).toEqual(['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']);
   });
 
   it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {

@@ -217,13 +217,20 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     governingInvariants: ['inv.reasoning.310', 'inv.reasoning.313', 'inv.reasoning.318'],
   },
   {
+    // DESIGNATION REASSIGNED 2026-07-27 (operator: "let's move the old EXP P2
+    // and P3 to new numbers … P1/2/3/4 need to be reserved for these
+    // strategically core experiments"). EXP-P2 is the CONSEQUENCE experiment of
+    // the series — invariant-governed generation and verification for physical
+    // design. The Structural Invariance battery that held this designation is
+    // renumbered EXP-011 below: renumbered, never withdrawn.
     id: 'EXP-P2',
     layer: 'I',
-    family: 'Structural Invariance (Structural)',
+    family: 'Invariant-Governed Physical Design (Consequence)',
     seriesId: 'VP1',
     hypothesis:
-      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323.',
-    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p2-structural-invariance/README.md',
+      'Do invariant-guided workflows produce measurably better consequential outcomes than equivalent prose-based workflows? Five-arm confirmatory protocol (B / C / B+R / B+R-D / D) on physical design generation and verification; primary contrast D vs B+R-D.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2-invariant-governed-physical-design/README.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
   },
   {
@@ -231,13 +238,11 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // about invariant representation not capability. What's in the lab does not
     // seem to be in line with the file I shared"). EXP-P3 is the Representation
     // of Structural Invariants experiment — the third question of the series
-    // (P1 compression → P2 consequence → P3 representation), authored from the
-    // operator-supplied source and shipped as the six-doc set below.
+    // (P1 compression → P2 consequence → P3 representation → P4 interaction),
+    // authored from the operator-supplied source as the six-doc set below.
     //
-    // The former occupant of this designation — the Capability Validation
-    // demonstration at `exp-p3-capability-validation/` — is NOT deleted; it is
-    // no longer what EXP-P3 names. Its own renumbering is unresolved and is
-    // tracked in the series ratification packet.
+    // The Capability Validation demonstration that held this designation is
+    // renumbered EXP-012 below: renumbered, never withdrawn.
     id: 'EXP-P3',
     layer: 'I',
     family: 'Representation of Structural Invariants (Representational)',
@@ -246,6 +251,51 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
       'Under conditions of audited informational equivalence, does representational substrate materially affect computational reasoning over structural knowledge? Isolates representation as the causal variable — P1 tests compression, P2 tests consequence, P3 tests representation itself.',
     protocolRef:
       'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/02_experimental-protocol.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    // RESERVED 2026-07-27 — the fourth core designation, held so it cannot be
+    // taken before the interaction protocol is written. The Laboratory shows it
+    // as reserved rather than silently absent; `protocolRef` points at a
+    // reservation note that is explicitly NOT a design and carries no
+    // predictions. No result may be attributed to EXP-P4 until a ratified
+    // protocol replaces that file. Named and deferred in the operator-supplied
+    // P3 source: interaction/interference/resonance/field behaviour concern the
+    // invariants themselves, not their representation.
+    id: 'EXP-P4',
+    layer: 'I',
+    family: 'Invariant Interaction (Interaction) — RESERVED, not yet designed',
+    seriesId: 'VP1',
+    hypothesis:
+      'RESERVED — no protocol yet. The reserved question: do structural invariants exhibit interaction or field-like behaviour? Deferred from EXP-P3 deliberately, because interaction concerns properties of the invariants themselves rather than their representation.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322'],
+  },
+  // ─── Renumbered 2026-07-27 to free the reserved P2 / P3 slots (operator
+  //     ruling: EXP-P1…P4 are the four strategically core experiments). Both
+  //     designs are retained in FULL and stay in the Laboratory — only their
+  //     numbers changed, taking the next free EXP-0NN values rather than reused
+  //     ones (no-number-reuse). Cross-references predating that date which name
+  //     "EXP-P2" for Structural Invariance, or "EXP-P3" for Capability
+  //     Validation, refer to these two entries. ────────────────────────────────
+  {
+    id: 'EXP-011',
+    layer: 'I',
+    family: 'Structural Invariance (Structural)',
+    seriesId: 'SCS',
+    hypothesis:
+      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323. (Formerly EXP-P2.)',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-011-structural-invariance/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    id: 'EXP-012',
+    layer: 'I',
+    family: 'Capability Validation (Capability)',
+    seriesId: 'SCS',
+    hypothesis:
+      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes. (Formerly EXP-P3.)',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-012-capability-validation/README.md',
     governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
   },
   // ─── Constitutional Knowledge Evolution (the institute's first longitudinal
@@ -338,11 +388,26 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
   },
   {
+    // REDEFINED 2026-07-27 (operator ruling). VP1 is the FOUR strategically
+    // core experiments covering the breadth of invariant research — one per
+    // fundamental question. Its former Structural and Capability members were
+    // renumbered EXP-011 / EXP-012 and now sit in the SCS companion series;
+    // they were renumbered, never withdrawn.
     id: 'VP1',
     name: 'Validation Programme v1',
-    claim: 'Three orthogonal experiments — Comparative (does it beat context engineering?), Structural (is the substrate real?), Capability (what does it enable?) — each answering one hypothesis class, together a more complete validation than any alone.',
-    members: ['EXP-P1', 'EXP-P2', 'EXP-P3'],
+    claim: 'Four foundational experiments, one per fundamental question — Compression (can reasoning be compressed into structural invariants?), Consequence (do invariant-guided workflows improve outcomes?), Representation (does representational substrate affect reasoning?), and Interaction (do invariants exhibit field-like behaviour? — reserved, not yet designed). Together they cover the breadth of the programme; no one of them substitutes for another.',
+    members: ['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4'],
     charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
+  },
+  {
+    // The two designs displaced from the reserved P2 / P3 slots on 2026-07-27.
+    // A companion series rather than a demotion: both keep their full designs,
+    // their hypothesis classes, and their place in the Laboratory.
+    id: 'SCS',
+    name: 'Structural & Capability Studies',
+    claim: 'The substrate-and-capability companion studies to the four core experiments: is the invariant substrate real and reusable independently of prompt engineering (EXP-011, Structural), and what becomes practical because reasoning is a reusable invariant field (EXP-012, Capability)? Renumbered from EXP-P2 / EXP-P3 in 2026-07-27 when the P1-P4 designations were reserved for the core series.',
+    members: ['EXP-011', 'EXP-012'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md',
   },
   {
     id: 'CKE',

@@ -1,11 +1,12 @@
-# Validation Programme Series Ratification Packet — EXP-P1 / EXP-P2 / EXP-P3
+# Validation Programme Series Ratification Packet — EXP-P1 / EXP-P2 / EXP-P3 (+ P4 reserved)
 
 **Invariant Research Lab (IRL) · Prepared 2026-07-27**
 **Purpose:** present the three P-series experiments to the external partner (Austin and his
 scientific review agent) as a single series for ratification, with per-experiment status, the
 ratification questions verbatim, the evidence base, and the recorded P1 exit condition.
-**Status: DRAFT for operator review — one item in §6 requires operator decision before this
-packet is sent externally.**
+**Status: DRAFT for operator review. Both §6 flags are RESOLVED (2026-07-27). The remaining
+external prerequisite is §7a — the renumbering notification the partner must receive alongside
+the packet.**
 
 ---
 
@@ -16,6 +17,7 @@ packet is sent externally.**
 | **P1** | **The Representation & Runtime Gauntlet** — four-arm comparative design (Cold / Expert Prose / Flattened Invariants / Full Runtime) + sufficiency and mutation probes | `exp-p1-representation-runtime-gauntlet/` | REGISTERED 2026-07-17 as the joint pre-registration instance of EXP-010's frozen design. Pending: predictions lock (§2), pre-registration bundle (§10), joint signature (§15). **Operator-stated exit condition on our side before signing — see §4.** | Joint sign-off (P1 §15): both signatures → bundle assembled, hashed, published → design frozen |
 | **P2** | **Invariant-Governed Generation and Verification for Physical Design** — arms B / C / B+R / B+R-D / D; primary confirmatory contrast **D versus B+R-D** | `exp-p2-invariant-governed-physical-design/` | **v1.0 Candidate — pending series ratification.** Consolidated after multiple independent adversarial reviews; intermediate versions deliberately not republished (protocol §29 records the review history) | One narrow certification question to the requested reviewers — verbatim in §2 |
 | **P3** | **Representation of Structural Invariants** — arms L / M / D / S / H under audited informational equivalence; two-tier claim architecture; RSS-001 methodology standard | `exp-p3-representation-of-structural-invariants/` (six-doc set: Brief · Protocol · RSS-001 · SAP · Implementation Guide · Internal Research Record) | **v1.0 Candidate — pending series ratification.** Protocol for external scientific review; two adversarial review cycles absorbed; documentation refactored per the governing Implementation Brief | Seven registered review questions + review posture — verbatim in §2 |
+| **P4** | **Invariant Interaction** — do structural invariants exhibit interaction or field-like behaviour? | `exp-p4-invariant-interaction/` (reservation note only) | **RESERVED — designation held, protocol NOT yet designed.** Deferred from P3 deliberately: interaction concerns properties of the invariants themselves, not their representation | None yet — nothing to ratify until a protocol exists |
 
 Epistemic status, uniformly: every P-series hypothesis (P1 §2 predictions; P2 §4 primary
 hypothesis; P3 H3.1–H3.4) is an empirical hypothesis under test — `proposed`, never canon —
@@ -131,8 +133,8 @@ before signature. The P1 protocol's own discipline applies either way: enlargeme
 
 ## 5. Proposed ratification sequence
 
-1. Operator resolves the remaining half of §6 FLAG 1 — the **EXP-P2** designation (the P3 half
-   was ruled 2026-07-27; P2 still points the Laboratory at the older Structural Invariance design).
+1. ~~Operator resolves the §6 designation collision~~ — **RESOLVED 2026-07-27** (renumbering
+   applied; the partner notification text is §7a).
 2. IRL completes the P1 Crystal close-out deliverable (§4 — interpretation operator-confirmed;
    landing the Financial Services invariants in the invariant register before P1 freeze).
 3. P1: predictions locked (§2) → bundle assembled and hashed (§10) → joint signature (§15).
@@ -148,9 +150,9 @@ before signature. The P1 protocol's own discipline applies either way: enlargeme
    resolved by protocol amendment **before** the respective freeze — never after (P1 §10;
    P2 §§18–19, 27; P3 SAP DP.9).
 
-## 6. Flags (do not send externally until the open flag is resolved)
+## 6. Flags (both resolved 2026-07-27 — see §7 for what the partner must be told)
 
-### FLAG 1 (P3 RESOLVED 2026-07-27 · P2 OPEN) — EXP-P2 / EXP-P3 designation collision (naming, not superseding)
+### FLAG 1 (RESOLVED 2026-07-27) — EXP-P2 / EXP-P3 designation collision (naming, not superseding)
 
 The designations P2 and P3 are each now claimed by two different designs:
 
@@ -168,23 +170,40 @@ is the representation experiment — external reviewers will hit this ambiguity 
 is not resolved or explicitly glossed in the transmittal. Both new directories carry a
 designation-note warning in the meantime.
 
-**P3 — RESOLVED (operator, 2026-07-27):** *"EXP P3 is supposed to be about invariant
-representation not capability. What's in the lab does not seem to be in line with the file I
-shared."* The **EXP-P3** designation now names **Representation of Structural Invariants**.
-Applied: `EXPERIMENT_REGISTRY`'s EXP-P3 entry (family, hypothesis, `protocolRef`) points at the
-new six-doc set, so the Laboratory view shows the representation experiment; the Capability
-Validation design is retained with a reassignment banner and must not be cited as "EXP-P3"
-until its own number is settled.
+**RESOLVED IN FULL (operator, 2026-07-27):** *"let's move the old EXP P2 and P3 to new numbers.
+EXP P1/2/3/4 are four fundamental experiments that cover the core breadth of invariant research
+… P1/2/3/4 need to be reserved for these strategically core experiments."*
 
-**P2 — STILL OPEN, and it is the same question.** The registry's EXP-P2 entry still names the
-**Structural Invariance** battery, not the **Invariant-Governed Physical Design** protocol in
-this packet — so the Lab shows the old design for P2 exactly as it did for P3. The identical fix
-is available and takes one edit. It is held for an explicit ruling for one reason: **EXP-P1 §14
-names the old P2 meaning in ratified, externally-countersigned text**, so reassigning P2 changes
-what a document already in the partner's hands refers to. Recommended: reassign P2 to match P3
-(the series then reads P1 compression → P2 consequence → P3 representation, which is how the
-briefs themselves describe it) and gloss the P1 §14 reference in the transmittal rather than
-silently re-pointing it.
+**The ruling.** The designations **EXP-P1 / P2 / P3 / P4 are reserved** for the four core
+experiments — one per fundamental question (compression · consequence · representation ·
+interaction). The two designs that previously held P2 and P3 are **renumbered, not withdrawn**,
+and remain registered in the Laboratory so nothing is lost:
+
+| Was | Is now | Design | Directory |
+|---|---|---|---|
+| EXP-P2 | **EXP-011** | Structural Invariance battery | `exp-011-structural-invariance/` |
+| EXP-P3 | **EXP-012** | Capability Validation demonstration | `exp-012-capability-validation/` |
+
+New numbers are the next free values in the EXP-0NN sequence — **not reused numbers** (the
+no-number-reuse rule the P1 designation history records). Both documents keep their full
+scientific content, their hypothesis classes, and their governing invariants; each carries a
+renumbering banner at the head stating what it was and what now holds its old designation.
+
+**Applied across the record:** `EXPERIMENT_REGISTRY` (EXP-P2 → Invariant-Governed Physical
+Design; EXP-P3 → Representation of Structural Invariants; EXP-011 / EXP-012 registered; EXP-P4
+reserved), the `VP1` series redefined as the four core experiments, a new `SCS` series
+("Structural & Capability Studies") holding EXP-011 / EXP-012, the IRL pack collections, and the
+directory names.
+
+**EXP-P4 is reserved, not designed.** `exp-p4-invariant-interaction/README.md` is a reservation
+note carrying no protocol, no predictions, and no claims — it exists so the designation cannot be
+taken before the interaction protocol is written, and so the Laboratory shows the fourth slot
+honestly. It must not be sent to reviewers as an experimental brief.
+
+**On the pre-existing cross-references.** EXP-P1 §14 names "EXP-P2" for the Structural Invariance
+battery, in ratified text already in the partner's hands. That text is **not silently
+re-pointed**: it is glossed in the notification below (§7a), and the renumbered document itself
+states that pre-2026-07-27 references to "EXP-P2" for Structural Invariance mean EXP-011.
 
 ### FLAG 2 (RESOLVED 2026-07-27) — "the Crystal" interpretation (see §4)
 
@@ -202,6 +221,40 @@ reviewer and two independent AI reviewers") and defers the named history to the 
 which remains in-repo as provenance. The verbatim ratification question and §30 reviewer
 requests are unaffected.
 
+## 7a. Renumbering notification — text for the partner (send with the packet)
+
+The operator's instruction: *"Austin and his agent understand we are setting the lab up at this
+stage so I think this amendment will be accepted fine. We should just document it and let them
+know the new numbers of these previous EXP2/3 experiments."* The following is drafted to be sent
+as-is, and states the change without overstating its significance:
+
+> **Note on experiment numbering (IRL, 2026-07-27).**
+>
+> As the Lab's experiment register settles, we have reserved the designations **EXP-P1 through
+> EXP-P4** for the four experiments that cover the core breadth of the invariant research
+> programme — one per fundamental question:
+>
+> - **EXP-P1 — Compression:** can reasoning be compressed into structural invariants?
+> - **EXP-P2 — Consequence:** do invariant-guided workflows improve consequential outcomes?
+> - **EXP-P3 — Representation:** does representational substrate materially affect reasoning?
+> - **EXP-P4 — Interaction:** do structural invariants exhibit interaction or field-like
+>   behaviour? *(Reserved; not yet designed.)*
+>
+> Two earlier designs previously carried the P2 and P3 numbers. They are **renumbered, not
+> withdrawn** — both keep their full designs and remain in the Lab register:
+>
+> | Previously | Now | Design |
+> |---|---|---|
+> | EXP-P2 | **EXP-011** | Structural Invariance battery |
+> | EXP-P3 | **EXP-012** | Capability Validation demonstration |
+>
+> New numbers are the next free values in our EXP-0NN sequence; numbers are never reused.
+>
+> **One cross-reference to flag:** §14 of the EXP-P1 protocol names "EXP-P2" as the Structural
+> Invariance companion experiment. That reference now reads **EXP-011**. We have not altered the
+> P1 text — the reference is glossed here rather than edited, so the countersigned document
+> stands exactly as it was signed.
+
 ## 7. Document inventory (what the partner receives)
 
 - **P1:** `exp-p1-representation-runtime-gauntlet/README.md` (+ `AUSTIN_ONE_PAGER.md`,
@@ -211,5 +264,7 @@ requests are unaffected.
   `02_experimental-protocol.md`, `03_RSS-001_representation-science-standard.md`,
   `04_statistical-analysis-plan.md`, `05_implementation-guide.md`
   (`06_internal-research-record.md` is IRL-internal and is **not** part of the external packet)
+- **P4:** nothing — the designation is reserved; the reservation note is internal
+- **Renumbering notification:** §7a above, sent with the packet
 - **Evidence base:** the Findings Report + Executive Memorandum (confidential, per its own
   handling terms)

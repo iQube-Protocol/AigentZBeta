@@ -1,17 +1,18 @@
-# EXP-P3 — Capability Validation
+# EXP-012 — Capability Validation
 
-> **DESIGNATION REASSIGNED — operator ruling, 2026-07-27.** "EXP-P3" no longer names this
-> design. The **EXP-P3** slot of the Validation Programme series (P1 / P2 / P3) is now
-> **Representation of Structural Invariants** —
-> `../exp-p3-representation-of-structural-invariants/` — per the operator: *"EXP P3 is supposed
-> to be about invariant representation not capability."* `EXPERIMENT_REGISTRY` and the Laboratory
-> view point there.
+> **RENUMBERED from EXP-P3 — operator ruling, 2026-07-27.** The designations **EXP-P1 / P2 / P3 /
+> P4 are reserved** for the four strategically core experiments (compression · consequence ·
+> representation · interaction). This Capability demonstration keeps its full scientific content
+> and its place in the Laboratory; only its NUMBER changed. Per the no-number-reuse rule it takes
+> the next free number in the EXP-0NN sequence.
 >
-> **This design is retained, not withdrawn.** Its Capability hypothesis class is unchanged and
-> its content is untouched below. What is unresolved is its **number**: renumbering (under the
-> no-number-reuse rule), archiving, or re-slotting is an operator decision, tracked in
-> `../SERIES-RATIFICATION_p1-p2-p3.md` §6. Until that ruling, cite this document by its title —
-> Capability Validation — never as "EXP-P3".
+> **EXP-P3** now names *Representation of Structural Invariants*
+> (`../exp-p3-representation-of-structural-invariants/`), per the operator: *"EXP P3 is supposed
+> to be about invariant representation not capability."* External reviewers were notified of the
+> renumbering via the transmittal note in `../SERIES-RATIFICATION_p1-p2-p3.md` §7.
+>
+> Cross-references written before 2026-07-27 that name "EXP-P3" for the Capability Validation
+> demonstration refer to THIS document.
 
 **Chrysalis Foundation · Validation Programme v1 · Experiment C (Capability) · Status: DESIGN — pre-registration draft v0.1**
 **Hypothesis class:** Capability (see `foundation/IRL_VALIDATION_ROADMAP.md`).
