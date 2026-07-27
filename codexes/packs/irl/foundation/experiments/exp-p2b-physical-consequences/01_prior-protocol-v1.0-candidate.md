@@ -1,7 +1,25 @@
 # EXP-P2 v1.0 Candidate — Invariant-Governed Generation and Verification for Physical Design
 
+> **STATUS BANNER — added 2026-07-27 under the operator ruling that made EXP-P2 a family.**
+> This document is now **prior art for EXP-P2B (Physical Consequences)**, not the current protocol.
+> Two things changed around it, and neither altered a word of its body:
+> 1. **Location.** It moved with its directory: `exp-p2-invariant-governed-physical-design/README.md`
+>    → `exp-p2b-physical-consequences/01_prior-protocol-v1.0-candidate.md`. External citations of the
+>    old path resolve here.
+> 2. **Arm structure superseded.** The ruling replaces the arms of §6 (B / C / B+R / B+R-D / D) and
+>    the confirmatory contrast of §7 (D versus B+R-D) with A–E arms that separate content from
+>    representation, and it makes RSS-001 certification a precondition of admissibility — which
+>    changes the standing of §9's information-equivalence clause from asserted to certified.
+>    The revised protocol is **PENDING OPERATOR PROTOCOL**; see
+>    [`README.md`](README.md) and
+>    [`../exp-p2-consequential-performance/01_shared-constitutional-framework.md`](../exp-p2-consequential-performance/01_shared-constitutional-framework.md).
+>
+> Everything below is the document as ratified-candidate-submitted, unedited. Do not cite §6, §7 or
+> §9 as the current design; do cite this document for the review history, the failure-taxonomy and
+> invariant-set governance provisions, and the claims discipline of §28.
+
 **Invariant Research Lab (IRL) · Validation Programme series (P1 / P2 / P3)**
-**Status: v1.0 Candidate — pending series ratification**
+**Status: v1.0 Candidate — superseded in arm structure by the ruling of 2026-07-27; see the banner above**
 **Classification: Confirmatory Experimental Protocol · Candidate for External Ratification**
 **Provenance:** assembled verbatim from the operator-supplied consolidated protocol staged at
 `foundation/experiments/_source/2026-07-26_exp-p2-v1.0-candidate_source.md` (2026-07-26). Intermediate

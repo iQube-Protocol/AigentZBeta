@@ -439,7 +439,13 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
       // taken silently. EXP-011 / EXP-012 are the two designs renumbered out of
       // the P2 / P3 slots the same day — renumbered, never withdrawn, and
       // numbers are never reused.
-      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4', 'EXP-011', 'EXP-012',
+      // EXP-P2A / EXP-P2B are the two INSTANTIATIONS of the P2 slot (second
+      // ruling of 2026-07-27: P2 becomes "a family of consequence experiments
+      // that share the same constitutional framework but operate in different
+      // consequence domains"). They sit immediately after the slot they
+      // instantiate; the slot itself is unchanged and unrenumbered.
+      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P2A', 'EXP-P2B', 'EXP-P3', 'EXP-P4',
+      'EXP-011', 'EXP-012',
       'EXP-009', 'EXP-010', 'CCE-006', 'CCE-007', 'ISR-001',
     ]);
     // Every registry member belongs to a registered series; every governing
@@ -499,7 +505,12 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     // P3 is the REPRESENTATION experiment, not the capability demonstration —
     // the Laboratory reads protocolRef, so a stale ref shows the wrong design.
     expect(byId.get('EXP-P3')!.protocolRef).toContain('exp-p3-representation-of-structural-invariants');
-    expect(byId.get('EXP-P2')!.protocolRef).toContain('exp-p2-invariant-governed-physical-design');
+    // P2 is the FAMILY since the 2026-07-27 ruling: its ref is the family index,
+    // not a domain protocol. The physical-design protocol it used to point at
+    // now belongs to EXP-P2B, and a P2 ref that still resolved there would show
+    // the Laboratory one domain as if it were the whole consequence question.
+    expect(byId.get('EXP-P2')!.protocolRef).toContain('exp-p2-consequential-performance');
+    expect(byId.get('EXP-P2')!.protocolRef).not.toContain('physical');
 
     // P4 is RESERVED: no protocol, and it must say so rather than implying one.
     expect(byId.get('EXP-P4')!.family).toMatch(/RESERVED/);

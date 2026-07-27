@@ -15,9 +15,27 @@ the packet.**
 | Slot | Programme role | Experiment | Canonical doc set | Status | Ratification instrument |
 |---|---|---|---|---|---|
 | **P1** | **Compression** | **The Representation & Runtime Gauntlet** — four-arm comparative design (Cold / Expert Prose / Flattened Invariants / Full Runtime) + sufficiency and mutation probes | `exp-p1-representation-runtime-gauntlet/` | REGISTERED 2026-07-17 as the joint pre-registration instance of EXP-010's frozen design. Pending: predictions lock (§2), pre-registration bundle (§10), joint signature (§15). **Operator-stated exit condition on our side before signing — see §4.** | Joint sign-off (P1 §15): both signatures → bundle assembled, hashed, published → design frozen |
-| **P2** | **Consequence** | **Invariant-Governed Generation and Verification for Physical Design** — arms B / C / B+R / B+R-D / D; primary confirmatory contrast **D versus B+R-D** | `exp-p2-invariant-governed-physical-design/` | **v1.0 Candidate — pending series ratification.** Consolidated after multiple independent adversarial reviews; intermediate versions deliberately not republished (protocol §29 records the review history) | One narrow certification question to the requested reviewers — verbatim in §2 |
+| **P2** | **Consequence** | **A family of consequence experiments** — P2A Software · P2B Physical, sharing one constitutional framework (see the note below). The design in this packet is **P2B**: Invariant-Governed Generation and Verification for Physical Design — arms B / C / B+R / B+R-D / D; primary confirmatory contrast **D versus B+R-D** | `exp-p2-consequential-performance/` (family) · `exp-p2b-physical-consequences/` (this design) | **v1.0 Candidate — pending series ratification.** Consolidated after multiple independent adversarial reviews; intermediate versions deliberately not republished (protocol §29 records the review history) | One narrow certification question to the requested reviewers — verbatim in §2 |
 | **P3** | **Representation** | **Representation of Structural Invariants** — arms L / M / D / S / H under audited informational equivalence; two-tier claim architecture; RSS-001 methodology standard | `exp-p3-representation-of-structural-invariants/` (six-doc set: Brief · Protocol · RSS-001 · SAP · Implementation Guide · Internal Research Record) | **v1.0 Candidate — pending series ratification.** Protocol for external scientific review; two adversarial review cycles absorbed; documentation refactored per the governing Implementation Brief | Seven registered review questions + review posture — verbatim in §2 |
 | **P4** | **Interaction** | **Invariant Interaction** — do structural invariants exhibit interaction or field-like behaviour? | `exp-p4-invariant-interaction/` (reservation note only) | **RESERVED — designation held, protocol NOT yet designed.** Deferred from P3 deliberately: interaction concerns properties of the invariants themselves, not their representation | None yet — nothing to ratify until a protocol exists |
+
+### Note added 2026-07-27 — P2 became a family after this packet was drafted
+
+A later operator ruling the same day restructured P2: it "should no longer be one monolithic
+protocol. It should become **a family of consequence experiments** that share the same
+constitutional framework but operate in different consequence domains" — **P2A Software** and
+**P2B Physical**. Three consequences for this packet, none of which change P1 or P3:
+
+1. **The P2 design presented here is P2B.** It moved with its directory to
+   `exp-p2b-physical-consequences/01_prior-protocol-v1.0-candidate.md`; the document body is
+   unchanged.
+2. **Its arm structure is superseded.** The ruling replaces B / C / B+R / B+R-D / D with A–E arms
+   that separate content from representation, and the revised protocol is **PENDING OPERATOR
+   PROTOCOL**. What is put to reviewers, and when, is therefore an operator decision — this note
+   does not answer it.
+3. **RSS-001 certification becomes an admissibility precondition** of both P2 instantiations
+   (`exp-p2-consequential-performance/01_shared-constitutional-framework.md` §3). The programme
+   numbering P1 → P2 → P3 → P4 is unchanged; only the methodological dependency runs through P3.
 
 Epistemic status, uniformly: every P-series hypothesis (P1 §2 predictions; P2 §4 primary
 hypothesis; P3 H3.1–H3.4) is an empirical hypothesis under test — `proposed`, never canon —
@@ -158,7 +176,7 @@ The designations P2 and P3 are each now claimed by two different designs:
 
 | Designation | Pre-existing directory (different topic) | New directory (this packet's subject) |
 |---|---|---|
-| EXP-P2 | `exp-p2-structural-invariance/` — Structural Invariance battery (the "Layer 1 vs Layer 2 / medicine-style" companion named by P1 §14; B1–B5 sub-experiments) | `exp-p2-invariant-governed-physical-design/` — Invariant-Governed Generation and Verification for Physical Design (v1.0 Candidate) |
+| EXP-P2 | `exp-p2-structural-invariance/` — Structural Invariance battery (the "Layer 1 vs Layer 2 / medicine-style" companion named by P1 §14; B1–B5 sub-experiments) | `exp-p2-invariant-governed-physical-design/` — Invariant-Governed Generation and Verification for Physical Design (v1.0 Candidate). *Path as at the time of this packet; the directory is now `exp-p2b-physical-consequences/` — see the P2-family note in §1.* |
 | EXP-P3 | `exp-p3-capability-validation/` — Capability Validation (D1 Consequence Engineering demonstration slate) | `exp-p3-representation-of-structural-invariants/` — Representation of Structural Invariants (v1.0 Candidate, six-doc set) |
 
 The pre-existing directories were **not modified, renamed, or archived** — that decision is the
@@ -278,7 +296,8 @@ as-is, and states the change without overstating its significance:
 
 - **P1:** `exp-p1-representation-runtime-gauntlet/README.md` (+ `AUSTIN_ONE_PAGER.md`,
   `AUSTIN_COVER_NOTE.md`, `OPERATOR_SIGNING_RUNBOOK.md` as transmittal aids)
-- **P2:** `exp-p2-invariant-governed-physical-design/README.md`
+- **P2:** `exp-p2b-physical-consequences/01_prior-protocol-v1.0-candidate.md` (moved 2026-07-27 from
+  `exp-p2-invariant-governed-physical-design/README.md`; see the P2-family note in §1)
 - **P3:** `exp-p3-representation-of-structural-invariants/` — `01_experimental-brief.md`,
   `02_experimental-protocol.md`, `03_RSS-001_representation-science-standard.md`,
   `04_statistical-analysis-plan.md`, `05_implementation-guide.md`

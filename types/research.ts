@@ -67,6 +67,24 @@ export interface ResearchExperiment {
    * foundational slot it vacated. Absent for experiments that never moved.
    */
   formerly?: string;
+  /**
+   * INSTANTIATION — the foundational experiment whose constitutional question
+   * this experiment instantiates in ONE consequence domain. Operator ruling
+   * 2026-07-27: "P2 should no longer be one monolithic protocol. It should
+   * become a family of consequence experiments that share the same
+   * constitutional framework but operate in different consequence domains."
+   *
+   * Structured rather than encoded in `family` prose, for the same reason
+   * `formerly` is: a canary can assert it, and a surface reading `family`
+   * cannot mistake an instantiation for a foundational slot. An instantiation
+   * is NOT a renumbering — the parent slot still exists and still holds the
+   * constitutional question — so `instantiationOf` and `formerly` are never
+   * both set to the same id.
+   *
+   * An instantiation carries no `programmeFocus` (the focus belongs to the
+   * slot) and is not a member of the foundational series.
+   */
+  instantiationOf?: string;
 }
 
 export interface ResearchSeries {
@@ -248,16 +266,55 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     // the series — invariant-governed generation and verification for physical
     // design. The Structural Invariance battery that held this designation is
     // renumbered EXP-011 below: renumbered, never withdrawn.
+    // WIDENED 2026-07-27 (second operator ruling of the day): EXP-P2 is no
+    // longer one monolithic protocol. It is the FAMILY — it holds the
+    // constitutional question and the shared constitutional framework, and the
+    // domains live in its instantiations (EXP-P2A software, EXP-P2B physical).
+    // The former family title, "Invariant-Governed Physical Design", moved with
+    // its protocol to EXP-P2B; the P2 slot itself was NOT renumbered.
     id: 'EXP-P2',
     layer: 'I',
-    family: 'Invariant-Governed Physical Design',
+    family: 'Family of Consequence Experiments — P2A Software · P2B Physical',
     programmeFocus: 'Consequential Performance',
     seriesId: 'VP1',
     hypothesis:
-      'Do invariant-guided workflows produce measurably better consequential outcomes than equivalent prose-based workflows? Five-arm confirmatory protocol (B / C / B+R / B+R-D / D) on physical design generation and verification; primary contrast D vs B+R-D.',
+      'Do invariant-guided representations improve consequential task performance compared with conventional documentation under equivalent informational content? The constitutional question is unchanged; everything underneath is now an instantiation in one consequence domain. NO MONOLITHIC PROTOCOL by design — the shared framework is at the protocolRef, the domain protocols are PROTOCOL PENDING with the operator.',
     protocolRef:
-      'codexes/packs/irl/foundation/experiments/exp-p2-invariant-governed-physical-design/README.md',
+      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/README.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    // ESTABLISHED 2026-07-27 by the same ruling. P2A is the first of the two
+    // consequence domains and the condition CFS-053 §10.0 names first ("P2A
+    // exists") for Law XVII — existence only; the other two conditions
+    // (software consequence formally IN the programme, one supporting result)
+    // are untouched by registering it.
+    id: 'EXP-P2A',
+    layer: 'I',
+    family: 'Software Consequences — Constitutional Computing applied to software',
+    seriesId: 'CEF',
+    hypothesis:
+      'Do invariant representations improve the correctness, efficiency, and stability of software engineering outcomes? PROTOCOL PENDING — the operator supplies the protocol; the directory records the ruling’s example tasks, outcome lists and A–E arm labels as operator examples, never as a design.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2a-software-consequences/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    instantiationOf: 'EXP-P2',
+  },
+  {
+    // ESTABLISHED 2026-07-27. "This remains the lamp experiment" — P2B is
+    // continuous with the design that held the P2 slot; its v1.0 candidate
+    // protocol moved with the directory and is preserved verbatim as prior art.
+    // NOT `formerly: 'EXP-P2'`: EXP-P2 was not renumbered, it became the family.
+    id: 'EXP-P2B',
+    layer: 'I',
+    family: 'Physical Consequences — Invariant-Governed Generation and Verification for Physical Design',
+    seriesId: 'CEF',
+    hypothesis:
+      'Do invariant representations improve real-world physical construction outcomes? Domains: lamp, shelf, enclosure. PROTOCOL PENDING — the ruling supersedes the prior v1.0 candidate’s arm structure (B / C / B+R / B+R-D / D) with A–E arms separating content from representation; the revised protocol comes from the operator.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2b-physical-consequences/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    instantiationOf: 'EXP-P2',
   },
   {
     // DESIGNATION REASSIGNED 2026-07-27 (operator: "EXP P3 is supposed to be
@@ -428,6 +485,22 @@ export const SERIES_REGISTRY: ResearchSeries[] = [
     claim: 'Four foundational experiments, one per fundamental question — Compression (can reasoning be compressed into structural invariants?), Consequence (do invariant-guided workflows improve outcomes?), Representation (does representational substrate affect reasoning?), and Interaction (do invariants exhibit field-like behaviour? — reserved, not yet designed). Together they cover the breadth of the programme; no one of them substitutes for another.',
     members: ['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4'],
     charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
+  },
+  {
+    // ESTABLISHED 2026-07-27 (operator ruling). The instantiations of EXP-P2 —
+    // a family, in the operator's word: "It should become a family of
+    // consequence experiments that share the same constitutional framework but
+    // operate in different consequence domains." A separate series, not extra
+    // VP1 members: VP1 holds the four foundational SLOTS and P2 is still the
+    // slot. `members` is canary-pinned against the `instantiationOf` field so
+    // the two cannot drift into disagreeing about who is in the family.
+    id: 'CEF',
+    name: 'Consequence Experiment Family (EXP-P2)',
+    claim:
+      'One constitutional question — do invariant-guided representations improve consequential task performance compared with conventional documentation under equivalent informational content? — instantiated in different consequence domains: software (EXP-P2A) and physical construction (EXP-P2B). Everything above the experimental domain is shared and written once; only the domain changes. Every representation entering either instantiation must first pass RSS-001 certification.',
+    members: ['EXP-P2A', 'EXP-P2B'],
+    charterRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md',
   },
   {
     // The two designs displaced from the reserved P2 / P3 slots on 2026-07-27.

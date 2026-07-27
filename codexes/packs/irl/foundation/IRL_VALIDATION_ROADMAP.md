@@ -59,7 +59,7 @@ cover the breadth of the programme — one per fundamental question:
 | Slot | Programme focus | Protocol title | Foundational question |
 |---|---|---|---|
 | **EXP-P1** | **Reasoning Compression** | Representation & Runtime Gauntlet | Can reasoning be compressed into structural invariants? |
-| **EXP-P2** | **Consequential Performance** | Invariant-Governed Physical Design | Do invariant-guided workflows improve consequential outcomes? |
+| **EXP-P2** | **Consequential Performance** | Family of Consequence Experiments — P2A Software · P2B Physical | Do invariant-guided representations improve consequential task performance compared with conventional documentation under equivalent informational content? |
 | **EXP-P3** | **Representation** | Representation of Structural Invariants | Does representational substrate materially affect reasoning? |
 | **EXP-P4** | **Interaction** | *Reserved — not yet designed* | Do invariants exhibit interaction or field-like behaviour? |
 
@@ -74,6 +74,15 @@ P2 — Consequence
 P3 — Representation
 P4 — Interaction
 ```
+
+**P2 became a family later the same day** (second operator ruling, 2026-07-27): it is no longer one
+monolithic protocol but the family that holds the constitutional question, instantiated as
+**EXP-P2A** (software consequence) and **EXP-P2B** (physical consequence — the lamp experiment,
+continuous with the design that held the slot). The **numbering is unchanged**: P2 is still the
+slot, still the second question, and the instantiations are not new slots. What P3 adds is a
+*methodological* dependency — RSS-001 certification is now an admissibility precondition of both
+instantiations. See `experiments/exp-p2-consequential-performance/README.md` §5 for the two views
+and why one must not be read as the other.
 
 Two designs previously held the P2 and P3 numbers and were **renumbered, not withdrawn**. Numbers
 are never reused:

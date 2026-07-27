@@ -84,6 +84,11 @@
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY
+ *  - EXP-P2 consequence family (ruling 2026-07-27): `instantiationOf` ↔ the CEF
+ *    series `members`; the shared constitutional framework defined once and
+ *    restated in neither instantiation; the RSS-001 admissibility gate citing
+ *    only sections that exist in RSS-001; both programme views recorded and
+ *    distinguishable; nothing rendered as a designed protocol
  *  - SPEC-CDR-001 execution taxonomy (D-1): EXECUTION_DOMAINS ↔
  *    FINANCIAL_DOMAINS ↔ the SPEC §3 docs mirror, plus the §4.2
  *    non-executability rule for governance domains
@@ -694,7 +699,9 @@ describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-2
   it('Canary 6 — the canonical documentation joins are pinned', () => {
     const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
     const JOINS: Record<string, string> = {
-      'EXP-P2': 'exp-p2-invariant-governed-physical-design',
+      'EXP-P2': 'exp-p2-consequential-performance',
+      'EXP-P2A': 'exp-p2a-software-consequences',
+      'EXP-P2B': 'exp-p2b-physical-consequences',
       'EXP-P3': 'exp-p3-representation-of-structural-invariants',
       'EXP-P4': 'exp-p4-invariant-interaction',
       'EXP-011': 'exp-011-structural-invariance',
@@ -728,5 +735,179 @@ describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-2
     expect(vp1.members).toEqual(['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']);
     const scs = SERIES_REGISTRY.find((x) => x.id === 'SCS')!;
     expect(scs.members).toEqual(['EXP-011', 'EXP-012']);
+  });
+});
+
+/**
+ * EXP-P2 consequence family (operator ruling, 2026-07-27).
+ *
+ * WHAT THE RULING DID. P2 stopped being one monolithic protocol and became "a
+ * family of consequence experiments that share the same constitutional
+ * framework but operate in different consequence domains" — P2A software, P2B
+ * physical. Three things about that are exactly the shape this file exists to
+ * guard:
+ *
+ *  1. A SHARED framework with two consumers is one authoritative location with
+ *     two references (inv.engineering.036). Copied into two experiment
+ *     documents it diverges, and the divergence is invisible until the two
+ *     experiments disagree about what they were measuring.
+ *  2. The family membership is expressed TWICE by necessity — as
+ *     `instantiationOf` on each member and as `members` on the series — so the
+ *     two must be pinned against each other.
+ *  3. The ruling records TWO views of the programme (conceptual numbering;
+ *     methodological dependency through P3/RSS-001) and explicitly denies that
+ *     the second renumbers the first. A reader who collapses them concludes P3
+ *     precedes P2 in the programme, which the ruling denies in the same breath.
+ */
+describe('EXP-P2 consequence family (operator ruling 2026-07-27)', () => {
+  const P2_DIR = 'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance';
+  const FAMILY_INDEX = `${P2_DIR}/README.md`;
+  const FRAMEWORK = `${P2_DIR}/01_shared-constitutional-framework.md`;
+  const RSS =
+    'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/03_RSS-001_representation-science-standard.md';
+
+  const p2 = () => EXPERIMENT_REGISTRY.find((e) => e.id === 'EXP-P2')!;
+  const instantiations = () => EXPERIMENT_REGISTRY.filter((e) => e.instantiationOf === 'EXP-P2');
+  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&');
+
+  it('family membership is derived from instantiationOf, not maintained as a second list', () => {
+    const derived = instantiations().map((e) => e.id);
+    expect(derived).toEqual(['EXP-P2A', 'EXP-P2B']);
+    const cef = SERIES_REGISTRY.find((s) => s.id === 'CEF');
+    expect(cef, 'the consequence family has no series').toBeTruthy();
+    // The series list and the per-experiment field are two statements of one
+    // fact; drift between them is the defect, so they are pinned to each other.
+    expect(cef!.members).toEqual(derived);
+    for (const e of instantiations()) expect(e.seriesId).toBe('CEF');
+  });
+
+  it('an instantiation is never a foundational slot, and never a renumbering of one', () => {
+    const ids = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
+    const vp1 = SERIES_REGISTRY.find((s) => s.id === 'VP1')!;
+    expect(instantiations().length).toBeGreaterThan(0); // guards a vacuous loop
+    for (const e of instantiations()) {
+      expect(ids.has(e.instantiationOf!), `${e.id} instantiates an unregistered id`).toBe(true);
+      expect(e.instantiationOf, `${e.id} instantiates itself`).not.toBe(e.id);
+      // The focus belongs to the SLOT. An instantiation declaring one would
+      // imply a fifth foundational question.
+      expect(e.programmeFocus, `${e.id} claims a programme focus`).toBeUndefined();
+      expect(vp1.members, `${e.id} sits in the foundational series`).not.toContain(e.id);
+      // Instantiation is NOT renumbering: the parent slot still exists and
+      // still holds the constitutional question. `formerly` would say P2 moved.
+      expect(e.formerly, `${e.id} claims to be its parent renumbered`).toBeUndefined();
+    }
+    // Conversely: a foundational slot instantiates nothing.
+    for (const id of ['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']) {
+      const slot = EXPERIMENT_REGISTRY.find((e) => e.id === id)!;
+      expect(slot.instantiationOf, `${id} is registered as an instantiation`).toBeUndefined();
+    }
+    // The slot kept the question and the focus when the family formed.
+    expect(p2().programmeFocus).toBe('Consequential Performance');
+    expect(p2().hypothesis).toMatch(/improve consequential task performance/);
+    expect(p2().hypothesis).toMatch(/equivalent informational content/);
+  });
+
+  it('the RSS-001 admissibility gate cites sections that really exist in RSS-001', () => {
+    // Citing an invented section id is the failure this catches: it reads as a
+    // real methodological binding and resolves to nothing.
+    const headings = new Set(
+      [...readSource(RSS).matchAll(/^#{1,4}\s+§?([\w.]+)/gm)].map((m) => m[1]),
+    );
+    expect(headings.size, 'RSS-001 headings did not parse').toBeGreaterThan(20);
+    const framework = readSource(FRAMEWORK);
+    const cited = new Set([...framework.matchAll(/RSS-001 §([\w.]+)/g)].map((m) => m[1]));
+    expect(cited.size, 'the gate cites almost nothing').toBeGreaterThanOrEqual(8);
+    for (const c of cited) {
+      expect(headings.has(c), `the gate cites RSS-001 §${c}, which is not a section of RSS-001`).toBe(true);
+    }
+    // The ruling names five certification steps; all five must be present.
+    for (const step of [
+      'Atomic Content Mapping',
+      'Informational Equivalence',
+      'Tiered Computational Equivalence',
+      'Representation Certification',
+      'Assumption Back-Propagation',
+    ]) {
+      expect(framework, `the gate omits the step '${step}'`).toContain(step);
+    }
+    // It is a PRECONDITION of entry, not an outcome measured inside the run.
+    expect(framework, 'the gate is not stated as a precondition').toMatch(/precondition of admissibility/i);
+    // And RSS-001 records the downstream adoption, so the join is discoverable
+    // from the standard's end too — without a second copy of the mapping.
+    expect(readSource(RSS), 'RSS-001 does not record its downstream adoption').toContain(
+      '01_shared-constitutional-framework.md',
+    );
+  });
+
+  it('every instantiation declares the gate and defers to the shared framework', () => {
+    expect(instantiations().length).toBeGreaterThan(0);
+    for (const e of instantiations()) {
+      const doc = readSource(e.protocolRef);
+      expect(doc, `${e.id} does not declare RSS-001 certification`).toMatch(/RSS-001 certification/);
+      expect(doc, `${e.id} does not state admissibility`).toMatch(/admissible/i);
+      expect(doc, `${e.id} does not point at the shared framework`).toContain(
+        '01_shared-constitutional-framework.md',
+      );
+    }
+  });
+
+  it('the seven shared concerns are defined in one place and restated in neither instantiation', () => {
+    const framework = readSource(FRAMEWORK);
+    const concerns = [...framework.matchAll(/^### §\d+ (.+)$/gm)].map((m) => m[1].trim());
+    // The ruling's own list, in its own words and order.
+    expect(concerns.map((c) => c.split(' — ')[0].toLowerCase())).toEqual([
+      'constitutional principles',
+      'claims discipline',
+      'representation certification',
+      'statistical analysis',
+      'decision procedure',
+      'audit framework',
+      'information equivalence',
+    ]);
+    for (const e of instantiations()) {
+      const doc = readSource(e.protocolRef);
+      for (const c of concerns) {
+        const name = c.split(' — ')[0];
+        expect(
+          new RegExp(`^#{1,6}\\s.*${escape(name)}`, 'im').test(doc),
+          `${e.id} takes the shared concern '${name}' as its own section instead of referencing the framework`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('both programme views are recorded, and neither can be read as the other', () => {
+    const idx = readSource(FAMILY_INDEX);
+    // View 1 — the conceptual sequence. The numbering did NOT change.
+    expect(idx, 'the conceptual sequence is missing').toMatch(
+      /P1 Compression\s*→\s*P2 Consequence\s*→\s*P3 Representation\s*→\s*P4 Interaction/,
+    );
+    expect(idx).toMatch(/numbering should remain P1 → P2 → P3 → P4/);
+    // View 2 — the methodological dependency, which runs through P3/RSS-001.
+    expect(idx, 'the methodological dependency is missing').toMatch(
+      /P3 Representation Science\s*→\s*RSS-001 Certification/,
+    );
+    expect(idx).toMatch(/methodological dependency now runs through P3/);
+    // The distinction itself must be stated. Without it the dependency graph
+    // reads as a reordering of the programme — which the ruling denies.
+    expect(idx, 'the index never denies the renumbering reading').toMatch(/not a renumbering/i);
+    // And the registry agrees with view 1: order preserved, no slot renumbered.
+    expect(SERIES_REGISTRY.find((s) => s.id === 'VP1')!.members).toEqual([
+      'EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4',
+    ]);
+  });
+
+  it('nothing in the family is presented as a designed protocol', () => {
+    // The framework was set up from a ruling; the protocol comes later, from
+    // the operator. A later reader must be able to tell the two apart, and the
+    // registry must not let a surface render these as designed experiments.
+    for (const e of [p2(), ...instantiations()]) {
+      expect(e.hypothesis, `${e.id} does not declare its protocol pending`).toMatch(/PROTOCOL PENDING/);
+      expect(readSource(e.protocolRef), `${e.protocolRef} does not mark itself pending`).toContain(
+        'PENDING OPERATOR PROTOCOL',
+      );
+    }
+    // The family holds no protocol by design — only the shared framework.
+    expect(readSource(FAMILY_INDEX)).toMatch(/carries no experimental protocol/i);
   });
 });
