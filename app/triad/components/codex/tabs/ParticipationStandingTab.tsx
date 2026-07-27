@@ -14,7 +14,12 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Award, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
-import { authedFetchHeaders } from '@/utils/supabaseBrowser';
+// Persona-aware transport. `/api/assistant/*` and `/api/wallet/*` resolve the
+// caller through the spine, and this tab is about to become PARTICIPANT-FACING
+// in the Venture Lab — where a fallback persona would show one participant
+// another's standing and receipts. `authedFetchHeaders` attaches the Bearer but
+// carries no persona selection (CLAUDE.md, 2026-07-20 incident).
+import { personaFetch } from '@/utils/personaSpine';
 
 interface StandingLanes {
   personal: number;
@@ -58,11 +63,9 @@ export function ParticipationStandingTab() {
     setLoading(true);
     setError(null);
     try {
-      const headers = await authedFetchHeaders({ Accept: 'application/json' });
-      const init: RequestInit = { cache: 'no-store', headers: headers ?? undefined };
       const [tasksRes, receiptsRes] = await Promise.allSettled([
-        fetch('/api/wallet/tasks', init),
-        fetch('/api/assistant/receipts?limit=25', init),
+        personaFetch('/api/wallet/tasks', { cache: 'no-store' }),
+        personaFetch('/api/assistant/receipts?limit=25', { cache: 'no-store' }),
       ]);
       if (tasksRes.status === 'fulfilled' && tasksRes.value.ok) {
         const data = await tasksRes.value.json();

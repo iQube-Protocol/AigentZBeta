@@ -334,3 +334,89 @@ describe('collaborate — venture-lab domain scoping over the ONE invitation/exc
     expect(inbox).toContain('researchOnly ? "research-lab" : domainFilter ?? null');
   });
 });
+
+describe('Phase 1 — Venture Lab Participation is a composition, not a copy', () => {
+  it('Participate is its own cross-programme group between Partner and Administer', async () => {
+    // Operator decision 2026-07-27: participation spans every venture programme,
+    // so it is not a Partner sub-item.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const groups = VENTURE_LAB_CODEX.tabGroups ?? [];
+    const participate = groups.find((g: { id: string }) => g.id === 'participate');
+    const partner = groups.find((g: { id: string }) => g.id === 'partner');
+    const administer = groups.find((g: { id: string }) => g.id === 'administer');
+    expect(participate, 'no Participate group').toBeTruthy();
+    expect(participate!.label).toBe('Participate');
+    expect(participate!.order).toBeGreaterThan(partner!.order);
+    expect(participate!.order).toBeLessThan(administer!.order);
+    // Participant-facing: the GROUP must NOT be adminOnly, or no participant
+    // could ever reach it — the whole point of Phase 1.
+    expect(participate!.adminOnly).toBeUndefined();
+  });
+
+  it('every Participate tab mounts a component that already exists elsewhere — reuse, not a fork', async () => {
+    // THE RULING: "Do not copy Research Lab Participation into Venture Lab."
+    // The property that proves compliance is REUSE: every component the venture
+    // Participate group mounts must already be mounted by some other cartridge.
+    // A venture-specific fork — a `VentureParticipationApplyTab` — would be the
+    // only component appearing nowhere else, and would fail here.
+    //
+    // Compared across ALL cartridges rather than only the IRL participation
+    // group: `StewardParticipationTab` is the shared five-domain Access &
+    // Invitations workspace and is mounted from the Passport surface, not from
+    // IRL's participation group. Narrowing to one group made this canary
+    // mis-fire on correct reuse (caught on first run, 2026-07-27).
+    const { VENTURE_LAB_CODEX, CODEX_DEFINITIONS } = await import('../data/codex-configs');
+
+    const ventureParticipate = VENTURE_LAB_CODEX.tabs.filter(
+      (t: { group?: string }) => t.group === 'participate',
+    );
+    expect(ventureParticipate.length).toBe(6);
+
+    // metaMe MIRRORS the Venture Lab's tabs into its own `vl` group
+    // (`ventureLabTabsForMetameVl`, ids prefixed `vl-`). Excluding only the
+    // venture-lab codex therefore made "exists elsewhere" vacuously true for
+    // every VL tab — the mirror re-exposed the fork. Caught by mutation-testing
+    // this canary, 2026-07-27. Mirrored clones are excluded too.
+    const elsewhere = new Set<string>(
+      CODEX_DEFINITIONS
+        .filter((c: { slug: string }) => c.slug !== VENTURE_LAB_CODEX.slug)
+        .flatMap((c: { tabs?: { id: string; config: { component?: string } }[] }) => c.tabs ?? [])
+        .filter((t: { id: string }) => !t.id.startsWith('vl-'))
+        .map((t: { config: { component?: string } }) => t.config.component)
+        .filter(Boolean),
+    );
+    expect(elsewhere.size, 'no components found to compare against').toBeGreaterThan(10);
+
+    for (const tab of ventureParticipate) {
+      expect(
+        elsewhere.has(tab.config.component as string),
+        `${tab.id} mounts ${tab.config.component}, which no other cartridge mounts — that is a fork, not a composition`,
+      ).toBe(true);
+    }
+
+    // The steward surface is the only adminOnly one, and it opens on the
+    // venture domain — the single configuration difference between the Labs.
+    const steward = ventureParticipate.find((t: { id: string }) => t.id.endsWith('-steward'))!;
+    expect(steward.adminOnly).toBe(true);
+    expect(steward.config.props?.initialDomain).toBe('venture-lab');
+    for (const tab of ventureParticipate) {
+      if (tab.id !== steward.id) {
+        expect(tab.adminOnly, `${tab.id} is adminOnly — participants cannot reach it`).toBeUndefined();
+      }
+    }
+  });
+
+  it('the venture-lab domain carries the workspace roles, and the venture roles survive', async () => {
+    // Extended, never forked — one participation mechanism across five domains.
+    const roles = DOMAIN_ROLES['venture-lab'];
+    for (const original of ['founder-operator', 'venture-participant', 'mentor', 'venture-steward', 'portfolio-reviewer']) {
+      expect(roles, `venture role '${original}' was dropped`).toContain(original);
+    }
+    for (const added of ['workspace-steward', 'partner-operator', 'technical-contributor', 'communications-contributor', 'observer', 'agent-participant']) {
+      expect(roles, `workspace role '${added}' missing`).toContain(added);
+    }
+    // The domain list itself is untouched — no sixth access domain was invented.
+    expect(ACCESS_DOMAINS).toContain('venture-lab');
+    expect(ACCESS_DOMAINS.length).toBe(5);
+  });
+});

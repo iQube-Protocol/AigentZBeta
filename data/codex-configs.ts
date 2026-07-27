@@ -2498,6 +2498,15 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     // GROUP, matching the Administer precedent below, so a non-admin founder
     // never sees a Partner pill that would filter to empty.
     { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.5, adminOnly: true },
+    // PARTICIPATE (Phase 1, 2026-07-27) — the participant-facing expression of
+    // the SAME domain-scoped participation substrate the Research Lab already
+    // surfaces (`ACCESS_DOMAINS` × `DOMAIN_ROLES`, one mechanism, five domains).
+    // Its own cross-programme group rather than a Partner sub-item: participation
+    // spans every venture programme, not one partner. The tabs below mount the
+    // SAME components the IRL cartridge mounts — the ruling was "do not copy
+    // Research Lab Participation into Venture Lab", and these are the identical
+    // modules, configured for the venture domain.
+    { id: 'participate', label: 'Participate', icon: 'ShieldCheck', order: 3.7 },
     // adminOnly on the GROUP itself, not just its children: every current
     // Administer tab (AgentiQ OS, Plan Pricing, Docs) is adminOnly:true --
     // without this, a non-admin founder would see an "Administer" pill that
@@ -2601,6 +2610,82 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // in services/venture/partnerWorkspace.ts (single source); this tab only
       // renders that registry. adminOnly during the pilot.
       //
+      // ── Participate group (Phase 1) ───────────────────────────────────
+      //
+      // ONE participation mechanism, two Lab expressions. Every component here
+      // is the module the Research Lab's Participation group already mounts;
+      // none is a venture-specific fork. What differs is the DOMAIN they are
+      // configured for and the language around them — exactly the asymmetry the
+      // cross-Lab ruling preserves.
+      id: 'venture-participate-overview',
+      label: 'Overview',
+      slug: 'venture-participate-overview',
+      enabled: true,
+      group: 'participate',
+      order: 0,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'alpha-knyt', collectionId: 'col_venture_lab' } },
+      metadata: { icon: 'LayoutDashboard', description: 'How participation works in the Venture Lab — roles, entry, and what a participant can do', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-apply',
+      label: 'Apply',
+      slug: 'venture-participate-apply',
+      enabled: true,
+      group: 'participate',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab', props: {} },
+      metadata: { icon: 'FileSignature', description: 'Apply or claim an invitation to a venture programme or partner pilot', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-delegation',
+      label: 'Delegation',
+      slug: 'venture-participate-delegation',
+      enabled: true,
+      group: 'participate',
+      order: 2,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab', props: {} },
+      metadata: { icon: 'Bot', description: 'Sponsor and bound an agent to act for you in a venture programme', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-locker',
+      label: 'Locker',
+      slug: 'venture-participate-locker',
+      enabled: true,
+      group: 'participate',
+      order: 3,
+      type: 'static',
+      config: { component: 'LockerTab', props: {} },
+      metadata: { icon: 'Lock', description: 'Your sovereign Locker — private by default, shared only by explicit act (Tier 1)', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-standing',
+      label: 'Standing',
+      slug: 'venture-participate-standing',
+      enabled: true,
+      group: 'participate',
+      order: 4,
+      type: 'static',
+      config: { component: 'ParticipationStandingTab', props: {} },
+      metadata: { icon: 'Award', description: 'Your standing, reach and receipted contribution history', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-steward',
+      label: 'Steward',
+      slug: 'venture-participate-steward',
+      enabled: true,
+      adminOnly: true,
+      group: 'participate',
+      order: 5,
+      type: 'static',
+      // The SAME steward workspace the Passport and Research Lab domains use,
+      // opened on the venture-lab domain. `initialDomain` is the only difference.
+      config: { component: 'StewardParticipationTab', props: { initialDomain: 'venture-lab' } },
+      metadata: { icon: 'Gavel', description: 'Issue and revoke venture-domain invitations — steward only', color: 'amber' },
+    },
+    {
       // THE PARTNER DOMAIN'S FIVE TABS (operator, 2026-07-27, revising the same
       // day's first cut). Seen in situ, the earlier shape rendered TWO menus for
       // one concept: a tier-3 row above and the component's own surface row

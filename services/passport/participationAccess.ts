@@ -78,7 +78,17 @@ export const DOMAIN_LABELS: Record<AccessDomain, string> = {
 export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['citizen', 'sovereign-citizen', 'citizen-steward', 'passport-steward'],
   'research-lab': ['research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier'],
-  'venture-lab': ['founder-operator', 'venture-participant', 'mentor', 'venture-steward', 'portfolio-reviewer'],
+  // WORKSPACE ROLES added 2026-07-27 (operator decision). The five original
+  // entries are VENTURE roles — what someone is to a venture. A partner pilot
+  // needs what someone is to a WORKSPACE, and the two do not map 1:1: a partner
+  // operator is not a founder-operator, and an observer is not a mentor.
+  // Extended rather than forked so there is still ONE participation mechanism
+  // across all five access domains (the substrate the Horizen Workspace reuses).
+  'venture-lab': [
+    'founder-operator', 'venture-participant', 'mentor', 'venture-steward', 'portfolio-reviewer',
+    'workspace-steward', 'partner-operator', 'technical-contributor',
+    'communications-contributor', 'observer', 'agent-participant',
+  ],
   'metame-studio': ['creator', 'publisher', 'studio-member', 'studio-steward'],
   'developer-studio': ['developer', 'technical-operator', 'contributor', 'maintainer', 'development-steward', 'deployment-approver'],
 };
