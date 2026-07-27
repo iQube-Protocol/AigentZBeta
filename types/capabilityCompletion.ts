@@ -25,13 +25,19 @@
  * registry remains the single pointer to the document this shape is read from.
  * Registration stays the acceptance ceremony — this contract adds no second one.
  *
- * NOT IMPLEMENTED HERE — CCR-001 §9's six-stage invariant lifecycle
- * (`Observed → Candidate → Validated → Ratified → Canonical → Deprecated`).
- * It conflicts with `FINDING_LIFECYCLE` in `types/research.ts`, whose ORDER is
- * pinned constitutional data under `inv.constitutional.078`. CCR-001 §25
- * records the conflict as an OPEN OPERATOR DECISION and this file does not
- * resolve it: `InvariantStatus` below is the seed crystal's EXISTING
- * `proposed | validated | canonical` vocabulary, introducing no new ladder.
+ * §9 LIFECYCLE — RESOLVED BY MAPPING, NOT UNIFICATION (operator, 2026-07-27:
+ * *"map, don't unify. Agreed."*). `FINDING_LIFECYCLE` in `types/research.ts`
+ * stays pinned canon and is never rewritten, extended or re-ordered — its
+ * ORDER is constitutional data under `inv.constitutional.078`. CCR-001's
+ * `COMPLETION_LIFECYCLE` is a SEPARATE ladder that maps onto the seed crystal's
+ * vocabulary, carrying the source value alongside its own, in the same shape
+ * the Horizen audit's Amendment B §B.4 ratified for `CommonsEvidencePosture`
+ * (*"carries `sourceLifecycle` so the native ladder is never erased"*).
+ *
+ * So an invariant record carries BOTH: `completionStage` (CCR-001's own ladder)
+ * and `status` (the seed crystal's `proposed | validated | canonical`, the
+ * source value). Neither is rewritten into the other; `mapCompletionStage` is
+ * the one-way projection between them.
  *
  * Validator idiom follows `services/passport/participantApplicationValidator.ts`
  * (path-addressed issues over an `unknown` input, version field checked first)
@@ -97,13 +103,58 @@ export const UNEVIDENCED_PROVENANCE: InvariantProvenance = 'proposed';
 
 /**
  * `proposed | validated | canonical` — exactly the statuses the canonical
- * invariant crystal already uses. Deliberately NOT CCR-001 §9's six stages;
- * see the file header. `canonical` is this vocabulary's ratified terminus and
- * is what `CAN-CCR-3` ("no ratified invariant without enforcement") reads.
+ * invariant crystal already uses. This is the SOURCE lifecycle value an
+ * artifact carries; it is never rewritten. `canonical` is this vocabulary's
+ * ratified terminus and is what `CAN-CCR-3` ("no ratified invariant without
+ * enforcement") reads.
  */
 export const INVARIANT_STATUSES = ['proposed', 'validated', 'canonical'] as const;
 
 export type InvariantStatus = (typeof INVARIANT_STATUSES)[number];
+
+/**
+ * CCR-001 §9's completion ladder — CCR-001's OWN vocabulary, distinct from both
+ * the crystal statuses above and from `FINDING_LIFECYCLE`. ORDER IS SEMANTIC
+ * here: it is a ladder, and a stage's position is its maturity.
+ *
+ * Held separate on purpose. `FINDING_LIFECYCLE` governs empirical findings
+ * earning canonisation through replication; this governs engineering invariants
+ * earning enforcement through canaries. Mapping preserves both; unifying would
+ * destroy one.
+ */
+export const COMPLETION_LIFECYCLE = [
+  'observed',
+  'candidate',
+  'validated',
+  'ratified',
+  'canonical',
+  'deprecated',
+] as const;
+
+export type CompletionStage = (typeof COMPLETION_LIFECYCLE)[number];
+
+/**
+ * The one-way projection from CCR-001's ladder onto the crystal's vocabulary.
+ * Total by construction — every stage has an answer, so no stage can be added
+ * without deciding what it means to the crystal.
+ *
+ * `deprecated` maps to `null`: a retired invariant asserts no crystal status at
+ * all. That is honest rather than convenient — the crystal has no `deprecated`,
+ * and inventing one would be exactly the unification this ruling forbids.
+ */
+export const COMPLETION_STAGE_TO_STATUS: Record<CompletionStage, InvariantStatus | null> = {
+  observed: 'proposed',
+  candidate: 'proposed',
+  validated: 'validated',
+  ratified: 'canonical',
+  canonical: 'canonical',
+  deprecated: null,
+};
+
+/** PURE — project a completion stage onto the crystal status it corresponds to. */
+export function mapCompletionStage(stage: CompletionStage): InvariantStatus | null {
+  return COMPLETION_STAGE_TO_STATUS[stage];
+}
 
 /** Statuses that assert the invariant is evidenced, not merely asserted. */
 export const EVIDENCED_STATUSES: readonly InvariantStatus[] = ['validated', 'canonical'];
@@ -134,7 +185,15 @@ export interface ReproductionInvariant {
    * `CAN-CCR-5` requires every path to resolve on disk.
    */
   canaries: string[];
+  /** The SOURCE lifecycle value — the seed crystal's vocabulary, never rewritten. */
   status: InvariantStatus;
+  /**
+   * CCR-001's own ladder, carried ALONGSIDE `status` (map, don't unify —
+   * operator ruling 2026-07-27). Optional: an artifact may record only the
+   * source value. When present it MUST project onto `status` via
+   * `mapCompletionStage`, which the validator enforces.
+   */
+  completionStage?: CompletionStage;
 }
 
 // ---------------------------------------------------------------------------

@@ -118,6 +118,7 @@ concept the menu already owns.
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** the Companion's own bottom nav row duplicating the copilot's (retired 2026-07-26);
   the Partner Workspace rendering a tier-3 row AND an in-component surface row, which disagreed
   with each other on screen (2026-07-27).
@@ -133,6 +134,7 @@ it doesn't.
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** twice. The copilot's wallet stayed mounted after the citizen navigated away
   (2026-07-26); then `launchWallet` set private `walletPanelOpen` *and* notified the host, so
   pressing Agent Me surfaced a stale wallet over the conversation (2026-07-27).
@@ -146,6 +148,7 @@ and neither may keep its own idea of which surface is active.
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** entering avatar via the copilot toggle left the host's `activeNavItem` frozen, so
   every later nav click wrote state the avatar branch never rendered (2026-07-26). Then the chat
   echo returned the *current* item unless it was `avatar`, so from any bodySlot surface the Agent
@@ -160,6 +163,7 @@ changes. A zero measurement is a teardown artifact, **never** a layout value.
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** the ten-cycle defect. The footer carrying the whole menu row was measured by a
   `ResizeObserver` attached with `[]` deps. Entering avatar detached the node (`offsetHeight` 0);
   returning to chat mounted a new node the observer never saw. Height stuck at 0 for the life of
@@ -178,6 +182,7 @@ choice. Only a surface that is *about* the page (`overlay`) — or has no topic 
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** quick-link ranking read `shape ?? domain ?? surface` on the reasoning that an
   asserted page shape is "the stronger signal." But `dev-beta.aigentz.me` carries a verified
   Domain Profile, so during testing the shape *always* resolved and pinned the strip to one needle
@@ -193,6 +198,7 @@ are offered.
 
 - **Provenance:** pre-release-intercepted
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** never shipped, but the first ranking design filtered instead of ranking, which
   would have let an unrecognised page empty a surface that works fine with no observation at all.
 - **Enforced by:** `tests/companion-1-1-quicklinks.test.ts` — a surface needle cannot subtract or
@@ -205,6 +211,7 @@ observer without evidence that it matches something real.
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** `workspace: ['mycluster']` matched nothing because ranking read the visible label
   only, and `myCluster` is a tab **group** whose members are labelled myCanvas / myWorkspace /
   myCartridge / myLedger. The strip stayed frozen and read as "quick links still static"
@@ -220,6 +227,7 @@ size from another is a misplacement waiting to happen, and a high-z layer with n
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** the avatar host took its position from the panel and its size from the frame. The
   repo carries the scar tissue: an earlier commit raised six unrelated components to `z-200` to
   escape this overlay.
@@ -233,6 +241,7 @@ different deployment is a dead control and must be gated out, not left as decora
 
 - **Provenance:** regression-derived
 - **Status:** canonical
+- **Stage:** canonical
 - **Broke it:** the copilot's close chevron in the Companion, where the Companion's own chrome
   closes the panel — and then the over-correction that removed it from the platform copilot, where
   it is the only way to dismiss the copilot.

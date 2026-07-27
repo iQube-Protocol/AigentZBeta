@@ -121,9 +121,16 @@
          proposed
        `proposed` is the only unevidenced kind; `CAN-CCR-2` refuses any
        validated/canonical invariant that carries it.
-     - Status is the seed crystal's `proposed | validated | canonical`.
-       CCR-001 §9's six-stage ladder is NOT in force — it conflicts with the
-       pinned `FINDING_LIFECYCLE` and remains an open operator decision.
+     - Status is the SOURCE lifecycle value: the seed crystal's
+       `proposed | validated | canonical`. It is never rewritten.
+     - Stage is CCR-001 §9's own ladder, carried ALONGSIDE Status —
+         observed · candidate · validated · ratified · canonical · deprecated
+       RESOLVED BY MAPPING, NOT UNIFICATION (operator, 2026-07-27: "map, don't
+       unify"). `FINDING_LIFECYCLE` stays pinned canon; the two ladders project
+       onto one another and neither is rewritten into the other. Stage is
+       OPTIONAL, but when present it must project onto Status
+       (ratified/canonical → canonical, validated → validated,
+       observed/candidate → proposed). The validator enforces the projection.
      - `Enforced by` MUST name at least one real test file for a `canonical`
        invariant (`CAN-CCR-3`), and every named file must exist (`CAN-CCR-5`).
        No prose-only enforcement. An invariant nothing tests is a slogan. -->

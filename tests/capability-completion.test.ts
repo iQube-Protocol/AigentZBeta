@@ -61,12 +61,16 @@ import {
 } from '../services/constitutional/capabilityCompletionArtifact';
 import {
   CAPABILITY_COMPLETION_SCHEMA_VERSION,
+  COMPLETION_LIFECYCLE,
   INVARIANT_PROVENANCE_KINDS,
   INVARIANT_STATUSES,
   EVIDENCED_STATUSES,
   UNEVIDENCED_PROVENANCE,
+  mapCompletionStage,
   type CapabilityCompletionArtifact,
 } from '../types/capabilityCompletion';
+// Pinned canon, read never written — `types/research.ts` is not modified here.
+import { FINDING_LIFECYCLE } from '../types/research';
 
 const ARTIFACT_PATH =
   'codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md';
@@ -434,25 +438,96 @@ describe('capability-completion-artifact/v1.0 — schema discipline', () => {
     }
   });
 
-  it('CCR-001 §9 stays an OPEN operator decision — no second lifecycle ladder is in force', () => {
-    // The conflict CCR-001 §25 refuses to override: `FINDING_LIFECYCLE`'s ORDER
-    // is pinned constitutional data (`inv.constitutional.078`). This canary
-    // fails if anyone implements §9's six stages, so resolving the decision
-    // must be a deliberate, operator-sanctioned act rather than a side effect.
-    // The §9-specific stages first, so a §9 implementation is diagnosed by
-    // NAME rather than as an anonymous array mismatch.
-    for (const stage of ['observed', 'candidate', 'ratified', 'deprecated']) {
-      expect(
-        (INVARIANT_STATUSES as readonly string[]).includes(stage),
-        `'${stage}' has entered the invariant status vocabulary — CCR-001 §9's six-stage ladder was implemented without resolving its conflict with the pinned FINDING_LIFECYCLE (inv.constitutional.078). That is an operator decision, not an implementation detail.`,
-      ).toBe(false);
-    }
+  it('the source lifecycle vocabulary stays the seed crystal\'s own', () => {
+    // The crystal's vocabulary is the SOURCE value an artifact carries. CCR-001
+    // adds its own ladder alongside (see the "map, don't unify" block below)
+    // rather than widening this one.
     expect(
       [...INVARIANT_STATUSES],
-      'the invariant status vocabulary has drifted from the seed crystal\'s proposed|validated|canonical',
+      "the source lifecycle vocabulary has drifted from the seed crystal's proposed|validated|canonical",
     ).toEqual(['proposed', 'validated', 'canonical']);
-    const types = readSource('types/capabilityCompletion.ts');
-    // And the file says so, so the next reader does not have to infer it.
-    expect(types).toContain('OPEN OPERATOR DECISION');
+    // The resolution is recorded in the file, so the next reader need not infer it.
+    expect(readSource('types/capabilityCompletion.ts')).toContain(
+      'RESOLVED BY MAPPING, NOT UNIFICATION',
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Ruling 1 (operator, 2026-07-27) — "map, don't unify"
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('§9 lifecycle — the two ladders MAP and are never unified', () => {
+  it('FINDING_LIFECYCLE is not rewritten, extended or re-ordered', () => {
+    // This canary also supplies enforcement that was CLAIMED but absent:
+    // `types/research.ts` says the lifecycle order is "pinned by canary" and,
+    // until this ruling, nothing pinned it. An inert mechanism is a defect
+    // (MS-7) — and this one guards constitutional data whose ORDER is its
+    // meaning (`inv.constitutional.078`).
+    expect(
+      [...FINDING_LIFECYCLE],
+      'FINDING_LIFECYCLE has been rewritten, extended or re-ordered — it is pinned canon, and CCR-001 maps onto it rather than changing it',
+    ).toEqual(['observed', 'replicated', 'canonized-as-invariant']);
+  });
+
+  it('neither ladder absorbs the other', () => {
+    // If CCR-001's stages started appearing in the research ladder (or the
+    // reverse), the mapping would have quietly become a merge.
+    const research = new Set<string>(FINDING_LIFECYCLE);
+    const completion = new Set<string>(COMPLETION_LIFECYCLE);
+    const SHARED = 'observed'; // the one word both vocabularies legitimately use
+    for (const stage of completion) {
+      if (stage === SHARED) continue;
+      expect(
+        research.has(stage),
+        `'${stage}' has entered FINDING_LIFECYCLE — the ladders are being unified rather than mapped`,
+      ).toBe(false);
+    }
+    for (const stage of research) {
+      if (stage === SHARED) continue;
+      expect(
+        completion.has(stage),
+        `'${stage}' has entered COMPLETION_LIFECYCLE — the ladders are being unified rather than mapped`,
+      ).toBe(false);
+    }
+  });
+
+  it('the projection onto the crystal is total, so a new stage cannot be undecided', () => {
+    for (const stage of COMPLETION_LIFECYCLE) {
+      const projected = mapCompletionStage(stage);
+      expect(
+        projected === null || (INVARIANT_STATUSES as readonly string[]).includes(projected),
+        `stage '${stage}' projects to '${projected}', which is not a crystal status`,
+      ).toBe(true);
+    }
+    // `deprecated` asserts NO crystal status: the crystal has none, and
+    // inventing one would be exactly the unification the ruling forbids.
+    expect(mapCompletionStage('deprecated')).toBeNull();
+    expect(mapCompletionStage('ratified')).toBe('canonical');
+    expect(mapCompletionStage('candidate')).toBe('proposed');
+  });
+
+  it('the reference artifact carries BOTH values, and they agree', () => {
+    // Carrying the source value alongside is the whole mechanism (Amendment B
+    // §B.4's `sourceLifecycle` pattern). An artifact that carried only one
+    // would make the mapping inert.
+    for (const inv of artifact.reproductionInvariants) {
+      expect(inv.completionStage, `${inv.id} carries no completion stage`).toBeDefined();
+      expect(
+        mapCompletionStage(inv.completionStage!),
+        `${inv.id}: stage '${inv.completionStage}' does not project onto status '${inv.status}'`,
+      ).toBe(inv.status);
+    }
+  });
+
+  it('a stage that contradicts its source status is refused', () => {
+    // Carrying both values only helps if disagreement between them is an error.
+    const broken = clone();
+    broken.reproductionInvariants[2].completionStage = 'candidate';
+    const result = validateCompletionArtifact(broken);
+    expect(result.valid).toBe(false);
+    expect(
+      result.issues.some((i) => i.path.includes('completionStage') && i.message.includes('MS-3')),
+    ).toBe(true);
   });
 });

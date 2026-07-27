@@ -30,13 +30,16 @@
 import {
   CAPABILITY_COMPLETION_SCHEMA_VERSION,
   COMMONS_PROOF_CLASSES,
+  COMPLETION_LIFECYCLE,
   EVIDENCED_STATUSES,
   INVARIANT_PROVENANCE_KINDS,
   INVARIANT_STATUSES,
   UNEVIDENCED_PROVENANCE,
+  mapCompletionStage,
   type CapabilityCompletionArtifact,
   type CommonsProofClass,
   type CompletionIssue,
+  type CompletionStage,
   type CompletionValidationResult,
   type InvariantProvenance,
   type InvariantStatus,
@@ -195,6 +198,7 @@ function parseInvariants(md: string): ReproductionInvariant[] {
     const enforcedBy = labelledField(body, 'Enforced by') ?? '';
     const provenanceRaw = plain(labelledField(body, 'Provenance') ?? '').toLowerCase();
     const statusRaw = plain(labelledField(body, 'Status') ?? '').toLowerCase();
+    const stageRaw = plain(labelledField(body, 'Stage') ?? '').toLowerCase();
     out.push({
       id: m[1],
       statement: firstParagraph(body),
@@ -202,6 +206,8 @@ function parseInvariants(md: string): ReproductionInvariant[] {
       defect: labelledField(body, 'Broke it') ?? '',
       canaries: proofPaths(enforcedBy),
       status: statusRaw as InvariantStatus,
+      // Absent is legitimate — an artifact may record only the source value.
+      ...(stageRaw ? { completionStage: stageRaw as CompletionStage } : {}),
     });
   }
   return out;
@@ -403,6 +409,27 @@ export function validateCompletionArtifact(input: unknown): CompletionValidation
       }
       if (!(INVARIANT_STATUSES as readonly string[]).includes(inv.status)) {
         push(`${at}.status`, `${label} carries no status (got '${inv.status ?? ''}')`);
+      }
+
+      // Map, don't unify (operator ruling 2026-07-27). CCR-001's ladder is
+      // carried ALONGSIDE the crystal status; when both are present they must
+      // agree under the one-way projection. A stage that contradicts its source
+      // value is the drift that unification would have hidden.
+      if (inv.completionStage !== undefined) {
+        if (!(COMPLETION_LIFECYCLE as readonly string[]).includes(inv.completionStage)) {
+          push(
+            `${at}.completionStage`,
+            `${label} carries stage '${inv.completionStage}', which is not on CCR-001's completion ladder`,
+          );
+        } else {
+          const projected = mapCompletionStage(inv.completionStage as CompletionStage);
+          if (projected !== null && projected !== inv.status) {
+            push(
+              `${at}.completionStage`,
+              `${label} is at stage '${inv.completionStage}', which projects to '${projected}', but its source status is '${inv.status}'`,
+            );
+          }
+        }
       }
 
       // CAN-CCR-2 — no validated invariant without provenance.
