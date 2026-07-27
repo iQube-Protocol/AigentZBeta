@@ -27,6 +27,34 @@
  * client's claim alone. See `GET /api/companion/capture/destinations` for
  * the picker list this id comes from.
  *
+ * THE CAPTURED CONTENT LANDS IN THE OBJECT (2026-07-27, operator ruling:
+ * *"that's half the point of it — to add content to in flight projects. The
+ * other half is to add to new projects or projects perhaps inspired via
+ * browsing"*). The attach-to-existing branch previously resolved `refId` and
+ * wrote NOTHING ELSE: the capture left the Inbox and its text landed nowhere,
+ * so the operator's actual purpose — pulling something across INTO live work —
+ * silently failed while every UI signal said success. The two create branches
+ * always carried the text (`rationale`, `seed.problemStatement`); only attach
+ * dropped it.
+ *
+ * Each destination takes the content in ITS OWN idiom rather than a new
+ * capture-shaped field on either primitive:
+ *
+ *   Intent  → a CHILD IntentQube under the target (`parentIntentId`). That is
+ *             the codebase's existing model for derived work, and the receipts
+ *             enrichment already folds a child into its parent's capsule — so
+ *             the capture renders INSIDE the in-flight intent, satisfying the
+ *             Content Capsule Containment rule rather than spawning an orphan.
+ *   Venture → a SIGNAL EVIDENCE item on the venture's Layer 4. Pulling
+ *             something across from the web into a venture IS evidence about
+ *             that venture; `signalSource` carries the origin URL and `note`
+ *             the captured text.
+ *
+ * Attachment is best-effort in ONE direction only: if the write fails the
+ * route does NOT mark the capture assigned, so the item stays in the Inbox and
+ * can be retried. Losing the capture silently is the defect being fixed here —
+ * it must not be reintroduced as an error path.
+ *
  * Fails closed: `getActivePersona` returning null produces a 401 with NO
  * Supabase read/write attempted.
  */
@@ -37,7 +65,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { CaptureAssignDestination } from '@/types/companionCapture';
 import { createIntentQube, getIntentQube } from '@/services/iqube/intentQube';
-import { createVentureQube, getVentureQube } from '@/services/venture/ventureQubeService';
+import { createVentureQube, getVentureQube, updateVentureQube } from '@/services/venture/ventureQubeService';
 import { getCapturedObjectForPersona, markCapturedObjectAssigned } from '../../_lib/store';
 
 export const dynamic = 'force-dynamic';
@@ -115,11 +143,55 @@ export async function POST(
       if (!existingIntent || existingIntent.personaId !== persona.personaId) {
         return badRequest('intent-not-found', 'not found or not owned by you');
       }
+      // The capture becomes a child of the target intent — the existing model
+      // for derived work, and the one the ledger already folds into the
+      // parent's capsule. The parent is never mutated.
+      const child = await createIntentQube({
+        personaId: persona.personaId,
+        intentName: capture.title ?? 'Captured item',
+        intentType: 'create_artifact',
+        activeCartridge: 'companion',
+        rationale: capture.contentText?.slice(0, 500),
+        parentIntentId: existingIntent.id,
+      }).catch(() => null);
+      if (!child) {
+        return NextResponse.json(
+          { error: 'capture-attach-failed', detail: 'could not attach the capture to that intent' },
+          { status: 500, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
       refId = existingIntent.id;
     } else {
       const existingVenture = await getVentureQube(persona.personaId, existingId);
       if (!existingVenture) {
         return badRequest('venture-not-found', 'not found or not owned by you');
+      }
+      // The capture becomes signal evidence on the venture's Layer 4, carrying
+      // both where it came from and what it said.
+      const evidence = existingVenture.layers.signalEvidence;
+      const attached = await updateVentureQube(persona.personaId, existingVenture.id, {
+        ...existingVenture.layers,
+        signalEvidence: {
+          ...evidence,
+          items: [
+            ...evidence.items,
+            {
+              signalId: `companion-capture:${capture.id}`,
+              signalType: 'companion-capture',
+              signalSource: (capture.sourceUrl ?? capture.title ?? 'companion').slice(0, 200),
+              note: capture.contentText?.slice(0, 2000),
+              confidenceScore: 0,
+              standingScore: 0,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      });
+      if (!attached.ok) {
+        return NextResponse.json(
+          { error: 'capture-attach-failed', detail: attached.error },
+          { status: 500, headers: { 'Cache-Control': 'no-store' } },
+        );
       }
       refId = existingVenture.id;
     }

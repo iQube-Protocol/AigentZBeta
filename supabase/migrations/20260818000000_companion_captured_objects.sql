@@ -21,10 +21,16 @@
 -- `persona_id` stripped before it reaches a response body, per
 -- `types/companionCapture.ts`'s own tier-law header).
 --
--- NOT YET RUN against a live database — per PRD-MMC-IMPL-003's own
--- docs-first scope, this file is authored and ready but the operator has
--- not yet applied it. Written as a real, timestamped migration (not an
--- `.example` sketch) following the promotion precedent already set for
+-- APPLIED 2026-07-27 (operator). Until then this header read "NOT YET RUN",
+-- which was true when written and stale afterwards — and the staleness was
+-- load-bearing: while it was believed unapplied, every capture POST was
+-- assumed to 500 and the Inbox assumed permanently empty, which is one of the
+-- explanations that was on the table for "actions are not pulling over". A
+-- migration header that records its own application state MUST be updated when
+-- that state changes, or it becomes evidence for the wrong diagnosis.
+--
+-- Written as a real, timestamped migration (not an `.example` sketch)
+-- following the promotion precedent already set for
 -- `companion_observer_grants` (PRD-MMC-IMPL-001 §4).
 
 BEGIN;
