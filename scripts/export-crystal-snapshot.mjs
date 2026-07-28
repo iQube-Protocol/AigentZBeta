@@ -126,11 +126,39 @@ function stratumOf(relation, evidenceProvenance, namespace) {
   return evidenceProvenance && EXTERNAL_EVIDENCE.has(evidenceProvenance) ? 'D' : 'I';
 }
 
+/**
+ * Load `.env.local` / `.env.local.temp` if the caller has not already exported
+ * the credentials. `node script.mjs` gets no dotenv (only the vitest config
+ * loads it), so without this the script fails on a machine where every other
+ * tool works — which reads as a broken script rather than a missing export.
+ * Already-set environment variables always win.
+ */
+function loadLocalEnv() {
+  for (const name of ['.env.local', '.env.local.temp']) {
+    const path = join(REPO, name);
+    if (!existsSync(path)) continue;
+    for (const raw of readFileSync(path, 'utf-8').split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq < 1) continue;
+      const k = line.slice(0, eq).trim();
+      if (process.env[k]) continue;
+      process.env[k] = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    }
+  }
+}
+
 async function main() {
+  loadLocalEnv();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
-    console.error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.');
+    console.error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.\n' +
+      'Checked the environment, .env.local and .env.local.temp. Export them, or\n' +
+      'run from a repo root where one of those files carries both.',
+    );
     process.exit(1);
   }
   const admin = createClient(url, key, { auth: { persistSession: false } });
