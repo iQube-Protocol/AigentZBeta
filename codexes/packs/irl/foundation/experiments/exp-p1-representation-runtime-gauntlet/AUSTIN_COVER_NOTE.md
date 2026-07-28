@@ -13,15 +13,29 @@ I'm sending over the EXP-P1 protocol package and Stage-0 handoff record for your
 The purpose of Stage-0 was not to claim invariant resolution quality as a scientific result. Rather, it validated the experimental substrate:
 
 * the IRE behaves as a deterministic instrument;
-* the IPV projection is reproducible under repeated execution;
+* the IPV projection is reproducible under repeated execution — **on the standing path and the seed set only; see the correction notice below**;
 * the measurement methodology has been tested against confounds and adjusted before freezing;
 * the remaining metrics are interpreted according to their role as proxies rather than absolute quality measures.
 
+> ### ⚠ HOLD — do not send in this form. Correction pending (operator ruling, 2026-07-27).
+>
+> A units defect in the coordinate calibration (IRE-6) was found and corrected on 2026-07-27:
+> `evidenceDensity` was clamped rather than converted from a 0–100 column, so it read 1.0 for every
+> invariant with standing ≥ 1. **The coordinate-weight reproducibility figure quoted below is
+> therefore a *pre-fix diagnostic; invalid for confirmatory comparison and not numerically
+> comparable with post-fix runs*.** Worse than mis-scaled: with the coordinate vector reduced to a
+> presence indicator, that metric duplicated the seed-set stability reported beside it and could not
+> have failed.
+>
+> The IRE stability and coverage/compression/novelty figures are **unaffected** and may be sent as
+> they stand. Stage 0 must be rerun from a frozen configuration before the coordinate claim is made
+> to a reviewer. Telling a reviewer we found this ourselves, before they did, is the stronger note.
+
 The final record results:
 
-* IRE stability: 1.0 across 10 anchored intents × 3 repetitions.
-* IPV reproducibility: 100% across 10 anchored intents × 5 repetitions, with identical standing and coordinate weights.
-* Coverage: reported transparently as a corpus-density-dependent proxy (0.21 full anchored band; higher in dense canonical regions), not as a pass/fail criterion.
+* IRE stability: 1.0 across 10 anchored intents × 3 repetitions. **Unaffected by IRE-6.**
+* IPV reproducibility: 100% across 10 anchored intents × 5 repetitions, with identical standing and coordinate weights. **The standing-weight and seed-set halves stand; the coordinate-weight half is a pre-fix diagnostic and is withdrawn pending rerun.**
+* Coverage: reported transparently as a corpus-density-dependent proxy (0.21 full anchored band; higher in dense canonical regions), not as a pass/fail criterion. **Unaffected by IRE-6.**
 
 The most valuable Stage-0 findings were the failure modes:
 
@@ -53,7 +67,13 @@ Dele
 
 # Internal — not for send
 
-> Framing discipline (do not revise on send): lead with **0.21 full-band + corpus-density explanation + 1.0 stability + 100% IPV reproducibility + documented confound corrections**. Do NOT foreground the 0.57 densest-region figure — it is preserved in the record for diagnostic use only. The strongest reviewer story is experimental discipline, not metric optimisation.
+> Framing discipline (do not revise on send): lead with **0.21 full-band + corpus-density explanation + 1.0 stability + documented confound corrections**. Do NOT foreground the 0.57 densest-region figure — it is preserved in the record for diagnostic use only. The strongest reviewer story is experimental discipline, not metric optimisation.
+>
+> **Amended 2026-07-27 (IRE-6):** "100% IPV reproducibility" is removed from the lead — the
+> coordinate half of it is a pre-fix diagnostic and is withdrawn pending a rerun. Lead instead with
+> the correction itself: a units defect was found by our own audit, corrected, and the affected
+> figure withdrawn before it was sent. That IS the experimental-discipline story this note claims to
+> tell; sending the unlabelled figure would have contradicted it.
 
 ## Attachment sources (repo paths — attach/export these on send)
 

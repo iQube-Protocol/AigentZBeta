@@ -14,6 +14,10 @@ import { createHash } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import exp003Config from '@/services/experiments/exp003-tasks.json';
+import {
+  canUseForConfirmatoryComparison,
+  PRE_FIX_CALIBRATION,
+} from '@/services/invariants/projectionBridge';
 
 /** The NAMED experiment ids — used by callers that deliberately restrict scope
  *  (e.g. the public external-submission route). It is NOT a limit on what the
@@ -39,6 +43,13 @@ export interface PublishResultInput {
    *  to preserve the historical admin-canon behaviour; reviewer submits pass
    *  'private' or 'pending'. */
   visibility?: 'private' | 'pending' | 'published';
+  /**
+   * The coordinate calibration this result was computed under (IRE-6). REQUIRED
+   * whenever `aggregates` carries a coordinate-derived metric — see
+   * `canUseForConfirmatoryComparison`. Omit for results the coordinate path
+   * never touched; the gate allows those regardless.
+   */
+  calibration?: string | null;
 }
 
 export interface PublishResultOutcome {
@@ -56,8 +67,30 @@ export async function publishExperimentResult(
   personaId: string,
   input: PublishResultInput,
 ): Promise<PublishResultOutcome> {
+  // Calibration declaration gate (operator ruling 2026-07-27 — IRE-6).
+  //
+  // A result carrying a coordinate-derived metric must declare which coordinate
+  // calibration produced it. Fail-closed: an undeclared record is refused,
+  // because no stamp existed before the units fix, so "undeclared" IS the
+  // pre-fix case. Without this the label is prose in a markdown file and the
+  // number goes on being aggregated — a mechanism that cannot fire (CB-1).
+  //
+  // This is a DECLARATION requirement, not a ban: a pre-fix diagnostic may
+  // still be published, by naming its calibration and carrying the label (see
+  // the historical Stage-0 records in the backfill route). What it may not do
+  // is enter the canonical results system claiming to be comparable.
+  const calibrationCheck = canUseForConfirmatoryComparison({
+    calibration: input.calibration ?? null,
+    aggregates: input.aggregates,
+  });
+  if (!calibrationCheck.allowed && input.calibration !== PRE_FIX_CALIBRATION) {
+    return { ok: false, error: `calibration gate: ${calibrationCheck.reason}` };
+  }
+
   // Serialize ONCE — this exact string is what gets stored and hashed.
-  // Verification must always recompute over the stored text verbatim.
+  // Verification must always recompute over the stored text verbatim. The gate
+  // above never mutates `input.results`: the stored bytes are the caller's
+  // bytes, and the content commitment stays the caller's commitment.
   const resultsJson = JSON.stringify(input.results);
   const contentHash = createHash('sha256').update(resultsJson).digest('hex');
 

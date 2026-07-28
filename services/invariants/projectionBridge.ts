@@ -69,6 +69,104 @@ export interface ProjectionComparison<K extends string> {
  *  normalisation (operator ruling 2026-07-27). `v1` = the clamp defect. */
 export const CALIBRATION = 'coordinates/v2-normalised' as const;
 
+/** The calibration every measurement taken before 2026-07-27 was computed
+ *  under: `evidenceDensity = clamp01(standing)` over a 0–100 column. */
+export const PRE_FIX_CALIBRATION = 'coordinates/v1-clamped' as const;
+
+/**
+ * The label the operator ruled every affected pre-fix result must carry, in the
+ * operator's exact words. It is a constant, not a sentence typed into each
+ * document, so a reader can grep one string and find every labelled result and
+ * every gate that enforces it.
+ */
+export const PRE_FIX_DIAGNOSTIC_LABEL =
+  'Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with post-fix runs.';
+
+/**
+ * The result metrics the DEFECTIVE coordinate path produced — and only those.
+ *
+ * This list is the whole of the honesty in the labelling exercise, so it is
+ * derived rather than assumed. A metric belongs here iff computing it reads a
+ * coordinate VALUE:
+ *
+ *   - `coordinateWeightsReproducible` / `coordinateReproducibleRate` — compare
+ *     `deriveWeightsFromCoordinates` output across reps. Pre-fix that output
+ *     was a PRESENCE indicator, not a magnitude (every standing ≥ 1 mapped to
+ *     1.0), so its cross-rep stability was identical by construction to the
+ *     seed-set stability the same run reports separately. The measurement could
+ *     not have failed independently.
+ *   - `meanAbsDelta` / `meanAbsDeltaVariance` / `divergesConsistent` — all read
+ *     the coordinate path against the standing path.
+ *
+ * Deliberately ABSENT, because the coordinate value never enters them:
+ *   - `stability` / `ireSeedSetStability` / `seedSetStability` — Jaccard over
+ *     resolved seed IDs, which `calibrateStructural` passes through untouched.
+ *   - `coverage` / `compression` / `novelty` — computed from seed→statement
+ *     text against the Synthetic Expert Baseline.
+ *   - `standingWeightsReproducible` / `standingReproducibleRate` — read raw
+ *     `standing` off the snapshot, never a coordinate.
+ *
+ * The reason those are safe is structural, not lucky: slice MEMBERSHIP and
+ * ORDER come from `buildInvariantSlice`'s standing-primary rank, server-side,
+ * BEFORE `calibrateStructural` runs. The defect could not perturb which
+ * invariants were selected — only what they were labelled with afterwards.
+ */
+export const COORDINATE_DERIVED_METRICS = [
+  'coordinateWeightsReproducible',
+  'coordinateReproducibleRate',
+  'meanAbsDelta',
+  'meanAbsDeltaVariance',
+  'divergesConsistent',
+] as const;
+
+/** Which coordinate-derived metrics a result record carries. Pure. */
+export function coordinateDerivedMetrics(record: Record<string, unknown> | null | undefined): string[] {
+  if (!record) return [];
+  return COORDINATE_DERIVED_METRICS.filter((m) => Object.prototype.hasOwnProperty.call(record, m));
+}
+
+export type CalibrationVerdict = { allowed: true } | { allowed: false; reason: string };
+
+/**
+ * May this result be used for confirmatory comparison?
+ *
+ * Fail-closed on every unknown value (the `canRunInstitutionDiscovery` shape):
+ * a record that carries a coordinate-derived metric and does NOT declare the
+ * calibration it was computed under is refused, because before 2026-07-27 no
+ * such stamp existed — an absent stamp IS the pre-fix case, and treating it as
+ * "probably fine" would let exactly the results this gate exists for through.
+ *
+ * A record carrying no coordinate-derived metric is allowed regardless of its
+ * stamp: the defect never reached it, and marking it invalid would be the
+ * blanket-labelling the ruling forbids.
+ */
+export function canUseForConfirmatoryComparison(record: {
+  calibration?: string | null;
+  aggregates?: Record<string, unknown> | null;
+}): CalibrationVerdict {
+  const affected = coordinateDerivedMetrics(record.aggregates);
+  if (affected.length === 0) return { allowed: true };
+
+  const calibration = record.calibration ?? null;
+  if (calibration === CALIBRATION) return { allowed: true };
+  if (calibration === null || calibration === undefined || calibration === '') {
+    return {
+      allowed: false,
+      reason:
+        `record carries coordinate-derived metric(s) [${affected.join(', ')}] but declares no calibration — ` +
+        `no stamp existed before ${CALIBRATION}, so an undeclared record is a pre-fix measurement. ` +
+        PRE_FIX_DIAGNOSTIC_LABEL,
+    };
+  }
+  return {
+    allowed: false,
+    reason:
+      `record carries coordinate-derived metric(s) [${affected.join(', ')}] computed under '${calibration}', ` +
+      `not '${CALIBRATION}'. ` +
+      PRE_FIX_DIAGNOSTIC_LABEL,
+  };
+}
+
 const TOLERANCE = 1e-6;
 
 /**

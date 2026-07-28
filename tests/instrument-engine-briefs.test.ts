@@ -58,7 +58,12 @@ import {
 } from '@/services/invariants/engine';
 import {
   CALIBRATION,
+  COORDINATE_DERIVED_METRICS,
+  PRE_FIX_CALIBRATION,
+  PRE_FIX_DIAGNOSTIC_LABEL,
+  canUseForConfirmatoryComparison,
   compareProjection,
+  coordinateDerivedMetrics,
   describeProjection,
 } from '@/services/invariants/projectionBridge';
 import { isNodeAuthoritative } from '@/services/invariants/flipStore';
@@ -710,7 +715,9 @@ describe('IPE-1 (engine half) — engine.ts consumes a field and can construct n
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// IRE-8 — every grounding surface is classified, and the classification is
+// IRE-ROUTING — every grounding surface is classified, and the classification is
+// (NOT the brief's IRE-8, which is 'an instrument's operation must be observable'
+//  — this is the CFS-039 IRE->IPE sequencing ruling of 2026-07-27)
 // bound to the real call sites rather than to a document
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -752,7 +759,7 @@ const IRE_ENTRYPOINTS = [
   'resolveCommonConstitutionalGround(',
 ];
 
-describe('IRE-8 — governed reasoning routes through the IRE; anything else is visibly classified', () => {
+describe('IRE-ROUTING — governed reasoning routes through the IRE; anything else is visibly classified', () => {
   it('the register is non-empty and every entry is well-formed', () => {
     // Vacuity guard: emptying the register must not turn every check below
     // into a pass over zero rows (CFS-053 M9's shape).
@@ -862,5 +869,222 @@ describe('IRE-8 — governed reasoning routes through the IRE; anything else is 
     // reader of the register knows the honest state rather than an aspiration.
     expect(excluded).toContain('compose-artifact');
     expect(excluded).toContain('run-artifact');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// IRE-6 (labelling half) — a pre-fix measurement cannot re-enter as evidence
+//
+// Operator ruling, 2026-07-27: "The code fix does not itself validate the
+// invariant. Every EXP-P1 Stage 0 result affected by the scale defect should be
+// labelled ... Then rerun Stage 0 from a frozen configuration."
+//
+// A sentence in a markdown file is not a gate. These pin the gate.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('IRE-6 (labelling) — the calibration gate refuses pre-fix results, and ONLY those', () => {
+  it('a record carrying NO coordinate-derived metric is allowed, stamp or no stamp', () => {
+    // The blanket-labelling guard. IRV-001's metrics never read a coordinate,
+    // so marking them invalid would be the dishonesty the ruling forbids.
+    const irv = { stability: 1.0, compression: 0.65, coverageMean: 0.21, novelty: 0.75 };
+    expect(canUseForConfirmatoryComparison({ aggregates: irv })).toEqual({ allowed: true });
+    expect(canUseForConfirmatoryComparison({ calibration: null, aggregates: irv })).toEqual({
+      allowed: true,
+    });
+    expect(coordinateDerivedMetrics(irv)).toEqual([]);
+  });
+
+  it('a coordinate-derived record with NO calibration is REFUSED — fail-closed', () => {
+    // No stamp existed before the fix, so "undeclared" IS the pre-fix case.
+    // Treating it as probably-fine would let through exactly what this guards.
+    const ipv = { standingReproducibleRate: 1.0, coordinateReproducibleRate: 1.0 };
+    const v = canUseForConfirmatoryComparison({ aggregates: ipv });
+    expect(v.allowed).toBe(false);
+    if (v.allowed) throw new Error('unreachable');
+    expect(v.reason).toContain('coordinateReproducibleRate');
+    expect(v.reason).toContain(PRE_FIX_DIAGNOSTIC_LABEL);
+    // The UNDECLARED case must give its own diagnosis, not fall through to the
+    // wrong-stamp message. Mutation P2 (2026-07-28) deleted the undeclared
+    // branch and this test still passed, because the fall-through also refuses:
+    // the verdict was right for the wrong reason, which is the shape that lets
+    // a branch rot unnoticed. Assert the explanation, not just the refusal.
+    expect(v.reason).toContain('declares no calibration');
+    expect(v.reason, 'undeclared was diagnosed as a wrong-stamp record').not.toContain(
+      "computed under 'null'",
+    );
+    // …and only the affected metric is named, never the clean one beside it.
+    expect(v.reason).not.toContain('standingReproducibleRate');
+  });
+
+  it('a coordinate-derived record stamped PRE-FIX is refused, and says so with the label', () => {
+    const v = canUseForConfirmatoryComparison({
+      calibration: PRE_FIX_CALIBRATION,
+      aggregates: { coordinateReproducibleRate: 1.0 },
+    });
+    expect(v.allowed).toBe(false);
+    if (v.allowed) throw new Error('unreachable');
+    expect(v.reason).toContain(PRE_FIX_CALIBRATION);
+    expect(v.reason).toContain(PRE_FIX_DIAGNOSTIC_LABEL);
+  });
+
+  it('a coordinate-derived record stamped POST-FIX is allowed — the gate is a real branch', () => {
+    // Without this the three above would pass on a gate hardcoded to refuse,
+    // which would block the rerun the ruling actually asks for.
+    expect(
+      canUseForConfirmatoryComparison({
+        calibration: CALIBRATION,
+        aggregates: { coordinateReproducibleRate: 1.0, meanAbsDelta: 0 },
+      }),
+    ).toEqual({ allowed: true });
+  });
+
+  it('the affected-metric list is exactly the coordinate-reading metrics — no more, no less', () => {
+    // The honesty of the whole labelling exercise reduces to this list.
+    for (const m of ['coordinateWeightsReproducible', 'coordinateReproducibleRate', 'meanAbsDelta', 'meanAbsDeltaVariance', 'divergesConsistent']) {
+      expect(COORDINATE_DERIVED_METRICS, `${m} reads a coordinate and must be listed`).toContain(m);
+    }
+    // These are computed from seed ids / raw standing / SEB text. Listing one
+    // would invalidate a result the defect never reached.
+    for (const m of ['stability', 'ireSeedSetStability', 'seedSetStability', 'standingWeightsReproducible', 'standingReproducibleRate', 'coverage', 'coverageMean', 'compression', 'novelty']) {
+      expect(
+        COORDINATE_DERIVED_METRICS as readonly string[],
+        `${m} does not read a coordinate — listing it would blanket-label a clean result`,
+      ).not.toContain(m);
+    }
+  });
+
+  it('the publication path CALLS the gate — not merely imports it', () => {
+    // CFS-053 defects 5/6: asserting the symbol rather than the call is how a
+    // gate stays defined and never fires.
+    const src = stripComments(readSource('services/experiments/publishResult.ts'));
+    expect(src).toMatch(/canUseForConfirmatoryComparison\(\{/);
+    expect(src).toMatch(/if\s*\(!calibrationCheck\.allowed/);
+    // …and refuses by RETURNING, not by logging.
+    expect(src).toMatch(/return\s*\{\s*ok:\s*false,\s*error:\s*`calibration gate:/);
+  });
+
+  it('the historical IPV record is labelled at its source, and the IRV record is NOT', () => {
+    const src = readSource('app/api/experiments/results/backfill/route.ts');
+    // The IPV row must declare the pre-fix calibration and carry the label…
+    expect(src).toContain('calibration: PRE_FIX_CALIBRATION');
+    expect(src).toContain('preFixDiagnostic: true');
+    // BOTH carriers, counted. The label rides the `aggregates` column (which
+    // downstream readers filter on) AND the hashed `results` payload (which is
+    // what a replicator verifies). Mutation P7 (2026-07-28) deleted one and a
+    // bare `toContain` still passed on the other — a presence check where the
+    // property is per-location, which is CFS-053 defect 7's shape.
+    expect(
+      src.match(/label: PRE_FIX_DIAGNOSTIC_LABEL/g)?.length ?? 0,
+      'the label must ride BOTH the aggregates column and the hashed results payload',
+    ).toBe(2);
+    // …and the IRV row must record that it was ASSESSED and found clean, rather
+    // than being silently unlabelled. An unlabelled result should say it was
+    // checked, not merely lack a label.
+    expect(src).toContain('preFixDiagnostic: false');
+    expect(src).toMatch(/coordinateScaleAssessment/);
+    // Exactly one row is labelled pre-fix — a second would mean IRV got
+    // blanket-labelled.
+    expect(src.match(/preFixDiagnostic: true/g)?.length ?? 0).toBe(1);
+  });
+
+  it('the .mjs harness mirrors the TS calibration constant — parity, not a hand-copy', () => {
+    // A script cannot import the TS module, so the mirror gets a parity canary
+    // rather than a hope (inv.engineering.036 / source-of-truth-parity).
+    const runner = readSource('scripts/run-instrument-validation.mjs');
+    expect(runner).toContain(`const EXPECTED_CALIBRATION = '${CALIBRATION}';`);
+    expect(runner).toContain(PRE_FIX_DIAGNOSTIC_LABEL);
+    // And it REFUSES rather than scoring against a stale host.
+    const code = stripComments(runner);
+    expect(code).toMatch(/process\.exit\(2\)/);
+    expect(code).toMatch(/preFix\.length > 0/);
+    // The stamp travels with every result the harness writes.
+    expect(code).toMatch(/calibration: EXPECTED_CALIBRATION/);
+  });
+});
+
+describe('IRE-6 (labelling) — the affected documents carry the operator\'s exact words', () => {
+  /** Documents whose Stage-0 figures the defect demonstrably reached. */
+  const LABELLED_DOCS = [
+    'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/STAGE-0_HANDOFF.md',
+    'codexes/packs/irl/foundation/experiments/ipv-001-invariant-projection-validation/README.md',
+    'codexes/packs/irl/foundation/experiments/irv-001-invariant-resolution-validation/README.md',
+    'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/AUSTIN_COVER_NOTE.md',
+  ];
+
+  it('every affected document carries the label verbatim', () => {
+    // Verbatim matters: the label is the operator's ruling, and a paraphrase
+    // cannot be grepped for across the corpus.
+    //
+    // WRAP-AWARE, deliberately. The first version of this canary read a raw
+    // substring and failed on AUSTIN_COVER_NOTE.md, where the label is
+    // hard-wrapped inside a `>` blockquote and interrupted by markdown emphasis.
+    // That is CFS-053's defect-8 shape (a check that reads a substring where the
+    // property spans a structure) occurring in the check rather than in the
+    // guarded artifact — and the honest correction is to fix the check, not to
+    // reflow the document to suit it. Blockquote markers, emphasis and line
+    // breaks are normalised away; the WORDS must still be exact.
+    const normalise = (s: string) =>
+      s
+        .replace(/^[ \t]*>[ \t]?/gm, ' ') // blockquote prefixes
+        .replace(/[*_`]/g, '') // markdown emphasis
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+    const core = 'invalid for confirmatory comparison and not numerically comparable with post-fix runs';
+    for (const doc of LABELLED_DOCS) {
+      expect(normalise(readSource(doc)), `${doc} does not carry the pre-fix label`).toContain(core);
+    }
+    // Guard the guard: the normaliser must not be so aggressive that it would
+    // find the label in a document that does not carry it.
+    expect(normalise('a document about coordinates and reruns')).not.toContain(core);
+  });
+
+  it('the outbound reviewer note is held, not merely annotated', () => {
+    // This one goes to an external reviewer. A footnote is not enough.
+    const note = readSource(
+      'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/AUSTIN_COVER_NOTE.md',
+    );
+    expect(note).toMatch(/HOLD — do not send in this form/);
+    // The lead-with framing must no longer advertise the withdrawn figure.
+    expect(note).not.toMatch(/lead with \*\*0\.21 full-band[^*]*100% IPV reproducibility/);
+  });
+
+  it('the IRV record states it was ASSESSED and unaffected — silence is not a verdict', () => {
+    const irv = readSource(
+      'codexes/packs/irl/foundation/experiments/irv-001-invariant-resolution-validation/README.md',
+    );
+    expect(irv).toMatch(/UNAFFECTED by the IRE-6 coordinate-scale defect/);
+  });
+
+  it('IRE-6 remains `proposed` and records the four promotion conditions', () => {
+    // The point of the gate is that a future agent cannot talk itself into
+    // promotion. If the status flips, the four conditions must be met — and
+    // this canary is what makes flipping it visible.
+    const brief = readSource('codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-resolution-engine.md');
+    const ire6 = brief.slice(brief.indexOf('## IRE-6'), brief.indexOf('## IRE-7'));
+    expect(ire6.length, 'IRE-6 section not found').toBeGreaterThan(500);
+    expect(ire6).toMatch(/\*\*Status:\*\*\s*proposed/);
+    expect(ire6).toMatch(/Promotion gate/);
+    // All four conditions, each individually — a count would pass while one
+    // was deleted (CFS-053 defect 7).
+    expect(ire6).toMatch(/corrected coordinate calculation is tested/i);
+    expect(ire6).toMatch(/IRE→IPE boundary is exercised through the governed surfaces/i);
+    expect(ire6).toMatch(/[Rr]eproducibility is rerun/);
+    expect(ire6).toMatch(/recorded with hashes and formula version/i);
+    // The two unmet conditions must EACH still be marked unmet. Mutation P16
+    // (2026-07-28) flipped one to "met" and a single `toMatch(/⛔ not met/)`
+    // survived on the other — the count-vs-per-item error CFS-053 defect 7
+    // records. Assert per condition, and assert how many are outstanding, so
+    // neither silently quietly becomes satisfied.
+    expect(
+      ire6.match(/⛔ not met/g)?.length ?? 0,
+      'conditions 3 (rerun) and 4 (recorded result) are both outstanding',
+    ).toBe(2);
+    const condition = (n: string) => ire6.slice(ire6.indexOf(`  ${n}. **`));
+    expect(condition('3').slice(0, 400), 'condition 3 (rerun) is not marked unmet').toContain('⛔ not met');
+    expect(condition('4').slice(0, 400), 'condition 4 (recorded result) is not marked unmet').toContain(
+      '⛔ not met',
+    );
+    // A promotion would have to flip BOTH plus the status; this canary is what
+    // makes that flip visible in review rather than incidental.
   });
 });
