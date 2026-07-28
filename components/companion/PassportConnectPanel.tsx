@@ -334,13 +334,14 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       // other account.
       try {
         const res = await personaFetch(
-          `/api/passport-connect/resolved-persona?transactionToken=${encodeURIComponent(transactionToken)}`,
+          `/api/passport-connect/resolved-persona?world=companion&transactionToken=${encodeURIComponent(transactionToken)}`,
           { cache: "no-store" },
         );
         if (res.ok) {
           const body = await res.json();
           if (typeof body?.personaId === "string" && body.personaId) {
             window.localStorage.setItem("currentPersonaId", body.personaId);
+            window.sessionStorage.setItem("currentPersonaId", body.personaId);
           }
         }
       } catch {
@@ -353,9 +354,26 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       // single-use grant is exchanged by a top-level page in the left-hand
       // browser, where the application actually lives. Without this, the
       // citizen connected here and still hit a sign-in wall over there.
+      //
+      // THE PERSONA MUST MAKE THE SAME CROSSING (operator, 2026-07-28:
+      // "actions aren't working ... not getting right overlay"). The pin
+      // written just above lands in THIS iframe's partition only, so the
+      // top-level app had a valid session but no chosen persona and fell back
+      // to "first owned persona, sorted" — then LATCHED it
+      // (MetaMeRuntimeClient's own bootstrap persists its fallback). The
+      // extension observer, which scrapes `currentPersonaId` off the
+      // top-level tab, then reported "no-active-persona" and refused to pair,
+      // which is why every Pull Across died with a red ✗.
+      //
+      // `transactionToken` rides along so the complete page can redeem the
+      // SAME recorded choice for the top-level world. It is NOT a T0
+      // identifier — it is an opaque, random, single-use handle carrying no
+      // identity on its face, the same security class as the token_hash
+      // beside it, and the complete page scrubs the whole query string before
+      // it does anything. No raw personaId ever touches a URL.
       if (typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
         window.open(
-          `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&next=${encodeURIComponent("/metame/runtime")}`,
+          `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`,
           "_blank",
           "noreferrer",
         );

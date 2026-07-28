@@ -291,27 +291,54 @@ export type ResolvedPersonaResult =
  * the session this row minted may read the persona id it stashed, and only
  * once.
  */
+/**
+ * WHICH STORAGE WORLD is redeeming the persona activation.
+ *
+ * The Companion is an iframe inside the extension side panel and the browser
+ * PARTITIONS third-party iframe storage, so a `localStorage.currentPersonaId`
+ * written in the Companion is invisible to the top-level application — the
+ * same partition gap §A.10.2a already closed for the SESSION by minting one
+ * grant per world. The persona activation carries the same discipline: two
+ * independent single-use markers on one row, so each world redeems the
+ * citizen's ONE recorded choice exactly once, in its own storage.
+ *
+ * Never collapse these into a single marker "because the value is the same" —
+ * that is precisely how the pin ended up existing in only one world and the
+ * top-level app fell back to "first owned persona, sorted" (operator,
+ * 2026-07-28: "actions aren't working ... not getting right overlay").
+ */
+export type PersonaActivationWorld = 'companion' | 'application';
+
+const ACTIVATION_COLUMN: Record<PersonaActivationWorld, string> = {
+  companion: 'persona_activation_consumed_at',
+  application: 'persona_activation_handoff_consumed_at',
+};
+
 export async function consumeResolvedPersona(
   supabase: SupabaseClient,
   transactionToken: string,
+  world: PersonaActivationWorld = 'companion',
 ): Promise<ResolvedPersonaResult> {
   const tokenHash = sha256(transactionToken);
+  const column = ACTIVATION_COLUMN[world];
 
   const { data: row, error: readErr } = await supabase
     .from(TABLE)
-    .select('id, auth_user_id, selected_persona_id, persona_activation_consumed_at, consumed_at')
+    .select(
+      'id, auth_user_id, selected_persona_id, consumed_at, persona_activation_consumed_at, persona_activation_handoff_consumed_at',
+    )
     .eq('transaction_token_hash', tokenHash)
     .maybeSingle();
   if (readErr) return { ok: false, reason: 'unavailable' };
   if (!row || !row.consumed_at) return { ok: false, reason: 'unknown_transaction' };
-  if (row.persona_activation_consumed_at) return { ok: false, reason: 'already_consumed' };
+  if ((row as Record<string, unknown>)[column]) return { ok: false, reason: 'already_consumed' };
   if (!row.selected_persona_id) return { ok: false, reason: 'not_selected' };
 
   const { data: spent, error: spendErr } = await supabase
     .from(TABLE)
-    .update({ persona_activation_consumed_at: new Date().toISOString() })
+    .update({ [column]: new Date().toISOString() })
     .eq('id', row.id)
-    .is('persona_activation_consumed_at', null)
+    .is(column, null)
     .select('id')
     .maybeSingle();
   if (spendErr) return { ok: false, reason: 'unavailable' };

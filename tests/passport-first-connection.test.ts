@@ -452,3 +452,123 @@ describe('the wallet and World ID entry points share one kybe resolution, not tw
     expect(code).toContain('`fp|${chain}|${normalised}`');
   });
 });
+
+// ─── The persona must survive the STORAGE PARTITION (operator, 2026-07-28:
+// "now actions aren't working — red check mark and not pulling over or
+// getting right overlay"). ──────────────────────────────────────────────────
+//
+// §A.11.2 pinned the chosen persona to localStorage.currentPersonaId from the
+// Companion panel — which is an IFRAME, whose storage the browser partitions
+// away from the top-level application. One cause, three symptoms:
+//   1. personaFetch sends no x-persona-id -> getActivePersona falls back;
+//   2. MetaMeRuntimeClient LATCHES that fallback into localStorage;
+//   3. the extension observer scrapes that same key off the top-level tab,
+//      finds nothing, refuses to pair, and every capture dies red.
+
+const COMPLETE_PAGE = 'app/passport-connect/complete/page.tsx';
+const CONNECT_PANEL = 'components/companion/PassportConnectPanel.tsx';
+const RESOLVED_PERSONA_ROUTE = 'app/api/passport-connect/resolved-persona/route.ts';
+const HANDOFF_MIGRATION = 'supabase/migrations/20260832000000_passport_persona_activation_handoff.sql';
+
+describe('the chosen persona survives the partition handoff', () => {
+  it('the TOP-LEVEL page redeems the activation and writes the pin', () => {
+    // This is the whole fix: without a write here, the top-level app — where
+    // the actions, the overlay and the extension observer all actually run —
+    // has a session but no chosen persona.
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    expect(page, 'the complete page no longer redeems the persona activation').toContain(
+      '/api/passport-connect/resolved-persona?world=application',
+    );
+    expect(page, 'the complete page no longer pins the chosen persona').toContain(
+      'localStorage.setItem("currentPersonaId"',
+    );
+    // personaFetch, not raw fetch: the redemption is Bearer-gated and the
+    // spine ignores cookies entirely (CLAUDE.md, PARAMOUNT).
+    expect(page).toContain('personaFetch(');
+  });
+
+  it('the pin is written AFTER the session exists, never before', () => {
+    // The redemption is Bearer-gated, so it needs the session verifyOtp
+    // establishes in THIS storage world. Ordered, not merely present.
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    const verifyAt = page.indexOf('verifyOtp(');
+    const redeemAt = page.indexOf('resolved-persona?world=application');
+    expect(verifyAt).toBeGreaterThan(-1);
+    expect(redeemAt).toBeGreaterThan(verifyAt);
+  });
+
+  it('the pin overwrites unconditionally — a deliberate choice outranks a latched fallback', () => {
+    // MetaMeRuntimeClient persists its own "first owned persona" guess and
+    // guards it with `if (!localStorage.getItem(...))`. If this page wrote
+    // conditionally too, the wrong latched value would win forever.
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    const writeAt = page.indexOf('localStorage.setItem("currentPersonaId"');
+    const before = page.slice(Math.max(0, writeAt - 400), writeAt);
+    expect(before, 'the pin write became conditional on the key being empty').not.toMatch(
+      /if\s*\(\s*!\s*(window\.)?localStorage\.getItem\(\s*["']currentPersonaId["']\s*\)\s*\)/,
+    );
+  });
+
+  it('the panel hands the transaction token to the top-level page', () => {
+    const panel = stripComments(readSource(CONNECT_PANEL));
+    expect(panel, 'the handoff no longer carries the persona transaction').toMatch(
+      /persona_tx=\$\{encodeURIComponent\(transactionToken\)\}/,
+    );
+  });
+
+  it('the two storage worlds redeem INDEPENDENT single-use markers', () => {
+    // One shared marker is what made the pin exist in only one world.
+    const svc = stripComments(readSource(PENDING_AUTH_SERVICE));
+    expect(svc).toContain("companion: 'persona_activation_consumed_at'");
+    expect(svc).toContain("application: 'persona_activation_handoff_consumed_at'");
+    // Still a conditional UPDATE per world — single-use is not weakened.
+    const fn = svc.slice(svc.indexOf('export async function consumeResolvedPersona'));
+    expect(fn).toContain('.is(column, null)');
+    const sql = readSource(HANDOFF_MIGRATION);
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS persona_activation_handoff_consumed_at');
+  });
+
+  it('an unrecognised world can never redeem the OTHER world\'s marker', () => {
+    const route = stripComments(readSource(RESOLVED_PERSONA_ROUTE));
+    expect(route).toMatch(/rawWorld === 'application' \? 'application' : 'companion'/);
+  });
+});
+
+describe('no T0 identifier crosses the partition in a URL', () => {
+  it('the handoff URL carries only opaque single-use handles — never a personaId', () => {
+    const panel = stripComments(readSource(CONNECT_PANEL));
+    const openAt = panel.indexOf('/passport-connect/complete?');
+    expect(openAt).toBeGreaterThan(-1);
+    const url = panel.slice(openAt, panel.indexOf('`', openAt + 1) + 1);
+    for (const forbidden of ['personaId', 'persona_id', 'authProfileId', 'rootDid', 'kybe', 'email']) {
+      expect(url, `the handoff URL carries ${forbidden}`).not.toContain(forbidden);
+    }
+    // What it MAY carry: the session grant and the opaque transaction handle.
+    expect(url).toContain('token_hash=');
+    expect(url).toContain('persona_tx=');
+  });
+
+  it('the complete page scrubs the query string BEFORE redeeming anything', () => {
+    const page = stripComments(readSource(COMPLETE_PAGE));
+    const scrubAt = page.indexOf('history.replaceState');
+    const verifyAt = page.indexOf('verifyOtp(');
+    const redeemAt = page.indexOf('resolved-persona?world=application');
+    expect(scrubAt).toBeGreaterThan(-1);
+    expect(scrubAt).toBeLessThan(verifyAt);
+    expect(scrubAt).toBeLessThan(redeemAt);
+  });
+
+  it('the persona id reaches the browser only in an authenticated response body', () => {
+    // The route is Bearer-gated AND auth-user-matched; the id is never a URL
+    // parameter anywhere in the flow.
+    const route = stripComments(readSource(RESOLVED_PERSONA_ROUTE));
+    expect(route).toContain('getCallerIdentityContext');
+    expect(route).toContain("error: 'caller_mismatch'");
+    for (const file of [COMPLETE_PAGE, CONNECT_PANEL]) {
+      const code = stripComments(readSource(file));
+      expect(code, `${file} puts a personaId in a URL`).not.toMatch(
+        /[?&]personaId=\$\{[^}]*personaId/,
+      );
+    }
+  });
+});

@@ -13,12 +13,34 @@
  * single-use grant; the exchange below runs in the top-level storage world,
  * which is where the application actually lives.
  *
+ * THE PERSONA MAKES THE SAME CROSSING (§A.11.2 follow-up, operator
+ * 2026-07-28: "now actions aren't working — red check mark and not pulling
+ * over or getting right overlay"). Establishing the session here was only
+ * half the crossing. The citizen's EXPLICITLY CHOSEN persona was pinned to
+ * `localStorage.currentPersonaId` by the Companion panel — inside the
+ * iframe's partition, invisible here. So the top-level app had a valid
+ * session and no chosen persona, `personaFetch` sent no `x-persona-id`, and
+ * `getActivePersona` fell to its step-4 "first owned persona, sorted"
+ * default — the exact fallback ruling 2 exists to abolish. Worse, the
+ * runtime's own bootstrap then LATCHED that fallback into localStorage, and
+ * the extension observer (which scrapes this same key off the top-level tab)
+ * either paired the wrong persona or refused to pair at all, killing every
+ * "Pull Across" with a red ✗.
+ *
+ * So this page now redeems the persona activation for the APPLICATION world
+ * and writes the pin here, where the application actually reads it.
+ *
  * SECURITY SHAPE:
  *  - The token in the URL is a Supabase single-use hashed OTP token — the same
  *    class of value every Supabase magic-link email carries in its URL. It is
  *    consumed on first exchange and expires on Supabase's clock.
+ *  - `persona_tx` is likewise an opaque, random, single-use handle that
+ *    carries NO identity on its face, and redeeming it additionally requires
+ *    a valid Bearer session whose auth user matches the row. **No T0
+ *    identifier — no raw personaId — is ever placed in a URL**; the persona
+ *    id is returned only over an authenticated response body, server-side.
  *  - The URL is scrubbed (history.replaceState) BEFORE the exchange, so the
- *    token never survives into history/bookmarks even if the exchange hangs.
+ *    tokens never survive into history/bookmarks even if the exchange hangs.
  *  - `next` is confined to a same-origin path: it must start with exactly one
  *    "/" — anything else (absolute URLs, protocol-relative "//", schemes)
  *    falls back to the runtime home. No open redirect.
@@ -31,6 +53,7 @@ import { useSearchParams } from "next/navigation";
 import { ShieldCheck, Loader2, AlertTriangle } from "lucide-react";
 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { personaFetch } from "@/utils/personaSpine";
 
 const DEFAULT_NEXT = "/metame/runtime";
 
@@ -48,14 +71,15 @@ function CompleteInner() {
 
   useEffect(() => {
     const tokenHash = searchParams?.get("token_hash") ?? null;
+    const personaTx = searchParams?.get("persona_tx") ?? null;
     const next = safeNextPath(searchParams?.get("next") ?? null);
 
-    // Scrub the single-use token out of the address bar and history FIRST —
-    // before the exchange, so it cannot linger if anything below stalls.
+    // Scrub the single-use tokens out of the address bar and history FIRST —
+    // before the exchange, so they cannot linger if anything below stalls.
     try {
       window.history.replaceState(null, "", "/passport-connect/complete");
     } catch {
-      // History API unavailable — the token is still single-use and short-lived.
+      // History API unavailable — the tokens are still single-use and short-lived.
     }
 
     if (!tokenHash) {
@@ -72,6 +96,41 @@ function CompleteInner() {
         setState("error");
         return;
       }
+
+      // THE PERSONA CROSSING. Runs AFTER verifyOtp — the redemption is
+      // Bearer-gated, so it needs the session that call just established in
+      // THIS (top-level) storage world. `world=application` redeems this
+      // world's own single-use activation marker; the Companion iframe
+      // redeemed its own separately, so neither starves the other.
+      //
+      // The write is UNCONDITIONAL and overwrites any existing value: the
+      // citizen's deliberate selection outranks whatever ambient fallback the
+      // runtime may already have latched here (MetaMeRuntimeClient persists
+      // its "first owned persona" guess, and its own guard would otherwise
+      // keep that wrong value forever). Both storages are written because
+      // personaFetch reads either.
+      //
+      // Best-effort: a failure here must never strand a citizen who already
+      // holds a valid session — it degrades to exactly the pre-fix behaviour,
+      // never to a sign-in wall.
+      if (personaTx) {
+        try {
+          const res = await personaFetch(
+            `/api/passport-connect/resolved-persona?world=application&transactionToken=${encodeURIComponent(personaTx)}`,
+            { cache: "no-store" },
+          );
+          if (res.ok) {
+            const body = await res.json();
+            if (typeof body?.personaId === "string" && body.personaId) {
+              window.localStorage.setItem("currentPersonaId", body.personaId);
+              window.sessionStorage.setItem("currentPersonaId", body.personaId);
+            }
+          }
+        } catch {
+          // Non-fatal — see above.
+        }
+      }
+
       setState("done");
       window.location.replace(next);
     })();

@@ -20,19 +20,27 @@
  * already present a valid Bearer token reading their OWN just-established
  * session's own choice back.
  *
- * ── THE DOUBLE-CONSUMPTION GUARD ────────────────────────────────────────────
+ * ── ONE REDEMPTION PER STORAGE WORLD ────────────────────────────────────────
  *
- * The pending-auth row is already spent once by /finalize
- * (`consumed_at`). This route spends it a SECOND and LAST time
- * (`persona_activation_consumed_at`) — never a general-purpose lookup table,
- * never re-readable, and refuses if the caller's own Bearer `authUserId`
- * does not match the row's `authUserId` (defense against a stale token
- * leaking to an unrelated session and being replayed there).
+ * The pending-auth row is already spent once by /finalize (`consumed_at`).
+ * This route then spends ONE activation marker per storage world — `?world=`
+ * selects which. The Companion iframe and the top-level application are
+ * SEPARATE storage partitions (§A.10.2a), so each must be able to redeem the
+ * citizen's one recorded choice for itself; a single shared marker meant the
+ * pin existed only in whichever world asked first, and the other fell back to
+ * "first owned persona, sorted" (operator, 2026-07-28).
+ *
+ * Each marker is still strictly single-use, and every call refuses if the
+ * caller's own Bearer `authUserId` does not match the row's — defense against
+ * a stale token leaking to an unrelated session and being replayed there.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { consumeResolvedPersona } from '@/services/identity/passportPendingAuth';
+import {
+  consumeResolvedPersona,
+  type PersonaActivationWorld,
+} from '@/services/identity/passportPendingAuth';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
@@ -60,7 +68,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: false, error: 'unavailable' }, { status: 503, headers: noStore });
   }
 
-  const resolved = await consumeResolvedPersona(supabase, transactionToken);
+  // Unrecognised/absent → 'companion', the value the only pre-existing caller
+  // used. A bad `world` must never silently redeem the OTHER world's marker.
+  const rawWorld = request.nextUrl.searchParams.get('world');
+  const world: PersonaActivationWorld = rawWorld === 'application' ? 'application' : 'companion';
+
+  const resolved = await consumeResolvedPersona(supabase, transactionToken, world);
   if (!resolved.ok) {
     const status = resolved.reason === 'unavailable' ? 503 : 404;
     return NextResponse.json({ ok: false, error: resolved.reason }, { status, headers: noStore });
