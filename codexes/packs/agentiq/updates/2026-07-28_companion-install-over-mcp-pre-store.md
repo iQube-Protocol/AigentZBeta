@@ -79,6 +79,87 @@ The download route itself is **ungated**, deliberately:
 
 Full suite after: **173 files / 2566 tests, all passing.**
 
+## Addendum — attribution + reproducibility (operator ruling, same day)
+
+The operator ruled that the served artifact must stay **attributable** (exact source commit,
+artifact SHA-256, manifest version, derived extension ID, build timestamp, target origin) and that
+the determinism claim must be **proved, not asserted**: *"If runtime ZIP creation includes current
+timestamps, then the SHA changes on every request even though the source is unchanged. That would
+weaken the integrity claim."*
+
+### Two digests, because they answer two questions
+
+`bundleSha256` was — and remains — a commitment over the **source tree** (a digest of the per-file
+digests). It is *not* the hash of the .zip, and never was. The original `verify` copy offered only
+that value beside a download link, so the obvious next move (`shasum -a 256` on the downloaded file)
+produced a mismatch against a number that was never the zip's hash. `archiveSha256` is now published
+alongside it as the **artifact-instance hash**, and the copy names which is which.
+
+### The clock is quarantined by construction
+
+`builtAt` lives on the brief's `provenance` block, never on `ExtensionArtifactManifest` — the
+manifest type has no timestamp field for a later edit to fold into a digest. The canary rebuilds
+under system clocks 31 years apart and asserts the digests are identical while `builtAt` moves.
+
+All five determinism sub-properties are individually asserted, against the emitted **bytes** rather
+than against the writer's own constants: file order stable, in-archive timestamps normalised (all
+entries 1980-01-01, in both the local and central headers), permissions normalised (external
+attributes 0), exclusions pinned, same-tree-same-hash across a re-read of the directory.
+
+### Exclusions were implicit — now pinned
+
+`readExtensionFiles()` bundled **every** file in `extension/companion-observer/`. A stray `.pem`,
+`.env`, `notes.md`, or editor backup dropped in that folder would have shipped over the ungated
+public route *and* silently moved the artifact hash. Membership is now an allowlist of the types a
+Manifest V3 extension can actually load (`COMPANION_BUNDLE_EXTENSIONS`), with a leading-dot guard for
+dotfiles whose extension is otherwise legal (`.eslintrc.json`). Skipped names are reported as
+`excluded[]` so an exclusion is visible rather than becoming its own quiet defect; `excluded` feeds
+neither digest, so a stray file cannot move the artifact hash at all.
+
+### Source commit — what is actually available, and what the operator must set
+
+`COMMIT_SHA` is this repo's existing name for the value (`scripts/generate-commit-artifacts.js:25`
+reads it; `.github/workflows/update-codex-on-push.yml:85` sets it), so it is reused rather than
+replaced with a second name for one thing. **But that workflow is GitHub Actions, and this route runs
+on Amplify** — `COMMIT_SHA` appears in neither `amplify.yml` nor the `scripts/create-env-production.js`
+allowlist, so it does **not** reach the deployed runtime today.
+
+What *does* reach it is `BACKEND_VERSION`: `amplify.yml:48` appends
+`"${AWS_BRANCH:-unknown}-${AWS_COMMIT_ID:-$(git rev-parse --short HEAD)}"` to `.env.production`, and
+`app/api/diag/route.ts:13` already reads it at runtime. The commit is therefore recoverable **today**
+from its trailing hex segment, and that is the documented fallback. With neither signal present the
+answer is `sourceCommit: null` plus a note naming the fix — never a fabricated SHA, and never the
+string `"unknown"` passed off as attribution.
+
+**Optional, to make `COMMIT_SHA` the single name** (no allowlist edit needed — `amplify.yml` writes
+`.env.production` directly, exactly as the existing `BACKEND_VERSION` line does). Add one line after
+`amplify.yml:49`:
+
+```yaml
+        - echo "COMMIT_SHA=${AWS_COMMIT_ID:-$(git rev-parse HEAD)}" >> .env.production
+```
+
+Not applied here: `amplify.yml` is outside this change's declared scope and is a
+high-collision file under concurrent sessions. Attribution works without it via the
+`BACKEND_VERSION` fallback; this only upgrades `sourceCommitSource` from `BACKEND_VERSION` to
+`COMMIT_SHA` and yields the full 40-char SHA rather than whatever `AWS_COMMIT_ID` carries.
+
+### Two canaries were found unkillable, and strengthened rather than left as decoration
+
+- **Order stability.** `readdir` returns sorted order on this filesystem, so deleting the `.sort()`
+  left every assertion green. The test now feeds the reader a **reversed** directory listing (a
+  hoisted `fs` module mock — `fs` is ESM here, so its namespace cannot be spied).
+- **The `BACKEND_VERSION` end anchor.** Removing `$` survived, because the existing cases resolved
+  identically either way. A case was added where a branch name's own hex-looking segment
+  (`release-abcdef1234-unknown`) would otherwise be harvested as a commit — a fabricated attribution.
+
+**Mutation coverage: 20/20 caught**, including live clocks in both zip header copies, umask leaking
+through external attributes, `builtAt` folded into `bundleSha256`, and `resolveSourceCommit`
+returning `"unknown"` instead of `null`.
+
+Full suite after this addendum: **173 files / 2584 tests, all passing** (verified in a clean worktree
+at the commit, since concurrent sessions had unrelated work in the shared tree).
+
 ## Deferred until Chrome Web Store registration
 
 1. **`storeListingUrl` stays `null`.** No store URL is invented anywhere (repo No-Guessing rule); the canary fails the build if one appears.
