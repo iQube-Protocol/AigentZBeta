@@ -367,7 +367,16 @@ export default function InvariantDiscoveryTab() {
                 {busy === "compress-domain" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />} Compress (recursive)
               </button>
             )}
+            {/* A REFUSAL MUST SAY WHY. Discovery with no evidence in scope is a
+                correct refusal — the engine compresses evidence, so with none
+                there is nothing to compress. But a greyed-out button with no
+                reason is indistinguishable from a broken instrument, and the
+                operator reads it as "the IDE is not ready" rather than "this
+                domain has no corpus yet". Name the reason and the next step. */}
             <button onClick={() => void extract()} disabled={busy !== null || evidence.length === 0}
+              title={evidence.length === 0
+                ? `No evidence in scope for ${scopeLabel}. Discovery compresses evidence — add evidence, or acquire this domain's external corpus, before it can run.`
+                : "Compress the evidence in scope into candidate invariants"}
               className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
               {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover {subDomain ? `${scopeLabel} ` : ""}invariants
             </button>
@@ -404,7 +413,10 @@ export default function InvariantDiscoveryTab() {
         {loading ? (
           <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
         ) : evidence.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No evidence in scope. Add regulatory/compliance text to discover candidate invariants.</p>
+          <p className="text-xs text-slate-500 italic">
+            No evidence in scope — <span className="text-slate-400">Discover invariants is disabled until this domain has evidence.</span>{' '}
+            Add regulatory/compliance text above, or acquire this domain&apos;s external corpus via Corpus Scout.
+          </p>
         ) : (
           <div className="space-y-1">
             {evidence.map((e) => (
