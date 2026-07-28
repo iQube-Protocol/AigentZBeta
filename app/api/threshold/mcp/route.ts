@@ -32,6 +32,7 @@ import {
 import { resolveInvitation } from '@/services/threshold/resolveInvitation';
 import { resolveBearer, createUpgradeHandshake } from '@/services/threshold/gatewaySession';
 import { makeIrlAdapter } from '@/services/threshold/irlAdapter';
+import { buildCompanionInstallBrief } from '@/services/companion/extensionArtifact';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,9 @@ export async function POST(request: NextRequest) {
     resolveInvitation,
     session,
     irl: makeIrlAdapter(origin),
+    // Reads the checked-in extension source off disk, so it is injected here
+    // rather than imported by the (I/O-light, unit-tested) gateway module.
+    companionInstall: () => buildCompanionInstallBrief(origin),
     // Incremental service crossing: pinned to THIS session so the browser
     // authorization upgrades the exact agent session it augments.
     beginServiceUpgrade: session

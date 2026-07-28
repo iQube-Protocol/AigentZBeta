@@ -34,6 +34,16 @@
  *    projection of two sources of truth, so a renamed/disabled tab must fail
  *    the build rather than ship a dead link:
  *      tests/companion-observer.test.ts
+ *  - The Companion extension ID DERIVED from manifest.json's pinned `key`
+ *    (Chromium's own sha256/first-16-bytes/a-p mapping) ↔ the
+ *    `chrome-extension://` origin in configs/embed/policy.v1.json's
+ *    frame-ancestors allowlist. Two places name one identity: the ID a partner
+ *    reads off chrome://extensions to verify their load-unpacked install, and
+ *    the origin the platform trusts to frame its surfaces. Drift here breaks
+ *    pairing in a way that is near-undiagnosable from the partner's side.
+ *    The distribution bundle is likewise DERIVED (read from
+ *    extension/companion-observer/ at request time, never a committed zip):
+ *      tests/companion-extension-artifact.test.ts
  *  - STEP_UP_POLICY / GRADE_RANK (the canonical risk→grade binding,
  *    PRD-PAG-001 Amendment A §A.6) pinned as the source of truth, incl.
  *    money-moving = world_id and grade monotonicity:

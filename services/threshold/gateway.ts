@@ -19,6 +19,7 @@ import { buildThresholdLink, type ThresholdLinkManifest } from './thresholdLink'
 import { hasScope, type ScopedSession } from './gatewaySession';
 import { crossingReceipt, welcomePayload, WELCOME_MESSAGE } from './welcome';
 import type { IrlAdapter } from './irlAdapter';
+import type { CompanionInstallBrief } from '../companion/extensionArtifact';
 
 // ── Context injected by the route (keeps this module I/O-light + testable) ──
 
@@ -52,6 +53,11 @@ export interface GatewayContext {
   /** Begin an incremental service crossing (session upgrade) — returns the human
    *  authorize URL. Injected by the route (creates the upgrade handshake). */
   beginServiceUpgrade?: (service: string, missingCapabilities: string[]) => Promise<{ authorizeUrl: string } | null>;
+  /** Build the Companion install brief (SPEC-MMC-003 §3.2) — the artifact
+   *  reference, its integrity values, and the human steps. Injected by the
+   *  route because it reads the checked-in extension source from disk; the
+   *  gateway module itself stays I/O-light and unit-testable. */
+  companionInstall?: () => CompanionInstallBrief;
 }
 
 // ── Catalogue ───────────────────────────────────────────────────────────────
@@ -133,6 +139,12 @@ export function listTools() {
         required: ['capabilities'],
         additionalProperties: false,
       },
+    },
+    {
+      name: 'get_companion_install',
+      description:
+        'Get everything your principal needs to install the metaMe Companion — the browser-side surface of the crossing they just made — while it is still pre-release and NOT in the Chrome Web Store. Returns a download URL for the extension bundle, its sha256 integrity values, the pinned extension ID to check after loading, the exact chrome://extensions steps, and the pairing step. IMPORTANT: you CANNOT install it; no MCP tool, page, or script can add an extension to a browser. Hand your principal the artifact and the steps, tell them plainly that the install is theirs to perform, and confirm afterwards. Requires an authenticated session.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     // ── IRL service adapter — read surface (requires research.read) ──
     {
@@ -229,6 +241,7 @@ export const HANDSHAKE_TOOLS = new Set([
   'activate_agent_passport',
   'propose_delegation',
   'request_service_capabilities',
+  'get_companion_install',
   'enter_service',
   'accept_lab_invitation',
   'list_shared_documents',
@@ -245,6 +258,7 @@ const AUTHENTICATED_TOOLS = new Set([
   'get_crossing_status',
   'request_service_capabilities',
   'propose_delegation',
+  'get_companion_install',
   'list_shared_documents',
   'read_shared_document',
   'submit_review',
@@ -419,6 +433,28 @@ export async function callTool(name: string, args: Record<string, unknown>, ctx:
         humanStep:
           'This is a draft to explain to your principal. To grant the new capabilities, run the crossing (OAuth authorize) requesting `wouldRequest`; ' +
           'your principal authorizes in the browser. You cannot authorize on their behalf.',
+      });
+    }
+
+    // ── Companion install (SPEC-MMC-003 §3.2) — artifact + steps, never an install ──
+    // Session-gated but capability-free on purpose: the Companion is the same
+    // principal's own browser surface, and PRD-MMC-001 §4.1 is explicit that the
+    // install "grants nothing beyond identity-only" — it holds no session until
+    // the human pairs it with their own. So there is no authority to delegate
+    // here and nothing for a capability to bound. The gate that matters is that
+    // this is discoverable only AFTER a human-authorized crossing.
+    if (name === 'get_companion_install') {
+      if (!ctx.companionInstall) return { ...text('The Companion artifact is unavailable on this gateway.'), isError: true };
+      const brief = ctx.companionInstall();
+      return text({
+        ...brief,
+        constitutionalBoundary:
+          'Installing and pairing are HUMAN acts. You may hand over the artifact, the integrity values, and the steps, and you may ' +
+          'confirm the result — you cannot add the extension to a browser, and you must not imply that you can. Pairing uses your ' +
+          'principal\'s own signed-in session, read in their own tab; it never passes through you.',
+        storeListingNote:
+          'The Companion is not yet registered with the Chrome Web Store, so there is no "Add to Chrome" button and no auto-update. ' +
+          'The developer-mode load below is the supported path until a listing exists; do not invent a store URL.',
       });
     }
 

@@ -169,6 +169,13 @@ const nextConfig = {
     // With output:'standalone' a file included on ANY route lands in the single
     // shared bundle, so this one entry covers packRegistry + every JSON reader.
     "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.json"],
+    // The Companion extension source IS the distribution artifact
+    // (services/companion/extensionArtifact.ts reads it at request time so no
+    // committed zip can drift from it). ~95 KB of plain JS/JSON/HTML — a
+    // rounding error against the output cap. Traced on the download route; the
+    // Threshold MCP route builds the same brief and, with output:'standalone',
+    // reads it from the one shared bundle.
+    "/api/companion/extension": ["./extension/companion-observer/*"],
     // EXP-001 evaluation step API reads these Living KnowledgeQube .md artifacts
     // synchronously (services/experiments/exp001.ts, EXP_DIR under irl/foundation
     // — NOT ccrl, the previous path was stale and only worked via the old
