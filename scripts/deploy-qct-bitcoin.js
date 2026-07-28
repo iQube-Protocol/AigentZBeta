@@ -1,3 +1,32 @@
+/**
+ * ⚠️  NON-AUTHORITATIVE DUPLICATE — DO NOT ETCH FROM THIS SCRIPT WITHOUT A RULING.
+ *
+ * This script etches the same concept as `deploy-qct-runes.ts` / `.js` but with
+ * DIFFERENT AND IRRECONCILABLE tokenomics. Rune etching parameters are immutable
+ * once broadcast, so whichever script runs first fixes them forever:
+ *
+ *   |                 | deploy-qct-runes.*   | this script      |
+ *   |-----------------|----------------------|------------------|
+ *   | premine         | 400,000,000 (40%)    | 100,000,000      |
+ *   | amount per mint | 47,619               | 1,000            |
+ *   | mint cap        | 21,000 mints         | 900,000,000      |
+ *
+ * Two scripts that etch one concept with different parameters is the
+ * source-of-truth-parity defect class (CLAUDE.md `inv.engineering.037`), and
+ * here the stale duplicate cannot be corrected after the fact.
+ *
+ * The naming canon below is applied to BOTH so that no path can etch the wrong
+ * NAME while the TOKENOMICS question is open. The tokenomics question is an
+ * operator ruling, not an agent's call — hence the guard in `deployQCTBitcoin`.
+ *
+ * NAMING CANON (R-1, ratified 2026-07-28): the class is QriptoCENT / Q¢; this is
+ * the Bitcoin-specific version, BitCent / B¢ (ASCII fallback `Bc`, long form
+ * "Bitcoin Q¢"). Etch `BITCENT`, never `QRIPTOCENT`.
+ *
+ * SECURITY: this file contains a hardcoded testnet WIF private key (below).
+ * Committed keys are forbidden by CLAUDE.md regardless of network. Flagged for
+ * the operator rather than rotated unilaterally, since the wallet may be funded.
+ */
 const bitcoin = require('bitcoinjs-lib');
 const { ECPairFactory } = require('ecpair');
 const ecc = require('tiny-secp256k1');
@@ -10,7 +39,21 @@ const NETWORK = bitcoin.networks.testnet;
 const BLOCKSTREAM_API = 'https://blockstream.info/testnet/api';
 
 async function deployQCTBitcoin() {
-  console.log('🚀 Deploying QCT Bitcoin Runes Token...\n');
+  // Guard: this script's tokenomics disagree with deploy-qct-runes.* and an etch
+  // is irreversible. Refuse rather than let the disagreement be settled by
+  // whichever script someone happens to run.
+  if (process.env.ACKNOWLEDGE_DIVERGENT_TOKENOMICS !== 'yes') {
+    console.error(
+      'Refusing to etch: this script disagrees with deploy-qct-runes.* on premine,\n' +
+      'amount-per-mint and cap, and Rune etching is irreversible. Resolve which\n' +
+      'script is authoritative first. To proceed deliberately anyway, re-run with\n' +
+      'ACKNOWLEDGE_DIVERGENT_TOKENOMICS=yes.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log('🚀 Deploying BitCent (B¢) Bitcoin Runes Token...\n');
 
   // Use persistent Bitcoin wallet (from previous generation)
   const persistentWIF = 'cMnrk5hz22jhu2NEytoBxgXPCR21kThfjje2k4NjKMuPTCXzDFWS';
@@ -44,8 +87,10 @@ async function deployQCTBitcoin() {
     
     // Runes protocol parameters
     const runesData = {
-      name: 'QRIPTOCENT', // Runes name (max 26 chars)
-      symbol: 'Q¢',
+      // IMMUTABLE ONCE ETCHED. Not 'QRIPTOCENT' — that names the class. See the
+      // naming canon at the top of this file.
+      name: 'BITCENT', // Runes name (max 26 chars)
+      symbol: 'B¢',
       decimals: 8,
       supply: 1000000000, // 1 billion QCT
       premine: 100000000,  // 100 million premined

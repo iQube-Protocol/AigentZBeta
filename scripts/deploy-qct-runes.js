@@ -1,6 +1,23 @@
 /**
- * QCT Runes Token Deployment Script (JavaScript)
- * Deploys QriptoCENT (QCT) as a Bitcoin Runes token
+ * BitCent Runes Token Deployment Script (JavaScript)
+ * Deploys BitCent (B¢) — the Bitcoin-specific implementation of the QriptoCENT
+ * class — as a Bitcoin Runes token.
+ *
+ * NAMING CANON (R-1, ratified 2026-07-28). The class is QriptoCENT / Q¢. This
+ * script etches the BITCOIN-SPECIFIC VERSION, whose preferred representations
+ * are BitCent and B¢, with `Bc` as the ASCII fallback where `¢` cannot be
+ * rendered, and "Bitcoin Q¢" as the explanatory long form.
+ *
+ *     QriptoCENT / Q¢
+ *             ↓ special version
+ *     BitCent / B¢
+ *
+ * THE RUNE NAME IS IMMUTABLE ONCE ETCHED. It must be BITCENT, never
+ * QRIPTOCENT — the latter names the CLASS rather than this Bitcoin-specific
+ * version, and the mistake cannot be corrected after broadcast. Q¢ must not be
+ * used as this token's display symbol; Q¢ stays with the class.
+ *
+ * Subject to final deployment validation before broadcast.
  */
 
 const { Runestone, Etching, Rune, Terms, Range, none, some } = require('runelib');
@@ -16,8 +33,9 @@ const network = networks.testnet;
 
 // QCT Token Specification
 const QCT_CONFIG = {
-  name: 'QRIPTOCENT',
-  symbol: 'Q¢',
+  // IMMUTABLE ONCE ETCHED — see the naming canon above. Not 'QRIPTOCENT'.
+  name: 'BITCENT',
+  symbol: 'B¢',
   decimals: 8,
   totalSupply: 1_000_000_000,
   cap: 21_000,
