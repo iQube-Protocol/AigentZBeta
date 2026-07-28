@@ -93,8 +93,8 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
     capabilityId: "companion-menu-system",
     displayLabel: "Companion Menu System",
     description:
-      "The copilot's navigation, mode and overlay system -- nine invariants (MS-1..MS-9), each learned from a live regression and each enforced by a canary. The first capability documented in the CCR-001 completion format.",
-    governingInvariants: ["MS-1", "MS-2", "MS-3", "MS-4", "MS-5", "MS-6", "MS-7", "MS-8", "MS-9"],
+      "The copilot's navigation, mode and overlay system -- ten invariants (MS-1..MS-10), each learned from a live regression and each enforced by a canary. The first capability documented in the CCR-001 completion format.",
+    governingInvariants: ["MS-1", "MS-2", "MS-3", "MS-4", "MS-5", "MS-6", "MS-7", "MS-8", "MS-9", "MS-10"],
     briefUrl: "codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md",
     reuseDisposition: "compose",
   },
@@ -108,7 +108,7 @@ const CAPABILITIES: RegisterCapabilityInput[] = [
     displayLabel: "Invariant Discovery Engine (IDE)",
     description:
       "The upstream instrument: turns a cold domain's source documents into a reviewable library of candidate invariants and stops short of admitting any of them to canon. Evidence -> extraction -> cross-sub-domain compare -> recursive compression -> operator promotion at status 'proposed'. Support signals (cross-framework convergence, cross-domain recurrence) are derived from the evidence at read time, never stored.",
-    governingInvariants: ["CFS-048", "PRD-IDE-002", "IDE-1", "IDE-2", "IDE-3", "IDE-4", "IDE-5", "IDE-6"],
+    governingInvariants: ["CFS-048", "PRD-IDE-002", "IDE-1", "IDE-2", "IDE-3", "IDE-4", "IDE-5", "IDE-6", "IDE-7"],
     briefUrl: "codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-discovery-engine.md",
     reuseDisposition: "compose",
   },

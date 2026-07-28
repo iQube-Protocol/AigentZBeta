@@ -6,7 +6,7 @@
 the separation: *"the IPE **never resolves** invariants; it always consumes a field the IRE
 produced."*
 
-Schema `capability-completion-artifact/v1.0`. CFS-049 Brief carrying CCR-001's completion sections.
+Schema `capability-completion-artifact/v2.0`. CFS-049 Brief carrying CCR-001's completion sections.
 The status discipline used here is stated in the IDE brief and applies unchanged: `validated`
 requires both a canary and an observed defect on record; everything else is `proposed`.
 
@@ -25,7 +25,7 @@ neither a capability record nor a canary for its central contract.
 | Capability ID | `invariant-projection-engine` |
 | Display label | Invariant Projection Engine (IPE) |
 | Artifact version | 1.0 |
-| Schema | `capability-completion-artifact/v1.0` |
+| Schema | `capability-completion-artifact/v2.0` |
 | Date | 2026-07-27 |
 | Governing documents | `CFS-039`, `CFS-035`, `CFS-037`, `CFS-017`, `CCR-001`, `CFS-049` |
 | Artifact path | `codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-projection-engine.md` |
@@ -111,6 +111,17 @@ it.
 - The T0/T1 boundary — `flipped_by_persona` is stored and never returned to the browser
 - CFS-017's shadow-first seam, which forbids a node changing behaviour without an explicit ratification
 
+### Emits
+
+<!-- Recorded from what the code DOES on 2026-07-27. Of the three engines this
+     is the only one whose single consequential act — the flip — is receipted,
+     and the only one that emits at all on its hot path. -->
+
+- **log** `[INVARIANT-SHADOW]` — one structured line per shadow run, from `emitShadowObservation` (rank nodes) and `runValueShadow` (scalar nodes), carrying node id, agreement or delta, item count and cited count. The observe-mode floor, explicitly modelled on `[DVN ESCALATION]`; it never throws.
+- **durable-record** `invariant_shadow_observations` — one row per shadow run, written fire-and-forget by `persistObservation` from `recordObservation`. Guarded: an absent table or unreachable client degrades to in-memory-only, and in a serverless container a post-response write may not flush, so this is a statistical history and not a ledger.
+- **durable-record** `invariant_node_flips` — the shadow/authoritative state, written by `setNodeFlip` on an authenticated operator flip. Absent row means not authoritative (IPE-5).
+- **receipt** `invariant_node_flipped` — written by `POST /api/invariants/flip` after the flip state has persisted, carrying the node id, the new state and a sha256 commitment of the flip act; the persona is hashed by the DVN pipeline, so no raw identifier reaches the payload. DVN-anchorable. Best-effort by design: the flip already succeeded, so a receipt failure must not fail the request — which means a flip row can exist with no receipt behind it.
+
 ## Implementation freedom
 
 The weight formula, the normalisation, the rank-agreement metric, the cache TTL, the number of
@@ -131,7 +142,8 @@ project.
 - **Status:** proposed
 - **Stage:** observed
 - **Broke it:** **This holds for the bridge and does not hold for the engine.** `services/invariants/projectionBridge.ts` is clean — it imports `ResolvedConstitutionalField` as a type only and composes two pure functions, and `services/invariants/engine.ts:100-103` states the rule explicitly: *"engine.ts (the IPE) never imports the IRE, so there is no cycle: the projector consumes a field, it does not construct one."* But CFS-039 §1 designates `engine.ts` itself as the IPE, and that module **does** construct fields: `computeFieldSnapshot` (`:47-53`) builds one from `buildInvariantSlice`, `groundReasoning` (`:60-65`) is that call under another name, and `getCachedFieldSnapshot` (`:150-166`) is how every decision node obtains the snapshot it weights from. So the Constitutional Projection face weights from a snapshot the IPE resolved for itself, and the Reasoning face resolves a slice for seven consumers with no IRE involvement at all. CFS-039 §2 anticipates this — *"the slice it returns is the IRE-resolved region, so grounding is intent-scoped by construction"* — but records it as an upgrade to be made, not a property that holds.
-- **Enforced by:** `tests/instrument-engine-briefs.test.ts` — asserts, for the bridge only, that `projectionBridge.ts` imports the resolution module as a type import and never as a value, and that `compareProjection` performs no substrate read. The engine-wide half of this invariant has no canary and cannot honestly have one until the contract is either satisfied or narrowed by ratification.
+- **Enforced by:** `tests/instrument-engine-briefs.test.ts` — asserts, for the bridge, that `projectionBridge.ts` imports the resolution module as a type import and never as a value, and that `compareProjection` performs no substrate read.
+- **Remediated — landed 2026-07-28.** The engine-wide half, which this record said could not honestly be canaried until the contract was either satisfied or narrowed, was **satisfied rather than narrowed**. A concurrent session moved field construction out of `engine.ts` into `services/invariants/grounding.ts` (the substrate reader), composed upward by `resolution.ts` (the IRE); `engine.ts` now imports only the type, exactly as the bridge already did. Crucially, no self-resolving fallback was introduced — "accept an injected field, resolve when absent" is prohibited rather than implemented, so an absent field yields a faithful projection reporting `engaged: false` (a refusal to measure) instead of a silent fetch, and both derivations stay synchronous so the fallback cannot be smuggled back in. The nine grounding surfaces are now classified as data a readiness check reads rather than as prose in this brief: five routed to the IRE, two already governed, and two (`compose-artifact`, `run-artifact`) honestly classified `governed-unrouted` because neither input type carries an intent text. That last pair is the honest residue — it is excluded from constitutional claims rather than quietly counted.
 
 ## IPE-2 — Absent inputs project faithfully
 
@@ -168,7 +180,8 @@ artefact of the implementation is worse than no signal, because it will be read 
 - **Status:** proposed
 - **Stage:** observed
 - **Broke it:** **This invariant does not hold today, and the failure is doubled.** `services/invariants/projectionBridge.ts:11-16` states that *"because the default coordinate axis (evidenceDensity) IS the standing axis, the two agree by construction today"*, and that any divergence is therefore the CCR research signal; `services/invariants/engine.ts:119-122` repeats the claim. It is not accurate. The coordinate axis is **not** the standing axis: `deriveWeightsFromStanding` reads raw `standing`, which the substrate constrains to 0–100, while `evidenceDensity` is `clamp01(standing)` (`services/invariants/resolution.ts:172`), which is 1.0 for every invariant with standing ≥ 1 (see the IRE brief, IRE-6). So the standing path produces weights proportional to earned standing while the coordinate path produces a flat vector, and they diverge whenever the governing invariants have unequal standing — which the discovery node's seeds are *deliberately* given (`services/invariants/nodes/discoveryRanking.ts:35-42`: *"seed validation priors (need>importance>trust>novelty) that set their standing"*). An operator reading `diverges: true` on `/api/invariants/resolve` would be reading a units mismatch as a constitutional finding. The mirror-image failure is equally live: because the resolved field is intent-scoped, its slice frequently contains none of the four seed ids, in which case **both** derivations fall through to all-1 and report `diverges: false` — agreement produced by neither path resolving anything, which is the inert-mechanism shape (MS-7 / CB-2). The signal is therefore uninterpretable in both directions.
-- **Enforced by:** Nothing. `compareProjection` has no canary at all — no test file in the repository imports `projectionBridge`, `compareProjection` or `deriveWeightsFromCoordinates` before this pass. A canary asserting the documented behaviour would fail; one asserting the current behaviour would pin the defect. `tests/instrument-engine-briefs.test.ts` instead pins the substrate ranges the mismatch turns on, and the correction is escalated in the report as an operator decision, because it changes the numbers EXP-P1 Stage 0 measures.
+- **Enforced by:** Nothing at the time of the audit. `compareProjection` had no canary at all — before this pass no test file in the repository imported `projectionBridge`, `compareProjection` or `deriveWeightsFromCoordinates`. A canary asserting the documented behaviour would have failed and one asserting the current behaviour would have pinned the defect, so `tests/instrument-engine-briefs.test.ts` pinned only the substrate ranges the mismatch turns on.
+- **Remediated — landed 2026-07-28.** The same concurrent session added an incomparability signal to the bridge: a projection in which either path merely defaulted is now reported as incomparable rather than as agreeing, so the mirror-image failure above can no longer render as `diverges: false`. Canaries cover both directions — that two defaulting paths are refused as agreement, that one defaulting path is enough to make the comparison incomparable, that a genuinely matched field still reports comparable (the positive control), that the trace line never prints "agrees" for an incomparable projection, and that every projection carries the calibration convention it was computed under. Combined with the IRE-6 conversion fix, the units mismatch that made `diverges` fire spuriously is also gone.
 
 ## IPE-5 — Authority is opt-in, operator-gated and receipted; the default is faithful
 

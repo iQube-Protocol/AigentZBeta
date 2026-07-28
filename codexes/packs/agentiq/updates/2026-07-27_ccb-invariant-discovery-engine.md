@@ -7,7 +7,7 @@ a capability brief until this pass, even though **EXP-P1 Stage 0 is chartered to
 and IPE as instruments** (`types/research.ts:472-473`).
 
 This is a Constitutional Capability Brief (CFS-049) carrying CCR-001's completion sections — not a
-second artifact family (CFS-049 Amendment A). Schema `capability-completion-artifact/v1.0`.
+second artifact family (CFS-049 Amendment A). Schema `capability-completion-artifact/v2.0`.
 
 **Read-only audit.** No engine behaviour was changed in the pass that produced this document. Two
 findings below (IDE-6, and the note under Known hazards) record things that are **not true today**;
@@ -28,7 +28,7 @@ evidenced status, so `proposed` is the only honest slot available. See the closi
 | Capability ID | `invariant-discovery-engine` |
 | Display label | Invariant Discovery Engine (IDE) |
 | Artifact version | 1.0 |
-| Schema | `capability-completion-artifact/v1.0` |
+| Schema | `capability-completion-artifact/v2.0` |
 | Date | 2026-07-27 |
 | Governing documents | `CFS-048`, `PRD-IDE-002`, `CCR-001`, `CFS-049`, `SPEC-CDR-001` |
 | Artifact path | `codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-discovery-engine.md` |
@@ -108,6 +108,21 @@ believing it.
 - The identity and access spine — every route entry resolves through `getActivePersona` and requires `cartridgeFlags.isAdmin`
 - The invariant substrate's own constraints — `invariants.status` and the confidence ladder are enforced by the database, not by this engine
 - The experimental-population partition (`services/research/experimentalPopulations.ts`), which decides what a discovered invariant may be used as evidence for
+
+### Emits
+
+<!-- Recorded from what the code DOES on 2026-07-27, not from what the charter
+     says it should. The asymmetry below is the IDE-6 finding rendered as data:
+     six emissions, and exactly ONE receipt, attached to the single act out of
+     nine that happens to admit an invariant. -->
+
+- **durable-record** `discovery_evidence` — one row per filed source document, inserted by `addEvidence` via `POST /api/invariants/discovery action:'add-evidence'` and by `services/corpusScout/ingestionBroker.ts`.
+- **durable-record** `discovery_candidates` — bulk-inserted by `runConstitutionalDiscovery` after the extraction pass, and status-updated in place by `promoteCandidate` (`promoted`) and `rejectCandidate` (`rejected`). **No receipt accompanies any of the three.**
+- **durable-record** `invariants` — one row at status `proposed` per promotion, written through `discoverInvariant`'s `insertInvariant`; never at `validated` or `canonical` (IDE-1).
+- **durable-record** `invariant_contexts` — the scope-ladder context threaded through `upsertContext` on the same promotion.
+- **durable-record** `invariant_edges` — `specializes` edges from operator-confirmed parents (`createSpecializesEdges`) and from `materializeCompressionEdges`. **A graph mutation with no receipt — the highest-consequence unreceipted act in the engine (IDE-6).**
+- **receipt** `invariant_discovered` — written by `services/invariants/lifecycle.ts`'s `discoverInvariant` when an actor is supplied, i.e. on promotion only. Best-effort: its failure is swallowed by a `.catch` that logs and continues, so the row can exist with no receipt behind it.
+- **log** `[CFS-048]` — `console.error` on a failed compression or `specializes` edge write. Edge failures never fail the promotion, so this log is the only trace that a graph write was attempted and lost.
 
 ## Implementation freedom
 
@@ -192,6 +207,21 @@ receipt attributable to the persona that performed it.
 - **Broke it:** **This invariant does not hold today.** Only promotion emits a receipt — `services/invariants/lifecycle.ts:110-116` writes an `invariant_discovered` activity receipt, and swallows its own failure with `.catch`. `runConstitutionalDiscovery` (an LLM call plus a bulk insert of candidate rows), `rejectCandidate`, `materializeCompressionEdges` (a mutation of the invariant graph) and `compressDomainInvariants` emit no receipt and no structured log. Under CFS-053 §5.3, edge materialisation is squarely a state transition of record, so CB-3 and CB-4 bind and are unmet. The `committer()` commitment helper (`services/invariants/discoveryEngine.ts:148-150`) computes a T2-safe attributable reference and is available for this.
 - **Enforced by:** Nothing. Recording a canary would pin the current absence; the fix is an engine-behaviour change outside this pass's ratified scope and is escalated in the report instead.
 
+## IDE-7 — A refusal must name the layer that refused and what would satisfy it
+
+A gate that declines to run must say **which** condition it declined on and what
+would change the answer. A refusal rendered as an inert control is
+indistinguishable from a broken instrument, and an operator who cannot tell the
+two apart learns to read every refusal as a bug.
+
+- **Provenance:** regression-derived
+- **Status:** proposed
+- **Stage:** observed
+- **Broke it:** **Live, 2026-07-28.** The operator opened the discovery workspace, selected the Commercialisation scope, and reported *"the run button is not active."* The engine was refusing **correctly** — `components/composer/InvariantDiscoveryTab.tsx:370` renders the extraction control as `disabled={busy !== null || evidence.length === 0}`, and no evidence has been ingested for commercialisation because no external corpus document has been acquired yet. Stage 1 precedes Stage 2 by design (IDE-1's whole point is that nothing is compressed from nothing). But the control communicates that as a dead button with no reason, so a correct constitutional refusal presented itself as a defect. The two conditions in that expression are also not the same kind of thing — one is transient (a run is in flight) and one is a readiness verdict (this domain has no corpus) — and collapsing them into one boolean is what erases the reason.
+- **Three layers, three separately observable verdicts.** The refusal above is the **Run Admission** layer. It sits below two others that must each render their own verdict and reason rather than being folded into one boolean: **Instrument** readiness (are the engines themselves validated — EXP-P1 Stage 0, and the findings in the IRE and IPE briefs), and **Domain** readiness (does this domain have a constitution that can be verified). The Domain layer now has a real worked example rather than a hypothetical: `assessRegistryDiversity` returns **three** verdicts — `satisfied` / `unsatisfied` / `undeterminable` (`services/corpusScout/institutionalRegistry.ts:212`) — and as of 2026-07-28 Commercialisation reports **14 of 14 pillars satisfied**, closed by adding NBER (`partnerships`) and NISTA (`outcome-assurance`) rather than by lowering a bar (`LAW_II_MIN_AUTHORITIES` and `LAW_II_MIN_TRADITIONS` are unchanged at 2, `institutionalRegistry.ts:208-210`), while **Financial Services reports `undeterminable` on all seven of its pillars**, because none of its nineteen registry entries declares a `category` tradition. `undeterminable` is not `unsatisfied` and is emphatically not `satisfied`: FS Law II can be neither verified nor violated on the present data. A readiness surface that renders two states where the model has three would report FS as failing, or as fine, and both would be false.
+- **Partially remediated — landed 2026-07-28 (`7edfadf52`).** The Run Admission layer now speaks on the surface the operator was looking at: the disabled extraction control carries the reason and the next step, and the empty state names the consequence instead of leaving the reader to connect an empty list to a dead button two rows above it. That fix is deliberately narrow and its own commit message says so — *"The general form — Instrument / Domain / Run Admission each rendering a separately observable verdict with its reason — belongs to the readiness model in the IDE/IRE/IPE capability briefs, not here."* This record is that home.
+- **Enforced by:** Nothing, for the general form. The shared readiness gate is **deliberately not implemented** — it is held at the operator's instruction, and the registry work it must build on has now landed (`a88cd5feb`). When it is built it must **compose with** `canRunInstitutionDiscovery` (`services/corpusScout/registryVerification.ts:132-148`), which already returns `{ allowed: false, reason }` with an actionable reason string and already fails closed on every unknown value. Building a second gate beside it would be `inv.engineering.037` — a parallel implementation of an existing capability — the defect class this brief exists to prevent. The absence of a canary here is a deferral, not an oversight.
+
 ## Reproduction procedure
 
 1. Provision the substrate: apply `supabase/migrations/20260703200000_invariant_substrate.sql`, `20260703230000_law_xii_truth_standing_reach.sql`, `20260803000000_invariant_discovery.sql`, `20260804000000_discovery_scope_abstraction.sql` and the namespace migrations for every domain you intend to discover in.
@@ -220,12 +250,17 @@ receipt attributable to the persona that performed it.
 - **A horizontal-capability domain reads evidence from the verticals it is observed in.** Its recurrence score is therefore about the verticals, not about the capability, and reads differently from a vertical's. The legend is returned by the route (`observedIn`) precisely so a reader does not misread it.
 - **Extraction spends provider credits on every run and is not idempotent** — a re-run adds a fresh discovery pass. Deduplication happens at promotion, through the registry's duplicate check, not at extraction.
 - **`materializeCompressionEdges` mutates the invariant graph with no receipt** (IDE-6). It is the highest-consequence unreceipted action in the engine.
+- **A cold domain's run control is disabled, and does not say why** (IDE-7). Selecting a scope with no ingested evidence produces an inert extraction button. This is a correct refusal presented as a fault; expect it to be reported as a bug until the readiness layers render their reasons.
+- **`undeterminable` is a third verdict and must not be collapsed into two.** Any surface reading domain readiness must carry `satisfied` / `unsatisfied` / `undeterminable` through to the operator. Financial Services is the live case: seven pillars, all `undeterminable`, because zero of nineteen registry entries declare a tradition. Rendering that as a pass or as a failure are both wrong, and the second would look like a regression in a domain that has not regressed.
 
 ## Operational evidence
 
 - The eight commercialisation invariants in the canonical seed crystal are IDE-derived and are asserted by id as Population B — `tests/evidence-provenance-populations.test.ts` (`'exactly the eight commercialisation records are Population B, by id'`), 2026-07-27 suite run.
 - The recursive-compression phase is recorded as shipped in `codexes/packs/agentiq/updates/2026-07-21_cfs-048-recursive-compression.md`; parent-linking in `codexes/packs/agentiq/updates/2026-07-20_cfs-048-parent-linking.md`; the sub-domain ladder in `codexes/packs/agentiq/updates/2026-07-20_cfs-048-phase1a-domain-ladder.md`.
 - Corpus Scout's ingestion broker files evidence through this engine's Stage-1 entry point rather than a parallel writer — `services/corpusScout/ingestionBroker.ts:20`, asserted by `tests/corpus-scout-ingestion-broker.test.ts`.
+- Commercialisation Law II closed at **14 of 14 pillars satisfied, zero unsatisfied, zero undeterminable** (2026-07-28), by registering NBER under `partnerships` and NISTA under `outcome-assurance` — thresholds unchanged. Asserted against the real registry by `tests/commercialisation-institutional-registry.test.ts`, which also drives one-authority, two-from-one-tradition and unclassified-authority cases through the same function and asserts each is refused, so the check is not vacuous.
+- Financial Services reports `undeterminable` on all seven pillars over the same function in the same run — nineteen registry entries, zero declaring a `category`. The honest verdict for an unclassified registry, and the Domain layer's worked example.
+- The operator's 2026-07-28 report of an inert extraction control on the Commercialisation scope (IDE-7) — the first observed instance of a correct refusal being read as an instrument fault.
 - Full suite at the time of writing: 157 files / 2199 tests passing, exit 0 (2026-07-27).
 
 ## Commons publication record
@@ -233,7 +268,7 @@ receipt attributable to the persona that performed it.
 | Field | Value |
 |-------|-------|
 | Proof class | constitutional |
-| Claim scope | These six invariants, as governing the Invariant Discovery Engine on this platform, at the state of the code audited on 2026-07-27. IDE-6 is recorded as UNMET. This is not a claim that the discovery method yields true invariants — that is what the validation harness and EXP-P1 exist to test — only a claim about who is permitted to decide what, inside this engine. |
+| Claim scope | These seven invariants, as governing the Invariant Discovery Engine on this platform, at the state of the code audited on 2026-07-27 and 2026-07-28. IDE-6 and IDE-7 are recorded as UNMET. This is not a claim that the discovery method yields true invariants — that is what the validation harness and EXP-P1 exist to test — only a claim about who is permitted to decide what, inside this engine. |
 | Evidence references | `tests/invariant-discovery.test.ts`, `tests/discovery-scope-convergence.test.ts`, `tests/evidence-provenance-populations.test.ts`, `tests/instrument-engine-briefs.test.ts`, `tests/capability-completion.test.ts` |
 | Approval record | None — not yet submitted |
 | Published | no |

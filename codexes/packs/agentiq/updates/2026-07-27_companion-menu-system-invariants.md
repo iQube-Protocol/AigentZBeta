@@ -4,7 +4,7 @@
 (`codexes/packs/irl/foundation/CCR-001_constitutional-capability-completion.md`), and therefore the
 reference example of the format. It is a Constitutional Capability Brief (CFS-049) carrying
 CCR-001's completion sections — **not a second artifact family** (CFS-049 Amendment A). Schema:
-`capability-completion-artifact/v1.0`.
+`capability-completion-artifact/v2.0`.
 
 **Operator-requested, 2026-07-27:** *"It may be worth defining what the invariants of this menu
 system are so we don't have to keep playing this game of whack-a-mole where fixing one thing
@@ -20,7 +20,7 @@ enforces it. **Every one of them was learned from a live regression** — none i
 | Capability ID | `companion-menu-system` |
 | Display label | Companion Menu System |
 | Artifact version | 1.0 |
-| Schema | `capability-completion-artifact/v1.0` |
+| Schema | `capability-completion-artifact/v2.0` |
 | Date | 2026-07-27 |
 | Governing documents | `CCR-001`, `CFS-049`, `SCOPE-MMC-004`, `PRD-MMC-001` |
 | Artifact path | `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md` |
@@ -90,6 +90,19 @@ regression at a time.
 - The identity and access spine — every destination re-resolves its own gate; the row grants nothing
 - The D-ID avatar SDK, which renders at `document.body` level and can write `document.body.style`
 - The host deployment, which decides whether the close control can act at all
+
+### Emits
+
+<!-- Added 2026-07-28 under the `Emits` extension (schema v2.0). Recorded from
+     what the code does: the menu row itself writes nothing — navigating is not
+     a state transition — and the single emission below belongs to the observer
+     MS-10 governs. -->
+
+- **durable-record** `companion_observation_latest` — one row per persona, upserted on `persona_id` with last-writer-wins, forwarded by the extension background worker's `OBSERVATION` handler after the local consent check. The worker is the only writer for every tab (MS-10), and it suppresses the write when the observation's material content is unchanged. No receipt: the row is context for ranking the strip, not an assertion the platform makes to anyone.
+
+### Emission rationale
+
+Not applicable — `Emits` is non-empty. Recorded here only to note what is deliberately absent: choosing a surface, swapping the body, entering or leaving avatar, and following a quick link all emit nothing, because none of them is a state transition of record (CFS-053 §5.3). Every consequence a citizen sees after pressing a control is emitted by the surface navigated to, under that surface's own capability, and the row grants no authority of its own (MS-9, and the spine entry under External authorities).
 
 ## Implementation freedom
 

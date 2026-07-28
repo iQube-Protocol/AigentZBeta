@@ -7,7 +7,7 @@ states the constitutional rule this engine exists to hold — **"RESOLUTION PREC
 and the separation it depends on: *"the IRE resolves; the Invariant Projection Engine projects. The
 IPE never resolves a field; it consumes one produced here."*
 
-Schema `capability-completion-artifact/v1.0`. CFS-049 Brief carrying CCR-001's completion sections.
+Schema `capability-completion-artifact/v2.0`. CFS-049 Brief carrying CCR-001's completion sections.
 The status discipline used here is stated in the IDE brief and applies unchanged: `validated`
 requires both a canary and an observed defect on record; everything else is `proposed`.
 
@@ -22,7 +22,7 @@ EXP-P1 Stage 0 is chartered to measure.
 | Capability ID | `invariant-resolution-engine` |
 | Display label | Invariant Resolution Engine (IRE) |
 | Artifact version | 1.0 |
-| Schema | `capability-completion-artifact/v1.0` |
+| Schema | `capability-completion-artifact/v2.0` |
 | Date | 2026-07-27 |
 | Governing documents | `CFS-037`, `CFS-038`, `CFS-041`, `CCR-001`, `CFS-049` |
 | Artifact path | `codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-resolution-engine.md` |
@@ -103,6 +103,14 @@ without ever deciding whether the substrate exists at all.
 - The identity and access spine — the authenticated resolve route resolves the caller through `getActivePersona`
 - The T1 exposure boundary — a resolved field carries statements, scores and domains, never a persona identifier
 - The invariant substrate's own scales — `standing` and `reach` are database-constrained to 0–100, which is the authority IRE-6 turns on
+
+### Emits
+
+- None.
+
+### Emission rationale
+
+The IRE emits nothing: no receipt, no row, no structured log. `resolveConstitutionalField` is pure composition over a read, and `services/invariants/resolution.ts` binds no Supabase client and no receipt writer at all (IRE-7, canaried). **This is recorded as an unresolved finding, not as a design property, and the convenient rationale is the wrong one.** Read-only-ness does justify emitting no *receipt* — CFS-053 §5.3 bounds CB-3 and CB-4 to mechanisms that effect a state transition of record, and a resolver effects none — but it does not justify emitting *nothing*, because CB-1 and CB-2 bind every constitutional mechanism without exception. The consequence is concrete rather than theoretical: because a resolution leaves no trace, there is no evidence from which anyone can establish whether a given governed turn was grounded through this engine or bypassed it, and seven of the nine grounded reasoning surfaces do bypass it (see Known hazards). An instrument whose operation is unobservable cannot have its readiness established, which is exactly what EXP-P1 Stage 0 is chartered to do. IRE-8 records the invariant this violates; `emits: []` here is the honest present state, not the target one.
 
 ## Implementation freedom
 
@@ -185,7 +193,8 @@ single point, and a coordinate that cannot distinguish is not a calibration.
 - **Status:** proposed
 - **Stage:** observed
 - **Broke it:** **This invariant does not hold today.** `services/invariants/resolution.ts:172` computes `evidenceDensity: { value: clamp01(item.standing) }`, but `standing` is a 0–100 score — `supabase/migrations/20260703200000_invariant_substrate.sql:60` constrains it with `CHECK (standing >= 0 AND standing <= 100)` and `computeStandingScore` (`services/invariants/lifecycle.ts:285-293`) returns `100 * base / (base + 40)`. Every invariant with standing ≥ 1 therefore has `evidenceDensity` exactly 1.0, so an invariant validated once and an invariant validated eight hundred times are indistinguishable on the axis meant to measure evidence density. This propagates: `reusePotential` is the mean of that saturated value and `timeToValue` is derived from it (`resolution.ts:185-192`), so both operational estimates saturate too, and the IPE's divergence signal inherits it (see the IPE brief, IPE-4). The neighbouring `adoption` coordinate carries the same misreading in its comment — it squashes `reach / (reach + 5)` while calling reach an *"unbounded adoption count"*, when `reach` is likewise database-constrained to 0–100 (`supabase/migrations/20260703230000_law_xii_truth_standing_reach.sql:15-16`). Only `verifiability` is correct, because `confidence` genuinely is a 0–1 value.
-- **Enforced by:** Nothing today. A canary asserting the correct behaviour would fail, and one asserting the current behaviour would pin the defect. `tests/instrument-engine-briefs.test.ts` instead pins the substrate ranges (`standing` and `reach` are 0–100) so any future calibration has an authority to check itself against; the calibration fix is an engine-behaviour change outside this pass's ratified scope and is escalated in the report.
+- **Enforced by:** Nothing at the time of the audit. A canary asserting the correct behaviour would have failed and one asserting the current behaviour would have pinned the defect, so `tests/instrument-engine-briefs.test.ts` pinned only the substrate ranges (`standing` and `reach` are 0–100) as the authority a future calibration must check itself against.
+- **Remediated — landed 2026-07-28.** A concurrent session replaced the clamp with a proportional conversion across `services/invariants/{resolution,coordinates,engine,projectionBridge}.ts` and extended `tests/instrument-engine-briefs.test.ts` with the matching behavioural assertions — that standing converts at the boundaries (0 → 0, 50 → 0.5, 100 → 1), that standings above 1 do not all collapse to 1, that the coordinate is proportional so the two projection paths *can* agree, that reach converts on the same 0–100 scale, and that `calibrateStructural` applies the conversions rather than merely declaring them. The **Broke it** record above is kept verbatim: it is the history that earned the invariant, and CCR-INV-9 turns on being able to recognise a repeat. Status stays `proposed` pending the operator ruling this record asks for, because the correction changes every coordinate, both operational estimates and any EXP-P1 Stage 0 figures already taken.
 
 ## IRE-7 — The engine observes; it never gates and never writes
 
@@ -198,6 +207,19 @@ rather than throwing, so a grounding hiccup never blocks the turn it would other
 - **Stage:** candidate
 - **Broke it:** No defect on record. Shadow-first is designed in from CFS-017 and stated at `services/invariants/resolution.ts:32-34`; recorded at `proposed` rather than claiming evidence that does not exist.
 - **Enforced by:** `tests/instrument-engine-briefs.test.ts` — asserts the resolution module contains no write to the substrate (no `insert`, `update`, `upsert` or `delete` call) and that the citable projection's fail-open contract returns a list rather than propagating.
+
+## IRE-8 — An instrument's operation must be observable
+
+A resolution that governs a reasoning turn must leave evidence that it occurred.
+Read-only-ness excuses a mechanism from emitting a *receipt*; it does not excuse
+it from emitting *anything*, because a mechanism that leaves no trace cannot be
+distinguished from one that never ran.
+
+- **Provenance:** adversarially-derived
+- **Status:** proposed
+- **Stage:** observed
+- **Broke it:** **This invariant does not hold today**, and it is the reason the boundary claim above can only be settled by reading import graphs rather than by reading evidence. The IRE emits nothing (see `### Emits`), so nothing on the platform records that a field was resolved, for which intent, with what confidence, or by which surface. The concrete cost: seven of nine grounded reasoning surfaces call `groundReasoning` directly and never touch this engine, and that was discoverable only by static audit — no receipt, row or log would ever have shown it, and none would show it regressing. `describeResolvedField` exists and produces exactly the trace line that would close this, and it is used only for an in-memory pipeline string and two API response bodies. Under CFS-053 this is CB-1/CB-2, not CB-3: the mechanism is bound to an observable event but produces no observable consequence.
+- **Enforced by:** Nothing. A canary asserting the correct behaviour would fail on work that has not been authorised; one asserting the current absence would pin it. The `### Emits` section is now the machine-readable record of the gap — `CAN-CCR-9` enforces that it must be stated, which is what turns this from an audit finding into a queryable readiness fact.
 
 ## Reproduction procedure
 
