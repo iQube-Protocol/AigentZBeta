@@ -1,0 +1,389 @@
+/**
+ * Horizen integration — kickoff read-path canaries.
+ *
+ * Every fixture below is derived from the payloads in the "Horizen Agentic
+ * Services — Partner Integration Brief" (2026-07-28) §3.2–§3.5. Nothing is
+ * invented, and NOTHING here touches the network: the client takes an injected
+ * `fetchImpl`, so the suite is deterministic and runs offline (kickoff
+ * requirement 8).
+ *
+ * The nine required properties map to the describes below, in order.
+ */
+
+import { describe, it, expect } from 'vitest';
+
+import {
+  normalizeAgentIdentity,
+  identityKey,
+  sameAgent,
+  parseAgentId,
+  classifyIdentity,
+  isServiceOnboardedId,
+  SERVICE_ONBOARDED_ID_FLOOR,
+  HORIZEN_NETWORK_FACTS,
+} from '@/services/horizen/identity';
+import {
+  parseAgentCardObject,
+  parseAgentUri,
+  normalizeSupportedTrust,
+  agentUriScheme,
+  ERC_8004_REGISTRATION_TYPE,
+  MAX_DECODED_CARD_BYTES,
+} from '@/services/horizen/agentCard';
+import { correlateAgent } from '@/services/horizen/correlate';
+import type { HorizenFetch } from '@/services/horizen/client';
+
+// ─── Fixtures, from the brief ──────────────────────────────────────────────
+
+/** §3.2 — the reference agent's card, verbatim. */
+const REFERENCE_CARD = {
+  type: ERC_8004_REGISTRATION_TYPE,
+  name: 'My Pulse Test Agent',
+  description: "Look I'm alive !",
+  active: true,
+  services: [{ endpoint: 'https://www.example.com', pricing: { amount: '0.01', currency: 'USDC' } }],
+  supportedTrust: [{ type: 'zkverify', verifier: 'zkverify' }],
+  metadata: {
+    x402: { configured: false },
+    pricing: { model: 'per-call', amount: '0.01', currency: 'USDC', network: 'base-sepolia', payTo: '0x9D911C43F9B14eaf3969CB2C44Ff4dd69e1f497d' },
+  },
+  circuitMetadata: {
+    proofSystem: 'Groth16', verifier: 'zkVerify', selfAttested: true, curve: 'bn254',
+    library: 'gnark', constraintCount: 4096, proves: ['Test'], doesNotProve: ['Test'],
+    vkHash: '0x708036d2e4c025b8afed3b2bc6a3860e382e6897ec86a42bfc3fa0c197ed74a1',
+    proofType: 'test-proof',
+  },
+};
+
+const REFERENCE_CARD_DATA_URI =
+  `data:application/json;base64,${Buffer.from(JSON.stringify(REFERENCE_CARD), 'utf8').toString('base64')}`;
+
+/** §3.3 — the registry representation of 0x1eba. */
+const REGISTRY_0X1EBA = {
+  agent: {
+    agentId: '0x1eba',
+    name: 'My Pulse Test Agent',
+    agentURI: REFERENCE_CARD_DATA_URI,
+    owner: '0x9D911C43F9B14eaf3969CB2C44Ff4dd69e1f497d',
+    active: true,
+    source: 'on-chain',
+  },
+  validationsCount: 120,
+  agentStats: { totalValidations: 120, allPassed: true },
+  feedbackEntries: [],
+  ready: true,
+  validations: [
+    {
+      id: 'val-61711', agentId: '0x1eba',
+      validatorAddress: '0xbbdcb0C9C3B9ce60555fdF50cFB99802E7c33920',
+      status: 'validated', tag: 'pulse-sla', timestamp: '2026-07-09T18:25:20.000Z',
+      zkDetails: {
+        proofType: 'pulse-sla', curve: 'bn254', verificationMethod: 'zkVerify Volta',
+        blockHash: '0x104bc71551f8179e480d4f871282d928e85e756775220afe10c2f977c0719110',
+        txHash: '0xda75e0da3479bf8e091110035ffa918b32c9c1f6456d98c7ac29651c3bd51de6',
+        allAssertionsPassed: true, constraintCount: 3769,
+      },
+    },
+  ],
+};
+
+/** §3.4 — the Pulse record for decimal 7866. */
+const PULSE_7866 = {
+  agent: { agentId: 7866, name: 'My Pulse Test Agent', endpoint: 'https://www.example.com', slaTarget: 99, challengeIntervalSeconds: 60 },
+  uptime: { current: 0, totalChallenges: 28333, totalSuccessful: 0, slaMet: false },
+  recentHeartbeats: [{ timestamp: '2026-07-28T10:43:15.707Z', status: 'timeout', latencyMs: 117 }],
+  slaProofs: [
+    {
+      periodStart: '2026-07-28T09:00:00.002Z', periodEnd: '2026-07-28T10:00:00.002Z',
+      uptimePercent: 0, totalChallenges: 59,
+      merkleRoot: '0x63550489d7209f8c5df706963349fff4e836fe711e299139d310e4389e0c58b5',
+      zkverifyAttestationId: '51708',
+      adapterTxHash: '0x9a07d6dfead8b0293ea23256a7b87cf3e02e3f7bbb8273a1b271bc31947b0ffa',
+    },
+  ],
+};
+
+/** A routing fake — asserts the URL shapes the brief specifies, offline. */
+function fakeFetch(routes: Record<string, { status?: number; body?: unknown }>): HorizenFetch {
+  return async (url: string) => {
+    const hit = Object.entries(routes).find(([fragment]) => url.includes(fragment));
+    if (!hit) return { ok: false, status: 404, json: async () => ({}) };
+    const { status = 200, body = {} } = hit[1];
+    return { ok: status >= 200 && status < 300, status, json: async () => body };
+  };
+}
+
+// ─── 1. 0x1eba normalizes to 7866 ──────────────────────────────────────────
+
+describe('identifier normalization (§2.4.1)', () => {
+  it('0x1eba normalizes to 7866', () => {
+    const r = normalizeAgentIdentity({ agentId: '0x1eba', network: 'base-sepolia', source: 'on-chain' });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.identity.tokenId).toBe('7866');
+    expect(r.identity.pulseAlias).toBe('7866');
+    expect(r.identity.registryAlias).toBe('0x1eba');
+  });
+
+  it('the decimal rendering normalizes to the same identity as the hex one', () => {
+    const fromHex = normalizeAgentIdentity({ agentId: '0x1eba', network: 'base-sepolia' });
+    const fromDec = normalizeAgentIdentity({ agentId: '7866', network: 'base-sepolia' });
+    expect(fromHex.ok && fromDec.ok).toBe(true);
+    if (!fromHex.ok || !fromDec.ok) return;
+    expect(identityKey(fromHex.identity)).toBe(identityKey(fromDec.identity));
+  });
+
+  it('uses BigInt — a tokenId beyond 2^53 survives without precision loss', () => {
+    // Number() would silently round this; the brief mandates BigInt.
+    const huge = '9007199254740993'; // 2^53 + 1
+    const r = normalizeAgentIdentity({ agentId: huge, network: 'base-mainnet' });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.identity.tokenId).toBe(huge);
+  });
+
+  it('synthetic catalogue ids are refused, never coerced into a token id (§2.4.2)', () => {
+    for (const synthetic of ['0xPulse', 'virtuals:26', 'antseed:1', '']) {
+      expect(parseAgentId(synthetic).ok, `'${synthetic}' was accepted as a token id`).toBe(false);
+    }
+  });
+});
+
+// ─── 2. Network is part of the identity key ────────────────────────────────
+
+describe('network is part of the identity (§4.4)', () => {
+  it('the same agentId on two networks yields two DIFFERENT identity keys', () => {
+    const sep = normalizeAgentIdentity({ agentId: '7866', network: 'base-sepolia' });
+    const main = normalizeAgentIdentity({ agentId: '7866', network: 'base-mainnet' });
+    expect(sep.ok && main.ok).toBe(true);
+    if (!sep.ok || !main.ok) return;
+    expect(identityKey(sep.identity)).not.toBe(identityKey(main.identity));
+    expect(sep.identity.chainId).toBe(84532);
+    expect(main.identity.chainId).toBe(8453);
+  });
+
+  it('sameAgent() refuses to correlate across networks', () => {
+    expect(sameAgent({ agentId: '0x1eba', network: 'base-sepolia' }, { agentId: '7866', network: 'base-sepolia' })).toBe(true);
+    expect(sameAgent({ agentId: '0x1eba', network: 'base-sepolia' }, { agentId: '7866', network: 'base-mainnet' })).toBe(false);
+  });
+
+  it('each network carries the right REST vs Pulse selector vocabulary (§1.2 vs §3.4)', () => {
+    expect(HORIZEN_NETWORK_FACTS['base-sepolia'].registrySelector).toBe('sepolia');
+    expect(HORIZEN_NETWORK_FACTS['base-sepolia'].pulseSelector).toBe('base-sepolia');
+    expect(HORIZEN_NETWORK_FACTS['base-mainnet'].registrySelector).toBe('mainnet');
+  });
+});
+
+// ─── 3/4. Identity class — service-onboarded is not ERC-8004 ───────────────
+
+describe('identity class preservation (§2.4.2, §2.4.3)', () => {
+  it('an id at or above 10000000 is service-onboarded, never on-chain', () => {
+    expect(isServiceOnboardedId(SERVICE_ONBOARDED_ID_FLOOR)).toBe(true);
+    expect(isServiceOnboardedId(SERVICE_ONBOARDED_ID_FLOOR - 1n)).toBe(false);
+    // Even when the row CLAIMS on-chain, the floor wins — a token cannot exist
+    // above it, whatever the payload says.
+    expect(classifyIdentity('on-chain', 10_000_001n)).toBe('service-onboarded');
+  });
+
+  it('catalogue sources are not promoted to on-chain', () => {
+    expect(classifyIdentity('virtuals.io', 26n)).toBe('catalogue');
+    expect(classifyIdentity('pulse', 5n)).toBe('catalogue');
+    expect(classifyIdentity('on-chain', 7866n)).toBe('on-chain');
+    // Absent source is UNKNOWN — never optimistically on-chain.
+    expect(classifyIdentity(null, 7866n)).toBe('unknown');
+    expect(classifyIdentity(undefined, 7866n)).toBe('unknown');
+  });
+});
+
+// ─── 5/6/7. Card tolerance ─────────────────────────────────────────────────
+
+describe('Agent Card parsing tolerates the real shapes (§2.3, §2.4.4, §7)', () => {
+  it('the reference data: URI card decodes and parses', () => {
+    const r = parseAgentUri(REFERENCE_CARD_DATA_URI);
+    expect(r.status).toBe('parsed');
+    if (r.status !== 'parsed') return;
+    expect(r.card.name).toBe('My Pulse Test Agent');
+    expect(r.card.typeConfirmed).toBe(true);
+    expect(r.card.circuitMetadata?.proofSystem).toBe('Groth16');
+  });
+
+  it('an identity-only card — no services, no pricing, no trust — is ACCEPTED (§7)', () => {
+    const r = parseAgentCardObject({ name: 'PnL Agent' });
+    expect(r.status).toBe('parsed');
+    if (r.status !== 'parsed') return;
+    expect(r.card.services).toEqual([]);
+    expect(r.card.supportedTrust).toEqual([]);
+    expect(r.card.metadata).toBeNull();
+  });
+
+  it('heterogeneous supportedTrust — bare strings AND objects — both parse (§2.3(b))', () => {
+    const entries = normalizeSupportedTrust([
+      'zkVerify',
+      'reputation',
+      { type: 'zk-validation', prover: 'sp1', curve: 'bn254', validationRegistry: 'eip155:84532:0x75a7f712635D7918563659795450ddE6751D71BC' },
+    ]);
+    expect(entries.map((e) => e.type)).toEqual(['zkVerify', 'reputation', 'zk-validation']);
+    expect(entries[2].validationRegistry).toContain('eip155:84532:');
+    // The original is never discarded.
+    expect(entries[0].raw).toBe('zkVerify');
+  });
+
+  it('a card with no `type` is accepted (legacy); a card with a WRONG type is rejected (§2.1)', () => {
+    expect(parseAgentCardObject({ name: 'Legacy' }).status).toBe('parsed');
+    const wrong = parseAgentCardObject({ type: 'https://example.com/not-erc8004', name: 'Bad' });
+    expect(wrong.status).toBe('invalid');
+  });
+
+  it('unknown additive Horizen fields are preserved, not dropped (§2.3)', () => {
+    const r = parseAgentCardObject({ name: 'A', someFutureHorizenField: { keep: 'me' } });
+    expect(r.status).toBe('parsed');
+    if (r.status !== 'parsed') return;
+    expect(r.card.extensions.someFutureHorizenField).toEqual({ keep: 'me' });
+  });
+
+  it('unknown schemes are UNRESOLVED, not invalid (§2.3(g))', () => {
+    expect(agentUriScheme('spawn://x')).toBe('unknown');
+    const r = parseAgentUri('spawn://something');
+    expect(r.status).toBe('unresolved');
+    // https/ipfs are also unresolved here — fetched deliberately by the caller.
+    expect(parseAgentUri('https://example.com/card.json').status).toBe('unresolved');
+    expect(parseAgentUri('ipfs://Qm123').status).toBe('unresolved');
+  });
+
+  it('malformed and oversized cards fail SAFELY, and are distinguishable from unresolved', () => {
+    expect(parseAgentUri('data:application/json,%7Bnot-json').status).toBe('invalid');
+    expect(parseAgentCardObject('a string').status).toBe('invalid');
+    expect(parseAgentCardObject(null).status).toBe('invalid');
+
+    const oversized = `data:application/json;base64,${Buffer.alloc(MAX_DECODED_CARD_BYTES + 1, 0x41).toString('base64')}`;
+    const r = parseAgentUri(oversized);
+    expect(r.status).toBe('invalid');
+    if (r.status === 'invalid') expect(r.reason).toMatch(/exceeds/);
+  });
+});
+
+// ─── 8. ready:false is not an authoritative empty result ───────────────────
+
+describe('readiness (§5.1)', () => {
+  it('ready:false is refused rather than treated as an empty authoritative result', async () => {
+    const res = await correlateAgent('0x1eba', 'base-sepolia', {
+      fetchImpl: fakeFetch({ '/api/agents/0x1eba?': { body: { ready: false, agent: null } } }),
+    });
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.reason).toBe('not-ready');
+  });
+});
+
+// ─── 9. The end-to-end correlation ─────────────────────────────────────────
+
+describe('end-to-end reference-agent correlation (§3)', () => {
+  const routes = {
+    '/api/agents/0x1eba/pulse-status': { body: { enrolled: true, commitmentRecorded: true } },
+    '/api/agents/0x1eba?': { body: REGISTRY_0X1EBA },
+    '/status/7866': { body: PULSE_7866 },
+    '/v1/erc8004/7866': { status: 404, body: {} },
+  };
+
+  it('produces ONE normalized object joining registry, Pulse, validations and proofs', async () => {
+    const res = await correlateAgent('0x1eba', 'base-sepolia', { fetchImpl: fakeFetch(routes) });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const r = res.record;
+
+    // Identity — the §3.1 join, in every rendering.
+    expect(r.identity.tokenId).toBe('7866');
+    expect(r.identity.registryAlias).toBe('0x1eba');
+    expect(r.identity.network).toBe('base-sepolia');
+    expect(r.identity.chainId).toBe(84532);
+    expect(r.identity.identityClass).toBe('on-chain');
+
+    // Registry.
+    expect(r.registry.name).toBe('My Pulse Test Agent');
+    expect(r.registry.validationsCount).toBe(120);
+    expect(r.registry.allValidationsPassed).toBe(true);
+    expect(r.registry.card.status).toBe('parsed');
+
+    // Pulse + the on-chain proof identifiers (§3.1 secondary join keys).
+    expect(r.pulse.present).toBe(true);
+    if (r.pulse.present) {
+      expect(r.pulse.value.commitmentRecorded).toBe(true);
+      expect(r.pulse.value.slaProofs[0].zkverifyAttestationId).toBe('51708');
+      expect(r.pulse.value.slaProofs[0].adapterTxHash).toMatch(/^0x9a07d6df/);
+    }
+
+    // Validation receipt, with its gateway validator and zkVerify tx.
+    expect(r.validations.present).toBe(true);
+    if (r.validations.present) {
+      expect(r.validations.value[0].tag).toBe('pulse-sla');
+      expect(r.validations.value[0].validatorAddress).toBe('0xbbdcb0C9C3B9ce60555fdF50cFB99802E7c33920');
+      expect(r.validations.value[0].zkTxHash).toMatch(/^0xda75e0da/);
+    }
+
+    // No PnL for this agent — an ordinary absence, not a failure (§3.5).
+    expect(r.pnl.present).toBe(false);
+    if (!r.pnl.present) expect(r.pnl.reason).toBe('not-found');
+
+    expect(r.correlationVerified).toBe(true);
+    expect(r.ready).toBe(true);
+  });
+
+  it('a missing Pulse enrollment is ACCEPTED as a valid agent state (§9)', async () => {
+    const res = await correlateAgent('0x1eba', 'base-sepolia', {
+      fetchImpl: fakeFetch({
+        '/api/agents/0x1eba/pulse-status': { body: { enrolled: false, commitmentRecorded: false } },
+        '/api/agents/0x1eba?': { body: REGISTRY_0X1EBA },
+        '/v1/erc8004/7866': { status: 404, body: {} },
+      }),
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.record.pulse.present).toBe(false);
+    if (!res.record.pulse.present) expect(res.record.pulse.reason).toBe('not-enrolled');
+    // The agent is still fully correlated — absence of an optional capability
+    // must never degrade the record.
+    expect(res.record.identity.tokenId).toBe('7866');
+    expect(res.record.correlationVerified).toBe(true);
+  });
+
+  it('a Pulse record naming a DIFFERENT agent is flagged, never silently merged', async () => {
+    const res = await correlateAgent('0x1eba', 'base-sepolia', {
+      fetchImpl: fakeFetch({
+        '/api/agents/0x1eba/pulse-status': { body: { enrolled: true, commitmentRecorded: true } },
+        '/api/agents/0x1eba?': { body: REGISTRY_0X1EBA },
+        '/status/7866': { body: { ...PULSE_7866, agent: { ...PULSE_7866.agent, agentId: 9999 } } },
+        '/v1/erc8004/7866': { status: 404, body: {} },
+      }),
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.record.correlationVerified).toBe(false);
+    expect(res.record.correlationNotes.join(' ')).toMatch(/9999/);
+  });
+
+  it('the Pulse read uses the DECIMAL id and an explicit network selector (§4.4)', async () => {
+    const seen: string[] = [];
+    const spy: HorizenFetch = async (url) => {
+      seen.push(url);
+      if (url.includes('/pulse-status')) return { ok: true, status: 200, json: async () => ({ enrolled: true, commitmentRecorded: true }) };
+      if (url.includes('/api/agents/0x1eba?')) return { ok: true, status: 200, json: async () => REGISTRY_0X1EBA };
+      if (url.includes('/status/')) return { ok: true, status: 200, json: async () => PULSE_7866 };
+      return { ok: false, status: 404, json: async () => ({}) };
+    };
+    await correlateAgent('0x1eba', 'base-sepolia', { fetchImpl: spy });
+
+    const pulseUrl = seen.find((u) => u.includes('pulse.horizenlabs.io/status/'));
+    expect(pulseUrl, 'no Pulse status read was issued').toBeTruthy();
+    // Decimal, never hex — reading Pulse with the hex alias returns nothing.
+    expect(pulseUrl).toContain('/status/7866');
+    expect(pulseUrl).not.toContain('0x1eba');
+    // The network selector is mandatory and uses Pulse's vocabulary.
+    expect(pulseUrl).toContain('network=base-sepolia');
+
+    const registryUrl = seen.find((u) => u.includes('/api/agents/0x1eba?'));
+    // …while the registry uses ITS vocabulary. Mixing them is a silent
+    // wrong-network read, which is why the mapping is data, not a guess.
+    expect(registryUrl).toContain('network=sepolia');
+    expect(registryUrl).not.toContain('network=base-sepolia');
+  });
+});
