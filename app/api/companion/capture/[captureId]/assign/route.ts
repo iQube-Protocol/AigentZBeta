@@ -133,7 +133,21 @@ export async function POST(
 
   const capture = await getCapturedObjectForPersona(admin, persona.personaId, captureId);
   if (!capture) return badRequest('capture-not-found', 'not found, not owned by you, or already assigned');
-  if (capture.status !== 'inbox') return badRequest('capture-already-assigned');
+  if (capture.status !== 'inbox') {
+    // Tell the caller WHERE it went, not just that it went — a bare
+    // "already assigned" is a dead end when the operator is looking at a
+    // capture they assigned in an earlier attempt whose response they never
+    // saw (2026-07-28 operator report: every retry errored with no path
+    // forward).
+    return NextResponse.json(
+      {
+        error: 'capture-already-assigned',
+        destination: capture.assignedDestination ?? null,
+        refId: capture.assignedRefId ?? null,
+      },
+      { status: 409, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   let refId: string;
 
@@ -228,6 +242,32 @@ export async function POST(
     refId,
   );
   if (assignError) {
+    // The conditional update matched 0 rows AFTER the read above saw an
+    // owned, inbox-status row. Two known ways that happens: a concurrent
+    // assign won the transition between our read and our update (double-fire
+    // from the UI), or the client library reported an unusable row count for
+    // an update that actually applied. Both leave the capture GENUINELY
+    // assigned — so re-read and answer with the truth instead of a 500 that
+    // hides where the capture went (2026-07-28 operator report:
+    // "assign-persist-failed ... this was happening before, never
+    // addressed"). Only a capture still sitting in 'inbox' after the failed
+    // update is a real persistence failure.
+    const after = await getCapturedObjectForPersona(admin, persona.personaId, captureId);
+    if (after && after.status === 'assigned' && after.assignedRefId) {
+      return NextResponse.json(
+        {
+          ok: true,
+          destination: after.assignedDestination ?? destination,
+          refId: after.assignedRefId,
+          // Honest flag: when the winning assignment's ref differs from the
+          // destination THIS request just created, this request's creation is
+          // an orphan the operator may want to discard.
+          recovered: 'already-assigned',
+          ...(after.assignedRefId !== refId ? { orphanRefId: refId } : {}),
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
     return NextResponse.json(
       { error: 'assign-persist-failed', detail: assignError },
       { status: 500, headers: { 'Cache-Control': 'no-store' } },

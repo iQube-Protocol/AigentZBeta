@@ -243,6 +243,22 @@ describe('POST /api/companion/capture/[captureId]/assign — fail closed + compo
     expect(source).toContain("SUPPORTED_DESTINATIONS: CaptureAssignDestination[] = ['intent', 'venture']");
     expect(source).toContain('destination-not-yet-supported');
   });
+
+  it('a 0-row assign transition recovers by re-reading — an assignment that actually landed is never reported as a 500 (2026-07-28)', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'app', 'api', 'companion', 'capture', '[captureId]', 'assign', 'route.ts'),
+      'utf8',
+    );
+    // The recovery re-read must run INSIDE the assignError branch, before the
+    // 500 — the exact operator-hit dead end was "assign-persist-failed" with
+    // the capture genuinely assigned underneath (concurrent double-fire, or
+    // an unusable update count).
+    expect(source).toMatch(/if \(assignError\) \{[\s\S]{0,900}getCapturedObjectForPersona[\s\S]{0,900}assign-persist-failed/);
+    expect(source).toContain("recovered: 'already-assigned'");
+    // And the pre-check tells the caller WHERE an already-assigned capture
+    // went (409 with destination/refId), never a bare dead-end error.
+    expect(source).toMatch(/'capture-already-assigned',[\s\S]{0,200}destination:[\s\S]{0,200}refId:/);
+  });
 });
 
 // ─── 5. CaptureInboxPanel — client-side spine discipline (Increment 3) ─────
