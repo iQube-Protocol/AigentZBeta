@@ -200,6 +200,21 @@ export async function createCandidateSource(
   return { ok: true, sourceId, candidate: toCandidateSourceRow(data) };
 }
 
+/**
+ * The LIST projection truncates normalizedText to this preview length and
+ * reports the true length in `normalizedTextChars`. Matches CorpusScoutTab's
+ * PREVIEW_CHARS — the review UI never renders more than this from a list.
+ *
+ * WHY (2026-07-28 incident): list responses carried every row's FULL
+ * normalized_text. A single acquired document can exceed 1.3M chars (World
+ * Bank GEP full reports), so a domain listing blew past the Lambda 6MB
+ * response cap and the route died with 413 Content Too Large — the same
+ * limit class as the PDF-proxy 413 documented in CLAUDE.md. Full text is a
+ * single-row concern: getCandidateSource (used by the review route and the
+ * ingestion broker) still returns it untruncated.
+ */
+export const LIST_PREVIEW_CHARS = 1500;
+
 export async function listCandidateSources(
   admin: SupabaseClient,
   filter: CandidateSourceFilter = {},
@@ -209,7 +224,11 @@ export async function listCandidateSources(
   if (filter.reviewWorkflowStatus) query = query.eq('review_workflow_status', filter.reviewWorkflowStatus);
   const { data, error } = await query;
   if (error) return [];
-  return (data ?? []).map(toCandidateSourceRow);
+  return (data ?? []).map(toCandidateSourceRow).map((row) => ({
+    ...row,
+    normalizedTextChars: row.normalizedText.length,
+    normalizedText: row.normalizedText.slice(0, LIST_PREVIEW_CHARS),
+  }));
 }
 
 export async function getCandidateSource(admin: SupabaseClient, sourceId: string): Promise<CandidateSourceRow | null> {

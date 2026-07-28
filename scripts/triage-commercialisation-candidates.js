@@ -59,7 +59,7 @@
   console.table(unique.map((c) => ({
     sourceId: c.sourceId,
     pillar: c.campaignSubDomain ?? '(domain-wide)',
-    chars: (c.normalizedText ?? '').length,
+    chars: c.normalizedTextChars ?? (c.normalizedText ?? '').length,
     title: (c.title ?? '').slice(0, 80),
     url: c.canonicalUrl,
     tags: Array.isArray(c.structuralTags) ? c.structuralTags.join(',') : '',

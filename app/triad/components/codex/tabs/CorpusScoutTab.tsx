@@ -621,7 +621,10 @@ export function CorpusScoutTab() {
                     {previewOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />} Content preview
                     {c.normalizedText && (
                       <span className="ml-1 font-mono text-slate-500">
-                        ({Math.min(c.normalizedText.length, PREVIEW_CHARS).toLocaleString()} of {c.normalizedText.length.toLocaleString()} chars
+                        {/* The list projection truncates normalizedText to its preview and
+                            reports the TRUE length in normalizedTextChars (Lambda 6MB /
+                            413 fix) — fall back to .length for single-row reads. */}
+                        ({Math.min(c.normalizedTextChars ?? c.normalizedText.length, PREVIEW_CHARS).toLocaleString()} of {(c.normalizedTextChars ?? c.normalizedText.length).toLocaleString()} chars
                         {c.pageCount ? ` · ${c.pageCount}p` : ''})
                       </span>
                     )}
@@ -648,7 +651,7 @@ export function CorpusScoutTab() {
                 {previewOpen && (
                   <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px] leading-relaxed text-slate-300">
                     {c.normalizedText
-                      ? c.normalizedText.slice(0, PREVIEW_CHARS) + (c.normalizedText.length > PREVIEW_CHARS ? ' …' : '')
+                      ? c.normalizedText.slice(0, PREVIEW_CHARS) + ((c.normalizedTextChars ?? c.normalizedText.length) > PREVIEW_CHARS ? ' …' : '')
                       : '(no extracted text — this source failed retrieval or extraction)'}
                   </pre>
                 )}

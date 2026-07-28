@@ -170,6 +170,14 @@ export interface CandidateSourceRow {
   resolutionChain: ResolutionChain | Record<string, never>;
   extractionStatus: 'pending' | 'ok' | 'below-threshold' | 'failed';
   normalizedText: string;
+  /**
+   * TRUE full length of normalized_text, set ONLY by the list projection
+   * (listCandidateSources truncates normalizedText to LIST_PREVIEW_CHARS to
+   * stay under the Lambda 6MB response cap — 2026-07-28 413 incident).
+   * Absent on single-row reads (getCandidateSource), where normalizedText
+   * itself is untruncated.
+   */
+  normalizedTextChars?: number;
   extractionWarnings: string[];
   /** HEURISTIC structural-value tags (§8) — advisory review metadata only. */
   structuralTags: StructuralValueTag[];
