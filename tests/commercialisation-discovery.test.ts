@@ -42,15 +42,15 @@ import {
   observationDomainKey,
   parseObservationDomain,
 } from '../services/invariants/discoveryDomains';
-import { computeRecurrence, type EvidenceRow } from '../services/invariants/discoveryEngine';
+import { computeRecurrence, classifyEvidenceProvenance, type EvidenceRow } from '../services/invariants/discoveryEngine';
 import { INVARIANT_NAMESPACES, COMPOSITION_LAWS } from '../types/invariants';
 
 const ROOT = join(__dirname, '..');
 const PRD_PATH = join(ROOT, 'codexes/packs/irl/foundation/PRD-IDE-002_commercialisation-invariant-discovery.md');
 const PRD = readFileSync(PRD_PATH, 'utf8');
 
-function ev(id: string, domain: string, title = id): EvidenceRow {
-  return { id, domain, subDomain: null, title, sourceKind: 'other', content: 'x', sourceRef: null, createdAt: '' };
+function ev(id: string, domain: string, title = id, sourceRef: string | null = null): EvidenceRow {
+  return { id, domain, subDomain: null, title, sourceKind: 'other', content: 'x', sourceRef, createdAt: '' };
 }
 
 // ── 1 · The registry ────────────────────────────────────────────────────────
@@ -123,12 +123,17 @@ describe('PRD-IDE-002 · observation-domain keys', () => {
     expect(evidenceDomainsFor('medicine')).toEqual(['medicine']);
   });
 
-  it('a horizontal domain reads the qualified corpus of each vertical it is observed in', () => {
+  it('a horizontal domain reads its OWN direct corpus PLUS the qualified corpus of each vertical it is observed in (operator ruling 2026-07-28)', () => {
     expect(evidenceDomainsFor('commercialisation').sort()).toEqual([
+      'commercialisation',
       'commercialisation/financial-services',
       'commercialisation/human-mobility-services',
       'commercialisation/media',
     ]);
+  });
+
+  it('the plain key is FIRST, and never dropped — the exact fix for the structural bug where 26 directly-acquired rows at the plain key were invisible to every read path', () => {
+    expect(evidenceDomainsFor('commercialisation')).toContain('commercialisation');
   });
 
   it('so a Financial Services run can never sweep up commercialisation observations made inside it', () => {
@@ -208,6 +213,117 @@ describe('PRD-IDE-002 Addendum A · Cross-Domain Recurrence Score', () => {
           '(inv.engineering.036). If persistence is genuinely required, justify it and add a parity canary.',
       ).not.toContain(column);
     }
+  });
+});
+
+// ── 3b · THE LOAD-BEARING FIX — direct-horizontal evidence must never inflate
+//        cross-domain recurrence (operator ruling 2026-07-28) ───────────────
+
+describe('operator ruling 2026-07-28 · direct-horizontal evidence never inflates cross-domain recurrence', () => {
+  // f1/f2 are DIRECT-HORIZONTAL — the plain `commercialisation` key (evidence
+  // acquired ABOUT the capability itself). m1/h1 are genuine cross-vertical
+  // observations. v1 is a VERTICAL domain's own unqualified corpus.
+  const evidence: EvidenceRow[] = [
+    ev('f1', 'commercialisation', 'Direct doc 1', 'src-a'),
+    ev('f2', 'commercialisation', 'Direct doc 2', 'src-b'),
+    ev('m1', 'commercialisation/media'),
+    ev('h1', 'commercialisation/human-mobility-services'),
+    ev('v1', 'financial-services'),
+  ];
+
+  it('THE CANARY: a candidate whose evidence is ONLY direct-horizontal scores recurrence 0 / single-domain — NOT inflated to 1', () => {
+    const r = computeRecurrence(['f1', 'f2'], evidence, 'commercialisation');
+    expect(
+      r.recurrenceCount,
+      'the plain commercialisation rows must NOT count as an "observed domain" — this is the exact corruption ' +
+        'the operator warned against: every candidate with direct-horizontal evidence getting +1 recurrence ' +
+        "for a domain that isn't a real vertical at all",
+    ).toBe(0);
+    expect(r.observedDomains).toEqual([]);
+    expect(r.tier).toBe('single-domain');
+    expect(r.classificationFloor).toBe('specialized');
+    expect(r.maxAbstractionLevel).toBe('L3');
+  });
+
+  it('direct-horizontal evidence is NOT discarded — it surfaces as evidenceSupport, orthogonal to recurrence', () => {
+    const r = computeRecurrence(['f1', 'f2'], evidence, 'commercialisation');
+    expect(r.evidenceSupport).not.toBeNull();
+    expect(r.evidenceSupport!.directHorizontal).toBe(true);
+    expect(r.evidenceSupport!.externalSourceCount).toBe(2);
+    expect(r.evidenceSupport!.observedVerticals).toEqual([]);
+    expect(r.evidenceSupport!.crossVerticalRecurrence).toBe(0);
+  });
+
+  it('mixed evidence: direct-horizontal PLUS two verticals counts exactly 2, never 3', () => {
+    const r = computeRecurrence(['f1', 'f2', 'm1', 'h1'], evidence, 'commercialisation');
+    expect(r.recurrenceCount).toBe(2);
+    expect(r.observedDomains).toEqual(['human-mobility-services', 'media']);
+    expect(r.tier).toBe('cross-domain');
+    expect(r.evidenceSupport!.directHorizontal).toBe(true);
+    expect(r.evidenceSupport!.crossVerticalRecurrence).toBe(2);
+  });
+
+  it('the exclusion is CONTEXTUAL on the domain being scored — omitting domain reverts to raw domain-string counting (backward compatible)', () => {
+    // No domain context → isHorizontalCandidate is false → the plain
+    // `commercialisation` key counts as its own "observed domain", exactly
+    // the pre-fix / no-context behaviour. This is what makes `domain`
+    // optional rather than a breaking signature change.
+    const r = computeRecurrence(['f1', 'f2'], evidence);
+    expect(r.recurrenceCount).toBe(1);
+    expect(r.observedDomains).toEqual(['commercialisation']);
+    expect(r.evidenceSupport).toBeNull();
+  });
+
+  it('a VERTICAL domain scoring ITS OWN unqualified evidence is UNAFFECTED — the exclusion never applies to a vertical', () => {
+    const r = computeRecurrence(['v1'], evidence, 'financial-services');
+    expect(
+      r.recurrenceCount,
+      'financial-services is a vertical, not a horizontal-capability domain — its own corpus must count exactly ' +
+        'as it always has; the exclusion is scoped to horizontal domains only',
+    ).toBe(1);
+    expect(r.observedDomains).toEqual(['financial-services']);
+    expect(r.evidenceSupport).toBeNull();
+  });
+
+  it('an UNREGISTERED domain passed as context is also unaffected (fail-open to the pre-fix behaviour)', () => {
+    const r = computeRecurrence(['f1'], evidence, 'medicine');
+    expect(r.recurrenceCount).toBe(1);
+    expect(r.evidenceSupport).toBeNull();
+  });
+
+  it('DEDUP: the same source document counted once even if referenced twice in evidenceIds', () => {
+    const r = computeRecurrence(['f1', 'f1', 'f2'], evidence, 'commercialisation');
+    expect(r.evidenceSupport!.externalSourceCount).toBe(2);
+  });
+
+  it('DEDUP: two direct-horizontal rows sharing the same sourceRef (the same document ingested twice) count as ONE external source', () => {
+    const dup: EvidenceRow[] = [...evidence, ev('f1-copy', 'commercialisation', 'Direct doc 1 (re-ingested)', 'src-a')];
+    const r = computeRecurrence(['f1', 'f1-copy'], dup, 'commercialisation');
+    expect(r.evidenceSupport!.externalSourceCount).toBe(1);
+  });
+});
+
+// ── 3c · Evidence provenance classification (operator ruling 2026-07-28) ────
+
+describe('classifyEvidenceProvenance — direct-horizontal vs cross-vertical-observation', () => {
+  it('the plain horizontal key classifies as direct-horizontal', () => {
+    expect(classifyEvidenceProvenance('commercialisation', 'commercialisation')).toBe('direct-horizontal');
+  });
+
+  it('a qualified key classifies as cross-vertical-observation', () => {
+    expect(classifyEvidenceProvenance('commercialisation/media', 'commercialisation')).toBe('cross-vertical-observation');
+  });
+
+  it('returns null for a VERTICAL scoring domain — the distinction does not exist there', () => {
+    expect(classifyEvidenceProvenance('financial-services', 'financial-services')).toBeNull();
+  });
+
+  it('returns null when the evidence row does not even belong to the scoring domain', () => {
+    expect(classifyEvidenceProvenance('financial-services', 'commercialisation')).toBeNull();
+  });
+
+  it('returns null for an unregistered scoring domain', () => {
+    expect(classifyEvidenceProvenance('medicine', 'medicine')).toBeNull();
   });
 });
 

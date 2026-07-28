@@ -31,12 +31,88 @@ export const USER_AGENT = 'CorpusScout/1.0 (+metaMe IRL invariant corpus acquisi
 export type FollowRedirectsFailure = 'timeout' | 'redirect-loop' | 'unknown';
 
 /**
+ * HTTP statuses that signal a TRANSIENT condition on the remote end (rate
+ * limiting, gateway/upstream trouble) rather than a judgment about the URL
+ * itself — worth retrying, unlike a 404 or 403. Shared by every caller of
+ * `followRedirects` (retrieval, institution navigation, registry
+ * verification) so "what counts as transient" is answered in exactly one
+ * place (operator-approved fix, 2026-07-28: "World Bank hit two 504s and
+ * lost both attempts").
+ */
+export const TRANSIENT_HTTP_STATUSES: ReadonlySet<number> = new Set([429, 502, 503, 504]);
+
+/** Bounded: 3 total attempts (1 initial + 2 retries) per outbound fetch — a
+ *  deliberately SMALL ceiling, not an open-ended increase (operator: "bounded
+ *  retry, not an open-ended increase"). Enough to survive a single transient
+ *  blip (the World Bank 504 case) without turning a genuinely dead source
+ *  into a long hang; `TIMEOUT_MS` already bounds each individual attempt, so
+ *  the worst case stays `3 × TIMEOUT_MS` plus two short backoff waits. */
+const MAX_FETCH_ATTEMPTS = 3;
+/** Exponential backoff between attempts: 400ms, then 800ms. */
+const RETRY_BASE_DELAY_MS = 400;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * ONE raw `fetch`, retried with exponential backoff — but ONLY on a TRANSIENT
+ * failure: a network-level abort/timeout, or a response carrying a
+ * `TRANSIENT_HTTP_STATUSES` code. A DEFINITIVE outcome (success, or a
+ * permanent status like 404/403, or a non-abort exception such as DNS
+ * failure) returns immediately on the first attempt and spends no retry —
+ * retrying a dead host would not help, and the operator was explicit this is
+ * "bounded retry, not an open-ended increase" for genuinely transient
+ * conditions only. This is the ONE place the retry policy lives —
+ * `followRedirects` calls it for every hop, so `retrieveArtifact`,
+ * `institutionNavigator.ts`'s page fetches, and `registryVerification.ts`'s
+ * seed-URL resolution all inherit it without a second implementation
+ * (Extend, Don't Duplicate).
+ */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ ok: true; response: Response } | { ok: false; aborted: boolean }> {
+  for (let attempt = 1; attempt <= MAX_FETCH_ATTEMPTS; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+      if (TRANSIENT_HTTP_STATUSES.has(res.status) && attempt < MAX_FETCH_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        continue;
+      }
+      return { ok: true, response: res };
+    } catch (e) {
+      clearTimeout(timer);
+      const isAbort = e instanceof Error && e.name === 'AbortError';
+      if (isAbort && attempt < MAX_FETCH_ATTEMPTS) {
+        await sleep(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        continue;
+      }
+      // A non-abort exception (DNS failure, connection refused, …) is not
+      // transient — fail on the first occurrence rather than spending the
+      // retry budget on a host that isn't coming back.
+      return { ok: false, aborted: isAbort };
+    }
+  }
+  // Unreachable — the loop always returns on its final iteration — but kept
+  // for TypeScript's control-flow analysis.
+  return { ok: false, aborted: false };
+}
+
+/**
  * Manual same-or-cross-host redirect follower shared by `retrieveArtifact`
  * (artifact bytes) and the Constitutional Discovery amendment's Agent B/C
  * institution navigator (`institutionNavigator.ts`, HTML link discovery) —
  * one redirect-following mechanic, two different consumers of the final
  * response (Extend, Don't Duplicate). Never throws; aborts after
- * `timeoutMs` and caps at `maxRedirects`.
+ * `timeoutMs` PER ATTEMPT and caps at `maxRedirects` hops. Each hop's raw
+ * fetch is bounded-retried on a transient failure via `fetchWithRetry` — a
+ * single 429/502/503/504 or timeout no longer costs the whole acquisition
+ * attempt; only exhausting all `MAX_FETCH_ATTEMPTS` does.
  */
 export async function followRedirects(
   url: string,
@@ -52,18 +128,15 @@ export async function followRedirects(
 
   try {
     for (;;) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      let res: Response;
-      try {
-        res = await fetch(currentUrl, {
-          redirect: 'manual',
-          signal: controller.signal,
-          headers: { 'User-Agent': USER_AGENT, Accept: opts.accept ?? '*/*' },
-        });
-      } finally {
-        clearTimeout(timer);
+      const attempt = await fetchWithRetry(
+        currentUrl,
+        { redirect: 'manual', headers: { 'User-Agent': USER_AGENT, Accept: opts.accept ?? '*/*' } },
+        timeoutMs,
+      );
+      if (!attempt.ok) {
+        return { ok: false, failureClass: attempt.aborted ? 'timeout' : 'unknown', redirectCount, finalUrl: currentUrl };
       }
+      const res = attempt.response;
 
       if (res.status >= 300 && res.status < 400) {
         const location = res.headers.get('location');

@@ -29,7 +29,7 @@
  * `retrieval.ts`'s honest-failure ethos (PRD-ICA-001 §12).
  */
 
-import { followRedirects } from './retrieval';
+import { followRedirects, TRANSIENT_HTTP_STATUSES } from './retrieval';
 
 const MAX_LISTING_PAGES_TO_FOLLOW = 5;
 const MAX_TOTAL_PAGES_FETCHED = 1 + MAX_LISTING_PAGES_TO_FOLLOW; // seed + listing pages
@@ -114,6 +114,16 @@ async function fetchHtml(
 ): Promise<{ ok: true; html: string; finalUrl: string } | { ok: false; failureClass: NavigatorFailureClass }> {
   const followed = await followRedirects(url, { timeoutMs: HTML_FETCH_TIMEOUT_MS, accept: 'text/html,*/*' });
   if (!followed.ok) return { ok: false, failureClass: followed.failureClass };
+  // `followRedirects` already bounded-retries a transient status
+  // (429/502/503/504) before returning — a transient status surviving to
+  // here means retries were exhausted. Reported as 'timeout' (the
+  // NavigatorFailureClass this vocabulary already has for "transient, worth
+  // retrying later") rather than falling through and risking an error page's
+  // HTML being misread as institution content (operator-approved fix,
+  // 2026-07-28 — the World Bank 504 case).
+  if (!followed.response.ok && TRANSIENT_HTTP_STATUSES.has(followed.response.status)) {
+    return { ok: false, failureClass: 'timeout' };
+  }
   const contentType = followed.response.headers.get('content-type') ?? '';
   if (contentType && !contentType.toLowerCase().includes('html') && !contentType.toLowerCase().includes('text')) {
     return { ok: false, failureClass: 'not-html' };

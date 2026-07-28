@@ -227,7 +227,23 @@ export function subDomainPresets(key: string): DiscoverySubDomain[] {
  * The `discovery_evidence.domain` values a discovery run for `key` should read.
  *
  * - vertical / unregistered → `[key]` (unchanged behaviour, the pre-existing path)
- * - horizontal-capability   → the qualified observation keys, one per vertical
+ * - horizontal-capability   → its OWN plain key PLUS the qualified observation
+ *                             key for each vertical it is observed in
+ *
+ * Operator ruling 2026-07-28, closing a structural bug: a horizontal domain's
+ * evidence is NOT exclusively "observed inside a vertical" — it also has a
+ * DIRECT corpus of its own, evidence acquired ABOUT the capability itself
+ * (Corpus Scout's ingestion broker writes it unqualified, at the plain domain
+ * key — `services/corpusScout/ingestionBroker.ts`). Returning only the
+ * qualified per-vertical keys made every directly-acquired document invisible
+ * to every read path that calls this function — 26 genuinely-landed rows at
+ * `commercialisation` were unreadable by extraction, candidate enrichment and
+ * Compare alike. The operator was explicit that including the plain key is
+ * not a workaround: *"It is the correct ontology."* The two evidence classes
+ * stay semantically distinguishable downstream via
+ * `classifyEvidenceProvenance` / the load-bearing exclusion in
+ * `computeRecurrence` — this function only decides WHAT gets read, not how
+ * each row counts once read.
  *
  * This is the ONLY place the horizontal/vertical corpus difference is decided;
  * the engine and the route both call it rather than branching on `kind`.
@@ -235,7 +251,7 @@ export function subDomainPresets(key: string): DiscoverySubDomain[] {
 export function evidenceDomainsFor(key: string): string[] {
   const d = discoveryDomain(key);
   if (!d || d.kind !== 'horizontal-capability' || d.observedIn.length === 0) return [key];
-  return d.observedIn.map((observed) => observationDomainKey(key, observed));
+  return [key, ...d.observedIn.map((observed) => observationDomainKey(key, observed))];
 }
 
 /**

@@ -22,16 +22,29 @@ import { personaFetch } from "@/utils/personaSpine";
 import { DEFAULT_DISCOVERY_DOMAIN } from "@/services/invariants/discoveryDomains";
 
 interface DomainOption { key: string; label: string; kind: string }
+type EvidenceProvenanceClass = "direct-horizontal" | "cross-vertical-observation";
+interface EvidenceSupportBreakdown {
+  directHorizontal: boolean; externalSourceCount: number;
+  observedVerticals: string[]; crossVerticalRecurrence: number;
+}
 interface Recurrence {
   observedDomains: string[]; recurrenceCount: number;
   tier: "single-domain" | "cross-domain" | "broad-cross-domain";
   classificationFloor: "specialized" | "supported";
   maxAbstractionLevel: "L3" | "L4";
+  // Operator ruling 2026-07-28 — a SIBLING field, never an overload of
+  // recurrenceCount/observedDomains (those two keep their pre-existing
+  // meaning exactly). Null for a vertical/unregistered domain.
+  evidenceSupport?: EvidenceSupportBreakdown | null;
 }
 
 interface Evidence {
   id: string; domain: string; subDomain: string | null; title: string;
   sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
+  // Derived, never stored (inv.engineering.036) — null when the domain being
+  // viewed isn't a horizontal-capability domain, where the distinction
+  // doesn't exist.
+  provenanceClass?: EvidenceProvenanceClass | null;
 }
 interface Convergence { supportCount: number; frameworks: string[]; tier: "single" | "strong" | "broad" }
 type Classification = "supported" | "specialized" | "split" | "novel" | "equivalent";
@@ -466,6 +479,22 @@ export default function InvariantDiscoveryTab() {
             {evidence.map((e) => (
               <div key={e.id} className="flex items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
                 <span className="rounded-full border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{e.sourceKind}</span>
+                {e.provenanceClass && (
+                  <span
+                    title={
+                      e.provenanceClass === "direct-horizontal"
+                        ? "Direct-horizontal — evidence acquired ABOUT this capability itself (the plain domain corpus)."
+                        : "Cross-vertical observation — this capability observed manifesting inside a vertical."
+                    }
+                    className={`rounded-full border px-1.5 py-0.5 text-[9px] ${
+                      e.provenanceClass === "direct-horizontal"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                        : "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                    }`}
+                  >
+                    {e.provenanceClass === "direct-horizontal" ? "direct" : "cross-vertical"}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate text-slate-300">{e.title}</span>
                 {e.subDomain && <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">{e.subDomain}</span>}
                 <span className="text-slate-500">{e.content.length.toLocaleString()} chars</span>
@@ -519,6 +548,14 @@ export default function InvariantDiscoveryTab() {
                         }`}
                       >
                         ↻ {c.recurrence.recurrenceCount} domain{c.recurrence.recurrenceCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    {c.recurrence?.evidenceSupport?.directHorizontal && (
+                      <span
+                        title={`Direct-horizontal evidence — ${c.recurrence.evidenceSupport.externalSourceCount} external source(s) about the capability itself. Strengthens confidence but never counts toward cross-domain recurrence (operator ruling 2026-07-28).`}
+                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300"
+                      >
+                        ⊕ {c.recurrence.evidenceSupport.externalSourceCount} external
                       </span>
                     )}
                     {c.compression && (

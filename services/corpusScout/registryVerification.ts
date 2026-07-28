@@ -42,7 +42,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { followRedirects, retrieveArtifact, sniffMagicBytes } from './retrieval';
+import { followRedirects, retrieveArtifact, sniffMagicBytes, TRANSIENT_HTTP_STATUSES } from './retrieval';
 import { runInstitutionDiscovery } from './institutionNavigator';
 import { inspectArtifact } from './inspection';
 import { CORPUS_QUALIFICATION_STANDARD_STATEMENT } from './corpusQualificationStandard';
@@ -239,7 +239,22 @@ export async function runVerification(
   }
   const resolvedUrl = resolved.finalUrl;
   if (!resolved.response.ok) {
-    return { ...base, status: 'verification_failed', resolvedUrl, detail: `seed URL returned HTTP ${resolved.response.status}` };
+    // `followRedirects` already retried a TRANSIENT status (429/502/503/504)
+    // up to its bounded attempt limit before returning here — so a transient
+    // status surviving to this point means retries were exhausted, not that
+    // none were tried. That is a DIFFERENT fact from "this URL doesn't work":
+    // it must be recorded as `temporarily_unavailable` (re-runnable, no
+    // judgment on the source), never `verification_failed` (operator ruling
+    // 2026-07-28: "A timeout must not silently become 'no evidence.' The
+    // failed acquisition attempt should remain observable" — the same
+    // discipline extends to a non-timeout transient status).
+    const status: VerificationStatus = TRANSIENT_HTTP_STATUSES.has(resolved.response.status)
+      ? 'temporarily_unavailable'
+      : 'verification_failed';
+    return {
+      ...base, status, resolvedUrl,
+      detail: `seed URL returned HTTP ${resolved.response.status}${status === 'temporarily_unavailable' ? ' (transient — retries exhausted)' : ''}`,
+    };
   }
   // A redirect WITHIN the institution's own host is routine (a locale or
   // trailing-slash hop). A redirect to a DIFFERENT host means the registry's

@@ -26,7 +26,7 @@ import { callSovereign } from '@/services/constitutional/modelRouter';
 import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
 import { listEdgesForInvariants } from '@/services/invariants/store';
 import { similarity } from '@/services/invariants/comparison';
-import { evidenceDomainsFor, parseObservationDomain, discoveryNamespace } from '@/services/invariants/discoveryDomains';
+import { evidenceDomainsFor, parseObservationDomain, discoveryDomain, discoveryNamespace } from '@/services/invariants/discoveryDomains';
 import type { InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -67,6 +67,51 @@ export interface EvidenceRow {
   content: string;
   sourceRef: string | null;
   createdAt: string;
+  /**
+   * Where this row sits relative to the discovery domain it was fetched for —
+   * DERIVED from `domain` via {@link classifyEvidenceProvenance}, never
+   * stored (inv.engineering.036). Attached by `listDomainEvidence` at read
+   * time, so it always reflects the domain the caller actually asked about.
+   * `null` when the distinction doesn't apply (a vertical or unregistered
+   * domain has no direct-horizontal/cross-vertical split).
+   */
+  provenanceClass?: EvidenceProvenanceClass | null;
+}
+
+/**
+ * The two evidence CLASSES a horizontal-capability domain's corpus is made
+ * of (operator ruling 2026-07-28, closing the structural bug where 26
+ * genuinely-landed rows at the plain `commercialisation` key were invisible
+ * to every read path):
+ *
+ *   direct-horizontal          evidence acquired ABOUT the capability itself
+ *                              — stored UNQUALIFIED at the domain's own key
+ *                              (e.g. `commercialisation`).
+ *   cross-vertical-observation the capability observed MANIFESTING inside one
+ *                              of its verticals — stored under the qualified
+ *                              `<domain>/<vertical>` key.
+ *
+ * The operator was explicit that these stay semantically distinct, not
+ * merged into one undifferentiated read: "That is not a workaround. It is
+ * the correct ontology." Meaningless for a vertical domain scoring its own
+ * corpus (there is no capability/vertical split to classify) — see
+ * {@link classifyEvidenceProvenance}.
+ */
+export type EvidenceProvenanceClass = 'direct-horizontal' | 'cross-vertical-observation';
+
+/**
+ * Classify ONE evidence row's `domain` value relative to the discovery
+ * `scoringDomain` it is being read for. DERIVED from the domain string alone
+ * via `parseObservationDomain` — no stored column, no second source of truth
+ * (inv.engineering.036/.037). Returns `null` when the distinction does not
+ * apply: `scoringDomain` is not a horizontal-capability domain, or the row
+ * doesn't belong to it at all.
+ */
+export function classifyEvidenceProvenance(evidenceDomain: string, scoringDomain: string): EvidenceProvenanceClass | null {
+  if (discoveryDomain(scoringDomain)?.kind !== 'horizontal-capability') return null;
+  const { discoveryDomain: root, observedDomain } = parseObservationDomain(evidenceDomain);
+  if (root !== scoringDomain) return null;
+  return observedDomain === scoringDomain ? 'direct-horizontal' : 'cross-vertical-observation';
 }
 
 /** Cross-framework convergence — how many INDEPENDENT source documents imply a
@@ -93,7 +138,15 @@ export interface ConvergenceInfo {
  * reclassified (inv.engineering.036). It is a query, not a field.
  */
 export interface RecurrenceInfo {
-  /** The distinct domains the supporting evidence was observed in, sorted. */
+  /**
+   * The distinct domains the supporting evidence was observed in, sorted. For
+   * a horizontal-capability candidate this EXCLUDES the domain's own direct-
+   * horizontal evidence (operator ruling 2026-07-28: "The plain
+   * `commercialisation` domain may strengthen evidential support or
+   * confidence, but it must not increment the cross-domain recurrence
+   * count.") — it lists only genuine cross-vertical observations, exactly as
+   * this field has always meant.
+   */
   observedDomains: string[];
   /** = observedDomains.length. */
   recurrenceCount: number;
@@ -110,6 +163,31 @@ export interface RecurrenceInfo {
    * domain. One domain caps the ladder at L3.
    */
   maxAbstractionLevel: 'L3' | 'L4';
+  /**
+   * The three-way evidence-support breakdown (operator ruling 2026-07-28). A
+   * SIBLING field, not an overload of `recurrenceCount` / `observedDomains` —
+   * those two keep EXACTLY their pre-existing meaning, so a reader of old
+   * code never silently gets a different number out of the same field name.
+   * `null` for a vertical or unregistered domain, where the direct-horizontal
+   * / cross-vertical-observation distinction does not exist.
+   */
+  evidenceSupport: EvidenceSupportBreakdown | null;
+}
+
+export interface EvidenceSupportBreakdown {
+  /** True when at least one evidence row is the domain's own direct-horizontal corpus. */
+  directHorizontal: boolean;
+  /** Distinct external source documents backing the direct-horizontal
+   *  evidence — deduped by the same source-identity rule `computeConvergence`
+   *  uses (`sourceDedupeKey`), so a document ingested through two acquisition
+   *  paths is never counted twice (operator ruling 2026-07-28, item 4). */
+  externalSourceCount: number;
+  /** = `observedDomains`. Carried alongside under the operator's requested
+   *  name — never a second source of truth, computed from the same set in
+   *  the same pass. */
+  observedVerticals: string[];
+  /** = `recurrenceCount`, under the operator's requested output name. */
+  crossVerticalRecurrence: number;
 }
 
 export interface CandidateRow {
@@ -181,7 +259,7 @@ export async function addEvidence(
  * domain corpus refined by its sub-domain sources.
  */
 export async function listEvidence(admin: SupabaseClient, domain: string, subDomain?: string | null): Promise<EvidenceRow[]> {
-  return listEvidenceForDomains(admin, [domain], subDomain);
+  return listDomainEvidence(admin, domain, subDomain);
 }
 
 /**
@@ -212,6 +290,30 @@ export async function listEvidenceForDomains(
     content: String(r.content), sourceRef: (r.source_ref as string | null) ?? null,
     createdAt: String(r.created_at),
   }));
+}
+
+/**
+ * THE ONE PLACE all four read paths (the Stage 1 evidence list, extraction,
+ * candidate enrichment, and Compare) fetch a discovery domain's evidence
+ * corpus. Routes through `evidenceDomainsFor` — so a horizontal-capability
+ * domain reads BOTH its own direct corpus (evidence acquired ABOUT the
+ * capability itself, stored unqualified — this is what closes the
+ * 2026-07-28 structural bug: 26 rows landed at the plain `commercialisation`
+ * key and were invisible because `evidenceDomainsFor` returned only the
+ * qualified per-vertical keys) AND its cross-vertical observations — and
+ * annotates every row with its provenance relative to `domain` so the
+ * distinction is visible in output, not just implicit (operator ruling
+ * 2026-07-28, item 2). A vertical domain is unaffected: `evidenceDomainsFor`
+ * still resolves to `[domain]` alone and `classifyEvidenceProvenance` returns
+ * `null` for every row (inv.engineering.036 — one authoritative fetch path).
+ */
+async function listDomainEvidence(
+  admin: SupabaseClient,
+  domain: string,
+  subDomain?: string | null,
+): Promise<EvidenceRow[]> {
+  const rows = await listEvidenceForDomains(admin, evidenceDomainsFor(domain), subDomain);
+  return rows.map((e) => ({ ...e, provenanceClass: classifyEvidenceProvenance(e.domain, domain) }));
 }
 
 // ── Stage 2-3 · Constitutional candidate extraction + synthesis ─────────────
@@ -291,9 +393,10 @@ export async function runConstitutionalDiscovery(
 ): Promise<{ ok: true; candidates: CandidateRow[] } | { ok: false; error: string }> {
   const subDomain = opts.subDomain?.trim() || null;
   const scopeLevel: DiscoveryScopeLevel = subDomain ? (opts.scopeLevel ?? 'sub-domain') : 'domain';
-  // A horizontal-capability domain reads its evidence from the verticals it is
-  // observed in; a vertical reads its own corpus. One decision point, in the registry.
-  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain), subDomain);
+  // A horizontal-capability domain reads its own direct corpus AND the
+  // verticals it is observed in; a vertical reads its own corpus. One
+  // decision point, in the registry (`listDomainEvidence`).
+  const evidence = await listDomainEvidence(admin, domain, subDomain);
   if (evidence.length === 0) {
     return {
       ok: false,
@@ -383,11 +486,22 @@ export async function listCandidates(admin: SupabaseClient, domain: string, subD
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) return [];
   const rows = (data ?? []).map(toCandidateRow);
-  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain), subDomain);
+  const evidence = await listDomainEvidence(admin, domain, subDomain);
   return enrichSignals(rows, evidence);
 }
 
 // ── Cross-framework convergence (derived; a priority signal, not validity) ───
+
+/** The identity key used to dedupe ONE SOURCE DOCUMENT across evidence rows —
+ *  coalesce(sourceRef, title), case-insensitive. Shared by `computeConvergence`
+ *  (within-corpus support) and `computeRecurrence`'s direct-horizontal
+ *  external-source count — a document that reaches `discovery_evidence`
+ *  through two acquisition paths must not be counted twice (operator ruling
+ *  2026-07-28, item 4: use the existing evidence-identity mechanism, don't
+ *  invent a second one). */
+function sourceDedupeKey(e: EvidenceRow): string {
+  return (e.sourceRef?.trim() || e.title.trim()).toLowerCase();
+}
 
 /** Distinct-source support for one candidate. A source document is deduped on
  *  coalesce(sourceRef, title) — evidence rows are distinct PKs, but one document
@@ -398,7 +512,7 @@ export function computeConvergence(evidenceIds: string[], evidence: EvidenceRow[
   for (const id of evidenceIds) {
     const e = byId.get(id);
     if (!e) continue;
-    const key = (e.sourceRef?.trim() || e.title.trim()).toLowerCase();
+    const key = sourceDedupeKey(e);
     if (!frameworks.has(key)) frameworks.set(key, e.title.trim());
   }
   const supportCount = frameworks.size;
@@ -422,15 +536,52 @@ export function enrichConvergence(candidates: CandidateRow[], evidence: Evidence
  *
  * Evidence ids that no longer resolve are ignored (same discipline as
  * `computeConvergence`): a stale reference must not inflate a recurrence score.
+ *
+ * `domain` — THE LOAD-BEARING PARAMETER (operator ruling 2026-07-28, item 3).
+ * When `domain` is the candidate's OWN horizontal-capability domain, evidence
+ * rows that are that domain's own direct-horizontal corpus (unqualified —
+ * `root === domain === observedDomain`) are EXCLUDED from the cross-domain
+ * observed set: "The plain `commercialisation` domain may strengthen
+ * evidential support or confidence, but it must not increment the
+ * cross-domain recurrence count." Without this exclusion, every candidate
+ * with any direct-horizontal evidence gets its recurrence count inflated by
+ * one for a domain that isn't a real vertical at all — the exact corruption
+ * the ruling forbids.
+ *
+ * The exclusion applies ONLY when `domain` is genuinely a horizontal-
+ * capability domain (`discoveryDomain(domain)?.kind === 'horizontal-capability'`).
+ * A VERTICAL domain's own unqualified evidence (e.g. `financial-services`
+ * scoring its own corpus) is UNAFFECTED — `isHorizontalCandidate` is false
+ * for it, so the exclusion branch never runs and every row counts exactly as
+ * it always has. `domain` is optional and defaults to no exclusion at all
+ * (byte-for-byte the pre-fix behaviour) — every existing call site that
+ * doesn't have domain context keeps working unchanged.
  */
-export function computeRecurrence(evidenceIds: string[], evidence: EvidenceRow[]): RecurrenceInfo {
+export function computeRecurrence(evidenceIds: string[], evidence: EvidenceRow[], domain?: string): RecurrenceInfo {
   const byId = new Map(evidence.map((e) => [e.id, e]));
+  const isHorizontalCandidate = Boolean(domain) && discoveryDomain(domain!)?.kind === 'horizontal-capability';
+
   const observed = new Set<string>();
+  let directHorizontalPresent = false;
+  const directHorizontalSources = new Map<string, string>();
+
   for (const id of evidenceIds) {
     const e = byId.get(id);
     if (!e) continue;
-    observed.add(parseObservationDomain(e.domain).observedDomain);
+    const { discoveryDomain: root, observedDomain } = parseObservationDomain(e.domain);
+
+    if (isHorizontalCandidate && root === domain && observedDomain === domain) {
+      // The candidate's own horizontal domain's direct corpus — external
+      // evidence ABOUT the capability itself, not a vertical observation.
+      // Tracked for `evidenceSupport`, never added to `observed`.
+      directHorizontalPresent = true;
+      const key = sourceDedupeKey(e);
+      if (!directHorizontalSources.has(key)) directHorizontalSources.set(key, e.title.trim());
+      continue;
+    }
+    observed.add(observedDomain);
   }
+
   const observedDomains = [...observed].sort();
   const recurrenceCount = observedDomains.length;
   const tier: RecurrenceInfo['tier'] =
@@ -441,12 +592,23 @@ export function computeRecurrence(evidenceIds: string[], evidence: EvidenceRow[]
     tier,
     classificationFloor: recurrenceCount >= 2 ? 'supported' : 'specialized',
     maxAbstractionLevel: recurrenceCount >= 2 ? 'L4' : 'L3',
+    evidenceSupport: isHorizontalCandidate
+      ? {
+          directHorizontal: directHorizontalPresent,
+          externalSourceCount: directHorizontalSources.size,
+          observedVerticals: observedDomains,
+          crossVerticalRecurrence: recurrenceCount,
+        }
+      : null,
   };
 }
 
-/** Attach recurrence to each candidate; order is preserved (callers sort). */
+/** Attach recurrence to each candidate; order is preserved (callers sort).
+ *  Each candidate's OWN `domain` is threaded through as the scoring context
+ *  (the load-bearing exclusion in `computeRecurrence`) — already on every
+ *  `CandidateRow`, so no new context needs to be plumbed in. */
 export function enrichRecurrence(candidates: CandidateRow[], evidence: EvidenceRow[]): CandidateRow[] {
-  return candidates.map((c) => ({ ...c, recurrence: computeRecurrence(c.evidenceIds, evidence) }));
+  return candidates.map((c) => ({ ...c, recurrence: computeRecurrence(c.evidenceIds, evidence, c.domain) }));
 }
 
 // ── Cross-sub-domain Compare (CFS-048 Phase 2 — earned domain invariants) ─────
@@ -598,7 +760,7 @@ export async function compareSubDomains(
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
   // Convergence + recurrence over the domain's whole evidence corpus.
-  const evidence = await listEvidenceForDomains(admin, evidenceDomainsFor(domain));
+  const evidence = await listDomainEvidence(admin, domain);
   return { ok: true, candidates: enrichSignals(inserted, evidence), comparedSubDomains, inputInvariantCount };
 }
 

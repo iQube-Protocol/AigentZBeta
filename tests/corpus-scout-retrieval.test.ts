@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { retrieveArtifact, sniffMagicBytes, urlLooksLikePdf } from '@/services/corpusScout/retrieval';
+import { retrieveArtifact, sniffMagicBytes, urlLooksLikePdf, followRedirects, TRANSIENT_HTTP_STATUSES } from '@/services/corpusScout/retrieval';
 
 function mockResponse(body: string, opts: { status?: number; contentType?: string | null } = {}): Response {
   const status = opts.status ?? 200;
@@ -113,5 +113,109 @@ describe('retrieveArtifact — MIME mismatch is flagged, never accepted as valid
     const deniedResult = await retrieveArtifact('https://example.com/forbidden.pdf');
     expect(deniedResult.ok).toBe(false);
     expect(deniedResult.failureClass).toBe('access-denied');
+  });
+});
+
+// ── Bounded retry on transient failures (operator-approved fix, 2026-07-28:
+//    "World Bank hit two 504s and lost both attempts") ───────────────────────
+
+describe('followRedirects — bounded retry on TRANSIENT failures only', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('the transient-status vocabulary is exactly 429/502/503/504', () => {
+    expect([...TRANSIENT_HTTP_STATUSES].sort((a, b) => a - b)).toEqual([429, 502, 503, 504]);
+  });
+
+  it('THE CANARY: a 504 followed by success recovers — retries a transient status rather than failing on the first hit', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockResponse('', { status: 504, contentType: null }))
+      .mockResolvedValueOnce(mockResponse('ok', { status: 200, contentType: 'text/html' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://worldbank.example/report');
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries EVERY transient status in the vocabulary (429/502/503/504), not just one', async () => {
+    for (const status of [...TRANSIENT_HTTP_STATUSES]) {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(mockResponse('', { status, contentType: null }))
+        .mockResolvedValueOnce(mockResponse('ok', { status: 200, contentType: 'text/html' }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const result = await followRedirects(`https://example.com/${status}`);
+
+      expect(result.ok, `status ${status} must be retried`).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('retry is BOUNDED — exactly 3 total attempts, never open-ended', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse('', { status: 503, contentType: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://persistent-503.example/report');
+
+    // Retries are exhausted, not endless: the FINAL attempt's (still-bad)
+    // response is returned as the outcome — `followRedirects` itself doesn't
+    // judge the status, its callers do (registryVerification maps this to
+    // `temporarily_unavailable`).
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.response.status).toBe(503);
+  });
+
+  it('a genuine timeout/abort is retried, and recovers on a later attempt', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(abortError)
+      .mockResolvedValueOnce(mockResponse('ok', { status: 200, contentType: 'text/html' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://slow.example/report');
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a persistent timeout exhausts retries and reports failureClass "timeout" — never silence', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    const fetchMock = vi.fn().mockRejectedValue(abortError);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://always-times-out.example/report');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.failureClass).toBe('timeout');
+  });
+
+  it('a NON-transient failure (e.g. DNS failure) is NOT retried — the retry budget is for transient conditions only', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('getaddrinfo ENOTFOUND'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://nonexistent.example/report');
+
+    expect(fetchMock, 'a permanent DNS failure must fail on the first attempt, not spend the retry budget').toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+  });
+
+  it('a definitive non-transient status (404) is NOT retried', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse('', { status: 404, contentType: null }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await followRedirects('https://example.com/missing');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(true); // followRedirects itself doesn't judge status; the caller does
+    if (result.ok) expect(result.response.status).toBe(404);
   });
 });
