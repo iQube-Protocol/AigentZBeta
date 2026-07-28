@@ -78,7 +78,20 @@ Plus two **structural** fields the operator's prose requires but a seven-column 
 
 > "The existing institutions may serve **more than one pillar** where their published corpus genuinely supports it. **Reuse is preferable to inventing a new institution** merely to make the matrix look complete. The provenance must attach to the specific pillar and acquired document."
 
-So the template entry is keyed by (institution, pillar), exactly like the DB row it seeds — **not** by institution with a list of pillars. That is what lets OECD carry three different traditions across three pillars (`Economics` on adoption/scaling, `International Policy Research` on trust-formation, `Competition Policy` on pricing) and NBER two (`Entrepreneurship Research`, `Academic Economics`). Collapsing those into one per-institution category would erase precisely the diversity Law II counts — a canary pins all five distinctions.
+So the template entry is keyed by (institution, pillar), exactly like the DB row it seeds — **not** by institution with a list of pillars.
+
+#### …but the TRADITION is a property of the INSTITUTION (ruling of 2026-07-28)
+
+> "Yes — keep the split, but be precise about what is splitting. The institutional tradition of NBER remains stable: `academic economics / empirical economic research`. What differs per pillar is: evidentiary role; topic; acquisition seed; pillar relationship. **Do not make NBER appear to become three different institutional traditions merely because it serves pricing, partnerships and commercial failure modes. Diversity checks should not count one institution three times as independent traditions.**"
+
+This **narrows** §3.1 as first written, which held that per-pillar keying licensed per-pillar *traditions*. It does not. `category` varies by institution only; `authority`, `evidenceType`, `notes`, `pillarKey` and the document-level acquisition seeds carry the per-pillar difference.
+
+Two mechanisms hold it, because a data fix alone would not survive the next entry:
+
+- `institutionTraditionConflicts()` reports every institution declaring two traditions in a registry. A canary asserts the result equals an **exact** pending set, so a new multi-tradition institution fails the build.
+- `assessRegistryDiversity()` deduplicates by institution before counting authorities **or** traditions. Two rows for one institution on one pillar previously read as "2 authorities across 2 traditions" — `satisfied`, produced entirely by the single institutional perspective Law II forbids relying on. That inflation path is closed.
+
+**One conflict is open and is NOT resolved here.** OECD declares three traditions (`Economics` on adoption/scaling, `International Policy Research` on trust-formation, `Competition Policy` on pricing). The ruling names NBER's single tradition and NBER's only; choosing OECD's would mean asserting a fact about what the OECD's corpus *is*. It is recorded in `TRADITION_CONFLICTS_PENDING_OPERATOR_RULING` and reported, awaiting a steward. Note that resolving it changes no Law II verdict — every pillar OECD serves has a second tradition from another institution.
 
 ### 3.2 Is the template genuinely shared with Financial Services?
 
@@ -98,8 +111,8 @@ The operator supplied Category and Purpose, not coverage pillars. Every mapping 
 
 | # | Institution | Category | Authority (operator's Purpose) | URL | Evidence Type | Pillar | Basis | Priority |
 |---|---|---|---|---|---|---|---|---|
-| 1 | NBER | Entrepreneurship Research | Entrepreneurship, innovation, venture research | https://www.nber.org | research-papers | `venture-operations` | "venture research" | 2 |
-| 2 | NBER | Entrepreneurship Research | ″ | ″ | research-papers | `adoption` | "innovation" | 3 |
+| 1 | NBER | Academic Economics / Empirical Economic Research | Entrepreneurship, innovation, venture research | https://www.nber.org | research-papers | `venture-operations` | "venture research" | 2 |
+| 2 | NBER | ″ | ″ | ″ | research-papers | `adoption` | "innovation" | 3 |
 | 3 | Kauffman Foundation | Entrepreneurship Research | Entrepreneurship and startup ecosystems | https://www.kauffman.org | research-papers | `venture-operations` | "entrepreneurship" | 2 |
 | 4 | Kauffman Foundation | Entrepreneurship Research | ″ | ″ | research-papers | `partnerships` | "startup ecosystems" is a direct word match for §4 *Partnerships & Ecosystem Development* | 3 |
 | 5 | SSRN | Research Repository | Entrepreneurship, strategy, innovation papers | https://www.ssrn.com | research-papers | `venture-operations` | A repository, cross-pillar by nature; only the pillars its Purpose names. "strategy" has no §4 pillar and is deliberately not mapped | 2 |
@@ -137,16 +150,16 @@ The ruling closed the five pillars §5 reported as empty. Unlike wave 1, the pil
 |---|---|---|---|---|---|---|---|
 | 29 | `trust-formation` | OECD | International Policy Research | International policy research; empirical consumer survey | https://www.oecd.org | research-papers | 6 |
 | 30 | `trust-formation` | UK Competition and Markets Authority | Competition & Consumer Enforcement | Competition/consumer enforcement; market evidence | https://www.gov.uk/government/organisations/competition-and-markets-authority | policy | 6 |
-| 31 | `pricing` | NBER | Academic Economics | Academic economics; empirical + formal modelling | https://www.nber.org | research-papers | 4 |
+| 31 | `pricing` | NBER | Academic Economics / Empirical Economic Research | Academic economics; empirical + formal modelling | https://www.nber.org | research-papers | 4 |
 | 32 | `pricing` | OECD | Competition Policy | Competition policy; digital-market pricing | https://www.oecd.org | policy | 4 |
 | 33 | `distribution` | World Trade Organization | International Trade Doctrine | International trade and market-access doctrine | https://www.wto.org | policy | 3 |
 | 34 | `distribution` | UN Trade and Development (UNCTAD) | Development Economics | Development economics; digital commerce and trade measurement | https://unctad.org | datasets | 3 |
 | 35 | `settlement-exchange` | BIS Committee on Payments and Market Infrastructures | Payment & Settlement Infrastructure | Payment, clearing and settlement infrastructure | https://www.bis.org/cpmi/ (see §4.3) | standards | 6 |
 | 36 | `settlement-exchange` | UNCITRAL | International Commercial Law | International commercial law; electronic contracting and transferable records | https://uncitral.un.org | standards | 6 |
-| 37 | `commercial-failure-modes` | NBER | Academic Economics | Academic entrepreneurship and market-failure research | https://www.nber.org | research-papers | 1 |
+| 37 | `commercial-failure-modes` | NBER | Academic Economics / Empirical Economic Research | Academic entrepreneurship and market-failure research | https://www.nber.org | research-papers | 1 |
 | 38 | `commercial-failure-modes` | U.S. Bureau of Labor Statistics | Official Statistics | Official longitudinal business-demography evidence | https://www.bls.gov | datasets | 1 |
 
-**Reuse over invention, as the ruling prefers.** Four of the ten wave-2 entries reuse an institution already in the registry (OECD ×2, NBER ×2), each under a **different** institutional tradition. Six are new institutions, added only where no existing entry could genuinely serve the pillar. Two new evidence types enter the registry for the first time: `datasets` (UNCTAD, BLS).
+**Reuse over invention, as the ruling prefers.** Four of the ten wave-2 entries reuse an institution already in the registry (OECD ×2, NBER ×2). What the reuse adds is a different evidentiary role, topic and acquisition seed — **not** a different tradition (§3.1, ruling of 2026-07-28); OECD's remaining three-way split is the open conflict recorded there. Six are new institutions, added only where no existing entry could genuinely serve the pillar. Two new evidence types enter the registry for the first time: `datasets` (UNCTAD, BLS).
 
 ### 4.3 BIS CPMI — the reconciled entry
 
@@ -162,10 +175,12 @@ The operator's institutional seed for CPMI is `https://www.bis.org`. The curated
 
 | # | Pillar | Institution | Category (tradition) | Authority | URL | Evidence Type | Priority |
 |---|---|---|---|---|---|---|---|
-| 39 | `partnerships` | NBER | Academic Economics / Empirical Entrepreneurship Research | Academic economics / empirical entrepreneurship research; working papers and peer-reviewed economic research | https://www.nber.org | research-papers | 3 |
+| 39 | `partnerships` | NBER | Academic Economics / Empirical Economic Research | Academic economics / empirical entrepreneurship research; working papers and peer-reviewed economic research | https://www.nber.org | research-papers | 3 |
 | 40 | `outcome-assurance` | National Infrastructure and Service Transformation Authority | Public Project-Delivery Assurance / Independent Stage-Gate Review | Public project-delivery assurance / independent stage-gate review; assurance standards, review guidance, templates and benefits-realisation guidance | https://www.gov.uk/government/organisations/national-infrastructure-and-service-transformation-authority | standards | 5 |
 
-**The tradition strings are load-bearing, not decoration.** Law II counts *distinct* `category` values per pillar. NBER's `partnerships` mapping deliberately does **not** reuse Kauffman's `Entrepreneurship Research` — reusing it would leave `partnerships` reading `unsatisfied` with two authorities registered, which is the exact failure the ruling asks to avoid. It carries the operator's own phrasing instead, which makes it NBER's **fourth** distinct tradition in this registry and its **third** pillar (after `venture-operations`/`adoption` as `Entrepreneurship Research`, and `pricing`/`commercial-failure-modes` as `Academic Economics`). That is the per-(institution, pillar) keying working as designed, not drift — and the operator's acquisition seed is pillar-specific research rather than generic partnership commentary.
+**The tradition strings are load-bearing, not decoration.** Law II counts *distinct* `category` values per pillar, so NBER's `partnerships` mapping must differ from Kauffman's `Entrepreneurship Research` or the pillar still reads `unsatisfied` with two authorities registered.
+
+It does — but **not** by minting a partnerships-only NBER tradition, which is what this row carried when wave 3 first shipped (`Academic Economics / Empirical Entrepreneurship Research`, a string NBER bore on this pillar alone). The ruling of 2026-07-28 rejected that (§3.1). NBER carries its **one** tradition here, which is already distinct from Kauffman's — the pillar is satisfied by a real difference of school rather than by a label produced to clear the check. What is pillar-specific is the operator's acquisition seed, which is targeted research rather than generic partnership commentary.
 
 NISTA's evidence type is `standards`, the same as INCOSE's on the same pillar. That is fine: **Law II counts traditions, not evidence types**, and `Public Project-Delivery Assurance / Independent Stage-Gate Review` is a genuinely independent tradition beside `Systems`.
 
@@ -197,7 +212,7 @@ Two pillars carried exactly **one** institutional authority each and therefore f
 
 | Pillar | Was | Now | Verdict |
 |---|---|---|---|
-| `partnerships` | Kauffman Foundation (Entrepreneurship Research) — **unsatisfied** | + NBER (Academic Economics / Empirical Entrepreneurship Research) | **satisfied** |
+| `partnerships` | Kauffman Foundation (Entrepreneurship Research) — **unsatisfied** | + NBER (Academic Economics / Empirical Economic Research) | **satisfied** |
 | `outcome-assurance` | INCOSE (Systems) — **unsatisfied** | + NISTA (Public Project-Delivery Assurance / Independent Stage-Gate Review) | **satisfied** |
 
 **No threshold was moved.** Both stayed at 2 authorities from 2 traditions throughout; the pillars were closed with sources, which is what the ruling asked for.
@@ -333,17 +348,17 @@ Computed by `assessRegistryDiversity` over the registry as it now stands, and pi
 | `value-proposition` | 3 | Customer Development · Product | satisfied |
 | `customer-discovery` | 3 | Customer Development · Product | satisfied |
 | `trust-formation` | 2 | Competition & Consumer Enforcement · International Policy Research | satisfied |
-| `pricing` | 2 | Academic Economics · Competition Policy | satisfied |
+| `pricing` | 2 | Academic Economics / Empirical Economic Research · Competition Policy | satisfied |
 | `distribution` | 2 | Development Economics · International Trade Doctrine | satisfied |
-| `adoption` | 5 | Economics · Entrepreneurship Research · Innovation · Research Repository | satisfied |
+| `adoption` | 5 | Academic Economics / Empirical Economic Research · Economics · Innovation · Research Repository | satisfied |
 | `revenue-architecture` | 3 | Customer Development · Innovation · Strategy | satisfied |
 | `settlement-exchange` | 2 | International Commercial Law · Payment & Settlement Infrastructure | satisfied |
-| `partnerships` | 2 | Academic Economics / Empirical Entrepreneurship Research · Entrepreneurship Research | satisfied |
+| `partnerships` | 2 | Academic Economics / Empirical Economic Research · Entrepreneurship Research | satisfied |
 | `outcome-assurance` | 2 | Public Project-Delivery Assurance / Independent Stage-Gate Review · Systems | satisfied |
 | `scaling` | 3 | Economics · Innovation · Systems | satisfied |
-| `venture-operations` | 6 | Economics · Entrepreneurship Research · Innovation · Research Repository | satisfied |
+| `venture-operations` | 6 | Academic Economics / Empirical Economic Research · Economics · Entrepreneurship Research · Innovation · Research Repository | satisfied |
 | `commercial-governance` | 3 | Economics · Strategy · Systems | satisfied |
-| `commercial-failure-modes` | 2 | Academic Economics · Official Statistics | satisfied |
+| `commercial-failure-modes` | 2 | Academic Economics / Empirical Economic Research · Official Statistics | satisfied |
 
 **Fourteen of fourteen satisfied. Zero unsatisfied. Zero undeterminable.** Reached by adding sources, never by moving a threshold.
 
@@ -514,7 +529,10 @@ Every candidate lands `pending_review`. A steward reviews each through `POST /ap
 |---|---|
 | Every registered institution maps to a real PRD-IDE-002 §4 pillar; all fourteen are served; each of the five closed pillars carries ≥2 authorities | §5.1 |
 | Both seed migrations and the curated template are the same 38 rows | §4, `inv.engineering.036` |
-| Provenance attaches PER PILLAR — OECD's three traditions and NBER's two cannot collapse | §3.1 |
+| Provenance attaches PER PILLAR — evidence type, authority basis and acquisition seed vary by pillar | §3.1 |
+| The TRADITION does not: NBER declares one tradition on all five of its pillars, and the superseded strings survive nowhere | §3.1 |
+| No institution declares two traditions — asserted as an EXACT set, so a new one fails the build and OECD's resolution must be declared | §3.1 |
+| `assessRegistryDiversity` deduplicates by institution — one institution cannot satisfy Law II by itself | §3.1, §8.2 |
 | Wave 2 REUSED institutions where it could (OECD ×2, NBER ×2) | §4.2 |
 | Tier 1 and tier 2 cannot be conflated; no practitioner entry carries a pillar or a URL; diversity never counts one as an authority | §6 |
 | The disciplines are dependencies, never institutions or pillars; `tangentialDomains` ⊆ the dependency registry | §6.1 |

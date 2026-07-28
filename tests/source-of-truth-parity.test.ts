@@ -47,7 +47,13 @@
  *    section names `parseCompletionArtifact` looks for ↔ the reference
  *    artifact's own headings. A docs-file mirror that cannot be derived: if the
  *    template renames a heading the parser reads, artifacts authored from it
- *    parse to empty and validate as incomplete for no visible reason:
+ *    parse to empty and validate as incomplete for no visible reason. The same
+ *    file also owns the capability-artefact VERSION parity canary (operator
+ *    ruling 2026-07-28): CAPABILITY_COMPLETION_SCHEMA_VERSION is the one source
+ *    of truth, and CFS-049, CCR-001, the CCA template and the type's own header
+ *    must state it and must not still state a superseded version — the expected
+ *    string is DERIVED from the constant, never hand-copied, because a hand-copy
+ *    would be a fourth home for the fact. Found stale after the v2.0 bump:
  *      tests/capability-completion.test.ts
  *  - DISCOVERY_DOMAINS (the Discovery Domain Registry, PRD-IDE-002) ↔ the
  *    discovery route's sub-domain presets + default domain, CorpusScoutTab's
@@ -88,15 +94,30 @@
  *    Law II diversity check, asserted by DRIVING getDomainConstitution rather
  *    than by reading the source for a call:
  *      tests/commercialisation-institutional-registry.test.ts
- *  - A `CFS-0NN` designation ↔ the document that carries it. A designation is
- *    one concern with two possible homes, and CFS-048 sat with an EMPTY one:
- *    twelve source files and six foundation documents cited it as a foundation
- *    filing that git history shows was never created, while the real charter sat
- *    in the agentiq updates pack. Writing the check found CFS-045 in the same
- *    state. Every cited designation must resolve to a real document or carry a
- *    relocation claim that is itself proven (path exists, filename and title
- *    carry the id, the target is the charter and not a phase record), is earned
- *    by a real citation, and expires the moment the document IS filed:
+ *  - An INSTITUTION ↔ its institutional TRADITION. One institution has ONE
+ *    tradition, however many pillars it serves (operator ruling 2026-07-28:
+ *    "Diversity checks should not count one institution three times as
+ *    independent traditions"). `institutionTraditionConflicts` is the mechanism;
+ *    the canary asserts its result equals an EXACT pending-ruling set, so a new
+ *    multi-tradition institution fails the build rather than quietly inflating
+ *    Law II. `assessRegistryDiversity` carries the same rule at the counting end
+ *    by deduplicating rows by institution:
+ *      tests/commercialisation-institutional-registry.test.ts
+ *  - A `CFS-0NN` designation ↔ the document that carries it ↔ its registration
+ *    in `codexes/packs/irl/collections.json`. A designation is one concern with
+ *    three homes, and CFS-048 sat with two of them empty: twelve source files and
+ *    six foundation documents cited it as a foundation filing that git history
+ *    shows was never created, while the real charter sat in the agentiq updates
+ *    pack. Writing the check found CFS-045 in the same state; the operator ruled
+ *    it a contiguous filing defect across CFS-045…CFS-048 and all four were filed
+ *    on 2026-07-28. Every cited designation must resolve to a real document AND
+ *    through the foundation REGISTRY (disk presence alone resolves for a reader
+ *    with a checkout and for nobody else), or carry a relocation claim that is
+ *    itself proven (path exists, filename and title carry the id, the target is
+ *    the charter and not a phase record), is earned by a real citation, and
+ *    expires the moment the document IS filed. The claim contract is exercised
+ *    against synthetic known-bad claims so an EMPTY exception list never means an
+ *    unenforced one (CFS-053 CB-1):
  *      tests/canon-document-resolution.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest

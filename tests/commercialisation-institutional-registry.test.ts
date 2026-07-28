@@ -49,6 +49,9 @@ import {
   LAW_II_TEXT,
   LAW_II_MIN_AUTHORITIES,
   LAW_II_MIN_TRADITIONS,
+  NBER_TRADITION,
+  TRADITION_CONFLICTS_PENDING_OPERATOR_RULING,
+  institutionTraditionConflicts,
   acquisitionPriority,
   acquisitionSeedsFor,
   assessRegistryDiversity,
@@ -278,20 +281,78 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
     expect(findRegistryEntry('commercialisation', 'pricing', 'FATF')).toBeNull();
   });
 
-  it('provenance attaches PER PILLAR — one institution, several traditions', () => {
-    // The operator's ruling: "The provenance must attach to the specific pillar
-    // and acquired document." An institution-keyed lookup would return one
-    // tradition for all three of OECD's pillars and erase the diversity Law II
-    // counts. This is the mutation that must not pass.
-    expect(findRegistryEntry('commercialisation', 'adoption', 'OECD')!.category).toBe('Economics');
-    expect(findRegistryEntry('commercialisation', 'trust-formation', 'OECD')!.category).toBe('International Policy Research');
-    expect(findRegistryEntry('commercialisation', 'pricing', 'OECD')!.category).toBe('Competition Policy');
-    expect(findRegistryEntry('commercialisation', 'venture-operations', 'NBER')!.category).toBe('Entrepreneurship Research');
-    expect(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.category).toBe('Academic Economics');
-    expect(findRegistryEntry('commercialisation', 'commercial-failure-modes', 'NBER')!.category).toBe('Academic Economics');
-    // …and the evidence type travels with the pillar too.
+  it('provenance attaches PER PILLAR — but the TRADITION does not', () => {
+    // The 2026-07-27 ruling: "The provenance must attach to the specific pillar
+    // and acquired document." The 2026-07-28 ruling narrows WHAT may vary:
+    // "keep the split, but be precise about what is splitting… What differs per
+    // pillar is: evidentiary role; topic; acquisition seed; pillar
+    // relationship." NOT the tradition.
+    //
+    // So: `authority`, `evidenceType` and the acquisition seeds vary per
+    // pillar; `category` does not.
     expect(findRegistryEntry('commercialisation', 'adoption', 'OECD')!.evidenceType).toBe('policy');
     expect(findRegistryEntry('commercialisation', 'trust-formation', 'OECD')!.evidenceType).toBe('research-papers');
+    expect(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.authority)
+      .not.toBe(findRegistryEntry('commercialisation', 'commercial-failure-modes', 'NBER')!.authority);
+    expect(acquisitionSeedsFor('commercialisation', 'pricing', 'NBER').map((s) => s.url))
+      .not.toEqual(acquisitionSeedsFor('commercialisation', 'partnerships', 'NBER').map((s) => s.url));
+  });
+
+  it('NBER declares ONE tradition on every pillar it serves — the 2026-07-28 ruling', () => {
+    // "Do not make NBER appear to become three different institutional
+    // traditions merely because it serves pricing, partnerships and commercial
+    // failure modes."
+    //
+    // Before this ruling NBER carried THREE: `Entrepreneurship Research` on
+    // venture-operations/adoption, `Academic Economics` on
+    // pricing/commercial-failure-modes, and a partnerships-only
+    // `Academic Economics / Empirical Entrepreneurship Research` minted to make
+    // that pillar clear Law II. All five now carry the operator's own naming.
+    expect(NBER_TRADITION).toBe('Academic Economics / Empirical Economic Research');
+    const nberRows = COMMERCIALISATION_REGISTRY.filter((e) => e.institution === 'NBER');
+    expect(nberRows.map((e) => e.pillarKey).sort())
+      .toEqual(['adoption', 'commercial-failure-modes', 'partnerships', 'pricing', 'venture-operations']);
+    for (const row of nberRows) {
+      expect(row.category, `NBER declares a pillar-specific tradition on '${row.pillarKey}'`).toBe(NBER_TRADITION);
+    }
+    // The three superseded strings must not survive anywhere in the registry —
+    // a stale one on a sixth NBER pillar would reintroduce the split silently.
+    const allCategories = new Set(COMMERCIALISATION_REGISTRY.map((e) => e.category));
+    expect(allCategories.has('Academic Economics / Empirical Entrepreneurship Research')).toBe(false);
+    expect(allCategories.has('Academic Economics')).toBe(false);
+  });
+
+  it('no institution declares two traditions — the STRUCTURAL guarantee, not just the NBER fix', () => {
+    // "Diversity checks should not count one institution three times as
+    // independent traditions." This is a rule about the mechanism; the NBER
+    // data fix alone would not survive the next entry (CB-1).
+    //
+    // Asserted as an EXACT set, not `not.toContain('NBER')`: a new
+    // multi-tradition institution must fail the build, and resolving OECD must
+    // fail it too until OECD is removed from the pending list.
+    for (const [domain, registry] of Object.entries(INSTITUTIONAL_REGISTRIES)) {
+      const conflicts = institutionTraditionConflicts(registry);
+      expect(
+        conflicts.map((c) => c.institution),
+        `${domain} declares an unaccounted multi-tradition institution: ` +
+          conflicts.map((c) => `${c.institution} → ${c.categories.join(' | ')}`).join('; '),
+      ).toEqual(domain === 'commercialisation' ? [...TRADITION_CONFLICTS_PENDING_OPERATOR_RULING] : []);
+    }
+    // The one pending conflict, reported in full so a steward can rule on it.
+    const [oecd] = institutionTraditionConflicts(COMMERCIALISATION_REGISTRY);
+    expect(oecd.institution).toBe('OECD');
+    expect(oecd.categories).toEqual(['Competition Policy', 'Economics', 'International Policy Research']);
+    expect(oecd.pillarKeys).toEqual(['adoption', 'pricing', 'scaling', 'trust-formation']);
+    // A null category is UNDETERMINABLE, never a conflict — the whole FS
+    // registry would otherwise report as one.
+    expect(institutionTraditionConflicts(FINANCIAL_SERVICES_REGISTRY)).toEqual([]);
+    // …and the detector must actually detect. Two rows, two traditions, one
+    // institution — differing only in case and whitespace, the way a duplicate
+    // is really introduced.
+    expect(institutionTraditionConflicts([
+      { institution: 'NBER', pillarKey: 'pricing', category: 'A' },
+      { institution: ' nber ', pillarKey: 'adoption', category: 'B' },
+    ])).toEqual([{ institution: 'NBER', categories: ['A', 'B'], pillarKeys: ['adoption', 'pricing'] }]);
   });
 
   it('the Law II closures use DIFFERENT traditions from the authority already on the pillar', () => {
@@ -301,13 +362,14 @@ describe('SPEC-CIR-001 · the template is shared, not forked', () => {
     // registered — a fix that looks applied and is not.
     const nber = findRegistryEntry('commercialisation', 'partnerships', 'NBER')!;
     const kauffman = findRegistryEntry('commercialisation', 'partnerships', 'Kauffman Foundation')!;
-    expect(nber.category).toBe('Academic Economics / Empirical Entrepreneurship Research');
+    expect(nber.category).toBe(NBER_TRADITION);
     expect(nber.category, 'NBER reuses Kauffman\'s tradition on this pillar').not.toBe(kauffman.category);
-    // …and it is NBER's own fourth tradition and third pillar, which the
-    // per-(institution, pillar) keying is what makes possible.
-    expect(nber.category).not.toBe(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.category);
-    expect(COMMERCIALISATION_REGISTRY.filter((e) => e.institution === 'NBER').map((e) => e.pillarKey).sort())
-      .toEqual(['adoption', 'commercial-failure-modes', 'partnerships', 'pricing', 'venture-operations']);
+    // …and it clears the pillar WITHOUT a partnerships-only label: the same
+    // string NBER carries on its other four pillars is already distinct from
+    // Kauffman's. That is the difference between a real difference of school
+    // and a string minted to clear the check.
+    expect(nber.category).toBe(findRegistryEntry('commercialisation', 'pricing', 'NBER')!.category);
+    expect(kauffman.category).toBe('Entrepreneurship Research');
 
     const nista = findRegistryEntry('commercialisation', 'outcome-assurance', 'National Infrastructure and Service Transformation Authority')!;
     const incose = findRegistryEntry('commercialisation', 'outcome-assurance', 'INCOSE')!;
@@ -489,6 +551,31 @@ describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
     expect(row.verdict).toBe('satisfied');
   });
 
+  it('ONE institution cannot satisfy Law II by itself — the inflation path is closed', () => {
+    // The mechanism half of the 2026-07-28 ruling. Two rows for ONE institution
+    // on ONE pillar, carrying two `category` strings, used to count as
+    // "2 authorities across 2 traditions" — `satisfied`, produced entirely by
+    // the single institutional perspective Law II exists to forbid. Rows are
+    // now deduplicated by institution before EITHER count.
+    const [row] = assessRegistryDiversity(
+      [auth('NBER', 'Academic Economics', 'pricing'), auth('nber', 'Entrepreneurship Research', 'pricing')],
+      ['pricing'],
+    );
+    expect(row.authorityCount, 'one institution counted twice as an authority').toBe(1);
+    expect(row.traditions, 'one institution counted twice as a tradition').toHaveLength(1);
+    expect(row.verdict).toBe('unsatisfied');
+    expect(row.reason).toMatch(/at least 2/);
+    // A genuine second institution still counts, so the dedupe is not a blanket
+    // suppressor.
+    const [ok] = assessRegistryDiversity(
+      [auth('NBER', 'Academic Economics', 'pricing'), auth('NBER', 'Academic Economics', 'pricing'),
+       auth('OECD', 'Competition Policy', 'pricing')],
+      ['pricing'],
+    );
+    expect(ok.authorityCount).toBe(2);
+    expect(ok.verdict).toBe('satisfied');
+  });
+
   it('an authority with no declared tradition makes the verdict UNDETERMINABLE, not satisfied', () => {
     const [row] = assessRegistryDiversity(
       [auth('BIS', null, 'banking'), auth('FCA', null, 'banking'), auth('ECB', null, 'banking')],
@@ -550,7 +637,7 @@ describe('SPEC-CIR-001 · Law II of Constitutional Discovery', () => {
     expect(constitution.diversity, 'getDomainConstitution returned no Law II assessment').toHaveLength(2);
     const byPillar = Object.fromEntries(constitution.diversity.map((d) => [d.pillarKey, d]));
     expect(byPillar.adoption.verdict).toBe('satisfied');
-    expect(byPillar.adoption.traditions).toEqual(['Economics', 'Entrepreneurship Research']);
+    expect(byPillar.adoption.traditions).toEqual([NBER_TRADITION, 'Economics']);
     expect(byPillar.pricing.verdict).toBe('unsatisfied');
     expect(byPillar.pricing.authorityCount).toBe(0);
     expect(constitution.institutions.find((i) => i.institutionName === 'McKinsey Insights')!.sourceTier).toBe('practitioner-pattern');

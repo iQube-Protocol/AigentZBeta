@@ -32,11 +32,32 @@
  * document."*
  *
  * So the entry is keyed by (institution, pillar), exactly like the DB row it
- * seeds — NOT by institution with a list of pillars. That is what lets NBER
- * carry `Entrepreneurship Research` on `venture-operations` and `Academic
- * Economics` on `pricing`, and OECD carry three different traditions across
- * three pillars. Collapsing those to one per-institution tradition would erase
- * precisely the distinction Law II's diversity check counts.
+ * seeds — NOT by institution with a list of pillars.
+ *
+ * ── …BUT THE TRADITION IS A FUNCTION OF THE INSTITUTION ─────────────────────
+ *
+ * The operator's ruling of 2026-07-28 narrows what the per-pillar keying is
+ * ALLOWED to vary, and it is not the tradition:
+ *
+ *   "Yes — keep the split, but be precise about what is splitting. The
+ *    institutional tradition of NBER remains stable: academic economics /
+ *    empirical economic research. What differs per pillar is: evidentiary role;
+ *    topic; acquisition seed; pillar relationship. Do not make NBER appear to
+ *    become three different institutional traditions merely because it serves
+ *    pricing, partnerships and commercial failure modes. **Diversity checks
+ *    should not count one institution three times as independent traditions.**"
+ *
+ * So `category` varies by INSTITUTION only. `authority`, `evidenceType`,
+ * `notes`, `pillarKey` and the document-level acquisition seeds are what carry
+ * the per-pillar difference. `institutionTraditionConflicts()` is the mechanism
+ * that holds this — a canary drives it over every registry and fails the build
+ * when an institution declares two traditions, because the data fix alone would
+ * not survive the next entry (CB-1: an unwatched rule is a latent mechanism).
+ *
+ * `assessRegistryDiversity` carries the same rule at the counting end: it
+ * deduplicates by institution before counting authorities OR traditions, so two
+ * rows for one institution on one pillar can never read as two independent
+ * schools of thought.
  *
  * ── What is NOT here (deliberately) ─────────────────────────────────────────
  *
@@ -114,9 +135,12 @@ export type UrlProvenance =
  * Notes) map on as:
  *
  *   Institution   → `institution`
- *   Category      → `category`      (the institutional TRADITION for THIS
- *                                    pillar — the axis Law II counts)
- *   Authority     → `authority`     (WHY this source is authoritative here)
+ *   Category      → `category`      (the institution's TRADITION — the axis
+ *                                    Law II counts. A property of the
+ *                                    INSTITUTION, identical on every pillar it
+ *                                    serves; ruling of 2026-07-28.)
+ *   Authority     → `authority`     (WHY this source is authoritative here —
+ *                                    per pillar, unlike `category`)
  *   URL           → derived, `registryEntryUrl()`
  *   Evidence Type → `evidenceType`
  *   Priority      → derived, `acquisitionPriority()`
@@ -137,7 +161,11 @@ export interface InstitutionalRegistryEntry {
    * un-acquirable until a steward assigns one.
    */
   pillarKey: string | null;
-  /** Null where the source registry never captured it. NEVER invented. */
+  /**
+   * The institutional tradition. Null where the source registry never captured
+   * it. NEVER invented, and NEVER varied across the pillars one institution
+   * serves — see `institutionTraditionConflicts`.
+   */
   category: string | null;
   /** Null where the source registry never captured it. NEVER invented. */
   authority: string | null;
@@ -246,7 +274,15 @@ export function assessRegistryDiversity(
 ): PillarDiversityRow[] {
   return pillarKeys.map((pillarKey) => {
     const forPillar = entries.filter((e) => e.pillarKey === pillarKey);
-    const authorities = forPillar.filter((e) => e.tier === 'institutional-authority');
+    // ONE INSTITUTION IS ONE AUTHORITY AND ONE TRADITION on a given pillar,
+    // however many rows it has there. Counting rows was a Law II INFLATION
+    // PATH: two rows for one institution carrying two `category` strings would
+    // read as `2 authorities across 2 traditions` — "satisfied" produced
+    // entirely by the single institutional perspective Law II forbids relying
+    // on. The operator's 2026-07-28 ruling states the rule at this end too:
+    // "Diversity checks should not count one institution three times as
+    // independent traditions."
+    const authorities = dedupeByInstitution(forPillar.filter((e) => e.tier === 'institutional-authority'));
     const traditions = [...new Set(authorities.map((e) => e.category).filter((c): c is string => !!c))].sort();
     const evidenceTypes = [...new Set(authorities.map((e) => e.evidenceType).filter((t): t is EvidenceTypeClass => !!t))].sort();
     const authorityCount = authorities.length;
@@ -287,6 +323,88 @@ export function assessRegistryDiversity(
   });
 }
 
+/** First row per institution, comparing names the way `findRegistryEntry`
+ *  does (trimmed, case-insensitive) so `NBER` and `nber ` are one authority. */
+function dedupeByInstitution<T extends { institution: string }>(rows: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const key = row.institution.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+// ── Tradition is a property of the INSTITUTION, not of (institution, pillar) ─
+
+/** One institution found declaring more than one institutional tradition. */
+export interface TraditionConflict {
+  institution: string;
+  /** The distinct non-null `category` values it declares, sorted. */
+  categories: string[];
+  /** The pillars those declarations sit on, sorted. `null` renders as `—`. */
+  pillarKeys: string[];
+}
+
+/**
+ * Every institution in `entries` that declares two or more different
+ * traditions. The operator's ruling of 2026-07-28 makes this a defect wherever
+ * it appears, not just for NBER: *"Diversity checks should not count one
+ * institution three times as independent traditions."*
+ *
+ * Returns the conflicts rather than throwing, because the honest state of a
+ * registry is a reportable fact — a steward must be able to SEE which
+ * institution needs one tradition chosen for it, and by whom. The canary in
+ * `tests/commercialisation-institutional-registry.test.ts` is what makes it
+ * binding.
+ *
+ * `null` categories are not conflicts. The Financial Services registry records
+ * no tradition at all; that is `undeterminable`, and reporting it as a conflict
+ * would be as dishonest as reporting it as compliance.
+ */
+export function institutionTraditionConflicts(
+  entries: readonly Pick<InstitutionalRegistryEntry, 'institution' | 'pillarKey' | 'category'>[],
+): TraditionConflict[] {
+  const byInstitution = new Map<string, { institution: string; categories: Set<string>; pillars: Set<string> }>();
+  for (const entry of entries) {
+    if (!entry.category) continue;
+    const key = entry.institution.trim().toLowerCase();
+    let bucket = byInstitution.get(key);
+    if (!bucket) {
+      bucket = { institution: entry.institution, categories: new Set(), pillars: new Set() };
+      byInstitution.set(key, bucket);
+    }
+    bucket.categories.add(entry.category);
+    bucket.pillars.add(entry.pillarKey ?? '—');
+  }
+  return [...byInstitution.values()]
+    .filter((b) => b.categories.size > 1)
+    .map((b) => ({
+      institution: b.institution,
+      categories: [...b.categories].sort(),
+      pillarKeys: [...b.pillars].sort(),
+    }))
+    .sort((a, b) => a.institution.localeCompare(b.institution));
+}
+
+/**
+ * The institutions that declare more than one tradition TODAY and are awaiting
+ * an operator ruling on which single tradition they carry. **Not a waiver** —
+ * the canary asserts `institutionTraditionConflicts` equals exactly this set,
+ * so a NEW multi-tradition institution fails the build, and resolving one of
+ * these fails the build until it is removed from here.
+ *
+ * The 2026-07-28 ruling names NBER's single tradition and NBER's only. OECD
+ * declares three (`Economics` on adoption/scaling, `International Policy
+ * Research` on trust-formation, `Competition Policy` on pricing) and the
+ * operator has not said which one it keeps. Choosing for them would be
+ * inventing a fact about what the OECD's corpus IS — the thing CLAUDE.md's
+ * zero-tolerance rule forbids — so it is reported here instead of guessed.
+ */
+export const TRADITION_CONFLICTS_PENDING_OPERATOR_RULING: readonly string[] = ['OECD'];
+
 // ── The Commercialisation registry — TIER 1 ─────────────────────────────────
 
 const A = (
@@ -303,13 +421,31 @@ const A = (
 });
 
 /**
+ * NBER's institutional tradition, named by the operator on 2026-07-28:
+ * *"The institutional tradition of NBER remains stable: academic economics /
+ * empirical economic research."*
+ *
+ * Declared ONCE and referenced from all five NBER rows rather than typed five
+ * times, so the "one institution, one tradition" rule is structural at the
+ * point of authorship as well as checked afterwards (inv.engineering.036 — one
+ * authoritative location per concern). Title-cased to match every neighbouring
+ * `category` in this file.
+ */
+export const NBER_TRADITION = 'Academic Economics / Empirical Economic Research';
+
+/**
  * WAVE 1 — the operator's first-tier table of 2026-07-27, verbatim in name,
  * category, purpose and URL. The PILLAR mapping is AGENT-PROPOSED and argued
  * per row in SPEC-CIR-001 §4.1; a steward ratifies or corrects it.
+ *
+ * NBER's `category` was `Entrepreneurship Research` here until the 2026-07-28
+ * ruling; it is now `NBER_TRADITION` on every pillar. Kauffman keeps
+ * `Entrepreneurship Research`, which is why `partnerships` still reads two
+ * traditions.
  */
 const COMMERCIALISATION_WAVE_1: readonly InstitutionalRegistryEntry[] = [
-  A('NBER', 'venture-operations', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"venture research" → §4 venture-operations.'),
-  A('NBER', 'adoption', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"innovation" → §4 adoption.'),
+  A('NBER', 'venture-operations', NBER_TRADITION, 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"venture research" → §4 venture-operations.'),
+  A('NBER', 'adoption', NBER_TRADITION, 'Operator-designated: entrepreneurship, innovation, venture research.', 'research-papers', '"innovation" → §4 adoption.'),
   A('Kauffman Foundation', 'venture-operations', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship and startup ecosystems.', 'research-papers', '"entrepreneurship" → §4 venture-operations.'),
   A('Kauffman Foundation', 'partnerships', 'Entrepreneurship Research', 'Operator-designated: entrepreneurship and startup ecosystems.', 'research-papers', '"startup ecosystems" is a direct word match for §4 Partnerships & Ecosystem Development.'),
   A('SSRN', 'venture-operations', 'Research Repository', 'Operator-designated: entrepreneurship, strategy, innovation papers.', 'research-papers', 'A repository, cross-pillar by nature; registered only against the pillars its Purpose names. "strategy" has no §4 pillar and is deliberately not mapped.'),
@@ -349,23 +485,27 @@ const COMMERCIALISATION_WAVE_1: readonly InstitutionalRegistryEntry[] = [
  *
  * Institutions, traditions, evidence types, URLs **and pillars** are the
  * operator's — unlike wave 1, these mappings were supplied, not inferred.
- * OECD picks up two more pillars and NBER two more, each under a DIFFERENT
- * tradition: exactly the reuse the ruling prefers, and exactly why the entry
- * is keyed per pillar.
+ * OECD picks up two more pillars and NBER two more: exactly the reuse the
+ * ruling prefers.
+ *
+ * NBER's two carry NBER's ONE tradition (2026-07-28 ruling). OECD's two still
+ * carry a different tradition each — the operator has not ruled which single
+ * tradition OECD keeps, and it is reported as a pending conflict
+ * (`TRADITION_CONFLICTS_PENDING_OPERATOR_RULING`) rather than chosen here.
  */
 const COMMERCIALISATION_WAVE_2: readonly InstitutionalRegistryEntry[] = [
   A('OECD', 'trust-formation', 'International Policy Research',
     'Operator-designated: international policy research; empirical consumer survey.', 'research-papers',
-    'Reuse of a wave-1 institution under a DIFFERENT tradition — OECD is `Economics` on adoption/scaling and `International Policy Research` here. Per-pillar provenance, per the ruling.'),
+    'Reuse of a wave-1 institution under a DIFFERENT tradition — OECD is `Economics` on adoption/scaling and `International Policy Research` here. PENDING: the 2026-07-28 ruling makes tradition a property of the institution, and the operator has not said which single tradition OECD keeps. Reported by `institutionTraditionConflicts`, not silently collapsed.'),
   A('UK Competition and Markets Authority', 'trust-formation', 'Competition & Consumer Enforcement',
     'Operator-designated: competition/consumer enforcement; market evidence.', 'policy',
     'New institution — no existing entry covers enforcement-derived consumer-trust evidence.'),
-  A('NBER', 'pricing', 'Academic Economics',
+  A('NBER', 'pricing', NBER_TRADITION,
     'Operator-designated: academic economics; empirical and formal modelling.', 'research-papers',
-    'Reuse under a different tradition: NBER is `Entrepreneurship Research` on venture-operations/adoption and `Academic Economics` here.'),
+    'Reuse of a wave-1 institution on a new pillar. The TRADITION is unchanged (2026-07-28 ruling); what the reuse adds is a different evidentiary role, topic and acquisition seed.'),
   A('OECD', 'pricing', 'Competition Policy',
     'Operator-designated: competition policy; digital-market pricing.', 'policy',
-    'OECD\'s THIRD tradition in this registry. Collapsing these to one per-institution category would erase the diversity Law II counts.'),
+    'OECD\'s THIRD tradition in this registry — see the trust-formation note. Pending an operator ruling on OECD\'s single tradition.'),
   A('World Trade Organization', 'distribution', 'International Trade Doctrine',
     'Operator-designated: international trade and market-access doctrine.', 'policy',
     'New institution.'),
@@ -379,7 +519,7 @@ const COMMERCIALISATION_WAVE_2: readonly InstitutionalRegistryEntry[] = [
   A('UNCITRAL', 'settlement-exchange', 'International Commercial Law',
     'Operator-designated: international commercial law; electronic contracting and transferable records.', 'standards',
     'New institution.'),
-  A('NBER', 'commercial-failure-modes', 'Academic Economics',
+  A('NBER', 'commercial-failure-modes', NBER_TRADITION,
     'Operator-designated: academic entrepreneurship and market-failure research.', 'research-papers',
     'Closes PRD-IDE-002 §11.2\'s #1-ranked evidential gap, which SPEC-CIR-001 §5 refused to close by inference.'),
   A('U.S. Bureau of Labor Statistics', 'commercial-failure-modes', 'Official Statistics',
@@ -399,19 +539,24 @@ const COMMERCIALISATION_WAVE_2: readonly InstitutionalRegistryEntry[] = [
  * different tradition.
  *
  * **The tradition strings here are load-bearing, not decoration.** Law II
- * counts DISTINCT `category` values per pillar. NBER's `partnerships` mapping
- * must not reuse Kauffman's `Entrepreneurship Research`, or the pillar still
- * reads `unsatisfied` with two authorities on the board — the exact failure the
- * ruling asks to avoid. It carries the operator's own phrasing instead, which
- * is also a fourth distinct NBER tradition in this registry (after
- * `Entrepreneurship Research` on venture-operations/adoption and `Academic
- * Economics` on pricing/commercial-failure-modes). That is the per-pillar
- * keying working as designed, not drift.
+ * counts DISTINCT `category` values per pillar, so NBER's `partnerships`
+ * mapping must differ from Kauffman's `Entrepreneurship Research` or the pillar
+ * still reads `unsatisfied` with two authorities on the board.
+ *
+ * It does — but NOT by inventing a partnerships-specific NBER tradition, which
+ * is what the first version of this wave did (`Academic Economics / Empirical
+ * Entrepreneurship Research`, a label NBER carried on this pillar alone). The
+ * operator's ruling of 2026-07-28 rejected that: *"Do not make NBER appear to
+ * become three different institutional traditions merely because it serves
+ * pricing, partnerships and commercial failure modes."* NBER carries its ONE
+ * tradition here, `NBER_TRADITION`, which is already distinct from Kauffman's —
+ * so the pillar stays satisfied by a real difference of school rather than by a
+ * string minted to clear the check.
  */
 const COMMERCIALISATION_WAVE_3: readonly InstitutionalRegistryEntry[] = [
-  A('NBER', 'partnerships', 'Academic Economics / Empirical Entrepreneurship Research',
+  A('NBER', 'partnerships', NBER_TRADITION,
     'Operator-designated: academic economics / empirical entrepreneurship research; working papers and peer-reviewed economic research.', 'research-papers',
-    'NBER\'s FOURTH tradition in this registry and its THIRD pillar. Deliberately NOT `Entrepreneurship Research` — that is Kauffman\'s tradition on this same pillar, and reusing it would leave `partnerships` failing Law II with two authorities registered. The operator\'s acquisition seed is pillar-specific rather than generic partnership commentary.'),
+    'NBER\'s THIRD pillar, under NBER\'s ONE tradition. Distinct from Kauffman\'s `Entrepreneurship Research` on this same pillar — which is what keeps `partnerships` satisfied — but distinct because the schools genuinely differ, not because a per-pillar label was minted for the check. The operator\'s acquisition seed is what is pillar-specific here.'),
   A('National Infrastructure and Service Transformation Authority', 'outcome-assurance',
     'Public Project-Delivery Assurance / Independent Stage-Gate Review',
     'Operator-designated: public project-delivery assurance / independent stage-gate review; assurance standards, review guidance, templates and benefits-realisation guidance.', 'standards',
