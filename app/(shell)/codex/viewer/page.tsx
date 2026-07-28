@@ -195,9 +195,9 @@ export default function CodexViewerPage() {
   }, [tabOptions]);
 
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
-    { id: "knyt-codex", label: "KNYT Cartridge", color: "purple" },
-    { id: "qripto-codex", label: "Qriptopian Cartridge", color: "indigo" },
-    { id: "agentiq-codex", label: "AgentiQ Cartridge", color: "blue" },
+    { id: "knyt-codex", label: "KNYT", color: "purple" },
+    { id: "qripto-codex", label: "Qriptopian", color: "indigo" },
+    { id: "agentiq-codex", label: "AgentiQ", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
@@ -207,7 +207,10 @@ export default function CodexViewerPage() {
     if (!codexList || codexList.length === 0) return fallbackCodexes;
     return codexList.map((codex: CodexListItem) => ({
       id: codex.id,
-      label: codex.name,
+      // The PICKER name when the cartridge declares one, else its header name.
+      // Two names, one for each reading context (operator, 2026-07-28) — never
+      // a truncation of the header string.
+      label: codex.shortName ?? codex.name,
       color: normalizeColor(codex.metadata?.color),
     }));
   }, [codexList, fallbackCodexes]);

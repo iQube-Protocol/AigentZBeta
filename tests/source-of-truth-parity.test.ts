@@ -1540,3 +1540,85 @@ describe('operator rulings 2026-07-28 — completion artifact form + §38 succes
     expect(readSource(AMENDMENT)).toMatch(/UNRESOLVED — Appendix C item 19/);
   });
 });
+
+/**
+ * Cartridge display naming — the ontology is the source of truth for what a
+ * cartridge is CALLED, and `data/codex-configs.ts` is a projection of it that
+ * cannot be derived in code (a docs-file mirror, per this file's charter).
+ *
+ * TWO SEPARATE RULES, BOTH LEARNED FROM THE SAME OPERATOR PASS (2026-07-28):
+ *
+ *  1. "Remove **cartridge** from the names of any cartridge that includes it."
+ *     The word is the platform's noun for the container, not part of any
+ *     cartridge's name. It had crept into five of fifteen display names.
+ *  2. A cartridge may need TWO names — a picker name and a header name — and
+ *     they are DIFFERENT NAMES, not one name at two lengths. `shortName` is
+ *     the picker's; deriving it by truncating `name` is the defect this pins
+ *     against, because a truncation rule silently mangles the other fourteen.
+ *
+ * The IRL check reads `docs/platform-ontology.md` rather than restating the
+ * ratified names — restating them here would make this file a second home for
+ * the fact, which is exactly the class of defect the rest of the file exists
+ * to catch.
+ */
+describe('cartridge display naming (docs/platform-ontology.md is the source of truth)', () => {
+  const ONTOLOGY = 'docs/platform-ontology.md';
+
+  it('no cartridge display name carries the container noun "Cartridge"', async () => {
+    const { CODEX_DEFINITIONS } = await import('../data/codex-configs');
+    expect(CODEX_DEFINITIONS.length, 'no cartridges loaded — the import broke').toBeGreaterThan(5);
+    const offenders = CODEX_DEFINITIONS.filter(
+      (c: { name: string; shortName?: string }) =>
+        /\bcartridges?\b/i.test(c.name) || /\bcartridges?\b/i.test(c.shortName ?? ''),
+    ).map((c: { id: string; name: string }) => `${c.id}: "${c.name}"`);
+    expect(offenders, `cartridge names still containing "Cartridge":\n${offenders.join('\n')}`).toEqual([]);
+  });
+
+  it('the ids that end in -cartridge are untouched — a display rename is never an identifier rename', async () => {
+    // The dual-source rule (CLAUDE.md) turns on these ids: QuickLinksCard,
+    // buildCodexUrl, aiqOsTabsByGroup and the pack skip-list all target them.
+    // Renaming a DISPLAY string must never migrate into the id, so the ids that
+    // carry the suffix are pinned here as the thing that must NOT change.
+    const { CODEX_DEFINITIONS } = await import('../data/codex-configs');
+    const ids = new Set(CODEX_DEFINITIONS.map((c: { id: string }) => c.id));
+    for (const id of ['agentiq-os-cartridge', 'standing-cartridge', 'irl-cartridge']) {
+      expect(ids, `${id} was renamed — inter-cartridge navigation targets it`).toContain(id);
+    }
+  });
+
+  it('IRL carries two ontology-ratified names, and neither is derived from the other', async () => {
+    const { IRL_CARTRIDGE } = await import('../data/codex-configs');
+    const ontology = readSource(ONTOLOGY);
+    const section = ontology.slice(ontology.indexOf('## metaMe IRL'));
+    expect(section.length, 'the metaMe IRL ontology entry is missing').toBeGreaterThan(200);
+
+    // Both names must be strings the ontology itself ratifies.
+    expect(section, 'the header name is not an ontology-ratified name').toContain(IRL_CARTRIDGE.name);
+    expect(IRL_CARTRIDGE.shortName, 'IRL has no picker name').toBeTruthy();
+    expect(section, 'the picker name is not an ontology-ratified name').toContain(IRL_CARTRIDGE.shortName!);
+
+    // …and they are genuinely two names. If the picker name were merely a
+    // prefix/suffix slice of the header, a truncation rule would have been
+    // reintroduced and `shortName` would be redundant.
+    expect(IRL_CARTRIDGE.name.startsWith(IRL_CARTRIDGE.shortName!)).toBe(false);
+    expect(IRL_CARTRIDGE.name.endsWith(IRL_CARTRIDGE.shortName!)).toBe(false);
+
+    // The superseded lab name must not have come back with the rename.
+    expect(IRL_CARTRIDGE.name).not.toMatch(/CCRL|Constitutional Cybernetics Research Laborator/);
+  });
+
+  it('the picker resolves shortName ?? name in ONE place, and never truncates', () => {
+    const picker = stripComments(readSource('app/(shell)/codex/viewer/page.tsx'));
+    expect(picker, 'the picker does not consume shortName').toMatch(/shortName\s*\?\?\s*codex\.name/);
+    // A `.replace(/ cartridge$/)`-style derivation in the picker would be the
+    // truncation rule this design rejects.
+    expect(picker, 'the picker derives its label by stripping text').not.toMatch(
+      /codex\.name\s*\.\s*replace/,
+    );
+    // And the list endpoint must actually carry the field, or the picker's
+    // fallback silently becomes the only branch that ever runs (MS-7: an
+    // inert mechanism is a defect even though nothing errors).
+    const list = stripComments(readSource('app/api/codex/registry/_lib/packRegistry.ts'));
+    expect(list, 'codexToListItem drops shortName').toMatch(/shortName/);
+  });
+});

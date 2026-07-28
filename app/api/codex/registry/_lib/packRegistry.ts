@@ -340,6 +340,10 @@ export function codexToListItem(codex: CodexConfig): CodexListItem {
   return {
     id: codex.id,
     name: codex.name,
+    // Carried through so the picker can render the cartridge's picker name
+    // without a second lookup. Undefined stays undefined — the consumer's
+    // `shortName ?? name` fallback is the one place that decision lives.
+    ...(codex.shortName ? { shortName: codex.shortName } : {}),
     slug: codex.slug,
     enabled: codex.enabled,
     owner: codex.owner,

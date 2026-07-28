@@ -182,7 +182,19 @@ export interface CodexCopilotConfig {
 
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')
-  name: string;                  // Display name
+  name: string;                  // Display name — the CARTRIDGE HEADER name
+  /**
+   * Optional PICKER name — what the cartridge is called in the viewer's
+   * "Select Cartridge" sidebar and any other list of cartridges.
+   *
+   * This is a SECOND NAME, not a shortened first one (operator, 2026-07-28:
+   * IRL is "IRL" in the sidebar and "metaMe Invariant Research Lab" in the
+   * header). Deriving one from the other by truncation would be wrong: they
+   * are different names for different reading contexts, and a truncation rule
+   * would silently mangle every other cartridge. Absent ⇒ the picker uses
+   * `name`, so this changes nothing for the cartridges that need one name.
+   */
+  shortName?: string;
   slug: string;                  // URL-friendly identifier
   enabled: boolean;              // API-controlled enable/disable
   version: string;               // Semantic versioning
@@ -208,6 +220,8 @@ export interface CodexConfig {
 export interface CodexListItem {
   id: string;
   name: string;
+  /** Picker name — see `CodexConfig.shortName`. Absent ⇒ fall back to `name`. */
+  shortName?: string;
   slug: string;
   enabled: boolean;
   owner: string;

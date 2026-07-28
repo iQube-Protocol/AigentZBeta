@@ -292,7 +292,7 @@ export const KNYT_LIVING_CANON: LivingCanonBranchConfig = {
 
 export const KNYT_CODEX: CodexConfig = {
   id: 'knyt-codex',
-  name: 'KNYT Cartridge',
+  name: 'KNYT',
   slug: 'knyt-codex',
   enabled: true,
   version: '1.0.0',
@@ -875,7 +875,7 @@ export const KNYT_CODEX: CodexConfig = {
 
 export const QRIPTO_CODEX: CodexConfig = {
   id: 'qripto-codex',
-  name: 'Qriptopian Cartridge',
+  name: 'Qriptopian',
   slug: 'qripto',
   enabled: true,
   version: '2.0.0',
@@ -1387,7 +1387,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   //   packId 'agentiq' → codexes/packs/agentiq/  (build-layer docs: AgentiQ OS, Alpha Program)
   //   static components → FactoryIntakeTab, RegistrySupplyTab
   id: 'agentiq-codex',
-  name: 'AgentiQ Cartridge',
+  name: 'AgentiQ',
   slug: 'agentiq',
   enabled: true,
   version: '1.0.0',
@@ -3189,7 +3189,7 @@ const ventureLabAdminTabsForMetameVl = () =>
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
-  name: 'metaMe Cartridge',
+  name: 'metaMe',
   slug: 'metame',
   enabled: true,
   version: '1.0.0',
@@ -5085,7 +5085,7 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
 
 export const STANDING_CARTRIDGE: CodexConfig = {
   id: 'standing-cartridge',
-  name: 'Standing Cartridge',
+  name: 'Standing',
   slug: 'standing-cartridge',
   enabled: true,
   version: '0.1.0',
@@ -5387,7 +5387,20 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 export const IRL_CARTRIDGE: CodexConfig = {
   id: 'irl-cartridge',
-  name: 'metaMe IRL — Research Laboratory',
+  // TWO NAMES, ONE CARTRIDGE (operator, 2026-07-28): "IRL in side bar and
+  // Invariant Research Laboratory in cartridge header". `name` is the header,
+  // `shortName` is the picker — not a truncation of each other.
+  //
+  // ONTOLOGY OVERRIDE, FLAGGED FOR THE OPERATOR. `docs/platform-ontology.md`
+  // ("metaMe IRL") ratifies exactly three co-equal names — **metaMe Invariant
+  // Research Lab** (full), **metaMe IRL** (short), **IRL** (abbreviation) — and
+  // "Invariant Research Laboratory" is not among them. CLAUDE.md's first rule
+  // is that the ontology governs and a non-canonical spelling is a bug, so the
+  // header takes the ratified full name and the sidebar takes the ratified
+  // abbreviation the operator asked for. If the operator prefers "Invariant
+  // Research Laboratory", that is an ontology amendment, not a config edit.
+  name: 'metaMe Invariant Research Lab',
+  shortName: 'IRL',
   slug: 'irl-cartridge',
   enabled: true,
   version: '1.0.0',
