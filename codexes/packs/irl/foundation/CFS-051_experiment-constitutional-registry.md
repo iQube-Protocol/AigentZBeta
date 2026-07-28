@@ -116,7 +116,7 @@ The operator named twelve workstreams; every one was located by a real grep/read
 
 | Named item | Real match found | Status set |
 |---|---|---|
-| Invariant Discovery Engine | CFS-048 (`agentiq/updates/2026-07-20_cfs-048-invariant-discovery-engine-charter.md`) + parent-linking/phase1a/phase2/recursive-compression amendments | `published` |
+| Invariant Discovery Engine | CFS-048 (`codexes/packs/irl/foundation/CFS-048_invariant-discovery-engine-charter.md` — filed into the foundation 2026-07-28, byte-identical, from `agentiq/updates/2026-07-20_cfs-048-invariant-discovery-engine-charter.md`) + the parent-linking/phase1a/phase2/recursive-compression amendments, which stay in the updates pack as build records | `published` |
 | Financial Services invariant refinement | CRP-003 / CRP-003a | `published` |
 | Software Invariants | **already `ISR-001` in `EXPERIMENT_REGISTRY`** | `promoted` (cross-ref, not duplicated) |
 | Constitutional Navigation | CFS-050 (Sovereignty Navigation, ratified 2026-07-24) | `published` |
