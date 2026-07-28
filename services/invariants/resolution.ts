@@ -1,12 +1,21 @@
 /**
  * resolution — the Invariant Resolution Engine, Phase 0 (CFS-037 / PRD-IRE-001,
- * RATIFIED 2026-07-17; operator: "Go straight into p0").
+ * ratification attested 2026-07-17 (agent transcription; document status DRAFT
+ * — see CFS-037 header); operator: "Go straight into p0").
  *
  * The constitutional query planner: RESOLUTION PRECEDES REASONING. Given an
  * intent, construct the minimal Resolved Constitutional Field it requires —
  * BEFORE any iQube selection, agent assembly, or LLM call. The IRE resolves;
- * the Invariant Projection Engine (CFS-035, renamed) projects. The IPE never
- * resolves a field; it consumes one produced here.
+ * the Invariant Projection Engine (CFS-035/039) projects.
+ *
+ * THE IPE NEVER RESOLVES A FIELD; IT CONSUMES ONE PRODUCED HERE. That was a
+ * claim this header made while `engine.ts` — the module CFS-039 designates the
+ * IPE — exported `computeFieldSnapshot`, `groundReasoning` and
+ * `getCachedFieldSnapshot`. Corrected 2026-07-27 on operator ruling: field
+ * construction now lives in `grounding.ts`, `engine.ts` imports only the TYPE,
+ * and no self-resolving fallback is permitted anywhere in the projector.
+ * Which surfaces actually route through this engine is recorded, queryably, in
+ * `GROUNDING_SURFACES` at the foot of this file — never in a comment.
  *
  * Five phases (CFS-037 §3), Phase-0 scope per phase:
  *   1 Qualify   — v0: perception.extractField over intent text (the honest
@@ -38,7 +47,7 @@
 
 import type { GroundingContext } from './grounding';
 import type { InvariantNamespace } from '../../types/invariants';
-import { computeFieldSnapshot, type FieldSnapshot } from './engine';
+import { computeFieldSnapshot, type FieldSnapshot } from './grounding';
 import { extractField, type FieldExtraction } from './perception';
 import { basisFor } from './coordinates';
 
@@ -453,4 +462,185 @@ export async function resolveCommonConstitutionalGround(
 ): Promise<CitableInvariant[]> {
   const scoped = overlay && Object.keys(overlay).length > 0 ? overlay : undefined;
   return resolveCitableInvariants(intentText, limit, scoped);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// The grounding-surface classification register (operator ruling, 2026-07-27)
+//
+// "The seven reasoning surfaces bypassing IRE must then be classified one by
+//  one: 1. GOVERNED reasoning surfaces must route through IRE before grounding.
+//  2. A deliberately UNGOVERNED or diagnostic surface may remain direct only if
+//  visibly classified as such. 3. Ungoverned surfaces must be EXCLUDED from
+//  constitutional claims, Research Lab evidence and EXP-P1 instrument
+//  calibration."
+//
+// "Visibly classified" has to mean *queryable*, or the classification is prose
+// and prose is not a mechanism (CFS-053 CB-1). So the classification is DATA,
+// here, next to the engine it classifies — a readiness check reads it, and
+// `tests/instrument-engine-briefs.test.ts` binds every entry to the real call
+// sites in the tree, so an unregistered or mis-registered surface fails the
+// build rather than sitting in a document.
+//
+// This register does NOT decide what is governed. It RECORDS the decision and
+// makes the consequence (exclusion from constitutional claims) mechanical.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type GroundingSurfaceClass =
+  /** Routes through the IRE (`resolveConstitutionalField` / `resolveCitable…` /
+   *  `resolveCommonConstitutionalGround`) before it grounds. */
+  | 'ire-governed'
+  /** Governed reasoning that does NOT yet route through the IRE. Honestly
+   *  named rather than half-routed; EXCLUDED from constitutional claims,
+   *  Research Lab evidence and EXP-P1 calibration until it routes. */
+  | 'governed-unrouted'
+  /** Deliberately ungoverned — diagnostic, mechanical, or non-reasoning.
+   *  May ground directly, permanently, and is excluded by design. */
+  | 'diagnostic';
+
+export interface GroundingSurface {
+  /** Stable id — what a readiness check and a receipt refer to. */
+  id: string;
+  /** The module that grounds. One surface per module that calls a ground seam. */
+  file: string;
+  classification: GroundingSurfaceClass;
+  /** What the surface does with the ground it obtains. */
+  purpose: string;
+  /**
+   * For anything not `ire-governed`: what routing it through the IRE would
+   * require. NULL only when the surface is already governed. A blank here on
+   * an ungoverned surface is how "we'll do it later" becomes "nobody knows
+   * what it would take" — the canary rejects it.
+   */
+  routingRequires: string | null;
+}
+
+export const GROUNDING_SURFACES: GroundingSurface[] = [
+  // ── Governed: resolution precedes reasoning ─────────────────────────────
+  {
+    id: 'codex-chat',
+    file: 'app/api/codex/chat/route.ts',
+    classification: 'ire-governed',
+    purpose: 'Copilot turn — the common constitutional ground injected into every system prompt.',
+    routingRequires: null,
+  },
+  {
+    id: 'moneypenny-chat',
+    file: 'app/api/moneypenny/chat/route.ts',
+    classification: 'ire-governed',
+    purpose: 'Finance copilot turn — the FS invariant library resolved per message.',
+    routingRequires: null,
+  },
+  {
+    id: 'ask-agent',
+    file: 'app/api/assistant/ask-agent/route.ts',
+    classification: 'ire-governed',
+    purpose: 'Specialist consultation packet — invariants cited by seed id to the specialist LLM.',
+    routingRequires: null,
+  },
+  {
+    id: 'nbe-llm-rerank',
+    file: 'services/orchestration/nbeLlmRerank.ts',
+    classification: 'ire-governed',
+    purpose: 'Next-best-experience rerank — constitutional memory the rerank reasons against.',
+    routingRequires: null,
+  },
+  {
+    id: 'render-instrumentation',
+    file: 'services/constitutional/renderInstrumentation.ts',
+    classification: 'ire-governed',
+    purpose: 'Plan render — the constitutional block, its Reach citations, and its receipt.',
+    routingRequires: null,
+  },
+  {
+    id: 'ontology-context-pack',
+    file: 'services/constitutional/ontologyResolver.ts',
+    classification: 'ire-governed',
+    purpose: 'ContextPack for one reasoning call (CFS-015 principle 5 — resolution precedes reasoning).',
+    routingRequires: null,
+  },
+  {
+    id: 'constitutional-service-pipeline',
+    file: 'services/constitutional/constitutionalServicePipeline.ts',
+    classification: 'ire-governed',
+    purpose:
+      'The flagship delegated-service pipeline — the evidence its executor reasons from. Until 2026-07-27 the IRE produced only a TRACE STRING here while the evidence was grounded separately: the constitutional sequence appeared in the transcript and was absent from the computation.',
+    routingRequires: null,
+  },
+
+  // ── Governed, NOT routed — recorded honestly, excluded until it routes ───
+  {
+    id: 'compose-artifact',
+    file: 'services/composition/composeArtifact.ts',
+    classification: 'governed-unrouted',
+    purpose: 'Composition grounding — the invariant ids an artefact claims to be true to.',
+    routingRequires:
+      "CompositionRequest carries no intent text — only `grounding.domains` / `ontologyClassIds`. The IRE qualifies an INTENT, so routing needs either (a) an intent/brief field on CompositionRequest.grounding, or (b) the caller resolving the field and passing it in. Both change a public type with several call sites (app/api/composition/publish, services/artifact/compositionPublish, services/video/invariantVideoBrief), so it is recorded rather than half-done.",
+  },
+  {
+    id: 'run-artifact',
+    file: 'services/artifact/runArtifact.ts',
+    classification: 'governed-unrouted',
+    purpose: 'Artifact-run grounding — the invariant ids recorded on the artifact record.',
+    routingRequires:
+      "Its PRIMARY path already prefers composition-supplied ids (`input.result.grounded.invariantIds`), so routing `compose-artifact` upgrades this surface's main path for free. Only the `live` fallback grounds directly, and it has no intent text (ArtifactCompositionInput carries a compositionRef and a CompositionResult, no brief). Route compose-artifact first; then either drop the live fallback or give it the run's intent.",
+  },
+];
+
+/** One surface by id. Pure. */
+export function groundingSurface(id: string): GroundingSurface | null {
+  return GROUNDING_SURFACES.find((s) => s.id === id) ?? null;
+}
+
+/**
+ * The surfaces whose output MAY back a constitutional claim, Research Lab
+ * evidence, or EXP-P1 instrument calibration — i.e. the governed ones only.
+ * Clause 3 of the ruling, expressed as a function rather than a footnote.
+ */
+export function constitutionallyClaimableSurfaces(): GroundingSurface[] {
+  return GROUNDING_SURFACES.filter((s) => s.classification === 'ire-governed');
+}
+
+/** The complement: surfaces excluded from those three uses. Pure. */
+export function excludedFromConstitutionalClaims(): GroundingSurface[] {
+  return GROUNDING_SURFACES.filter((s) => s.classification !== 'ire-governed');
+}
+
+export interface InstrumentReadiness {
+  /** True only when NO governed surface is still unrouted. */
+  ready: boolean;
+  governed: number;
+  total: number;
+  /** The ids blocking readiness — governed reasoning that bypasses the IRE. */
+  unrouted: string[];
+  reason: string;
+}
+
+/**
+ * The readiness verdict, computed rather than asserted.
+ *
+ * "Instrument readiness remains unready until all governed surfaces satisfy the
+ *  sequence. The discovery that only two of nine currently do so is not a
+ *  reason to weaken the invariant; it is precisely why the readiness verdict
+ *  exists." — operator ruling, 2026-07-27.
+ *
+ * `diagnostic` surfaces do not block: they are excluded by design, and the
+ * exclusion is the point. `governed-unrouted` surfaces DO block, permanently,
+ * until they route — which is what stops the classification from becoming a
+ * place to park work.
+ */
+export function instrumentReadiness(): InstrumentReadiness {
+  const unrouted = GROUNDING_SURFACES.filter((s) => s.classification === 'governed-unrouted').map(
+    (s) => s.id,
+  );
+  const governed = constitutionallyClaimableSurfaces().length;
+  return {
+    ready: unrouted.length === 0,
+    governed,
+    total: GROUNDING_SURFACES.length,
+    unrouted,
+    reason:
+      unrouted.length === 0
+        ? `all ${governed} governed grounding surfaces route through the IRE`
+        : `${unrouted.length} governed surface(s) still ground without resolution: ${unrouted.join(', ')}`,
+  };
 }

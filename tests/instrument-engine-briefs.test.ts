@@ -29,18 +29,29 @@
  */
 
 import { describe, it, expect, vi, afterAll } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { readSource, stripComments, importAuthority } from './_lib/sourceAuthority';
 
 import { computeRecurrence, type EvidenceRow } from '@/services/invariants/discoveryEngine';
 import {
   calibrateStructural,
+  constitutionallyClaimableSurfaces,
+  excludedFromConstitutionalClaims,
   formatCitableInvariantsBlock,
+  groundingSurface,
+  instrumentReadiness,
   normaliseReach,
   normaliseStanding,
   resolveCitableInvariants,
+  GROUNDING_SURFACES,
+  type GroundingSurfaceClass,
 } from '@/services/invariants/resolution';
 import { basisFor } from '@/services/invariants/coordinates';
 import {
+  deriveFromCoordinates,
+  deriveFromStanding,
   deriveWeightsFromStanding,
   deriveWeightsFromCoordinates,
   type FieldSnapshot,
@@ -600,5 +611,256 @@ describe('IPE-5 — a node is not authoritative unless something says so', () =>
     // The client-safe flip projection never carries the T0 audit field.
     const store = stripComments(readSource('services/invariants/flipStore.ts'));
     expect(store).not.toMatch(/flippedByPersona/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// CFS-039 / IPE-1 (engine half) — the projector cannot resolve its own field
+//
+// The bridge half of IPE-1 (above) was already clean. But CFS-039 designates
+// `engine.ts` as the IPE, and until 2026-07-27 `engine.ts` exported
+// computeFieldSnapshot / groundReasoning / getCachedFieldSnapshot — so every
+// Invariant Decision Node weighted from a field the projector had resolved for
+// ITSELF, while the comment on deriveWeightsFromCoordinates asserted the
+// opposite. Reading "the IPE never resolves a field" as a claim about
+// projectionBridge alone would have been a redefinition, not a fix.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('IPE-1 (engine half) — engine.ts consumes a field and can construct none', () => {
+  const engineSrc = readSource('services/invariants/engine.ts');
+
+  it('imports the Field Snapshot as a TYPE only — it can name a field, not build one', () => {
+    const code = stripComments(engineSrc);
+    expect(
+      code,
+      "engine.ts must import './grounding' with `import type` — a value import restores the ability to resolve",
+    ).toMatch(/import\s+type\s*\{[^}]*FieldSnapshot[^}]*\}\s*from\s*'\.\/grounding'/);
+    // And nothing else may come from the grounding module at all: one import
+    // statement, and it must be type-only. `[^;]` keeps the match inside ONE
+    // statement so an earlier import cannot lend it the `type` keyword.
+    const groundingImports = [...code.matchAll(/^\s*import\s+([^;]*?)\s*from\s*'\.\/grounding'/gm)].map(
+      (m) => m[1],
+    );
+    expect(groundingImports.length, 'no import from ./grounding parsed').toBe(1);
+    expect(groundingImports[0]).toMatch(/^\s*type\s/);
+  });
+
+  it('binds nothing that could read the substrate', () => {
+    const authority = importAuthority(engineSrc);
+    const specifiers = [
+      ...authority.records.map((r) => r.specifier),
+      ...authority.dynamicSpecifiers,
+      ...authority.requireSpecifiers,
+    ];
+    // observationStore is the shadow-loop's write-behind; grounding is type-only.
+    expect(specifiers.sort()).toEqual(['./grounding', './observationStore']);
+    // A dynamic import is the obvious way to smuggle resolution back in past a
+    // static-import check. There must be none.
+    expect(authority.dynamicSpecifiers).toEqual([]);
+    expect(authority.requireSpecifiers).toEqual([]);
+  });
+
+  it('names no field-construction call ANYWHERE in its body', () => {
+    // Import authority proves it cannot bind the constructors; this proves it
+    // does not call them by some other route (a re-export, a global, a
+    // reintroduced local copy). Comments are stripped, so this module's own
+    // header — which NAMES all three functions to explain why they left — can
+    // neither satisfy nor break the check.
+    const code = stripComments(engineSrc);
+    for (const ctor of ['computeFieldSnapshot(', 'buildInvariantSlice(', 'groundReasoning(', 'getCachedFieldSnapshot(']) {
+      expect(code, `engine.ts (the IPE) calls ${ctor} — it is resolving its own field`).not.toContain(
+        ctor,
+      );
+    }
+  });
+
+  it('has NO self-resolving fallback: an absent field is refused, never fetched', () => {
+    // The forbidden implementation is "accept an injected field, resolve one
+    // when it is absent". Such a fallback would have to be ASYNC — resolution
+    // is DB-backed. Both derivations are synchronous, so the fallback cannot
+    // exist inside them; and what they return for an absent field is a
+    // FAITHFUL default that reports itself as such.
+    const absent = deriveFromStanding(null, SEED_MAP);
+    expect(absent, 'a derivation returned a Promise — it went and fetched something').not.toBeInstanceOf(
+      Promise,
+    );
+    expect(absent.weights).toEqual(ALL_ONE);
+    expect(absent.engaged, 'an absent field was reported as an engaged measurement').toBe(false);
+    expect(absent.matched).toBe(0);
+
+    const absentCoords = deriveFromCoordinates(null, SEED_MAP);
+    expect(absentCoords).not.toBeInstanceOf(Promise);
+    expect(absentCoords.engaged).toBe(false);
+
+    // Guard the guard: `engaged` is a real branch, not a constant false.
+    expect(
+      deriveFromStanding(snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 }), SEED_MAP)
+        .engaged,
+    ).toBe(true);
+  });
+
+  it('the field constructors really do live in the resolution layer now', () => {
+    // Guard the guard: the four assertions above would all pass on an engine
+    // whose constructors had simply been DELETED. They must exist upstream.
+    const grounding = stripComments(readSource('services/invariants/grounding.ts'));
+    expect(grounding).toMatch(/export async function computeFieldSnapshot\(/);
+    expect(grounding).toMatch(/export async function groundReasoning\(/);
+    expect(grounding).toMatch(/export async function getCachedFieldSnapshot\(/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// IRE-8 — every grounding surface is classified, and the classification is
+// bound to the real call sites rather than to a document
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Files that mention `needle` in CODE (comments stripped), found by `git grep`
+ * rather than by walking the tree — same helper shape as
+ * tests/governance-ratification.test.ts, which is the one home for this idiom.
+ */
+function filesCalling(needle: string): string[] {
+  let hits: string[];
+  try {
+    hits = execFileSync(
+      'git',
+      [
+        'grep', '-l', '--untracked', '--exclude-standard', '--fixed-strings', needle,
+        '--', 'app', 'services', 'components', 'lib', 'utils',
+      ],
+      { cwd: process.cwd(), encoding: 'utf8' },
+    )
+      .split('\n')
+      .filter(Boolean);
+  } catch {
+    return []; // git grep exits 1 on no match
+  }
+  return hits.filter((f) => {
+    if (!/\.(ts|tsx)$/.test(f)) return false;
+    try {
+      return stripComments(readSource(f)).includes(needle);
+    } catch {
+      return true;
+    }
+  });
+}
+
+/** The IRE entrypoints. A surface routes through the IRE iff it calls one. */
+const IRE_ENTRYPOINTS = [
+  'resolveConstitutionalField(',
+  'resolveCitableInvariants(',
+  'resolveCommonConstitutionalGround(',
+];
+
+describe('IRE-8 — governed reasoning routes through the IRE; anything else is visibly classified', () => {
+  it('the register is non-empty and every entry is well-formed', () => {
+    // Vacuity guard: emptying the register must not turn every check below
+    // into a pass over zero rows (CFS-053 M9's shape).
+    expect(GROUNDING_SURFACES.length).toBeGreaterThanOrEqual(9);
+    const ids = GROUNDING_SURFACES.map((s) => s.id);
+    expect(new Set(ids).size, 'duplicate surface id').toBe(ids.length);
+    for (const s of GROUNDING_SURFACES) {
+      expect(s.purpose.trim().length, `${s.id} has no stated purpose`).toBeGreaterThan(20);
+      expect(existsSync(join(process.cwd(), s.file)), `${s.id} names a file that does not exist: ${s.file}`).toBe(
+        true,
+      );
+    }
+  });
+
+  it('EVERY module that grounds directly is registered — no unclassified surface', () => {
+    // This is the binding (CB-1). The register cannot drift away from the tree:
+    // a new surface that calls the raw seam without registering fails here,
+    // which is the whole difference between a classification and a claim.
+    const registered = new Set(GROUNDING_SURFACES.map((s) => s.file));
+    const direct = filesCalling('groundReasoning(').filter(
+      (f) => !f.startsWith('services/invariants/'), // the seam's own module + re-exports
+    );
+    for (const f of direct) {
+      expect(registered.has(f), `${f} grounds directly but is not classified in GROUNDING_SURFACES`).toBe(
+        true,
+      );
+    }
+    // Guard the guard: the scan must actually find something, or an
+    // always-empty `direct` would make this vacuous.
+    expect(direct.length, 'the direct-grounding scan found nothing — the needle is wrong').toBeGreaterThan(
+      0,
+    );
+  });
+
+  it('an `ire-governed` surface CALLS an IRE entrypoint and does NOT ground directly', () => {
+    // Asserting the CALL, not the presence of a symbol — CFS-053 defects 5/6.
+    for (const s of constitutionallyClaimableSurfaces()) {
+      const code = stripComments(readSource(s.file));
+      const routes = IRE_ENTRYPOINTS.some((e) => code.includes(e));
+      expect(routes, `${s.id} is classified ire-governed but calls no IRE entrypoint`).toBe(true);
+      expect(
+        code.includes('groundReasoning('),
+        `${s.id} is classified ire-governed but still grounds directly`,
+      ).toBe(false);
+    }
+    expect(constitutionallyClaimableSurfaces().length).toBeGreaterThan(0);
+  });
+
+  it('a surface that is NOT governed must say what routing it would require', () => {
+    // "We'll route it later" with no note is how an honest classification
+    // becomes a place to park work nobody can cost.
+    const excluded = excludedFromConstitutionalClaims();
+    for (const s of excluded) {
+      expect(s.classification).not.toBe('ire-governed');
+      expect(
+        (s.routingRequires ?? '').trim().length,
+        `${s.id} is unrouted but records no routing cost`,
+      ).toBeGreaterThan(60);
+    }
+    // …and a governed surface must NOT carry one (it has nothing left to do).
+    for (const s of constitutionallyClaimableSurfaces()) {
+      expect(s.routingRequires, `${s.id} is governed yet still records a routing cost`).toBeNull();
+    }
+  });
+
+  it('readiness is COMPUTED from the register, and reports unready while any governed surface is unrouted', () => {
+    const r = instrumentReadiness();
+    expect(r.total).toBe(GROUNDING_SURFACES.length);
+    expect(r.governed).toBe(constitutionallyClaimableSurfaces().length);
+    // The verdict must agree with the data it is derived from — not be a
+    // separately-maintained boolean.
+    const unrouted = GROUNDING_SURFACES.filter((s) => s.classification === 'governed-unrouted').map(
+      (s) => s.id,
+    );
+    expect(r.unrouted).toEqual(unrouted);
+    expect(r.ready).toBe(unrouted.length === 0);
+    expect(r.reason.trim().length).toBeGreaterThan(20);
+    // Every unrouted id must name a real entry, so the verdict cannot be
+    // satisfied by a fictional one.
+    for (const id of r.unrouted) expect(groundingSurface(id)).not.toBeNull();
+  });
+
+  it('readiness is a REAL BRANCH — it can say ready, and it can say unready', () => {
+    // Without this, `ready` hardcoded either way would pass everything above.
+    // The register is data, so the branch is exercised over synthetic rows
+    // rather than by mutating the live one.
+    const asIf = (classes: GroundingSurfaceClass[]) =>
+      classes.filter((c) => c === 'governed-unrouted').length === 0;
+    expect(asIf(['ire-governed', 'ire-governed'])).toBe(true);
+    expect(asIf(['ire-governed', 'governed-unrouted'])).toBe(false);
+    // A diagnostic surface is excluded BY DESIGN and must not block readiness.
+    expect(asIf(['ire-governed', 'diagnostic'])).toBe(true);
+    // And the live verdict must agree with that rule applied to the live rows.
+    expect(instrumentReadiness().ready).toBe(
+      asIf(GROUNDING_SURFACES.map((s) => s.classification)),
+    );
+  });
+
+  it('an unrouted surface is EXCLUDED from the constitutionally-claimable set', () => {
+    // Clause 3 of the ruling, as a partition rather than a footnote: the two
+    // sets are disjoint and together cover the register.
+    const claimable = constitutionallyClaimableSurfaces().map((s) => s.id);
+    const excluded = excludedFromConstitutionalClaims().map((s) => s.id);
+    expect(claimable.filter((id) => excluded.includes(id))).toEqual([]);
+    expect([...claimable, ...excluded].sort()).toEqual(GROUNDING_SURFACES.map((s) => s.id).sort());
+    // The two surfaces that could not be routed safely today are named, so a
+    // reader of the register knows the honest state rather than an aspiration.
+    expect(excluded).toContain('compose-artifact');
+    expect(excluded).toContain('run-artifact');
   });
 });

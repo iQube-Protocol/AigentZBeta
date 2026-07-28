@@ -164,6 +164,87 @@ export async function buildInvariantSlice(context: GroundingContext = {}): Promi
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// The Field Snapshot (CFS-035 §5) — a stamped, context-scoped slice.
+//
+// THIS IS FIELD CONSTRUCTION, WHICH IS RESOLUTION, NOT PROJECTION. It lives
+// here — with the substrate reader that produces the slice — and is composed
+// upward by `resolution.ts` (the IRE). It deliberately does NOT live in
+// `engine.ts` (the IPE): the constitutional sequence is *IRE resolves the
+// applicable invariant field → IPE projects from that resolved field*, and an
+// IPE that could build its own field is not the second half of that sequence.
+//
+// Until 2026-07-27 these three functions were exported from `engine.ts`, so
+// every Invariant Decision Node weighted from a field the projector had
+// resolved for itself while asserting in a comment that it never did. Moved on
+// operator ruling; `engine.ts` now imports only the TYPE.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface FieldSnapshot {
+  /** ISO timestamp stamped by the caller (this module never reads the clock). */
+  stampedAt: string | null;
+  /** The context signals the snapshot was projected from. */
+  context: GroundingContext;
+  /** The projected governing invariants for this request (standing-ranked). */
+  slice: InvariantSlice;
+  /** Convenience — the cited invariant ids (the citation/Reach return path). */
+  citedIds: string[];
+}
+
+/**
+ * Compute the Field Snapshot for a context — the single projection every face
+ * reads. Composes `buildInvariantSlice`. DB-backed: callers on hot read paths
+ * should decide whether to await it (observe-mode nodes may run their pure
+ * projection without a snapshot).
+ */
+export async function computeFieldSnapshot(
+  context: GroundingContext,
+  stampedAt: string | null = null,
+): Promise<FieldSnapshot> {
+  const slice = await buildInvariantSlice(context);
+  return { stampedAt, context, slice: { ...slice, generatedAt: stampedAt }, citedIds: slice.citedIds };
+}
+
+/**
+ * Face 1 — Reasoning (CFS-035 §5): the raw grounding seam an LLM surface reads
+ * instead of hand-rolling a slice.
+ *
+ * IMPORTANT — this is NOT the IRE. It performs a single substrate query; the
+ * IRE (`resolution.resolveConstitutionalField`) qualifies the intent, runs the
+ * universal pass, expands by perceived domain, and calibrates coordinates. A
+ * **governed** reasoning surface routes through the IRE. A surface that calls
+ * this directly is grounding without resolution, and must be classified as such
+ * in `GROUNDING_SURFACES` (resolution.ts) — see that registry for why.
+ */
+export async function groundReasoning(
+  context: GroundingContext,
+  stampedAt: string | null = null,
+): Promise<FieldSnapshot> {
+  return computeFieldSnapshot(context, stampedAt);
+}
+
+// Per-key cached Field Snapshots for hot node paths. Guarded — any failure
+// yields null (→ faithful projection). Short TTL so standing changes propagate.
+const _snapshotCaches = new Map<string, { at: number; snap: FieldSnapshot | null }>();
+
+export async function getCachedFieldSnapshot(
+  key: string,
+  context: GroundingContext,
+  ttlMs = 60_000,
+): Promise<FieldSnapshot | null> {
+  const now = Date.now();
+  const cached = _snapshotCaches.get(key);
+  if (cached && now - cached.at < ttlMs) return cached.snap;
+  try {
+    const snap = await computeFieldSnapshot(context);
+    _snapshotCaches.set(key, { at: now, snap });
+    return snap;
+  } catch {
+    _snapshotCaches.set(key, { at: now, snap: null });
+    return null;
+  }
+}
+
 /**
  * The consequence return path (CFS-006 §4, CFS-008 §2 — reuse count). Records
  * that these invariants were used in a grounded runtime act that executed,

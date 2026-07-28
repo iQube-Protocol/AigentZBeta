@@ -19,7 +19,7 @@
  */
 
 import type { GroundingContext, InvariantSlice } from './grounding';
-import { computeFieldSnapshot, type FieldSnapshot } from './engine';
+import { computeFieldSnapshot, type FieldSnapshot } from './grounding';
 
 /**
  * Curated domain vocabulary (v0). Maps a field domain (an invariant `context`)

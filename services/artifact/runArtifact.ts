@@ -144,7 +144,7 @@ async function resolveGrounding(
   if (composed.length > 0) return { invariantIds: composed, source: 'composition' };
   try {
     // CFS-035 Phase 1 — grounded through the engine's Reasoning face seam.
-    const { groundReasoning } = await import('@/services/invariants/engine');
+    const { groundReasoning } = await import('@/services/invariants/grounding');
     const namespaces = PROFILE_GROUNDING_NAMESPACES[profile] ?? DEFAULT_GROUNDING_NAMESPACES;
     const slice = (await groundReasoning({ namespaces, limit: 8 })).slice;
     return slice.citedIds.length > 0

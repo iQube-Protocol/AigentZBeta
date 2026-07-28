@@ -27,7 +27,7 @@ import {
   citeResolvedConcepts,
 } from '@/services/constitutional/ontologyResolver';
 import { citeInvariants } from '@/services/invariants/grounding';
-import { groundReasoning } from '@/services/invariants/engine';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
 import { getInvariantsBySeedIds } from '@/services/invariants/store';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ResolvedTerm } from '@/types/constitutional';
@@ -72,8 +72,15 @@ export async function instrumentPlanRender(input: {
     const domain = typeof input.cartridge === 'string' ? input.cartridge : undefined;
     const [resolution, slice] = await Promise.all([
       resolveOntology(planText).catch(() => null),
-      // CFS-035 Phase 1 — through the Reasoning-face seam (returns a snapshot).
-      groundReasoning(domain ? { domains: [domain], limit: 6 } : { limit: 6 }).then((s) => s.slice).catch(() => null),
+      // IRE → IPE (operator ruling 2026-07-27). This is a GOVERNED reasoning
+      // surface — it cites invariants, accrues Reach, and emits a receipt — so
+      // it resolves the field the plan requires rather than issuing a raw
+      // substrate query. `planText` is the intent the IRE qualifies; the
+      // cartridge remains the domain overlay. Registered as `render-
+      // instrumentation` in GROUNDING_SURFACES.
+      resolveConstitutionalField(planText, domain ? { domains: [domain], limit: 6 } : { limit: 6 })
+        .then((f) => f.snapshot?.slice ?? null)
+        .catch(() => null),
     ]);
     if (!resolution && !slice) return null;
 

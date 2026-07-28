@@ -43,8 +43,21 @@ export const FINANCIAL_DOMAINS = ['intelligence', 'investment', 'market'] as con
 
 export type FinancialDomain = (typeof FINANCIAL_DOMAINS)[number];
 
-/** Injected grounding — the invariants relevant to the request. */
-export type GroundingFn = (namespaces: string[], limit: number) => Promise<{ id: string; statement: string }[]>;
+/**
+ * Injected grounding — the invariants relevant to the request.
+ *
+ * `intent` is FIRST and is not optional (operator ruling 2026-07-27). Without
+ * it the executor could only ask for a namespace slice, which is a substrate
+ * query, not a resolution: the pipeline's IRE call produced a trace string
+ * while the evidence this executor actually reasons from was grounded
+ * separately. The constitutional sequence was in the transcript and absent
+ * from the computation. The intent is what makes resolution possible here.
+ */
+export type GroundingFn = (
+  intent: string,
+  namespaces: string[],
+  limit: number,
+) => Promise<{ id: string; statement: string }[]>;
 
 /** Injected analysis — LLM reasoning over the grounded evidence. Returns null
  *  when unavailable (the executor then keeps the grounded summary). */
@@ -99,7 +112,7 @@ export async function runFinancialCapability(
   let items: { id: string; statement: string }[] = [];
   if (ground) {
     try {
-      items = await ground(FINANCIAL_GROUNDING_NAMESPACES, 6);
+      items = await ground(intent, FINANCIAL_GROUNDING_NAMESPACES, 6);
     } catch {
       items = [];
     }

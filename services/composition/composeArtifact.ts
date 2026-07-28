@@ -518,7 +518,7 @@ export async function composeArtifact(
   let grounded: GroundedComponent = { invariantIds: [], closureRootIds: [] };
   try {
     // CFS-035 Phase 1 — through the Reasoning-face seam (returns a snapshot).
-    const { groundReasoning } = await import('@/services/invariants/engine');
+    const { groundReasoning } = await import('@/services/invariants/grounding');
     const slice = (await groundReasoning({
       domains: request.grounding.domains,
       ontologyClassIds: request.grounding.ontologyClassIds,

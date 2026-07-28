@@ -19,7 +19,7 @@ import type { InferredStrategy } from '@/services/strategy/strategyInference';
 import type { ActiveCartridgeSlug, ConstitutionalActionMode, ExperienceStage, OperatorArchetype } from '@/services/iqube/experienceQube';
 import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 import { citeInvariants, type InvariantSlice } from '@/services/invariants';
-import { groundReasoning } from '@/services/invariants/engine';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
 import {
   resolveOntology,
   ontologyPromptBlock,
@@ -144,15 +144,24 @@ interface RerankContext {
  * any failure yields null and the rerank proceeds ungrounded.
  */
 async function buildRerankInvariantSlice(
+  intentText: string,
   domains: string[],
 ): Promise<InvariantSlice | null> {
   try {
-    // Reasoning face (CFS-035 §5) — route through the engine seam, not a
-    // hand-rolled slice. groundReasoning wraps buildInvariantSlice; the slice is
-    // identical, so this is a behaviour-preserving consolidation.
-    const scoped = domains.length ? (await groundReasoning({ domains, limit: 8 })).slice : null;
+    // IRE → IPE (operator ruling 2026-07-27). The rerank is a GOVERNED
+    // reasoning surface: an LLM reasons from this slice to reorder what the
+    // operator is offered next. It therefore RESOLVES the field the operator's
+    // context requires instead of issuing a raw substrate query — the domains
+    // stay as the overlay, `intentText` is the intent the IRE qualifies.
+    // Registered as `nbe-llm-rerank` in GROUNDING_SURFACES.
+    const scoped = domains.length
+      ? (await resolveConstitutionalField(intentText, { domains, limit: 8 })).snapshot?.slice ?? null
+      : null;
     if (scoped && scoped.items.length > 0) return scoped;
-    return (await groundReasoning({ limit: 8 })).slice;
+    // A scoped miss falls back to the unscoped field, never to nothing — the
+    // overlay narrows which invariants surface, it can never subtract the
+    // substrate (same discipline as resolveCitableInvariants).
+    return (await resolveConstitutionalField(intentText, { limit: 8 })).snapshot?.slice ?? null;
   } catch (err) {
     console.warn('[nbeLlmRerank] invariant slice build failed (non-fatal):', err);
     return null;
@@ -319,7 +328,10 @@ export async function llmRerankNbeCandidates(
   const ontologyText = ontologyInputText(ctx);
   const [slice, resolution]: [InvariantSlice | null, OntologyResolution | null] =
     await Promise.all([
-      buildRerankInvariantSlice(ctx.activeCartridges),
+      // `ontologyText` is the operator's context stated as text — the same
+      // intent the ontology service resolves. The IRE qualifies it too, so
+      // both halves of "resolution precedes reasoning" read one intent.
+      buildRerankInvariantSlice(ontologyText, ctx.activeCartridges),
       ontologyText
         ? resolveOntology(ontologyText).catch((err) => {
             console.warn('[nbeLlmRerank] ontology resolution failed (non-fatal):', err);
