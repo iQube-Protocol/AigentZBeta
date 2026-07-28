@@ -123,9 +123,31 @@ function displayOrigin(): string {
 export interface PassportConnectPanelProps {
   /** Called after a session exists, so the host can re-resolve identity. */
   onConnected?: () => void;
+  /**
+   * Which STORAGE WORLD this panel is mounted in (ruling A.7 — the Companion
+   * is preferred, never exclusive; a mount outside it must exist or the
+   * protocol depends on the extension, which the ruling forbids).
+   *
+   * 'companion' (default): the extension side-panel iframe — a PARTITIONED
+   * world. After finalize, the panel opens /passport-connect/complete so the
+   * TOP-LEVEL application world can redeem its own single-use grants (the
+   * session token_hash and the persona activation are per-world, §A.10.2a).
+   *
+   * 'application': mounted directly on a top-level page
+   * (app/passport-connect/page.tsx). The session and persona pin land in
+   * THIS world already, so no handoff tab is opened, and the persona
+   * activation is redeemed against the application-world marker.
+   */
+  world?: "companion" | "application";
+  /** Audience bound into the wallet challenge. Defaults per world. */
+  audience?: string;
 }
 
-export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps) {
+export function PassportConnectPanel({
+  onConnected,
+  world = "companion",
+  audience = world === "application" ? "metame-application" : AUDIENCE,
+}: PassportConnectPanelProps) {
   const [state, setState] = useState<ConnectState>({ kind: "idle" });
 
   /**
@@ -142,7 +164,7 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       const chRes = await fetch("/api/passport-connect/challenge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience: AUDIENCE, walletAddress: address }),
+        body: JSON.stringify({ audience, walletAddress: address }),
       });
       const ch = await chRes.json().catch(() => null);
       if (!chRes.ok || !ch?.ok) {
@@ -171,14 +193,14 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
           nonce: ch.nonce,
           message: ch.message,
           signature,
-          audience: AUDIENCE,
+          audience,
           ...(worldIdProof ? { worldIdProof } : {}),
         }),
       });
       const pr = await prRes.json().catch(() => null);
       return { ok: true as const, status: prRes.status, body: pr };
     },
-    [],
+    [audience],
   );
 
   /** Dispatch on /proof's response. `link_required` is the NEW branch (ruling
@@ -334,7 +356,7 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       // other account.
       try {
         const res = await personaFetch(
-          `/api/passport-connect/resolved-persona?world=companion&transactionToken=${encodeURIComponent(transactionToken)}`,
+          `/api/passport-connect/resolved-persona?world=${world}&transactionToken=${encodeURIComponent(transactionToken)}`,
           { cache: "no-store" },
         );
         if (res.ok) {
@@ -371,7 +393,12 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       // identity on its face, the same security class as the token_hash
       // beside it, and the complete page scrubs the whole query string before
       // it does anything. No raw personaId ever touches a URL.
-      if (typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
+      //
+      // world === 'application' (ruling A.7 top-level mount): this panel is
+      // ALREADY in the application's storage world — the session and pin
+      // above landed exactly where the app reads them — so a handoff tab
+      // would redeem a second grant for a world that already has one. Skip.
+      if (world === "companion" && typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
         window.open(
           `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`,
           "_blank",
@@ -382,7 +409,7 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
       setState({ kind: "connected", passport: fin.passport as PassportFacts }); // E
       onConnected?.();
     },
-    [onConnected],
+    [onConnected, world],
   );
 
   return (

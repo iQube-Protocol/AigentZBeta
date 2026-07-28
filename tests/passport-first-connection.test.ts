@@ -389,6 +389,43 @@ describe('canary 12 — /api/wallet/personas dedupeById never lets a more-recent
   });
 });
 
+// ─── Canary 13 (ruling A.7 — "preferred, never exclusive") — a top-level,
+// non-Companion mount of the Passport door MUST exist. The Companion mount
+// sits inside the extension side panel's iframe, where injected wallet
+// providers do not reach, so if it is the ONLY mount the whole Passport-
+// native protocol is unreachable for a citizen whose wallet lives one click
+// away in the same browser (operator-hit, 2026-07-28). ────────────────────
+
+describe('ruling A.7 — the Companion is preferred, never exclusive', () => {
+  const PANEL = 'components/companion/PassportConnectPanel.tsx';
+  const TOP_LEVEL_PAGE = 'app/passport-connect/page.tsx';
+
+  it('a top-level page mounts PassportConnectPanel in the application world', () => {
+    const code = stripComments(readSource(TOP_LEVEL_PAGE));
+    expect(code).toContain('PassportConnectPanel');
+    expect(code).toMatch(/world="application"/);
+  });
+
+  it('the panel itself uses no extension capability — plain HTTP + injected provider only', () => {
+    const code = stripComments(readSource(PANEL));
+    expect(code).not.toMatch(/\bchrome\s*\./);
+  });
+
+  it('the application-world mount does NOT open the companion handoff tab', () => {
+    const code = stripComments(readSource(PANEL));
+    // The handoff window.open must be gated on the companion world — an
+    // application-world mount already IS the world the handoff exists to
+    // reach, and an ungated open would redeem a second grant pointlessly.
+    expect(code).toMatch(/world === "companion"[\s\S]{0,120}handoffTokenHash/);
+  });
+
+  it('the persona activation is redeemed against the mount\'s own world, not hardcoded to companion', () => {
+    const code = stripComments(readSource(PANEL));
+    expect(code).toContain('world=${world}');
+    expect(code).not.toContain('world=companion&transactionToken');
+  });
+});
+
 describe('canary 5 — NO fallback persona activation, ever, mutation-provable', () => {
   it('a missing ref is refused even with exactly ONE candidate', () => {
     const oneCandidate = [ALICE];
