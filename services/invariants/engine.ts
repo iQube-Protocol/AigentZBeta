@@ -81,20 +81,59 @@ export function deriveWeightsFromStanding<K extends string>(
   snapshot: FieldSnapshot | null | undefined,
   seedMap: Record<K, string>,
 ): Record<K, number> {
-  const keys = Object.keys(seedMap) as K[];
+  return deriveFromStanding(snapshot, seedMap).weights;
+}
+
+// ── The faithful-default problem, made observable ──────────────────────────
+//
+// Both derivations return all-1 when they have nothing to weight FROM. That is
+// the right behaviour (a node stays behaviour-preserving until its invariants
+// earn standing) but it is INDISTINGUISHABLE, at the return value, from two
+// derivations that computed identical weights. A consumer comparing the two —
+// `projectionBridge.compareProjection` — would then report agreement that
+// nobody computed: the mirror of the units defect, and equally silent.
+//
+// So the derivation reports whether it ENGAGED. The weights are unchanged;
+// `deriveWeightsFrom*` still return exactly what they returned before.
+
+export interface WeightDerivation<K extends string> {
+  weights: Record<K, number>;
+  /** How many of `seedMap`'s governing invariants were found in the input. */
+  matched: number;
+  /**
+   * True when the derivation had something to re-balance from — at least one
+   * governing invariant present AND carrying a positive value. When false the
+   * weights are a FAITHFUL DEFAULT (all-1), not a measurement, and two such
+   * derivations agreeing means nothing.
+   */
+  engaged: boolean;
+}
+
+/** Mean-normalise per-dimension values to 1. The single normalisation — both
+ *  derivations use it, so they cannot drift into two formulas. Pure. */
+function meanNormalise<K extends string>(keys: K[], vals: number[]): WeightDerivation<K> {
   const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
-  if (!snapshot) return base;
-  const bySeed = new Map<string, number>();
-  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
-  const standings = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
-  const total = standings.reduce((a, b) => a + b, 0);
-  if (total <= 0) return base;
+  const matched = vals.filter((v) => v > 0).length;
+  const total = vals.reduce((a, b) => a + b, 0);
+  if (total <= 0) return { weights: base, matched, engaged: false };
   const mean = total / keys.length;
   const weights = { ...base };
   keys.forEach((k, i) => {
-    weights[k] = mean > 0 ? standings[i] / mean : 1;
+    weights[k] = mean > 0 ? vals[i] / mean : 1;
   });
-  return weights;
+  return { weights, matched, engaged: true };
+}
+
+/** `deriveWeightsFromStanding` + whether it engaged. Pure. */
+export function deriveFromStanding<K extends string>(
+  snapshot: FieldSnapshot | null | undefined,
+  seedMap: Record<K, string>,
+): WeightDerivation<K> {
+  const keys = Object.keys(seedMap) as K[];
+  if (!snapshot) return meanNormalise(keys, keys.map(() => 0));
+  const bySeed = new Map<string, number>();
+  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
+  return meanNormalise(keys, keys.map((k) => bySeed.get(seedMap[k]) ?? 0));
 }
 
 /** Minimal coordinate-bearing shape (CFS-039 / PRD-IPE-001). A resolved field's
@@ -127,20 +166,20 @@ export function deriveWeightsFromCoordinates<K extends string>(
   seedMap: Record<K, string>,
   axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
 ): Record<K, number> {
+  return deriveFromCoordinates(coordinates, seedMap, axis).weights;
+}
+
+/** `deriveWeightsFromCoordinates` + whether it engaged. Pure. */
+export function deriveFromCoordinates<K extends string>(
+  coordinates: CoordinateBearing[] | null | undefined,
+  seedMap: Record<K, string>,
+  axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
+): WeightDerivation<K> {
   const keys = Object.keys(seedMap) as K[];
-  const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
-  if (!coordinates || coordinates.length === 0) return base;
+  if (!coordinates || coordinates.length === 0) return meanNormalise(keys, keys.map(() => 0));
   const bySeed = new Map<string, number>();
   for (const c of coordinates) if (c.seedId) bySeed.set(c.seedId, c.structural[axis].value);
-  const vals = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
-  const total = vals.reduce((a, b) => a + b, 0);
-  if (total <= 0) return base;
-  const mean = total / keys.length;
-  const weights = { ...base };
-  keys.forEach((k, i) => {
-    weights[k] = mean > 0 ? vals[i] / mean : 1;
-  });
-  return weights;
+  return meanNormalise(keys, keys.map((k) => bySeed.get(seedMap[k]) ?? 0));
 }
 
 // Per-key cached Field Snapshots for hot node paths. Guarded — any failure

@@ -54,7 +54,11 @@ export interface CoordinateVector {
 export const COORDINATE_BASIS: CoordinateVector[] = [
   // ── Structural (describe the problem; actor-independent) ────────────────────
   { key: 'verifiability', class: 'structural', question: 'Can claims be verified?', basis: 'derived:confidence', status: 'ratified', stability: 'operational' },
-  { key: 'evidenceDensity', class: 'structural', question: 'How much validated evidence backs this?', basis: 'derived:standing', status: 'ratified', stability: 'operational' },
+  // The basis names the CONVERSION, not just the source column. `standing` and
+  // `reach` are 0–100 substrate scores (see the schema CHECK constraints); a
+  // basis that named only the column let a bare clamp masquerade as a
+  // conversion for months (operator ruling 2026-07-27, the units defect).
+  { key: 'evidenceDensity', class: 'structural', question: 'How much validated evidence backs this?', basis: 'derived:standing/100', status: 'ratified', stability: 'operational' },
   { key: 'complexity', class: 'structural', question: 'How complex is the problem?', basis: 'research:pending', status: 'candidate', stability: 'research' },
   { key: 'uncertainty', class: 'structural', question: 'How uncertain is the outcome?', basis: 'research:pending', status: 'candidate', stability: 'research' },
   { key: 'sensitivity', class: 'structural', question: 'How sensitive is the information?', basis: 'research:iQubeScoreBlock.sensitivity', status: 'candidate', stability: 'research' },
@@ -72,9 +76,9 @@ export const COORDINATE_BASIS: CoordinateVector[] = [
   { key: 'personhoodImpact', class: 'constitutional', question: 'Does this preserve human continuity and agency?', basis: 'research:pending', status: 'candidate', stability: 'research' },
   // ── Operational (execution economics) ──────────────────────────────────────
   { key: 'knowledgeCoverage', class: 'operational', question: 'How much of the intent does existing knowledge cover?', basis: 'derived:sliceSize/cap', status: 'ratified', stability: 'operational' },
-  { key: 'reusePotential', class: 'operational', question: 'How strong is the existing canon in this region?', basis: 'derived:mean(standing)', status: 'ratified', stability: 'operational' },
-  { key: 'timeToValue', class: 'operational', question: 'What collapses time to value?', basis: 'proxy:coverage×(0.5+standing/2)', status: 'ratified', stability: 'operational' },
-  { key: 'adoption', class: 'operational', question: 'How adopted is this (Law XII reach)?', basis: 'derived:reach/(reach+5)', status: 'ratified', stability: 'operational' },
+  { key: 'reusePotential', class: 'operational', question: 'How strong is the existing canon in this region?', basis: 'derived:mean(standing/100)', status: 'ratified', stability: 'operational' },
+  { key: 'timeToValue', class: 'operational', question: 'What collapses time to value?', basis: 'proxy:coverage×(0.5+mean(standing/100)/2)', status: 'ratified', stability: 'operational' },
+  { key: 'adoption', class: 'operational', question: 'How adopted is this (Law XII reach)?', basis: 'derived:reach/100', status: 'ratified', stability: 'operational' },
   { key: 'repairCost', class: 'operational', question: 'What minimizes future repair?', basis: 'research:pending', status: 'candidate', stability: 'research' },
   { key: 'automationPotential', class: 'operational', question: 'How automatable is this?', basis: 'research:pending', status: 'candidate', stability: 'research' },
 ];

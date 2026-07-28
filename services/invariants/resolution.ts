@@ -153,6 +153,51 @@ export interface ResolvedConstitutionalField {
 
 const clamp01 = (n: number): number => Math.max(0, Math.min(1, n));
 
+// ── Substrate-axis → unit-interval CONVERSIONS (operator ruling, 2026-07-27) ──
+//
+// "This is a units defect, not an experimental alternative."
+//
+// Two of the three structural axes are 0–100 database scores; the third is
+// genuinely a unit interval. Clamping is only correct for the third. The ranges
+// below are read from the SCHEMA, never from a comment — the previous comments
+// are how the defect survived review:
+//
+//   standing   numeric(5,1) CHECK (standing >= 0 AND standing <= 100)
+//              — supabase/migrations/20260703200000_invariant_substrate.sql
+//   reach      numeric(5,1) CHECK (reach    >= 0 AND reach    <= 100)
+//              — supabase/migrations/20260703230000_law_xii_truth_standing_reach.sql
+//   confidence numeric(4,3) CHECK (confidence >= 0 AND confidence <= 1)
+//              — the ONLY axis a bare clamp is correct for.
+//
+// The defect: `clamp01(standing)` mapped EVERY invariant with standing >= 1 to
+// exactly 1.0, so the coordinate axis was flat where the standing axis is
+// proportional. `projectionBridge` and `engine` both claim the two agree "by
+// construction"; they could not, and `diverges` fired on a units mismatch
+// rather than on the CCR research signal it is documented to measure.
+//
+// These are NAMED conversions, not inline arithmetic, so that deleting the
+// scaling is a visible edit that a canary can kill (CB-5, CFS-053 §7).
+
+/** The 0–100 span of the substrate's `standing` / `reach` score columns. */
+const SUBSTRATE_SCORE_MAX = 100;
+
+/** Convert a 0–100 `standing` score to the [0,1] evidenceDensity coordinate. */
+export const normaliseStanding = (standing: number): number =>
+  clamp01(standing / SUBSTRATE_SCORE_MAX);
+
+/**
+ * Convert a 0–100 `reach` score to the [0,1] adoption coordinate.
+ *
+ * The prior form was `reach / (reach + 5)`, justified by a comment calling reach
+ * an "unbounded adoption count". It is not: `computeReachScore` (lifecycle.ts)
+ * already returns `100 * base / (base + 40)` — a SATURATING transform of the
+ * underlying counts, bounded 0–100 by the same CHECK constraint as standing.
+ * The old form therefore applied a second saturation on top of the first, so
+ * reach 20 read 0.80 and reach 50 read 0.91 — compressing the top of the range
+ * into nothing. A bounded score converts by division, exactly like standing.
+ */
+export const normaliseReach = (reach: number): number => clamp01(reach / SUBSTRATE_SCORE_MAX);
+
 /** Calibrate one slice item's structural coordinates from its seeded axes. Pure. */
 export function calibrateStructural(item: {
   id: string;
@@ -167,10 +212,10 @@ export function calibrateStructural(item: {
     structural: {
       // Basis strings come from the Constitutional Coordinates Registry
       // (CFS-038) — the single provenance source, never an inline literal.
+      // `confidence` is the one axis the substrate already stores in [0,1].
       verifiability: { value: clamp01(item.confidence), basis: basisFor('verifiability') },
-      evidenceDensity: { value: clamp01(item.standing), basis: basisFor('evidenceDensity') },
-      // Reach is unbounded adoption count — squash to [0,1) transparently.
-      adoption: { value: clamp01(item.reach / (item.reach + 5)), basis: basisFor('adoption') },
+      evidenceDensity: { value: normaliseStanding(item.standing), basis: basisFor('evidenceDensity') },
+      adoption: { value: normaliseReach(item.reach), basis: basisFor('adoption') },
     },
     constitutional: null,
   };

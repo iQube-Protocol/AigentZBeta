@@ -9,16 +9,31 @@
  *   - the INCUMBENT: `deriveWeightsFromStanding` over the field's snapshot;
  *   - the IRE-FED: `deriveWeightsFromCoordinates` over the field's coordinates;
  * and reports their AGREEMENT. Observe-only (CFS-017): it computes the
- * comparison, it gates nothing. Because the default coordinate axis
- * (evidenceDensity) IS the standing axis, the two agree by construction today —
+ * comparison, it gates nothing. The default coordinate axis (evidenceDensity)
+ * is derived FROM standing, so on the same units the two agree by construction —
  * the bridge is the seam that will SURFACE divergence once constitutional-class
  * coordinates (CCR) enter the calibration and shift the axis. That divergence is
  * the CCR research signal (CFS-039 §4 Phase 3 / the Evolution face).
  *
- * Pure — composes the engine's two pure weight functions over a resolved field.
+ * TWO WAYS THIS SEAM LIED, both corrected 2026-07-27 (operator ruling):
+ *
+ *  1. UNITS. `evidenceDensity` was `clamp01(standing)` over a 0–100 column, so
+ *     every invariant with standing ≥ 1 read exactly 1.0. The standing path was
+ *     proportional, the coordinate path flat, and `diverges` fired on a units
+ *     mismatch rather than on the research signal it is documented to measure.
+ *     Fixed at the source (`normaliseStanding`, resolution.ts).
+ *
+ *  2. VACUOUS AGREEMENT — the mirror, and the more dangerous of the two. When
+ *     the intent-scoped slice contains NONE of the node's governing seeds, both
+ *     derivations fall back to all-1 and `diverges` reports false: agreement
+ *     nobody computed, indistinguishable at the return value from agreement two
+ *     real measurements produced. `comparable` now separates them, and no
+ *     consumer may read `diverges` without it.
+ *
+ * Pure — composes the engine's two pure weight derivations over a resolved field.
  */
 
-import { deriveWeightsFromStanding, deriveWeightsFromCoordinates } from './engine';
+import { deriveFromStanding, deriveFromCoordinates } from './engine';
 import type { ResolvedConstitutionalField } from './resolution';
 
 export interface ProjectionComparison<K extends string> {
@@ -28,9 +43,31 @@ export interface ProjectionComparison<K extends string> {
   coordinates: Record<K, number>;
   /** Mean absolute weight difference across dimensions (0 = identical). */
   meanAbsDelta: number;
-  /** True once the two derivations diverge beyond tolerance (the flip signal). */
+  /** True once the two derivations diverge beyond tolerance (the flip signal).
+   *  MEANINGLESS unless `comparable` — read the two together, never alone. */
   diverges: boolean;
+  /**
+   * True only when BOTH derivations engaged — i.e. each found at least one of
+   * the node's governing invariants carrying a positive value. When false the
+   * weights on one or both sides are faithful defaults, `meanAbsDelta` is an
+   * artefact of those defaults, and `diverges: false` is NOT agreement.
+   */
+  comparable: boolean;
+  /** How many of the node's dimensions each path actually matched (the "why"
+   *  behind `comparable`, so a null result is diagnosable rather than opaque). */
+  matched: { standing: number; coordinates: number };
+  /**
+   * The scale convention the coordinate path was computed under. Stamped so a
+   * stored result can never be silently compared across a units change: results
+   * produced before 2026-07-27 carry the defective `clamp01(standing)` axis and
+   * are NOT numerically comparable with anything stamped here.
+   */
+  calibration: typeof CALIBRATION;
 }
+
+/** Bumped whenever a coordinate's conversion changes. `v2` = the 0–100 → [0,1]
+ *  normalisation (operator ruling 2026-07-27). `v1` = the clamp defect. */
+export const CALIBRATION = 'coordinates/v2-normalised' as const;
 
 const TOLERANCE = 1e-6;
 
@@ -45,16 +82,32 @@ export function compareProjection<K extends string>(
   axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
 ): ProjectionComparison<K> {
   const keys = Object.keys(seedMap) as K[];
-  const standing = deriveWeightsFromStanding(field.snapshot, seedMap);
-  const coordinates = deriveWeightsFromCoordinates(field.coordinates, seedMap, axis);
+  const std = deriveFromStanding(field.snapshot, seedMap);
+  const coord = deriveFromCoordinates(field.coordinates, seedMap, axis);
   const meanAbsDelta =
     keys.length > 0
-      ? keys.reduce((s, k) => s + Math.abs((standing[k] ?? 1) - (coordinates[k] ?? 1)), 0) / keys.length
+      ? keys.reduce((s, k) => s + Math.abs((std.weights[k] ?? 1) - (coord.weights[k] ?? 1)), 0) / keys.length
       : 0;
-  return { standing, coordinates, meanAbsDelta, diverges: meanAbsDelta > TOLERANCE };
+  return {
+    standing: std.weights,
+    coordinates: coord.weights,
+    meanAbsDelta,
+    diverges: meanAbsDelta > TOLERANCE,
+    comparable: std.engaged && coord.engaged,
+    matched: { standing: std.matched, coordinates: coord.matched },
+    calibration: CALIBRATION,
+  };
 }
 
 /** Compact trace line. Pure. */
 export function describeProjection<K extends string>(cmp: ProjectionComparison<K>): string {
-  return `IPE projection: ${cmp.diverges ? 'DIVERGES' : 'agrees'} (mean Δ ${cmp.meanAbsDelta.toFixed(4)}) — standing vs coordinate weights, shadow`;
+  // An incomparable projection must never render as "agrees". The trace is what
+  // a reader sees; printing agreement for two faithful defaults is the exact
+  // false-presence this seam was corrected for.
+  const verdict = !cmp.comparable
+    ? `NOT COMPARABLE (matched ${cmp.matched.standing}/${cmp.matched.coordinates} — one or both paths defaulted; no agreement was computed)`
+    : cmp.diverges
+      ? 'DIVERGES'
+      : 'agrees';
+  return `IPE projection [${cmp.calibration}]: ${verdict} (mean Δ ${cmp.meanAbsDelta.toFixed(4)}) — standing vs coordinate weights, shadow`;
 }

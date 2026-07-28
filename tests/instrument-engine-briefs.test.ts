@@ -7,15 +7,18 @@
  *   codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-resolution-engine.md
  *   codexes/packs/agentiq/updates/2026-07-27_ccb-invariant-projection-engine.md
  *
- * SCOPE DISCIPLINE. This file was written in a read-only audit pass: no engine
- * behaviour was changed. So every assertion below either (a) pins a property
- * the code already has, or (b) pins the SUBSTRATE AUTHORITY that a recorded
- * violation turns on. Nothing here pins a defect as though it were correct —
- * the two live violations (IRE-6's clamp, IPE-4's divergence signal) are
- * deliberately left uncanaried and escalated in the briefs instead, because a
- * canary asserting the current behaviour would make the defect harder to fix,
- * and one asserting the correct behaviour would fail the build on work that has
- * not been authorised.
+ * SCOPE DISCIPLINE. This file began as a read-only audit pass, which is why
+ * most assertions either (a) pin a property the code already had, or (b) pin
+ * the SUBSTRATE AUTHORITY that a recorded violation turns on. The two live
+ * violations of that pass — IRE-6's clamp and IPE-4's divergence signal — were
+ * deliberately left uncanaried then, because a canary asserting the current
+ * behaviour would have made the defect harder to fix.
+ *
+ * BOTH ARE NOW FIXED AND CANARIED (operator ruling, 2026-07-27: "This is a
+ * units defect, not an experimental alternative. It should be corrected before
+ * any further EXP-P1 Stage 0 run."). The IRE-6 block below now pins the
+ * conversion behaviourally; the IPE-4 block pins that an unmatched slice cannot
+ * report agreement. Nothing here pins a defect as though it were correct.
  *
  * CB-5 (CFS-053): every assertion here was mutation-tested — the mutation and
  * the failure it produced are recorded in the pass report. Assertions are
@@ -32,6 +35,8 @@ import { computeRecurrence, type EvidenceRow } from '@/services/invariants/disco
 import {
   calibrateStructural,
   formatCitableInvariantsBlock,
+  normaliseReach,
+  normaliseStanding,
   resolveCitableInvariants,
 } from '@/services/invariants/resolution';
 import { basisFor } from '@/services/invariants/coordinates';
@@ -40,7 +45,11 @@ import {
   deriveWeightsFromCoordinates,
   type FieldSnapshot,
 } from '@/services/invariants/engine';
-import { compareProjection } from '@/services/invariants/projectionBridge';
+import {
+  CALIBRATION,
+  compareProjection,
+  describeProjection,
+} from '@/services/invariants/projectionBridge';
 import { isNodeAuthoritative } from '@/services/invariants/flipStore';
 import type { ResolvedConstitutionalField } from '@/services/invariants/resolution';
 
@@ -219,6 +228,85 @@ describe('IRE-5 — a coordinate carries its basis, and an actor-dependent coord
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('IRE-6 — the substrate axes a [0,1] calibration must CONVERT, not clamp', () => {
+  // The violation this block recorded was CORRECTED on 2026-07-27 (operator
+  // ruling: "This is a units defect, not an experimental alternative"). The
+  // substrate-authority assertions below are unchanged — they are still the
+  // authority the conversion is checked against — and the behavioural
+  // assertions that pin the conversion itself now live alongside them.
+
+  it('standing converts proportionally at the boundaries: 0 → 0, 50 → 0.5, 100 → 1', () => {
+    expect(normaliseStanding(0)).toBe(0);
+    expect(normaliseStanding(50)).toBeCloseTo(0.5, 12);
+    expect(normaliseStanding(100)).toBe(1);
+    // Out-of-range inputs still clamp — conversion first, clamp as a guard.
+    expect(normaliseStanding(-10)).toBe(0);
+    expect(normaliseStanding(140)).toBe(1);
+  });
+
+  it('standings above 1 DO NOT all collapse to 1 — the whole defect, stated as a test', () => {
+    // `clamp01(standing)` mapped every invariant with standing >= 1 to exactly
+    // 1.0, so the coordinate axis was FLAT where the standing axis is
+    // proportional. Distinctness is the property; the exact values are pinned
+    // above. A monotone, strictly-increasing, non-saturating map is required.
+    const standings = [1, 5, 12.5, 40, 62.5, 88, 99.9];
+    const values = standings.map(normaliseStanding);
+    expect(new Set(values).size, 'two distinct standings produced the same coordinate').toBe(
+      standings.length,
+    );
+    for (let i = 1; i < values.length; i++) {
+      expect(values[i], `standing ${standings[i]} did not exceed ${standings[i - 1]}`).toBeGreaterThan(
+        values[i - 1],
+      );
+    }
+    // And none of the interior points may sit at the ceiling.
+    for (const v of values.slice(0, -1)) expect(v).toBeLessThan(1);
+  });
+
+  it('the coordinate is PROPORTIONAL to standing, so the two projection paths can agree', () => {
+    // projectionBridge + engine both claim the coordinate axis IS the standing
+    // axis. That claim is only true if the conversion is linear: a ratio
+    // between two standings must survive into the coordinates, or the
+    // mean-normalised weights the two paths produce cannot match.
+    expect(normaliseStanding(40) / normaliseStanding(10)).toBeCloseTo(40 / 10, 12);
+    expect(normaliseStanding(75) / normaliseStanding(25)).toBeCloseTo(3, 12);
+  });
+
+  it('reach converts on the SAME 0-100 scale — it is not an unbounded count', () => {
+    // The old form was `reach / (reach + 5)`, justified by a comment calling
+    // reach "unbounded adoption count". computeReachScore already saturates it
+    // into 0-100, so that form saturated an already-saturated value.
+    expect(normaliseReach(0)).toBe(0);
+    expect(normaliseReach(50)).toBeCloseTo(0.5, 12);
+    expect(normaliseReach(100)).toBe(1);
+    // The discriminator against the old squash: it returned 0.909 for reach 50.
+    expect(normaliseReach(50)).not.toBeCloseTo(50 / 55, 3);
+  });
+
+  it('calibrateStructural applies the conversions — not just declares them', () => {
+    // CB-7: a named helper that exists but is not called is the defect this
+    // whole ruling is about. Assert the CALL through its observable effect.
+    const c = calibrateStructural({
+      id: 'id-1',
+      seedId: 'inv.reasoning.334',
+      confidence: 0.62,
+      standing: 40,
+      reach: 25,
+    });
+    expect(c.structural.evidenceDensity.value).toBeCloseTo(0.4, 12);
+    expect(c.structural.adoption.value).toBeCloseTo(0.25, 12);
+    // confidence is genuinely a unit interval — it passes through unscaled.
+    expect(c.structural.verifiability.value).toBeCloseTo(0.62, 12);
+  });
+
+  it('the coordinate registry BASIS names the conversion, not merely the column', () => {
+    // `basis: 'derived:standing'` is what let a bare clamp pass as a
+    // conversion: the provenance string was true of both the correct and the
+    // defective implementation, so it could not discriminate.
+    expect(basisFor('evidenceDensity')).toContain('/100');
+    expect(basisFor('adoption')).toContain('/100');
+    expect(basisFor('adoption')).not.toContain('reach+5');
+  });
+
   it('standing and reach are 0-100 scores, enforced by the database', () => {
     // This is the authority the IRE brief's IRE-6 violation turns on. It is
     // pinned here so that any future coordinate calibration has one place to
@@ -375,11 +463,105 @@ describe('IPE-2 — an absent or unearned input projects faithfully (all-1)', ()
 
   it('a dimension whose governing invariant is absent from the input contributes nothing', () => {
     // The mirror-image inertness in IPE-4: when the resolved slice contains
-    // none of the governing seeds, BOTH paths fall back to all-1 and report
-    // agreement that no one computed.
+    // none of the governing seeds, BOTH paths fall back to all-1 — see the
+    // IPE-4 block below for why that must not read as agreement.
     const foreign = snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 });
     const unrelated = { importance: 'inv.x', novelty: 'inv.y', trust: 'inv.z', need: 'inv.w' };
     expect(deriveWeightsFromStanding(foreign, unrelated)).toEqual(ALL_ONE);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// IPE-4 — a faithful default is not a measurement, and must never read as one
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('IPE-4 — an unmatched or empty slice cannot report agreement nobody computed', () => {
+  /** A field whose slice + coordinates contain NONE of the node's governing
+   *  seeds — the live case when an intent-scoped resolution misses the node. */
+  const unmatchedField = {
+    snapshot: snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 }),
+    coordinates: coordinatesWith({ importance: 0.4, novelty: 0.1, trust: 0.2, need: 0.1 }),
+  } as unknown as ResolvedConstitutionalField;
+  const FOREIGN_SEEDS: Record<Dim, string> = {
+    importance: 'inv.x',
+    novelty: 'inv.y',
+    trust: 'inv.z',
+    need: 'inv.w',
+  };
+
+  it('both paths default to all-1 — and the comparison refuses to call that agreement', () => {
+    const cmp = compareProjection(unmatchedField, FOREIGN_SEEDS);
+    // The numbers are identical…
+    expect(cmp.standing).toEqual(ALL_ONE);
+    expect(cmp.coordinates).toEqual(ALL_ONE);
+    expect(cmp.meanAbsDelta).toBe(0);
+    expect(cmp.diverges).toBe(false);
+    // …and that is precisely why `diverges: false` may not be read alone.
+    expect(cmp.comparable, 'two faithful defaults were reported as a comparison').toBe(false);
+    expect(cmp.matched).toEqual({ standing: 0, coordinates: 0 });
+  });
+
+  it('an EMPTY field is likewise incomparable, not agreeing', () => {
+    const empty = { snapshot: null, coordinates: [] } as unknown as ResolvedConstitutionalField;
+    const cmp = compareProjection(empty, SEED_MAP);
+    expect(cmp.diverges).toBe(false);
+    expect(cmp.comparable).toBe(false);
+  });
+
+  it('ONE path defaulting is enough to make the comparison incomparable', () => {
+    // The asymmetric case is the sneaky one: the standing path engages, the
+    // coordinate path does not, meanAbsDelta is non-zero, and `diverges` fires
+    // — a "divergence" produced entirely by one side having no input.
+    const half = {
+      snapshot: snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 }),
+      coordinates: [],
+    } as unknown as ResolvedConstitutionalField;
+    const cmp = compareProjection(half, SEED_MAP);
+    expect(cmp.diverges).toBe(true);
+    expect(cmp.comparable, 'a one-sided default was reported as a real divergence').toBe(false);
+    expect(cmp.matched.standing).toBeGreaterThan(0);
+    expect(cmp.matched.coordinates).toBe(0);
+  });
+
+  it('comparable is a real BRANCH — a genuinely matched field reports true', () => {
+    // Without this the three assertions above would pass on a `comparable`
+    // that was hardcoded false. This is defect 7's lesson (a canary that
+    // survives its own mutation) applied to the field being added here.
+    const matchedField = {
+      snapshot: snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 }),
+      coordinates: coordinatesWith({ importance: 0.4, novelty: 0.1, trust: 0.2, need: 0.1 }),
+    } as unknown as ResolvedConstitutionalField;
+    const cmp = compareProjection(matchedField, SEED_MAP);
+    expect(cmp.comparable).toBe(true);
+    expect(cmp.matched).toEqual({ standing: 4, coordinates: 4 });
+    // And the units fix is what makes these two agree: standing 40/10/20/10 and
+    // coordinates 0.40/0.10/0.20/0.10 are the SAME field in the two scales.
+    expect(cmp.diverges).toBe(false);
+    expect(cmp.meanAbsDelta).toBeCloseTo(0, 12);
+  });
+
+  it('the trace line never prints "agrees" for an incomparable projection', () => {
+    // The trace is what a reader — and an IPV result file — actually sees.
+    const cmp = compareProjection(unmatchedField, FOREIGN_SEEDS);
+    const line = describeProjection(cmp);
+    expect(line).toMatch(/NOT COMPARABLE/);
+    expect(line).not.toMatch(/\bagrees\b/);
+    // Guard the guard: the same function DOES say "agrees" when it should.
+    const matchedField = {
+      snapshot: snapshotWithStandings({ importance: 40, novelty: 10, trust: 20, need: 10 }),
+      coordinates: coordinatesWith({ importance: 0.4, novelty: 0.1, trust: 0.2, need: 0.1 }),
+    } as unknown as ResolvedConstitutionalField;
+    expect(describeProjection(compareProjection(matchedField, SEED_MAP))).toMatch(/\bagrees\b/);
+  });
+
+  it('every projection carries the calibration convention it was computed under', () => {
+    // A stored Stage-0 result must not be silently comparable across a units
+    // change. The stamp is what makes "pre-fix vs post-fix" checkable rather
+    // than a matter of remembering when a run happened.
+    const cmp = compareProjection(unmatchedField, SEED_MAP);
+    expect(cmp.calibration).toBe(CALIBRATION);
+    expect(CALIBRATION).toMatch(/^coordinates\/v\d/);
+    expect(describeProjection(cmp)).toContain(CALIBRATION);
   });
 });
 
