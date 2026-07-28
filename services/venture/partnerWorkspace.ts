@@ -28,6 +28,7 @@
 import { RUNTIME_AGENT_IDS } from '@/services/metame/agentLlmOrchestra';
 import { getAigentQubeSource } from '@/services/iqube/legibility/sources/aigentQubeSource';
 import type { AgentRoleId } from '@/types/orchestration';
+import type { HorizenNetwork } from '@/services/horizen/identity';
 
 // ─── Layer model — the ratified agent division of labour, AS DATA ────────────
 
@@ -90,6 +91,30 @@ export interface PartnerWorkspaceLink {
   area: 'overview' | 'operate' | 'evidence' | 'communicate';
 }
 
+// ─── External agent identities this workspace's evidence chain covers ────────
+
+/**
+ * A partner-side agent identity whose joined evidence chain this workspace
+ * surfaces (Slice B).
+ *
+ * NETWORK-QUALIFIED, ALWAYS. `services/horizen/identity.ts` §4.4: the same
+ * tokenId names DIFFERENT agents on Base Sepolia and Base Mainnet, so there is
+ * no `registryAlias`-only form of this descriptor — the network is part of the
+ * identity, not a qualifier on it.
+ *
+ * `registryAlias` is the registry's own hex rendering; the read path normalises
+ * it to the canonical decimal tokenId. Storing the alias rather than the
+ * tokenId keeps this list in the vocabulary the Registry REST API accepts, so
+ * no caller has to convert before reading.
+ */
+export interface PartnerReferenceAgent {
+  /** Registry hex alias, e.g. `0x1eba` (Horizen brief §2.4.1 / §3). */
+  registryAlias: string;
+  network: HorizenNetwork;
+  /** Operator-facing name for the row. Never a claim about the agent. */
+  label: string;
+}
+
 // ─── The workspace shape ─────────────────────────────────────────────────────
 
 export interface PartnerWorkspace {
@@ -110,6 +135,12 @@ export interface PartnerWorkspace {
   layerOwners: Record<PartnerWorkspaceLayer, PartnerLayerOwnerId | null>;
   /** Partner contacts — omitted until verified contact data has a real home. */
   contacts?: { name: string; role?: string }[];
+  /**
+   * Partner-side agent identities whose evidence chain this workspace surfaces.
+   * Absent (not empty) for a workspace that ingests no external agent evidence
+   * — the Evidence surface then renders nothing rather than an empty promise.
+   */
+  referenceAgents?: PartnerReferenceAgent[];
   links: PartnerWorkspaceLink[];
 }
 
@@ -143,6 +174,20 @@ export const PARTNER_WORKSPACES: PartnerWorkspace[] = [
       // Constitutional role id (sovereignAgentRoles runtimeRoleId).
       governance: 'metame-guardian',
     },
+    // The pilot's representative agent, from the Horizen Partner Integration
+    // Brief §3 ("Representative Agent Package") as transcribed in
+    // services/horizen/correlate.ts §3.1 and exercised end-to-end against the
+    // live services in tests/horizen-integration.test.ts: registry alias
+    // `0x1eba` == tokenId 7866 on Base Sepolia. RECORDED here rather than
+    // inferred at read time — a second agent is one more entry, never a
+    // second list (inv.engineering.036).
+    referenceAgents: [
+      {
+        registryAlias: '0x1eba',
+        network: 'base-sepolia',
+        label: 'Reference agent (brief §3)',
+      },
+    ],
     links: [
       {
         id: 'portfolio-brief',

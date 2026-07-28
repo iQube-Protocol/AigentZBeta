@@ -62,6 +62,11 @@ import {
   researchWorkspaceObjectives,
   RESEARCH_WORKSPACE_LAYERS,
 } from "@/services/research/researchWorkspace";
+// TYPE-ONLY (erased at compile time — nothing server-side enters the bundle).
+// The view shape has ONE definition, on the server that derives it; a hand-
+// copied interface here would be the stale-duplicate defect inv.engineering.037
+// names, and it would drift the moment a link or status word changed.
+import type { EvidenceChainView, ChainLinkState } from "@/services/horizen/evidenceChain";
 import { StewardParticipationTab } from "./StewardParticipationTab";
 import dynamic from "next/dynamic";
 import { LockerTab } from "./LockerTab";
@@ -519,6 +524,212 @@ function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string
   );
 }
 
+// ─── The joined evidence chain (Slice B) ─────────────────────────────────────
+
+/**
+ * ONE mapping, and it is the ONLY branch this surface makes about the chain:
+ * `state` → a tone. Everything else — every status word, every reason, the
+ * standing verdict — is rendered VERBATIM from the server projection.
+ *
+ * Deriving "eligible" (or any link status) from parts on the client would be a
+ * second implementation of a gate the server already owns
+ * (`isStandingEligible`, the four independent authority facets), free to drift
+ * from it the moment either side changed. That is why nothing below reads a
+ * facet name, compares a binding state, or combines two fields.
+ *
+ * `negative` is deliberately NEUTRAL slate, not rose. A Horizen agent with no
+ * metaMe binding is legitimate external evidence — ruling 2 — and painting its
+ * five constitutional links red would tell the operator an error occurred when
+ * the honest reading is "we looked; there is none". The reason string beside
+ * each link is what carries the meaning; `indeterminate` gets amber because
+ * "we could not establish this" is the state that genuinely wants attention.
+ */
+const CHAIN_TONE: Record<ChainLinkState, string> = {
+  affirmed: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  negative: "border-slate-700 bg-slate-800/50 text-slate-300",
+  indeterminate: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+};
+
+type ChainRow =
+  | { ok: true; registryAlias: string; network: string; label: string; chain: EvidenceChainView }
+  | { ok: false; registryAlias: string; network: string; label: string; reason: string; detail: string };
+
+type ChainState =
+  | { kind: "loading" }
+  | { kind: "ready"; rows: ChainRow[] }
+  | { kind: "error"; message: string };
+
+function ChainStatus({ label, status, state, detail }: { label: string; status: string; state: ChainLinkState; detail: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+      <div className="min-w-0">
+        <p className="text-xs text-slate-200">{label}</p>
+        <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">{detail}</p>
+      </div>
+      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${CHAIN_TONE[state]}`}>{status}</span>
+    </div>
+  );
+}
+
+/**
+ * The demonstrable object: Horizen agent identity + Horizen proof/validation +
+ * DVN ingestion receipt + passport-backed delegation → attributable
+ * constitutional evidence.
+ *
+ * NO raw identifier of any tier is rendered — not the persona/passport/grant/
+ * agent-DID (T0), and not the four T2 commitments either. The commitments show
+ * as presence only; `tests/horizen-evidence-chain.test.ts` scans this
+ * component's own source for every one of them.
+ */
+function EvidenceChainPanel({ workspaceId, personaId }: { workspaceId: string; personaId?: string }) {
+  const [state, setState] = useState<ChainState>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    setState({ kind: "loading" });
+    (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/venture/workspace/${encodeURIComponent(workspaceId)}/evidence-chain`,
+          { cache: "no-store", personaIdHint: personaId },
+        );
+        if (!res.ok) {
+          if (!cancelled) {
+            setState({
+              kind: "error",
+              message:
+                res.status === 403
+                  ? "Your access grant is not scoped to this workspace."
+                  : `Evidence chain unavailable (${res.status})`,
+            });
+          }
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setState({ kind: "ready", rows: (data?.chains ?? []) as ChainRow[] });
+      } catch {
+        if (!cancelled) setState({ kind: "error", message: "Evidence chain unreachable" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, personaId]);
+
+  if (state.kind === "loading") {
+    return <div className={`${PANEL} p-4 text-xs text-slate-400`}>Joining the evidence chain…</div>;
+  }
+  if (state.kind === "error") {
+    return <div className={`${PANEL} p-4 text-xs text-rose-300`}>{state.message}</div>;
+  }
+  if (state.rows.length === 0) {
+    // A workspace that ingests no external agent evidence. An honest absence,
+    // distinct from a failed read above — the two must never read alike.
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className={`${PANEL} p-4`}>
+        <h3 className="text-sm font-semibold text-slate-100">Attributable constitutional evidence</h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+          Partner agent identity + partner proof/validation + the DVN ingestion receipt +
+          passport-backed delegation, joined into one record. Every status below is derived
+          server-side from the binding record; identifiers are held server-side and surface only as
+          status and commitment presence.
+        </p>
+      </div>
+
+      {state.rows.map((row) => (
+        <div key={`${row.network}:${row.registryAlias}`} className={`${PANEL} p-4`}>
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h4 className="text-sm font-medium text-slate-100">{row.label}</h4>
+            <span className="text-[10px] uppercase tracking-wide text-slate-500">
+              {row.registryAlias} · {row.network}
+            </span>
+          </div>
+
+          {!row.ok ? (
+            <p className="text-xs text-amber-300">
+              Partner read failed ({row.reason}) — {row.detail}. This is an unread agent, not an
+              agent without evidence.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {/* Standing — the verdict, always with the reason the binding
+                  resolution itself gave. An "ineligible" with no reason is only
+                  diagnosable from a SQL console. */}
+              <div className={`rounded-lg border px-3 py-2 ${CHAIN_TONE[row.chain.standing.state]}`}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <p className="text-xs font-medium">Standing eligibility: {row.chain.standing.status}</p>
+                  <span className="text-[10px] uppercase tracking-wide opacity-70">
+                    {row.chain.standing.reasonCode}
+                  </span>
+                </div>
+                <p className="mt-1 text-[10px] leading-relaxed opacity-90">{row.chain.standing.reason}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                {row.chain.links.map((l) => (
+                  <ChainStatus key={l.id} label={l.label} status={l.status} state={l.state} detail={l.detail} />
+                ))}
+              </div>
+
+              {/* The partner's own public record — chain data, no metaMe identifier. */}
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <MetricCard label="Binding state">{row.chain.bindingState}</MetricCard>
+                <MetricCard label="Token id" detail={`chain ${row.chain.agent.chainId}`}>
+                  {row.chain.agent.tokenId}
+                </MetricCard>
+                <MetricCard label="Identity class" detail={row.chain.agent.erc8004IdentityChain}>
+                  {row.chain.agent.identityClass}
+                </MetricCard>
+                <MetricCard label="Agent card">{row.chain.agent.agentCardStatus}</MetricCard>
+              </div>
+
+              {/* Four instants, never collapsed into "now" (ruling 4). */}
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <MetricCard label="Action occurred">
+                  {row.chain.temporal.actionOccurredAt ?? <NotYetWired />}
+                </MetricCard>
+                <MetricCard label="Proof recorded">
+                  {row.chain.temporal.proofRecordedAt ?? <NotYetWired />}
+                </MetricCard>
+                <MetricCard label="Ingested">{row.chain.temporal.ingestedAt}</MetricCard>
+                <MetricCard label="Receipt written">
+                  {row.chain.temporal.receiptCreatedAt ?? <NotYetWired />}
+                </MetricCard>
+              </div>
+
+              <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">Commitments held</p>
+                <p className="mt-1 text-[11px] text-slate-300">
+                  Principal {row.chain.commitments.principal ? "✓" : "—"} · Passport{" "}
+                  {row.chain.commitments.passport ? "✓" : "—"} · Delegation{" "}
+                  {row.chain.commitments.delegation ? "✓" : "—"} · Agent binding{" "}
+                  {row.chain.commitments.agentBinding ? "✓" : "—"}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Recorded as one-way commitments and withheld from this surface — the receipt
+                  carries them, the screen does not.
+                </p>
+              </div>
+
+              {!row.chain.agent.correlationVerified && row.chain.agent.correlationNotes.length > 0 && (
+                <ul className="list-disc space-y-1 pl-5 text-[10px] text-amber-300">
+                  {row.chain.agent.correlationNotes.map((n, i) => (
+                    <li key={i}>{n}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain }: PartnerProgrammesTabProps) {
   const kind = asWorkspaceKind(workspaceDomain);
   const copy = KIND_COPY[kind];
@@ -835,6 +1046,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               until it is, the canonical receipt surfaces below are the evidence record.
             </p>
           </div>
+          {/* The joined evidence chain. Renders only for a workspace whose
+              registry declares reference agents — the route returns an empty
+              list otherwise, so the research entrance shares this component
+              without inheriting a venture-only panel. */}
+          <EvidenceChainPanel workspaceId={ws.id} personaId={personaId} />
           <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} />
         </div>
       )}

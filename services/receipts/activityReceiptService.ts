@@ -469,3 +469,46 @@ export async function listActivityReceiptsForPersona(
   if (!data) return [];
   return (data as DbRow[]).map(rowToRecord);
 }
+
+/**
+ * The DVN anchoring state of ONE receipt, by id.
+ *
+ * Added for the Horizen evidence chain (Slice B), which has to say whether the
+ * ingestion receipt is `recorded` / `pending` / `anchor-failed` — a surface
+ * that can only say "a receipt exists" leaves the operator to open a SQL
+ * console to learn whether provenance actually landed (the Terminal Outcome
+ * defect). It lives HERE because this module is the canonical receipt reader;
+ * a route reading `activity_receipts` directly would be the parallel
+ * implementation inv.engineering.037 names.
+ *
+ * THREE-VALUED, deliberately, mirroring the binding model one layer up:
+ *   - a status string  — read successfully
+ *   - `null`           — read successfully, no such receipt (a FACT)
+ *   - `undefined`      — could NOT read (missing table, query error) — an
+ *                        admission of ignorance, never reported as "no receipt"
+ *
+ * It returns the status ONLY. The receipt body is persona-scoped and the caller
+ * here is asking an anchoring question, not a content one; returning the row
+ * would hand a caller receipt content it never established a right to read.
+ */
+export async function readReceiptAnchorStatus(
+  receiptId: string,
+): Promise<ReceiptStatus | null | undefined> {
+  if (!receiptId) return null;
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from('activity_receipts')
+      .select('receipt_status')
+      .eq('id', receiptId)
+      .maybeSingle();
+    if (error) {
+      if (isMissingTable(error)) return undefined;
+      return undefined;
+    }
+    if (!data) return null;
+    return ((data as { receipt_status?: ReceiptStatus }).receipt_status ?? 'local') as ReceiptStatus;
+  } catch {
+    return undefined;
+  }
+}
