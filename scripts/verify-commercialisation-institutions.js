@@ -1,23 +1,32 @@
 /**
  * Step 2 of 3 for unblocking Commercialisation discovery — verify the 40
- * newly-ratified institutional registry entries.
+ * ratified institutional registry entries, ONE AT A TIME.
  *
- * Run scripts/ratify-commercialisation-institutions.js FIRST. This step
- * checks canRunInstitutionDiscovery's second condition (verificationStatus
- * === 'verified') for every row; ratification alone does not satisfy it.
+ * Run scripts/ratify-commercialisation-institutions.js first.
  *
- * HOW TO RUN. Browser console script — open https://dev-beta.aigentz.me
- * signed in as admin, paste the WHOLE file, press enter. Do not paste a
- * shorthand description of the call ("POST /path {body}") — that is not
- * JavaScript and will throw a SyntaxError, which is what happened the first
- * time this step was attempted.
+ * WHY PER-INSTITUTION AND NOT THE DOMAIN ROUTE. The domain-wide route
+ * (/api/corpus-scout/institution-verification/domain) verifies all 40
+ * sequentially inside ONE request. Each verification does real HTTP fetches
+ * against the institution's own site, so the request runs for minutes — and
+ * the deployed gateway cuts the connection at its own timeout long before
+ * the route's maxDuration=300 is reached. The operator hit a 504 Gateway
+ * Timeout, twice, with no partial results: a whole-batch call that dies
+ * mid-way loses everything it had already done.
  *
- * maxDuration on the route is 300s (40 institutions verified sequentially,
- * each doing a real HTTP fetch against the institution's own site) — this
- * can legitimately take a few minutes. The browser's fetch() has no default
- * timeout, so just wait for the log line.
+ * Driving the per-institution route (maxDuration=60) from the client makes
+ * each request short enough to survive the gateway, and — more importantly —
+ * makes the work RESUMABLE and PARTIAL-SAFE: every institution's outcome is
+ * written to its row as it completes, so a failure at #37 keeps the first 36.
+ * Re-running skips nothing and simply re-verifies, which is harmless.
  *
- * Idempotent: re-verifying an already-verified institution just re-checks it.
+ * HOW TO RUN. Browser console — open https://dev-beta.aigentz.me signed in
+ * as admin, paste the WHOLE file, press enter. Progress prints per row.
+ * Expect several minutes; a slow institution is normal.
+ *
+ * Verification is NOT all-or-nothing. A real result set will legitimately
+ * mix 'verified', 'insufficient_corpus' (site loads, nothing acquirable) and
+ * 'verification_failed' (URL did not resolve). Only 'verified' opens the
+ * discovery gate; the others are honest outcomes, not script errors.
  */
 
 (async () => {
@@ -27,36 +36,94 @@
   const token = parsed?.access_token ?? parsed?.currentSession?.access_token;
   if (!token) { console.error('Token found but unreadable — check the localStorage shape.'); return; }
 
-  console.log('Verifying commercialisation registry — this can take a few minutes (40 institutions, sequential)…');
-  const res = await fetch('/api/corpus-scout/institution-verification/domain', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ domain: 'commercialisation' }),
-  });
-  const body = await res.json();
-  if (!body.ok) { console.error('Verification call failed', res.status, body); return; }
+  const DOMAIN = 'commercialisation';
+  const INSTITUTIONS = [
+    ['venture-operations', "NBER"],
+    ['adoption', "NBER"],
+    ['venture-operations', "Kauffman Foundation"],
+    ['partnerships', "Kauffman Foundation"],
+    ['venture-operations', "SSRN"],
+    ['adoption', "SSRN"],
+    ['adoption', "OECD"],
+    ['scaling', "OECD"],
+    ['venture-operations', "World Bank"],
+    ['commercial-governance', "World Bank"],
+    ['adoption', "MIT Sloan"],
+    ['venture-operations', "MIT Sloan"],
+    ['scaling', "Stanford Graduate School of Business"],
+    ['venture-operations', "Stanford Graduate School of Business"],
+    ['revenue-architecture', "Harvard Business School"],
+    ['adoption', "Harvard Business School"],
+    ['revenue-architecture', "Strategic Management Society"],
+    ['commercial-governance', "Strategic Management Society"],
+    ['scaling', "Santa Fe Institute"],
+    ['outcome-assurance', "INCOSE"],
+    ['commercial-governance', "INCOSE"],
+    ['customer-discovery', "Silicon Valley Product Group"],
+    ['value-proposition', "Silicon Valley Product Group"],
+    ['customer-discovery', "Product School"],
+    ['value-proposition', "Product School"],
+    ['value-proposition', "Strategyzer"],
+    ['revenue-architecture', "Strategyzer"],
+    ['customer-discovery', "Lean Startup"],
+    ['trust-formation', "OECD"],
+    ['trust-formation', "UK Competition and Markets Authority"],
+    ['pricing', "NBER"],
+    ['pricing', "OECD"],
+    ['distribution', "World Trade Organization"],
+    ['distribution', "UN Trade and Development (UNCTAD)"],
+    ['settlement-exchange', "BIS Committee on Payments and Market Infrastructures"],
+    ['settlement-exchange', "UNCITRAL"],
+    ['commercial-failure-modes', "NBER"],
+    ['commercial-failure-modes', "U.S. Bureau of Labor Statistics"],
+    ['partnerships', "NBER"],
+    ['outcome-assurance', "National Infrastructure and Service Transformation Authority"]
+  ];
 
-  console.log(`%cAttempted ${body.attempted}, verified ${body.verified}.`, 'font-weight:bold');
-  for (const entry of body.perEntry ?? []) {
-    // Two distinct failure shapes, never collapse them: `entry.outcome` is
-    // present when a run actually executed (status is 'verified' or a real
-    // RUN_OUTCOME_STATUS); `entry.error` is present when the run never
-    // started at all (e.g. the transition guard refused it). Logging only
-    // outcome?.status silently printed "undefined" for every row the first
-    // time this ran — the real reason (a structural deadlock, not a bad URL)
-    // was on `entry.error` and never appeared anywhere.
-    if (entry.outcome) {
-      const status = entry.outcome.status;
-      const style = status === 'verified' ? 'color:#34d399' : 'color:#f87171';
-      console.log(`%c${status === 'verified' ? '✓' : '✕'} ${entry.pillarKey} · ${entry.institutionName} — ${status}`, style);
-      if (status !== 'verified' && entry.outcome.reason) console.log(`    reason: ${entry.outcome.reason}`);
-    } else {
-      console.log(`%c⚠ ${entry.pillarKey} · ${entry.institutionName} — run never started`, 'color:#fbbf24');
-      console.log(`    error: ${entry.error ?? '(no error message returned)'}`);
+  const tally = {};
+  let done = 0;
+  for (const [pillarKey, institutionName] of INSTITUTIONS) {
+    done++;
+    let res, body;
+    try {
+      res = await fetch('/api/corpus-scout/institution-verification', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain: DOMAIN, pillarKey, institutionName }),
+      });
+      // A gateway timeout returns an empty body — .json() would throw and
+      // kill the whole loop. Read text first, parse defensively, keep going.
+      const text = await res.text();
+      body = text ? JSON.parse(text) : null;
+    } catch (e) {
+      console.error(`[${done}/${INSTITUTIONS.length}] ✕ ${pillarKey} · ${institutionName} — request failed: ${e.message}`);
+      tally['request_error'] = (tally['request_error'] ?? 0) + 1;
+      continue;
+    }
+
+    if (!body) {
+      console.error(`[${done}/${INSTITUTIONS.length}] ✕ ${pillarKey} · ${institutionName} — HTTP ${res.status}, empty body (likely gateway timeout on this one institution)`);
+      tally['gateway_timeout'] = (tally['gateway_timeout'] ?? 0) + 1;
+      continue;
+    }
+
+    const status = body.outcome?.status ?? (body.error ? 'run-never-started' : 'unknown');
+    tally[status] = (tally[status] ?? 0) + 1;
+    const style = status === 'verified' ? 'color:#34d399'
+      : status === 'run-never-started' ? 'color:#fbbf24'
+      : 'color:#f87171';
+    console.log(`%c[${done}/${INSTITUTIONS.length}] ${status === 'verified' ? '✓' : '✕'} ${pillarKey} · ${institutionName} — ${status}`, style);
+    if (status !== 'verified') {
+      const why = body.outcome?.detail ?? body.error ?? '(no detail)';
+      console.log(`      ${why}`);
     }
   }
-  if (body.verified < body.attempted) {
-    console.warn(`${body.attempted - body.verified} institution(s) did not verify — their document URLs did not resolve to a qualifying source. These will not contribute evidence until fixed.`);
+
+  console.log('%cSummary:', 'font-weight:bold', tally);
+  const verified = tally['verified'] ?? 0;
+  if (verified > 0) {
+    console.log(`%c${verified} institution(s) verified — run scripts/discover-commercialisation-evidence.js next.`, 'color:#34d399;font-weight:bold');
+  } else {
+    console.warn('Nothing verified. Read the per-row details above — they now carry the real reason from the server.');
   }
-  console.log('Next: scripts/discover-commercialisation-evidence.js to acquire documents from the verified institutions.');
 })();
