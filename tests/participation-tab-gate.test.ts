@@ -25,8 +25,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { readFileSync } from 'fs';
+import { execFileSync } from 'node:child_process';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 import {
   satisfiesParticipationGate,
@@ -88,28 +88,34 @@ describe('the gate is a gate', () => {
 });
 
 describe('one implementation, no parallel predicates', () => {
-  const SKIP = new Set(['node_modules', '.next', '.git', 'worktrees']);
-
-  function walk(dir: string, out: string[] = []): string[] {
-    let entries: string[];
+  /**
+   * Candidate files, found by `git grep` rather than by reading the tree.
+   *
+   * MEASURED CORRECTION (2026-07-28). This walked five roots reading EVERY
+   * `.ts`/`.tsx` file — ~11s alone, and it TIMED OUT at 30s when five agents
+   * were doing concurrent I/O in the same tree. A canary that fails under load
+   * is one people learn to skip, which is the failure mode this whole file
+   * exists to prevent. `git grep` narrows to the handful of files that mention
+   * the field before anything is read.
+   *
+   * `--untracked --exclude-standard` is load-bearing: without it a brand-new
+   * module is invisible, so a violation introduced in the same commit that adds
+   * the file would pass — an inert canary, in a file about parallel gates.
+   * (Same correction the governance canaries hit today.)
+   */
+  function filesMentioning(needle: string): string[] {
     try {
-      entries = readdirSync(dir);
+      return execFileSync(
+        'git',
+        ['grep', '-l', '--untracked', '--exclude-standard', '--fixed-strings', needle,
+         '--', 'app', 'components', 'services', 'types', 'data'],
+        { cwd: process.cwd(), encoding: 'utf-8' },
+      )
+        .split('\n')
+        .filter((f) => f.endsWith('.ts') || f.endsWith('.tsx'));
     } catch {
-      return out;
+      return []; // git grep exits 1 on no match
     }
-    for (const entry of entries) {
-      if (SKIP.has(entry)) continue;
-      const full = join(dir, entry);
-      let s;
-      try {
-        s = statSync(full);
-      } catch {
-        continue;
-      }
-      if (s.isDirectory()) walk(full, out);
-      else if (entry.endsWith('.ts') || entry.endsWith('.tsx')) out.push(full);
-    }
-    return out;
   }
 
   it('every module that reads participationDomain goes through the gate', () => {
@@ -118,9 +124,14 @@ describe('one implementation, no parallel predicates', () => {
     // compare the field itself.
     const allowed = new Set(['types/codex.ts', 'data/codex-configs.ts', GATE_PATH]);
     const offenders: string[] = [];
+    const candidates = filesMentioning('participationDomain');
+    // Guard against the narrowing going vacuous: the field IS declared and IS
+    // used, so an empty candidate set means git grep failed, not that the repo
+    // is clean.
+    expect(candidates.length, 'no candidate files — the grep narrowing broke').toBeGreaterThan(1);
 
-    for (const root of ['app', 'components', 'services', 'types', 'data']) {
-      for (const file of walk(root)) {
+    {
+      for (const file of candidates) {
         const rel = file.replace(/\\/g, '/');
         if (allowed.has(rel)) continue;
         const src = stripComments(readFileSync(file, 'utf-8'));
