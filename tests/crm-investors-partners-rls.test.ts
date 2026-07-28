@@ -5,10 +5,37 @@
  * authenticate and authorize the request. RLS = constrain what the
  * resulting database operation can access."
  *
- * This is a structural check over the migration SQL (no live DB in this
- * sandbox — see the session report for what would need to run against a
- * real Supabase instance to verify the policies behave as written). It
- * pins:
+ * IMPORTANT — WHAT THIS FILE IS AND ISN'T (Aletheon review correction,
+ * 2026-07-28): this is a STATIC CONSISTENCY CHECK over the migration SQL
+ * TEXT ONLY (regex/string matching against the file contents). It proves the
+ * migration file is internally self-consistent (every CREATE POLICY has a
+ * matching DROP, every policy body mentions check_admin_access, etc.) — it
+ * does NOT execute any SQL, does NOT run against a live or local Postgres,
+ * and therefore is NOT verification that check_admin_access() or the RLS
+ * policies actually behave as written for a real admin/ordinary/anonymous
+ * caller. A source-grep asserting the SQL text contains
+ * `check_admin_access(auth.uid()::text` is a shape check, not a correctness
+ * proof — a type mismatch or wrong semantic argument to that function would
+ * still pass every assertion in this file while being silently broken (or
+ * silently wide-open) at runtime.
+ *
+ * The actual behavioural verification — a real local-Postgres integration
+ * canary that loads the verbatim check_admin_access() function body, the
+ * verbatim policies from this migration file, and exercises three real
+ * identities (authorised admin JWT, ordinary authenticated JWT, anonymous)
+ * against real RLS enforcement — lives at
+ * scripts/rls-integration-canary-check-admin-access.sh (not wired into this
+ * vitest suite; it depends on a local Postgres server this repo does not
+ * provide a harness for, so it isn't portable to every environment this
+ * suite runs in). See that script's header comment for why no such
+ * mechanism is committed to the repo yet, and for the reasoning that
+ * confirms check_admin_access's first argument is genuinely
+ * auth.uid()::text matched against crm_admin_roles.kybe_did (verified from
+ * the function body in 20251128181400_agentiq_admin_roles.sql and the real
+ * admin-provisioning pattern in 20260405000000_grant_dele_uber_admin.sql —
+ * not inferred from the function's name).
+ *
+ * This suite pins:
  *   - nakamoto_knyt_personas gets RLS enabled (it had none before) and
  *     admin-gated SELECT/INSERT/UPDATE/DELETE policies.
  *   - avl_partner_contacts' SELECT policy is tightened from "any

@@ -44,6 +44,23 @@
 -- pattern already used in this repo (see e.g.
 -- 20260427000000_root_did_persona_binding.sql). Postgres's CREATE POLICY
 -- statement has no "IF NOT EXISTS" variant, unlike CREATE TABLE/INDEX.
+--
+-- SCOPE OF PROTECTION — READ THIS BEFORE CITING THIS MIGRATION AS "closing"
+-- ANYTHING (Aletheon review correction, 2026-07-28). The policies below
+-- protect DIRECT AUTHENTICATED ACCESS AND NON-SERVICE-ROLE CLIENTS ONLY.
+-- They provide ZERO database-level defence behind the four routes named
+-- above TODAY, because those four routes all read through getCrmClient()
+-- (services/crm/crmDataAccess.ts), which connects with the Supabase
+-- SERVICE-ROLE key — and service-role bypasses RLS unconditionally,
+-- regardless of what policy is attached to the table. Do not describe this
+-- migration, in a commit message, doc, or code comment, as having closed
+-- the gap "behind" those four routes — it has not. The route-level
+-- requireAdminPersona gate remains the ONLY enforcement behind those four
+-- routes and MUST NOT be removed or weakened on the theory that "RLS covers
+-- it now". The real fix — a request-scoped Supabase client or a constrained
+-- admin-checking RPC for those four routes' read/write paths — is recorded
+-- as a separately chartered backlog item, not built here:
+-- codexes/packs/agentiq/updates/2026-07-28_crm-investors-service-role-rls-gap-backlog.md
 -- ============================================================================
 
 -- ── nakamoto_knyt_personas — previously had NO RLS policy at all ──────────────
@@ -154,4 +171,14 @@ COMMENT ON POLICY "avl_partners_admin_read" ON public.avl_partner_contacts IS
 -- shared service-role client from getCrmClient()) that is out of scope for
 -- this RLS-only migration. Flagging for a follow-up rather than bundling an
 -- untested client-plumbing change into a security migration.
+--
+-- This follow-up is now tracked as a separately chartered backlog item, not
+-- a vague "flag for later": see
+-- codexes/packs/agentiq/updates/2026-07-28_crm-investors-service-role-rls-gap-backlog.md
+-- for the two candidate fixes (request-scoped client vs. a constrained
+-- admin-checking RPC), the regression risk each carries, and the "done when"
+-- checklist for whoever picks this up. Until that lands, restate plainly:
+-- the policies in this migration enforce NOTHING behind these four routes
+-- today — they are defence-in-depth against a future client-swap bug, not
+-- database-level enforcement of the routes' current admin-only behaviour.
 -- ============================================================================

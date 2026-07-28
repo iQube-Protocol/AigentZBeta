@@ -2,14 +2,116 @@
  * Pure aggregation logic for GET /api/crm/investors/aggregate, extracted from
  * the route handler so it can be exercised behaviourally in tests without a
  * live Supabase client — see tests/crm-investors-aggregate.test.ts.
+ *
+ * K-ANONYMITY — DIFFERENCING/SUBTRACTION HARDENING (Aletheon review,
+ * 2026-07-28). The original implementation applied k=5 suppression to the
+ * geography field only, folding cities below threshold into a single
+ * "Other" bucket. Two problems with that:
+ *
+ *   1. countsByCohort, countsByRelationshipState, investmentBandDistribution,
+ *      and csvInvestmentStatusDistribution had NO suppression at all — any
+ *      cohort/state/band/status with 1-4 members was shown as an exact raw
+ *      count. That's the same small-cell disclosure the geography rule
+ *      existed to prevent, just left open on every other categorical field.
+ *   2. Even for geography, the merged "Other" bucket's OWN total could
+ *      itself be a small cell: if only one city was below threshold, the
+ *      "Other" bucket's count WAS that city's exact count, disclosed
+ *      directly. And because `totalInvestors` is shown alongside every
+ *      safe (>= k) bucket, `total - sum(safe buckets)` recovers that same
+ *      exact value by subtraction even in the (unlikely) case Other's
+ *      value itself were withheld — a classic small-cell differencing
+ *      attack. For a single suppressed bucket, suppression was fully
+ *      defeated either way.
+ *
+ * Fix: `suppressSmallCells()` below is applied uniformly to every
+ * categorical breakdown this route returns. Any bucket under `threshold` is
+ * pooled; if the pool itself reaches `threshold` it's shown under
+ * `OTHER_BUCKET`/a field-scoped "Other" label (safe — it's now its own
+ * k-anonymous cell); if the pool is still under `threshold` (1..k-1), it is
+ * folded into the LARGEST already-safe bucket instead of being displayed on
+ * its own — the safe bucket's displayed count is now indistinguishable from
+ * "its true count" vs. "its true count plus an unknown 1..k-1 remainder", so
+ * neither direct display nor `total - displayed` can isolate the pool's
+ * exact value. If a field has NO safe bucket at all (every bucket, pooled
+ * or not, is under threshold — only possible when that field's total row
+ * count is itself under k), the field's breakdown is omitted entirely
+ * (`{}`) rather than disclosing an exact small total under any label.
+ * `totalInvestors` itself is never rounded or suppressed — it's the one
+ * number this endpoint is meant to disclose exactly, and every categorical
+ * field's own suppression logic (not touching the total) is what closes the
+ * subtraction path, so nothing is lost by keeping it precise. This was a
+ * deliberate choice between the two options the review raised (suppress the
+ * total vs. safely merge buckets): merging preserves the one broadly useful
+ * exact number (the estate-wide total) while still making every per-field
+ * breakdown safe.
+ *
+ * See tests/crm-investors-aggregate.test.ts for the differencing-specific
+ * canaries (a cross-tab city/cohort case, and a reconstructed
+ * subtraction-sensitive case that was exploitable under the old logic).
  */
 
 import { str, isRealInvestor } from '../_lib';
 
-/** Minimum bucket size before a geography value is safe to surface on its own. */
+/** Minimum bucket size before a breakdown value is safe to surface on its own.
+ *  Applied uniformly to every categorical field this route returns
+ *  (geography, cohort, relationship state, investment band, csv status) —
+ *  not just geography. */
 export const GEOGRAPHY_K_THRESHOLD = 5;
 export const OTHER_BUCKET = 'Other (suppressed < k)';
 export const UNASSIGNED_BUCKET = 'unassigned';
+
+/**
+ * Folds every bucket below `threshold` into a single pool, then:
+ *   - if the pool is empty, nothing changes;
+ *   - if the pool itself reaches `threshold`, it's exposed under
+ *     `otherLabel` (now its own safe, k-anonymous cell);
+ *   - if the pool is non-empty but still under `threshold`, it is merged
+ *     into the largest already-safe bucket instead of being shown on its
+ *     own — this is what prevents both direct disclosure of a sub-k count
+ *     AND recovery of that count via `total - sum(displayed buckets)`,
+ *     since after merging there is no separate small line item and no
+ *     leftover remainder to solve for;
+ *   - if there is no safe bucket to merge into (the field's entire
+ *     population is under `threshold`), the breakdown is omitted entirely.
+ *
+ * Every key in the returned map is guaranteed to have a value that is
+ * either omitted or >= `threshold` — no exceptions, no exempt keys. (The
+ * original geography-only implementation exempted the literal "unassigned"
+ * bucket from suppression on the theory that a missing value isn't an
+ * identifying real-world trait; that exemption is removed here because a
+ * small *displayed number* is still a small-cell disclosure regardless of
+ * what the label means once other fields are cross-referenced against it —
+ * the fix in this pass is about the number, not the label.)
+ */
+export function suppressSmallCells(
+  raw: Record<string, number>,
+  threshold: number,
+  otherLabel: string,
+): Record<string, number> {
+  const safe: Record<string, number> = {};
+  let pool = 0;
+  for (const [key, count] of Object.entries(raw)) {
+    if (count >= threshold) {
+      safe[key] = count;
+    } else {
+      pool += count;
+    }
+  }
+  if (pool === 0) return safe;
+  if (pool >= threshold) {
+    safe[otherLabel] = (safe[otherLabel] ?? 0) + pool;
+    return safe;
+  }
+  const safeKeys = Object.keys(safe);
+  if (safeKeys.length > 0) {
+    const largestKey = safeKeys.reduce((a, b) => (safe[a] >= safe[b] ? a : b));
+    safe[largestKey] += pool;
+    return safe;
+  }
+  // No bucket in this field reaches the threshold at all — omit the
+  // breakdown rather than disclose an exact small total under any label.
+  return {};
+}
 
 // Only the columns needed to compute counts/distributions. Email is included
 // solely because isRealInvestor()'s row-qualification predicate checks for
@@ -110,33 +212,44 @@ export function computeInvestorAggregate(rawInvestors: Record<string, unknown>[]
     bump(rawGeography, city || UNASSIGNED_BUCKET);
   }
 
-  // Apply k-anonymity suppression: any city bucket below threshold folds
-  // into a single "Other" bucket rather than being named individually.
-  const geographyDistribution: Record<string, number> = {};
-  let suppressedCount = 0;
-  for (const [city, count] of Object.entries(rawGeography)) {
-    if (city === UNASSIGNED_BUCKET || count >= GEOGRAPHY_K_THRESHOLD) {
-      geographyDistribution[city] = count;
-    } else {
-      suppressedCount += count;
-    }
-  }
-  if (suppressedCount > 0) {
-    geographyDistribution[OTHER_BUCKET] = (geographyDistribution[OTHER_BUCKET] ?? 0) + suppressedCount;
-  }
+  // K-anonymity suppression applied uniformly to EVERY categorical
+  // breakdown this route returns — not just geography. See the module
+  // docblock above for why (small-cell disclosure was previously open on
+  // cohort/relationshipState/investmentBand/csvStatus, and geography's own
+  // "Other" bucket could itself be a small cell recoverable by
+  // differencing).
+  const geographyDistribution = suppressSmallCells(rawGeography, GEOGRAPHY_K_THRESHOLD, OTHER_BUCKET);
+  const suppressedCountsByCohort = suppressSmallCells(countsByCohort, GEOGRAPHY_K_THRESHOLD, OTHER_BUCKET);
+  const suppressedRelationshipState = suppressSmallCells(countsByRelationshipState, GEOGRAPHY_K_THRESHOLD, OTHER_BUCKET);
+  const suppressedInvestmentBand = suppressSmallCells(investmentBandDistribution, GEOGRAPHY_K_THRESHOLD, OTHER_BUCKET);
+  const suppressedCsvStatus = suppressSmallCells(csvInvestmentStatusDistribution, GEOGRAPHY_K_THRESHOLD, OTHER_BUCKET);
+
+  // participationStatus is a fixed two-way partition (activated/inactive),
+  // not an open-ended categorical field — both values are always disclosed
+  // by design (there's no "Other" to fold a suppressed sibling into, so
+  // there's no hidden remainder for `total - shown` to recover; the
+  // differencing pattern doesn't apply the same way). It still has a
+  // residual small-cell risk if one side is naturally tiny, so: when either
+  // side is under threshold, both are controlled-rounded to the nearest
+  // multiple of the threshold rather than shown exactly. This deliberately
+  // breaks exact recoverability of the minority count at the cost of exact
+  // precision on a field that's already a coarse yes/no split.
+  const participationStatus = (activated < GEOGRAPHY_K_THRESHOLD || inactive < GEOGRAPHY_K_THRESHOLD)
+    ? {
+        activated: Math.round(activated / GEOGRAPHY_K_THRESHOLD) * GEOGRAPHY_K_THRESHOLD,
+        inactive: Math.round(inactive / GEOGRAPHY_K_THRESHOLD) * GEOGRAPHY_K_THRESHOLD,
+      }
+    : { activated, inactive };
 
   return {
     totalInvestors,
-    countsByCohort,
-    countsByRelationshipState,
-    investmentBandDistribution,
-    participationStatus: {
-      activated,
-      inactive,
-    },
+    countsByCohort: suppressedCountsByCohort,
+    countsByRelationshipState: suppressedRelationshipState,
+    investmentBandDistribution: suppressedInvestmentBand,
+    participationStatus,
     geographyDistribution,
     completionEngagement: {
-      csvInvestmentStatusDistribution,
+      csvInvestmentStatusDistribution: suppressedCsvStatus,
       withKickstarterClicked,
       withKickstarterBacked,
       withCampaignSent,
