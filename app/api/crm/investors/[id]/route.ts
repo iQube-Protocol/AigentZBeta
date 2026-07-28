@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,13 @@ const ALLOWED_FIELDS = new Set([
 ]);
 
 export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  if (!(await requireAdminPersona(request))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const params = await props.params;
   const { id } = params;
   if (!id) {

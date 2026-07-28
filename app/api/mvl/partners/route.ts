@@ -10,10 +10,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
+import { requireAdminPersona } from "@/app/api/_lib/requireAdmin";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  if (!(await requireAdminPersona(req))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const wave = searchParams.get("wave");
 
@@ -73,6 +81,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  if (!(await requireAdminPersona(req))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "DB unavailable" }, { status: 503 });
@@ -101,6 +116,13 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!(await requireAdminPersona(req))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const supabase = getSupabaseServer();
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "DB unavailable" }, { status: 503 });
@@ -144,6 +166,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  if (!(await requireAdminPersona(req))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });

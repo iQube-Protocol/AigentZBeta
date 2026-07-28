@@ -320,7 +320,7 @@ function PartnerCard({ partner, ventureNames, onRefresh }: { partner: Partner; v
   const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
     setSaving(true);
     try {
-      await fetch("/api/mvl/partners", {
+      await personaFetch("/api/mvl/partners", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: partner.id, ...fields }),
@@ -443,7 +443,7 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
     if (!name.trim()) { setErr("Name required"); return; }
     setSaving(true); setErr("");
     try {
-      const res = await fetch("/api/mvl/partners", {
+      const res = await personaFetch("/api/mvl/partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), org: org.trim() || name.trim(), wave, contact_name: contact.trim() || null, contact_email: email.trim() || null }),
@@ -737,7 +737,7 @@ function CustomersPanel({ ventureNames, onStats }: { ventureNames: string[]; onS
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(opts.offset), sort: opts.sort });
       if (opts.search) params.set("search", opts.search);
       if (opts.cohort) params.set("cohort", opts.cohort);
-      const res = await fetch(`/api/crm/investors?${params}`);
+      const res = await personaFetch(`/api/crm/investors?${params}`);
       const json = await res.json() as { data: Customer[]; total: number };
       setCustomers(json.data ?? []);
       setTotal(json.total ?? 0);
@@ -979,7 +979,7 @@ function ComposerPanel() {
       setLoadingInit(true);
       const [packsRes, partnersRes] = await Promise.all([
         fetch("/api/mvl/comms-packs").catch(() => null),
-        fetch("/api/mvl/partners").catch(() => null),
+        personaFetch("/api/mvl/partners").catch(() => null),
       ]);
       if (packsRes?.ok) {
         const j = await packsRes.json() as { ok: boolean; data?: CommsPack[] };

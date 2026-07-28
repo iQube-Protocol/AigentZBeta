@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +78,13 @@ function isRealInvestor(inv: Record<string, unknown>): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  if (!(await requireAdminPersona(request))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const activatedFilter = searchParams.get('activated');
   const search    = searchParams.get('search')?.trim().toLowerCase() ?? '';
@@ -251,6 +259,13 @@ export async function GET(request: NextRequest) {
  * user_id is omitted — will be linked at signup via email match.
  */
 export async function POST(request: NextRequest) {
+  if (!(await requireAdminPersona(request))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = await request.json();

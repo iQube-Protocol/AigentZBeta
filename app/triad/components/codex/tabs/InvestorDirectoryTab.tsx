@@ -23,6 +23,7 @@ import {
   BarChart3, X, ExternalLink,
 } from 'lucide-react';
 import type { CodexTab } from '@/types/codex';
+import { personaFetch } from "@/utils/personaSpine";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -214,7 +215,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
         ...(cohortFilter ? { cohort: cohortFilter } : {}),
         ...(bandFilter ? { band: bandFilter } : {}),
       });
-      const res = await fetch(`/api/crm/investors?${params}`);
+      const res = await personaFetch(`/api/crm/investors?${params}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Failed to load investors');
       setInvestors(json.data ?? []);
@@ -347,7 +348,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
     if (!prospectForm.firstName && !prospectForm.lastName && !prospectForm.email) return;
     setAddingSaving(true);
     try {
-      const res = await fetch('/api/crm/investors', {
+      const res = await personaFetch('/api/crm/investors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(prospectForm),
@@ -370,7 +371,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
     if (!Object.keys(updates).length) return;
     setBulkSaving(true);
     try {
-      const res = await fetch('/api/crm/investors/bulk', {
+      const res = await personaFetch('/api/crm/investors/bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: Array.from(selected), updates }),
@@ -409,7 +410,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
     if (!editingInvestor) return;
     setEditSaving(true);
     try {
-      const res = await fetch(`/api/crm/investors/${editingInvestor.id}`, {
+      const res = await personaFetch(`/api/crm/investors/${editingInvestor.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm),
