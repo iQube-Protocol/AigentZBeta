@@ -27,6 +27,7 @@ import { establishWalletBindingForRoot } from '@/services/identity/walletAliasSe
 import { personaPublicRef } from '@/services/identity/personaReferences';
 import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
 import { sortOwnedPersonaRowsAgentLast } from '@/services/identity/getActivePersona';
+import { dedupeById, type PersonaRow } from '@/app/api/wallet/personas/route';
 
 // walletAliasService's HMAC helpers (buildAddressFingerprint, etc.) require a
 // real server secret at call time. This is a test-only value — never used to
@@ -320,6 +321,71 @@ describe('canary 11 — sortOwnedPersonaRowsAgentLast never lets the fallback re
     const code = stripComments(readSource('services/identity/getActivePersona.ts'));
     expect(code).toMatch(/const ordered = sortOwnedPersonaRowsAgentLast\(rows\)/);
     expect(code).toMatch(/personas: ordered\.map/);
+  });
+});
+
+// ─── Canary 12 (2026-07-28 aigentMe-default correction) — /api/wallet/personas
+// is the route MetaMeRuntimeClient.tsx's first-load bootstrap calls and picks
+// list[0] from as the default persona (then LATCHES it into localStorage,
+// per 20260832000000_passport_persona_activation_handoff.sql's own root-cause
+// note). Its dedupeById sorted by created_at DESC with no app_origin
+// awareness — the same defect class as canaries 10 and 11, a third time. ──
+
+function personaRow(overrides: Partial<PersonaRow> & { id: string; created_at: string }): PersonaRow {
+  return {
+    tenant_id: 'tenant-1',
+    auth_profile_id: 'auth-profile-1',
+    display_name: 'Persona',
+    avatar_uri: null,
+    fio_handle: 'handle',
+    fio_domain: null,
+    discoverable_within_tenant: null,
+    reputation_score: null,
+    reputation_bucket: null,
+    badges: null,
+    default_identity_state: null,
+    world_id_status: null,
+    app_origin: null,
+    status: 'active',
+    updated_at: overrides.created_at,
+    ...overrides,
+  };
+}
+
+describe('canary 12 — /api/wallet/personas dedupeById never lets a more-recent aigentMe row win index 0', () => {
+  it('an agent row with the MOST RECENT created_at (would win a pure DESC sort) is moved past every human row', () => {
+    const agent = personaRow({ id: 'persona-agent', created_at: '2026-07-28T00:00:00.000Z', app_origin: AIGENT_ME_APP_ORIGIN });
+    const alice = personaRow({ id: 'persona-alice', created_at: '2026-01-01T00:00:00.000Z' });
+    const result = dedupeById([agent, alice]);
+    expect(result[0].id).toBe('persona-alice');
+    expect(result[result.length - 1].id).toBe('persona-agent');
+  });
+
+  it('the agent row is reordered, never dropped — this route also serves agent-management surfaces', () => {
+    const agent = personaRow({ id: 'persona-agent', created_at: '2026-07-28T00:00:00.000Z', app_origin: AIGENT_ME_APP_ORIGIN });
+    const alice = personaRow({ id: 'persona-alice', created_at: '2026-01-01T00:00:00.000Z' });
+    const result = dedupeById([agent, alice]);
+    expect(result).toHaveLength(2);
+    expect(result.some((r) => r.id === 'persona-agent')).toBe(true);
+  });
+
+  it('dedup by id still wins over ordering — a duplicate id keeps only one row', () => {
+    const a = personaRow({ id: 'dup', created_at: '2026-01-01T00:00:00.000Z', display_name: 'first' });
+    const b = personaRow({ id: 'dup', created_at: '2026-02-01T00:00:00.000Z', display_name: 'second' });
+    const result = dedupeById([a, b]);
+    expect(result).toHaveLength(1);
+    expect(result[0].display_name).toBe('second');
+  });
+
+  it('no agent rows — behaviour is unchanged, pure created_at DESC', () => {
+    const older = personaRow({ id: 'older', created_at: '2026-01-01T00:00:00.000Z' });
+    const newer = personaRow({ id: 'newer', created_at: '2026-02-01T00:00:00.000Z' });
+    expect(dedupeById([older, newer]).map((r) => r.id)).toEqual(['newer', 'older']);
+  });
+
+  it('structural: the exclusion/reorder keys off AIGENT_ME_APP_ORIGIN, not a hardcoded string', () => {
+    const code = stripComments(readSource('app/api/wallet/personas/route.ts'));
+    expect(code).toMatch(/app_origin[\s\S]{0,40}!==[\s\S]{0,10}AIGENT_ME_APP_ORIGIN/);
   });
 });
 
