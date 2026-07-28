@@ -43,6 +43,17 @@ export interface ParticipationGrantView {
   accessDomain: string;
   role: string;
   grantedAt: string;
+  /**
+   * The projects/pilots/experiments this grant is scoped to (persisted in
+   * `access_grants.allowed_experiments` — the SAME column the Research Lab
+   * already scopes with, extended to Venture Lab pilots rather than forked).
+   * `null` / empty = unrestricted within the domain.
+   *
+   * Added 2026-07-28 for delegated invitation authority: a steward's own scope
+   * is what bounds the invitations they may issue, so the server must be able
+   * to see it. Still an owner self-view field — no identifier of any tier.
+   */
+  allowedScopes: string[] | null;
 }
 
 export interface ParticipationSelfView {
@@ -71,7 +82,7 @@ export async function resolveParticipationSelfView(
   // ACCESS — person-level (grant issued to the person via persona/passport).
   const { data, error } = await admin
     .from('access_grants')
-    .select('access_domain, role, status, granted_at')
+    .select('access_domain, role, status, granted_at, allowed_experiments')
     .in('persona_id', personhood.spinePersonaIds)
     .eq('status', 'active');
 
@@ -82,6 +93,7 @@ export async function resolveParticipationSelfView(
         accessDomain: String(g.access_domain),
         role: String(g.role),
         grantedAt: String(g.granted_at),
+        allowedScopes: ((g as { allowed_experiments?: string[] | null }).allowed_experiments ?? null),
       }));
 
   // PASSPORT — kybe/personhood-level. A record is the person's when EITHER key

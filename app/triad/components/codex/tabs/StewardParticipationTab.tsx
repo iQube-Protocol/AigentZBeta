@@ -29,8 +29,21 @@ import { Award, Check, Copy, Gavel, Loader2, Plus, RefreshCw, ShieldCheck, X } f
 // it names (`tests/persona-spine-fetch.test.ts`) did not exist until this pass.
 import { personaFetch } from '@/utils/personaSpine';
 
-interface DomainDef { id: string; label: string; roles: string[] }
-interface AssignableExperiment { id: string; label: string }
+/**
+ * A domain as the SERVER says this caller may steward it (two-tier authority,
+ * 2026-07-28). `roles` are already narrowed to what the caller may confer and
+ * `assignableScopes` to the projects they may name — the surface renders the
+ * server's answer rather than deriving a second one, so it can never offer a
+ * control the issue route would refuse.
+ */
+interface DomainDef {
+  id: string;
+  label: string;
+  roles: string[];
+  assignableScopes: AssignableScope[];
+  scopeRequired: boolean;
+}
+interface AssignableScope { id: string; label: string }
 interface InvitationRow {
   id: string;
   accessDomain: string;
@@ -67,7 +80,7 @@ interface AppCounts { total: number; pending: number; agentAssisted: number }
  */
 export function StewardParticipationTab({ initialDomain }: { initialDomain?: string } = {}) {
   const [domains, setDomains] = useState<DomainDef[]>([]);
-  const [assignableExperiments, setAssignableExperiments] = useState<AssignableExperiment[]>([]);
+  const [tier, setTier] = useState<'platform' | 'delegated' | null>(null);
   interface PendingResult { id: string; experiment: string; provider: string; model: string; contentHash: string; submitterRef: string | null; createdAt: string }
   const [pendingResults, setPendingResults] = useState<PendingResult[]>([]);
   const [resultBusy, setResultBusy] = useState<string | null>(null);
@@ -106,7 +119,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
         return;
       }
       setDomains(data.domains ?? []);
-      setAssignableExperiments(data.assignableExperiments ?? []);
+      setTier(data.authority?.tier ?? null);
       setInvitations(data.invitations ?? []);
       setGrants(data.grants ?? []);
       setApplications(data.applications ?? null);
@@ -147,9 +160,27 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
   const domain = domains.find((d) => d.id === activeDomain);
 
   useEffect(() => {
+    // The server returns only the domains this caller may steward. If the tab
+    // opened on one they cannot (a delegated venture steward defaulting to
+    // 'passport'), snap to the first they can rather than render an empty
+    // workspace that looks like "there is nothing here".
+    if (domains.length > 0 && !domains.some((d) => d.id === activeDomain)) {
+      setActiveDomain(domains[0].id);
+    }
+  }, [domains, activeDomain]);
+
+  useEffect(() => {
     // Keep the role select valid when switching domains.
     if (domain && !domain.roles.includes(formRole)) setFormRole(domain.roles[0] ?? '');
   }, [domain, formRole]);
+
+  // Scope selection is offered wherever the domain HAS a project catalogue —
+  // Research Lab experiments and Venture Lab pilot programmes are the same
+  // mechanism with two catalogues, so the UI branches on the data, never on a
+  // hardcoded domain id (which is how the RL-only version stayed RL-only).
+  const assignableScopes = domain?.assignableScopes ?? [];
+  const scopesOffered = assignableScopes.length > 0;
+  const scopeNoun = activeDomain === 'venture-lab' ? 'Pilot programmes' : 'Experiments';
 
   const issueInvitation = useCallback(async () => {
     if (!domain || !formRole) return;
@@ -167,10 +198,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
           maxUses: formMaxUses,
           expiresInDays: formExpiresDays || undefined,
           openPeerChannel: formOpenPeerChannel,
-          allowedExperiments:
-            domain?.id === 'research-lab'
-              ? [...formExperiments, ...(formOtherExperiment.trim() ? [formOtherExperiment.trim()] : [])]
-              : undefined,
+          allowedExperiments: (domain?.assignableScopes.length ?? 0) > 0
+            ? [...formExperiments, ...(formOtherExperiment.trim() ? [formOtherExperiment.trim()] : [])]
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -231,8 +261,10 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
           intendedRecipient: inv.intendedRecipient || undefined,
           maxUses: inv.maxUses,
           expiresInDays: remainingDays,
-          allowedExperiments:
-            inv.accessDomain === 'research-lab' ? (inv.allowedExperiments ?? []) : undefined,
+          // Reissue preserves the original scoping exactly — a reissue must
+          // never widen an invitation (the same containment the issue route
+          // enforces server-side).
+          allowedExperiments: inv.allowedExperiments ?? undefined,
         }),
       });
       const data = await res.json();
@@ -273,6 +305,29 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
     );
   }
 
+  // NOT A STEWARD — an honest closed state, not a raw 403 string.
+  //
+  // This surface is reachable from hosts whose own gate is broader than this
+  // workspace's (the Partner group's Tier 2 Collaborate view mounts it for any
+  // venture-lab participant). The server refuses correctly; what was wrong was
+  // showing the invitation-issuing workspace and then an error. A caller who
+  // cannot act is told so plainly instead (MS-9, in the only form available to
+  // a component that cannot un-mount itself).
+  if (tier === null || domains.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 text-xs text-slate-400">
+        <p className="flex items-center gap-1.5 font-medium text-slate-200">
+          <Gavel className="h-3.5 w-3.5" /> Steward workspace
+        </p>
+        <p className="mt-1 leading-snug">
+          Issuing and revoking invitations needs steward authority in this domain. Your
+          participation here does not carry it — a steward can grant it, and it will appear
+          in this workspace when they do.
+        </p>
+      </div>
+    );
+  }
+
   const domainInvitations = invitations.filter((i) => i.accessDomain === activeDomain);
   const domainGrants = grants.filter((g) => g.accessDomain === activeDomain);
 
@@ -307,6 +362,13 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
           applications stay participant-initiated (Review Queue). Both converge into
           the same access-grant record.
         </p>
+        {tier === 'delegated' && (
+          <p className="mt-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-[10px] leading-snug text-slate-400">
+            <span className="text-slate-200">Delegated authority.</span> You steward the
+            domains above and may invite people into the programmes you administer. Granting
+            steward authority itself stays a platform act.
+          </p>
+        )}
       </div>
 
       {/* Domain workspace */}
@@ -401,33 +463,38 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
             </label>
           </div>
 
-          {/* Experiment scoping — research-lab only. No selection = all
-              experiments; select a subset to restrict the reviewer. Acceptance
-              tests, reports, and plates always stay admin-only. */}
-          {activeDomain === 'research-lab' && (
+          {/* Project scoping — offered wherever the domain has a catalogue:
+              Research Lab experiments, Venture Lab pilot programmes. No
+              selection = the whole catalogue, UNLESS the caller's own authority
+              is scoped, in which case the server requires a selection (an
+              unrestricted invitation from a restricted steward would widen). */}
+          {scopesOffered && (
             <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
               <div className="mb-1.5 flex items-center justify-between">
                 <div className="text-[11px] text-slate-400">
-                  Experiments this invitation grants <span className="text-slate-500">(none = all)</span>
+                  {scopeNoun} this invitation grants{' '}
+                  <span className="text-slate-500">
+                    {domain?.scopeRequired ? '(selection required)' : '(none = all)'}
+                  </span>
                 </div>
                 <button
                   type="button"
                   onClick={() =>
                     setFormExperiments((prev) =>
-                      prev.length === assignableExperiments.length
+                      prev.length === assignableScopes.length
                         ? []
-                        : assignableExperiments.map((exp) => exp.id),
+                        : assignableScopes.map((exp) => exp.id),
                     )
                   }
                   className="text-[11px] font-medium text-violet-300 hover:text-violet-200"
                 >
-                  {formExperiments.length === assignableExperiments.length && assignableExperiments.length > 0
+                  {formExperiments.length === assignableScopes.length && assignableScopes.length > 0
                     ? 'Clear all'
                     : 'Select all'}
                 </button>
               </div>
               <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {assignableExperiments.map((exp) => {
+                {assignableScopes.map((exp) => {
                   const checked = formExperiments.includes(exp.id);
                   return (
                     <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
@@ -481,7 +548,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
                   {copied === 'url' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-slate-400 hover:text-white" />}
                 </button>
               </div>
-              {activeDomain === 'research-lab' && (
+              {scopesOffered && (
                 <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px]">
                   <span className="uppercase tracking-wide text-slate-500">Scoped to:</span>
                   {issued.allowedExperiments && issued.allowedExperiments.length > 0 ? (
@@ -489,7 +556,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
                       <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
                     ))
                   ) : (
-                    <span className="text-amber-300">ALL experiments (no restriction was saved — select experiments above before issuing to scope it)</span>
+                    <span className="text-amber-300">ALL of {scopeNoun.toLowerCase()} (no restriction was saved — select above before issuing to scope it)</span>
                   )}
                 </div>
               )}
@@ -562,9 +629,9 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
                         : <X className="h-3 w-3 text-slate-400 hover:text-red-400" />}
                     </button>
                   )}
-                  {activeDomain === 'research-lab' && (
+                  {scopesOffered && (
                     <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
-                      <span className="uppercase tracking-wide">Experiments:</span>
+                      <span className="uppercase tracking-wide">{scopeNoun}:</span>
                       {inv.allowedExperiments && inv.allowedExperiments.length > 0 ? (
                         inv.allowedExperiments.map((x) => (
                           <span key={x} className="rounded border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-indigo-300">{x}</span>
@@ -602,7 +669,7 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
                   )}
                   <span className={`shrink-0 ${g.status === 'active' ? 'text-emerald-300' : 'text-slate-500'}`}>{g.status}</span>
                   <span className="text-slate-500 shrink-0">{new Date(g.grantedAt).toLocaleDateString()}</span>
-                  {activeDomain === 'research-lab' && (
+                  {scopesOffered && (
                     <div className="basis-full flex flex-wrap items-center gap-1 pt-0.5 text-[10px] text-slate-500">
                       <span className="uppercase tracking-wide">Assigned:</span>
                       {g.allowedExperiments && g.allowedExperiments.length > 0 ? (
@@ -623,7 +690,10 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
         {/* Result publications — participant results awaiting public approval
             (mirrors the myCanvas publish-approval pattern). Cross-domain, shown
             on the research-lab workspace where results originate. */}
-        {activeDomain === 'research-lab' && (
+        {/* Result publications approval is estate-wide and its route is
+            platform-admin gated — MS-9: do not render it to a delegated
+            steward who could never act on it. */}
+        {activeDomain === 'research-lab' && tier === 'platform' && (
           <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-2">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
               <ShieldCheck className="h-4 w-4 text-amber-300" /> Result publications — pending approval ({pendingResults.length})

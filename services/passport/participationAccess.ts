@@ -72,7 +72,11 @@ export const DOMAIN_LABELS: Record<AccessDomain, string> = {
   'research-lab': 'Research Lab',
   'venture-lab': 'Venture Lab',
   'metame-studio': 'metaMe Studio',
-  'developer-studio': 'Developer Studio / Aigent Z',
+  // LABEL ONLY (2026-07-28 naming pass). The KEY 'developer-studio' is an
+  // identifier — it is the persisted `access_domain` value on every invitation
+  // and grant row, and the key of DOMAIN_ROLES / DOMAIN_STEWARD_ROLES — so it
+  // must not move. Only what a human reads changes.
+  'developer-studio': 'metaMe Studio (Dev)',
 };
 
 export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
@@ -95,6 +99,139 @@ export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
 
 export function isAccessDomain(v: string): v is AccessDomain {
   return (ACCESS_DOMAINS as readonly string[]).includes(v);
+}
+
+// ─── DELEGATED INVITATION AUTHORITY (operator, 2026-07-28) ───────────────────
+//
+// "There should be an admin gate on our side, which enables partners and
+// various parties to be invited. But a partner operator … should be able to
+// have rights to invite others to a pilot project or a research programme
+// accordingly … so that we don't become the gate for that."
+//
+// TWO AUTHORITIES, NOT ONE GATE WITH TWO AUDIENCES:
+//
+//   platform  — a platform admin. Admits a party into ANY domain and confers
+//               invitation authority itself (by inviting a steward role). This
+//               is the gate the operator explicitly keeps on our side.
+//   delegated — a persona holding an active STEWARD grant in a domain. May
+//               invite into THAT domain only, scoped to the projects/pilots
+//               their own grant covers, and may NOT confer a steward role.
+//
+// The whole security property is that `delegated` is derived SERVER-SIDE from
+// the caller's own grants (resolved through the spine), never from anything the
+// client sends. A domain in the request body is checked against this derivation
+// and refused if absent — a delegated inviter naming another domain is a
+// privilege-escalation attempt, not a valid request.
+
+/**
+ * The role in each domain that carries DELEGATED invitation authority — the
+ * partner-side / programme-side administrator. Derived designation over the
+ * existing DOMAIN_ROLES catalogue: no new role vocabulary, no schema change.
+ */
+export const DOMAIN_STEWARD_ROLES: Record<AccessDomain, string[]> = {
+  'passport': ['passport-steward'],
+  'research-lab': ['research-steward'],
+  // A partner administrator IS a workspace steward (the role added 2026-07-27
+  // for exactly this: "what someone is to a WORKSPACE"). `venture-steward` is
+  // the platform-side venture equivalent and carries the same authority.
+  'venture-lab': ['workspace-steward', 'venture-steward'],
+  'metame-studio': ['studio-steward'],
+  'developer-studio': ['development-steward'],
+};
+
+export type InvitationTier = 'platform' | 'delegated' | 'none';
+
+export interface InvitationAuthority {
+  tier: InvitationTier;
+  /** The domains this caller may issue into. Empty when tier === 'none'. */
+  domains: AccessDomain[];
+  /**
+   * Per-domain project/pilot/experiment scope the caller may confer, derived
+   * from their OWN grants. `'all'` means unrestricted WITHIN that domain (what
+   * a platform admin has, and what an unscoped steward grant confers).
+   */
+  scopes: Record<string, 'all' | string[]>;
+}
+
+/**
+ * Roles a caller of the given tier may CONFER in a domain.
+ *
+ * NO ROLE MAY GRANT ITSELF OR GRANT UPWARD. A delegated steward's issuable set
+ * excludes every steward role in the domain, so delegated authority cannot
+ * replicate itself and cannot hand out the authority that created it. Only a
+ * platform admin confers invitation authority — which is precisely the gate the
+ * operator asked to keep on our side.
+ */
+export function issuableRoles(domain: AccessDomain, tier: InvitationTier): string[] {
+  if (tier === 'platform') return DOMAIN_ROLES[domain];
+  if (tier === 'delegated') {
+    const stewardRoles = new Set(DOMAIN_STEWARD_ROLES[domain]);
+    return DOMAIN_ROLES[domain].filter((r) => !stewardRoles.has(r));
+  }
+  return [];
+}
+
+/**
+ * Resolve what a caller may invite, from platform-admin status plus the
+ * caller's OWN active grants. Pure — the caller resolves the grants through the
+ * spine and passes them in, so there is exactly one persona resolution per
+ * request and the gate cannot be handed a client-supplied identity.
+ */
+export function resolveInvitationAuthority(
+  isAdmin: boolean,
+  grants: { accessDomain: string; role: string; allowedScopes?: string[] | null }[],
+): InvitationAuthority {
+  if (isAdmin) {
+    const scopes: Record<string, 'all' | string[]> = {};
+    for (const d of ACCESS_DOMAINS) scopes[d] = 'all';
+    return { tier: 'platform', domains: [...ACCESS_DOMAINS], scopes };
+  }
+
+  const domains: AccessDomain[] = [];
+  const scopes: Record<string, 'all' | string[]> = {};
+  for (const g of grants) {
+    if (!isAccessDomain(g.accessDomain)) continue;
+    if (!DOMAIN_STEWARD_ROLES[g.accessDomain].includes(g.role)) continue;
+    if (!domains.includes(g.accessDomain)) domains.push(g.accessDomain);
+    const existing = scopes[g.accessDomain];
+    const own = g.allowedScopes;
+    // An unscoped steward grant is unrestricted within its domain; a scoped one
+    // contributes only its own ids. Unions across several grants.
+    if (!own || own.length === 0) scopes[g.accessDomain] = 'all';
+    else if (existing !== 'all') {
+      scopes[g.accessDomain] = Array.from(new Set([...(existing ?? []), ...own]));
+    }
+  }
+  if (domains.length === 0) return { tier: 'none', domains: [], scopes: {} };
+  return { tier: 'delegated', domains, scopes };
+}
+
+/**
+ * Is `requested` a legal scope for an invitation this authority issues in this
+ * domain? SCOPE CONTAINMENT — a delegated inviter can never widen beyond what
+ * they themselves hold, and must name a scope at all when their own is
+ * restricted (an unrestricted invitation from a restricted steward would be a
+ * silent widening).
+ */
+export function scopeWithinAuthority(
+  authority: InvitationAuthority,
+  domain: AccessDomain,
+  requested: string[],
+): { ok: true } | { ok: false; error: string } {
+  const own = authority.scopes[domain];
+  if (own === 'all' || own === undefined) return { ok: true };
+  const clean = requested.map((s) => s.trim()).filter(Boolean);
+  if (clean.length === 0) {
+    return {
+      ok: false,
+      error: `Your ${DOMAIN_LABELS[domain]} authority is scoped to ${own.join(', ')} — an invitation must name one of them.`,
+    };
+  }
+  const outside = clean.filter((s) => !own.includes(s));
+  if (outside.length > 0) {
+    return { ok: false, error: `Outside your authority: ${outside.join(', ')}` };
+  }
+  return { ok: true };
 }
 
 /**
@@ -235,21 +372,42 @@ export async function createAccessInvitation(
   return { ok: true, rawCode, invitation: toInvitationRow(data) };
 }
 
-export async function listAccessInvitations(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessInvitationRow[]> {
+/**
+ * `issuerPersonaId` narrows the list to invitations the caller issued — the
+ * read half of delegated authority. A delegated steward administers what they
+ * created; the estate-wide view stays a platform-admin capability.
+ */
+export async function listAccessInvitations(
+  admin: SupabaseClient,
+  domain?: AccessDomain,
+  issuerPersonaId?: string,
+): Promise<AccessInvitationRow[]> {
   let q = admin.from('access_invitations').select('*').order('created_at', { ascending: false });
   if (domain) q = q.eq('access_domain', domain);
+  if (issuerPersonaId) q = q.eq('issuer_persona_id', issuerPersonaId);
   const { data, error } = await q;
   if (error) return [];
   return (data ?? []).map(toInvitationRow);
 }
 
-export async function revokeAccessInvitation(admin: SupabaseClient, invitationId: string): Promise<boolean> {
-  const { data, error } = await admin
+/**
+ * `issuerPersonaId`, when supplied, constrains the revoke to invitations the
+ * caller issued. Enforced IN THE UPDATE PREDICATE, not by a read-then-write
+ * check, so there is no window in which another issuer's invitation could be
+ * revoked. Omitted only for a platform admin.
+ */
+export async function revokeAccessInvitation(
+  admin: SupabaseClient,
+  invitationId: string,
+  issuerPersonaId?: string,
+): Promise<boolean> {
+  let q = admin
     .from('access_invitations')
     .update({ status: 'revoked', revoked_at: new Date().toISOString() })
     .eq('id', invitationId)
-    .eq('status', 'active')
-    .select('id');
+    .eq('status', 'active');
+  if (issuerPersonaId) q = q.eq('issuer_persona_id', issuerPersonaId);
+  const { data, error } = await q.select('id');
   return !error && (data?.length ?? 0) > 0;
 }
 

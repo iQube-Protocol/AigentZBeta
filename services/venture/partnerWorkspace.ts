@@ -222,6 +222,22 @@ export function getPartnerWorkspace(id: string): PartnerWorkspace | null {
 }
 
 /**
+ * The pilot programmes an invitation can be scoped to in the `venture-lab`
+ * access domain — the Venture Lab counterpart of the Research Lab's
+ * ASSIGNABLE_EXPERIMENTS (operator, 2026-07-28: "VL Invitations should include
+ * pilot programs like RL includes experiments").
+ *
+ * DERIVED from PARTNER_WORKSPACES, never hand-listed (inv.engineering.036 —
+ * the same correction ASSIGNABLE_EXPERIMENTS took when its hand-copied array
+ * went stale). A new pilot in the registry is automatically invitable; there is
+ * no second place to remember.
+ */
+export const ASSIGNABLE_PILOTS: { id: string; label: string }[] = PARTNER_WORKSPACES.map((w) => ({
+  id: w.id,
+  label: `${w.partnerName} · Pilot Series ${w.series}`,
+}));
+
+/**
  * Display-name fallbacks for owner ids the canonical AigentQube profile map
  * does not (yet) carry. Sources: specialistRouter SPECIALIST_LABELS
  * ('Aigent Z', 'Aigent C') and the System Model's sovereign guardian
