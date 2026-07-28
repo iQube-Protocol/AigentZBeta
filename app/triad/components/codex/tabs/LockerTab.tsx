@@ -202,9 +202,22 @@ export function LockerTab() {
   const [x409Note, setX409Note] = useState<string | null>(null);
   const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
   const [peerExchangeCollapsed, setPeerExchangeCollapsed] = useState(true);
+  // Upload + Invitation collapse with the same affordance as the two panels
+  // above them, so every panel on this surface behaves the same way. Both
+  // default OPEN: unlike Peer Exchange they are the locker's primary actions,
+  // and a first-time holder with an empty locker must still see how to fill it.
+  const [uploadCollapsed, setUploadCollapsed] = useState(false);
+  const [invitationCollapsed, setInvitationCollapsed] = useState(false);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [messageSending, setMessageSending] = useState(false);
+
+  // Collapse is a display preference; work in flight is not. A panel whose
+  // action is running stays open regardless, so collapsing mid-upload cannot
+  // hide "Encrypting + publishing…" and leave the holder unable to tell
+  // whether their document is being written. Same for a claim in flight.
+  const uploadOpen = !uploadCollapsed || uploadBusy;
+  const invitationOpen = !invitationCollapsed || x409ClaimBusy;
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -306,7 +319,10 @@ export function LockerTab() {
     try {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('x409') || params.get('invite');
-      if (code) setX409Code(code);
+      // Expanding is part of pre-filling: an invitee who arrives on a deep
+      // link must land on a VISIBLE input. Pre-filling a collapsed panel
+      // would leave them staring at a locker with no sign of their invitation.
+      if (code) { setX409Code(code); setInvitationCollapsed(false); }
     } catch { /* non-fatal */ }
   }, []);
 
@@ -1055,10 +1071,23 @@ export function LockerTab() {
 
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-          <Upload className="h-4 w-4 text-violet-400" />
-          Upload to locker
-        </div>
+        <button
+          type="button"
+          onClick={() => setUploadCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+            <Upload className="h-4 w-4 text-violet-400" />
+            Upload to locker
+          </div>
+          {uploadOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {uploadOpen && (
+        <>
 
         {/* Document class selector */}
         <div className="relative">
@@ -1127,16 +1156,31 @@ export function LockerTab() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Encrypting + publishing…
           </p>
         )}
+        </>
+        )}
       </div>
 
       {/* x409 invitation claim — the contract-delivery seam (CFS-042/044).
           An invited party pastes (or arrives with ?x409=) their code and the
           agreement lands in this locker as a contract item to execute. */}
       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-violet-300" />
-          <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
-        </div>
+        <button
+          type="button"
+          onClick={() => setInvitationCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-violet-300" />
+            <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
+          </div>
+          {invitationOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {invitationOpen && (
+        <>
         <p className="text-[11px] text-slate-400">
           Invited to a contract or a permissioned area? Enter your invitation code. Contract invitations
           (x409-…) land the agreement in your locker to review and execute; access invitations (pinv-…)
@@ -1159,6 +1203,8 @@ export function LockerTab() {
           </button>
         </div>
         {x409Note && <p className="text-[11px] text-slate-300">{x409Note}</p>}
+        </>
+        )}
       </div>
 
       {/* Items list */}
