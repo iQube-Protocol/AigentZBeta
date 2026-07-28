@@ -57,6 +57,12 @@ const PII_ROUTES = [
   // tests/crm-investors-aggregate.test.ts for the field-shape/k-anonymity
   // canaries specific to this route.
   'app/api/crm/investors/aggregate/route.ts',
+  // Added 2026-07-28, same review pass: this route DID gate (unlike the four
+  // above, which had none) but on the requireAdmin stub — production-safe on
+  // its own terms (requires a matching x-admin-token header), but its own
+  // caller never sent one via bare fetch(), and it was inconsistent with
+  // every other investor-PII route. Migrated to requireAdminPersona.
+  'app/api/admin/investor-dashboard/route.ts',
 ];
 
 const HANDLER = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE)\s*\(/g;
@@ -128,10 +134,11 @@ describe('CRM / MVL personal-data routes are gated per handler', () => {
     const callers = [
       'app/triad/components/codex/tabs/InvestorDirectoryTab.tsx',
       'app/triad/components/codex/tabs/RelationshipBuilderTab.tsx',
+      'app/triad/components/codex/tabs/KnytInvestmentsAdminTab.tsx',
     ];
     for (const caller of callers) {
       const src = stripComments(readFileSync(caller, 'utf-8'));
-      const bare = [...src.matchAll(/(?<![A-Za-z])fetch\(\s*[`"']\/api\/(crm\/investors|mvl\/partners)/g)];
+      const bare = [...src.matchAll(/(?<![A-Za-z])fetch\(\s*[`"']\/api\/(crm\/investors|mvl\/partners|admin\/investor-dashboard)/g)];
       expect(
         bare.map((m) => m[0]),
         `${caller} calls a gated route with bare fetch() — it will 403`,

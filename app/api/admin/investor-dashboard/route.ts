@@ -12,12 +12,20 @@
  *
  * Plan: codexes/packs/agentiq/updates/2026-05-04_tasks-rewards-reputation-integration-plan.md § 4.3
  *
- * Auth: requireAdmin (header-based stub — IAM will replace).
+ * Auth: requireAdminPersona — spine-resolved (getActivePersona ->
+ * cartridgeFlags.isAdmin). Migrated 2026-07-28 from the requireAdmin stub,
+ * flagged during the same-day CRM PII incident review: this route DID gate
+ * (unlike the incident routes, which had none), but the stub returns true
+ * for any localhost/non-production request and requires a client-attached
+ * x-admin-token header in production — a header this route's own caller
+ * (KnytInvestmentsAdminTab) never sent via bare fetch(). Migrated for
+ * consistency with every other investor-PII route, not as an emergency
+ * patch of an open hole.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { requireAdmin } from '@/app/api/_lib/requireAdmin';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -54,7 +62,7 @@ interface DocumentRow {
 }
 
 export async function GET(request: NextRequest) {
-  if (!requireAdmin(request)) {
+  if (!(await requireAdminPersona(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
