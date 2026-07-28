@@ -5436,19 +5436,18 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 export const IRL_CARTRIDGE: CodexConfig = {
   id: 'irl-cartridge',
-  // TWO NAMES, ONE CARTRIDGE (operator, 2026-07-28): "IRL in side bar and
-  // Invariant Research Laboratory in cartridge header". `name` is the header,
-  // `shortName` is the picker — not a truncation of each other.
+  // TWO NAMES, ONE CARTRIDGE. `name` is the header, `shortName` is the
+  // sidebar/picker — not a truncation of each other.
   //
-  // ONTOLOGY OVERRIDE, FLAGGED FOR THE OPERATOR. `docs/platform-ontology.md`
-  // ("metaMe IRL") ratifies exactly three co-equal names — **metaMe Invariant
-  // Research Lab** (full), **metaMe IRL** (short), **IRL** (abbreviation) — and
-  // "Invariant Research Laboratory" is not among them. CLAUDE.md's first rule
-  // is that the ontology governs and a non-canonical spelling is a bug, so the
-  // header takes the ratified full name and the sidebar takes the ratified
-  // abbreviation the operator asked for. If the operator prefers "Invariant
-  // Research Laboratory", that is an ontology amendment, not a config edit.
-  name: 'metaMe Invariant Research Lab',
+  // Operator ruling 2026-07-28: "metaMe IRL is fine for header. IRL for
+  // sidebar. Invariant Research Lab should be added as well — doesn't always
+  // need the metaMe qualifier — so this should be added to the ontology."
+  // `docs/platform-ontology.md` § Invariant Research Lab (amended same date)
+  // now carries three contextual forms — full name, IRL, metaMe IRL — none a
+  // fallback for the others. This cartridge uses the branded form in the
+  // header (product context) and the abbreviation in the sidebar, per the
+  // operator's explicit choice for THIS surface.
+  name: 'metaMe IRL',
   shortName: 'IRL',
   slug: 'irl-cartridge',
   enabled: true,

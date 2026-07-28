@@ -121,30 +121,39 @@ sufficiently complete MAF.
 
 ---
 
-## metaMe IRL
+## Invariant Research Lab (IRL)
 
-**Canonical names (all three are correct, co-equal):**
-- **metaMe Invariant Research Lab** (full name)
-- **metaMe IRL** (short form)
-- **IRL** (abbreviation — always uppercase)
+**Canonical name:** **Invariant Research Lab**. The `metaMe` qualifier is CONTEXTUAL, not part of
+the canonical name (operator ruling, 2026-07-28) — it names the product/brand context the
+institution is being referenced from, the same way "metaMe Studio" names a product without making
+`metaMe` part of the word "Studio". Do not hard-code one display label for every surface; pick the
+form the context calls for from the three below.
+
+**Three correct forms, used contextually — none is "the" primary name that the others qualify:**
+
+| Form | Use when |
+|---|---|
+| **Invariant Research Lab** | canonical expansion; institutional/scientific contexts; anywhere the full name is written without needing product framing |
+| **IRL** | abbreviation — sidebars, compact UI, cross-references. Always uppercase. |
+| **metaMe IRL** | branded form — headers, marketing, external contexts where product qualification is appropriate |
 
 **Definition:** The platform's research laboratory — the constitutional scientific institution
-(institutionalised by CFS-019) under its ratified primary name. metaMe IRL pursues **Invariant
-Intelligence** and **Computational Epistemology**: the study of knowledge as a measurable
-computational object (`inv.epistemology.119`–`120`). Its founding research programme is
-**CRP-002 — Invariant Intelligence: Intent-Driven Knowledge Compression**, the first programme
-formally chartered under the Constitutional Research Program (CRP-001).
+(institutionalised by CFS-019). It pursues **Invariant Intelligence** and **Computational
+Epistemology**: the study of knowledge as a measurable computational object
+(`inv.epistemology.119`–`120`). Its founding research programme is **CRP-002 — Invariant
+Intelligence: Intent-Driven Knowledge Compression**, the first programme formally chartered under
+the Constitutional Research Program (CRP-001).
 
 **Former name:** "CCRL" / "Constitutional Cybernetics Research Laboratory" is SUPERSEDED
 (operator direction 2026-07-13) — do not use it in new copy. "Constitutional Cybernetics" remains
-the *discipline name* for Layer III of the lab's work (the study of governed adaptive systems).
-metaMe IRL is the institution's **primary name**; IRL is the abbreviation. This resolves the naming decision
-recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the earlier proposed external
-banner "Invariant Intelligence Research Institute" is superseded by **metaMe IRL**.
+the *discipline name* for Layer III of the lab's work (the study of governed adaptive systems). This
+resolves the naming decision recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the
+earlier proposed external banner "Invariant Intelligence Research Institute" is superseded by
+**Invariant Research Lab**.
 
-**Usage rule:** Prefer **metaMe IRL** (or **IRL**) as the institution's name in new copy and docs.
-"IRL" remains valid when naming the Constitutional Cybernetics discipline specifically. Never
-introduce other lab names.
+**Usage rule:** Choose the form the surface calls for — full name, `IRL`, or `metaMe IRL` — per the
+table above; none is a fallback for the others. "IRL" remains valid when naming the Constitutional
+Cybernetics discipline specifically. Never introduce other lab names.
 
 ---
 

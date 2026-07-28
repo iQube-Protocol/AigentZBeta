@@ -1589,19 +1589,23 @@ describe('cartridge display naming (docs/platform-ontology.md is the source of t
   it('IRL carries two ontology-ratified names, and neither is derived from the other', async () => {
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
     const ontology = readSource(ONTOLOGY);
-    const section = ontology.slice(ontology.indexOf('## metaMe IRL'));
-    expect(section.length, 'the metaMe IRL ontology entry is missing').toBeGreaterThan(200);
+    const section = ontology.slice(ontology.indexOf('## Invariant Research Lab (IRL)'));
+    expect(section.length, 'the Invariant Research Lab ontology entry is missing').toBeGreaterThan(200);
 
     // Both names must be strings the ontology itself ratifies.
     expect(section, 'the header name is not an ontology-ratified name').toContain(IRL_CARTRIDGE.name);
     expect(IRL_CARTRIDGE.shortName, 'IRL has no picker name').toBeTruthy();
     expect(section, 'the picker name is not an ontology-ratified name').toContain(IRL_CARTRIDGE.shortName!);
 
-    // …and they are genuinely two names. If the picker name were merely a
-    // prefix/suffix slice of the header, a truncation rule would have been
-    // reintroduced and `shortName` would be redundant.
-    expect(IRL_CARTRIDGE.name.startsWith(IRL_CARTRIDGE.shortName!)).toBe(false);
-    expect(IRL_CARTRIDGE.name.endsWith(IRL_CARTRIDGE.shortName!)).toBe(false);
+    // …and they are genuinely two names, not one collapsed into the other.
+    // The real guard against derivation-by-slicing is already above: both
+    // `name` and `shortName` must independently appear as ratified forms in
+    // the ontology section. A plain startsWith/endsWith check is NOT a safe
+    // second guard here, because the ontology's three forms legitimately nest
+    // — "metaMe IRL" ends in "IRL" by construction, since that form exists
+    // precisely to name IRL in a product/brand context. Flagging that nesting
+    // would penalise the correct configuration, not a truncation artifact.
+    expect(IRL_CARTRIDGE.name).not.toBe(IRL_CARTRIDGE.shortName);
 
     // The superseded lab name must not have come back with the rename.
     expect(IRL_CARTRIDGE.name).not.toMatch(/CCRL|Constitutional Cybernetics Research Laborator/);
