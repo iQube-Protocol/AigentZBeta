@@ -4,8 +4,10 @@
  *
  *   ?format=zip  → the extension source as a stored zip, ready to unzip and
  *                  "Load unpacked" in a Chromium-family browser.
- *   (no format)  → the integrity manifest: per-file sha256, bundle sha256, the
- *                  derived extension ID, and the install/verify/pairing steps.
+ *   (no format)  → the integrity manifest: per-file sha256, the source-tree
+ *                  commitment, the archive sha256, the derived extension ID,
+ *                  the provenance block (source commit, build time, target
+ *                  origin), and the install/verify/pairing steps.
  *
  * ── Why this route is UNAUTHENTICATED, and where the gate actually is ───────
  *
@@ -31,7 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { publicOrigin } from '@/utils/publicOrigin';
 import {
-  readExtensionFiles,
+  readExtensionDir,
   buildExtensionArtifactManifest,
   buildCompanionInstallBrief,
   writeStoreZip,
@@ -42,26 +44,40 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const files = readExtensionFiles();
+    const tree = readExtensionDir();
+    const origin = publicOrigin(request);
+    // Built once and shared by both branches, so the JSON manifest and the
+    // headers on the bytes can never describe two different artifacts.
+    const brief = buildCompanionInstallBrief(origin, buildExtensionArtifactManifest(tree));
+    const { artifact, provenance } = brief;
 
     if (request.nextUrl.searchParams.get('format') === 'zip') {
-      const manifest = buildExtensionArtifactManifest(files);
-      const zip = writeStoreZip(files);
+      const zip = writeStoreZip(tree.files);
       return new NextResponse(new Uint8Array(zip), {
         headers: {
           'Content-Type': 'application/zip',
-          'Content-Disposition': `attachment; filename="metame-companion-${manifest.version}.zip"`,
+          'Content-Disposition': `attachment; filename="metame-companion-${artifact.version}.zip"`,
           'Content-Length': String(zip.length),
-          // The bundle digest travels with the bytes so a download can be
-          // verified without a second request to the manifest.
-          'X-Companion-Bundle-Sha256': manifest.bundleSha256,
-          'X-Companion-Extension-Id': manifest.extensionId,
+          // Integrity + attribution travel with the bytes, so a download can be
+          // verified and attributed without a second request to the manifest.
+          // `archive` is the hash OF THESE BYTES; `bundle` is the source-tree
+          // commitment — different questions, so both are named explicitly.
+          'X-Companion-Archive-Sha256': artifact.archiveSha256,
+          'X-Companion-Bundle-Sha256': artifact.bundleSha256,
+          'X-Companion-Extension-Id': artifact.extensionId,
+          'X-Companion-Version': artifact.version,
+          // Absent rather than "unknown" when this deploy carries no commit
+          // signal: a header that is missing is legible, a fabricated one is not.
+          ...(provenance.sourceCommit ? { 'X-Companion-Source-Commit': provenance.sourceCommit } : {}),
+          // Response metadata. Deliberately NOT part of either digest above —
+          // if it were, the zip's hash would change on every request and the
+          // integrity claim would be worthless (see extensionArtifact.ts header).
+          'X-Companion-Built-At': provenance.builtAt,
           'Cache-Control': 'no-store',
         },
       });
     }
 
-    const brief = buildCompanionInstallBrief(publicOrigin(request), buildExtensionArtifactManifest(files));
     return NextResponse.json(brief, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     return NextResponse.json(

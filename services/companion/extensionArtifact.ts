@@ -19,7 +19,13 @@
  * `extension/companion-observer/` at request time; it is never a hand-kept
  * copy. There is no committed zip to go stale (CLAUDE.md "Extend, Don't
  * Duplicate" / `inv.engineering.036`-`037`). Add a file to the extension and it
- * is in the next download automatically.
+ * is in the next download automatically — *if* its type is on the pinned
+ * `COMPANION_BUNDLE_EXTENSIONS` allowlist. Membership of the directory is not
+ * membership of the artifact: a stray `.pem`, `.env`, `notes.md`, `.DS_Store`,
+ * or editor backup dropped into that folder would otherwise ship to every
+ * partner and silently move the artifact hash. Excluded names are reported on
+ * the manifest as `excluded[]` rather than dropped in silence, so the skip is
+ * visible instead of being its own quiet defect.
  *
  * **The extension ID is derived, not asserted.** `manifest.json` pins a `key`,
  * which pins the extension's ID across load-unpacked *and* a future Chrome Web
@@ -41,6 +47,29 @@
  * (method 0) zip is a short, fully-specified format; `writeStoreZip` emits one
  * deterministically (fixed DOS timestamp), and the canary verifies it by
  * extracting it with a real extractor and re-hashing every member.
+ *
+ * ── Determinism is the integrity claim; the clock is quarantined ───────────
+ *
+ * `bundleSha256` and `archiveSha256` are worth nothing if they move on every
+ * request. They cannot: `buildExtensionArtifactManifest` and `writeStoreZip`
+ * are pure functions of the file bytes. Nothing on a digest path reads the
+ * clock, the environment, or the request.
+ *
+ * `builtAt` — and the whole `provenance` block — therefore lives on the
+ * *brief*, never on the manifest. `ExtensionArtifactManifest` has no timestamp
+ * field to accidentally fold into a hash, which is the structural reason a
+ * later edit cannot reintroduce per-request drift. The canary pins this by
+ * rebuilding under two very different fake system clocks and asserting the
+ * digests are identical while `builtAt` differs.
+ *
+ * Two digests are published because they answer two different questions, and
+ * conflating them sends a partner down a dead end:
+ *   - `archiveSha256` — sha256 of the .zip bytes actually served. This is what
+ *     `shasum -a 256 metame-companion-<v>.zip` prints.
+ *   - `bundleSha256`  — a commitment over the SOURCE TREE (a digest of the
+ *     per-file digests). It does NOT equal the hash of the .zip, and never did;
+ *     the brief now says so, because the previous copy invited exactly that
+ *     mistake.
  */
 
 import { createHash } from 'crypto';
@@ -52,6 +81,42 @@ export const COMPANION_EXTENSION_DIR = 'extension/companion-observer';
 
 /** Folder name inside the archive, so unzipping yields a load-unpacked-ready dir. */
 export const COMPANION_EXTENSION_ARCHIVE_ROOT = 'companion-observer';
+
+/**
+ * The PINNED set of file types that may enter the artifact — the exclusion rule
+ * expressed as an allowlist rather than a denylist, deliberately.
+ *
+ * A denylist ("skip `.DS_Store` and editor backups") only stops the strays you
+ * thought of; `notes.md`, `key.pem`, `.env.local`, or a stale `bundle.zip` would
+ * still ship to every partner over an ungated route. An allowlist is closed by
+ * construction: only things a Manifest V3 extension can actually load get in.
+ *
+ * This is the one place the exclusion policy exists. Widening it is a decision
+ * about what a public, unauthenticated download may contain — make it here, and
+ * the canary will tell you what it now admits.
+ */
+export const COMPANION_BUNDLE_EXTENSIONS: readonly string[] = [
+  '.css',
+  '.html',
+  '.js',
+  '.json',
+  '.png',
+  '.svg',
+  '.webp',
+  '.woff2',
+];
+
+/**
+ * Is this directory entry part of the distribution artifact?
+ *
+ * Dotfiles are refused outright before the extension check, because the risky
+ * ones (`.env`, `.env.local`, `.npmrc`, `.DS_Store`) either have no extension or
+ * have a deceptive one, and none of them is loadable by Chrome anyway.
+ */
+export function isBundledExtensionFile(name: string): boolean {
+  if (name.startsWith('.')) return false;
+  return COMPANION_BUNDLE_EXTENSIONS.includes(path.extname(name).toLowerCase());
+}
 
 export interface ExtensionFile {
   /** Path relative to COMPANION_EXTENSION_DIR (the extension is flat today). */
@@ -73,8 +138,29 @@ export interface ExtensionArtifactManifest {
   /** Chromium-family only — MV3 is not Firefox's or Safari's model. */
   browserSupport: 'chromium-mv3';
   files: ExtensionFileDigest[];
-  /** sha256 over the concatenated `path\0sha256\n` lines, in `files` order. */
+  /**
+   * SOURCE-TREE commitment: sha256 over the concatenated `path\0sha256\n`
+   * lines, in `files` order. This is NOT the hash of the .zip — see
+   * `archiveSha256` for the value `shasum` prints on the download.
+   */
   bundleSha256: string;
+  /**
+   * sha256 of the served .zip bytes — the artifact-instance hash. Deterministic
+   * (the writer normalises timestamps and permissions), so it is stable for a
+   * given source tree rather than per-request.
+   */
+  archiveSha256: string;
+  /**
+   * Names present in the extension directory that the pinned allowlist kept OUT
+   * of the artifact. Reported so an exclusion is visible rather than silent;
+   * feeds neither digest, so a stray file cannot move the artifact hash.
+   */
+  excluded: string[];
+}
+
+export interface ExtensionSourceTree {
+  files: ExtensionFile[];
+  excluded: string[];
 }
 
 function extensionRoot(): string {
@@ -82,16 +168,30 @@ function extensionRoot(): string {
 }
 
 /**
- * Read every file of the extension source, sorted by path so the bundle hash is
- * stable across filesystems (readdir order is not guaranteed).
+ * Read the extension source directory, split into what ships and what does not.
+ *
+ * Names are sorted before anything else, so file ORDER — which `writeStoreZip`
+ * preserves and both digests depend on — is a property of the path string and
+ * not of `readdir`'s filesystem-dependent ordering.
  */
-export function readExtensionFiles(): ExtensionFile[] {
+export function readExtensionDir(): ExtensionSourceTree {
   const root = extensionRoot();
-  return readdirSync(root, { withFileTypes: true })
+  const names = readdirSync(root, { withFileTypes: true })
     .filter((e) => e.isFile())
     .map((e) => e.name)
-    .sort()
-    .map((name) => ({ path: name, bytes: readFileSync(path.join(root, name)) }));
+    .sort();
+
+  return {
+    files: names
+      .filter(isBundledExtensionFile)
+      .map((name) => ({ path: name, bytes: readFileSync(path.join(root, name)) })),
+    excluded: names.filter((name) => !isBundledExtensionFile(name)),
+  };
+}
+
+/** The shipping files only — the common case. */
+export function readExtensionFiles(): ExtensionFile[] {
+  return readExtensionDir().files;
 }
 
 /**
@@ -108,7 +208,19 @@ function sha256Hex(b: Buffer): string {
   return createHash('sha256').update(b).digest('hex');
 }
 
-export function buildExtensionArtifactManifest(files = readExtensionFiles()): ExtensionArtifactManifest {
+/**
+ * Build the integrity manifest. A PURE function of the source bytes — no clock,
+ * no environment, no request. That purity is the whole integrity claim: the same
+ * tree must produce the same `bundleSha256` and `archiveSha256` on every
+ * request, or a partner cannot use either value to verify anything.
+ *
+ * Accepts either a bare file list (tests, and callers that have already read the
+ * tree) or the full `ExtensionSourceTree` so `excluded[]` can be reported.
+ */
+export function buildExtensionArtifactManifest(
+  source: ExtensionFile[] | ExtensionSourceTree = readExtensionDir(),
+): ExtensionArtifactManifest {
+  const { files, excluded } = Array.isArray(source) ? { files: source, excluded: [] as string[] } : source;
   const manifestFile = files.find((f) => f.path === 'manifest.json');
   if (!manifestFile) throw new Error('companion extension manifest.json not found');
   const parsed = JSON.parse(manifestFile.bytes.toString('utf8')) as { version?: unknown; key?: unknown };
@@ -127,6 +239,10 @@ export function buildExtensionArtifactManifest(files = readExtensionFiles()): Ex
     browserSupport: 'chromium-mv3',
     files: digests,
     bundleSha256: sha256Hex(Buffer.from(digests.map((d) => `${d.path}\0${d.sha256}\n`).join(''), 'utf8')),
+    // Computed from the same writer the download route uses, so the advertised
+    // artifact hash cannot drift from the bytes actually served.
+    archiveSha256: sha256Hex(writeStoreZip(files)),
+    excluded,
   };
 }
 
@@ -149,7 +265,16 @@ function crc32(buf: Buffer): number {
 }
 
 // Fixed DOS timestamp (1980-01-01 00:00) keeps the archive byte-identical for
-// identical inputs — a partner can re-download and diff.
+// identical inputs — a partner can re-download and diff. Never `Date.now()`:
+// a live timestamp here would change `archiveSha256` on every request and the
+// integrity claim would collapse into noise.
+//
+// Permissions are normalised the same way and for the same reason: the external
+// attributes field of every central-directory header is written as literal 0
+// (see `cdh.writeUInt32LE(0, 38)`), so the server's umask and the checked-out
+// file modes cannot leak into the archive bytes. mtime and mode are the only two
+// environmental inputs a zip writer normally admits; both are pinned to
+// constants. The canary parses the emitted archive and asserts both.
 const DOS_TIME = 0;
 const DOS_DATE = 0x0021;
 
@@ -219,10 +344,101 @@ export function writeStoreZip(files: ExtensionFile[], root = COMPANION_EXTENSION
   return Buffer.concat([...local, cd, eocd]);
 }
 
+// ── Provenance: what makes a downloaded artifact ATTRIBUTABLE ───────────────
+
+/**
+ * Where the source commit came from — always stated, so a null is legible as
+ * "this deploy carries no commit signal" rather than as an error or, worse, as
+ * a fabricated value.
+ */
+export type SourceCommitSource = 'COMMIT_SHA' | 'BACKEND_VERSION' | 'unset';
+
+export interface CompanionArtifactProvenance {
+  /** Full or short git SHA of the tree this artifact was built from, or null. */
+  sourceCommit: string | null;
+  sourceCommitSource: SourceCommitSource;
+  /** Non-null only when unattributed: names the exact env var to set, and why. */
+  sourceCommitNote: string | null;
+  /**
+   * When this RESPONSE was produced. Response metadata only — it is deliberately
+   * not on `ExtensionArtifactManifest`, so it can never reach a digest. See the
+   * module header.
+   */
+  builtAt: string;
+  /** The deployment that served this artifact. */
+  targetOrigin: string;
+}
+
+/**
+ * Read the commit-SHA signals. Kept as literal `process.env.X` member
+ * expressions (not `env[name]` lookups) because Next inlines statically
+ * analysable server env references at build time; a dynamic lookup would read
+ * an empty runtime env and silently report "unset" on every deploy.
+ */
+export interface CommitEnv {
+  COMMIT_SHA?: string;
+  BACKEND_VERSION?: string;
+}
+
+function commitEnv(): CommitEnv {
+  return {
+    COMMIT_SHA: process.env.COMMIT_SHA,
+    BACKEND_VERSION: process.env.BACKEND_VERSION,
+  };
+}
+
+/**
+ * Resolve the commit this artifact was built from, honestly.
+ *
+ * `COMMIT_SHA` is this repo's existing name for the value — `scripts/generate-
+ * commit-artifacts.js` reads it, and `.github/workflows/update-codex-on-push.yml`
+ * sets it. It is reused rather than replaced with a second name for one value
+ * (`inv.engineering.036`/`037`).
+ *
+ * But that workflow is GitHub Actions, and this code runs on Amplify. As of
+ * 2026-07-28 `COMMIT_SHA` is in neither `amplify.yml` nor the
+ * `scripts/create-env-production.js` allowlist, so it does NOT reach the
+ * deployed runtime. What DOES reach it is `BACKEND_VERSION` — `amplify.yml`
+ * appends `"${AWS_BRANCH}-${AWS_COMMIT_ID}"` to `.env.production`, and
+ * `app/api/diag/route.ts` already reads it at runtime — so the commit is
+ * recoverable today from its trailing hex segment. That is a fallback, not the
+ * preferred shape: `sourceCommitSource` records which one fired.
+ *
+ * When neither is present the answer is `null` with a note naming the fix. A
+ * plausible-looking SHA is never invented, and the string "unknown" is never
+ * passed off as attribution.
+ */
+export function resolveSourceCommit(
+  env: CommitEnv = commitEnv(),
+): Omit<CompanionArtifactProvenance, 'builtAt' | 'targetOrigin'> {
+  const explicit = (env.COMMIT_SHA || '').trim();
+  if (/^[0-9a-f]{7,40}$/i.test(explicit)) {
+    return { sourceCommit: explicit.toLowerCase(), sourceCommitSource: 'COMMIT_SHA', sourceCommitNote: null };
+  }
+
+  // `${AWS_BRANCH}-${AWS_COMMIT_ID}` — branch names may contain '-' and '/', so
+  // anchor on the trailing hex run rather than splitting on the separator.
+  const derived = /-([0-9a-f]{7,40})$/i.exec((env.BACKEND_VERSION || '').trim());
+  if (derived) {
+    return { sourceCommit: derived[1].toLowerCase(), sourceCommitSource: 'BACKEND_VERSION', sourceCommitNote: null };
+  }
+
+  return {
+    sourceCommit: null,
+    sourceCommitSource: 'unset',
+    sourceCommitNote:
+      'This deployment exposes no commit signal, so the artifact cannot be attributed to a source revision. ' +
+      'Set COMMIT_SHA in the build environment (amplify.yml already has AWS_COMMIT_ID available) — ' +
+      'no SHA has been guessed to fill this field.',
+  };
+}
+
 // ── The install brief the Threshold Gateway hands a crossed Companion ────────
 
 export interface CompanionInstallBrief {
   artifact: ExtensionArtifactManifest;
+  /** Attribution for THIS response — commit, build time, serving origin. */
+  provenance: CompanionArtifactProvenance;
   downloadUrl: string;
   manifestUrl: string;
   /** Not registered with the Chrome Web Store yet — deliberately null, never guessed. */
@@ -246,6 +462,9 @@ export interface CompanionInstallBrief {
 export function buildCompanionInstallBrief(origin: string, artifact = buildExtensionArtifactManifest()): CompanionInstallBrief {
   return {
     artifact,
+    // The ONLY clock read in this module, and it lands on the brief — never on
+    // the manifest, never in the zip. See the module header.
+    provenance: { ...resolveSourceCommit(), builtAt: new Date().toISOString(), targetOrigin: origin },
     downloadUrl: `${origin}/api/companion/extension?format=zip`,
     manifestUrl: `${origin}/api/companion/extension`,
     storeListingUrl: null,
@@ -263,8 +482,15 @@ export function buildCompanionInstallBrief(origin: string, artifact = buildExten
     ],
     verify: [
       `The extension ID is pinned by the "key" in manifest.json, so it is the same for this unpacked load as for any future Chrome Web Store listing. It MUST read ${artifact.extensionId}. A different ID means a different, unverified build — remove it.`,
-      `Bundle sha256: ${artifact.bundleSha256}. Per-file sha256 values are at ${origin}/api/companion/extension.`,
-      'Recompute with: shasum -a 256 companion-observer/* — each value must match the per-file manifest.',
+      // Two digests, named apart on purpose: the previous wording offered only
+      // the tree commitment next to a download link, so the obvious next move —
+      // hashing the .zip — produced a mismatch against a value that was never
+      // the zip's hash.
+      `Archive sha256 (the .zip itself): ${artifact.archiveSha256}. Recompute with: shasum -a 256 metame-companion-${artifact.version}.zip`,
+      `Source-tree commitment: ${artifact.bundleSha256} — a digest OVER the per-file digests, not over the .zip bytes. Per-file sha256 values are at ${origin}/api/companion/extension.`,
+      'Recompute the per-file values with: shasum -a 256 companion-observer/* — each must match the per-file manifest.',
+      // The build is byte-reproducible, so this is a real check, not a slogan.
+      'Both digests are reproducible: the archive normalises timestamps (all entries 1980-01-01) and permissions (external attributes 0), so re-downloading the same build yields a byte-identical .zip you can diff.',
     ],
     pairing: [
       `Installing grants nothing. The Companion holds no session until your principal pairs it, and pairing uses THEIR own signed-in session — never yours.`,
