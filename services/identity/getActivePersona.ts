@@ -34,6 +34,7 @@ import {
 } from '@/services/identity/personaSessionToken';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCartridgeAdminGrants } from '@/services/access/cartridgeAdminGrants';
+import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
 
 import type {
   ActivePersonaContext,
@@ -182,6 +183,31 @@ interface OwnedPersonaRow {
   id: string;
   default_identity_state: string | null;
   fio_handle: string | null;
+  app_origin: string | null;
+}
+
+/**
+ * Pure. Stable-sorts delegated agent personas (app_origin ===
+ * AIGENT_ME_APP_ORIGIN, e.g. the citizen's own aigentMe,
+ * services/agents/provisionAigentMePersona.ts) to the END of an
+ * already-created_at-ordered row list. Exported for direct, DB-free
+ * behavioural testing — the same reason selectPersonaChoice in
+ * passportPendingAuth.ts is pure and exported.
+ *
+ * Agent rows are NEVER removed, only reordered: explicit selection via
+ * session token, header, or URL param (resolveActivePersonaId steps 1-3)
+ * must still validate against the full returned array. Only the step-4
+ * "first owned persona" IMPLICIT fallback is affected by the ordering.
+ * Without this, a citizen whose aigentMe was provisioned before their first
+ * real persona (or who simply has an earlier created_at on the agent row)
+ * silently resolves as their delegate agent instead of themselves.
+ */
+export function sortOwnedPersonaRowsAgentLast<T extends { app_origin: string | null }>(
+  rows: readonly T[],
+): T[] {
+  const nonAgent = rows.filter((r) => r.app_origin !== AIGENT_ME_APP_ORIGIN);
+  const agent = rows.filter((r) => r.app_origin === AIGENT_ME_APP_ORIGIN);
+  return [...nonAgent, ...agent];
 }
 
 async function listOwnedPersonas(
@@ -193,18 +219,25 @@ async function listOwnedPersonas(
 
   const { data, error } = await admin
     .from('personas')
-    .select('id,default_identity_state,fio_handle,created_at')
+    .select('id,default_identity_state,fio_handle,app_origin,created_at')
     .in('auth_profile_id', visibleAuthProfileIds)
     .eq('status', 'active')
     .order('created_at', { ascending: true });
 
   if (error) return { personas: [], linkedAuthProfileIds };
-  const rows = (data || []) as Array<{ id: string; default_identity_state: string | null; fio_handle: string | null }>;
+  const rows = (data || []) as Array<{
+    id: string;
+    default_identity_state: string | null;
+    fio_handle: string | null;
+    app_origin: string | null;
+  }>;
+  const ordered = sortOwnedPersonaRowsAgentLast(rows);
   return {
-    personas: rows.map((row) => ({
+    personas: ordered.map((row) => ({
       id: String(row.id),
       default_identity_state: row.default_identity_state ?? null,
       fio_handle: row.fio_handle ?? null,
+      app_origin: row.app_origin ?? null,
     })),
     linkedAuthProfileIds,
   };

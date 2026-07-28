@@ -20,10 +20,13 @@ import {
   toPersonaChoice,
   sha256,
   spendPendingAuth,
+  listCandidatePersonas,
   type CandidatePersona,
 } from '@/services/identity/passportPendingAuth';
 import { establishWalletBindingForRoot } from '@/services/identity/walletAliasService';
 import { personaPublicRef } from '@/services/identity/personaReferences';
+import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
+import { sortOwnedPersonaRowsAgentLast } from '@/services/identity/getActivePersona';
 
 // walletAliasService's HMAC helpers (buildAddressFingerprint, etc.) require a
 // real server secret at call time. This is a test-only value — never used to
@@ -212,6 +215,111 @@ describe('canaries 3 & 4 — every owned persona is offered, and the chosen one 
       expect(result.choice.personaPublicRef).toBe(bobRef);
       expect(result.choice.displayLabel).toBe('Bob');
     }
+  });
+});
+
+// ─── Canary 10 (2026-07-28 aigentMe-default correction) — the Passport-native
+// persona choice list never offers the citizen's own delegated aigentMe as a
+// personhood destination. Behavioural — drives the real query against the
+// fake, so it proves the actual filter runs, not just that the source
+// mentions AIGENT_ME_APP_ORIGIN somewhere. ─────────────────────────────────
+
+describe('canary 10 — listCandidatePersonas excludes the citizen\'s own aigentMe agent persona', () => {
+  it('an aigentMe row mixed among human personas is filtered out of the choice list', async () => {
+    const fake = new FakeSupabase().queueResult({
+      data: [
+        { id: 'persona-agent-uuid', display_name: 'aigentMe', avatar_uri: null, fio_handle: null, app_origin: AIGENT_ME_APP_ORIGIN },
+        { id: 'persona-alice-uuid', display_name: 'Alice', avatar_uri: null, fio_handle: null, app_origin: null },
+        { id: 'persona-bob-uuid', display_name: 'Bob', avatar_uri: null, fio_handle: null, app_origin: null },
+      ],
+      error: null,
+    });
+    const candidates = await listCandidatePersonas(fakeClient(fake), 'auth-profile-1');
+    expect(candidates.map((c) => c.id).sort()).toEqual(['persona-alice-uuid', 'persona-bob-uuid']);
+    expect(candidates.some((c) => c.id === 'persona-agent-uuid')).toBe(false);
+  });
+
+  it('an aigentMe row with an earlier created_at (sorted first by the query) is STILL excluded, not merely reordered', async () => {
+    // Regression shape this canary must catch: a fix that only re-sorts
+    // instead of filtering would still leak the agent persona into the
+    // returned array, just in a different position.
+    const fake = new FakeSupabase().queueResult({
+      data: [
+        { id: 'persona-agent-uuid', display_name: 'aigentMe', avatar_uri: null, fio_handle: null, app_origin: AIGENT_ME_APP_ORIGIN },
+      ],
+      error: null,
+    });
+    const candidates = await listCandidatePersonas(fakeClient(fake), 'auth-profile-1');
+    expect(candidates).toEqual([]);
+  });
+
+  it('a citizen with only human personas is unaffected — nothing is dropped when no agent persona exists', async () => {
+    const fake = new FakeSupabase().queueResult({
+      data: [
+        { id: 'persona-alice-uuid', display_name: 'Alice', avatar_uri: null, fio_handle: null, app_origin: null },
+      ],
+      error: null,
+    });
+    const candidates = await listCandidatePersonas(fakeClient(fake), 'auth-profile-1');
+    expect(candidates.map((c) => c.id)).toEqual(['persona-alice-uuid']);
+  });
+
+  it('structural: the exclusion filter is present in source, keyed off AIGENT_ME_APP_ORIGIN — not a hardcoded string', () => {
+    const code = stripComments(readSource(PENDING_AUTH_SERVICE));
+    expect(code).toMatch(/app_origin[\s\S]{0,40}!==[\s\S]{0,10}AIGENT_ME_APP_ORIGIN/);
+  });
+});
+
+// ─── Canary 11 (2026-07-28 aigentMe-default correction) — getActivePersona's
+// step-4 "first owned persona" implicit fallback never resolves to the
+// citizen's own delegated aigentMe ahead of a human-facing persona. Unlike
+// canary 10, the agent row is NOT removed here — getActivePersona's own
+// resolveActivePersonaId steps 1-3 (session token / header / URL param) must
+// still be able to validate an EXPLICIT choice of the aigentMe persona
+// against this array. Only its position in the implicit-fallback ordering
+// changes. ───────────────────────────────────────────────────────────────
+
+describe('canary 11 — sortOwnedPersonaRowsAgentLast never lets the fallback resolve to the citizen\'s own aigentMe', () => {
+  const agentRow = { id: 'persona-agent-uuid', app_origin: AIGENT_ME_APP_ORIGIN };
+  const aliceRow = { id: 'persona-alice-uuid', app_origin: null };
+  const bobRow = { id: 'persona-bob-uuid', app_origin: null };
+
+  it('an agent row with the EARLIEST created_at (first in input order) is moved past every human row', () => {
+    const input = [agentRow, aliceRow, bobRow];
+    const result = sortOwnedPersonaRowsAgentLast(input);
+    expect(result[0].id).toBe('persona-alice-uuid');
+    expect(result[result.length - 1].id).toBe('persona-agent-uuid');
+    // Step-4 fallback picks index 0 — must never be the agent row.
+    expect(result[0].app_origin).not.toBe(AIGENT_ME_APP_ORIGIN);
+  });
+
+  it('the agent row is REORDERED, never dropped — explicit selection (steps 1-3) must still validate it', () => {
+    const input = [agentRow, aliceRow];
+    const result = sortOwnedPersonaRowsAgentLast(input);
+    expect(result.map((r) => r.id).sort()).toEqual(['persona-agent-uuid', 'persona-alice-uuid'].sort());
+    expect(result).toHaveLength(2);
+  });
+
+  it('relative order among non-agent rows is preserved (stable sort)', () => {
+    const input = [bobRow, agentRow, aliceRow];
+    const result = sortOwnedPersonaRowsAgentLast(input);
+    expect(result.map((r) => r.id)).toEqual(['persona-bob-uuid', 'persona-alice-uuid', 'persona-agent-uuid']);
+  });
+
+  it('no agent row present — order is unchanged', () => {
+    const input = [bobRow, aliceRow];
+    expect(sortOwnedPersonaRowsAgentLast(input)).toEqual(input);
+  });
+
+  it('only an agent row present — returned unchanged (nothing to fall back to but the agent itself)', () => {
+    const input = [agentRow];
+    expect(sortOwnedPersonaRowsAgentLast(input)).toEqual(input);
+  });
+
+  it('structural: listOwnedPersonas\' query result is passed through the sort before being returned', () => {
+    const code = stripComments(readSource('services/identity/getActivePersona.ts'));
+    expect(code).toMatch(/const ordered = sortOwnedPersonaRowsAgentLast\(rows\)/);
+    expect(code).toMatch(/personas: ordered\.map/);
   });
 });
 

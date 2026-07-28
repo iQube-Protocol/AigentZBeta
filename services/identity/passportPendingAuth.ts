@@ -64,6 +64,7 @@ import {
   getSupabaseAdminClient,
   getOrCreateCanonicalAuthProfileId,
 } from '@/services/wallet/personaRepo';
+import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
 
 // ─── PersonaChoice — the ONLY shape a pre-session/pending-auth response may
 // carry for a persona (ruling 2). ───────────────────────────────────────────
@@ -376,14 +377,25 @@ export async function listCandidatePersonas(
 ): Promise<CandidatePersona[]> {
   const { data, error } = await supabase
     .from('personas')
-    .select('id, display_name, avatar_uri, fio_handle')
+    .select('id, display_name, avatar_uri, fio_handle, app_origin')
     .eq('auth_profile_id', authProfileId)
     .order('created_at', { ascending: true });
   if (error || !data) return [];
-  return (data as Array<Record<string, unknown>>).map((r) => ({
-    id: String(r.id),
-    displayLabel: (r.display_name as string) || (r.fio_handle as string) || 'Persona',
-    avatarUrl: (r.avatar_uri as string) ?? null,
-    personaType: null,
-  }));
+  // This list is a personhood/human-identity choice — "which of MY human
+  // personas am I connecting as" — not an agent-delegation picker. A
+  // citizen's own aigentMe (app_origin === AIGENT_ME_APP_ORIGIN,
+  // provisionAigentMePersona.ts) is deliberately excluded entirely, not just
+  // de-prioritised: it never presents as a verified human
+  // (default_identity_state: 'anonymous') and offering it here as a Passport
+  // proof destination would let a first-time connection resolve to the
+  // delegate agent instead of the principal. Explicit act-as-agent selection
+  // is a separate, already-authenticated wallet-switcher flow, not this one.
+  return (data as Array<Record<string, unknown>>)
+    .filter((r) => (r.app_origin as string | null) !== AIGENT_ME_APP_ORIGIN)
+    .map((r) => ({
+      id: String(r.id),
+      displayLabel: (r.display_name as string) || (r.fio_handle as string) || 'Persona',
+      avatarUrl: (r.avatar_uri as string) ?? null,
+      personaType: null,
+    }));
 }
