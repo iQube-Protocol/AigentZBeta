@@ -38,10 +38,22 @@
 
   console.log(`%cAttempted ${body.attempted}, verified ${body.verified}.`, 'font-weight:bold');
   for (const entry of body.perEntry ?? []) {
-    const status = entry.outcome?.status;
-    const style = status === 'verified' ? 'color:#34d399' : 'color:#f87171';
-    console.log(`%c${status === 'verified' ? '✓' : '✕'} ${entry.pillarKey} · ${entry.institutionName} — ${status}`, style);
-    if (status !== 'verified' && entry.outcome?.reason) console.log(`    reason: ${entry.outcome.reason}`);
+    // Two distinct failure shapes, never collapse them: `entry.outcome` is
+    // present when a run actually executed (status is 'verified' or a real
+    // RUN_OUTCOME_STATUS); `entry.error` is present when the run never
+    // started at all (e.g. the transition guard refused it). Logging only
+    // outcome?.status silently printed "undefined" for every row the first
+    // time this ran — the real reason (a structural deadlock, not a bad URL)
+    // was on `entry.error` and never appeared anywhere.
+    if (entry.outcome) {
+      const status = entry.outcome.status;
+      const style = status === 'verified' ? 'color:#34d399' : 'color:#f87171';
+      console.log(`%c${status === 'verified' ? '✓' : '✕'} ${entry.pillarKey} · ${entry.institutionName} — ${status}`, style);
+      if (status !== 'verified' && entry.outcome.reason) console.log(`    reason: ${entry.outcome.reason}`);
+    } else {
+      console.log(`%c⚠ ${entry.pillarKey} · ${entry.institutionName} — run never started`, 'color:#fbbf24');
+      console.log(`    error: ${entry.error ?? '(no error message returned)'}`);
+    }
   }
   if (body.verified < body.attempted) {
     console.warn(`${body.attempted - body.verified} institution(s) did not verify — their document URLs did not resolve to a qualifying source. These will not contribute evidence until fixed.`);

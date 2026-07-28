@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   COMMERCIALISATION_REGISTRY,
@@ -942,6 +942,60 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
     }
     expect(VERIFY_SEED).toMatch(/ADD COLUMN IF NOT EXISTS verification_status text/);
     expect(VERIFY_SEED).toMatch(/CREATE TABLE IF NOT EXISTS/);
+  });
+
+  it('no migration seeds a row into a verification state it cannot itself run from — the 2026-07-28 deadlock', () => {
+    // THE BUG. 20260828000000 set verification_status = 'pending_verification'
+    // directly on INSERT/UPDATE, meaning "a run is in flight" for rows on
+    // which no run had ever started. isVerificationTransitionAllowed refuses
+    // to re-enter 'pending_verification' FROM 'pending_verification' — by
+    // design: a self-transition would let a caller re-declare "in flight"
+    // without ever running anything, which is exactly the shortcut that
+    // would make 'verified' reachable without a real check. So every one of
+    // the 40 commercialisation rows refused verifyInstitutionEntry with
+    // "cannot start verification from 'pending_verification'" — a live
+    // deadlock the operator hit running the real script, not a hypothetical.
+    //
+    // The two migrations that caused this are historical and stay
+    // unmodified (never edit an applied migration); the reset lives in
+    // 20260902000000_reset_stuck_commercialisation_verification.sql. This
+    // canary is forward-looking: no FUTURE migration may repeat the pattern.
+    const HISTORICAL_OFFENDERS = new Set([
+      '20260827000000_commercialisation_institutional_registry.sql',
+      '20260828000000_corpus_registry_verification.sql',
+    ]);
+    const migrationsDir = join(ROOT, 'supabase/migrations');
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith('.sql'));
+    const offenders: string[] = [];
+    for (const file of files) {
+      if (HISTORICAL_OFFENDERS.has(file)) continue;
+      const sql = readFileSync(join(migrationsDir, file), 'utf8').replace(/^\s*--.*$/gm, '');
+      // A static seed of 'pending_verification' via INSERT ... VALUES or a
+      // bare UPDATE ... SET verification_status = 'pending_verification' is
+      // the defect shape — a real run writes this value through
+      // applyVerificationOutcome (code), never a migration (data).
+      if (/verification_status\s*=?\s*'pending_verification'/.test(sql) && !/set\s+verification_status\s*=\s*'proposed'/i.test(sql)) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders, `migration(s) seed 'pending_verification' directly — the exact 2026-07-28 deadlock:\n${offenders.join('\n')}`).toEqual([]);
+    // Non-vacuity: the historical exemption list must still name real files,
+    // or this canary would pass merely because nothing was checked.
+    for (const f of HISTORICAL_OFFENDERS) {
+      expect(files, `${f} no longer exists — the exemption is stale`).toContain(f);
+    }
+  });
+
+  it('the reset migration exists and targets exactly the stuck rows, never a completed verification', () => {
+    const RESET = read('supabase/migrations/20260902000000_reset_stuck_commercialisation_verification.sql');
+    expect(RESET).toMatch(/UPDATE public\.corpus_institutional_registry/);
+    expect(RESET).toMatch(/SET[\s\S]{0,80}verification_status\s*=\s*'proposed'/);
+    // Must be scoped to commercialisation, to pending_verification rows, and
+    // — critically — only to rows with no verified_at, so a row that somehow
+    // did complete a real run is never silently reset.
+    expect(RESET).toMatch(/domain\s*=\s*'commercialisation'/);
+    expect(RESET).toMatch(/verification_status\s*=\s*'pending_verification'/);
+    expect(RESET).toMatch(/verified_at\s+IS\s+NULL/);
   });
 
   it('the registry document is registered in the IRL pack and states its status', () => {
