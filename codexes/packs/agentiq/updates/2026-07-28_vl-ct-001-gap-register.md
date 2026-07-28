@@ -22,8 +22,10 @@ Each gap carries:
 - **Blocks** — what cannot proceed until it closes.
 - **Irreversible?** — whether closing it wrongly cannot be undone.
 
-The headline: **the pilot layer is the most complete, the venture layer is the least, and the single
-irreversible item (G-1) is not on the critical path but has the shortest fuse.**
+The headline: **the pilot layer is the most complete, the venture layer is the least — and the third
+leg (H3, constitutional preparation neutrality) roughly doubles the venture-layer gap rather than
+closing it.** The single irreversible item (G-1) is not on the critical path but has the shortest
+fuse.
 
 ---
 
@@ -60,19 +62,24 @@ re-verify. Not blocking Slice B; blocking before live value.
 
 ---
 
-### P-3 — Partner Workspace attributable evidence display — **IN FLIGHT (Slice B)**
+### P-3 — Partner Workspace attributable evidence display — **CLOSED (Slice B, `54cea2d60`)**
 
-**Exists today.** `services/venture/partnerWorkspace.ts` and
-`app/triad/components/codex/tabs/PartnerProgrammesTab.tsx` under active modification;
-`app/api/venture/workspace/[workspaceId]/evidence-chain/` and `services/horizen/evidenceChain.ts`
-newly created.
+**Exists today.** `services/horizen/evidenceChain.ts` (`projectEvidenceChain()` → `EvidenceChainView`,
+seven links in ruling order, Standing as verdict rather than eighth link),
+`app/api/venture/workspace/[workspaceId]/evidence-chain/route.ts`, `EvidenceChainPanel` in
+`PartnerProgrammesTab.tsx`, `readReceiptAnchorStatus()` in `activityReceiptService.ts` (three-valued:
+status / `null` no receipt / `undefined` unreadable), and `tests/horizen-evidence-chain.test.ts` —
+31 canaries, 22 mutations all caught.
 
-**Missing.** Completion and verification. This is the first demonstrable expression of the full chain
-— *Horizen identity → operator claim → passport-backed delegation → DVN receipt → external proof →
-attribution → Standing eligibility* — and the first object legible to Horizen.
+The chain is now demonstrable end to end: *Horizen identity → operator claim → passport-backed
+delegation → DVN receipt → external proof → attribution → Standing eligibility.*
 
-**Blocks.** Nothing downstream technically, but it is the pilot's demonstrable artefact and precedes
-everything in the charter's delivery order.
+**Carried forward, not closed.** Four items the slice flagged rather than decided:
+`statusReason` T2-safety is assumed rather than enforced at the write path (becomes real when Slice
+D/E adds operator-supplied revoke reasons, which are both screen- and DVN-bound);
+`temporal.receiptCreatedAt` reads "not yet wired" even when DVN says `recorded`; the reference agents'
+network (`base-sepolia` vs mainnet) is sourced from the brief and still open with Horizen; and there
+is no cache on the partner reads (4 upstream reads per agent, capped at 5).
 
 ---
 
@@ -177,6 +184,13 @@ agent; principal commitment; delegation reference; quoted price; settled price; 
 payment timestamp; settlement cost; DVN receipt; proof reference; trade/opportunity reference;
 accepted/rejected/expired outcome.
 
+**H3 widens this.** The ledger must additionally carry, per entry: the **compensation regime** in
+force (execution-contingent vs service-complete) and the **pricing structure** (bundled vs
+per-service) — without them, no entry can be attributed to a factorial cell and the whole H3
+comparison is unrecoverable after the fact. It must also record **compensation earned on a
+non-executed outcome**, which is the single measurement H3 turns on and which an execution-keyed
+schema cannot express at all.
+
 **Constraint on closing it.** `principal commitment`, never `personaId`. Where the ledger becomes
 network- or chain-bound, `personaPublicRef()` is the only permitted persona identifier. The
 service-economy ledger is a **new evidence category** — distinct from the DVN receipt stream and the
@@ -205,10 +219,14 @@ machinery whose shape transfers, built for a neighbouring purpose.
   shaped, not specialist-agent shaped).
 - A **denomination switch** — the arms need the same pathway settled in QriptoCENT or in a standard
   stablecoin, with everything else held constant. Nothing today parameterises denomination.
-- A **bundling switch** — arms A/C bundle, arms B/D price per service.
+- A **bundling switch** — arms H2-A/H2-C bundle, H2-B/H2-D price per service.
+- A **contingency switch** (H3) — whether a service payment is owed on completion of the service or
+  only on execution of the trade. This is orthogonal to the bundling switch and is the harder of the
+  two: it means the payment obligation must be created at *service completion* and settled
+  independently of the trade's outcome.
 - Batching policy, and the settlement-cost accounting that mechanism 6 measures.
 
-**Blocks.** All four arms of H3.
+**Blocks.** All four H2 arms, all four H3 arms, and the eight-cell Phase 1 factorial.
 
 **Watch item.** Charter §7.8 — the experiment must separate unit denomination, token transfer cost,
 network fee, service price, settlement architecture and batching policy. An implementation that
@@ -225,7 +243,8 @@ result is a comparison against this choice, so the choice is an experimental par
 implementation detail. Picking a comparator with atypical fees would make the result
 non-transferable.
 
-**Blocks.** Arms A and B — i.e. half the design.
+**Blocks.** Arms H2-A/H2-B and H3-A/H3-B — i.e. half of each design, and four of the eight
+factorial cells.
 
 **Requires.** An operator decision, recorded in the charter before Phase 1 runs.
 
@@ -244,7 +263,8 @@ Base mainnet deploy addresses (QCT, iQubeNFT, QCTReserve)"* that is **not presen
 flags it as money-critical and requiring deliberate reconciliation with operator sign-off — never
 auto-merge. So this repository cannot answer whether Base QCT is deployed.
 
-**Blocks.** Arms C and D at Phase 3 (testnet settlement) and Phase 4. Not Phase 1 or 2, which need no
+**Blocks.** The QriptoCENT arms (H2-C/H2-D, H3-C/H3-D) at Phase 3 (testnet settlement) and Phase 4.
+Not Phase 1 or 2, which need no
 live value.
 
 **Action.** Reconcile the Kn0w-1 deploy-address commit into canonical with operator sign-off before
@@ -266,6 +286,90 @@ no instrument at all.
 **Blocks.** The venture verdict. Note that pilot success is fully measurable without any of this —
 which is exactly the separation the charter's three-layer structure exists to preserve, and exactly
 why this gap must not be allowed to hide behind pilot progress.
+
+---
+
+### V-7 — Compensation-regime switch — **OPEN (new with H3)**
+
+**Exists today.** Nothing. No code anywhere expresses the idea that a service payment might be owed
+independently of a trade's outcome.
+
+**Missing.** The regime itself, as a configurable experimental variable: **Regime E**
+(execution-contingent) and **Regime S** (service-complete). Concretely — a payment obligation created
+at service completion, carrying the delegation and authority context, settled whether the trade
+executes, is refused, expires or is deferred.
+
+**Blocks.** All four H3 arms. This is the H3 analogue of V-1: not analysis, but the instrument
+without which the hypothesis cannot be posed.
+
+**Note on difficulty.** This is harder than the denomination switch. Denomination is a parameter;
+contingency is a change to *when a liability comes into existence*. An implementation that creates
+the obligation at execution and back-fills refusals will look correct and measure nothing, because
+the refusal path never generates the obligation the hypothesis is about.
+
+---
+
+### V-8 — Constitutional-completeness scoring — **OPEN (new with H3)**
+
+**Exists today.** Nothing that scores an opportunity's assessment. `evidenceChain.ts` (Slice B)
+projects a seven-link chain for an *agent*, which is adjacent in shape but a different subject: it
+answers "is this agent's evidence attributable", not "did this opportunity receive its full
+constitutional process".
+
+**Missing.** Per-opportunity scoring of whether it received market assessment, authority
+verification, risk review, execution-eligibility decision, proof/evidence record, DVN receipt and
+reconciliation/closure — **including opportunities that never executed**, which is the entire point.
+Plus the three headline metrics: Constitutional Completeness Rate, Neutral Assessment Rate, Trade
+Exclusion Reduction, and the Constitutional Coverage by Trade Size curve.
+
+**Blocks.** Every H3 measurement.
+
+**Watch item.** The scoring subject must be the **opportunity**, not the trade. A schema keyed on
+executed trades cannot represent the population H3 is about, and the mistake is invisible until the
+analysis stage — every number will compute, on the wrong denominator.
+
+---
+
+### V-9 — Refusal as a compensable, receipted service — **OPEN (new with H3)**
+
+**Exists today.** Refusal exists as a decision. It does not exist as a **compensable service with a
+receipt**.
+
+**Missing.** Charter §8.8: DVN receipts recording the service performed, the basis for refusal, the
+agent responsible, **the compensation earned**, the authority and delegation context, the evidence
+considered, and the resulting state.
+
+**Blocks.** H3's central claim — that a justified refusal is a completed service rather than a failed
+transaction — is unfalsifiable without a receipt that says so.
+
+**Constraint on closing it.** If this needs a new anchorable action type, note that adding a member to
+`ANCHORABLE_ACTION_TYPES` in `services/dvn/activityReceiptDvnPipeline.ts` is **the only permitted
+unilateral change** to the DVN pipeline. Anything touching the payload shape, the state machine, or
+`hashPersonaRef` requires operator approval before coding. Adding a compensation amount to a receipt
+payload is a payload-shape change — **it is not unilateral**.
+
+---
+
+### V-10 — Standing neutrality guard — **OPEN (new with H3)**
+
+**Exists today, and the current position is favourable.** `services/standing/standingScore.ts`
+computes Standing as veracity-led: `veracityScore` from verified facts (average confidence 0.55 +
+coverage 0.30 + fact-count volume 0.15, plus a compiled-VSP lift), composed
+`veracity × 0.7 + contribution × 0.3`. The `volume` term is **verified-fact count, not transaction
+volume**. `contributionScore` comes from `crm_persona_reputation`. So Standing does **not** today
+weight trading execution above refusal.
+
+**Missing.** Anything that *prevents* it from doing so. Charter §10 rule four states that Standing
+follows verified constitutional contribution rather than transaction volume or commission generation;
+nothing enforces it. The moment a trading-outcome signal is fed into `crm_persona_reputation`, the
+execution bias H3 removes from the payment system re-enters through the reputation system, and the
+experiment's own result would mask it.
+
+**Blocks.** Nothing today. Must exist **before** any trading outcome feeds Standing — otherwise the
+rule is doctrine without machinery, which is the CB-1 shape.
+
+**Suggested closure.** A parity canary in the `tests/source-of-truth-parity.test.ts` family asserting
+that no Standing input derives from executed-trade count, notional or fee revenue.
 
 ---
 
@@ -378,47 +482,73 @@ broadcast, testnet or otherwise.
 ```
 G-1  (parallel, irreversible, close first — it costs a text edit)
   │
-P-3  Slice B — Partner Workspace display        [in flight]
+P-3  Slice B — Partner Workspace display        [CLOSED 54cea2d60]
   ↓
 S-1  IDE run: trading invariants                 ─┐
-V-1  Preparation-cost model                       ├─ can run concurrently
-V-4  Standard-stablecoin comparator decision     ─┘
+V-1  Preparation-cost model                       │
+V-4  Standard-stablecoin comparator decision      ├─ can run concurrently
+V-8  Constitutional-completeness scoring         ─┘
   ↓
-P-8  Deterministic scenarios          ← consumed by H2, H3 Phase 1, and all P-arms
+P-8  Deterministic scenarios      ← consumed by H2, H3, and all P-arms
+  ↓                                  (must span notional bands and refusal-heavy cases)
+V-2  Service-economy ledger  +  V-3  Micro-settlement layer  +  V-7  Compensation-regime switch
   ↓
-V-2  Service-economy ledger  +  V-3  Micro-settlement layer (x402 extension)
+V-9  Refusal as a receipted, compensable service
   ↓
-H3 Phase 1 (simulated)  →  Phase 2 (shadow)      [no live value; no V-5 dependency]
+Phase 1 — the EIGHT-CELL factorial, simulated   [no live value; no V-5 dependency]
+  ↓
+Phase 2 — live observation, shadow settlement
   ↓
 P-4  Operator claim  →  P-6  Marketa vetting  →  P-7  Runtime admission
   ↓
 P-2  ownership-freshness ruling  +  V-5  Base QCT reconciliation
   ↓
-H3 Phase 3 (testnet)  →  Phase 4 (capped live value)
+V-10 Standing neutrality guard    ← MUST precede any trading signal reaching Standing
+  ↓
+Phase 3 (testnet)  →  Phase 4 (capped live value)
   ↓
 S-4  Observatory boundary  →  S-2 / S-3  P1/P2/P3 arms
 ```
 
-Two observations on this ordering.
+Four observations on this ordering.
 
-**H3's first two phases are cheap and early.** They need scenarios and a ledger, not live value, not a
-deployed Base contract, not runtime admission. The micro-stablecoin question can produce a real
-answer well before the trading pathway is live — which is worth knowing, because H3 is the hypothesis
-most likely to change the product's shape.
+**Phases 1 and 2 are cheap, early, and now carry both economic hypotheses.** They need scenarios, a
+ledger, a regime switch and a completeness scorer — no live value, no deployed Base contract, no
+runtime admission. Both H2 and H3 can return a real answer well before the trading pathway is live,
+which matters because H3 is the hypothesis most likely to change the product's shape.
 
-**The venture layer is the least built and the most decisive.** Pilot work has momentum and visible
-artefacts; V-1, V-2, V-4 and V-6 have none. The charter's centre of gravity is the layer with the
-fewest lines of code behind it. That asymmetry is the register's main warning.
+**H3 roughly doubles the venture-layer gap.** V-7 through V-10 are all new, all open, and none has a
+line of code. The venture layer was already the least built; the third leg widens that gap rather
+than closing it. That is not an argument against the leg — it is the reason to sequence Phase 1
+deliberately rather than after the pilot.
 
----
+**V-10 has an ordering constraint, not just a dependency.** It must land *before* any trading outcome
+feeds Standing, not merely before Phase 4. A Standing signal contaminated once is contaminated
+retroactively across every agent it scored.
+
+**P-8's scenario set now carries more requirements.** It must span notional bands (to produce the
+Constitutional Coverage by Trade Size curve), include a realistic proportion of correctly-refused and
+expired opportunities (the population H3 is about), and be replayable under eight configurations.
+Specifying it after V-8 rather than before avoids a scenario set that cannot express the metric.
 
 ## Open rulings required
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| R-1 | BitCent name + symbol into the Runes etch parameters | G-1 (irreversible) |
+| R-1 | BitCent name **and symbol** (`Q¢` or `Bc`?) into the Runes etch parameters | G-1 (irreversible) |
 | R-2 | Ownership freshness window — 24h is a placeholder | live-value execution |
 | R-3 | Preparation-cost **accounting interval** (opportunity / trade / session / batch / account / period) | V-1, and therefore H2 and H3 |
-| R-4 | Which standard stablecoin, network and fee profile is the H3 comparator | arms A and B |
-| R-5 | Base QCT mainnet reconciliation between canonical and the Kn0w-1 clone | H3 Phases 3–4 |
+| R-4 | Which standard stablecoin, network and fee profile is the H2/H3 comparator | arms H2-A/H2-B and H3-A/H3-B |
+| R-5 | Base QCT mainnet reconciliation between canonical and the Kn0w-1 clone | Phases 3–4 |
 | R-6 | Whether the service-economy ledger is DVN-anchored (and therefore bound by T0/T2 identifier isolation in full) | V-2 schema |
+| R-7 | **Confirm the eight-cell Phase 1 factorial** — or accept two four-cell slices and forgo the pricing × contingency interaction | Phase 1 scope |
+| R-8 | Whether refusal compensation requires a **new anchorable action type** or a payload change to an existing one — the latter is **not** a unilateral DVN change and needs approval before coding | V-9 |
+| R-9 | Who funds service-complete compensation for opportunities that never execute — the operator, a service subscription, or a levy on executed trades (the last risks reintroducing the very coupling H3 removes) | V-7 economics |
+
+R-9 is the one worth sustained thought. H3 says agents must be paid for correct refusals; the money
+still has to come from somewhere. Funding refusals from a levy on executed trades restores
+execution-contingency at the level of the *pool* even after removing it at the level of the *agent* —
+the bias returns as a systemic pressure to keep the pool full. An operator-funded or subscription
+model avoids that but changes the commercial proposition materially. This is a venture-design
+decision, not an implementation detail, and Phase 1 cannot settle it because simulated payments have
+no funder.
