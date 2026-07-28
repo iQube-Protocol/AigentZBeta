@@ -251,15 +251,36 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
         </>
       ) : null}
 
-      {/* B — wallet connected, no eligible Passport */}
+      {/* B — the proof held, but no constitutional principal resolved.
+
+          THE SERVER DELIBERATELY WILL NOT SAY WHICH (proof/route.ts): naming
+          "this wallet is unknown" vs "this wallet has no Passport" would let
+          anyone map the lineage graph with wallets they do not own. That
+          property is load-bearing and is NOT relaxed here.
+
+          But the copy used to assert ONE of those causes — "No active Passport
+          was found for this wallet" — when the server had said no such thing.
+          For a citizen whose Passport is perfectly healthy and whose wallet
+          simply was never bound as an alias (`wallet_unknown`, the most common
+          real refusal), that message is actively false and dead-ends them: they
+          go looking for a Passport problem they do not have. Naming BOTH
+          possibilities and the act that satisfies each keeps the server's
+          disclosure exactly where it was while telling the citizen something
+          true and actionable. */}
       {state.kind === "no-passport" ? (
         <>
           <div className="text-sm font-medium text-slate-100">
-            No active Passport was found for this wallet.
+            This wallet did not resolve to constitutional access.
           </div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            A wallet connection on its own is not constitutional access. Obtain or restore a
-            Passport, or sign in another way.
+            Your signature was verified — the wallet is yours. What did not resolve is the link
+            from it to an active Passport. Either this wallet is not yet linked to your
+            personhood, or the Passport it reaches is not currently active.
+          </p>
+          <p className="max-w-[22rem] text-[11px] text-slate-500">
+            If you hold a Passport, link this wallet to it from your wallet&apos;s identity
+            settings, then connect again. A wallet connection on its own is never constitutional
+            access.
           </p>
           <button
             type="button"
