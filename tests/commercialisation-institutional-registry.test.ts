@@ -986,6 +986,105 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
     }
   });
 
+  it('verification resolves its own seed URL — it does not depend on the UI read path having run first', async () => {
+    // THE BUG (2026-07-28, second failure of the same operator step). After
+    // the pending_verification deadlock was cleared, all 40 entries returned
+    // `verification_failed` with detail 'no seed URL to verify'. The
+    // migrations never wrote `seed_url`, and the backfill from the curated
+    // homepage registry lived ONLY in `getDomainConstitution` — a read path
+    // `verifyInstitutionEntry` never calls. Verification therefore silently
+    // required a steward to have opened the Corpus Scout UI tab first. A
+    // mechanism that exists but cannot fire on the path that needs it is
+    // CB-1, and it cost two round-trips to find because both failures
+    // surfaced as the same uniform wall of red.
+    const { verifyInstitutionEntry } = await import('../services/corpusScout/registryVerification');
+
+    let persistedSeedUrl: string | null = null;
+    let followedUrl: string | null = null;
+    // Minimal Supabase stand-in: a row with a NULL seed_url, exactly the
+    // state the migrations left every commercialisation entry in.
+    const admin = {
+      from() {
+        return {
+          select() { return this; },
+          eq() { return this; },
+          maybeSingle: async () => ({ data: { seed_url: null, verification_status: 'proposed' }, error: null }),
+          update(patch: Record<string, unknown>) {
+            if (typeof patch.seed_url === 'string') persistedSeedUrl = patch.seed_url;
+            return { eq() { return this; } };
+          },
+        };
+      },
+    } as unknown as Parameters<typeof verifyInstitutionEntry>[0];
+
+    await verifyInstitutionEntry(
+      admin,
+      { domain: 'commercialisation', pillarKey: 'venture-operations', institutionName: 'NBER' },
+      {
+        followRedirects: (async (url: string) => {
+          followedUrl = url;
+          // Fail fast — this test is about which URL is reached, not about
+          // the four conjuncts downstream of a successful fetch.
+          return { ok: false, failureClass: 'dns', finalUrl: null };
+        }) as never,
+        runInstitutionDiscovery: (async () => ({ ok: true, candidates: [] })) as never,
+        retrieveArtifact: (async () => ({ ok: false })) as never,
+        inspectArtifact: (async () => ({ ok: false })) as never,
+      },
+    );
+
+    // The load-bearing assertions: it resolved the curated URL itself, and
+    // it PERSISTED it (auditable provenance, not a runtime-only fallback).
+    expect(followedUrl, 'verification ran against no seed URL — the backfill did not fire').toBe('https://www.nber.org');
+    expect(persistedSeedUrl, 'the resolved seed URL was not written back to the row').toBe('https://www.nber.org');
+  });
+
+  it('every AUTHORITY resolves from the curated homepage registry — the backfill has something to find', () => {
+    // The backfill above can only work if the curated registry actually
+    // covers the institution. If a future addition has no canonical
+    // homepage, verification fails for it with 'no seed URL to verify' —
+    // this says so at build time instead of at operator time.
+    //
+    // SCOPED TO institutional-authority DELIBERATELY, and the scoping is the
+    // interesting part. The nine practitioner-pattern entries (a16z, YC
+    // Library, the consultancy "Insights" imprints) have no canonical
+    // homepage and are NOT seeded into the database by any migration — only
+    // the 40 institutional-authority rows are. Law II counts authorities,
+    // not practitioner sources, so nothing verifies them today and requiring
+    // homepages for them would enforce a rule that does not apply.
+    //
+    // But that is a fact about TODAY's seeding, not a permanent guarantee.
+    // The second assertion pins it: if a practitioner-pattern entry is ever
+    // seeded into the registry, this canary must be widened, because that
+    // entry WILL hit verification and WILL fail on a missing seed URL.
+    const authorities = [...new Set(
+      COMMERCIALISATION_REGISTRY.filter((e) => e.tier === 'institutional-authority').map((e) => e.institution),
+    )];
+    expect(authorities.length, 'no authorities found — the tier filter broke').toBeGreaterThan(20);
+    const unresolvable = authorities.filter((name) => !resolveCanonicalHomepage(name));
+    expect(
+      unresolvable,
+      `authority/authorities with no canonical homepage — verification will fail with 'no seed URL to verify':\n${unresolvable.join('\n')}`,
+    ).toEqual([]);
+
+    // No migration seeds a practitioner-pattern ROW. The moment one does,
+    // the scoping above stops being safe and this fails loudly.
+    //
+    // Matches VALUES tuples specifically, not any mention of the string:
+    // 20260827 legitimately names 'practitioner-pattern' in the source_tier
+    // CHECK constraint and in a COLUMN COMMENT — defining the vocabulary is
+    // not seeding a row with it, and an over-broad grep flags the schema
+    // that makes the tier possible as though it were a violation.
+    for (const sql of [COM_SEED, VERIFY_SEED, LAW_II_SEED]) {
+      const stripped = sql.replace(/^\s*--.*$/gm, '');
+      const seededRows = stripped.match(/\([^()]*'practitioner-pattern'[^()]*\)\s*(?=,|\s*ON CONFLICT|;)/g) ?? [];
+      expect(
+        seededRows,
+        "a migration seeds a 'practitioner-pattern' row — verification will fail on it for lack of a canonical homepage; widen the check above",
+      ).toEqual([]);
+    }
+  });
+
   it('the reset migration exists and targets exactly the stuck rows, never a completed verification', () => {
     const RESET = read('supabase/migrations/20260902000000_reset_stuck_commercialisation_verification.sql');
     expect(RESET).toMatch(/UPDATE public\.corpus_institutional_registry/);

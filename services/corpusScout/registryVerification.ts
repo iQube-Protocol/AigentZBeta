@@ -46,6 +46,7 @@ import { followRedirects, retrieveArtifact, sniffMagicBytes } from './retrieval'
 import { runInstitutionDiscovery } from './institutionNavigator';
 import { inspectArtifact } from './inspection';
 import { CORPUS_QUALIFICATION_STANDARD_STATEMENT } from './corpusQualificationStandard';
+import { resolveCanonicalHomepage } from './canonicalInstitutionHomepages';
 
 // ── The status vocabulary ───────────────────────────────────────────────────
 
@@ -392,7 +393,36 @@ export async function verifyInstitutionEntry(
     return { ok: false, ...base, error: `cannot start verification from '${current}' — re-open the entry first` };
   }
 
-  const seedUrl = (data.seed_url as string | null)?.trim() ?? '';
+  // RESOLVE THE SEED URL HERE, not only in getDomainConstitution.
+  //
+  // Found 2026-07-28: all 40 commercialisation entries returned
+  // `verification_failed` with detail 'no seed URL to verify', because the
+  // migrations that seeded the registry never wrote `seed_url`, and the
+  // backfill from the curated homepage registry lived ONLY inside
+  // `getDomainConstitution` — a read path this function never calls. So
+  // verification silently depended on a steward having opened the UI tab
+  // first. That is a latent ordering dependency between two functions with
+  // no stated contract between them (CB-1: the mechanism existed and could
+  // not fire on the path that needed it).
+  //
+  // Resolving from `resolveCanonicalHomepage` rather than importing
+  // `ensureInstitutionSeedUrl` avoids a circular import
+  // (domainConstitution already imports this module) while using the SAME
+  // curated source of truth — never a search API, never a guess. The
+  // resolved value is PERSISTED, so it becomes auditable provenance on the
+  // row rather than a runtime-only fallback that vanishes after the call.
+  let seedUrl = (data.seed_url as string | null)?.trim() ?? '';
+  if (!seedUrl) {
+    const resolved = resolveCanonicalHomepage(institutionName);
+    if (resolved) {
+      seedUrl = resolved;
+      await admin
+        .from('corpus_institutional_registry')
+        .update({ seed_url: resolved, updated_at: new Date().toISOString() })
+        .eq('domain', domain).eq('pillar_key', pillarKey).eq('institution_name', institutionName);
+    }
+  }
+
   await admin
     .from('corpus_institutional_registry')
     .update({ verification_status: 'pending_verification', updated_at: new Date().toISOString() })
