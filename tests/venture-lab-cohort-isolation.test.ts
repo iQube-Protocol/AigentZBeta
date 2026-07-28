@@ -239,3 +239,187 @@ describe('canary 7 — Commons gating does not exist as a venture-lab derivative
     expect(audit).not.toMatch(/venture-lab (grant|membership|participation) (grants|confers|opens).{0,40}[Cc]ommons/);
   });
 });
+
+// ─── Canary 8 — COMPOSED LIVENESS (Invariant B, ratified 2026-07-28) ─────────
+//
+// Canaries 1–7 are all DENIALS. Every one of them proves some caller is
+// refused; not one proves any caller is ADMITTED. That is exactly the gap
+// Invariant B (`codexes/packs/agentiq/updates/
+// 2026-07-28_terminal-outcome-and-composed-liveness-invariants.md`) names:
+//
+//   "When an invariant lands, it must name the invariants it composes with, and
+//    the composition must ship a liveness canary: one demonstrated end-to-end
+//    path through every gate the composed system creates."
+//
+// Amendment G composed FOUR gates on one surface — domain (canary 6), role
+// (canaries 2–3), scope (canaries 1, 4), and admin (canary 5) — and shipped
+// without one. A suite of pure denials passes at its maximum when the surface
+// is unreachable by EVERYONE, so nothing in this file would have failed if
+// deny-by-default had closed the Partner Workspace to every non-admin. That is
+// the operator's standing report ("I still don't see the workspace") stated as
+// a test gap: absence was never distinguishable from correct denial.
+//
+// THIS BLOCK NEVER WEAKENS A GATE. Every assertion below is positive
+// reachability for a caller who genuinely satisfies all four gates. It composes
+// with: canary 2/3 (the same role list, from the other side), canary 4 (the
+// same scope decision, admitting instead of refusing), canary 6 (the same tab
+// set, non-empty instead of empty), and `tests/tier-surface-map.test.ts` (the
+// entrance whose existence it now proves is also REACHABLE).
+
+describe('canary 8 — composed liveness: the Partner Workspace is reachable by someone', () => {
+  /** The caller Amendment G's four gates were written to admit. */
+  const grantedPartnerOperator = access([
+    { accessDomain: 'venture-lab', role: 'partner-operator', allowedScopes: [HORIZEN] },
+  ]);
+
+  it('a correctly-granted, NON-admin partner operator passes every Tier-2 Partner tab gate', async () => {
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const tier2PartnerTabs = VENTURE_LAB_CODEX.tabs.filter(
+      (t: { group?: string; participationDomain?: string; adminOnly?: boolean }) =>
+        t.group === 'partner' && t.participationDomain === 'venture-lab' && !t.adminOnly,
+    );
+    expect(tier2PartnerTabs.length, 'no Tier-2 Partner tabs exist to be reachable').toBeGreaterThan(0);
+    for (const tab of tier2PartnerTabs as Array<{ id: string }>) {
+      expect(
+        tabPassesAccessGates(tab, grantedPartnerOperator, false),
+        `${tab.id} is unreachable by a partner-operator scoped to ${HORIZEN} — the gates admit nobody`,
+      ).toBe(true);
+    }
+  });
+
+  it('those tabs survive the REAL tab filter, so the Partner group actually renders', async () => {
+    // The gate predicate passing is necessary but not sufficient: the surface
+    // is `getEnabledTabs` (app/hooks/useCodexConfig), and CodexPanelDynamic
+    // hides a group with no visible tabs (MS-9). Drive the real filter with
+    // the real config — a non-admin, non-partner, non-investor caller with no
+    // activations and no cartridge-admin grants, i.e. nothing BUT the grant.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
+    const enabled = getEnabledTabs(
+      VENTURE_LAB_CODEX,
+      false, // isAdmin
+      false, // isPartner
+      false, // isInvestor
+      new Set(),
+      { isGlobalAdmin: false, cartridgeSlugs: new Set() },
+      grantedPartnerOperator,
+    );
+    const partnerTabs = enabled.filter((t) => t.group === 'partner');
+    // This is verbatim the predicate CodexPanelDynamic's `visibleGroups` uses.
+    expect(
+      partnerTabs.length,
+      'the Partner group filters to empty for a granted partner operator — the group chip would not render at all',
+    ).toBeGreaterThan(0);
+    // Reachability is asserted per-tab, not as a count: a `>0` assertion is
+    // satisfied by ANY surviving tab, so it would stay green while the Tier-2
+    // views specifically went dark. The set must be EXACTLY the Tier-2 views
+    // — no Tier-0 tab may leak in either (that would be a gate breach, not a
+    // liveness win).
+    const expectedTier2 = VENTURE_LAB_CODEX.tabs
+      .filter(
+        (t: { group?: string; participationDomain?: string; adminOnly?: boolean }) =>
+          t.group === 'partner' && t.participationDomain === 'venture-lab' && !t.adminOnly,
+      )
+      .map((t: { slug: string }) => t.slug)
+      .sort();
+    expect(partnerTabs.map((t) => t.slug).sort()).toEqual(expectedTier2);
+    // And the group they would land in must exist to be landed in.
+    const partnerGroup = (VENTURE_LAB_CODEX.tabGroups ?? []).find((g: { id: string }) => g.id === 'partner');
+    expect(partnerGroup, 'the Partner group was removed — its tabs have nowhere to render').toBeTruthy();
+  });
+
+  it('and the workspace behind those tabs opens for the same caller — the picker lists exactly one entrance', () => {
+    // Scope is a SEPARATE decision from the tab gate (see the module header):
+    // passing the tabs and then finding an empty picker is the same invisible
+    // surface from the operator's seat. Both must hold for the SAME caller.
+    expect(satisfiesWorkspaceScope(grantedPartnerOperator, 'venture-lab', HORIZEN, false)).toBe(true);
+    expect(scopesGrantedIn(grantedPartnerOperator, 'venture-lab', false)).toEqual([HORIZEN]);
+  });
+
+  it('an admin reaches the same surface without any grant at all', async () => {
+    // The other end-to-end path. An admin holds no venture-lab grant (canary 5
+    // covers the isolation); if the admin fast-path regressed, the operator's
+    // OWN view of the workspace would go dark while every denial canary
+    // stayed green.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
+    const noGrants = access([]);
+    const enabled = getEnabledTabs(
+      VENTURE_LAB_CODEX,
+      true, // isAdmin
+      false,
+      false,
+      new Set(),
+      { isGlobalAdmin: true, cartridgeSlugs: new Set() },
+      noGrants,
+    );
+    const partnerTabs = enabled.filter((t) => t.group === 'partner');
+    // EVERY Partner tab, Tier 0 and Tier 2 — not merely a non-empty group.
+    // The two Tier-0 tabs carry no `participationDomain`, so they survive a
+    // broken admin fast path and would keep a `>0` assertion green while the
+    // operator's own view of the Tier-2 workspace went dark.
+    const allPartnerSlugs = VENTURE_LAB_CODEX.tabs
+      .filter((t: { group?: string }) => t.group === 'partner')
+      .map((t: { slug: string }) => t.slug)
+      .sort();
+    expect(
+      partnerTabs.map((t) => t.slug).sort(),
+      'an admin cannot see the whole Partner group — the admin fast path regressed',
+    ).toEqual(allPartnerSlugs);
+    expect(satisfiesWorkspaceScope(noGrants, 'venture-lab', HORIZEN, true)).toBe(true);
+    expect(scopesGrantedIn(noGrants, 'venture-lab', true)).toBe('all');
+  });
+});
+
+// ─── Canary 9 — every workspace on the spine has a cartridge entrance ────────
+//
+// THE DEFECT CLASS THIS CATCHES, stated plainly: a workspace can exist in the
+// MODEL and have no door in any cartridge. That is not a gate failure — every
+// gate is behaving correctly — and no denial canary can see it, because there
+// is nothing to deny. It reads to the operator exactly like a gate failure:
+// "I don't see the workspace."
+//
+// `services/experiments/experimentWorkspace.ts` is the COMMON spine shared by
+// the Research Lab and the Venture Lab, and `listExperimentWorkspaces()` says
+// "Research variants join in Phase 4". Today it yields venture workspaces only,
+// and the Venture Lab carries their entrance — so this canary passes as
+// written, honestly, rather than failing for unbuilt work (the discipline
+// `tests/tier-surface-map.test.ts` states in its own header). The moment a
+// research workspace joins the spine WITHOUT an IRL entrance, this fails and
+// names the missing surface instead of the operator having to find it.
+//
+// The binding is DERIVED, never hand-listed (inv.engineering.036): a workspace
+// already declares `evidence.cartridge` (the codex slug that holds its
+// evidence) and `participation.domain` (the access domain that gates it). The
+// entrance is the tab in that cartridge gated on that domain.
+
+describe('canary 9 — a workspace in the model has a door in a cartridge', () => {
+  it('every workspace on the common spine resolves to a real cartridge with a domain-gated entrance', async () => {
+    const { listExperimentWorkspaces } = await import('../services/experiments/experimentWorkspace');
+    const { CODEX_DEFINITIONS } = await import('../data/codex-configs');
+    const workspaces = listExperimentWorkspaces();
+    expect(workspaces.length, 'the spine is empty — nothing to check').toBeGreaterThan(0);
+    for (const ws of workspaces) {
+      const cartridge = CODEX_DEFINITIONS.find((c: { slug: string }) => c.slug === ws.evidence.cartridge);
+      expect(
+        cartridge,
+        `workspace "${ws.id}" declares evidence cartridge "${ws.evidence.cartridge}", which is not a registered codex — the workspace has no door`,
+      ).toBeTruthy();
+      const entrances = cartridge!.tabs.filter(
+        (t: { enabled?: boolean; participationDomain?: string }) =>
+          t.enabled !== false && t.participationDomain === ws.participation.domain,
+      );
+      expect(
+        entrances.length,
+        `workspace "${ws.id}" (domain ${ws.participation.domain}) has NO entrance in cartridge "${ws.evidence.cartridge}" — it exists in the model with no tab to reach it`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('the spine still records that research variants are a later phase, so the gap above stays a KNOWN gap', () => {
+    // If this line is edited away, the "no research workspace yet" reading of
+    // the canary above silently becomes "research workspaces are complete".
+    const src = readSource('services/experiments/experimentWorkspace.ts');
+    expect(src).toMatch(/Research variants join in Phase 4/);
+  });
+});
