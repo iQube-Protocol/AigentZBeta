@@ -1,7 +1,7 @@
 # VL-CT-001 — Constitutional Trading Venture Experiment
 
-**Working title:** VL-CT-001 — Constitutional Trading with BitCent and Base QriptoCENT
-**Status:** draft — pending operator/Aletheon ratification
+**Working title:** VL-CT-001 — Constitutional Trading with Base Q¢
+**Status:** rulings R-1 through R-9 ratified 2026-07-28; charter otherwise draft
 **Date:** 2026-07-28
 **Institutional home:** Primary — **Venture Lab**. Secondary observatory — **Invariant Research Lab (IRL)**.
 **Deployment context:** Horizen Pilot and the Financial Services Runtime.
@@ -153,16 +153,53 @@ instrument, not an analysis step performed on results.
 
 ---
 
-## 3. Initial use case — BitCent and Base QriptoCENT
+## 3. Initial use case and the denomination canon (R-1 + correction)
 
-The first instrument pair is **BitCent (Bc)** — QriptoCENT on the Bitcoin Runes network — and
-**QriptoCENT (QCT) on Base**.
+### The class and its implementations
 
-Naming is settled: *BitCent (Bc) is the name for QCT-on-Bitcoin.* A Rune name is **immutable once
-etched**, so the naming must be carried into the etching parameters before any etch transaction is
-broadcast. This is tracked as a blocking gap in the register (G-1).
+| Level | Name | Symbol | Role |
+|---|---|---|---|
+| **Class** | QriptoCENT | **Q¢** | the micro-denominated unit as a class |
+| **Base implementation** | **Base Q¢** | Q¢ | **the instrument used in this experiment** |
+| **Bitcoin implementation** | **BitCent** | **B¢** | Bitcoin-native; **not** used in this experiment |
 
----
+```text
+QriptoCENT / Q¢
+        ↓ special version
+BitCent / B¢
+```
+
+`Bc` is the ASCII fallback for BitCent, acceptable only where `¢` cannot be represented reliably.
+"Bitcoin Q¢" is the explanatory long form. `Q¢` remains the **class** symbol and must never be used
+as BitCent's primary display symbol.
+
+Canonical presentation: `BitCent` · `B¢` · `10 B¢` · `BitCent (a Bitcoin QriptoCENT)`.
+
+### The instrument for VL-CT-001 is Base Q¢, not BitCent
+
+> **Base Q¢ is the Base-network experimental implementation of the QriptoCENT class. BitCent/B¢ is
+> the Bitcoin-specific implementation and is not the instrument used in the Base comparison.**
+
+This is the controlled-comparison requirement, not a preference. Both sides of the experiment must
+run on **one network, through one x402 pathway, one wallet framework, one custody model and one
+receipt path**, so that denomination is the only thing that varies. Comparing BitCent against USDC
+on Base would confound denomination with **network and settlement architecture** — the experiment
+would measure Bitcoin-versus-Base and report it as micro-versus-standard.
+
+BitCent belongs to a later cross-network or Bitcoin-native experiment, where the network difference
+is the subject rather than a confound.
+
+### Rune etching (separate track, irreversible)
+
+The BitCent Rune etch is **parallel work, not part of VL-CT-001's critical path**. Its name is
+immutable once broadcast and must be:
+
+```text
+BITCENT
+```
+
+subject to final deployment validation. **Never `QRIPTOCENT`** — that names the class rather than
+the Bitcoin-specific version.
 
 ## 4. Agent-service roles
 
@@ -231,9 +268,32 @@ Net Constitutional Trade Value
   = realised gross benefit − preparation cost − execution cost − risk reserve
 ```
 
-The **accounting interval is an operator decision** made during cost-model design. It may be more
-commercially meaningful to evaluate per opportunity, per completed trade, per trading session, per
-strategy batch, per operator account, or over a fixed pilot period than per trade.
+### Accounting interval — RULED (R-3)
+
+> **The canonical accounting unit is the OPPORTUNITY** — not the trade, and not merely a daily
+> aggregate. Every evaluated opportunity receives its own preparation-cost record, **including
+> opportunities that are refused or never execute.**
+
+Each record carries: opportunity creation time; participating agents; discovery effort; analysis
+effort; verification effort; compliance or risk work; execution preparation; refusal or completion
+outcome; compute and token use; elapsed human and agent time; associated receipts and payments.
+
+Aggregation runs at three levels, each with a different consumer:
+
+```text
+per opportunity  →  per experimental run  →  reporting period
+```
+
+| Level | Used for |
+|---|---|
+| per opportunity | scientific comparison |
+| per deterministic run or batch | experimental reconciliation |
+| daily and weekly | venture operations |
+
+**Why the unit is the opportunity.** Any trade-keyed or day-aggregated unit **hides the cost of
+rejected opportunities inside executed-trade totals** — which is exactly the population H3 exists to
+measure. A cost model that cannot see refusals cannot score the neutrality hypothesis, and the
+failure is silent: every figure computes, on the wrong denominator.
 
 §7 extends this equation with the settlement instrument.
 
@@ -262,22 +322,30 @@ larger transactions, the cost of coordination becomes disproportionate to the va
 Held constant across arms: same opportunity, same market data, same agents, same delegation, same
 invariant set, same execution constraints, same proof requirements, same receipt coverage.
 
+**The comparator (R-4).** The standard-stablecoin side is **USDC on Base**, described precisely as:
+*standard USDC settlement on Base using the same x402 and receipt pathway as the Base Q¢ arm.* The
+comparison holds constant the **network, transaction path, custody model, wallet framework, service
+scenario, receipt requirements and settlement-finality assumptions** — only the denomination and the
+experimental mechanism vary. Comparing against a stablecoin on a different network is prohibited: it
+would confound denomination with chain economics.
+
 ### 7.2 Four arms
 
-| Arm | Denomination | Pricing structure |
+| Cell | Denomination | Pricing structure |
 |---|---|---|
-| **H2-A** | standard stablecoin | bundled |
-| **H2-B** | standard stablecoin | per-service |
-| **H2-C** | QriptoCENT | bundled |
-| **H2-D** | QriptoCENT | per-service micro-pricing |
+| `USDC-BUNDLED-*` | USDC on Base | bundled |
+| `USDC-SERVICE-*` | USDC on Base | per-service |
+| `BASEQC-BUNDLED-*` | Base Q¢ | bundled |
+| `BASEQC-SERVICE-*` | Base Q¢ | per-service micro-pricing |
 
-Four arms rather than two, because a two-arm design would attribute to *denomination* effects that
-actually come from *pricing structure*. The 2×2 separates the denomination effect, the bundling
-effect, and their interaction.
+Two levels rather than one, because a single-axis design would attribute to *denomination* effects
+that actually come from *pricing structure*.
 
-**Arms are namespaced by hypothesis.** H3 (§8) defines its own 2×2 on a different axis, also with
-four cells. Bare letters are ambiguous across the two designs and must never be used; always write
-`H2-D` or `H3-D`. See §8.6 for how the two designs compose into a single factorial.
+**Bare arm letters are prohibited (R-7).** `A`, `B`, `C`, `D` must not appear in records, reports or
+filenames — the H2 and H3 designs are different axes and the letters collided. Cell identifiers are
+**derived from configuration**, and the third segment (`-EXEC` / `-COMPLETE`) comes from §8.6. The
+eight canonical identifiers are listed in §8.6; H2 is an analytical **view** over that dataset, not a
+separate run.
 
 ### 7.3 Six mechanisms — measured separately, never collapsed into one headline number
 
@@ -307,8 +375,8 @@ Total Preparation Cost (TPC)
   + service-payment cost        ← added by this experiment
   + reconciliation cost         ← added by this experiment
 
-Micro-Stablecoin Cost Reduction = TPC_standard − TPC_micro
-Cost Reduction Rate             = (TPC_standard − TPC_micro) / TPC_standard
+Micro-Stablecoin Cost Reduction = TPC_USDC − TPC_BaseQ¢
+Cost Reduction Rate             = (TPC_USDC − TPC_BaseQ¢) / TPC_USDC
 ```
 
 The **more venture-relevant** metric is not the cost delta but the recovery rate:
@@ -341,10 +409,10 @@ The bar is: **lower cost with no material degradation in constitutional or opera
 
 | Phase | What runs | Live value |
 |---|---|---|
-| **1 — simulated service economy** | Deterministic scenarios run twice: once priced in QriptoCENT, once in a standard stablecoin. Measure service calls, quoted/paid/rounded cost, settlement count, TPC, decision outcome, proof and receipt completeness. | none |
+| **1 — simulated service economy** | Deterministic scenarios replayed across the eight cells (§8.6). Measure service calls, quoted/paid/rounded cost, settlement count, TPC, decision outcome, proof and receipt completeness. Uses a **frozen, documented Base fee profile** derived from a defined observation window — never an unusually cheap or congested block (R-4). | none |
 | **2 — live observation, shadow settlement** | Live market data; hypothetical service payments recorded. Reveals whether the cost difference survives real opportunity frequency and timing. | none |
-| **3 — testnet settlement** | Real test transactions between agents. Measure latency, payment failure, reconciliation, transaction count, receipt generation, operational burden. | testnet |
-| **4 — capped live-value pilot** | Only after the service economy is stable. | capped |
+| **3 — testnet settlement** | Real test transactions between agents. Measure latency, payment failure, reconciliation, transaction count, receipt generation, operational burden. Records the **actual Base fee paid per transaction alongside the frozen benchmark** (R-4). Instrument may be an explicitly-labelled **non-canonical** test deployment (R-5). | testnet |
+| **4 — capped live-value pilot** | Only after the service economy is stable. **Requires canonical ratification of the instrument** — Phase 4 must not represent a non-canonical deployment as canonical (R-5). | capped |
 
 ### 7.8 Critical caution — denomination is not the same as network cost
 
@@ -386,6 +454,22 @@ DVN receipt; proof reference; trade or opportunity reference; accepted/rejected/
 Identifier discipline applies without exception: **principal commitment**, not `personaId` —
 `personaPublicRef()` is the only persona identifier permitted in this ledger where it becomes
 network- or chain-bound.
+
+**Anchoring — two levels (R-6).** The ledger **is** DVN-anchored, but an expensive chain anchor is
+not required for every internal accounting line.
+
+| Level | What | How |
+|---|---|---|
+| **Consequential event receipts** | service-obligation creation; correct refusal; compensation entitlement; settlement; reversal; dispute; reconciliation adjustment | an **individual DVN receipt** each |
+| **Ledger checkpoint anchoring** | ordinary accounting entries | batched into a deterministic **checkpoint or Merkle commitment**, anchored through the DVN pipeline |
+
+T0/T2 separation applies in full: raw commercial and personal data stay T2; externally visible
+receipts carry commitments and safe references; **amounts may be committed rather than publicly
+disclosed**; and the underlying ledger stays independently reconcilable.
+
+> **The ledger must not become a second receipt system.** It is an accounting *view composed from
+> receipted events* — not a parallel source of truth. A ledger that can assert something the receipt
+> stream cannot corroborate has forked the record.
 
 The ledger is the basis for both the commercial analysis and any later scientific work.
 
@@ -495,55 +579,65 @@ compensation for rejected opportunities; lower dependence on commission; economi
 specialist agents; less pressure to bundle services into expensive packages; reduced exclusion of
 low-value trades; and more consistent application of constitutional checks.
 
-### 8.6 Compensation regimes, arms, and the full factorial
+### 8.6 Compensation regimes and the ratified factorial (R-7)
 
 Two compensation regimes:
 
-- **Regime E — execution-contingent.** Agents are compensated primarily or entirely when a trade
-  executes.
-- **Regime S — service-complete.** Agents are compensated for completing their authorised service,
-  whether the result is execution, refusal, expiry or deferral.
+- **Execution-contingent.** Agents are compensated primarily or entirely when a trade executes.
+- **Constitutional-completion-contingent.** Agents are compensated for completing their authorised
+  service, whether the result is execution, refusal, expiry or deferral. (The ruled name; earlier
+  drafts said "service-complete", which understated that the trigger is *constitutional* completion
+  of the delegated role, not merely delivery of an output.)
 
-The H3 2×2:
+**The complete 2×2×2 factorial is approved for Phase 1.** Run all eight cells.
 
-| | Execution-contingent | Service-complete |
-|---|---|---|
-| **Standard stablecoin** | **H3-A** | **H3-B** |
-| **QriptoCENT** | **H3-C** | **H3-D** |
-
-The headline comparison is **H3-A vs H3-D**. The full 2×2 exists to prevent the incorrect conclusion
-that denomination alone caused a behavioural change: micro denomination *enables* finer compensation,
-but neutrality comes from the combination of micro denomination, low-cost settlement, service-level
-pricing, outcome-independent remuneration and complete receipts.
-
-Held constant across arms: opportunities, agents, market conditions, constitutional invariants,
-authority limits, proof requirements.
-
-#### The design space is 2×2×2, not two separate 2×2s
-
-H2's axis is **pricing structure** (bundled vs per-service): *how work is priced.* H3's axis is
-**compensation contingency** (execution-contingent vs service-complete): *whether payment survives a
-refusal.* These are orthogonal — one can price per service and still bill only on execution. The
-complete design space is therefore:
-
-```
-denomination (standard | QriptoCENT)
-  × pricing structure (bundled | per-service)
-    × compensation contingency (execution-contingent | service-complete)
-      = 8 cells
+```text
+Denomination                    Pricing structure    Compensation contingency
+- USDC                          - bundled            - execution-contingent
+- Base Q¢                       - per-service        - constitutional-completion-contingent
 ```
 
-The H2 and H3 2×2s are two orthogonal slices through this cube, sharing the denomination axis.
+**Bare `A`/`B`/`C`/`D` are prohibited** in records, reports and filenames. Cell identifiers are
+derived from configuration:
 
-**Recommendation: run the complete eight-cell factorial in Phase 1.** Phase 1 is deterministic
-simulation with no live value — the eight cells are the *same scenario replayed under different
-configuration*, so the marginal cost over four cells is close to zero, and it is the only design that
-reveals the **interaction between fine-grained pricing and outcome-independence**. That interaction
-is precisely where the neutrality effect would live if it exists: per-service pricing without
-outcome-independence may reproduce commission bias at finer granularity, which a two-slice design
-cannot detect.
+```text
+USDC-BUNDLED-EXEC
+USDC-BUNDLED-COMPLETE
+USDC-SERVICE-EXEC
+USDC-SERVICE-COMPLETE
+BASEQC-BUNDLED-EXEC
+BASEQC-BUNDLED-COMPLETE
+BASEQC-SERVICE-EXEC
+BASEQC-SERVICE-COMPLETE
+```
 
-Later phases may collapse to the four cells the Phase 1 result identifies as informative.
+H2 and H3 remain **named analytical views** over this one dataset — H2 reads the denomination ×
+pricing plane, H3 reads the denomination × contingency plane. There is one experiment and one set of
+runs; there are not two experiments.
+
+Held constant across cells: opportunities, agents, market conditions, constitutional invariants,
+authority limits, proof requirements — and, per R-4, network, transaction path, custody model, wallet
+framework and receipt requirements.
+
+#### Why three axes rather than two
+
+H2's axis is **pricing structure**: *how work is priced.* H3's axis is **compensation contingency**:
+*whether payment survives a refusal.* These are orthogonal — one can price per service and still bill
+only on execution. Two 2×2s sharing the denomination axis are two slices of one cube, and the slices
+cannot see the cell where the axes interact.
+
+**The key interaction to test:**
+
+> Whether per-service pricing **without** outcome-independent compensation reproduces execution bias
+> at a finer level of granularity.
+
+That is `*-SERVICE-EXEC` against `*-SERVICE-COMPLETE`. If per-service pricing alone reproduces the
+`COMPLETE` advantage, the finding is a **pricing** result and must be reported as one — not as
+evidence for neutrality. Neither four-cell slice can distinguish those two stories.
+
+Phase 1 is deterministic simulation with no live value: the eight cells are one scenario set replayed
+under configuration, so the marginal cost over four cells is close to zero. Later phases may collapse
+to whichever cells Phase 1 shows to be informative.
 
 ### 8.7 What is measured
 
@@ -607,20 +701,58 @@ DVN receipts must therefore record: the service performed; the basis for refusal
 responsible; the compensation earned; the authority and delegation context; the evidence considered;
 and the resulting state.
 
-### 8.9 Standing implications — the reputation channel must not reintroduce the bias
+**How this reaches the receipt (R-8).** Via a **versioned partner-service compensation extension** to
+the receipt payload — *not* by adding generic financial fields indiscriminately to every DVN receipt.
+The extension supports: service or opportunity reference; liability-creation event; compensation
+basis; denomination; **amount or amount commitment**; payer/funder commitment; beneficiary
+commitment; settlement state; settlement reference; refusal/completion classification; and the
+**experimental cell identifier** (§8.6).
 
-Compensation and Standing remain **distinct but aligned**. An agent may receive QriptoCENT
-compensation for performing the service, Capability Standing for demonstrated competence, Stewardship
-Standing for preserving constitutional integrity, and Delegated Standing effects where appropriate.
+Where disclosure is restricted, store an **amount commitment plus a private ledger reference** rather
+than the raw amount in the publicly or broadly visible receipt.
 
-> **A profitable execution must not automatically generate greater Standing than a correct refusal.**
+A correct refusal must be representable as:
+
+```text
+service completed constitutionally
+execution declined
+compensation earned
+```
+
+> It must **not** be encoded as a failed trade. An encoding that can only express "the trade did not
+> happen" cannot express the thing H3 is about.
+
+**Process note.** This is a **payload-shape change** to the DVN pipeline. Adding a member to
+`ANCHORABLE_ACTION_TYPES` is the only permitted unilateral change; a payload extension is not, so it
+ships only under this ruling and is versioned so older receipts stay readable.
+
+### 8.9 Standing implications — an immediate constitutional requirement
+
+Compensation and Standing remain **distinct but aligned**. An agent may receive Base Q¢ compensation
+for performing the service, Capability Standing for demonstrated competence, Stewardship Standing for
+preserving constitutional integrity, and Delegated Standing effects where appropriate.
+
+**This is not deferred implementation detail.** Before *any* trading signal is admitted into
+Standing, the following inputs are prohibited:
+
+| Prohibited as a Standing input | Why |
+|---|---|
+| transaction volume | volume is activity, not veracity |
+| revenue generated | revenue rewards the outcome the constitution is indifferent to |
+| executed-trade count | counts executions, so it prices refusal at zero |
+| realised profit **alone** | profit is not evidence of constitutional quality |
+
+Standing **may** recognise: veracity; correct analysis; valid proof; constitutional completeness;
+correct refusal; adherence to delegated authority; risk detection; service reliability; evidential
+reproducibility.
+
+> **The unit is the verified contribution, not the executed transaction.**
 >
-> **Standing follows verified constitutional contribution — not transaction volume or commission
-> generation.**
+> **A correct refusal must be capable of earning equal or greater Standing than an execution, where
+> it better satisfies the mandate.**
 
-Without this rule the market reintroduces execution bias through the reputation system even after the
-payment system has removed it. Any Standing computation touching trading outcomes must be checked
-against it.
+Without this, the market reintroduces execution bias through the reputation system even after the
+payment system has removed it — and the experiment's own result would mask the reintroduction.
 
 ### 8.10 Terminology — "constitutional preparation neutrality", not "net neutrality"
 
@@ -649,6 +781,41 @@ autonomous portfolio management; low-notional experimentation; emerging-market p
 specialist-agent markets.
 
 ---
+
+### 8.12 Funding the compensation — RULED (R-9)
+
+> **For the pilot, compensation comes from an *ex ante* operator-funded service budget — never a levy
+> dependent on executed trades.**
+
+Preferred mechanisms: prepaid service balance; subscription; fixed retainer; operator-funded
+opportunity budget.
+
+The liability arises **when the constitutionally defined service is completed**, regardless of
+whether execution follows:
+
+```text
+operator funds service budget
+        ↓
+opportunity is evaluated
+        ↓
+agent completes required constitutional work
+        ↓
+execution or correct refusal
+        ↓
+compensation becomes payable
+```
+
+**Why a levy is prohibited in the confirmatory arm.** Funding refusals from a percentage of executed
+transactions recreates execution contingency **at the pool level** even after removing it at the
+agent level: the pool only fills when trades execute, so the system regains a systemic interest in
+executing. The bias would return in a form the per-agent measurements are blind to.
+
+A pooled or levy-funded model **may later be tested as a separate commercial arm** — it is a
+legitimate commercial design — but it cannot be treated as evidence of compensation neutrality.
+
+**Phase 1 honesty condition.** The simulation uses a fixed *ex ante* budget, and must state plainly
+that it tests the **incentive structure**, not yet the commercial sustainability of the funding
+source. Those are different claims and the charter must not let the first stand in for the second.
 
 ## 9. Scientific observatory interface — P1, P2, P3
 
@@ -783,7 +950,7 @@ deployment.
 ## 12. Experiment sequence
 
 1. Define the constitutional trading service
-2. Define BitCent and Base QriptoCENT
+2. Define Base Q¢ and the USDC-on-Base comparator (§3, §7.2)
 3. Specify authority, risk, execution and receipt invariants *(via IDE discovery — §5)*
 4. Establish Marketa vetting and operator delegation
 5. Admit agents into the Financial Services Runtime
@@ -819,7 +986,8 @@ P1/P2/P3 arms. QCT-on-Runes etching proceeds in parallel where genuinely indepen
 | Neutrality effect is an artefact of pricing, not contingency | The eight-cell factorial shows the H3-D advantage reproduced by per-service pricing alone under execution-contingent compensation — report it as a pricing result, not a neutrality result |
 | Compensation model reintroduces bias via Standing | Any Standing computation weighting execution above correct refusal — halt under §10 rule four |
 | Neutrality bought at the cost of integrity | Coverage rises while refusal accuracy, receipt coverage or authority-chain integrity falls — the non-inferiority condition (§7.6) governs H3 identically |
-| Rune naming error | An etch broadcast with a name other than the ratified BitCent naming — **irreversible**; see gap G-1 |
+| Rune naming error | An etch broadcast with a name other than `BITCENT` — **irreversible**; see gap G-1 |
+| Denomination confounded with network | Any arm substituting BitCent for Base Q¢ — the result would measure Bitcoin-versus-Base and report it as micro-versus-standard |
 
 ---
 

@@ -1,7 +1,7 @@
 # VL-CT-001 — Gap Register
 
 **Companion to:** `2026-07-28_vl-ct-001-constitutional-trading-venture-charter.md`
-**Status:** draft — pending operator/Aletheon ratification
+**Status:** rulings R-1 through R-9 ratified 2026-07-28 and applied below
 **Date:** 2026-07-28
 **Method:** every "what exists today" claim below was verified against the working tree at
 `e70618bd5` on `claude/constitutional-ground-review-7yg8nb`. Claims that could not be verified from
@@ -24,8 +24,8 @@ Each gap carries:
 
 The headline: **the pilot layer is the most complete, the venture layer is the least — and the third
 leg (H3, constitutional preparation neutrality) roughly doubles the venture-layer gap rather than
-closing it.** The single irreversible item (G-1) is not on the critical path but has the shortest
-fuse.
+closing it.** The single irreversible track is off the critical path but has the shortest fuse — and
+turned out to hold a second, undecided defect (G-2).
 
 ---
 
@@ -54,11 +54,30 @@ another — `agentBinding.ts:942` records that "runtime admission belongs to the
 Runtime; deriving either" from the other is the error the separation prevents);
 `evaluateNewActionAuthority`. Schema in `supabase/migrations/20260905000000_agent_identity_bindings`.
 
-**Missing.** `OWNERSHIP_FRESHNESS_WINDOW_MS = 24h` is **unratified** — it is a placeholder awaiting
-an operator ruling on how stale an ownership proof may be before a new consequential action must
-re-verify. Not blocking Slice B; blocking before live value.
+**Missing — CLOSED by R-2.** The single 24-hour window was ruled **too coarse** and has been replaced
+by a risk-tiered policy in `agentBinding.ts`:
 
-**Blocks.** Live-value execution (Phase 4).
+| Tier | Window | Applies to |
+|---|---|---|
+| `passive` | 24h | catalogue display, research, preliminary Marketa review |
+| `admission` | 15m | operator claim, delegation activation, runtime admission |
+| `consequential` | 5m | live-value authorisation |
+
+Plus `requiresFreshRead(tier, { irreversible, highValue })` — a high-value or irreversible act must
+re-read the chain and **cannot** be authorised from the 5-minute cache, surfaced as the new
+`ownership-fresh-read-required` refusal. `OWNERSHIP_FRESHNESS_TIER_FOR` maps each act to its tier as
+data, so a route cannot quietly choose a looser window; `isOwnershipFresh` and
+`evaluateNewActionAuthority` both **default to `consequential`**, the strictest, so an unspecified
+caller fails safe.
+
+The governing invariant: *ownership freshness is determined by the consequence of the proposed
+action, not by one universal polling interval.* Transfer-event indexing can later shorten the numbers
+without changing the tiering.
+
+Canaries in `tests/horizen-agent-binding.test.ts` (87 green); five mutations — tier collapse, loosened
+default, inert fresh-read, `operator-claim` demoted to passive, ignored `freshRead` — all caught.
+
+**Blocks.** Nothing further.
 
 ---
 
@@ -163,9 +182,13 @@ in the whole register.
 orchestration cost, simulation cost, proof-generation cost or verification cost is computed anywhere
 in the platform.
 
-**Missing.** The model of charter §6, plus the operator's choice of accounting interval (per
-opportunity / per completed trade / per session / per strategy batch / per operator account / per
-pilot period).
+**Missing.** The model of charter §6. **The accounting interval is now ruled (R-3):** the canonical
+unit is the **opportunity** — including refused and never-executed opportunities — aggregated *per
+opportunity → per experimental run → reporting period*. Eleven fields per record (creation time,
+participating agents, discovery/analysis/verification/compliance/execution-preparation effort,
+outcome, compute and token use, elapsed time, associated receipts and payments).
+
+The ruling removes the design question but not the work: nothing computes any of it.
 
 **Blocks.** H2 entirely — "preparation-cost recovery" is currently unmeasurable, so the secondary
 venture hypothesis cannot be scored at all. Also blocks H3, which extends this equation.
@@ -191,10 +214,18 @@ comparison is unrecoverable after the fact. It must also record **compensation e
 non-executed outcome**, which is the single measurement H3 turns on and which an execution-keyed
 schema cannot express at all.
 
-**Constraint on closing it.** `principal commitment`, never `personaId`. Where the ledger becomes
-network- or chain-bound, `personaPublicRef()` is the only permitted persona identifier. The
-service-economy ledger is a **new evidence category** — distinct from the DVN receipt stream and the
-Horizen evidence chain — and if it is anchored, T0 identifier isolation applies without exception.
+**Anchoring ruled (R-6).** The ledger **is** DVN-anchored, at two levels: an **individual receipt**
+for each consequential event (obligation creation, correct refusal, compensation entitlement,
+settlement, reversal, dispute, reconciliation adjustment), and **batched checkpoint/Merkle
+commitments** for ordinary entries. Amounts may be **committed rather than publicly disclosed**.
+
+**Constraint on closing it.** `principal commitment`, never `personaId`; `personaPublicRef()` is the
+only permitted persona identifier on any network- or chain-bound field, and T0 isolation applies
+without exception.
+
+> **The ledger must not become a second receipt system.** It is an accounting *view composed from
+> receipted events*. A ledger that can assert what the receipt stream cannot corroborate has forked
+> the record — and the fork would be discovered during audit, not before.
 
 **Blocks.** H3 measurement of every one of the six mechanisms. Also the "constitutional compensation
 of agents" claim in §7.9.
@@ -234,19 +265,23 @@ couples denomination to settlement architecture cannot answer the question it is
 
 ---
 
-### V-4 — The standard-stablecoin comparator — **OPEN, and unspecified**
+### V-4 — The standard-stablecoin comparator — **CLOSED (R-4)**
 
-**Exists today.** Nothing selected.
+**Ruled.** **USDC on Base**, described as: *standard USDC settlement on Base using the same x402 and
+receipt pathway as the Base Q¢ arm.*
 
-**Missing.** *Which* standard stablecoin, on *which* network, at *what* fee profile. H3's entire
-result is a comparison against this choice, so the choice is an experimental parameter, not an
-implementation detail. Picking a comparator with atypical fees would make the result
-non-transferable.
+Held constant: network; transaction path; custody model; wallet framework; service scenario; receipt
+requirements; settlement-finality assumptions. Only denomination and the experimental mechanism vary.
 
-**Blocks.** Arms H2-A/H2-B and H3-A/H3-B — i.e. half of each design, and four of the eight
-factorial cells.
+**Fee profile.** Phase 1 uses a **frozen, documented Base fee profile** from a defined observation
+window — explicitly not an unusually cheap or congested block. Live phases record the **actual fee
+paid per transaction alongside the frozen benchmark**.
 
-**Requires.** An operator decision, recorded in the charter before Phase 1 runs.
+**Prohibited.** Comparing against a stablecoin on a different network — that confounds denomination
+with chain economics.
+
+**Consequence for the instrument.** This is the same reasoning that moved the experiment off BitCent:
+see the correction recorded at G-1.
 
 ---
 
@@ -267,9 +302,25 @@ auto-merge. So this repository cannot answer whether Base QCT is deployed.
 Not Phase 1 or 2, which need no
 live value.
 
-**Action.** Reconcile the Kn0w-1 deploy-address commit into canonical with operator sign-off before
-any settlement phase. This is a pre-existing flagged item, not a new one — but VL-CT-001 is the first
-workstream whose economics depend on the answer.
+**Ruled (R-5).** The canonical record **remains pending and not deployed** until independently
+verified and admitted into canon. The Kn0w-1 deploy-address commitment is **evidence to investigate,
+not sufficient canonical proof.**
+
+Required reconciliation, in order:
+
+1. identify the claimed contract address;
+2. verify chain and bytecode;
+3. verify deployer and deployment transaction;
+4. verify token metadata and authority controls;
+5. determine whether it is canonical, experimental or abandoned;
+6. produce a **reconciliation receipt**;
+7. amend the canonical deployment record **only after** verification.
+
+Until then: Phases 1–2 may use an abstract or simulated Base Q¢ instrument; Phase 3 may use an
+explicitly labelled **non-canonical** test deployment; Phase 4 **must not** represent the instrument
+as canonical without ratification.
+
+> **No existing clone address may silently become the production contract.**
 
 ---
 
@@ -307,6 +358,13 @@ contingency is a change to *when a liability comes into existence*. An implement
 the obligation at execution and back-fills refusals will look correct and measure nothing, because
 the refusal path never generates the obligation the hypothesis is about.
 
+**Funding ruled (R-9).** The pilot funds compensation from an ***ex ante* operator-funded service
+budget** — prepaid balance, subscription, retainer or opportunity budget. A levy on executed trades
+is **prohibited in the confirmatory arm**: it recreates execution contingency at the pool level after
+removing it at the agent level. A levy-funded model may be tested later as a **separate commercial
+arm**, but cannot count as evidence of neutrality. Phase 1 must state that it tests the **incentive
+structure**, not the sustainability of the funding source.
+
 ---
 
 ### V-8 — Constitutional-completeness scoring — **OPEN (new with H3)**
@@ -342,11 +400,18 @@ considered, and the resulting state.
 **Blocks.** H3's central claim — that a justified refusal is a completed service rather than a failed
 transaction — is unfalsifiable without a receipt that says so.
 
-**Constraint on closing it.** If this needs a new anchorable action type, note that adding a member to
-`ANCHORABLE_ACTION_TYPES` in `services/dvn/activityReceiptDvnPipeline.ts` is **the only permitted
-unilateral change** to the DVN pipeline. Anything touching the payload shape, the state machine, or
-`hashPersonaRef` requires operator approval before coding. Adding a compensation amount to a receipt
-payload is a payload-shape change — **it is not unilateral**.
+**Ruled (R-8).** Approved as a **versioned partner-service compensation extension** to the receipt
+payload — not generic financial fields sprayed across every DVN receipt. Eleven supported fields
+including amount **or amount commitment**, payer/funder and beneficiary commitments, settlement
+state, refusal/completion classification and the experimental cell identifier. Restricted disclosure
+stores an **amount commitment plus a private ledger reference** rather than the raw amount.
+
+A correct refusal must be representable as *service completed constitutionally / execution declined /
+compensation earned* — **never** as a failed trade.
+
+**Process note.** This is a payload-shape change, which is **not** among the unilateral DVN changes
+(only adding an `ANCHORABLE_ACTION_TYPES` member is). It proceeds under this ruling, versioned so
+older receipts stay readable.
 
 ---
 
@@ -365,11 +430,24 @@ nothing enforces it. The moment a trading-outcome signal is fed into `crm_person
 execution bias H3 removes from the payment system re-enters through the reputation system, and the
 experiment's own result would mask it.
 
-**Blocks.** Nothing today. Must exist **before** any trading outcome feeds Standing — otherwise the
-rule is doctrine without machinery, which is the CB-1 shape.
+**Ruled — immediate constitutional requirement, not deferred implementation detail.** Before any
+trading signal enters Standing, these are **prohibited as direct inputs**: transaction volume;
+revenue generated; executed-trade count; realised profit **alone** as evidence of constitutional
+quality.
 
-**Suggested closure.** A parity canary in the `tests/source-of-truth-parity.test.ts` family asserting
-that no Standing input derives from executed-trade count, notional or fee revenue.
+Standing **may** recognise: veracity; correct analysis; valid proof; constitutional completeness;
+correct refusal; adherence to delegated authority; risk detection; service reliability; evidential
+reproducibility.
+
+> The unit is the **verified contribution**, not the executed transaction. A correct refusal must be
+> capable of earning **equal or greater** Standing than an execution where it better satisfies the
+> mandate.
+
+**Blocks.** Must exist **before** any trading outcome feeds Standing — otherwise the rule is doctrine
+without machinery, which is the CB-1 shape.
+
+**Closure.** A parity canary in the `tests/source-of-truth-parity.test.ts` family asserting that no
+Standing input derives from executed-trade count, notional or fee revenue.
 
 ---
 
@@ -443,50 +521,75 @@ rule is doctrine without machinery — the CB-1 failure shape.
 
 ---
 
-## The one irreversible gap
+## The irreversible gap — named, decided, and larger than it looked
 
-### G-1 — BitCent naming must reach the Runes etching parameters before any etch — **OPEN, IRREVERSIBLE**
+### G-1 — BitCent naming — **NAME RULED (R-1) AND APPLIED; a second defect surfaced**
 
-**Exists today.** `scripts/QCT_RUNES_DEPLOYMENT.md` specifies the token as:
+**Ruled (R-1).** The class is QriptoCENT / Q¢. The Bitcoin-specific version is **BitCent / B¢**, ASCII
+fallback `Bc`, long form "Bitcoin Q¢". The immutable Rune name is **`BITCENT`**, subject to final
+deployment validation — **never `QRIPTOCENT`**, which names the class rather than this version.
 
-| Property | Value in the doc today |
-|---|---|
-| Name | **QRIPTOCENT** |
-| Symbol | Q¢ |
-| Decimals | 8 |
-| Total supply | 1,000,000,000 |
-| Premine | 400,000,000 (40%) |
-| Public mints | 21,000 × 47,619 |
-| Turbo | enabled |
+**Applied.** `scripts/QCT_RUNES_DEPLOYMENT.md` (title, overview, spec table, and a naming-canon
+section stating the immutability), `scripts/deploy-qct-runes.ts` and `scripts/deploy-qct-runes.js`
+(`name: 'BITCENT'`, `symbol: 'B¢'`, canon in the header).
 
-Deployment scripts: `scripts/deploy-qct-runes.ts` / `.js`.
-
-**Missing.** The operator-confirmed naming — **BitCent (Bc)** for QCT-on-Bitcoin — is not carried into
-the deployment doc or the etch parameters.
-
-**Irreversible?** **Yes.** A Rune name is fixed at etch. An etch broadcast with the wrong name cannot
-be corrected; it can only be abandoned and re-etched under a different name, losing the intended one.
-
-**Blocks.** Nothing else — QCT-on-Runes is genuinely parallel work. But it has the shortest fuse in
-the register, because the cost of proceeding without closing it is permanent and the cost of closing
-it is a text edit.
-
-**Action.** Reconcile the name (and confirm whether the symbol should remain `Q¢` or become `Bc`)
-into `scripts/QCT_RUNES_DEPLOYMENT.md` and the etch parameters **before** any etch transaction is
-broadcast, testnet or otherwise.
+**Correction recorded.** BitCent is **not** the VL-CT-001 instrument. The experiment uses **Base Q¢**
+so both arms share one network, one x402 pathway, one custody model and one receipt path. Using
+BitCent would confound denomination with network and settlement architecture — the experiment would
+measure Bitcoin-versus-Base and report it as micro-versus-standard. BitCent's etch is now a genuinely
+parallel track, and a later cross-network experiment is where the network difference becomes the
+subject rather than a confound.
 
 ---
+
+### G-2 — A third etching script, with irreconcilable tokenomics — **OPEN, IRREVERSIBLE, NEW**
+
+Found while applying R-1. `scripts/deploy-qct-bitcoin.js` also etches this concept, and its
+parameters **disagree with the canonical script**:
+
+| | `deploy-qct-runes.*` | `deploy-qct-bitcoin.js` |
+|---|---|---|
+| premine | 400,000,000 (40%) | 100,000,000 |
+| amount per mint | 47,619 | 1,000 |
+| mint cap | 21,000 mints | 900,000,000 |
+
+Rune etching parameters are immutable once broadcast, so **whichever script runs first fixes the
+tokenomics forever**. This is the source-of-truth-parity defect class (`inv.engineering.037`) in its
+most expensive form: the stale duplicate cannot be corrected after the fact.
+
+**Done.** The naming canon was applied to **both**, so no path can etch the wrong *name* while the
+*tokenomics* question is open. The divergent script now refuses to run without
+`ACKNOWLEDGE_DIVERGENT_TOKENOMICS=yes`, with the divergence table in its header.
+
+**Missing.** An operator ruling on which parameter set is authoritative, and deletion or
+reconciliation of the loser. Guarding is a stopgap; two scripts for one irreversible act is the
+defect.
+
+**Irreversible?** **Yes** — once either is broadcast.
+
+---
+
+### G-3 — Hardcoded Bitcoin private key in the repository — **OPEN, SECURITY**
+
+`scripts/deploy-qct-bitcoin.js` contains a literal WIF private key
+(`const persistentWIF = 'cMnrk...'`). It is testnet, but CLAUDE.md's rule is unqualified: *never
+hardcode secrets, keys, or credentials.* Anyone with repository access controls that wallet and can
+spend anything funding it — including the UTXO reserved for an etch.
+
+**Not remediated unilaterally.** The wallet may be funded and in use; rotating or deleting the key
+without the operator is destructive. Flagged for a decision: move to an env var and rotate, or
+confirm the wallet is disposable.
 
 ## Dependency order
 
 ```
-G-1  (parallel, irreversible, close first — it costs a text edit)
+G-1  naming  [RULED R-1, APPLIED]   ·   G-2  duplicate etching script  [OPEN, irreversible]
   │
 P-3  Slice B — Partner Workspace display        [CLOSED 54cea2d60]
   ↓
 S-1  IDE run: trading invariants                 ─┐
 V-1  Preparation-cost model                       │
-V-4  Standard-stablecoin comparator decision      ├─ can run concurrently
+V-4  Comparator  [CLOSED R-4: USDC on Base]      ├─ can run concurrently
 V-8  Constitutional-completeness scoring         ─┘
   ↓
 P-8  Deterministic scenarios      ← consumed by H2, H3, and all P-arms
@@ -495,13 +598,13 @@ V-2  Service-economy ledger  +  V-3  Micro-settlement layer  +  V-7  Compensatio
   ↓
 V-9  Refusal as a receipted, compensable service
   ↓
-Phase 1 — the EIGHT-CELL factorial, simulated   [no live value; no V-5 dependency]
+Phase 1 — the EIGHT-CELL factorial, simulated   [ratified R-7; no live value, no V-5 dependency]
   ↓
 Phase 2 — live observation, shadow settlement
   ↓
 P-4  Operator claim  →  P-6  Marketa vetting  →  P-7  Runtime admission
   ↓
-P-2  ownership-freshness ruling  +  V-5  Base QCT reconciliation
+P-2  freshness  [CLOSED R-2]  +  V-5  Base QCT reconciliation (7-step, R-5)
   ↓
 V-10 Standing neutrality guard    ← MUST precede any trading signal reaching Standing
   ↓
@@ -531,24 +634,30 @@ Constitutional Coverage by Trade Size curve), include a realistic proportion of 
 expired opportunities (the population H3 is about), and be replayable under eight configurations.
 Specifying it after V-8 rather than before avoids a scenario set that cannot express the metric.
 
-## Open rulings required
+## Rulings — status after 2026-07-28
+
+| # | Ruling | Status |
+|---|---|---|
+| R-1 | BitCent naming and representations | **RATIFIED + APPLIED** — `BITCENT` / `B¢`; class stays QriptoCENT / Q¢. Correction: the experiment uses **Base Q¢**, not BitCent |
+| R-2 | Ownership freshness | **RATIFIED + IMPLEMENTED** — three tiers (24h / 15m / 5m) + fresh-read requirement for irreversible or high-value acts |
+| R-3 | Preparation-cost accounting interval | **RATIFIED** — per **opportunity**, incl. refused and unexecuted; aggregated per run and per reporting period |
+| R-4 | H3 comparator | **RATIFIED** — USDC on Base, same x402/custody/receipt path; frozen fee profile in Phase 1, actual fees live |
+| R-5 | Base QCT reconciliation | **RATIFIED** — canonical stays pending; seven-step verification; phase-by-phase instrument permissions |
+| R-6 | Service-economy ledger anchoring | **RATIFIED** — DVN-anchored at two levels; consequential events receipted individually, ordinary entries checkpointed |
+| R-7 | Full factorial | **RATIFIED** — complete 2×2×2, eight configuration-derived cell ids, bare arm letters prohibited |
+| R-8 | Compensation in DVN receipts | **RATIFIED** — versioned partner-service extension; amount commitment + private ledger reference where restricted |
+| R-9 | Funding correct refusals | **RATIFIED** — *ex ante* operator-funded budget; executed-trade levy prohibited in the confirmatory arm |
+| V-10 | Standing contamination guard | **RATIFIED** — volume, revenue, execution count and profit-alone prohibited as Standing inputs |
+
+## Rulings still needed
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| R-1 | BitCent name **and symbol** (`Q¢` or `Bc`?) into the Runes etch parameters | G-1 (irreversible) |
-| R-2 | Ownership freshness window — 24h is a placeholder | live-value execution |
-| R-3 | Preparation-cost **accounting interval** (opportunity / trade / session / batch / account / period) | V-1, and therefore H2 and H3 |
-| R-4 | Which standard stablecoin, network and fee profile is the H2/H3 comparator | arms H2-A/H2-B and H3-A/H3-B |
-| R-5 | Base QCT mainnet reconciliation between canonical and the Kn0w-1 clone | Phases 3–4 |
-| R-6 | Whether the service-economy ledger is DVN-anchored (and therefore bound by T0/T2 identifier isolation in full) | V-2 schema |
-| R-7 | **Confirm the eight-cell Phase 1 factorial** — or accept two four-cell slices and forgo the pricing × contingency interaction | Phase 1 scope |
-| R-8 | Whether refusal compensation requires a **new anchorable action type** or a payload change to an existing one — the latter is **not** a unilateral DVN change and needs approval before coding | V-9 |
-| R-9 | Who funds service-complete compensation for opportunities that never execute — the operator, a service subscription, or a levy on executed trades (the last risks reintroducing the very coupling H3 removes) | V-7 economics |
+| **R-10** | **Which etching script is authoritative** — `deploy-qct-runes.*` (400M premine / 47,619 per mint / 21,000 cap) or `deploy-qct-bitcoin.js` (100M / 1,000 / 900M)? The loser should be deleted, not merely guarded. | G-2 — **irreversible once either is broadcast** |
+| **R-11** | **The hardcoded testnet WIF** in `deploy-qct-bitcoin.js` — rotate and move to an env var, or confirm the wallet is disposable? | G-3 — security |
+| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) | the etch itself |
+| **R-13** | The Base fee **observation window** for R-4's frozen profile — which dates, and by what rule are unusual blocks excluded? | Phase 1 reproducibility |
 
-R-9 is the one worth sustained thought. H3 says agents must be paid for correct refusals; the money
-still has to come from somewhere. Funding refusals from a levy on executed trades restores
-execution-contingency at the level of the *pool* even after removing it at the level of the *agent* —
-the bias returns as a systemic pressure to keep the pool full. An operator-funded or subscription
-model avoids that but changes the commercial proposition materially. This is a venture-design
-decision, not an implementation detail, and Phase 1 cannot settle it because simulated payments have
-no funder.
+R-10 and R-12 travel together: validating the name means nothing if two scripts can etch different
+tokenomics under it. R-13 is small but load-bearing — an undocumented observation window makes Phase 1
+unreproducible, and reproducibility is the one thing a deterministic phase is supposed to guarantee.
