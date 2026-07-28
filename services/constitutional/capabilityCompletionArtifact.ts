@@ -1,6 +1,6 @@
 /**
  * capabilityCompletionArtifact — the DERIVATION and VALIDATION half of CCR-001,
- * schema `capability-completion-artifact/v1.0`.
+ * schema `capability-completion-artifact/v2.0`.
  *
  * EXTENDS `services/constitutional/capabilityRegistry.ts` (CFS-032) rather than
  * standing beside it. That registry remains the acceptance ceremony and
@@ -31,16 +31,19 @@ import {
   CAPABILITY_COMPLETION_SCHEMA_VERSION,
   COMMONS_PROOF_CLASSES,
   COMPLETION_LIFECYCLE,
+  EMISSION_KINDS,
   EVIDENCED_STATUSES,
   INVARIANT_PROVENANCE_KINDS,
   INVARIANT_STATUSES,
   UNEVIDENCED_PROVENANCE,
   mapCompletionStage,
   type CapabilityCompletionArtifact,
+  type CapabilityEmission,
   type CommonsProofClass,
   type CompletionIssue,
   type CompletionStage,
   type CompletionValidationResult,
+  type EmissionKind,
   type InvariantProvenance,
   type InvariantStatus,
   type ReproductionInvariant,
@@ -214,11 +217,42 @@ function parseInvariants(md: string): ReproductionInvariant[] {
 }
 
 // ---------------------------------------------------------------------------
+// §7.6a — emissions
+// ---------------------------------------------------------------------------
+
+/** `- **kind** \`ref\` — what triggers it`. The kind is validated, not assumed. */
+const EMISSION_ITEM = /^\*\*([a-z-]+)\*\*\s+`([^`]+)`\s*[—–-]\s*(\S[\s\S]*)$/;
+
+/** An explicit "nothing is emitted" marker — parsed to an EMPTY list, which is
+ *  a different state from an absent section and is checked differently. */
+const EMISSION_NONE = /^none\b/i;
+
+/**
+ * Parse the `### Emits` list items. A malformed line yields an entry with an
+ * empty `kind`, which validation then reports — it is never silently dropped,
+ * because a dropped line would turn "wrote it wrong" into "emits nothing",
+ * which is the exact conflation this section exists to prevent.
+ */
+function parseEmissions(items: string[]): CapabilityEmission[] {
+  const out: CapabilityEmission[] = [];
+  for (const item of items) {
+    if (EMISSION_NONE.test(item.trim())) continue;
+    const m = EMISSION_ITEM.exec(item.trim());
+    if (!m) {
+      out.push({ kind: '' as EmissionKind, ref: '', trigger: item.trim() });
+      continue;
+    }
+    out.push({ kind: m[1] as EmissionKind, ref: m[2].trim(), trigger: m[3].trim() });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Derivation
 // ---------------------------------------------------------------------------
 
 /**
- * Derive the `capability-completion-artifact/v1.0` shape from a Brief's
+ * Derive the `capability-completion-artifact/v2.0` shape from a Brief's
  * markdown twin. Returns the shape unvalidated — run
  * `validateCompletionArtifact` on the result. A missing section produces an
  * empty field (which validation then reports), never an invented one.
@@ -228,6 +262,8 @@ export function parseCompletionArtifact(markdown: string): CapabilityCompletionA
   const boundary = sectionBody(markdown, 'Capability boundary');
   const location = sectionBody(markdown, 'Location');
   const commonsTable = tableMap(sectionBody(markdown, 'Commons publication record'));
+  const emitsBody = boundary ? subsectionBody(boundary, 'Emits') : null;
+  const rationaleBody = boundary ? subsectionBody(boundary, 'Emission rationale') : null;
 
   return {
     schemaVersion: CAPABILITY_COMPLETION_SCHEMA_VERSION,
@@ -255,6 +291,10 @@ export function parseCompletionArtifact(markdown: string): CapabilityCompletionA
       externalAuthorities: listItems(
         boundary ? subsectionBody(boundary, 'External authorities') : null,
       ),
+      // `null` is LOAD-BEARING: an absent section is "forgotten" and must stay
+      // distinguishable from an empty one ("none"). Never coalesce it to [].
+      emits: emitsBody === null ? null : parseEmissions(listItems(emitsBody)),
+      emissionRationale: firstParagraph(rationaleBody) || null,
     },
     implementationFreedom: firstParagraph(sectionBody(markdown, 'Implementation freedom')),
     reproductionInvariants: parseInvariants(markdown),
@@ -382,6 +422,45 @@ export function validateCompletionArtifact(input: unknown): CompletionValidation
     if (b.owns.length === 0) push('boundary.owns', 'claims no ownership (§7.6)');
     if (b.doesNotOwn.length === 0) {
       push('boundary.doesNotOwn', 'states nothing it does NOT own — the boundary is unfalsifiable (§7.6)');
+    }
+
+    // §7.6a / CB-3 — CAN-CCR-9. Three states, held apart:
+    //   absent  → "forgotten"  → REFUSED
+    //   []      → "none"       → valid ONLY with a rationale
+    //   [...]   → "these"      → each entry must be well-formed
+    // An optional field would let all three collapse into one, which is the
+    // failure this extension exists to eliminate (operator ruling 2026-07-27).
+    if (!Array.isArray(b.emits)) {
+      push(
+        'boundary.emits',
+        'declares no Emits section — an omitted field reads as "forgotten", which is indistinguishable from "none" and "unknown" (§7.6a / CB-3)',
+        'CAN-CCR-9',
+      );
+    } else if (b.emits.length === 0) {
+      if (!isNonEmpty(b.emissionRationale ?? '')) {
+        push(
+          'boundary.emissionRationale',
+          'emits nothing and says nothing about why — an empty list with no rationale is "unknown", not "none" (§7.6a)',
+          'CAN-CCR-9',
+        );
+      }
+    } else {
+      b.emits.forEach((e, i) => {
+        const at = `boundary.emits[${i}]`;
+        if (!(EMISSION_KINDS as readonly string[]).includes(e.kind)) {
+          push(
+            `${at}.kind`,
+            `emission ${i} carries no emission kind (got '${e.kind ?? ''}') — expected one of ${EMISSION_KINDS.join(', ')}`,
+            'CAN-CCR-9',
+          );
+        }
+        if (!isNonEmpty(e.ref)) {
+          push(`${at}.ref`, `emission ${i} names no reference — a receipt type, store, format or log prefix`, 'CAN-CCR-9');
+        }
+        if (!isNonEmpty(e.trigger)) {
+          push(`${at}.trigger`, `emission ${i} names no triggering act — an emission nobody writes is a wish`, 'CAN-CCR-9');
+        }
+      });
     }
   }
 
@@ -518,4 +597,22 @@ export function validateCompletionArtifact(input: unknown): CompletionValidation
  *  `CAN-CCR-5`'s disk-resolution check. */
 export function declaredProofPaths(artifact: CapabilityCompletionArtifact): string[] {
   return [...new Set(artifact.reproductionInvariants.flatMap((i) => i.canaries))];
+}
+
+/**
+ * Every emission of a given kind the artifact claims, de-duplicated — the input
+ * to `CAN-CCR-9`'s resolution check.
+ *
+ * The resolution itself lives in the canary, not here, for the same reason
+ * `CAN-CCR-5`'s does: this module is PURE, and resolving a receipt type means
+ * reading `services/receipts/activityReceiptService.ts` off disk. A second
+ * source reader here would be a second way to answer one question.
+ */
+export function declaredEmissionRefs(
+  artifact: CapabilityCompletionArtifact,
+  kind: EmissionKind,
+): string[] {
+  const emits = artifact.boundary?.emits;
+  if (!Array.isArray(emits)) return [];
+  return [...new Set(emits.filter((e) => e.kind === kind).map((e) => e.ref))];
 }

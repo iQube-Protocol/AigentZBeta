@@ -15,7 +15,7 @@
   registered in `codexes/packs/agentiq/collections.json` under `col_updates`
   (CFS-049 §5). The markdown twin is the SOURCE OF TRUTH; the published
   Artifact is a rendering of it. Never author a JSON mirror of this document —
-  the machine-readable `capability-completion-artifact/v1.0` shape is DERIVED
+  the machine-readable `capability-completion-artifact/v2.0` shape is DERIVED
   from these headings by `parseCompletionArtifact()` in
   `services/constitutional/capabilityCompletionArtifact.ts`, and a hand-kept
   duplicate would be the `inv.engineering.036` defect this standard exists to
@@ -44,7 +44,7 @@
 | Capability ID | `<registry-capability-id>` |
 | Display label | <Human name> |
 | Artifact version | 1.0 |
-| Schema | `capability-completion-artifact/v1.0` |
+| Schema | `capability-completion-artifact/v2.0` |
 | Date | <YYYY-MM-DD> |
 | Governing documents | `<PRD-XXX-000>`, `<CFS-000>`, `<SPEC-XXX-000>` |
 | Artifact path | `codexes/packs/agentiq/updates/<this-file>.md` |
@@ -100,6 +100,56 @@
 
 ### External authorities
 - <Constraints imposed from outside: the identity spine, DVN, a third-party SDK>
+
+### Emits
+
+<!-- §7.6a / CB-3 (CFS-053) — REQUIRED, and required for a reason.
+
+     An omitted section reads as "forgotten"; an empty one with a rationale
+     reads as "none, deliberately"; a populated one reads as "these". Those are
+     three different states, and an optional field collapses them into one —
+     which is how a capability that SHOULD emit a receipt and does not (the
+     IDE-6 finding) surfaces as an audit discovery instead of as an empty list
+     where a list was expected. `CAN-CCR-9` refuses an omitted section.
+
+     One entry per line, in exactly this shape (all three parts machine-read):
+
+       - **<kind>** `<ref>` — <the act that writes it>
+
+     `<kind>` is one of:
+       receipt         — a `createActivityReceipt` action type
+       durable-record  — a persisted row: a Supabase table, or another named store
+       artifact        — an artifact_records / StudioArtifact-class output
+       log             — a structured server log (the `[DVN ESCALATION]` class)
+
+     `<ref>` is that kind's identifier: the ActivityActionType, the table or
+     store, the format, the log prefix. A `receipt` ref is RESOLVED against the
+     real `ActivityActionType` union by `CAN-CCR-9`, exactly as `CAN-CCR-5`
+     resolves a canary path — an invented receipt type fails the build.
+
+     `<the act that writes it>` names the invocation that actually emits it, so
+     the claim can be checked against the code. Write what the code DOES, not
+     what the governing document says it should; a brief that records an
+     aspirational emission is worse than one that records none.
+
+     If the capability emits nothing, write `- None` here and fill in the
+     rationale below. Deleting the section is not the same thing. -->
+
+- **<kind>** `<ref>` — <the act that writes it>
+
+### Emission rationale
+
+<!-- §7.6a — REQUIRED whenever `Emits` is empty, omitted otherwise. Why this
+     capability legitimately emits nothing. An empty list with no rationale is
+     "unknown", which is the state the field exists to eliminate.
+
+     "Read-only; no state transition of record" is a valid rationale when it is
+     TRUE (CFS-053 §5.3 bounds CB-3 to state transitions of record). It is not
+     valid as a reflex: a capability that leaves no trace at all cannot be shown
+     to have run, so if downstream readiness depends on knowing whether it ran,
+     say that here rather than reaching for the convenient sentence. -->
+
+<One paragraph, or omit the section entirely when Emits is non-empty.>
 
 ## Implementation freedom
 

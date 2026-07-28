@@ -52,16 +52,19 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { readSource } from './_lib/sourceAuthority';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 import {
   parseCompletionArtifact,
   validateCompletionArtifact,
   declaredProofPaths,
+  declaredEmissionRefs,
   readsAsBehaviour,
 } from '../services/constitutional/capabilityCompletionArtifact';
 import {
   CAPABILITY_COMPLETION_SCHEMA_VERSION,
+  SUPERSEDED_COMPLETION_SCHEMA_VERSIONS,
   COMPLETION_LIFECYCLE,
+  EMISSION_KINDS,
   INVARIANT_PROVENANCE_KINDS,
   INVARIANT_STATUSES,
   EVIDENCED_STATUSES,
@@ -99,7 +102,8 @@ const resolves = (repoRelative: string): boolean =>
 // reference example enforces nothing about the artifacts that come after it.
 //
 // The set is DERIVED, never hand-listed: any update-pack document that declares
-// the `capability-completion-artifact/v1.0` schema is in scope. A hand-kept list
+// the CURRENT completion schema is in scope — read from the constant, so a
+// version bump moves the set rather than silently emptying it. A hand-kept list
 // here would be the stale-duplicate defect the standard exists to eliminate, and
 // an exact count would break on legitimate growth (the lesson already learned
 // twice in this file). The guard against a vacuous scan is a LOWER BOUND plus
@@ -124,7 +128,7 @@ describe('every CCR-001 completion artifact in the pack, not only the reference 
     expect(completionArtifacts.map((a) => a.path)).toContain(ARTIFACT_PATH);
   });
 
-  it('each one validates against capability-completion-artifact/v1.0', () => {
+  it('each one validates against the current completion schema', () => {
     for (const { path, parsed } of completionArtifacts) {
       const result = validateCompletionArtifact(parsed);
       expect(
@@ -210,7 +214,7 @@ describe('every CCR-001 completion artifact in the pack, not only the reference 
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('the reference completion artifact (CCR-001 §17, the Companion menu system)', () => {
-  it('parses and validates against capability-completion-artifact/v1.0', () => {
+  it('parses and validates against the current completion schema', () => {
     const result = validateCompletionArtifact(artifact);
     expect(
       result.valid,
@@ -443,6 +447,163 @@ describe('CAN-CCR-7 (dangling-reference half) — no capability points at a Brie
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// CAN-CCR-9 — a capability declares what it emits (§7.6a / CB-3)
+//
+// The operator's specification, verbatim: *"It also prevents receipts from
+// disappearing into prose where readiness tooling cannot distinguish 'none,'
+// 'unknown,' and 'forgotten.'"* Every assertion below exists to keep those
+// three states apart, so the required-ness itself is what is under test — not
+// merely the field's presence.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * The real `ActivityActionType` union, DERIVED from its declaration rather than
+ * hand-copied. It is a bare TypeScript type alias with no runtime twin, and
+ * `services/receipts/**` is not ours to add one to — so the union is read off
+ * the alias body, which is the single source of truth. A hand-kept list here
+ * would be the `inv.engineering.036` duplicate this standard exists to kill.
+ */
+function activityActionTypes(): string[] {
+  const src = stripComments(readSource('services/receipts/activityReceiptService.ts'));
+  const alias = /export type ActivityActionType\s*=([\s\S]*?);/.exec(src);
+  if (!alias) return [];
+  return [...alias[1].matchAll(/'([a-z0-9_]+)'/g)].map((m) => m[1]);
+}
+
+/** A ref that names a Supabase table: a bare snake_case identifier. Anything
+ *  else (a store with a path, a format, a prose location) is not resolvable
+ *  this way and is deliberately not checked — see the note in the test. */
+const looksLikeTable = (ref: string): boolean => /^[a-z][a-z0-9_]*$/.test(ref);
+
+const migrationsBlob = readdirSync(join(process.cwd(), 'supabase/migrations'))
+  .filter((f) => f.endsWith('.sql'))
+  .map((f) => readSource(`supabase/migrations/${f}`))
+  .join('\n');
+
+describe('CAN-CCR-9 — every artifact states what it emits, and an omission is an error', () => {
+  it('the action-type union is readable, so the checks below are not vacuous', () => {
+    const types = activityActionTypes();
+    expect(types.length, 'ActivityActionType could not be derived from its declaration').toBeGreaterThan(30);
+    expect(types).toContain('invariant_discovered');
+    expect(types).toContain('invariant_node_flipped');
+  });
+
+  it('every artifact declares an Emits section — absent is "forgotten", which is refused', () => {
+    for (const { path, parsed } of completionArtifacts) {
+      expect(
+        Array.isArray(parsed.boundary.emits),
+        `${path} declares no Emits section — "forgotten" is indistinguishable from "none"`,
+      ).toBe(true);
+    }
+  });
+
+  it('an empty Emits carries a rationale — empty with none is "unknown", which is refused', () => {
+    let empties = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      if (!Array.isArray(parsed.boundary.emits) || parsed.boundary.emits.length > 0) continue;
+      empties++;
+      expect(
+        (parsed.boundary.emissionRationale ?? '').length,
+        `${path} emits nothing and does not say why`,
+      ).toBeGreaterThan(40);
+    }
+    // Guard the guard: the "none" case must actually be exercised by the corpus,
+    // or this assertion proves nothing. The IRE is that case.
+    expect(empties, 'no artifact exercises the empty-Emits path').toBeGreaterThanOrEqual(1);
+  });
+
+  it('every declared emission carries a kind from the vocabulary, a ref and a trigger', () => {
+    let emissions = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      for (const e of parsed.boundary.emits ?? []) {
+        emissions++;
+        expect(EMISSION_KINDS as readonly string[], `${path}: '${e.kind}'`).toContain(e.kind);
+        expect(e.ref.length, `${path}: an emission names no reference`).toBeGreaterThan(0);
+        expect(e.trigger.length, `${path}: an emission names no triggering act`).toBeGreaterThan(10);
+      }
+    }
+    expect(emissions, 'no emissions parsed across the pack').toBeGreaterThan(8);
+  });
+
+  it('every declared RECEIPT resolves to a real ActivityActionType — the IDE-6 check', () => {
+    // This is the check the operator asked for by name: an emits entry naming a
+    // receipt type that does not exist should fail exactly as a dangling canary
+    // path does under CAN-CCR-5. It is what makes "this capability emits a
+    // receipt" a claim rather than an aspiration.
+    const known = new Set(activityActionTypes());
+    let checked = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      for (const ref of declaredEmissionRefs(parsed, 'receipt')) {
+        expect(known.has(ref), `${path} claims to emit receipt '${ref}', which is not an ActivityActionType`).toBe(true);
+        checked++;
+      }
+    }
+    expect(checked, 'no receipt refs checked — the loop ran on nothing').toBeGreaterThan(1);
+  });
+
+  it('every durable-record naming a table resolves to a migration', () => {
+    // Bounded honestly: only refs shaped like a bare table identifier are
+    // resolvable this way. A store named with a path or a prose location (an
+    // extension store, an external service) is NOT statically checkable and is
+    // deliberately left unchecked rather than checked by a heuristic that would
+    // produce false greens.
+    let checked = 0;
+    for (const { path, parsed } of completionArtifacts) {
+      for (const ref of declaredEmissionRefs(parsed, 'durable-record')) {
+        if (!looksLikeTable(ref)) continue;
+        expect(migrationsBlob.includes(ref), `${path} claims to write '${ref}', which no migration mentions`).toBe(true);
+        checked++;
+      }
+    }
+    expect(checked, 'no table refs checked — the loop ran on nothing').toBeGreaterThan(5);
+  });
+
+  it('the validator REFUSES an artifact whose Emits section was deleted', () => {
+    const broken = clone();
+    (broken.boundary as { emits: unknown }).emits = null;
+    const result = validateCompletionArtifact(broken);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.canary === 'CAN-CCR-9' && i.path === 'boundary.emits')).toBe(true);
+  });
+
+  it('the validator REFUSES an empty Emits with no rationale, and ACCEPTS one with', () => {
+    const noRationale = clone();
+    noRationale.boundary.emits = [];
+    noRationale.boundary.emissionRationale = null;
+    const bad = validateCompletionArtifact(noRationale);
+    expect(bad.valid).toBe(false);
+    expect(bad.issues.some((i) => i.canary === 'CAN-CCR-9' && i.path === 'boundary.emissionRationale')).toBe(true);
+
+    // The positive half. Without it, the rule above would be satisfied by a
+    // validator that refused every empty list, which would forbid the "none"
+    // state the ruling explicitly provides for.
+    const withRationale = clone();
+    withRationale.boundary.emits = [];
+    withRationale.boundary.emissionRationale = 'Read-only resolver; no state transition of record.';
+    expect(
+      validateCompletionArtifact(withRationale).issues.some((i) => i.canary === 'CAN-CCR-9'),
+    ).toBe(false);
+  });
+
+  it('the validator REFUSES an emission with an unknown kind, a blank ref or no trigger', () => {
+    for (const mutation of [
+      { kind: 'telemetry', ref: 'x', trigger: 'something writes it' },
+      { kind: 'receipt', ref: '', trigger: 'something writes it' },
+      { kind: 'receipt', ref: 'invariant_discovered', trigger: '' },
+    ]) {
+      const broken = clone();
+      broken.boundary.emits = [mutation as never];
+      const result = validateCompletionArtifact(broken);
+      expect(result.valid, JSON.stringify(mutation)).toBe(false);
+      expect(
+        result.issues.some((i) => i.canary === 'CAN-CCR-9'),
+        JSON.stringify(mutation),
+      ).toBe(true);
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // CAN-CCR-8 — Commons publication preserves lineage (CCR-INV-10)
 // ───────────────────────────────────────────────────────────────────────────
 
@@ -505,13 +666,43 @@ describe('CAN-CCR-8 — publication preserves lineage, and only governed proof e
 // Schema / template parity, and the open decision held open
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('capability-completion-artifact/v1.0 — schema discipline', () => {
+describe('capability-completion-artifact/v2.0 — schema discipline', () => {
   it('refuses a document of any other schema version rather than coercing it', () => {
+    // The fixture used to be `…/v2.0`, which became the CURRENT version when
+    // the Emits extension landed (2026-07-28) — at which point this canary
+    // would have asserted that the valid version is refused, i.e. it would have
+    // gone inert-then-red. A fixture that can become the real version is not a
+    // negative control. `v9.9` cannot plausibly become canonical, and the
+    // superseded-version case is asserted separately below.
     const broken = clone() as unknown as { schemaVersion: string };
-    broken.schemaVersion = 'capability-completion-artifact/v2.0';
+    broken.schemaVersion = 'capability-completion-artifact/v9.9';
     const result = validateCompletionArtifact(broken);
     expect(result.valid).toBe(false);
     expect(result.issues[0].path).toBe('schemaVersion');
+  });
+
+  it('refuses a SUPERSEDED version too — an old document is stale, not grandfathered', () => {
+    // v1.0 documents predate the required Emits section. Accepting one would
+    // reintroduce the "forgotten" state the extension exists to eliminate.
+    //
+    // Guard the guard: an empty superseded list would make the loop below
+    // assert nothing and pass. Emptying that constant is exactly how the
+    // version history would be lost, so the floor is part of the check.
+    expect(
+      SUPERSEDED_COMPLETION_SCHEMA_VERSIONS.length,
+      'the superseded-version history was emptied — the loop below would be vacuous',
+    ).toBeGreaterThanOrEqual(1);
+    for (const old of SUPERSEDED_COMPLETION_SCHEMA_VERSIONS) {
+      const broken = clone() as unknown as { schemaVersion: string };
+      broken.schemaVersion = old;
+      const result = validateCompletionArtifact(broken);
+      expect(result.valid, `${old} was accepted`).toBe(false);
+      expect(result.issues[0].path).toBe('schemaVersion');
+    }
+    // Guard the guard: the current version must not itself be listed as superseded.
+    expect(SUPERSEDED_COMPLETION_SCHEMA_VERSIONS as readonly string[]).not.toContain(
+      CAPABILITY_COMPLETION_SCHEMA_VERSION,
+    );
   });
 
   it('refuses a non-object outright', () => {
@@ -554,7 +745,17 @@ describe('capability-completion-artifact/v1.0 — schema discipline', () => {
       'Operational evidence',
       'Commons publication record',
     ];
-    const SUBSECTIONS = ['Surfaces', 'Source paths', 'Owns', 'Does not own', 'Dependencies', 'External authorities'];
+    const SUBSECTIONS = [
+      'Surfaces',
+      'Source paths',
+      'Owns',
+      'Does not own',
+      'Dependencies',
+      'External authorities',
+      // §7.6a, added with schema v2.0 (2026-07-28).
+      'Emits',
+      'Emission rationale',
+    ];
     const template = readSource(TEMPLATE_PATH);
     const parser = readSource('services/constitutional/capabilityCompletionArtifact.ts');
 

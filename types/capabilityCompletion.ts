@@ -55,8 +55,36 @@
  * `<kebab-domain-slug>/v<major>.<minor>` convention (cf. `venture-iqube/v1.0`
  * in `types/ventureQube.ts`). A document declaring any other version is
  * refused rather than coerced.
+ *
+ * ─── v2.0 (2026-07-27, operator ruling: "Add `Emits` to CCR-001") ───────────
+ * WHAT CHANGED: `## Capability boundary` gains a REQUIRED `### Emits`
+ * sub-section and a `### Emission rationale` sub-section required whenever
+ * Emits is empty. Nothing else in the document format changed; every v1.0
+ * section is carried forward unaltered.
+ *
+ * WHY MAJOR AND NOT MINOR. The format is a strict superset, which reads like a
+ * minor bump — but a v1.0 document does NOT validate under this contract,
+ * because the whole point of the field is that omitting it is an error. A minor
+ * version signalling a compatibility that does not exist is precisely the
+ * misleading signal these artifacts exist to eliminate, so this is `v2.0`.
+ *
+ * WHY REQUIRED. The ruling's own specification: the field must separate three
+ * states that an absent field conflates — `none` (an empty list with a stated
+ * rationale), `unknown` (an empty list with no rationale) and `forgotten` (no
+ * list at all). If the section may be omitted silently, all three collapse back
+ * into one and the extension solves nothing. `CAN-CCR-9` enforces it.
  */
-export const CAPABILITY_COMPLETION_SCHEMA_VERSION = 'capability-completion-artifact/v1.0' as const;
+export const CAPABILITY_COMPLETION_SCHEMA_VERSION = 'capability-completion-artifact/v2.0' as const;
+
+/**
+ * Superseded schema identifiers, newest-first. Recorded in the type rather than
+ * only in prose so the history of the contract is machine-readable and a reader
+ * encountering an old document can tell whether it is stale or merely foreign.
+ * Nothing accepts these — the validator pins the current version exactly.
+ */
+export const SUPERSEDED_COMPLETION_SCHEMA_VERSIONS = [
+  'capability-completion-artifact/v1.0',
+] as const;
 
 export type CapabilityCompletionSchemaVersion = typeof CAPABILITY_COMPLETION_SCHEMA_VERSION;
 
@@ -212,6 +240,70 @@ export interface CapabilityBoundary {
   dependencies: string[];
   /** Authorities outside this capability that constrain it (spine, DVN, SDKs). */
   externalAuthorities: string[];
+  /**
+   * §7.6a / CB-3 (CFS-053) — what the capability EMITS when it acts.
+   *
+   * `null` means the document declared no Emits section at all: **forgotten**,
+   * which is a validation error. `[]` means **none, deliberately**, and is only
+   * valid alongside an `emissionRationale`. A populated list means **these**.
+   * Distinguishing those three is the entire purpose of the field, so the
+   * absent case must stay representable and must stay invalid.
+   */
+  emits: CapabilityEmission[] | null;
+  /**
+   * Required whenever `emits` is empty: why this capability legitimately emits
+   * nothing. An empty list with no rationale is **unknown**, the state the
+   * field exists to eliminate. Null when `emits` is non-empty or absent.
+   */
+  emissionRationale: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// §7.6a — the emission vocabulary
+// ---------------------------------------------------------------------------
+
+/**
+ * The kinds of thing a capability on this platform emits. The operator's ruling
+ * named three (`receipt` / `durable-record` / `artifact`); those three map onto
+ * real, already-existing platform vocabulary rather than being new strings:
+ *
+ *   receipt         → `createActivityReceipt` + `ActivityActionType`
+ *                     (`services/receipts/activityReceiptService.ts`)
+ *   durable-record  → a persisted row — a Supabase table, or another store the
+ *                     capability names explicitly
+ *   artifact        → an `artifact_records` / StudioArtifact-class output
+ *
+ * `log` is the fourth, added because omitting it would force a real emission
+ * class to be misclassified: the invariant engine's observe-mode floor is a
+ * structured server log explicitly modelled on `[DVN ESCALATION]`
+ * (`services/invariants/engine.ts`), and CLAUDE.md's DVN escalation contract
+ * makes that log step one of a constitutional procedure. It is observable, it
+ * is relied upon, and it is neither a receipt, a row, nor an artifact.
+ *
+ * ORDER IS NOT SEMANTIC — a set of kinds, not a ladder.
+ */
+export const EMISSION_KINDS = ['receipt', 'durable-record', 'artifact', 'log'] as const;
+
+export type EmissionKind = (typeof EMISSION_KINDS)[number];
+
+/**
+ * One thing the capability emits, and the act that emits it.
+ *
+ * `ref` is the kind's identifier in its own vocabulary — the `ActivityActionType`
+ * for a receipt, the table or store for a durable record, the format for an
+ * artifact, the prefix for a log. Held as one field rather than as three
+ * kind-specific keys so the shape stays uniform for tooling; the kind says how
+ * to read it.
+ *
+ * `trigger` is what makes this a completion record rather than a wish list: it
+ * names the invocation that actually writes the emission, so a reader can check
+ * the claim against the code. `CAN-CCR-9` resolves `receipt` refs against the
+ * real action-type union — the check that would have caught IDE-6.
+ */
+export interface CapabilityEmission {
+  kind: EmissionKind;
+  ref: string;
+  trigger: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +424,7 @@ export interface CompletionIssue {
   path: string;
   message: string;
   /** The canary this issue would trip, when it maps to one. */
-  canary?: 'CAN-CCR-2' | 'CAN-CCR-3' | 'CAN-CCR-4' | 'CAN-CCR-5' | 'CAN-CCR-8';
+  canary?: 'CAN-CCR-2' | 'CAN-CCR-3' | 'CAN-CCR-4' | 'CAN-CCR-5' | 'CAN-CCR-8' | 'CAN-CCR-9';
 }
 
 export interface CompletionValidationResult {
