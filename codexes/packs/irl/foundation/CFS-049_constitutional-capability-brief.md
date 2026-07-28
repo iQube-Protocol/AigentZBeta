@@ -158,7 +158,11 @@ versions the format. `CAPABILITY-<id>-<slug>.md` is **not** introduced alongside
 CAPABILITY-<id>-<slug>.md alongside it. Agreed."* The name already appears in the registry, in
 `scripts/register-ccb-capabilities.ts`, and in the shipped Briefs; a second filename convention
 would have made one artifact family look like two — the defect class CCR-001 exists to prevent.
-The current format version is **CCB v2** (`capability-completion-artifact/v1.0`).
+The current format version is **CCB v2** (`capability-completion-artifact/v2.0`). The version string
+here is a mirror of `CAPABILITY_COMPLETION_SCHEMA_VERSION` in `types/capabilityCompletion.ts`, which
+is the single source of truth; `tests/capability-completion.test.ts` DERIVES the expected string from
+that constant and fails the build if this line drifts (as it did between the v2.0 bump and
+2026-07-28, when it still read `v1.0`).
 
 **Status:** CCR-001 is *proposed*; this charter stays RATIFIED and unchanged in substance. Nothing
 here alters the CCB's current obligations.

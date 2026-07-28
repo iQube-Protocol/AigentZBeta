@@ -350,7 +350,9 @@ function isNonEmpty(v: unknown): boolean {
 }
 
 /**
- * Validate a derived artifact against `capability-completion-artifact/v1.0`.
+ * Validate a derived artifact against `CAPABILITY_COMPLETION_SCHEMA_VERSION`
+ * (`capability-completion-artifact/v2.0` at the time of writing; the constant is
+ * the source of truth, never this comment).
  * PURE. Accumulates every fault with a path, in the
  * `participantApplicationValidator` idiom — one call reports the whole
  * document's state rather than the first thing wrong with it.

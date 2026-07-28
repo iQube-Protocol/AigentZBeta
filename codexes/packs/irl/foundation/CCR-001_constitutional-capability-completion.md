@@ -131,7 +131,7 @@ Phase 2 of the delivery plan and is the smallest honest first artifact.
 | Phase | Scope | Note |
 |---|---|---|
 | **0 — Ratification** | Ratify the Law; resolve the §9 lifecycle conflict; assign registry placement | **Operator decision on §9 required** |
-| **1 — Templates + schema** | CCA Markdown template **as an extension of the CCB format**; `capability-completion-artifact/v1.0`; PRD + PR template sections; provenance vocabulary (§8) | Must not fork CFS-049 |
+| **1 — Templates + schema** | CCA Markdown template **as an extension of the CCB format**; `capability-completion-artifact/v2.0` (the version string is a mirror of `CAPABILITY_COMPLETION_SCHEMA_VERSION`, the one source of truth, and is canary-derived from it); PRD + PR template sections; provenance vocabulary (§8) | Must not fork CFS-049 |
 | **2 — Companion reference artifact** | Convert the menu-system invariant record into the first complete CCA; map all nine invariants to code + canaries | Substantially pre-built |
 | **3 — Enforcement** | The eight canaries (`CAN-CCR-1…8`); CI completion gate; invariant-reference linting; block PRD closure without a valid artifact | |
 | **4 — Registry + Commons** | Link artifacts to PRDs, commits, invariants, proofs; publish eligible artifacts | Extends CFS-032 |

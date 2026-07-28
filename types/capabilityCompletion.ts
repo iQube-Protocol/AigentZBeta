@@ -1,7 +1,10 @@
 /**
  * Capability Completion Artifact — the machine-readable type contract for
  * CCR-001 (`codexes/packs/irl/foundation/CCR-001_constitutional-capability-completion.md`),
- * schema `capability-completion-artifact/v1.0`.
+ * schema `capability-completion-artifact/v2.0` — declared once as
+ * `CAPABILITY_COMPLETION_SCHEMA_VERSION` below, which is the SINGLE source of
+ * truth for the version string across the type, the validator, the CCA
+ * template, CFS-049 and CCR-001.
  *
  * EXTENDS, DOES NOT FORK (CCR-001 §25, CFS-049 Amendment A). This is NOT a
  * second artifact family beside the Constitutional Capability Brief. It is the

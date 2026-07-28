@@ -666,6 +666,96 @@ describe('CAN-CCR-8 — publication preserves lineage, and only governed proof e
 // Schema / template parity, and the open decision held open
 // ───────────────────────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────────────────────
+// Version parity — ONE source of truth for the capability-artefact version
+// ───────────────────────────────────────────────────────────────────────────
+//
+// OPERATOR RULING, 2026-07-28: *"Do this as a paired parity correction with a
+// canary ensuring the normative documents and the registered schema version
+// agree. The capability artefact standard should have exactly one version
+// source of truth."*
+//
+// THE DEFECT. `types/capabilityCompletion.ts` bumped the schema to v2.0 in
+// `f957e797a` and recorded v1.0 in SUPERSEDED_COMPLETION_SCHEMA_VERSIONS, but
+// CFS-049 §"Naming" and CCR-001's Phase-1 delivery row still declared
+// `capability-completion-artifact/v1.0` as the current version. The two
+// normative documents named a version the validator REFUSES — an author
+// following either document would have produced an artifact the platform
+// rejects, with the document as their evidence that they were right. Two homes
+// for one fact, the stale one winning (`inv.engineering.036`).
+//
+// WHY IT IS DERIVED, NOT PINNED. Every expectation below is computed from
+// CAPABILITY_COMPLETION_SCHEMA_VERSION. Writing the string 'v2.0' into this
+// file would create a FOURTH copy of the fact and reproduce the defect inside
+// its own canary — the exact `inv.engineering.037` shape.
+describe('capability-artefact version parity (operator ruling 2026-07-28)', () => {
+  /** Surfaces that state the CURRENT version normatively. */
+  const NORMATIVE_SURFACES = [
+    'codexes/packs/irl/foundation/CFS-049_constitutional-capability-brief.md',
+    'codexes/packs/irl/foundation/CCR-001_constitutional-capability-completion.md',
+    'codexes/packs/aigency/items/build_/templates/CAPABILITY_COMPLETION_ARTIFACT_TEMPLATE.md',
+    'types/capabilityCompletion.ts',
+  ] as const;
+
+  it('the derivation is real — the constant is a version string, not an empty default', () => {
+    // Without this, blanking the constant would make every `includes(current)`
+    // below trivially true and the whole describe would enforce nothing.
+    expect(CAPABILITY_COMPLETION_SCHEMA_VERSION).toMatch(
+      /^capability-completion-artifact\/v\d+\.\d+$/,
+    );
+    expect(SUPERSEDED_COMPLETION_SCHEMA_VERSIONS).not.toContain(
+      CAPABILITY_COMPLETION_SCHEMA_VERSION,
+    );
+  });
+
+  it('every normative surface states the CURRENT version', () => {
+    for (const path of NORMATIVE_SURFACES) {
+      expect(existsSync(join(process.cwd(), path)), `${path} does not exist`).toBe(true);
+      expect(
+        readSource(path).includes(CAPABILITY_COMPLETION_SCHEMA_VERSION),
+        `${path} does not state ${CAPABILITY_COMPLETION_SCHEMA_VERSION} — the schema was bumped and ` +
+          'this surface was not. Derive the string; never hand-copy it.',
+      ).toBe(true);
+    }
+  });
+
+  it('no normative surface still states a SUPERSEDED version', () => {
+    // The half of the defect that a "does it mention the current version?"
+    // check alone would miss: a document can name BOTH and still mislead.
+    // types/capabilityCompletion.ts is exempt at exactly one point — the
+    // declaration of the superseded list itself, which is where that history
+    // is deliberately recorded.
+    const stale: string[] = [];
+    for (const path of NORMATIVE_SURFACES) {
+      const body = readSource(path);
+      for (const old of SUPERSEDED_COMPLETION_SCHEMA_VERSIONS) {
+        for (const line of body.split('\n')) {
+          if (!line.includes(old)) continue;
+          const isTheHistoryDeclaration =
+            path === 'types/capabilityCompletion.ts' && line.trim().startsWith(`'${old}'`);
+          if (!isTheHistoryDeclaration) stale.push(`${path} — ${line.trim().slice(0, 120)}`);
+        }
+      }
+    }
+    expect(
+      stale,
+      'These normative surfaces still declare a superseded artefact version. An author following ' +
+        'them would produce a document the validator refuses.',
+    ).toEqual([]);
+  });
+
+  it('the parity check can fail — a superseded string IS detected where it is not the history', () => {
+    // CB-5 on this canary: prove the exemption is a narrow carve-out and not a
+    // hole big enough for the defect to walk back through.
+    const old = SUPERSEDED_COMPLETION_SCHEMA_VERSIONS[0];
+    const line = `The current format version is **CCB v2** (\`${old}\`).`; // the exact defect, as it read
+    const isTheHistoryDeclaration = line.trim().startsWith(`'${old}'`);
+    expect(isTheHistoryDeclaration).toBe(false);
+    // …and the history declaration itself is still exempt.
+    expect(`  '${old}',`.trim().startsWith(`'${old}'`)).toBe(true);
+  });
+});
+
 describe('capability-completion-artifact/v2.0 — schema discipline', () => {
   it('refuses a document of any other schema version rather than coercing it', () => {
     // The fixture used to be `…/v2.0`, which became the CURRENT version when
