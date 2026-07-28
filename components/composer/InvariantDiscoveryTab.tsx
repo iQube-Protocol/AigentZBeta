@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare } from "lucide-react";
+import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare, ClipboardList } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { DEFAULT_DISCOVERY_DOMAIN } from "@/services/invariants/discoveryDomains";
 
@@ -55,6 +55,22 @@ interface Candidate {
   } | null;
 }
 interface Preset { value: string; label: string }
+
+/** The classification queue — the downstream of promotion (operator ruling
+ *  2026-07-28: "'safe' should not become 'finished'"). Every field here is
+ *  SERVER-COMPUTED by `buildClassificationQueue` /`canUseInvariantFor`; the
+ *  client renders it and derives nothing, so the six checks and the refusal
+ *  reasons cannot drift from what the gate actually enforces. */
+interface ClassificationCheckState {
+  id: string; label: string; requirement: string;
+  decidedBy: "mechanical" | "steward";
+  satisfied: boolean; detail: string;
+}
+interface QueueEntry {
+  invariantId: string; statement: string; namespace: string; status: string;
+  domain: string | null; checks: ClassificationCheckState[]; outstandingCheckIds: string[];
+}
+interface Prohibition { use: string; reason: string | null }
 
 const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }> = {
   // "Convergent", not "Supported": a compare output in this class recurs across
@@ -101,6 +117,9 @@ export default function InvariantDiscoveryTab() {
   const [eContent, setEContent] = useState("");
   const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
   const [linkFor, setLinkFor] = useState<{ id: string; mode: "promote" | "relink"; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
+  const [queue, setQueue] = useState<QueueEntry[]>([]);
+  const [prohibitions, setProhibitions] = useState<{ use: string; reason: string }[]>([]);
+  const [permittedUses, setPermittedUses] = useState<string[]>([]);
 
   const scopeLabel = subDomain ? (presets.find((p) => p.value === subDomain)?.label ?? subDomain) : "Domain baseline";
 
@@ -118,6 +137,15 @@ export default function InvariantDiscoveryTab() {
         if (Array.isArray(data.domains)) setDomains(data.domains);
         setDomainKind(typeof data.domainKind === "string" ? data.domainKind : null);
         setObservedIn(Array.isArray(data.observedIn) ? data.observedIn : []);
+        setQueue(Array.isArray(data.classificationQueue) ? data.classificationQueue : []);
+        // Only prohibitions the gate actually refused. A `reason: null` would
+        // mean the gate ALLOWED the use, and rendering it as a prohibition
+        // would be the surface asserting a rule the gate does not enforce.
+        setProhibitions(
+          (Array.isArray(data.unclassifiedProhibitions) ? (data.unclassifiedProhibitions as Prohibition[]) : [])
+            .filter((p): p is { use: string; reason: string } => typeof p.reason === "string" && p.reason.length > 0),
+        );
+        setPermittedUses(Array.isArray(data.permittedUnclassifiedUses) ? data.permittedUnclassifiedUses : []);
       } else setNotice(`⚠ ${data?.error ?? "Load failed"}`);
     } catch (e) {
       setNotice(`⚠ ${e instanceof Error ? e.message : "Load failed"}`);

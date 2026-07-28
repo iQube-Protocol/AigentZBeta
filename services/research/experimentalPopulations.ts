@@ -355,3 +355,332 @@ export function readReclassifications(
   const raw = provenance?.[RECLASSIFICATION_LOG_KEY];
   return Array.isArray(raw) ? (raw as ProvenanceReclassification[]) : [];
 }
+
+// ── "Safe" is not "finished" — the classification queue ─────────────────────
+
+/**
+ * The operator's ruling of 2026-07-28 on promoting the Invariant Discovery
+ * Engine's Financial Services candidates:
+ *
+ *   "The promotion path is fail-closed, so promotion will not fabricate
+ *    Population A membership. That is good. **But 'safe' should not become
+ *    'finished.'**"
+ *
+ * `promoteCandidate` lands an invariant at `status: proposed`,
+ * `discoveryProvenance: 'ide'`, evidence provenance UNSET — so
+ * `experimentalPopulation()` returns `null` and the record is in no population.
+ * That is the fail-closed guarantee and it is deliberately not changed.
+ *
+ * What it is NOT is a resting state. An unclassified invariant is WORK
+ * OUTSTANDING, and a corpus that cannot show which records are outstanding will
+ * quietly accumulate them until "unclassified" reads as a category rather than
+ * a queue. These are the six checks the ruling requires before a promoted
+ * invariant may be classified, carried here so the surface renders the SAME six
+ * the ruling names — not a hand-copied list that drifts (inv.engineering.036).
+ */
+export type ClassificationCheckId =
+  | 'evidence-row-inspection'
+  | 'source-document-lineage'
+  | 'evidence-provenance-assignment'
+  | 'domain-namespace-confirmation'
+  | 'duplication-equivalence-comparison'
+  | 'law-ii-status';
+
+/**
+ * `mechanical` — this module can compute the check's state from the record.
+ * `steward` — it needs a human to look at something outside the record. A
+ * steward check is NEVER auto-satisfied; the queue reports it as outstanding
+ * and says what the steward must do, because a check that marks itself done is
+ * not a check.
+ */
+export type ClassificationCheckDecidedBy = 'mechanical' | 'steward';
+
+export const CLASSIFICATION_CHECKS: readonly {
+  id: ClassificationCheckId;
+  label: string;
+  requirement: string;
+  decidedBy: ClassificationCheckDecidedBy;
+}[] = [
+  {
+    id: 'evidence-row-inspection',
+    label: 'Evidence-row inspection',
+    requirement: 'Open every `discovery_evidence` row the candidate was compressed from and confirm it says what the statement claims.',
+    decidedBy: 'mechanical',
+  },
+  {
+    id: 'source-document-lineage',
+    label: 'Source-document lineage',
+    requirement: 'Trace each evidence row back to the document it came from. An evidence row with no acquired source document cannot support an external classification.',
+    decidedBy: 'steward',
+  },
+  {
+    id: 'evidence-provenance-assignment',
+    label: 'Evidence provenance assignment',
+    requirement: 'Assign one of the five evidence-provenance classes through applyProvenanceReclassification — with evidence refs and a rationale, never a field edit.',
+    decidedBy: 'mechanical',
+  },
+  {
+    id: 'domain-namespace-confirmation',
+    label: 'Domain namespace confirmation',
+    requirement: 'Confirm the invariant landed in the namespace its discovery domain resolves to — a Financial Services discovery in `constitutional.*` destroys the population separation at the point of entry.',
+    decidedBy: 'mechanical',
+  },
+  {
+    id: 'duplication-equivalence-comparison',
+    label: 'Duplication / equivalence comparison',
+    requirement: 'Compare against invariants already in the namespace. A promoted duplicate inflates every count computed over the corpus.',
+    decidedBy: 'steward',
+  },
+  {
+    id: 'law-ii-status',
+    label: 'Law II status',
+    requirement: 'Record whether the pillars this invariant rests on satisfy Law II. An invariant resting on a single institutional tradition is not disqualified — but it must not be read as corroborated.',
+    decidedBy: 'steward',
+  },
+];
+
+export interface ClassificationCheckState {
+  id: ClassificationCheckId;
+  label: string;
+  requirement: string;
+  decidedBy: ClassificationCheckDecidedBy;
+  /** `true` only when this module can SEE it satisfied. A steward check is
+   *  never `true` here — absence of proof is not proof. */
+  satisfied: boolean;
+  detail: string;
+}
+
+/** One promoted-but-unclassified invariant, with its six checks. */
+export interface ClassificationQueueEntry {
+  invariantId: string;
+  statement: string;
+  namespace: string;
+  status: string;
+  domain: string | null;
+  discoveryProvenance: DiscoveryProvenance | null;
+  evidenceProvenance: ProvenanceClass | null;
+  population: ExperimentalPopulation | null;
+  checks: ClassificationCheckState[];
+  outstandingCheckIds: ClassificationCheckId[];
+}
+
+/** The minimum shape the queue reads. Satisfied by `InvariantRecord` and by a
+ *  raw `invariants` row alike — the queue is not coupled to either. */
+export interface ClassifiableRecord {
+  id: string;
+  statement: string;
+  namespace: string;
+  status: string;
+  provenance?: Record<string, unknown> | null;
+}
+
+/**
+ * Is this record the OUTPUT OF A PROMOTION? Read from the provenance bag the
+ * discovery engine writes: `discovery_candidate_id` is the promotion's own
+ * back-reference, and `discoveryProvenance: 'ide'` is the axis the ruling
+ * names. Either is sufficient; neither is invented when absent.
+ */
+export function isPromotedByDiscoveryEngine(
+  provenance: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!provenance) return false;
+  const candidateId = provenance.discovery_candidate_id ?? provenance.discoveryCandidateId;
+  if (typeof candidateId === 'string' && candidateId.trim()) return true;
+  return readDiscoveryProvenance(provenance) !== null;
+}
+
+/**
+ * The steward-visible queue: every promoted-but-unclassified record, with the
+ * six checks the ruling requires. A record already carrying an evidence
+ * provenance is NOT in the queue — it has been classified, whatever population
+ * that put it in.
+ *
+ * `expectedNamespace` is the namespace the record's discovery domain resolves
+ * to, supplied by the caller (the Discovery Domain Registry is the authority on
+ * that mapping and this module must not fork it). Omitted ⇒ the namespace check
+ * reports as un-checkable rather than as passed.
+ */
+export function buildClassificationQueue(
+  records: readonly ClassifiableRecord[],
+  expectedNamespace?: (record: ClassifiableRecord) => string | null,
+): ClassificationQueueEntry[] {
+  const out: ClassificationQueueEntry[] = [];
+  for (const record of records) {
+    const provenance = record.provenance ?? null;
+    if (!isPromotedByDiscoveryEngine(provenance)) continue;
+    const evidenceProvenance = readEvidenceProvenance(provenance);
+    if (evidenceProvenance !== null) continue; // classified — not outstanding
+
+    const evidenceIds = Array.isArray(provenance?.evidence_ids)
+      ? (provenance!.evidence_ids as unknown[]).filter((v) => typeof v === 'string' && v.trim())
+      : [];
+    const expected = expectedNamespace?.(record) ?? null;
+    const domain = typeof provenance?.domain === 'string' ? (provenance.domain as string) : null;
+
+    const detail: Record<ClassificationCheckId, { satisfied: boolean; detail: string }> = {
+      'evidence-row-inspection': evidenceIds.length > 0
+        ? { satisfied: false, detail: `${evidenceIds.length} evidence row(s) recorded and awaiting inspection` }
+        : { satisfied: false, detail: 'NO evidence rows are recorded on this invariant — there is nothing to inspect, and nothing that could support an external classification' },
+      'source-document-lineage': {
+        satisfied: false,
+        detail: 'discovery_evidence carries no source-document reference, so lineage cannot be read off the record — a steward must trace it',
+      },
+      'evidence-provenance-assignment': {
+        satisfied: false,
+        detail: 'unset — the promotion deliberately did not guess it; assign via applyProvenanceReclassification with at least one evidence ref',
+      },
+      'domain-namespace-confirmation': expected === null
+        ? { satisfied: false, detail: `landed in '${record.namespace}'; no expected namespace supplied, so this cannot be confirmed here` }
+        : expected === record.namespace
+          ? { satisfied: true, detail: `landed in '${record.namespace}', which is what its discovery domain resolves to` }
+          : { satisfied: false, detail: `landed in '${record.namespace}' but its discovery domain resolves to '${expected}' — the population separation is broken at the point of entry` },
+      'duplication-equivalence-comparison': {
+        satisfied: false,
+        detail: `compare against the invariants already in '${record.namespace}' — a promoted duplicate inflates every count computed over the corpus`,
+      },
+      'law-ii-status': {
+        satisfied: false,
+        detail: domain
+          ? `record the Law II verdict for the '${domain}' pillars this invariant rests on`
+          : 'no discovery domain recorded on the invariant — the Law II verdict cannot be located without one',
+      },
+    };
+
+    const checks: ClassificationCheckState[] = CLASSIFICATION_CHECKS.map((c) => ({
+      ...c,
+      satisfied: c.decidedBy === 'steward' ? false : detail[c.id].satisfied,
+      detail: detail[c.id].detail,
+    }));
+
+    out.push({
+      invariantId: record.id,
+      statement: record.statement,
+      namespace: record.namespace,
+      status: record.status,
+      domain,
+      discoveryProvenance: readDiscoveryProvenance(provenance),
+      evidenceProvenance: null,
+      population: null,
+      checks,
+      outstandingCheckIds: checks.filter((c) => !c.satisfied).map((c) => c.id),
+    });
+  }
+  return out;
+}
+
+// ── The prohibition, as a gate that refuses with a reason ───────────────────
+
+/**
+ * The three uses the ruling forbids for an unclassified invariant:
+ *
+ *   "Until classified, they may be reviewed and compared but must not be used
+ *    as: external Crystal population; canonical Financial Services invariants;
+ *    confirmatory experimental treatment."
+ *
+ * Reviewing and comparing stay ALLOWED — that is the point of the queue.
+ */
+export type RestrictedInvariantUse =
+  | 'external-crystal-population'
+  | 'canonical-domain-invariant'
+  | 'confirmatory-experimental-treatment';
+
+export const RESTRICTED_INVARIANT_USES: readonly RestrictedInvariantUse[] = [
+  'external-crystal-population',
+  'canonical-domain-invariant',
+  'confirmatory-experimental-treatment',
+];
+
+/** The uses the ruling explicitly PERMITS while unclassified. Named so a caller
+ *  can ask for them without having to infer permission from silence. */
+export const PERMITTED_UNCLASSIFIED_USES = ['review', 'comparison'] as const;
+export type PermittedUnclassifiedUse = (typeof PERMITTED_UNCLASSIFIED_USES)[number];
+
+export type UseGateResult = { allowed: true } | { allowed: false; reason: string };
+
+/**
+ * **The prohibition gate.** Same shape and same discipline as
+ * `canRunInstitutionDiscovery` in `services/corpusScout/registryVerification.ts`:
+ * it returns a REASON, never a bare `false`.
+ *
+ * That is not cosmetic. A silent exclusion from a population is
+ * indistinguishable from a bug — the operator hit exactly that on the IDE's
+ * Discover button (`7edfadf52`), where a correct refusal with no reason read as
+ * a broken instrument and sent the diagnosis in the wrong direction. A gate
+ * that refuses silently trains its reader to treat every refusal as a defect.
+ *
+ * COMPOSES with the population machinery rather than reimplementing it:
+ * membership comes from `experimentalPopulation` / `inPrimaryPopulation`, which
+ * remain the single authority (inv.engineering.036).
+ */
+export function canUseInvariantFor(
+  record: { provenance?: Record<string, unknown> | null; status?: string | null },
+  use: RestrictedInvariantUse,
+): UseGateResult {
+  const provenance = record.provenance ?? null;
+  const population = experimentalPopulation(provenance);
+  const unclassified = population === null;
+
+  switch (use) {
+    case 'external-crystal-population':
+      if (unclassified) {
+        return {
+          allowed: false,
+          reason:
+            'unclassified: no evidence provenance is recorded, so this invariant is in NO experimental population. ' +
+            'It cannot serve as external Crystal population — admitting it would assume the external evidentiary ' +
+            'basis that §2a exists to require proof of. Assign an evidence provenance through the classification queue first.',
+        };
+      }
+      if (!inPrimaryPopulation(provenance)) {
+        return {
+          allowed: false,
+          reason:
+            `classified '${readEvidenceProvenance(provenance)}' ⇒ Population ${population}. The external Crystal ` +
+            'population is Population A only; B and C are reported in the ablation arm and as platform doctrine respectively.',
+        };
+      }
+      return { allowed: true };
+
+    case 'canonical-domain-invariant':
+      if (unclassified) {
+        return {
+          allowed: false,
+          reason:
+            'unclassified: promotion lands an invariant at `proposed`, and an invariant whose evidentiary basis ' +
+            'has not been established cannot be read as canonical for its domain. Work the classification queue ' +
+            '— evidence rows, source lineage, provenance, namespace, duplication, Law II — then ratify.',
+        };
+      }
+      if (record.status !== 'canonical') {
+        return {
+          allowed: false,
+          reason:
+            `status is '${record.status ?? 'unset'}', not 'canonical'. Classification establishes the evidentiary ` +
+            'basis; it does not ratify. Ratification is a separate steward act (CFS-009 Law XI).',
+        };
+      }
+      return { allowed: true };
+
+    case 'confirmatory-experimental-treatment':
+      if (unclassified) {
+        return {
+          allowed: false,
+          reason:
+            'unclassified: a confirmatory treatment asserts that the result was predicted in advance by an ' +
+            'independently grounded invariant. An invariant with no established evidentiary basis can be REVIEWED ' +
+            'and COMPARED — both remain permitted — but using it confirmatorily would make the experiment ' +
+            'self-affirming, which is the exact conflation the population partition exists to prevent.',
+        };
+      }
+      if (!inPrimaryPopulation(provenance)) {
+        return {
+          allowed: false,
+          reason:
+            `classified '${readEvidenceProvenance(provenance)}' ⇒ Population ${population}. A confirmatory treatment ` +
+            'requires Population A; a platform-derived invariant confirming a platform experiment is self-affinity, ' +
+            'and belongs in the ablation arm where it is reported as such.',
+        };
+      }
+      return { allowed: true };
+  }
+}

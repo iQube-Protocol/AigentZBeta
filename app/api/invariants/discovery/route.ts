@@ -34,8 +34,17 @@ import {
   DISCOVERY_DOMAINS,
   DEFAULT_DISCOVERY_DOMAIN,
   discoveryDomain,
+  discoveryNamespace,
   subDomainPresets,
 } from '@/services/invariants/discoveryDomains';
+import { listInvariants } from '@/services/invariants/store';
+import {
+  CLASSIFICATION_CHECKS,
+  PERMITTED_UNCLASSIFIED_USES,
+  RESTRICTED_INVARIANT_USES,
+  buildClassificationQueue,
+  canUseInvariantFor,
+} from '@/services/research/experimentalPopulations';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -56,10 +65,30 @@ export async function GET(req: NextRequest) {
   const params = new URL(req.url).searchParams;
   const domain = params.get('domain')?.trim() || DEFAULT_DOMAIN;
   const subDomain = params.get('subDomain')?.trim() || null;
-  const [evidence, candidates] = await Promise.all([
+  const namespace = discoveryNamespace(domain);
+  const [evidence, candidates, promoted] = await Promise.all([
     listEvidence(admin, domain, subDomain),
     listCandidates(admin, domain, subDomain),
+    // The classification queue's input. Scoped to the domain's namespace, which
+    // is what `promoteCandidate` resolved when it landed the record — so the
+    // namespace check below compares like with like.
+    listInvariants({ namespace, limit: 200 }).catch(() => [] as Awaited<ReturnType<typeof listInvariants>>),
   ]);
+  // "Safe should not become finished" (operator ruling 2026-07-28). Promotion is
+  // fail-closed — every promoted invariant lands unclassified, in NO population.
+  // That is correct and deliberately unchanged; what it must not be is invisible.
+  const classificationQueue = buildClassificationQueue(
+    promoted.map((inv) => ({
+      id: inv.id, statement: inv.statement, namespace: inv.namespace,
+      status: inv.status, provenance: inv.provenance as Record<string, unknown> | null,
+    })),
+    // The Discovery Domain Registry is the authority on domain → namespace; the
+    // queue never forks that mapping.
+    (record) => {
+      const recordDomain = (record.provenance?.domain ?? null) as string | null;
+      return recordDomain ? discoveryNamespace(recordDomain) : null;
+    },
+  );
   const registered = discoveryDomain(domain);
   return NextResponse.json(
     {
@@ -75,6 +104,17 @@ export async function GET(req: NextRequest) {
       observedIn: registered ? [...registered.observedIn] : [],
       evidence,
       candidates,
+      classificationQueue,
+      // The six checks are carried from the ruling's own list rather than
+      // restated in the client (inv.engineering.036), and the prohibition is
+      // reported as the GATE'S OWN reason strings — not prose written beside
+      // it that could drift from what the gate actually refuses.
+      classificationChecks: CLASSIFICATION_CHECKS,
+      unclassifiedProhibitions: RESTRICTED_INVARIANT_USES.map((use) => {
+        const gate = canUseInvariantFor({ provenance: null, status: 'proposed' }, use);
+        return { use, reason: gate.allowed ? null : gate.reason };
+      }),
+      permittedUnclassifiedUses: PERMITTED_UNCLASSIFIED_USES,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
