@@ -178,7 +178,14 @@ export function LockerTab() {
   const [passportVcsLoading, setPassportVcsLoading] = useState(true);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
-  const [passportCardCollapsed, setPassportCardCollapsed] = useState(false);
+  // COLLAPSED BY DEFAULT, every panel (operator ruling, 2026-07-28). The
+  // Locker opens on "My Credentials & Relationships" — the holder's own record
+  // — with every panel shut, so the surface reads as an index the holder opens
+  // into rather than a wall of simultaneously-expanded forms. The two
+  // safeguards that make collapsing-by-default safe are below: a code-bearing
+  // deep link force-expands Invitation, and any panel with work in flight
+  // force-expands itself.
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState(true);
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
   const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
@@ -200,14 +207,19 @@ export function LockerTab() {
   const [x409Agreement, setX409Agreement] = useState<X409AgreementView | null>(null);
   const [x409Busy, setX409Busy] = useState(false);
   const [x409Note, setX409Note] = useState<string | null>(null);
-  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
+  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(true);
   const [peerExchangeCollapsed, setPeerExchangeCollapsed] = useState(true);
   // Upload + Invitation collapse with the same affordance as the two panels
-  // above them, so every panel on this surface behaves the same way. Both
-  // default OPEN: unlike Peer Exchange they are the locker's primary actions,
-  // and a first-time holder with an empty locker must still see how to fill it.
-  const [uploadCollapsed, setUploadCollapsed] = useState(false);
-  const [invitationCollapsed, setInvitationCollapsed] = useState(false);
+  // above them, so every panel on this surface behaves the same way. They
+  // defaulted OPEN until 2026-07-28 on the reasoning that a first-time holder
+  // with an empty locker must see how to fill it; the operator's ruling
+  // supersedes that — the panels are one click away, and landing on the
+  // holder's own credentials matters more than pre-opening a form.
+  const [uploadCollapsed, setUploadCollapsed] = useState(true);
+  const [invitationCollapsed, setInvitationCollapsed] = useState(true);
+  // Location Tracking gained a collapse on 2026-07-28 with the same affordance
+  // as every panel above, and moved to the BOTTOM of the surface.
+  const [locationCollapsed, setLocationCollapsed] = useState(true);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [messageSending, setMessageSending] = useState(false);
@@ -218,6 +230,7 @@ export function LockerTab() {
   // whether their document is being written. Same for a claim in flight.
   const uploadOpen = !uploadCollapsed || uploadBusy;
   const invitationOpen = !invitationCollapsed || x409ClaimBusy;
+  const locationOpen = !locationCollapsed || locationBusy;
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -677,36 +690,10 @@ export function LockerTab() {
         </div>
       )}
 
-      {/* Location tracking */}
-      <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-emerald-400" />
-            <span className="text-sm font-semibold text-slate-200">Location Tracking</span>
-          </div>
-          <button
-            onClick={() => void handleTrackLocation()}
-            disabled={locationBusy}
-            className="flex items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 disabled:opacity-50"
-          >
-            {locationBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <MapPin className="h-4 w-4" />
-            )}
-            Track My Location
-          </button>
-        </div>
-        {lastLocation && (
-          <div className="flex items-center gap-4 rounded-lg border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
-            <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
-            <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
-            <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Passport Credentials & Sponsored Agents */}
+      {/* Passport Credentials & Sponsored Agents — THE FIRST SECTION (operator
+          ruling, 2026-07-28). The holder's own record is what they came for;
+          Location Tracking, which used to sit above it, is now the last panel
+          on the surface. */}
       <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -1424,6 +1411,60 @@ export function LockerTab() {
               </div>
             );
           })
+        )}
+      </div>
+
+      {/* Location tracking — THE LAST SECTION (operator ruling, 2026-07-28).
+          It used to be the first thing the holder saw, above their own
+          credentials; it is an occasional act, not the reason anyone opens the
+          Locker. Collapsed by default like every other panel, and — like
+          Upload and Invitation — force-expanded while its action is in flight,
+          so a checkpoint being written can never be hidden behind a collapsed
+          header. */}
+      <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setLocationCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-emerald-400" />
+            <span className="text-sm font-semibold text-slate-200">Location Tracking</span>
+          </div>
+          {locationOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {locationOpen && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-400">
+                Write a signed location checkpoint into your Locker. Holder-owned like every other
+                item — nothing is shared until you grant it.
+              </p>
+              <button
+                onClick={() => void handleTrackLocation()}
+                disabled={locationBusy}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 disabled:opacity-50"
+              >
+                {locationBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4" />
+                )}
+                Track My Location
+              </button>
+            </div>
+            {lastLocation && (
+              <div className="flex items-center gap-4 rounded-lg border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+                <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
+                <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
+                <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
