@@ -49,7 +49,12 @@ import {
   PERMITTED_UNCLASSIFIED_USES,
   buildClassificationQueue,
   canUseInvariantFor,
+  composeClassificationSuggestion,
+  deriveFieldOrigin,
+  type ClassificationSuggestionSource,
 } from '@/services/research/experimentalPopulations';
+import { suggestClassification } from '@/services/invariants/discoveryEngine';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   DISCOVERY_DOMAINS,
   discoveryNamespace,
@@ -754,5 +759,434 @@ describe('reachability — the classification act has a live caller', () => {
     // raw T0 id", and this bag is durable, widely-read invariant provenance.
     expect(source).toMatch(/actor:\s*personaPublicRef\(/);
     expect(source).not.toMatch(/actor:\s*persona\.personaId/);
+  });
+});
+
+// ─── 8. PRE-POPULATION — a suggestion, never an assertion ───────────────────
+//
+// Operator, 2026-07-28: "the URL and rationale for inclusion was provided with
+// the sources. Please use that to pre-populate these fields for operator
+// validation and sign-off rather than having the operator have to re-enter
+// these from scratch."
+//
+// The convenience is the easy part. The danger is that a pre-filled field is
+// read as a fact: a plausible-looking URL the system produced rather than
+// holds would launder an unverifiable citation into Population A, and it would
+// do so through a field the operator has been trained to trust. So the
+// property under test is not "the fields get filled" — it is that EVERY value
+// the suggester emits came from a stored row, and that the emptiness of a
+// record survives all the way to an empty field.
+
+describe('classification suggestion — every emitted value comes from a stored row', () => {
+  const source = (over: Partial<ClassificationSuggestionSource> = {}): ClassificationSuggestionSource => ({
+    sourceRef: 'https://www.nber.org/papers/w17181',
+    evidenceIds: ['e1'],
+    evidenceTitles: ['Business Partners, Financing, and the Commercialization of Inventions'],
+    candidateTitle: null,
+    issuer: null,
+    recordedProvenanceClass: null,
+    reviewNotes: null,
+    seedInstitution: null,
+    seedClaim: null,
+    ...over,
+  });
+
+  it('emits ONLY refs that appear in its input, byte for byte — the fabrication guard', () => {
+    // THE canary of this whole feature. Mutation: have the composer derive,
+    // normalise, or repair a URL (add a scheme, strip a query, guess a DOI) →
+    // the emitted ref stops being byte-identical to the stored one and this
+    // fails. A suggester that "helpfully" rewrites a citation is producing a
+    // reference no row in the database contains.
+    const stored = 'http://EXAMPLE.gov/a%20b?x=1#frag';
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1'],
+      resolvedEvidenceIds: ['e1'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [source({ sourceRef: stored, evidenceIds: ['e1'] })],
+    });
+    expect(s.suggestedEvidenceRefs).toEqual([stored]);
+    for (const ref of s.suggestedEvidenceRefs) {
+      expect(s.sources.some((src) => src.sourceRef === ref)).toBe(true);
+    }
+  });
+
+  it('invents NOTHING when there are no sources — empty refs AND an empty rationale', () => {
+    // Mutation: give the rationale a default preamble that renders even with no
+    // sources → suggestedRationale becomes non-empty, the server's blank-
+    // rationale refusal stops firing, and a classification can be recorded
+    // whose stated justification was written by the suggester.
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1', evidenceIds: [], resolvedEvidenceIds: [], evidenceIdsWithoutSourceRef: [], sources: [],
+    });
+    expect(s.suggestedEvidenceRefs).toEqual([]);
+    expect(s.suggestedRationale).toBe('');
+    expect(s.complete).toBe(false);
+    expect(s.notes.join(' ')).toMatch(/NO evidence rows/);
+  });
+
+  it('drops a source whose stored ref is blank rather than substituting anything for it', () => {
+    // Mutation: fall back to the evidence title, the invariant id, or a
+    // constructed URL when source_ref is empty → a ref appears that no
+    // discovery_evidence row carries.
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1'],
+      resolvedEvidenceIds: ['e1'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [source({ sourceRef: '   ', evidenceTitles: ['A title that is not a URL'] })],
+    });
+    expect(s.suggestedEvidenceRefs).toEqual([]);
+    expect(s.suggestedRationale).toBe('');
+  });
+
+  it('dedupes a chunked document to ONE ref while keeping every evidence row id', () => {
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1', 'e2', 'e3'],
+      resolvedEvidenceIds: ['e1', 'e2', 'e3'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [source({ sourceRef: 'https://a.example/doc', evidenceIds: ['e1', 'e2', 'e3'] })],
+    });
+    expect(s.suggestedEvidenceRefs).toEqual(['https://a.example/doc']);
+    expect(s.suggestedRationale).toMatch(/Evidence rows: e1, e2, e3/);
+    expect(s.complete).toBe(true);
+  });
+
+  it('reproduces the stored acquisition claim and reviewer note VERBATIM, and asserts nothing beside them', () => {
+    // Mutation: paraphrase, summarise, or add an evaluative clause ("this is an
+    // independent external source") → the verbatim match fails. The rationale
+    // is recorded permanently on the invariant; a sentence the operator did not
+    // write and the record does not contain must never end up in it.
+    const claim = 'Operator claim: "Business Partners, Financing, and the Commercialization of Inventions" — studies how partners affect commercialisation probability.';
+    const note = 'Reviewed 2026-07-20; extraction clean, 41 pages.';
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1'],
+      resolvedEvidenceIds: ['e1'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [source({ seedInstitution: 'NBER', seedClaim: claim, reviewNotes: note, recordedProvenanceClass: 'external-empirical' })],
+    });
+    expect(s.suggestedRationale).toContain(claim);
+    expect(s.suggestedRationale).toContain(note);
+    expect(s.suggestedRationale).toContain('external-empirical');
+    // No independence/quality verdict anywhere in the composed text.
+    expect(s.suggestedRationale).not.toMatch(/independent|authoritative|qualifies|supports the class/i);
+  });
+
+  it('marks a suggestion PARTIAL and names the rows it could not account for', () => {
+    // Mutation: report `complete: true` whenever any ref was found, or drop the
+    // gap notes → the operator sees a full-looking citation set that silently
+    // omits half the evidence, and records it as the invariant's basis.
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1', 'e2', 'e3'],
+      resolvedEvidenceIds: ['e1', 'e2'],
+      evidenceIdsWithoutSourceRef: ['e2'],
+      sources: [source({ evidenceIds: ['e1'] })],
+    });
+    expect(s.complete).toBe(false);
+    expect(s.unresolvedEvidenceIds).toEqual(['e3']);
+    expect(s.notes.join(' ')).toMatch(/e3/);
+    expect(s.notes.join(' ')).toMatch(/e2/);
+    // The gaps travel INSIDE the rationale too, so a suggestion recorded
+    // verbatim still states what it could not account for.
+    expect(s.suggestedRationale).toMatch(/Gaps in this record/);
+    expect(s.suggestedRationale).toMatch(/e3/);
+  });
+
+  it('a suggestion built from repo-internal refs is STILL REFUSED on submit', () => {
+    // Pre-population must not become a bypass. The refs below are exactly what
+    // the suggester would emit if an invariant's evidence rows cited repo
+    // files — and the anti-laundering gate must refuse them just as it refuses
+    // a hand-typed set. Mutation: exempt suggested refs from looksInternal (or
+    // have the route trust the suggestion) → this passes and the suggester
+    // becomes a laundering path into Population A.
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1', 'e2'],
+      resolvedEvidenceIds: ['e1', 'e2'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [
+        source({ sourceRef: 'codexes/packs/irl/foundation/PRD-IDE-002.md', evidenceIds: ['e1'] }),
+        source({ sourceRef: 'CFS-048 Invariant Discovery Engine charter', evidenceIds: ['e2'] }),
+      ],
+    });
+    expect(s.suggestedEvidenceRefs).toHaveLength(2);
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-established',
+        evidenceRefs: s.suggestedEvidenceRefs,
+        rationale: s.suggestedRationale,
+        at: '2026-07-28T00:00:00Z',
+        actor: 'steward-commitment',
+      },
+    );
+    expect(r.ok).toBe(false);
+    expect(r.ok === false && r.error).toMatch(/laundering/);
+  });
+
+  it('a COMPLETE suggestion is still only a suggestion — it classifies nothing on its own', () => {
+    // The constitutional point (PRD-ICA-001 §6/§11: approval is a human act).
+    // Composing a suggestion must not produce a provenance bag, a class, or a
+    // population. Mutation: have the composer return a `to` / apply itself →
+    // the classification stops being the operator's act.
+    const s = composeClassificationSuggestion({
+      invariantId: 'inv-1',
+      evidenceIds: ['e1'],
+      resolvedEvidenceIds: ['e1'],
+      evidenceIdsWithoutSourceRef: [],
+      sources: [source({ recordedProvenanceClass: 'external-established' })],
+    });
+    expect(s.complete).toBe(true);
+    expect(Object.keys(s)).not.toContain('to');
+    expect(Object.keys(s)).not.toContain('provenance');
+    // The record it describes is untouched: still unclassified, still queued.
+    const record = { id: 'inv-1', statement: 'x', namespace: 'finance', status: 'proposed', provenance: { discoveryProvenance: 'ide', evidence_ids: ['e1'] } };
+    expect(experimentalPopulation(record.provenance)).toBeNull();
+    expect(buildClassificationQueue([record])).toHaveLength(1);
+  });
+});
+
+// ── The resolver: what it reads, and what it refuses to guess ───────────────
+
+describe('suggestClassification — resolves the recorded chain, guesses nothing', () => {
+  type Row = Record<string, unknown>;
+  const admin = (tables: Record<string, Row[]>, opts: { evidenceError?: string } = {}) =>
+    ({
+      from: (table: string) => ({
+        select: () => ({
+          in: (col: string, vals: string[]) => {
+            if (table === 'discovery_evidence' && opts.evidenceError) {
+              return Promise.resolve({ data: null, error: { message: opts.evidenceError } });
+            }
+            return Promise.resolve({
+              data: (tables[table] ?? []).filter((r) => vals.includes(String(r[col]))),
+              error: null,
+            });
+          },
+        }),
+      }),
+    }) as unknown as SupabaseClient;
+
+  const provenance = (ids: string[]) => ({ discoveryProvenance: 'ide', evidence_ids: ids });
+
+  it('reads source_ref off the evidence rows and attaches the acquisition record + seed claim', async () => {
+    const s = await suggestClassification(
+      admin({
+        discovery_evidence: [{ id: 'e1', title: 'NBER w17181 (part 1/2)', source_ref: 'https://www.nber.org/papers/w17181' },
+                             { id: 'e2', title: 'NBER w17181 (part 2/2)', source_ref: 'https://www.nber.org/papers/w17181' }],
+        corpus_candidate_sources: [{ source_id: 'SRC-1', title: 'Business Partners…', issuer: 'NBER', canonical_url: 'https://www.nber.org/papers/w17181', provenance_class: 'external-empirical', human_review_notes: 'clean extraction', evidence_row_id: 'e1' }],
+        corpus_acquisition_seeds: [{ document_url: 'https://www.nber.org/papers/w17181', institution_name: 'NBER', claim: 'Operator claim: unusually well targeted.' }],
+      }),
+      'inv-1',
+      provenance(['e1', 'e2']),
+    );
+    expect(s.suggestedEvidenceRefs).toEqual(['https://www.nber.org/papers/w17181']);
+    expect(s.sources[0].issuer).toBe('NBER');
+    expect(s.sources[0].recordedProvenanceClass).toBe('external-empirical');
+    expect(s.sources[0].seedClaim).toMatch(/unusually well targeted/);
+    expect(s.sources[0].evidenceIds).toEqual(['e1', 'e2']);
+    expect(s.complete).toBe(true);
+  });
+
+  it('reports a row with no source_ref as a gap instead of filling it in', async () => {
+    // Mutation: fall back to the candidate title, the domain, or any composed
+    // string when source_ref is null → `complete` goes true and an invented
+    // citation reaches the form.
+    const s = await suggestClassification(
+      admin({ discovery_evidence: [{ id: 'e1', title: 'Pasted text', source_ref: null }] }),
+      'inv-1',
+      provenance(['e1']),
+    );
+    expect(s.suggestedEvidenceRefs).toEqual([]);
+    expect(s.evidenceIdsWithoutSourceRef).toEqual(['e1']);
+    expect(s.complete).toBe(false);
+  });
+
+  it('attaches NO acquisition record when several share the URL — and says why', async () => {
+    // Fail-closed disambiguation. Mutation: take the first match → one
+    // acquisition's reviewer notes and recorded class are attributed to
+    // another's evidence, silently.
+    const s = await suggestClassification(
+      admin({
+        discovery_evidence: [{ id: 'e1', title: 'doc', source_ref: 'https://a.example/doc' }],
+        corpus_candidate_sources: [
+          { source_id: 'SRC-1', title: 'First acquisition', issuer: 'A', canonical_url: 'https://a.example/doc', provenance_class: 'external-established', human_review_notes: 'note A', evidence_row_id: null },
+          { source_id: 'SRC-2', title: 'Second acquisition', issuer: 'B', canonical_url: 'https://a.example/doc', provenance_class: 'platform-derived', human_review_notes: 'note B', evidence_row_id: null },
+        ],
+      }),
+      'inv-1',
+      provenance(['e1']),
+    );
+    expect(s.sources[0].issuer).toBeNull();
+    expect(s.sources[0].recordedProvenanceClass).toBeNull();
+    expect(s.sources[0].reviewNotes).toBeNull();
+    expect(s.notes.join(' ')).toMatch(/2 acquisition records share the URL/);
+    // The REF still stands — it came off the evidence row, not the ambiguous
+    // acquisition record.
+    expect(s.suggestedEvidenceRefs).toEqual(['https://a.example/doc']);
+  });
+
+  it('prefers the acquisition record LINKED to this invariant\'s own evidence row', async () => {
+    const s = await suggestClassification(
+      admin({
+        discovery_evidence: [{ id: 'e1', title: 'doc', source_ref: 'https://a.example/doc' }],
+        corpus_candidate_sources: [
+          { source_id: 'SRC-1', title: 'Unlinked', issuer: 'A', canonical_url: 'https://a.example/doc', provenance_class: 'platform-derived', human_review_notes: null, evidence_row_id: null },
+          { source_id: 'SRC-2', title: 'Linked', issuer: 'B', canonical_url: 'https://a.example/doc', provenance_class: 'external-established', human_review_notes: null, evidence_row_id: 'e1' },
+        ],
+      }),
+      'inv-1',
+      provenance(['e1']),
+    );
+    expect(s.sources[0].issuer).toBe('B');
+    expect(s.sources[0].recordedProvenanceClass).toBe('external-established');
+  });
+
+  it('suggests nothing when the evidence rows cannot be read — and says so', async () => {
+    const s = await suggestClassification(
+      admin({}, { evidenceError: 'connection reset' }),
+      'inv-1',
+      provenance(['e1']),
+    );
+    expect(s.suggestedEvidenceRefs).toEqual([]);
+    expect(s.suggestedRationale).toBe('');
+    expect(s.notes.join(' ')).toMatch(/connection reset/);
+  });
+
+  it('rejects an unratified provenance_class on the acquisition record rather than passing it through', async () => {
+    const s = await suggestClassification(
+      admin({
+        discovery_evidence: [{ id: 'e1', title: 'doc', source_ref: 'https://a.example/doc' }],
+        corpus_candidate_sources: [{ source_id: 'SRC-1', title: 't', issuer: null, canonical_url: 'https://a.example/doc', provenance_class: 'externally-vibes-checked', human_review_notes: null, evidence_row_id: 'e1' }],
+      }),
+      'inv-1',
+      provenance(['e1']),
+    );
+    expect(s.sources[0].recordedProvenanceClass).toBeNull();
+  });
+});
+
+// ── fieldOrigin — "cited" and "accepted what was offered" are different acts ──
+
+describe('fieldOrigin — the log distinguishes a reviewed citation from an accepted default', () => {
+  const suggestion = { suggestedEvidenceRefs: ['https://a.example/doc'], suggestedRationale: 'Assembled from the stored record.' };
+
+  it('records `suggested` when both fields were submitted exactly as offered', () => {
+    expect(deriveFieldOrigin({ evidenceRefs: ['https://a.example/doc'], rationale: 'Assembled from the stored record.' }, suggestion))
+      .toEqual({ evidenceRefs: 'suggested', rationale: 'suggested' });
+  });
+
+  it('records `edited` when the steward changed what was offered', () => {
+    // Mutation: report `suggested` regardless → the log stops distinguishing a
+    // citation the steward verified from one they never looked at.
+    expect(deriveFieldOrigin({ evidenceRefs: ['https://b.example/other'], rationale: 'I checked this myself.' }, suggestion))
+      .toEqual({ evidenceRefs: 'edited', rationale: 'edited' });
+  });
+
+  it('records `operator` when no suggestion was in play', () => {
+    expect(deriveFieldOrigin({ evidenceRefs: ['https://a.example/doc'], rationale: 'typed' }, null))
+      .toEqual({ evidenceRefs: 'operator', rationale: 'operator' });
+    expect(deriveFieldOrigin({ evidenceRefs: ['x'], rationale: 'y' }, { suggestedEvidenceRefs: [], suggestedRationale: '' }))
+      .toEqual({ evidenceRefs: 'operator', rationale: 'operator' });
+  });
+
+  it('travels into the append-only log WITHOUT changing the reclassification signature or any refusal', () => {
+    // Mutation: drop the spread that carries the event into the record → the
+    // annotation is accepted and silently discarded.
+    const r = applyProvenanceReclassification(
+      { discoveryProvenance: 'ide' },
+      {
+        to: 'external-empirical',
+        evidenceRefs: ['https://www.nber.org/papers/w17181'],
+        rationale: 'Assembled from the stored acquisition record.',
+        at: '2026-07-28T00:00:00Z',
+        actor: 'steward-commitment',
+        fieldOrigin: { evidenceRefs: 'suggested', rationale: 'edited' },
+      },
+    );
+    expect(r.ok).toBe(true);
+    const log = readReclassifications((r as { provenance: Record<string, unknown> }).provenance);
+    expect(log[0].fieldOrigin).toEqual({ evidenceRefs: 'suggested', rationale: 'edited' });
+    // …and the refusals are untouched: the same event with no refs is refused.
+    const refused = applyProvenanceReclassification({ discoveryProvenance: 'ide' }, {
+      to: 'external-empirical', evidenceRefs: [], rationale: 'x', at: 'now', actor: 'a',
+      fieldOrigin: { evidenceRefs: 'suggested', rationale: 'suggested' },
+    });
+    expect(refused.ok).toBe(false);
+  });
+});
+
+// ── Reachability + non-submission, at the two live callers ──────────────────
+
+describe('the suggestion is reachable, and is never a submission', () => {
+  const ROUTE = join(ROOT, 'app', 'api', 'invariants', 'discovery', 'route.ts');
+  const TAB = join(ROOT, 'components', 'composer', 'InvariantDiscoveryTab.tsx');
+
+  it('the route exposes suggest-classification and NAMES it in its own action list', () => {
+    const src = readFileSync(ROUTE, 'utf8');
+    expect(src).toMatch(/case 'suggest-classification'/);
+    expect(src).toMatch(/suggestClassification\(/);
+    const actionList = /action must be one of: ([^']+)'/.exec(src)?.[1] ?? '';
+    expect(actionList).toContain('suggest-classification');
+  });
+
+  it('the suggest branch performs NO write — it cannot classify, only propose', () => {
+    // Mutation: have the suggest branch call updateInvariant or
+    // applyProvenanceReclassification "since it already has the values" → the
+    // operator's submit stops being the constitutional act.
+    const src = readFileSync(ROUTE, 'utf8');
+    const branch = src.slice(src.indexOf("case 'suggest-classification'"), src.indexOf("case 'classify'"));
+    expect(branch.length).toBeGreaterThan(200);
+    expect(branch).not.toMatch(/updateInvariant\(/);
+    expect(branch).not.toMatch(/applyProvenanceReclassification\(/);
+  });
+
+  it('the steward surface asks for the suggestion and pre-fills BOTH fields from it', () => {
+    // Scoped to the OPENER, not the file. `suggestedRationale` also appears in
+    // the response type declaration, so a file-wide symbol check passes even
+    // when the rationale is never actually pre-filled — the symbol-presence
+    // defect this file's header names (CFS-053 CB-5). Both names must be
+    // CONSUMED where the form state is built.
+    const src = readFileSync(TAB, 'utf8');
+    const opener = src.slice(src.indexOf('const openClassifyPanel'), src.indexOf('const classify ='));
+    expect(opener.length).toBeGreaterThan(200);
+    expect(opener).toMatch(/action:\s*"suggest-classification"/);
+    expect(opener).toMatch(/suggestion\?\.suggestedEvidenceRefs/);
+    expect(opener).toMatch(/suggestion\?\.suggestedRationale/);
+    // And it is wired to the queue's classify control, not merely defined.
+    expect(src).toMatch(/openClassifyPanel\(q\)/);
+  });
+
+  it('the surface never PRE-SELECTS the evidence-provenance class', () => {
+    // With refs and rationale pre-filled, a defaulted class would let the whole
+    // classification be committed by one click on a form nobody read. The
+    // clerical fields are transcription; the class is the judgement.
+    // Mutation: restore `to: "external-established"` on open → this fails.
+    const src = readFileSync(TAB, 'utf8');
+    const opener = src.slice(src.indexOf('const openClassifyPanel'), src.indexOf('const classify ='));
+    expect(opener).toMatch(/to:\s*""/);
+    expect(opener).not.toMatch(/to:\s*"(external|platform)-/);
+    // …and the submit control is inert until a class is chosen.
+    expect(src).toMatch(/disabled=\{busy !== null \|\| !f\.to\}/);
+  });
+
+  it('a late suggestion never overwrites what the steward has already typed', () => {
+    // Mutation: assign the suggestion unconditionally → a slow response wipes
+    // the operator's own citation mid-edit.
+    const src = readFileSync(TAB, 'utf8');
+    const opener = src.slice(src.indexOf('const openClassifyPanel'), src.indexOf('const classify ='));
+    expect(opener).toMatch(/evidenceRefs:\s*f\.evidenceRefs\s*\|\|/);
+    expect(opener).toMatch(/rationale:\s*f\.rationale\s*\|\|/);
+  });
+
+  it('the classify branch DERIVES fieldOrigin server-side rather than trusting the client', () => {
+    // Mutation: read fieldOrigin off the request body → the client can assert
+    // 'operator' for a field it pre-filled, which is the exact fact recorded.
+    const src = readFileSync(ROUTE, 'utf8');
+    expect(src).toMatch(/deriveFieldOrigin\(/);
+    expect(src).not.toMatch(/body\.fieldOrigin/);
   });
 });

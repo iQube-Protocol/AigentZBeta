@@ -25,6 +25,7 @@ import {
   compressDomainInvariants,
   materializeCompressionEdges,
   suggestParents,
+  suggestClassification,
   promoteCandidate,
   linkPromotedParents,
   rejectCandidate,
@@ -45,6 +46,7 @@ import {
   buildClassificationQueue,
   canUseInvariantFor,
   applyProvenanceReclassification,
+  deriveFieldOrigin,
 } from '@/services/research/experimentalPopulations';
 import { personaPublicRef } from '@/services/identity/personaReferences';
 
@@ -163,6 +165,13 @@ export async function POST(req: NextRequest) {
     sourceRef?: string;
     candidateId?: string;
     parentInvariantIds?: string[];
+    // The classify / suggest-classification fields. Declared rather than read
+    // off an undeclared property, so the shape this route accepts is readable
+    // in one place.
+    invariantId?: string;
+    to?: string;
+    rationale?: string;
+    evidenceRefs?: unknown;
   };
   const domain = body.domain?.trim() || DEFAULT_DOMAIN;
   const subDomain = body.subDomain?.trim() || null;
@@ -226,6 +235,33 @@ export async function POST(req: NextRequest) {
       const r = await rejectCandidate(admin, body.candidateId);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
+    case 'suggest-classification': {
+      // PRE-POPULATION for the classify form (operator, 2026-07-28: "the URL
+      // and rationale for inclusion was provided with the sources… use that to
+      // pre-populate these fields rather than having the operator re-enter
+      // them from scratch"). Modelled on `suggest-parents`, deliberately:
+      //
+      //  · A POST ACTION, not an enrichment of the GET's classificationQueue.
+      //    That GET already blew the Lambda 6MB cap once and had to be bounded
+      //    (see the BOUNDED PAYLOAD note above) — folding each entry's resolved
+      //    source titles, reviewer notes and acquisition claims back into it
+      //    would push text into the exact response that failed, and would do
+      //    the resolution work for every queue entry including the ones the
+      //    operator never opens. `suggest-parents` has the same shape: fired
+      //    on demand when a panel opens, for ONE record.
+      //  · A SUGGESTION, not an act. It writes nothing, proposes no evidence-
+      //    provenance class, and does not submit. The operator's submit stays
+      //    the constitutional act (PRD-ICA-001 §6/§11), and every refusal in
+      //    applyProvenanceReclassification still runs on it — a suggestion
+      //    that resolved only repo-internal citations is still refused on the
+      //    way into Population A.
+      const invariantId = typeof body.invariantId === 'string' ? body.invariantId.trim() : '';
+      if (!invariantId) return NextResponse.json({ ok: false, error: 'invariantId required' }, { status: 400 });
+      const invariant = await getInvariantById(invariantId);
+      if (!invariant) return NextResponse.json({ ok: false, error: `invariant '${invariantId}' not found` }, { status: 404 });
+      const suggestion = await suggestClassification(admin, invariantId, invariant.provenance);
+      return NextResponse.json({ ok: true, suggestion });
+    }
     case 'classify': {
       // THE EXIT FROM `unclassified` (operator, 2026-07-28: the same block the
       // Financial Services cross-referenced invariants hit).
@@ -263,10 +299,28 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: `invariant '${invariantId}' not found` }, { status: 404 });
       }
 
+      // WHERE THE SUBMITTED FIELDS CAME FROM. Once the form is pre-populated,
+      // "the steward cited these URLs" and "the steward accepted the URLs the
+      // system offered" stop being the same statement — and this log is read
+      // later as the record of a human act. The distinction is DERIVED HERE by
+      // recomputing the suggestion and comparing, never taken from the client:
+      // a client-asserted `fieldOrigin` could claim 'operator' for a field it
+      // pre-filled, which is precisely the fact this records.
+      //
+      // Fail-open on the ANNOTATION only. If the suggestion cannot be
+      // recomputed, the classification still proceeds and `fieldOrigin` reads
+      // as 'operator'/'operator'; a broken convenience must never block a
+      // constitutional act. The gate itself stays fail-closed below.
+      const fieldOrigin = deriveFieldOrigin(
+        { evidenceRefs, rationale },
+        await suggestClassification(admin, invariantId, invariant.provenance).catch(() => null),
+      );
+
       const result = applyProvenanceReclassification(invariant.provenance, {
         to: to as Parameters<typeof applyProvenanceReclassification>[1]['to'],
         evidenceRefs,
         rationale,
+        fieldOrigin,
         // WHO attested it. `actor` is documented as "a T2-safe commitment or
         // an agent id, NEVER a raw T0 id" — and this bag is durable, widely
         // read invariant provenance, so the raw personaId must not go in it.
@@ -293,6 +347,6 @@ export async function POST(req: NextRequest) {
       });
     }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, materialize-edges, suggest-parents, promote, link-parents, reject, classify' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, materialize-edges, suggest-parents, promote, link-parents, reject, suggest-classification, classify' }, { status: 400 });
   }
 }

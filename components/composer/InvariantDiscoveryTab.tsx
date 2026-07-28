@@ -90,6 +90,36 @@ interface QueueEntry {
 }
 interface Prohibition { use: string; reason: string | null }
 
+/** The server-computed pre-population for the classify form (`suggest-
+ *  classification`). Mirrors `ParentSuggestion` in spirit: the SERVER resolves
+ *  it from stored records, this surface only displays it, and the operator
+ *  confirms. Nothing here is composed client-side — a URL this file invented
+ *  would be indistinguishable, to the operator, from one the system actually
+ *  holds. */
+interface ClassificationSuggestionSource {
+  sourceRef: string;
+  evidenceIds: string[];
+  evidenceTitles: string[];
+  candidateTitle: string | null;
+  issuer: string | null;
+  recordedProvenanceClass: string | null;
+  reviewNotes: string | null;
+  seedInstitution: string | null;
+  seedClaim: string | null;
+}
+interface ClassificationSuggestion {
+  invariantId: string;
+  evidenceIdCount: number;
+  resolvedEvidenceCount: number;
+  unresolvedEvidenceIds: string[];
+  evidenceIdsWithoutSourceRef: string[];
+  sources: ClassificationSuggestionSource[];
+  suggestedEvidenceRefs: string[];
+  suggestedRationale: string;
+  complete: boolean;
+  notes: string[];
+}
+
 /**
  * The five ratified evidence-provenance classes. Assigning one is the ONLY act
  * that moves an invariant out of `unclassified` and into an experimental
@@ -159,7 +189,13 @@ export default function InvariantDiscoveryTab() {
   // The open classify form, if any. One at a time — a steward classifies a
   // specific invariant with specific evidence, never several at once.
   const [classifyFor, setClassifyFor] = useState<
-    { invariantId: string; to: string; evidenceRefs: string; rationale: string; error: string | null } | null
+    {
+      invariantId: string; to: string; evidenceRefs: string; rationale: string; error: string | null;
+      /** The server's pre-population, once it arrives. `null` while loading or
+       *  when the fetch failed — the form is usable either way, by hand. */
+      suggestion: ClassificationSuggestion | null;
+      suggestionLoading: boolean;
+    } | null
   >(null);
   const [prohibitions, setProhibitions] = useState<{ use: string; reason: string }[]>([]);
   const [permittedUses, setPermittedUses] = useState<string[]>([]);
@@ -378,6 +414,45 @@ export default function InvariantDiscoveryTab() {
   }, []);
 
   /**
+   * Open the classify form and PRE-POPULATE it from the stored acquisition
+   * record (operator, 2026-07-28: "the URL and rationale for inclusion was
+   * provided with the sources… rather than having the operator have to re-enter
+   * these from scratch"). Same shape as `openLinkPanel`: open, ask the server
+   * for a suggestion, show it, let the operator confirm or change it.
+   *
+   * Two rules this handler keeps:
+   *  · The class (`to`) is NEVER pre-selected. Pre-filling the clerical fields
+   *    removes typing; pre-selecting the class would remove the JUDGEMENT, and
+   *    with all three fields defaulted the whole classification could be
+   *    performed by one click on a form the operator never read. The URL and
+   *    the rationale are transcription; the evidence-provenance class is the
+   *    constitutional act.
+   *  · A late suggestion never overwrites what the operator has already typed.
+   */
+  const openClassifyPanel = useCallback(async (q: QueueEntry) => {
+    setClassifyFor({
+      invariantId: q.invariantId, to: "", evidenceRefs: "", rationale: "",
+      error: null, suggestion: null, suggestionLoading: true,
+    });
+    const r = await post(
+      { action: "suggest-classification", invariantId: q.invariantId },
+      `suggest-classification-${q.invariantId}`,
+      { silent: true },
+    );
+    const suggestion = (r?.ok ? (r.suggestion as ClassificationSuggestion) : null) ?? null;
+    setClassifyFor((f) => {
+      if (!f || f.invariantId !== q.invariantId) return f; // panel moved on
+      return {
+        ...f,
+        suggestion,
+        suggestionLoading: false,
+        evidenceRefs: f.evidenceRefs || (suggestion?.suggestedEvidenceRefs ?? []).join("\n"),
+        rationale: f.rationale || (suggestion?.suggestedRationale ?? ""),
+      };
+    });
+  }, [post]);
+
+  /**
    * Assign an evidence-provenance class — the act that clears the queue entry.
    *
    * Every refusal (unratified class, no evidence refs, blank rationale, no-op
@@ -436,9 +511,7 @@ export default function InvariantDiscoveryTab() {
       return (
         <div className="pl-1 pt-0.5">
           <button
-            onClick={() =>
-              setClassifyFor({ invariantId: q.invariantId, to: "external-established", evidenceRefs: "", rationale: "", error: null })
-            }
+            onClick={() => void openClassifyPanel(q)}
             disabled={busy !== null}
             className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
           >
@@ -458,13 +531,61 @@ export default function InvariantDiscoveryTab() {
           onChange={(e) => setClassifyFor({ ...f, to: e.target.value, error: null })}
           className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
         >
+          {/* NO DEFAULT CLASS. The refs and the rationale below are now
+              pre-filled from the stored record, which is transcription the
+              operator should not have to redo — but if the class were also
+              defaulted, the entire classification could be committed by one
+              click on a form nobody read. The judgement stays theirs. */}
+          <option value="" disabled>Choose the evidence-provenance class…</option>
           {PROVENANCE_CLASS_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>
         <p className="text-[10px] leading-snug text-slate-500">
-          {PROVENANCE_CLASS_OPTIONS.find((o) => o.value === f.to)?.hint}
+          {PROVENANCE_CLASS_OPTIONS.find((o) => o.value === f.to)?.hint
+            ?? "Not selected — the refs and rationale below are suggested from the record, but the class is yours to decide."}
         </p>
+
+        {/* The pre-population, and what it could NOT account for. */}
+        {f.suggestionLoading && (
+          <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Reading the stored acquisition record…
+          </p>
+        )}
+        {f.suggestion && (
+          <div className="rounded border border-slate-700/70 bg-slate-900/60 p-1.5 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">
+              {f.suggestion.suggestedEvidenceRefs.length > 0
+                ? `Suggested from the record — ${f.suggestion.suggestedEvidenceRefs.length} source URL(s) across ${f.suggestion.resolvedEvidenceCount} evidence row(s)`
+                : "Nothing could be suggested from the record"}
+              {f.suggestion.suggestedEvidenceRefs.length > 0 && !f.suggestion.complete && (
+                <span className="ml-1 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[9px] text-amber-300">partial</span>
+              )}
+            </div>
+            {f.suggestion.sources.map((s) => (
+              <div key={s.sourceRef} className="text-[10px] leading-snug text-slate-400">
+                <span className="text-slate-300">{s.candidateTitle ?? s.evidenceTitles[0] ?? s.sourceRef}</span>
+                {s.issuer && <span className="text-slate-500"> — {s.issuer}</span>}
+                {s.recordedProvenanceClass && (
+                  <span className="ml-1 rounded border border-slate-700 px-1 text-[9px] text-slate-400">
+                    recorded at acquisition: {s.recordedProvenanceClass}
+                  </span>
+                )}
+                {/* Deliberately NOT a link that opens: this is a citation being
+                    verified, and the value the operator must check is the exact
+                    string that will be recorded. */}
+                <div className="break-all text-slate-500">{s.sourceRef}</div>
+              </div>
+            ))}
+            {f.suggestion.notes.map((n, i) => (
+              <p key={i} className="text-[10px] leading-snug text-amber-300/80">⚠ {n}</p>
+            ))}
+            <p className="text-[10px] leading-snug text-slate-500">
+              Suggested, not asserted — check every URL and edit freely before recording. Nothing is submitted until you do.
+            </p>
+          </div>
+        )}
+
         <textarea
           value={f.evidenceRefs}
           onChange={(e) => setClassifyFor({ ...f, evidenceRefs: e.target.value, error: null })}
@@ -475,7 +596,7 @@ export default function InvariantDiscoveryTab() {
         <textarea
           value={f.rationale}
           onChange={(e) => setClassifyFor({ ...f, rationale: e.target.value, error: null })}
-          rows={2}
+          rows={f.rationale ? 6 : 2}
           placeholder="Rationale — why this evidence supports this class. Recorded permanently on the invariant."
           className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
         />
@@ -487,7 +608,7 @@ export default function InvariantDiscoveryTab() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => void classify()}
-            disabled={busy !== null}
+            disabled={busy !== null || !f.to}
             className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
           >
             <Check className="h-3 w-3" /> Record classification

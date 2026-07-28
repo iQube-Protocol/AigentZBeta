@@ -249,6 +249,25 @@ export interface ProvenanceReclassification {
   at: string;
   /** Who performed it — a T2-safe commitment or an agent id, never a raw T0 id. */
   actor: string;
+  /**
+   * OPTIONAL provenance OF THE FORM ITSELF (2026-07-28). Once the classify form
+   * is pre-populated from the stored acquisition record, "the steward cited
+   * these URLs" and "the steward accepted the URLs the system offered" stop
+   * being the same statement, and a reader of this log must be able to tell
+   * them apart. `suggested` = submitted exactly as offered, `edited` = a
+   * suggestion was offered and changed, `operator` = typed with no suggestion
+   * in play. Absent on events recorded before the suggester existed, which
+   * reads as "not recorded" rather than being defaulted into a category
+   * nobody assigned — the same discipline as `DiscoveryProvenance`.
+   *
+   * Optional BY DESIGN: adding it does not change
+   * `applyProvenanceReclassification`'s signature or any of its refusals; the
+   * function carries it through with the rest of the event.
+   */
+  fieldOrigin?: {
+    evidenceRefs: 'suggested' | 'edited' | 'operator';
+    rationale: 'suggested' | 'edited' | 'operator';
+  };
 }
 
 /**
@@ -345,6 +364,204 @@ export function applyProvenanceReclassification(
       provenanceClass: event.to,
       [RECLASSIFICATION_LOG_KEY]: [...prior, record],
     },
+  };
+}
+
+// ── Pre-populating the classify form — a SUGGESTION, never an assertion ────
+
+/**
+ * ONE acquired source document behind an invariant's evidence rows, as read
+ * back off the stored record. Every field is either a value COPIED from a
+ * stored row or `null`. There is no field this type permits a caller to
+ * compose, and in particular `sourceRef` is `discovery_evidence.source_ref`
+ * verbatim — the composer below never derives, guesses, or repairs a URL.
+ */
+export interface ClassificationSuggestionSource {
+  /** `discovery_evidence.source_ref` — the canonical document URL, verbatim. */
+  sourceRef: string;
+  /** Every evidence row on this invariant that carries this `source_ref`. */
+  evidenceIds: string[];
+  /** `discovery_evidence.title` for those rows. */
+  evidenceTitles: string[];
+  /** `corpus_candidate_sources.title` / `.issuer`, when the acquisition record
+   *  for this URL could be resolved UNAMBIGUOUSLY. Null otherwise. */
+  candidateTitle: string | null;
+  issuer: string | null;
+  /** `corpus_candidate_sources.provenance_class` — the class the human
+   *  reviewer already recorded for this SOURCE at review time. Reported as
+   *  context; it is NOT applied, and it does not preselect the class. */
+  recordedProvenanceClass: ProvenanceClass | null;
+  /** `corpus_candidate_sources.human_review_notes`, verbatim. */
+  reviewNotes: string | null;
+  /** `corpus_acquisition_seeds.institution_name` / `.claim` — the operator's
+   *  own recorded description of why this document was planned for inclusion.
+   *  Stored as a CLAIM (the seed table's own discipline), reproduced as one. */
+  seedInstitution: string | null;
+  seedClaim: string | null;
+}
+
+/**
+ * What the server offers the steward's classify form. It pre-fills two fields
+ * the operator would otherwise re-type from records the system already holds —
+ * and it fills them ONLY from those records.
+ *
+ * It is a CONVENIENCE, never an assertion. Nothing here classifies anything:
+ * `to` is not suggested, nothing is submitted, and every refusal in
+ * `applyProvenanceReclassification` still runs on the operator's submit. A
+ * suggestion assembled entirely from repo-internal citations is still refused
+ * on the way into Population A, exactly as a hand-typed one would be.
+ */
+export interface ClassificationSuggestion {
+  invariantId: string;
+  /** `provenance.evidence_ids` — what the invariant claims it was compressed from. */
+  evidenceIdCount: number;
+  /** Evidence ids that resolved to a `discovery_evidence` row. */
+  resolvedEvidenceCount: number;
+  /** Recorded ids with no matching evidence row. Reported, never quietly dropped. */
+  unresolvedEvidenceIds: string[];
+  /** Resolved rows carrying NO `source_ref`. They contribute NOTHING — the
+   *  alternative (inventing a plausible URL for them) would launder an
+   *  unverifiable citation into Population A. */
+  evidenceIdsWithoutSourceRef: string[];
+  sources: ClassificationSuggestionSource[];
+  /** Deduped `source_ref` values, in first-seen order. Every entry appears in
+   *  `sources`; nothing else can ever appear here. */
+  suggestedEvidenceRefs: string[];
+  /** Assembled from stored text only. EMPTY when there is no stored text to
+   *  assemble — a blank field the operator must fill is honest; a composed
+   *  justification for a class nobody recorded is not. */
+  suggestedRationale: string;
+  /** True only when every recorded evidence id resolved AND every resolved row
+   *  carried a source ref. False ⇒ the surface must say the suggestion is
+   *  PARTIAL rather than presenting it as the whole citation set. */
+  complete: boolean;
+  /** Machine-stated gaps, for the surface to render beside the fields. */
+  notes: string[];
+}
+
+/**
+ * Assemble the suggestion from already-resolved rows. PURE — no I/O, no
+ * network, no clock — so the one property that matters can be canaried
+ * directly: **every emitted ref is an input `sourceRef`, byte for byte.**
+ *
+ * The rationale is built from labelled, verbatim stored strings plus counts
+ * computed from the inputs. It contains no clause asserting independence,
+ * externality, quality, or fit — those are the operator's to write, and are
+ * precisely what a pre-filled field must not put in their mouth.
+ */
+export function composeClassificationSuggestion(input: {
+  invariantId: string;
+  evidenceIds: readonly string[];
+  resolvedEvidenceIds: readonly string[];
+  evidenceIdsWithoutSourceRef: readonly string[];
+  sources: readonly ClassificationSuggestionSource[];
+  /** Gaps the RESOLVER found that this function cannot see — e.g. several
+   *  acquisition records sharing one URL, so none of them could be attached
+   *  unambiguously. Reported rather than resolved by preference. */
+  additionalNotes?: readonly string[];
+}): ClassificationSuggestion {
+  const evidenceIds = input.evidenceIds.filter((id) => typeof id === 'string' && id.trim());
+  const unresolvedEvidenceIds = evidenceIds.filter((id) => !input.resolvedEvidenceIds.includes(id));
+  // A source with a blank ref is not a source. Dropping it is the whole
+  // discipline: the suggester has nothing to offer for that row, and says so.
+  const sources = input.sources.filter((s) => typeof s.sourceRef === 'string' && s.sourceRef.trim().length > 0);
+
+  const suggestedEvidenceRefs: string[] = [];
+  for (const s of sources) {
+    const ref = s.sourceRef.trim();
+    if (!suggestedEvidenceRefs.includes(ref)) suggestedEvidenceRefs.push(ref);
+  }
+
+  const notes: string[] = [];
+  if (evidenceIds.length === 0) {
+    notes.push('This invariant records NO evidence rows, so there is nothing to cite from the stored record. Any evidence ref must be entered by hand.');
+  }
+  if (unresolvedEvidenceIds.length > 0) {
+    notes.push(`${unresolvedEvidenceIds.length} recorded evidence id(s) could not be resolved to a discovery_evidence row: ${unresolvedEvidenceIds.join(', ')}.`);
+  }
+  if (input.evidenceIdsWithoutSourceRef.length > 0) {
+    notes.push(`${input.evidenceIdsWithoutSourceRef.length} evidence row(s) carry no source reference and contribute nothing to this suggestion: ${input.evidenceIdsWithoutSourceRef.join(', ')}.`);
+  }
+  if (suggestedEvidenceRefs.length === 0 && evidenceIds.length > 0) {
+    notes.push('No source reference could be read off any of this invariant\'s evidence rows. Nothing is pre-filled — a URL that is not in the record must not be produced by this suggester.');
+  }
+  for (const n of input.additionalNotes ?? []) if (n.trim()) notes.push(n.trim());
+
+  const lines: string[] = [];
+  if (sources.length > 0) {
+    lines.push(
+      'Assembled from the stored acquisition record for this invariant\'s evidence rows. ' +
+      'Quoted lines are stored text reproduced verbatim; the counts are computed from the evidence rows themselves.',
+    );
+    lines.push('');
+    lines.push(
+      `Compressed from ${input.resolvedEvidenceIds.length} evidence row(s) resolving to ` +
+      `${sources.length} source document(s).`,
+    );
+    sources.forEach((s, i) => {
+      lines.push('');
+      const heading = s.candidateTitle ?? s.evidenceTitles[0] ?? s.sourceRef;
+      lines.push(`${i + 1}. ${heading}${s.issuer ? ` — ${s.issuer}` : ''}`);
+      lines.push(`   Source: ${s.sourceRef}`);
+      if (s.recordedProvenanceClass) {
+        lines.push(`   Provenance class recorded on the source at acquisition review: ${s.recordedProvenanceClass}`);
+      }
+      if (s.seedClaim) {
+        lines.push(`   Acquisition claim${s.seedInstitution ? ` (${s.seedInstitution})` : ''}: ${s.seedClaim}`);
+      }
+      if (s.reviewNotes) lines.push(`   Reviewer note: ${s.reviewNotes}`);
+      if (s.evidenceIds.length > 0) lines.push(`   Evidence rows: ${s.evidenceIds.join(', ')}`);
+    });
+    // The gaps travel INSIDE the rationale, so a suggestion recorded verbatim
+    // still states what it could not account for.
+    if (notes.length > 0) {
+      lines.push('');
+      lines.push(`Gaps in this record: ${notes.join(' ')}`);
+    }
+  }
+
+  return {
+    invariantId: input.invariantId,
+    evidenceIdCount: evidenceIds.length,
+    resolvedEvidenceCount: input.resolvedEvidenceIds.length,
+    unresolvedEvidenceIds,
+    evidenceIdsWithoutSourceRef: [...input.evidenceIdsWithoutSourceRef],
+    sources,
+    suggestedEvidenceRefs,
+    suggestedRationale: lines.join('\n'),
+    complete:
+      evidenceIds.length > 0 &&
+      unresolvedEvidenceIds.length === 0 &&
+      input.evidenceIdsWithoutSourceRef.length === 0 &&
+      suggestedEvidenceRefs.length > 0,
+    notes,
+  };
+}
+
+/**
+ * Did the steward submit the suggestion as offered, change it, or type it with
+ * no suggestion in play? Recorded on the reclassification event as
+ * {@link ProvenanceReclassification.fieldOrigin} so a later reader can tell a
+ * reviewed citation from an accepted default.
+ *
+ * DERIVED SERVER-SIDE by comparing the submitted values against a freshly
+ * recomputed suggestion — never taken from the client, which could assert
+ * "operator" for a field it pre-filled.
+ */
+export function deriveFieldOrigin(
+  submitted: { evidenceRefs: readonly string[]; rationale: string },
+  suggestion: { suggestedEvidenceRefs: readonly string[]; suggestedRationale: string } | null,
+): ProvenanceReclassification['fieldOrigin'] {
+  if (!suggestion) return { evidenceRefs: 'operator', rationale: 'operator' };
+  const sameRefs =
+    suggestion.suggestedEvidenceRefs.length > 0 &&
+    submitted.evidenceRefs.length === suggestion.suggestedEvidenceRefs.length &&
+    submitted.evidenceRefs.every((r, i) => r.trim() === suggestion.suggestedEvidenceRefs[i].trim());
+  const hadRationale = suggestion.suggestedRationale.trim().length > 0;
+  const sameRationale = hadRationale && submitted.rationale.trim() === suggestion.suggestedRationale.trim();
+  return {
+    evidenceRefs: sameRefs ? 'suggested' : suggestion.suggestedEvidenceRefs.length > 0 ? 'edited' : 'operator',
+    rationale: sameRationale ? 'suggested' : hadRationale ? 'edited' : 'operator',
   };
 }
 

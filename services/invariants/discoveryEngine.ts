@@ -27,6 +27,12 @@ import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
 import { listEdgesForInvariants } from '@/services/invariants/store';
 import { similarity } from '@/services/invariants/comparison';
 import { evidenceDomainsFor, parseObservationDomain, discoveryDomain, discoveryNamespace } from '@/services/invariants/discoveryDomains';
+import {
+  composeClassificationSuggestion,
+  type ClassificationSuggestion,
+  type ClassificationSuggestionSource,
+} from '@/services/research/experimentalPopulations';
+import { PROVENANCE_CLASSES, type ProvenanceClass } from '@/services/corpusScout/types';
 import type { InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -1099,6 +1105,144 @@ export async function suggestParents(admin: SupabaseClient, candidateId: string)
     }))
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 4);
+}
+
+/**
+ * The classify form's PRE-POPULATION (operator, 2026-07-28: "the URL and
+ * rationale for inclusion was provided with the sources… use that to
+ * pre-populate these fields rather than having the operator re-enter them from
+ * scratch").
+ *
+ * Same shape and same discipline as {@link suggestParents}: the server
+ * computes a SUGGESTION, the surface shows it, the operator confirms. Nothing
+ * is applied here — this function performs no write, proposes no provenance
+ * class, and cannot classify anything. It resolves a chain that is already
+ * fully recorded:
+ *
+ *   invariant.provenance.evidence_ids
+ *     → discovery_evidence.source_ref            (the canonical document URL,
+ *                                                 written by the Ingestion
+ *                                                 Broker from the candidate's
+ *                                                 canonical_url)
+ *     → corpus_candidate_sources                 (title, issuer, the class the
+ *                                                 reviewer recorded, notes)
+ *     → corpus_acquisition_seeds.claim           (the operator's own recorded
+ *                                                 reason for including it)
+ *
+ * A row that carries no `source_ref` contributes NOTHING and is reported as a
+ * gap. Producing a plausible URL for it would launder an unverifiable citation
+ * into Population A — worse than an empty field, because the empty field is
+ * visibly the operator's to fill.
+ */
+export async function suggestClassification(
+  admin: SupabaseClient,
+  invariantId: string,
+  provenance: Record<string, unknown> | null | undefined,
+): Promise<ClassificationSuggestion> {
+  const evidenceIds = Array.isArray(provenance?.evidence_ids)
+    ? (provenance!.evidence_ids as unknown[])
+        .filter((v): v is string => typeof v === 'string' && v.trim().length > 0)
+        .map((v) => v.trim())
+    : [];
+  const empty = () =>
+    composeClassificationSuggestion({
+      invariantId, evidenceIds, resolvedEvidenceIds: [], evidenceIdsWithoutSourceRef: [], sources: [],
+    });
+  if (evidenceIds.length === 0) return empty();
+
+  const { data: rows, error } = await admin
+    .from('discovery_evidence')
+    .select('id, title, source_ref')
+    .in('id', evidenceIds);
+  if (error) {
+    return composeClassificationSuggestion({
+      invariantId, evidenceIds, resolvedEvidenceIds: [], evidenceIdsWithoutSourceRef: [], sources: [],
+      additionalNotes: [`The evidence rows could not be read (${error.message}), so nothing is pre-filled.`],
+    });
+  }
+
+  const resolvedEvidenceIds: string[] = [];
+  const evidenceIdsWithoutSourceRef: string[] = [];
+  // Keyed by source_ref: several evidence rows share one URL whenever the
+  // Ingestion Broker chunked a long document (it writes one row per ≤200k
+  // chunk, all carrying the same canonical_url).
+  const byRef = new Map<string, { evidenceIds: string[]; evidenceTitles: string[] }>();
+  for (const r of rows ?? []) {
+    const id = String(r.id);
+    resolvedEvidenceIds.push(id);
+    const ref = typeof r.source_ref === 'string' ? r.source_ref.trim() : '';
+    if (!ref) { evidenceIdsWithoutSourceRef.push(id); continue; }
+    const group = byRef.get(ref) ?? { evidenceIds: [], evidenceTitles: [] };
+    group.evidenceIds.push(id);
+    const title = typeof r.title === 'string' ? r.title.trim() : '';
+    if (title && !group.evidenceTitles.includes(title)) group.evidenceTitles.push(title);
+    byRef.set(ref, group);
+  }
+
+  const refs = [...byRef.keys()];
+  const additionalNotes: string[] = [];
+  if (refs.length === 0) {
+    return composeClassificationSuggestion({
+      invariantId, evidenceIds, resolvedEvidenceIds, evidenceIdsWithoutSourceRef, sources: [],
+    });
+  }
+
+  const [{ data: candidateRows }, { data: seedRows }] = await Promise.all([
+    admin
+      .from('corpus_candidate_sources')
+      .select('source_id, title, issuer, canonical_url, provenance_class, human_review_notes, evidence_row_id')
+      .in('canonical_url', refs),
+    admin
+      .from('corpus_acquisition_seeds')
+      .select('document_url, institution_name, claim')
+      .in('document_url', refs),
+  ]);
+
+  const sources: ClassificationSuggestionSource[] = refs.map((ref) => {
+    const group = byRef.get(ref)!;
+    // Disambiguation, fail-closed. `corpus_candidate_sources` deliberately
+    // keeps duplicate acquisitions of one URL rather than deleting them, so a
+    // URL can match several rows. Prefer the row LINKED to one of this
+    // invariant's own evidence rows; else accept a single unambiguous match;
+    // else attach none and say why. Picking "the first" would attribute one
+    // acquisition's reviewer notes and recorded class to another's evidence.
+    const matches = (candidateRows ?? []).filter((c) => String(c.canonical_url) === ref);
+    const linked = matches.filter((c) => typeof c.evidence_row_id === 'string' && group.evidenceIds.includes(String(c.evidence_row_id)));
+    let candidate: (typeof matches)[number] | null = null;
+    if (linked.length === 1) candidate = linked[0];
+    else if (linked.length === 0 && matches.length === 1) candidate = matches[0];
+    else if (matches.length > 1) {
+      additionalNotes.push(`${matches.length} acquisition records share the URL ${ref}; none was attached, because attributing one record's review to another's evidence would misstate the source.`);
+    }
+
+    const seeds = (seedRows ?? []).filter((s) => String(s.document_url) === ref);
+    let seed: (typeof seeds)[number] | null = null;
+    if (seeds.length === 1) seed = seeds[0];
+    else if (seeds.length > 1) {
+      additionalNotes.push(`${seeds.length} acquisition seeds plan the URL ${ref} under different pillars/institutions; none of their claims was attached.`);
+    }
+
+    const recorded = candidate && typeof candidate.provenance_class === 'string' ? candidate.provenance_class : null;
+    return {
+      sourceRef: ref,
+      evidenceIds: group.evidenceIds,
+      evidenceTitles: group.evidenceTitles,
+      candidateTitle: candidate && typeof candidate.title === 'string' && candidate.title.trim() ? candidate.title.trim() : null,
+      issuer: candidate && typeof candidate.issuer === 'string' && candidate.issuer.trim() ? candidate.issuer.trim() : null,
+      recordedProvenanceClass:
+        recorded && (PROVENANCE_CLASSES as readonly string[]).includes(recorded) ? (recorded as ProvenanceClass) : null,
+      reviewNotes:
+        candidate && typeof candidate.human_review_notes === 'string' && candidate.human_review_notes.trim()
+          ? candidate.human_review_notes.trim()
+          : null,
+      seedInstitution: seed && typeof seed.institution_name === 'string' && seed.institution_name.trim() ? seed.institution_name.trim() : null,
+      seedClaim: seed && typeof seed.claim === 'string' && seed.claim.trim() ? seed.claim.trim() : null,
+    };
+  });
+
+  return composeClassificationSuggestion({
+    invariantId, evidenceIds, resolvedEvidenceIds, evidenceIdsWithoutSourceRef, sources, additionalNotes,
+  });
 }
 
 export async function promoteCandidate(
