@@ -88,6 +88,16 @@
  *    Law II diversity check, asserted by DRIVING getDomainConstitution rather
  *    than by reading the source for a call:
  *      tests/commercialisation-institutional-registry.test.ts
+ *  - A `CFS-0NN` designation ↔ the document that carries it. A designation is
+ *    one concern with two possible homes, and CFS-048 sat with an EMPTY one:
+ *    twelve source files and six foundation documents cited it as a foundation
+ *    filing that git history shows was never created, while the real charter sat
+ *    in the agentiq updates pack. Writing the check found CFS-045 in the same
+ *    state. Every cited designation must resolve to a real document or carry a
+ *    relocation claim that is itself proven (path exists, filename and title
+ *    carry the id, the target is the charter and not a phase record), is earned
+ *    by a real citation, and expires the moment the document IS filed:
+ *      tests/canon-document-resolution.test.ts
  *  - RequestedAction (TS union, connectionChallenge.ts) ↔ the
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:
@@ -750,30 +760,33 @@ describe('Laboratory ↔ EXPERIMENT_REGISTRY parity (the EXP-P3 drift, 2026-07-2
 });
 
 /**
- * EXP-P2 consequence family (operator ruling, 2026-07-27).
+ * EXP-P2 consequence family + the v0.5 protocol (operator, 2026-07-27).
  *
- * WHAT THE RULING DID. P2 stopped being one monolithic protocol and became "a
- * family of consequence experiments that share the same constitutional
- * framework but operate in different consequence domains" — P2A software, P2B
- * physical. Three things about that are exactly the shape this file exists to
- * guard:
+ * WHAT THIS GUARDS. EXP-P2 became "a family of consequence experiments that
+ * share the same constitutional framework but operate in different consequence
+ * domains", and the operator then supplied the full v0.5 protocol. v0.5 is now
+ * the authoritative text; every other document in the family is a pointer.
+ * Four failure modes, each with a canary below:
  *
- *  1. A SHARED framework with two consumers is one authoritative location with
- *     two references (inv.engineering.036). Copied into two experiment
- *     documents it diverges, and the divergence is invisible until the two
- *     experiments disagree about what they were measuring.
- *  2. The family membership is expressed TWICE by necessity — as
- *     `instantiationOf` on each member and as `members` on the series — so the
- *     two must be pinned against each other.
- *  3. The ruling records TWO views of the programme (conceptual numbering;
- *     methodological dependency through P3/RSS-001) and explicitly denies that
- *     the second renumbers the first. A reader who collapses them concludes P3
- *     precedes P2 in the programme, which the ruling denies in the same breath.
+ *  1. A framework doc RESTATES v0.5 prose, so a constitutional rule acquires a
+ *     second home and the copies drift (inv.engineering.036).
+ *  2. A `⟦…⟧` placeholder gets FILLED. v0.5's own notation rule is that no
+ *     value or procedural choice is implied by a placeholder; a filled one is a
+ *     fabricated experimental parameter that reads as a ratified one.
+ *  3. A successor draft DROPS a protected element. v0.5 §49 says such a draft
+ *     "fails constitutional review automatically" — that has to be mechanical,
+ *     and it must fire on a FUTURE file, not just this one.
+ *  4. W2.5, the diagnostic decomposition cell, LEAKS into the confirmatory
+ *     path — into the §41 aggregation rule or the primary multiplicity
+ *     sequence — and a diagnostic estimate gets reported as confirmatory.
  */
-describe('EXP-P2 consequence family (operator ruling 2026-07-27)', () => {
+describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () => {
   const P2_DIR = 'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance';
   const FAMILY_INDEX = `${P2_DIR}/README.md`;
   const FRAMEWORK = `${P2_DIR}/01_shared-constitutional-framework.md`;
+  const PROTOCOL = `${P2_DIR}/02_protocol-v0.5.md`;
+  const AMENDMENT = `${P2_DIR}/03_operational-amendment-v0.5.md`;
+  const SAP = `${P2_DIR}/04_statistical-analysis-plan-skeleton.md`;
   const RSS =
     'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/03_RSS-001_representation-science-standard.md';
 
@@ -786,8 +799,6 @@ describe('EXP-P2 consequence family (operator ruling 2026-07-27)', () => {
     expect(derived).toEqual(['EXP-P2A', 'EXP-P2B']);
     const cef = SERIES_REGISTRY.find((s) => s.id === 'CEF');
     expect(cef, 'the consequence family has no series').toBeTruthy();
-    // The series list and the per-experiment field are two statements of one
-    // fact; drift between them is the defect, so they are pinned to each other.
     expect(cef!.members).toEqual(derived);
     for (const e of instantiations()) expect(e.seriesId).toBe('CEF');
   });
@@ -795,77 +806,240 @@ describe('EXP-P2 consequence family (operator ruling 2026-07-27)', () => {
   it('an instantiation is never a foundational slot, and never a renumbering of one', () => {
     const ids = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
     const vp1 = SERIES_REGISTRY.find((s) => s.id === 'VP1')!;
-    expect(instantiations().length).toBeGreaterThan(0); // guards a vacuous loop
+    expect(instantiations().length).toBeGreaterThan(0);
     for (const e of instantiations()) {
       expect(ids.has(e.instantiationOf!), `${e.id} instantiates an unregistered id`).toBe(true);
       expect(e.instantiationOf, `${e.id} instantiates itself`).not.toBe(e.id);
-      // The focus belongs to the SLOT. An instantiation declaring one would
-      // imply a fifth foundational question.
       expect(e.programmeFocus, `${e.id} claims a programme focus`).toBeUndefined();
       expect(vp1.members, `${e.id} sits in the foundational series`).not.toContain(e.id);
-      // Instantiation is NOT renumbering: the parent slot still exists and
-      // still holds the constitutional question. `formerly` would say P2 moved.
       expect(e.formerly, `${e.id} claims to be its parent renumbered`).toBeUndefined();
     }
-    // Conversely: a foundational slot instantiates nothing.
     for (const id of ['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']) {
       const slot = EXPERIMENT_REGISTRY.find((e) => e.id === id)!;
       expect(slot.instantiationOf, `${id} is registered as an instantiation`).toBeUndefined();
     }
-    // The slot kept the question and the focus when the family formed.
     expect(p2().programmeFocus).toBe('Consequential Performance');
+    // The registered mechanism-level construct (v0.5 §7.3) must lead, with the
+    // programme-facing constitutional question kept as framing, not as the claim.
+    expect(p2().hypothesis).toMatch(/Condition-Directed Gated Verification Workflow/);
     expect(p2().hypothesis).toMatch(/improve consequential task performance/);
     expect(p2().hypothesis).toMatch(/equivalent informational content/);
+    // The registry must resolve to the authoritative text, not to an index.
+    expect(p2().protocolRef).toContain('02_protocol-v0.5.md');
   });
 
-  it('the RSS-001 admissibility gate cites sections that really exist in RSS-001', () => {
-    // Citing an invented section id is the failure this catches: it reads as a
-    // real methodological binding and resolves to nothing.
-    const headings = new Set(
-      [...readSource(RSS).matchAll(/^#{1,4}\s+§?([\w.]+)/gm)].map((m) => m[1]),
+  it('v0.5 is the authoritative text: no framework document restates its prose', () => {
+    // Pointers and attributed quotations are fine; silently re-authoring a
+    // normative sentence in a second document is the defect. Blockquoted lines
+    // are explicit citation and are exempt; everything else is checked.
+    const protocolLines = new Set(
+      readSource(PROTOCOL)
+        .split('\n')
+        .map((l) => l.replace(/[*`>|#_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase())
+        .filter((l) => l.split(' ').length >= 14),
     );
-    expect(headings.size, 'RSS-001 headings did not parse').toBeGreaterThan(20);
-    const framework = readSource(FRAMEWORK);
-    const cited = new Set([...framework.matchAll(/RSS-001 §([\w.]+)/g)].map((m) => m[1]));
-    expect(cited.size, 'the gate cites almost nothing').toBeGreaterThanOrEqual(8);
-    for (const c of cited) {
-      expect(headings.has(c), `the gate cites RSS-001 §${c}, which is not a section of RSS-001`).toBe(true);
+    expect(protocolLines.size, 'the protocol did not parse into sentences').toBeGreaterThan(50);
+    for (const doc of [FAMILY_INDEX, FRAMEWORK, AMENDMENT, SAP]) {
+      for (const raw of readSource(doc).split('\n')) {
+        if (raw.trimStart().startsWith('>')) continue; // attributed quotation
+        const norm = raw.replace(/[*`>|#_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (norm.split(' ').length < 14) continue;
+        expect(
+          protocolLines.has(norm),
+          `${doc} reproduces a normative sentence of v0.5 outside a quotation:\n  ${norm}`,
+        ).toBe(false);
+      }
     }
-    // The ruling names five certification steps; all five must be present.
-    for (const step of [
-      'Atomic Content Mapping',
-      'Informational Equivalence',
-      'Tiered Computational Equivalence',
-      'Representation Certification',
-      'Assumption Back-Propagation',
-    ]) {
-      expect(framework, `the gate omits the step '${step}'`).toContain(step);
+  });
+
+  it('every ⟦…⟧ parameter placeholder survives unresolved, or names a sealed pilot report', () => {
+    // v0.5's parameter-notation rule: "No numerical value or procedural choice
+    // is implied by a placeholder." Filling one without the sealed report that
+    // authorises it fabricates an experimental parameter. The two generic ⟦…⟧
+    // tokens are the notation's own self-reference, not parameters.
+    const CONFIRMATORY_PLACEHOLDERS = [
+      '⟦frozen after pilot⟧',
+      '⟦insert preregistered text⟧',
+      '⟦n_fabricated per arm × class⟧',
+      '⟦to be frozen after pilot feasibility testing⟧',
+      '⟦to be frozen before confirmation⟧',
+      '⟦to be frozen⟧',
+      '⟦δ_correct,A⟧',
+      '⟦δ_correct,B⟧',
+      '⟦δ_correct,d⟧',
+      '⟦δ_effort,A⟧',
+      '⟦δ_effort,B⟧',
+      '⟦δ_effort,d⟧',
+      '⟦δ_ni-effort,A⟧',
+      '⟦δ_ni-effort,B⟧',
+      '⟦δ_ni-effort,d⟧',
+      '⟦δ_ni-fail,A⟧',
+      '⟦δ_ni-fail,B⟧',
+      '⟦δ_ni-fail,d⟧',
+      '⟦θ_false-ready⟧',
+      '⟦θ_proxy⟧',
+    ];
+    const doc = readSource(PROTOCOL);
+    for (const ph of CONFIRMATORY_PLACEHOLDERS) {
+      if (doc.includes(ph)) continue;
+      // Lawful resolution: the parameter name appears on a line that also cites
+      // the sealed pilot report which authorised the value.
+      const name = ph.slice(1, -1);
+      const resolved = doc
+        .split('\n')
+        .some((l) => l.includes(name) && /sealed pilot report/i.test(l));
+      expect(
+        resolved,
+        `placeholder ${ph} was resolved without citing the sealed pilot report that authorised it`,
+      ).toBe(true);
     }
-    // It is a PRECONDITION of entry, not an outcome measured inside the run.
-    expect(framework, 'the gate is not stated as a precondition').toMatch(/precondition of admissibility/i);
-    // And RSS-001 records the downstream adoption, so the join is discoverable
-    // from the standard's end too — without a second copy of the mapping.
-    expect(readSource(RSS), 'RSS-001 does not record its downstream adoption').toContain(
-      '01_shared-constitutional-framework.md',
+    // No placeholder may be silently introduced or dropped either: the count of
+    // DISTINCT parameter placeholders is pinned alongside the list above.
+    const distinct = new Set((doc.match(/⟦[^⟧]*⟧/g) ?? []).filter((t) => t !== '⟦…⟧'));
+    expect(distinct.size, 'the distinct placeholder count changed').toBe(
+      CONFIRMATORY_PLACEHOLDERS.length,
     );
   });
 
-  it('every instantiation declares the gate and defers to the shared framework', () => {
-    expect(instantiations().length).toBeGreaterThan(0);
-    for (const e of instantiations()) {
-      const doc = readSource(e.protocolRef);
-      expect(doc, `${e.id} does not declare RSS-001 certification`).toMatch(/RSS-001 certification/);
-      expect(doc, `${e.id} does not state admissibility`).toMatch(/admissible/i);
-      expect(doc, `${e.id} does not point at the shared framework`).toContain(
-        '01_shared-constitutional-framework.md',
+  it('§49 protected elements are enforced against every protocol draft in the directory', () => {
+    // v0.5 §49: a successor draft omitting a protected element "fails
+    // constitutional review automatically". That has to be mechanical AND it
+    // has to fire on a FUTURE draft, so this globs the directory rather than
+    // naming one file — an inert check that can only ever see v0.5 would be the
+    // latent-mechanism defect (CFS-053).
+    const PROTECTED: Record<string, string> = {
+      'Process recentering and P2/P3 boundary': 'Constitutional',
+      'Null symmetry': 'Constitutional',
+      'P2A/P2B family structure': 'Design',
+      'W0–W3 ladder': 'Design',
+      'W2 directed-review control': 'Non-droppable',
+      'W2/W3 review-content equivalence audit': 'Non-droppable',
+      'Representation Firewall': 'Non-droppable',
+      'Tool/compute/pass parity': 'Design',
+      'Condition-set independent authorship and validation': 'Design',
+      'Effort decomposition': 'Design',
+      'Structural modification count': 'Design',
+      'Failure taxonomy and adjudication': 'Design',
+      'Honest blinding limitation and mitigation': 'Design',
+      'Acceptance threshold machinery': 'Design',
+      'P2B fabrication anchor or explicit downgrade': 'Design',
+      'P2A contamination controls and executable ground truth': 'Design',
+      'Experimental unit': 'Design',
+      'Decision and Falsification Procedure': 'Non-droppable',
+      'Cross-domain aggregation rule': 'Non-droppable',
+      'Programme stopping-rule linkage': 'Constitutional',
+      'Bidirectional P2/P3 anti-goalpost clause': 'Constitutional',
+      'Mechanism-level construct naming': 'Constitutional',
+    };
+    const fs = require('node:fs') as typeof import('node:fs');
+    const path = require('node:path') as typeof import('node:path');
+    const dir = path.join(process.cwd(), P2_DIR);
+    const drafts = fs.readdirSync(dir).filter((f) => /protocol-v[\d.]+\.md$/.test(f));
+    expect(drafts.length, 'no protocol draft found to check').toBeGreaterThan(0);
+
+    for (const draft of drafts) {
+      const src = fs.readFileSync(path.join(dir, draft), 'utf8');
+      const registry = src.slice(
+        src.indexOf('## 49. Protected-element registry'),
+        src.indexOf('## 50. Execution sequence'),
       );
+      expect(registry.length, `${draft} has no §49 protected-element registry`).toBeGreaterThan(100);
+      const rows = new Map(
+        [...registry.matchAll(/^\| (.+?) \| (Constitutional|Design|Non-droppable) \|$/gm)].map(
+          (m) => [m[1].trim(), m[2]] as const,
+        ),
+      );
+      for (const [element, status] of Object.entries(PROTECTED)) {
+        expect(rows.get(element), `${draft} drops protected element '${element}'`).toBe(status);
+      }
+      // §38 names four non-droppable items; every one must carry that status in
+      // §49. Two sections of one document disagreeing is the same defect class.
+      for (const element of [
+        'Decision and Falsification Procedure',
+        'W2 directed-review control',
+        'Representation Firewall',
+        'Cross-domain aggregation rule',
+      ]) {
+        expect(rows.get(element), `${draft} §49 downgrades a §38 non-droppable element`).toBe(
+          'Non-droppable',
+        );
+      }
     }
   });
 
-  it('the seven shared concerns are defined in one place and restated in neither instantiation', () => {
+  it('W2.5 is diagnostic and never leaks into the confirmatory path', () => {
+    const amendment = readSource(AMENDMENT);
+    const protocol = readSource(PROTOCOL);
+    const sap = readSource(SAP);
+
+    // Defined in the amendment, not the frozen protocol.
+    expect(amendment, 'W2.5 is not defined').toMatch(/W2\.5 — Enumerated Directed Review/);
+    expect(amendment).toMatch(/[Dd]iagnostic, not confirmatory/);
+    // Role and stage parity is a REQUIREMENT of the decomposition, not a note.
+    expect(amendment, 'role/stage parity is not recorded').toMatch(/[Rr]ole and stage parity must be exact/);
+    expect(amendment).toMatch(/requirement, not a note|not a recommendation/i);
+
+    // Excluded from the cross-domain constitutional decision: it must not
+    // appear anywhere in v0.5's §41 aggregation section.
+    const agg = protocol.slice(
+      protocol.indexOf('## 41. Cross-domain aggregation'),
+      protocol.indexOf('## 42. Harmful and adverse results'),
+    );
+    expect(agg.length).toBeGreaterThan(100);
+    expect(agg.includes('W2.5'), 'W2.5 leaked into the §41 aggregation rule').toBe(false);
+    expect(amendment).toMatch(/[Ee]xcluded from the cross-domain constitutional decision/);
+
+    // Excluded from the primary multiplicity sequence: the SAP's multiplicity
+    // section must say so, and must not spend α on it.
+    const mult = sap.slice(sap.indexOf('## S5. Multiplicity structure'), sap.indexOf('## S6.'));
+    expect(mult.length).toBeGreaterThan(100);
+    expect(mult, 'the SAP does not exclude W2.5 from the multiplicity sequence').toMatch(
+      /Outside the sequence entirely|no α is spent/,
+    );
+    // And the SAP's frozen contrast table must mark the W2.5 contrasts as
+    // diagnostic-only rather than confirmatory.
+    const contrasts = sap.slice(sap.indexOf('## S2. Frozen contrast set'), sap.indexOf('## S3.'));
+    for (const row of contrasts.split('\n').filter((l) => l.includes('W2.5'))) {
+      if (!row.startsWith('|')) continue;
+      expect(row, `a W2.5 contrast row is not marked diagnostic: ${row}`).toMatch(/Diagnostic/);
+    }
+  });
+
+  it('the programme stopping rule is filed unresolved, naming the source that is missing', () => {
+    // The instruction was to copy it faithfully from v0.2 §38 and its v0.3
+    // binding "rather than reconstructed from memory". Neither document exists
+    // in this repo, so the only honest artefact is an unresolved item that says
+    // which source is absent. A plausible reconstruction would be
+    // indistinguishable from the real thing to every future reader.
+    const amendment = readSource(AMENDMENT);
+    expect(amendment, 'the stopping-rule item is not marked unresolved').toMatch(
+      /UNRESOLVED — Appendix C item 19/,
+    );
+    expect(amendment, 'the missing source is not named').toMatch(/v0\.2 §38/);
+    expect(amendment).toMatch(/v0\.3 binding/);
+    expect(amendment, 'the amendment does not disclaim reconstruction').toMatch(
+      /[Nn]o reconstruction has been attempted/,
+    );
+    // The sources really are absent — if they are ever added, this fails and the
+    // item can be filled from them rather than staying unresolved by habit.
+    const fs = require('node:fs') as typeof import('node:fs');
+    const path = require('node:path') as typeof import('node:path');
+    const sourceDir = path.join(
+      process.cwd(),
+      'codexes/packs/irl/foundation/experiments/_source',
+    );
+    const p2Sources = fs
+      .readdirSync(sourceDir)
+      .filter((f) => /exp-p2/i.test(f) && /v0\.[23]/.test(f));
+    expect(
+      p2Sources,
+      'a v0.2/v0.3 P2 source now exists — fill Appendix C item 19 from it instead of leaving it unresolved',
+    ).toEqual([]);
+  });
+
+  it('the seven shared concerns are indexed in one place and restated in neither instantiation', () => {
     const framework = readSource(FRAMEWORK);
     const concerns = [...framework.matchAll(/^### §\d+ (.+)$/gm)].map((m) => m[1].trim());
-    // The ruling's own list, in its own words and order.
     expect(concerns.map((c) => c.split(' — ')[0].toLowerCase())).toEqual([
       'constitutional principles',
       'claims discipline',
@@ -881,44 +1055,86 @@ describe('EXP-P2 consequence family (operator ruling 2026-07-27)', () => {
         const name = c.split(' — ')[0];
         expect(
           new RegExp(`^#{1,6}\\s.*${escape(name)}`, 'im').test(doc),
-          `${e.id} takes the shared concern '${name}' as its own section instead of referencing the framework`,
+          `${e.id} takes the shared concern '${name}' as its own section instead of pointing at v0.5`,
         ).toBe(false);
       }
     }
   });
 
+  it('the framework index records that v0.5 narrowed RSS-001s P2 role, citing real RSS sections', () => {
+    // The family ruling made RSS-001 a five-step admissibility gate. v0.5 §14
+    // narrows it to three functions and drops the substrate comparison. The
+    // narrowing must be VISIBLE — a silent deletion would let the wider gate be
+    // reintroduced by citing the pre-v0.5 wording.
+    const framework = readSource(FRAMEWORK);
+    expect(framework, 'the supersession is not recorded').toMatch(/Supersession recorded/);
+    expect(framework).toMatch(/narrows that to three functions/);
+    expect(framework, 'Section T is not excluded explicitly').toMatch(
+      /Tiered Computational Equivalence.*is not part of P2/s,
+    );
+    // Every RSS-001 section it cites must exist in RSS-001.
+    const headings = new Set(
+      [...readSource(RSS).matchAll(/^#{1,4}\s+§?([\w.]+)/gm)].map((m) => m[1]),
+    );
+    expect(headings.size).toBeGreaterThan(20);
+    const cited = new Set([...framework.matchAll(/RSS-001 §([\w.]+)/g)].map((m) => m[1]));
+    expect(cited.size, 'the index cites almost no RSS-001 sections').toBeGreaterThanOrEqual(6);
+    for (const c of cited) {
+      expect(headings.has(c), `the index cites RSS-001 §${c}, which is not a section of RSS-001`).toBe(true);
+    }
+    // v0.5 §14 is the authority for the narrowing; the pointer must resolve there.
+    expect(readSource(PROTOCOL)).toMatch(/## 14\. RSS-001 role within EXP-P2/);
+  });
+
+  it('each instantiation points at its own v0.5 domain section and holds no domain content', () => {
+    const DOMAIN_SECTION: Record<string, string> = {
+      'EXP-P2A': 'v0.5 §19',
+      'EXP-P2B': 'v0.5 §20',
+    };
+    expect(instantiations().length).toBe(2);
+    for (const e of instantiations()) {
+      const doc = readSource(e.protocolRef);
+      expect(doc, `${e.id} does not point at its v0.5 domain section`).toContain(
+        DOMAIN_SECTION[e.id],
+      );
+      expect(doc, `${e.id} does not point at the framework index`).toContain(
+        '01_shared-constitutional-framework.md',
+      );
+      expect(doc, `${e.id} does not declare itself a pointer`).toMatch(/carries no domain content/i);
+    }
+  });
+
+  it('nothing in the family is presented as preregistered', () => {
+    // The architecture is settled; the protocol is NOT registerable until
+    // Appendix C is resolved. A surface that renders these as live experiments
+    // would misreport the programme's state.
+    for (const e of [p2(), ...instantiations()]) {
+      expect(e.hypothesis, `${e.id} does not declare its registration state`).toMatch(
+        /PREREGISTRATION NOT YET AUTHORIZED/,
+      );
+    }
+    const protocol = readSource(PROTOCOL);
+    expect(protocol).toMatch(/\*\*Preregistration:\*\* not yet authorized/);
+    expect(protocol).toMatch(/incomplete until Appendix C is resolved/);
+    expect(readSource(FAMILY_INDEX)).toMatch(/PREREGISTRATION NOT YET AUTHORIZED/);
+  });
+
   it('both programme views are recorded, and neither can be read as the other', () => {
     const idx = readSource(FAMILY_INDEX);
-    // View 1 — the conceptual sequence. The numbering did NOT change.
     expect(idx, 'the conceptual sequence is missing').toMatch(
       /P1 Compression\s*→\s*P2 Consequence\s*→\s*P3 Representation\s*→\s*P4 Interaction/,
     );
     expect(idx).toMatch(/numbering should remain P1 → P2 → P3 → P4/);
-    // View 2 — the methodological dependency, which runs through P3/RSS-001.
     expect(idx, 'the methodological dependency is missing').toMatch(
       /P3 Representation Science\s*→\s*RSS-001 Certification/,
     );
     expect(idx).toMatch(/methodological dependency now runs through P3/);
-    // The distinction itself must be stated. Without it the dependency graph
-    // reads as a reordering of the programme — which the ruling denies.
     expect(idx, 'the index never denies the renumbering reading').toMatch(/not a renumbering/i);
-    // And the registry agrees with view 1: order preserved, no slot renumbered.
     expect(SERIES_REGISTRY.find((s) => s.id === 'VP1')!.members).toEqual([
       'EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4',
     ]);
-  });
-
-  it('nothing in the family is presented as a designed protocol', () => {
-    // The framework was set up from a ruling; the protocol comes later, from
-    // the operator. A later reader must be able to tell the two apart, and the
-    // registry must not let a surface render these as designed experiments.
-    for (const e of [p2(), ...instantiations()]) {
-      expect(e.hypothesis, `${e.id} does not declare its protocol pending`).toMatch(/PROTOCOL PENDING/);
-      expect(readSource(e.protocolRef), `${e.protocolRef} does not mark itself pending`).toContain(
-        'PENDING OPERATOR PROTOCOL',
-      );
-    }
-    // The family holds no protocol by design — only the shared framework.
-    expect(readSource(FAMILY_INDEX)).toMatch(/carries no experimental protocol/i);
+    // v0.5 §2 carries the same distinction — the protocol and the index must agree.
+    expect(readSource(PROTOCOL)).toMatch(/Compression → Consequence → Representation → Interaction/);
+    expect(readSource(PROTOCOL)).toMatch(/methodological dependency is not strictly sequential/);
   });
 });

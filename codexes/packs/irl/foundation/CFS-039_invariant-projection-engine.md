@@ -1,6 +1,11 @@
 # CFS-039 / PRD-IPE-001 — The Invariant Projection Engine (IPE)
 
 **Status:** Architectural Foundation — DRAFT, awaiting operator ratification (2026-07-17).
+
+> **Ratification-evidence review, 2026-07-28 — status deliberately unchanged.** An operator ratification of this spec on 2026-07-17, as one of the four CFS-037 follow-on PRDs, is *attested* by three contemporaneous records: the run doc `codexes/packs/agentiq/updates/2026-07-17_ire-prd-family-phase0-builds.md` (*"Operator ratified all four follow-on PRDs ('All four ratified. Build all 4')"*), `CHRYSALIS_WORKSTREAM_TRACKER` row 99 (*"ALL FOUR RATIFIED + PHASE 0 BUILT 2026-07-17"*), and the Phase 1/Phase 2 build commits `9a790c2ab` / `c9272700b`.
+>
+> **All three are agent-authored transcriptions of the session, and no ratification *record* exists** — no row in `codexes/packs/polity-core/items/AMENDMENT_RECORDS.md`, no governance decision-log entry, no `governance_ratifications` row, no DVN receipt, no content commitment. Under **Law XI** ratification is an operator act, so the header **stays DRAFT** until an operator act produces a record. See CFS-037's identical note: CFS-037/038/039/040/041 share this condition and should be resolved as one operator act.
+
 **Classification:** Constitutional Runtime Primitive (the projector).
 **Designation:** IRL ratified-spec filing of **PRD-IPE-001** (the PRD family, §9 of CFS-037). This spec **renames and re-scopes CFS-035** — it does not replace it; CFS-035's content (the governing law, the four faces, the node schema, the Observatory) stands, now under the IPE identity.
 **Dependencies:** CFS-035 (the engine being renamed), CFS-037 (IRE — produces the field the IPE consumes), CFS-038 (CCR — the coordinate basis the IPE projects against).

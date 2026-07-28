@@ -278,9 +278,9 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     programmeFocus: 'Consequential Performance',
     seriesId: 'VP1',
     hypothesis:
-      'Do invariant-guided representations improve consequential task performance compared with conventional documentation under equivalent informational content? The constitutional question is unchanged; everything underneath is now an instantiation in one consequence domain. NO MONOLITHIC PROTOCOL by design — the shared framework is at the protocolRef, the domain protocols are PROTOCOL PENDING with the operator.',
+      'Does the Condition-Directed Gated Verification Workflow improve consequential correctness and/or reduce expert effort to acceptance compared with condition-directed prose review, without producing materially worse consequential failures? (v0.5 §3.) The programme-facing framing remains the constitutional question — do invariant-guided representations improve consequential task performance under equivalent informational content — but §7.3 requires the mechanism-level construct in registered claims. v0.5 architecture settled; PREREGISTRATION NOT YET AUTHORIZED until Appendix C is resolved.',
     protocolRef:
-      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/README.md',
+      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
   },
   {
@@ -294,7 +294,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     family: 'Software Consequences — Constitutional Computing applied to software',
     seriesId: 'CEF',
     hypothesis:
-      'Do invariant representations improve the correctness, efficiency, and stability of software engineering outcomes? PROTOCOL PENDING — the operator supplies the protocol; the directory records the ruling’s example tasks, outcome lists and A–E arm labels as operator examples, never as a design.',
+      'Whether the workflow improves executable software outcomes and reduces expert effort required to reach a frozen acceptance threshold (v0.5 §9.1). One of two independently confirmatory domains; primary contrast W3 versus W2 within domain, anchored by held-out executable acceptance suites (§19). PREREGISTRATION NOT YET AUTHORIZED — task classes frozen only after pilot feasibility assessment.',
     protocolRef:
       'codexes/packs/irl/foundation/experiments/exp-p2a-software-consequences/README.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
@@ -310,7 +310,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     family: 'Physical Consequences — Invariant-Governed Generation and Verification for Physical Design',
     seriesId: 'CEF',
     hypothesis:
-      'Do invariant representations improve real-world physical construction outcomes? Domains: lamp, shelf, enclosure. PROTOCOL PENDING — the ruling supersedes the prior v1.0 candidate’s arm structure (B / C / B+R / B+R-D / D) with A–E arms separating content from representation; the revised protocol comes from the operator.',
+      'Whether the workflow improves the correctness, safety, and acceptance efficiency of buildable physical designs (v0.5 §9.2). Candidate object classes lamp, shelf, enclosure; anchored by blinded expert assessment and a preregistered fabricated subsample (§20.5), whose proxy-validity hypothesis H2.7 downgrades to exploratory if it cannot be powered. PREREGISTRATION NOT YET AUTHORIZED.',
     protocolRef:
       'codexes/packs/irl/foundation/experiments/exp-p2b-physical-consequences/README.md',
     governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],

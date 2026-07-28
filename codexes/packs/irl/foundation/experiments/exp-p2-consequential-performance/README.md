@@ -1,20 +1,16 @@
 # EXP-P2 — Consequential Performance (family index)
 
 **Invariant Research Lab (IRL) · Validation Programme series (P1 / P2 / P3 / P4)**
-**Experiment ID: IRL-EXP-P2 · Status: FRAMEWORK SET UP — protocols PENDING OPERATOR PROTOCOL**
-**Ruling of record: operator, 2026-07-27 (recorded verbatim in §1 below).**
+**Experiment ID: IRL-EXP-P2 · Registered causal construct: Condition-Directed Gated Verification Workflow**
+**Status: v0.5 filed · architecture settled · PREREGISTRATION NOT YET AUTHORIZED**
 
-> **This directory carries no experimental protocol.** It carries the *framework* that both
-> consequence experiments share, and the index of what is still to come. The operator's words on
-> receiving this ruling were: *"I'll provide the protocol presently but in the meantime let's get
-> it set up."* Nothing here designs an experiment. Where the ruling gives examples — tasks,
-> outcome lists, arm labels — they are recorded **as the operator's examples pending protocol**,
-> never as a designed protocol. A later reader must be able to tell the operator's ruling from an
-> agent's scaffolding; that is what the `PENDING OPERATOR PROTOCOL` marker exists for.
+> **The authoritative text is [`02_protocol-v0.5.md`](02_protocol-v0.5.md).** This index does not
+> restate it. It records the ruling that created the family, the map of the document set, and the
+> two views of the programme — the only things that are not v0.5's to hold.
 
 ---
 
-## 1. The ruling — what changed
+## 1. The ruling that created the family
 
 Until 2026-07-27, EXP-P2 was described as "the consequence experiment": one monolithic protocol.
 EXP-P3 established that **representation is itself an experimental variable**. The operator's
@@ -31,43 +27,50 @@ ruling:
 
 > "This remains the constitutional question. Everything underneath becomes an instantiation."
 
+v0.5 §3 states the primary scientific question in the registered mechanism-level vocabulary that
+must carry every confirmatory headline (v0.5 §7.3). The constitutional question above is the
+programme-facing framing; **it is not the registered claim**, and the two must not be swapped.
+
 ## 2. The family
 
-| Id | Instantiation | Consequence domain | Directory | Protocol |
+| Id | Instantiation | Consequence domain | Domain protocol | Directory |
 |---|---|---|---|---|
-| **EXP-P2** | — (the family; holds the constitutional question and the shared framework) | — | `exp-p2-consequential-performance/` | none, by design |
-| **EXP-P2A** | Software Consequences | software engineering outcomes | [`exp-p2a-software-consequences/`](../exp-p2a-software-consequences/README.md) | PENDING OPERATOR PROTOCOL |
-| **EXP-P2B** | Physical Consequences | real-world physical construction | [`exp-p2b-physical-consequences/`](../exp-p2b-physical-consequences/README.md) | PENDING OPERATOR PROTOCOL (a prior v1.0 candidate exists — see that README) |
+| **EXP-P2** | — (the family; holds the constitutional question and the protocol) | both | v0.5 whole | `exp-p2-consequential-performance/` |
+| **EXP-P2A** | Software Consequences | software engineering outcomes | **v0.5 §19** | [`../exp-p2a-software-consequences/`](../exp-p2a-software-consequences/README.md) |
+| **EXP-P2B** | Physical Consequences | real-world physical construction | **v0.5 §20** | [`../exp-p2b-physical-consequences/`](../exp-p2b-physical-consequences/README.md) |
 
-Both instantiations are registered in `EXPERIMENT_REGISTRY` (`types/research.ts`) with
-`instantiationOf: 'EXP-P2'`. They are **not** foundational slots: they carry no `programmeFocus`,
-and they are not members of the VP1 foundational series. EXP-P2 remains the slot.
+Both are registered in `EXPERIMENT_REGISTRY` (`types/research.ts`) with
+`instantiationOf: 'EXP-P2'`. They are **not** foundational slots: they carry no `programmeFocus`
+and are not members of the VP1 foundational series. EXP-P2 remains the slot. v0.5 §9 makes them
+**independently confirmatory** domains, and v0.5 §9.3 bars any additional domain from entering the
+confirmatory claim after either domain's results are known.
 
-## 3. The shared framework — one place, two references
+## 3. Document set
 
-Everything above the experimental domain is written **once**, in
-[`01_shared-constitutional-framework.md`](01_shared-constitutional-framework.md). The operator's
-ruling is explicit about which concerns those are and that they are identical for both:
+| File | What it is |
+|---|---|
+| [`02_protocol-v0.5.md`](02_protocol-v0.5.md) | **AUTHORITATIVE.** The full protocol — Parts I–X (§§1–50), Appendices A–D. Filed verbatim. |
+| [`03_operational-amendment-v0.5.md`](03_operational-amendment-v0.5.md) | Amendment 1 — W2.5 diagnostic cell · four feasibility gates · the unresolved stopping-rule item · three recorded observations |
+| [`04_statistical-analysis-plan-skeleton.md`](04_statistical-analysis-plan-skeleton.md) | SAP skeleton — structure frozen, every number unresolved |
+| [`01_shared-constitutional-framework.md`](01_shared-constitutional-framework.md) | Pointer index mapping the ruling's seven shared concerns to the v0.5 sections that own them |
 
-> "P2A and P2B should share everything above the experimental domain … **The only thing that
-> changes is the domain.**"
+**No document in this set other than v0.5 holds normative protocol content.** A canary in
+`tests/source-of-truth-parity.test.ts` fails the build if any of them reproduces a normative
+sentence of v0.5.
 
-P2A and P2B **reference** the framework. They must not restate it. A framework copied into two
-documents diverges — that is the `inv.engineering.036` / `inv.engineering.037` defect this repo
-spent 2026-07-22 onward eliminating, and it is canary-enforced here
-(`tests/source-of-truth-parity.test.ts`).
+## 4. RSS-001 in EXP-P2 — narrower than the family ruling first stated
 
-## 4. The RSS-001 admissibility gate
-
-Every representation entering P2A or P2B must first pass **RSS-001 certification**; only then is
-it admissible into the consequence experiment. The gate — with the real RSS-001 section
-citations — is §3 of the shared framework. RSS-001 itself lives with EXP-P3:
-[`../exp-p3-representation-of-structural-invariants/03_RSS-001_representation-science-standard.md`](../exp-p3-representation-of-structural-invariants/03_RSS-001_representation-science-standard.md).
+The ruling that created the family made RSS-001 certification an admissibility precondition in five
+steps. **v0.5 §14 narrows RSS-001's P2 role to three functions** — atomic decomposition,
+within-modality equivalence audit, completeness and consistency certification — and states that it
+"does not serve its P3 role of comparing different representational substrates." v0.5 governs. The
+supersession, and which RSS-001 sections remain in play, are recorded in
+[`01_shared-constitutional-framework.md`](01_shared-constitutional-framework.md) §3.
 
 ## 5. Two views of the programme — both true, neither a renumbering
 
 The ruling records two complementary views. They answer different questions and must never be
-collapsed into one another.
+collapsed into one another. v0.5 §2 carries the same distinction.
 
 ### 5.1 Conceptual sequence — the programme numbering, UNCHANGED
 
@@ -103,33 +106,40 @@ is about the *progression of research questions*; the dependency is about *which
 experiment must adopt*. One is conceptual, one is methodological. Both are recorded; neither
 overrides the other.
 
-This is consistent with, and does not supersede, the operator's earlier recorded reframing that
+v0.5 §2 states it in the protocol's own words: the conceptual sequence remains
+Compression → Consequence → Representation → Interaction, while "the methodological dependency is
+not strictly sequential." This is consistent with the operator's earlier recorded reframing that
 the programme is cybernetic rather than sequential — "P3 doesn't come after P2. P3 continually
-refines the representation used by P1 and P2" (`CFS-053_constitutional-binding.md` §10.0b). That
-statement and §5.2 here are the same observation seen from the method side.
+refines the representation used by P1 and P2" (`CFS-053_constitutional-binding.md` §10.0b).
 
 > "The research is cumulative: later experiments don't merely answer new questions, **they improve
 > the scientific rigor of earlier experimental families.**"
 
-## 6. What this framework does NOT contain — PENDING OPERATOR PROTOCOL
+## 6. What is not yet resolved
 
-Named explicitly so no reader mistakes an absence for a decision:
+v0.5's own candidate disposition: **architecture settled · protocol engineering incomplete until
+Appendix C is resolved · preregistration not yet authorized.**
 
-| Missing | Who supplies it |
+| Outstanding | Where |
 |---|---|
-| The P2A experimental protocol (task corpus, procedure, execution plan) | operator |
-| The P2B experimental protocol, revised under this ruling | operator |
-| Arm specifications beyond the ruling's A–E labels | operator |
-| The statistical analysis plan (shared framework §4) | operator |
-| The decision procedure — RSS-001's "Section DP" binding target (shared framework §5) | operator |
-| The constitutional principles enumerated for the family (shared framework §1) | operator |
-| Power analysis, sample sizes, thresholds, any ⟦ ⟧ parameter freeze | operator |
+| 20 unresolved parameters requiring freeze | v0.5 Appendix C |
+| 21 distinct `⟦…⟧` placeholders in the protocol text | v0.5, throughout |
+| Programme stopping-rule decision point | **UNRESOLVED for a named reason** — amendment §A6.1: its stated source documents (EXP-P2 v0.2 §38 and its v0.3 binding) are not present in this repository, and no reconstruction has been attempted |
+| Correctness-at-cost treatment in cross-domain aggregation | v0.5 §41 delegates it to the SAP; Appendix C item 20 |
+| Placeholders introduced by the amendment | amendment §A1.5, §A2, §A3, §A4, §A5 |
+| Pilot design and parameter resolution (artifact 3) | not started — requires the operator |
+| Sealed pilot report (artifact 4); SAP freeze and preregistration (artifact 5) | not started |
 
-## 7. Standing of what IS recorded here
+## 7. Standing
 
 Every P2 hypothesis is an empirical hypothesis under test. Per the IRL Hypothesis vs Canon
-discipline it enters and remains `proposed` until the registered decision procedure produces
-supporting evidence; nothing in this directory may be cited as an established result.
+discipline it enters and remains `proposed` until the registered Decision and Falsification
+Procedure (v0.5 Part IX) produces supporting evidence. Nothing in this directory may be cited as an
+established result, and v0.5 §7.2 lists the claims EXP-P2 may never support at all.
+
+Null and adverse findings are first-class outcomes here: v0.5 Principle VII (null symmetry) and
+Principle IX (adverse-result priority) are protected elements, and v0.5 §43 records that "a null or
+falsifying result is a valid completion of EXP-P2."
 
 ## 8. Downstream consequence — CFS-053 Law XVII
 
@@ -139,8 +149,8 @@ until **three** conditions hold:
 > "**CFS-053 therefore stays `PROPOSED`** until all three hold: P2A exists; software consequence is
 > formally in the programme; at least one experimental result supports the principle."
 
-This directory establishes the **first** condition: EXP-P2A exists as a registered experiment with
-a directory and a declared consequence domain. It does **not** establish the second or the third —
-software consequence is formally in the programme only once the operator's P2A protocol is
-ratified into it, and no experimental result exists at all. Law XVII therefore remains `proposed`,
-and this document must not be cited as evidence for it.
+**The first two now hold.** P2A exists as a registered experiment, and v0.5 §19 puts software
+consequence formally in the programme as an independently confirmatory domain with its own protocol.
+**The third does not**, and is furthest from holding: no experiment has run, v0.5 is a candidate
+awaiting final adversarial review, and preregistration is not yet authorized. Law XVII therefore
+remains `proposed`, and nothing in this directory may be cited as evidence for it.

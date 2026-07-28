@@ -1,6 +1,13 @@
 # CFS-037 / PRD-IRE-001 — The Invariant Resolution Engine (IRE)
 
 **Status:** Architectural Foundation — DRAFT, awaiting operator ratification (2026-07-17).
+
+> **Ratification-evidence review, 2026-07-28 — status deliberately unchanged.** An operator ratification of this spec on 2026-07-17 is *attested* by five contemporaneous records: commit `be5942ae4` (*"Operator ratified same day: 'Go straight into p0'"*), commit `55da1579f` and its run doc `codexes/packs/agentiq/updates/2026-07-17_cfs-037-ire-ratified-p0.md` (*"Operator ratified same day ('Go straight into p0. Ratified.')"*), `CHRYSALIS_WORKSTREAM_TRACKER` row 99, and the header of `services/invariants/resolution.ts`.
+>
+> **Every one of the five is an agent-authored transcription of the session, and no ratification *record* exists.** There is no row in `codexes/packs/polity-core/items/AMENDMENT_RECORDS.md`, no entry in the governance decision log, no `governance_ratifications` row, no DVN receipt, and no content commitment against this document. Under **Law XI** ratification is an operator act; an agent may not promote a canon status on another agent's transcript, however well corroborated. The header therefore **stays DRAFT** until an operator act produces a record.
+>
+> **This is a family condition, not a defect in this document.** CFS-038, CFS-039, CFS-040 and CFS-041 were authored in the same ratify-before-build session, all five still read DRAFT, and the attestation covering the other four is a *second* operator quote (*"All four ratified. Build all 4"*, `2026-07-17_ire-prd-family-phase0-builds.md`). The stale header is an artefact of writing the status line *before* the gate it describes and never revisiting it. Resolve the five as one operator act, not document by document.
+
 **Classification:** Constitutional Runtime Primitive.
 **Designation:** This is the IRL ratified-spec filing of the operator/Aletheon **PRD-IRE-001**. The proposed PRD family (PRD-IRE/KRE/IPE/CFO/CCR-001) maps onto the IRL's `CFS-nnn` convention rather than introducing a parallel numbering scheme (the EXP-006 collision discipline) — this is **CFS-037**, carrying the **PRD-IRE-001** designation; the siblings are named in §9 as future CFS specs.
 **Dependencies:** Constitutional field substrate · Invariant Registry (`services/invariants/store.ts`) · `IntentQubeRecord` (`services/iqube/intentQube.ts`) · CFS-035 (renamed here → the **Invariant Projection Engine**) · future KRE / CFO / CCR.
