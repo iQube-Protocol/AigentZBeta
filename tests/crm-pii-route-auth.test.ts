@@ -50,6 +50,13 @@ const PII_ROUTES = [
   'app/api/crm/investors/[id]/route.ts',
   'app/api/crm/investors/bulk/route.ts',
   'app/api/mvl/partners/route.ts',
+  // Added 2026-07-28: the estate-wide aggregate built in response to the
+  // operator's ruling that "an estate-wide admin aggregate should default to
+  // counts and distributions, not unrestricted row-level PII" — still an
+  // admin-only surface, so it belongs in this list. See
+  // tests/crm-investors-aggregate.test.ts for the field-shape/k-anonymity
+  // canaries specific to this route.
+  'app/api/crm/investors/aggregate/route.ts',
 ];
 
 const HANDLER = /export\s+async\s+function\s+(GET|POST|PATCH|PUT|DELETE)\s*\(/g;
