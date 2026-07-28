@@ -35,6 +35,8 @@ import {
   type AgentIdentityBinding,
   // ownership freshness
   OWNERSHIP_FRESHNESS_WINDOW_MS,
+  OWNERSHIP_FRESHNESS_TIER_FOR,
+  requiresFreshRead,
   OWNERSHIP_CHANGE_DELEGATION_EFFECT,
   isOwnershipFresh,
   recheckBindingOwnership,
@@ -609,23 +611,53 @@ describe('the four authority facets stay SEPARATE (operator addition 1)', () => 
   });
 });
 
-describe('ownership freshness gates NEW authority (operator addition 2)', () => {
-  const stale = (hoursAgo: number) => {
-    const checkedAt = new Date(Date.parse(NOW) - hoursAgo * 3600_000).toISOString();
-    return boundBinding({ ownershipCheckedAt: checkedAt });
-  };
+describe('ownership freshness is tiered by consequence (R-2, ratified 2026-07-28)', () => {
+  const agedBy = (ms: number) =>
+    boundBinding({ ownershipCheckedAt: new Date(Date.parse(NOW) - ms).toISOString() });
+  const MIN = 60_000;
+  const HOUR = 3600_000;
 
-  it('declares a freshness window', () => {
-    expect(OWNERSHIP_FRESHNESS_WINDOW_MS).toBeGreaterThan(0);
+  it('declares three tiers, strictly ordered passive > admission > consequential', () => {
+    const { passive, admission, consequential } = OWNERSHIP_FRESHNESS_WINDOW_MS;
+    expect(passive).toBe(24 * HOUR);
+    expect(admission).toBe(15 * MIN);
+    expect(consequential).toBe(5 * MIN);
+    // The ordering IS the policy: a more consequential act may never tolerate a
+    // staler check than a less consequential one.
+    expect(passive).toBeGreaterThan(admission);
+    expect(admission).toBeGreaterThan(consequential);
   });
 
-  it('treats a never-checked binding as stale', () => {
-    expect(isOwnershipFresh(boundBinding({ ownershipCheckedAt: null }), NOW)).toBe(false);
+  it('treats a never-checked binding as stale in EVERY tier', () => {
+    const never = boundBinding({ ownershipCheckedAt: null });
+    for (const tier of ['passive', 'admission', 'consequential'] as const) {
+      expect(isOwnershipFresh(never, NOW, tier), tier).toBe(false);
+    }
   });
 
-  it('REFUSES a binding that is otherwise perfect but whose check has aged out', () => {
-    const b = stale(25); // window is 24h
-    // Everything else about this binding is impeccable…
+  it('accepts or refuses the SAME binding depending only on the tier', () => {
+    // This is the whole ruling in one assertion: one binding, one clock, three
+    // answers, because the answer is a property of the ACT and not of the record.
+    const b = agedBy(30 * MIN);
+    expect(isOwnershipFresh(b, NOW, 'passive')).toBe(true);
+    expect(isOwnershipFresh(b, NOW, 'admission')).toBe(false);
+    expect(isOwnershipFresh(b, NOW, 'consequential')).toBe(false);
+  });
+
+  it('defaults to the STRICTEST tier, so an unspecified caller fails safe', () => {
+    // 1 hour old: fine for display, refused for anything consequential. An
+    // omitted tier must land on the tight side, never the loose one.
+    const b = agedBy(1 * HOUR);
+    expect(isOwnershipFresh(b, NOW)).toBe(false);
+    expect(evaluateNewActionAuthority(b, NOW).refusals).toEqual(['ownership-check-stale']);
+    expect(evaluateNewActionAuthority(b, NOW, { tier: 'passive' })).toEqual({
+      eligible: true,
+      refusals: [],
+    });
+  });
+
+  it('REFUSES a binding that is otherwise impeccable but whose check has aged out', () => {
+    const b = agedBy(10 * MIN);
     expect(b.status).toBe('active');
     expect(b.ownershipStatus).toBe('matches');
     expect(b.facets).toEqual({
@@ -634,40 +666,87 @@ describe('ownership freshness gates NEW authority (operator addition 2)', () => 
       delegationActive: true,
       runtimeAdmissionEligible: true,
     });
-    // …and it still refuses, on staleness alone.
-    const authority = evaluateNewActionAuthority(b, NOW);
-    expect(authority.eligible).toBe(false);
-    expect(authority.refusals).toEqual(['ownership-check-stale']);
+    // Fresh enough to admit, too stale to act on live value.
+    expect(evaluateNewActionAuthority(b, NOW, { tier: 'admission' }).eligible).toBe(true);
+    const consequential = evaluateNewActionAuthority(b, NOW, { tier: 'consequential' });
+    expect(consequential.eligible).toBe(false);
+    expect(consequential.refusals).toEqual(['ownership-check-stale']);
   });
 
-  it('permits a binding checked inside the window', () => {
-    const authority = evaluateNewActionAuthority(stale(1), NOW);
-    expect(authority).toEqual({ eligible: true, refusals: [] });
+  it('maps each act to its tier as DATA, so a route cannot pick a loose window', () => {
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['display']).toBe('passive');
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['marketa-preliminary-review']).toBe('passive');
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['operator-claim']).toBe('admission');
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['delegation-activation']).toBe('admission');
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['runtime-admission']).toBe('admission');
+    expect(OWNERSHIP_FRESHNESS_TIER_FOR['live-value-action']).toBe('consequential');
+    // No act may be mapped to a tier looser than passive, and the claim/
+    // delegation/admission trio must never sit in the passive tier — that was
+    // precisely the collapse the single 24h default caused.
+    for (const act of ['operator-claim', 'delegation-activation', 'runtime-admission'] as const) {
+      expect(OWNERSHIP_FRESHNESS_TIER_FOR[act], act).not.toBe('passive');
+    }
+  });
+
+  it('demands a FRESH READ for irreversible or high-value acts, cache notwithstanding', () => {
+    // 1 minute old — comfortably inside the 5-minute consequential window, and
+    // still refused, because the ruling caps the CACHED path rather than
+    // licensing it for acts that cannot be undone.
+    const b = agedBy(1 * MIN);
+    expect(isOwnershipFresh(b, NOW, 'consequential')).toBe(true);
+
+    const irreversible = evaluateNewActionAuthority(b, NOW, {
+      tier: 'consequential',
+      irreversible: true,
+    });
+    expect(irreversible.eligible).toBe(false);
+    expect(irreversible.refusals).toEqual(['ownership-fresh-read-required']);
+
+    const highValue = evaluateNewActionAuthority(b, NOW, { tier: 'consequential', highValue: true });
+    expect(highValue.refusals).toEqual(['ownership-fresh-read-required']);
+
+    // Asserting the fresh read satisfies it.
+    expect(
+      evaluateNewActionAuthority(b, NOW, {
+        tier: 'consequential',
+        irreversible: true,
+        freshRead: true,
+      }),
+    ).toEqual({ eligible: true, refusals: [] });
+  });
+
+  it('does NOT demand a fresh read for reversible acts or looser tiers', () => {
+    expect(requiresFreshRead('consequential', {})).toBe(false);
+    expect(requiresFreshRead('admission', { irreversible: true })).toBe(false);
+    expect(requiresFreshRead('passive', { highValue: true })).toBe(false);
+    expect(requiresFreshRead('consequential', { irreversible: true })).toBe(true);
+    expect(requiresFreshRead('consequential', { highValue: true })).toBe(true);
   });
 
   it('re-checking the same owner REFRESHES the window rather than only confirming it', () => {
-    const aged = stale(25);
-    expect(evaluateNewActionAuthority(aged, NOW).eligible).toBe(false);
+    const aged = agedBy(25 * HOUR);
+    expect(evaluateNewActionAuthority(aged, NOW, { tier: 'passive' }).eligible).toBe(false);
     const refreshed = recheckBindingOwnership(aged, OWNER, NOW, 'registry_read').binding;
-    expect(evaluateNewActionAuthority(refreshed, NOW).eligible).toBe(true);
+    expect(evaluateNewActionAuthority(refreshed, NOW, { tier: 'consequential' }).eligible).toBe(true);
   });
 
-  it('does NOT let staleness un-attribute past evidence', () => {
+  it('does NOT let staleness un-attribute past evidence, in any tier', () => {
     // Freshness withholds NEW authority. It must not retroactively change what a
     // binding attributed — otherwise a late poll would rewrite history.
-    const aged = stale(240);
-    expect(evaluateNewActionAuthority(aged, NOW).eligible).toBe(false);
+    const aged = agedBy(240 * HOUR);
+    expect(evaluateNewActionAuthority(aged, NOW, { tier: 'passive' }).eligible).toBe(false);
     expect(resolveBinding({ identity: identity(), bindings: [aged], at: NOW }).state)
       .toBe('constitutionally_bound');
   });
 
-  it('accepts a shorter window without changing the state model', () => {
-    // Transfer-event indexing (Phase D) shortens the window; the ruling is that
-    // it must not change the states. Same binding, tighter window, same
-    // vocabulary of refusal.
-    const b = stale(2);
-    const tight = evaluateNewActionAuthority(b, NOW, { windowMs: 60 * 60 * 1000 });
-    expect(tight.refusals).toEqual(['ownership-check-stale']);
+  it('tightening a window does not change the state model or the refusal vocabulary', () => {
+    // Transfer-event indexing (Phase D) shortens the windows; the ruling is that
+    // it must not change the states. Same binding, tighter tier, same vocabulary.
+    const b = agedBy(20 * MIN);
+    expect(evaluateNewActionAuthority(b, NOW, { tier: 'passive' }).refusals).toEqual([]);
+    expect(evaluateNewActionAuthority(b, NOW, { tier: 'admission' }).refusals).toEqual([
+      'ownership-check-stale',
+    ]);
   });
 });
 

@@ -355,13 +355,65 @@ export function bindingRefs(binding: AgentIdentityBinding): BindingRefs {
  * enforceable TODAY with the reads we actually have, and it degrades safely:
  * when the check goes stale the system refuses rather than assuming.
  *
- * PILOT DEFAULT — 24 hours. This is a POLICY CHOICE, not a fact read from the
- * partner brief or any operator instruction, and it is flagged for ratification.
- * It is sized to the REST-polling cadence Slice A can actually sustain. Direct
- * Transfer-event indexing (Phase D) shortens the window; per the ruling it must
- * NOT change the state model, only this number.
+ * RATIFIED 2026-07-28 (R-2). The earlier single 24-hour default was ruled **too
+ * coarse**. The governing invariant is now:
+ *
+ *   *"Ownership freshness is determined by the consequence of the proposed
+ *   action, not by one universal polling interval."*
+ *
+ * Three tiers, sized to consequence rather than to polling cadence:
+ *
+ *   - `passive`       24h  — catalogue display, research, preliminary Marketa review
+ *   - `admission`     15m  — operator claim, delegation activation, runtime admission
+ *   - `consequential`  5m  — live-value authorisation, and see `requiresFreshRead`
+ *
+ * For high-value or irreversible actions the ruling requires a **fresh chain
+ * read** rather than acceptance of the 5-minute cache — expressed as
+ * `requiresFreshRead(tier, { irreversible })` so a caller cannot satisfy the
+ * consequential tier with a cached read merely because it is under 5 minutes old.
+ *
+ * Direct `Transfer`-event indexing (Phase D) can later improve detection latency
+ * **without changing this rule** — it shortens the numbers, never the tiering.
  */
-export const OWNERSHIP_FRESHNESS_WINDOW_MS = 24 * 60 * 60 * 1000;
+export type OwnershipFreshnessTier = 'passive' | 'admission' | 'consequential';
+
+export const OWNERSHIP_FRESHNESS_WINDOW_MS: Record<OwnershipFreshnessTier, number> = {
+  passive: 24 * 60 * 60 * 1000,
+  admission: 15 * 60 * 1000,
+  consequential: 5 * 60 * 1000,
+};
+
+/**
+ * Which tier a call must use is a property of the ACT, not of the caller's
+ * convenience. Named as data so a route cannot quietly pick `passive` for an
+ * admission decision.
+ */
+export const OWNERSHIP_FRESHNESS_TIER_FOR: Record<
+  'display' | 'research' | 'marketa-preliminary-review' | 'operator-claim' | 'delegation-activation' | 'runtime-admission' | 'live-value-action',
+  OwnershipFreshnessTier
+> = {
+  display: 'passive',
+  research: 'passive',
+  'marketa-preliminary-review': 'passive',
+  'operator-claim': 'admission',
+  'delegation-activation': 'admission',
+  'runtime-admission': 'admission',
+  'live-value-action': 'consequential',
+};
+
+/**
+ * The ruling's escape hatch from the cache, stated as a predicate.
+ *
+ * A consequential action that is high-value or irreversible must not be
+ * authorised from cache at all — the 5-minute window is a ceiling on the cached
+ * path, not a licence to use it when the act cannot be undone.
+ */
+export function requiresFreshRead(
+  tier: OwnershipFreshnessTier,
+  opts: { irreversible?: boolean; highValue?: boolean } = {},
+): boolean {
+  return tier === 'consequential' && (opts.irreversible === true || opts.highValue === true);
+}
 
 /**
  * Ruling 5: *"A transfer should not silently transfer constitutional
@@ -388,13 +440,13 @@ function sameAddress(a: string, b: string): boolean {
 export function isOwnershipFresh(
   binding: AgentIdentityBinding,
   now: string,
-  windowMs: number = OWNERSHIP_FRESHNESS_WINDOW_MS,
+  tier: OwnershipFreshnessTier = 'consequential',
 ): boolean {
   if (!binding.ownershipCheckedAt) return false;
   const checked = Date.parse(binding.ownershipCheckedAt);
   const at = Date.parse(now);
   if (!Number.isFinite(checked) || !Number.isFinite(at)) return false;
-  return at - checked <= windowMs;
+  return at - checked <= OWNERSHIP_FRESHNESS_WINDOW_MS[tier];
 }
 
 export interface OwnershipRecheck {
@@ -494,6 +546,7 @@ export type AgentAuthorityRefusal =
   | 'ownership-unverified'
   | 'ownership-changed'
   | 'ownership-check-stale'
+  | 'ownership-fresh-read-required'
   | 'operator-relationship-unclaimed'
   | 'delegation-inactive'
   | 'runtime-admission-denied';
@@ -519,18 +572,38 @@ export interface NewActionAuthority {
  * `requireRuntimeAdmission` is opt-in: admission to the Financial Services
  * Runtime gates FSR actions, not every consequential act, so a caller must ask
  * for it rather than inherit it.
+ *
+ * `tier` defaults to `consequential` — the STRICTEST window. An unspecified
+ * caller gets the tightest rule, never the loosest; a route that wants the
+ * 24-hour passive window must say so, which is the direction a mistake should
+ * fail in. `freshRead` is the caller's assertion that it re-read the chain just
+ * now; without it, an irreversible or high-value act refuses from cache even
+ * when the cached read is under five minutes old (R-2).
  */
 export function evaluateNewActionAuthority(
   binding: AgentIdentityBinding,
   now: string,
-  opts: { requireRuntimeAdmission?: boolean; windowMs?: number } = {},
+  opts: {
+    requireRuntimeAdmission?: boolean;
+    tier?: OwnershipFreshnessTier;
+    irreversible?: boolean;
+    highValue?: boolean;
+    freshRead?: boolean;
+  } = {},
 ): NewActionAuthority {
   const refusals: AgentAuthorityRefusal[] = [];
+  const tier = opts.tier ?? 'consequential';
 
   if (binding.status !== 'active') refusals.push('binding-not-active');
   if (binding.ownershipStatus === 'changed') refusals.push('ownership-changed');
   if (!binding.facets.ownershipVerified) refusals.push('ownership-unverified');
-  if (!isOwnershipFresh(binding, now, opts.windowMs)) refusals.push('ownership-check-stale');
+  if (!isOwnershipFresh(binding, now, tier)) refusals.push('ownership-check-stale');
+  if (
+    requiresFreshRead(tier, { irreversible: opts.irreversible, highValue: opts.highValue }) &&
+    opts.freshRead !== true
+  ) {
+    refusals.push('ownership-fresh-read-required');
+  }
   if (!binding.facets.operatorRelationshipClaimed) refusals.push('operator-relationship-unclaimed');
   if (!binding.facets.delegationActive) refusals.push('delegation-inactive');
   if (opts.requireRuntimeAdmission && !binding.facets.runtimeAdmissionEligible) {
