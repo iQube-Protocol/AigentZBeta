@@ -1,0 +1,227 @@
+import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  EXPERIMENT_RELATIONS,
+  CONTAMINATING_RELATIONS,
+  isConfirmatoryEligible,
+  ineligibilityReason,
+  provenanceStratum,
+  PROVENANCE_STRATA,
+  SOURCE_PROVENANCE_SYNONYM,
+  decideEligibility,
+  GENERAL_CONSTITUTIONAL_NAMESPACES,
+} from '@/services/research/experimentRelation';
+import { PROVENANCE_CLASSES } from '@/services/corpusScout/types';
+
+const REPO = join(__dirname, '..');
+
+describe('experiment-relative independence — exclude self-reference, not internal knowledge', () => {
+  it('admits INTERNAL doctrine that is independent of the target', () => {
+    // The ruling's central correction. The constitutional corpus is itself
+    // substantially internally derived; a blanket internal exclusion would make
+    // constitutional invariants untestable by construction.
+    expect(
+      isConfirmatoryEligible('independent'),
+      'internal-but-independent must be admissible',
+    ).toBe(true);
+    const d = decideEligibility({
+      invariantId: 'inv.constitutional.001',
+      relation: 'independent',
+      evidenceProvenance: 'platform-doctrine',
+      namespace: 'constitutional',
+    });
+    expect(d.eligible).toBe(true);
+    expect(d.stratum).toBe('C');
+    expect(d.reason).toBeNull();
+  });
+
+  it('EXCLUDES externally-sourced material that was tailored to the tasks', () => {
+    // The converse, and the reason source provenance cannot be the gate:
+    // impeccable origin, contaminated relationship.
+    const d = decideEligibility({
+      invariantId: 'inv.finance.900',
+      relation: 'task-derived',
+      evidenceProvenance: 'external-established',
+      namespace: 'finance',
+    });
+    expect(d.eligible).toBe(false);
+    expect(d.stratum).toBe('T');
+    expect(d.reason).toMatch(/task set|expected answers/i);
+  });
+
+  it('treats `unknown` as ineligible — fails closed, never open', () => {
+    expect(isConfirmatoryEligible('unknown')).toBe(false);
+    expect(ineligibilityReason('unknown')).toMatch(/not yet reviewed/i);
+    // An unreviewed corpus must yield a small visible crystal, never a large
+    // quietly-contaminated one.
+    expect(EXPERIMENT_RELATIONS).toContain('unknown');
+  });
+
+  it('admits exactly two relations and no more', () => {
+    const eligible = EXPERIMENT_RELATIONS.filter(isConfirmatoryEligible).slice().sort();
+    expect(eligible).toEqual(['domain-adjacent', 'independent']);
+    // Every non-admitted relation must carry a stated reason — a bare `false`
+    // tells an operator nothing about what to fix.
+    for (const r of EXPERIMENT_RELATIONS) {
+      if (isConfirmatoryEligible(r)) continue;
+      expect(ineligibilityReason(r), `${r} must state why`).toBeTruthy();
+      expect(String(ineligibilityReason(r)).length).toBeGreaterThan(20);
+    }
+    expect(Object.keys(CONTAMINATING_RELATIONS).sort()).toEqual(
+      EXPERIMENT_RELATIONS.filter((r) => !isConfirmatoryEligible(r)).slice().sort(),
+    );
+  });
+});
+
+describe('provenance strata C/D/I/T', () => {
+  it('checks contamination BEFORE source, so a clean origin cannot launder a loop', () => {
+    // Order is the ruling's own. If source were checked first, an external
+    // target-derived invariant would land in D and enter the confirmatory set.
+    expect(
+      provenanceStratum({
+        relation: 'target-derived',
+        evidenceProvenance: 'external-established',
+        namespace: 'constitutional',
+      }),
+    ).toBe('T');
+  });
+
+  it('splits domain material by where its EVIDENCE came from', () => {
+    const base = { relation: 'independent' as const, namespace: 'finance' };
+    expect(provenanceStratum({ ...base, evidenceProvenance: 'external-established' })).toBe('D');
+    expect(provenanceStratum({ ...base, evidenceProvenance: 'platform-derived' })).toBe('I');
+    // Unclassified evidence is not external, so it cannot claim stratum D.
+    expect(provenanceStratum({ ...base, evidenceProvenance: null })).toBe('I');
+  });
+
+  it('routes general-constitutional namespaces to C regardless of evidence class', () => {
+    for (const ns of ['constitutional', 'reasoning', 'polity']) {
+      for (const ev of PROVENANCE_CLASSES) {
+        expect(
+          provenanceStratum({ relation: 'independent', evidenceProvenance: ev, namespace: ns }),
+          `${ns}/${ev}`,
+        ).toBe('C');
+      }
+    }
+    // …and a domain namespace never lands in C.
+    for (const ns of ['finance', 'commercialisation']) {
+      expect(
+        provenanceStratum({ relation: 'independent', evidenceProvenance: 'platform-doctrine', namespace: ns }),
+      ).not.toBe('C');
+    }
+  });
+
+  it('every stratum is reachable — a partition nothing lands in is not a partition', () => {
+    const reached = new Set([
+      provenanceStratum({ relation: 'independent', evidenceProvenance: 'platform-doctrine', namespace: 'constitutional' }),
+      provenanceStratum({ relation: 'independent', evidenceProvenance: 'external-empirical', namespace: 'finance' }),
+      provenanceStratum({ relation: 'independent', evidenceProvenance: 'platform-derived', namespace: 'finance' }),
+      provenanceStratum({ relation: 'outcome-informed', evidenceProvenance: 'external-empirical', namespace: 'finance' }),
+    ]);
+    expect([...reached].sort()).toEqual([...PROVENANCE_STRATA].sort());
+  });
+});
+
+describe('no parallel source-provenance vocabulary (inv.engineering.037)', () => {
+  it('maps the ruling\'s source names onto the SHIPPED ProvenanceClass', () => {
+    // The ruling names a source-provenance axis. It already exists as
+    // ProvenanceClass. Minting a second one would be the parallel-implementation
+    // defect, so the module records a synonym map instead.
+    for (const [rulingName, shipped] of Object.entries(SOURCE_PROVENANCE_SYNONYM)) {
+      if (shipped === null) continue;
+      expect(PROVENANCE_CLASSES, `${rulingName} → ${shipped}`).toContain(shipped);
+    }
+  });
+
+  it('leaves genuinely-unmapped values NULL rather than inventing an equivalence', () => {
+    // `observational-derived` and `synthetic` draw distinctions the shipped
+    // vocabulary does not. A false mapping would be worse than a visible gap,
+    // because it would silently assign them an experimental population.
+    expect(SOURCE_PROVENANCE_SYNONYM['observational-derived']).toBeNull();
+    expect(SOURCE_PROVENANCE_SYNONYM['synthetic']).toBeNull();
+  });
+
+  it('does not redeclare ProvenanceClass values as its own type', () => {
+    const src = readFileSync(join(REPO, 'services/research/experimentRelation.ts'), 'utf-8');
+    // A second `export type ...Provenance =` union over the same five values is
+    // the exact duplication this module exists to avoid.
+    expect(src).not.toMatch(/export type SourceProvenance\s*=/);
+    expect(src).toMatch(/import type \{ ProvenanceClass \}/);
+  });
+});
+
+describe('the snapshot records reality and cannot repair it', () => {
+  it('the exporter has no promotion, validation or standing-repair path', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    // "The snapshot should record reality, not repair or promote it."
+    // No write back to the corpus, and no flag that could alter a lifecycle
+    // field. Scoped to SUPABASE writes specifically — a blanket /\.update\(/
+    // also matches createHash().update(), which is a hash call, not a write,
+    // and a canary that cries wolf gets loosened rather than heeded.
+    expect(src).not.toMatch(/from\(['"]invariants['"]\)[\s\S]{0,120}?\.(update|upsert|insert|delete)\(/);
+    expect(src).not.toMatch(/admin\s*\.\s*from\([^)]*\)\s*\.\s*(update|upsert|insert|delete)\(/);
+    expect(src).not.toMatch(/times_validated\s*[:=]\s*\d/);
+    expect(src).not.toMatch(/status\s*[:=]\s*['"]validated['"]/);
+  });
+
+  it('declares finance inside the EXP-P1 boundary', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    const block = src.slice(src.indexOf('EXP_P1_NAMESPACES'), src.indexOf('SNAPSHOT_COLUMNS'));
+    expect(block).toMatch(/'finance'/);
+    expect(block).toMatch(/'commercialisation'/);
+  });
+
+  it('carries the lifecycle, provenance and standing fields the manifest needs', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    for (const col of ['status', 'provenance', 'times_validated', 'times_contradicted', 'standing', 'reach', 'created_at', 'updated_at']) {
+      expect(src, `snapshot must carry ${col}`).toMatch(new RegExp(`'${col}'`));
+    }
+    for (const field of ['export_timestamp', 'environment', 'eligibility_rule_version', 'corpus_row_count', 'namespace_counts', 'status_counts', 'stratum_counts', 'snapshot_sha256', 'decisions']) {
+      expect(src, `manifest must carry ${field}`).toMatch(new RegExp(field));
+    }
+  });
+
+  it('records EXCLUSIONS too, not only inclusions', () => {
+    // "Record every inclusion and exclusion decision […] including its reason
+    // and provenance stratum." An exclusion that leaves no trace is
+    // indistinguishable from an invariant nobody considered.
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    expect(src).toMatch(/decisions\.push\(/);
+    const push = src.slice(src.indexOf('decisions.push('), src.indexOf('decisions.push(') + 400);
+    expect(push).toMatch(/eligible/);
+    expect(push).toMatch(/reason/);
+    expect(push).toMatch(/stratum/);
+  });
+
+  it('pages the corpus read rather than relying on an implicit row cap', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    // A freeze that silently truncated at 1000 rows would hash a partial corpus
+    // and every downstream artifact would inherit the omission.
+    expect(src).toMatch(/\.range\(/);
+  });
+});
+
+describe('the Seed Corpus is not the crystal', () => {
+  it('the seed file is marked as bootstrap material, not authoritative', () => {
+    const seed = JSON.parse(
+      readFileSync(join(REPO, 'codexes/packs/irl/foundation/canonical-invariants.seed.json'), 'utf-8'),
+    );
+    const note = String(seed.authority_note ?? '');
+    expect(note.length, 'seed must carry an authority_note').toBeGreaterThan(40);
+    expect(note).toMatch(/not the authoritative|bootstrap/i);
+    expect(note).toMatch(/must not be used directly as an experimental freeze/i);
+  });
+
+  it('the seed already contains proposed members — so `proposed` was never disqualifying', () => {
+    const seed = JSON.parse(
+      readFileSync(join(REPO, 'codexes/packs/irl/foundation/canonical-invariants.seed.json'), 'utf-8'),
+    );
+    const proposed = seed.invariants.filter((i: { status?: string }) => i.status === 'proposed');
+    // This is the fact that refutes "proposed invariants cannot be in the
+    // crystal" on its own, and it is pinned so the claim cannot resurface.
+    expect(proposed.length).toBeGreaterThan(0);
+    const statuses = new Set(seed.invariants.map((i: { status?: string }) => i.status));
+    expect(statuses.size, 'the corpus is mixed-status by construction').toBeGreaterThan(1);
+  });
+});
