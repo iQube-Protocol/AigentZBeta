@@ -421,16 +421,26 @@ export async function accrueStanding(input: AccrueStandingInput): Promise<Standi
 // ─── Capability Standing (Sprint 4 — front-half agency signal) ────────────────
 
 /**
- * Input signals for Capability Standing computation. All confidence scores are
- * 0-1 (null treated as 0). identityDepth is a step function derived from the
- * citizen's passport state (see `computeIdentityDepth`).
+ * Input signals for Capability Standing computation.
+ *
+ * TWO SCALES, DELIBERATELY. This interface carries signals from two different
+ * producers and they do NOT share a range. Getting this wrong is the v1.0
+ * defect (below), so the scale is documented per field and enforced by two
+ * different normalisers in `computeCapabilityScore` — never one shared clamp.
+ *
+ *   0–100  demandConfidence · opportunityConfidence · capabilityConfidence
+ *          VentureQube schema: `z.number().min(0).max(100)`
+ *          (`services/iqube/ventureQubeSchema.ts:384`), produced by
+ *          `metacommonsSignals.ts` whose own `clamp` is `min(100, …)`.
+ *   0–1    intentClarity · identityDepth
+ *          Derived HERE by `computeIntentClarity` / `computeIdentityDepth`.
  */
 export interface CapabilitySignals {
-  /** VentureQube signalEvidence.demandConfidence — is anyone waiting? */
+  /** VentureQube signalEvidence.demandConfidence — is anyone waiting? **0–100.** */
   demandConfidence: number | null;
-  /** VentureQube signalEvidence.opportunityConfidence — is the market real? */
+  /** VentureQube signalEvidence.opportunityConfidence — is the market real? **0–100.** */
   opportunityConfidence: number | null;
-  /** VentureQube signalEvidence.capabilityConfidence — can they plausibly deliver? */
+  /** VentureQube signalEvidence.capabilityConfidence — can they plausibly deliver? **0–100.** */
   capabilityConfidence: number | null;
   /** Derived from thesis field completeness + active objectives count (0-1). */
   intentClarity: number | null;
@@ -457,15 +467,54 @@ const CAPABILITY_SIGNAL_WEIGHTS = {
 } as const;
 
 /**
+ * The scoring formula version. Capability Standing is personhood-bound and
+ * written to a MONOTONE ledger, so a change to the formula is not a refactor —
+ * it changes what a citizen's recorded score means. The version travels with
+ * every correction so an auditor can tell which formula produced which number.
+ *
+ *   capability-standing/v1.0 — SATURATED. Passed the three 0–100 VentureQube
+ *     confidence signals through a `clamp01`, so any value ≥ 1 (i.e. nearly
+ *     every real one) saturated to 1.0. Three of five weighted inputs pinned
+ *     at maximum, collapsing the score to `0.75 + intent*0.15 + identity*0.10`
+ *     — a 0.75 floor no citizen could fall below and a 0.25 band no venture
+ *     signal could move. Differentiation destroyed; scores inflated.
+ *   capability-standing/v1.1 — normalises the three percentage inputs by /100
+ *     before weighting, and leaves the two already-0–1 inputs alone.
+ */
+export const CAPABILITY_STANDING_FORMULA_VERSION = 'capability-standing/v1.1';
+
+/** Formula versions this service has previously written to the ledger.
+ *  Recorded in the TYPE, not only in prose, so a re-baseline can identify
+ *  which stored scores were produced by a superseded formula. */
+export const SUPERSEDED_CAPABILITY_FORMULA_VERSIONS = ['capability-standing/v1.0'] as const;
+
+/** 0–1 inputs. Null is absence of signal, which is zero — not a neutral prior. */
+const clamp01 = (v: number | null) => Math.max(0, Math.min(1, v ?? 0));
+
+/**
+ * 0–100 inputs, normalised to the 0–1 the weighting expects.
+ *
+ * The `/ 100` is the whole v1.0 fix. It must be applied to the three
+ * VentureQube confidence signals and to NOTHING else — dividing an
+ * already-0–1 input by 100 is the mirror-image defect, silently zeroing a
+ * real signal instead of saturating it. Both directions are canaried.
+ */
+const normalizePercent = (value: number | null): number => Math.max(0, Math.min(1, (value ?? 0) / 100));
+
+/**
  * Compute the raw Capability Standing score (0–CAPABILITY_CEILING) from signal
  * evidence. Exported so callers can preview the score before writing.
+ *
+ * This function owns the scoring boundary, so normalisation happens HERE and
+ * exactly once. Normalising at the call sites instead would mean every future
+ * caller has to know which of its five inputs are percentages — the knowledge
+ * that was missing when v1.0 was written.
  */
 export function computeCapabilityScore(signals: CapabilitySignals): number {
-  const clamp01 = (v: number | null) => Math.max(0, Math.min(1, v ?? 0));
   const weighted =
-    clamp01(signals.demandConfidence) * CAPABILITY_SIGNAL_WEIGHTS.demand +
-    clamp01(signals.opportunityConfidence) * CAPABILITY_SIGNAL_WEIGHTS.opportunity +
-    clamp01(signals.capabilityConfidence) * CAPABILITY_SIGNAL_WEIGHTS.capability +
+    normalizePercent(signals.demandConfidence) * CAPABILITY_SIGNAL_WEIGHTS.demand +
+    normalizePercent(signals.opportunityConfidence) * CAPABILITY_SIGNAL_WEIGHTS.opportunity +
+    normalizePercent(signals.capabilityConfidence) * CAPABILITY_SIGNAL_WEIGHTS.capability +
     clamp01(signals.intentClarity) * CAPABILITY_SIGNAL_WEIGHTS.intent +
     clamp01(signals.identityDepth) * CAPABILITY_SIGNAL_WEIGHTS.identity;
   return Math.round(weighted * CAPABILITY_CEILING * 100) / 100;
@@ -519,6 +568,120 @@ export function computeIdentityDepth(passport: {
  * Accrual is capped at CAPABILITY_CEILING (40 pts); the blend weight in
  * writeStanding ensures it contributes ~30% of standing_overall.
  */
+/**
+ * Re-baseline a citizen's Capability Standing under a corrected formula.
+ *
+ * WHY THIS EXISTS, AND WHY IT IS NOT `accrueCapabilityStanding` WITH A FLAG.
+ * Ordinary accrual is monotone — `Math.max(existing, new)` — so a transient
+ * dip in venture signal never punishes a citizen. That rule is correct and
+ * stays. But it also means a score inflated by a DEFECTIVE FORMULA can never
+ * come down through the ordinary path: v1.0's saturation floor of 0.75 is
+ * above almost every honest v1.1 score, so every correction would be silently
+ * discarded as `delta <= 0` and the defect would be permanent.
+ *
+ * The operator's ruling draws the line (2026-07-28):
+ *
+ *   "Monotone accrual protects earned history from ordinary signal
+ *    fluctuation; it does not prohibit an attributable correction of a
+ *    defective scoring function."
+ *
+ * So correction is a SEPARATE, EXPLICITLY AUTHORIZED act, not a parameter on
+ * the ordinary one. A flag would let any accrual call site lower a score by
+ * passing a boolean — the monotone guarantee would exist only by convention.
+ *
+ * THREE THINGS KEPT APART, per the ruling:
+ *   1. Accrual history — immutable. Nothing here deletes a prior event.
+ *   2. Current derived score — recomputed under the corrected formula.
+ *   3. Correction event — records old, new, both formula versions and reason.
+ *
+ * The corrected score is authoritative PROSPECTIVELY. Past awards stand as
+ * what was awarded under the code that existed at the time; rewriting them
+ * would be falsifying history to make the ledger look like it was never wrong.
+ */
+export async function rebaselineCapabilityStanding(
+  crmPersonaId: string,
+  signals: CapabilitySignals,
+  correction: {
+    /** The formula that produced the stored score. Must be a superseded one —
+     *  re-baselining from the CURRENT version would be a no-op dressed as a
+     *  correction, and is refused. */
+    fromFormulaVersion: string;
+    /** Why this citizen's score is being corrected. Written to the receipt. */
+    reason: string;
+  },
+): Promise<(CapabilityStandingResult & { previousScore: number; formulaVersion: string }) | null> {
+  if (!(SUPERSEDED_CAPABILITY_FORMULA_VERSIONS as readonly string[]).includes(correction.fromFormulaVersion)) {
+    // Fail closed and say why. A correction that cannot name the defective
+    // formula it is correcting is indistinguishable from an unattributed
+    // downward write against a monotone ledger.
+    throw new Error(
+      `rebaselineCapabilityStanding: fromFormulaVersion '${correction.fromFormulaVersion}' is not a superseded formula ` +
+        `(known: ${SUPERSEDED_CAPABILITY_FORMULA_VERSIONS.join(', ')}). A re-baseline must name the defective formula it corrects.`,
+    );
+  }
+
+  const client = getCrmClient();
+  try {
+    const existing = await readStanding(client, crmPersonaId);
+    if (!existing) return null;
+
+    const newScore = computeCapabilityScore(signals);
+    const previousScore = existing.capability;
+    // The correction is authoritative in BOTH directions — that is the whole
+    // point. No Math.max here, deliberately.
+    const next: ExistingStanding = {
+      personal: existing.personal,
+      delegated: existing.delegated,
+      stewardship: existing.stewardship,
+      capability: newScore,
+      overall: 0, // recomputed in writeStanding
+    };
+    const writeResult = await writeStanding(client, crmPersonaId, next, 'capability');
+
+    // The correction receipt. Unlike the accrual receipt this is NOT
+    // fire-and-forget: an unattributed correction to a monotone personhood
+    // ledger is precisely what must never happen silently. If the receipt
+    // cannot be written, the caller learns about it.
+    const { data: crmRow } = await client
+      .from('crm_personas')
+      .select('identity_persona_id')
+      .eq('id', crmPersonaId)
+      .maybeSingle();
+    const identityPersonaId = crmRow?.identity_persona_id;
+    if (identityPersonaId) {
+      await createActivityReceipt({
+        personaId: identityPersonaId,
+        actionType: 'standing_corrected',
+        activeCartridge: 'metame',
+        summary:
+          `Capability Standing re-baselined: ${previousScore.toFixed(2)} → ${newScore.toFixed(2)} ` +
+          `(${correction.fromFormulaVersion} → ${CAPABILITY_STANDING_FORMULA_VERSION}). ${correction.reason}`,
+        agentsInvoked: ['aigent-z'],
+        iqubesUsed: ['VentureQube'],
+        contextShared: ['capability_score', 'standing_overall', 'formula_version', 'correction_reason'],
+      });
+    }
+
+    return {
+      capabilityScore: newScore,
+      previousScore,
+      formulaVersion: CAPABILITY_STANDING_FORMULA_VERSION,
+      delta: Math.round((newScore - previousScore) * 100) / 100,
+      overall: writeResult.overall,
+      bucket: writeResult.bucket,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (message.includes('standing_')) {
+      console.warn('[capability standing] standing migration not applied; re-baseline skipped');
+      return null;
+    }
+    // Unlike accrual, a failed correction is escalated rather than swallowed.
+    console.error('[capability standing] RE-BASELINE FAILED:', message);
+    throw e;
+  }
+}
+
 export async function accrueCapabilityStanding(
   crmPersonaId: string,
   signals: CapabilitySignals,

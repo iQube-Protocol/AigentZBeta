@@ -76,6 +76,13 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experiment_result_published',
   // Standing accrual — NVA-backed outcome credit anchored for audit trail
   'standing_accrued',
+  // Attributable correction of Capability Standing under a superseded scoring
+  // formula. A DOWNWARD write against a monotone personhood-bound ledger is
+  // the one standing act most in need of tamper-evidence — if any receipt
+  // must be anchorable, it is the one that says a citizen's score was lowered
+  // and by whose authority. (Added per the permitted action-type-addition
+  // rule; no other part of this pipeline is touched.)
+  'standing_corrected',
   // Autonomous agent delegation lifecycle — provenance of who was delegated what
   'agent_delegated',
   'agent_delegation_revoked',

@@ -175,6 +175,12 @@ export type ActivityActionType =
   | 'plan_cancelled'             // services/billing/planRenewal.ts
   | 'venture_blueprint_handoff'  // services/venture/blueprintHandoff.ts
   | 'standing_accrued'           // services/crm/standingAccrualService.ts
+  // An ATTRIBUTABLE correction to Capability Standing under a superseded
+  // scoring formula. Distinct from `standing_accrued` on purpose: ordinary
+  // accrual is monotone and can only raise; only a correction may lower, and
+  // only by naming the defective formula version it corrects. One shared
+  // action type would make the two indistinguishable in the receipt trail.
+  | 'standing_corrected'         // services/crm/standingAccrualService.ts
   // Aigent Z's administration of an ExperimentWorkspace — the daily wakeup and
   // the weekly report (Horizen Phase 3). Anchorable.
   | 'workspace_report_published';// services/experiments/workspaceReport.ts
