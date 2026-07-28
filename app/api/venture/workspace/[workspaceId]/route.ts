@@ -33,6 +33,7 @@ import {
 import { listWorkspaceItems } from '@/services/experiments/workspaceTracking';
 import { listAccessGrants } from '@/services/passport/participationAccess';
 import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
+import { satisfiesWorkspaceScope, type ParticipationGrantSignal } from '@/services/passport/participationTabGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,10 +72,20 @@ export async function GET(
     }).catch(() => ({ grants: [], passportIssued: false, delegationActive: false })),
     listAccessGrants(admin, ws.participation.domain).catch(() => []),
   ]);
-  const isMember = selfView.grants.some((g) => g.accessDomain === ws.participation.domain);
-  if (!isAdmin && !isMember) {
+  // TWO checks, not one (Amendment G / 2026-07-28 cohort-isolation ruling):
+  // domain membership ("are you in venture-lab at all") is necessary but no
+  // longer sufficient — the caller's grant must also be SCOPED to this
+  // specific workspace/pilot id. A generic venture-lab grant with no scope
+  // denies every workspace by default; see satisfiesWorkspaceScope's header.
+  const grants: ParticipationGrantSignal[] = selfView.grants.map((g) => ({
+    accessDomain: g.accessDomain,
+    role: g.role,
+    allowedScopes: g.allowedScopes,
+  }));
+  const isMember = satisfiesWorkspaceScope({ loaded: true, grants }, ws.participation.domain, ws.id, isAdmin);
+  if (!isMember) {
     return NextResponse.json(
-      { ok: false, error: 'Workspace membership required' },
+      { ok: false, error: 'Workspace membership required — your access grant is not scoped to this pilot' },
       { status: 403 },
     );
   }
@@ -97,7 +108,12 @@ export async function GET(
     participation: {
       domain: ws.participation.domain,
       roles: ws.participation.roles,
-      memberCount: domainGrants.filter((g) => g.status === 'active').length,
+      // Scoped to THIS workspace, not the whole domain (cohort isolation,
+      // Amendment G) — an unscoped grant no longer counts toward any one
+      // pilot's membership, matching the read-time gate above.
+      memberCount: domainGrants.filter(
+        (g) => g.status === 'active' && g.allowedExperiments && g.allowedExperiments.includes(ws.id),
+      ).length,
     },
     agentIds: ws.agents.agentIds,
     workingGroups: ws.workingGroups.map((g) => ({

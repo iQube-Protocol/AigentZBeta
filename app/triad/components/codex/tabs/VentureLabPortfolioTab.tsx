@@ -462,7 +462,9 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/venture-lab/portfolio?status=active');
+      // personaFetch, not raw fetch — spine endpoint as of 2026-07-28 (found
+      // unauthenticated during the Venture Lab domain audit and fixed).
+      const res = await personaFetch('/api/venture-lab/portfolio?status=active', { cache: 'no-store' });
       const data = await res.json();
       if (data.ok) setVentures(data.ventures ?? []);
     } catch { /* ignore */ }
@@ -489,7 +491,7 @@ export function VentureLabPortfolioTab({ isAdmin }: Props) {
   }, [isAdmin, loadOperatingBrief]);
 
   const saveScorecard = async (id: string, payload: Venture['payload']) => {
-    const res = await fetch(`/api/venture-lab/portfolio/${id}`, {
+    const res = await personaFetch(`/api/venture-lab/portfolio/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload }),

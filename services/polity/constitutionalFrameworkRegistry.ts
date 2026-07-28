@@ -299,14 +299,14 @@ export const CONSTITUTIONAL_FRAMEWORKS: readonly ConstitutionalFrameworkDefiniti
   },
   {
     id: 'horizen-workspace-amendments',
-    title: 'Horizen Workspace Architecture (audit Amendments A–E)',
+    title: 'Horizen Workspace Architecture (audit Amendments A–G)',
     ratificationRequired: true,
     publicationPolicy: markdownPolicy('horizen-workspace-amendments'),
     sourceResolver: () =>
       packMarkdownDocument(
         'horizen-workspace-amendments',
         'Horizen Workspace Architecture (audit Amendments A–E)',
-        'A–E',
+        'A–G',
         'agentiq',
         'updates/2026-07-27_horizen-workspace-phase0-audit.md',
       ),

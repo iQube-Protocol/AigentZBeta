@@ -53,7 +53,10 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch('/api/venture-lab/portfolio?status=active');
+      // personaFetch, not raw fetch — /api/venture-lab/portfolio is a spine
+      // endpoint as of 2026-07-28 (it was found unauthenticated during the
+      // Venture Lab domain audit and fixed; CLAUDE.md forbids raw fetch here).
+      const res  = await personaFetch('/api/venture-lab/portfolio?status=active', { cache: 'no-store' });
       const data = await res.json();
       if (data.ok) setVentures(data.ventures ?? []);
     } catch { /* ignore */ }
@@ -88,7 +91,7 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
   const mergedVentures = [...ventures, ...personaVentures];
 
   const addVenture = async (v: { venture_name: string; venture_slug: string; y_maturity: number; x_commercialization: number; payload: Record<string, unknown> }) => {
-    const res  = await fetch('/api/venture-lab/portfolio', {
+    const res  = await personaFetch('/api/venture-lab/portfolio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(v),
@@ -101,7 +104,7 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
     for (const s of SAMPLE_VENTURES) {
       const existing = ventures.find(v => v.venture_slug === s.venture_slug);
       if (existing) continue;
-      await fetch('/api/venture-lab/portfolio', {
+      await personaFetch('/api/venture-lab/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(s),
@@ -111,7 +114,7 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
   };
 
   const savePayload = async (id: string, payload: Venture['payload']) => {
-    const res  = await fetch(`/api/venture-lab/portfolio/${id}`, {
+    const res  = await personaFetch(`/api/venture-lab/portfolio/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload }),

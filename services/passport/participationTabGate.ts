@@ -33,6 +33,16 @@
 export interface ParticipationGrantSignal {
   accessDomain: string;
   role: string;
+  /**
+   * The pilots/programmes/experiments this grant is scoped to (Amendment G,
+   * 2026-07-28 cohort-isolation ruling — same `access_grants.allowed_experiments`
+   * column the Research Lab already scopes with, `services/passport/
+   * participationAccess.ts`'s `getGrantedExperiments`). Optional so every OTHER
+   * caller of this gate (passport, research-lab role checks, metame-studio,
+   * developer-studio) is unaffected — only workspace/pilot-scoped callers read
+   * this field.
+   */
+  allowedScopes?: string[] | null;
 }
 
 /** The tab fields this gate reads. Structural, so both CodexTab and a plain
@@ -94,4 +104,75 @@ export function tabPassesAccessGates(
 ): boolean {
   if (tab.adminOnly && !isAdmin) return false;
   return satisfiesParticipationGate(tab, access, isAdmin);
+}
+
+// ─── Cohort / pilot scope (Amendment G, operator ruling 2026-07-28) ──────────
+//
+// "A generic `venture-lab` membership must never confer access across all
+// pilot cohorts." Domain (row above) answers "can this persona see the Partner
+// / Participate GROUP at all" — a question with one answer per domain. Scope
+// answers "which specific pilot/cohort's WORKSPACE content", which varies per
+// grant and is not knowable from the static tab config (one Partner tab set
+// serves N pilots via PartnerProgrammesTab's in-component picker, so a scope
+// cannot be pinned to the tab the way `participationDomain` is). This is
+// therefore a SEPARATE, dynamic check — called at the point a specific
+// workspace/pilot id is being resolved (the workspace API route, and the
+// client picker that must not even list what it cannot open) — never folded
+// into `satisfiesParticipationGate`, which stays domain+role only for its
+// many other (non-scoped) callers.
+//
+// DENY-BY-DEFAULT, not "unscoped = all" (explicit decision, recorded in
+// `codexes/packs/agentiq/updates/2026-07-27_horizen-workspace-phase0-audit.md`
+// Amendment G / the 2026-07-28 build record). An unscoped grant
+// (`allowedScopes` null/empty) grants domain membership — enough to reach the
+// self-service Participate tabs and hold a role — but ZERO workspace content
+// until a scope is explicitly attached. This is the opposite of the
+// pre-existing `getGrantedExperiments` default for research-lab reviewers
+// (empty = unrestricted access to the whole series) — deliberately: that
+// default predates cohort isolation and this ruling changes the meaning for
+// venture-lab specifically going forward. Existing Horizen grants are
+// preserved via a one-time data backfill (see the build record), not by
+// keeping the old "unscoped = all" code path.
+
+/** Does this ONE grant cover the named workspace/pilot scope? */
+export function grantAllowsScope(grant: ParticipationGrantSignal, scopeId: string): boolean {
+  const scopes = grant.allowedScopes;
+  if (!scopes || scopes.length === 0) return false; // deny-by-default — see note above
+  return scopes.includes(scopeId);
+}
+
+/**
+ * Does this caller have workspace-scoped access to `scopeId` within `domain`?
+ * Admin bypasses (the Internal-domain equivalent authority, tracked
+ * separately from scope — an admin administers every scoped programme without
+ * that privilege being a "wide" participation grant). Fails CLOSED before
+ * grants load, same discipline as `satisfiesParticipationGate`.
+ */
+export function satisfiesWorkspaceScope(
+  access: ParticipationAccessState,
+  domain: string,
+  scopeId: string,
+  isAdmin: boolean,
+): boolean {
+  if (isAdmin) return true;
+  if (!access.loaded) return false;
+  return access.grants.some((g) => g.accessDomain === domain && grantAllowsScope(g, scopeId));
+}
+
+/** Every scope id this caller's grants in `domain` cover. Empty ≠ "all" —
+ *  empty means no workspace is currently visible (deny-by-default). Used by
+ *  pickers/lists that must not render an entrance they cannot open (MS-9). */
+export function scopesGrantedIn(
+  access: ParticipationAccessState,
+  domain: string,
+  isAdmin: boolean,
+): 'all' | string[] {
+  if (isAdmin) return 'all';
+  if (!access.loaded) return [];
+  const scopes = new Set<string>();
+  for (const g of access.grants) {
+    if (g.accessDomain !== domain) continue;
+    for (const s of g.allowedScopes ?? []) scopes.add(s);
+  }
+  return Array.from(scopes);
 }

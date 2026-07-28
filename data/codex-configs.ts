@@ -2837,6 +2837,12 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       enabled: true,
       // Tier 2 — visible on venture-lab participation, not platform admin.
       participationDomain: 'venture-lab',
+      // ROLE RESTRICTION (Amendment G / operator ruling 2026-07-28, "Partner
+      // access requires domain + scope + role"): a generic observer or
+      // venture-participant role must NOT satisfy Partner access. Internal
+      // admins bypass via the existing isAdmin fast path in
+      // satisfiesParticipationGate — no separate admin allowlist invented.
+      participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
       order: 0,
       type: 'static',
@@ -2857,6 +2863,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       enabled: true,
       // Tier 2 — visible on venture-lab participation, not platform admin.
       participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
       order: 1,
       type: 'static',
@@ -2877,6 +2885,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       enabled: true,
       // Tier 2 — visible on venture-lab participation, not platform admin.
       participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
       order: 2,
       type: 'static',
@@ -2897,6 +2907,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       enabled: true,
       // Tier 2 — visible on venture-lab participation, not platform admin.
       participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
       order: 3,
       type: 'static',

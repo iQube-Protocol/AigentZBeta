@@ -35,6 +35,8 @@ import {
 import { StewardParticipationTab } from "./StewardParticipationTab";
 import dynamic from "next/dynamic";
 import { LockerTab } from "./LockerTab";
+import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
+import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 
 // Peer exchange is client-only (clipboard/personaFetch) — same lazy pattern
 // as LockerTab's own mount of it.
@@ -250,8 +252,9 @@ function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string
         <h3 className="text-sm font-semibold text-slate-100">Internal programme space</h3>
         <p className="mt-1 text-xs text-slate-400">
           Tier 0 — internal assessment, posture and risk. Never shared with the partner. The four
-          workspace views (Overview, Collaborate, Operate, Evidence) are Tier 2 and open to anyone
-          holding a venture-lab participation grant.
+          workspace views (Overview, Collaborate, Operate, Evidence) are Tier 2 — open to a
+          venture-lab grant holding the `partner-operator` or `workspace-steward` role, scoped to
+          this specific pilot.
         </p>
         {!isAdmin && (
           <p className="mt-2 text-xs text-amber-300">
@@ -363,8 +366,28 @@ function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string
 }
 
 export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: PartnerProgrammesTabProps) {
-  const workspaces = listPartnerWorkspaces();
-  const [activeId, setActiveId] = useState<string | null>(workspaces[0]?.id ?? null);
+  // Cohort isolation (Amendment G, 2026-07-28 ruling): this picker must not
+  // even LIST a pilot the caller cannot open (MS-9 — a control that cannot
+  // act must not render). The tab-group gate above already required a
+  // venture-lab grant to reach this component at all; this narrows WHICH
+  // workspace(s) within that domain the grant actually scopes.
+  const access = useParticipationAccess(personaId);
+  const allWorkspaces = listPartnerWorkspaces();
+  const grantedScopes = scopesGrantedIn(access, "venture-lab", Boolean(isAdmin));
+  const workspaces = grantedScopes === "all"
+    ? allWorkspaces
+    : allWorkspaces.filter((w) => grantedScopes.includes(w.id));
+  const [activeId, setActiveId] = useState<string | null>(null);
+  // activeId tracks the SCOPED list, not the full registry — a caller must
+  // never land on a workspace they cannot open just because it's first in
+  // the registry.
+  useEffect(() => {
+    if (!activeId && workspaces.length > 0) setActiveId(workspaces[0].id);
+    else if (activeId && !workspaces.some((w) => w.id === activeId)) {
+      setActiveId(workspaces[0]?.id ?? null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaces]);
   const menuSurface = asSubSurface(initialSurface);
   const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
   // The tier-3 row keeps this component mounted and swaps the prop, so state
@@ -402,6 +425,20 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
   }, []);
 
   if (!ws) {
+    // Honest, distinct empty states (gaps are reported, not dropped) — an
+    // empty registry, a not-yet-loaded grant, and a genuinely unscoped grant
+    // are three different facts and must not read as the same message.
+    if (!isAdmin && !access.loaded) {
+      return <div className="p-8 text-center text-sm text-slate-500">Checking your pilot access…</div>;
+    }
+    if (!isAdmin && allWorkspaces.length > 0) {
+      return (
+        <div className="p-8 text-center text-sm text-slate-500">
+          Your venture-lab access isn&apos;t scoped to a pilot yet — ask your steward to scope your
+          invitation to a specific pilot.
+        </div>
+      );
+    }
     return (
       <div className="p-8 text-center text-sm text-slate-500">
         No partner workspaces registered.

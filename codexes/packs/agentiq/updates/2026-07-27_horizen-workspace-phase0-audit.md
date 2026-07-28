@@ -1287,3 +1287,120 @@ before the proof model would produce five entrances to nothing.
 
 Nothing is re-sequenced. Phase 5 gains a specified surface shape instead of an open question, and
 the Project space's three entrances become ratified structure rather than incidental configuration.
+
+---
+
+# Amendment G — Domain / Scope / Workspace ontology, and the Public↔Registry↔Commons lineage
+correction (operator ruling, 2026-07-28)
+
+**This amendment is a NEW canonical clarification, anchored to Amendment F as its antecedent — it
+is not a restatement of text that was already present.** A conformance audit run against Amendment F
+(`codexes/packs/agentiq/updates/2026-07-28_venture-lab-four-domain-conformance-audit.md`) found that
+F never states a four-domain participation model verbatim: it names four *spaces* — Internal
+workspace, Partner space, Project space, Commons — and its own F.1 table is internally inconsistent
+about which word to use for the umbrella concept (**"workspace"** once, for Internal; **"space"**
+three times, for Partner/Project/Commons). F also frames the Project space as **"all Horizen project
+participants"** — a single-project scope, not a general cohort-isolation model — and names no Public
+/ Community space at all; its fourth space (Commons) is a governed proof substrate (Amendment D/E),
+not a public engagement surface. The operator has ratified the audit's finding and issued the
+clarification below to close exactly those three gaps. Recorded as ruling, not retrofit.
+
+## G.1 The ontology (ruling 4)
+
+Three words, three distinct jobs, deliberately not synonyms:
+
+| Term | Definition |
+|---|---|
+| **Domain** | The constitutional engagement/access class. There are four: **Internal, Partner, Participant, Public/Community.** |
+| **Scope** | The partner, pilot, programme or cohort boundary **within** a domain. A domain answers "what kind of relationship is this?"; a scope answers "which specific instance of it?" |
+| **Workspace** | An **optional** collaborative surface instantiated within a domain and scope. Not every domain requires one — Internal administration may be an admin surface rather than a collaboration workspace. |
+
+`AccessDomain` (`services/passport/participationAccess.ts:61-68`) already exists as code vocabulary
+for the first concept, at the access-control layer, under the name `venture-lab` — one value across
+what this amendment now names as (at minimum) the Partner and Participant domains. That flattening is
+the structural gap Step 3 of the build (2026-07-28) corrects; it is recorded here as the ontology
+gap, not the code gap, which lives in its own build record.
+
+## G.2 The four domains (ruling 3)
+
+- **Internal** — MetaProof/platform-side administration and Venture Lab operations. Amendment F's
+  "Internal workspace," renamed to Internal *domain* under G.1 — its concrete surface (the
+  `administer` tab group, `data/codex-configs.ts`) remains a workspace-shaped implementation of it.
+- **Partner** — the shared operational relationship between the MetaProof team and a named partner
+  organisation (e.g. Horizen). Amendment F's "Partner space." Scoped to the specific partner/pilot.
+- **Participant** — members of a specific pilot **cohort**. Cohort-scoped, not partner-scoped:
+  participants may come from inside or outside the partner organisation, and a partner's own pilot is
+  one cohort among potentially several. Amendment F's "Project space" was this domain's first
+  instance, described in single-project terms because only one pilot (Horizen) existed at ratification
+  time; this amendment generalises it to the cohort model the domain actually needs.
+- **Public/Community** — general participants and members of the public engaging with the Venture Lab
+  outside any specific pilot cohort. **Named here for the first time** — Amendment F specified no
+  fourth domain of this kind.
+
+**Public/Community is explicitly distinct from the Commons, and the distinction is stated here rather
+than left as a side note.** The Commons (Amendment D/E) is governed proof infrastructure — *"not a
+document repository, not a social feed, not a wiki, not simply a knowledge base"* (Amendment E §E.1)
+— gated by Principle P5, *only governed proof enters the metaProof Commons* (§E.3). The Public/
+Community domain is an engagement surface with no such gate. **The Commons must never be treated as
+the Venture Lab's public workspace, social surface, or document repository** — that would be exactly
+the misreading Amendment E's exclusions were written to foreclose, now arriving from the opposite
+direction (mistaking a new domain for an old one, rather than mistaking the old one for something
+softer).
+
+## G.3 The Public → Registry → Commons lineage correction
+
+**Search performed before writing this section**, per the instruction to find and correct every place
+the superseded framing appears: `codexes/packs/agentiq/updates/` (all files), this audit document in
+full (Amendments A–F), and the `metaCommons` entries in `canonical-invariants.seed.json`. **No file in
+this repository states, verbatim or in close paraphrase, "public participation seeds the Commons"
+directly.** The nearest adjacent doctrine is `inv.polity.165` (`canonical-invariants.seed.json:2651`,
+Polity canon, unrelated to the Horizen/Venture Lab workstream specifically): *"The metaCommons is a
+field... it aggregates Proof of Work Potential across the Polity."* That statement does not itself
+collapse Public participation into Commons contribution, but it is broad enough that an
+under-specified reading of it could be mistaken for exactly that collapse — which is consistent with
+the operator's own characterisation of the earlier framing as something said in this programme rather
+than something written into canon. Since no specific prior text was found to strike, this section
+records the corrected lineage as the operative ground truth going forward; if the operator can locate
+the specific earlier statement, it should be corrected in place at that citation in a follow-up note.
+
+**The corrected lineage, recorded exactly as ruled:**
+
+```
+Public / Community participation
+  → may generate actions, artefacts and receipts
+  → some of those may mature into governed proofs
+  → governed proofs may be admitted to the Registry
+  → the Commons is the shared proof layer constituted through those admitted proofs
+```
+
+**Operative sentence, verbatim:**
+
+> **"Public participation may seed proof formation, but it does not directly seed the Commons."**
+
+**The four-layer separation, verbatim:**
+
+- **Public/Community** — engagement and contribution.
+- **Venture Lab** — experimentation, participation and value creation.
+- **Registry** — admission, indexing, lineage and discoverability of constitutional artefacts and
+  proofs.
+- **Commons** — the collectively available body of governed proof represented through the Registry.
+
+**A contribution can travel across those layers, but the layers must never be collapsed into one
+another.** Public engagement is not itself Venture Lab participation; Venture Lab participation is not
+itself Registry admission; Registry admission is not itself the Commons. Each transition is a
+deliberate, governed act (Amendment D §D.1's promotion discipline — *Submit Proof*, never *Publish to
+Commons* — applies at the Registry→Commons transition specifically; the Public→Venture Lab and Venture
+Lab→Registry transitions are governed by the domain/scope access model this amendment names and the
+evidence-posture gates Amendments B/D already specify).
+
+## G.4 Consequences for the implementation
+
+- The `AccessDomain` flattening under `'venture-lab'` (G.1) is the code-level expression of
+  Partner/Participant domain conflation and is corrected by the same-day build (cohort isolation +
+  Partner role restriction), recorded in its own commit history rather than duplicated here.
+- The six currently-open Venture Lab tabs (Founder Office, Founders Club, Financial Services,
+  Commercial Funnel, Growth Matrix, Portfolio) are **not** assumed to constitute the Public/Community
+  domain merely because they are ungated today — each requires individual classification, recorded in
+  the same-day build's tab audit rather than asserted here.
+- Commons implementation (Phase 5, Amendment D §D.8) is unaffected in sequencing by this amendment;
+  G.3 clarifies its *relationship* to Public/Community, it does not move its build order.
