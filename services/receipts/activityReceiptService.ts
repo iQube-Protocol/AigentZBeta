@@ -63,6 +63,11 @@ export type ActivityActionType =
   // reports read as PROGRESS from the ingested baseline.
   | 'operator_action_logged'
   | 'standing_document_added'
+  // Partner agent evidence (DVN-anchorable; metaProof × Horizen Labs pilot,
+  // operator ruling 2026-07-28). A correlated EXTERNAL agent identity —
+  // registry record + optional Pulse/validation proof — recorded as a metaMe
+  // constitutional evidence record. See services/horizen/evidence.ts.
+  | 'partner_agent_evidence_recorded'
   // Bounded delegation lifecycle (DVN-anchorable)
   | 'agent_delegated'
   | 'agent_delegation_revoked'

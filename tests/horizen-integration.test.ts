@@ -31,6 +31,14 @@ import {
   MAX_DECODED_CARD_BYTES,
 } from '@/services/horizen/agentCard';
 import { correlateAgent } from '@/services/horizen/correlate';
+import {
+  buildHorizenEvidence,
+  summariseHorizenEvidence,
+  HORIZEN_EVIDENCE_ACTION_TYPE,
+  HORIZEN_PARTNERSHIP,
+} from '@/services/horizen/evidence';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { HorizenFetch } from '@/services/horizen/client';
 
 // ─── Fixtures, from the brief ──────────────────────────────────────────────
@@ -385,5 +393,93 @@ describe('end-to-end reference-agent correlation (§3)', () => {
     // wrong-network read, which is why the mapping is data, not a guess.
     expect(registryUrl).toContain('network=sepolia');
     expect(registryUrl).not.toContain('network=base-sepolia');
+  });
+});
+
+// ─── metaMe constitutional evidence (operator ruling 2026-07-28 §7) ────────
+//
+// "Preserve every network, identity, proof and retrieval identifier in the
+// emitted evidence. Do NOT flatten the Agent Registry, Pulse and PnL identity
+// spaces." These canaries enforce exactly that, field by field.
+
+describe('metaMe constitutional evidence from a correlated Horizen agent', () => {
+  const routes = {
+    '/api/agents/0x1eba/pulse-status': { body: { enrolled: true, commitmentRecorded: true } },
+    '/api/agents/0x1eba?': { body: REGISTRY_0X1EBA },
+    '/status/7866': { body: PULSE_7866 },
+    '/v1/erc8004/7866': { status: 404, body: {} },
+  };
+  const AT = '2026-07-28T12:00:00.000Z';
+
+  async function evidence() {
+    const res = await correlateAgent('0x1eba', 'base-sepolia', { fetchImpl: fakeFetch(routes) });
+    expect(res.ok).toBe(true);
+    if (!res.ok) throw new Error('correlation failed');
+    return buildHorizenEvidence(res.record, AT);
+  }
+
+  it('carries every identifier the ruling enumerates', async () => {
+    const e = await evidence();
+    expect(e.chainId).toBe(84532);
+    expect(e.tokenId).toBe('7866');
+    expect(e.registryAlias).toBe('0x1eba');
+    expect(e.pulseAlias).toBe('7866');
+    expect(e.identityClass).toBe('on-chain');
+    expect(e.validationTag).toBe('pulse-sla');
+    expect(e.validationStatus).toBe('validated');
+    expect(e.validatorAddress).toBe('0xbbdcb0C9C3B9ce60555fdF50cFB99802E7c33920');
+    expect(e.zkVerifyTxHash).toMatch(/^0xda75e0da/);
+    expect(e.zkVerifyAttestationId).toBe('51708');
+    expect(e.adapterTxHash).toMatch(/^0x9a07d6df/);
+    expect(e.pulseEnrolled).toBe(true);
+    expect(e.pulseCommitmentRecorded).toBe(true);
+    expect(e.correlationVerified).toBe(true);
+    expect(e.retrievedAt).toBe(AT);
+    expect(e.sourceEndpoints.length).toBeGreaterThan(0);
+  });
+
+  it('keeps the three identity spaces SEPARATE — never flattened (ruling §2)', async () => {
+    const e = await evidence();
+    // Three distinct fields must exist even when they currently agree; the
+    // brief's own PnL example shows them diverging and the operator refused to
+    // infer equality.
+    expect(Object.keys(e)).toEqual(expect.arrayContaining([
+      'registryProfileNetwork', 'erc8004IdentityChain', 'proofChain', 'pnlUuid', 'tokenId',
+    ]));
+    expect(e.registryProfileNetwork).toBe('base-sepolia');
+    expect(e.proofChain).toBeNull(); // no PnL correlation for this agent
+  });
+
+  it('commits the Agent Card by hash rather than copying it', async () => {
+    const e = await evidence();
+    expect(e.agentCardStatus).toBe('parsed');
+    expect(e.agentCardCommitment).toMatch(/^[0-9a-f]{64}$/);
+    // Deterministic — a re-read of an unchanged card must not look like an edit.
+    const again = await evidence();
+    expect(again.agentCardCommitment).toBe(e.agentCardCommitment);
+  });
+
+  it('the action type is DVN-anchorable and declared on the receipt union', () => {
+    const dvn = readFileSync(join(process.cwd(), 'services', 'dvn', 'activityReceiptDvnPipeline.ts'), 'utf8');
+    const receipts = readFileSync(join(process.cwd(), 'services', 'receipts', 'activityReceiptService.ts'), 'utf8');
+    expect(dvn).toContain(`'${HORIZEN_EVIDENCE_ACTION_TYPE}'`);
+    expect(receipts).toContain(`| '${HORIZEN_EVIDENCE_ACTION_TYPE}'`);
+  });
+
+  it('the summary reports what was read and never asserts trustworthiness', async () => {
+    const e = await evidence();
+    const s = summariseHorizenEvidence(e);
+    expect(s).toContain('0x1eba');
+    expect(s).toContain('7866');
+    expect(s).toContain('class=on-chain');
+    expect(s).not.toMatch(/trusted|verified agent|safe/i);
+  });
+
+  it('records the operator-supplied Horizen contacts without inventing an escalation matrix', () => {
+    const names = HORIZEN_PARTNERSHIP.contacts.map((c) => c.name);
+    expect(names).toEqual(['John Camardo', 'Luca Cermelli']);
+    expect(HORIZEN_PARTNERSHIP.pilotId).toBe('horizen-pilot-series-001');
+    // metaProof is the partnership entity; metaMe is the runtime (ruling §7).
+    expect(HORIZEN_PARTNERSHIP.counterparty).toBe('metaProof');
   });
 });

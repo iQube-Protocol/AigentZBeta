@@ -76,6 +76,14 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experiment_result_published',
   // Standing accrual — NVA-backed outcome credit anchored for audit trail
   'standing_accrued',
+  // Partner agent evidence (metaProof × Horizen Labs pilot, operator ruling
+  // 2026-07-28). The evidence carries an Agent Card sha256 commitment plus the
+  // zkVerify attestation / adapter tx identifiers of an EXTERNAL proof;
+  // anchoring makes our record of that external proof tamper-evident, which is
+  // the whole point of ingesting someone else's attestation. (Added per the
+  // permitted action-type-addition rule; no other part of this pipeline is
+  // touched.)
+  'partner_agent_evidence_recorded',
   // Attributable correction of Capability Standing under a superseded scoring
   // formula. A DOWNWARD write against a monotone personhood-bound ledger is
   // the one standing act most in need of tamper-evidence — if any receipt
