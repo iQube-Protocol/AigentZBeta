@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-28_lab-tab-restructure-and-locker-ux.md",
         "updates/2026-07-28_horizen-slice-b-joined-evidence-chain.md",
         "updates/2026-07-28_companion-install-over-mcp-pre-store.md",
         "updates/2026-07-28_terminal-outcome-and-composed-liveness-invariants.md",
