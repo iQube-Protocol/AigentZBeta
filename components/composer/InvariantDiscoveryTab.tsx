@@ -213,7 +213,15 @@ export default function InvariantDiscoveryTab() {
     const r = await post({ action: "promote", candidateId: id, parentInvariantIds }, `promote-${id}`);
     if (r) {
       const linked = Number(r.linkedParents ?? 0);
-      setNotice(`✓ Promoted → proposed${linked > 0 ? ` · specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : ""} (validation next)`);
+      // A re-discovery is a RESULT, not a failure, and must not read like one.
+      // The candidate's statement already exists, so nothing was inserted —
+      // but the discovery converged on it a second time, which is a recurrence
+      // signal worth naming rather than a duplicate worth apologising for.
+      setNotice(
+        r.alreadyExisted
+          ? `✓ Already discovered — this candidate resolved to the existing invariant (${String(r.invariantId).slice(0, 8)}…). No duplicate created; the re-discovery is recorded as recurrence evidence.`
+          : `✓ Promoted → proposed${linked > 0 ? ` · specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : ""} (validation next)`,
+      );
       setLinkFor(null);
       await load();
     }
@@ -319,7 +327,14 @@ export default function InvariantDiscoveryTab() {
         <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Layers className="h-3.5 w-3.5 text-slate-400" /> Scope</span>
         <select
           value={domain}
-          onChange={(e) => { setDomain(e.target.value); setSubDomain(""); }}
+          // Clearing the notice is part of changing scope. A notice describes
+          // an act performed IN a scope; carried across, it renders as a
+          // statement about the scope now on screen. The operator hit exactly
+          // this: a Financial Services duplicate warning displayed under the
+          // Commercialisation heading, which reads as Commercialisation having
+          // a duplicate it does not have. A stale observation must never
+          // render as current (MS-10).
+          onChange={(e) => { setDomain(e.target.value); setSubDomain(""); setNotice(null); }}
           className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
           title="Discovery domain — vertical (own corpus) or horizontal capability (observed across verticals)"
         >
@@ -330,7 +345,8 @@ export default function InvariantDiscoveryTab() {
         <span className="text-slate-600">›</span>
         <select
           value={subDomain}
-          onChange={(e) => setSubDomain(e.target.value)}
+          // Same rule as the domain select above: a sub-domain rung is a scope.
+          onChange={(e) => { setSubDomain(e.target.value); setNotice(null); }}
           className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
         >
           <option value="">Domain baseline (whole domain)</option>
@@ -549,6 +565,80 @@ export default function InvariantDiscoveryTab() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stage 4 — Classification queue.
+          "The promotion path is fail-closed… But 'safe' should not become
+          'finished.'" Promotion lands every invariant unclassified, in NO
+          experimental population. Correct — and outstanding work, not a
+          resting state. This is where it stays visible. */}
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-3.5 w-3.5 text-amber-300" />
+          <h3 className="text-xs font-semibold text-slate-200">Classification queue</h3>
+          <span className="text-slate-500 text-[11px]">
+            ({queue.length} promoted &amp; unclassified · {scopeLabel})
+          </span>
+        </div>
+
+        {/* The prohibition, in the GATE'S OWN words. These strings come from
+            canUseInvariantFor on the server — prose written here instead would
+            drift from what the gate actually refuses. */}
+        {prohibitions.length > 0 && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-amber-300/90">
+              Permitted while unclassified: {permittedUses.join(" · ") || "—"}
+            </div>
+            {prohibitions.map((p) => (
+              <div key={p.use} className="text-[11px] leading-snug">
+                <span className="text-amber-200">Must not be used as {p.use.replace(/-/g, " ")}</span>
+                <span className="text-slate-400"> — {p.reason}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+        ) : queue.length === 0 ? (
+          <p className="text-xs text-slate-500 italic">
+            Nothing outstanding — every invariant this domain has promoted carries an evidence provenance,
+            so each one sits in a decided experimental population.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {queue.map((q) => (
+              <div key={q.invariantId} className="rounded bg-white/5 px-2 py-1.5 space-y-1">
+                <div className="flex items-start gap-2 text-[11px]">
+                  <span className="flex-shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">
+                    unclassified
+                  </span>
+                  <span className="flex-shrink-0 rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">
+                    {q.status}
+                  </span>
+                  <span className="min-w-0 flex-1 text-slate-300">{q.statement}</span>
+                  <span className="flex-shrink-0 text-[10px] text-slate-500">
+                    {q.outstandingCheckIds.length}/{q.checks.length} outstanding
+                  </span>
+                </div>
+                <div className="space-y-0.5 pl-1">
+                  {q.checks.map((c) => (
+                    <div key={c.id} className="flex items-start gap-1.5 text-[10px] leading-snug">
+                      {c.satisfied
+                        ? <Check className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 text-emerald-400" />
+                        : <span className="mt-[3px] h-2 w-2 flex-shrink-0 rounded-full border border-amber-500/60" />}
+                      <span className={c.satisfied ? "text-slate-500" : "text-slate-300"}>{c.label}</span>
+                      {c.decidedBy === "steward" && (
+                        <span className="flex-shrink-0 rounded-full border border-slate-700 px-1 text-[8px] text-slate-500">steward</span>
+                      )}
+                      <span className="min-w-0 text-slate-500">— {c.detail}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

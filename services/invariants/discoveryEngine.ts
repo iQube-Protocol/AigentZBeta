@@ -944,7 +944,10 @@ export async function promoteCandidate(
   candidateId: string,
   actor: { personaId: string; sessionId?: string },
   parentInvariantIds: string[] = [],
-): Promise<{ ok: true; invariantId: string; linkedParents: number } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; invariantId: string; linkedParents: number; alreadyExisted?: boolean }
+  | { ok: false; error: string }
+> {
   const { data: c, error } = await admin
     .from('discovery_candidates')
     .select('*')
@@ -1031,7 +1034,60 @@ export async function promoteCandidate(
     );
     return { ok: true, invariantId: result.invariant.id, linkedParents };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'promotion failed' };
+    const message = e instanceof Error ? e.message : 'promotion failed';
+
+    // RE-DISCOVERY IS NOT A FAILURE — it is a result, and the queue must be
+    // able to record it (operator-reported 2026-07-28: "these 2 FS invariants
+    // won't promote to proposed. just processing but not promoting").
+    //
+    // `discoverInvariant` refuses to insert a second invariant with the same
+    // canonicalized statement, and it is right to: that is what keeps the
+    // registry from filling with near-identical rows. But it left the
+    // candidate PERMANENTLY STUCK. It can never be promoted, because the
+    // invariant exists; and rejecting it would be a lie, because the discovery
+    // was correct. The only two dispositions the queue offered were both
+    // wrong, so the candidate sat in "awaiting review" forever.
+    //
+    // The truthful disposition is the third one: this candidate RESOLVED TO an
+    // invariant that already exists. `promoted_invariant_id` already models
+    // exactly that — the candidate's outcome is that invariant — so no new
+    // status is needed and no duplicate is created.
+    //
+    // Auto-resolving is safe here ONLY because the match is EXACT: `exact`
+    // means the canonicalized statements are identical, which is a fact, not a
+    // similarity judgement. A merely-similar candidate is not auto-resolved
+    // and still needs a human.
+    //
+    // And the recurrence is recorded rather than swallowed. A statement
+    // independently re-discovered from different evidence is a RECURRENCE
+    // SIGNAL — the same signal the commercialisation recurrence-3 candidates
+    // are built on. Discarding it as "duplicate, nothing happened" would throw
+    // away the evidence that the discovery converged twice.
+    const dup = /duplicate: an invariant with this statement already exists \(([0-9a-f-]{36})\)/.exec(message);
+    if (dup) {
+      const existingId = dup[1];
+      const prov = (c.discovery_provenance ?? {}) as Record<string, unknown>;
+      const priorRediscoveries = Array.isArray(prov.rediscoveredEvidence) ? (prov.rediscoveredEvidence as string[]) : [];
+      await admin
+        .from('discovery_candidates')
+        .update({
+          status: 'promoted',
+          promoted_invariant_id: existingId,
+          discovery_provenance: {
+            ...prov,
+            resolvedAs: 'already-exists',
+            // The evidence THIS pass compressed, kept against the existing
+            // invariant so the recurrence is auditable rather than asserted.
+            rediscoveredEvidence: [...new Set([...priorRediscoveries, ...((c.evidence_ids as string[]) ?? [])])],
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', candidateId)
+        .eq('status', 'candidate');
+      return { ok: true, invariantId: existingId, linkedParents: 0, alreadyExisted: true };
+    }
+
+    return { ok: false, error: message };
   }
 }
 
