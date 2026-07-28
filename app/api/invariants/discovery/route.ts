@@ -37,14 +37,16 @@ import {
   discoveryNamespace,
   subDomainPresets,
 } from '@/services/invariants/discoveryDomains';
-import { listInvariants } from '@/services/invariants/store';
+import { listInvariants, getInvariantById, updateInvariant } from '@/services/invariants/store';
 import {
   CLASSIFICATION_CHECKS,
   PERMITTED_UNCLASSIFIED_USES,
   RESTRICTED_INVARIANT_USES,
   buildClassificationQueue,
   canUseInvariantFor,
+  applyProvenanceReclassification,
 } from '@/services/research/experimentalPopulations';
+import { personaPublicRef } from '@/services/identity/personaReferences';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -200,7 +202,73 @@ export async function POST(req: NextRequest) {
       const r = await rejectCandidate(admin, body.candidateId);
       return NextResponse.json(r, { status: r.ok ? 200 : 400 });
     }
+    case 'classify': {
+      // THE EXIT FROM `unclassified` (operator, 2026-07-28: the same block the
+      // Financial Services cross-referenced invariants hit).
+      //
+      // `CLASSIFICATION_CHECKS` has always NAMED `applyProvenanceReclassification`
+      // as the way to satisfy the provenance check, and that function has always
+      // refused a class change without evidence refs and a rationale. What did
+      // not exist was any CALLER: no route action, no UI control, anywhere in the
+      // codebase. So the steward queue could be rendered and never cleared, and
+      // every promoted invariant stayed in NO experimental population — barred
+      // from canon entry, ratification, and confirmatory treatment — with no
+      // door out. A checklist whose only satisfying act is unreachable is
+      // doctrine, not machinery (Composed Liveness, corollary 4).
+      //
+      // This action is the door. It does NOT relax a single rule: the refusals
+      // (unratified class, no evidence refs, blank rationale, no-op reclass, and
+      // the anti-laundering check that a move into Population A must cite at
+      // least one non-repo-internal source) all still run inside
+      // applyProvenanceReclassification. The route only supplies a caller and
+      // persists the bag the function returns, preserving the append-only
+      // reclassification log so the prior class and the evidence that moved it
+      // both stay readable.
+      const invariantId = typeof body.invariantId === 'string' ? body.invariantId.trim() : '';
+      const to = typeof body.to === 'string' ? body.to : '';
+      const rationale = typeof body.rationale === 'string' ? body.rationale : '';
+      const evidenceRefs = Array.isArray(body.evidenceRefs)
+        ? (body.evidenceRefs as unknown[]).filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
+        : [];
+      if (!invariantId) {
+        return NextResponse.json({ ok: false, error: 'invariantId required' }, { status: 400 });
+      }
+
+      const invariant = await getInvariantById(invariantId);
+      if (!invariant) {
+        return NextResponse.json({ ok: false, error: `invariant '${invariantId}' not found` }, { status: 404 });
+      }
+
+      const result = applyProvenanceReclassification(invariant.provenance, {
+        to: to as Parameters<typeof applyProvenanceReclassification>[1]['to'],
+        evidenceRefs,
+        rationale,
+        // WHO attested it. `actor` is documented as "a T2-safe commitment or
+        // an agent id, NEVER a raw T0 id" — and this bag is durable, widely
+        // read invariant provenance, so the raw personaId must not go in it.
+        // personaPublicRef is the level-2 Polity Public Reference (the same
+        // derivation the DVN pipeline uses), which is exactly this exposure
+        // class.
+        actor: personaPublicRef(persona.personaId),
+        at: new Date().toISOString(),
+      });
+      if (!result.ok) {
+        // The function's refusals are the ruling speaking. Surface the reason
+        // verbatim rather than a generic 400 — a steward who cited only
+        // repo-internal material needs to be told exactly that.
+        return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
+      }
+
+      const updated = await updateInvariant(invariantId, { provenance: result.provenance });
+      return NextResponse.json({
+        ok: true,
+        invariantId,
+        from: result.from,
+        to: result.to,
+        namespace: updated.namespace,
+      });
+    }
     default:
-      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, materialize-edges, suggest-parents, promote, link-parents, reject' }, { status: 400 });
+      return NextResponse.json({ ok: false, error: 'action must be one of: add-evidence, extract, compare, compress-domain, materialize-edges, suggest-parents, promote, link-parents, reject, classify' }, { status: 400 });
   }
 }

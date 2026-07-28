@@ -707,3 +707,52 @@ describe('the prohibition GATE — it refuses, and it says why', () => {
     expect(canUseInvariantFor({ provenance: after, status: 'proposed' }, 'external-crystal-population').allowed).toBe(true);
   });
 });
+
+// ─── 7. REACHABILITY — the door out of `unclassified` must have a caller ────
+//
+// Everything above proves `applyProvenanceReclassification` BEHAVES correctly.
+// None of it proved anything could CALL it. Until 2026-07-28 nothing did: no
+// route action, no UI control, anywhere in the codebase. So the queue could be
+// rendered and never cleared, every promoted invariant stayed in NO
+// experimental population, and the operator hit the same wall twice — once on
+// the Financial Services cross-referenced batch, again on commercialisation.
+//
+// This is the Composed Liveness shape (corollary 4: "a checklist with no write
+// path is doctrine, not machinery"). A behavioural canary on a function that
+// nothing invokes is exactly the blind spot that let it ship.
+
+describe('reachability — the classification act has a live caller', () => {
+  const ROUTE = join(process.cwd(), 'app', 'api', 'invariants', 'discovery', 'route.ts');
+  const TAB = join(process.cwd(), 'components', 'composer', 'InvariantDiscoveryTab.tsx');
+
+  it('the discovery route exposes a classify action that invokes applyProvenanceReclassification', () => {
+    const source = readFileSync(ROUTE, 'utf8');
+    expect(source).toMatch(/case 'classify'/);
+    expect(source).toMatch(/applyProvenanceReclassification\(/);
+    // …and PERSISTS what it returns. Computing a new bag and dropping it would
+    // pass a symbol-presence check while changing nothing.
+    expect(source).toMatch(/updateInvariant\([\s\S]{0,120}provenance:\s*result\.provenance/);
+  });
+
+  it('the route names the classify action in its own action list — an unlisted action is undiscoverable', () => {
+    const source = readFileSync(ROUTE, 'utf8');
+    const actionList = /action must be one of: ([^']+)'/.exec(source)?.[1] ?? '';
+    expect(actionList).toContain('classify');
+  });
+
+  it('the steward surface can invoke it — the queue renders a control, not just a checklist', () => {
+    const source = readFileSync(TAB, 'utf8');
+    expect(source).toMatch(/action:\s*"classify"/);
+    // The control must be attached to the QUEUE entries; a classify handler
+    // that nothing renders is the same defect one layer up.
+    expect(source).toMatch(/renderClassifyPanel\(q\)/);
+  });
+
+  it('the actor recorded on a reclassification is never a raw T0 persona id', () => {
+    const source = readFileSync(ROUTE, 'utf8');
+    // `actor` is documented as "a T2-safe commitment or an agent id, never a
+    // raw T0 id", and this bag is durable, widely-read invariant provenance.
+    expect(source).toMatch(/actor:\s*personaPublicRef\(/);
+    expect(source).not.toMatch(/actor:\s*persona\.personaId/);
+  });
+});

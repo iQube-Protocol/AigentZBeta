@@ -85,6 +85,26 @@ interface QueueEntry {
 }
 interface Prohibition { use: string; reason: string | null }
 
+/**
+ * The five ratified evidence-provenance classes. Assigning one is the ONLY act
+ * that moves an invariant out of `unclassified` and into an experimental
+ * population — and until 2026-07-28 no surface anywhere could perform it, so
+ * the queue below could be read and never cleared (operator: "the same block …
+ * we encountered before with the FS cross refd ones").
+ *
+ * Order matters: the two EXTERNAL classes come first because they are what a
+ * discovery compressed from acquired institutional documents normally is, and
+ * the platform classes are the ones a steward should have to reach for
+ * deliberately.
+ */
+const PROVENANCE_CLASS_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: "external-established", label: "External · established", hint: "Independently authored, already-established source (standards bodies, regulators, peer-reviewed literature)." },
+  { value: "external-empirical", label: "External · empirical", hint: "Independently authored empirical findings — data, studies, measured outcomes." },
+  { value: "platform-derived", label: "Platform · derived", hint: "Derived from this platform's own operation or artefacts." },
+  { value: "platform-hypothesized", label: "Platform · hypothesized", hint: "Proposed by the platform, not yet evidenced externally." },
+  { value: "platform-doctrine", label: "Platform · doctrine", hint: "Ratified platform doctrine — governance, method, house rules." },
+];
+
 const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }> = {
   // "Convergent", not "Supported": a compare output in this class recurs across
   // multiple independent sub-domains that converged on the same behavioural
@@ -131,6 +151,11 @@ export default function InvariantDiscoveryTab() {
   const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
   const [linkFor, setLinkFor] = useState<{ id: string; mode: "promote" | "relink"; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
+  // The open classify form, if any. One at a time — a steward classifies a
+  // specific invariant with specific evidence, never several at once.
+  const [classifyFor, setClassifyFor] = useState<
+    { invariantId: string; to: string; evidenceRefs: string; rationale: string; error: string | null } | null
+  >(null);
   const [prohibitions, setProhibitions] = useState<{ use: string; reason: string }[]>([]);
   const [permittedUses, setPermittedUses] = useState<string[]>([]);
 
@@ -167,18 +192,32 @@ export default function InvariantDiscoveryTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const post = useCallback(async (body: Record<string, unknown>, label: string) => {
-    setBusy(label); setNotice(null);
+  // `opts.silent` returns the failure body to the CALLER instead of raising
+  // the page-level notice — used by the classify form, which renders the
+  // server's refusal next to the field that caused it (a refusal about a
+  // specific invariant's evidence does not belong in a banner about the whole
+  // domain). Default behaviour is unchanged for every existing caller.
+  const post = useCallback(async (
+    body: Record<string, unknown>,
+    label: string,
+    opts?: { silent?: boolean },
+  ) => {
+    setBusy(label); if (!opts?.silent) setNotice(null);
     try {
       const res = await personaFetch("/api/invariants/discovery", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, ...body }),
       });
       const data = await res.json();
-      if (!res.ok || data?.ok === false) { setNotice(`⚠ ${data?.error ?? "Action failed"}`); return null; }
+      if (!res.ok || data?.ok === false) {
+        if (opts?.silent) return data ?? { ok: false, error: "Action failed" };
+        setNotice(`⚠ ${data?.error ?? "Action failed"}`); return null;
+      }
       return data;
     } catch (e) {
-      setNotice(`⚠ ${e instanceof Error ? e.message : "Action failed"}`); return null;
+      const message = e instanceof Error ? e.message : "Action failed";
+      if (opts?.silent) return { ok: false, error: message };
+      setNotice(`⚠ ${message}`); return null;
     } finally { setBusy(null); }
   }, [domain]);
 
@@ -302,6 +341,42 @@ export default function InvariantDiscoveryTab() {
     });
   }, []);
 
+  /**
+   * Assign an evidence-provenance class — the act that clears the queue entry.
+   *
+   * Every refusal (unratified class, no evidence refs, blank rationale, no-op
+   * reclass, and the anti-laundering rule that a move into Population A must
+   * cite at least one non-repo-internal source) is enforced SERVER-SIDE by
+   * `applyProvenanceReclassification`. This form deliberately does not
+   * pre-validate any of them: the ruling is the server's to speak, and a
+   * client that mirrored the rules would be a second copy of them that could
+   * drift. The server's exact refusal text is shown to the steward.
+   */
+  const classify = useCallback(async () => {
+    if (!classifyFor) return;
+    const refs = classifyFor.evidenceRefs
+      .split(/[\n,]/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const r = await post(
+      {
+        action: "classify",
+        invariantId: classifyFor.invariantId,
+        to: classifyFor.to,
+        evidenceRefs: refs,
+        rationale: classifyFor.rationale,
+      },
+      `classify-${classifyFor.invariantId}`,
+      { silent: true },
+    );
+    if (r?.ok) {
+      setClassifyFor(null);
+      await load(); // the entry leaves the queue — it now carries a provenance
+    } else {
+      setClassifyFor((f) => (f ? { ...f, error: (r?.error as string) ?? "Classification failed." } : f));
+    }
+  }, [classifyFor, post, load]);
+
   const reject = useCallback(async (id: string) => {
     const r = await post({ action: "reject", candidateId: id }, `reject-${id}`);
     if (r) { await load(); }
@@ -313,6 +388,84 @@ export default function InvariantDiscoveryTab() {
     // signal, not validity — Law XII), then confidence.
     .sort((a, b) => (b.convergence?.supportCount ?? 0) - (a.convergence?.supportCount ?? 0) || b.confidence - a.confidence);
   const closed = candidates.filter((c) => c.status !== "candidate");
+
+  /**
+   * The classify control on a queue entry — the door out of `unclassified`.
+   * Collapsed to a single button until the steward opens it, so the queue
+   * still reads as a checklist rather than a wall of forms.
+   */
+  const renderClassifyPanel = (q: QueueEntry) => {
+    const open = classifyFor?.invariantId === q.invariantId;
+    if (!open) {
+      return (
+        <div className="pl-1 pt-0.5">
+          <button
+            onClick={() =>
+              setClassifyFor({ invariantId: q.invariantId, to: "external-established", evidenceRefs: "", rationale: "", error: null })
+            }
+            disabled={busy !== null}
+            className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            <Check className="h-2.5 w-2.5" /> Assign evidence provenance
+          </button>
+        </div>
+      );
+    }
+    const f = classifyFor;
+    return (
+      <div className="mt-1 space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
+        <div className="text-[10px] uppercase tracking-wide text-amber-300/80">
+          Assign evidence provenance — what KIND of evidence this rests on
+        </div>
+        <select
+          value={f.to}
+          onChange={(e) => setClassifyFor({ ...f, to: e.target.value, error: null })}
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+        >
+          {PROVENANCE_CLASS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="text-[10px] leading-snug text-slate-500">
+          {PROVENANCE_CLASS_OPTIONS.find((o) => o.value === f.to)?.hint}
+        </p>
+        <textarea
+          value={f.evidenceRefs}
+          onChange={(e) => setClassifyFor({ ...f, evidenceRefs: e.target.value, error: null })}
+          rows={2}
+          placeholder="Evidence refs — one per line or comma-separated (source URLs, DOIs, discovery_evidence ids). At least one is required."
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+        />
+        <textarea
+          value={f.rationale}
+          onChange={(e) => setClassifyFor({ ...f, rationale: e.target.value, error: null })}
+          rows={2}
+          placeholder="Rationale — why this evidence supports this class. Recorded permanently on the invariant."
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+        />
+        {f.error && (
+          <p className="rounded border border-rose-800/60 bg-rose-950/40 px-1.5 py-1 text-[10px] leading-snug text-rose-300">
+            {f.error}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void classify()}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            <Check className="h-3 w-3" /> Record classification
+          </button>
+          <button
+            onClick={() => setClassifyFor(null)}
+            className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-slate-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Operator-confirmed parent-link panel — reused by promote (open candidates)
   // and retro-link (already-promoted candidates). Branch on linkFor.mode.
@@ -702,6 +855,7 @@ export default function InvariantDiscoveryTab() {
                     </div>
                   ))}
                 </div>
+                {renderClassifyPanel(q)}
               </div>
             ))}
           </div>
