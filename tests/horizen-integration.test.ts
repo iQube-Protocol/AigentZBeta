@@ -37,6 +37,7 @@ import {
   HORIZEN_EVIDENCE_ACTION_TYPE,
   HORIZEN_PARTNERSHIP,
 } from '@/services/horizen/evidence';
+import { resolveBinding } from '@/services/horizen/agentBinding';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { HorizenFetch } from '@/services/horizen/client';
@@ -415,7 +416,14 @@ describe('metaMe constitutional evidence from a correlated Horizen agent', () =>
     const res = await correlateAgent('0x1eba', 'base-sepolia', { fetchImpl: fakeFetch(routes) });
     expect(res.ok).toBe(true);
     if (!res.ok) throw new Error('correlation failed');
-    return buildHorizenEvidence(res.record, AT);
+    // Attribution is REQUIRED (Slice A, operator ruling 2): the binding state
+    // must be explicit, never an omitted field. This agent has no binding
+    // record, which is the ordinary case for a partner agent we merely observe
+    // — and `unbound` is a fact we can only state because we looked.
+    return buildHorizenEvidence(res.record, AT, {
+      binding: resolveBinding({ identity: res.record.identity, bindings: [], at: AT }),
+      ingestedAt: AT,
+    });
   }
 
   it('carries every identifier the ruling enumerates', async () => {

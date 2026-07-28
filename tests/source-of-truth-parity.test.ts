@@ -44,6 +44,16 @@
  *    The distribution bundle is likewise DERIVED (read from
  *    extension/companion-observer/ at request time, never a committed zip):
  *      tests/companion-extension-artifact.test.ts
+ *  - The ERC-8004 agent-binding model (services/horizen/agentBinding.ts) ↔ the
+ *    agent_identity_bindings schema. Four things that cannot be derived from
+ *    each other and must not drift: the four AgentAuthorityFacets ↔ four
+ *    NON-GENERATED boolean columns (a GENERATED column would BE the collapse
+ *    the operator ruled against); the four AgentBindingStatus values ↔ the
+ *    status CHECK; the network-qualified uniqueness (network, chain_id,
+ *    token_id) — a unique index on token_id alone would silently merge two
+ *    different agents; and the canonical claim message, pinned byte-exact as a
+ *    fixture because a signature is over those exact bytes:
+ *      tests/horizen-agent-binding.test.ts
  *  - STEP_UP_POLICY / GRADE_RANK (the canonical risk→grade binding,
  *    PRD-PAG-001 Amendment A §A.6) pinned as the source of truth, incl.
  *    money-moving = world_id and grade monotonicity:

@@ -38,6 +38,27 @@ export function personaPublicRef(personaId: string): string {
   return createHash('sha256').update(personaId).digest('hex').slice(0, 16);
 }
 
+/**
+ * Namespaced constitutional commitment — for the NON-persona identifiers that
+ * also have to cross the network/chain boundary as commitments rather than raw
+ * values (passport ids, delegation grant ids, agent binding ids; CLAUDE.md's
+ * HMS Identifier Isolation rule).
+ *
+ * SAME derivation as personaPublicRef (sha256 hex, first 16 chars) — this is
+ * deliberately not a second hashing scheme (inv.engineering.036/037). The only
+ * difference is the namespace prefix, which CLAUDE.md mandates so that a
+ * passport id and a grant id that happen to be the same UUID cannot collide
+ * into one ref and be mistaken for each other by a receipt reader.
+ *
+ * personaPublicRef itself is deliberately NOT namespaced and must never be
+ * routed through here: it is the level-2 Polity Public Reference that already
+ * appears in every DVN receipt written to date, and re-deriving it would break
+ * correlation with all of them.
+ */
+export function constitutionalRef(namespace: string, id: string): string {
+  return createHash('sha256').update(`${namespace}:${id}`).digest('hex').slice(0, 16);
+}
+
 export function pairwiseRefsEnabled(): boolean {
   return Boolean(process.env.PERSONA_PAIRWISE_REF_SECRET);
 }

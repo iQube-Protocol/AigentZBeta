@@ -56,11 +56,42 @@
  * evidence PAYLOAD is entirely about the external agent (chain identifiers,
  * public addresses, public tx hashes) and contains no metaMe identifier at
  * all. Owner/validator addresses are public chain data, not PII.
+ *
+ * Slice A adds the CONSTITUTIONAL ATTRIBUTION block, and the same discipline
+ * governs it absolutely: attribution enters as the four T2 commitments from
+ * `bindingRefs` (operator ruling 3) and NEVER as a raw personaId, passport id,
+ * grant id, or agent DID. `tests/horizen-agent-binding.test.ts` scans the
+ * serialised record for every one of those and fails the build if one appears.
+ *
+ * ── TEMPORAL HONESTY (operator ruling 4) ───────────────────────────────────
+ *
+ * *"Do not pretend ingestion time is action time."* Four distinct instants are
+ * carried separately, because for externally-observed evidence they genuinely
+ * differ and a reader deciding how much weight to give a proof needs the gap:
+ *
+ *   actionOccurredAt  — when the external agent DID the thing (SLA period end)
+ *   proofRecordedAt   — when the partner attested it (validation timestamp)
+ *   ingestedAt        — when metaMe took it into its own record
+ *   receiptCreatedAt  — when the attributable receipt was written
+ *
+ * The first two are DERIVED from the correlated record rather than accepted
+ * from the caller — they are facts about the partner's data, and a caller-
+ * supplied value would be an assertion about someone else's timeline. Both are
+ * null when the partner published none: absent is not "now".
+ *
+ * This is also why the pilot reuses `partner_agent_evidence_recorded` rather
+ * than minting a new action type — the operator's ruling permits the reuse
+ * precisely because the payload preserves this distinction.
  */
 
 import { createHash } from 'crypto';
 
 import type { HorizenAgentRecord } from './correlate';
+import {
+  isStandingEligible,
+  type BindingResolution,
+  type EvidenceBindingState,
+} from './agentBinding';
 import {
   HORIZEN_REGISTRY_API,
   HORIZEN_PULSE_BASE,
@@ -152,6 +183,38 @@ export interface HorizenEvidenceRecord {
   /** §3.3 — what lets SLA proofs finalise at all. */
   pulseCommitmentRecorded: boolean | null;
 
+  // ── Constitutional attribution (ruling 2 + 3) ──
+  /**
+   * One of EXACTLY four states. Always present — an omitted field would let a
+   * reader default it, and the operator's ruling is that the state is explicit.
+   */
+  bindingState: EvidenceBindingState;
+  /** Why the state is what it is. Distinguishes a suspension from an
+   *  unreadable store, both of which land on `binding_unresolvable`. */
+  bindingStateReason: string;
+  /**
+   * Ruling 2: an unbound agent *"must not generate personhood-bound Standing"*.
+   * Derived from `bindingState`, never set independently — a second switch here
+   * is how the two would drift apart. Slice C consumes this; it does not
+   * recompute it.
+   */
+  standingEligible: boolean;
+  /** T2 commitments — null when there is no binding to commit to. */
+  principalRef: string | null;
+  passportRef: string | null;
+  delegationRef: string | null;
+  agentBindingRef: string | null;
+
+  // ── Temporal honesty (ruling 4) ──
+  /** When the external agent acted. Null when the partner published no period. */
+  actionOccurredAt: string | null;
+  /** When the partner attested it. Null when there is no validation receipt. */
+  proofRecordedAt: string | null;
+  /** When metaMe took this into its own record. Caller-supplied. */
+  ingestedAt: string;
+  /** When the attributable receipt was written. Null until it is. */
+  receiptCreatedAt: string | null;
+
   // ── Provenance of the read itself ──
   correlationVerified: boolean;
   correlationNotes: string[];
@@ -160,6 +223,23 @@ export interface HorizenEvidenceRecord {
   sourceEndpoints: string[];
   /** §5.1 — false means a read reported a warming cache. */
   ready: boolean;
+}
+
+/**
+ * The attribution context a caller MUST supply.
+ *
+ * Required, not optional. An optional attribution would need a default, and
+ * every available default is a lie: `unbound` asserts a lookup that never
+ * happened, and `constitutionally_bound` asserts a binding nobody proved. So
+ * the caller has to have resolved the binding (via `resolveBinding`) before it
+ * can build evidence at all.
+ */
+export interface HorizenEvidenceAttribution {
+  binding: BindingResolution;
+  /** When metaMe committed this to its own record. */
+  ingestedAt: string;
+  /** The attributable receipt, once written. */
+  receiptCreatedAt?: string | null;
 }
 
 /** sha256 of a stable JSON projection of the parsed card. */
@@ -180,6 +260,7 @@ function commitCard(record: HorizenAgentRecord): string | null {
 export function buildHorizenEvidence(
   record: HorizenAgentRecord,
   retrievedAt: string,
+  attribution: HorizenEvidenceAttribution,
 ): HorizenEvidenceRecord {
   // The FIRST validation is the most recent (§5.1: validations are
   // newest-first). Absence is normal — §9: most on-chain agents have none.
@@ -219,6 +300,25 @@ export function buildHorizenEvidence(
     pulseEnrolled: record.pulse.present,
     pulseCommitmentRecorded: record.pulse.present ? record.pulse.value.commitmentRecorded : null,
 
+    bindingState: attribution.binding.state,
+    bindingStateReason: attribution.binding.reason,
+    standingEligible: isStandingEligible(attribution.binding.state),
+    // The four T2 commitments, or nothing. `refs` is null exactly when there is
+    // no binding record to commit to, so there is no path that emits a partial
+    // attribution or substitutes a raw identifier for a missing ref.
+    principalRef: attribution.binding.refs?.principalRef ?? null,
+    passportRef: attribution.binding.refs?.passportRef ?? null,
+    delegationRef: attribution.binding.refs?.delegationRef ?? null,
+    agentBindingRef: attribution.binding.refs?.agentBindingRef ?? null,
+
+    // DERIVED from the partner's own data — see the header. `periodEnd` is when
+    // the measured activity finished; the validation `timestamp` is when the
+    // partner attested it. Neither is our ingestion time and neither is faked.
+    actionOccurredAt: firstProof?.periodEnd ?? null,
+    proofRecordedAt: firstValidation?.timestamp ?? null,
+    ingestedAt: attribution.ingestedAt,
+    receiptCreatedAt: attribution.receiptCreatedAt ?? null,
+
     correlationVerified: record.correlationVerified,
     correlationNotes: record.correlationNotes,
     retrievedAt,
@@ -237,6 +337,10 @@ export function summariseHorizenEvidence(e: HorizenEvidenceRecord): string {
   const parts = [
     `Horizen agent ${e.registryAlias} (tokenId ${e.tokenId}) on ${e.registryProfileNetwork}`,
     `class=${e.identityClass}`,
+    // The attribution verdict belongs in the one-line summary: a reader
+    // skimming receipts must not have to open the payload to learn that an
+    // agent's evidence is not attributable to any passport.
+    `binding=${e.bindingState}`,
   ];
   if (e.pulseEnrolled) parts.push('Pulse enrolled');
   if (e.validationTag) parts.push(`validation=${e.validationTag}/${e.validationStatus ?? 'unknown'}`);
