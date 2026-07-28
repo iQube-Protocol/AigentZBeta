@@ -1,7 +1,16 @@
 /**
  * resolution — the Invariant Resolution Engine, Phase 0 (CFS-037 / PRD-IRE-001,
- * ratification attested 2026-07-17 (agent transcription; document status DRAFT
- * — see CFS-037 header); operator: "Go straight into p0").
+ * RATIFIED 2026-07-28 by operator act `ACT-IRE-FAMILY-2026-07-28`, decision id
+ * `CFS-037`; operator: "Go straight into p0").
+ *
+ * The 2026-07-17 ratification this header used to assert was agent-transcribed
+ * attestation, which Law XI does not permit an agent to promote on, so the
+ * header was corrected to DRAFT on 2026-07-27. The operator supplied the act
+ * directly on 2026-07-28 — covering CFS-037/038/039/040/041 as ONE act with
+ * FIVE independent document commitments and deliberately no aggregate hash —
+ * so the claim is now true on the record rather than on a transcript. The
+ * ratified bytes and the ledger row are in the CFS-037 header and
+ * `codexes/packs/polity-core/items/AMENDMENT_RECORDS.md`.
  *
  * The constitutional query planner: RESOLUTION PRECEDES REASONING. Given an
  * intent, construct the minimal Resolved Constitutional Field it requires —

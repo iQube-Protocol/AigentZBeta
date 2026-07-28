@@ -1,6 +1,13 @@
 # CFS-040 / PRD-KRE-001 — The Knowledge Resolution Engine (KRE)
 
-**Status:** Architectural Foundation — DRAFT, awaiting operator ratification (2026-07-17).
+**Status:** Architectural Foundation — **RATIFIED 2026-07-28** by operator act `ACT-IRE-FAMILY-2026-07-28`, decision id `CFS-040`.
+
+> **What was ratified, and against which bytes.** The operator approved **one act covering CFS-037, CFS-038, CFS-039, CFS-040 and CFS-041**, each document enumerated independently — *"One act may contain five document commitments, but each document must remain independently attributable and recoverable."* **No aggregate family hash exists**, deliberately: a family hash would make one document unrecoverable without the other four.
+>
+> This document was frozen at `sha256:78f8534c865f4386668ac5d85625aa415116a2aec849aa4d2411606a246d099a` — its bytes **after** the IRE→IPE consistency corrections required by the same disposition (*"Before signing, update any text that is already contradicted by the now-landed IRE→IPE binding"*) and **before** this status block was rewritten to record the act. A sha256 cannot commit to bytes that contain it, so the frozen hash is necessarily the pre-record hash; the post-record (`as-recorded`) hash of every one of the five is enumerated in `codexes/packs/polity-core/items/AMENDMENT_RECORDS.md`, which is also the ledger row for this act.
+>
+> **The 2026-07-17 attestations are NOT the basis of this act.** Five contemporaneous records attest an operator ratification that day (`be5942ae4`; `2026-07-17_ire-prd-family-phase0-builds.md`: *"All four ratified. Build all 4"*; `CHRYSALIS_WORKSTREAM_TRACKER` row 99), and **every one is an agent transcription**, which Law XI does not permit an agent to promote on. What unblocked this is the operator supplying the act directly on 2026-07-28. The transcripts remain corroboration of intent and are not the authority.
+
 **Classification:** Constitutional Runtime Primitive (knowledge realisation — the pre-reasoning layer).
 **Designation:** IRL ratified-spec filing of **PRD-KRE-001** (the PRD family, §9 of CFS-037).
 **Dependencies:** CFS-037 (IRE — produces the Resolved Constitutional Field the KRE realises in knowledge), CFS-038 (CCR — constitutional proximity as the retrieval signal), CFS-002/004 (iQube ontology + evolution — extended, not replaced), `services/constitutional/capabilityDiscovery.ts` + `services/capability/capabilityGraph.ts` (the discovery substrate), `services/constitutional/capabilityRegistry.ts` (registration = acceptance).
@@ -77,4 +84,8 @@ The KRE is **pre-reasoning**: iQube selection, composition, and (only if needed)
 - This spec seeds no invariant and gates no Chrysalis deliverable.
 
 ## Ratification record
-- [ ] **DRAFT 2026-07-17** — PRD-KRE-001 filing. Awaiting operator ratification of: (1) "reuse where possible, create where needed" as a constitutional invariant governing knowledge (§0); (2) the six-stage constitutional retrieval loop (§2); (3) the reuse-before-create decision node as the Phase-0 build, recommend-not-auto (§5).
+- [x] **RATIFIED 2026-07-28** — PRD-KRE-001 filing. Ratified in full — the numbered items below are what the operator approved: (1) "reuse where possible, create where needed" as a constitutional invariant governing knowledge (§0); (2) the six-stage constitutional retrieval loop (§2); (3) the reuse-before-create decision node as the Phase-0 build, recommend-not-auto (§5).
+
+  Authority: operator act `ACT-IRE-FAMILY-2026-07-28`, decision id `CFS-040`, authority basis **Law XI — amending canon is an operator act**. Frozen content hash `sha256:78f8534c865f4386668ac5d85625aa415116a2aec849aa4d2411606a246d099a` (bytes after the IRE→IPE consistency corrections, before this record was written). Ledger row: `codexes/packs/polity-core/items/AMENDMENT_RECORDS.md`. The 2026-07-17 agent transcriptions are corroboration of intent, never the authority (Law XI).
+
+- [ ] **DVN anchoring outstanding** — the act is recorded through `POST /api/governance/ratify`, which writes the `governance_ratifications` row, invokes `createGovernanceReceipt` and enters the DVN pipeline. Until an operator runs it, this document's ratification exists in the repo ledger and not yet on chain.
