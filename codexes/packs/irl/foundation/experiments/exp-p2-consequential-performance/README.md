@@ -53,6 +53,7 @@ confirmatory claim after either domain's results are known.
 | [`03_operational-amendment-v0.5.md`](03_operational-amendment-v0.5.md) | Amendment 1 — W2.5 diagnostic cell · four feasibility gates · the unresolved stopping-rule item · three recorded observations |
 | [`04_statistical-analysis-plan-skeleton.md`](04_statistical-analysis-plan-skeleton.md) | SAP skeleton — structure frozen, every number unresolved |
 | [`01_shared-constitutional-framework.md`](01_shared-constitutional-framework.md) | Pointer index mapping the ruling's seven shared concerns to the v0.5 sections that own them |
+| [`05_v0.2-recovered-historical-draft.md`](05_v0.2-recovered-historical-draft.md) | **RECOVERED HISTORICAL DRAFT · NON-NORMATIVE.** EXP-P2 v0.2 (22 July 2026), recovered 2026-07-28 from operator-supplied text. Never contemporaneously canonized; does not govern execution. Recovered so that amendment §A6.1's citation of "v0.2 §38" can be checked against real text. |
 
 **No document in this set other than v0.5 holds normative protocol content.** A canary in
 `tests/source-of-truth-parity.test.ts` fails the build if any of them reproduces a normative
@@ -124,7 +125,7 @@ Appendix C is resolved · preregistration not yet authorized.**
 |---|---|
 | 20 unresolved parameters requiring freeze | v0.5 Appendix C |
 | 21 distinct `⟦…⟧` placeholders in the protocol text | v0.5, throughout |
-| Programme stopping-rule decision point | **UNRESOLVED for a named reason** — amendment §A6.1: its stated source documents (EXP-P2 v0.2 §38 and its v0.3 binding) are not present in this repository, and no reconstruction has been attempted |
+| Programme stopping-rule decision point | **STILL UNRESOLVED, but for a narrower reason as of 2026-07-28.** Amendment §A6.1 said its source documents "are not present in this repository". **v0.2 is now present** — recovered verbatim from operator-supplied text as [`05_v0.2-recovered-historical-draft.md`](05_v0.2-recovered-historical-draft.md), where §38 is the programme-level stopping rule the amendment cites. Recovery is not ratification: v0.2 was never canonized, so §38 is historical evidence, not a governing provision. Resolving this now requires an operator act — either bind §38 (stating how a rule written for the A/B/C/B+R/D arms and a single physical substrate applies to v0.5's W0–W3 ladder and its two independent domains), or author a new stopping rule. The **v0.3 binding is still absent** and no reconstruction of it has been attempted. |
 | Correctness-at-cost treatment in cross-domain aggregation | v0.5 §41 delegates it to the SAP; Appendix C item 20 |
 | Placeholders introduced by the amendment | amendment §A1.5, §A2, §A3, §A4, §A5 |
 | Pilot design and parameter resolution (artifact 3) | not started — requires the operator |
