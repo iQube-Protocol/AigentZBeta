@@ -70,7 +70,7 @@
 
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
@@ -451,6 +451,53 @@ function CompanionShell() {
 
   const identity = ctx?.identity ?? null;
 
+  /**
+   * IDENTITY IS TRI-STATE, AND ONLY THE THIRD STATE IS A CLOSED DOOR.
+   *
+   * `resolveCompanionContext` always resolves to an object, so `ctx === null`
+   * means exactly one thing: WE HAVE NOT LOOKED YET. Every gated surface here
+   * used to read `identity && personaId` alone, which collapses "not looked
+   * yet" and "no session" into the same falsy value — so on every single load a
+   * citizen with a perfectly good session was shown the Connect door for the
+   * duration of the spine round-trip, and a citizen without one could not tell
+   * the difference between the two.
+   *
+   * This is the MS-4 shape ("measure what is mounted; a zero measurement is a
+   * teardown artifact, never a layout value") applied to identity: an absence
+   * observed before the observation completed is not an absence.
+   */
+  const identityResolved = ctx !== null;
+
+  const resolvingGate = (
+    <div className="flex min-h-0 flex-1 items-center justify-center px-4 text-center text-xs text-slate-500">
+      Checking your session…
+    </div>
+  );
+
+  /**
+   * THE ONE GATE — every surface in this shell passes through here.
+   *
+   * The `connectGate` comment below already claims "one node for all of them",
+   * but the rule was restated inline at each call site, so a surface could (and
+   * one did) simply not carry it: the WALLET branch mounted `SmartWalletDrawer`
+   * unconditionally and fell through to that component's own inline
+   * email/password form — the ONE surface where the operator's stated flow
+   * begins ("my passport… should provide me access to my wallet without me
+   * signing in") was the one surface that never offered the Passport door.
+   * Making the rule a function rather than a convention is what stops that
+   * recurring (inv.engineering.036 — one authoritative location per concern).
+   *
+   * It takes a BUILDER, not a node, so the resolved persona is narrowed to
+   * `string` by the gate itself. A gate that returned a node built with a
+   * possibly-undefined personaId would need a cast at every call site, and a
+   * cast is exactly how a surface ends up reading a fallback persona instead of
+   * the active one (CLAUDE.md's persona-unaware-transport defect).
+   */
+  const gated = (surface: (activePersonaId: string) => ReactNode): ReactNode => {
+    if (identity && personaId) return surface(personaId);
+    return identityResolved ? connectGate : resolvingGate;
+  };
+
   return (
     <div className="flex h-screen min-h-0 bg-slate-950 text-slate-100">
       {/* Single surface, fills whatever width the host window actually is —
@@ -608,59 +655,72 @@ function CompanionShell() {
               <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Observer permissions
               </div>
-              {identity && personaId ? (
-                <ObserverGrantPanel personaIdHint={personaId} />
-              ) : (
-                connectGate
-              )}
+              {gated((activePersonaId) => (
+                <ObserverGrantPanel personaIdHint={activePersonaId} />
+              ))}
             </div>
           </div>
         ) : activeSurface === "wallet" ? (
-          /* Embedded wallet — canonical embedded-mode mount (never overlay). */
-          <div className="min-h-0 flex-1">
-            {walletOpen ? (
-              <SmartWalletDrawer
-                open={true}
-                onClose={() => setWalletOpen(false)}
-                variant="embedded"
-                embeddedWidth="fill"
-                allowWideLayout={false}
-                agent={{ id: "companion", name: "metaMe Companion" }}
-                codexMode={true}
-                personaId={personaId}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <button
-                  type="button"
-                  onClick={() => setWalletOpen(true)}
-                  className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-200 shadow-lg transition-all hover:bg-slate-900/60"
-                >
-                  Open Wallet
-                </button>
-              </div>
-            )}
-          </div>
+          /* Embedded wallet — canonical embedded-mode mount (never overlay).
+             GATED LIKE EVERY OTHER SURFACE (operator, 2026-07-28: "my passport
+             is supposed to be able to be detected via a cryptographic
+             signature, provide me access to my wallet without me signing in,
+             where I should then be able to select which persona I wish to
+             activate").
+
+             It was not. This branch mounted the drawer unconditionally, and
+             `SmartWalletDrawer`'s only affordance without a session is its own
+             inline email/password form — so the surface the citizen reaches for
+             FIRST, and the one their Passport is supposed to open, was the one
+             surface in this shell that still demanded a password. Amendment A's
+             ratified position is that the Passport replaces every sign-in wall
+             in the Companion; four surfaces got the door and this one was
+             missed.
+
+             With the door here, the operator's stated flow closes end-to-end:
+             prove the wallet → a session exists → this branch mounts the drawer
+             → the drawer's own persona menu is where they choose which persona
+             to activate. No gate is weakened to achieve it: a signature over a
+             single-use, origin-bound challenge is an AUTHENTICATION, and the
+             spine still decides everything downstream of the session it mints. */
+          gated((activePersonaId) => (
+            <div className="min-h-0 flex-1">
+              {walletOpen ? (
+                <SmartWalletDrawer
+                  open={true}
+                  onClose={() => setWalletOpen(false)}
+                  variant="embedded"
+                  embeddedWidth="fill"
+                  allowWideLayout={false}
+                  agent={{ id: "companion", name: "metaMe Companion" }}
+                  codexMode={true}
+                  personaId={activePersonaId}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setWalletOpen(true)}
+                    className="rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-200 shadow-lg transition-all hover:bg-slate-900/60"
+                  >
+                    Open Wallet
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
         ) : activeSurface === "search" ? (
-          /* Universal Search — PRD-MMC-IMPL-002 Increment 1. Mounts only
-             when identity is resolved, mirroring the Companion rail's own
-             `identity && personaId ?` gate below: an unauthenticated
-             visitor sees a sign-in prompt, fails closed like every other
-             part of this shell. */
-          identity && personaId ? (
-            <CompanionSearchPanel personaIdHint={personaId} query={searchQuery} />
-          ) : (
-            connectGate
-          )
+          /* Universal Search — PRD-MMC-IMPL-002 Increment 1. Mounts through
+             `gated` like every other surface: a visitor with no session is
+             offered the Passport door, never a dead panel. */
+          gated((activePersonaId) => (
+            <CompanionSearchPanel personaIdHint={activePersonaId} query={searchQuery} />
+          ))
         ) : activeSurface === "overlay" ? (
           /* Constitutional Overlay — PRD-MMC-IMPL-002 Increment 2. Mounts
              only when identity is resolved, mirroring every other gated
              surface in this shell. */
-          identity && personaId ? (
-            <CompanionOverlayPanel personaIdHint={personaId} />
-          ) : (
-            connectGate
-          )
+          gated((activePersonaId) => <CompanionOverlayPanel personaIdHint={activePersonaId} />)
         ) : activeSurface === "workspace" ? (
           /* Workspace — Movement I (Capture), PRD-MMC-IMPL-003. This is the
              fifth companion surface: the Constitutional Flow's landing point
@@ -679,11 +739,7 @@ function CompanionShell() {
              shows up in myLedger too, both are views over the same server
              state. Mounts only when identity is resolved, mirroring every
              other gated surface here. */
-          identity && personaId ? (
-            <CaptureInboxPanel personaIdHint={personaId} />
-          ) : (
-            connectGate
-          )
+          gated((activePersonaId) => <CaptureInboxPanel personaIdHint={activePersonaId} />)
         ) : null}
           />
         </div>

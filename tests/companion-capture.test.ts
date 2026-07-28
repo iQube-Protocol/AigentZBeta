@@ -289,7 +289,11 @@ describe('Companion embed page (/triad/embed/companion) — Workspace surface', 
 
   it('imports and mounts CaptureInboxPanel', () => {
     expect(source).toContain('import { CaptureInboxPanel }');
-    expect(source).toContain('<CaptureInboxPanel personaIdHint={personaId} />');
+    // The hint is now the persona the GATE narrowed (`activePersonaId`), not
+    // the page's possibly-undefined `personaId` — same value, but proved to be
+    // present rather than asserted to be. See the gate note on the surface
+    // canary below.
+    expect(source).toContain('<CaptureInboxPanel personaIdHint={activePersonaId} />');
   });
 
   /**
@@ -317,12 +321,25 @@ describe('Companion embed page (/triad/embed/companion) — Workspace surface', 
     expect(source).not.toMatch(/useState<"wallet" \| "companion"/);
   });
 
+  /**
+   * STRENGTHENED 2026-07-28, not relaxed. This used to assert the literal
+   * `identity && personaId` that each surface restated for itself. That
+   * convention is exactly how the WALLET surface came to carry no gate at all
+   * (operator: "provide me access to my wallet without me signing in" — it
+   * instead fell through to an email/password form). The page now has ONE
+   * `gated()` node and every surface calls it, so the property this canary
+   * protects is asserted against that node rather than against a copy of its
+   * body — and `tests/passport-connection-challenge.test.ts` additionally
+   * forbids any surface from hand-rolling the old form again.
+   */
   it('gates the capture mount on resolved identity, same as Search/Overlay', () => {
     const idx = source.indexOf('activeSurface === "workspace" ? (');
     expect(idx).toBeGreaterThan(-1);
     const section = source.slice(idx, idx + 1400);
-    expect(section).toContain('identity && personaId');
-    expect(section).toContain('<CaptureInboxPanel personaIdHint={personaId} />');
+    expect(section, 'the capture mount no longer passes through the gate').toContain(
+      'gated((activePersonaId)',
+    );
+    expect(section).toContain('<CaptureInboxPanel personaIdHint={activePersonaId} />');
   });
 });
 

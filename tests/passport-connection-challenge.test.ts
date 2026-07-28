@@ -281,6 +281,74 @@ describe('the Companion is preferred, never exclusive — ruling 6', () => {
   });
 });
 
+// ─── The door is on EVERY surface, including the wallet (operator, 2026-07-28) ─
+//
+// "My passport is supposed to be able to be detected via a cryptographic
+// signature, provide me access to my wallet without me signing in, where I
+// should then be able to select which persona I wish to activate."
+//
+// It could not. Four surfaces carried `connectGate`; the WALLET branch — the
+// one the operator's flow actually starts at — mounted `SmartWalletDrawer`
+// unconditionally and fell through to that component's own inline
+// email/password form. The rule was a convention restated at each call site,
+// so a surface could simply not carry it. These canaries make it structural.
+
+const COMPANION_PAGE = 'app/(embed)/triad/embed/companion/page.tsx';
+
+describe('every gated companion surface passes through the one door', () => {
+  it('the gate is a single node, not a rule restated per surface', () => {
+    // inv.engineering.036. `gated` is the only place the "session or door"
+    // decision is made; a surface that hand-rolls `identity && personaId ? … :
+    // connectGate` again is the exact drift that let the wallet miss it.
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toMatch(/const gated = \(surface: \(activePersonaId: string\) => ReactNode\)/);
+    expect(
+      page,
+      'a surface decides session-vs-door for itself instead of calling gated()',
+    ).not.toMatch(/identity && personaId \?/);
+  });
+
+  it('the WALLET surface offers the Passport door, not a password form', () => {
+    // The regression-shaped hole: without this, a citizen holding a Passport
+    // reaches their wallet only by typing an email and a password.
+    const page = stripComments(readSource(COMPANION_PAGE));
+    // Anchor forward from the wallet branch: `activeSurface === "search" ?`
+    // also appears earlier, in the composer-mode prop, and slicing to THAT
+    // yields an empty string that would pass a naive `.not.toContain`.
+    const walletAt = page.indexOf('activeSurface === "wallet" ?');
+    expect(walletAt, 'the wallet branch is gone').toBeGreaterThan(-1);
+    const searchAt = page.indexOf('activeSurface === "search" ?', walletAt);
+    expect(searchAt, 'the search branch no longer follows the wallet branch').toBeGreaterThan(walletAt);
+    const walletBranch = page.slice(walletAt, searchAt);
+    expect(walletBranch, 'the wallet mounts unconditionally again').toContain('gated(');
+    // And the drawer must receive the persona the GATE narrowed, not the raw
+    // possibly-undefined one — same identity on the surface as in the gate.
+    expect(walletBranch).toContain('personaId={activePersonaId}');
+  });
+
+  it('every gated surface names the persona the gate resolved, never a cast', () => {
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page, 'a call site casts around the gate instead of using its argument')
+      .not.toContain('personaId as string');
+    // One builder argument per gated surface: permissions, wallet, search,
+    // overlay, workspace.
+    expect((page.match(/gated\(\(activePersonaId\)/g) ?? []).length).toBe(5);
+  });
+
+  it('identity is TRI-state: unresolved is never rendered as absent', () => {
+    // `resolveCompanionContext` always resolves to an object, so `ctx === null`
+    // means "not looked yet". Collapsing that into the falsy branch showed the
+    // Connect door to an already-connected citizen on every load — an absence
+    // observed before the observation completed is not an absence (MS-4).
+    const page = stripComments(readSource(COMPANION_PAGE));
+    expect(page).toContain('const identityResolved = ctx !== null');
+    const gate = page.slice(page.indexOf('const gated = ('));
+    expect(gate, 'the gate shows the door before identity has resolved').toMatch(
+      /identityResolved \? connectGate : resolvingGate/,
+    );
+  });
+});
+
 // ─── The application handshake — the partition gap (operator, 2026-07-26) ───
 
 describe('the Companion session reaches the application', () => {
