@@ -328,7 +328,24 @@ export default function CodexPanelDynamic({
     if (!normalizedInitialTab) return;
     if (lastAppliedInitialTabRef.current === normalizedInitialTab) return;
     if (enabledTabs.length > 0 && !enabledTabs.some((tab) => tab.slug === normalizedInitialTab)) {
-      lastAppliedInitialTabRef.current = normalizedInitialTab;
+      // NOT FOUND *YET* IS NOT NOT FOUND (2026-07-28: a `?tab=my-workspace`
+      // deep link from the Companion landed on the cartridge's default tab).
+      //
+      // `enabledTabs` resolves ASYNCHRONOUSLY — a tab can carry an
+      // `activationId` (my-workspace requires `mycanvas`), an adminOnly gate, or
+      // a persona-dependent condition, so the set grows over several renders.
+      // This branch used to LATCH the ref on a miss, which permanently
+      // abandoned the deep link: when the target tab finally appeared, the
+      // guard above short-circuited and the requested tab was never applied.
+      // The next effect then fell back to `enabledTabs[0]` — the cartridge's
+      // default landing tab, exactly what the operator saw.
+      //
+      // The latch now happens ONLY on success. A miss simply returns and lets
+      // a later `enabledTabs` change re-attempt, which is safe because this
+      // effect's only other dependency is the (stable) requested slug. This is
+      // the MS-4 shape — "a zero measurement is a teardown artifact, never a
+      // layout value" — applied to tab resolution: an absence observed before
+      // the observation completed is not an absence.
       return;
     }
     setActiveTabSlug(normalizedInitialTab);
