@@ -242,3 +242,60 @@ export function decideEligibility(input: {
     reason: ineligibilityReason(input.relation),
   };
 }
+
+// ── Selection mode — experiment-scoped, never a mutated runtime default ─────
+
+/**
+ * How an arm draws from the frozen population.
+ *
+ * THE CORRECTED RULE (2026-07-28, superseding "disable standing-primary
+ * suppression for P1", which was too broad):
+ *
+ *   > **Standing must not determine corpus ELIGIBILITY. It may remain part of
+ *   > an experimental arm's declared retrieval treatment.**
+ *
+ * Arm B is defined as IRL's complete live runtime, so stripping its
+ * standing-weighted ranking would destroy the ecological validity the arm
+ * exists to provide. The asymmetry is removed instead by fixing the
+ * POPULATION: both arms draw from the same frozen eligible set, Arm B ranks
+ * within it, Arm C takes its pre-registered fixed slice from it. Arm C's
+ * denominator can then no longer be enlarged by members Arm B cannot reach.
+ *
+ * `runtime-standing` is therefore NOT a defect to be removed — it is a
+ * declared treatment, recorded as such in the protocol.
+ *
+ * The mode is always passed EXPLICITLY. No environment-variable switching: a
+ * selection rule that changes with ambient configuration is unreproducible,
+ * and reproducibility is the whole point of a frozen protocol.
+ */
+export type InvariantSelectionMode =
+  /** Live product behaviour: standing-primary ranking. Arm B's treatment. */
+  | 'runtime-standing'
+  /** Every eligible member reachable; no standing-derived suppression. */
+  | 'experiment-fixed-population'
+  /** Draws per provenance stratum by a pre-declared procedure. */
+  | 'experiment-stratified';
+
+export const INVARIANT_SELECTION_MODES: readonly InvariantSelectionMode[] = [
+  'runtime-standing', 'experiment-fixed-population', 'experiment-stratified',
+];
+
+/**
+ * Whether a mode lets Standing affect what is REACHABLE.
+ *
+ * Legal in an arm's treatment, never legal as an eligibility gate — which is
+ * why this reports the fact rather than forbidding the mode.
+ */
+export function standingAffectsReachability(mode: InvariantSelectionMode): boolean {
+  return mode === 'runtime-standing';
+}
+
+/**
+ * The one thing no mode may do. Kept as an explicit predicate so the rule is
+ * assertable rather than merely documented: eligibility is decided by
+ * {@link decideEligibility} — domain boundary × experiment-relative
+ * independence — and Standing is not an input to it in any mode.
+ */
+export function standingMayGateEligibility(_mode: InvariantSelectionMode): false {
+  return false;
+}

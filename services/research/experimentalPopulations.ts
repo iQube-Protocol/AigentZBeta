@@ -1,4 +1,40 @@
 /**
+ * ┌────────────────────────────────────────────────────────────────────────┐
+ * │ SUPERSEDED FOR EXP-P1 CRYSTAL vP1 ELIGIBILITY (operator ruling,        │
+ * │ 2026-07-28). RE-SCOPED, NOT RETIRED.                                   │
+ * └────────────────────────────────────────────────────────────────────────┘
+ *
+ * This module's A/B/C partition is NO LONGER the EXP-P1 eligibility gate. The
+ * rule it encoded — primary population = A only, with platform doctrine (C)
+ * "never in either" — has been superseded because it excludes all internally
+ * derived doctrine, which makes constitutional invariants untestable by
+ * construction. The governing rule for Crystal vP1 is now:
+ *
+ *   > EXP-P1 eligibility is determined by source provenance PLUS
+ *   > experiment-relative independence. General platform doctrine may be
+ *   > admitted when it predates task construction and is independent of the
+ *   > target, tasks and observed outcomes.
+ *
+ * The decisive exclusion layer is the contamination relationship
+ * (`target-derived` / `task-derived` / `outcome-informed` / `unknown`) in
+ * `services/research/experimentRelation.ts` — one coherent rule instead of two
+ * competing partitions.
+ *
+ * WHAT THIS MODULE IS NOW: a REPORTING / PROVENANCE STRATUM, not a gate.
+ *
+ *   A — external established or empirical
+ *   B — platform-derived or platform-hypothesized, where independently admissible
+ *   C — platform doctrine, where independently admissible
+ *
+ * ALL eligible strata may enter Crystal vP1. Kept live (not deleted) because it
+ * remains the historical design record, a provenance-stratified analytical view,
+ * and the plausible basis for a separate experiment comparing external-only
+ * against mixed provenance.
+ *
+ * Do NOT reintroduce `PRIMARY_POPULATIONS` as an eligibility filter for P1.
+ *
+ * ── Original header (2026-07-27), retained ─────────────────────────────────
+ *
  * Experimental populations — the MECHANICAL partition of the invariant corpus
  * by EVIDENCE PROVENANCE (operator ruling, 2026-07-27).
  *

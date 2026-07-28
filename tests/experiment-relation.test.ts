@@ -11,6 +11,9 @@ import {
   SOURCE_PROVENANCE_SYNONYM,
   decideEligibility,
   GENERAL_CONSTITUTIONAL_NAMESPACES,
+  INVARIANT_SELECTION_MODES,
+  standingAffectsReachability,
+  standingMayGateEligibility,
 } from '@/services/research/experimentRelation';
 import { PROVENANCE_CLASSES } from '@/services/corpusScout/types';
 
@@ -223,5 +226,109 @@ describe('the Seed Corpus is not the crystal', () => {
     expect(proposed.length).toBeGreaterThan(0);
     const statuses = new Set(seed.invariants.map((i: { status?: string }) => i.status));
     expect(statuses.size, 'the corpus is mixed-status by construction').toBeGreaterThan(1);
+  });
+});
+
+describe('rulings of 2026-07-28 — what must NOT drift', () => {
+  it('ProvenanceClass stays at five values — an experiment must not amend canon', () => {
+    // "Do not expand ProvenanceClass merely to satisfy this experiment. That
+    // would turn an experiment implementation into a canon amendment."
+    expect([...PROVENANCE_CLASSES].sort()).toEqual([
+      'external-empirical', 'external-established',
+      'platform-derived', 'platform-doctrine', 'platform-hypothesized',
+    ]);
+  });
+
+  it('A/B/C is marked superseded as an EXP-P1 eligibility gate, and kept', () => {
+    const src = readFileSync(join(REPO, 'services/research/experimentalPopulations.ts'), 'utf-8');
+    expect(src).toMatch(/SUPERSEDED FOR EXP-P1 CRYSTAL vP1 ELIGIBILITY/);
+    expect(src).toMatch(/RE-SCOPED, NOT RETIRED/);
+    // Kept live: it is still the historical record and a stratified view.
+    expect(src).toMatch(/export const POPULATION_BY_EVIDENCE_PROVENANCE/);
+  });
+
+  it('`domain-adjacent` cannot be admitted without an explicit reviewer reason', () => {
+    // The permissive label carries a burden `independent` does not, or it
+    // becomes a home for uncertain material.
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    expect(src).toMatch(/REQUIRES_INCLUSION_REASON/);
+    expect(src).toMatch(/missingReason/);
+    const gate = src.slice(src.indexOf('const eligible = inDomain'), src.indexOf('const eligible = inDomain') + 200);
+    expect(gate).toMatch(/!missingReason/);
+  });
+
+  it('exports five artifacts, and hashes the relations file alongside the crystal', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    // Assert the actual write targets rather than pattern-matching extensions —
+    // the five artifacts are five writeFileSync calls, so count and name them.
+    const writes = [...src.matchAll(/writeFileSync\(`\$\{base\}([^`]*)`/g)].map((m) => m[1]);
+    expect(writes.sort()).toEqual(
+      ['.exclusions.json', '.json', '.manifest.json', '.relations.json', '.sha256'].sort(),
+    );
+    expect(src).toMatch(/relations_sha256/);
+  });
+
+  it('the review record carries reviewer, timestamp and source refs', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    for (const f of ['reviewer', 'reviewed_at', 'source_refs', 'inclusion_reason']) {
+      expect(src, `decision must record ${f}`).toMatch(new RegExp(f));
+    }
+  });
+
+  it('survey mode reports an UPPER BOUND and never infers a relationship', () => {
+    const src = readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+    const survey = src.slice(src.indexOf('if (SURVEY)'), src.indexOf('if (DRY_RUN)'));
+    expect(survey).toMatch(/UPPER BOUND/);
+    expect(survey).toMatch(/awaiting independence review/);
+    // Survey must not write, and must not assign a relation to anything.
+    expect(survey).not.toMatch(/writeFileSync/);
+    expect(survey).not.toMatch(/relations\[[^\]]*\]\s*=/);
+  });
+});
+
+describe('selection mode is arm treatment, never an eligibility gate', () => {
+  it('offers exactly the three ruled modes', () => {
+    expect([...INVARIANT_SELECTION_MODES].sort()).toEqual([
+      'experiment-fixed-population', 'experiment-stratified', 'runtime-standing',
+    ]);
+  });
+
+  it('keeps runtime-standing as a legal TREATMENT, not a defect', () => {
+    // Arm B is the live runtime; stripping its ranking would destroy the
+    // ecological validity the arm exists to provide.
+    expect(standingAffectsReachability('runtime-standing')).toBe(true);
+    expect(standingAffectsReachability('experiment-fixed-population')).toBe(false);
+    expect(standingAffectsReachability('experiment-stratified')).toBe(false);
+  });
+
+  it('forbids Standing from gating eligibility in EVERY mode', () => {
+    for (const m of INVARIANT_SELECTION_MODES) {
+      expect(standingMayGateEligibility(m), m).toBe(false);
+    }
+    // And eligibility genuinely does not read Standing: a zero-Standing,
+    // zero-validation, `proposed` invariant is admitted on relation alone.
+    expect(
+      decideEligibility({
+        invariantId: 'inv.finance.001',
+        relation: 'independent',
+        evidenceProvenance: 'platform-derived',
+        namespace: 'finance',
+      }).eligible,
+    ).toBe(true);
+  });
+
+  it('does not read the mode from the environment', () => {
+    const src = readFileSync(join(REPO, 'services/research/experimentRelation.ts'), 'utf-8');
+    // "No hidden environment-based behavior" — a selection rule that varies
+    // with ambient config is unreproducible.
+    expect(src).not.toMatch(/process\.env/);
+  });
+
+  it('leaves the live runtime default untouched', () => {
+    const grounding = readFileSync(join(REPO, 'services/invariants/grounding.ts'), 'utf-8');
+    // rankByStanding stays standing-primary; the product is not changed to suit
+    // the experiment.
+    expect(grounding).toMatch(/function rankByStanding/);
+    expect(grounding).toMatch(/if \(b\.standing !== a\.standing\) return b\.standing - a\.standing;/);
   });
 });

@@ -85,6 +85,11 @@ function arg(name, fallback = null) {
   return hit ? hit.split('=').slice(1).join('=') : fallback;
 }
 const DRY_RUN = process.argv.includes('--dry-run');
+// --survey answers "how many COULD be eligible, and how big is the review?"
+// without freezing anything and without inferring a single relationship. It
+// reports the UPPER BOUND (in-boundary rows) and the review workload. The
+// bound is a ceiling, never a forecast: the review can only ever remove from it.
+const SURVEY = process.argv.includes('--survey');
 const VERSION = arg('version', 'vP1');
 const RELATIONS_PATH = arg('relations');
 
@@ -113,6 +118,14 @@ const GENERAL_NS = new Set([
 ]);
 const EXTERNAL_EVIDENCE = new Set(['external-established', 'external-empirical']);
 const ELIGIBLE_RELATIONS = new Set(['independent', 'domain-adjacent']);
+// `domain-adjacent` is the permissive one, so it carries a burden `independent`
+// does not: an explicit reviewer reason. Without it the label becomes a
+// convenient home for uncertain material, which is the failure mode the narrow
+// definition exists to prevent (ruling 7, 2026-07-28):
+//   "Relevant to the experimental domain and predating task construction, but
+//    not derived from the target system, task set, expected answers or
+//    observed outcomes."
+const REQUIRES_INCLUSION_REASON = new Set(['domain-adjacent']);
 const RELATION_REASON = {
   'target-derived': 'derived from the system under evaluation — circular',
   'task-derived': 'derived from the task set or expected answers',
@@ -195,18 +208,34 @@ async function main() {
   for (const r of rows) {
     const ns = String(r.namespace);
     const evidence = readEvidenceProvenance(r.provenance);
-    const relation = relations[r.id] ?? relations[r.seed_id] ?? 'unknown';
+    // A relations entry is either a bare relation string or a full review
+    // record. The record form is what a real independence review produces and
+    // is what gets hashed alongside the crystal.
+    const entry = relations[r.id] ?? relations[r.seed_id] ?? null;
+    const review = typeof entry === 'string' ? { relationship: entry } : (entry ?? {});
+    const relation = review.relationship ?? 'unknown';
+    const reviewReason = review.reason ?? null;
+    const reviewer = review.reviewer ?? null;
+    const reviewedAt = review.reviewedAt ?? null;
+    const sourceRefs = review.sourceRefs ?? null;
+    // A domain-adjacent inclusion with no stated reason is not an inclusion.
+    const missingReason = REQUIRES_INCLUSION_REASON.has(relation) && !reviewReason;
     const inDomain = EXP_P1_NAMESPACES.has(ns);
     const stratum = stratumOf(relation, evidence, ns);
-    const eligible = inDomain && ELIGIBLE_RELATIONS.has(relation);
+    const eligible = inDomain && ELIGIBLE_RELATIONS.has(relation) && !missingReason;
     const reason = !inDomain
       ? `namespace '${ns}' is outside the declared ${VERSION} domain boundary`
-      : (RELATION_REASON[relation] ?? null);
+      : missingReason
+        ? "'domain-adjacent' requires an explicit reviewer inclusion reason"
+        : (RELATION_REASON[relation] ?? null);
 
     decisions.push({
       invariant_id: r.id, seed_id: r.seed_id ?? null, namespace: ns,
       status: r.status, eligible, relation, stratum,
-      evidence_provenance: evidence, reason: eligible ? null : reason,
+      evidence_provenance: evidence,
+      inclusion_reason: eligible ? reviewReason : null,
+      reason: eligible ? null : reason,
+      reviewer, reviewed_at: reviewedAt, source_refs: sourceRefs,
     });
     // Status, times_validated and standing are copied AS OBSERVED. Nothing here
     // may repair or promote them.
@@ -245,14 +274,52 @@ async function main() {
   console.log(`  zero-standing included: ${manifest.zero_standing_included} (recorded, never repaired)`);
   console.log(`  sha256: ${snapshotHash}`);
 
+  if (SURVEY) {
+    const inBoundary = decisions.filter((d) => EXP_P1_NAMESPACES.has(d.namespace));
+    const reviewed = inBoundary.filter((d) => d.relation !== 'unknown');
+    const by = (arr, k) => arr.reduce((a, x) => { const v = String(x[k]); a[v] = (a[v] ?? 0) + 1; return a; }, {});
+    console.log('\n── SURVEY — no freeze, no inference ─────────────────────────');
+    console.log(`  Live Invariant Corpus            ${rows.length}`);
+    console.log(`  outside the vP1 domain boundary  ${rows.length - inBoundary.length}`);
+    console.log(`  IN boundary  (UPPER BOUND)       ${inBoundary.length}`);
+    console.log(`    already reviewed               ${reviewed.length}`);
+    console.log(`    awaiting independence review   ${inBoundary.length - reviewed.length}   <-- the work`);
+    console.log('\n  In-boundary by namespace:');
+    for (const [k, v] of Object.entries(by(inBoundary, 'namespace')).sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${k.padEnd(20)} ${String(v).padStart(4)}`);
+    }
+    console.log('\n  In-boundary by status:      ' + JSON.stringify(by(inBoundary, 'status')));
+    console.log('  In-boundary by evidence provenance:');
+    for (const [k, v] of Object.entries(by(inBoundary, 'evidence_provenance')).sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${(k === 'null' ? '(unclassified)' : k).padEnd(24)} ${String(v).padStart(4)}`);
+    }
+    console.log('\n  The eligible count is NOT derivable from this. Every in-boundary');
+    console.log('  row needs an invariant-level independence decision — namespace is a');
+    console.log('  boundary, never a verdict. Upper bound only falls as review proceeds.');
+    return;
+  }
+
   if (DRY_RUN) { console.log('\nDry run — nothing written.'); return; }
 
   mkdirSync(OUT_DIR, { recursive: true });
   const base = join(OUT_DIR, `crystal-${VERSION}`);
+  // The exclusions artifact is not a convenience. It is the evidence that
+  // omitted invariants were REVIEWED rather than silently dropped — without it
+  // an exclusion and an oversight are the same observation.
+  const exclusions = decisions.filter((d) => !d.eligible);
+  const relationsFrozen = { crystal_version: VERSION, relations };
+  const relationsHash = sha256(canonicalJson(relationsFrozen));
+  manifest.relations_sha256 = relationsHash;
+  manifest.relations_reviewed_count = Object.keys(relations).length;
+
   writeFileSync(`${base}.json`, `${JSON.stringify(crystal, null, 2)}\n`);
   writeFileSync(`${base}.manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
-  writeFileSync(`${base}.sha256`, `${snapshotHash}  crystal-${VERSION}.json\n`);
-  console.log(`\nWrote ${base}.{json,manifest.json,sha256}`);
+  writeFileSync(`${base}.relations.json`, `${JSON.stringify(relationsFrozen, null, 2)}\n`);
+  writeFileSync(`${base}.exclusions.json`, `${JSON.stringify({ crystal_version: VERSION, exclusions }, null, 2)}\n`);
+  writeFileSync(`${base}.sha256`, `${snapshotHash}  crystal-${VERSION}.json\n${relationsHash}  crystal-${VERSION}.relations.json\n`);
+  console.log(`\nWrote ${base}.{json,manifest.json,relations.json,exclusions.json,sha256}`);
+  console.log(`  crystal   sha256 ${snapshotHash}`);
+  console.log(`  relations sha256 ${relationsHash}`);
   console.log('Commit these before constructing the Fixed Slice. Task construction follows the slice, never precedes it.');
 }
 
