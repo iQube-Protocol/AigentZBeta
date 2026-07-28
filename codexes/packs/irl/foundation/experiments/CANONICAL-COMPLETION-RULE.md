@@ -67,29 +67,66 @@ broken deliberately, the failure observed, and the file restored.
 | 3 | Historically attested but uncanonized elements must be labelled as such | **ENFORCED** |
 | 4 | No experiment review cycle may be marked complete until its accepted artifact and disposition are registered | **ENFORCED** — registration means presence in the pack's `collections.json` |
 | 5 | A new experiment version may not rely normatively on a missing draft | **ENFORCED** |
-| 6 | Completing an experimental protocol must emit a canonical capability/research artifact carrying its protected invariants, decisions and provenance | **CONDITIONALLY ENFORCED** — see §5 |
+| 6 | Completing an experimental protocol must emit a canonical capability/research artifact carrying its protected invariants, decisions and provenance | **ENFORCED** — artifact form ruled 2026-07-28: `capabilityCompletionArtifact`. See §5 |
 
-## 5. Canary 6 — what is enforced, and what needs an operator decision
+## 5. Canary 6 — the artifact form, ruled 2026-07-28
 
-Canary 6 governs an event that **has not happened**: no EXP-P2 protocol is complete, and v0.5's own
-disposition states that preregistration is not yet authorized. A canary asserting "on completion,
-emit an artifact" with no completion to observe would be inert — a mechanism that exists and can
-never fire, which is the CB-1 defect class (`CFS-053_constitutional-binding.md`).
+Canary 6 governs an event that has not happened yet: no EXP-P2 protocol is complete, and v0.5's
+disposition states that preregistration is not yet authorized. The canary is therefore
+**conditional in trigger** — it takes the not-complete branch today and fires the moment a
+disposition flips — but it is **no longer conditional in form.** The operator has ruled:
 
-**What is enforced instead is the conditional:** if any protocol draft in an experiment directory
-declares its review cycle complete — its disposition authorizing preregistration — then its accepted
-artifact and disposition must be registered in the pack `collections.json`. Today every draft takes
-the not-complete branch; the canary fires the moment one flips. That was verified by flipping a
-disposition in a scratch copy and observing the failure.
+> "Do not create another artefact kind unless there is a structurally different object. The
+> completion rule applies to developed capabilities, **including research instruments**. Therefore
+> IDE, IRE and IPE should each conclude with a `capabilityCompletionArtifact`, carrying
+> research-specific fields where needed.
+>
+> A `ResearchPublication` proves findings. **It does not prove that a capability is reproducible,
+> locatable and safely usable.** Those are different evidentiary functions."
 
-**What requires an operator decision, and is therefore NOT canaried:** the *form* of the emitted
-artifact. "A canonical capability/research artifact carrying its protected invariants, decisions and
-provenance" could mean a `capability completion artifact`
-(`services/constitutional/capabilityCompletionArtifact.ts`), a `ResearchPublication` in
-`types/research.ts`, or a new artifact kind. Those are different persistence paths with different
-registries and different receipt behaviour. **Choosing one is an operator act**, and writing a
-canary against a guessed choice would enforce a decision nobody made. Named here rather than
-invented.
+**The emitted artifact is a `capabilityCompletionArtifact`** (`types/capabilityCompletion.ts`,
+schema governed by CCR-001). A `ResearchPublication` is not an acceptable substitute, and the canary
+now rejects one offered in its place — the two prove different things, and accepting a publication
+as a completion record would leave a capability unreproducible while looking complete.
+
+The capability artifact **references** associated publications rather than becoming one:
+
+```yaml
+kind: capabilityCompletionArtifact
+capability: IRE
+emits:
+  - resolution-trace
+relatedEvidence:
+  - kind: ResearchPublication
+    id: EXP-P1-STAGE-0-...
+```
+
+### 5.1 `relatedEvidence` does not yet exist on the schema — reported, not invented
+
+The `relatedEvidence` field in the ruling's example **is not present** in
+`types/capabilityCompletion.ts` at schema version v2.0, and nothing on the platform carries it.
+Adding it is a real schema change, not a documentation edit: it requires a field on
+`CapabilityCompletionArtifact`, a section number in CCR-001 §7, a template section, a parser branch,
+and a version bump — because the parser pins the schema version exactly and rejects any other.
+
+Those files are owned by another agent mid-ratification at the time of writing, so the change is
+**reported rather than made**. The proposed shape, for whoever holds the file:
+
+```ts
+/** §7.x — evidence this capability REFERENCES rather than becomes. A
+ *  ResearchPublication proves findings; this artifact proves reproducibility.
+ *  Composition over merger: the id is a `ResearchPublication['id']`. */
+export interface RelatedEvidenceRef {
+  kind: 'ResearchPublication';
+  id: string;
+}
+```
+
+Until it lands, a completion artifact can only reference publications through the untyped
+`commons.evidenceRefs: string[]`, which carries no `kind` and so cannot distinguish a publication
+from any other reference. **Canary 6 does not assert `relatedEvidence`**, because asserting a field
+that cannot exist yet would be a canary that can never pass — the mirror of the inert-mechanism
+defect, and just as useless.
 
 ## 6. Relationship to existing discipline
 
@@ -104,14 +141,24 @@ unratified thing acquiring the authority of a ratified one by being repeated con
 
 ## 7. What ratification would require
 
-Nothing in this document is self-executing. To make the rule canonical the operator would need to:
+Nothing in this document is self-executing. Status of each item as of 2026-07-28:
 
-1. ratify the rule text in §1 (the rule and its corollary);
-2. rule on canary 6's artifact form (§5);
-3. decide the disposition of the two lineage gaps this rule surfaces in EXP-P2 — the absent **v0.3**
-   and **v0.4** drafts — as either recoverable or permanently attested-only;
-4. decide whether the recovered v0.2 §38 is bound to v0.5's stopping rule or superseded by a newly
-   authored one (`03_operational-amendment-v0.5.md` §A6.1 — still open).
+1. **Ratify the rule text in §1** (the rule and its corollary). **OPEN.**
+2. ~~Rule on canary 6's artifact form.~~ **RULED 2026-07-28** — `capabilityCompletionArtifact`;
+   a `ResearchPublication` is referenced, never substituted (§5).
+3. **Decide the disposition of the two lineage gaps this rule surfaces in EXP-P2** — the absent
+   **v0.3** and **v0.4** drafts — as either recoverable or permanently attested-only. **OPEN.**
+4. ~~Decide whether the recovered v0.2 §38 is bound to v0.5 or superseded.~~ **RULED 2026-07-28** —
+   neither: §38 is treated as a historical design constraint and a v0.5-native successor derived.
+   The derivation is at
+   `exp-p2-consequential-performance/06_stopping-rule-reconciliation.md` and is itself `proposed`,
+   so **item 4 is discharged as a question and reopened as a ratification**: SR-0…SR-5 need the
+   operator's approval before Appendix C item 19 can be marked resolved.
+5. **Land `relatedEvidence` on the completion schema** (§5.1) — a real schema change requiring a
+   version bump, currently blocked on file ownership. **OPEN, reported.**
+6. **Rule on the untested stopping condition** — v0.2 §38's repeated-task/amortization condition has
+   no registered experiment anywhere in the programme
+   (`06_stopping-rule-reconciliation.md` §6.2). **OPEN.**
 
-Until then this file records a proposal, and the canaries enforce its mechanics without asserting
-its standing.
+Until items 1, 3, 5 and 6 are settled this file records a proposal, and the canaries enforce its
+mechanics without asserting its standing.

@@ -127,6 +127,7 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { EXPERIMENT_REGISTRY, SERIES_REGISTRY } from '../types/research';
+import { CAPABILITY_COMPLETION_SCHEMA_VERSION } from '../types/capabilityCompletion';
 import { ASSIGNABLE_EXPERIMENTS } from '../services/passport/participationAccess';
 import { FINANCIAL_DOMAINS } from '../services/constitutional/financialIntelligenceExecutor';
 import { EXECUTION_DOMAINS, isExecutionDomain } from '../services/resolution/executionTaxonomy';
@@ -794,6 +795,7 @@ describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () =
   const PROTOCOL = `${P2_DIR}/02_protocol-v0.5.md`;
   const AMENDMENT = `${P2_DIR}/03_operational-amendment-v0.5.md`;
   const SAP = `${P2_DIR}/04_statistical-analysis-plan-skeleton.md`;
+  const RECONCILIATION = `${P2_DIR}/06_stopping-rule-reconciliation.md`;
   const RSS =
     'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/03_RSS-001_representation-science-standard.md';
 
@@ -846,7 +848,7 @@ describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () =
         .filter((l) => l.split(' ').length >= 9),
     );
     expect(protocolLines.size, 'the protocol did not parse into sentences').toBeGreaterThan(50);
-    for (const doc of [FAMILY_INDEX, FRAMEWORK, AMENDMENT, SAP]) {
+    for (const doc of [FAMILY_INDEX, FRAMEWORK, AMENDMENT, SAP, RECONCILIATION]) {
       for (const raw of readSource(doc).split('\n')) {
         if (raw.trimStart().startsWith('>')) continue; // attributed quotation
         const norm = raw.replace(/[*`>|#_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -1296,12 +1298,29 @@ describe('Canonical Completion Rule (proposed 2026-07-28)', () => {
     const dir = path().join(process.cwd(), P2_DIR);
     const files = fs().readdirSync(dir).filter((f) => f.endsWith('.md'));
     expect(files.length, 'no EXP-P2 documents found').toBeGreaterThan(3);
+    // The rule conditions REGISTRATION ON NORMATIVE RELIANCE, not on existence:
+    // nothing "shall be treated as an inherited normative authority unless it
+    // has been persisted and registered". So a document that declares itself
+    // `proposed` — relied upon by nothing yet — is not yet required to be
+    // registered; it becomes required the moment it is ratified. Everything
+    // that does NOT disclaim normative standing must be registered now.
+    let required = 0;
     for (const f of files) {
+      const src = readSource(`${P2_DIR}/${f}`);
+      const disclaimsStanding = /Status: `proposed`|NON-NORMATIVE|RECOVERED HISTORICAL DRAFT/.test(src);
+      if (disclaimsStanding) continue;
+      required += 1;
       expect(
         registered.has(`foundation/experiments/exp-p2-consequential-performance/${f}`),
-        `${f} exists but is not registered in the IRL pack — it is not canonized on-platform`,
+        `${f} is relied on normatively but is not registered in the IRL pack — it is not canonized on-platform`,
       ).toBe(true);
     }
+    expect(required, 'every EXP-P2 document disclaimed standing — the check was vacuous').toBeGreaterThan(2);
+    // The authoritative protocol is never exempt, whatever it says about itself.
+    expect(
+      registered.has('foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md'),
+      'the authoritative v0.5 protocol is not registered on-platform',
+    ).toBe(true);
     // The rule document itself must be registered too.
     expect(
       registered.has('foundation/experiments/CANONICAL-COMPLETION-RULE.md'),
@@ -1359,19 +1378,144 @@ describe('Canonical Completion Rule (proposed 2026-07-28)', () => {
         registered.has(`foundation/experiments/exp-p2-consequential-performance/${draft}`),
         `${draft} declares its review cycle complete but is not registered on-platform`,
       ).toBe(true);
+      // RULED 2026-07-28: the emitted artifact is a capabilityCompletionArtifact.
+      // A ResearchPublication proves findings; it does not prove a capability is
+      // reproducible, locatable and safely usable. Different evidentiary
+      // functions, so a publication offered INSTEAD is refused.
       expect(
-        /completion artifact|ResearchPublication|canonical research artifact/i.test(src),
-        `${draft} declares its review cycle complete but names no emitted canonical artifact`,
+        /capabilityCompletionArtifact/i.test(src),
+        `${draft} declares its review cycle complete but names no capabilityCompletionArtifact`,
       ).toBe(true);
     }
     expect(inspected, 'no disposition was inspected').toBeGreaterThan(0);
 
-    // The rule document must be honest that canary 6's ARTIFACT FORM is an open
-    // operator decision rather than pretending it is enforced.
+    // RULED 2026-07-28: the form is decided. The rule document must name it,
+    // and must not have drifted back to describing it as an open question.
     const rule = readSource(RULE);
-    expect(rule).toMatch(/CONDITIONALLY ENFORCED/);
-    expect(rule, 'the rule hides that the artifact form is undecided').toMatch(
-      /Choosing one is an operator act/i,
+    expect(rule, 'the rule doc no longer names the ruled artifact form').toMatch(
+      /capabilityCompletionArtifact/,
     );
+    expect(rule, 'the artifact form has drifted back to undecided').not.toMatch(
+      /CONDITIONALLY ENFORCED/,
+    );
+  });
+});
+
+/**
+ * Operator rulings of 2026-07-28 on the two questions left open by the
+ * Canonical Completion Rule work.
+ *
+ * RULING 6 — the completion artifact form is `capabilityCompletionArtifact`,
+ * not `ResearchPublication`: "A ResearchPublication proves findings. It does
+ * not prove that a capability is reproducible, locatable and safely usable."
+ * The capability artifact REFERENCES publications rather than becoming one.
+ *
+ * RULING 7 — v0.2 §38 is NOT bound into v0.5. It is treated as a historical
+ * design constraint and a v0.5-native successor derived, expressed
+ * independently of arm names and substrate count, with an explicit statement of
+ * what no longer maps. A reconciliation in which everything maps cleanly is
+ * concealing a mismatch, so the non-mapping section is the load-bearing half
+ * and is canaried as such.
+ */
+describe('operator rulings 2026-07-28 — completion artifact form + §38 successor', () => {
+  const EXP_DIR = 'codexes/packs/irl/foundation/experiments';
+  const P2_DIR = `${EXP_DIR}/exp-p2-consequential-performance`;
+  const RULE = `${EXP_DIR}/CANONICAL-COMPLETION-RULE.md`;
+  const RECONCILIATION = `${P2_DIR}/06_stopping-rule-reconciliation.md`;
+  const AMENDMENT = `${P2_DIR}/03_operational-amendment-v0.5.md`;
+
+  it('Ruling 6 — the completion artifact form is decided, and a publication cannot substitute', () => {
+    const rule = readSource(RULE);
+    expect(rule).toMatch(/capabilityCompletionArtifact/);
+    // The distinction the ruling turns on must survive in the document, not
+    // just the conclusion — otherwise a later reader re-litigates it.
+    expect(rule, 'the evidentiary distinction is not recorded').toMatch(
+      /proves findings.*does not prove that a capability is reproducible/s,
+    );
+    expect(rule, 'canary 6 is still described as form-undecided').not.toMatch(
+      /CONDITIONALLY ENFORCED/,
+    );
+    expect(rule, 'the artifact-form question is still listed as open').not.toMatch(
+      /Choosing one is an operator act/,
+    );
+  });
+
+  it('Ruling 6 — the schema version is derived from the type, never hardcoded stale', () => {
+    // The operator called out duplicate-source-of-truth defects separately today.
+    // The rule doc names a schema version; it must be THE version, so a bump
+    // fails the build here rather than leaving a stale claim in the prose.
+    const version = CAPABILITY_COMPLETION_SCHEMA_VERSION.split('/')[1];
+    expect(version, 'the schema version constant did not parse').toMatch(/^v\d+\.\d+$/);
+    const rule = readSource(RULE);
+    expect(
+      rule.includes(`schema version ${version}`),
+      `the rule doc names a schema version other than the current ${version}`,
+    ).toBe(true);
+    // And it must not assert a field the schema does not carry.
+    const type = readSource('types/capabilityCompletion.ts');
+    if (!type.includes('relatedEvidence')) {
+      expect(
+        rule,
+        'the rule claims relatedEvidence exists when the schema does not carry it',
+      ).toMatch(/relatedEvidence.*(does not yet exist|is not present)/s);
+    }
+  });
+
+  it('Ruling 7 — the §38 successor is derived, arm-free, and filed as proposed', () => {
+    const rec = readSource(RECONCILIATION);
+    expect(rec).toMatch(/Status: `proposed`/);
+    expect(rec, 'the reconciliation claims governing standing').not.toMatch(/Status: `canonical`/);
+    // SR-0..SR-5 present.
+    for (const sr of ['SR-0', 'SR-1', 'SR-2', 'SR-3', 'SR-4', 'SR-5']) {
+      expect(rec, `${sr} is missing from the successor`).toContain(sr);
+    }
+    // Arm-name-free and substrate-count-free is the ruling's requirement. The
+    // successor clauses themselves must not name v0.2 or v0.5 arms.
+    const successor = rec.slice(rec.indexOf('## 3. The derived successor'), rec.indexOf('## 4.'));
+    expect(successor.length).toBeGreaterThan(400);
+    for (const armName of ['W0', 'W1', 'W2', 'W3', 'B+R', 'Arm A', 'Arm C', 'Arm D']) {
+      expect(
+        successor.includes(armName),
+        `the successor clause set names the arm '${armName}' — it must be arm-independent`,
+      ).toBe(false);
+    }
+    // Operator wording adopted must be DECLARED as adopted, not passed off as derived.
+    expect(rec, 'adopted operator wording is not declared as such').toMatch(
+      /adoption of operator wording rather than[\s\n]+independent derivation/,
+    );
+  });
+
+  it('Ruling 7 — the non-mapping half is present and names the real gaps', () => {
+    // "identify anything that no longer maps" is load-bearing: a reconciliation
+    // that maps everything is hiding a mismatch. These three gaps are real and
+    // must survive any later tidying of the document.
+    const rec = readSource(RECONCILIATION);
+    const gaps = rec.slice(rec.indexOf('## 6. What no longer maps'), rec.indexOf('## 7.'));
+    expect(gaps.length, 'the non-mapping section is missing or empty').toBeGreaterThan(800);
+    // (a) the construct under test changed
+    expect(gaps, 'the construct-scope gap is not recorded').toMatch(
+      /construct under test is not the same construct/i,
+    );
+    // (b) the repeated-task condition has no experiment anywhere
+    expect(gaps, 'the untested repeated-task condition is not recorded').toMatch(
+      /repeated-task|amortization/i,
+    );
+    expect(gaps).toMatch(/no experiment/i);
+    // (c) v0.2's representation contrast is forbidden in v0.5 by construction
+    expect(gaps, 'the representation-contrast gap is not recorded').toMatch(
+      /representation contrast has no v0\.5 counterpart|Principle I/,
+    );
+    // And the absent v0.3 binding must still not be claimed as recovered.
+    expect(gaps).toMatch(/not reconstructed, inferred, or worked around/);
+  });
+
+  it('Ruling 7 — the reconciliation does not resolve Appendix C item 19 by itself', () => {
+    // Deriving a successor is not ratifying one. Until the operator approves,
+    // v0.5 still has no frozen programme decision point — and the amendment
+    // must not have been quietly flipped to resolved.
+    const rec = readSource(RECONCILIATION);
+    expect(rec).toMatch(/Appendix C item 19 is still open/);
+    expect(rec, 'the reconciliation claims to bind §38').not.toMatch(/§38 is bound to v0\.5/);
+    expect(readSource(AMENDMENT)).toMatch(/UNRESOLVED — Appendix C item 19/);
   });
 });
