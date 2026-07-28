@@ -37,7 +37,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Users, Sparkles, Compass } from 'lucide-react';
+import { Sparkles, Compass } from 'lucide-react';
 import { CommunityConciergeLayer } from '@/components/foundersClub/CommunityConciergeLayer';
 import { FOUNDERS_CLUB_AGENT_ROSTER, foundersClubSpecialists } from '@/services/founders-club/agentRoster';
 import { personaFetch } from '@/utils/personaSpine';
@@ -90,17 +90,18 @@ export function FoundersClubTab({ personaId }: Props) {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/40 flex-shrink-0 space-y-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-violet-300" />
-            <h2 className="text-sm font-semibold text-white">Founders Club</h2>
-          </div>
-          <p className="text-xs text-white/60 mt-1">
-            The Human Domain of the Founder Office — connection, collaboration, opportunity,
-            wellbeing, recognition, community, and mentoring. Membership derives from your
-            Founder Office participation; there is nothing separate to join.
-          </p>
-        </div>
+        {/* THIRD SUB-HEADER REMOVED (operator, 2026-07-28: "Don't need three
+            sub headers. Can remove the third one in the page body and just
+            leave the copy"). The cartridge menu already names this surface
+            twice — the group chip and the tab chip — so an in-body <h2>
+            repeating "Founders Club" was a third statement of the same fact.
+            The copy beneath it is the part that carried information, so it
+            stays. (MS-1, one navigation, applied to titling.) */}
+        <p className="text-xs text-white/60">
+          The Human Domain of the Founder Office — connection, collaboration, opportunity,
+          wellbeing, recognition, community, and mentoring. Membership derives from your
+          Founder Office participation; there is nothing separate to join.
+        </p>
 
         {/* Roster + Standing summary tiles */}
         <div className="grid grid-cols-3 gap-2">

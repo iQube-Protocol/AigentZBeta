@@ -2544,7 +2544,10 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   tabGroups: [
     { id: 'operate',    label: 'Operate',    icon: 'Rocket',    order: 0 },
     { id: 'connect',    label: 'Connect',    icon: 'Users',     order: 1 },
-    { id: 'service',    label: 'Service',    icon: 'Landmark',  order: 2 },
+    // "Services" (plural) — the domain holds a family of capability suites, of
+    // which Financial is the first (operator, 2026-07-28: "VL Services should
+    // have a sub menu with Financial").
+    { id: 'service',    label: 'Services',   icon: 'Landmark',  order: 2 },
     { id: 'grow',       label: 'Grow',       icon: 'TrendingUp', order: 3 },
     // FIRST-CLASS PARTNER DOMAIN (operator, 2026-07-27, seeing it in situ):
     // "Partner should be a first class menu item between grow and administer,
@@ -2659,7 +2662,31 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'Landmark',
         description: 'Constitutional Financial Services Programme (CRP-003a) — Pilot Series 001 with Horizen. Domain 3 Financial Intelligence, constitutional service loop.',
         color: 'emerald'
-      }
+      },
+      // THE SERVICES SUB MENU (operator, 2026-07-28: "VL Services should have a
+      // sub menu with Financial"). A single-tab group renders no sub-header row
+      // at all — deliberately, so a lone tab does not cost a row of chrome — so
+      // Services appeared without the sub menu every sibling group has. Declaring
+      // the domain's capability suites as `subTabs` uses the SAME third-tier
+      // mechanism the Passport Steward group and metaMe's Order of Metayé
+      // already use (no new nav concept, MS-1), and gives the next suite a home
+      // to be added beside Financial rather than a second navigation.
+      subTabs: [
+        {
+          id: 'vl-services-financial',
+          label: 'Financial',
+          slug: 'vl-services-financial',
+          enabled: true,
+          order: 0,
+          type: 'static',
+          config: { component: 'FinancialServicesTab', props: {} },
+          metadata: {
+            icon: 'Landmark',
+            description: 'Constitutional Financial Services Programme (CRP-003a) — Intelligence, Investment and Market domains under the 12-step constitutional service pattern',
+            color: 'emerald',
+          },
+        },
+      ],
     },
     {
       id: 'commercial-funnel',
@@ -2753,6 +2780,28 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       label: 'Steward',
       slug: 'venture-participate-steward',
       enabled: true,
+      // TIER 0 — THE PLATFORM STEWARD SURFACE. Stays admin-gated (operator,
+      // 2026-07-28: "VL — Steward should be admin gated"), and two ratified
+      // canaries hold it there: `tests/tier-surface-map.test.ts` ("every
+      // entrance keeps a steward, and it stays admin-gated") and
+      // `tests/partner-workspace.test.ts` ("the steward surface is the only
+      // adminOnly one" in the Participate group).
+      //
+      // TWO-TIER AUTHORITY LIVES ACROSS TWO SURFACES, NOT ON THIS ONE. The
+      // operator's follow-on requirement — a partner administrator invites into
+      // their own pilot "so that we don't become the gate for that" — is served
+      // by the Partner group's Tier 2 `partner-collaborate` tab (ratified
+      // 2026-07-27, `participationDomain: 'venture-lab'`), whose Invitations
+      // view mounts this SAME StewardParticipationTab on the venture domain.
+      // Widening this tab instead would have collapsed the two tiers back onto
+      // one surface and removed the platform gate the operator asked to keep.
+      //
+      // What changed on 2026-07-28 is the SERVER, not this gate:
+      // /api/steward/participation[/invitations] now derives a delegated tier
+      // from the caller's own grants, so a venture-lab steward can issue from
+      // the Tier 2 surface — bounded to the domains and pilots their grant
+      // covers, and never able to confer a steward role (no grant-upward).
+      // See services/passport/participationAccess.ts.
       adminOnly: true,
       group: 'participate',
       order: 5,

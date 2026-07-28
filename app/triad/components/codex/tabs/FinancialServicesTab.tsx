@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface StepTrace {
@@ -159,6 +160,33 @@ export function FinancialServicesTab() {
 
   const agreementId = `agr-${capabilityRef}-${agentRef}`;
 
+  // ── The agreement's REAL state (operator, 2026-07-28) ──────────────────────
+  // "Constitutional agreement should flip to Authorized once authorised."
+  //
+  // Derived from the agreements GET, not from whether the operator just clicked
+  // Authorize. A badge that flips on click but not on reload is worse than no
+  // badge — it asserts a constitutional fact the server has not recorded. This
+  // one survives a refresh because it IS the server's answer.
+  const currentAgreement = agreements.find((a) => a.agreementId === agreementId) ?? null;
+  const isAuthorized = currentAgreement?.status === "authorized";
+
+  // Collapse is a display PREFERENCE layered over that state: `null` means "no
+  // preference yet", so an authorized agreement arrives collapsed and an
+  // unexecuted one arrives expanded, exactly as asked — without freezing the
+  // operator out of opening or closing it themselves.
+  const [agreementCollapsePref, setAgreementCollapsePref] = useState<boolean | null>(null);
+  useEffect(() => {
+    // A different capability/agent is a different agreement — the preference
+    // was about the previous one.
+    setAgreementCollapsePref(null);
+  }, [agreementId]);
+
+  // WORK IN FLIGHT IS NOT A DISPLAY PREFERENCE (the LockerTab pattern, b4d9dbbdb).
+  // A panel whose action is running stays open regardless, so collapsing
+  // mid-authorize cannot hide the outcome and leave the operator unable to tell
+  // whether anything happened.
+  const agreementCollapsed = (agreementCollapsePref ?? isAuthorized) && !agrBusy;
+
   const doAgreement = useCallback(
     async (action: "form" | "accept" | "authorize") => {
       setAgrBusy(true);
@@ -218,6 +246,29 @@ export function FinancialServicesTab() {
         </p>
       </header>
 
+      {/* THE ACTIVE PART OF THE PAGE, AT THE TOP (operator, 2026-07-28:
+          "Active part of page: Intelligence, Investment, Market at the top").
+          The domain choice governs everything below it — the invariants
+          verified, whether a spend ceiling is required, which agreement is
+          formed — so it was wrong for it to sit buried in the corner of the
+          Inputs panel's header. One control, moved; not a second copy. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {(["intelligence", "investment", "market"] as Domain[]).map((d) => (
+          <button
+            key={d}
+            onClick={() => setDomain(d)}
+            title={DOMAIN_INVARIANTS[d].join(" · ")}
+            className={`rounded-lg border px-3 py-1.5 text-sm transition ${
+              domain === d
+                ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
+                : "border-slate-800 bg-slate-900/40 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {d === "intelligence" ? "Intelligence" : d === "investment" ? "Investment" : "Market"}
+          </button>
+        ))}
+      </div>
+
       {/* Three-experience framing */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
@@ -239,20 +290,7 @@ export function FinancialServicesTab() {
 
       {/* Inputs */}
       <div className={`${PANEL} space-y-3 p-4`}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-sm font-medium text-slate-100">{DOMAIN_LABEL[domain]} — request</div>
-          <div className="flex gap-1">
-            {(["intelligence", "investment", "market"] as Domain[]).map((d) => (
-              <button
-                key={d}
-                onClick={() => setDomain(d)}
-                className={`rounded border px-2 py-0.5 text-[11px] ${domain === d ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200" : "border-slate-700 bg-slate-800/50 text-slate-400 hover:text-slate-200"}`}
-              >
-                {d === "intelligence" ? "Intelligence" : d === "investment" ? "Investment" : "Market"}
-              </button>
-            ))}
-          </div>
-        </div>
+        <div className="text-sm font-medium text-slate-100">{DOMAIN_LABEL[domain]} — request</div>
         {moneyMoving && (
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
             Money-moving domain — the agreement must declare an enforced spend ceiling (P3), and settlement terms
@@ -348,35 +386,86 @@ export function FinancialServicesTab() {
         </div>
       )}
 
-      {/* Agreement lifecycle (Founder Office experience) */}
-      <div className={`${PANEL} space-y-3 p-4`}>
-        <div className="text-sm font-medium text-slate-100">Constitutional Agreement (Founder Office)</div>
-        <p className="text-xs text-slate-400">
-          Delegated execution refuses (409) without an authorized agreement. Form → accept → authorize for the
-          capability + agent above, then run authoritative.
-        </p>
-        {!foEntitled && (
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            The Founder Office experience requires a Founder Office subscription. The Constitutional Preview (Run
-            shadow) above is open to everyone.
+      {/* ── Agreement lifecycle (Founder Office experience) ────────────────────
+          Operator, 2026-07-28 — items 4 + 5:
+            "Constitutional agreement should flip to Authorized once authorised
+             and modal should be collapsible and collapsed with Authorized badge
+             only visible."
+            "Buttons should be at bottom not top, collapsed agreement above them
+             (expanded when not executed collapsed when authorised)."
+
+          So: the panel is a state machine made visible. The header carries the
+          agreement's REAL persisted status; an authorized agreement collapses to
+          nothing but that badge; an unexecuted one stays expanded because it is
+          still asking for something. The act buttons sit at the BOTTOM, beneath
+          the agreement (collapsed or expanded), so the reading order matches the
+          doing order. */}
+      <div className={`${PANEL} p-4`}>
+        <button
+          type="button"
+          onClick={() => setAgreementCollapsePref((p) => !(p ?? isAuthorized))}
+          className="flex w-full items-center justify-between gap-2 text-left"
+          aria-expanded={!agreementCollapsed}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-sm font-medium text-slate-100">Constitutional Agreement (Founder Office)</span>
+            {isAuthorized ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                <CheckCircle2 className="h-3 w-3" /> Authorized
+              </span>
+            ) : currentAgreement ? (
+              <span className="shrink-0 rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300">
+                {currentAgreement.status}
+              </span>
+            ) : (
+              <span className="shrink-0 rounded border border-slate-700 bg-slate-800/50 px-1.5 py-0.5 text-[10px] text-slate-400">
+                not formed
+              </span>
+            )}
+          </div>
+          {agreementCollapsed ? (
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" />
+          )}
+        </button>
+
+        {!agreementCollapsed && (
+          <div className="mt-3 space-y-3">
+            <p className="text-xs text-slate-400">
+              Delegated execution refuses (409) without an authorized agreement. Form → accept → authorize for the
+              capability + agent above, then run authoritative.
+            </p>
+            {!foEntitled && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                The Founder Office experience requires a Founder Office subscription. The Constitutional Preview (Run
+                shadow) above is open to everyone.
+              </div>
+            )}
+            {agreements.length > 0 && (
+              <ul className="space-y-1 border-t border-slate-800 pt-2">
+                {agreements.map((a) => (
+                  <li key={a.agreementId} className="flex items-center justify-between text-xs">
+                    <span className="text-slate-300">{a.displayLabel}</span>
+                    <span className={a.status === "authorized" ? "text-emerald-300" : "text-slate-500"}>
+                      {a.capabilityRef} · {a.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
-        <div className="flex flex-wrap gap-2">
+
+        {/* Buttons at the BOTTOM — beneath the agreement in both states. */}
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
           <button onClick={() => void doAgreement("form")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Form</button>
           <button onClick={() => void doAgreement("accept")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Accept</button>
-          <button onClick={() => void doAgreement("authorize")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50">Authorize</button>
+          <button onClick={() => void doAgreement("authorize")} disabled={agrBusy || !foEntitled || isAuthorized} className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50">
+            {isAuthorized ? "Authorized" : "Authorize"}
+          </button>
         </div>
-        {agrNote && <div className="text-xs text-slate-300">{agrNote}</div>}
-        {agreements.length > 0 && (
-          <ul className="mt-2 space-y-1 border-t border-slate-800 pt-2">
-            {agreements.map((a) => (
-              <li key={a.agreementId} className="flex items-center justify-between text-xs">
-                <span className="text-slate-300">{a.displayLabel}</span>
-                <span className="text-slate-500">{a.capabilityRef} · {a.status}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        {agrNote && <div className="mt-2 text-xs text-slate-300">{agrNote}</div>}
       </div>
     </div>
   );

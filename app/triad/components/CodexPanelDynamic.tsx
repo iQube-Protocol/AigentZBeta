@@ -945,6 +945,14 @@ export default function CodexPanelDynamic({
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                           }`}
+                          /* The tab's own description as a tooltip — the SAME
+                             convention the tier-3 and tier-4 rows below already
+                             follow (operator, 2026-07-28: "sub menu info as
+                             tool tip … per other cartridge protocol"). The
+                             tier-2 row was the one row that dropped it, so the
+                             cartridge-menu tooltip appeared to work everywhere
+                             except the sub menu operators actually use most. */
+                          title={tab.metadata?.description}
                         >
                           <Icon className="w-3 h-3 flex-shrink-0" />
                           {tab.label}
