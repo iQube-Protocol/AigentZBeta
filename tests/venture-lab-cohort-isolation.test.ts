@@ -416,10 +416,24 @@ describe('canary 9 — a workspace in the model has a door in a cartridge', () =
     }
   });
 
-  it('the spine still records that research variants are a later phase, so the gap above stays a KNOWN gap', () => {
-    // If this line is edited away, the "no research workspace yet" reading of
-    // the canary above silently becomes "research workspaces are complete".
-    const src = readSource('services/experiments/experimentWorkspace.ts');
-    expect(src).toMatch(/Research variants join in Phase 4/);
+  it('the research half of the spine is populated, and its door is in the IRL cartridge', async () => {
+    // SUPERSEDES the "Research variants join in Phase 4" pin this canary
+    // carried until 2026-07-28. That pin kept the gap KNOWN while it was a
+    // gap; keeping it after the gap closed would have asserted the opposite of
+    // the truth. What replaces it is the stronger claim: research workspaces
+    // now exist AND every one of them resolves to a real, enabled,
+    // research-lab-gated entrance in the IRL cartridge — which is exactly what
+    // the first assertion of this canary was written to fail on.
+    const { listExperimentWorkspaces } = await import('../services/experiments/experimentWorkspace');
+    const { IRL_CARTRIDGE } = await import('../data/codex-configs');
+    const research = listExperimentWorkspaces().filter((w) => w.domain === 'research');
+    expect(research.length, 'the research half of the spine is empty again').toBeGreaterThan(0);
+    for (const ws of research) {
+      expect(
+        ws.evidence.cartridge,
+        `${ws.id} points its evidence at a cartridge other than the IRL one`,
+      ).toBe(IRL_CARTRIDGE.slug);
+      expect(ws.participation.domain).toBe('research-lab');
+    }
   });
 });

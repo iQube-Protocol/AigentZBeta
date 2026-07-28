@@ -44,6 +44,7 @@ import {
   authorCommitment,
 } from '../services/experiments/workspaceTracking';
 import { PARTNER_WORKSPACES, PARTNER_WORKSPACE_LAYERS } from '../services/venture/partnerWorkspace';
+import { RESEARCH_WORKSPACES, RESEARCH_WORKSPACE_LAYERS } from '../services/research/researchWorkspace';
 import { DOMAIN_ROLES } from '../services/passport/participationAccess';
 
 const SPINE_PATH = 'services/experiments/experimentWorkspace.ts';
@@ -53,7 +54,15 @@ const MIGRATION_PATH = 'supabase/migrations/20260824000000_experiment_workspace_
 describe('the spine is a seam, not a second system', () => {
   it('derives the venture variant from the one authoritative partner list', () => {
     // If the spine ever grew its own workspace array, this count would drift.
-    expect(listExperimentWorkspaces()).toHaveLength(PARTNER_WORKSPACES.length);
+    // BOTH halves are counted (2026-07-28: research variants joined the spine) —
+    // an EXACT total, never `>= PARTNER_WORKSPACES.length`, because a loose
+    // assertion is exactly what would let a hand-written third list in.
+    expect(listExperimentWorkspaces()).toHaveLength(
+      PARTNER_WORKSPACES.length + RESEARCH_WORKSPACES.length,
+    );
+    expect(listExperimentWorkspaces().filter((w) => w.domain === 'venture')).toHaveLength(
+      PARTNER_WORKSPACES.length,
+    );
     for (const partner of PARTNER_WORKSPACES) {
       const ws = getExperimentWorkspace(partner.id);
       expect(ws, `${partner.id} is missing from the spine`).not.toBeNull();
@@ -68,9 +77,35 @@ describe('the spine is a seam, not a second system', () => {
     // A literal workspace registry in the spine is the duplication defect.
     expect(
       /export const [A-Z_]*WORKSPACES\s*[:=]/.test(src),
-      'the spine declares its own workspace array — derive from PARTNER_WORKSPACES instead',
+      'the spine declares its own workspace array — derive from the registries instead',
     ).toBe(false);
     expect(src).toMatch(/PARTNER_WORKSPACES\.map\(/);
+    expect(src).toMatch(/RESEARCH_WORKSPACES\.map\(/);
+  });
+
+  it('derives the research variant from the one authoritative research list', () => {
+    // The research half is the SAME discipline as the venture half above: one
+    // registry, one projection. It exists at all because a workspace model with
+    // no instance produced a Lab with no workspace door — the gap canary 9 in
+    // tests/venture-lab-cohort-isolation.test.ts is written to catch.
+    const research = listExperimentWorkspaces().filter((w) => w.domain === 'research');
+    expect(research).toHaveLength(RESEARCH_WORKSPACES.length);
+    expect(research.length, 'the research half of the spine is empty').toBeGreaterThan(0);
+    for (const entry of RESEARCH_WORKSPACES) {
+      const ws = getExperimentWorkspace(entry.id);
+      expect(ws, `${entry.id} is missing from the spine`).not.toBeNull();
+      expect(ws!.domain).toBe('research');
+      // Carried BY REFERENCE — the same object, never a reshaped copy.
+      expect(ws!.research).toBe(entry);
+      // Amendment B §B.6: the Research Lab produces structural and scientific
+      // proof. Claiming a commercial class here would misdescribe the Lab.
+      expect(ws!.experimentClass).toBe('scientific');
+      // The research layer vocabulary is a SUBSET of the ratified one, never a
+      // second vocabulary.
+      for (const layer of RESEARCH_WORKSPACE_LAYERS) {
+        expect(PARTNER_WORKSPACE_LAYERS).toContain(layer);
+      }
+    }
   });
 
   it('references the substrate rather than copying it', () => {
@@ -103,7 +138,19 @@ describe('the spine is a seam, not a second system', () => {
     expect(src).toMatch(/unresolved/);
   });
 
-  it('the venture variant declares only roles the participation substrate has', () => {
+  it('every variant declares only roles the participation substrate has', () => {
+    // Extended to BOTH Labs: a research workspace that declared an invented
+    // role would be a role minted at the wrong layer just as surely as a
+    // venture one. The operator's 2026-07-28 ruling was explicit — "Do not
+    // invent new names if equivalent roles already exist".
+    for (const ws of listExperimentWorkspaces()) {
+      const known = DOMAIN_ROLES[ws.participation.domain];
+      expect(known, `DOMAIN_ROLES has no ${ws.participation.domain}`).toBeDefined();
+      for (const role of ws.participation.roles) {
+        expect(known, `role "${role}" is declared on the workspace but absent from the substrate`).toContain(role);
+      }
+      expect(workspaceReferenceIssues(ws)).toEqual([]);
+    }
     for (const partner of PARTNER_WORKSPACES) {
       const ws = experimentWorkspaceFromPartner(partner);
       const known = DOMAIN_ROLES[ws.participation.domain];

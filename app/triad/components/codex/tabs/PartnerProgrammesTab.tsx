@@ -1,14 +1,35 @@
 "use client";
 
 /**
- * PartnerProgrammesTab — the Partner Workspace surface (Venture Lab).
+ * PartnerProgrammesTab — the Workspace surface, mounted by BOTH Labs.
  *
- * COMPOSITION, NOT APPLICATION: this tab orchestrates existing Venture Lab
- * capabilities around a partner pilot. Every partner fact renders from the
- * partnerWorkspace registry (services/venture/partnerWorkspace.ts — the single
- * authoritative list); every capability either MOUNTS an existing component
- * (Collaborate: invitations / peer exchange / locker) or DEEP-LINKS to the
- * capability's existing home via buildCodexUrl (never a bespoke URL).
+ * ONE IMPLEMENTATION, N ENTRANCES (inv.engineering.036). The Venture Lab's
+ * Partner group mounts it on the venture domain (Partner Workspace, Horizen
+ * Pilot Series 001); the IRL cartridge's Workspace group mounts the SAME
+ * component on the research domain (Research Workspace). A second component
+ * for the research half would be the parallel-implementation defect
+ * inv.engineering.037 names — the two Labs are "parallel experimental
+ * environments operating on a common constitutional and collaborative
+ * substrate" (Horizen audit Amendment B §B.6), and this surface is that
+ * substrate's UI.
+ *
+ * COMPOSITION, NOT APPLICATION: this tab orchestrates existing Lab
+ * capabilities around a workspace instance. Every workspace fact renders from
+ * its registry — `services/venture/partnerWorkspace.ts` (venture) or
+ * `services/research/researchWorkspace.ts` (research), the two single
+ * authoritative lists the `experimentWorkspace` spine projects from; every
+ * capability either MOUNTS an existing component (Collaborate: invitations /
+ * peer exchange / locker) or DEEP-LINKS to the capability's existing home via
+ * buildCodexUrl (never a bespoke URL).
+ *
+ * WHY THE REGISTRIES AND NOT THE SPINE. `services/experiments/
+ * experimentWorkspace.ts` is the canonical projection, but it reaches
+ * Supabase, the ontology resolver and the invariant store — server-only
+ * modules that cannot enter a client bundle. This component therefore reads
+ * the SAME authoritative registries the spine projects from, and pulls its
+ * label/objectives through the registry's own derivation helpers so the two
+ * projections cannot disagree. `tests/research-lab-workspace.test.ts` asserts
+ * that parity rather than trusting it.
  *
  * Command Center honesty rule: a metric renders a real derivation from an
  * existing API or an explicit "Not yet wired" state — never a fabricated
@@ -29,9 +50,18 @@ import {
   listPartnerWorkspaces,
   layerOwnerDisplayName,
   PARTNER_WORKSPACE_LAYERS,
+  type PartnerLayerOwnerId,
+  type PartnerWorkspaceLayer,
   type PartnerWorkspace,
   type PartnerWorkspaceLink,
 } from "@/services/venture/partnerWorkspace";
+import {
+  listResearchWorkspaces,
+  researchWorkspaceExperiments,
+  researchWorkspaceLabel,
+  researchWorkspaceObjectives,
+  RESEARCH_WORKSPACE_LAYERS,
+} from "@/services/research/researchWorkspace";
 import { StewardParticipationTab } from "./StewardParticipationTab";
 import dynamic from "next/dynamic";
 import { LockerTab } from "./LockerTab";
@@ -113,6 +143,126 @@ interface PartnerProgrammesTabProps {
    * in-component row, so the tab still works standalone.
    */
   initialSurface?: string;
+  /**
+   * WHICH LAB this entrance belongs to. Defaults to 'venture' so every existing
+   * Venture Lab mount is byte-identical in behaviour; the IRL cartridge passes
+   * 'research'. It selects the registry, the access domain, and the operator-
+   * facing language — it does NOT branch the surface, which is the point.
+   */
+  workspaceDomain?: string;
+}
+
+// ─── The two Labs, as configuration rather than branches ─────────────────────
+
+type WorkspaceKind = "venture" | "research";
+
+/** The participation access domain each Lab's workspaces are gated by. */
+const ACCESS_DOMAIN: Record<WorkspaceKind, string> = {
+  venture: "venture-lab",
+  research: "research-lab",
+};
+
+/** Operator-facing language per Lab. Labels only — no gate, no data. */
+const KIND_COPY: Record<WorkspaceKind, {
+  surfaceName: string;
+  selectorLabel: string;
+  commandCenter: string;
+  counterpartyLabel: string;
+  unscopedHint: string;
+  emptyRegistry: string;
+}> = {
+  venture: {
+    surfaceName: "Partner Workspace",
+    selectorLabel: "Partner",
+    commandCenter: "Pilot Command Center",
+    counterpartyLabel: "Partner",
+    unscopedHint:
+      "Your venture-lab access isn’t scoped to a pilot yet — ask your steward to scope your invitation to a specific pilot.",
+    emptyRegistry: "No partner workspaces registered.",
+  },
+  research: {
+    surfaceName: "Research Workspace",
+    selectorLabel: "Programme",
+    commandCenter: "Programme Command Center",
+    counterpartyLabel: "Series",
+    unscopedHint:
+      "Your research-lab access isn’t scoped to a programme yet — ask your steward to scope your invitation to a specific research workspace.",
+    emptyRegistry: "No research workspaces registered.",
+  },
+};
+
+function asWorkspaceKind(value: string | undefined): WorkspaceKind {
+  return value === "research" ? "research" : "venture";
+}
+
+/**
+ * The shape this surface renders. A PROJECTION of whichever registry the
+ * entrance selects — never a store, and never a place a fact is authored: every
+ * field below traces to the registry (or to the registry's own derivation
+ * helper), which is what keeps `tests/partner-workspace.test.ts`'s "the tab
+ * holds no hand-copied partner data" assertion true for both Labs.
+ */
+interface WorkspaceView {
+  id: string;
+  /** Selector chip text. */
+  chipLabel: string;
+  /** Caption beside the Command Center heading. */
+  contextLabel: string;
+  /** Rendered in the counterparty metric card; null → "Not yet wired". */
+  counterpartyValue: string | null;
+  /** Current phase; null → "Not yet wired" (research has no phase model yet). */
+  phaseLabel: string | null;
+  ownerAgentId: PartnerLayerOwnerId;
+  layers: PartnerWorkspaceLayer[];
+  layerOwners: Partial<Record<PartnerWorkspaceLayer, PartnerLayerOwnerId | null>>;
+  objectives: string[];
+  links: PartnerWorkspaceLink[];
+  /** Extra, honestly-derived metric cards for this Lab. */
+  extraMetrics: { label: string; value: string; detail?: string }[];
+}
+
+function ventureView(ws: PartnerWorkspace): WorkspaceView {
+  return {
+    id: ws.id,
+    chipLabel: `${ws.partnerName} · Series ${ws.series}`,
+    contextLabel: `${ws.partnerName} Pilot Series ${ws.series} · AgentiQ/metaMe partnership`,
+    counterpartyValue: ws.partnerName,
+    phaseLabel: PHASE_LABELS[ws.phase],
+    ownerAgentId: ws.ownerAgentId,
+    layers: [...PARTNER_WORKSPACE_LAYERS],
+    layerOwners: ws.layerOwners,
+    objectives: ws.objectives,
+    links: ws.links,
+    extraMetrics: [],
+  };
+}
+
+function researchView(ws: ReturnType<typeof listResearchWorkspaces>[number]): WorkspaceView {
+  const label = researchWorkspaceLabel(ws);
+  const experiments = researchWorkspaceExperiments(ws);
+  return {
+    id: ws.id,
+    chipLabel: label,
+    contextLabel: `${label} · Invariant Research Lab`,
+    counterpartyValue: ws.seriesId,
+    // The research registry declares no phase: a venture pilot's
+    // exploration→evidence ladder is not the lifecycle of a validation series,
+    // and asserting one would be an invention. "Not yet wired" is the honest
+    // state, the same discipline the venture metrics already follow.
+    phaseLabel: null,
+    ownerAgentId: ws.ownerAgentId,
+    layers: RESEARCH_WORKSPACE_LAYERS,
+    layerOwners: ws.layerOwners,
+    objectives: researchWorkspaceObjectives(ws),
+    links: ws.links,
+    extraMetrics: [
+      {
+        label: "Experiments",
+        value: String(experiments.length),
+        detail: "members of this series (registry-derived)",
+      },
+    ],
+  };
 }
 
 // ─── Small presentational pieces ─────────────────────────────────────────────
@@ -147,7 +297,7 @@ function DeepLinkCard({ link, personaId, isAdmin }: { link: PartnerWorkspaceLink
   );
 }
 
-function AreaLinks({ ws, area, personaId, isAdmin }: { ws: PartnerWorkspace; area: PartnerWorkspaceLink["area"]; personaId?: string; isAdmin?: boolean }) {
+function AreaLinks({ ws, area, personaId, isAdmin }: { ws: { links: PartnerWorkspaceLink[] }; area: PartnerWorkspaceLink["area"]; personaId?: string; isAdmin?: boolean }) {
   const links = ws.links.filter((l) => l.area === area);
   if (links.length === 0) return null;
   return (
@@ -251,10 +401,14 @@ function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string
       <div className={`${PANEL} p-4`}>
         <h3 className="text-sm font-semibold text-slate-100">Internal programme space</h3>
         <p className="mt-1 text-xs text-slate-400">
-          Tier 0 — internal assessment, posture and risk. Never shared with the partner. The four
-          workspace views (Overview, Collaborate, Operate, Evidence) are Tier 2 — open to a
-          venture-lab grant holding the `partner-operator` or `workspace-steward` role, scoped to
-          this specific pilot.
+          Tier 0 — internal assessment, posture and risk. Never shared with the counterparty. The
+          shared workspace views are Tier 2 — open to a{" "}
+          <span className="text-slate-300">{workspace?.participation?.domain ?? "—"}</span> grant
+          holding one of{" "}
+          <span className="text-slate-300">
+            {(workspace?.participation?.roles ?? []).join(", ") || "—"}
+          </span>
+          , scoped to this specific workspace. Rendered from the spine response, not restated here.
         </p>
         {!isAdmin && (
           <p className="mt-2 text-xs text-amber-300">
@@ -365,18 +519,35 @@ function WorkspaceAdministration({ workspaceId, isAdmin }: { workspaceId: string
   );
 }
 
-export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: PartnerProgrammesTabProps) {
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain }: PartnerProgrammesTabProps) {
+  const kind = asWorkspaceKind(workspaceDomain);
+  const copy = KIND_COPY[kind];
+  const accessDomain = ACCESS_DOMAIN[kind];
   // Cohort isolation (Amendment G, 2026-07-28 ruling): this picker must not
-  // even LIST a pilot the caller cannot open (MS-9 — a control that cannot
-  // act must not render). The tab-group gate above already required a
-  // venture-lab grant to reach this component at all; this narrows WHICH
-  // workspace(s) within that domain the grant actually scopes.
+  // even LIST a workspace the caller cannot open (MS-9 — a control that cannot
+  // act must not render). The tab-group gate above already required a grant in
+  // this Lab's domain to reach the component at all; this narrows WHICH
+  // workspace(s) within that domain the grant actually scopes. Domain-neutral
+  // by construction — the same decision, both Labs.
   const access = useParticipationAccess(personaId);
-  const allWorkspaces = listPartnerWorkspaces();
-  const grantedScopes = scopesGrantedIn(access, "venture-lab", Boolean(isAdmin));
-  const workspaces = grantedScopes === "all"
-    ? allWorkspaces
-    : allWorkspaces.filter((w) => grantedScopes.includes(w.id));
+  const allWorkspaces = useMemo<WorkspaceView[]>(
+    () =>
+      kind === "research"
+        ? listResearchWorkspaces().map(researchView)
+        : listPartnerWorkspaces().map(ventureView),
+    [kind],
+  );
+  const grantedScopes = scopesGrantedIn(access, accessDomain, Boolean(isAdmin));
+  const workspaces = useMemo(
+    () =>
+      grantedScopes === "all"
+        ? allWorkspaces
+        : allWorkspaces.filter((w) => grantedScopes.includes(w.id)),
+    // `grantedScopes` is a fresh array each render when scoped; key off its
+    // content so the memo does not thrash and `activeId` stays stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allWorkspaces, grantedScopes === "all" ? "all" : grantedScopes.join("|")],
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
   // activeId tracks the SCOPED list, not the full registry — a caller must
   // never land on a workspace they cannot open just because it's first in
@@ -429,21 +600,12 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
     // empty registry, a not-yet-loaded grant, and a genuinely unscoped grant
     // are three different facts and must not read as the same message.
     if (!isAdmin && !access.loaded) {
-      return <div className="p-8 text-center text-sm text-slate-500">Checking your pilot access…</div>;
+      return <div className="p-8 text-center text-sm text-slate-500">Checking your workspace access…</div>;
     }
     if (!isAdmin && allWorkspaces.length > 0) {
-      return (
-        <div className="p-8 text-center text-sm text-slate-500">
-          Your venture-lab access isn&apos;t scoped to a pilot yet — ask your steward to scope your
-          invitation to a specific pilot.
-        </div>
-      );
+      return <div className="p-8 text-center text-sm text-slate-500">{copy.unscopedHint}</div>;
     }
-    return (
-      <div className="p-8 text-center text-sm text-slate-500">
-        No partner workspaces registered.
-      </div>
-    );
+    return <div className="p-8 text-center text-sm text-slate-500">{copy.emptyRegistry}</div>;
   }
 
   const openAgreements = agreements.kind === "ready" ? agreements.rows.filter((r) => r.status !== "authorized") : [];
@@ -451,9 +613,9 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
 
   return (
     <div className="space-y-4 p-4">
-      {/* Partner selector — derived from the registry (single source). */}
+      {/* Workspace selector — derived from the registry (single source). */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-wide text-slate-500">Partner</span>
+        <span className="text-[11px] uppercase tracking-wide text-slate-500">{copy.selectorLabel}</span>
         {workspaces.map((w) => (
           <button
             key={w.id}
@@ -464,25 +626,26 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
                 : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
             }`}
           >
-            {w.partnerName} · Series {w.series}
+            {w.chipLabel}
           </button>
         ))}
       </div>
 
-      {/* Pilot Command Center */}
+      {/* Command Center — the surface's own name is visible, per the 2026-07-28
+          representation ruling: "Workspace" must have a real UI referent. */}
       <div className={`${PANEL} p-4`}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-base font-semibold text-slate-100">Pilot Command Center</h2>
-          <span className="text-[10px] uppercase tracking-wide text-slate-500">
-            {ws.partnerName} Pilot Series {ws.series} · AgentiQ/metaMe partnership
-          </span>
+          <h2 className="text-base font-semibold text-slate-100">
+            {copy.surfaceName} — {copy.commandCenter}
+          </h2>
+          <span className="text-[10px] uppercase tracking-wide text-slate-500">{ws.contextLabel}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <MetricCard label="Pilot Health">
+          <MetricCard label="Health">
             <NotYetWired />
           </MetricCard>
-          <MetricCard label="Current Phase" detail="from the workspace registry">
-            {PHASE_LABELS[ws.phase]}
+          <MetricCard label="Current Phase" detail={ws.phaseLabel ? "from the workspace registry" : undefined}>
+            {ws.phaseLabel ?? <NotYetWired />}
           </MetricCard>
           <MetricCard label="Next Milestone">
             <NotYetWired />
@@ -490,7 +653,14 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
           <MetricCard label="Owner" detail={ws.ownerAgentId}>
             {ownerName}
           </MetricCard>
-          <MetricCard label="Partner">{ws.partnerName}</MetricCard>
+          <MetricCard label={copy.counterpartyLabel}>
+            {ws.counterpartyValue ?? <NotYetWired />}
+          </MetricCard>
+          {ws.extraMetrics.map((m) => (
+            <MetricCard key={m.label} label={m.label} detail={m.detail}>
+              {m.value}
+            </MetricCard>
+          ))}
           <MetricCard
             label="Open Actions"
             detail={agreements.kind === "ready" ? "open constitutional agreements (proposed/accepted)" : undefined}
@@ -544,8 +714,8 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
               The ratified agent division of labour — encoded as data in the workspace registry.
             </p>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {PARTNER_WORKSPACE_LAYERS.map((layer) => {
-                const owner = ws.layerOwners[layer];
+              {ws.layers.map((layer) => {
+                const owner = ws.layerOwners[layer] ?? null;
                 return (
                   <div key={layer} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">{LAYER_LABELS[layer]}</p>
@@ -584,26 +754,30 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
           {collabView === "invitations" && (
             <div className={`${PANEL} p-3`}>
               <p className="mb-2 text-[11px] text-slate-500">
-                Bounded bearer invitations for the Venture Lab access domain — invite partner
-                participants with a role and an optional auto-opened peer channel.
+                Bounded bearer invitations for the <span className="text-slate-300">{accessDomain}</span>{" "}
+                access domain — invite participants with a role and an optional auto-opened peer
+                channel. Who may actually issue is derived server-side from the caller&apos;s own
+                grants (delegated invitation authority); this surface only offers what that
+                authority allows.
               </p>
-              <StewardParticipationTab initialDomain="venture-lab" />
+              <StewardParticipationTab initialDomain={accessDomain} />
             </div>
           )}
           {collabView === "peer-exchange" && (
             <div className={`${PANEL} p-3`}>
               <p className="mb-2 text-[11px] text-slate-500">
-                QubeTalk Peer Exchange, filtered to channels opened from the Venture Lab domain.
-                Same store as the Locker&apos;s canonical inbox — this is a filter, not a second inbox.
+                QubeTalk Peer Exchange, filtered to channels opened from the{" "}
+                <span className="text-slate-300">{accessDomain}</span> domain. Same store as the
+                Locker&apos;s canonical inbox — this is a filter, not a second inbox.
               </p>
-              <QubeTalkInboxTab domainFilter="venture-lab" />
+              <QubeTalkInboxTab domainFilter={accessDomain} />
             </div>
           )}
           {collabView === "locker" && (
             <div className={`${PANEL} p-3`}>
               <p className="mb-2 text-[11px] text-slate-500">
                 The holder-owned encrypted Locker (canonical, unfiltered — locker items are
-                holder-scoped, not partner-scoped).
+                holder-scoped, not workspace-scoped).
               </p>
               <LockerTab />
             </div>
@@ -617,7 +791,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
           <div className={`${PANEL} p-4`}>
             <h3 className="text-sm font-semibold text-slate-100">Constitutional Agreements</h3>
             <p className="mt-1 text-[11px] text-slate-500">
-              The pilot&apos;s operational substrate — agreements gating delegated execution (CFI-002 / the 409 gate).
+              The workspace&apos;s operational substrate — agreements gating delegated execution (CFI-002 / the 409 gate).
             </p>
             <div className="mt-3 space-y-1.5">
               {agreements.kind === "loading" && <p className="text-xs text-slate-500">Loading…</p>}
@@ -656,7 +830,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
         <div className="space-y-4">
           <div className={`${PANEL} p-4`}>
             <p className="text-xs text-slate-400">
-              Pilot evidence is DVN-anchored receipts — the anchor of record. A partner-scoped
+              Workspace evidence is DVN-anchored receipts — the anchor of record. A workspace-scoped
               receipt filter (receipts tagged to this workspace) is <span className="italic text-slate-500">not yet wired</span>;
               until it is, the canonical receipt surfaces below are the evidence record.
             </p>
@@ -671,7 +845,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface }: Par
           <div className={`${PANEL} p-4`}>
             <p className="text-xs text-slate-400">
               Partner communications run through the relationship layer (owner:{" "}
-              {layerOwnerDisplayName(ws.layerOwners.relationship) ?? "unassigned"}) on the existing
+              {layerOwnerDisplayName(ws.layerOwners.relationship ?? null) ?? "unassigned"}) on the existing
               surfaces below — this workspace links, it does not fork them.
             </p>
           </div>

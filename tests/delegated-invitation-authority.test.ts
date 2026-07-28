@@ -214,8 +214,14 @@ describe('delegation did not move the ratified tab gate', () => {
     expect(collab!.participationDomain).toBe('venture-lab');
     expect(collab!.adminOnly, 'the delegated surface became admin-only — the bottleneck is back').toBeFalsy();
     // …and it is the surface that actually mounts the invitation workspace.
+    // The mount is now DOMAIN-PARAMETERISED (2026-07-28: the same component is
+    // the Research Lab's workspace entrance too), so both halves are pinned —
+    // the mount reads the entrance's domain, AND the venture entrance's domain
+    // is still 'venture-lab'. Pinning only the first would let the venture
+    // entrance be repointed at another domain with this canary still green.
     const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
-    expect(src).toMatch(/<StewardParticipationTab initialDomain="venture-lab"/);
+    expect(src).toMatch(/<StewardParticipationTab initialDomain=\{accessDomain\}/);
+    expect(src).toMatch(/venture:\s*"venture-lab"/);
   });
 });
 
@@ -232,7 +238,13 @@ describe('pilot programmes are scoped the way experiments are — one mechanism,
 
   it('the steward route serves both catalogues through the same field', async () => {
     const src = stripComments(readSource('app/api/steward/participation/route.ts'));
-    expect(src).toMatch(/'research-lab': ASSIGNABLE_EXPERIMENTS/);
+    // research-lab now serves TWO derivations through the one field: the
+    // experiment catalogue (reviewer invitations) and the research workspace
+    // catalogue (participation invitations). Composed, never replaced — a
+    // regression that dropped either half would leave one kind of research
+    // invitation unscopeable, which is how a surface becomes reachable by
+    // nobody.
+    expect(src).toMatch(/'research-lab': \[\.\.\.ASSIGNABLE_EXPERIMENTS, \.\.\.ASSIGNABLE_RESEARCH_WORKSPACES\]/);
     expect(src).toMatch(/'venture-lab': ASSIGNABLE_PILOTS/);
     expect(src).toMatch(/assignableScopes/);
   });

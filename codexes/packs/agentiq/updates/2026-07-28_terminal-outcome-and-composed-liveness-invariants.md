@@ -97,6 +97,42 @@ Corollaries:
    application, and the extension worker are three worlds. An invariant proven in one is not
    proven across them; the crossing is where composition fails.
 
+6. **A denial-only canary suite proves exclusion, not availability** *(operator ruling, 2026-07-28,
+   ratified from the Research Workspace increment)*.
+
+   > Every access-controlled constitutional surface must have both denial canaries and at least
+   > one positive reachability canary. A denial-only suite proves exclusion, not availability.
+   > This is part of the **capability-completion invariants** for any new workspace, route or
+   > role-gated surface.
+
+   A denial suite passes at its **maximum** when the surface is reachable by nobody: every
+   assertion of the form "X is refused" is *most* satisfied by a surface that refuses everyone.
+   So the failure mode it cannot see is the one the operator actually reports — "I still don't see
+   it." Amendment G shipped four composed gates (domain, role, scope, admin) on the Partner
+   Workspace with seven denial canaries and zero reachability canaries; canary 8 in
+   `tests/venture-lab-cohort-isolation.test.ts` closed that, and canary R1 in
+   `tests/research-lab-workspace.test.ts` is the same shape for the Research Workspace.
+
+   Three requirements make the reachability canary real rather than decorative:
+
+   - **Assert EXACT sets, never counts.** `expect(tabs.length).toBeGreaterThan(0)` stays green
+     while the wrong tabs survive — a read-only path collapsing into full participation, or a
+     Tier-0 view leaking into a Tier-2 set, are both invisible to a count. Compare sorted slug
+     sets.
+   - **Drive the REAL filter, not just the predicate.** A gate predicate returning `true` is
+     necessary and not sufficient: the surface is `getEnabledTabs` plus the "a group with no
+     visible tabs does not render" rule (MS-9). Both must be exercised for the same caller.
+   - **Every separate decision must admit the same caller.** Domain/role (the tab gate) and scope
+     (the workspace-open decision) are different checks. Passing the tabs and then finding an
+     empty picker is the same invisible surface from the operator's seat.
+
+   **A surface can also be unreachable with every gate behaving perfectly.** A workspace that
+   exists in the model with no door in any cartridge, or a grantable role with no assignable
+   scope, denies nobody — there is nothing to deny — and reads to the operator exactly like a
+   gate failure. `tests/venture-lab-cohort-isolation.test.ts` canary 9 (every workspace on the
+   spine resolves to a domain-gated entrance) and `tests/research-lab-workspace.test.ts` canary R5
+   (every workspace is assignable as an invitation scope) are the two canaries for that class.
+
 **The defect this prevents (4):** the Passport door existed, was correct, was canaried — and was
 mounted only where wallet providers cannot inject. The panel's own charter already named this an
 infraction ("preferred, never exclusive"); no canary checked it, because no canary spanned the

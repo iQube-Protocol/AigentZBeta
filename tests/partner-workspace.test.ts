@@ -188,7 +188,13 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     expect(tab).toBeTruthy();
-    expect(tab!.label).toBe('Overview');
+    // LABEL RELABELLED 2026-07-28 (operator ruling on the Amendment G
+    // representation gap): "Workspace" must have a real UI referent — the group
+    // label 'Partner' may not substitute for the workspace surface itself. The
+    // id and slug below are deliberately UNCHANGED: relabelling closes the
+    // representation gap "without changing the underlying access model", and a
+    // slug change would break every `?tab=` deep link already issued.
+    expect(tab!.label).toBe('Partner Workspace');
     // TIER 2 since the split (audit §B.3; operator "Partner gate = split
     // agreed", 2026-07-27): a partner operator must be able to see the shared
     // record WITHOUT becoming a platform admin. adminOnly here would restore
@@ -231,7 +237,7 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
       .filter((t: { group?: string }) => t.group === 'partner')
       .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
     expect(tabs.map((t: { label: string }) => t.label)).toEqual([
-      'Overview',
+      'Partner Workspace',
       'Collaborate',
       'Operate',
       'Evidence',
@@ -336,10 +342,18 @@ describe('collaborate — venture-lab domain scoping over the ONE invitation/exc
     expect(DOMAIN_ROLES['venture-lab'].length).toBeGreaterThan(0);
   });
 
-  it('the tab mounts the existing surfaces scoped to venture-lab (no forks)', () => {
+  it('the tab mounts the existing surfaces scoped to the entrance\u2019s domain (no forks)', () => {
+    // DOMAIN-PARAMETERISED since 2026-07-28: the same component is now the
+    // Research Lab's workspace entrance too, so the literal 'venture-lab' moved
+    // from the JSX to the KIND_COPY/ACCESS_DOMAIN map. Both halves are pinned —
+    // the mounts read the entrance's domain, AND 'venture' still resolves to
+    // 'venture-lab'. Pinning only the first would let the venture entrance be
+    // silently repointed at another domain with this canary green.
     const src = stripComments(readSource(TAB_PATH));
-    expect(src).toContain('initialDomain="venture-lab"');
-    expect(src).toContain('domainFilter="venture-lab"');
+    expect(src).toContain('initialDomain={accessDomain}');
+    expect(src).toContain('domainFilter={accessDomain}');
+    expect(src).toMatch(/venture:\s*"venture-lab"/);
+    expect(src).toMatch(/research:\s*"research-lab"/);
     expect(src).toContain('<StewardParticipationTab');
     expect(src).toContain('<QubeTalkInboxTab');
     expect(src).toContain('<LockerTab');

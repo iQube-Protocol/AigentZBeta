@@ -37,6 +37,7 @@ import {
 } from '@/services/passport/participationAccess';
 import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
 import { ASSIGNABLE_PILOTS } from '@/services/venture/partnerWorkspace';
+import { ASSIGNABLE_RESEARCH_WORKSPACES } from '@/services/research/researchWorkspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,14 @@ export const dynamic = 'force-dynamic';
  * stale (inv.engineering.036).
  */
 const SCOPE_CATALOGUES: Partial<Record<AccessDomain, { id: string; label: string }[]>> = {
-  'research-lab': ASSIGNABLE_EXPERIMENTS,
+  // TWO catalogues in one domain (2026-07-28 Research Workspace increment): an
+  // experiment-scoped REVIEWER invitation and a workspace-scoped PARTICIPATION
+  // invitation are different grants, and the steward chooses which to issue.
+  // Composed, never replaced — an invitation scoped to a research workspace
+  // confers workspace access and zero experiment runs (the workspace id matches
+  // no experiment id in `getGrantedExperiments`), which is the fail-closed
+  // direction. Both halves stay derivations of their own registry.
+  'research-lab': [...ASSIGNABLE_EXPERIMENTS, ...ASSIGNABLE_RESEARCH_WORKSPACES],
   'venture-lab': ASSIGNABLE_PILOTS,
 };
 

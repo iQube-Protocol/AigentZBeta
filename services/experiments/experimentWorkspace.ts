@@ -59,6 +59,13 @@ import {
   type PartnerLayerOwnerId,
   type PartnerWorkspaceLayer,
 } from '@/services/venture/partnerWorkspace';
+import {
+  RESEARCH_WORKSPACES,
+  RESEARCH_WORKSPACE_LAYERS,
+  researchWorkspaceLabel,
+  researchWorkspaceObjectives,
+  type ResearchWorkspace,
+} from '@/services/research/researchWorkspace';
 
 // ─── Domain + class discrimination ───────────────────────────────────────────
 
@@ -153,10 +160,12 @@ export interface ExperimentWorkspace {
   lockers: WorkspaceLockerReference[];
   /**
    * The venture variant carries its partner registry entry; the research
-   * variant will carry its EXPERIMENT_REGISTRY binding (Phase 4). Neither is
-   * copied — both are the authoritative record itself.
+   * variant carries its research registry entry (whose own `seriesId` is the
+   * SERIES_REGISTRY binding). Neither is copied — both are the authoritative
+   * record itself.
    */
   partner?: PartnerWorkspace;
+  research?: ResearchWorkspace;
 }
 
 // ─── The venture variant — derived, never a second list ──────────────────────
@@ -207,9 +216,78 @@ export function experimentWorkspaceFromPartner(partner: PartnerWorkspace): Exper
   };
 }
 
-/** Every workspace on the spine. Research variants join in Phase 4. */
+// ─── The research variant — derived, never a second list ─────────────────────
+
+/**
+ * Map a Research Workspace onto the common spine. Exactly parallel to
+ * `experimentWorkspaceFromPartner`: `RESEARCH_WORKSPACES` stays the single
+ * authoritative source for research instances, and this is a projection of it,
+ * so convening the next research programme remains ONE new entry there and zero
+ * here.
+ *
+ * Label and objectives are pulled through the registry's own derivations
+ * (`researchWorkspaceLabel` / `researchWorkspaceObjectives`), which read
+ * SERIES_REGISTRY — so the spine, the API route and the cartridge surface all
+ * read one derivation and cannot disagree about what the programme is called or
+ * what it is for.
+ */
+export function experimentWorkspaceFromResearch(research: ResearchWorkspace): ExperimentWorkspace {
+  const layers = RESEARCH_WORKSPACE_LAYERS.filter((l) => research.layerOwners[l] !== undefined);
+  return {
+    id: research.id,
+    label: researchWorkspaceLabel(research),
+    domain: 'research',
+    // Amendment B §B.6: "The Research Lab is scientifically rich and primarily
+    // produces structural and scientific proof." `scientific` is the honest
+    // class — not `hybrid`, which would claim commercial proof this programme
+    // does not set out to produce.
+    experimentClass: 'scientific',
+    objectives: researchWorkspaceObjectives(research),
+    participation: {
+      domain: 'research-lab',
+      // EXISTING research-lab roles only (operator ruling, 2026-07-28: "Do not
+      // invent new names if equivalent roles already exist"). `researcher` and
+      // `research-steward` are full participation; `research-participant` is
+      // the read-only path. Every other role in the domain — `reviewer`,
+      // `ratifier`, `delegated-research-agent` — is experiment- or
+      // governance-scoped and gets NO workspace access unless explicitly
+      // granted one of these three.
+      roles: ['researcher', 'research-steward', 'research-participant'],
+    },
+    agents: {
+      agentIds: Object.values(research.layerOwners).filter(
+        (a): a is PartnerLayerOwnerId => a !== null && a !== undefined,
+      ),
+    },
+    evidence: {
+      // The IRL cartridge is where this workspace's evidence is written and
+      // where its entrance lives — the binding canary 9 in
+      // tests/venture-lab-cohort-isolation.test.ts derives the door from.
+      cartridge: 'irl-cartridge',
+      // Receipt action types the research capabilities ALREADY write
+      // (services/receipts/activityReceiptService.ts) — no new type invented.
+      actionTypes: ['research_lifecycle_transition', 'experiment_result_published', 'invariant_canonized'],
+    },
+    workingGroups: layers.map((layer) => ({
+      id: `${research.id}:${layer}`,
+      label: layer.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      channelIds: [],
+      layers: [layer],
+    })),
+    lockers: [],
+    research,
+  };
+}
+
+/**
+ * Every workspace on the spine — both Labs, one list. Each half is a projection
+ * of its own authoritative registry; the spine declares neither.
+ */
 export function listExperimentWorkspaces(): ExperimentWorkspace[] {
-  return PARTNER_WORKSPACES.map(experimentWorkspaceFromPartner);
+  return [
+    ...PARTNER_WORKSPACES.map(experimentWorkspaceFromPartner),
+    ...RESEARCH_WORKSPACES.map(experimentWorkspaceFromResearch),
+  ];
 }
 
 export function getExperimentWorkspace(id: string): ExperimentWorkspace | null {

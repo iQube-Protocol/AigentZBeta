@@ -133,6 +133,22 @@
  *    requested_action CHECK on passport_connection_challenges (SQL, latest
  *    rebuild) -- the constraint-drift bug class:
  *      tests/passport-passkey.test.ts
+ *  - A RESEARCH WORKSPACE ↔ its SERIES_REGISTRY series ↔ the spine projection ↔
+ *    the client surface. One programme with four readers: the registry declares
+ *    only the instance (id, series id, layer owners, links) and DERIVES name,
+ *    claim, members and objectives from SERIES_REGISTRY / EXPERIMENT_REGISTRY;
+ *    `experimentWorkspaceFromResearch` and `PartnerProgrammesTab` both consume
+ *    those same derivation helpers, because the client cannot import the spine
+ *    (it reaches Supabase, the ontology resolver and the invariant store) and a
+ *    second projection in the surface layer would drift. Also the home of the
+ *    reachability triple ruling A requires — positive, read-only, fail-closed —
+ *    asserted as EXACT slug sets rather than counts:
+ *      tests/research-lab-workspace.test.ts
+ *  - ASSIGNABLE_RESEARCH_WORKSPACES ↔ RESEARCH_WORKSPACES, and its COMPOSITION
+ *    with ASSIGNABLE_EXPERIMENTS in the steward route. A workspace that no
+ *    invitation can be scoped to is grantable to nobody, which is invisible to
+ *    every denial canary:
+ *      tests/research-lab-workspace.test.ts
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY
