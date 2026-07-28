@@ -646,12 +646,9 @@ pre-handoff behaviour, never blocks the Companion's own session. Canaried (4).
 
 ### A.10.3 Still open — statuses updated 2026-07-27 (operator dispositions)
 
-- **SessionQube recording (ruling 5)** — the Passport-backed session is not yet written to the
-  SessionQube substrate. The existing human-session machinery is OAuth-handshake shaped
-  (client_id, authorization code) and this is a first-party direct mint; forcing it in would
-  be a parallel implementation. Needs either a row shape for direct mints or a receipt-side
-  record. **Charter RATIFIED 2026-07-27 (operator). Build authorized on the operator's word;
-  not yet built.**
+- **SessionQube recording (ruling 5)** — **SHIPPED 2026-07-28, §A.11.5.** A receipt-side record
+  (not a row shape forced into the OAuth-handshake-shaped `agent_gateway_sessions`), composing the
+  existing unified receipt writer.
 - **Account ↔ Passport binding** for existing account holders (§A.5 neighbourhood) —
   **CHARTERED FOR EXECUTION 2026-07-27 (operator). Charter = Amendment B below.** Execution
   sequences after the §A.5/§A.6 build pass lands (it composes the lineage resolver and the
@@ -665,13 +662,207 @@ pre-handoff behaviour, never blocks the Companion's own session. Canaried (4).
 
 **Live-verification checklist (operator-fed):**
 
-- [ ] **Persona-selection flakiness** — "sometimes not showing one of my personas." Sits in the
-  spine's fallback resolution; not reproducible blind from the sandbox. Operator will send
-  details from a live session once the current build is deployed — if it still reproduces,
-  diagnose from those specifics. *(Recorded 2026-07-27; the last open piece of the reported
-  Companion access problem.)*
+- [x] **Persona-selection flakiness** — "sometimes not showing one of my personas." **DIAGNOSED
+  AND CLOSED, §A.11.2.** It was not flakiness in the spine's fallback resolution — it WAS the
+  spine's fallback resolution: `getActivePersona`'s "first owned persona, sorted" default is
+  exactly what silently picked a persona the citizen never chose, on every Passport-native
+  session. §A.11.2 replaces it, FOR THIS FLOW ONLY, with an explicit pre-session selection step;
+  `getActivePersona.ts` itself is unmodified (§A.11 protected-file impact: zero).
 
+---
 
+## §A.11 — First-connection closure (operator ruling, 2026-07-28)
+
+**Status: RULED and SHIPPED 2026-07-28.** The operator identified a diagnosis one level deeper
+than §A.1's original finding: Phase 1 + the original §A.3–§A.10 build correctly stopped
+resolving a session *from* an existing account (§A.1's circular dependency), but a SECOND,
+narrower circularity survived underneath it —
+
+> wallet must already be bound → wallet binding requires Bearer authentication → therefore
+> first-time Passport access still requires prior sign-in.
+
+Every Passport-native connection for a wallet with no existing `wallet_alias_commitments` row
+(the FIRST connection, for every citizen) failed closed at `resolvePassportPrincipal`'s
+`wallet_unknown` branch, and the only way past it was `services/identity/walletAliasService.ts`'s
+`registerWalletAlias` path — gated behind `getCallerAuthUserId`'s Bearer requirement
+(`app/api/identity/wallet-alias/_lib/auth.ts:27-30`). So "connect without signing in" worked for
+every connection AFTER the first, and never for the first — Passport authentication existed;
+Passport-native FIRST access did not.
+
+**A genuine, separately-found defect, fixed in the same pass:** `resolvePassportPrincipal`'s
+wallet lookup has queried `wallet_alias_commitments.address_fingerprint` since 2026-07-26, and
+`buildAddressFingerprint`'s own header has said since the same day *"requires the
+address_fingerprint column ... see SQL migration"* — but no migration ever added that column.
+Every wallet-bound resolution, first connection or hundredth, was silently failing closed with
+`unavailable` in any environment where the column had not been hand-added out of band. Fixed
+additively in the same migration as the schema this closure needed anyway
+(`20260831000000_passport_native_first_connection.sql`).
+
+### A.11.1 Ruling 1 — the wallet-binding prerequisite is removed for first contact
+
+The ruled first-use flow:
+
+```
+Connect → wallet challenge → prove wallet control → present Passport
+→ resolve canonical personhood → establish or reconcile wallet binding
+→ choose persona → establish application session
+```
+
+"Present Passport" is a **live World ID proof**, offered by `/api/passport-connect/proof` only
+when the proven wallet resolves `wallet_unknown` (no existing binding). World ID identifies a
+unique human independently of any wallet; `polity_passport_records.world_id_nullifier_hash`
+(unique-indexed since 2026-06-13) is the reverse-lookup key from that human back to their
+Passport lineage — `services/identity/passportPrincipal.ts`'s new
+`resolvePassportPrincipalByWorldId`. Once resolved, `services/identity/walletAliasService.ts`'s
+new `establishWalletBindingForRoot` writes the wallet↔root binding using the SAME two
+independently-verified facts Amendment B names as sufficient authority (verified wallet control +
+verified Passport presentation) — no session required.
+
+**Gated to World ID specifically, not the weaker captcha grade**, and this is a deliberate
+narrowing, not an oversight: minting a brand-new wallet↔personhood binding from zero prior
+authenticated context is exactly the class of consequential act §A.6 level 3 already reserves for
+strong proof ("step-up is mandatory where consequence requires it"). A citizen whose Passport
+carries only weak (captcha) proof cannot use this path for a first, never-bound wallet; they can
+still bind while signed in via Amendment B once its own execution lands, or upgrade to World ID.
+This is an honest boundary — a control that cannot act says why (`link_required`, §A.11.4) — not
+a silently narrower promise than Amendment A's original text.
+
+**Amendment B's own chartered scope (B.2.1) requires an active Supabase session on the account
+side** — so, as anticipated in the ruling that chartered this section, Amendment B does NOT cover
+the genuinely-first, never-signed-in case; it covers an EXISTING signed-in citizen adding a wallet
+to their account. §A.11.1 and Amendment B are complementary, not overlapping: §A.11.1 is "first
+contact, no session anywhere yet"; Amendment B is "I already have a session; let me also register
+this wallet." Amendment B's own text is otherwise unchanged by this ruling.
+
+Conflict is a refusal, never a silent re-bind (Amendment B rule 3, reused here): a wallet already
+actively bound to a DIFFERENT root is left untouched and the connection is refused with the same
+opaque `no_constitutional_access` every other resolution failure already used.
+
+### A.11.2 Ruling 2 — persona selection is an explicit pre-session step, never a post-session fallback
+
+§A.3.4's ordering was always `… → persona / default operating context → session`. The shipped
+Increment 5/6 code collapsed that into whatever `getActivePersona`'s post-session fallback picked
+("first owned persona, sorted") — the exact mechanism behind the "sometimes not showing one of my
+personas" symptom this section's checklist above now closes.
+
+A verified proof now mints a **pending-auth transaction** (`passport_pending_auth`, new table;
+`services/identity/passportPendingAuth.ts`) instead of a session. `/api/passport-connect/proof`
+returns the transaction token plus the caller's real persona candidates, projected to EXACTLY:
+
+```ts
+type PersonaChoice = {
+  personaPublicRef: string;
+  displayLabel: string;
+  avatarUrl?: string;
+  personaType?: string;
+};
+```
+
+— never `authProfileId`, an internal persona id, private DID material, email, wallet bindings,
+standing, or relationship data (canaried, §A.11.8 #8). The citizen selects one;
+`/api/passport-connect/finalize` validates the choice and mints the session only then.
+
+**No auto-pick, anywhere, ever** — not for a single-candidate principal, not as a convenience. A
+missing `personaPublicRef` on `/finalize` is refused (`ref_required`), never defaulted. Canaried
+and mutation-tested (§A.11.8 #5) specifically because this is the exact shape of the regression
+being closed: a silent default is indistinguishable, from the citizen's seat, from a choice they
+were never shown.
+
+**The cross-principal check (§A.11.8 #7 — the load-bearing security property of this whole
+closure).** `personaPublicRef` is a one-way hash and is already the identifier that appears in
+receipts today — not secret. `selectPersonaChoice` (`services/identity/passportPendingAuth.ts`)
+recomputes the forward hash over the SMALL, server-resolved candidate set belonging to the pending
+transaction's OWN principal and requires an exact match; a ref for any persona outside that set —
+forged, guessed, or lifted from someone else's receipt — matches nothing and is refused.
+
+`getActivePersona.ts` itself is **not modified**. The pinning happens by the existing convention
+it already honours at higher priority than its own fallback: after `/finalize` mints the session
+and the browser exchanges it, the client makes ONE Bearer-scoped self-view read
+(`/api/passport-connect/resolved-persona` — the owner self-view exception CLAUDE.md already
+carves out) to learn its own chosen persona's internal id, and sets
+`localStorage.currentPersonaId` before anything else runs. `personaFetch`'s existing `x-persona-id`
+attachment (priority 2 in `getActivePersona`'s resolver) then structurally outranks the fallback
+(priority 4) for every subsequent request in this flow — composition over the existing platform
+convention, not a fork of it.
+
+### A.11.3 Ruling 3 — the wallet-address chooser is not a persona chooser
+
+`PassportConnectPanel.tsx`'s existing `choose` state picked among WALLET ADDRESSES an injected
+provider exposes (`eth_requestAccounts`) and was already correctly scoped to that — but it was the
+ONLY choice a citizen ever saw before this closure, which invited exactly the conflation the
+operator named: *"A wallet address is not a persona... A wallet may contain one Passport; control
+several addresses; relate to several personas; change over time."* Renamed `choose` →
+`choose-wallet`; its copy now explicitly says "you will choose which persona to activate as a
+separate step next." `choose-persona` (§A.11.2) is a distinct, later state with its own copy and
+its own data shape (`PersonaChoice[]`, never a wallet address).
+
+### A.11.4 Ruling 4 — the "present Passport" consent step, wallet form 1
+
+§3's wallet-form-1 row calls for *"passkey enrol/unlock + 'present Passport' + OIDC4VP consent
+screen."* This closure ships the first-party half — the embedded Companion's own consent copy
+(naming the audience/origin a connection is scoped to, before the wallet prompt fires) and the
+"present Passport" World ID step (§A.11.1) — using ONLY primitives §2.2 already rules usable
+pre-Phase-C ("a first-party RP can consume the VC directly before then").
+
+**Explicitly NOT built here, and this is a scope boundary, not an oversight:** a third-party-site
+embeddable "Continue with Polity Passport" consent screen, with its own origin-validation and
+requested-permissions UI for an EXTERNAL relying party. That surface is §7 Phase 4 — explicitly
+gated on Passport VC Phase-C asymmetric signing (§0.5) — and building it now, ahead of that gate,
+would be shipping past what §7 itself rules as sequenced, not fulfilling this ruling. If the
+operator wants that surface sooner than Phase 4's sequencing implies, that is a separate,
+explicit decision to bring forward the Phase-C dependency, not a silent scope expansion of this
+closure.
+
+### A.11.5 Ruling 5 — SessionQube recording
+
+**Shipped as a receipt, not a forced row shape.** §A.10.1's own increment-1 note already recorded
+the tension: `agent_gateway_sessions` is OAuth-handshake shaped (client_id, authorization code)
+and a Passport-native direct mint does not have that shape; forcing it in would itself be the
+parallel-implementation defect this whole programme exists to avoid. `/api/passport-connect/
+finalize` instead writes ONE `activity_receipts` row via the EXISTING unified writer
+(`services/receipts/activityReceiptService.ts::createActivityReceipt`) and the EXISTING
+`'session_started'` action type — no new action type, no DVN pipeline file touched. Fields carried
+(all T2-safe): challenge audience + origin, proof method / assurance level
+(`wallet_binding` | `wallet_binding+world_id`), the Passport lineage's public ref
+(`kybe_did_public_ref` — an existing, already-public-safe column), the selected persona's
+`personaPublicRef`, a consent marker, and the issuance timestamp. Never `personaId`,
+`authProfileId`, `rootDid`, `kybeAttestation`, or wallet-binding detail.
+
+### A.11.6 Protected-file impact — zero, extending §A.9.1's own table
+
+| File | Protected? | Change |
+|---|---|---|
+| `services/identity/getActivePersona.ts` | **YES** | **NONE.** |
+| `services/access/evaluateAccess.ts` | **YES** | **NONE.** |
+| `services/identity/personaSessionToken.ts` | **YES** | **NONE.** |
+| `services/identity/passportPrincipal.ts` | no | Extended: shared kybe→auth-user walk factored out; new `resolvePassportPrincipalByWorldId` entry point; `loadUsablePassportByKybe` exported for reuse at `/finalize`. |
+| `services/identity/walletAliasService.ts` | no | Extended: `buildRootAliasCommitment` + `establishWalletBindingForRoot`, additive, a THIRD HMAC message prefix (uncorrelated with the existing two). |
+| `services/identity/passportPendingAuth.ts` | no | **NEW** — the pending-auth transaction store, `PersonaChoice` projection, and the cross-principal selection check. |
+| `services/receipts/activityReceiptService.ts` | no | **NONE** — consumed via its existing public `createActivityReceipt`, unmodified. |
+| `services/dvn/activityReceiptDvnPipeline.ts` | **YES (PARAMOUNT)** | **NONE.** |
+
+### A.11.7 Migration
+
+`supabase/migrations/20260831000000_passport_native_first_connection.sql` — additive only: the
+missing `address_fingerprint` column (+ a partial unique index enforcing one active binding per
+wallet) on the EXISTING `wallet_alias_commitments` table, and the NEW `passport_pending_auth`
+table (deny-all RLS, service-role only, single-use via conditional UPDATE — same discipline as
+`passport_connection_challenges`). No existing row is altered; rollback is `DROP TABLE
+passport_pending_auth` + drop the two additions, and nothing else is affected.
+
+### A.11.8 Canaries (mutation-tested)
+
+`tests/passport-first-connection.test.ts`:
+
+1. First-ever Passport connection with no prior Supabase session succeeds end to end.
+2. No pre-existing wallet alias — binding is established during the pending-auth transaction, not blocked.
+3. Multiple owned personas → explicit choice is presented, never silently narrowed to one.
+4. Persona selection is genuinely exercised — the chosen `personaPublicRef` ends up as the session's active persona.
+5. **No fallback persona activation** — behavioural: `selectPersonaChoice` refuses a missing ref even with exactly one candidate; structural: no auto-pick branch exists in `/finalize` or the panel.
+6. Replayed pending-auth transaction is refused — behavioural, driving the real conditional-update spend path.
+7. **Cross-principal persona selection is refused** — behavioural: a `personaPublicRef` forged from outside the transaction's own candidate set matches nothing and is rejected.
+8. No protected identifier appears in any pre-session or pending-auth response payload — structural, over the actual response shapes both routes build.
+9. SessionQube receipt is created on successful session issuance, with the required fields and none of the excluded ones.
 
 ---
 
@@ -680,6 +871,14 @@ pre-handoff behaviour, never blocks the Companion's own session. Canaried (4).
 **Operator disposition 2026-07-27: "charter for execution."** This charter authorizes the
 execution pass; it sequences after the §A.5/§A.6 build (it composes the lineage resolver and
 the step-up policy shipped there).
+
+**Relationship to §A.11 (added 2026-07-28):** §A.11.1 separately closed the genuinely-first,
+never-signed-in-anywhere case using a live World ID proof in place of the session B.2.1 requires.
+This charter's own B.2.1 requirement (an active Supabase session on the account side) is
+therefore correct and UNCHANGED for the case it actually covers below — a citizen who already has
+a session and wants to additionally register a wallet. The two are complementary, not competing:
+§A.11.1 is "first contact, no session anywhere yet"; Amendment B is "I already have a session; let
+me also bind this wallet."
 
 ### B.1 Scope
 

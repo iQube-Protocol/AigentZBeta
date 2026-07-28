@@ -1,52 +1,82 @@
 /**
  * PassportConnectPanel — the Companion's Connect surface.
  *
- * PRD-PAG-001 **Amendment A** §A.7 + the operator's Connect state machine,
- * increment 6 (chartered 2026-07-26).
+ * PRD-PAG-001 **Amendment A** §A.7 + the operator's Connect state machine
+ * (chartered 2026-07-26), extended by the first-connection closure (operator
+ * ruling 2026-07-28, rulings 1–4).
  *
  * ── WHAT CONNECT MEANS HERE ────────────────────────────────────────────────
  *
  * This is Passport-NATIVE access: the citizen does not sign into anything
- * first. They prove control of the wallet holding their Passport, and a session
- * follows. There is no username, no password, and no account to create — the
- * internal principal is resolved behind the proof (§A.3.2).
+ * first. They prove control of the wallet holding their Passport, and a
+ * session follows. There is no username, no password, and no account to
+ * create — the internal principal is resolved behind the proof (§A.3.2).
+ *
+ * ── THE RULED ORDER (§A.3.4, ruling 1) ─────────────────────────────────────
+ *
+ *   Connect → wallet challenge → prove wallet control → [present Passport,
+ *   only if this wallet has never been linked] → resolve canonical
+ *   personhood → establish/reconcile wallet binding → choose persona →
+ *   establish application session
+ *
+ * "Present Passport" (2026-07-28 addition) is a LIVE World ID proof, offered
+ * ONLY when the proven wallet has no existing binding — a wallet that is
+ * already linked skips straight from proof to persona choice, exactly as
+ * before. Persona choice is now its OWN explicit step (ruling 2) — every
+ * connection shows its real persona candidates and requires a selecting
+ * click, even when there is exactly one. There is no server-side auto-pick
+ * anywhere in this flow; see /api/passport-connect/finalize's own header for
+ * why that specific absence is load-bearing.
+ *
+ * ── WALLET CHOOSER ≠ PERSONA CHOOSER (ruling 3) ─────────────────────────────
+ *
+ * `choose-wallet` picks among WALLET ADDRESSES an injected provider exposes
+ * (`eth_requestAccounts`) — a wallet may hold one Passport, control several
+ * addresses, and relate to several personas over time. `choose-persona` is
+ * the SEPARATE, later step where the citizen picks which of THEIR OWN
+ * personas becomes active for this session. Never conflate the two states or
+ * their copy.
  *
  * ── RULING A.7: PREFERRED, NEVER EXCLUSIVE ─────────────────────────────────
  *
- * The Companion is the preferred connector, but the PROTOCOL must not depend on
- * it. Everything here talks to `/api/passport-connect/*` over plain HTTP and
- * uses the injected EIP-1193 provider — no `chrome.*`, no extension bridge, no
- * Companion-only capability. Any other wallet or web connector can drive the
- * same two routes. If a future edit makes this component the only thing that
- * can authenticate, that is an infraction of the ruling.
+ * The Companion is the preferred connector, but the PROTOCOL must not depend
+ * on it. Everything here talks to `/api/passport-connect/*` over plain HTTP
+ * and uses the injected EIP-1193 provider — no `chrome.*`, no extension
+ * bridge, no Companion-only capability. If a future edit makes this
+ * component the only thing that can authenticate, that is an infraction of
+ * the ruling.
  *
  * ── HOLDER CONTROL IS NOT OPTIONAL ─────────────────────────────────────────
  *
  * "A Passport is present in the wallet" is never sufficient — a readable
- * credential is not a bearer token. The citizen always performs one local
- * approval ceremony (the wallet's own signing prompt, biometric or otherwise),
- * and the server always verifies a single-use, origin-bound challenge. What is
- * optional is separately enrolled 2FA; the cryptographic proof is not.
+ * credential is not a bearer token. The citizen always performs a local
+ * approval ceremony (the wallet's own signing prompt), and the server always
+ * verifies a single-use, origin-bound challenge. What is optional is
+ * separately enrolled 2FA; the cryptographic proof is not.
  */
 
 "use client";
 
 import { useCallback, useState } from "react";
-import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle } from "lucide-react";
+import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2 } from "lucide-react";
 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
+import { personaFetch } from "@/utils/personaSpine";
+import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
 
 /**
- * The operator's state machine. `no-wallet` (A) is not an initial state — it is
- * only entered once we have LOOKED and found no provider, so a citizen with a
- * wallet never sees a "connect a wallet" prompt they don't need.
+ * The operator's state machine, extended 2026-07-28 (rulings 1–3). `no-wallet`
+ * (A) is not an initial state — it is only entered once we have LOOKED and
+ * found no provider, so a citizen with a wallet never sees a "connect a
+ * wallet" prompt they don't need.
  */
 type ConnectState =
   | { kind: "idle" }
   | { kind: "no-wallet" } // A
   | { kind: "no-passport" } // B
-  | { kind: "confirm"; passport: PassportFacts } // C
-  | { kind: "choose"; addresses: string[] } // D
+  | { kind: "choose-wallet"; addresses: string[] } // D (renamed from `choose` — ruling 3)
+  | { kind: "link-passport"; address: string } // NEW — "present Passport" (ruling 1)
+  | { kind: "choose-persona"; transactionToken: string; personas: PersonaChoice[]; passport: PassportFacts } // NEW (ruling 2)
   | { kind: "connected"; passport: PassportFacts } // E
   | { kind: "working"; step: string }
   | { kind: "error"; message: string };
@@ -57,6 +87,14 @@ interface PassportFacts {
   participantStatus: string | null;
   passportGrade: string | null;
   expiresAt: string | null;
+}
+
+/** ruling 2's exact projection — never widen this shape client-side either. */
+interface PersonaChoice {
+  personaPublicRef: string;
+  displayLabel: string;
+  avatarUrl?: string;
+  personaType?: string;
 }
 
 interface Eip1193 {
@@ -72,6 +110,16 @@ function provider(): Eip1193 | null {
   return injected ?? null;
 }
 
+/**
+ * Where this citizen will land — for the consent copy only (ruling 4). NEVER
+ * an authority value: the server always determines the real origin itself
+ * (request.nextUrl.origin), regardless of what this displays.
+ */
+function displayOrigin(): string {
+  if (typeof window === "undefined") return AUDIENCE;
+  return window.location.origin;
+}
+
 export interface PassportConnectPanelProps {
   /** Called after a session exists, so the host can re-resolve identity. */
   onConnected?: () => void;
@@ -81,9 +129,123 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
   const [state, setState] = useState<ConnectState>({ kind: "idle" });
 
   /**
-   * The whole ceremony. Written as one flow rather than a step machine because
-   * every step's failure is terminal for the attempt: a spent challenge cannot
-   * be retried, so there is no partial state worth resuming.
+   * One wallet-challenge-and-proof round trip. Shared by the first attempt
+   * (no World ID yet) and the "present Passport" retry (ruling 1) — a
+   * SEPARATE ceremony each time, since a challenge nonce is spent whether or
+   * not the proof that follows succeeds
+   * (services/passport/connectionChallenge.ts), so a retry can never reuse
+   * the first attempt's signature.
+   */
+  const performProof = useCallback(
+    async (address: string, worldIdProof?: WorldIdProofBundle) => {
+      setState({ kind: "working", step: "Requesting a challenge…" });
+      const chRes = await fetch("/api/passport-connect/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience: AUDIENCE, walletAddress: address }),
+      });
+      const ch = await chRes.json().catch(() => null);
+      if (!chRes.ok || !ch?.ok) {
+        return { ok: false as const, message: "Could not start a connection. Please try again in a moment." };
+      }
+
+      const eth = provider();
+      if (!eth) return { ok: false as const, message: "No wallet available." };
+
+      setState({ kind: "working", step: "Approve in your wallet to continue…" });
+      let signature: string;
+      try {
+        signature = (await eth.request({
+          method: "personal_sign",
+          params: [ch.message, address],
+        })) as string;
+      } catch {
+        return { ok: "cancelled" as const };
+      }
+
+      setState({ kind: "working", step: worldIdProof ? "Verifying your Passport…" : "Verifying your wallet…" });
+      const prRes = await fetch("/api/passport-connect/proof", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nonce: ch.nonce,
+          message: ch.message,
+          signature,
+          audience: AUDIENCE,
+          ...(worldIdProof ? { worldIdProof } : {}),
+        }),
+      });
+      const pr = await prRes.json().catch(() => null);
+      return { ok: true as const, status: prRes.status, body: pr };
+    },
+    [],
+  );
+
+  /** Dispatch on /proof's response. `link_required` is the NEW branch (ruling
+   *  1) — this specific wallet has never been linked to anything, and the
+   *  rescue path (a live World ID proof) is offered rather than a dead end.
+   */
+  const handleProofResponse = useCallback(
+    (status: number, pr: Record<string, unknown> | null, address?: string) => {
+      if (status === 403 && pr?.error === "link_required" && address) {
+        setState({ kind: "link-passport", address });
+        return;
+      }
+      if (status === 403 && pr?.error === "no_constitutional_access") {
+        setState({ kind: "no-passport" }); // B
+        return;
+      }
+      if (pr?.ok && pr?.stepUp) {
+        // Step-up authorises an action; it never opens a session or chooses a
+        // persona. Nothing further to render here today.
+        setState({ kind: "connected", passport: pr.passport as PassportFacts });
+        return;
+      }
+      if (!pr?.ok || typeof pr?.transactionToken !== "string" || !Array.isArray(pr?.personas)) {
+        setState({
+          kind: "error",
+          message:
+            pr?.error === "expired" || pr?.error === "already_consumed"
+              ? "That approval expired. Please try connecting again."
+              : "Connection failed. No session was created.",
+        });
+        return;
+      }
+
+      // ruling 2 — ALWAYS show the choice, even for exactly one persona. No
+      // auto-submit branch belongs here; see this file's own header and
+      // /finalize's for why.
+      setState({
+        kind: "choose-persona",
+        transactionToken: pr.transactionToken,
+        personas: pr.personas as PersonaChoice[],
+        passport: pr.passport as PassportFacts,
+      });
+    },
+    [],
+  );
+
+  /** Present a fresh World ID proof for `address` and retry the ceremony with it (ruling 1). */
+  const linkWithWorldId = useCallback(
+    async (address: string, worldIdProof: WorldIdProofBundle) => {
+      const result = await performProof(address, worldIdProof);
+      if (result.ok === "cancelled") {
+        setState({ kind: "idle" });
+        return;
+      }
+      if (!result.ok) {
+        setState({ kind: "error", message: result.message });
+        return;
+      }
+      handleProofResponse(result.status, result.body, address);
+    },
+    [performProof, handleProofResponse],
+  );
+
+  /**
+   * The whole ceremony, from wallet selection through the pending-auth
+   * transaction (ruling 2 stops session issuance here — persona choice is a
+   * SEPARATE act, see `finalizeWithPersona` below).
    */
   const connect = useCallback(
     async (chosenAddress?: string) => {
@@ -103,102 +265,104 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
 
         // D — more than one account and none chosen yet. The Companion must
         // never silently pick when several constitutional personas could be
-        // behind the choice.
+        // behind the choice. (Wallet ADDRESS chooser — ruling 3; the persona
+        // chooser is a distinct, later state.)
         const address = chosenAddress ?? (accounts.length === 1 ? accounts[0] : null);
         if (!address) {
-          setState({ kind: "choose", addresses: accounts });
+          setState({ kind: "choose-wallet", addresses: accounts });
           return;
         }
 
-        setState({ kind: "working", step: "Requesting a challenge…" });
-        const chRes = await fetch("/api/passport-connect/challenge", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audience: AUDIENCE, walletAddress: address }),
-        });
-        const ch = await chRes.json().catch(() => null);
-        if (!chRes.ok || !ch?.ok) {
-          setState({
-            kind: "error",
-            message: "Could not start a connection. Please try again in a moment.",
-          });
-          return;
-        }
-
-        // The local approval ceremony. This is the holder-control proof — as
-        // low-friction as the wallet allows, but never skipped.
-        setState({ kind: "working", step: "Approve in your wallet to continue…" });
-        let signature: string;
-        try {
-          signature = (await eth.request({
-            method: "personal_sign",
-            params: [ch.message, address],
-          })) as string;
-        } catch {
+        const result = await performProof(address);
+        if (result.ok === "cancelled") {
           // Cancellation is not an error condition — nothing was created.
           setState({ kind: "idle" });
           return;
         }
-
-        setState({ kind: "working", step: "Verifying your Passport…" });
-        const prRes = await fetch("/api/passport-connect/proof", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nonce: ch.nonce,
-            message: ch.message,
-            signature,
-            audience: AUDIENCE,
-          }),
-        });
-        const pr = await prRes.json().catch(() => null);
-
-        if (prRes.status === 403) {
-          setState({ kind: "no-passport" }); // B
+        if (!result.ok) {
+          setState({ kind: "error", message: result.message });
           return;
         }
-        if (!prRes.ok || !pr?.ok || !pr?.tokenHash) {
-          setState({
-            kind: "error",
-            message:
-              pr?.error === "expired" || pr?.error === "already_consumed"
-                ? "That approval expired. Please try connecting again."
-                : "Connection failed. No session was created.",
-          });
-          return;
-        }
-
-        // Exchange for the Companion's OWN session (this iframe's storage
-        // partition). Supabase owns single-use and expiry; we never hand-roll.
-        setState({ kind: "working", step: "Opening your session…" });
-        const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
-          token_hash: pr.tokenHash,
-          type: "magiclink",
-        });
-        if (error) {
-          setState({ kind: "error", message: "Your Passport verified, but the session could not open." });
-          return;
-        }
-
-        // THE APPLICATION HANDOFF (the partition gap, operator 2026-07-26).
-        // This iframe's session cannot reach the top-level app tabs — the
-        // browser partitions third-party iframe storage — so the second
-        // single-use grant is exchanged by a top-level page in the left-hand
-        // browser, where the application actually lives. Without this, the
-        // citizen connected here and still hit a sign-in wall over there.
-        if (typeof pr.handoffTokenHash === "string" && pr.handoffTokenHash) {
-          window.open(
-            `/passport-connect/complete?token_hash=${encodeURIComponent(pr.handoffTokenHash)}&next=${encodeURIComponent("/metame/runtime")}`,
-            "_blank",
-            "noreferrer",
-          );
-        }
-
-        setState({ kind: "connected", passport: pr.passport as PassportFacts }); // E
-        onConnected?.();
+        handleProofResponse(result.status, result.body, address);
       } catch {
         setState({ kind: "error", message: "Connection failed. No session was created." });
       }
+    },
+    [performProof, handleProofResponse],
+  );
+
+  /** The citizen's explicit persona choice → /finalize → session. */
+  const finalizeWithPersona = useCallback(
+    async (transactionToken: string, choice: PersonaChoice) => {
+      setState({ kind: "working", step: "Opening your session…" });
+      const finRes = await fetch("/api/passport-connect/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionToken, personaPublicRef: choice.personaPublicRef }),
+      });
+      const fin = await finRes.json().catch(() => null);
+      if (!finRes.ok || !fin?.ok || !fin?.tokenHash) {
+        setState({
+          kind: "error",
+          message:
+            fin?.error === "expired" || fin?.error === "already_consumed" || fin?.error === "cross_principal_ref"
+              ? "That selection could not be completed. Please try connecting again."
+              : "Connection failed. No session was created.",
+        });
+        return;
+      }
+
+      // Exchange for the Companion's OWN session (this iframe's storage
+      // partition). Supabase owns single-use and expiry; we never hand-roll.
+      const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
+        token_hash: fin.tokenHash,
+        type: "magiclink",
+      });
+      if (error) {
+        setState({ kind: "error", message: "Your Passport verified, but the session could not open." });
+        return;
+      }
+
+      // THE ONE POST-SESSION SELF-VIEW READ (ruling 2 / MS-5): pin the
+      // EXPLICITLY chosen persona ahead of getActivePersona's own fallback,
+      // structurally — x-persona-id (personaFetch already attaches this from
+      // localStorage.currentPersonaId) outranks the fallback in the spine's
+      // own priority order, so setting it here BEFORE any other spine call
+      // fires means the fallback never gets a chance to run for this
+      // connection. Best-effort: a failure here is not fatal — it degrades
+      // to the spine's own resolution on the very next sign-in, same as any
+      // other account.
+      try {
+        const res = await personaFetch(
+          `/api/passport-connect/resolved-persona?transactionToken=${encodeURIComponent(transactionToken)}`,
+          { cache: "no-store" },
+        );
+        if (res.ok) {
+          const body = await res.json();
+          if (typeof body?.personaId === "string" && body.personaId) {
+            window.localStorage.setItem("currentPersonaId", body.personaId);
+          }
+        }
+      } catch {
+        // Non-fatal — see above.
+      }
+
+      // THE APPLICATION HANDOFF (the partition gap, operator 2026-07-26).
+      // This iframe's session cannot reach the top-level app tabs — the
+      // browser partitions third-party iframe storage — so the second
+      // single-use grant is exchanged by a top-level page in the left-hand
+      // browser, where the application actually lives. Without this, the
+      // citizen connected here and still hit a sign-in wall over there.
+      if (typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
+        window.open(
+          `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&next=${encodeURIComponent("/metame/runtime")}`,
+          "_blank",
+          "noreferrer",
+        );
+      }
+
+      setState({ kind: "connected", passport: fin.passport as PassportFacts }); // E
+      onConnected?.();
     },
     [onConnected],
   );
@@ -215,6 +379,17 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
           <p className="max-w-[22rem] text-xs text-slate-400">
             Your Polity Passport is your access credential. Approve once in your wallet — there is
             no account to create and no password to remember.
+          </p>
+          {/* Consent copy (ruling 4) — names what is about to happen and where
+              it is scoped, before the wallet prompt fires. This is DISPLAY
+              only: the server always determines the real origin itself
+              (request.nextUrl.origin), never from anything the client sends
+              or shows. */}
+          <p className="max-w-[22rem] text-[11px] text-slate-500">
+            This approves a one-time signature proving you control your wallet, scoped to{" "}
+            <span className="text-slate-400">{displayOrigin()}</span>. It does not transfer
+            anything, and no Passport credential ever leaves your device — only the outcome
+            (a session) does.
           </p>
           <button
             type="button"
@@ -292,12 +467,39 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
         </>
       ) : null}
 
-      {/* D — several accounts; the citizen chooses. Never chosen for them. */}
-      {state.kind === "choose" ? (
+      {/* NEW — "present Passport" (ruling 1). This wallet has never been
+          linked to anything. Rather than a dead end, a LIVE World ID proof is
+          offered: it identifies a unique human independently of any wallet,
+          and — combined with the wallet-control proof already produced — is
+          sufficient to establish the binding without a prior session. This is
+          gated to World ID specifically (not the weaker captcha grade)
+          because minting a brand-new wallet↔personhood binding from zero is
+          exactly the class of consequential act Amendment A's graded ladder
+          reserves for strong proof (§A.6 level 3). */}
+      {state.kind === "link-passport" ? (
         <>
-          <div className="text-sm font-medium text-slate-100">Which wallet should connect?</div>
+          <div className="text-sm font-medium text-slate-100">Present your Passport to link this wallet</div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            More than one is available. Choose the one holding the Passport you want to use.
+            This wallet has never been connected before. Verifying with World ID proves your
+            personhood independently of this wallet, so the platform can safely link the two
+            without asking you to sign in first.
+          </p>
+          <WorldIdButton
+            onProof={(bundle) => linkWithWorldId(state.address, bundle)}
+            label="Verify with World ID"
+          />
+        </>
+      ) : null}
+
+      {/* D — several WALLET ADDRESSES; the citizen chooses. Never chosen for
+          them, and never to be confused with persona selection below (ruling
+          3 — these are two different questions with two different answers). */}
+      {state.kind === "choose-wallet" ? (
+        <>
+          <div className="text-sm font-medium text-slate-100">Which wallet address should connect?</div>
+          <p className="max-w-[22rem] text-xs text-slate-400">
+            Your provider exposes more than one address. Choose the one holding the Passport you
+            want to use — you will choose which persona to activate as a separate step next.
           </p>
           <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
             {state.addresses.map((a) => (
@@ -311,6 +513,40 @@ export function PassportConnectPanel({ onConnected }: PassportConnectPanelProps)
               </button>
             ))}
           </div>
+        </>
+      ) : null}
+
+      {/* NEW — persona selection (ruling 2/5). ALWAYS rendered, even for a
+          single candidate — the selecting click is the point, not a
+          formality to skip when there's "only one obvious answer". */}
+      {state.kind === "choose-persona" ? (
+        <>
+          <div className="text-sm font-medium text-slate-100">Which persona should be active?</div>
+          <p className="max-w-[22rem] text-xs text-slate-400">
+            Your Passport is verified
+            {state.passport?.passportClass ? ` (class: ${state.passport.passportClass})` : ""}. Choose
+            which persona this session activates.
+          </p>
+          {state.personas.length === 0 ? (
+            <p className="max-w-[22rem] text-xs text-amber-300">
+              No persona is registered on this account yet. Complete onboarding in the wallet, then
+              connect again.
+            </p>
+          ) : (
+            <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
+              {state.personas.map((p) => (
+                <button
+                  key={p.personaPublicRef}
+                  type="button"
+                  onClick={() => void finalizeWithPersona(state.transactionToken, p)}
+                  className="flex items-center gap-2 truncate rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:bg-slate-900/60"
+                >
+                  <UserCircle2 className="h-4 w-4 flex-shrink-0 text-slate-400" aria-hidden="true" />
+                  <span className="truncate">{p.displayLabel}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </>
       ) : null}
 

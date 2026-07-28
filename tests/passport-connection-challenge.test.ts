@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readSource, stripComments } from './_lib/sourceAuthority';
+import { readSource, stripComments, extractJsonResponseBodies } from './_lib/sourceAuthority';
 import {
   buildConnectionChallengeMessage,
   CHALLENGE_TTL_MS,
@@ -141,14 +141,26 @@ const PRINCIPAL = 'services/identity/passportPrincipal.ts';
 const SESSION = 'services/identity/passportSession.ts';
 const CHALLENGE_ROUTE = 'app/api/passport-connect/challenge/route.ts';
 const PROOF_ROUTE = 'app/api/passport-connect/proof/route.ts';
+// FINALIZE_ROUTE (added 2026-07-28, §A.11.2): session issuance MOVED here from
+// PROOF_ROUTE — /proof now stops at a pending-auth transaction + persona
+// choices; /finalize mints the session after an explicit persona selection.
+// Assertions about session/handoff minting that used to target PROOF_ROUTE
+// now target this file instead — see tests/passport-first-connection.test.ts
+// for the full closure's own canaries.
+const FINALIZE_ROUTE = 'app/api/passport-connect/finalize/route.ts';
 const CONNECT_PANEL = 'components/companion/PassportConnectPanel.tsx';
 
 describe('no pre-session surface requires an identity the caller cannot have', () => {
-  it('THE canary: neither route authenticates its caller', () => {
-    // A getActivePersona call on either route rebuilds the exact circular
-    // dependency Amendment A exists to remove: an account session required in
-    // order to prove the Passport meant to establish it.
-    for (const file of [CHALLENGE_ROUTE, PROOF_ROUTE]) {
+  it('THE canary: none of the three pre-session routes authenticates its caller', () => {
+    // A getActivePersona call on any of these three rebuilds the exact
+    // circular dependency Amendment A exists to remove: an account session
+    // required in order to prove the Passport meant to establish it.
+    // FINALIZE_ROUTE joined this list 2026-07-28 (§A.11.2) — it is the route
+    // that NOW mints the session, so it is exactly as pre-session as the two
+    // it joined. /resolved-persona is DELIBERATELY excluded: it is the one
+    // Bearer-gated, POST-session self-view read this closure adds (the owner
+    // self-view exception), and belongs nowhere near this list.
+    for (const file of [CHALLENGE_ROUTE, PROOF_ROUTE, FINALIZE_ROUTE]) {
       const code = stripComments(readSource(file));
       expect(code, `${file} authenticates its caller`).not.toContain('getActivePersona');
       expect(code, `${file} authenticates its caller`).not.toContain('getCallerIdentityContext');
@@ -166,9 +178,22 @@ describe('no pre-session surface requires an identity the caller cannot have', (
     }
   });
 
-  it('the Connect surface never uses the Bearer-bearing transport', () => {
+  it('personaFetch, when present, appears only AFTER the session is exchanged', () => {
+    // STRENGTHENED 2026-07-28, not relaxed. The panel now makes exactly ONE
+    // personaFetch call — /resolved-persona, the owner self-view read that
+    // pins the citizen's explicitly chosen persona (§A.11.2) — and it fires
+    // strictly after `verifyOtp` has already exchanged the single-use token
+    // for a real session. A personaFetch call BEFORE that point would demand
+    // the Bearer session Connect exists to create, exactly the defect this
+    // canary always existed to catch. Order-checked, not merely absence-
+    // checked, so the property survives the file legitimately gaining a
+    // post-session call.
     const code = stripComments(readSource(CONNECT_PANEL));
-    expect(code, 'Connect cannot require a session it exists to create').not.toContain('personaFetch');
+    const verifyOtpAt = code.indexOf('verifyOtp(');
+    expect(verifyOtpAt, 'the panel no longer exchanges a session token').toBeGreaterThan(-1);
+    const personaFetchAt = code.indexOf('personaFetch(');
+    if (personaFetchAt === -1) return; // no personaFetch call at all is also compliant
+    expect(personaFetchAt, 'personaFetch is called before the session exists').toBeGreaterThan(verifyOtpAt);
   });
 });
 
@@ -229,20 +254,59 @@ describe('session issuance stays inside the compatibility envelope — ruling 4'
   });
 
   it('the proof response carries no T0 identifier', () => {
+    // Precision note (2026-07-28): checks the actual NextResponse.json(...)
+    // BODIES, not the whole handler — see extractJsonResponseBodies's own
+    // header. /proof's §A.11 rewrite legitimately reads kybeId/rootIdentityId/
+    // authUserId INTERNALLY (to build the pending-auth transaction); that is
+    // not a leak unless one of those names reaches a response body.
     const code = stripComments(readSource(PROOF_ROUTE));
-    const responses = code.slice(code.indexOf('export async function POST'));
-    for (const forbidden of ['kybeId', 'rootIdentityId', 'authUserId', 'personaId', 'authProfileId']) {
-      expect(responses, `the proof route returns ${forbidden}`).not.toContain(forbidden);
+    const bodies = extractJsonResponseBodies(code);
+    expect(bodies.length, 'no NextResponse.json calls found — extraction broke').toBeGreaterThan(0);
+    for (const body of bodies) {
+      for (const forbidden of ['kybeId', 'rootIdentityId', 'authUserId', 'personaId', 'authProfileId']) {
+        expect(body, `a proof response body returns ${forbidden}`).not.toContain(forbidden);
+      }
+    }
+  });
+
+  it('the finalize response carries no T0 identifier', () => {
+    const code = stripComments(readSource(FINALIZE_ROUTE));
+    const bodies = extractJsonResponseBodies(code);
+    expect(bodies.length, 'no NextResponse.json calls found — extraction broke').toBeGreaterThan(0);
+    for (const body of bodies) {
+      for (const forbidden of ['kybeId', 'rootIdentityId', 'authUserId', 'personaId', 'authProfileId']) {
+        expect(body, `a finalize response body returns ${forbidden}`).not.toContain(forbidden);
+      }
     }
   });
 
   it('resolution failures do not let a caller probe the lineage graph', () => {
     // "unknown wallet" vs "no passport" would let someone map the graph with
     // wallets they do not own.
+    //
+    // Precision note (2026-07-28): scoped to response BODIES, not the whole
+    // file — §A.11's /proof legitimately BRANCHES on `resolved.reason ===
+    // 'wallet_unknown'` internally (that branch is what offers the World ID
+    // rescue instead of a dead end), which is not a leak unless the literal
+    // value reaches a response body. It never does: the unrescued case sends
+    // the new `link_required` (itself a narrow, considered, non-identifying
+    // disclosure — see the route's own header) or falls through to the same
+    // single opaque `no_constitutional_access` as every other reason.
     const code = stripComments(readSource(PROOF_ROUTE));
     expect(code).toContain("error: 'no_constitutional_access'");
-    for (const leak of ['wallet_unknown', 'no_passport', 'passport_inactive', 'lineage_incomplete']) {
-      expect(code, `the proof route discloses ${leak}`).not.toContain(`'${leak}'`);
+    const bodies = extractJsonResponseBodies(code);
+    expect(bodies.length).toBeGreaterThan(0);
+    for (const body of bodies) {
+      for (const leak of [
+        'wallet_unknown',
+        'no_passport',
+        'passport_inactive',
+        'lineage_incomplete',
+        'principal_unprovisioned',
+        'conflict_different_root',
+      ]) {
+        expect(body, `a proof response body discloses ${leak}`).not.toContain(`'${leak}'`);
+      }
     }
   });
 
@@ -269,9 +333,21 @@ describe('the Companion is preferred, never exclusive — ruling 6', () => {
   });
 
   it('it never silently chooses between wallets', () => {
+    // Renamed 'choose' -> 'choose-wallet' 2026-07-28 (ruling 3) so it cannot
+    // be read as the persona chooser — see 'choose-persona' below.
     const code = stripComments(readSource(CONNECT_PANEL));
-    expect(code).toContain('kind: "choose"');
+    expect(code).toContain('kind: "choose-wallet"');
     expect(code).toContain('accounts.length === 1 ? accounts[0] : null');
+  });
+
+  it('a wallet-address choice is never conflated with a persona choice — ruling 3', () => {
+    const code = stripComments(readSource(CONNECT_PANEL));
+    expect(code, 'no distinct persona-selection state exists').toContain('kind: "choose-persona"');
+    // The two states carry structurally different data — a list of address
+    // strings vs a list of PersonaChoice objects — so a future edit cannot
+    // silently merge them back into one chooser without this failing.
+    expect(code).toContain('addresses: string[]');
+    expect(code).toContain('personas: PersonaChoice[]');
   });
 
   it('the companion offers Connect where it used to show a sign-in wall', () => {
@@ -354,16 +430,22 @@ describe('every gated companion surface passes through the one door', () => {
 describe('the Companion session reaches the application', () => {
   const COMPLETE_PAGE = 'app/passport-connect/complete/page.tsx';
 
-  it('the proof mints one grant per storage world', () => {
+  it('finalize mints one grant per storage world', () => {
     // Iframe storage partitioning means the Companion partition and the
     // top-level app never share a session; one single-use token cannot serve
     // both. The handoff grant is best-effort — its failure degrades to the
     // pre-handoff behaviour, never blocks the Companion's own session.
+    // MOVED 2026-07-28 (§A.11.2): session issuance is now FINALIZE_ROUTE's
+    // job, not PROOF_ROUTE's — /proof stops at a pending-auth transaction.
     const code = stripComments(readSource(SESSION));
     expect(code).toContain('handoffTokenHash');
     expect((code.match(/generateLink\(/g) ?? []).length).toBe(2);
+    const finalize = stripComments(readSource(FINALIZE_ROUTE));
+    expect(finalize).toContain('handoffTokenHash: session.grant.handoffTokenHash');
+    // /proof itself must NOT mint a session any more — the absence is the
+    // point of this ruling, not incidental.
     const proof = stripComments(readSource(PROOF_ROUTE));
-    expect(proof).toContain('handoffTokenHash: session.grant.handoffTokenHash');
+    expect(proof, 'proof/route.ts still mints a session directly').not.toContain('issuePassportSession');
   });
 
   it('the handoff is exchanged top-level, and the panel opens it in the browser', () => {

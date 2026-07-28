@@ -52,6 +52,7 @@ import {
   normaliseAddress,
   type WalletChain,
 } from '@/services/identity/walletAliasService';
+import { verifyWorldIdProof, type WorldIdProofPayload } from '@/services/passport/personhoodProof';
 
 /** T2-safe passport facts — the same field discipline as passportCredential.ts. */
 export interface PassportSnapshot {
@@ -152,6 +153,107 @@ export async function resolvePassportPrincipal(
   // 3. Every root under that kybe → the internal Supabase principal. Walked
   //    kybe-wide rather than off the single root so a citizen whose wallet
   //    hangs off a later root still resolves to the one person's principal.
+  const authUserResult = await resolveAuthUserForKybe(supabase, kybeId);
+  if (!authUserResult.ok) return authUserResult;
+  const authUserId = authUserResult.authUserId;
+
+  // 4. Personhood → Passport. Keyed by kybe, never by persona or wallet.
+  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
+  if (!passportResult.ok) return passportResult;
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
+  };
+}
+
+/**
+ * Resolve the constitutional principal from a LIVE World ID proof — the
+ * "present Passport" act (PRD-PAG-001 Amendment A, first-connection closure,
+ * operator ruling 2026-07-28, ruling 1). This is the ONLY entry point that
+ * resolves a principal with NO existing wallet_alias_commitments row: a
+ * fresh, server-verified World ID proof identifies a UNIQUE human
+ * independently of any wallet, and `world_id_nullifier_hash` (unique-indexed
+ * on `polity_passport_records`) is the reverse-lookup key from that human
+ * back to their Passport lineage — the same shape as `address_fingerprint`
+ * for wallets, but for personhood.
+ *
+ * Deliberately requires STRONG proof only (§A.6 level 3: "step-up is
+ * mandatory where consequence requires it"). Establishing a brand-new
+ * wallet↔personhood binding from zero prior authenticated context is exactly
+ * that kind of consequential act — a citizen whose Passport carries only
+ * weak (captcha) proof cannot use this path; they still have the
+ * already-shipped bind-while-signed-in route (Amendment B) once ratified for
+ * execution.
+ */
+export async function resolvePassportPrincipalByWorldId(
+  worldIdProof: WorldIdProofPayload,
+): Promise<PrincipalResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  const verification = await verifyWorldIdProof(worldIdProof);
+  if (!verification.ok) return { ok: false, reason: 'no_passport' };
+
+  const { data: passportRow, error: ppErr } = await supabase
+    .from('polity_passport_records')
+    .select(
+      'kybe_identity_id, passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at',
+    )
+    .eq('world_id_nullifier_hash', worldIdProof.nullifier_hash)
+    .maybeSingle();
+  if (ppErr) return { ok: false, reason: 'unavailable' };
+  if (!passportRow) return { ok: false, reason: 'no_passport' };
+
+  const row = passportRow as Record<string, unknown>;
+  const kybeId = row.kybe_identity_id as string | null;
+  if (!kybeId) return { ok: false, reason: 'lineage_incomplete' };
+
+  const passport: PassportSnapshot = {
+    passportClass: (row.passport_class as string) ?? null,
+    citizenStatus: (row.citizen_status as string) ?? null,
+    participantStatus: (row.participant_status as string) ?? null,
+    passportGrade: (row.passport_grade as string) ?? null,
+    revoked: Boolean(row.revoked),
+    expiresAt: (row.expires_at as string) ?? null,
+  };
+  if (!isPassportUsable(passport)) return { ok: false, reason: 'passport_inactive' };
+
+  // Kybe → an active root under it, for the binding step that follows
+  // (services/identity/walletAliasService.ts's establishWalletBindingForRoot
+  // needs a specific root_identity_id, not just the kybe). Prefer a root that
+  // already has an auth user; two live roots with the SAME kybe but
+  // DIFFERENT auth users is the consolidation ambiguity (§A.5) — refuse
+  // rather than choose, same posture as the wallet walk.
+  const authUserResult = await resolveAuthUserForKybe(supabase, kybeId);
+  if (!authUserResult.ok) return authUserResult;
+
+  const { data: rootRow, error: rootErr } = await supabase
+    .from('root_identity')
+    .select('id')
+    .eq('kybe_id', kybeId)
+    .eq('auth_user_id', authUserResult.authUserId)
+    .limit(1)
+    .maybeSingle();
+  if (rootErr) return { ok: false, reason: 'unavailable' };
+  const rootIdentityId = (rootRow as { id?: string } | null)?.id;
+  if (!rootIdentityId) return { ok: false, reason: 'lineage_incomplete' };
+
+  return {
+    ok: true,
+    principal: { kybeId, rootIdentityId, authUserId: authUserResult.authUserId, passport },
+  };
+}
+
+/**
+ * The kybe → sibling roots → single auth user walk, shared by the wallet
+ * entry point and the World ID entry point (inv.engineering.036 — one
+ * authoritative location, not two copies that could drift).
+ */
+async function resolveAuthUserForKybe(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  kybeId: string,
+): Promise<{ ok: true; authUserId: string } | { ok: false; reason: PrincipalFailure }> {
   const { data: siblingRoots, error: sibErr } = await supabase
     .from('root_identity')
     .select('auth_user_id')
@@ -181,16 +283,7 @@ export async function resolvePassportPrincipal(
     // than choose.
     return { ok: false, reason: 'lineage_incomplete' };
   }
-  const authUserId = authUserIds[0];
-
-  // 4. Personhood → Passport. Keyed by kybe, never by persona or wallet.
-  const passportResult = await loadUsablePassportByKybe(supabase, kybeId);
-  if (!passportResult.ok) return passportResult;
-
-  return {
-    ok: true,
-    principal: { kybeId, rootIdentityId, authUserId, passport: passportResult.passport },
-  };
+  return { ok: true, authUserId: authUserIds[0] };
 }
 
 /**
@@ -239,8 +332,14 @@ export async function resolvePassportPrincipalForAuthUser(
   };
 }
 
-/** The one passport-by-personhood lookup both entry points end in. */
-async function loadUsablePassportByKybe(
+/**
+ * The one passport-by-personhood lookup both entry points end in. Exported
+ * so /api/passport-connect/finalize can RE-DERIVE the current passport state
+ * at session-mint time (rather than trust a snapshot taken a few minutes
+ * earlier at proof time) — defense in depth against a revocation landing
+ * inside the pending-auth transaction's short window.
+ */
+export async function loadUsablePassportByKybe(
   supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
   kybeId: string,
 ): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {

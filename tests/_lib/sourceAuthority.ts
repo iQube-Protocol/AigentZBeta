@@ -94,6 +94,47 @@ export function stripComments(src: string): string {
   return blanked.join('');
 }
 
+/**
+ * Extract the argument bodies of every `NextResponse.json({ ... }` call in
+ * `code` — bracket-balanced, so a nested object or a nested function call
+ * (e.g. `candidates.map(fn)`) doesn't truncate the extraction early.
+ *
+ * WHY THIS EXISTS (2026-07-28, PRD-PAG-001 Amendment A §A.11): several T0-
+ * leak canaries used to grep an ENTIRE route handler body for identifier
+ * names. That conflates "this variable is read internally" with "this value
+ * reaches the caller" — harmless while a handler never needed to reference
+ * kybeId/rootIdentityId/authUserId directly, but §A.11's /proof legitimately
+ * does (to build the pending-auth transaction), so the broader grep flags
+ * correct, non-leaking code as if it leaked. This extracts only what
+ * actually reaches `NextResponse.json(...)` — the response, which is the
+ * property these canaries actually assert. One authoritative extractor
+ * (inv.engineering.036) — tests/passport-connection-challenge.test.ts and
+ * tests/passport-first-connection.test.ts both import this rather than
+ * re-deriving it.
+ */
+export function extractJsonResponseBodies(code: string): string[] {
+  const bodies: string[] = [];
+  const marker = 'NextResponse.json(';
+  let searchFrom = 0;
+  for (;;) {
+    const start = code.indexOf(marker, searchFrom);
+    if (start === -1) break;
+    let depth = 0;
+    let i = start + marker.length;
+    const bodyStart = i;
+    for (; i < code.length; i++) {
+      if (code[i] === '(') depth++;
+      else if (code[i] === ')') {
+        if (depth === 0) break;
+        depth--;
+      }
+    }
+    bodies.push(code.slice(bodyStart, i));
+    searchFrom = i + 1;
+  }
+  return bodies;
+}
+
 export interface ImportRecord {
   /** The module specifier, verbatim. */
   specifier: string;
