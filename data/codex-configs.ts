@@ -2544,40 +2544,16 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   tabGroups: [
     { id: 'operate',    label: 'Operate',    icon: 'Rocket',    order: 0 },
     { id: 'connect',    label: 'Connect',    icon: 'Users',     order: 1 },
-    // "Services" (plural) — the domain holds a family of capability suites, of
-    // which Financial is the first (operator, 2026-07-28: "VL Services should
-    // have a sub menu with Financial").
-    { id: 'service',    label: 'Services',   icon: 'Landmark',  order: 2 },
+    // "Service" (singular) — SUPERSEDES the same day's earlier "Services"
+    // (plural) ruling. Operator, 2026-07-28 (second ruling): tab-GROUP labels
+    // are VERBS — Operate, Connect, Grow, Participate, Administer — so the
+    // domain that serves is "Service", not the noun-plural "Services". The
+    // family of capability suites the earlier comment pointed at has not gone
+    // away; it now lives entirely in the sub menu, whose first member is
+    // "Financial Services" (relabelled from "Financial" in the same ruling —
+    // "epistemically coherent": the suite names itself, the group names the act).
+    { id: 'service',    label: 'Service',    icon: 'Landmark',  order: 2 },
     { id: 'grow',       label: 'Grow',       icon: 'TrendingUp', order: 3 },
-    // FIRST-CLASS PARTNER DOMAIN (operator, 2026-07-27, seeing it in situ):
-    // "Partner should be a first class menu item between grow and administer,
-    // and that sub menu should then drive the content across the sub sections
-    // … we don't need the duplicate sub menus." The Partner Workspace's five
-    // areas are now the STANDARD cartridge tabs of this group — the cartridge's
-    // own navigation drives what renders beneath the Pilot Command Center,
-    // instead of a second surface row inside the tab body.
-    //
-    // TIER SPLIT (Horizen Phase 3, audit §B.3; operator ruling "Partner gate =
-    // split agreed", 2026-07-27). The group is NO LONGER adminOnly, because it
-    // now holds two tiers at once:
-    //
-    //   Tier 2 — Overview · Collaborate · Operate · Evidence
-    //            `participationDomain: 'venture-lab'`: the SHARED workspace
-    //            record a partner operator must be able to see, without
-    //            becoming a platform admin. That requirement was the hard
-    //            blocker recorded in the base audit (§7 item 4).
-    //   Tier 0 — Communicate · Administration
-    //            `adminOnly`: internal drafting and internal partner
-    //            assessment. Communicate becomes two-stage (draft internal,
-    //            share approved output) in a later increment; until then the
-    //            SAFE half is the one that ships.
-    //
-    // The group-level `adminOnly` it replaced existed so a non-admin founder
-    // would not see a Partner pill that filters to empty. That concern is now
-    // handled structurally in CodexPanelDynamic: a group with no visible tabs
-    // does not render (MS-9 — a control that cannot act must not render), so
-    // membership alone decides.
-    { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.5 },
     // PARTICIPATE (Phase 1, 2026-07-27) — the participant-facing expression of
     // the SAME domain-scoped participation substrate the Research Lab already
     // surfaces (`ACCESS_DOMAINS` × `DOMAIN_ROLES`, one mechanism, five domains).
@@ -2586,11 +2562,73 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     // SAME components the IRL cartridge mounts — the ruling was "do not copy
     // Research Lab Participation into Venture Lab", and these are the identical
     // modules, configured for the venture domain.
-    { id: 'participate', label: 'Participate', icon: 'ShieldCheck', order: 3.7 },
+    //
+    // AHEAD OF PARTNER since 2026-07-28 (operator ruling — the two groups
+    // SWAPPED). Participate is the CROSS-PARTNER, CROSS-PROGRAMME surface:
+    // every user with Venture Lab access gets an iteration of it, metaMe runs
+    // cross-partner pilots through it, and partners invite their own
+    // ecosystems through the SAME invitation system. Partner is the narrow
+    // bilateral space by comparison, so the broad surface now comes first.
+    { id: 'participate', label: 'Participate', icon: 'ShieldCheck', order: 3.5 },
+    // FIRST-CLASS PARTNER DOMAIN (operator, 2026-07-27, seeing it in situ):
+    // "Partner should be a first class menu item between grow and administer,
+    // and that sub menu should then drive the content across the sub sections
+    // … we don't need the duplicate sub menus." The Partner Workspace's areas
+    // are the STANDARD cartridge tabs of this group — the cartridge's own
+    // navigation drives what renders beneath the Pilot Command Center,
+    // instead of a second surface row inside the tab body.
+    //
+    // TIER SPLIT (Horizen Phase 3, audit §B.3; operator ruling "Partner gate =
+    // split agreed", 2026-07-27). The group is NO LONGER adminOnly, because it
+    // now holds two tiers at once:
+    //
+    //   Tier 2 — Collaborate · Operate · Evidence
+    //            `participationDomain: 'venture-lab'` + `participationRoles`:
+    //            the SHARED workspace record a partner operator must be able
+    //            to see, without becoming a platform admin. That requirement
+    //            was the hard blocker recorded in the base audit (§7 item 4).
+    //   Tier 0 — Communicate · Administration
+    //            `adminOnly`: internal drafting and internal partner
+    //            assessment. Communicate becomes two-stage (draft internal,
+    //            share approved output) in a later increment; until then the
+    //            SAFE half is the one that ships.
+    //
+    // THIS GROUP IS THE PARTNER **PRIVATE** WORKSPACE (operator ruling,
+    // 2026-07-28). Its public counterpart — the Overview surface, which was
+    // this group's `partner-programmes` tab — MOVED OUT to Participate as
+    // "Public Workspace". What remains here is the partner↔metaProof bilateral
+    // record and the internal programme space, and the operator's requirement
+    // is that it "renders only to partner ops/personnel cohorts and metaMe
+    // admins — invisible to everyone else, not merely empty".
+    //
+    // That invisibility is STRUCTURAL, not a group-level `adminOnly` (which
+    // would also hide it from the partner operators who must see it): every
+    // remaining tab carries either `participationRoles: ['partner-operator',
+    // 'workspace-steward']` or `adminOnly`, and CodexPanelDynamic does not
+    // render a group whose every tab is gated away (MS-9 — a control that
+    // cannot act must not render). A caller with a plain `venture-participant`
+    // or `observer` grant therefore sees no Partner pill at all.
+    // `tests/venture-lab-cohort-isolation.test.ts` canary 10 asserts exactly
+    // that, from both sides.
+    { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.7 },
     // adminOnly on the GROUP itself, not just its children: every current
-    // Administer tab (AgentiQ OS, Plan Pricing, Docs) is adminOnly:true --
-    // without this, a non-admin founder would see an "Administer" pill that
-    // renders nothing when clicked (its enabledTabs would filter to empty).
+    // Administer tab (Plan Pricing, α Docs) is adminOnly:true -- without this,
+    // a non-admin founder would see an "Administer" pill that renders nothing
+    // when clicked (its enabledTabs would filter to empty). AgentiQ OS α left
+    // this group for Grow on 2026-07-28 — it is a public surface.
+    //
+    // VERIFIED 2026-07-28 (operator asked whether a PARTNER admin could satisfy
+    // this): `adminOnly` resolves against the PLATFORM admin flag only. The
+    // group gate is `if (g.adminOnly && !isAdmin) return false` in
+    // CodexPanelDynamic's `visibleGroups`, and `isAdmin` there is
+    // `isAdminProp === true`, fed from the server-resolved
+    // `cartridgeFlags.isAdmin`. The per-cartridge grant set travels in a
+    // SEPARATE argument (`cartridgeAdminGrants`) that `getEnabledTabs` consults
+    // only for `adminOfCartridge` — never for `adminOnly`. So no
+    // `cartridgeFlags.adminCartridges` entry, partner or otherwise, can open
+    // this group. No tightening was required; the canary in
+    // `tests/venture-lab-cohort-isolation.test.ts` now pins that separation so
+    // a future edit cannot quietly fold the two admin notions together.
     { id: 'administer', label: 'Administer', icon: 'Settings',  order: 4, adminOnly: true },
   ],
   tabs: [
@@ -2663,7 +2701,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         description: 'Constitutional Financial Services Programme (CRP-003a) — Pilot Series 001 with Horizen. Domain 3 Financial Intelligence, constitutional service loop.',
         color: 'emerald'
       },
-      // THE SERVICES SUB MENU (operator, 2026-07-28: "VL Services should have a
+      // THE SERVICE SUB MENU (operator, 2026-07-28: "VL Services should have a
       // sub menu with Financial"). A single-tab group renders no sub-header row
       // at all — deliberately, so a lone tab does not cost a row of chrome — so
       // Services appeared without the sub menu every sibling group has. Declaring
@@ -2673,8 +2711,12 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // to be added beside Financial rather than a second navigation.
       subTabs: [
         {
+          // "Financial Services", not "Financial" (operator, 2026-07-28,
+          // second ruling — "epistemically coherent"): the group label is the
+          // verb (Service), so the suite inside it must name itself in full.
+          // A bare adjective under a verb reads as a fragment, not a suite.
           id: 'vl-services-financial',
-          label: 'Financial',
+          label: 'Financial Services',
           slug: 'vl-services-financial',
           enabled: true,
           order: 0,
@@ -2812,7 +2854,84 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       metadata: { icon: 'Gavel', description: 'Issue and revoke venture-domain invitations — steward only', color: 'amber' },
     },
     {
-      // THE PARTNER DOMAIN'S FIVE TABS (operator, 2026-07-27, revising the same
+      // ── THE PUBLIC WORKSPACE (operator ruling, 2026-07-28) ────────────────
+      //
+      // MOVED OUT OF THE PARTNER GROUP INTO PARTICIPATE. This is the workspace
+      // Overview surface — objectives, layer owners, the Command Center, and
+      // the overview-area deep links. It was the Partner group's first tab
+      // ("Partner Workspace"); it is now the Participate group's public
+      // entrance, and its label is deliberately PARTNER-AGNOSTIC.
+      //
+      // THE OPERATOR'S SPECIFICATION, which matters more than the mechanics:
+      // Participate is the cross-partner, cross-programme surface. Every user
+      // with Venture Lab access gets an iteration of it. metaMe can run
+      // cross-partner pilots here and invite (e.g.) Founder Office operators
+      // into partner programmes; partners can invite their own ecosystems. The
+      // SAME invitation system serves both directions. This tab dynamically
+      // surfaces whichever partner public space the viewing cohort qualifies
+      // for — which is why the label must not say "Partner", and why NOTHING
+      // here names a partner.
+      //
+      // HORIZEN IS NOT HARDCODED, AND MUST NEVER BE. The qualifying
+      // workspace(s) resolve from the caller's own cohort grants inside
+      // PartnerProgrammesTab (`scopesGrantedIn` over the registry), and the
+      // pilot badge/selector chip is the mechanism that lets one partner-
+      // agnostic tab serve N partners. That today only Horizen qualifies falls
+      // out of the DATA (`PARTNER_WORKSPACES` has one entry), not out of any
+      // conditional here. This is the scaling path for pilots and ventures
+      // across both ecosystems.
+      //
+      // WHY THIS DOES NOT WIDEN ANYTHING (the highest-risk part of the move —
+      // a surface leaving an admin-adjacent group for one every Venture Lab
+      // user can see):
+      //   · `participationDomain: 'venture-lab'` is KEPT — "Venture Lab
+      //     access" is exactly a venture-lab grant, so a caller with no grant
+      //     still never sees the tab (canary 6).
+      //   · `participationRoles` is DROPPED — deliberately, and it is the one
+      //     genuine access-model change in this ruling. The Amendment G
+      //     restriction ("Partner access requires domain + scope + role")
+      //     continues to hold in full over the PARTNER group, which is what it
+      //     was written to protect. This is a different, deliberately public
+      //     surface.
+      //   · COHORT ISOLATION IS UNTOUCHED and is the invariant that actually
+      //     matters here: the workspace CONTENT is scope-filtered per caller
+      //     (`satisfiesWorkspaceScope` / `scopesGrantedIn`, deny-by-default),
+      //     server-enforced in /api/venture/workspace/[workspaceId]. The tab
+      //     may be visible while it resolves to "no qualifying workspace";
+      //     what can never happen is one cohort seeing another's public
+      //     workspace. Canaries 1, 4 and 11 hold that from both sides.
+      //   · `workspaceVisibility: 'public'` clamps the component to its public
+      //     surface set, so no private area (Collaborate / Operate /
+      //     Communicate / Administration) is reachable from this entrance even
+      //     if a future edit mis-set `initialSurface`.
+      //
+      // The id and slug are UNCHANGED across the move — they are what existing
+      // `?tab=` deep links and the workspace's own `fromTab` resolve against,
+      // and a dangling `?tab=` silently lands the operator on the cartridge's
+      // default tab rather than erroring.
+      id: 'partner-programmes',
+      label: 'Public Workspace',
+      slug: 'partner-programmes',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      group: 'participate',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'overview', workspaceVisibility: 'public' }
+      },
+      metadata: {
+        icon: 'LayoutDashboard',
+        description: 'Public Workspace — the partner public space your cohort qualifies for: Command Center, objectives, and layer owners',
+        color: 'amber'
+      }
+    },
+    {
+      // ── THE PARTNER PRIVATE WORKSPACE'S TABS ─────────────────────────────
+      //
+      // THE PARTNER DOMAIN'S TABS (operator, 2026-07-27, revising the same
       // day's first cut). Seen in situ, the earlier shape rendered TWO menus for
       // one concept: a tier-3 row above and the component's own surface row
       // below the Pilot Command Center. The operator's correction — "we use the
@@ -2821,51 +2940,16 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // command centre" — makes each area a first-class tab of the Partner
       // group. One navigation, the cartridge's own.
       //
-      // ONE component, five entrances: every tab renders `PartnerProgrammesTab`
+      // ONE component, N entrances: every tab renders `PartnerProgrammesTab`
       // with its area pre-selected (`inv.engineering.036` — a component per area
       // would be the parallel implementation this avoids). The component keeps
       // the Pilot Command Center above the area content, so the command centre
       // is present on every tab exactly as it was.
       //
-      // `partner-programmes` is retained as the OVERVIEW tab's id/slug so links
-      // already pointing at it (the workspace's own `fromTab`, any deep link
-      // issued before today) keep resolving instead of 404-ing into the group's
-      // first tab by accident.
-      // LABEL, not slug (operator ruling 2026-07-28, Amendment G representation
-      // gap): "Rename or relabel the visible surface so Workspace has a real UI
-      // referent in both the Research Lab and Venture Lab … 'Partner' can remain
-      // the group or context label, but it should not substitute for the actual
-      // workspace surface." The group stays 'Partner'; THIS tab — the workspace's
-      // entrance — now names the surface. The id and slug are deliberately
-      // unchanged: they are what existing `?tab=` deep links and the workspace's
-      // own `fromTab` resolve against, and the ruling closes a representation gap
-      // "without changing the underlying access model".
-      id: 'partner-programmes',
-      label: 'Partner Workspace',
-      slug: 'partner-programmes',
-      enabled: true,
-      // Tier 2 — visible on venture-lab participation, not platform admin.
-      participationDomain: 'venture-lab',
-      // ROLE RESTRICTION (Amendment G / operator ruling 2026-07-28, "Partner
-      // access requires domain + scope + role"): a generic observer or
-      // venture-participant role must NOT satisfy Partner access. Internal
-      // admins bypass via the existing isAdmin fast path in
-      // satisfiesParticipationGate — no separate admin allowlist invented.
-      participationRoles: ['partner-operator', 'workspace-steward'],
-      group: 'partner',
-      order: 0,
-      type: 'static',
-      config: {
-        component: 'PartnerProgrammesTab',
-        props: { initialSurface: 'overview' }
-      },
-      metadata: {
-        icon: 'LayoutDashboard',
-        description: 'Partner Workspace — Pilot Command Center: phase, owner, partner, open actions',
-        color: 'amber'
-      }
-    },
-    {
+      // Collaborate is now the group's FIRST tab: the Overview entrance moved
+      // to Participate as "Public Workspace" (see above), so what remains is
+      // the partner↔metaProof bilateral record, which is what the component's
+      // header now names — "Partner Private Workspace".
       id: 'partner-collaborate',
       label: 'Collaborate',
       slug: 'partner-collaborate',
@@ -2875,7 +2959,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // ROLE RESTRICTION — see partner-programmes above.
       participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
-      order: 1,
+      order: 0,
       type: 'static',
       config: {
         component: 'PartnerProgrammesTab',
@@ -2897,7 +2981,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // ROLE RESTRICTION — see partner-programmes above.
       participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
-      order: 2,
+      order: 1,
       type: 'static',
       config: {
         component: 'PartnerProgrammesTab',
@@ -2919,7 +3003,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // ROLE RESTRICTION — see partner-programmes above.
       participationRoles: ['partner-operator', 'workspace-steward'],
       group: 'partner',
-      order: 3,
+      order: 2,
       type: 'static',
       config: {
         component: 'PartnerProgrammesTab',
@@ -2942,7 +3026,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // publish drafts, which is the failure the two-stage design prevents.
       adminOnly: true,
       group: 'partner',
-      order: 4,
+      order: 3,
       type: 'static',
       config: {
         component: 'PartnerProgrammesTab',
@@ -2958,7 +3042,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // TIER 0 — Partner Administration. The internal programme space the
       // audit found had no home (§B.3): internal partner assessment,
       // negotiation posture, commercial assumptions, internal risk analysis,
-      // pre-release reporting. Splitting it out is what lets the four views
+      // pre-release reporting. Splitting it out is what lets the Tier 2 views
       // above open to partner operators without exposing any of this.
       id: 'partner-administration',
       label: 'Administration',
@@ -2966,7 +3050,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'partner',
-      order: 5,
+      order: 4,
       type: 'static',
       config: {
         component: 'PartnerProgrammesTab',
@@ -2998,13 +3082,21 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // GROW, NOT ADMINISTER (operator ruling, 2026-07-28). AgentiQ OS α is a
+      // PUBLIC surface — the builder substrate dashboard anyone growing on the
+      // platform needs — and it sat in the internal Administer group behind
+      // `adminOnly`, which both hid it from its own audience and mis-stated
+      // what it is. It joins Grow as a sub-item beside Growth Matrix (order 0,
+      // public) and α Programme (order 1, adminOnly); the gate it drops was
+      // mis-scoping, not protection, so nothing behind it becomes newly
+      // readable that was not already public.
       id: 'agentiq-os-vl',
       label: 'AgentiQ OS α',
       slug: 'agentiq-os-vl',
       enabled: true,
-      adminOnly: true,
-      group: 'administer',
-      order: 0,
+      adminOnly: false,
+      group: 'grow',
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -5913,17 +6005,16 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
     },
-    {
-      id: 'irl-passport-registry',
-      label: 'Passport Registry',
-      slug: 'irl-passport-registry',
-      enabled: true,
-      group: 'participation',
-      order: 4,
-      type: 'static',
-      config: { component: 'PassportRegistryTab' },
-      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-    },
+    // REMOVED 2026-07-28 (operator ruling): the Passport Registry tab is gone
+    // from BOTH Labs. The public passport record is not a Lab surface — it
+    // keeps its homes in the AgentiQ cartridge (`passport-registry`), AgentiQ
+    // OS (`os-passport-registry`), the iQube registry (`passports`) and the
+    // Passport Bureau (`registry`). The one inbound deep link that pointed
+    // here (`passportDeepLinks().registry` in
+    // services/constitutional/guidedOnboarding.ts) was repointed at the
+    // AgentiQ OS entrance in the same change — a dangling `?tab=` silently
+    // lands the operator on the cartridge's default tab, which is the defect
+    // this note exists to stop being reintroduced.
     {
       id: 'irl-passport-locker',
       label: 'Locker',
@@ -6333,17 +6424,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
     },
-    {
-      id: 'irl-os-passport-registry',
-      label: 'Passport Registry',
-      slug: 'irl-os-passport-registry',
-      enabled: true,
-      group: 'participation',
-      order: 4,
-      type: 'static',
-      config: { component: 'PassportRegistryTab' },
-      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-    },
+    // REMOVED 2026-07-28 (operator ruling) — see the identical note on the IRL
+    // cartridge above. Same removal, same reason, same repointed deep link.
     {
       id: 'irl-os-passport-locker',
       label: 'Locker',

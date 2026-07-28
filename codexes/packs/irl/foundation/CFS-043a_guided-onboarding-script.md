@@ -25,7 +25,7 @@ All passport surfaces are now first-class tabs of the **IRL OS cartridge**, so t
 |---|---|
 | **Apply for a Passport** | `/triad/embed/codex/irl-os?tab=irl-os-passport-apply` |
 | **Bounded delegation** | `/triad/embed/codex/irl-os?tab=irl-os-passport-delegation` |
-| Registry (public record) | `/triad/embed/codex/irl-os?tab=irl-os-passport-registry` |
+| Registry (public record) | `/triad/embed/codex/agentiq-os?tab=os-passport-registry` — the Passport Registry tab was removed from both Labs on 2026-07-28 (operator ruling); the public record's open, public-facing home is AgentiQ OS |
 | Locker (encrypted vault) | `/triad/embed/codex/irl-os?tab=irl-os-passport-locker` |
 
 Build these with `buildCodexUrl('irl-os', { tab: 'irl-os-passport-apply', personaSessionToken })` (`utils/codex-nav.ts`) so identity + breadcrumb params are attached correctly. The **canonical bureau** (`/triad/embed/codex/polity-passport-bureau?tab=apply`) is the fallback if the human prefers the standalone bureau cartridge — same components, same result.

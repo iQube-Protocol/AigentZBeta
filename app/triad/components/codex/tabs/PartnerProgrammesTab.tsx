@@ -105,6 +105,35 @@ const LAYER_LABELS: Record<(typeof PARTNER_WORKSPACE_LAYERS)[number], string> = 
 // to admins only), so a client mistake cannot leak it.
 const SUB_SURFACES = ["overview", "collaborate", "operate", "evidence", "communicate", "administration"] as const;
 type SubSurface = (typeof SUB_SURFACES)[number];
+
+/**
+ * PUBLIC vs PRIVATE POSTURE (operator ruling, 2026-07-28).
+ *
+ * The Venture Lab's workspace split into two entrances: the PRIVATE one (the
+ * Partner group — the partner↔metaProof bilateral record and the internal
+ * programme space) and the PUBLIC one (the Participate group's "Public
+ * Workspace" — the cross-partner surface a qualifying cohort sees).
+ *
+ * `PUBLIC_SURFACES` is the allowlist for the public posture. It is a CLAMP,
+ * not the primary gate: the primary gate is the tab config (only the public
+ * entrance passes `workspaceVisibility: 'public'`, and it opens on Overview).
+ * The clamp exists because that entrance is now reachable by any venture-lab
+ * grant holder — one mis-set `initialSurface` in a future config edit would
+ * otherwise open a private area to the whole cohort with nothing failing.
+ * Defence in depth on the one change in this ruling that widens a gate.
+ */
+const PUBLIC_SURFACES: readonly SubSurface[] = ["overview"];
+type WorkspaceVisibility = "private" | "public";
+
+function asVisibility(value: string | undefined): WorkspaceVisibility {
+  return value === "public" ? "public" : "private";
+}
+
+/** Is this surface offered at this visibility? Private offers everything the
+ *  caller's TAB gate already allowed; public offers only the allowlist. */
+function surfaceAllowed(surface: SubSurface, visibility: WorkspaceVisibility): boolean {
+  return visibility === "private" || PUBLIC_SURFACES.includes(surface);
+}
 const SUB_LABELS: Record<SubSurface, string> = {
   overview: "Overview",
   collaborate: "Collaborate",
@@ -155,6 +184,15 @@ interface PartnerProgrammesTabProps {
    * facing language — it does NOT branch the surface, which is the point.
    */
   workspaceDomain?: string;
+  /**
+   * WHICH POSTURE this entrance is (operator ruling, 2026-07-28). 'private'
+   * (the default, so every pre-existing mount is byte-identical) is the
+   * partner↔metaProof bilateral workspace; 'public' is the cohort-facing
+   * surface the Participate group's "Public Workspace" tab opens. It selects
+   * the surface NAME and clamps the offered sub-surfaces — it does not select
+   * the data, which is scope-filtered per caller either way.
+   */
+  workspaceVisibility?: string;
 }
 
 // ─── The two Labs, as configuration rather than branches ─────────────────────
@@ -167,9 +205,19 @@ const ACCESS_DOMAIN: Record<WorkspaceKind, string> = {
   research: "research-lab",
 };
 
-/** Operator-facing language per Lab. Labels only — no gate, no data. */
+/** Operator-facing language per Lab. Labels only — no gate, no data.
+ *
+ *  `surfaceName` is keyed by VISIBILITY (operator ruling, 2026-07-28): the
+ *  Venture Lab's workspace has a private and a public expression and the header
+ *  must say which one the operator is looking at. Naming both "Partner
+ *  Workspace" is the representation gap the same ruling closed elsewhere — a
+ *  header that cannot distinguish the bilateral record from the cohort surface
+ *  makes the access model invisible at exactly the moment it matters. The
+ *  Research Lab has no such split (no ruling asked for one), so both of its
+ *  entries are the one name — stated explicitly rather than defaulted, so a
+ *  future research split is a deliberate edit here. */
 const KIND_COPY: Record<WorkspaceKind, {
-  surfaceName: string;
+  surfaceName: Record<WorkspaceVisibility, string>;
   selectorLabel: string;
   commandCenter: string;
   counterpartyLabel: string;
@@ -177,7 +225,10 @@ const KIND_COPY: Record<WorkspaceKind, {
   emptyRegistry: string;
 }> = {
   venture: {
-    surfaceName: "Partner Workspace",
+    surfaceName: {
+      private: "Partner Private Workspace",
+      public: "Partner Public Workspace",
+    },
     selectorLabel: "Partner",
     commandCenter: "Pilot Command Center",
     counterpartyLabel: "Partner",
@@ -186,7 +237,10 @@ const KIND_COPY: Record<WorkspaceKind, {
     emptyRegistry: "No partner workspaces registered.",
   },
   research: {
-    surfaceName: "Research Workspace",
+    surfaceName: {
+      private: "Research Workspace",
+      public: "Research Workspace",
+    },
     selectorLabel: "Programme",
     commandCenter: "Programme Command Center",
     counterpartyLabel: "Series",
@@ -730,8 +784,9 @@ function EvidenceChainPanel({ workspaceId, personaId }: { workspaceId: string; p
   );
 }
 
-export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain }: PartnerProgrammesTabProps) {
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility }: PartnerProgrammesTabProps) {
   const kind = asWorkspaceKind(workspaceDomain);
+  const visibility = asVisibility(workspaceVisibility);
   const copy = KIND_COPY[kind];
   const accessDomain = ACCESS_DOMAIN[kind];
   // Cohort isolation (Amendment G, 2026-07-28 ruling): this picker must not
@@ -770,7 +825,12 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaces]);
-  const menuSurface = asSubSurface(initialSurface);
+  // The visibility CLAMP (see PUBLIC_SURFACES). A public entrance that asks
+  // for a private area falls back to Overview rather than opening it, so a
+  // config mistake degrades to the public surface instead of leaking one.
+  const requestedSurface = asSubSurface(initialSurface);
+  const menuSurface =
+    requestedSurface && surfaceAllowed(requestedSurface, visibility) ? requestedSurface : requestedSurface ? "overview" : null;
   const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
   // The tier-3 row keeps this component mounted and swaps the prop, so state
   // initialised once would stick on whichever surface was opened first.
@@ -847,7 +907,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       <div className={`${PANEL} p-4`}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-slate-100">
-            {copy.surfaceName} — {copy.commandCenter}
+            {copy.surfaceName[visibility]} — {copy.commandCenter}
           </h2>
           <span className="text-[10px] uppercase tracking-wide text-slate-500">{ws.contextLabel}</span>
         </div>
@@ -892,7 +952,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
       {menuSurface === null && (
       <div className="flex flex-wrap gap-1.5">
-        {SUB_SURFACES.filter((s) => s !== "administration").map((s) => (
+        {SUB_SURFACES.filter((s) => s !== "administration" && surfaceAllowed(s, visibility)).map((s) => (
           <button
             key={s}
             onClick={() => setSurface(s)}

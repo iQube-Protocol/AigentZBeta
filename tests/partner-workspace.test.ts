@@ -182,27 +182,29 @@ describe('canonical spellings (platform ontology)', () => {
 });
 
 describe('tab registration — the Partner tier split on the hand-curated Venture Lab cartridge', () => {
-  it('partner-programmes is the enabled Tier 2 Overview tab mounting PartnerProgrammesTab', async () => {
-    // Retained id/slug: it is the Partner group's OVERVIEW tab since 2026-07-27,
-    // kept under this id so links issued before the regroup still resolve.
+  it('partner-programmes is the enabled Tier 2 PUBLIC Workspace tab, now in Participate', async () => {
+    // Retained id/slug across two moves (Partner-group regroup 2026-07-27, then
+    // the move into Participate 2026-07-28) so links issued before either still
+    // resolve — a dangling `?tab=` does not error, it silently lands the
+    // operator on the cartridge default, which is why the slug is pinned.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const tab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     expect(tab).toBeTruthy();
-    // LABEL RELABELLED 2026-07-28 (operator ruling on the Amendment G
-    // representation gap): "Workspace" must have a real UI referent — the group
-    // label 'Partner' may not substitute for the workspace surface itself. The
-    // id and slug below are deliberately UNCHANGED: relabelling closes the
-    // representation gap "without changing the underlying access model", and a
-    // slug change would break every `?tab=` deep link already issued.
-    expect(tab!.label).toBe('Partner Workspace');
-    // TIER 2 since the split (audit §B.3; operator "Partner gate = split
-    // agreed", 2026-07-27): a partner operator must be able to see the shared
+    // RE-POINTED 2026-07-28 at the operator's structural ruling: the public
+    // workspace surface moves out of Partner into Participate and is labelled
+    // "Public Workspace" — partner-agnostic, because it serves whichever
+    // partner public space the viewing cohort qualifies for.
+    expect(tab!.label).toBe('Public Workspace');
+    expect(tab!.group).toBe('participate');
+    // TIER 2 still (audit §B.3): a participant must be able to see the public
     // record WITHOUT becoming a platform admin. adminOnly here would restore
     // the hard blocker the split resolved.
     expect(tab!.adminOnly).toBeUndefined();
     expect(tab!.participationDomain).toBe('venture-lab');
     expect(tab!.enabled).toBe(true);
     expect(tab!.config.component).toBe('PartnerProgrammesTab');
+    // The public posture, which clamps the component's offered surfaces.
+    expect(tab!.config.props?.workspaceVisibility).toBe('public');
   });
 
   it('TabRenderer registers the component', () => {
@@ -210,23 +212,33 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
     expect(src).toContain('PartnerProgrammesTab');
   });
 
-  it('Partner is a first-class group between Grow and Administer, driving the content itself', async () => {
+  it('Partner is a first-class group between Participate and Administer, driving the content itself', async () => {
     // Operator, 2026-07-27, seeing it in situ: "Partner should be a first class
     // menu item between grow and administer and that sub menu should then drive
     // the content that is across the sub sections … we don't need the duplicate
-    // sub menus." The first cut put the five areas in a tier-3 row while the
+    // sub menus." The first cut put the areas in a tier-3 row while the
     // component ALSO drew its own row — two menus for one concept. They are now
     // the standard cartridge tabs of a Partner group.
+    //
+    // RE-POINTED 2026-07-28: the operator SWAPPED Partner and Participate, so
+    // "between Grow and Administer" is now "between Participate and Administer"
+    // — Participate, the cross-partner surface, comes first. The invariant is
+    // the same one: Partner is a first-class group with a fixed position, not a
+    // floating pill.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const groups = VENTURE_LAB_CODEX.tabGroups ?? [];
     const partner = groups.find((g: { id: string }) => g.id === 'partner');
     const grow = groups.find((g: { id: string }) => g.id === 'grow');
+    const participate = groups.find((g: { id: string }) => g.id === 'participate');
     const administer = groups.find((g: { id: string }) => g.id === 'administer');
     expect(partner, 'no Partner group').toBeTruthy();
     expect(partner!.label).toBe('Partner');
-    // Position is the operator's instruction, not decoration.
+    // Position is the operator's instruction, not decoration — and the SWAP is
+    // asserted from both sides so a half-applied edit cannot pass.
     expect(partner!.order).toBeGreaterThan(grow!.order);
+    expect(partner!.order).toBeGreaterThan(participate!.order);
     expect(partner!.order).toBeLessThan(administer!.order);
+    expect(participate!.order).toBeGreaterThan(grow!.order);
     // NO group-level gate since the tier split — the group now carries both
     // tiers, so membership decides per tab. The "pill that filters to nothing"
     // concern it used to serve is handled structurally instead: a group with
@@ -236,16 +248,19 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
     const tabs = VENTURE_LAB_CODEX.tabs
       .filter((t: { group?: string }) => t.group === 'partner')
       .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
+    // The Overview entrance ('Partner Workspace') LEFT this group on 2026-07-28
+    // for Participate, as 'Public Workspace'. What remains is the private
+    // workspace: the partner↔metaProof record plus the internal space.
     expect(tabs.map((t: { label: string }) => t.label)).toEqual([
-      'Partner Workspace',
       'Collaborate',
       'Operate',
       'Evidence',
       'Communicate',
       'Administration',
     ]);
-    // The ratified split: four Tier 2 views, two Tier 0 views.
-    const TIER2 = new Set(['partner-programmes', 'partner-collaborate', 'partner-operate', 'partner-evidence']);
+    expect(tabs.map((t: { label: string }) => t.label)).not.toContain('Partner Workspace');
+    // The ratified split: three Tier 2 views, two Tier 0 views.
+    const TIER2 = new Set(['partner-collaborate', 'partner-operate', 'partner-evidence']);
     const TIER0 = new Set(['partner-communicate', 'partner-administration']);
     for (const t of tabs) {
       if (TIER2.has(t.id)) {
@@ -256,14 +271,19 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
         expect(t.adminOnly, `${t.id} is Tier 0 but not adminOnly`).toBe(true);
       }
       expect(t.enabled).toBe(true);
-      // ONE component, six entrances.
+      // ONE component, N entrances.
       expect(t.config.component).toBe('PartnerProgrammesTab');
       expect(typeof t.config.props?.initialSurface).toBe('string');
+      // PRIVATE posture: no Partner-group tab may declare itself public, or the
+      // clamp that keeps the private areas off the cohort surface is inverted.
+      expect(t.config.props?.workspaceVisibility, `${t.id} is a public posture inside the PRIVATE group`).toBeUndefined();
       // No second menu: the area tabs must not carry their own subTabs.
       expect(t.subTabs, `${t.id} reintroduces a nested menu`).toBeUndefined();
     }
-    // The pre-regroup deep-link target still resolves.
-    expect(tabs[0].slug).toBe('partner-programmes');
+    // The pre-regroup deep-link target still resolves — from Participate now.
+    const publicEntrance = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
+    expect(publicEntrance!.slug).toBe('partner-programmes');
+    expect(publicEntrance!.group).toBe('participate');
     // Slugs unique across the cartridge.
     const slugs = VENTURE_LAB_CODEX.tabs.map((t: { slug: string }) => t.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
@@ -368,17 +388,24 @@ describe('collaborate — venture-lab domain scoping over the ONE invitation/exc
 });
 
 describe('Phase 1 — Venture Lab Participation is a composition, not a copy', () => {
-  it('Participate is its own cross-programme group between Partner and Administer', async () => {
+  it('Participate is its own cross-programme group, now AHEAD of Partner', async () => {
     // Operator decision 2026-07-27: participation spans every venture programme,
     // so it is not a Partner sub-item.
+    //
+    // RE-POINTED 2026-07-28 (the swap): Participate now precedes Partner.
+    // The operator's reason is the specification — Participate is the
+    // cross-partner, cross-programme surface every Venture Lab user gets, so it
+    // leads; Partner is the narrow bilateral space behind it.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const groups = VENTURE_LAB_CODEX.tabGroups ?? [];
     const participate = groups.find((g: { id: string }) => g.id === 'participate');
     const partner = groups.find((g: { id: string }) => g.id === 'partner');
+    const grow = groups.find((g: { id: string }) => g.id === 'grow');
     const administer = groups.find((g: { id: string }) => g.id === 'administer');
     expect(participate, 'no Participate group').toBeTruthy();
     expect(participate!.label).toBe('Participate');
-    expect(participate!.order).toBeGreaterThan(partner!.order);
+    expect(participate!.order).toBeLessThan(partner!.order);
+    expect(participate!.order).toBeGreaterThan(grow!.order);
     expect(participate!.order).toBeLessThan(administer!.order);
     // Participant-facing: the GROUP must NOT be adminOnly, or no participant
     // could ever reach it — the whole point of Phase 1.
@@ -402,7 +429,21 @@ describe('Phase 1 — Venture Lab Participation is a composition, not a copy', (
     const ventureParticipate = VENTURE_LAB_CODEX.tabs.filter(
       (t: { group?: string }) => t.group === 'participate',
     );
-    expect(ventureParticipate.length).toBe(6);
+    // SEVEN since 2026-07-28: the six Phase-1 surfaces plus the Public
+    // Workspace that moved in from the Partner group. The count is pinned so a
+    // tab silently appearing or vanishing from the participant-facing group is
+    // a build failure — but it is the SET that carries the meaning, so it is
+    // asserted too rather than left to the number.
+    expect(ventureParticipate.length).toBe(7);
+    expect(ventureParticipate.map((t: { id: string }) => t.id).sort()).toEqual([
+      'partner-programmes',
+      'venture-participate-apply',
+      'venture-participate-delegation',
+      'venture-participate-locker',
+      'venture-participate-overview',
+      'venture-participate-standing',
+      'venture-participate-steward',
+    ]);
 
     // metaMe MIRRORS the Venture Lab's tabs into its own `vl` group
     // (`ventureLabTabsForMetameVl`, ids prefixed `vl-`). Excluding only the

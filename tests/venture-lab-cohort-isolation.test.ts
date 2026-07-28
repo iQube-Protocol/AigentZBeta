@@ -437,3 +437,230 @@ describe('canary 9 — a workspace in the model has a door in a cartridge', () =
     }
   });
 });
+
+// ─── Canary 10 — the Partner group is INVISIBLE, not merely empty ────────────
+//
+// Added 2026-07-28 with the operator's structural ruling: "The Partner group
+// renders only to partner ops/personnel cohorts and metaMe admins — invisible
+// to everyone else, not merely empty."
+//
+// The distinction is the whole canary. A group chip that renders and then shows
+// nothing is a DIFFERENT (and worse) outcome than no chip at all: it advertises
+// a surface the caller cannot have, and it is the exact failure the group-level
+// `adminOnly` used to prevent before the tier split removed it. The replacement
+// is structural — CodexPanelDynamic's `visibleGroups` drops a group with no
+// enabled tabs (MS-9) — so this canary drives the REAL tab filter and then
+// applies that verbatim predicate, rather than asserting the gate predicate
+// alone (which would stay green while the chip rendered anyway).
+//
+// It composes with canary 8: the same `getEnabledTabs` call, the same caller
+// shape, asserting the opposite outcome for a caller who does not qualify.
+
+describe('canary 10 — Partner is invisible to a non-partner venture-lab member', () => {
+  const partnerGroupRenders = async (
+    access: ParticipationAccessState,
+    isAdmin: boolean,
+  ): Promise<{ renders: boolean; slugs: string[] }> => {
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
+    const enabled = getEnabledTabs(
+      VENTURE_LAB_CODEX,
+      isAdmin,
+      false,
+      false,
+      new Set(),
+      { isGlobalAdmin: isAdmin, cartridgeSlugs: new Set() },
+      access,
+    );
+    const partnerTabs = enabled.filter((t) => t.group === 'partner');
+    // Verbatim the predicate CodexPanelDynamic's `visibleGroups` uses (MS-9).
+    return { renders: partnerTabs.length > 0, slugs: partnerTabs.map((t) => t.slug).sort() };
+  };
+
+  it('a venture-participant scoped to a real pilot sees NO Partner tab at all — the chip does not render', async () => {
+    const participant = access([
+      { accessDomain: 'venture-lab', role: 'venture-participant', allowedScopes: [HORIZEN] },
+    ]);
+    const { renders, slugs } = await partnerGroupRenders(participant, false);
+    // The EXACT set, not a count: an empty-set assertion is what distinguishes
+    // "invisible" from "renders with one surviving tab".
+    expect(slugs, 'a plain participant reached a Partner surface').toEqual([]);
+    expect(renders, 'the Partner chip renders for a caller with nothing in it').toBe(false);
+  });
+
+  it('an observer with the same scope likewise sees no Partner chip', async () => {
+    const observer = access([{ accessDomain: 'venture-lab', role: 'observer', allowedScopes: [HORIZEN] }]);
+    const { renders, slugs } = await partnerGroupRenders(observer, false);
+    expect(slugs).toEqual([]);
+    expect(renders).toBe(false);
+  });
+
+  it('a partner-operator DOES see it — exactly the three Tier-2 views, no Tier-0 leak', async () => {
+    // The liveness half. Without it, "invisible to everyone" would pass at its
+    // maximum with the group closed to the partner operators it exists for.
+    //
+    // THE EXPECTATION IS A LITERAL LIST, deliberately. Deriving it from the
+    // config with `!t.adminOnly` — the same predicate the filter uses — is
+    // TAUTOLOGICAL: admin-gating one Tier-2 view removes it from the expected
+    // set and the actual set together, and the canary stays green while that
+    // view goes dark for the operator it exists for. Found by mutation-testing
+    // this very block (M3, 2026-07-28), which survived the derived version.
+    const operator = access([
+      { accessDomain: 'venture-lab', role: 'partner-operator', allowedScopes: [HORIZEN] },
+    ]);
+    const { renders, slugs } = await partnerGroupRenders(operator, false);
+    expect(renders).toBe(true);
+    expect(slugs).toEqual(['partner-collaborate', 'partner-evidence', 'partner-operate']);
+  });
+
+  it('a metaMe admin sees the whole group, Tier 0 included', async () => {
+    // Literal, for the same reason as the block above: deriving "every Partner
+    // tab" from the config makes a DELETED tab invisible to the assertion.
+    const { slugs } = await partnerGroupRenders(access([]), true);
+    expect(slugs).toEqual([
+      'partner-administration',
+      'partner-collaborate',
+      'partner-communicate',
+      'partner-evidence',
+      'partner-operate',
+    ]);
+  });
+
+  it('every remaining Partner tab carries a gate — invisibility is a property of the tabs, not a coincidence', async () => {
+    // MS-9 only hides the group if EVERY tab is gated away. One ungated tab
+    // reopens the chip to the whole cartridge audience, and nothing above would
+    // catch it if that tab happened to be gated for the two callers tested.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const partnerTabs = VENTURE_LAB_CODEX.tabs.filter((t: { group?: string }) => t.group === 'partner') as Array<{
+      id: string;
+      adminOnly?: boolean;
+      participationDomain?: string;
+      participationRoles?: string[];
+    }>;
+    expect(partnerTabs.length).toBeGreaterThan(0);
+    for (const t of partnerTabs) {
+      const gated =
+        t.adminOnly === true ||
+        (t.participationDomain === 'venture-lab' &&
+          Array.isArray(t.participationRoles) &&
+          t.participationRoles.length > 0);
+      expect(gated, `${t.id} is ungated — the Partner chip becomes visible to every venture-lab member`).toBe(true);
+      if (!t.adminOnly) {
+        expect(t.participationRoles).toEqual(expect.arrayContaining(['partner-operator', 'workspace-steward']));
+        expect(t.participationRoles).not.toContain('venture-participant');
+        expect(t.participationRoles).not.toContain('observer');
+      }
+    }
+  });
+});
+
+// ─── Canary 11 — the Public Workspace: reachable by the cohort, isolated ─────
+//
+// The operator's structural ruling moved the public workspace surface out of
+// Partner into Participate, dropping its role restriction so that "every user
+// with Venture Lab access gets an iteration of it". That is the one gate this
+// ruling deliberately widens, so it needs BOTH halves asserted here:
+//
+//   LIVENESS  — a plain venture-participant reaches it (the point of the move),
+//               through the real filter, and the workspace picker admits the
+//               same caller (passing the tab gate and then finding an empty
+//               picker is the same invisible surface from the operator's seat).
+//   ISOLATION — the widening is on ROLE only. Domain still excludes a grantless
+//               caller, and SCOPE still excludes another cohort's workspace.
+//               Cohort isolation is the invariant the move must not touch.
+
+describe('canary 11 — the Public Workspace is cross-partner, not cross-cohort', () => {
+  const PUBLIC_TAB_ID = 'partner-programmes';
+
+  const participateTabs = async (access: ParticipationAccessState, isAdmin: boolean) => {
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
+    return getEnabledTabs(
+      VENTURE_LAB_CODEX,
+      isAdmin,
+      false,
+      false,
+      new Set(),
+      { isGlobalAdmin: isAdmin, cartridgeSlugs: new Set() },
+      access,
+    ).filter((t) => t.group === 'participate');
+  };
+
+  it('a plain venture-participant reaches it through the REAL tab filter', async () => {
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const participant = access([
+      { accessDomain: 'venture-lab', role: 'venture-participant', allowedScopes: [HORIZEN] },
+    ]);
+    const slugs = (await participateTabs(participant, false)).map((t) => t.slug).sort();
+    const publicTab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === PUBLIC_TAB_ID)!;
+    expect(publicTab.group, 'the Public Workspace is not in the Participate group').toBe('participate');
+    expect(slugs, 'the Public Workspace is unreachable by an ordinary venture-lab participant').toContain(
+      publicTab.slug,
+    );
+    // The EXACT set a non-admin participant gets: every Participate tab except
+    // the admin-gated Steward. A `toContain` alone stays green while some other
+    // Participate surface silently opened or closed — and a set DERIVED with
+    // `!t.adminOnly` is tautological, since gating a tab removes it from both
+    // sides at once. Literal list, therefore.
+    expect(slugs).toEqual([
+      'partner-programmes',
+      'venture-participate-apply',
+      'venture-participate-delegation',
+      'venture-participate-locker',
+      'venture-participate-overview',
+      'venture-participate-standing',
+    ]);
+  });
+
+  it('…and the workspace behind it opens for that SAME caller — the picker is not empty', () => {
+    // A separate decision from the tab gate, so it is asserted for the same
+    // caller rather than assumed to follow.
+    const participant = access([
+      { accessDomain: 'venture-lab', role: 'venture-participant', allowedScopes: [HORIZEN] },
+    ]);
+    expect(satisfiesWorkspaceScope(participant, 'venture-lab', HORIZEN, false)).toBe(true);
+    expect(scopesGrantedIn(participant, 'venture-lab', false)).toEqual([HORIZEN]);
+  });
+
+  it('the widening is ROLE-only: a caller with no venture-lab grant still cannot see it', async () => {
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const publicTab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === PUBLIC_TAB_ID)!;
+    // The domain gate is what stops the move from opening the surface to the
+    // whole cartridge audience — pinned as config AND driven as a decision.
+    expect(publicTab.participationDomain).toBe('venture-lab');
+    expect(tabPassesAccessGates(publicTab, access([]), false)).toBe(false);
+    const slugs = (await participateTabs(access([]), false)).map((t) => t.slug);
+    expect(slugs, 'a caller with no venture-lab grant reached the Public Workspace').not.toContain(publicTab.slug);
+  });
+
+  it('cohort isolation survives the move: one cohort still cannot open another cohort’s public workspace', () => {
+    const horizenParticipant = access([
+      { accessDomain: 'venture-lab', role: 'venture-participant', allowedScopes: [HORIZEN] },
+    ]);
+    expect(satisfiesWorkspaceScope(horizenParticipant, 'venture-lab', OTHER_PILOT, false)).toBe(false);
+    // An unscoped venture-lab grant sees the TAB (domain satisfied) and NO
+    // workspace inside it (deny-by-default) — the "visible tab, no qualifying
+    // workspace" state the ruling explicitly allows, and the one it forbids
+    // (someone else's workspace) is the assertion above.
+    const unscoped = access([{ accessDomain: 'venture-lab', role: 'venture-participant', allowedScopes: [] }]);
+    expect(scopesGrantedIn(unscoped, 'venture-lab', false)).toEqual([]);
+    expect(satisfiesWorkspaceScope(unscoped, 'venture-lab', HORIZEN, false)).toBe(false);
+  });
+
+  it('the tab names no partner, and opens on the clamped PUBLIC posture', async () => {
+    // "Do not hardcode Horizen" — the qualifying workspace must fall out of the
+    // caller's grants over the registry, never out of a conditional. A partner
+    // name anywhere in this tab's config is that conditional in disguise.
+    const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
+    const publicTab = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === PUBLIC_TAB_ID)! as {
+      label: string;
+      metadata?: { description?: string };
+      config: { props?: Record<string, unknown> };
+    };
+    expect(publicTab.label).toBe('Public Workspace');
+    expect(publicTab.label).not.toMatch(/Partner|Horizen/i);
+    expect(publicTab.metadata?.description ?? '').not.toMatch(/Horizen/i);
+    expect(publicTab.config.props?.workspaceVisibility).toBe('public');
+    expect(publicTab.config.props?.initialSurface).toBe('overview');
+  });
+});

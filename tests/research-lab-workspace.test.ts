@@ -439,34 +439,61 @@ describe('canary R7 — both Labs mount the same workspace implementation', () =
 // ─── Canary R8 — "Workspace" has a real UI referent (ruling B) ───────────────
 
 describe('canary R8 — Workspace is a visible referent in both Labs', () => {
-  it('the IRL group and the Venture Lab entrance both name the surface', async () => {
+  // RE-POINTED 2026-07-28 at the operator's SECOND ruling of the same day, which
+  // supersedes the first without weakening it. Ruling one said "Workspace must
+  // have a real UI referent"; ruling two split the Venture Lab's workspace into
+  // a PRIVATE (partner↔metaProof, Partner group) and a PUBLIC (cohort-facing,
+  // Participate group) expression. The invariant this canary exists for is
+  // unchanged and now stronger: BOTH expressions must name themselves, and the
+  // public one must not name a partner.
+
+  it('the IRL group and both Venture Lab expressions name their surface', async () => {
     const { IRL_CARTRIDGE, VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const group = (IRL_CARTRIDGE.tabGroups ?? []).find((g: { id: string }) => g.id === 'workspace');
     expect(group!.label).toBe('Research Workspace');
     const entrance = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
-    expect(entrance!.label).toBe('Partner Workspace');
-    // 'Partner' may remain the GROUP label — the ruling allows it explicitly.
+    // PARTNER-AGNOSTIC by operator instruction: "labelled 'Public Workspace' —
+    // NOT 'Partner Workspace'". The tab serves whichever partner public space
+    // the viewing cohort qualifies for, so its label may name no partner.
+    expect(entrance!.label).toBe('Public Workspace');
+    expect(entrance!.label).not.toMatch(/Partner/);
+    // 'Partner' may remain the GROUP label — the first ruling allows it
+    // explicitly, and the second leaves it standing.
     const partnerGroup = (VENTURE_LAB_CODEX.tabGroups ?? []).find((g: { id: string }) => g.id === 'partner');
     expect(partnerGroup!.label).toBe('Partner');
   });
 
-  it('the relabel changed no slug, no gate, no role and no domain', async () => {
-    // "This closes the Amendment G representation gap WITHOUT changing the
-    // underlying access model." A slug change would break every issued deep
-    // link; a gate change would be a different ruling entirely.
+  it('the move changed no slug and no domain, and the role drop is the ruling', async () => {
+    // The FIRST ruling's promise — "closes the representation gap WITHOUT
+    // changing the underlying access model" — still binds the parts it named: a
+    // slug change would break every issued deep link, and the domain gate is
+    // what keeps a grantless caller out.
+    //
+    // The SECOND ruling deliberately drops `participationRoles` on THIS tab —
+    // the one genuine access-model change, and the reason it is asserted here
+    // as an explicit `toBeUndefined()` rather than left unstated: an absent
+    // assertion would let the restriction silently return (breaking the
+    // cross-partner surface) or spread (re-closing it) with nothing failing.
     const { VENTURE_LAB_CODEX } = await import('../data/codex-configs');
     const entrance = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     expect(entrance!.slug).toBe('partner-programmes');
     expect(entrance!.participationDomain).toBe('venture-lab');
-    expect(entrance!.participationRoles).toEqual(['partner-operator', 'workspace-steward']);
+    expect(entrance!.participationRoles).toBeUndefined();
     expect(entrance!.adminOnly).toBeUndefined();
+    // It now lives in Participate, and opens on the public posture.
+    expect(entrance!.group).toBe('participate');
+    expect(entrance!.config.props?.workspaceVisibility).toBe('public');
   });
 
   it('the surface renders its own name, not only the navigation', () => {
     const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
-    expect(src).toMatch(/surfaceName: "Partner Workspace"/);
-    expect(src).toMatch(/surfaceName: "Research Workspace"/);
-    expect(src).toMatch(/\{copy\.surfaceName\}/);
+    // Both venture expressions, each named — and the header must read the
+    // VISIBILITY-keyed entry, or the two names exist in the map while one of
+    // them can never reach the screen.
+    expect(src).toMatch(/private: "Partner Private Workspace"/);
+    expect(src).toMatch(/public: "Partner Public Workspace"/);
+    expect(src).toMatch(/private: "Research Workspace"/);
+    expect(src).toMatch(/\{copy\.surfaceName\[visibility\]\}/);
   });
 });
 
