@@ -40,7 +40,12 @@ interface Recurrence {
 
 interface Evidence {
   id: string; domain: string; subDomain: string | null; title: string;
-  sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
+  // `content` is EMPTY on the list projection — the route sends the length
+  // instead, because full document text blew the Lambda response cap and the
+  // resulting empty body left this panel rendering another domain's evidence
+  // (2026-07-28). Fall back to content.length so any caller still holding a
+  // full row keeps working.
+  sourceKind: string; content: string; contentChars?: number; sourceRef: string | null; createdAt: string;
   // Derived, never stored (inv.engineering.036) — null when the domain being
   // viewed isn't a horizontal-capability domain, where the distinction
   // doesn't exist.
@@ -163,11 +168,33 @@ export default function InvariantDiscoveryTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // CLEAR BEFORE FETCHING (2026-07-28 regression: "Commercialisation docs are
+    // now showing FS docs"). `load` runs on every scope change, and it only
+    // ever WROTE state on success — so a failed load (the 413 above returned an
+    // empty body and threw in `res.json()`) left the PREVIOUS domain's evidence
+    // and candidates on screen under the NEW domain's heading.
+    //
+    // Data belonging to a scope the operator is no longer in must never render
+    // as that scope's data. An empty panel plus an error is honest; another
+    // domain's corpus labelled as this one is not. This file already carries
+    // the same rule for the notice line one screen down — it was never applied
+    // to the rows themselves.
+    setEvidence([]);
+    setCandidates([]);
+    setQueue([]);
     try {
       const qs = new URLSearchParams({ domain });
       if (subDomain) qs.set("subDomain", subDomain);
       const res = await personaFetch(`/api/invariants/discovery?${qs.toString()}`, { cache: "no-store" });
-      const data = await res.json();
+      // A response too large for the gateway arrives with an EMPTY body, and
+      // `res.json()` throws on it — read text first so the surface can say what
+      // actually happened instead of surfacing a raw parser error.
+      const raw = await res.text();
+      if (!raw) {
+        setNotice(`⚠ The server returned an empty response (HTTP ${res.status}). Nothing is shown for this scope rather than showing another scope's data.`);
+        return;
+      }
+      const data = JSON.parse(raw);
       if (data?.ok) {
         setEvidence(data.evidence ?? []);
         setCandidates(data.candidates ?? []);
@@ -208,7 +235,16 @@ export default function InvariantDiscoveryTab() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, ...body }),
       });
-      const data = await res.json();
+      // Same empty-body hazard as `load` — a response too large for the gateway
+      // arrives with no body and `res.json()` throws a raw parser error. Read
+      // text first and report the real condition.
+      const raw = await res.text();
+      if (!raw) {
+        const message = `The server returned an empty response (HTTP ${res.status}).`;
+        if (opts?.silent) return { ok: false, error: message };
+        setNotice(`⚠ ${message}`); return null;
+      }
+      const data = JSON.parse(raw);
       if (!res.ok || data?.ok === false) {
         if (opts?.silent) return data ?? { ok: false, error: "Action failed" };
         setNotice(`⚠ ${data?.error ?? "Action failed"}`); return null;
@@ -650,7 +686,7 @@ export default function InvariantDiscoveryTab() {
                 )}
                 <span className="min-w-0 flex-1 truncate text-slate-300">{e.title}</span>
                 {e.subDomain && <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">{e.subDomain}</span>}
-                <span className="text-slate-500">{e.content.length.toLocaleString()} chars</span>
+                <span className="text-slate-500">{(e.contentChars ?? e.content.length).toLocaleString()} chars</span>
               </div>
             ))}
           </div>

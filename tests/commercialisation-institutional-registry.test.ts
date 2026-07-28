@@ -103,6 +103,9 @@ const FS_SEED = read(FS_SEED_PATH);
 const COM_SEED = read(COM_SEED_PATH);
 const VERIFY_SEED = read(VERIFY_SEED_PATH);
 const LAW_II_SEED = read(LAW_II_SEED_PATH);
+// The BIS CPMI re-seed (operator ruling 2026-07-28): the two pinned-document
+// seeds 404'd and were replaced by the official publication INDEXES.
+const BIS_RESEED = read('supabase/migrations/20260903000000_bis_cpmi_reseed_publication_index.sql');
 
 const PILLAR_KEYS = discoveryDomain('commercialisation')!.subDomains.map((s) => s.value);
 
@@ -468,8 +471,8 @@ describe('SPEC-CIR-001 · the operator-supplied URLs, and nothing else', () => {
     // Wave 3 — the Law II ruling. NBER is REUSED and needs no new key.
     'National Infrastructure and Service Transformation Authority':
       'https://www.gov.uk/government/organisations/national-infrastructure-and-service-transformation-authority',
-    // Reconciled, NOT the operator's bare https://www.bis.org — see below.
-    'BIS Committee on Payments and Market Infrastructures': 'https://www.bis.org/cpmi/',
+    // Re-seeded 2026-07-28 to the CPMI overview — see the reconciliation test.
+    'BIS Committee on Payments and Market Infrastructures': 'https://www.bis.org/cpmi/about/overview.htm',
   };
 
   it('every tier-1 institution resolves to exactly the URL the operator supplied', () => {
@@ -485,13 +488,20 @@ describe('SPEC-CIR-001 · the operator-supplied URLs, and nothing else', () => {
   });
 
   it('BIS CPMI is RECONCILED to one entry, at the more specific committee page', () => {
-    // The operator's seed was the parent `https://www.bis.org`. Adding it would
-    // create a second key for one institution AND collide with the plain `bis`
-    // entry, giving two institutions one starting page.
+    // The operator's first seed was the parent `https://www.bis.org`. Adding it
+    // would create a second key for one institution AND collide with the plain
+    // `bis` entry, giving two institutions one starting page. NARROWED again
+    // 2026-07-28 to the CPMI overview (charter + work programme + links to the
+    // current publication collections) — same principle one rung finer.
+    //
+    // The load-bearing properties are unchanged and still asserted: ONE key for
+    // this institution, and never the same starting page as plain `bis`.
     const keys = listCanonicalInstitutionNames().filter((k) => k.includes('committee on payments'));
     expect(keys, 'BIS CPMI has more than one homepage key').toHaveLength(1);
-    expect(resolveCanonicalHomepage('BIS Committee on Payments and Market Infrastructures')).toBe('https://www.bis.org/cpmi/');
+    const cpmi = resolveCanonicalHomepage('BIS Committee on Payments and Market Infrastructures');
+    expect(cpmi).toBe('https://www.bis.org/cpmi/about/overview.htm');
     expect(resolveCanonicalHomepage('BIS')).toBe('https://www.bis.org');
+    expect(cpmi, 'CPMI and BIS share one starting page').not.toBe(resolveCanonicalHomepage('BIS'));
     expect(SPEC).toMatch(/BIS CPMI/);
   });
 
@@ -874,7 +884,7 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
   });
 
   it('the acquisition seeds are DOCUMENTS, not institutional seed URLs', () => {
-    expect(COMMERCIALISATION_ACQUISITION_SEEDS).toHaveLength(19);
+    expect(COMMERCIALISATION_ACQUISITION_SEEDS).toHaveLength(20);
     for (const seed of COMMERCIALISATION_ACQUISITION_SEEDS) {
       // Every seed hangs off a (pillar, institution) that is really registered.
       expect(
@@ -889,7 +899,7 @@ describe('SPEC-CIR-001 · nothing is ratified or verified by being written', () 
       // The operator's page counts are CLAIMS, never measured facts.
       expect(seed.claim, `seed ${seed.url} states its claim as a fact`).toMatch(/^Operator claim:/);
       expect(
-        VERIFY_SEED.includes(seed.url) || LAW_II_SEED.includes(seed.url),
+        VERIFY_SEED.includes(seed.url) || LAW_II_SEED.includes(seed.url) || BIS_RESEED.includes(seed.url),
         `seed ${seed.url} is in no migration`,
       ).toBe(true);
     }

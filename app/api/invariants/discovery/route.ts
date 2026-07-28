@@ -104,7 +104,31 @@ export async function GET(req: NextRequest) {
       domainKind: registered?.kind ?? null,
       domainDefinition: registered?.definition ?? null,
       observedIn: registered ? [...registered.observedIn] : [],
-      evidence,
+      // BOUNDED PAYLOAD (2026-07-28 regression: "Commercialisation docs are now
+      // showing FS docs").
+      //
+      // This list carried every evidence row's FULL `content`. Acquired
+      // institutional documents run to 200k chars each, and a 1.3M-char World
+      // Bank report chunks into several rows — so once the operator ingested a
+      // real corpus, the response blew the Lambda 6MB cap and returned an EMPTY
+      // body. The client's `JSON.parse` then threw ("unexpected end of data at
+      // line 1 column 1"), `load()` bailed before `setEvidence`, and the panel
+      // went on rendering the PREVIOUS domain's rows under the new domain's
+      // heading — Financial Services evidence displayed as Commercialisation.
+      // The cross-domain contamination was never a domain-resolution bug; the
+      // read model was correct and the transport was too large to arrive.
+      //
+      // The surface renders only `content.length`, so the content itself is
+      // dead weight on this route. Sending the LENGTH instead is exactly the
+      // same fix already applied to the candidate-sources list, and it is
+      // confined to this projection: `listDomainEvidence` still returns full
+      // content to extraction, compare, and compression, which genuinely need
+      // the text.
+      evidence: evidence.map(({ content, ...rest }) => ({
+        ...rest,
+        contentChars: content.length,
+        content: '',
+      })),
       candidates,
       classificationQueue,
       // The six checks are carried from the ruling's own list rather than

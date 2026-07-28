@@ -154,7 +154,7 @@ The ruling closed the five pillars §5 reported as empty. Unlike wave 1, the pil
 | 32 | `pricing` | OECD | Competition Policy | Competition policy; digital-market pricing | https://www.oecd.org | policy | 4 |
 | 33 | `distribution` | World Trade Organization | International Trade Doctrine | International trade and market-access doctrine | https://www.wto.org | policy | 3 |
 | 34 | `distribution` | UN Trade and Development (UNCTAD) | Development Economics | Development economics; digital commerce and trade measurement | https://unctad.org | datasets | 3 |
-| 35 | `settlement-exchange` | BIS Committee on Payments and Market Infrastructures | Payment & Settlement Infrastructure | Payment, clearing and settlement infrastructure | https://www.bis.org/cpmi/ (see §4.3) | standards | 6 |
+| 35 | `settlement-exchange` | BIS Committee on Payments and Market Infrastructures | Payment & Settlement Infrastructure | Payment, clearing and settlement infrastructure | https://www.bis.org/cpmi/about/overview.htm (see §4.3) | standards | 6 |
 | 36 | `settlement-exchange` | UNCITRAL | International Commercial Law | International commercial law; electronic contracting and transferable records | https://uncitral.un.org | standards | 6 |
 | 37 | `commercial-failure-modes` | NBER | Academic Economics / Empirical Economic Research | Academic entrepreneurship and market-failure research | https://www.nber.org | research-papers | 1 |
 | 38 | `commercial-failure-modes` | U.S. Bureau of Labor Statistics | Official Statistics | Official longitudinal business-demography evidence | https://www.bls.gov | datasets | 1 |
@@ -164,6 +164,8 @@ The ruling closed the five pillars §5 reported as empty. Unlike wave 1, the pil
 ### 4.3 BIS CPMI — the reconciled entry
 
 The operator's institutional seed for CPMI is `https://www.bis.org`. The curated directory already holds **`https://www.bis.org/cpmi/`** for the same named institution (a Financial Services authority since the `20260817000000` seed). These are not in conflict — the operator's value is the *parent* of the existing one.
+
+**Re-seeded 2026-07-28 (operator ruling).** The canonical landing page is now **`https://www.bis.org/cpmi/about/overview.htm`** — the CPMI overview, carrying the committee charter, work programme and links to the current publication collections. Same principle one rung finer than the reconciliation below: the most specific page that still enumerates the committee's output is the better navigation start. Exactly one CPMI key remains, and it is never the same page as plain `bis`.
 
 **The existing, more specific value is kept, and no second key is added.** Three reasons: this file's own header already anticipates a steward needing *"a more specific starting page than its bare homepage"*; `bis.org/cpmi/` is strictly better for Agent B, whose job is to find the institution's publication listing (bis.org surfaces all of BIS's output, bis.org/cpmi/ the committee's); and a bare `bis.org` key would **collide with the existing plain `bis` entry**, giving two distinct institutions one starting page. A canary asserts exactly one CPMI key, at the committee page.
 
@@ -297,8 +299,11 @@ PRD-ICA-001 §5 already specifies a *"Corpus Acquisition Plan per source lane �
 | `distribution` | World Trade Organization | https://www.wto.org/english/tratop_e/serv_e/distribution_e/distribution_e.htm | Distribution-services gateway — wholesale, retail, franchising, commission agents, e-commerce |
 | `distribution` | UN Trade and Development (UNCTAD) | https://unctad.org/topic/ecommerce-and-digital-economy/measuring-ecommerce-digital-economy | Measuring e-commerce and the digital economy |
 | `distribution` | UN Trade and Development (UNCTAD) | https://tft.unctad.org/en/publications/statistics-on-the-digital-economy-e-commerce-and-digital-trade-report-2025/ | Statistics on the digital economy, e-commerce and digital trade, 2025 report |
-| `settlement-exchange` | BIS CPMI | https://www.bis.org/cpmi/publ/d216.htm | 33 pages, PvP adoption, settlement risk |
-| `settlement-exchange` | BIS CPMI | https://www.bis.org/cpmi/publ/d202.htm | 65 pages, access to payment systems |
+| `settlement-exchange` | BIS CPMI | https://www.bis.org/list/cpmi/tid_10/index.htm | the canonical CPMI publications listing (primary seed) |
+| `settlement-exchange` | BIS CPMI | https://www.bis.org/cpmi/cross_border/publications.htm | CPMI cross-border payments publications — interoperability, ISO 20022 harmonisation, standards |
+| `settlement-exchange` | BIS CPMI | https://www.bis.org/publ/cmtpubl.htm | BIS committee publications index, linking the major CPMI collections |
+
+> **Re-seeded 2026-07-28 (operator ruling).** The two prior seeds pinned INDIVIDUAL documents (`cpmi/publ/d216.htm`, `cpmi/publ/d202.htm`) and both 404'd. The operator's correction is a rule, not a URL swap: *"The canonical BIS seed should point to the official CPMI publications, not a guessed document URL… This avoids hard-coding an individual report, so new CPMI papers become discoverable automatically while keeping the seed anchored to the official BIS publication index."* A pinned document seed is brittle twice — it dies when the document moves, and it can never surface anything published after the day it was written. **Prefer publication INDEX pages for every institutional acquisition seed.** URLs are recorded without the `?utm_source=` tracking parameters they arrived with.
 | `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce | Electronic commerce texts |
 | `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_commerce | Model Law on Electronic Commerce |
 | `settlement-exchange` | UNCITRAL | https://uncitral.un.org/en/texts/ecommerce/modellaw/electronic_transferable_records | Model Law on Electronic Transferable Records |

@@ -783,12 +783,31 @@ export const COMMERCIALISATION_ACQUISITION_SEEDS: readonly AcquisitionSeed[] = [
   S('distribution', 'UN Trade and Development (UNCTAD)',
     'https://tft.unctad.org/en/publications/statistics-on-the-digital-economy-e-commerce-and-digital-trade-report-2025/',
     'Operator claim: statistics on the digital economy, e-commerce and digital trade, 2025 report.'),
+  // ── BIS CPMI — RE-SEEDED 2026-07-28 (operator ruling) ───────────────────
+  // The prior two seeds pinned INDIVIDUAL documents (`cpmi/publ/d216.htm`,
+  // `d202.htm`) and both 404'd. The operator's correction is a rule, not just
+  // a URL swap: *"The canonical BIS seed should point to the official CPMI
+  // publications, not a guessed document URL… This avoids hard-coding an
+  // individual report, so new CPMI papers become discoverable automatically
+  // while keeping the seed anchored to the official BIS publication index."*
+  //
+  // A pinned document seed is brittle twice over — it dies when the document
+  // moves, and it can never surface anything published after the day it was
+  // written. An index seed is self-renewing. Prefer index/listing pages for
+  // every future institutional seed.
+  //
+  // URLs are recorded WITHOUT the `?utm_source=` tracking parameters they
+  // arrived with: a tracking param is not part of the canonical resource, and
+  // storing one would put a referral marker into the corpus provenance trail.
   S('settlement-exchange', 'BIS Committee on Payments and Market Infrastructures',
-    'https://www.bis.org/cpmi/publ/d216.htm',
-    'Operator claim: 33 pages, PvP adoption, settlement risk.'),
+    'https://www.bis.org/list/cpmi/tid_10/index.htm',
+    'Operator claim: the canonical CPMI publications listing (primary seed).'),
   S('settlement-exchange', 'BIS Committee on Payments and Market Infrastructures',
-    'https://www.bis.org/cpmi/publ/d202.htm',
-    'Operator claim: 65 pages, access to payment systems.'),
+    'https://www.bis.org/cpmi/cross_border/publications.htm',
+    'Operator claim: CPMI cross-border payments publications — interoperability, ISO 20022 harmonisation, standards.'),
+  S('settlement-exchange', 'BIS Committee on Payments and Market Infrastructures',
+    'https://www.bis.org/publ/cmtpubl.htm',
+    'Operator claim: BIS committee publications index, linking the major CPMI collections.'),
   S('settlement-exchange', 'UNCITRAL',
     'https://uncitral.un.org/en/texts/ecommerce',
     'Operator claim: electronic commerce texts.'),

@@ -32,7 +32,10 @@ const CANONICAL_INSTITUTION_HOMEPAGES: Readonly<Record<string, string>> = {
   fca: 'https://www.fca.org.uk',
   ecb: 'https://www.ecb.europa.eu',
   fatf: 'https://www.fatf-gafi.org',
-  'bis committee on payments and market infrastructures': 'https://www.bis.org/cpmi/',
+  // Operator-supplied landing page (2026-07-28): the CPMI overview carries the
+  // committee charter, work programme, and links to current publications —
+  // a better navigation start than the bare `/cpmi/` section root.
+  'bis committee on payments and market infrastructures': 'https://www.bis.org/cpmi/about/overview.htm',
   sec: 'https://www.sec.gov',
   esma: 'https://www.esma.europa.eu',
   fincen: 'https://www.fincen.gov',
@@ -97,17 +100,26 @@ const CANONICAL_INSTITUTION_HOMEPAGES: Readonly<Record<string, string>> = {
   //     see the note below.
   //
   // ── BIS CPMI reconciliation ────────────────────────────────────────────
-  // The operator's institutional seed for CPMI is `https://www.bis.org`; the
-  // directory already holds `https://www.bis.org/cpmi/` for the same named
-  // institution. These are not in conflict — the operator's value is the
-  // PARENT of the existing one. The existing, more specific value is KEPT and
-  // no second key is added, for the reason this file's own header gives: a
-  // steward may need "a more specific starting page than its bare homepage".
-  // It is also strictly better for Agent B, whose job is to find the
-  // institution's publication listing: bis.org surfaces all of BIS's output,
-  // bis.org/cpmi/ surfaces the committee's. A bare `bis.org` key would ALSO
-  // collide with the plain `bis` entry above and give two institutions one
-  // starting page.
+  // The operator's first institutional seed for CPMI was `https://www.bis.org`;
+  // the directory held `https://www.bis.org/cpmi/` for the same named
+  // institution. These were not in conflict — the operator's value was the
+  // PARENT of the existing one — and the more specific value was kept, for the
+  // reason this file's header gives: a steward may need "a more specific
+  // starting page than its bare homepage". It is also strictly better for
+  // Agent B, whose job is to find the institution's publication listing:
+  // bis.org surfaces all of BIS's output, the committee path surfaces the
+  // committee's. A bare `bis.org` key would ALSO collide with the plain `bis`
+  // entry above and give two institutions one starting page.
+  //
+  // NARROWED AGAIN 2026-07-28 (operator ruling) to
+  // `https://www.bis.org/cpmi/about/overview.htm` — the CPMI overview, which
+  // carries the charter, work programme, and links to the current publication
+  // collections. Same principle one rung finer: the more specific page that
+  // still enumerates the committee's output is the better navigation start.
+  // The document-level acquisition seeds now live in
+  // `institutionalRegistry.ts` (COMMERCIALISATION_ACQUISITION_SEEDS) and point
+  // at PUBLICATION INDEXES, never at individual reports — see the ruling
+  // recorded there for why a pinned document seed is a defect.
   'uk competition and markets authority': 'https://www.gov.uk/government/organisations/competition-and-markets-authority',
   'world trade organization': 'https://www.wto.org',
   'un trade and development (unctad)': 'https://unctad.org',
