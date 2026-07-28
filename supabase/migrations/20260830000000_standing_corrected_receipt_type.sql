@@ -26,8 +26,8 @@ ALTER TABLE public.activity_receipts
   DROP CONSTRAINT IF EXISTS activity_receipts_action_type_check;
 
 ALTER TABLE public.activity_receipts
-  ADD CONSTRAINT activity_receipts_action_type_check CHECK (
-    action_type IN (
+  ADD CONSTRAINT activity_receipts_action_type_check
+  CHECK (action_type IN (
     'intent_queued',
     'specialist_consulted',
     'artifact_created',
@@ -90,5 +90,4 @@ ALTER TABLE public.activity_receipts
     'plan_cancelled',
     'workspace_report_published',
     'standing_corrected'
-  )
-);
+));
