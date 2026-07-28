@@ -241,25 +241,32 @@ The instruction governing this item is explicit:
 > "This should be copied faithfully from the existing v0.2 §38 and its v0.3 binding rather than
 > reconstructed from memory."
 
-**Those source documents are not present in this repository.** The audit finding, verified before
-this amendment was written:
+**Amended 2026-07-28 — v0.2 has since been recovered; the item is still unresolved, for a narrower
+reason.** The original finding said both source documents were absent. That is no longer accurate
+for v0.2, and the corrected status is:
 
 | Claimed source | Status in repo |
 |---|---|
-| EXP-P2 v0.2 | **Absent.** The v1.0 candidate's own front matter records why: *"Intermediate working drafts (v0.1/v0.2) are deliberately not republished."* |
-| EXP-P2 v0.2 §38 | **Absent.** There is no `§38` anywhere in the IRL pack. |
-| EXP-P2 v0.3, and its "binding" of the stopping rule | **Absent.** No v0.3 document exists. |
-| Any deleted P2 draft in git history | **Never existed.** `git log --all --diff-filter=D` over P2 paths returns nothing. |
-| The nearest in-repo stopping rule | v1.0 candidate §25, two sentences, containing **none** of the six elements above (`../exp-p2b-physical-consequences/01_prior-protocol-v1.0-candidate.md`). |
+| EXP-P2 v0.2 | **Present as of 2026-07-28, and NOT canonical.** Recovered verbatim from operator-supplied text as [`05_v0.2-recovered-historical-draft.md`](05_v0.2-recovered-historical-draft.md), explicitly labelled a **RECOVERED HISTORICAL DRAFT · NON-NORMATIVE**. It was never contemporaneously canonized. |
+| EXP-P2 v0.2 §38 | **Present and inspectable** — §38 "Programme-level stopping rule" in the recovered draft. **Historical evidence, not a governing provision.** |
+| EXP-P2 v0.3, and its "binding" of the stopping rule | **Still absent.** No v0.3 document exists in the repository, and no reconstruction of it has been attempted. |
+| Any deleted P2 draft in git history | **Never existed.** `git log --all --diff-filter=D` over P2 paths returns nothing; the recovery came from the operator, not from history. |
+| The nearest canonized in-repo stopping rule | v1.0 candidate §25, two sentences, containing **none** of the six elements above (`../exp-p2b-physical-consequences/01_prior-protocol-v1.0-candidate.md`). |
 
-A reconstruction from memory would be indistinguishable from the real thing to every future reader,
-which is precisely what the instruction forbids. **Item 19 therefore remains unresolved, with its
-missing source named**, and is recorded as:
+**Recovery is not ratification.** Reading §38 is now possible; treating it as v0.5's stopping rule
+is not, and this amendment does not do so. Binding it would be an operator act, and it is not a
+clerical one: §38 was written for v0.2's five-arm structure (A / B / C / B+R / D) over a single
+physical substrate, whereas v0.5 has the W0–W3 ladder and **two independently confirmatory
+domains**. Whoever binds it must state how a rule written for the former governs the latter — which
+is a design decision, not a transcription.
 
-> **UNRESOLVED — Appendix C item 19 · pre-pilot interpretive constraint · source documents
-> EXP-P2 v0.2 §38 and its v0.3 binding are NOT present in this repository. The six required
-> elements must be supplied by the operator, or the v0.2 / v0.3 documents added to
-> `foundation/experiments/_source/`, before the pilot. No reconstruction has been attempted.**
+**Item 19 therefore remains unresolved**, recorded as:
+
+> **UNRESOLVED — Appendix C item 19 · pre-pilot interpretive constraint · the source cited for it,
+> EXP-P2 v0.2 §38, now exists as a recovered NON-CANONICAL historical draft and may not be relied
+> on normatively; its v0.3 binding is still absent from this repository. Resolution requires an
+> operator act — either an explicit ratification binding §38 to v0.5's ladder and two domains, or a
+> new stopping rule authored for v0.5. No reconstruction has been attempted.**
 
 v0.5 §45 already carries five minimum constraints on the linkage and they stand as written; they do
 not constitute the frozen decision point, which §45 itself defers ("The exact programme decision
@@ -280,23 +287,39 @@ As set out in A6.1. Reported to the operator as an item in its own right.
 
 v0.5 §39 states that "a prior candidate practical threshold of 30% for effort reduction is part of
 the historical design record but is not silently adopted here." That handling is correct and this
-amendment does not alter it. The observation is only about provenance: **no P2 document in this
-repository contains a 30% effort threshold.** The single occurrence of "30%" in the experiments tree
-is `⟦τ_text, candidate: 30%⟧` — RSS-001's **diagram text-token cap** (`RSS-001 §4`, VN.5), a
-different quantity, in a different experiment, measuring the token budget of a diagram rather than a
-reduction in expert effort. **That value must not stand in for the historical threshold** under any
-circumstances, including as a starting point for re-justification.
+amendment does not alter it. The observation is about provenance. When this amendment was first
+written, no P2 document in the repository contained a 30% effort threshold, and the only "30%" in
+the experiments tree was `⟦τ_text, candidate: 30%⟧` — RSS-001's **diagram text-token cap**
+(`RSS-001 §4`, VN.5), a different quantity in a different experiment, measuring a diagram's token
+budget rather than a reduction in expert effort. **That value must never stand in for the
+historical threshold**, including as a starting point for re-justification.
+
+Since the v0.2 recovery (2026-07-28) the historical design record is partly inspectable, so this
+observation is now checkable rather than merely asserted. Whatever the recovered draft does or does
+not contain, the v0.5 §39 handling is unchanged: the threshold "is not silently adopted here" and
+"must be re-justified or replaced using the v0.5 pilot and practical-cost analysis." A value read
+out of a **non-canonical** recovered draft is not a re-justification.
 
 ### A7.3 Appendix A cites lineage sources that are not inspectable
 
 v0.5 Appendix A attributes elements to v0.2, v0.3 and v0.4 sections (rows 2, 3, 4, 5, 7, 8, 9, 10,
-11, 12, 13, 14, 19 among them). None of those documents is in the repository. Independently, the
-W0–W3 ladder, the representation firewall, the protected-element registry and W2.5 **appear nowhere
-in the repo before v0.5** — nothing precedes them.
+11, 12, 13, 14, 19 among them). Status as of 2026-07-28:
 
-**Appendix A is filed verbatim as given and has not been edited.** The observation is that its
-lineage column is, at present, a record of provenance that cannot be verified from this repository.
-It becomes verifiable the moment the v0.2/v0.3/v0.4 drafts are added to `_source/`.
+| Cited lineage | Artifact in repo | Standing |
+|---|---|---|
+| **v0.2** | [`05_v0.2-recovered-historical-draft.md`](05_v0.2-recovered-historical-draft.md) | Present, **uncanonized** — recovered historical draft, non-normative |
+| **v0.3** | none | **Absent** |
+| **v0.4** | none | **Absent** |
+
+Independently, the W0–W3 ladder, the representation firewall, the protected-element registry and
+W2.5 **appear nowhere in the repo before v0.5** — nothing precedes them.
+
+**Appendix A is filed verbatim as given and has not been edited.** The observation stands in
+narrowed form: its lineage column cites two versions (v0.3, v0.4) with no artifact at all, and one
+(v0.2) whose artifact exists but was never canonized. Under the operator's proposed **Canonical
+Completion Rule** (`../CANONICAL-COMPLETION-RULE.md`), neither class may be relied on as inherited
+normative authority — the first because it cannot be inspected, the second because recovery is not
+ratification.
 
 ---
 

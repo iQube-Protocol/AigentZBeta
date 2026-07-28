@@ -105,11 +105,18 @@
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY
- *  - EXP-P2 consequence family (ruling 2026-07-27): `instantiationOf` ↔ the CEF
- *    series `members`; the shared constitutional framework defined once and
- *    restated in neither instantiation; the RSS-001 admissibility gate citing
- *    only sections that exist in RSS-001; both programme views recorded and
- *    distinguishable; nothing rendered as a designed protocol
+ *  - EXP-P2 consequence family (ruling 2026-07-27) and the v0.5 protocol:
+ *    `instantiationOf` ↔ the CEF series `members`; v0.5 as the ONE authoritative
+ *    text, so no framework doc reproduces a normative sentence of it outside an
+ *    attributed quotation; every `⟦…⟧` parameter placeholder survives unresolved
+ *    unless it cites the sealed pilot report that authorised the value, and no
+ *    unpinned placeholder appears; §49's protected elements enforced against
+ *    EVERY protocol draft in the directory (so a successor v0.6 is checked too),
+ *    with §38's four non-droppable items cross-checked against §49's statuses;
+ *    W2.5 kept out of the §41 aggregation rule and the primary multiplicity
+ *    sequence; the programme stopping rule left unresolved with its missing
+ *    source named, failing the moment a v0.2/v0.3 source appears; both programme
+ *    views recorded and distinguishable; nothing rendered as preregistered
  *  - SPEC-CDR-001 execution taxonomy (D-1): EXECUTION_DOMAINS ↔
  *    FINANCIAL_DOMAINS ↔ the SPEC §3 docs mirror, plus the §4.2
  *    non-executability rule for governance domains
@@ -836,14 +843,14 @@ describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () =
       readSource(PROTOCOL)
         .split('\n')
         .map((l) => l.replace(/[*`>|#_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase())
-        .filter((l) => l.split(' ').length >= 14),
+        .filter((l) => l.split(' ').length >= 9),
     );
     expect(protocolLines.size, 'the protocol did not parse into sentences').toBeGreaterThan(50);
     for (const doc of [FAMILY_INDEX, FRAMEWORK, AMENDMENT, SAP]) {
       for (const raw of readSource(doc).split('\n')) {
         if (raw.trimStart().startsWith('>')) continue; // attributed quotation
         const norm = raw.replace(/[*`>|#_]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (norm.split(' ').length < 14) continue;
+        if (norm.split(' ').length < 9) continue;
         expect(
           protocolLines.has(norm),
           `${doc} reproduces a normative sentence of v0.5 outside a quotation:\n  ${norm}`,
@@ -893,12 +900,18 @@ describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () =
         `placeholder ${ph} was resolved without citing the sealed pilot report that authorised it`,
       ).toBe(true);
     }
-    // No placeholder may be silently introduced or dropped either: the count of
-    // DISTINCT parameter placeholders is pinned alongside the list above.
+    // No placeholder may be silently INTRODUCED either — but this must be a
+    // subset check, not a count pin. A count pin would make the sealed-report
+    // resolution path above unreachable (removing a resolved placeholder drops
+    // the count), i.e. a rule whose only lawful exit can never be taken. Found
+    // by mutation-testing the lawful path rather than only the unlawful one.
     const distinct = new Set((doc.match(/⟦[^⟧]*⟧/g) ?? []).filter((t) => t !== '⟦…⟧'));
-    expect(distinct.size, 'the distinct placeholder count changed').toBe(
-      CONFIRMATORY_PLACEHOLDERS.length,
-    );
+    for (const ph of distinct) {
+      expect(
+        CONFIRMATORY_PLACEHOLDERS,
+        `${ph} is a placeholder the canary does not know about — pin it or remove it`,
+      ).toContain(ph);
+    }
   });
 
   it('§49 protected elements are enforced against every protocol draft in the directory', () => {
@@ -1136,5 +1149,229 @@ describe('EXP-P2 consequence family + v0.5 protocol (operator 2026-07-27)', () =
     // v0.5 §2 carries the same distinction — the protocol and the index must agree.
     expect(readSource(PROTOCOL)).toMatch(/Compression → Consequence → Representation → Interaction/);
     expect(readSource(PROTOCOL)).toMatch(/methodological dependency is not strictly sequential/);
+  });
+});
+
+/**
+ * Canonical Completion Rule (operator proposal, 2026-07-28) — PROPOSED, not canon.
+ *
+ * THE RULE: "No experimental draft, amendment, decision procedure, review
+ * finding, or stopping rule shall be treated as an inherited normative
+ * authority unless it has been persisted and registered as a canonical platform
+ * artifact." Corollary: a review cycle is not complete until its accepted
+ * output, disposition and protected design elements are canonized on-platform.
+ *
+ * WHY IT EXISTS. EXP-P2 v0.5 attributes load-bearing design elements to v0.2,
+ * v0.3 and v0.4 in its supersession notice and Appendix A. When v0.5 was filed
+ * NONE of those drafts existed as an artifact: the lineage column read as
+ * provenance and resolved to nothing. An instruction to copy the stopping rule
+ * "faithfully from the existing v0.2 §38 rather than reconstructed from memory"
+ * could not be executed, because there was nothing to copy from — and a
+ * plausible reconstruction is indistinguishable from the real thing to every
+ * future reader. v0.2 has since been RECOVERED, which demonstrates the other
+ * half of the rule: recovery is not ratification.
+ *
+ * Full statement, dispositions, and what still needs an operator decision:
+ * codexes/packs/irl/foundation/experiments/CANONICAL-COMPLETION-RULE.md
+ */
+describe('Canonical Completion Rule (proposed 2026-07-28)', () => {
+  const EXP_DIR = 'codexes/packs/irl/foundation/experiments';
+  const P2_DIR = `${EXP_DIR}/exp-p2-consequential-performance`;
+  const RULE = `${EXP_DIR}/CANONICAL-COMPLETION-RULE.md`;
+  const PROTOCOL = `${P2_DIR}/02_protocol-v0.5.md`;
+  const AMENDMENT = `${P2_DIR}/03_operational-amendment-v0.5.md`;
+  const RECOVERED = `${P2_DIR}/05_v0.2-recovered-historical-draft.md`;
+
+  const fs = () => require('node:fs') as typeof import('node:fs');
+  const path = () => require('node:path') as typeof import('node:path');
+
+  /** Files registered in the IRL pack — "canonized on-platform" in the rule's sense. */
+  function registeredItems(): Set<string> {
+    const pack = JSON.parse(
+      readFileSync(join(process.cwd(), 'codexes/packs/irl/collections.json'), 'utf8'),
+    ) as { collections: { items: string[] }[] };
+    return new Set(pack.collections.flatMap((c) => c.items));
+  }
+
+  /** Versions a protocol claims to consolidate/supersede, from its lineage notice. */
+  function citedLineageVersions(src: string): string[] {
+    const notice = src.slice(
+      src.indexOf('## Supersession and lineage notice'),
+      src.indexOf('## Abstract'),
+    );
+    return [...new Set([...notice.matchAll(/v(0\.\d)/g)].map((m) => m[1]))].sort();
+  }
+
+  /** Does a version have an artifact file of its own in the experiment directory? */
+  function artifactFor(version: string): string | null {
+    const dir = path().join(process.cwd(), P2_DIR);
+    const hit = fs()
+      .readdirSync(dir)
+      .find((f) => f.endsWith('.md') && f.includes(`v${version}`));
+    return hit ?? null;
+  }
+
+  it('the rule itself is filed as PROPOSED, never as canon', () => {
+    // A governance rule asserting that nothing inherits authority without
+    // ratification must not itself claim ratified standing. Hypothesis vs Canon
+    // applied to the rule's own text.
+    const rule = readSource(RULE);
+    expect(rule).toMatch(/Status: `proposed`/);
+    expect(rule).toMatch(/NOT ratified, NOT canon/);
+    expect(rule, 'the rule claims canonical standing').not.toMatch(/Status: `canonical`/);
+  });
+
+  it('Canary 1 — no draft is superseded unless it has an artifact or is named uncanonized', () => {
+    const protocol = readSource(PROTOCOL);
+    const amendment = readSource(AMENDMENT);
+    const versions = citedLineageVersions(protocol);
+    expect(versions.length, 'the lineage notice cites no versions — parse failed').toBeGreaterThan(2);
+
+    for (const v of versions) {
+      if (v === '0.5') continue; // the document itself
+      const artifact = artifactFor(v);
+      if (artifact) {
+        // An artifact exists: it must declare whether it is canonical. A
+        // recovered draft that does not say so would read as governing.
+        const src = readSource(`${P2_DIR}/${artifact}`);
+        expect(
+          /NON-NORMATIVE|RECOVERED HISTORICAL DRAFT|uncanonized/i.test(src),
+          `v${v} has an artifact (${artifact}) that never states its canonization status`,
+        ).toBe(true);
+      } else {
+        // No artifact at all: the amendment must say so in as many words.
+        expect(
+          new RegExp(`v${v.replace('.', '\\.')}[^|\\n]*\\|[^|\\n]*\\|[^|\\n]*Absent`, 'i').test(
+            amendment,
+          ),
+          `v${v} is superseded by v0.5 but has no artifact and is not recorded as absent`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('Canary 2 — every inherited element resolves to an inspectable source or a recorded gap', () => {
+    // Appendix A's "Source lineage" column IS EXP-P2's inheritance claim. Every
+    // version it names must be accounted for in the amendment's lineage-status
+    // table — resolvable, or explicitly recorded as unresolvable.
+    const protocol = readSource(PROTOCOL);
+    const amendment = readSource(AMENDMENT);
+    const appendixA = protocol.slice(
+      protocol.indexOf('# Appendix A — Inheritance Register'),
+      protocol.indexOf('# Appendix B'),
+    );
+    expect(appendixA.length, 'Appendix A did not parse').toBeGreaterThan(200);
+
+    const inherited = [...new Set([...appendixA.matchAll(/v(0\.\d)/g)].map((m) => m[1]))];
+    expect(inherited.length, 'Appendix A names no inherited versions').toBeGreaterThan(1);
+
+    const statusTable = amendment.slice(amendment.indexOf('### A7.3'));
+    for (const v of inherited) {
+      expect(
+        statusTable.includes(`v${v}`),
+        `Appendix A inherits from v${v}, which the lineage-status record never accounts for`,
+      ).toBe(true);
+    }
+  });
+
+  it('Canary 3 — an attested-but-uncanonized element is labelled, and stays non-governing', () => {
+    const recovered = readSource(RECOVERED);
+    expect(recovered).toMatch(/RECOVERED HISTORICAL DRAFT/);
+    expect(recovered).toMatch(/NON-NORMATIVE/);
+    // It must disclaim governing force, not merely be dated.
+    expect(recovered, 'the recovered draft does not disclaim normative weight').toMatch(
+      /does not supersede, amend, or bind|Normative weight.*None/is,
+    );
+    // And the amendment relying on it must say recovery is not ratification.
+    expect(readSource(AMENDMENT), 'the amendment treats recovery as ratification').toMatch(
+      /Recovery is not ratification/i,
+    );
+  });
+
+  it('Canary 4 — every EXP-P2 artifact is registered on-platform', () => {
+    // "Canonized on-platform" is operationalised as registration in the pack's
+    // collections.json — an unregistered file renders nowhere and cannot be a
+    // canonical artifact, whatever it says about itself.
+    const registered = registeredItems();
+    const dir = path().join(process.cwd(), P2_DIR);
+    const files = fs().readdirSync(dir).filter((f) => f.endsWith('.md'));
+    expect(files.length, 'no EXP-P2 documents found').toBeGreaterThan(3);
+    for (const f of files) {
+      expect(
+        registered.has(`foundation/experiments/exp-p2-consequential-performance/${f}`),
+        `${f} exists but is not registered in the IRL pack — it is not canonized on-platform`,
+      ).toBe(true);
+    }
+    // The rule document itself must be registered too.
+    expect(
+      registered.has('foundation/experiments/CANONICAL-COMPLETION-RULE.md'),
+      'the Canonical Completion Rule is not registered on-platform',
+    ).toBe(true);
+  });
+
+  it('Canary 5 — v0.5 does not rely normatively on a draft it cannot inherit from', () => {
+    // v0.5 §45 carries the stopping rule forward "from the prior P2 lineage".
+    // That is a normative reliance on a draft which is recovered but NOT
+    // canonized, plus a v0.3 binding that does not exist at all. The reliance
+    // must stand recorded as unresolved.
+    const amendment = readSource(AMENDMENT);
+    expect(amendment).toMatch(/UNRESOLVED — Appendix C item 19/);
+    expect(amendment, 'the v0.3 binding is no longer recorded as absent').toMatch(
+      /v0\.3 binding is still absent|Still absent/i,
+    );
+    expect(amendment).toMatch(/[Nn]o reconstruction has been attempted/);
+
+    // No EXP-P2 document may declare the inheritance settled without a
+    // ratification act — that is the failure the rule forbids.
+    const dir = path().join(process.cwd(), P2_DIR);
+    for (const f of fs().readdirSync(dir).filter((x) => x.endsWith('.md'))) {
+      const src = readSource(`${P2_DIR}/${f}`);
+      for (const claim of [
+        /§38 is bound to/i,
+        /binds §38/i,
+        /§38 now governs/i,
+        /stopping rule is (?:now )?(?:resolved|ratified)/i,
+      ]) {
+        expect(claim.test(src), `${f} claims the stopping-rule inheritance is settled`).toBe(false);
+      }
+    }
+  });
+
+  it('Canary 6 — a completed review cycle must be registered and name its emitted artifact', () => {
+    // CONDITIONAL by construction: no protocol is complete today, so this takes
+    // the not-complete branch. It must still be able to FIRE, or it is an inert
+    // mechanism (the CB-1 defect) — flipping a disposition is what trips it.
+    const registered = registeredItems();
+    const dir = path().join(process.cwd(), P2_DIR);
+    const drafts = fs().readdirSync(dir).filter((f) => /protocol-v[\d.]+\.md$/.test(f));
+    expect(drafts.length, 'no protocol draft found — the check would be vacuous').toBeGreaterThan(0);
+
+    let inspected = 0;
+    for (const draft of drafts) {
+      const src = readSource(`${P2_DIR}/${draft}`);
+      const disposition = /\*\*Preregistration:\*\*\s*(.+)/.exec(src)?.[1]?.trim() ?? '';
+      expect(disposition, `${draft} states no preregistration disposition`).not.toBe('');
+      inspected += 1;
+      const complete = !/not yet authorized/i.test(disposition);
+      if (!complete) continue;
+      // The cycle claims completion — now the rule's corollary binds.
+      expect(
+        registered.has(`foundation/experiments/exp-p2-consequential-performance/${draft}`),
+        `${draft} declares its review cycle complete but is not registered on-platform`,
+      ).toBe(true);
+      expect(
+        /completion artifact|ResearchPublication|canonical research artifact/i.test(src),
+        `${draft} declares its review cycle complete but names no emitted canonical artifact`,
+      ).toBe(true);
+    }
+    expect(inspected, 'no disposition was inspected').toBeGreaterThan(0);
+
+    // The rule document must be honest that canary 6's ARTIFACT FORM is an open
+    // operator decision rather than pretending it is enforced.
+    const rule = readSource(RULE);
+    expect(rule).toMatch(/CONDITIONALLY ENFORCED/);
+    expect(rule, 'the rule hides that the artifact form is undecided').toMatch(
+      /Choosing one is an operator act/i,
+    );
   });
 });
