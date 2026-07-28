@@ -40,9 +40,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileText, MousePointer2, FileType, Image as ImageIcon, Sparkles, Rocket } from "lucide-react";
+import { FileText, MousePointer2, FileType, Image as ImageIcon, Sparkles, Rocket, ArrowUpRight, CheckCircle2 } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
+import { buildCodexUrl } from "@/utils/codex-nav";
 import type {
   CaptureIntentDestination,
   CaptureSourceKind,
@@ -52,6 +53,36 @@ import type {
 
 const CAPTURE_ENDPOINT = "/api/companion/capture";
 const DESTINATIONS_ENDPOINT = "/api/companion/capture/destinations";
+
+/**
+ * WHERE AN ASSIGNED CAPTURE ACTUALLY LANDS — the destination this panel links
+ * to after a successful assign (operator, 2026-07-28: "when an action is
+ * assigned to an intent it disappears but there's no way of knowing if it was
+ * assigned").
+ *
+ * The disappearance was correct (an assigned capture leaves the inbox by
+ * design) but TERMINAL: the panel showed no outcome and offered no route to
+ * the thing it had just created, so a successful assign and a silently failed
+ * one were indistinguishable. Anything the operator can only verify by
+ * querying the database is, from the surface's point of view, unobservable.
+ *
+ * Built with `buildCodexUrl` — the canonical inter-cartridge nav helper
+ * (CLAUDE.md "Inter-Cartridge Navigation") — so the persona travels with the
+ * link as an explicit URL param rather than relying on the top-level world
+ * happening to hold the same pin. The Companion is a partitioned iframe; a
+ * bare href would hand the app no identity at all.
+ */
+const WORKSPACE_CODEX_SLUG = "metame";
+const WORKSPACE_TAB_SLUG = "my-workspace";
+
+/** What a completed assign left behind, so the panel can name it and link to it. */
+interface AssignOutcome {
+  destination: "intent" | "venture";
+  /** The capture's own title — what the operator recognises it by. */
+  title: string;
+  /** True when the server recovered an assignment that had already landed. */
+  recovered?: boolean;
+}
 
 export interface CaptureInboxPanelProps {
   /** T1 persona hint threaded onto every `personaFetch` call. Never
@@ -91,6 +122,7 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
   // target for the next capture in the same session.
   const [intents, setIntents] = useState<CaptureIntentDestination[]>([]);
   const [ventures, setVentures] = useState<CaptureVentureDestination[]>([]);
+  const [outcome, setOutcome] = useState<AssignOutcome | null>(null);
 
   const setPending = (id: string, value: boolean) => {
     setPendingIds((prev) => ({ ...prev, [id]: value }));
@@ -184,10 +216,23 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
           setError(await readErrorMessage(res, `Failed to bring this into ${destination} (${res.status}).`));
           return;
         }
+        const body = (await res.json().catch(() => null)) as
+          | { destination?: string; recovered?: string }
+          | null;
+        const assignedTitle =
+          captures.find((c) => c.id === captureId)?.title ?? "Your capture";
         // Assigned captures never reappear in the inbox — remove locally
         // rather than re-fetching the whole list.
         setCaptures((prev) => prev.filter((c) => c.id !== captureId));
         setError(null);
+        // The capture leaving the list is not, by itself, evidence it landed.
+        // Record the outcome so the panel can say what happened and offer the
+        // route to it (see ASSIGN OUTCOME note at the top of this file).
+        setOutcome({
+          destination: (body?.destination as "intent" | "venture") ?? destination,
+          title: assignedTitle,
+          ...(body?.recovered ? { recovered: true } : {}),
+        });
         if (!existingId) void loadDestinations(); // a just-created object becomes a future "existing" target
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -195,7 +240,7 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
         setPending(captureId, false);
       }
     },
-    [personaIdHint, loadDestinations],
+    [personaIdHint, loadDestinations, captures],
   );
 
   return (
@@ -207,6 +252,48 @@ export function CaptureInboxPanel({ personaIdHint }: CaptureInboxPanelProps) {
       {error ? (
         <div className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-2 text-[11px] text-rose-300">
           {error}
+        </div>
+      ) : null}
+
+      {/* THE ASSIGN OUTCOME. A capture leaving the list is not evidence it
+          landed — this names what happened and offers the route to it. The
+          link opens in the LEFT-HAND browser (target=_blank from this
+          partitioned side-panel iframe), which is where the application
+          actually lives. */}
+      {outcome ? (
+        <div className="rounded-lg border border-emerald-900/60 bg-emerald-950/30 px-3 py-2.5 text-[11px] text-emerald-200">
+          <div className="flex items-start gap-2">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">
+                {outcome.recovered ? "Already in your " : "Added to your "}
+                {outcome.destination === "intent" ? "Intent" : "Venture"} — {outcome.title}
+              </div>
+              <div className="mt-1.5 flex items-center gap-3">
+                <a
+                  href={buildCodexUrl(WORKSPACE_CODEX_SLUG, {
+                    tab: WORKSPACE_TAB_SLUG,
+                    personaId: personaIdHint,
+                    from: "companion",
+                    fromTab: "capture-inbox",
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-emerald-700/60 bg-emerald-900/30 px-2 py-1 text-emerald-200 hover:bg-emerald-900/50"
+                >
+                  View in your workspace
+                  <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setOutcome(null)}
+                  className="text-emerald-400/70 hover:text-emerald-200"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 

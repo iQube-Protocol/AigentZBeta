@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-28_terminal-outcome-and-composed-liveness-invariants.md",
         "updates/2026-07-27_ccb-invariant-discovery-engine.md",
         "updates/2026-07-27_ccb-invariant-resolution-engine.md",
         "updates/2026-07-27_ccb-invariant-projection-engine.md",
