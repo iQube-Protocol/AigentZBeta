@@ -1,6 +1,19 @@
 # PRD-PAG-001 — Polity Access Gateway ("Sign in with Polity Passport")
 
-**metaMe IRL / iQube Protocol · Product/security architecture specification · Status: RATIFIED (operator, 2026-07-22 — Phase 1 implementation authorized)**
+> **SUPERSEDED 2026-07-29 — see `PAS-001_passport-first-constitutional-access.md`.** The
+> operator directed an estate-wide successor covering every wallet and every first-party
+> application, not just the Access Gateway's OIDC surface. **PAS-001 formally supersedes this
+> document in full, including Amendments A, B, and C below.** Every finding, ruling, and shipped
+> increment recorded here (Phase 1's `services/accessGateway/*`; Amendment A's passport-native
+> session minting and its §A.11 first-connection closure; Amendment B's account↔Passport binding
+> charter; Amendment C's account-less-issuance charter) **carries forward by reference and is not
+> re-litigated** — PAS-001's own §0 reconciles each section of this document against the shipped
+> code and identifies the one gap this document's Phase 1 did not close: the estate's primary
+> wallet UI (`SmartWalletDrawer`) was never wired to the passport-native mechanics shipped here.
+> This file is retained, unmodified below this note, as the historical record of the rulings
+> PAS-001 builds on. Do not treat this file as current guidance for new work — read PAS-001 first.
+
+**metaMe IRL / iQube Protocol · Product/security architecture specification · Status: RATIFIED (operator, 2026-07-22 — Phase 1 implementation authorized) — SUPERSEDED 2026-07-29 by PAS-001**
 **Initiative name:** *Operation Passport — Polity Access Gateway & Smart Wallet Authentication (Passwordless Constitutional Identity).*
 **Owner:** Identity & Access Spine stewards + Polity Passport Bureau · **Origin:** operator + Aletheon design session, consolidated against the already-built metaMe Threshold gateway + the identity spine, 2026-07-22
 **Governs:** the human-side authentication/authorization gateway that makes the Polity Passport the root login credential for the iQube-compliant ecosystem — the complement to the already-built agent-side Threshold gateway (PRD-THR-001). It specifies an architecture for the operator to ratify. **It builds nothing.**

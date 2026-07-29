@@ -1,5 +1,16 @@
 # SPEC-COS-001 — Constitutional Onboarding Specification
 
+> **Cross-reference (added 2026-07-29):** `PAS-001_passport-first-constitutional-access.md`
+> (supersedes `PRD-PAG-001`) is the canonical estate-wide authentication/session-establishment
+> architecture — it governs how a session is minted and how every wallet/application surface
+> presents sign-in. This specification's own scope is unaffected and requires no correction: it
+> governs the **onboarding substrate** (the seven layers every arrival crosses, §1) and already
+> states, consistent with PAS-001's Root Principal (§1a there), that "Passport establishes
+> continuity, not authority" (§8.1) and that delegation is the human-only gate regardless of
+> journey (§8.2). Where this spec's §2.1 table ("MCP" row) or §2.3 (direct-arrival path) touch
+> *how* a session is actually established, defer to PAS-001 for those mechanics — this document
+> does not restate them and should not be read as a competing session model.
+
 **metaMe IRL / iQube Protocol / AgentiQ · Platform-architecture specification · Status: RATIFIED (operator-directed, 2026-07-25) — Phase 1 shipped (§12: substrate-state resolver + progressive surface activation seam)**
 **Title:** *The Constitutional Onboarding Specification — the one substrate every arrival crosses, before any specialist journey begins*
 **Composes:** **PRD-THR-001** (`metame-threshold.md`) — the concrete implementation of this substrate's top four layers for a *third-party-agent-mediated* arrival; **CFS-043** / **CFS-043a** (agent-guided passport & delegation onboarding — the Principal–Delegate Separation safeguard); **CFS-050** (Sovereignty Navigation — the progressive-agency ladder this spec's "progressive surface activation" section extends into the onboarding context); **SPEC-VLM-001** (Venture Lab & MoneyPenny Reorganisation — Founder Office as the reference-implementation landing surface); **PRD-MMC-001** (metaMe Companion — the Edge Companion's actual shipped capability set); the Identity & Access Spine (`services/identity/getActivePersona.ts`, `utils/personaSpine.tsx`); `services/constitutional/guidedOnboarding.ts` and `services/constitutional/constitutionalAgreement.ts` (the executable primitives every layer below composes, never forks).
