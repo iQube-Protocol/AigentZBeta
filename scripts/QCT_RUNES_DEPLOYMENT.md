@@ -47,6 +47,19 @@ B¢
 BitCent (a Bitcoin QriptoCENT)
 ```
 
+**Supply model (ratified 2026-07-29).** QriptoCENT is a **class with no aggregate cap**. Each
+canonical denomination has its own issuance network and its own 1,000,000,000 maximum:
+
+| Denomination | Network | Max | Issued |
+|---|---|---:|---:|
+| Base Q¢ | Base 8453 | 1,000,000,000 | 400,000,000 |
+| BitCent / B¢ | Bitcoin | 1,000,000,000 | premine TBR |
+
+The two supplies are **independent**. B¢'s premine is NOT a share of Base Q¢'s 400M and need not
+equal it — copying that figure would be historical symmetry, not economic reasoning. "1 billion" is
+**per denomination**, never protocol-wide. Full record:
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md`.
+
 **Not the VL-CT-001 instrument.** BitCent is Bitcoin-native. The VL-CT-001 constitutional-trading
 experiment compares USDC against **Base Q¢** (the Base-network implementation of the same class), so
 that both sides of the comparison share one network, one x402 pathway, one custody model and one
@@ -62,8 +75,8 @@ architecture. BitCent belongs to a later cross-network or Bitcoin-native experim
 | **Name** | BITCENT |
 | **Symbol** | B¢ |
 | **Decimals** | 8 (matches Bitcoin) |
-| **Total Supply** | 1,000,000,000 B¢ (1 billion) |
-| **Premine** | 400,000,000 B¢ (40%) |
+| **Total Supply** | 1,000,000,000 B¢ — B¢'s OWN cap, independent of Base Q¢'s |
+| **Premine** | ⚠️ **NOT RATIFIED** — R-10 open. 400,000,000 below is a *proposal*, competing with `deploy-qct-bitcoin.js`'s 100,000,000. Current recommendation: 100,000,000, pending an allocation plan. |
 | **Public Mints** | 21,000 mints |
 | **Amount per Mint** | 47,619 B¢ |
 | **Turbo** | Enabled (immediate minting) |

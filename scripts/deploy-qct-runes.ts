@@ -123,6 +123,28 @@ async function signAndSend(keyPair: any, psbt: Psbt, address: string): Promise<s
  * Deploy QCT Runes Token
  */
 async function deployQCTRunes() {
+  // ── PRE-ETCH GATE (R-10, ratified 2026-07-29) ────────────────────────────
+  // Neither this script nor its sibling is authoritative. The 400M and 100M
+  // premines are COMPETING PROPOSALS; the authoritative script is generated
+  // after the BitCent issuance constitution is ratified. A Rune's name,
+  // divisibility, cap and premine are ALL immutable at etch — there is no
+  // second attempt, so this refuses rather than trusting whoever ran it last.
+  //
+  // The ten items that must be frozen and hashed first are listed in
+  // codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md
+  if (process.env.BITCENT_ISSUANCE_CONSTITUTION_RATIFIED !== 'yes') {
+    console.error(
+      'Refusing to etch: the BitCent issuance constitution is not ratified.\n' +
+      'R-10 is open on the premine amount. Base Q\u00a2 already holds 400,000,000\n' +
+      'against its own 1,000,000,000 cap; B\u00a2 has an INDEPENDENT 1,000,000,000\n' +
+      'cap and its premine must follow a ratified allocation plan, not a script\n' +
+      'that happens to exist. See the supply constitution for the ten items that\n' +
+      'must be frozen and hashed before any broadcast.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   console.log('🚀 Deploying QCT Runes Token...\n');
   console.log('Token Configuration:');
   console.log('  Name:', QCT_CONFIG.name);

@@ -364,3 +364,40 @@ describe('relations scaffold', () => {
     expect(block).not.toMatch(/`crystal-\$\{VERSION\}\.relations\.json`/);
   });
 });
+
+describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
+  const read = (p: string) => readFileSync(join(REPO, p), 'utf-8');
+
+  it('both etching scripts refuse to run until the issuance constitution is ratified', () => {
+    // A Rune's name, divisibility, cap and premine are ALL immutable at etch.
+    for (const p of ['scripts/deploy-qct-runes.ts', 'scripts/deploy-qct-runes.js']) {
+      const src = read(p);
+      expect(src, `${p} must gate the etch`).toMatch(/BITCENT_ISSUANCE_CONSTITUTION_RATIFIED/);
+      expect(src, `${p} must refuse, not warn`).toMatch(/process\.exitCode = 1/);
+    }
+    // The divergent script keeps its own separate guard.
+    expect(read('scripts/deploy-qct-bitcoin.js')).toMatch(/ACKNOWLEDGE_DIVERGENT_TOKENOMICS/);
+  });
+
+  it('the deployment guide states the cap is PER DENOMINATION, not protocol-wide', () => {
+    const guide = read('scripts/QCT_RUNES_DEPLOYMENT.md');
+    expect(guide).toMatch(/per denomination/i);
+    expect(guide).toMatch(/independent/i);
+    // The premine must not read as settled while R-10 is open.
+    expect(guide).toMatch(/NOT RATIFIED/);
+  });
+
+  it('records Base Q¢ as already holding its 400M against its OWN cap', () => {
+    const doc = read('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
+    expect(doc).toMatch(/0x46CD79B8f795169FC59D5f1DE1a444c3C39fE7CE/);
+    expect(doc).toMatch(/400,000,000/);
+    // Capacity is not issuance — the sentence that stops "2 billion exist".
+    expect(doc).toMatch(/Capacity is not issuance/);
+  });
+
+  it('never asserts a class-wide cap', () => {
+    const doc = read('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
+    expect(doc).toMatch(/no fixed class-wide maximum supply/i);
+    expect(doc).toMatch(/per denomination\s+≠\s+per chain/);
+  });
+});
