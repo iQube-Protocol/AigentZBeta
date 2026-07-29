@@ -4,6 +4,11 @@
 **Status:** binding on the queued Venice two-reviewer build, which must not start until the
 adjudication workflow has landed its package schema, rubric and contested-row model.
 
+**Now scoped by:** `codexes/packs/irl/foundation/SPEC-IRL-REVIEW-001_independent-review-capability.md`.
+These rulings are the **EXP-P1 Phase 1 instantiation** of that general capability, not a standalone
+process — the Venice build is an *instance* of IRL-REVIEW-001, never a bespoke pipeline. Where the
+two documents differ, the SPEC governs the general contract and this doc governs EXP-P1 specifics.
+
 ---
 
 ## 1. What the review is
