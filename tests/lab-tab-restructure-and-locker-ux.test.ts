@@ -372,7 +372,14 @@ describe('F — the public workspace posture cannot open a private area', () => 
       .map((s) => s.trim().replace(/^"|"$/g, ''))
       .filter(Boolean);
     expect(allowed).toEqual(['overview']);
-    for (const priv of ['collaborate', 'operate', 'evidence', 'communicate', 'administration']) {
+    // RE-POINTED 2026-07-29: the private-surface list grew with the Research
+    // Lab's six added views (SPEC-IRL-WORKSPACE-001 §7). Every one of them must
+    // stay out of the public allowlist, so the check widened with the surface
+    // rather than continuing to guard only the six it was written against.
+    for (const priv of [
+      'collaborate', 'operate', 'evidence', 'communicate', 'administration',
+      'pipeline', 'review', 'working-materials', 'locker', 'qubetalk', 'participants',
+    ]) {
       expect(allowed, `'${priv}' entered the public allowlist`).not.toContain(priv);
     }
   });
@@ -380,16 +387,43 @@ describe('F — the public workspace posture cannot open a private area', () => 
   it('the clamp is APPLIED — both to the opened surface and to the surface row', () => {
     // An allowlist that nothing reads is an inert mechanism (MS-7): a defect
     // even though nothing errors.
+    //
+    // RE-POINTED, and STRICTLY STRONGER. `surfaceAllowed` now takes the Lab
+    // (`kind`) as well as the posture, and enforces BOTH: a venture entrance
+    // can never reach a research view and vice versa, on top of the public
+    // clamp. The assertions below pin both conditions, so removing either the
+    // Lab check or the posture check fails here.
     const src = stripComments(readSource(WORKSPACE_TAB_PATH));
-    expect(src, 'the opened surface is not clamped').toMatch(/surfaceAllowed\(requestedSurface, visibility\)/);
-    expect(src, 'the in-component surface row is not clamped').toMatch(
-      /SUB_SURFACES\.filter\(\(s\) => s !== "administration" && surfaceAllowed\(s, visibility\)\)/,
+    expect(src, 'the opened surface is not clamped').toMatch(
+      /surfaceAllowed\(requestedSurface, visibility, kind\)/,
     );
-    // …and `surfaceAllowed` must actually consult the allowlist, not be a stub.
+    expect(src, 'the in-component surface row is not clamped').toMatch(
+      /KIND_SURFACES\[kind\]\.filter\(\(s\) => s !== "administration" && surfaceAllowed\(s, visibility, kind\)\)/,
+    );
+    // …and `surfaceAllowed` must actually consult BOTH gates, not be a stub.
+    expect(src, 'the Lab gate is missing from surfaceAllowed').toMatch(
+      /if \(!KIND_SURFACES\[kind\]\.includes\(surface\)\) return false;/,
+    );
     expect(src).toMatch(/return visibility === "private" \|\| PUBLIC_SURFACES\.includes\(surface\)/);
     // The header must read the visibility-keyed name, or the public entrance
     // renders under the private one's title.
     expect(src).toMatch(/\{copy\.surfaceName\[visibility\]\}/);
+  });
+
+  it('the Lab clamp is real: neither Lab offers the other’s surfaces', () => {
+    // Driven from the shipped constant rather than grepped, so a KIND_SURFACES
+    // edit that merged the two lists fails here even though every grep above
+    // still matches.
+    const src = stripComments(readSource(WORKSPACE_TAB_PATH));
+    const venture = src.match(/venture: \[([^\]]*)\]/)![1];
+    for (const research of ['pipeline', 'review', 'working-materials', 'locker', 'qubetalk', 'participants']) {
+      expect(venture, `the venture entrance offers '${research}'`).not.toContain(`"${research}"`);
+    }
+    // And the venture list is unchanged, member for member (SPEC acceptance
+    // criterion 3: existing Venture Lab workspaces remain unchanged).
+    expect(
+      venture.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean),
+    ).toEqual(['overview', 'collaborate', 'operate', 'evidence', 'communicate', 'administration']);
   });
 
   it('every mount declares its posture consistently with its group', () => {
