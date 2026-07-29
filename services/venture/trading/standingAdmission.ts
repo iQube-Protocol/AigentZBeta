@@ -92,6 +92,26 @@ export type ProhibitedStandingBasis = (typeof PROHIBITED_STANDING_BASES)[number]
  * defines how an admitted signal maps into Personal / Delegated / Stewardship /
  * Capability Standing. Until then an admitted decision is an experimental
  * observation, not an accrual.
+ *
+ * ─── NAMED CONTROL MUTATION: "all weights ×10" ─────────────────────────────
+ *
+ * YOU ARE ABOUT TO EDIT THE NUMBERS BELOW. READ THIS FIRST.
+ *
+ * Mutation-testing the substrate leaves exactly one mutation alive: multiply
+ * every value in this table by ten and the whole suite stays green. That
+ * survivor is INTENDED, and a future reader must not "fix" it by adding an
+ * assertion that pins a magnitude. The reason, ruled by the operator on
+ * 2026-07-29:
+ *
+ *   > The constitutional property is positive refusal weight versus zero
+ *   > incomplete-execution weight — not the provisional maximum value.
+ *
+ * Re-scale these freely. What must never change is the ORDERING: a correct,
+ * evidenced, complete refusal outranks a profitable but constitutionally
+ * incomplete execution. The control lives in `AC-17` of
+ * `tests/venture-trading-substrate.test.ts` — it APPLIES the ×10 mutation and
+ * asserts the ordering survives, so a re-scaling that inverts the result fails
+ * there even though a re-scaling that preserves it does not.
  */
 export const PERMITTED_STANDING_BASES: Record<StandingContributionType, number> = {
   correctness: 1.0,

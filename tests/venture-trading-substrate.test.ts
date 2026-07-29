@@ -36,6 +36,7 @@ import {
 } from '@/services/venture/trading/experimentCells';
 import {
   evaluateTradingStandingSignal,
+  PERMITTED_STANDING_BASES,
   PROHIBITED_STANDING_BASES,
 } from '@/services/venture/trading/standingAdmission';
 import {
@@ -90,7 +91,10 @@ import {
   VENTURE_SCENARIOS,
 } from '@/services/venture/trading/scenarios';
 import { RAW_UUID_PATTERN } from '@/services/venture/trading/refs';
-import type { VentureExperimentCell } from '@/services/venture/trading/types';
+import type {
+  StandingContributionType,
+  VentureExperimentCell,
+} from '@/services/venture/trading/types';
 
 const TRADING_DIR = join(process.cwd(), 'services', 'venture', 'trading');
 
@@ -1632,6 +1636,78 @@ describe('AC-17 the Standing ordering survives any re-scaling of the weights', (
     ]);
     expect(maximallyClaimed.weight ?? 0).toBe(0);
     expect(refusal).toBeGreaterThan(maximallyClaimed.weight ?? 0);
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  //
+  //   ███  NAMED CONTROL MUTATION — "all weights ×10"  ███
+  //
+  //   THIS MUTATION SURVIVES BY DESIGN. DO NOT "FIX" IT.
+  //
+  //   Mutation-testing this suite leaves exactly one mutation alive:
+  //   multiply every value in PERMITTED_STANDING_BASES by ten and the whole
+  //   suite stays green. That is NOT a hole in the canary. It is the canary
+  //   behaving as the operator ruled (2026-07-29):
+  //
+  //       The constitutional property is positive refusal weight versus zero
+  //       incomplete-execution weight — not the provisional maximum value.
+  //
+  //   A canary that DIED on this mutation would be pinning the magnitude. The
+  //   magnitude is provisional and experiment-scoped: VL-CT-001 exists partly
+  //   to revise it, and `MAX_STANDING_SIGNAL_WEIGHT` explicitly does not amend
+  //   the canonical Standing formula. Pinning it would make every future
+  //   re-scaling a test edit, which is precisely how a provisional
+  //   experimental constant becomes a ratified platform one by accident.
+  //
+  //   If you arrived here because a mutation report listed this as a survivor:
+  //   the survivor is the intended result. What must never survive is an
+  //   INVERSION — a rescaling that lets an incomplete execution outrank a
+  //   correct refusal. The test below applies the ×10 mutation itself and
+  //   asserts the ordering holds, so the survival is DEMONSTRATED rather than
+  //   claimed in prose, and so a future edit that breaks the ordering fails
+  //   here even though re-scaling does not.
+  //
+  // ═════════════════════════════════════════════════════════════════════════
+
+  it('CONTROL "all weights ×10" — survives BY DESIGN: the ordering is the property, not the magnitude', () => {
+    const baseline = evidencedRefusal().weight ?? 0;
+    const original = { ...PERMITTED_STANDING_BASES };
+    try {
+      for (const basis of Object.keys(original) as StandingContributionType[]) {
+        PERMITTED_STANDING_BASES[basis] = original[basis] * 10;
+      }
+
+      // Proof the mutation ACTUALLY APPLIED. Without this the control would be
+      // a false survivor — a "mutation" that changed nothing, reported green,
+      // and told the reader nothing. (Two false survivors have already appeared
+      // on this substrate: an interface-only edit that was a no-op, and a
+      // module-collection throw that emitted no per-test marker.)
+      const mutated = evidencedRefusal().weight ?? 0;
+      expect(mutated, 'the ×10 mutation did not reach the weight expression').not.toBe(baseline);
+
+      // ...and the constitutional property is untouched by it.
+      const execution = incompleteExecution(['realised-profit', 'executed-trade-count']).weight ?? 0;
+      expect(mutated, 'a correct refusal must still carry POSITIVE weight').toBeGreaterThan(0);
+      expect(execution, 'an incomplete execution must still carry ZERO weight').toBe(0);
+      expect(mutated, 'the ordering inverted under re-scaling').toBeGreaterThan(execution);
+    } finally {
+      // Restored whatever happens, so the control cannot leak into any other
+      // canary in this file.
+      for (const basis of Object.keys(original) as StandingContributionType[]) {
+        PERMITTED_STANDING_BASES[basis] = original[basis];
+      }
+    }
+    expect(evidencedRefusal().weight ?? 0).toBe(baseline);
+  });
+
+  it('the control is named at the constants themselves, where a "fixer" would land', () => {
+    // The prose above lives in the test file. Someone re-scaling the weights is
+    // reading standingAdmission.ts, so the pointer has to be there too.
+    const src = readFileSync(join(TRADING_DIR, 'standingAdmission.ts'), 'utf8');
+    expect(src, 'the named control is not recorded where the weights are edited').toContain(
+      'all weights ×10',
+    );
+    expect(src).toContain('not the provisional maximum value');
   });
 
   it('the ceiling is declared PROVISIONAL and experiment-scoped, not ratified', () => {
