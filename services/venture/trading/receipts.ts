@@ -60,6 +60,10 @@
 
 import { createHash } from 'crypto';
 import type { PartnerServiceCompensationExtension } from './compensationExtension';
+import {
+  assertVentureReceiptConstraintCompatible,
+  type VentureConstraintLoader,
+} from './receiptCompatibility';
 import { containsRawIdentifier } from './refs';
 
 /**
@@ -195,19 +199,30 @@ export async function persistVentureReceipt<T>(
   journal: VentureReceiptJournal,
   receipt: VentureReceipt,
   writer: (receipt: VentureReceipt) => Promise<T>,
+  opts: VentureEmissionOptions = {},
 ): Promise<T> {
   assertVentureJournalCanLeaveMemory(journal, 'persist');
+  // RULING 5 — verify the deployed action-type vocabulary BEFORE the write.
+  // Discovering it from the insert failure is too quiet for this pipeline.
+  await assertVentureReceiptConstraintCompatible(opts.loadConstraintDefinition);
   return writer(receipt);
 }
 
-/** DVN anchoring, under the same guard and for the same reason. */
+/** DVN anchoring, under the same two gates and for the same reasons. */
 export async function anchorVentureReceipt<T>(
   journal: VentureReceiptJournal,
   receipt: VentureReceipt,
   anchorer: (receipt: VentureReceipt) => Promise<T>,
+  opts: VentureEmissionOptions = {},
 ): Promise<T> {
   assertVentureJournalCanLeaveMemory(journal, 'anchor');
+  await assertVentureReceiptConstraintCompatible(opts.loadConstraintDefinition);
   return anchorer(receipt);
+}
+
+export interface VentureEmissionOptions {
+  /** Injectable probe, so the compatibility gate is testable without a database. */
+  loadConstraintDefinition?: VentureConstraintLoader;
 }
 
 /**

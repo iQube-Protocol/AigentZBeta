@@ -32,8 +32,17 @@ const MIGRATIONS_DIR = join(process.cwd(), 'supabase', 'migrations');
 const SERVICE_PATH = join(process.cwd(), 'services', 'receipts', 'activityReceiptService.ts');
 
 /** Filenames are timestamp-prefixed (`YYYYMMDDHHMMSS_description.sql`), so a
- *  lexical sort is a chronological sort — the LAST migration that touches
- *  the constraint is the one that actually governs the live schema today. */
+ *  lexical sort is a chronological sort — the LAST migration that REBUILDS
+ *  the constraint is the one that actually governs the live schema today.
+ *
+ *  Selected on `ADD CONSTRAINT`, not on a mention of the constraint's name: a
+ *  migration may legitimately READ the constraint without rebuilding it (e.g.
+ *  `20260929000100_venture_receipt_constraint_probe.sql`, which installs the
+ *  deployment compatibility probe). Selecting on a mention picked that file as
+ *  "the latest rebuild", found no `CHECK (action_type IN (...))` block in it,
+ *  and failed with a null match — a canary reporting a drift that did not
+ *  exist. A canary that cries wolf gets ignored, and this one guards a failure
+ *  mode that loses receipts silently. */
 function latestActionTypeCheckMigration(): string {
   const files = readdirSync(MIGRATIONS_DIR)
     .filter((f) => f.endsWith('.sql'))
@@ -41,7 +50,7 @@ function latestActionTypeCheckMigration(): string {
   let latest: string | null = null;
   for (const f of files) {
     const content = readFileSync(join(MIGRATIONS_DIR, f), 'utf8');
-    if (content.includes('activity_receipts_action_type_check')) latest = f;
+    if (content.includes('ADD CONSTRAINT activity_receipts_action_type_check')) latest = f;
   }
   if (!latest) throw new Error('no migration rebuilds activity_receipts_action_type_check — cannot verify parity');
   return latest;

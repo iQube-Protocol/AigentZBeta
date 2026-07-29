@@ -60,6 +60,12 @@ import {
   VentureFixtureModeViolation,
   ventureJournalArtifacts,
 } from '@/services/venture/trading/receipts';
+import {
+  assertVentureReceiptConstraintCompatible,
+  evaluateVentureReceiptConstraint,
+  ventureReceiptDeploymentCheck,
+  VentureReceiptCompatibilityError,
+} from '@/services/venture/trading/receiptCompatibility';
 import { runVentureScenario } from '@/services/venture/trading/runScenario';
 import {
   reconcileMatrix,
@@ -729,6 +735,123 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
       { disclosure: 'restricted', liabilityCreationEvent: 'constitutional-completion' },
     );
     expect(c.amountCommitment).not.toBe(a.amountCommitment);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-18 — RULING 5. A missing migration is loud and immediate, not a swallowed
+//         insert failure deep in the pipeline.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-18 live venture receipt emission refuses an incompatible schema', () => {
+  /** A constraint definition that accepts all nine — the compatible case. */
+  const goodDefinition = `CHECK ((action_type = ANY (ARRAY[${VENTURE_RECEIPT_ACTION_TYPES.map(
+    (t) => `'${t}'::text`,
+  ).join(', ')}])))`;
+
+  it('the probe being UNAVAILABLE is refused — "couldn\'t tell" is not "compatible"', () => {
+    const result = evaluateVentureReceiptConstraint(null, false);
+    expect(result.compatible).toBe(false);
+    expect(result.reason).toBe('probe-unavailable');
+    // The remedy names the files, so the operator has nothing to look up.
+    expect(result.remedy).toContain('20260929000000_venture_substrate_receipt_types.sql');
+    expect(result.remedy).toContain('20260929000100_venture_receipt_constraint_probe.sql');
+  });
+
+  it('the constraint being ABSENT is refused', () => {
+    const result = evaluateVentureReceiptConstraint(null, true);
+    expect(result.compatible).toBe(false);
+    expect(result.reason).toBe('constraint-absent');
+    expect(result.missingActionTypes).toHaveLength(9);
+  });
+
+  it('a constraint SHORT of the vocabulary is refused, and names what is missing', () => {
+    // The realistic half-applied case: an older constraint that predates the
+    // venture types. This is the state that used to surface as a check
+    // violation on the first receipt.
+    const stale = `CHECK ((action_type = ANY (ARRAY['intent_queued'::text, 'artifact_created'::text])))`;
+    const result = evaluateVentureReceiptConstraint(stale, true);
+    expect(result.compatible).toBe(false);
+    expect(result.reason).toBe('action-types-missing');
+    expect(result.missingActionTypes).toEqual([...VENTURE_RECEIPT_ACTION_TYPES]);
+    expect(result.remedy).toContain('venture_refusal_recorded');
+  });
+
+  it('one missing type is enough to refuse — the check is not "mostly there"', () => {
+    const partial = goodDefinition.replace(`'venture_settlement_simulated'::text, `, '');
+    const result = evaluateVentureReceiptConstraint(partial, true);
+    expect(result.compatible).toBe(false);
+    expect(result.missingActionTypes).toEqual(['venture_settlement_simulated']);
+  });
+
+  it('matches the type as a QUOTED VALUE, not as a substring of prose', () => {
+    // A comment mentioning the action type is not the database accepting it.
+    const prose = `CHECK ((action_type = ANY (ARRAY['intent_queued'::text]))) -- venture_opportunity_opened venture_service_completed venture_completion_assessed venture_refusal_recorded venture_obligation_earned venture_obligation_approved venture_settlement_simulated venture_obligation_reversed venture_opportunity_closed`;
+    expect(evaluateVentureReceiptConstraint(prose, true).compatible).toBe(false);
+  });
+
+  it('a fully applied constraint is compatible (guard against a canary that always refuses)', () => {
+    const result = evaluateVentureReceiptConstraint(goodDefinition, true);
+    expect(result.compatible).toBe(true);
+    expect(result.missingActionTypes).toEqual([]);
+    expect(result.requiredVersion).toBe('venture-substrate-receipt-types/1');
+  });
+
+  it('a throwing probe fails CLOSED rather than proceeding', async () => {
+    const check = await ventureReceiptDeploymentCheck(async () => {
+      throw new Error('function public.venture_receipt_action_type_constraint() does not exist');
+    });
+    expect(check.compatible).toBe(false);
+    expect(check.reason).toBe('probe-unavailable');
+  });
+
+  it('the assertion THROWS on an incompatible schema and is silent on a compatible one', async () => {
+    await expect(
+      assertVentureReceiptConstraintCompatible(async () => null),
+    ).rejects.toBeInstanceOf(VentureReceiptCompatibilityError);
+    await expect(
+      assertVentureReceiptConstraintCompatible(async () => goodDefinition),
+    ).resolves.toBeUndefined();
+  });
+
+  it('a LIVE emission is refused before the writer runs when the migration is absent', async () => {
+    // The whole point: the refusal happens at the gate, not at the insert.
+    const live = createReceiptJournal('live-compat', 'USDC-SERVICE-COMPLETE', 'live');
+    const receipt = emitVentureReceipt(live, {
+      actionType: 'venture_opportunity_opened',
+      at: '2026-07-29T09:00:00.000Z',
+      experimentalCellId: 'USDC-SERVICE-COMPLETE',
+      opportunityRef: 'aaaa1111bbbb2222',
+      summary: 'compatibility gate',
+      evidenceRefs: [],
+    });
+    let writerCalls = 0;
+    await expect(
+      persistVentureReceipt(live, receipt, async () => {
+        writerCalls += 1;
+        return 'written';
+      }, { loadConstraintDefinition: async () => null }),
+    ).rejects.toBeInstanceOf(VentureReceiptCompatibilityError);
+    expect(writerCalls, 'the insert ran and the check violation was the discovery').toBe(0);
+
+    // And it lets a compatible schema through, so the gate is not simply closed.
+    const ok = await persistVentureReceipt(live, receipt, async () => 'written', {
+      loadConstraintDefinition: async () => goodDefinition,
+    });
+    expect(ok).toBe('written');
+  });
+
+  it('the probe migration exists and reads the constraint the check depends on', () => {
+    const sql = readFileSync(
+      join(process.cwd(), 'supabase', 'migrations', '20260929000100_venture_receipt_constraint_probe.sql'),
+      'utf8',
+    );
+    expect(sql).toContain('venture_receipt_action_type_constraint');
+    expect(sql).toContain('pg_get_constraintdef');
+    expect(sql).toContain('activity_receipts_action_type_check');
+    // Executable by the roles the app actually runs as, or the probe is
+    // unavailable in production and every live emission fails closed.
+    expect(sql).toMatch(/GRANT EXECUTE[\s\S]*service_role/);
   });
 });
 
