@@ -71,6 +71,38 @@ export function settlementAdvanceRef(advanceId: string): string {
   return constitutionalRef('qriptocent:liquidity-advance', advanceId);
 }
 
+// ─── The fee / market-fact split (operator ruling, 2026-07-29) ──────────────
+//
+// Each of these gets its OWN namespace rather than sharing one. A charging
+// service and the venue it quotes against are different kinds of thing, and a
+// disclosure that could not tell them apart would let a provider name itself as
+// the venue whose movement supposedly justified its retained spread.
+
+/** The service or liquidity provider that CHARGES an attributed fee. */
+export function settlementProviderRef(providerId: string): string {
+  return constitutionalRef('qriptocent:fee-provider', providerId);
+}
+
+/** The accelerated service or liquidity advance a timing fee pays for. */
+export function settlementServiceRef(serviceId: string): string {
+  return constitutionalRef('qriptocent:accelerated-service', serviceId);
+}
+
+/** The quote presented to the payer BEFORE authorisation. */
+export function settlementQuoteRef(quoteId: string): string {
+  return constitutionalRef('qriptocent:fee-quote', quoteId);
+}
+
+/** An external market venue — the subject of an observation, never a charger. */
+export function settlementVenueRef(venueId: string): string {
+  return constitutionalRef('qriptocent:market-venue', venueId);
+}
+
+/** The payer's recorded acceptance of an off-parity external execution path. */
+export function settlementExecutionAuthorisationRef(authorisationId: string): string {
+  return constitutionalRef('qriptocent:external-execution-authorisation', authorisationId);
+}
+
 /**
  * The replay nonce carried by a settlement message. Derived from the
  * instruction id AND the settlement id, so a nonce is meaningless outside the

@@ -149,29 +149,159 @@ export const VALUE_COMMITTED_STATES: readonly SettlementState[] = [
 ];
 
 /**
- * Fee classes.
+ * ─── THE FEE / MARKET-FACT SPLIT (operator ruling, 2026-07-29) ──────────────
  *
- * Four categories, per the operator's extension: network, service, liquidity,
- * and reconciliation/exception.
+ * The two classes the earlier build FLAGGED rather than mapped — `timing/finality
+ * premium` and `market deviation outside the protocol rate` — are now ruled on,
+ * and the ruling is NOT "add two more fee fields". It is a three-way distinction:
  *
- *   > If 10.00 is debited and 9.98 credited, the 0.02 must be an explicit fee
- *   > with a payer, a beneficiary, a basis and a receipt. No spread, rate
- *   > adjustment or hidden conversion factor may substitute for an explicitly
- *   > named fee.
+ *   > Parity governs the protocol principal. Fees pay for services and risk.
+ *   > Market deviations describe external conditions.
  *
- * FLAGGED, NOT DECIDED: the constitution also names `timing/finality premium`
- * and `market deviation outside the protocol rate` as classes into which a
- * difference may fall. Neither has a field here, and neither is silently mapped
- * onto `serviceFee` — mapping them would be exactly the misclassification the
- * constitution prohibits. A settlement that would need one is refused until the
- * operator rules on whether they are FEES (belonging in this breakdown) or
- * MARKET FACTS outside the protocol rate (belonging nowhere near it).
+ * Three different KINDS of thing, and collapsing any two is the defect:
+ *
+ *   1. PRINCIPAL   — `amountMinorUnits`, converted at the literal `'1:1'`.
+ *                    Never reduced by an undisclosed rate or retained margin.
+ *   2. FEE         — a charge, with a payer, a charging service, a quote given
+ *                    BEFORE authorisation, a basis, and a receipt. Lives here.
+ *   3. MARKET FACT — an OBSERVATION of an external venue. Not a charge, nobody
+ *                    receives it, and it lives in `marketObservations` — a
+ *                    structure the fee breakdown cannot reach. Putting it here
+ *                    would reimport an exchange-rate concept into a layer that
+ *                    is deliberately cent-for-cent.
  */
-export type SettlementFeeClass =
+
+/** The four ordinary categories. Charged alongside the principal, as before. */
+export type OrdinaryFeeClass =
   | 'network-fee'
   | 'service-fee'
   | 'liquidity-fee'
   | 'reconciliation-fee';
+
+/**
+ * The timing/finality premium, RULED to be a fee — but only under a condition,
+ * and the condition is the whole content of the ruling:
+ *
+ *   > It is a fee when a participant, liquidity provider or service undertakes
+ *   > ADDITIONAL RISK or ADVANCES DESTINATION LIQUIDITY before ordinary source
+ *   > finality.
+ *
+ * So it is never a standing line item. A timing fee must name the accelerated
+ * service it pays for, and it must be ABSENT when no accelerated service or
+ * liquidity advance was used — a fee that always appears is not a fee for a
+ * service, it is a spread wearing a fee's name.
+ */
+export type TimingFeeClass =
+  | 'finality-fee'
+  | 'liquidity-advance-fee'
+  | 'expedited-settlement-fee';
+
+/**
+ * ─── THE SHARP LINE ─────────────────────────────────────────────────────────
+ *
+ * The CONSTITUTIONAL TRADING TRANSPARENCY PRINCIPLE (ratified 2026-07-29):
+ *
+ *   > A financial transaction must distinguish observable market movement from
+ *   > provider compensation. Market movement is recorded as a market fact. Any
+ *   > spread, markup, premium, or differential deliberately retained by a
+ *   > provider is compensation and must be disclosed as a fee. No provider may
+ *   > attribute retained compensation to market conditions without separately
+ *   > proving the underlying market movement.
+ *
+ * So: where a market maker or service intentionally quotes worse than the
+ * observed market or the protocol reference and RETAINS the difference, that
+ * retained amount is compensation — even when presented through an exchange
+ * rate. It is disclosed HERE, as a fee, never in the market-observation record.
+ *
+ * The principle's last clause is the one with teeth, and it has a mechanism:
+ * `classification.ts` refuses a retained spread whose underlying market
+ * movement is not SEPARATELY PROVEN by an observation record naming the same
+ * venue. Without that, a provider could assert "the market moved" and retain
+ * against an assertion nobody has to evidence — which is the same laundering
+ * one step further back.
+ *
+ *   > Market conditions may explain a price difference, but they must never be
+ *   > used to conceal compensation.
+ */
+export type ProviderRetainedSpreadFeeClass = 'provider-retained-spread-fee';
+
+/** Fee classes that carry full attribution: who charged, quoted when, for what. */
+export type AttributedFeeClass = TimingFeeClass | ProviderRetainedSpreadFeeClass;
+
+export type SettlementFeeClass = OrdinaryFeeClass | AttributedFeeClass;
+
+export const ORDINARY_FEE_CLASSES: readonly OrdinaryFeeClass[] = [
+  'network-fee',
+  'service-fee',
+  'liquidity-fee',
+  'reconciliation-fee',
+];
+
+export const TIMING_FEE_CLASSES: readonly TimingFeeClass[] = [
+  'finality-fee',
+  'liquidity-advance-fee',
+  'expedited-settlement-fee',
+];
+
+export const ATTRIBUTED_FEE_CLASSES: readonly AttributedFeeClass[] = [
+  ...TIMING_FEE_CLASSES,
+  'provider-retained-spread-fee',
+];
+
+export const SETTLEMENT_FEE_CLASSES: readonly SettlementFeeClass[] = [
+  ...ORDINARY_FEE_CLASSES,
+  ...ATTRIBUTED_FEE_CLASSES,
+];
+
+/**
+ * ─── THE TWO PRESENTATION FORMS ─────────────────────────────────────────────
+ *
+ *   Fee deducted from principal        Fee borne separately (PREFERRED)
+ *   Principal:           100 B¢        Principal delivered:  100 Base Q¢
+ *   Protocol conversion: 100 Base Q¢   Fee paid separately:    1 Base Q¢
+ *   Finality fee:          1 Base Q¢   Total payer cost:     101 B¢ equiv
+ *   Recipient receives:   99 Base Q¢
+ *
+ * Both are modelled, because both occur. `borne-separately` is PREFERRED and is
+ * the default, for one reason: THE RECIPIENT RECEIVES THE FULL AUTHORISED
+ * PRINCIPAL. Note that the protocol conversion is cent-for-cent in BOTH forms —
+ * what the deducted form reduces is the DELIVERED figure, and it may only be
+ * reduced by a fee that is itemised, attributed and quoted. A reduction with no
+ * such fee behind it is the undisclosed spread this whole layer exists to
+ * prevent.
+ */
+export type FeeBearing = 'borne-separately' | 'deducted-from-principal';
+
+/** The default, and the preferred form. Absent `bearing` means this. */
+export const PREFERRED_FEE_BEARING: FeeBearing = 'borne-separately';
+
+/**
+ * A fee with full attribution. Every field is a requirement of the ruling:
+ * quoted before authorisation (`quotedAt`, `quoteRef`), separately itemised
+ * from the principal (it is its own row, never folded into the amount),
+ * attributed to the charging service (`chargedByRef`), and bound to the service
+ * it pays for (`serviceRef`) so it cannot exist when nothing was accelerated.
+ */
+export interface AttributedFee {
+  feeClass: AttributedFeeClass;
+  amountMinorUnits: string;
+  /** Commitment of the service that charges it. Never a raw id, never empty. */
+  chargedByRef: string;
+  /** The quote presented to the payer. */
+  quoteRef: string;
+  /** When the quote was presented. MUST precede the instruction's acceptance. */
+  quotedAt: string;
+  /**
+   * The accelerated service, liquidity advance, or — for a retained margin —
+   * the quote the provider deliberately placed away from the reference. A fee
+   * of these classes with nothing to point at is a fee for nothing.
+   */
+  serviceRef: string;
+  /** Absent means `PREFERRED_FEE_BEARING` — the recipient keeps the principal. */
+  bearing?: FeeBearing;
+  /** Why this amount. A charge with no stated basis is unreviewable. */
+  basis: string;
+}
 
 export interface SettlementFeeBreakdown {
   networkFee?: string;
@@ -179,7 +309,139 @@ export interface SettlementFeeBreakdown {
   liquidityFee?: string;
   /** Reconciliation / exception handling. */
   reconciliationFee?: string;
+  /**
+   * Timing/finality and retained-margin fees, itemised and attributed.
+   *
+   * NOTHING resembling a market observation may appear in this structure or on
+   * these rows — see `MarketObservation`. `classification.ts` refuses an
+   * instruction whose fee breakdown carries a market-observation class, and
+   * `reconcileBook` checks the same property after the fact.
+   */
+  attributedFees?: AttributedFee[];
 }
+
+/**
+ * ─── MARKET FACTS — OBSERVATIONS, NOT CHARGES ───────────────────────────────
+ *
+ * B¢ at a premium on an exchange; Base Q¢ temporarily below reference; a quoted
+ * bid/ask in an external venue. These describe EXTERNAL CONDITIONS. Nobody is
+ * charged, nobody receives them, and no ledger moves because of them.
+ *
+ * They are therefore structurally incapable of being amounts: an observation
+ * carries a DEVIATION IN BASIS POINTS and a venue, and it has no
+ * `amountMinorUnits`, no `chargedByRef` and no `bearing`. That absence is the
+ * type-level half of the separation; the refusal in `classification.ts` and the
+ * reconciliation identity are the runtime halves.
+ */
+export type MarketObservationClass =
+  | 'market-price-deviation'
+  | 'observed-spread'
+  | 'market-impact'
+  | 'external-execution-rate';
+
+export const MARKET_OBSERVATION_CLASSES: readonly MarketObservationClass[] = [
+  'market-price-deviation',
+  'observed-spread',
+  'market-impact',
+  'external-execution-rate',
+];
+
+export interface MarketObservation {
+  observationClass: MarketObservationClass;
+  /** Commitment of the venue observed. Never a raw id. */
+  venueRef: string;
+  /** Signed basis points away from the protocol reference. NOT an amount. */
+  deviationBps: string;
+  observedAt: string;
+  /** What was observed, in words. */
+  note: string;
+}
+
+/**
+ * The payer's recorded acceptance of an external market-execution path.
+ *
+ * The classification table's last row — *external venue execution away from
+ * parity* — is a market execution RESULT, and it is legitimate only when the
+ * payer accepted that path. An execution away from parity with no recorded
+ * authorisation is refused, because the alternative is a settlement silently
+ * routed off-parity and reported as if the payer had chosen it.
+ */
+export interface ExternalExecutionAuthorisation {
+  authorisationRef: string;
+  /** Commitment of the party that accepted the path — the payer. */
+  acceptedByRef: string;
+  at: string;
+}
+
+export interface ExternalVenueExecution {
+  /** Commitment of the venue. */
+  venueRef: string;
+  /** How far from the protocol reference the venue executed, in basis points. */
+  executionDeviationBps: string;
+  /** REQUIRED in practice; optional in the type so its absence is refusable. */
+  authorisation?: ExternalExecutionAuthorisation;
+  /**
+   * Value the provider deliberately RETAINED out of the deviation.
+   *
+   * Positive here obliges TWO things, and both are refused at acceptance and
+   * caught again at reconciliation:
+   *
+   *   1. a matching `provider-retained-spread-fee` in the fee breakdown, same
+   *      amount — recording it ONLY here, as a market fact, is the laundering
+   *      the sharp line forbids;
+   *   2. a `MarketObservation` naming this same venue — the principle's last
+   *      clause: no provider may attribute retained compensation to market
+   *      conditions without SEPARATELY PROVING the underlying movement.
+   */
+  providerRetainedMinorUnits: string;
+}
+
+/**
+ * What was actually accelerated, and by whom.
+ *
+ * A timing fee is legitimate only against one of these. It exists so the
+ * "absent when unused" half of the ruling is checkable rather than asserted:
+ * with no accelerated service declared, a timing fee has nothing to name, and
+ * the instruction is refused.
+ */
+export type AcceleratedServiceKind =
+  | 'expedited-settlement'
+  | 'liquidity-advance'
+  | 'pre-finality-assurance';
+
+export interface AcceleratedService {
+  kind: AcceleratedServiceKind;
+  serviceRef: string;
+  /** Commitment of the participant/provider undertaking the risk. */
+  providedByRef: string;
+  /** When the service was quoted. Must precede acceptance. */
+  quotedAt: string;
+}
+
+/**
+ * ─── INSUFFICIENT DESTINATION LIQUIDITY — FOUR LEGITIMATE RESPONSES ─────────
+ *
+ * When the canonical 1:1 route lacks destination liquidity, the permitted
+ * answers are exhaustively these four.
+ *
+ *   > It must never silently introduce slippage into the canonical settlement
+ *   > rate.
+ *
+ * There is deliberately no fifth member, and none of the four is a rate
+ * adjustment: the principal is not a lever the liquidity layer may pull.
+ */
+export type LiquidityShortfallResponse =
+  | 'queue'
+  | 'route-to-approved-alternate-source'
+  | 'request-explicit-acceptance-of-external-execution'
+  | 'refuse';
+
+export const LIQUIDITY_SHORTFALL_RESPONSES: readonly LiquidityShortfallResponse[] = [
+  'queue',
+  'route-to-approved-alternate-source',
+  'request-explicit-acceptance-of-external-execution',
+  'refuse',
+];
 
 /** A liquidity advance — the ONLY authorised alternative to a final source debit. */
 export interface AuthorisedLiquidityAdvance {
@@ -213,6 +475,19 @@ export interface CrossDenominationSettlement {
   state: SettlementState;
   feeBreakdown: SettlementFeeBreakdown;
   receiptRefs: string[];
+
+  // ── The fee / market-fact split (operator ruling, 2026-07-29) ─────────────
+  /** What was accelerated, if anything. A timing fee is legitimate only here. */
+  acceleratedService?: AcceleratedService;
+  /**
+   * External conditions OBSERVED around this settlement. Not charges. Kept on
+   * the settlement rather than in `feeBreakdown` precisely so the fee breakdown
+   * cannot reach them — a market deviation inside a fee structure is an
+   * exchange rate reintroduced into a cent-for-cent layer.
+   */
+  marketObservations?: MarketObservation[];
+  /** Present only when execution happened away from parity at an outside venue. */
+  externalExecution?: ExternalVenueExecution;
 
   // ── Exactly-once identity ────────────────────────────────────────────────
   /**
@@ -301,6 +576,23 @@ export type SettlementRefusal =
   | 'insufficient-settlement-liquidity'
   | 'undisclosed-fee'
   | 'rate-deviation'
+  // ── Fee classification (the 2026-07-29 ruling) ──────────────────────────
+  /** A timing fee with no accelerated service or liquidity advance behind it. */
+  | 'timing-fee-without-accelerated-service'
+  /** A fee whose quote does not precede the instruction it is charged on. */
+  | 'fee-not-quoted-before-authorisation'
+  /** A fee with no charging service named. A fee nobody charges is a spread. */
+  | 'fee-not-attributed'
+  /** A market observation smuggled into the fee breakdown. */
+  | 'market-deviation-in-fee-breakdown'
+  /** A deliberately retained spread recorded as a market fact instead of a fee. */
+  | 'retained-spread-recorded-as-market-fact'
+  /** Retained compensation attributed to a market movement nobody evidenced. */
+  | 'market-movement-not-separately-proven'
+  /** Execution away from parity at an outside venue the payer never accepted. */
+  | 'external-execution-without-authorisation'
+  /** A market observation carrying a charge — an observation is not a charge. */
+  | 'market-observation-carries-a-charge'
   // ── Liquidity assurance (the SECOND control layer) ──────────────────────
   | 'liquidity-band-refused'
   | 'settlement-exceeds-exposure-limit'
