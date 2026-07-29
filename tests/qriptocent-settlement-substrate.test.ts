@@ -124,13 +124,48 @@ import {
   settlementBeneficiaryRef,
   settlementCreditRef,
   settlementDelegationRef,
+  settlementExecutionAuthorisationRef,
   settlementInstructionRef,
   settlementMessageRef,
   settlementNonce,
   settlementPayerRef,
+  settlementProviderRef,
+  settlementQuoteRef,
+  settlementServiceRef,
   settlementSourceDebitRef,
+  settlementVenueRef,
   RAW_UUID_PATTERN,
 } from '@/services/qriptocent/settlement/refs';
+import {
+  assertSixCategoriesDistinguished,
+  classificationRefusal,
+  classificationViolations,
+  deliveredPrincipal,
+  feesBorneSeparately,
+  feesDeductedFromPrincipal,
+  recordedIn,
+  requiresExplicitAuthorisation,
+  SETTLEMENT_CLASSIFICATION_TABLE,
+  SETTLEMENT_RULING_RECEIPT_COMPONENTS,
+  SETTLEMENT_VALUE_BREAKDOWN_KEYS,
+  settlementValueBreakdown,
+  shortfallResponsesAreExhaustive,
+  shortfallResponsesFor,
+  TRANSPARENCY_COROLLARY_COMPONENTS,
+  type SettlementValueBreakdown,
+} from '@/services/qriptocent/settlement/classification';
+import {
+  ATTRIBUTED_FEE_CLASSES,
+  LIQUIDITY_SHORTFALL_RESPONSES,
+  MARKET_OBSERVATION_CLASSES,
+  ORDINARY_FEE_CLASSES,
+  PREFERRED_FEE_BEARING,
+  SETTLEMENT_FEE_CLASSES,
+  TIMING_FEE_CLASSES,
+  type AttributedFee,
+  type ExternalVenueExecution,
+  type MarketObservation,
+} from '@/services/qriptocent/settlement/types';
 
 const SETTLEMENT_DIR = join(process.cwd(), 'services', 'qriptocent', 'settlement');
 const CONSTITUTION = join(
@@ -1379,7 +1414,7 @@ describe('AC-14 the substrate is deterministic and replayable', () => {
     for (const scenario of SETTLEMENT_SCENARIOS) {
       expect(settlementReplayIsStable(scenario), `${scenario.scenarioId} is not replay-stable`).toBe(true);
     }
-    expect(SETTLEMENT_SCENARIOS).toHaveLength(8);
+    expect(SETTLEMENT_SCENARIOS).toHaveLength(13);
   });
 
   it('the fingerprint is sensitive to REFUSALS, not merely to terminal states', () => {
@@ -1470,6 +1505,715 @@ describe('AC-15 bilateral reconciliation holds in every scenario', () => {
     expect(report.feesCollected).toEqual({ BCENT: '37', BASE_QC: '0' });
     expect(report.pendingInterLedgerObligations.count).toBe(0);
     expect(report.unresolvedReconciliationExposure.count).toBe(0);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-17 — the fee / market-fact split (operator ruling + the Constitutional
+//         Trading Transparency Principle, both 2026-07-29)
+//
+// Every canary here guards a difference that, misclassified, still produces
+// arithmetic that balances. That is what makes them worth having: a retained
+// spread filed as a market fact debits the same payer by the same amount and
+// reconciles perfectly — the only thing wrong with it is that it lies about WHY
+// the customer paid more.
+// ───────────────────────────────────────────────────────────────────────────
+
+const QUOTED_BEFORE = '2026-07-29T08:50:00.000Z';
+const PROVIDER = settlementProviderRef('prv-canary');
+const SERVICE = settlementServiceRef('svc-canary');
+const VENUE = settlementVenueRef('ven-canary');
+
+/** A well-formed expedited-settlement fee, for mutating in the canaries. */
+function timingFee(overrides: Partial<AttributedFee> = {}): AttributedFee {
+  return {
+    feeClass: 'expedited-settlement-fee',
+    amountMinorUnits: '50',
+    chargedByRef: PROVIDER,
+    quoteRef: settlementQuoteRef('qte-canary'),
+    quotedAt: QUOTED_BEFORE,
+    serviceRef: SERVICE,
+    bearing: 'borne-separately',
+    basis: 'expedited destination credit',
+    ...overrides,
+  };
+}
+
+const ACCELERATED = {
+  kind: 'expedited-settlement' as const,
+  serviceRef: SERVICE,
+  providedByRef: PROVIDER,
+  quotedAt: QUOTED_BEFORE,
+};
+
+function observation(overrides: Partial<MarketObservation> = {}): MarketObservation {
+  return {
+    observationClass: 'market-price-deviation',
+    venueRef: VENUE,
+    deviationBps: '120',
+    observedAt: QUOTED_BEFORE,
+    note: 'B¢ above reference on a secondary venue',
+    ...overrides,
+  };
+}
+
+function execution(overrides: Partial<ExternalVenueExecution> = {}): ExternalVenueExecution {
+  return {
+    venueRef: VENUE,
+    executionDeviationBps: '60',
+    providerRetainedMinorUnits: '0',
+    authorisation: {
+      authorisationRef: settlementExecutionAuthorisationRef('xau-canary'),
+      acceptedByRef: ALICE,
+      at: QUOTED_BEFORE,
+    },
+    ...overrides,
+  };
+}
+
+describe('AC-17 principal, fees and market facts are three different kinds of thing', () => {
+  // ── The classification table, as data ────────────────────────────────────
+
+  it('the ruling table has the seven rows, and the two decisive ones are OPPOSITE', () => {
+    // Hand-written from the ratified table, not read back from the constant.
+    expect(SETTLEMENT_CLASSIFICATION_TABLE.map((r) => [r.situation, r.classification])).toEqual([
+      ['Principal conversion at 1:1', 'settlement-amount'],
+      ['Network execution cost', 'network-fee'],
+      ['Liquidity advanced before finality', 'liquidity-or-finality-fee'],
+      ['Expedited service', 'expedited-settlement-fee'],
+      ['Secondary-market premium or discount', 'market-fact'],
+      ['Provider-retained spread or markup', 'fee'],
+      ['External venue execution away from parity', 'market-execution-result'],
+    ]);
+    // THE SHARP LINE: same arithmetic difference, opposite home.
+    expect(recordedIn('market-fact')).toBe('market-observation-record');
+    expect(recordedIn('fee')).toBe('fee-breakdown');
+    // And the last row is the one that needs the payer's acceptance recorded.
+    expect(requiresExplicitAuthorisation('market-execution-result')).toBe(true);
+    expect(requiresExplicitAuthorisation('market-fact')).toBe(false);
+  });
+
+  it('no market-deviation class is reachable from the fee breakdown — the classes are DISJOINT', () => {
+    expect(SETTLEMENT_FEE_CLASSES).toEqual([
+      'network-fee',
+      'service-fee',
+      'liquidity-fee',
+      'reconciliation-fee',
+      'finality-fee',
+      'liquidity-advance-fee',
+      'expedited-settlement-fee',
+      'provider-retained-spread-fee',
+    ]);
+    expect(MARKET_OBSERVATION_CLASSES).toEqual([
+      'market-price-deviation',
+      'observed-spread',
+      'market-impact',
+      'external-execution-rate',
+    ]);
+    for (const m of MARKET_OBSERVATION_CLASSES) {
+      expect(SETTLEMENT_FEE_CLASSES, `${m} is addressable as a fee class`).not.toContain(m);
+    }
+    expect(ORDINARY_FEE_CLASSES).toHaveLength(4);
+    expect(TIMING_FEE_CLASSES).toEqual([
+      'finality-fee',
+      'liquidity-advance-fee',
+      'expedited-settlement-fee',
+    ]);
+    expect(ATTRIBUTED_FEE_CLASSES).toContain('provider-retained-spread-fee');
+  });
+
+  it('the SettlementFeeBreakdown declaration names no market-observation field', () => {
+    // Structural, over the interface body itself: a future field called
+    // `marketDeviation` or `observedSpread` would fail here even before any
+    // instruction carried one.
+    const src = stripComments(readFileSync(join(SETTLEMENT_DIR, 'types.ts'), 'utf8'));
+    const start = src.indexOf('export interface SettlementFeeBreakdown');
+    expect(start).toBeGreaterThan(-1);
+    const body = src.slice(start, src.indexOf('}', start));
+    for (const forbidden of ['market', 'deviation', 'Deviation', 'venue', 'Venue', 'Bps', 'rate', 'Rate']) {
+      expect(body, `SettlementFeeBreakdown declares a ${forbidden} field`).not.toContain(forbidden);
+    }
+  });
+
+  it('no run ever discloses a market observation among the fees', () => {
+    for (const run of Object.values(RUNS)) {
+      for (const id of run.book.settlementOrder) {
+        const disclosure = presentSettlement(run.book.settlements[id]);
+        for (const fee of disclosure.disclosedFees) {
+          expect(
+            MARKET_OBSERVATION_CLASSES,
+            `${run.scenarioId}/${id} disclosed ${fee.feeClass} as a fee`,
+          ).not.toContain(fee.feeClass as never);
+        }
+        // The two are SIBLINGS on the disclosure, never nested.
+        expect(Array.isArray(disclosure.marketObservations)).toBe(true);
+      }
+    }
+  });
+
+  // ── REQUIRED CATCH: a market deviation placed in the fee breakdown ───────
+
+  it('CATCHES a market deviation smuggled into the fee breakdown', () => {
+    const b = book();
+    const outcome = accept(b, 'stl-mkt-in-fees', {
+      feeBreakdown: {
+        attributedFees: [
+          // A "fee" whose class is a market-observation class. Arithmetically
+          // indistinguishable from a legitimate charge.
+          timingFee({ feeClass: 'observed-spread' as never }),
+        ],
+      },
+      acceleratedService: ACCELERATED,
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.ok === false && outcome.refusal).toBe('market-deviation-in-fee-breakdown');
+    // Refused BEFORE any ledger effect.
+    expect(b.settlementOrder).toEqual([]);
+    expect(b.journal.receipts).toHaveLength(0);
+  });
+
+  // ── REQUIRED CATCH: a retained spread recorded as a market fact ──────────
+
+  it('CATCHES a retained spread recorded as a market fact instead of a fee', () => {
+    const b = book();
+    const outcome = accept(b, 'stl-laundered', {
+      // The provider retained 25 out of the venue deviation and disclosed NO
+      // fee. Every ledger figure would still balance.
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      marketObservations: [observation({ observationClass: 'external-execution-rate' })],
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('retained-spread-recorded-as-market-fact');
+    expect(outcome.ok === false && outcome.detail).toMatch(/must be disclosed as a fee/);
+
+    // Disclosed as a fee of the SAME amount: accepted.
+    const ok = accept(b, 'stl-disclosed', {
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      marketObservations: [observation({ observationClass: 'external-execution-rate' })],
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({
+            feeClass: 'provider-retained-spread-fee',
+            amountMinorUnits: '25',
+            serviceRef: VENUE,
+          }),
+        ],
+      },
+    });
+    expect(ok.ok).toBe(true);
+
+    // A PARTIAL disclosure is still laundering — 25 retained, 10 declared.
+    const partial = accept(b, 'stl-partial', {
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      marketObservations: [observation({ observationClass: 'external-execution-rate' })],
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({
+            feeClass: 'provider-retained-spread-fee',
+            amountMinorUnits: '10',
+            serviceRef: VENUE,
+          }),
+        ],
+      },
+    });
+    expect(partial.ok === false && partial.refusal).toBe('retained-spread-recorded-as-market-fact');
+  });
+
+  it('CATCHES retained compensation attributed to a market movement nobody proved', () => {
+    // The principle's last clause. The fee IS disclosed here, so the previous
+    // canary passes — what is missing is the EVIDENCE for the market movement
+    // the retention is attributed to.
+    const b = book();
+    const outcome = accept(b, 'stl-unproven', {
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({
+            feeClass: 'provider-retained-spread-fee',
+            amountMinorUnits: '25',
+            serviceRef: VENUE,
+          }),
+        ],
+      },
+      // No market observation for that venue.
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('market-movement-not-separately-proven');
+
+    // An observation of a DIFFERENT venue does not prove this one's movement.
+    const wrongVenue = accept(b, 'stl-wrong-venue', {
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      marketObservations: [observation({ venueRef: settlementVenueRef('ven-elsewhere') })],
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({
+            feeClass: 'provider-retained-spread-fee',
+            amountMinorUnits: '25',
+            serviceRef: VENUE,
+          }),
+        ],
+      },
+    });
+    expect(wrongVenue.ok === false && wrongVenue.refusal).toBe('market-movement-not-separately-proven');
+  });
+
+  // ── REQUIRED CATCH: external-venue execution without recorded acceptance ──
+
+  it('CATCHES an off-parity external execution the payer never accepted', () => {
+    const b = book();
+    const { authorisation: _dropped, ...unaccepted } = execution();
+    const outcome = accept(b, 'stl-unaccepted', {
+      externalExecution: unaccepted,
+      marketObservations: [observation()],
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('external-execution-without-authorisation');
+
+    // An authorisation missing its accepting party is not an acceptance.
+    const hollow = accept(b, 'stl-hollow', {
+      externalExecution: execution({
+        authorisation: {
+          authorisationRef: settlementExecutionAuthorisationRef('xau-hollow'),
+          acceptedByRef: '',
+          at: QUOTED_BEFORE,
+        },
+      }),
+      marketObservations: [observation()],
+    });
+    expect(hollow.ok === false && hollow.refusal).toBe('external-execution-without-authorisation');
+  });
+
+  // ── REQUIRED CATCH: a fee appearing when nothing was accelerated ─────────
+
+  it('CATCHES a timing fee charged when no accelerated service was used', () => {
+    const b = book();
+    // No `acceleratedService` — the fee has nothing to pay for.
+    const outcome = accept(b, 'stl-standing-fee', {
+      feeBreakdown: { attributedFees: [timingFee()] },
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('timing-fee-without-accelerated-service');
+    expect(outcome.ok === false && outcome.detail).toMatch(/undertook additional risk/);
+
+    // A fee pointing at a service this settlement did not use is the same defect.
+    const foreign = accept(b, 'stl-foreign-service', {
+      feeBreakdown: { attributedFees: [timingFee({ serviceRef: settlementServiceRef('svc-other') })] },
+      acceleratedService: ACCELERATED,
+    });
+    expect(foreign.ok === false && foreign.refusal).toBe('timing-fee-without-accelerated-service');
+
+    // With the service declared, the same fee is legitimate.
+    expect(
+      accept(b, 'stl-legit', {
+        feeBreakdown: { attributedFees: [timingFee()] },
+        acceleratedService: ACCELERATED,
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('the ordinary scenarios carry NO timing fee at all — absent when unused', () => {
+    for (const id of ['S1-bcent-to-baseqc-settled', 'S2-baseqc-to-bcent-settled']) {
+      for (const sid of RUNS[id].book.settlementOrder) {
+        const s = RUNS[id].book.settlements[sid];
+        expect(s.feeBreakdown.attributedFees ?? [], `${id} charges a timing fee`).toEqual([]);
+        expect(s.acceleratedService).toBeUndefined();
+      }
+    }
+  });
+
+  it('reconciliation CATCHES a liquidity-advance fee on a settlement that never advanced', () => {
+    // The gate cannot see this: the advance is authorised at CREDIT time, long
+    // after the instruction was accepted. Only the reconciler can.
+    const b = book();
+    accept(b, 'stl-phantom-advance', {
+      feeBreakdown: {
+        attributedFees: [timingFee({ feeClass: 'liquidity-advance-fee', amountMinorUnits: '30' })],
+      },
+      acceleratedService: { ...ACCELERATED, kind: 'liquidity-advance' },
+    });
+    settle(b, 'stl-phantom-advance');
+    const s = b.settlements['stl-phantom-advance'];
+    expect(s.state).toBe('settled');
+    expect(s.liquidityAdvance).toBeUndefined();
+    expect(
+      classificationViolations(s).some((v) => /never advanced destination liquidity/.test(v)),
+    ).toBe(true);
+    expect(reconcileBook(b).violations.some((v) => /never advanced destination liquidity/.test(v))).toBe(
+      true,
+    );
+  });
+
+  // ── Attribution and quoting ─────────────────────────────────────────────
+
+  it('a fee with no charging service named is refused — an unattributed charge is a spread', () => {
+    const b = book();
+    const outcome = accept(b, 'stl-anon', {
+      feeBreakdown: { attributedFees: [timingFee({ chargedByRef: '' })] },
+      acceleratedService: ACCELERATED,
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('fee-not-attributed');
+  });
+
+  it('a fee quoted at or after authorisation is refused — it must be quoted BEFORE', () => {
+    const b = book();
+    // `accept` authorises at 09:00:00.000Z.
+    const after = accept(b, 'stl-late-quote', {
+      feeBreakdown: { attributedFees: [timingFee({ quotedAt: '2026-07-29T09:00:01.000Z' })] },
+      acceleratedService: { ...ACCELERATED, quotedAt: QUOTED_BEFORE },
+    });
+    expect(after.ok === false && after.refusal).toBe('fee-not-quoted-before-authorisation');
+    // Simultaneous is not "before": a quote produced at the instant of
+    // authorisation is not one the payer could have considered.
+    const same = accept(b, 'stl-same-instant', {
+      feeBreakdown: { attributedFees: [timingFee({ quotedAt: '2026-07-29T09:00:00.000Z' })] },
+      acceleratedService: ACCELERATED,
+    });
+    expect(same.ok === false && same.refusal).toBe('fee-not-quoted-before-authorisation');
+  });
+
+  // ── The two presentation forms ──────────────────────────────────────────
+
+  it('PREFERRED form: the recipient receives the FULL authorised principal', () => {
+    const run = RUNS['S9-expedited-fee-borne-separately'];
+    const s = run.book.settlements['stl-s9-001'];
+    expect(s.state).toBe('settled');
+    // Principal delivered: 10000. Fee paid separately: 100 + the 12 network fee.
+    expect(s.destinationCreditedMinorUnits).toBe('10000');
+    expect(s.destinationCreditedMinorUnits).toBe(s.amountMinorUnits);
+    expect(s.sourceDebitedMinorUnits).toBe('10112');
+    // Bob's opening 250000 plus the WHOLE principal.
+    expect(run.book.ledgers.BASE_QC.balances[BOB]).toBe('260000');
+    // Alice paid 10112 out of 250000.
+    expect(run.book.ledgers.BCENT.balances[ALICE]).toBe('239888');
+
+    const disclosure = presentSettlement(s);
+    expect(disclosure.recipientReceivedFullPrincipal).toBe(true);
+    expect(disclosure.authorisedPrincipalMinorUnits).toBe('10000');
+    expect(disclosure.deliveredPrincipalMinorUnits).toBe('10000');
+    expect(disclosure.feesDeductedFromPrincipalMinorUnits).toBe('0');
+    expect(disclosure.feesBorneSeparatelyMinorUnits).toBe('112');
+    // reference value + service fee + liquidity/finality premium = total cost.
+    expect(disclosure.authorisedTotalCostMinorUnits).toBe('10112');
+    // The fee is itemised, attributed, and names what it paid for.
+    const fee = disclosure.disclosedFees.find((f) => f.feeClass === 'expedited-settlement-fee');
+    expect(fee?.amountMinorUnits).toBe('100');
+    expect(fee?.chargedByRef).toBeTruthy();
+    expect(fee?.quoteRef).toBeTruthy();
+    expect(fee?.serviceRef).toBe(s.acceleratedService?.serviceRef);
+    expect(fee?.bearing).toBe('borne-separately');
+  });
+
+  it('borne-separately is the DEFAULT when a fee does not say', () => {
+    expect(PREFERRED_FEE_BEARING).toBe('borne-separately');
+    const { bearing: _unset, ...unstated } = timingFee();
+    const fees = { attributedFees: [unstated as AttributedFee] };
+    expect(feesBorneSeparately(fees)).toBe(50n);
+    expect(feesDeductedFromPrincipal(fees)).toBe(0n);
+    expect(deliveredPrincipal('1000', fees)).toBe('1000');
+  });
+
+  it("DEDUCTED form: the operator's worked example — 100 in, 1 fee, 99 received", () => {
+    const run = RUNS['S10-finality-fee-deducted-from-principal'];
+    const s = run.book.settlements['stl-s10-001'];
+    expect(s.state).toBe('settled');
+    // Principal 100; protocol conversion 100 at 1:1; finality fee 1; received 99.
+    expect(s.amountMinorUnits).toBe('100');
+    expect(s.protocolRate).toBe('1:1');
+    expect(s.destinationCreditedMinorUnits).toBe('99');
+    // The payer is debited the principal ONLY — the fee comes out of it, and
+    // charging it on both sides would take it twice.
+    expect(s.sourceDebitedMinorUnits).toBe('100');
+    expect(run.book.ledgers.BASE_QC.balances[BOB]).toBe('250099');
+    // The deducted fee is collected on the DESTINATION ledger, where the
+    // principal it came out of was delivered.
+    expect(run.book.ledgers.BASE_QC.feesCollectedMinorUnits).toBe('1');
+
+    const disclosure = presentSettlement(s);
+    expect(disclosure.recipientReceivedFullPrincipal).toBe(false);
+    expect(disclosure.authorisedPrincipalMinorUnits).toBe('100');
+    expect(disclosure.deliveredPrincipalMinorUnits).toBe('99');
+    expect(disclosure.feesDeductedFromPrincipalMinorUnits).toBe('1');
+    expect(disclosure.authorisedTotalCostMinorUnits).toBe('100');
+    expect(feeAndParityViolations(s)).toEqual([]);
+  });
+
+  it('an UNDISCLOSED reduction of the delivered principal is still caught', () => {
+    // The deducted form must not become a licence to shave the credit. 100
+    // authorised, 1 disclosed, 97 delivered — the missing 2 has no fee.
+    const s = RUNS['S10-finality-fee-deducted-from-principal'].book.settlements['stl-s10-001'];
+    const shaved: CrossDenominationSettlement = { ...s, destinationCreditedMinorUnits: '97' };
+    const violations = feeAndParityViolations(shaved);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatch(/undisclosed reduction of the protocol principal/);
+  });
+
+  it('a deduction may never consume the whole principal', () => {
+    const b = book();
+    const outcome = accept(b, 'stl-all-fee', {
+      amountMinorUnits: '50',
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({ amountMinorUnits: '50', bearing: 'deducted-from-principal' }),
+        ],
+      },
+      acceleratedService: ACCELERATED,
+    });
+    expect(outcome.ok === false && outcome.refusal).toBe('non-positive-amount');
+  });
+
+  // ── Market facts move nothing ───────────────────────────────────────────
+
+  it('a market deviation is observed and charges nobody — no ledger moves because of one', () => {
+    const run = RUNS['S11-market-deviation-is-a-market-fact'];
+    const s = run.book.settlements['stl-s11-001'];
+    expect(s.marketObservations).toHaveLength(2);
+    expect(s.state).toBe('settled');
+    // Principal in, principal out, and NOT ONE FEE anywhere.
+    expect(s.sourceDebitedMinorUnits).toBe('4000');
+    expect(s.destinationCreditedMinorUnits).toBe('4000');
+    expect(presentSettlement(s).disclosedFees).toEqual([]);
+    expect(presentSettlement(s).totalDisclosedFeesMinorUnits).toBe('0');
+    expect(run.book.ledgers.BCENT.feesCollectedMinorUnits).toBe('0');
+    expect(run.book.ledgers.BASE_QC.feesCollectedMinorUnits).toBe('0');
+    // 250000 − 4000, and 250000 + 4000. A deviation of 180 bps changed neither.
+    expect(run.book.ledgers.BCENT.balances[ALICE]).toBe('246000');
+    expect(run.book.ledgers.BASE_QC.balances[BOB]).toBe('254000');
+  });
+
+  it('reconciliation CATCHES a market observation that moved a ledger', () => {
+    // Forge what a deviation-driven credit would look like: an observation
+    // present, and a delivered figure that principal and fees alone do not
+    // explain. Without this check the fee/market split would be a naming
+    // convention rather than a control.
+    const b = book();
+    accept(b, 'stl-obs-moved', { marketObservations: [observation()] });
+    settle(b, 'stl-obs-moved');
+    b.settlements['stl-obs-moved'].destinationCreditedMinorUnits = '982';
+    const violations = reconcileBook(b).violations;
+    expect(violations.some((v) => /a market observation moved a ledger/.test(v))).toBe(true);
+  });
+
+  // ── The receipt lines ───────────────────────────────────────────────────
+
+  it('BOTH ratified six-component lists are independently addressable on a receipt', () => {
+    const run = RUNS['S12-external-execution-with-retained-spread-as-fee'];
+    const credit = run.book.journal.receipts.find(
+      (r) => r.actionType === 'qriptocent_destination_credit_completed',
+    );
+    const breakdown = credit?.valueBreakdown as SettlementValueBreakdown;
+    expect(breakdown).toBeTruthy();
+
+    // The transparency corollary's six — including provider-retained spread as
+    // ITS OWN line, distinct from service fee.
+    for (const component of TRANSPARENCY_COROLLARY_COMPONENTS) {
+      expect(
+        Object.prototype.hasOwnProperty.call(breakdown, component),
+        `the receipt cannot address ${component} separately`,
+      ).toBe(true);
+    }
+    // The settlement ruling's six.
+    for (const component of SETTLEMENT_RULING_RECEIPT_COMPONENTS) {
+      expect(Object.prototype.hasOwnProperty.call(breakdown, component)).toBe(true);
+    }
+    // Seven lines, because the two ratified sixes overlap in five.
+    expect(SETTLEMENT_VALUE_BREAKDOWN_KEYS).toHaveLength(7);
+    expect(new Set([...TRANSPARENCY_COROLLARY_COMPONENTS, ...SETTLEMENT_RULING_RECEIPT_COMPONENTS]).size).toBe(
+      7,
+    );
+  });
+
+  it('a provider-retained spread does NOT fold into the service fee', () => {
+    const run = RUNS['S12-external-execution-with-retained-spread-as-fee'];
+    const s = run.book.settlements['stl-s12-001'];
+    const breakdown = settlementValueBreakdown(s);
+    // 25 retained, on its own line, and the service-fee line stays empty.
+    expect(breakdown.providerRetainedSpreadMinorUnits).toBe('25');
+    expect(breakdown.serviceFeeMinorUnits).toBe('0');
+    expect(breakdown.principalMinorUnits).toBe('6000');
+    expect(breakdown.networkCostMinorUnits).toBe('0');
+    expect(breakdown.liquidityOrFinalityPremiumMinorUnits).toBe('0');
+    // The market movement is disclosed as a FACT, alongside — and the payer's
+    // acceptance of the off-parity path is on the receipt too.
+    expect(breakdown.observedMarketDeviation?.observations[0].deviationBps).toBe('60');
+    expect(breakdown.externallyAuthorisedExecutionRate?.executionDeviationBps).toBe('60');
+    expect(breakdown.externallyAuthorisedExecutionRate?.acceptedByRef).toBe(ALICE);
+  });
+
+  it('the principal line is the AUTHORISED principal, never the net figure', () => {
+    const s = RUNS['S10-finality-fee-deducted-from-principal'].book.settlements['stl-s10-001'];
+    const breakdown = settlementValueBreakdown(s);
+    // 100 authorised, 99 delivered. Reporting 99 here would make the fee vanish.
+    expect(breakdown.principalMinorUnits).toBe('100');
+    expect(breakdown.liquidityOrFinalityPremiumMinorUnits).toBe('1');
+  });
+
+  it('a receipt CANNOT present a blended figure with a category dropped', () => {
+    const full = settlementValueBreakdown(
+      RUNS['S12-external-execution-with-retained-spread-as-fee'].book.settlements['stl-s12-001'],
+    );
+    expect(() => assertSixCategoriesDistinguished(full, 'canary')).not.toThrow();
+
+    // Drop each line in turn — every one must be refused, or that line is the
+    // one a future blend could hide in.
+    for (const key of SETTLEMENT_VALUE_BREAKDOWN_KEYS) {
+      const blended = { ...full };
+      delete (blended as Record<string, unknown>)[key];
+      expect(
+        () => assertSixCategoriesDistinguished(blended as SettlementValueBreakdown, 'canary'),
+        `dropping ${key} was accepted`,
+      ).toThrow(/must separate principal, market deviation, network cost/);
+    }
+
+    // And the emitter refuses it, not merely the helper — so no path in the
+    // substrate can write such a receipt.
+    const journal = createSettlementJournal('blend');
+    const { providerRetainedSpreadMinorUnits: _gone, ...missingLine } = full;
+    expect(() =>
+      emitSettlementReceipt(journal, {
+        actionType: 'qriptocent_destination_credit_completed',
+        at: '2026-07-29T09:00:00.000Z',
+        settlementRef: 'stl-1',
+        network: 'base',
+        summary: 'blended',
+        evidenceRefs: [],
+        amountMinorUnits: '6025',
+        valueBreakdown: missingLine as SettlementValueBreakdown,
+      }),
+    ).toThrow(/must separate principal/);
+    expect(journal.receipts).toHaveLength(0);
+  });
+
+  it('every receipt that carries a blended total also carries the breakdown', () => {
+    // The debit receipt's amount is principal + fees. It may present that only
+    // alongside the lines that take it apart again.
+    for (const run of Object.values(RUNS)) {
+      for (const r of run.book.journal.receipts) {
+        if (r.actionType !== 'qriptocent_source_debit_initiated') continue;
+        expect(r.valueBreakdown, `${run.scenarioId}: a blended debit total with no breakdown`).toBeTruthy();
+        const b = r.valueBreakdown as SettlementValueBreakdown;
+        const components =
+          BigInt(b.principalMinorUnits) +
+          BigInt(b.networkCostMinorUnits) +
+          BigInt(b.serviceFeeMinorUnits) +
+          BigInt(b.liquidityOrFinalityPremiumMinorUnits) +
+          BigInt(b.providerRetainedSpreadMinorUnits);
+        const s = run.book.settlements[r.settlementRef];
+        // The total is DERIVABLE from the lines: components less anything borne
+        // out of the principal (which the payer was not charged on top).
+        expect(
+          (components - feesDeductedFromPrincipal(s.feeBreakdown)).toString(),
+          `${run.scenarioId}/${r.receiptRef}: the total is not explained by its lines`,
+        ).toBe(r.amountMinorUnits);
+      }
+    }
+  });
+
+  // ── REQUIRED CATCH: a liquidity shortfall altering the 1:1 principal ─────
+
+  it('the four shortfall responses are exhaustive, and none is a rate adjustment', () => {
+    expect(LIQUIDITY_SHORTFALL_RESPONSES).toEqual([
+      'queue',
+      'route-to-approved-alternate-source',
+      'request-explicit-acceptance-of-external-execution',
+      'refuse',
+    ]);
+    expect(shortfallResponsesAreExhaustive()).toBe(true);
+    // Every disposition reaches only the four; a permitted settlement has no
+    // shortfall to respond to.
+    expect(shortfallResponsesFor('permit')).toEqual([]);
+    expect(shortfallResponsesFor('queue-or-split')).toEqual([
+      'queue',
+      'route-to-approved-alternate-source',
+    ]);
+    expect(shortfallResponsesFor('refuse')).toHaveLength(4);
+    expect(shortfallResponsesFor('requires-explicit-override')).toHaveLength(4);
+    for (const d of ['permit', 'queue-or-split', 'requires-explicit-override', 'refuse'] as const) {
+      for (const r of shortfallResponsesFor(d)) {
+        expect(LIQUIDITY_SHORTFALL_RESPONSES).toContain(r);
+      }
+    }
+  });
+
+  it('a shortfall NEVER alters the 1:1 principal — it reaches the four responses instead', () => {
+    for (const id of ['S8-destination-liquidity-shortfall', 'S13-shortfall-reaches-the-four-responses']) {
+      const run = RUNS[id];
+      const s = run.book.settlements[run.book.settlementOrder[0]];
+      // Hand-written from the scenario: 9000 authorised, and still 9000.
+      expect(s.amountMinorUnits, `${id} moved the principal`).toBe('9000');
+      expect(s.protocolRate).toBe('1:1');
+      expect(s.destinationCreditedMinorUnits).toBeUndefined();
+      // The exception NAMES the permitted responses, and says the rate is not
+      // among them.
+      const exception = run.book.exceptions.find((e) => /liquidity/.test(e.refusal));
+      expect(exception?.detail).toMatch(/permitted responses: /);
+      expect(exception?.detail).toMatch(/the 1:1 settlement rate is not among them/);
+      for (const response of LIQUIDITY_SHORTFALL_RESPONSES) {
+        if (response === 'route-to-approved-alternate-source' && !/route/.test(exception?.detail ?? ''))
+          continue;
+        expect(exception?.detail).toContain(response);
+      }
+      expect(run.reconciliation.violations).toEqual([]);
+    }
+  });
+
+  it('no module in the substrate assigns to a settlement amount — the principal is not a lever', () => {
+    for (const file of readdirSync(SETTLEMENT_DIR).filter((f) => f.endsWith('.ts'))) {
+      const src = stripComments(readFileSync(join(SETTLEMENT_DIR, file), 'utf8'));
+      expect(src, `${file} writes amountMinorUnits — the principal must never be adjusted`).not.toMatch(
+        /\.amountMinorUnits\s*=[^=]/,
+      );
+    }
+  });
+
+  it('the classification module holds no rate, and neither does the state machine', () => {
+    for (const file of ['settlement.ts', 'classification.ts']) {
+      const src = stripComments(readFileSync(join(SETTLEMENT_DIR, file), 'utf8'));
+      for (const forbidden of ['exchangeRate', 'conversionRate', 'slippage']) {
+        expect(src, `${file} references ${forbidden}`).not.toContain(forbidden);
+      }
+    }
+  });
+
+  // ── The gate and the reconciler agree ───────────────────────────────────
+
+  it('the gate and the reconciler check the same rules from different sides', () => {
+    // A settlement that PASSED the gate, then had a classification mutated on
+    // the record. The gate cannot see it; the reconciler must.
+    const b = book();
+    accept(b, 'stl-mutated', {
+      externalExecution: execution({ providerRetainedMinorUnits: '25' }),
+      marketObservations: [observation({ observationClass: 'external-execution-rate' })],
+      feeBreakdown: {
+        attributedFees: [
+          timingFee({
+            feeClass: 'provider-retained-spread-fee',
+            amountMinorUnits: '25',
+            serviceRef: VENUE,
+          }),
+        ],
+      },
+    });
+    expect(classificationViolations(b.settlements['stl-mutated'])).toEqual([]);
+    // Now delete the fee, leaving the retention recorded only as a market fact.
+    b.settlements['stl-mutated'].feeBreakdown.attributedFees = [];
+    expect(
+      classificationViolations(b.settlements['stl-mutated']).some((v) =>
+        /retained-spread-recorded-as-market-fact/.test(v),
+      ),
+    ).toBe(true);
+    expect(
+      reconcileBook(b).violations.some((v) => /retained-spread-recorded-as-market-fact/.test(v)),
+    ).toBe(true);
+  });
+
+  it('classificationRefusal returns null for a clean settlement — guarding the guard', () => {
+    // Without this, a refusal function that returned a refusal for EVERYTHING
+    // would make every catch above pass vacuously.
+    expect(
+      classificationRefusal({
+        amountMinorUnits: '1000',
+        feeBreakdown: { networkFee: '5', attributedFees: [timingFee()] },
+        initiatedAt: '2026-07-29T09:00:00.000Z',
+        acceleratedService: ACCELERATED,
+        marketObservations: [observation()],
+      }),
+    ).toBeNull();
   });
 });
 
