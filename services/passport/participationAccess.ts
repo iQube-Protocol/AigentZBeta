@@ -157,7 +157,24 @@ export function isAccessDomain(v: string): v is AccessDomain {
  */
 export const DOMAIN_STEWARD_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['passport-steward'],
-  'research-lab': ['research-steward'],
+  // `faculty-lead` added 2026-07-29 (SPEC-IRL-WORKSPACE-001 §8: a Faculty Lead
+  // "administers one capstone/cohort, approves participation"). THIS IS THE ONE
+  // GATE THIS WORK WIDENS, and it is bounded by the mechanism that already
+  // exists rather than by a new one:
+  //
+  //   • `resolveInvitationAuthority` derives the tier SERVER-SIDE from the
+  //     caller's OWN grants, so a Faculty Lead's reach is exactly their own
+  //     grant's `allowedScopes` — their cohort and its projects, nothing else.
+  //     A delegated inviter naming another domain is refused as an escalation
+  //     attempt, not honoured.
+  //   • `issuableRoles(domain, 'delegated')` SUBTRACTS every steward role, so a
+  //     Faculty Lead cannot confer `research-steward` OR `faculty-lead`. Only a
+  //     platform admin appoints a Faculty Lead. (This also TIGHTENS the existing
+  //     research-steward: it can no longer issue `faculty-lead` either.)
+  //   • A `faculty-lead` grant only exists because a platform admin issued one.
+  //
+  // Canaried from both sides in `tests/research-workspace-spec.test.ts`.
+  'research-lab': ['research-steward', 'faculty-lead'],
   // A partner administrator IS a workspace steward (the role added 2026-07-27
   // for exactly this: "what someone is to a WORKSPACE"). `venture-steward` is
   // the platform-side venture equivalent and carries the same authority.

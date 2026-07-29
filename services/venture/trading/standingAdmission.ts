@@ -57,6 +57,30 @@ export const PROHIBITED_STANDING_BASES = [
   'realised-profit',
   'notional-value',
   'execution-frequency',
+  // ── The RESEARCH volume metrics (operator ruling, 2026-07-29) ──────────────
+  //
+  //     executed-trade count earning Standing ≡ submission count earning Standing
+  //
+  // Identical defect, academic vocabulary. If the ACT OF SUBMITTING earns, the
+  // incentive is volume, and a student who submits ten thin artefacts outranks
+  // one who submits a single rigorous one — precisely the ordering V-10 exists
+  // to prevent. The unit is the VERIFIED CONTRIBUTION, in research exactly as
+  // in trading.
+  //
+  // These are added to the ONE closed list rather than to a research-only
+  // second list, because the list is not "trading metrics" — it is QUANTITY
+  // metrics, which are never a constitutional basis in any domain. An
+  // unrecognised basis is already refused, so naming them changes no outcome;
+  // what it changes is that the refusal reads `prohibited-basis:submission-count`
+  // rather than `unrecognised-basis:…`, which is the difference between a
+  // reviewer seeing a rule and seeing a typo.
+  'submission-count',
+  'artefact-count',
+  'resubmission-count',
+  'page-count',
+  'word-count',
+  'commit-count',
+  'hours-logged',
 ] as const;
 
 export type ProhibitedStandingBasis = (typeof PROHIBITED_STANDING_BASES)[number];
@@ -125,6 +149,11 @@ export const PERMITTED_STANDING_BASES: Record<StandingContributionType, number> 
   'service-reliability': 0.5,
   'reconciliation-quality': 0.5,
   'no-unauthorised-expansion': 0.5,
+  // PARITY WITH `correct-refusal`, and for the same charter reason: the outcome
+  // the conventional incentive punishes must be capable of earning equal or
+  // greater Standing than the one it rewards. A lower constant here would
+  // reintroduce publication bias through the back door.
+  'negative-result-reporting': 1.0,
 };
 
 const PERMITTED_SET = new Set<string>(Object.keys(PERMITTED_STANDING_BASES));
@@ -146,10 +175,49 @@ const PROHIBITED_SET = new Set<string>(PROHIBITED_STANDING_BASES);
  */
 export const MAX_STANDING_SIGNAL_WEIGHT = 3;
 
-export interface TradingStandingSignalInput {
-  /** Server-internal opportunity id — used only for correlation, never emitted. */
-  opportunityId: string;
-  /** Agent commitment (ventureAgentRef). Raw persona ids are rejected. */
+/**
+ * The DOMAINS this one gate serves (operator ruling, 2026-07-29: "One admission
+ * gate, two domains, or the invariant means nothing").
+ *
+ * The domain is recorded for correlation and refusal-reading; it does NOT
+ * branch the decision. That is the whole point — a research contribution is a
+ * different domain asking the SAME constitutional question, and the moment the
+ * gate answers it differently per domain there are two gates again.
+ */
+export const STANDING_SIGNAL_DOMAINS = ['venture-trading', 'research-contribution'] as const;
+export type StandingSignalDomain = (typeof STANDING_SIGNAL_DOMAINS)[number];
+
+/**
+ * The DOMAIN-NEUTRAL signal shape. `evaluateStandingSignal` is the canonical
+ * entry point; `evaluateTradingStandingSignal` below is a thin, behaviour-
+ * preserving alias kept so every existing venture caller and every ratified
+ * venture canary is byte-identical in what it exercises.
+ *
+ * ── WHY THIS FILE DID NOT MOVE (flagged, not decided) ──────────────────────
+ *
+ * The gate is now domain-neutral in NAME and in SHAPE, but it still LIVES under
+ * `services/venture/trading/`, which is a trading-specific address for a
+ * platform-wide gate. It was not moved because a RATIFIED canary
+ * (`tests/venture-trading-substrate.test.ts`, "nothing outside the venture
+ * substrate reads the provisional constant") walks the tree and fails on any
+ * file OUTSIDE that directory containing `MAX_STANDING_SIGNAL_WEIGHT` — so
+ * relocating this file would fail that canary at its new address, and the
+ * operator's instruction was to flag rather than change a ratified venture
+ * canary. Moving it to a neutral home (e.g. `services/standing/`) needs that
+ * canary's directory scope re-pointed in the same change, which is an operator
+ * decision.
+ */
+export interface StandingSignalInput {
+  /**
+   * Server-internal id of the WORK under assessment — a venture opportunity, a
+   * student contribution. Correlation only; never emitted.
+   */
+  subjectId: string;
+  domain: StandingSignalDomain;
+  /**
+   * The contributor's COMMITMENT (`personaPublicRef()` / ventureAgentRef). Raw
+   * persona ids are rejected outright — see the identity-hygiene check below.
+   */
   agentRef: string;
   /** The bases the caller claims justify Standing credit. */
   proposedBases: string[];
@@ -158,11 +226,19 @@ export interface TradingStandingSignalInput {
   /** Evidence backing the claim. A claim with no evidence is inadmissible. */
   evidenceRefs: string[];
   /**
-   * The opportunity's completion verdict, when one exists. An INCOMPLETE
-   * verdict makes the signal inadmissible regardless of the bases offered —
-   * that is the "profitable but constitutionally incomplete" case.
+   * The work's completion verdict, when one exists. An INCOMPLETE verdict makes
+   * the signal inadmissible regardless of the bases offered — that is the
+   * "profitable but constitutionally incomplete" case, and its research twin:
+   * an unverified submission, however voluminous.
    */
   verdict?: Pick<ConstitutionalCompletionVerdict, 'complete' | 'outcomeClass' | 'unauthorisedExpansion'>;
+}
+
+/** The venture-domain input shape, unchanged for every existing caller. */
+export interface TradingStandingSignalInput
+  extends Omit<StandingSignalInput, 'subjectId' | 'domain'> {
+  /** Server-internal opportunity id — used only for correlation, never emitted. */
+  opportunityId: string;
 }
 
 /**
@@ -174,9 +250,7 @@ export interface TradingStandingSignalInput {
  * admissible decisions into its Standing contributions, and the canary asserts
  * the refused ones stay out.
  */
-export function evaluateTradingStandingSignal(
-  input: TradingStandingSignalInput,
-): StandingSignalDecision {
+export function evaluateStandingSignal(input: StandingSignalInput): StandingSignalDecision {
   const refusalReasons: string[] = [];
   const evidenceRefs = [...input.evidenceRefs];
 
@@ -254,4 +328,18 @@ export function evaluateTradingStandingSignal(
     refusalReasons,
     evidenceRefs,
   };
+}
+
+/**
+ * The venture-domain entry point. A THIN ALIAS over the one gate — not a second
+ * implementation, and deliberately not even a second branch: it renames one
+ * field and stamps the domain. Every existing venture caller and every ratified
+ * venture canary calls this and therefore exercises exactly the same code the
+ * research side does.
+ */
+export function evaluateTradingStandingSignal(
+  input: TradingStandingSignalInput,
+): StandingSignalDecision {
+  const { opportunityId, ...rest } = input;
+  return evaluateStandingSignal({ ...rest, subjectId: opportunityId, domain: 'venture-trading' });
 }
