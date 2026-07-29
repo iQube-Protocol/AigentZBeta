@@ -28,13 +28,20 @@
  */
 
 import { commit } from './deterministic';
-import { assertPromptCarriesNoPriorAdjudication } from './isolation';
 import { assertCoverageComplete, selectReviewer2Coverage, type Reviewer2Coverage } from './coverage';
-import { buildReviewerPrompt, INDEPENDENCE_PROMPT_VERSION, INDEPENDENCE_RUBRIC_ID, INDEPENDENCE_RUBRIC_VERSION } from './rubric';
+import { INDEPENDENCE_PROMPT_VERSION, INDEPENDENCE_RUBRIC_ID, INDEPENDENCE_RUBRIC_VERSION } from './rubric';
 import { assertReviewerIndependence } from './reviewerIndependence';
-import { parseAdjudication, resolveDecisions, tallyResolutions, contestedQueue, type ResolutionTally } from './adjudication';
+import { resolveDecisions, tallyResolutions, contestedQueue, type ResolutionTally } from './adjudication';
 import { buildReviewReceipt, type ReviewReceiptPayload } from './receipt';
 import { verifyPackageHash } from './reviewPackage';
+import {
+  buildBatchPlan,
+  runBatchedAdjudication,
+  DEFAULT_BATCH_SIZE,
+  DEFAULT_MAX_ATTEMPTS_PER_BATCH,
+  type BatchAttemptRecord,
+  type BatchPlan,
+} from './batching';
 import {
   ReviewRefusal,
   type ReviewDecision,
@@ -44,7 +51,7 @@ import {
   type ReviewerAssignment,
   type StewardAssignment,
 } from './types';
-import type { AdjudicationRequest, DeterminismSettings, ReviewProvider } from './providers';
+import type { DeterminismSettings, ReviewProvider } from './providers';
 
 export interface PreRunManifest {
   reviewId: string;
@@ -58,6 +65,15 @@ export interface PreRunManifest {
   steward: StewardAssignment;
   coverageSampleRate: number;
   coverageSampleSeed: string;
+  /**
+   * Dispatch is batched (rulings 2026-07-29): a reviewer's assignment is
+   * partitioned into batches of at most this many subjects rather than sent
+   * as one completion. Frozen here, before any provider is called, so a
+   * rerun cannot quietly change the partition and still look like the
+   * original (rulings §1).
+   */
+  batchSize: number;
+  maxAttemptsPerBatch: number;
   committedAt: string;
   manifestCommitment: string;
 }
@@ -73,6 +89,12 @@ export interface RunArtifacts {
   rawOutputs: Array<{ reviewerSlot: string; rawOutputRef: string; raw: string; outputHash: string }>;
   unanswered: Array<{ reviewerSlot: string; subjectRefs: string[] }>;
   receipt: { actionType: string; summary: string; payload: ReviewReceiptPayload; payloadCommitment: string };
+  /** The deterministic batch partition each reviewer was actually dispatched against. */
+  r1BatchPlan: BatchPlan;
+  r2BatchPlan: BatchPlan;
+  /** Every batch dispatch attempt, successful or not — the audit trail rulings §6 asks for. */
+  r1BatchAttempts: BatchAttemptRecord[];
+  r2BatchAttempts: BatchAttemptRecord[];
 }
 
 export interface RunDualReviewInput {
@@ -89,6 +111,19 @@ export interface RunDualReviewInput {
   now: () => string;
   /** Optional observer for the CLI's progress output. */
   onStep?: (step: string, detail: string) => void;
+  /**
+   * Batch size + retry policy. Optional — both consumers (the CLI and the
+   * Lab route) omit this and get the frozen defaults, so this is additive:
+   * neither consumer's call shape has to change to get batched dispatch.
+   */
+  batching?: { batchSize?: number; maxAttemptsPerBatch?: number };
+  /**
+   * Previously accepted batch attempts to resume from, per reviewer slot — a
+   * rerun after a partial failure need only redispatch the unresolved
+   * batches (rulings §6, "resume safety"). Optional; omitted by both
+   * consumers today.
+   */
+  resumeFrom?: { r1?: readonly BatchAttemptRecord[]; r2?: readonly BatchAttemptRecord[] };
 }
 
 export function buildPreRunManifest(input: {
@@ -99,6 +134,8 @@ export function buildPreRunManifest(input: {
   determinism: DeterminismSettings;
   sampleRate: number;
   sampleSeed: string;
+  batchSize: number;
+  maxAttemptsPerBatch: number;
   committedAt: string;
 }): PreRunManifest {
   const body = {
@@ -113,6 +150,8 @@ export function buildPreRunManifest(input: {
     steward: { ...input.steward },
     coverageSampleRate: input.sampleRate,
     coverageSampleSeed: input.sampleSeed,
+    batchSize: input.batchSize,
+    maxAttemptsPerBatch: input.maxAttemptsPerBatch,
     committedAt: input.committedAt,
   };
   return { ...body, manifestCommitment: commit(body) };
@@ -151,6 +190,9 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
   assertStewardWellFormed(input.steward);
   assertReviewerIndependence(input.r1.assignment, input.r2.assignment);
 
+  const batchSize = input.batching?.batchSize ?? DEFAULT_BATCH_SIZE;
+  const maxAttemptsPerBatch = input.batching?.maxAttemptsPerBatch ?? DEFAULT_MAX_ATTEMPTS_PER_BATCH;
+
   const startedAt = input.now();
   const preRunManifest = buildPreRunManifest({
     request: input.request,
@@ -160,6 +202,8 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     determinism: input.determinism,
     sampleRate: input.coverage.sampleRate,
     sampleSeed: input.coverage.sampleSeed,
+    batchSize,
+    maxAttemptsPerBatch,
     committedAt: startedAt,
   });
   step('pre-run-manifest', preRunManifest.manifestCommitment);
@@ -167,42 +211,47 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
   const rawOutputs: RunArtifacts['rawOutputs'] = [];
   const unanswered: RunArtifacts['unanswered'] = [];
 
-  // ── Reviewer 1: the complete package ──────────────────────────────────────
+  // ── Reviewer 1: the complete package, partitioned into deterministic ──────
+  // batches (rulings 2026-07-29). The batch plan is frozen against the
+  // pre-run manifest commitment BEFORE any provider is called — same timing
+  // guarantee the manifest itself already gave the rest of this run.
   const r1Subjects = input.pkg.subjects;
-  const r1Prompt = buildReviewerPrompt({
+  const r1BatchPlan = buildBatchPlan({
     reviewerSlot: 'R1',
+    packageHash: input.pkg.packageHash,
+    manifestHash: preRunManifest.manifestCommitment,
+    subjectRefs: r1Subjects.map((s) => s.subjectRef),
+    batchSize,
+  });
+  step('batch-plan-r1', `${r1BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
+
+  const r1ModelId = input.r1.assignment.resolvedModelId ?? input.r1.assignment.requestedModelId ?? 'human';
+  step('dispatch-r1', `${r1Subjects.length} subjects to ${input.r1.provider.providerName} across ${r1BatchPlan.batches.length} batch(es)`);
+  const r1Outcome = await runBatchedAdjudication({
+    reviewId: input.request.reviewId,
+    reviewerSlot: 'R1',
+    reviewerRef: input.r1.assignment.humanReviewerRef ?? `${input.r1.provider.providerName}:${r1ModelId}`,
     pkg: input.pkg,
     subjects: r1Subjects,
     includeBlockDecisions: true,
-  });
-  assertPromptCarriesNoPriorAdjudication('R1', r1Prompt, []);
-
-  const r1Request: AdjudicationRequest = {
-    modelId: input.r1.assignment.resolvedModelId ?? input.r1.assignment.requestedModelId ?? 'human',
-    system: r1Prompt.system,
-    user: r1Prompt.user,
+    priorForeignDecisions: [],
+    provider: input.r1.provider,
+    modelId: r1ModelId,
     determinism: input.determinism,
-  };
-  step('dispatch-r1', `${r1Subjects.length} subjects to ${input.r1.provider.providerName}`);
-  const r1Raw = await input.r1.provider.adjudicate(r1Request);
-  const r1RawRef = `raw/${input.request.reviewId}/R1`;
-  const r1Parsed = parseAdjudication({
-    reviewId: input.request.reviewId,
-    reviewerSlot: 'R1',
-    reviewerRef: input.r1.assignment.humanReviewerRef ?? `${input.r1.provider.providerName}:${r1Request.modelId}`,
-    raw: r1Raw.raw,
-    rawOutputRef: r1RawRef,
-    reviewedAt: input.now(),
-    expectedSubjectRefs: r1Subjects.map((s) => s.subjectRef),
+    batchPlan: r1BatchPlan,
+    maxAttemptsPerBatch,
+    now: input.now,
+    onStep: step,
+    resumeFrom: input.resumeFrom?.r1,
   });
-  rawOutputs.push({ reviewerSlot: 'R1', rawOutputRef: r1RawRef, raw: r1Raw.raw, outputHash: r1Parsed.outputHash });
-  if (r1Parsed.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R1', subjectRefs: r1Parsed.unanswered });
-  step('parsed-r1', `${r1Parsed.decisions.length} decisions, ${r1Parsed.unanswered.length} unanswered`);
+  rawOutputs.push(...r1Outcome.rawOutputs);
+  if (r1Outcome.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R1', subjectRefs: r1Outcome.unanswered });
+  step('parsed-r1', `${r1Outcome.decisions.length} decisions, ${r1Outcome.unanswered.length} unanswered`);
 
   // ── Coverage: WHICH rows R2 sees may depend on R1. WHAT R1 said may not. ──
   const coverage = selectReviewer2Coverage({
     subjects: input.pkg.subjects,
-    r1Decisions: r1Parsed.decisions,
+    r1Decisions: r1Outcome.decisions,
     packageExclusions: input.pkg.exclusionsFromPackage,
     mechanicallyFlagged: input.coverage.mechanicallyFlagged,
     sampleRate: input.coverage.sampleRate,
@@ -210,7 +259,7 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
   });
   assertCoverageComplete(coverage, {
     subjects: input.pkg.subjects,
-    r1Decisions: r1Parsed.decisions,
+    r1Decisions: r1Outcome.decisions,
     packageExclusions: input.pkg.exclusionsFromPackage,
     mechanicallyFlagged: input.coverage.mechanicallyFlagged,
     sampleRate: input.coverage.sampleRate,
@@ -227,43 +276,49 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     );
   }
 
-  const r2Prompt = buildReviewerPrompt({
+  // R2's batch plan is committed the moment its subject list is known — the
+  // same timing coverage.ts already documents for coverage itself (WHICH
+  // rows R2 sees may depend on R1; this plan is that dependency, made
+  // deterministic and hashed before R2's first call rather than after).
+  const r2BatchPlan = buildBatchPlan({
     reviewerSlot: 'R2',
+    packageHash: input.pkg.packageHash,
+    manifestHash: preRunManifest.manifestCommitment,
+    subjectRefs: r2Subjects.map((s) => s.subjectRef),
+    batchSize,
+  });
+  step('batch-plan-r2', `${r2BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
+
+  const r2ModelId = input.r2.assignment.resolvedModelId ?? input.r2.assignment.requestedModelId ?? 'human';
+  step('dispatch-r2', `${r2Subjects.length} subjects to ${input.r2.provider.providerName} across ${r2BatchPlan.batches.length} batch(es)`);
+  const r2Outcome = await runBatchedAdjudication({
+    reviewId: input.request.reviewId,
+    reviewerSlot: 'R2',
+    reviewerRef: input.r2.assignment.humanReviewerRef ?? `${input.r2.provider.providerName}:${r2ModelId}`,
     pkg: input.pkg,
     subjects: r2Subjects,
     includeBlockDecisions: false,
-  });
-  // The isolation gate, applied to the FINAL text about to leave the process.
-  assertPromptCarriesNoPriorAdjudication('R2', r2Prompt, r1Parsed.decisions);
-
-  const r2Request: AdjudicationRequest = {
-    modelId: input.r2.assignment.resolvedModelId ?? input.r2.assignment.requestedModelId ?? 'human',
-    system: r2Prompt.system,
-    user: r2Prompt.user,
+    // The isolation gate, applied to EVERY R2 batch's dispatched text.
+    priorForeignDecisions: r1Outcome.decisions,
+    provider: input.r2.provider,
+    modelId: r2ModelId,
     determinism: input.determinism,
-  };
-  step('dispatch-r2', `${r2Subjects.length} subjects to ${input.r2.provider.providerName}`);
-  const r2Raw = await input.r2.provider.adjudicate(r2Request);
-  const r2RawRef = `raw/${input.request.reviewId}/R2`;
-  const r2Parsed = parseAdjudication({
-    reviewId: input.request.reviewId,
-    reviewerSlot: 'R2',
-    reviewerRef: input.r2.assignment.humanReviewerRef ?? `${input.r2.provider.providerName}:${r2Request.modelId}`,
-    raw: r2Raw.raw,
-    rawOutputRef: r2RawRef,
-    reviewedAt: input.now(),
-    expectedSubjectRefs: r2Subjects.map((s) => s.subjectRef),
+    batchPlan: r2BatchPlan,
+    maxAttemptsPerBatch,
+    now: input.now,
+    onStep: step,
+    resumeFrom: input.resumeFrom?.r2,
   });
-  rawOutputs.push({ reviewerSlot: 'R2', rawOutputRef: r2RawRef, raw: r2Raw.raw, outputHash: r2Parsed.outputHash });
-  if (r2Parsed.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R2', subjectRefs: r2Parsed.unanswered });
-  step('parsed-r2', `${r2Parsed.decisions.length} decisions, ${r2Parsed.unanswered.length} unanswered`);
+  rawOutputs.push(...r2Outcome.rawOutputs);
+  if (r2Outcome.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R2', subjectRefs: r2Outcome.unanswered });
+  step('parsed-r2', `${r2Outcome.decisions.length} decisions, ${r2Outcome.unanswered.length} unanswered`);
 
   const completedAt = input.now();
   const resolutions = resolveDecisions({
     reviewId: input.request.reviewId,
     subjectRefs: input.pkg.subjects.map((s) => s.subjectRef),
-    r1: r1Parsed.decisions,
-    r2: r2Parsed.decisions,
+    r1: r1Outcome.decisions,
+    r2: r2Outcome.decisions,
     r2Coverage: coverage.subjectRefs,
     resolvedAt: completedAt,
   });
@@ -279,7 +334,7 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     steward: input.steward,
     blockDecisions: input.pkg.blockDecisions,
     rawOutputCommitments: rawOutputs.map((r) => r.outputHash),
-    parsedOutputCommitments: [commit(r1Parsed.decisions), commit(r2Parsed.decisions)],
+    parsedOutputCommitments: [commit(r1Outcome.decisions), commit(r2Outcome.decisions)],
     tally,
     promptVersion: INDEPENDENCE_PROMPT_VERSION,
     rubricRef: INDEPENDENCE_RUBRIC_ID,
@@ -290,8 +345,8 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
 
   return {
     preRunManifest,
-    r1Decisions: r1Parsed.decisions,
-    r2Decisions: r2Parsed.decisions,
+    r1Decisions: r1Outcome.decisions,
+    r2Decisions: r2Outcome.decisions,
     coverage,
     resolutions,
     contested,
@@ -299,6 +354,10 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     rawOutputs,
     unanswered,
     receipt,
+    r1BatchPlan,
+    r2BatchPlan,
+    r1BatchAttempts: r1Outcome.attempts,
+    r2BatchAttempts: r2Outcome.attempts,
   };
 }
 

@@ -135,8 +135,17 @@ export function createVeniceProvider(): ReviewProvider {
 export function createScriptedProvider(input: {
   providerName?: string;
   catalogue?: ModelCatalogueEntry[];
-  /** modelId → raw response text. */
-  responses: Record<string, string>;
+  /** modelId → raw response text. Ignored when `respond` is supplied. */
+  responses?: Record<string, string>;
+  /**
+   * Optional per-call responder — receives the full request (including the
+   * batch's own rows, in `request.user`) and returns that call's raw text.
+   * Lets a test script one response PER BATCH CALL rather than one fixed
+   * text per model id, which is what a real batched dispatch needs: R1 and
+   * R2 each call the same modelId once per batch, with a different subject
+   * list each time.
+   */
+  respond?: (request: AdjudicationRequest) => string;
   onCall?: (request: AdjudicationRequest) => void;
 }): ReviewProvider {
   return {
@@ -150,7 +159,7 @@ export function createScriptedProvider(input: {
     },
     async adjudicate(request) {
       input.onCall?.(request);
-      const raw = input.responses[request.modelId];
+      const raw = input.respond ? input.respond(request) : input.responses?.[request.modelId];
       if (raw === undefined) {
         throw new ReviewRefusal(
           'reviewer-call-failed',

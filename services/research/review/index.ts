@@ -27,5 +27,6 @@ export * from './adjudication';
 export * from './reviewPackage';
 export * from './reviewerIndependence';
 export * from './providers';
+export * from './batching';
 export * from './receipt';
 export * from './runner';
