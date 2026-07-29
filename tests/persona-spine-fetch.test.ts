@@ -50,12 +50,33 @@ const SPINE_ENDPOINT_PREFIXES = [
   '/api/participation/',
   '/api/wallet/active-persona',
   '/api/persona/',
+  // Added 2026-07-29. The QubeTalk read+write paths became spine endpoints when
+  // the anonymous-read leak was closed; every client calling them with raw
+  // `fetch` silently 401s into its empty state, which for a message console is
+  // indistinguishable from "no messages".
+  '/api/qubetalk/',
+  '/api/marketa/qubetalk',
 ] as const;
 
-/** Route files backing the prefixes above — used to prove the list is honest. */
+/**
+ * Route files backing the prefixes above — used to prove the list is honest.
+ *
+ * A route may resolve the caller DIRECTLY (`getActivePersona`) or through a
+ * named gate that does. Where it is the latter, the gate is named here and its
+ * own resolution is proven in the second assertion — a two-step chain, so the
+ * proof never reduces to "the file mentions the thing it is being checked for".
+ */
 const PREFIX_ROUTE_PROOF: Record<string, string> = {
   '/api/steward/participation': 'app/api/steward/participation/route.ts',
   '/api/participation/': 'app/api/participation/my-access/route.ts',
+  '/api/qubetalk/': 'app/api/qubetalk/channels/route.ts',
+  '/api/marketa/qubetalk': 'app/api/marketa/qubetalk/route.ts',
+};
+
+/** route file → the gate module it delegates caller resolution to. */
+const PREFIX_GATE_PROOF: Record<string, string> = {
+  'app/api/qubetalk/channels/route.ts': 'app/api/qubetalk/_lib/requireChannelAccess.ts',
+  'app/api/marketa/qubetalk/route.ts': 'app/api/marketa/qubetalk/_lib.ts',
 };
 
 /**
@@ -139,8 +160,50 @@ describe('spine endpoints are reached only through personaFetch', () => {
     // the real spine surface.
     for (const [prefix, routePath] of Object.entries(PREFIX_ROUTE_PROOF)) {
       const route = stripComments(readSource(routePath));
+      const gatePath = PREFIX_GATE_PROOF[routePath];
+      const direct = /getActivePersona|getCallerIdentityContext/.test(route);
+
+      if (gatePath) {
+        // Step 1: the route delegates to the named gate — and AWAITS it and
+        // RETURNS its refusal. A gate that is imported and whose verdict is
+        // discarded is the shape that reads as fixed and is not.
+        const gateName = gatePath.endsWith('requireChannelAccess.ts')
+          ? 'requireChannelAccess'
+          : 'requireMarketaQubeTalkAccess';
+        expect(
+          new RegExp(`await ${gateName}\\(`).test(route),
+          `${prefix}: ${routePath} does not await ${gateName}`,
+        ).toBe(true);
+        expect(
+          /if \(!gate\.ok\) return gate\.response;/.test(route),
+          `${prefix}: ${routePath} awaits the gate but never returns its refusal`,
+        ).toBe(true);
+        // Step 2: that gate really does resolve the caller through the spine.
+        //
+        // Asserted as an IMPORT FROM THE CANONICAL MODULE, not as a mention of
+        // the name. A mere `/getActivePersona/` match survives replacing the
+        // import with a local stub of the same name — a mutation that guts the
+        // gate while leaving the canary green. (This canary was caught doing
+        // exactly that during mutation testing on 2026-07-29.)
+        const gateSrc = stripComments(readSource(gatePath));
+        expect(
+          /import \{[^}]*\bgetActivePersona\b[^}]*\} from '@\/services\/identity\/getActivePersona'/.test(
+            gateSrc,
+          ) ||
+            /import \{[^}]*\bgetCallerIdentityContext\b[^}]*\} from '@\/services\/wallet\/personaRepo'/.test(
+              gateSrc,
+            ),
+          `${prefix}: ${gatePath} does not IMPORT the spine resolver — a local stub of the same name is not the spine`,
+        ).toBe(true);
+        expect(
+          /await getActivePersona\(|await getCallerIdentityContext\(/.test(gateSrc),
+          `${prefix}: ${gatePath} imports the resolver but never awaits it`,
+        ).toBe(true);
+        continue;
+      }
+
       expect(
-        /getActivePersona|getCallerIdentityContext/.test(route),
+        direct,
         `${prefix} is on the allowlist but ${routePath} does not resolve through the spine`,
       ).toBe(true);
     }
