@@ -81,7 +81,34 @@ export const DOMAIN_LABELS: Record<AccessDomain, string> = {
 
 export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['citizen', 'sovereign-citizen', 'citizen-steward', 'passport-steward'],
-  'research-lab': ['research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier'],
+  // The six original entries are the RESEARCH roles. SPEC-IRL-WORKSPACE-001 §8
+  // names six workspace roles; three of them already have exact equivalents
+  // here and are REUSED rather than renamed (operator ruling 2026-07-28, "Do
+  // not invent new names if equivalent roles already exist"):
+  //
+  //   Research Steward       → 'research-steward'      (also DOMAIN_STEWARD_ROLES)
+  //   External Reviewer      → 'reviewer'
+  //   Institutional Observer → 'research-participant'  (the read-only path)
+  //
+  // Three have NO equivalent, and mapping them onto an existing role would
+  // erase a real authority difference rather than reuse a real one:
+  //
+  //   'principal-investigator' — a PI defines experiments, requests freezes and
+  //       initiates runs; `researcher` carries none of that and flattening the
+  //       two would make "cannot self-review confirmatory work" unstateable.
+  //   'faculty-lead'          — administers ONE cohort. Not a research-steward
+  //       (whose authority is programme-wide) and not a researcher.
+  //   'student-researcher'    — scoped to assigned projects, and the only role
+  //       whose contributions accrue attributable Standing.
+  //
+  // ADDING A ROLE GRANTS NOTHING BY ITSELF. A role reaches a surface only when
+  // a tab lists it in `participationRoles` AND the caller's grant is scoped to
+  // the workspace; the three new roles are therefore fail-closed on every
+  // pre-existing tab, which still names only the original three.
+  'research-lab': [
+    'research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier',
+    'principal-investigator', 'faculty-lead', 'student-researcher',
+  ],
   // WORKSPACE ROLES added 2026-07-27 (operator decision). The five original
   // entries are VENTURE roles — what someone is to a venture. A partner pilot
   // needs what someone is to a WORKSPACE, and the two do not map 1:1: a partner

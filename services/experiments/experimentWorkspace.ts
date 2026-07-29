@@ -64,8 +64,16 @@ import {
   RESEARCH_WORKSPACE_LAYERS,
   researchWorkspaceLabel,
   researchWorkspaceObjectives,
+  researchWorkspaceLayerOwners,
+  researchWorkspaceParticipationRoles,
   type ResearchWorkspace,
 } from '@/services/research/researchWorkspace';
+import {
+  DEFAULT_WORKSPACE_VISIBILITY,
+  type LifecycleTemplateId,
+  type WorkspaceType,
+  type WorkspaceVisibilityPosture,
+} from '@/services/experiments/workspaceLifecycle';
 
 // ─── Domain + class discrimination ───────────────────────────────────────────
 
@@ -151,6 +159,35 @@ export interface ExperimentWorkspace {
   label: string;
   domain: WorkspaceDomain;
   experimentClass: ExperimentClass;
+  /**
+   * WHAT KIND of workspace this is, and WHERE it sits in the hierarchy
+   * (SPEC-IRL-WORKSPACE-001 §5/§6). Added to the SPINE rather than to either
+   * Lab because the hierarchy is a property of the engine: a research
+   * programme containing experiments and a venture programme containing pilots
+   * are the same shape, and modelling one of them privately would be the fork
+   * the spec forbids.
+   *
+   * `parentWorkspaceId` is null for a root. It is a REFERENCE to another
+   * workspace's id on this same spine — never an embedded copy — so the tree
+   * has one authoritative node per workspace, exactly like every other
+   * reference here.
+   */
+  workspaceType: WorkspaceType;
+  parentWorkspaceId: string | null;
+  /**
+   * The institutions this workspace is a collaboration WITH. Names, not
+   * identifiers: there is no institution entity in the platform today, and
+   * inventing an id space for one would be a second registry. When an
+   * institution model lands, this becomes a reference to it and nothing else
+   * changes.
+   */
+  institutionRefs: string[];
+  /** Resolves in `services/experiments/workspaceLifecycle.ts`. */
+  lifecycleTemplateId: LifecycleTemplateId;
+  /** Which stage of that template the workspace is at; null = not declared. */
+  currentStage: string | null;
+  /** SPEC §11 — never `public` by default. */
+  visibility: WorkspaceVisibilityPosture;
   /** Operator-facing objectives — the text invariant resolution reads. */
   objectives: string[];
   participation: WorkspaceParticipationReference;
@@ -186,6 +223,25 @@ export function experimentWorkspaceFromPartner(partner: PartnerWorkspace): Exper
     // Suite) AND operational proof (delegated execution under agreement) —
     // hybrid is the honest class, not a hedge.
     experimentClass: 'hybrid',
+    // The primitive's hierarchy/lifecycle fields, DERIVED from the partner
+    // registry rather than newly authored, so nothing about the Venture Lab's
+    // behaviour changes by their arrival (SPEC-IRL-WORKSPACE-001 acceptance
+    // criterion 3). A pilot is a root today; when a venture programme registry
+    // exists, `parentWorkspaceId` is where it attaches.
+    workspaceType: 'pilot',
+    parentWorkspaceId: null,
+    institutionRefs: [partner.partnerName],
+    lifecycleTemplateId: 'venture-pilot',
+    // The ladder's own stage label — same derivation the lifecycle template
+    // uses, so the current stage always exists in the template it names.
+    currentStage: partner.phase.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    // The Partner group is the bilateral private record. The Venture Lab's
+    // PUBLIC entrance is a posture on the SURFACE (PartnerProgrammesTab's
+    // `workspaceVisibility` prop, clamped by PUBLIC_SURFACES) and deliberately
+    // not a property of the workspace: the same workspace is served through
+    // both entrances with per-caller scope filtering. Flipping this field to
+    // 'public' would be a publication act, which nothing here performs.
+    visibility: 'private',
     objectives: partner.objectives,
     participation: {
       domain: 'venture-lab',
@@ -232,11 +288,26 @@ export function experimentWorkspaceFromPartner(partner: PartnerWorkspace): Exper
  * what it is for.
  */
 export function experimentWorkspaceFromResearch(research: ResearchWorkspace): ExperimentWorkspace {
-  const layers = RESEARCH_WORKSPACE_LAYERS.filter((l) => research.layerOwners[l] !== undefined);
+  // Owners and links are INHERITED down the hierarchy by the registry's own
+  // derivations (`researchWorkspaceLayerOwners` / `researchWorkspaceLinks`), so
+  // a student project declares neither and still resolves the programme's
+  // division of labour. Re-deriving inheritance here would be a second walk of
+  // the same tree.
+  const layerOwners = researchWorkspaceLayerOwners(research);
+  const layers = RESEARCH_WORKSPACE_LAYERS.filter((l) => layerOwners[l] !== undefined);
   return {
     id: research.id,
     label: researchWorkspaceLabel(research),
     domain: 'research',
+    workspaceType: research.workspaceType,
+    parentWorkspaceId: research.parentId ?? null,
+    institutionRefs: research.institutionRefs ?? [],
+    lifecycleTemplateId: research.lifecycleTemplateId,
+    currentStage: research.currentStage ?? null,
+    // SPEC §11: nothing becomes public by default. A research workspace that
+    // declares no posture is `invited` — reachable by a scoped member and by
+    // nobody else — never `public`.
+    visibility: research.visibility ?? DEFAULT_WORKSPACE_VISIBILITY,
     // Amendment B §B.6: "The Research Lab is scientifically rich and primarily
     // produces structural and scientific proof." `scientific` is the honest
     // class — not `hybrid`, which would claim commercial proof this programme
@@ -245,17 +316,16 @@ export function experimentWorkspaceFromResearch(research: ResearchWorkspace): Ex
     objectives: researchWorkspaceObjectives(research),
     participation: {
       domain: 'research-lab',
-      // EXISTING research-lab roles only (operator ruling, 2026-07-28: "Do not
-      // invent new names if equivalent roles already exist"). `researcher` and
-      // `research-steward` are full participation; `research-participant` is
-      // the read-only path. Every other role in the domain — `reviewer`,
-      // `ratifier`, `delegated-research-agent` — is experiment- or
-      // governance-scoped and gets NO workspace access unless explicitly
-      // granted one of these three.
-      roles: ['researcher', 'research-steward', 'research-participant'],
+      // WHICH substrate roles this workspace admits, DERIVED from its type by
+      // `researchWorkspaceParticipationRoles` (SPEC-IRL-WORKSPACE-001 §8). A
+      // programme/experiment admits the research roles; a cohort/student
+      // project admits the teaching ones. Hand-listing them here would put the
+      // role model in two places and let a capstone silently inherit
+      // experiment authority.
+      roles: researchWorkspaceParticipationRoles(research),
     },
     agents: {
-      agentIds: Object.values(research.layerOwners).filter(
+      agentIds: Object.values(layerOwners).filter(
         (a): a is PartnerLayerOwnerId => a !== null && a !== undefined,
       ),
     },
