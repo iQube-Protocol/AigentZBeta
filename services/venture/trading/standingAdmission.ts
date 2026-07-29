@@ -62,11 +62,36 @@ export const PROHIBITED_STANDING_BASES = [
 export type ProhibitedStandingBasis = (typeof PROHIBITED_STANDING_BASES)[number];
 
 /**
- * Permitted contribution classes and the CVS weight each carries. Every weight
- * is a property of the work. Note that `correct-refusal` is weighted at parity
- * with `correctness` — the charter requires a correct refusal to be capable of
- * earning equal or greater Standing than an execution, and a lower constant
- * here would quietly deny that while appearing to honour it.
+ * Permitted contribution classes and the ORDINAL EXPERIMENTAL CONTRIBUTION
+ * WEIGHT each carries.
+ *
+ * ─── These are not Standing points (operator ruling, 2026-07-29) ────────────
+ *
+ * The 1–3 range here is an ORDINAL experimental contribution weight, scoped to
+ * VL-CT-001 venture signals. It is NOT a Standing point value, and it does not
+ * amend the canonical Standing formula in `services/standing/standingScore.ts`.
+ *
+ * The load-bearing property is the ORDERING, not the magnitude:
+ *
+ *     correct evidenced refusal  >  profitable constitutionally incomplete
+ *                                   execution
+ *
+ * Three constitutional outputs must hold, and they are what the canary pins —
+ * so the numbers below can be re-scaled without silently inverting the result:
+ *
+ *   1. incomplete action              → inadmissible, weight 0
+ *   2. correct complete refusal       → admissible, positive weight
+ *   3. weight NEVER derives from profit or execution volume
+ *
+ * `correct-refusal` sits at parity with `correctness` because the charter
+ * requires a correct refusal to be capable of earning equal or greater Standing
+ * than an execution; a lower constant would quietly deny that while appearing
+ * to honour it.
+ *
+ * These signals reach the existing Standing accrual service ONLY AFTER SLICE C
+ * defines how an admitted signal maps into Personal / Delegated / Stewardship /
+ * Capability Standing. Until then an admitted decision is an experimental
+ * observation, not an accrual.
  */
 export const PERMITTED_STANDING_BASES: Record<StandingContributionType, number> = {
   correctness: 1.0,
@@ -85,7 +110,20 @@ export const PERMITTED_STANDING_BASES: Record<StandingContributionType, number> 
 const PERMITTED_SET = new Set<string>(Object.keys(PERMITTED_STANDING_BASES));
 const PROHIBITED_SET = new Set<string>(PROHIBITED_STANDING_BASES);
 
-/** Ceiling on a single signal's contribution, so no one opportunity dominates. */
+/**
+ * Ceiling on a single signal's contribution, so no one opportunity dominates.
+ *
+ * PROVISIONAL and EXPERIMENT-SCOPED (operator ruling, 2026-07-29):
+ *
+ *   > Weight 3 is a provisional maximum for VL-CT-001 venture signals and
+ *   > does not amend the canonical Standing formula.
+ *
+ * It is not ratified as a general Standing constant. Nothing outside
+ * `services/venture/trading/` may read it — a canary enforces that, because the
+ * way a provisional experimental constant becomes a ratified platform constant
+ * is by a second module importing it and a third then treating that as
+ * precedent.
+ */
 export const MAX_STANDING_SIGNAL_WEIGHT = 3;
 
 export interface TradingStandingSignalInput {

@@ -733,6 +733,172 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// AC-17 — RULING 4. The ORDERING is pinned, not the magnitude; and weight 3
+//         is provisional, experiment-scoped, and not a Standing constant.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-17 the Standing ordering survives any re-scaling of the weights', () => {
+  /** A correct, complete, evidenced refusal. Zero revenue. */
+  const evidencedRefusal = () => {
+    const verdict = assessConstitutionalCompletion({
+      opportunityId: 'ord-refusal',
+      experimentalCellId: 'USDC-SERVICE-COMPLETE',
+      assessedAt: '2026-07-29T12:00:00.000Z',
+      checksPerformed: [
+        'market-assessment',
+        'authority-verification',
+        'risk-review',
+        'execution-eligibility-decision',
+        'evidence-record',
+        'dvn-receipt',
+        'reconciliation-closure',
+      ],
+      executed: false,
+      refusalWasCorrect: true,
+      evidenceRefs: ['ev-ord-refusal'],
+      receiptRef: 'rcpt-ord-refusal',
+    });
+    return evaluateTradingStandingSignal({
+      opportunityId: 'ord-refusal',
+      agentRef: 'bbbb0000cccc1111',
+      proposedBases: ['correct-refusal'],
+      lane: 'delegated',
+      evidenceRefs: ['ev-ord-refusal'],
+      verdict,
+    });
+  };
+
+  /** A profitable execution with a hole in its process. */
+  const incompleteExecution = (bases: string[]) => {
+    const verdict = assessConstitutionalCompletion({
+      opportunityId: 'ord-exec',
+      experimentalCellId: 'USDC-SERVICE-EXEC',
+      assessedAt: '2026-07-29T12:00:00.000Z',
+      checksPerformed: ['market-assessment', 'authority-verification', 'evidence-record', 'dvn-receipt'],
+      executed: true,
+      evidenceRefs: ['ev-ord-exec'],
+      receiptRef: 'rcpt-ord-exec',
+    });
+    return evaluateTradingStandingSignal({
+      opportunityId: 'ord-exec',
+      agentRef: 'dddd2222eeee3333',
+      proposedBases: bases,
+      lane: 'delegated',
+      evidenceRefs: ['ev-ord-exec'],
+      verdict,
+    });
+  };
+
+  it('OUTPUT 1 — an incomplete action is inadmissible at weight 0, whatever it claims', () => {
+    // Every claim shape a caller could reach for: commercial, constitutional,
+    // and both together. All three must land in the same place.
+    for (const bases of [
+      ['realised-profit', 'executed-trade-count'],
+      ['correctness', 'constitutional-completeness'],
+      ['correctness', 'realised-profit', 'transaction-volume', 'proof-quality'],
+    ]) {
+      const decision = incompleteExecution(bases);
+      expect(decision.admissible, `${bases.join('+')} was admitted on an incomplete process`).toBe(false);
+      expect(decision.weight ?? 0).toBe(0);
+    }
+  });
+
+  it('OUTPUT 2 — a correct complete refusal is admissible at a POSITIVE weight', () => {
+    const decision = evidencedRefusal();
+    expect(decision.admissible).toBe(true);
+    expect(decision.weight ?? 0).toBeGreaterThan(0);
+    // Asserted as "> 0", not "= 3". The magnitude is provisional; the sign is
+    // the constitutional output.
+  });
+
+  it('OUTPUT 3 — weight never derives from profit, notional, or execution volume', () => {
+    // Same constitutional bases, wildly different commercial facts attached.
+    // If any commercial term entered the expression these would diverge.
+    const bare = evaluateTradingStandingSignal({
+      opportunityId: 'ord-1',
+      agentRef: 'ffff4444aaaa5555',
+      proposedBases: ['correct-refusal', 'risk-detection'],
+      lane: 'delegated',
+      evidenceRefs: ['ev-1'],
+    });
+    const loaded = evaluateTradingStandingSignal({
+      opportunityId: 'ord-1',
+      agentRef: 'ffff4444aaaa5555',
+      proposedBases: [
+        'correct-refusal',
+        'risk-detection',
+        'realised-profit',
+        'notional-value',
+        'transaction-volume',
+        'execution-frequency',
+        'executed-trade-count',
+      ],
+      lane: 'delegated',
+      evidenceRefs: ['ev-1'],
+    });
+    expect(loaded.weight).toBe(bare.weight);
+  });
+
+  it('THE ORDERING — the refusal outranks the incomplete execution, by construction', () => {
+    // The property, stated without reference to any constant: refusal weight is
+    // strictly greater. Re-scaling PERMITTED_STANDING_BASES or
+    // MAX_STANDING_SIGNAL_WEIGHT may change both numbers; it must never invert
+    // this comparison.
+    const refusal = evidencedRefusal().weight ?? 0;
+    const execution = incompleteExecution(['realised-profit', 'executed-trade-count']).weight ?? 0;
+    expect(refusal).toBeGreaterThan(execution);
+
+    // And it holds against the strongest execution claim available — every
+    // permitted constitutional basis at once — because the completeness clause
+    // fires before weight is computed at all.
+    const maximallyClaimed = incompleteExecution([
+      'correctness',
+      'veracity',
+      'proof-quality',
+      'constitutional-completeness',
+      'authority-compliance',
+      'reproducibility',
+      'service-reliability',
+      'reconciliation-quality',
+      'no-unauthorised-expansion',
+    ]);
+    expect(maximallyClaimed.weight ?? 0).toBe(0);
+    expect(refusal).toBeGreaterThan(maximallyClaimed.weight ?? 0);
+  });
+
+  it('the ceiling is declared PROVISIONAL and experiment-scoped, not ratified', () => {
+    const src = readFileSync(join(TRADING_DIR, 'standingAdmission.ts'), 'utf8');
+    expect(src).toContain('PROVISIONAL');
+    expect(src).toContain('does not amend the canonical Standing formula');
+    expect(src.toLowerCase()).toContain('ordinal experimental contribution weight');
+    // Slice C is the named gate before any of this becomes an accrual.
+    expect(src.toLowerCase()).toContain('slice c');
+  });
+
+  it('nothing outside the venture substrate reads the provisional constant', () => {
+    // How a provisional experimental constant becomes a ratified platform one:
+    // a second module imports it, and a third treats that as precedent.
+    const roots = ['services', 'app', 'components', 'utils'];
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === 'node_modules' || entry.name === '.next' || entry.name === 'dist') continue;
+          walk(full);
+          continue;
+        }
+        if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx')) continue;
+        if (full.startsWith(TRADING_DIR)) continue;
+        if (readFileSync(full, 'utf8').includes('MAX_STANDING_SIGNAL_WEIGHT')) offenders.push(full);
+      }
+    };
+    for (const root of roots) walk(join(process.cwd(), root));
+    expect(offenders, 'the provisional VL-CT-001 weight ceiling escaped the experiment').toEqual([]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // AC-16 — RULING 3. A bundle keeps `correct-refusal` as its TERMINAL basis,
 //         and keeps the component bases so the label does not overclaim.
 // ───────────────────────────────────────────────────────────────────────────
