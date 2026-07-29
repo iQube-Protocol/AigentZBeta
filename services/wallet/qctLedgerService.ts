@@ -1,6 +1,14 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-export type WalletAssetCode = 'KNYT' | 'QCT' | 'USDC';
+/**
+ * 'BCENT' credits an off-chain simulated BitCent (B¢) balance — there is no
+ * live Bitcoin Rune to settle against yet (R-10 blocked; see
+ * codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md).
+ * It uses the same `QriptoDenomination` naming as
+ * services/qriptocent/settlement/types.ts so the two stay in lockstep —
+ * 'QCT' here is this ledger's pre-existing name for Base Q¢ ('BASE_QC').
+ */
+export type WalletAssetCode = 'KNYT' | 'QCT' | 'USDC' | 'BCENT';
 export type WalletTxDirection = 'credit' | 'debit';
 
 export interface WalletBalance {

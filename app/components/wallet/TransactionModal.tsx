@@ -50,12 +50,14 @@ export type SignerSource = 'agent' | 'metamask';
 
 export type ChainId =
   | 1         // Ethereum Mainnet
+  | 8453      // Base Mainnet — live QriptoCENT (Base Q¢) contract
   | 421614    // Arbitrum Sepolia
   | 84532     // Base Sepolia
   | 80002     // Polygon Amoy
   | 11155420  // Optimism Sepolia
   | 11155111  // Ethereum Sepolia
   | 'btc-testnet'
+  | 'bitcent-mainnet' // BitCent (B¢) Bitcoin Runes — not yet etched, see R-10
   | 'sol-devnet';
 
 export interface ChainConfig {
@@ -139,6 +141,14 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     active: true,
   },
   {
+    id: 8453,
+    name: 'Base Mainnet',
+    ticker: 'BASE',
+    color: 'text-blue-300',
+    explorer: 'https://basescan.org',
+    active: true,
+  },
+  {
     id: 421614,
     name: 'Arbitrum Sepolia',
     ticker: 'ARB',
@@ -187,6 +197,22 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     active: false, // Coming soon
   },
   {
+    // BitCent (B¢) — Bitcoin Runes implementation of QriptoCENT. Kept
+    // inactive (Coming soon) because the Rune has not been etched yet —
+    // R-10 still open, see
+    // codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md.
+    // Deliberately NOT rendered in the Send network selector (only
+    // `activeChains` renders there) — a control that cannot act must not
+    // render; it still appears, correctly disabled, in the Verify tab's
+    // full chain grid.
+    id: 'bitcent-mainnet',
+    name: 'BitCent (Bitcoin Runes)',
+    ticker: 'B¢',
+    color: 'text-orange-300',
+    explorer: '',
+    active: false, // Coming soon — Rune not yet etched
+  },
+  {
     id: 'sol-devnet',
     name: 'Solana Devnet',
     ticker: 'SOL',
@@ -198,6 +224,7 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
 
 // QCT Token addresses per chain
 const QCT_ADDRESSES: Record<number, string> = {
+  8453: process.env.NEXT_PUBLIC_QCT_BASE_MAINNET || '', // Base Mainnet — live QCT contract
   421614: '0x4C4f1aD931589449962bB675bcb8e95672349d09', // Arbitrum Sepolia
   84532: '0x4C4f1aD931589449962bB675bcb8e95672349d09',  // Base Sepolia
   80002: '0x4C4f1aD931589449962bB675bcb8e95672349d09',  // Polygon Amoy
