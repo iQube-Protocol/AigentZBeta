@@ -64,7 +64,12 @@ import {
   researchWorkspaceLayerOwners,
   researchWorkspaceLinks,
   researchWorkspaceInstitutions,
+  researchWorkspaceNavSection,
+  researchWorkspaceNavDepth,
+  researchWorkspaceTitleEditable,
   RESEARCH_WORKSPACE_LAYERS,
+  RESEARCH_NAV_SECTIONS,
+  type ResearchWorkspaceNavSection,
 } from "@/services/research/researchWorkspace";
 import {
   getLifecycleTemplate,
@@ -378,6 +383,19 @@ interface WorkspaceView {
   workspaceType: WorkspaceType;
   /** Extra, honestly-derived metric cards for this Lab. */
   extraMetrics: { label: string; value: string; detail?: string }[];
+  /**
+   * Left-nav grouping (research kind only; 2026-07-29 restructure) — null for
+   * the venture kind, which keeps its existing horizontal selector.
+   */
+  navSection: ResearchWorkspaceNavSection | null;
+  /** Indentation depth within `navSection` (0 = section root). Always 0 for venture. */
+  navDepth: number;
+  /** Whether this workspace's title may be inline-renamed (Autonomi = never). */
+  titleEditable: boolean;
+  /** From the registry's optional `contacts` field; [] when none declared. */
+  contacts: { name: string; role?: string }[];
+  /** From the registry's optional `differentiatorStatement`; null when none declared. */
+  differentiatorStatement: string | null;
 }
 
 function ventureView(ws: PartnerWorkspace): WorkspaceView {
@@ -401,6 +419,13 @@ function ventureView(ws: PartnerWorkspace): WorkspaceView {
     institutions: [ws.partnerName],
     workspaceType: "pilot",
     extraMetrics: [],
+    contacts: ws.contacts ?? [],
+    differentiatorStatement: ws.differentiatorStatement ?? null,
+    // Venture kind keeps its existing horizontal selector — no left-nav
+    // grouping concept applies.
+    navSection: null,
+    navDepth: 0,
+    titleEditable: false,
   };
 }
 
@@ -453,6 +478,13 @@ function researchView(ws: ReturnType<typeof listResearchWorkspaces>[number]): Wo
           ]
         : []),
     ],
+    // The research registry has no contacts/differentiator-statement concept
+    // today — honestly empty/null, never invented.
+    contacts: [],
+    differentiatorStatement: null,
+    navSection: researchWorkspaceNavSection(ws),
+    navDepth: researchWorkspaceNavDepth(ws),
+    titleEditable: researchWorkspaceTitleEditable(ws),
   };
 }
 
@@ -873,7 +905,16 @@ function ChainStatus({ label, status, state, detail }: { label: string; status: 
  * as presence only; `tests/horizen-evidence-chain.test.ts` scans this
  * component's own source for every one of them.
  */
-function EvidenceChainPanel({ workspaceId, personaId }: { workspaceId: string; personaId?: string }) {
+function EvidenceChainPanel({
+  workspaceId,
+  personaId,
+  differentiatorStatement,
+}: {
+  workspaceId: string;
+  personaId?: string;
+  /** From the registry's optional field — rendered verbatim, never invented. */
+  differentiatorStatement?: string | null;
+}) {
   const [state, setState] = useState<ChainState>({ kind: "loading" });
 
   useEffect(() => {
@@ -924,7 +965,10 @@ function EvidenceChainPanel({ workspaceId, personaId }: { workspaceId: string; p
     <div className="space-y-3">
       <div className={`${PANEL} p-4`}>
         <h3 className="text-sm font-semibold text-slate-100">Attributable constitutional evidence</h3>
-        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+        {differentiatorStatement && (
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{differentiatorStatement}</p>
+        )}
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
           Partner agent identity + partner proof/validation + the DVN ingestion receipt +
           passport-backed delegation, joined into one record. Every status below is derived
           server-side from the binding record; identifiers are held server-side and surface only as
@@ -1241,6 +1285,27 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               })}
             </div>
           </div>
+          {/* Contacts — fluid prose, deliberately not a formal escalation
+              matrix (operator instruction). Rendered entirely from the
+              registry's `contacts` field (partner facts come only from the
+              registry) — the tab holds no partner name literally, so this
+              renders nothing for a workspace that declares no contacts and
+              needs no change when the next partner workspace is added. The
+              Relationship Builder link below stays the contact surface of
+              record for anything beyond this short roster note. */}
+          {ws.contacts.length > 0 && (
+            <div className={`${PANEL} p-4`}>
+              <h3 className="text-sm font-semibold text-slate-100">Contacts</h3>
+              <div className="mt-2 space-y-1.5">
+                {ws.contacts.map((c) => (
+                  <p key={c.name} className="text-xs text-slate-300">
+                    <span className="text-slate-100">{c.name}</span>
+                    {c.role ? <> — {c.role}</> : null}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
           <AreaLinks ws={ws} area="overview" personaId={personaId} isAdmin={isAdmin} />
         </div>
       )}
@@ -1352,7 +1417,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               registry declares reference agents — the route returns an empty
               list otherwise, so the research entrance shares this component
               without inheriting a venture-only panel. */}
-          <EvidenceChainPanel workspaceId={ws.id} personaId={personaId} />
+          <EvidenceChainPanel
+            workspaceId={ws.id}
+            personaId={personaId}
+            differentiatorStatement={ws.differentiatorStatement}
+          />
           <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} />
         </div>
       )}

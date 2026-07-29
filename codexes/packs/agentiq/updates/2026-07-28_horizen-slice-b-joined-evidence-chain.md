@@ -205,6 +205,14 @@ From one integrated HEAD: **176 files / 2754 tests, all green** (was 175 / 2724 
    cross-network read — but if Horizen answers "mainnet", the registry entry is the one line to
    change.
 
+   **RESOLVED 2026-07-29 (partner ruling, John Camardo, CTO):** the divergence in the brief's PnL
+   worked example above was **sample ambiguity, not confirmed intended behavior**. ERC-8004 identity
+   on this pilot is primarily Base-native — Base Sepolia is the test environment, Base Mainnet is
+   production. The three fields (`registryProfileNetwork`, `erc8004IdentityChain`, `proofChain`)
+   stay separate exactly as this item's own caution recommended; the pilot does not require a
+   cross-network identity architecture. See
+   `codexes/packs/agentiq/updates/2026-07-29_horizen-partner-rulings-base-network-and-interfaces.md`.
+
 4. **`evaluateNewActionAuthority` is not projected.** The ownership-freshness gate answers "may this
    binding carry a NEW action", which is Slice E/G's question, not "is this past evidence
    attributable". Deliberately out of scope; the chain would read as broken if a late poll turned

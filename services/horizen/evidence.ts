@@ -34,12 +34,30 @@
  *
  * `registryProfileNetwork`, `erc8004IdentityChain` and `proofChain` are THREE
  * SEPARATE FIELDS (ruling §2), because the brief's own PnL example shows a
- * Mainnet registry profile alongside `erc8004Chain: "base-sepolia"` and it is
- * not yet established which is authoritative. Collapsing them would bake in an
- * assumption the operator explicitly refused to make: "Do not infer that they
- * are equal. Do not merge two records solely because their token IDs or names
- * look related."
+ * Mainnet registry profile alongside `erc8004Chain: "base-sepolia"`. Collapsing
+ * them would bake in an assumption the operator explicitly refused to make:
+ * "Do not infer that they are equal. Do not merge two records solely because
+ * their token IDs or names look related."
  *
+ * ── RULING, PARTNER CONTACT JOHN CAMARDO (CTO), 2026-07-29 ─────────────────
+ *
+ * The Mainnet/Sepolia discrepancy in the brief's own PnL example above was
+ * **sample ambiguity in the brief's worked example — not confirmed intended
+ * behavior.** The ruling: ERC-8004 identity on this pilot is **primarily
+ * Base-native**. Base Sepolia is the test environment; Base Mainnet is the
+ * production environment. There is no special cross-network ERC-8004 identity
+ * architecture to infer or build from that one example.
+ *
+ * This does NOT change anything above: the three fields stay separate,
+ * defensively, exactly as ruling §2 required — the operator's caution about
+ * not merging identity spaces was correct discipline regardless of why the
+ * example diverged, and nothing here proves the fields will always agree in
+ * every future case. What the ruling closes is narrower: do not read that one
+ * discrepancy as evidence the pilot requires cross-network identity
+ * resolution. It does not, today. See `codexes/packs/agentiq/updates/
+ * 2026-07-29_horizen-partner-rulings-base-network-and-interfaces.md`.
+ *
+
  * ── WHY THE CARD IS A COMMITMENT, NOT A COPY ───────────────────────────────
  *
  * The Agent Card is third-party, user-authored JSON of unbounded size
@@ -142,7 +160,12 @@ export interface HorizenEvidenceRecord {
   partner: string;
   pilotId: string;
 
-  // ── Identity, unflattened (ruling §2) ──
+  // ── Identity, unflattened (ruling §2). Kept as three separate fields
+  // defensively — per John Camardo's 2026-07-29 ruling, ERC-8004 identity on
+  // this pilot is primarily Base-native (Sepolia=test, Mainnet=production);
+  // the earlier divergence between these fields in the brief's PnL example was
+  // sample ambiguity, not confirmed intended behavior, and is not treated as a
+  // requirement for cross-network identity architecture. ──
   /** The network whose Registry profile was actually read. */
   registryProfileNetwork: string;
   /** The chain the ERC-8004 identity is claimed on. May differ — do not merge. */
@@ -272,9 +295,12 @@ export function buildHorizenEvidence(
     pilotId: HORIZEN_PARTNERSHIP.pilotId,
 
     registryProfileNetwork: record.identity.network,
-    // Until Horizen answers which field is authoritative (ruling §2), the PnL
-    // service's own claim wins for the IDENTITY chain when it exists, and the
-    // divergence is already recorded in correlationNotes rather than resolved.
+    // The PnL service's own claim wins for the IDENTITY chain when it exists,
+    // and any divergence from registryProfileNetwork is recorded in
+    // correlationNotes rather than silently resolved. Per the 2026-07-29
+    // partner ruling this is Base-native, not a cross-network merge — the
+    // fields stay separate and any disagreement is surfaced, never inferred
+    // away.
     erc8004IdentityChain: record.pnl.present && record.pnl.value.erc8004Chain
       ? record.pnl.value.erc8004Chain
       : record.identity.network,

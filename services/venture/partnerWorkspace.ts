@@ -147,8 +147,22 @@ export interface PartnerWorkspace {
   partnershipContext: 'agentiq-metame';
   /** The ratified agent division of labour; null = no real owner id exists. */
   layerOwners: Record<PartnerWorkspaceLayer, PartnerLayerOwnerId | null>;
-  /** Partner contacts — omitted until verified contact data has a real home. */
+  /**
+   * Partner contacts — omitted until verified contact data has a real home.
+   * Populated once the operator supplies verified names/roles (as for Horizen,
+   * 2026-07-28/29 — kept as fluid prose per contact, deliberately NOT a formal
+   * escalation matrix). The tab renders this array generically; it holds no
+   * partner name literally, so instantiating the next partner workspace needs
+   * no tab change.
+   */
   contacts?: { name: string; role?: string }[];
+  /**
+   * A short, partner-specific sentence naming what this pilot demonstrates —
+   * e.g. the Horizen differentiator: "Horizen proves the PnL. metaMe proves
+   * who authorized the agent...". Rendered verbatim on the Evidence surface
+   * when present; absent workspaces render no such line (never invented).
+   */
+  differentiatorStatement?: string;
   /**
    * Partner-side agent identities whose evidence chain this workspace surfaces.
    * Absent (not empty) for a workspace that ingests no external agent evidence
@@ -176,6 +190,19 @@ export const PARTNER_WORKSPACES: PartnerWorkspace[] = [
       'Exercise Horizen as the agent registry / discovery provider behind the provider-agnostic adapter seam (primitives invariant, providers replaceable)',
       'Anchor pilot evidence as DVN receipts (anchor of record), with x409 as the swappable acceptance-proof provider',
     ],
+    // Operator-verified, 2026-07-28/29. Same two names as
+    // `services/horizen/evidence.ts`'s `HORIZEN_PARTNERSHIP.contacts` (that
+    // structure backs evidence-record attribution; this one backs the
+    // workspace roster) — kept as fluid prose per the operator's instruction,
+    // deliberately not a formal escalation matrix.
+    contacts: [
+      { name: 'John Camardo', role: 'CTO — primary technical contact' },
+      { name: 'Luca Cermelli', role: 'Operations Lead — first operational contact' },
+    ],
+    // Verbatim, per the partner rulings recorded 2026-07-29 — the sentence to
+    // lead with when demonstrating the pilot to Horizen.
+    differentiatorStatement:
+      'Horizen proves the PnL. metaMe proves who authorized the agent, under what delegation, and records the consequential action through DVN receipts.',
     layerOwners: {
       // Workspace owner + orchestrator — Chief of Staff.
       operations: 'aigent-z',
@@ -192,7 +219,12 @@ export const PARTNER_WORKSPACES: PartnerWorkspace[] = [
     // Brief §3 ("Representative Agent Package") as transcribed in
     // services/horizen/correlate.ts §3.1 and exercised end-to-end against the
     // live services in tests/horizen-integration.test.ts: registry alias
-    // `0x1eba` == tokenId 7866 on Base Sepolia. RECORDED here rather than
+    // `0x1eba` == tokenId 7866 on Base Sepolia — the pilot's TEST environment
+    // (Base Mainnet is production) per the partner ruling recorded 2026-07-29
+    // (John Camardo, CTO): ERC-8004 identity on this pilot is primarily
+    // Base-native, and the earlier Mainnet/Sepolia divergence noted in the
+    // brief's own PnL worked example was sample ambiguity, not a signal that
+    // this reference agent's network is unsettled. RECORDED here rather than
     // inferred at read time — a second agent is one more entry, never a
     // second list (inv.engineering.036).
     referenceAgents: [
