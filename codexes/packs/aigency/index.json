@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-07-18T01:13:18.435Z",
+  "last_updated": "2026-07-29T22:57:06.552Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a10f5fd83550411a56b4aae37b23b0b406df87a8",
-  "latest_commit_short": "a10f5fd",
-  "latest_commit_title": "add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science",
+  "latest_commit": "065fecd09985d1239bd4998bbcbcbee20b5c9277",
+  "latest_commit_short": "065fecd",
+  "latest_commit_title": "add canonical metaMe and iQube brand source assets",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "065fecd",
+      "full_sha": "065fecd09985d1239bd4998bbcbcbee20b5c9277",
+      "title": "add canonical metaMe and iQube brand source assets",
+      "author": "Kn0w-1",
+      "timestamp": "2026-07-29T18:42:52-04:00",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-065fecd.md"
+    },
     {
       "sha": "a10f5fd",
       "full_sha": "a10f5fd83550411a56b4aae37b23b0b406df87a8",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T10:16:37Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c39b577.md"
-    },
-    {
-      "sha": "d9d63b0",
-      "full_sha": "d9d63b031de4c984b3da10981a6a5afbb167399b",
-      "title": "Reframe EXP-004 as graded sovereignty-scale measurement + fix experiment_results EXP-004 constraint (operator correction)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T07:37:27Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d9d63b0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
