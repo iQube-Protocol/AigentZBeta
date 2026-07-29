@@ -1185,6 +1185,80 @@ describe('AC-20 the compatibility probe is locked down', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// AC-21 — RULING 1. The deployment check is WIRED, and the deploy fails on
+//         incompatibility. An exported-and-unused check is not a gate.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-21 the compatibility check gates the deployment', () => {
+  const buildSpec = () => readFileSync(join(process.cwd(), 'amplify.yml'), 'utf8');
+  const gateScript = join(process.cwd(), 'scripts', 'check-venture-receipt-constraint.ts');
+  const script = () => readFileSync(gateScript, 'utf8');
+
+  it('the build spec RUNS the gate', () => {
+    // The defect this replaces: the check existed, was exported, and nothing
+    // called it. Removing the step from the build spec must fail the suite.
+    expect(buildSpec(), 'the venture receipt gate is not in the Amplify build spec').toContain(
+      'npx tsx scripts/check-venture-receipt-constraint.ts',
+    );
+  });
+
+  it('runs BEFORE the application is built and promoted', () => {
+    const spec = buildSpec();
+    const gateAt = spec.indexOf('scripts/check-venture-receipt-constraint.ts');
+    const buildAt = spec.indexOf('npm run build');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(buildAt).toBeGreaterThan(-1);
+    expect(gateAt, 'the gate must precede the build it gates').toBeLessThan(buildAt);
+    // And AFTER the env file that carries the service-role key, or the probe
+    // it depends on is unreachable and every deploy fails for the wrong reason.
+    const envAt = spec.indexOf('node scripts/create-env-production.js');
+    expect(envAt).toBeGreaterThan(-1);
+    expect(envAt).toBeLessThan(gateAt);
+  });
+
+  it('the gate script calls the shared check rather than reimplementing it', () => {
+    expect(script()).toContain('ventureReceiptDeploymentCheck');
+    expect(script()).toContain('@/services/venture/trading/receiptCompatibility');
+    // No parallel decision logic: the compatibility verdict is not recomputed
+    // here from a constraint definition or an action-type list.
+    expect(script()).not.toContain('pg_get_constraintdef');
+    expect(script()).not.toContain('VENTURE_RECEIPT_ACTION_TYPES');
+  });
+
+  it('EXITS NON-ZERO on incompatibility, and on its own failure', () => {
+    const src = script();
+    // Three refusal paths, all of them exit 1: missing service-role key,
+    // an incompatible verdict, and an unexpected throw.
+    expect([...src.matchAll(/process\.exit\(1\)/g)].length).toBeGreaterThanOrEqual(3);
+    expect(src).toMatch(/if\s*\(!compatibility\.compatible\)/);
+    expect(src).toMatch(/main\(\)\.catch\(/);
+    // No success exit anywhere — falling off the end of a resolved main() is
+    // the only way to exit 0, so no refusal path can accidentally reach it.
+    expect(src).not.toMatch(/process\.exit\(0\)/);
+  });
+
+  it('has no escape hatch — a gate that can be skipped is a gate that gets skipped', () => {
+    // Comments stripped: the prose explains why there is no hatch, and must not
+    // be mistaken for one.
+    const code = stripComments(script()).toLowerCase();
+    for (const hatch of ['skip', 'bypass', 'override', 'allow_incompatible', 'force']) {
+      expect(code, `the deployment gate offers an escape hatch: ${hatch}`).not.toContain(hatch);
+    }
+    // The only env var the gate reads is the credential it needs to ask.
+    const envReads = [...stripComments(script()).matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((m) => m[1]);
+    expect(envReads).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
+  });
+
+  it('the emission backstop is still wired — the deploy gate did not replace it', () => {
+    // Two layers, different frequencies. Removing the runtime guard because
+    // "the deploy checks it" would leave a running deployment unprotected
+    // against a schema that changed under it.
+    const receipts = stripComments(readFileSync(join(TRADING_DIR, 'receipts.ts'), 'utf8'));
+    expect([...receipts.matchAll(/assertVentureReceiptConstraintCompatible\(/g)].length).toBe(2);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // AC-17 — RULING 4. The ORDERING is pinned, not the magnitude; and weight 3
 //         is provisional, experiment-scoped, and not a Standing constant.
 // ───────────────────────────────────────────────────────────────────────────

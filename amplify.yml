@@ -60,6 +60,34 @@ frontend:
         # Hard fail if PayPal creds missing
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
+        # CONSTITUTIONAL GATE — VL-CT-001 venture receipt vocabulary (RULING 1,
+        # 2026-07-29). Runs AFTER the migrations the operator applies to
+        # Supabase and BEFORE this artifact is promoted, and exits non-zero on
+        # any incompatibility.
+        #
+        # WHAT IT PREVENTS. The nine venture action types are declared twice —
+        # the TypeScript union and the activity_receipts CHECK constraint. A
+        # build carrying them against a database without the migration
+        # typechecks, passes every canary, and deploys green; the breakage
+        # surfaces later as a check violation inside a receipt write that
+        # several call sites wrap in an empty catch, so the row AND its DVN
+        # anchor are lost with no log. Promoting an artifact that cannot write
+        # its own receipts IS the failure.
+        #
+        # FAILS CLOSED, with no bypass flag: probe missing, probe revoked (it is
+        # service_role-only since 20260929000200), credentials absent, network
+        # unreachable, constraint absent or short — all exit 1. The runtime
+        # emission guard stays in place as defence in depth, memoised per
+        # process, so it is NOT a per-request or cold-start database probe.
+        #
+        # Placed after create-env-production.js because it needs
+        # SUPABASE_SERVICE_ROLE_KEY, and ahead of the Next compile so a refusal costs
+        # seconds rather than a full build. See CLAUDE.md → "DVN
+        # Pipeline Protection" and
+        # codexes/packs/agentiq/updates/2026-07-29_vl-ct-001-deployment-gate-and-probe-lockdown.md.
+        - echo "=== VL-CT-001 venture receipt constraint gate ==="
+        - npx tsx scripts/check-venture-receipt-constraint.ts
+
         - echo ".env.production created. Building Next.js..."
         # Next 15 build memory. Empirically on the CURRENT (small) Amplify build
         # instance no single heap value works — the instance itself is the limit:
