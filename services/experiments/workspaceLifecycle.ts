@@ -56,7 +56,7 @@ export type WorkspaceType = (typeof WORKSPACE_TYPES)[number];
  * one every research workspace ships in: reachable by an invited, scoped
  * member, and by nobody else. `public` is NEVER a default — SPEC §11: "Nothing
  * becomes public by default", and reaching it requires an explicit publication
- * act (`PUBLICATION_REQUIRES_EXPLICIT_ACT` below).
+ * act, which nothing in this module performs.
  */
 export const WORKSPACE_VISIBILITIES = ['private', 'invited', 'public'] as const;
 export type WorkspaceVisibilityPosture = (typeof WORKSPACE_VISIBILITIES)[number];
