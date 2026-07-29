@@ -121,12 +121,18 @@ async function deployQCTRunes() {
   // codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md
   if (process.env.BITCENT_ISSUANCE_CONSTITUTION_RATIFIED !== 'yes') {
     console.error(
-      'Refusing to etch: the BitCent issuance constitution is not ratified.\n' +
-      'R-10 is open on the premine amount. Base Q\u00a2 already holds 400,000,000\n' +
-      'against its own 1,000,000,000 cap; B\u00a2 has an INDEPENDENT 1,000,000,000\n' +
-      'cap and its premine must follow a ratified allocation plan, not a script\n' +
-      'that happens to exist. See the supply constitution for the ten items that\n' +
-      'must be frozen and hashed before any broadcast.',
+      'Refusing to etch: the B\u00a2 ALLOCATION CONSTITUTION is incomplete.\n' +
+      '\n' +
+      'The intended initial issuance IS decided: 100,000,000 B\u00a2, approved in\n' +
+      'principle, against B\u00a2\u2019s own INDEPENDENT 1,000,000,000 maximum. What is\n' +
+      'missing is how that 100,000,000 is allocated \u2014 liquidity and market-making,\n' +
+      'service-economy reserves, operational settlement, ecosystem participation,\n' +
+      'treasury, future distribution \u2014 plus mint terms, custody and reconciliation.\n' +
+      '\n' +
+      'NOTE: the 400,000,000 premine still configured in THIS script is SUPERSEDED.\n' +
+      'Do not etch it. The authoritative script is generated from the ratified\n' +
+      'issuance record. See the supply constitution for the ten items that must be\n' +
+      'frozen and hashed before any broadcast.',
     );
     process.exitCode = 1;
     return;

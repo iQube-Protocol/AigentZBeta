@@ -53,11 +53,12 @@ canonical denomination has its own issuance network and its own 1,000,000,000 ma
 | Denomination | Network | Max | Issued |
 |---|---|---:|---:|
 | Base Q¢ | Base 8453 | 1,000,000,000 | 400,000,000 |
-| BitCent / B¢ | Bitcoin | 1,000,000,000 | premine TBR |
+| BitCent / B¢ | Bitcoin | 1,000,000,000 | 100,000,000 intended |
 
-The two supplies are **independent**. B¢'s premine is NOT a share of Base Q¢'s 400M and need not
-equal it — copying that figure would be historical symmetry, not economic reasoning. "1 billion" is
-**per denomination**, never protocol-wide. Full record:
+The two supplies are **independent**. B¢'s issuance is NOT a share of Base Q¢'s 400M. The
+1,000,000,000 maximum is assigned to **these two denominations specifically** — it is not a default
+or an entitlement for future denominations, which may be governed at any appropriate maximum. It is
+never a protocol-wide cap. Full record:
 `codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md`.
 
 **Not the VL-CT-001 instrument.** BitCent is Bitcoin-native. The VL-CT-001 constitutional-trading
@@ -76,7 +77,7 @@ architecture. BitCent belongs to a later cross-network or Bitcoin-native experim
 | **Symbol** | B¢ |
 | **Decimals** | 8 (matches Bitcoin) |
 | **Total Supply** | 1,000,000,000 B¢ — B¢'s OWN cap, independent of Base Q¢'s |
-| **Premine** | ⚠️ **NOT RATIFIED** — R-10 open. 400,000,000 below is a *proposal*, competing with `deploy-qct-bitcoin.js`'s 100,000,000. Current recommendation: 100,000,000, pending an allocation plan. |
+| **Premine** | **100,000,000 B¢ intended** — approved in principle. ⚠️ The **400,000,000 shown elsewhere in this file is SUPERSEDED**; do not etch it. Etching blocked pending the allocation plan and final issuance ratification. |
 | **Public Mints** | 21,000 mints |
 | **Amount per Mint** | 47,619 B¢ |
 | **Turbo** | Enabled (immediate minting) |

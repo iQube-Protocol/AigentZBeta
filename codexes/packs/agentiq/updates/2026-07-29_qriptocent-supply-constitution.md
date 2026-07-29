@@ -1,6 +1,7 @@
 # QriptoCENT Supply Constitution
 
-**Status:** ratified 2026-07-29 (supply architecture) · **R-10 OPEN** on the B¢ premine amount
+**Status:** ratified 2026-07-29 (supply architecture + B¢ initial issuance approved in principle)
+**R-10 OPEN:** the B¢ **allocation plan** and final etching constitution — not the amount
 **Supersedes:** every description of "1 billion" as a protocol-wide QriptoCENT cap
 
 ---
@@ -8,9 +9,15 @@
 ## The governing rule
 
 > **QriptoCENT has no fixed class-wide maximum supply.** Each canonical denomination has its own
-> disclosed issuance domain, maximum supply, minting authority, backing policy and circulation
-> record. New denominations, or increases to a denomination's cap, require an explicit governed
-> issuance act.
+> **expressly governed** maximum supply, alongside its own issuance network, initial issuance,
+> backing model and circulation record. New denominations, or increases to a denomination's cap,
+> require an explicit governed issuance act.
+>
+> **Base Q¢ and BitCent/B¢ are presently assigned maximum supplies of 1,000,000,000 each. That
+> figure applies to these two denominations. It is not an automatic entitlement, a default, or a
+> constitutional rule for future denominations** — a later denomination may be governed at 50
+> million, 100 million, 500 million, 1 billion or another maximum appropriate to its demand and
+> backing model.
 
 The distinction that makes this work:
 
@@ -31,7 +38,14 @@ cap**.
 | Denomination | Canonical issuance network | Maximum supply | Initial issuance |
 |---|---|---:|---:|
 | **Base Q¢** | Base (8453) | 1,000,000,000 | **400,000,000 — minted** |
-| **BitCent / B¢** | Bitcoin (Runes) | 1,000,000,000 | **100,000,000 — PROPOSED, not ratified** |
+| **BitCent / B¢** | Bitcoin (Runes) | 1,000,000,000 | **100,000,000 — intended, approved in principle** |
+
+```text
+B¢ initial issuance:
+  100,000,000 intended
+  Status: approved in principle; etching blocked pending allocation plan
+          and final issuance ratification
+```
 
 ```text
 Aggregate maximum CAPACITY:            2,000,000,000 class units
@@ -41,9 +55,13 @@ Unissued capacity:                     1,500,000,000
    └── B¢        900,000,000
 ```
 
-**Capacity is not issuance.** Two billion is the ceiling the two denominations could reach, not what
-exists. Any statement of the form "QriptoCENT has 2 billion units" is false and must be corrected on
-sight.
+**Capacity is not issuance, and it is not a class cap.** Two billion is the aggregate maximum
+capacity of the **first two** denominations — not current issuance, and *not* a 2-billion cap on the
+QriptoCENT class. Both of these are false and must be corrected on sight:
+
+- "QriptoCENT has 2 billion units" — confuses capacity with issuance.
+- "QriptoCENT is capped at 2 billion" — the class has **no** aggregate cap; 2 billion is simply what
+  these two denominations currently sum to.
 
 ### Base Q¢ — the live record
 
@@ -133,17 +151,20 @@ stable-value class, connected through interoperability, conversion and arbitrage
 
 ## BitCent — what remains before an etch
 
-**R-10 is open on the premine amount only.** The supply architecture above is settled: B¢ may have
-an independent 1,000,000,000 maximum as a distinct Bitcoin denomination.
+**The intended initial issuance is 100,000,000 B¢, approved in principle.** What remains unratified
+is not the amount — it is the **allocation plan and the final irreversible etching constitution**.
 
-> **Neither existing script is authoritative.** `deploy-qct-runes.*` (400M premine) and
-> `deploy-qct-bitcoin.js` (100M premine) are competing proposals, not candidates. The authoritative
-> script is generated *after* the BitCent issuance constitution is approved.
+> **The 400,000,000 proposal is SUPERSEDED.** `deploy-qct-runes.*` still carries it and is obsolete
+> on that point; it is not an equally live alternative to 100,000,000. The authoritative script is
+> generated from the ratified issuance record, not selected from the scripts that happen to exist.
 
-There is no technical reason for B¢'s premine to equal Base Q¢'s 400,000,000. Copying it would be
-historical symmetry, not economic reasoning. The proposed 100,000,000 must first become a ratified
-allocation plan naming what it is for — liquidity provision, service-economy reserves, ecosystem
-incentives, treasury, market-making, operational settlement, future distribution.
+There was never a technical reason for B¢'s premine to equal Base Q¢'s 400,000,000 — that would have
+been historical symmetry, not economic reasoning.
+
+The remaining decision is how the 100,000,000 is **allocated** among purposes: liquidity and
+market-making; service-economy reserves; operational settlement; ecosystem participation; treasury;
+future distribution. **That plan can redistribute the 100,000,000 without reopening the selected
+initial issuance amount.**
 
 ### Pre-etch freeze list — all ten, frozen and hashed, before any broadcast
 
@@ -167,8 +188,10 @@ premine are all immutable at etch; there is no second attempt.
 
 Anything stating or implying a protocol-wide 1B QriptoCENT cap. The accurate statement is:
 
-> **1 billion maximum per canonical QriptoCENT denomination**, with class-level aggregate supply
-> equal to the sum of those separately disclosed denominations.
+> Each canonical QriptoCENT denomination has its own **expressly governed** maximum supply.
+> **Base Q¢ and BitCent/B¢ are each presently governed at 1,000,000,000** — a figure specific to
+> them, not a default for future denominations. Class-level aggregate supply is the sum of the
+> separately disclosed denominations, and the class itself has no cap.
 
 Known offenders include the ops surface (`app/api/qct/trading/route.ts`), which reports a hardcoded
 400M spread across seven chains — contradicted by Base alone holding 400M. Those figures are

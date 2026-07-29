@@ -367,6 +367,11 @@ describe('relations scaffold', () => {
 
 describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
   const read = (p: string) => readFileSync(join(REPO, p), 'utf-8');
+  // Prose canaries match against whitespace-collapsed text: a markdown
+  // rewrap is not a semantic change, and a canary that fires on line
+  // breaks gets loosened rather than heeded.
+  const flat = (p: string) =>
+    read(p).replace(/[*>`]/g, '').replace(/\s+/g, ' ');
 
   it('both etching scripts refuse to run until the issuance constitution is ratified', () => {
     // A Rune's name, divisibility, cap and premine are ALL immutable at etch.
@@ -374,17 +379,27 @@ describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
       const src = read(p);
       expect(src, `${p} must gate the etch`).toMatch(/BITCENT_ISSUANCE_CONSTITUTION_RATIFIED/);
       expect(src, `${p} must refuse, not warn`).toMatch(/process\.exitCode = 1/);
+      // The refusal must say the ALLOCATION is incomplete — not that the amount
+      // is unknown. 100M is decided; presenting it as open would reopen a
+      // settled decision every time someone reads the error.
+      expect(src, `${p} must name the allocation as the blocker`).toMatch(/ALLOCATION CONSTITUTION is incomplete/);
+      expect(src, `${p} must state the intended amount`).toMatch(/100,000,000/);
+      expect(src, `${p} must mark 400M superseded`).toMatch(/SUPERSEDED/);
     }
     // The divergent script keeps its own separate guard.
     expect(read('scripts/deploy-qct-bitcoin.js')).toMatch(/ACKNOWLEDGE_DIVERGENT_TOKENOMICS/);
   });
 
   it('the deployment guide states the cap is PER DENOMINATION, not protocol-wide', () => {
-    const guide = read('scripts/QCT_RUNES_DEPLOYMENT.md');
-    expect(guide).toMatch(/per denomination/i);
+    const guide = flat('scripts/QCT_RUNES_DEPLOYMENT.md');
+    expect(guide).toMatch(/never a protocol-wide cap/i);
     expect(guide).toMatch(/independent/i);
-    // The premine must not read as settled while R-10 is open.
-    expect(guide).toMatch(/NOT RATIFIED/);
+    // The 1B must be attributed to the two named denominations, never presented
+    // as a default every future denomination inherits.
+    expect(guide).toMatch(/not a default|not an entitlement/i);
+    // The intended amount IS decided (100M); what is open is the allocation.
+    expect(guide).toMatch(/100,000,000.*intended/);
+    expect(guide).toMatch(/SUPERSEDED/);
   });
 
   it('records Base Q¢ as already holding its 400M against its OWN cap', () => {
@@ -395,9 +410,26 @@ describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
     expect(doc).toMatch(/Capacity is not issuance/);
   });
 
-  it('never asserts a class-wide cap', () => {
-    const doc = read('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
+  it('never asserts a class-wide cap, including the 2B reading', () => {
+    const doc = flat('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
     expect(doc).toMatch(/no fixed class-wide maximum supply/i);
-    expect(doc).toMatch(/per denomination\s+≠\s+per chain/);
+    expect(doc).toMatch(/per denomination ≠ per chain/);
+    // Both false readings of "2 billion" are named and refuted.
+    expect(doc).toMatch(/not a 2-billion cap on the QriptoCENT class/);
+  });
+
+  it('scopes the 1B to the two named denominations, not to all future ones', () => {
+    const doc = flat('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
+    expect(doc).toMatch(/not an automatic entitlement, a default, or a constitutional rule for future denominations/);
+    // A future denomination may be governed at another maximum entirely.
+    expect(doc).toMatch(/50 million, 100 million, 500 million, 1 billion/);
+  });
+
+  it('records 100M B¢ as decided, with the ALLOCATION as what is open', () => {
+    const doc = flat('codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md');
+    expect(doc).toMatch(/approved in principle/);
+    expect(doc).toMatch(/is not the amount/);
+    // And the 400M proposal is retired, not held open as an alternative.
+    expect(doc).toMatch(/400,000,000 proposal is SUPERSEDED/);
   });
 });
