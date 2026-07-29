@@ -89,11 +89,39 @@ The MetaQube slug is a commitment (`sha256('iqube:persona:<scope>')[0:16]`), nev
 ## Migration — run before using the surface
 
 ```sql
-ALTER TABLE public."iqube_mint_stubs"
-  ADD COLUMN IF NOT EXISTS meta_qube_id       uuid,
-  ADD COLUMN IF NOT EXISTS blak_qube_id       uuid,
-  ADD COLUMN IF NOT EXISTS token_qube_id      uuid,
-  ADD COLUMN IF NOT EXISTS blakqube_auth_tag  bytea;
+DO $$
+BEGIN
+  -- 1. Trinity refs + the missing GCM auth tag.
+  ALTER TABLE public."iqube_mint_stubs"
+    ADD COLUMN IF NOT EXISTS meta_qube_id       uuid,
+    ADD COLUMN IF NOT EXISTS blak_qube_id       uuid,
+    ADD COLUMN IF NOT EXISTS token_qube_id      uuid,
+    ADD COLUMN IF NOT EXISTS blakqube_auth_tag  bytea;
+
+  -- 2. Collapse the stub history to one row per (user, iqube_type). Ranking
+  --    keeps the row furthest along — an Auto Drive CID means its payload was
+  --    actually stored — then the newest. Tolerates ties in created_at, which a
+  --    pairwise self-join comparison does not.
+  WITH ranked AS (
+    SELECT id,
+           ROW_NUMBER() OVER (
+             PARTITION BY user_id, iqube_type
+             ORDER BY (autonomys_cid IS NOT NULL) DESC,
+                      created_at DESC NULLS LAST,
+                      id DESC
+           ) AS rn
+      FROM public."iqube_mint_stubs"
+  )
+  DELETE FROM public."iqube_mint_stubs" s
+    USING ranked r
+   WHERE s.id = r.id
+     AND r.rn > 1;
+
+  -- 3. One trinity per subject. This is what makes staging idempotent — the
+  --    upsert in stagePersonaIQube() targets exactly this conflict.
+  CREATE UNIQUE INDEX IF NOT EXISTS iqube_mint_stubs_user_type_uniq
+    ON public."iqube_mint_stubs" (user_id, iqube_type);
+END $$;
 
 COMMENT ON COLUMN public."iqube_mint_stubs".meta_qube_id IS
   'iq_meta_qubes.id — the registry MetaQube for this persona; used as metaIdentifier when minting on-chain';
@@ -103,30 +131,14 @@ COMMENT ON COLUMN public."iqube_mint_stubs".token_qube_id IS
   'iq_token_qubes.id — wrapped key row that receives the chain anchor after mintQube()';
 COMMENT ON COLUMN public."iqube_mint_stubs".blakqube_auth_tag IS
   'AES-256-GCM auth tag for blakqube_ciphertext; without it the payload cannot be decrypted';
-
-WITH ranked AS (
-  SELECT id,
-         ROW_NUMBER() OVER (
-           PARTITION BY user_id, iqube_type
-           ORDER BY (autonomys_cid IS NOT NULL) DESC,
-                    created_at DESC NULLS LAST,
-                    id DESC
-         ) AS rn
-    FROM public."iqube_mint_stubs"
-)
-DELETE FROM public."iqube_mint_stubs" s
-  USING ranked r
- WHERE s.id = r.id
-   AND r.rn > 1;
-
-CREATE UNIQUE INDEX IF NOT EXISTS iqube_mint_stubs_user_type_uniq
-  ON public."iqube_mint_stubs" (user_id, iqube_type);
 ```
 
-The unique index is what makes staging idempotent; the `WITH ranked` block collapses the
-pre-existing stub history (one row per stage) to one row per subject first. It orders on
-`autonomys_cid` — a pre-existing column — deliberately, so the block is correct whether the file is
-run whole or statement-by-statement in the SQL editor.
+It is deliberately a **single `DO` block**. The unique index cannot be created while duplicate
+`(user_id, iqube_type)` rows exist — and every prior stage wrote a fresh row, so they do. Splitting
+the dedupe and the index into separate statements meant a partial run in the SQL editor produced
+either `23505 could not create unique index` (index without the dedupe) or `42703 column
+"meta_qube_id" does not exist` (dedupe ordering on a column the ALTER had not yet added). One
+statement makes partial execution impossible, and the block is idempotent — safe to re-run.
 
 File: `supabase/migrations/20260729000000_iqube_mint_stubs_trinity_refs.sql`
 
