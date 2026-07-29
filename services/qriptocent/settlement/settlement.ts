@@ -78,9 +78,22 @@ import {
 } from './liquidity';
 import { containsRawIdentifier } from './refs';
 import {
+  attributedFees,
+  classificationRefusal,
+  deliveredPrincipal,
+  feesBorneSeparately,
+  feesDeductedFromPrincipal,
+  settlementValueBreakdown,
+  shortfallResponsesFor,
+  totalOrdinaryFees,
+} from './classification';
+import {
   DENOMINATION_HOME_NETWORK,
   PROTOCOL_SETTLEMENT_RATE,
+  type AcceleratedService,
   type CrossDenominationSettlement,
+  type ExternalVenueExecution,
+  type MarketObservation,
   type NativeLedger,
   type QriptoDenomination,
   type SettlementException,
@@ -101,13 +114,23 @@ function minor(value: string): bigint {
   return BigInt(value);
 }
 
-/** The sum of every DISCLOSED fee. The only place a fee may come from. */
+/**
+ * The sum of every DISCLOSED fee — ordinary and attributed, whoever bears it.
+ * The only place a fee may come from.
+ *
+ * It is deliberately NOT the figure the ledger arithmetic uses. Since the
+ * operator's ruling there are two presentation forms, and they move different
+ * ledgers: a fee borne separately increases the SOURCE debit, while a fee
+ * deducted from the principal reduces the DESTINATION credit. Adding both into
+ * one total and using it in both places would double-charge the payer for a
+ * deducted fee. `feesBorneSeparately` and `feesDeductedFromPrincipal` (in
+ * `./classification.ts`) are the two figures the ledgers read; this one is what
+ * the payer was told in total.
+ */
 export function totalDisclosedFees(fees: SettlementFeeBreakdown): bigint {
   return (
-    minor(fees.networkFee ?? '0') +
-    minor(fees.serviceFee ?? '0') +
-    minor(fees.liquidityFee ?? '0') +
-    minor(fees.reconciliationFee ?? '0')
+    totalOrdinaryFees(fees) +
+    attributedFees(fees).reduce((acc, f) => acc + minor(f.amountMinorUnits), 0n)
   );
 }
 
@@ -255,6 +278,12 @@ export interface SettlementInstruction {
   feeBreakdown: SettlementFeeBreakdown;
   initiatedAt: string;
   expiresAt: string;
+  /** What was accelerated, if anything. A timing fee is legitimate only here. */
+  acceleratedService?: AcceleratedService;
+  /** External conditions observed. Market FACTS — never charges, never fees. */
+  marketObservations?: MarketObservation[];
+  /** Present only when execution ran away from parity at an outside venue. */
+  externalExecution?: ExternalVenueExecution;
 }
 
 /**
@@ -320,6 +349,33 @@ export function initiateSettlement(
     return refuse('non-positive-amount', 'a settlement must move a positive amount');
   }
 
+  // ── THE CLASSIFICATION GATE (operator ruling, 2026-07-29) ────────────────
+  //
+  // Every misclassification is refused here, BEFORE any ledger effect: a market
+  // fact admitted into the fee breakdown, a retained margin recorded as a
+  // market fact, a timing fee with no accelerated service behind it, a fee
+  // quoted after the payer authorised, an off-parity venue execution the payer
+  // never accepted. The rules live in `./classification.ts` — one home for the
+  // ruling, read by this gate and by `reconcileBook` afterwards.
+  const misclassified = classificationRefusal({
+    amountMinorUnits: instruction.amountMinorUnits,
+    feeBreakdown: instruction.feeBreakdown,
+    initiatedAt: instruction.initiatedAt,
+    ...(instruction.acceleratedService ? { acceleratedService: instruction.acceleratedService } : {}),
+    ...(instruction.marketObservations ? { marketObservations: instruction.marketObservations } : {}),
+    ...(instruction.externalExecution ? { externalExecution: instruction.externalExecution } : {}),
+  });
+  if (misclassified) return refuse(misclassified.refusal, misclassified.detail);
+
+  // A deduction may never consume the whole principal: the beneficiary must
+  // receive something, or this is a fee collection dressed as a payment.
+  if (feesDeductedFromPrincipal(instruction.feeBreakdown) >= minor(instruction.amountMinorUnits)) {
+    return refuse(
+      'non-positive-amount',
+      'the fees borne out of the principal equal or exceed it — nothing would reach the beneficiary',
+    );
+  }
+
   const settlement: CrossDenominationSettlement = {
     settlementId: instruction.settlementId,
     sourceDenomination: instruction.sourceDenomination,
@@ -334,6 +390,9 @@ export function initiateSettlement(
     state: 'initiated',
     feeBreakdown: { ...instruction.feeBreakdown },
     receiptRefs: [],
+    ...(instruction.acceleratedService ? { acceleratedService: instruction.acceleratedService } : {}),
+    ...(instruction.marketObservations ? { marketObservations: [...instruction.marketObservations] } : {}),
+    ...(instruction.externalExecution ? { externalExecution: instruction.externalExecution } : {}),
     instructionRef: instruction.instructionRef,
     nonce: instruction.nonce,
     initiatedAt: instruction.initiatedAt,
@@ -353,6 +412,9 @@ export function initiateSettlement(
     summary: `Cross-denomination payment instruction accepted: ${settlement.sourceDenomination} → ${settlement.destinationDenomination} at ${PROTOCOL_SETTLEMENT_RATE}`,
     evidenceRefs: [settlement.instructionRef, settlement.delegationRef],
     amountMinorUnits: settlement.amountMinorUnits,
+    // The six categories, from the moment of authorisation — so what the payer
+    // was quoted is on the record before anything moved.
+    valueBreakdown: settlementValueBreakdown(settlement),
   });
   settlement.receiptRefs.push(receipt.receiptRef);
   return { ok: true, settlement };
@@ -380,7 +442,9 @@ export function verifyAuthorityAndBalance(
   if (s.state !== 'initiated') return refuse('wrong-state', `authority is verified from 'initiated', not '${s.state}'`);
 
   const source = ledgerOf(book, s.sourceDenomination);
-  const required = minor(s.amountMinorUnits) + totalDisclosedFees(s.feeBreakdown);
+  // Only fees borne SEPARATELY are money the payer must find on top of the
+  // principal. A fee borne out of the principal is already inside it.
+  const required = minor(s.amountMinorUnits) + feesBorneSeparately(s.feeBreakdown);
   const held = minor(source.balances[s.payerRef] ?? '0');
   if (held < required) {
     s.state = 'failed';
@@ -426,6 +490,12 @@ function authorityVerified(book: SettlementBook, s: CrossDenominationSettlement)
  * Fees leave the payer alongside the amount and land in `feesCollected`, held
  * SEPARATELY from settlement liquidity so a fee can never be mistaken for
  * backing.
+ *
+ * Only fees BORNE SEPARATELY are debited here — the preferred form, in which
+ * the recipient receives the full authorised principal. A fee borne out of the
+ * principal is not charged on this side at all: it is itemised on the
+ * destination credit, where the principal it comes out of is being delivered.
+ * Charging it here as well would take it from the payer twice.
  */
 export function initiateSourceDebit(
   book: SettlementBook,
@@ -443,7 +513,7 @@ export function initiateSourceDebit(
   }
 
   const source = ledgerOf(book, s.sourceDenomination);
-  const fees = totalDisclosedFees(s.feeBreakdown);
+  const fees = feesBorneSeparately(s.feeBreakdown);
   const amount = minor(s.amountMinorUnits);
   const debited = amount + fees;
   const held = minor(source.balances[s.payerRef] ?? '0');
@@ -466,9 +536,15 @@ export function initiateSourceDebit(
     at: input.at,
     settlementRef: settlementRefOf(s),
     network: s.sourceNetwork,
-    summary: `Source ledger debit initiated on ${s.sourceNetwork} (amount + disclosed fees)`,
+    summary: `Source ledger debit initiated on ${s.sourceNetwork} (principal + fees borne separately)`,
     evidenceRefs: [input.sourceDebitRef, s.payerRef],
     amountMinorUnits: debited.toString(),
+    // The debit's total is a BLENDED figure. It may be presented only alongside
+    // the six categories that explain it — principal, network fees, service
+    // fees, liquidity/finality fees, observed market deviation, and any
+    // externally authorised execution rate — so a reader can always take the
+    // total apart again.
+    valueBreakdown: settlementValueBreakdown(s),
   });
   s.receiptRefs.push(receipt.receiptRef);
   return { ok: true, settlement: s };
@@ -553,12 +629,21 @@ export function failSourceDebit(
   return { ok: true, settlement: s };
 }
 
-/** Return amount + fees from the source settlement pool to the payer. */
+/**
+ * Return the principal and the separately-borne fees from the source settlement
+ * pool to the payer.
+ *
+ * Fees borne OUT OF the principal are deliberately not returned here: they were
+ * never debited on this side, and they are only ever collected at the moment
+ * the destination credit delivers the principal they come out of. A reversal
+ * only ever runs on a settlement that never credited, so there is nothing of
+ * that kind to give back.
+ */
 function unwindSourceDebit(book: SettlementBook, s: CrossDenominationSettlement): void {
   if (s.sourceDebitedMinorUnits === undefined) return;
   const source = ledgerOf(book, s.sourceDenomination);
   const amount = minor(s.amountMinorUnits);
-  const fees = totalDisclosedFees(s.feeBreakdown);
+  const fees = feesBorneSeparately(s.feeBreakdown);
   source.settlementLiquidityMinorUnits = (
     minor(source.settlementLiquidityMinorUnits) - amount
   ).toString();
@@ -676,15 +761,30 @@ export function reserveDestinationLiquidity(
   });
   s.receiptRefs.push(book.journal.receipts[book.journal.receipts.length - 1].receiptRef);
 
+  // ── THE FOUR LEGITIMATE RESPONSES TO A SHORTFALL ──
+  //
+  // Where the canonical 1:1 route lacks destination liquidity the answer is to
+  // QUEUE, ROUTE to another approved source, REQUEST the payer's explicit
+  // acceptance of an external execution path, or REFUSE.
+  //
+  //   > It must never silently introduce slippage into the canonical settlement
+  //   > rate.
+  //
+  // Note what happens to `s.amountMinorUnits` on every branch below: nothing.
+  // The principal is not a lever this layer may pull, so the responses are
+  // NAMED on the exception rather than applied to the amount — the operator
+  // chooses one, and none of the four is a rate adjustment.
   if (!assessment.withinPolicy) {
-    const detail = assessment.reasons.join('; ');
+    const responses = shortfallResponsesFor(assessment.disposition);
+    const detail = `${assessment.reasons.join('; ')} — permitted responses: ${responses.join(', ')}; the 1:1 settlement rate is not among them`;
     s.state = valueHasLeftThePayer(s) ? 'reconciliation-required' : 'destination-failed';
     recordException(book, s, assessment.refusal ?? 'liquidity-band-refused', detail, at);
     return refuse(assessment.refusal ?? 'liquidity-band-refused', detail);
   }
 
   if (availableLiquidity(destination) < amount) {
-    const detail = `destination settlement liquidity on ${s.destinationNetwork} is ${availableLiquidity(destination)}; ${amount} required`;
+    const responses = shortfallResponsesFor('refuse');
+    const detail = `destination settlement liquidity on ${s.destinationNetwork} is ${availableLiquidity(destination)}; ${amount} required — permitted responses: ${responses.join(', ')}; the 1:1 settlement rate is not among them`;
     // The partial-state rule: a shortfall AFTER the payer was debited is an
     // obligation, not a failed transaction.
     s.state = valueHasLeftThePayer(s) ? 'reconciliation-required' : 'destination-failed';
@@ -781,6 +881,22 @@ export function completeDestinationCredit(
   const destination = ledgerOf(book, s.destinationDenomination);
   const amount = minor(s.amountMinorUnits);
 
+  // ── THE TWO PRESENTATION FORMS ──
+  //
+  // The PROTOCOL CONVERSION is `amount`, cent-for-cent, in both forms — the
+  // full authorised principal leaves destination settlement liquidity either
+  // way. What differs is where it lands:
+  //
+  //   borne separately (PREFERRED)   all of it to the beneficiary
+  //   deducted from principal        the itemised fee to feesCollected, the
+  //                                  remainder to the beneficiary
+  //
+  // `deliveredPrincipal` returns the amount STRING UNCHANGED when nothing is
+  // deducted, so on the preferred path no arithmetic touches the figure at all
+  // and there is nothing to round.
+  const deducted = feesDeductedFromPrincipal(s.feeBreakdown);
+  const delivered = deliveredPrincipal(s.amountMinorUnits, s.feeBreakdown);
+
   destination.reservedLiquidityMinorUnits = (
     minor(destination.reservedLiquidityMinorUnits) - amount
   ).toString();
@@ -788,14 +904,17 @@ export function completeDestinationCredit(
     minor(destination.settlementLiquidityMinorUnits) - amount
   ).toString();
   destination.balances[s.beneficiaryRef] = (
-    minor(destination.balances[s.beneficiaryRef] ?? '0') + amount
+    minor(destination.balances[s.beneficiaryRef] ?? '0') + minor(delivered)
   ).toString();
+  if (deducted > 0n) {
+    destination.feesCollectedMinorUnits = (
+      minor(destination.feesCollectedMinorUnits) + deducted
+    ).toString();
+  }
 
   book.consumedCreditRefs.add(input.destinationCreditRef);
   s.destinationCreditRef = input.destinationCreditRef;
-  // Cent-for-cent: the credited figure is the amount STRING itself. There is no
-  // rate multiplication anywhere on this path, so there is nothing to round.
-  s.destinationCreditedMinorUnits = s.amountMinorUnits;
+  s.destinationCreditedMinorUnits = delivered;
   s.destinationCreditedAt = input.at;
   s.settledAt = input.at;
   s.state = 'settled';
@@ -812,9 +931,10 @@ export function completeDestinationCredit(
     at: input.at,
     settlementRef: settlementRefOf(s),
     network: s.destinationNetwork,
-    summary: `Beneficiary credited from native ${s.destinationDenomination} liquidity at ${PROTOCOL_SETTLEMENT_RATE} — settlement reallocates capacity, it does not mint`,
+    summary: `Beneficiary credited ${delivered} from native ${s.destinationDenomination} liquidity; protocol conversion of ${s.amountMinorUnits} at ${PROTOCOL_SETTLEMENT_RATE} — settlement reallocates capacity, it does not mint`,
     evidenceRefs: [input.destinationCreditRef, s.beneficiaryRef],
-    amountMinorUnits: s.amountMinorUnits,
+    amountMinorUnits: delivered,
+    valueBreakdown: settlementValueBreakdown(s),
   });
   s.receiptRefs.push(receipt.receiptRef);
   return { ok: true, settlement: s };

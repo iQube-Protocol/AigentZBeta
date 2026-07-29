@@ -56,6 +56,10 @@ import {
   type SimulationMode,
 } from '@/services/simulation/journal';
 import { containsRawIdentifier } from './refs';
+import {
+  assertSixCategoriesDistinguished,
+  type SettlementValueBreakdown,
+} from './classification';
 
 /**
  * The twelve consequential events. Nine belong to SETTLEMENT; three belong to
@@ -134,6 +138,21 @@ export interface SettlementReceipt {
    * receipt stream alone, without trusting the settlement record.
    */
   amountMinorUnits?: string;
+  /**
+   * ─── SIX DISTINGUISHABLE THINGS, NEVER ONE NET FIGURE ────────────────────
+   *
+   *   principal · network fees · service fees · liquidity/finality fees ·
+   *   observed market deviation · any externally authorised execution rate
+   *
+   * `amountMinorUnits` above is a SUMMARY, and on the debit receipt it is a
+   * blended total. A receipt may present such a total only alongside this
+   * breakdown, so the total can always be taken apart again — otherwise a fee
+   * and a market observation become indistinguishable from each other and from
+   * the principal, which is the whole failure the classification ruling closes.
+   *
+   * `emitSettlementReceipt` refuses a breakdown that has lost a category.
+   */
+  valueBreakdown?: SettlementValueBreakdown;
   /**
    * On an exception receipt: whether value had already left the payer. The
    * single most consequential bit in the whole stream — it is the difference
@@ -284,6 +303,12 @@ export function emitSettlementReceipt(
     receiptRef: `${journal.runId}-rcpt-${String(journal.seq).padStart(3, '0')}`,
   };
   assertNoRawIdentifiers(receipt);
+  if (receipt.valueBreakdown) {
+    assertSixCategoriesDistinguished(
+      receipt.valueBreakdown,
+      `settlement receipt ${receipt.actionType}`,
+    );
+  }
   journal.receipts.push(receipt);
   return receipt;
 }

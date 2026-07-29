@@ -23,12 +23,28 @@
  * compares two INDEPENDENTLY RECORDED ledger movements against the declared
  * intent:
  *
- *     sourceDebited        === amount + Σ disclosed fees
- *     destinationCredited  === amount                       (exactly, as a string)
+ *     sourceDebited        === amount + Σ fees borne separately
+ *     destinationCredited  === amount − Σ fees borne OUT OF the principal
+ *
+ * In the PREFERRED presentation form nothing is borne out of the principal, the
+ * second identity is exact STRING equality with the amount, and the recipient
+ * receives the full authorised principal. In the other form the reduction is
+ * legitimate only when itemised, attributed and pre-quoted — every other
+ * reduction is the undisclosed spread this layer exists to prevent.
  *
  * A fee shaved off the credit fails the second identity. A fee charged but not
  * declared fails the first. Neither can be hidden in a rate, because there is no
  * rate to hide it in.
+ *
+ * ─── 2b. FEES AND MARKET FACTS ARE DIFFERENT KINDS OF THING ─────────────────
+ *
+ * The Constitutional Trading Transparency Principle: observable market movement
+ * and provider compensation are distinguished, and a disclosure reports them as
+ * SIBLINGS — `disclosedFees` and `marketObservations` — never one inside the
+ * other. `classificationViolations` (in `./classification.ts`) re-checks every
+ * classification rule against the recorded settlement, so a retained spread
+ * filed as a market fact, or a deviation smuggled among the fees, surfaces as a
+ * reconciliation violation as well as a refusal.
  *
  * ─── 3. SETTLEMENT NEVER MINTS ──────────────────────────────────────────────
  *
@@ -44,11 +60,24 @@ import {
   isFinalSettlement,
   TERMINAL_SETTLEMENT_STATES,
   type CrossDenominationSettlement,
+  type ExternalVenueExecution,
+  type FeeBearing,
+  type MarketObservation,
   type NativeLedger,
   type QriptoDenomination,
   type SettlementFeeClass,
   type SettlementState,
 } from './types';
+import {
+  attributedFees,
+  classificationViolations,
+  deliveredPrincipal,
+  feeBearingOf,
+  feesBorneSeparately,
+  feesDeductedFromPrincipal,
+  settlementValueBreakdown,
+  type SettlementValueBreakdown,
+} from './classification';
 import { allSettlements, totalDisclosedFees, valueHasLeftThePayer, type SettlementBook } from './settlement';
 
 // ─── Presentation ───────────────────────────────────────────────────────────
@@ -63,6 +92,19 @@ export type SettlementDisposition =
 export interface DisclosedFee {
   feeClass: SettlementFeeClass;
   amountMinorUnits: string;
+  /**
+   * Who charged it and under what quote. Absent on the four ordinary classes,
+   * which are protocol-level and have no charging service to name; REQUIRED on
+   * every attributed class, because a timing premium or a retained margin with
+   * no named charger is exactly the spread this ruling forbids.
+   */
+  chargedByRef?: string;
+  quoteRef?: string;
+  quotedAt?: string;
+  serviceRef?: string;
+  /** How the payer bears it. Defaults to the preferred, principal-whole form. */
+  bearing?: FeeBearing;
+  basis?: string;
 }
 
 export interface ReconciliationObligation {
@@ -84,6 +126,44 @@ export interface SettlementDisclosure {
   protocolRate: '1:1';
   disclosedFees: DisclosedFee[];
   totalDisclosedFeesMinorUnits: string;
+  /**
+   * ─── PRINCIPAL, FEES AND MARKET FACTS, AS THREE MEMBERS ──────────────────
+   *
+   * The AUTHORISED principal and what the recipient actually received. In the
+   * PREFERRED form these are the same string, which is the point of preferring
+   * it. They are reported separately rather than as one figure so a deducted
+   * fee can never make the reduction invisible.
+   */
+  authorisedPrincipalMinorUnits: string;
+  deliveredPrincipalMinorUnits: string;
+  feesBorneSeparatelyMinorUnits: string;
+  feesDeductedFromPrincipalMinorUnits: string;
+  /**
+   * The transparency standard, as a figure:
+   *
+   *   reference value + observable market movement + explicit service fee
+   *   + explicit liquidity/finality premium  =  authorised total cost
+   *
+   * On the canonical 1:1 route the market-movement term contributes NOTHING —
+   * a market fact is an observation, not an addend — so the authorised total
+   * cost is the principal plus the fees the payer bears on top of it. Market
+   * movement enters a payer's cost only through an externally authorised
+   * execution path, and there it is disclosed as the execution-rate line the
+   * payer accepted, never as an unexplained difference.
+   */
+  authorisedTotalCostMinorUnits: string;
+  /** True when the recipient received the full authorised principal. */
+  recipientReceivedFullPrincipal: boolean;
+  /**
+   * Market FACTS. A sibling of `disclosedFees`, never a member of it: putting a
+   * deviation among the fees would reimport an exchange-rate concept into a
+   * cent-for-cent layer, and every charge could then be presented as pricing.
+   */
+  marketObservations: MarketObservation[];
+  /** Present only where the payer accepted an off-parity external execution. */
+  externalExecution?: ExternalVenueExecution;
+  /** The six categories a DVN receipt must keep distinguishable. */
+  valueBreakdown: SettlementValueBreakdown;
   /** Present whenever value left the payer and did not reach the beneficiary. */
   reconciliationObligation?: ReconciliationObligation;
   /** Present when the credit ran ahead of source finality under authorisation. */
@@ -118,9 +198,25 @@ export function presentSettlement(s: CrossDenominationSettlement): SettlementDis
   if (s.feeBreakdown.liquidityFee) fees.push({ feeClass: 'liquidity-fee', amountMinorUnits: s.feeBreakdown.liquidityFee });
   if (s.feeBreakdown.reconciliationFee)
     fees.push({ feeClass: 'reconciliation-fee', amountMinorUnits: s.feeBreakdown.reconciliationFee });
+  // Attributed fees carry their attribution into the disclosure. A timing
+  // premium or a retained margin that reached the operator as a bare number
+  // would be indistinguishable from the spread it is not allowed to be.
+  for (const fee of attributedFees(s.feeBreakdown)) {
+    fees.push({
+      feeClass: fee.feeClass,
+      amountMinorUnits: fee.amountMinorUnits,
+      chargedByRef: fee.chargedByRef,
+      quoteRef: fee.quoteRef,
+      quotedAt: fee.quotedAt,
+      serviceRef: fee.serviceRef,
+      bearing: feeBearingOf(fee),
+      basis: fee.basis,
+    });
+  }
 
   const credited = s.destinationCreditedMinorUnits ?? '0';
   const owes = valueHasLeftThePayer(s) && s.destinationCreditedMinorUnits === undefined;
+  const delivered = deliveredPrincipal(s.amountMinorUnits, s.feeBreakdown);
 
   return {
     settlementId: s.settlementId,
@@ -133,6 +229,17 @@ export function presentSettlement(s: CrossDenominationSettlement): SettlementDis
     protocolRate: '1:1',
     disclosedFees: fees,
     totalDisclosedFeesMinorUnits: totalDisclosedFees(s.feeBreakdown).toString(),
+    authorisedPrincipalMinorUnits: s.amountMinorUnits,
+    deliveredPrincipalMinorUnits: delivered,
+    feesBorneSeparatelyMinorUnits: feesBorneSeparately(s.feeBreakdown).toString(),
+    feesDeductedFromPrincipalMinorUnits: feesDeductedFromPrincipal(s.feeBreakdown).toString(),
+    authorisedTotalCostMinorUnits: (
+      BigInt(s.amountMinorUnits) + feesBorneSeparately(s.feeBreakdown)
+    ).toString(),
+    recipientReceivedFullPrincipal: delivered === s.amountMinorUnits,
+    marketObservations: [...(s.marketObservations ?? [])],
+    valueBreakdown: settlementValueBreakdown(s),
+    ...(s.externalExecution ? { externalExecution: s.externalExecution } : {}),
     ...(owes
       ? {
           reconciliationObligation: {
@@ -162,21 +269,36 @@ export function presentSettlement(s: CrossDenominationSettlement): SettlementDis
 export function feeAndParityViolations(s: CrossDenominationSettlement): string[] {
   const violations: string[] = [];
   const amount = BigInt(s.amountMinorUnits);
-  const fees = totalDisclosedFees(s.feeBreakdown);
+  const separate = feesBorneSeparately(s.feeBreakdown);
+  const deducted = feesDeductedFromPrincipal(s.feeBreakdown);
   if (s.sourceDebitedMinorUnits !== undefined) {
-    if (BigInt(s.sourceDebitedMinorUnits) !== amount + fees) {
+    if (BigInt(s.sourceDebitedMinorUnits) !== amount + separate) {
       violations.push(
-        `${s.settlementId}: debited ${s.sourceDebitedMinorUnits} but amount ${s.amountMinorUnits} + disclosed fees ${fees} = ${amount + fees} — an undisclosed charge is a fee hidden in an implied rate`,
+        `${s.settlementId}: debited ${s.sourceDebitedMinorUnits} but amount ${s.amountMinorUnits} + disclosed fees ${separate} = ${amount + separate} — an undisclosed charge is a fee hidden in an implied rate`,
       );
     }
   }
   if (s.destinationCreditedMinorUnits !== undefined) {
-    // STRING equality, not numeric: the credited figure must BE the amount, not
-    // merely equal it after arithmetic. Any rate multiplication would show here.
-    if (s.destinationCreditedMinorUnits !== s.amountMinorUnits) {
-      violations.push(
-        `${s.settlementId}: credited ${s.destinationCreditedMinorUnits} against amount ${s.amountMinorUnits} — the protocol settlement rate is cent-for-cent and admits no slippage`,
-      );
+    if (deducted === 0n) {
+      // THE PREFERRED FORM. STRING equality, not numeric: the credited figure
+      // must BE the amount, not merely equal it after arithmetic. Any rate
+      // multiplication would show here, and the recipient receiving the full
+      // authorised principal is exactly why this form is preferred.
+      if (s.destinationCreditedMinorUnits !== s.amountMinorUnits) {
+        violations.push(
+          `${s.settlementId}: credited ${s.destinationCreditedMinorUnits} against amount ${s.amountMinorUnits} — the protocol settlement rate is cent-for-cent and admits no slippage`,
+        );
+      }
+    } else {
+      // The deducted form. The protocol conversion is STILL cent-for-cent; what
+      // is reduced is the delivered figure, and it may be reduced ONLY by
+      // itemised, attributed, pre-quoted fees — never by a rate.
+      const expected = (amount - deducted).toString();
+      if (s.destinationCreditedMinorUnits !== expected) {
+        violations.push(
+          `${s.settlementId}: credited ${s.destinationCreditedMinorUnits}, but the authorised principal ${s.amountMinorUnits} less ${deducted} of itemised fees borne out of it is ${expected} — the remainder is an undisclosed reduction of the protocol principal`,
+        );
+      }
     }
   }
   return violations;
@@ -317,6 +439,35 @@ export function reconcileBook(book: SettlementBook): BookReconciliation {
   for (const s of settlements) {
     // Identity 5 — cent-for-cent, and every fee disclosed.
     violations.push(...feeAndParityViolations(s));
+
+    // Identity 5b — EVERY DIFFERENCE IS CLASSIFIED THE WAY THE RULING REQUIRES.
+    //
+    // Checked here as well as at the gate because the two see different things:
+    // the gate reads an instruction and cannot know whether a liquidity advance
+    // was ever actually made, while this reads the settled record and cannot
+    // stop anything. A retained margin recorded as a market fact, a market
+    // deviation smuggled into the fee breakdown, or a timing fee on a
+    // settlement that accelerated nothing all surface here.
+    violations.push(...classificationViolations(s));
+
+    // Identity 5c — a market observation NEVER moves a ledger.
+    //
+    // The strongest form of "market deviations describe external conditions":
+    // if observations could explain a movement, the fee/market-fact split would
+    // be a naming convention rather than a control. So the ledger figures are
+    // recomputed from principal and FEES ALONE, with the observations ignored,
+    // and they must still come out exactly right.
+    if (s.marketObservations && s.marketObservations.length > 0) {
+      const fromFeesAlone = deliveredPrincipal(s.amountMinorUnits, s.feeBreakdown);
+      if (
+        s.destinationCreditedMinorUnits !== undefined &&
+        s.destinationCreditedMinorUnits !== fromFeesAlone
+      ) {
+        violations.push(
+          `${s.settlementId}: the delivered figure is not explained by principal and fees alone, so a market observation moved a ledger — a market deviation is an observation of an external condition, and nothing is charged or credited because of one`,
+        );
+      }
+    }
 
     // Identity 6 — THE ACCOUNTING INVARIANT, checked after the fact. A credit
     // exists only against a final source debit or an authorised advance.
