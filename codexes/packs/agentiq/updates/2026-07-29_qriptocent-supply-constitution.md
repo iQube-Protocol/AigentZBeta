@@ -97,55 +97,157 @@ issuance-integrity failure, not an accounting inconvenience.**
 ### The rule this produces
 
 > A QriptoCENT denomination may have **one** canonical issuance domain and **one** declared maximum
-> supply. Deployments on additional execution chains must either represent **bridged supply** from
-> that issuance domain, or be **separately named and governed** denominations.
-
-Two legitimate ways to extend to another chain:
-
-1. **Interoperable representation** — lock on Base, issue wrapped Base Q¢ elsewhere. No new
-   class-level supply; the representation stays economically tied to the canonical supply.
-2. **New native denomination** — its own name, issuance network, maximum, initial issuance, backing
-   and redemption terms. Increases aggregate capacity, transparently.
+> supply. A deployment on an additional execution chain is either a **DVN-settled representation of
+> that issuance domain** or a **separately named and governed** denomination. It is never an
+> unqualified second issuance of the same name.
 
 **A new denomination must never be called plain `Q¢`.** Without qualification, holders cannot
-distinguish native issuance from a bridged representation — which is the whole failure this rule
+distinguish one denomination's native issuance from another's — which is the whole failure this rule
 exists to prevent.
+
+---
+
+## Interoperability is inter-ledger settlement, not token bridging
+
+> **CORRECTION, 2026-07-29.** An earlier revision of this constitution described additional-chain
+> reach as "lock on Base, issue wrapped Base Q¢ elsewhere" and as "bridged supply". That framing was
+> **too narrow for this architecture and is replaced, not softened.** QriptoCENT interoperability is
+> a **cross-chain ledger settlement network**. It is correspondent/inter-ledger settlement, not token
+> bridging, and the difference is constitutional rather than cosmetic.
+
+### Each denomination keeps its own ledger
+
+Base Q¢ and B¢ each maintain **their own native ledger, balances, issuance and settlement on their
+own network**. LayerZero/DVN carries **authenticated settlement instructions** between them. A holder
+does **not** lock B¢ and mint a wrapped copy on Base.
+
+A cross-network payment is a coordinated ledger operation:
+
+```text
+B¢ payer on Bitcoin
+  → debit authorised on the Bitcoin ledger
+  → DVN-verified cross-chain settlement message
+  → corresponding Base Q¢ settlement liquidity debited/allocated
+  → recipient credited on the Base ledger
+  → settlement receipts on BOTH networks
+```
+
+**The token does not move.** What moves is:
+
+- an authenticated payment instruction;
+- proof the source debit is final, or sufficiently final under the declared finality policy;
+- the amount and the denomination;
+- sender and beneficiary references (commitments, never raw identifiers);
+- settlement and replay identifiers;
+- the destination credit instruction.
+
+Economically, value moves between denomination ledgers. Technically, **each network settles
+natively.**
+
+### Liquidity replaces lockups
+
+There is **no lock pool backing wrapped assets 1:1**. What is required instead is **sufficient native
+liquidity on each settlement network.**
+
+Spending 100 B¢ into Base:
+
+```text
+payer                      −100 B¢        (Bitcoin ledger)
+recipient                  +100 Base Q¢   (Base ledger)
+settlement liquidity       −100 Base Q¢   (Base ledger)
+
+NO wrapped B¢ is created on Base.
+```
+
+Imbalanced flows mean Base Q¢ settlement liquidity falls while B¢ accumulates on the Bitcoin side. So
+**lockups disappear, but liquidity and reconciliation do not**: CryptoSent rebalances inventories,
+issues or redeems under policy, or routes offsetting flows.
+
+### Cent-for-cent parity
+
+```text
+1 B¢ = 1 Base Q¢ = one cent of reference value
+```
+
+At the protocol settlement layer there is **no speculative exchange rate and no intended slippage** —
+ten cents in, ten cents out. Any difference must be **explicitly classified** as one of:
+
+- network fee,
+- service fee,
+- liquidity fee,
+- timing/finality premium,
+- market deviation outside the protocol rate.
+
+**It must never be hidden inside a variable exchange rate.**
+
+### The corrected distinction, recorded
+
+| | |
+|---|---|
+| **Canonical denominations** | native ledgers and native supply |
+| **Cross-denomination transactions** | DVN-mediated debit-and-credit settlement |
+| **Optional wrapped representations** | possible where useful — **not required** for interoperability |
+| **New issuance** | a separate governed act, **never implied by settlement messaging** |
+
+### The constitutional rule
+
+> QriptoCENT interoperability shall operate through authenticated inter-ledger settlement rather than
+> conventional wrapped-token bridging. Each canonical denomination maintains its own native ledger and
+> supply. A cross-network payment consists of a source-side debit, a DVN-verified settlement message,
+> and a destination-side credit from available native liquidity. The protocol settlement rate between
+> QriptoCENT denominations is cent-for-cent; any fee must be separately disclosed. No cross-network
+> payment may create duplicate spendable value, and every debit, message, credit, exception, and
+> reconciliation must produce attributable DVN receipts.
 
 ---
 
 ## Interoperability is constitutional, not a later convenience
 
 All denominations share: the same reference value; compatible decimal and accounting conventions;
-verifiable reserve/backing evidence; DVN receipts for consequential issuance, redemption, bridging
-and settlement; transparent supply reporting; declared conversion and redemption mechanisms;
-network-qualified identity; cross-chain reconciliation.
+verifiable reserve/backing evidence; DVN receipts for consequential issuance, redemption, settlement
+and reconciliation; transparent supply reporting; declared settlement and redemption mechanisms;
+network-qualified identity; bilateral inter-ledger reconciliation.
 
 The system must always be able to answer:
 
 ```text
-How much native supply exists?
-How much is bridged?
-Where is backing locked?
-How much circulates on each network?
-Is any representation double-counted?
+How much NATIVE ISSUED SUPPLY exists, per denomination?
+What are the CIRCULATING WALLET BALANCES on each network?
+What are the SETTLEMENT-LIQUIDITY BALANCES on each network?
+What PENDING INTER-LEDGER OBLIGATIONS are outstanding?
+What COMPLETED CROSS-NETWORK FLOWS have settled?
+What UNRESOLVED RECONCILIATION EXPOSURE remains?
 ```
 
-### Arbitrage is an intended stabiliser — and it needs a pathway
+These replace the older "How much is bridged? / Where is backing locked?" questions, which presumed
+a lock-and-wrap model this architecture does not use.
 
-Because the denominations target the same reference value, a divergence invites correction:
+### Arbitrage is a separate mechanism — do not conflate it with settlement
 
 ```text
-B¢ above Base Q¢  →  acquire/mint Base Q¢ → convert toward B¢ liquidity → spread narrows
-B¢ below Base Q¢  →  buy B¢ → redeem/settle toward Base Q¢             → spread narrows
+DVN settlement  =  deterministic transactional interoperability
+arbitrage       =  market-based liquidity and price convergence
 ```
 
-**Arbitrage only stabilises where a credible conversion pathway exists.** Sharing a target price is
-not enough: without usable minting, redemption, reserve settlement, cross-chain liquidity and
-receipt reconciliation, the two instruments can remain separately stable and still hold a persistent
-spread.
+Because the denominations target the same reference value, a secondary-market divergence invites
+correction:
+
+```text
+B¢ above Base Q¢  →  acquire/mint Base Q¢ → route toward B¢ liquidity → spread narrows
+B¢ below Base Q¢  →  buy B¢ at a discount → settle toward Base Q¢     → spread narrows
+```
+
+Arbitrage **replenishes scarce settlement liquidity, exploits secondary-market discounts and balances
+inventories**. It is **not** the core payment mechanism, and a cross-network payment never depends on
+it: the protocol settlement rate is cent-for-cent whatever the secondary market is doing.
+
+**Arbitrage only stabilises a secondary market where a credible pathway exists.** Sharing a target
+price is not enough: without usable issuance, redemption, reserve settlement, cross-network liquidity
+and receipt reconciliation, the two instruments can remain separately stable and still hold a
+persistent spread.
 
 **Same target value ≠ same asset.** Base Q¢ and B¢ are separate canonical denominations of one
-stable-value class, connected through interoperability, conversion and arbitrage.
+stable-value class, connected through inter-ledger settlement, and secondarily through arbitrage.
 
 ---
 
