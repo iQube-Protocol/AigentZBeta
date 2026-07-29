@@ -128,3 +128,4 @@ capstone/**/principal.meta
 
 # Build-generated pack corpus manifest (scripts/export-pack-corpus.mjs)
 codexes/pack-manifest.json
+dist/

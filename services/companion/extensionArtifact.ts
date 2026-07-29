@@ -281,7 +281,10 @@ const DOS_DATE = 0x0021;
 /**
  * Emit a stored (uncompressed) zip. Every entry is placed under
  * `COMPANION_EXTENSION_ARCHIVE_ROOT/` so unzipping produces exactly the
- * directory Chrome's "Load unpacked" expects.
+ * directory Chrome's "Load unpacked" expects. Pass `root=''` for a root-less
+ * archive instead (Chrome Web Store's uploader requires `manifest.json` at
+ * the zip root, not inside a wrapping folder) — every existing caller passes
+ * the default, so this is additive.
  */
 export function writeStoreZip(files: ExtensionFile[], root = COMPANION_EXTENSION_ARCHIVE_ROOT): Buffer {
   const local: Buffer[] = [];
@@ -289,7 +292,7 @@ export function writeStoreZip(files: ExtensionFile[], root = COMPANION_EXTENSION
   let offset = 0;
 
   for (const file of files) {
-    const name = Buffer.from(`${root}/${file.path}`, 'utf8');
+    const name = Buffer.from(root ? `${root}/${file.path}` : file.path, 'utf8');
     const crc = crc32(file.bytes);
     const size = file.bytes.length;
 

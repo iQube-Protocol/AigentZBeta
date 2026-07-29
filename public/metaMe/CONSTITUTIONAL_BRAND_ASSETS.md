@@ -25,13 +25,15 @@ public/metaMe/
     asset-specification-sheet.png   — the original spec-sheet reference (META-LOGO-001)
   metaMe/                           — the hand-in-hexagon mark (primary identity)
     metame.png                      — canonical transparent master (square-cropped, 933px)
-    metame-16.png ... metame-1024.png
+    metame-16.png ... metame-1024.png (includes 192px, the standard PWA/app-icon size)
     favicon.ico                     — 16/32/48 multi-size, generated from the mark
+    favicon-16.png / -32.png / -48.png — single-size PNG aliases of the same sizes, for
+                                          consumers that want a PNG rather than an .ico
   iQube/                            — the circuit-cube mark, four colorways
-    copper/  iqube-16.png ... iqube-1024.png
-    sand/    iqube-16.png ... iqube-1024.png
-    teal/    iqube-16.png ... iqube-1024.png
-    stone/   iqube-16.png ... iqube-1024.png
+    copper/  iqube-16.png ... iqube-1024.png (includes 192px)
+    sand/    iqube-16.png ... iqube-1024.png (includes 192px)
+    teal/    iqube-16.png ... iqube-1024.png (includes 192px)
+    stone/   iqube-16.png ... iqube-1024.png (includes 192px)
 ```
 
 Naming deliberately uses hyphens (`metame-128.png`, not `metame_128.png`) and the short colorway
