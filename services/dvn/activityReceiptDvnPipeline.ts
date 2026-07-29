@@ -151,6 +151,15 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'qriptocent_liquidity_proof_verified',
   'qriptocent_replenishment_authorised',
   'qriptocent_native_issuance_executed',
+  // IRL-REVIEW-001 — completion of an independent review over an experiment
+  // asset. Anchoring matters here for the same reason it matters for a
+  // governance record: the review's reproducibility claim rests on WHICH models
+  // adjudicated WHICH frozen package, and a tamper-evident anchor is what stops
+  // that claim from being a database row asserting its own truth. (Added per
+  // the permitted action-type-addition rule; no other part of this pipeline is
+  // touched — payload shape, state machine, principal resolution and
+  // hashPersonaRef are unchanged.)
+  'independent_review_completed',
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',

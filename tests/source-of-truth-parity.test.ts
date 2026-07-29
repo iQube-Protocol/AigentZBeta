@@ -25,6 +25,13 @@
  *  - ActivityActionType (TS) ⊆ activity_receipts_action_type_check (SQL, latest
  *    rebuild) -- the "2026-07-15 constraint-drift incident" class of bug:
  *      tests/activity-receipts-action-type-parity.test.ts
+ *  - The EXP-P1 vP1 namespace boundary + its ruled exclusions (style, narrative)
+ *    declared in services/research/review/templates/expP1Admissibility.ts ↔ the
+ *    copy in scripts/export-crystal-snapshot.mjs. The .mjs cannot import
+ *    TypeScript, so the duplication is unavoidable and is canaried rather than
+ *    trusted — a boundary that drifts silently drops a namespace from an
+ *    experiment with no error anywhere:
+ *      tests/independent-review-capability.test.ts
  *  - ARCHETYPE_JOURNEY (SPEC-COS-001 substrate resolver) ⊆ the Threshold
  *    Journey Registry, and the substrate resolver composes rather than
  *    re-derives passport/access/delegation:

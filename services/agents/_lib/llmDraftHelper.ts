@@ -17,8 +17,12 @@ import { GROUNDING_MANDATE } from '@/services/orchestration/groundingContract';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const VENICE_API_KEY = process.env.VENICE_API_KEY;
-const VENICE_BASE_URL = process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1';
+// Read at CALL time, not module-load time. A module-level const is captured on
+// first import, which makes "the key is missing" indistinguishable from "the
+// key was missing when this module happened to load" — and silently defeats any
+// caller that needs to assert loudly on absence (see veniceCredentialPresent).
+const veniceApiKey = (): string | undefined => process.env.VENICE_API_KEY;
+const veniceBaseUrl = (): string => process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1';
 
 // Match the model used by nbeLlmRerank + specialistRouter so the LLM
 // stack stays consistent. Override via env if a workstream needs a
@@ -158,39 +162,118 @@ export async function callVeniceJson(
   user: string,
   maxTokens = 1000,
 ): Promise<string | null> {
-  if (!VENICE_API_KEY) return null;
+  const res = await callVeniceChatRaw({
+    model: VENICE_MODEL,
+    system: `${system}\nReturn a single valid JSON object only. Do not include any commentary, markdown fences, or prose outside the JSON.`,
+    user,
+    maxTokens,
+    temperature: 0.5,
+    timeoutMs: 15_000,
+  });
+  if (!res.ok) {
+    if (res.error) console.warn(`[llmDraftHelper] Venice call failed: ${res.error}; falling through`);
+    else if (res.status !== null) console.warn(`[llmDraftHelper] Venice returned ${res.status}; falling through`);
+    return null;
+  }
+  return res.text ? stripJsonFences(res.text) : null;
+}
+
+/** Whether a Venice credential is present. Callers that must NOT degrade silently
+ *  check this and refuse, rather than receiving a `null` that looks like a model
+ *  declining to answer. */
+export function veniceCredentialPresent(): boolean {
+  return Boolean(veniceApiKey());
+}
+
+export interface VeniceChatResult {
+  ok: boolean;
+  status: number | null;
+  text: string | null;
+  error: string | null;
+}
+
+/**
+ * The one Venice HTTP call site, with the model supplied by the caller.
+ *
+ * `callVeniceJson` above is a thin wrapper over it (fixed model, JSON nudge,
+ * null-on-failure), so there is exactly one place that knows the base URL, the
+ * auth header and the response shape. Callers that need to distinguish "no
+ * credential" from "model returned nothing" — the independent-review runner
+ * does, because degrading there would produce a review that never happened —
+ * read the discriminated result instead of a nullable string.
+ */
+export async function callVeniceChatRaw(input: {
+  model: string;
+  system: string;
+  user: string;
+  maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  seed?: number;
+  timeoutMs?: number;
+}): Promise<VeniceChatResult> {
+  const key = veniceApiKey();
+  if (!key) return { ok: false, status: null, text: null, error: 'VENICE_API_KEY is not set' };
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  const timeoutId = setTimeout(() => controller.abort(), input.timeoutMs ?? 15_000);
   try {
-    const res = await fetch(`${VENICE_BASE_URL}/chat/completions`, {
+    const body: Record<string, unknown> = {
+      model: input.model,
+      messages: [
+        { role: 'system', content: input.system },
+        { role: 'user', content: input.user },
+      ],
+      temperature: input.temperature ?? 0.5,
+      max_tokens: input.maxTokens ?? 1000,
+    };
+    if (input.topP !== undefined) body.top_p = input.topP;
+    if (input.seed !== undefined) body.seed = input.seed;
+    const res = await fetch(`${veniceBaseUrl()}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${VENICE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: VENICE_MODEL,
-        messages: [
-          { role: 'system', content: `${system}\nReturn a single valid JSON object only. Do not include any commentary, markdown fences, or prose outside the JSON.` },
-          { role: 'user', content: user },
-        ],
-        temperature: 0.5,
-        max_tokens: maxTokens,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) {
-      console.warn(`[llmDraftHelper] Venice returned ${res.status}; falling through`);
-      return null;
-    }
+    if (!res.ok) return { ok: false, status: res.status, text: null, error: null };
     const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const text = data?.choices?.[0]?.message?.content?.trim();
-    if (!text) return null;
-    return stripJsonFences(text);
+    const text = data?.choices?.[0]?.message?.content?.trim() ?? null;
+    return { ok: true, status: res.status, text, error: null };
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[llmDraftHelper] Venice call failed: ${msg}; falling through`);
-    return null;
+    return { ok: false, status: null, text: null, error: err instanceof Error ? err.message : String(err) };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Venice's live model catalogue. Returned RAW: the caller decides what counts as
+ * lineage, availability and deprecation, because inventing a schema here would
+ * hand downstream independence checks a guess dressed as a fact.
+ */
+export async function listVeniceModels(
+  type = 'text',
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; status: number | null; models: unknown[]; error: string | null }> {
+  const key = veniceApiKey();
+  if (!key) return { ok: false, status: null, models: [], error: 'VENICE_API_KEY is not set' };
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${veniceBaseUrl()}/models?type=${encodeURIComponent(type)}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${key}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) return { ok: false, status: res.status, models: [], error: null };
+    const payload = (await res.json()) as { data?: unknown[]; models?: unknown[] };
+    const models = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.models)
+        ? payload.models
+        : [];
+    return { ok: true, status: res.status, models, error: null };
+  } catch (err) {
+    return { ok: false, status: null, models: [], error: err instanceof Error ? err.message : String(err) };
   } finally {
     clearTimeout(timeoutId);
   }

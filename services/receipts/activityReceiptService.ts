@@ -227,7 +227,15 @@ export type ActivityActionType =
   | 'qriptocent_settlement_exception_recorded'
   | 'qriptocent_liquidity_proof_verified'
   | 'qriptocent_replenishment_authorised'
-  | 'qriptocent_native_issuance_executed';
+  | 'qriptocent_native_issuance_executed'
+  // IRL-REVIEW-001 — an independent review of an experiment asset completed.
+  // The receipt records the review EVENT: reviewer assignments, requested and
+  // resolved model ids, package hash, raw/parsed output commitments and the
+  // agreement/contested tally. It carries explicit `ratifiesAsset: false`,
+  // `grantsStanding: false`, `changesLifecycle: false` and `freezesAsset: false`
+  // in its payload, because a consumer that treats the presence of a review
+  // receipt as approval is behaving reasonably unless the record says otherwise.
+  | 'independent_review_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

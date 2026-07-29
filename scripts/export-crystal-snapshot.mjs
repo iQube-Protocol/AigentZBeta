@@ -67,10 +67,40 @@ const OUT_DIR = join(REPO, 'codexes/packs/irl/foundation/crystals');
 // crystal for this experiment, so leaving them outside would make the
 // enlargement meaningless. This declaration is experiment-scoped: it does NOT
 // admit all future finance invariants to every experiment.
+//
+// ── The boundary now does work (operator ruling, 2026-07-29) ────────────────
+//
+// Until this ruling the boundary excluded NOTHING: every namespace in the
+// corpus was inside it, so the manifest's "outside the boundary" count was
+// structurally zero and the boundary was an inert declaration. `style` and
+// `narrative` are now OUT:
+//
+//   > "The gauntlet is reasoning and invariant application — not stylistic
+//   > quality or narrative composition. Including those rows would make the
+//   > boundary effectively universal and introduce constructs measured by
+//   > different outcome measures."
+//
+// Excluded for CONSTRUCT CLARITY, not for lack of value — both stay in the
+// Live Invariant Corpus and may support a later representation-quality,
+// artifact-generation or narrative-coherence experiment. If the final task
+// specification measures style or narrative reasoning, that requires a
+// PREREGISTERED boundary amendment before the freeze, never an informal
+// inclusion afterward.
+//
+// Kept in lockstep with EXP_P1_BOUNDARY_EXCLUSIONS /
+// EXP_P1_NAMESPACE_BOUNDARY in
+// services/research/review/templates/expP1Admissibility.ts by the parity canary
+// in tests/independent-review-capability.test.ts — this file is .mjs and cannot
+// import the TypeScript source, so the duplication is unavoidable and is
+// therefore canaried rather than trusted (CLAUDE.md, source-of-truth parity).
+const EXP_P1_BOUNDARY_EXCLUSIONS = {
+  style: 'excluded for construct clarity — stylistic quality is measured by different outcome measures than invariant reasoning',
+  narrative: 'excluded for construct clarity — narrative composition is measured by different outcome measures than invariant reasoning',
+};
 const EXP_P1_NAMESPACES = new Set([
   'constitutional', 'reasoning', 'epistemology', 'polity', 'sovereignty',
   'cybernetics', 'engineering', 'representation', 'interaction', 'capability',
-  'experience', 'narrative', 'style', 'commercialisation',
+  'experience', 'commercialisation',
   'finance',
 ]);
 
@@ -268,7 +298,9 @@ async function main() {
     const stratum = stratumOf(relation, evidence, ns);
     const eligible = inDomain && ELIGIBLE_RELATIONS.has(relation) && !missingReason && !unsigned;
     const reason = !inDomain
-      ? `namespace '${ns}' is outside the declared ${VERSION} domain boundary`
+      ? (EXP_P1_BOUNDARY_EXCLUSIONS[ns]
+          ? `namespace '${ns}' is outside the declared ${VERSION} domain boundary: ${EXP_P1_BOUNDARY_EXCLUSIONS[ns]}`
+          : `namespace '${ns}' is outside the declared ${VERSION} domain boundary`)
       : unsigned
         ? 'proposed by triage but not signed off — no reviewer named'
         : missingReason
@@ -300,6 +332,10 @@ async function main() {
     eligibility_rule_version: '2026-07-28.1',
     exporter_commit: process.env.COMMIT_SHA ?? null,
     domain_boundary: [...EXP_P1_NAMESPACES].sort(),
+    // Recorded with their reasons, because an exclusion that leaves no trace is
+    // indistinguishable from an oversight — the same principle the per-row
+    // exclusions artifact exists for, applied one level up.
+    boundary_exclusions: EXP_P1_BOUNDARY_EXCLUSIONS,
     corpus_row_count: rows.length,
     included_row_count: included.length,
     excluded_row_count: rows.length - included.length,
