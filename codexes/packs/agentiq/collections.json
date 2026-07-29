@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-29_vl-ct-001-deployment-gate-and-probe-lockdown.md",
         "updates/2026-07-29_vl-ct-001-operator-rulings-and-moneypenny-adapter.md",
         "updates/2026-07-29_vl-ct-001-venture-substrate.md",
         "updates/2026-07-29_qubetalk-confidentiality-remediation.md",
