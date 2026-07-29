@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-29_companion-header-persona-model-controls.md",
+        "updates/2026-07-29_workspace-restored-top-level-plus-color-and-irl-os.md",
         "updates/2026-07-29_wallet-qc-primary-currency-restructure.md",
         "updates/2026-07-29_pas-001-passport-first-constitutional-access-spec.md",
         "updates/2026-07-29_participation-workspace-nav-restructure.md",
