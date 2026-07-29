@@ -62,12 +62,26 @@ export type PartnerLayerOwnerId =
   | (typeof RUNTIME_AGENT_IDS)[number]
   | Extract<AgentRoleId, 'aigent-c' | 'metame-guardian'>;
 
-export type PartnerWorkspacePhase =
-  | 'exploration'
-  | 'agreement'
-  | 'integration'
-  | 'operation'
-  | 'evidence';
+/**
+ * The pilot phase ladder, IN ORDER, as a runtime value.
+ *
+ * Declared as a const array (and the type derived from it) rather than as a
+ * bare union, for the same reason `PARTNER_WORKSPACE_LAYERS` is: the shared
+ * lifecycle registry (`services/experiments/workspaceLifecycle.ts`) needs the
+ * venture ladder at RUNTIME to build the `venture-pilot` template, and a
+ * hand-copied stage list there would be the stale-duplicate defect
+ * `tests/source-of-truth-parity.test.ts` indexes. The union type is unchanged
+ * in every member and in order, so nothing that consumes
+ * `PartnerWorkspacePhase` is affected.
+ */
+export const PARTNER_WORKSPACE_PHASES = [
+  'exploration',
+  'agreement',
+  'integration',
+  'operation',
+  'evidence',
+] as const;
+export type PartnerWorkspacePhase = (typeof PARTNER_WORKSPACE_PHASES)[number];
 
 // ─── Link descriptors — consumed ONLY via buildCodexUrl() ────────────────────
 

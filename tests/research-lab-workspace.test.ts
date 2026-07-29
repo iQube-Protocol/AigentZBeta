@@ -43,11 +43,21 @@ import {
   ASSIGNABLE_RESEARCH_WORKSPACES,
   listResearchWorkspaces,
   researchWorkspaceSeries,
+  researchWorkspaceExperiment,
   researchWorkspaceExperiments,
   researchWorkspaceLabel,
   researchWorkspaceObjectives,
+  researchWorkspaceParent,
+  researchWorkspaceAncestry,
+  researchWorkspaceOwner,
+  researchWorkspaceLayerOwners,
+  researchWorkspaceLinks,
+  researchWorkspaceInstitutions,
 } from '../services/research/researchWorkspace';
-import { experimentWorkspaceFromResearch } from '../services/experiments/experimentWorkspace';
+import {
+  experimentWorkspaceFromResearch,
+  workspaceReferenceIssues,
+} from '../services/experiments/experimentWorkspace';
 import { SERIES_REGISTRY, EXPERIMENT_REGISTRY } from '../types/research';
 import { readSource, stripComments, importAuthority } from './_lib/sourceAuthority';
 
@@ -96,15 +106,74 @@ async function reachableWorkspaceSlugs(
 
 // The ratified tier split, pinned literally. Derived-only expectations would be
 // tautological against the config they are checking.
-const FULL_PARTICIPATION = [
-  'irl-workspace-collaborate',
-  'irl-workspace-evidence',
-  'irl-workspace-operate',
-  'irl-workspace-overview',
-];
-const READ_ONLY = ['irl-workspace-evidence', 'irl-workspace-overview'];
-const TIER_0 = ['irl-workspace-administration'];
-const EVERY_TAB = [...FULL_PARTICIPATION, ...TIER_0].sort();
+//
+// RE-POINTED 2026-07-29 for SPEC-IRL-WORKSPACE-001 §7 (the eight views) and §8
+// (six roles). NOT LOOSENED: every assertion below is still an EXACT sorted
+// slug set driven through the REAL `getEnabledTabs` filter, and the file gained
+// four more per-role sets than it had. What changed is the surface being
+// pinned — the workspace went from four Tier-2 views admitting three roles to
+// eight admitting seven, and pinning the old shape would pin a surface that no
+// longer exists.
+//
+// LITERAL, NEVER DERIVED FROM THE MATRIX. Computing these from
+// `RESEARCH_WORKSPACE_VIEWS[].roles` would be the tautology CLAUDE.md names as
+// a false-survivor source ("a canary deriving its expectation with the same
+// predicate as the code under test") — it would pass for ANY matrix, including
+// one that admits everyone. The separate canary that checks the matrix against
+// the SPEC DOCUMENT is what stops the two literals drifting together.
+const OVERVIEW = 'irl-workspace-overview';
+const PIPELINE = 'irl-workspace-pipeline';
+const REVIEW = 'irl-workspace-review';
+const MATERIALS = 'irl-workspace-materials';
+const LOCKER = 'irl-workspace-locker';
+const QUBETALK = 'irl-workspace-qubetalk';
+/** SPEC §7 names this view "Activity"; the SLUG is unchanged so every existing
+ *  `?tab=` deep link still resolves. Only what a human reads changed. */
+const ACTIVITY = 'irl-workspace-evidence';
+const PARTICIPANTS = 'irl-workspace-participants';
+const TIER_0_SLUG = 'irl-workspace-administration';
+
+/** The eight views (SPEC §7), in slug order. */
+const EVERY_VIEW = [
+  OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY, PARTICIPANTS,
+].sort();
+const TIER_0 = [TIER_0_SLUG];
+const EVERY_TAB = [...EVERY_VIEW, ...TIER_0].sort();
+
+/**
+ * WHAT EACH ROLE REACHES, exactly. The load-bearing exclusions, each traceable
+ * to a sentence in SPEC §8:
+ *
+ *   reviewer          has NO Working Materials — "cannot alter"; a reviewer who
+ *                     could open the mutable area is one habit from editing it.
+ *   reviewer          has NO Participants     — reviewing is not administering.
+ *   observer          has NO Review, Materials or Locker — "views agreed
+ *                     materials and comments; changes nothing", and §10's
+ *                     "access to one experiment must not imply access to … the
+ *                     whole Locker".
+ *   student           has NO Review           — a student is reviewed, not a
+ *                     reviewer.
+ *   PI / researcher   have NO Participants    — a PI defines science, not access.
+ *   ONLY steward and faculty-lead reach Participants — the two roles §8 gives
+ *                     administrative authority.
+ */
+const REACHES: Record<string, string[]> = {
+  'principal-investigator': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'research-steward': [...EVERY_VIEW],
+  reviewer: [OVERVIEW, PIPELINE, REVIEW, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'research-participant': [OVERVIEW, PIPELINE, QUBETALK, ACTIVITY].sort(),
+  'faculty-lead': [...EVERY_VIEW],
+  'student-researcher': [OVERVIEW, PIPELINE, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  researcher: [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+};
+
+/** The roles that reach NOTHING — the fail-closed path, and it must stay real. */
+const REACHES_NOTHING = ['delegated-research-agent', 'ratifier'];
+
+/** Kept as the full-participation reference for the assertions that mean
+ *  "everything a working member of the programme sees". */
+const FULL_PARTICIPATION = REACHES['researcher'];
+const READ_ONLY = REACHES['research-participant'];
 
 // ─── Canary R1 — POSITIVE REACHABILITY (ruling A, path 1) ────────────────────
 
@@ -133,15 +202,61 @@ describe('canary R1 — the Research Workspace is reachable by a researcher', ()
     expect(await reachableWorkspaceSlugs(researcher, false)).toEqual([...FULL_PARTICIPATION].sort());
   });
 
-  it('a research-steward reaches the same set, and holds the domain’s delegated invitation authority', async () => {
+  it('a research-steward reaches the FULL EIGHT, and holds the domain’s delegated invitation authority', async () => {
     const steward = access([
       { accessDomain: 'research-lab', role: 'research-steward', allowedScopes: [VP1] },
     ]);
-    expect(await reachableWorkspaceSlugs(steward, false)).toEqual([...FULL_PARTICIPATION].sort());
+    // Strictly MORE than the researcher: the steward is the only research role
+    // that reaches Participants. Asserted as a superset relation too, so a
+    // change that levelled the two down to one set fails here even if both
+    // literals were edited to match.
+    expect(await reachableWorkspaceSlugs(steward, false)).toEqual([...EVERY_VIEW]);
+    expect(REACHES['research-steward'].length).toBeGreaterThan(REACHES['researcher'].length);
     // "full workspace participation PLUS governance/review controls" is not a
     // second tab gate — it is the EXISTING server-side steward authority, and
     // research-steward must remain the role that carries it.
     expect(DOMAIN_STEWARD_ROLES['research-lab']).toContain('research-steward');
+  });
+
+  it('EVERY role the matrix names reaches its EXACT set through the real filter', async () => {
+    // The generalisation of R1/R2: seven roles, seven exact sets, one filter.
+    // A per-role loop rather than three hand-picked cases, so a role added to
+    // the matrix without a reachability expectation fails rather than shipping
+    // unasserted.
+    for (const [role, expected] of Object.entries(REACHES)) {
+      const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
+      expect(
+        await reachableWorkspaceSlugs(a, false),
+        `role '${role}' does not reach its specified view set`,
+      ).toEqual(expected);
+      // A role that reaches nothing would make its row vacuous.
+      expect(expected.length, `role '${role}' reaches no view at all`).toBeGreaterThan(0);
+      // No Tier-2 role may ever reach the Tier-0 internal space.
+      expect(expected, `role '${role}' reaches the Tier-0 space`).not.toContain(TIER_0_SLUG);
+    }
+    // Every matrix role must be a real research-lab role.
+    for (const role of Object.keys(REACHES)) {
+      expect(DOMAIN_ROLES['research-lab'], `'${role}' is not a research-lab role`).toContain(role);
+    }
+  });
+
+  it('ONLY the two administrative roles reach Participants — asserted from both sides', async () => {
+    // SPEC §8: the Research Steward (programme) and the Faculty Lead (one
+    // cohort) administer access; nobody else does. Both directions, because a
+    // one-sided assertion stays green when the gate is dropped entirely.
+    for (const role of ['research-steward', 'faculty-lead']) {
+      const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
+      expect(await reachableWorkspaceSlugs(a, false)).toContain(PARTICIPANTS);
+    }
+    for (const role of Object.keys(REACHES).filter(
+      (r) => r !== 'research-steward' && r !== 'faculty-lead',
+    )) {
+      const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
+      expect(
+        await reachableWorkspaceSlugs(a, false),
+        `'${role}' reached the access-administration surface`,
+      ).not.toContain(PARTICIPANTS);
+    }
   });
 
   it('and the workspace behind those tabs opens for the same caller — the picker lists exactly one entrance', () => {
@@ -177,10 +292,13 @@ describe('canary R2 — the read-only path is genuinely read-only', () => {
   it('and is refused the write surfaces by the gate itself, not merely by the filter', async () => {
     const tabs = await workspaceTabs();
     const writeSurfaces = tabs.filter(
-      (t) => FULL_PARTICIPATION.includes(t.slug) && !READ_ONLY.includes(t.slug),
+      (t) => EVERY_VIEW.includes(t.slug) && !READ_ONLY.includes(t.slug),
     );
+    // The exact surfaces an Institutional Observer must NOT reach — stated
+    // literally so "the observer is refused the write surfaces" cannot become
+    // true by the write surfaces disappearing.
     expect(writeSurfaces.map((t) => t.slug).sort()).toEqual(
-      ['irl-workspace-collaborate', 'irl-workspace-operate'].sort(),
+      [REVIEW, MATERIALS, LOCKER, PARTICIPANTS].sort(),
     );
     for (const tab of writeSurfaces) {
       expect(
@@ -190,17 +308,28 @@ describe('canary R2 — the read-only path is genuinely read-only', () => {
     }
   });
 
-  it('Collaborate is the surface that mounts the write affordances, so its exclusion is what makes read-only mean something', async () => {
-    // If Collaborate stopped mounting the invitation/peer/locker workspace,
-    // excluding it would no longer be excluding anything.
+  it('the excluded surfaces still MOUNT the affordances, so excluding them excludes something', async () => {
+    // If Participants stopped mounting the invitation flow, or Working
+    // Materials stopped being the mutable area, excluding them would no longer
+    // be excluding anything and this whole canary would pass vacuously.
     const tabs = await workspaceTabs();
-    const collab = tabs.find((t) => t.slug === 'irl-workspace-collaborate');
-    expect(collab, 'the Collaborate entrance is gone').toBeTruthy();
-    expect(collab!.config.props?.initialSurface).toBe('collaborate');
+    for (const [slug, surface] of [
+      [PARTICIPANTS, 'participants'],
+      [MATERIALS, 'working-materials'],
+      [LOCKER, 'locker'],
+      [REVIEW, 'review'],
+    ] as const) {
+      const tab = tabs.find((t) => t.slug === slug);
+      expect(tab, `the ${slug} entrance is gone`).toBeTruthy();
+      expect(tab!.config.props?.initialSurface).toBe(surface);
+    }
     const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
-    expect(src).toMatch(/collabView === "invitations"/);
     expect(src).toMatch(/<StewardParticipationTab initialDomain=\{accessDomain\}/);
     expect(src).toMatch(/research:\s*"research-lab"/);
+    // The QubeTalk and Locker surfaces mount the EXISTING capabilities rather
+    // than reimplementing them (SPEC §16: "no second … Locker, chat system").
+    expect(src).toMatch(/<QubeTalkInboxTab domainFilter=\{accessDomain\}/);
+    expect(src).toMatch(/<LockerTab \/>/);
   });
 });
 
@@ -208,10 +337,12 @@ describe('canary R2 — the read-only path is genuinely read-only', () => {
 
 describe('canary R3 — every other role, and no grant at all, is refused', () => {
   it('the research-lab roles NOT named by the workspace reach exactly nothing', async () => {
-    const admitted = new Set(['researcher', 'research-steward', 'research-participant']);
+    const admitted = new Set(Object.keys(REACHES));
     const others = DOMAIN_ROLES['research-lab'].filter((r) => !admitted.has(r));
-    // The ruling's "all other roles" must be a real, non-empty set — otherwise
-    // this canary passes vacuously.
+    // The fail-closed set is pinned LITERALLY as well as derived, so a role
+    // quietly joining the admitted matrix cannot shrink this set to nothing and
+    // leave the canary passing vacuously.
+    expect(others.sort()).toEqual([...REACHES_NOTHING].sort());
     expect(others.length, 'every research-lab role is admitted — there is no fail-closed path').toBeGreaterThan(0);
     for (const role of others) {
       const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
@@ -280,21 +411,55 @@ describe('canary R4 — the workspace names only roles the access model already 
     }
   });
 
-  it('the spine projection names the same three roles, so surface and model cannot disagree', () => {
+  it('the spine projection names the roles the workspace TYPE admits, so surface and model cannot disagree', () => {
+    // RE-POINTED for SPEC §6: the role set is now a function of the workspace
+    // TYPE — a capstone cohort and a validation experiment are administered by
+    // different people under different authority, and one flat list would let a
+    // student's grant satisfy an experiment workspace's gate. Pinned per type,
+    // literally, rather than asserted as "the same three everywhere".
+    const byType: Record<string, string[]> = {
+      'research-programme': ['principal-investigator', 'research-steward', 'reviewer', 'research-participant', 'researcher'],
+      experiment: ['principal-investigator', 'research-steward', 'reviewer', 'research-participant', 'researcher'],
+      cohort: ['faculty-lead', 'research-steward', 'student-researcher', 'research-participant'],
+      'student-project': ['faculty-lead', 'student-researcher', 'research-participant'],
+    };
+    const seen = new Set<string>();
     for (const rw of RESEARCH_WORKSPACES) {
       const ws = experimentWorkspaceFromResearch(rw);
       expect(ws.participation.domain).toBe('research-lab');
-      expect([...ws.participation.roles].sort()).toEqual(
-        ['research-participant', 'research-steward', 'researcher'].sort(),
+      expect([...ws.participation.roles].sort(), `${rw.id} (${rw.workspaceType})`).toEqual(
+        [...byType[rw.workspaceType]].sort(),
       );
+      seen.add(rw.workspaceType);
     }
+    // All four types must actually be instantiated, or the rows above are
+    // asserting a mapping nothing exercises.
+    expect([...seen].sort()).toEqual(Object.keys(byType).sort());
   });
 
-  it('the research-lab role catalogue was not widened to make this work', () => {
-    // The ruling: "Do not invent new names if equivalent roles already exist."
-    // These six are the pre-existing catalogue; a seventh appearing here means
-    // a role was minted rather than mapped, and must be a deliberate operator
-    // decision rather than a side effect of building a surface.
+  it('a capstone role can never satisfy an experiment workspace, and vice versa', () => {
+    // The whole reason the role set is keyed by type. Both directions.
+    const experiment = experimentWorkspaceFromResearch(
+      RESEARCH_WORKSPACES.find((w) => w.workspaceType === 'experiment')!,
+    );
+    const project = experimentWorkspaceFromResearch(
+      RESEARCH_WORKSPACES.find((w) => w.workspaceType === 'student-project')!,
+    );
+    expect(experiment.participation.roles).not.toContain('student-researcher');
+    expect(experiment.participation.roles).not.toContain('faculty-lead');
+    expect(project.participation.roles).not.toContain('principal-investigator');
+    expect(project.participation.roles).not.toContain('reviewer');
+  });
+
+  it('the research-lab role catalogue grew by EXACTLY the three roles with no equivalent', () => {
+    // RE-POINTED, and still an EXACT set. The 2026-07-28 ruling — "Do not invent
+    // new names if equivalent roles already exist" — is honoured by REUSING
+    // research-steward / reviewer / research-participant for the Research
+    // Steward / External Reviewer / Institutional Observer. The three additions
+    // are the roles SPEC-IRL-WORKSPACE-001 §8 names that have NO equivalent, and
+    // mapping them onto an existing role would erase a real authority
+    // difference rather than reuse a real one. This is the deliberate operator
+    // decision the previous version of this canary demanded.
     expect([...DOMAIN_ROLES['research-lab']].sort()).toEqual(
       [
         'delegated-research-agent',
@@ -303,8 +468,24 @@ describe('canary R4 — the workspace names only roles the access model already 
         'research-steward',
         'researcher',
         'reviewer',
+        // Added 2026-07-29 by SPEC-IRL-WORKSPACE-001.
+        'principal-investigator',
+        'faculty-lead',
+        'student-researcher',
       ].sort(),
     );
+  });
+
+  it('the three REUSED roles were not duplicated under a new name', () => {
+    // The failure this guards: someone adds 'institutional-observer' and
+    // 'external-reviewer' beside the roles that already mean exactly that,
+    // and the access model now has two ids for one concept.
+    for (const forbidden of ['institutional-observer', 'external-reviewer', 'principal-researcher']) {
+      expect(
+        DOMAIN_ROLES['research-lab'],
+        `'${forbidden}' duplicates a role that already exists`,
+      ).not.toContain(forbidden);
+    }
   });
 });
 
@@ -343,21 +524,100 @@ describe('canary R5 — the scope catalogue makes the workspace grantable', () =
 // ─── Canary R6 — one derivation, three consumers (source-of-truth parity) ────
 
 describe('canary R6 — registry, spine and surface cannot disagree about the programme', () => {
-  it('the registry references a real series and real experiments — never a copy of them', () => {
+  it('every series/experiment binding a workspace declares resolves — never a copy of it', () => {
+    // RE-POINTED for SPEC §6, and STRENGTHENED: a cohort or student project
+    // convenes no series (a capstone is not a validation series, and giving one
+    // a fake `seriesId` to satisfy a required field would put an invention in
+    // the registry). So the rule is no longer "every workspace names a series"
+    // but the stricter "every binding a workspace DOES declare must resolve,
+    // AND a workspace with no binding must declare a title" — which the old
+    // version did not check at all.
     expect(RESEARCH_WORKSPACES.length, 'the research registry is empty').toBeGreaterThan(0);
+    let seriesBound = 0;
+    let experimentBound = 0;
     for (const rw of RESEARCH_WORKSPACES) {
-      const series = researchWorkspaceSeries(rw);
-      expect(series, `${rw.id} names series '${rw.seriesId}', which is not in SERIES_REGISTRY`).toBeTruthy();
-      expect(SERIES_REGISTRY.map((s) => s.id)).toContain(rw.seriesId);
-      const experiments = researchWorkspaceExperiments(rw);
-      expect(experiments.length, `${rw.id}'s series has no resolvable members`).toBeGreaterThan(0);
-      for (const e of experiments) {
-        expect(EXPERIMENT_REGISTRY.map((x) => x.id)).toContain(e.id);
+      if (rw.seriesId !== undefined) {
+        seriesBound += 1;
+        const series = researchWorkspaceSeries(rw);
+        expect(series, `${rw.id} names series '${rw.seriesId}', which is not in SERIES_REGISTRY`).toBeTruthy();
+        expect(SERIES_REGISTRY.map((s) => s.id)).toContain(rw.seriesId);
+        const experiments = researchWorkspaceExperiments(rw);
+        expect(experiments.length, `${rw.id}'s series has no resolvable members`).toBeGreaterThan(0);
+        for (const e of experiments) {
+          expect(EXPERIMENT_REGISTRY.map((x) => x.id)).toContain(e.id);
+        }
+        // The label and objectives must be the series' own words, not a copy.
+        expect(researchWorkspaceLabel(rw)).toContain(series!.name);
+        expect(researchWorkspaceObjectives(rw)[0]).toBe(series!.claim);
       }
-      // The label and objectives must be the series' own words, not a second copy.
-      expect(researchWorkspaceLabel(rw)).toContain(series!.name);
-      expect(researchWorkspaceObjectives(rw)[0]).toBe(series!.claim);
+      if (rw.experimentId !== undefined) {
+        experimentBound += 1;
+        const experiment = researchWorkspaceExperiment(rw);
+        expect(
+          experiment,
+          `${rw.id} names experiment '${rw.experimentId}', which is not in EXPERIMENT_REGISTRY`,
+        ).toBeTruthy();
+        // Objectives are the experiment's own hypothesis — derived, not restated.
+        expect(researchWorkspaceObjectives(rw)[0]).toBe(experiment!.hypothesis);
+      }
+      // NO WORKSPACE MAY FALL THROUGH TO ITS OWN ID AS A HEADING. An id rendered
+      // as a name is indistinguishable from a name to everyone but its author.
+      expect(
+        researchWorkspaceLabel(rw),
+        `${rw.id} has no derivable name and declares no title — its id would render as its heading`,
+      ).not.toBe(rw.id);
+      // And it must have some objective text, or invariant resolution reads
+      // nothing and the Overview renders an empty promise.
+      expect(researchWorkspaceObjectives(rw).length, `${rw.id} has no objectives`).toBeGreaterThan(0);
     }
+    // Both binding kinds must actually be exercised, or half the branch above
+    // is asserted against nothing.
+    expect(seriesBound, 'no workspace convenes a series').toBeGreaterThan(0);
+    expect(experimentBound, 'no workspace is scoped to a single experiment').toBeGreaterThan(0);
+  });
+
+  it('the hierarchy resolves: every parent exists, no cycles, and every type is instantiated', () => {
+    const ids = new Set(RESEARCH_WORKSPACES.map((w) => w.id));
+    expect(ids.size, 'duplicate workspace ids in the registry').toBe(RESEARCH_WORKSPACES.length);
+    for (const rw of RESEARCH_WORKSPACES) {
+      if (rw.parentId !== undefined) {
+        expect(ids, `${rw.id} names parent '${rw.parentId}', which is not in the registry`).toContain(
+          rw.parentId,
+        );
+        expect(researchWorkspaceParent(rw), `${rw.id}'s parent does not resolve`).toBeTruthy();
+      }
+      // The ancestry walk is cycle-GUARDED; this asserts the shipped data needs
+      // no guard, so the guard never fires in a client render.
+      const chain = researchWorkspaceAncestry(rw);
+      expect(new Set(chain.map((c) => c.id)).size, `${rw.id} sits in a parent cycle`).toBe(chain.length);
+      expect(chain[0].id).toBe(rw.id);
+      // A root's ancestry is itself; a child's reaches a root that has no parent.
+      expect(chain[chain.length - 1].parentId).toBeUndefined();
+    }
+    expect([...new Set(RESEARCH_WORKSPACES.map((w) => w.workspaceType))].sort()).toEqual(
+      ['cohort', 'experiment', 'research-programme', 'student-project'].sort(),
+    );
+  });
+
+  it('inheritance actually inherits — a child with no owner resolves its programme’s', () => {
+    // The mechanism that lets a student project be three lines instead of forty.
+    // Driven, not grepped: pick a real child that declares none of the three
+    // inheritable fields and assert it resolves the root's.
+    const child = RESEARCH_WORKSPACES.find(
+      (w) => w.workspaceType === 'student-project' && w.ownerAgentId === undefined,
+    );
+    expect(child, 'no student project exercises inheritance').toBeTruthy();
+    const root = researchWorkspaceAncestry(child!).at(-1)!;
+    expect(root.ownerAgentId, 'the root declares no owner — inheritance has nothing to find').toBeTruthy();
+    expect(researchWorkspaceOwner(child!)).toBe(root.ownerAgentId);
+    expect(researchWorkspaceLayerOwners(child!)).toEqual(root.layerOwners);
+    expect(researchWorkspaceLinks(child!)).toEqual(root.links);
+    expect(researchWorkspaceInstitutions(child!)).toEqual(root.institutionRefs);
+    // And the SPINE projects the inherited values, so the surface and the spine
+    // cannot disagree about who owns a student project.
+    const ws = experimentWorkspaceFromResearch(child!);
+    expect(ws.agents.agentIds.length, 'an inherited workspace projects no acting agent').toBeGreaterThan(0);
+    expect(workspaceReferenceIssues(ws)).toEqual([]);
   });
 
   it('the spine projects through the registry’s own derivations', () => {
@@ -393,7 +653,9 @@ describe('canary R6 — registry, spine and surface cannot disagree about the pr
     expect(src).toMatch(/PARTNER_WORKSPACE_LAYERS\.filter/);
     expect(RESEARCH_WORKSPACE_LAYERS.length).toBeGreaterThan(0);
     for (const rw of listResearchWorkspaces()) {
-      for (const layer of Object.keys(rw.layerOwners)) {
+      // Resolved, so an INHERITED layer set is checked too — a child that
+      // inherited a bad layer would otherwise escape this canary entirely.
+      for (const layer of Object.keys(researchWorkspaceLayerOwners(rw))) {
         expect(RESEARCH_WORKSPACE_LAYERS, `layer '${layer}' is outside the research subset`).toContain(layer);
       }
     }

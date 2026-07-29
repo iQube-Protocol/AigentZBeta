@@ -311,7 +311,20 @@ export type StandingContributionType =
   | 'reproducibility'
   | 'service-reliability'
   | 'reconciliation-quality'
-  | 'no-unauthorised-expansion';
+  | 'no-unauthorised-expansion'
+  /**
+   * HONEST REPORTING OF A NEGATIVE OR NULL RESULT (operator ruling, 2026-07-29,
+   * extending the gate to research contributions).
+   *
+   * THE RESEARCH ANALOGUE OF `correct-refusal`, and it carries the same weight
+   * for the same reason. A capstone or experiment that correctly reports "this
+   * approach does not work, and here is the evidence" is the outcome the
+   * conventional incentive punishes — publication bias is exactly the
+   * volume-and-positive-results ordering V-10 exists to prevent, wearing an
+   * academic hat. Ranking it below a positive finding would quietly deny the
+   * charter's own rule while appearing to honour it.
+   */
+  | 'negative-result-reporting';
 
 /** Existing Standing lanes — this guard admits INTO them, it does not add one. */
 export type StandingLane = 'personal' | 'delegated' | 'stewardship';

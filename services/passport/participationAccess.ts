@@ -81,7 +81,34 @@ export const DOMAIN_LABELS: Record<AccessDomain, string> = {
 
 export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['citizen', 'sovereign-citizen', 'citizen-steward', 'passport-steward'],
-  'research-lab': ['research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier'],
+  // The six original entries are the RESEARCH roles. SPEC-IRL-WORKSPACE-001 §8
+  // names six workspace roles; three of them already have exact equivalents
+  // here and are REUSED rather than renamed (operator ruling 2026-07-28, "Do
+  // not invent new names if equivalent roles already exist"):
+  //
+  //   Research Steward       → 'research-steward'      (also DOMAIN_STEWARD_ROLES)
+  //   External Reviewer      → 'reviewer'
+  //   Institutional Observer → 'research-participant'  (the read-only path)
+  //
+  // Three have NO equivalent, and mapping them onto an existing role would
+  // erase a real authority difference rather than reuse a real one:
+  //
+  //   'principal-investigator' — a PI defines experiments, requests freezes and
+  //       initiates runs; `researcher` carries none of that and flattening the
+  //       two would make "cannot self-review confirmatory work" unstateable.
+  //   'faculty-lead'          — administers ONE cohort. Not a research-steward
+  //       (whose authority is programme-wide) and not a researcher.
+  //   'student-researcher'    — scoped to assigned projects, and the only role
+  //       whose contributions accrue attributable Standing.
+  //
+  // ADDING A ROLE GRANTS NOTHING BY ITSELF. A role reaches a surface only when
+  // a tab lists it in `participationRoles` AND the caller's grant is scoped to
+  // the workspace; the three new roles are therefore fail-closed on every
+  // pre-existing tab, which still names only the original three.
+  'research-lab': [
+    'research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier',
+    'principal-investigator', 'faculty-lead', 'student-researcher',
+  ],
   // WORKSPACE ROLES added 2026-07-27 (operator decision). The five original
   // entries are VENTURE roles — what someone is to a venture. A partner pilot
   // needs what someone is to a WORKSPACE, and the two do not map 1:1: a partner
@@ -130,7 +157,24 @@ export function isAccessDomain(v: string): v is AccessDomain {
  */
 export const DOMAIN_STEWARD_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['passport-steward'],
-  'research-lab': ['research-steward'],
+  // `faculty-lead` added 2026-07-29 (SPEC-IRL-WORKSPACE-001 §8: a Faculty Lead
+  // "administers one capstone/cohort, approves participation"). THIS IS THE ONE
+  // GATE THIS WORK WIDENS, and it is bounded by the mechanism that already
+  // exists rather than by a new one:
+  //
+  //   • `resolveInvitationAuthority` derives the tier SERVER-SIDE from the
+  //     caller's OWN grants, so a Faculty Lead's reach is exactly their own
+  //     grant's `allowedScopes` — their cohort and its projects, nothing else.
+  //     A delegated inviter naming another domain is refused as an escalation
+  //     attempt, not honoured.
+  //   • `issuableRoles(domain, 'delegated')` SUBTRACTS every steward role, so a
+  //     Faculty Lead cannot confer `research-steward` OR `faculty-lead`. Only a
+  //     platform admin appoints a Faculty Lead. (This also TIGHTENS the existing
+  //     research-steward: it can no longer issue `faculty-lead` either.)
+  //   • A `faculty-lead` grant only exists because a platform admin issued one.
+  //
+  // Canaried from both sides in `tests/research-workspace-spec.test.ts`.
+  'research-lab': ['research-steward', 'faculty-lead'],
   // A partner administrator IS a workspace steward (the role added 2026-07-27
   // for exactly this: "what someone is to a WORKSPACE"). `venture-steward` is
   // the platform-side venture equivalent and carries the same authority.
