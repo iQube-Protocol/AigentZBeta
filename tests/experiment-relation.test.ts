@@ -433,3 +433,69 @@ describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
     expect(doc).toMatch(/400,000,000 proposal is SUPERSEDED/);
   });
 });
+
+describe('triage proposes; only a human decides (EXP-P1 target ruling 2026-07-29)', () => {
+  const src = () => readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+  const block = () => src().slice(src().indexOf('if (TRIAGE)'), src().indexOf('if (SCAFFOLD)'));
+
+  it('an unsigned proposal is NOT eligible, however confident it looks', () => {
+    // PRD-ICA-001 §6/§11 — approval is a human act, never automatic. Triage
+    // writes an empty `reviewer`; the exporter must refuse on that alone.
+    const s = src();
+    expect(s).toMatch(/const unsigned = relation !== 'unknown' && !String\(reviewer \?\? ''\)\.trim\(\);/);
+    expect(s).toMatch(/&& !unsigned;/);
+    expect(s).toMatch(/proposed by triage but not signed off/);
+  });
+
+  it('triage never writes a reviewer for itself', () => {
+    // Self-signing would make the whole gate ceremonial.
+    expect(block()).toMatch(/reviewer: ''/);
+    expect(block()).not.toMatch(/reviewer: 'triage'/);
+    expect(block()).not.toMatch(/reviewer: '[a-z]/i);
+  });
+
+  it('holds the TARGET itself for scrutiny, not just the non-target products', () => {
+    const s = src();
+    // The target is the IRL pipeline. An invariant derived from its own
+    // behaviour is the circular case — so pipeline terms must be scrutinised
+    // alongside MoneyPenny/CryptoSent, not instead of them.
+    for (const t of ['moneypenny', 'cryptosent', 'marketa']) {
+      expect(s, `must scrutinise ${t}`).toMatch(new RegExp(`'${t}'`));
+    }
+    for (const t of ['invariant selection', 'invariant retrieval', 'grounding', 'crystal']) {
+      expect(s, `must scrutinise the target term "${t}"`).toMatch(new RegExp(`'${t}'`));
+    }
+  });
+
+  it('does NOT exclude finance for being finance — it is the test domain', () => {
+    const s = src();
+    // The ruling's core: finance is a DOMAIN, not the target. No blanket
+    // namespace exclusion may appear in the triage.
+    expect(block()).not.toMatch(/namespace.*===.*'finance'/);
+    expect(s).toMatch(/finance is a test DOMAIN/i);
+    // And finance stays inside the boundary.
+    expect(s.slice(s.indexOf('EXP_P1_NAMESPACES'), s.indexOf('SCRUTINY_TERMS'))).toMatch(/'finance'/);
+  });
+
+  it('proposes only `independent` or `unknown` — never a contaminating verdict', () => {
+    // Triage may withhold a presumption. It may not mechanically brand an
+    // invariant target-derived; that is a judgement with consequences.
+    const b = block();
+    expect(b).toMatch(/proposal = 'independent'/);
+    expect(b).toMatch(/proposal = 'unknown'/);
+    for (const r of ['target-derived', 'task-derived', 'outcome-informed', 'domain-adjacent']) {
+      expect(b, `triage must not assign ${r}`).not.toMatch(new RegExp(`proposal = '${r}'`));
+    }
+  });
+
+  it('preserves decisions already signed off, and records its own signal', () => {
+    expect(block()).toMatch(/if \(relations\[key\]\) \{ out\[key\] = relations\[key\]; tally\.preserved \+= 1; continue; \}/);
+    expect(block()).toMatch(/_signal/);
+    expect(block()).toMatch(/_proposedBy: 'triage'/);
+  });
+
+  it('writes to a TRIAGE filename and never over a frozen artifact', () => {
+    expect(block()).toMatch(/relations\.TRIAGE\.json/);
+    expect(block()).not.toMatch(/`crystal-\$\{VERSION\}\.relations\.json`/);
+  });
+});

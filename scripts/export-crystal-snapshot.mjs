@@ -74,6 +74,29 @@ const EXP_P1_NAMESPACES = new Set([
   'finance',
 ]);
 
+// EXP-P1's TARGET is the IRL invariant representation / retrieval / runtime
+// pipeline — NOT MoneyPenny, the Financial Services Runtime, Marketa, VL-CT-001
+// or CryptoSent (operator ruling 2026-07-29). Finance is a test DOMAIN, so a
+// finance invariant is suspect only when target- or task-contaminated, never
+// merely for being about financial services.
+//
+// Terms that make an invariant worth INDIVIDUAL scrutiny. Matching one does not
+// exclude it — it withholds the presumption and sends it to a human.
+const SCRUTINY_TERMS = [
+  // Products that are NOT the target, but whose own doctrine could self-refer.
+  'moneypenny', 'cryptosent', 'qriptocent', 'marketa', 'financial services runtime',
+  'vl-ct-001', 'bitcent',
+  // THE TARGET ITSELF. An invariant derived from the IRL pipeline's own
+  // behaviour or defects is the circular case the ruling excludes.
+  'invariant selection', 'invariant retrieval', 'grounding', 'invariant slice',
+  'crystal', 'exp-p1', 'representation runtime', 'invariant compression',
+];
+
+// Work on the VL-CT-001 pilot and the P1 apparatus happened from this date.
+// Anything authored on or after it may be outcome-informed, so it is scrutinised
+// rather than presumed.
+const SCRUTINY_FROM = '2026-07-27';
+
 const SNAPSHOT_COLUMNS = [
   'id', 'seed_id', 'statement', 'namespace', 'ontology_class_id', 'semantic_type',
   'status', 'confidence', 'confidence_basis', 'standing', 'reach',
@@ -99,6 +122,12 @@ const SURVEY = process.argv.includes('--survey');
 // read each statement will not finish. Nothing is pre-judged: every entry
 // arrives `unknown` and stays ineligible until a human changes it.
 const SCAFFOLD = process.argv.includes('--scaffold-relations');
+// --triage-relations PROPOSES a relation per invariant from mechanical signals.
+// A proposal is not a decision: every proposed entry is written with an EMPTY
+// `reviewer`, and the exporter refuses any entry lacking one. So a triage file
+// applied without human sign-off yields exactly zero eligible invariants.
+// (PRD-ICA-001 §6/§11 — approval is a human act, never automatic.)
+const TRIAGE = process.argv.includes('--triage-relations');
 const VERSION = arg('version', 'vP1');
 const RELATIONS_PATH = arg('relations');
 
@@ -232,13 +261,18 @@ async function main() {
     const sourceRefs = review.sourceRefs ?? null;
     // A domain-adjacent inclusion with no stated reason is not an inclusion.
     const missingReason = REQUIRES_INCLUSION_REASON.has(relation) && !reviewReason;
+    // A triage PROPOSAL is not a review. An entry with no named reviewer fails
+    // closed however confident its proposed relation looks.
+    const unsigned = relation !== 'unknown' && !String(reviewer ?? '').trim();
     const inDomain = EXP_P1_NAMESPACES.has(ns);
     const stratum = stratumOf(relation, evidence, ns);
-    const eligible = inDomain && ELIGIBLE_RELATIONS.has(relation) && !missingReason;
+    const eligible = inDomain && ELIGIBLE_RELATIONS.has(relation) && !missingReason && !unsigned;
     const reason = !inDomain
       ? `namespace '${ns}' is outside the declared ${VERSION} domain boundary`
-      : missingReason
-        ? "'domain-adjacent' requires an explicit reviewer inclusion reason"
+      : unsigned
+        ? 'proposed by triage but not signed off — no reviewer named'
+        : missingReason
+          ? "'domain-adjacent' requires an explicit reviewer inclusion reason"
         : (RELATION_REASON[relation] ?? null);
 
     decisions.push({
@@ -285,6 +319,64 @@ async function main() {
   console.log(`  strata:     ${JSON.stringify(manifest.stratum_counts)}`);
   console.log(`  zero-standing included: ${manifest.zero_standing_included} (recorded, never repaired)`);
   console.log(`  sha256: ${snapshotHash}`);
+
+  if (TRIAGE) {
+    const out = {};
+    const tally = { proposed: 0, scrutinise: 0, preserved: 0 };
+    const reasons = {};
+    for (const r of rows) {
+      if (!EXP_P1_NAMESPACES.has(String(r.namespace))) continue;
+      const key = r.seed_id || r.id;
+      if (relations[key]) { out[key] = relations[key]; tally.preserved += 1; continue; }
+
+      const haystack = `${r.statement ?? ''} ${JSON.stringify(r.provenance ?? {})}`.toLowerCase();
+      const hit = SCRUTINY_TERMS.find((t) => haystack.includes(t));
+      const recent = String(r.created_at ?? '') >= SCRUTINY_FROM;
+
+      let proposal = 'independent';
+      let signal = 'no scrutiny term; predates the P1 apparatus; task construction has not occurred';
+      if (hit) {
+        proposal = 'unknown';
+        signal = `mentions '${hit}' — needs a human decision on self-reference`;
+      } else if (recent) {
+        proposal = 'unknown';
+        signal = `created ${String(r.created_at).slice(0, 10)}, during the VL-CT-001 / P1 work — may be outcome-informed`;
+      }
+      if (proposal === 'unknown') tally.scrutinise += 1; else tally.proposed += 1;
+      reasons[signal] = (reasons[signal] ?? 0) + 1;
+
+      out[key] = {
+        relationship: proposal,
+        reason: '',
+        // EMPTY BY DESIGN. The exporter refuses any entry with a proposed
+        // relation and no named reviewer, so this file alone admits nothing.
+        reviewer: '',
+        reviewedAt: '',
+        sourceRefs: [],
+        _proposedBy: 'triage',
+        _signal: signal,
+        _namespace: String(r.namespace),
+        _status: String(r.status),
+        _created: String(r.created_at ?? '').slice(0, 10),
+        _statement: String(r.statement ?? '').slice(0, 180),
+      };
+    }
+    mkdirSync(OUT_DIR, { recursive: true });
+    const path = join(OUT_DIR, `crystal-${VERSION}.relations.TRIAGE.json`);
+    writeFileSync(path, `${JSON.stringify(out, null, 2)}\n`);
+    console.log(`\nWrote ${path}`);
+    console.log(`\n  proposed 'independent'   ${tally.proposed}`);
+    console.log(`  held for scrutiny        ${tally.scrutinise}   <-- the real decisions`);
+    console.log(`  pre-existing decisions   ${tally.preserved}`);
+    console.log('\n  Signals:');
+    for (const [k, v] of Object.entries(reasons).sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${String(v).padStart(4)}  ${k}`);
+    }
+    console.log('\n  NOTHING IS ELIGIBLE YET. Every entry has an empty "reviewer",');
+    console.log('  and the exporter refuses a proposed relation with no reviewer named.');
+    console.log('  Sign off by filling "reviewer" (and "reason" for domain-adjacent).');
+    return;
+  }
 
   if (SCAFFOLD) {
     const out = {};
