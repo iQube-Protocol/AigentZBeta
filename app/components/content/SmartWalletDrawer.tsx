@@ -260,7 +260,13 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
 const TOKEN_LOGOS: Record<string, string> = {
   ethereum: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=040",
   arbitrum: "https://cryptologos.cc/logos/arbitrum-arb-logo.png?v=040",
-  base: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png",
+  // No `base` entry: the only asset previously mapped here (a trustwallet/assets
+  // mirror) resolves to a plain blue square with no "B" glyph and a baked-in
+  // white background — not Coinbase's actual Base brand mark. Rather than
+  // fabricate a replacement URL, the two Base Q¢ balance rows fall back to
+  // their existing lucide `fallbackIcon` until a real Base logo asset is
+  // supplied (operator-provided file, same pattern as the metaMe/iQube brand
+  // assets in public/metaMe/).
   optimism: "https://cryptologos.cc/logos/optimism-ethereum-op-logo.png?v=040",
   polygon: "https://cryptologos.cc/logos/polygon-matic-logo.png?v=040",
   solana: "https://cryptologos.cc/logos/solana-sol-logo.png?v=040",
@@ -1532,7 +1538,6 @@ export default function SmartWalletDrawer({
       label: "Base Q¢",
       value: qctMainnetLoading ? "…" : formatFixed(baseQcMainnetAmount),
       unit: "Q¢",
-      logo: TOKEN_LOGOS.base,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
       group: "mainnet",
       pending: !qctMainnetConfigured,
@@ -1553,7 +1558,6 @@ export default function SmartWalletDrawer({
       label: "Base Q¢",
       value: formatQcent(bals.qctBase, bals.qctBaseDecimals),
       unit: "Q¢",
-      logo: TOKEN_LOGOS.base,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
       group: "testnet",
     },

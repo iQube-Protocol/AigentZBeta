@@ -31,7 +31,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronLeft } from "lucide-react";
+import { Brain, ChevronDown, ChevronLeft } from "lucide-react";
 
 import {
   getStaticAgentLlmProviders,
@@ -127,13 +127,13 @@ export function CompanionModelPicker({ agentId, value, onChange }: CompanionMode
             loading="lazy"
           />
         ) : (
-          <span className="inline-block h-3.5 w-3.5 rounded-[2px] bg-white/20" aria-hidden="true" />
+          <Brain className="h-3.5 w-3.5 text-white/40" aria-hidden="true" />
         )}
         <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute bottom-9 right-0 z-50 min-w-[180px] rounded-xl border border-slate-800 bg-slate-900/95 p-2 shadow-xl backdrop-blur">
+        <div className="absolute bottom-9 left-0 z-50 min-w-[180px] rounded-xl border border-slate-800 bg-slate-900/95 p-2 shadow-xl backdrop-blur">
           {!expandedProvider ? (
             providers.length === 0 ? (
               <div className="px-2 py-1.5 text-[11px] text-slate-500">No model providers configured.</div>

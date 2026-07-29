@@ -702,7 +702,7 @@ export function CodexCopilotLayer({
   }, [vapiState, voicePersona]);
   // ── end voice ───────────────────────────────────────────────────────────────
 
-  const headerHeight = 44;
+  const headerHeight = 32;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
   const footerRef = useRef<HTMLDivElement | null>(null);
   const [footerMeasuredHeight, setFooterMeasuredHeight] = useState(floatingInput ? 100 : 80);
@@ -1667,7 +1667,7 @@ export function CodexCopilotLayer({
                     <div className="flex-1 relative overflow-hidden">
                       {showTrustIndicators ? (
                         <div
-                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-between"
+                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 py-1.5 flex items-center gap-4 border-b border-white/10 justify-between"
                           style={{ height: `${headerHeight}px` }}
                         >
                           {/* ACTIVE PERSONA, left, on the same row as the R/T
@@ -1689,7 +1689,7 @@ export function CodexCopilotLayer({
                               onClick={onHeaderIdentityClick}
                               title="Switch persona"
                               aria-label="Switch persona"
-                              className="-mx-1 flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-white/10"
+                              className="flex min-w-0 items-center gap-1.5 rounded-md py-0.5 transition-colors hover:bg-white/10"
                             >
                               {/* Collapsed-state indicator: green human/robot
                                   icon shaped to the active persona's kind,
