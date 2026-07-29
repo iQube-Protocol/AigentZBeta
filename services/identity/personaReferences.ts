@@ -59,6 +59,29 @@ export function constitutionalRef(namespace: string, id: string): string {
   return createHash('sha256').update(`${namespace}:${id}`).digest('hex').slice(0, 16);
 }
 
+/**
+ * A canonical UUID, as written by Postgres/`crypto.randomUUID`. Lives HERE, with
+ * the reference derivations, because "this looks like a raw T0 identifier" and
+ * "this is how a T0 identifier is turned into a commitment" are one concern:
+ * a leakage canary and the emitter it guards must share ONE definition or they
+ * drift, and a drifted canary passes on a real leak.
+ *
+ * Re-exported by `services/venture/trading/refs.ts` (its original home) and
+ * consumed directly by `services/qriptocent/settlement/refs.ts`.
+ */
+export const RAW_UUID_PATTERN =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/** True when any string anywhere in `value` looks like a raw identifier. */
+export function containsRawIdentifier(value: unknown): boolean {
+  if (typeof value === 'string') return RAW_UUID_PATTERN.test(value);
+  if (Array.isArray(value)) return value.some(containsRawIdentifier);
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(containsRawIdentifier);
+  }
+  return false;
+}
+
 export function pairwiseRefsEnabled(): boolean {
   return Boolean(process.env.PERSONA_PAIRWISE_REF_SECRET);
 }

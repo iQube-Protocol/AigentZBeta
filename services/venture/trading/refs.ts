@@ -75,19 +75,10 @@ export function venturePrivateLedgerRef(obligationId: string): string {
 }
 
 /**
- * A canonical UUID, as written by Postgres/`crypto.randomUUID`. Exported so the
- * leakage canaries and the receipt emitter share ONE definition of "this looks
- * like a raw identifier" rather than two regexes that can drift apart.
+ * "This looks like a raw identifier" now lives with the reference derivations in
+ * `services/identity/personaReferences.ts`, so the venture substrate, the
+ * QriptoCENT settlement substrate and every leakage canary share ONE definition
+ * rather than regexes that can drift apart. Re-exported from here because this
+ * module is where the venture substrate's callers and canaries already look.
  */
-export const RAW_UUID_PATTERN =
-  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-
-/** True when any string anywhere in `value` looks like a raw UUID. */
-export function containsRawIdentifier(value: unknown): boolean {
-  if (typeof value === 'string') return RAW_UUID_PATTERN.test(value);
-  if (Array.isArray(value)) return value.some(containsRawIdentifier);
-  if (value && typeof value === 'object') {
-    return Object.values(value as Record<string, unknown>).some(containsRawIdentifier);
-  }
-  return false;
-}
+export { RAW_UUID_PATTERN, containsRawIdentifier } from '@/services/identity/personaReferences';

@@ -59,6 +59,13 @@
  */
 
 import { createHash } from 'crypto';
+import {
+  assertJournalCanLeaveMemory,
+  FixtureModeViolation,
+  simulationRecordHash,
+  type JournalEgress,
+  type SimulationMode,
+} from '@/services/simulation/journal';
 import type { PartnerServiceCompensationExtension } from './compensationExtension';
 import {
   assertVentureReceiptConstraintCompatible,
@@ -131,7 +138,7 @@ export interface CostCheckpoint {
  * `live`    — a real operator action. Phase 2 only, and it must additionally
  * pass the deployment compatibility check before any write.
  */
-export type VentureReceiptMode = 'fixture' | 'live';
+export type VentureReceiptMode = SimulationMode;
 
 export interface VentureReceiptJournal {
   runId: string;
@@ -156,18 +163,16 @@ export function createReceiptJournal(
  * distinct class so a caller can tell "the substrate refused on principle" from
  * "the database was unreachable" — the two need opposite responses.
  */
-export class VentureFixtureModeViolation extends Error {
-  readonly runId: string;
-  readonly operation: 'persist' | 'anchor';
-  constructor(runId: string, operation: 'persist' | 'anchor') {
+export class VentureFixtureModeViolation extends FixtureModeViolation {
+  constructor(runId: string, operation: JournalEgress) {
     super(
+      runId,
+      operation,
       `venture journal ${runId} is in FIXTURE mode and must not be ${operation === 'persist' ? 'persisted' : 'DVN-anchored'}. ` +
         'These are deterministic replays of the same fixtures; writing them to activity_receipts would put simulation ' +
         'artifacts in the operational provenance trail. Receipt objects and hashes are available via ventureJournalArtifacts().',
     );
     this.name = 'VentureFixtureModeViolation';
-    this.runId = runId;
-    this.operation = operation;
   }
 }
 
@@ -179,14 +184,21 @@ export class VentureFixtureModeViolation extends Error {
  * a boolean is a guard a caller can ignore, and the whole point of Ruling 2 is
  * that a future refactor cannot quietly wire the replay path to the live
  * writer.
+ *
+ * The DECISION lives once, in `services/simulation/journal.ts`, shared with the
+ * QriptoCENT settlement substrate. This wrapper only supplies the venture
+ * subclass, so the substrate-specific `instanceof` and message survive without
+ * a second copy of the rule.
  */
 export function assertVentureJournalCanLeaveMemory(
   journal: VentureReceiptJournal,
-  operation: 'persist' | 'anchor',
+  operation: JournalEgress,
 ): void {
-  if (journal.mode === 'fixture') {
-    throw new VentureFixtureModeViolation(journal.runId, operation);
-  }
+  assertJournalCanLeaveMemory(
+    journal,
+    operation,
+    (runId, op) => new VentureFixtureModeViolation(runId, op),
+  );
 }
 
 /**
@@ -233,19 +245,7 @@ export interface VentureEmissionOptions {
  * anywhere.
  */
 export function ventureReceiptHash(receipt: VentureReceipt): string {
-  return createHash('sha256').update(canonicalise(receipt)).digest('hex');
-}
-
-/** Stable JSON: object keys sorted at every depth, arrays left in order. */
-function canonicalise(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalise).join(',')}]`;
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>)
-      .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalise(v)}`).join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
+  return simulationRecordHash(receipt);
 }
 
 /**
