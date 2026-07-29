@@ -188,7 +188,26 @@ export type ActivityActionType =
   | 'standing_corrected'         // services/crm/standingAccrualService.ts
   // Aigent Z's administration of an ExperimentWorkspace — the daily wakeup and
   // the weekly report (Horizen Phase 3). Anchorable.
-  | 'workspace_report_published';// services/experiments/workspaceReport.ts
+  | 'workspace_report_published'  // services/experiments/workspaceReport.ts
+  // VL-CT-001 venture substrate (charter R-6, 2026-07-29) — the nine
+  // consequential events of the opportunity→liability→settlement chain. The
+  // canonical accounting unit is the OPPORTUNITY, so refused and never-executed
+  // opportunities receipt on exactly the same footing as executed ones:
+  // `venture_refusal_recorded` records a COMPLETED constitutional service with
+  // execution declined, never a failed trade. Compensation-bearing receipts
+  // carry the versioned partner-service compensation extension (R-8) built by
+  // services/venture/trading/compensationExtension.ts. All nine DVN-anchorable;
+  // ordinary cost lines are batch-checkpointed instead of individually
+  // receipted. See services/venture/trading/receipts.ts.
+  | 'venture_opportunity_opened'
+  | 'venture_service_completed'
+  | 'venture_completion_assessed'
+  | 'venture_refusal_recorded'
+  | 'venture_obligation_earned'
+  | 'venture_obligation_approved'
+  | 'venture_settlement_simulated'
+  | 'venture_obligation_reversed'
+  | 'venture_opportunity_closed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

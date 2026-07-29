@@ -110,6 +110,27 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // governance artifact above. (Action-type addition only — the one change
   // this file permits unilaterally.)
   'workspace_report_published',
+  // VL-CT-001 venture substrate (charter R-6) — the nine consequential events
+  // of the opportunity→liability→settlement chain. Anchoring matters most for
+  // the refusal path: `venture_refusal_recorded` and the obligation events that
+  // follow it are the tamper-evident record that a justified refusal was a
+  // COMPLETED constitutional service that earned compensation, not a failed
+  // trade. Without an anchor, that claim is a database row asserting its own
+  // truth. Ordinary preparation-cost lines are NOT here — they are batch
+  // checkpointed into a commitment (services/venture/trading/receipts.ts).
+  // (Action-type addition only — the one change this file permits
+  // unilaterally. Payload shape, state machine and hashPersonaRef untouched;
+  // the R-8 compensation extension is built by the venture substrate and rides
+  // inside the receipt it is attached to.)
+  'venture_opportunity_opened',
+  'venture_service_completed',
+  'venture_completion_assessed',
+  'venture_refusal_recorded',
+  'venture_obligation_earned',
+  'venture_obligation_approved',
+  'venture_settlement_simulated',
+  'venture_obligation_reversed',
+  'venture_opportunity_closed',
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',
