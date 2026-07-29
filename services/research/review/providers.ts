@@ -111,7 +111,13 @@ export function createVeniceProvider(): ReviewProvider {
         topP: request.determinism.topP,
         seed: request.determinism.seed,
         maxTokens: request.determinism.maxTokens,
-        timeoutMs: 180_000,
+        // 300s, not 180s. Per-batch timeout is a safety margin now that a batch
+        // is 32 subjects rather than the whole package (rulings, "Token
+        // handling") — a live run against the real corpus still timed out at
+        // 180s on the very first batch dispatched, so the real-world latency
+        // of a 70B-parameter model on Venice's infrastructure needs more room
+        // than the architecture-fix pass assumed, even at reduced batch size.
+        timeoutMs: 300_000,
       });
       if (!res.ok || !res.text) {
         throw new ReviewRefusal(
