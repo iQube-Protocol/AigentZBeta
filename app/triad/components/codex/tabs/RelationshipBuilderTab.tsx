@@ -1288,8 +1288,14 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
     if (!draft.trim() || !personaId) return;
     setSending(true);
     try {
-      await fetch("/api/marketa/qubetalk", {
+      // personaFetch, not raw fetch: /api/marketa/qubetalk now authenticates
+      // through the spine (it used to trust this `x-persona-id` header as
+      // proof of identity). Every other call in this file already uses
+      // personaFetch — this one was the odd transport out, which is exactly
+      // the mixed-transport shape that resolves two different personas.
+      await personaFetch("/api/marketa/qubetalk", {
         method: "POST",
+        personaIdHint: personaId,
         headers: {
           "Content-Type": "application/json",
           "x-persona-id": personaId,
