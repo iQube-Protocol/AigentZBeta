@@ -332,3 +332,35 @@ describe('selection mode is arm treatment, never an eligibility gate', () => {
     expect(grounding).toMatch(/if \(b\.standing !== a\.standing\) return b\.standing - a\.standing;/);
   });
 });
+
+describe('relations scaffold', () => {
+  const src = () => readFileSync(join(REPO, 'scripts/export-crystal-snapshot.mjs'), 'utf-8');
+
+  it('pre-judges nothing — every scaffolded entry starts `unknown`', () => {
+    const block = src().slice(src().indexOf('if (SCAFFOLD)'), src().indexOf('if (SURVEY)'));
+    expect(block).toMatch(/relationship: 'unknown'/);
+    // No other relation may be written by the generator.
+    for (const r of ['independent', 'domain-adjacent', 'target-derived']) {
+      expect(block, `scaffold must not assign ${r}`).not.toMatch(new RegExp(`relationship: '${r}'`));
+    }
+  });
+
+  it('preserves decisions already made rather than overwriting them', () => {
+    const block = src().slice(src().indexOf('if (SCAFFOLD)'), src().indexOf('if (SURVEY)'));
+    // Re-running the scaffold after a partial review must not wipe it.
+    expect(block).toMatch(/if \(relations\[key\]\) \{ out\[key\] = relations\[key\]; continue; \}/);
+  });
+
+  it('carries a statement preview so review does not need a second lookup', () => {
+    const block = src().slice(src().indexOf('if (SCAFFOLD)'), src().indexOf('if (SURVEY)'));
+    expect(block).toMatch(/_statement/);
+    expect(block).toMatch(/_namespace/);
+  });
+
+  it('writes to a SCAFFOLD filename, never over a frozen artifact', () => {
+    const block = src().slice(src().indexOf('if (SCAFFOLD)'), src().indexOf('if (SURVEY)'));
+    expect(block).toMatch(/relations\.SCAFFOLD\.json/);
+    // Must not collide with the hashed `.relations.json` the freeze writes.
+    expect(block).not.toMatch(/`crystal-\$\{VERSION\}\.relations\.json`/);
+  });
+});

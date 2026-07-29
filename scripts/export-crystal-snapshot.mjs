@@ -38,6 +38,8 @@
  * Usage:
  *   node scripts/export-crystal-snapshot.mjs --version=vP1 --dry-run
  *   node scripts/export-crystal-snapshot.mjs --version=vP1
+ *   node scripts/export-crystal-snapshot.mjs --version=vP1 --survey
+ *   node scripts/export-crystal-snapshot.mjs --version=vP1 --scaffold-relations
  *   node scripts/export-crystal-snapshot.mjs --version=vP1 \
  *        --relations=path/to/relations.json
  *
@@ -90,6 +92,13 @@ const DRY_RUN = process.argv.includes('--dry-run');
 // reports the UPPER BOUND (in-boundary rows) and the review workload. The
 // bound is a ceiling, never a forecast: the review can only ever remove from it.
 const SURVEY = process.argv.includes('--survey');
+// --scaffold-relations writes a PRE-FILLED review file: every in-boundary
+// invariant at `unknown`, with its namespace and a statement preview so a
+// reviewer can judge without a second lookup. Hand-authoring hundreds of JSON
+// entries is not a reasonable ask, and a reviewer who has to context-switch to
+// read each statement will not finish. Nothing is pre-judged: every entry
+// arrives `unknown` and stays ineligible until a human changes it.
+const SCAFFOLD = process.argv.includes('--scaffold-relations');
 const VERSION = arg('version', 'vP1');
 const RELATIONS_PATH = arg('relations');
 
@@ -212,6 +221,9 @@ async function main() {
     // record. The record form is what a real independence review produces and
     // is what gets hashed alongside the crystal.
     const entry = relations[r.id] ?? relations[r.seed_id] ?? null;
+    // Underscore-prefixed keys in a scaffold entry (_namespace, _statement…)
+    // are reviewer aids and are read by nothing here — the reader takes only
+    // the named fields, so leaving them in the file is harmless.
     const review = typeof entry === 'string' ? { relationship: entry } : (entry ?? {});
     const relation = review.relationship ?? 'unknown';
     const reviewReason = review.reason ?? null;
@@ -273,6 +285,40 @@ async function main() {
   console.log(`  strata:     ${JSON.stringify(manifest.stratum_counts)}`);
   console.log(`  zero-standing included: ${manifest.zero_standing_included} (recorded, never repaired)`);
   console.log(`  sha256: ${snapshotHash}`);
+
+  if (SCAFFOLD) {
+    const out = {};
+    let n = 0;
+    for (const r of rows) {
+      if (!EXP_P1_NAMESPACES.has(String(r.namespace))) continue;
+      const key = r.seed_id || r.id;
+      // Preserve any decision already made; only add what is missing.
+      if (relations[key]) { out[key] = relations[key]; continue; }
+      out[key] = {
+        relationship: 'unknown',
+        reason: '',
+        reviewer: '',
+        reviewedAt: '',
+        sourceRefs: [],
+        _namespace: String(r.namespace),
+        _status: String(r.status),
+        _statement: String(r.statement ?? '').slice(0, 180),
+      };
+      n += 1;
+    }
+    mkdirSync(OUT_DIR, { recursive: true });
+    const path = join(OUT_DIR, `crystal-${VERSION}.relations.SCAFFOLD.json`);
+    writeFileSync(path, `${JSON.stringify(out, null, 2)}\n`);
+    console.log(`\nWrote ${path}`);
+    console.log(`  ${Object.keys(out).length} in-boundary invariants, ${n} newly added at 'unknown'.`);
+    console.log(`\n  Set "relationship" on each entry to one of:`);
+    console.log(`    independent | domain-adjacent | target-derived | task-derived | outcome-informed`);
+    console.log(`  'domain-adjacent' ALSO requires a non-empty "reason" or it is refused.`);
+    console.log(`  Fields prefixed _ are review aids and are ignored by the exporter.`);
+    console.log(`\n  Then: node scripts/export-crystal-snapshot.mjs --version=${VERSION} \\`);
+    console.log(`          --relations=${path} --dry-run`);
+    return;
+  }
 
   if (SURVEY) {
     const inBoundary = decisions.filter((d) => EXP_P1_NAMESPACES.has(d.namespace));
