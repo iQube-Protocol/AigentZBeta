@@ -204,6 +204,29 @@ export type ServiceObligationBasis =
   | 'verification-completed'
   | 'reconciliation-completed';
 
+/**
+ * One component service covered by an obligation (RULING 3).
+ *
+ * A bundled obligation carries ONE terminal basis — `correct-refusal` where
+ * refusal is the constitutionally valid terminal outcome, because refusal is
+ * the load-bearing outcome for H3 and labelling the bundle merely "completed"
+ * would erase the distinction under test. But the aggregate label must not
+ * falsely imply that ALL the bundled work was refusal: the discovery, analysis,
+ * verification and risk review inside that same bundle were COMPLETED services.
+ * So the component bases are preserved alongside the terminal basis rather than
+ * flattened into it.
+ *
+ * There is deliberately NO `mixed` terminal basis. It would add vocabulary
+ * without improving the Phase 1 treatment distinction — revisit only when
+ * settlement or reporting needs multiple simultaneous terminal bases.
+ */
+export interface ServiceObligationComponent {
+  serviceType: VentureServiceType;
+  basis: ServiceObligationBasis;
+  /** How this one component ended. Derived from its basis, never asserted. */
+  disposition: 'completed' | 'refused';
+}
+
 export type ServiceObligationState =
   | 'proposed'
   | 'earned'
@@ -219,7 +242,18 @@ export interface ServiceObligation {
   beneficiaryAgentRef: string;
   /** Commitment of the operator-funded budget holder. */
   funderRef: string;
+  /**
+   * The obligation's TERMINAL basis. For a bundle this is the terminal outcome
+   * of the bundled work, not a summary of it — read `components` for that.
+   */
   basis: ServiceObligationBasis;
+  /**
+   * Every service this obligation compensates, with its own basis. Populated
+   * for both pricing structures: one entry under `per-service`, one per bundled
+   * service under `bundled`. Never empty — an obligation with no components
+   * would be a liability for no identifiable work.
+   */
+  components: ServiceObligationComponent[];
   denomination: VentureDenomination;
   /** Minor units, decimal string. Simulated — no live value moves. */
   amountMinorUnits: string;

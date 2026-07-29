@@ -76,6 +76,7 @@ import type {
   ServiceObligationBasis,
   ServiceObligationState,
   VentureDenomination,
+  VentureServiceType,
 } from './types';
 
 /** Bump ONLY on a breaking shape change; older receipts stay readable. */
@@ -105,7 +106,20 @@ export interface PartnerServiceCompensationExtension {
   beneficiaryRef: string;
   settlementState: ServiceObligationState;
   settlementRef?: string;
+  /**
+   * The TERMINAL classification. For a bundle this is how the bundled work
+   * ended, not a summary of what it was — read `components` for that (R-3
+   * qualification, operator ruling 2026-07-29). A reader who sees
+   * `classification: 'refusal'` and no components would reasonably conclude
+   * every service in the bundle was a refusal.
+   */
   classification: CompensationClassification;
+  /**
+   * Per-service bases inside the obligation. T2-safe: a service type and a
+   * basis are vocabulary, not identifiers — no ref, amount or persona travels
+   * here that is not already on the extension.
+   */
+  components: { serviceType: VentureServiceType; basis: ServiceObligationBasis; disposition: 'completed' | 'refused' }[];
   experimentalCellId: string;
 }
 
@@ -139,6 +153,9 @@ export function buildCompensationExtension(
     beneficiaryRef: obligation.beneficiaryAgentRef,
     settlementState: obligation.state,
     classification: classifyCompensation(obligation.basis),
+    // Copied, not referenced — the extension is serialised into a receipt body
+    // and must not alias a mutable ledger row.
+    components: obligation.components.map((c) => ({ ...c })),
     experimentalCellId: obligation.experimentalCellId,
     ...(opts.settlementRef ? { settlementRef: opts.settlementRef } : {}),
   };

@@ -52,6 +52,7 @@ import type {
   ServiceBudget,
   ServiceObligation,
   ServiceObligationBasis,
+  ServiceObligationComponent,
   ServiceObligationState,
   VentureCompensationContingency,
   VentureDenomination,
@@ -265,6 +266,10 @@ export function applyLiabilityEvent(
             beneficiaryAgentRef: pending[0].beneficiaryAgentRef,
             amountMinorUnits: input.bundlePriceMinorUnits,
             basis: bundleBasis(pending),
+            // The bundle's terminal basis is ONE value; its components are all
+            // of them. Keeping both is what stops `correct-refusal` reading as
+            // "everything in this bundle was a refusal" (RULING 3).
+            components: pending.map(obligationComponent),
             serviceType: undefined as VentureServiceType | undefined,
             receiptRef: input.receiptRef,
           },
@@ -273,6 +278,10 @@ export function applyLiabilityEvent(
           beneficiaryAgentRef: p.beneficiaryAgentRef,
           amountMinorUnits: p.priceMinorUnits,
           basis: p.basis,
+          // One component — the service being compensated. Populated under
+          // per-service pricing too, so consumers read components uniformly and
+          // a bundle is not a special case they can forget to handle.
+          components: [obligationComponent(p)],
           serviceType: p.serviceType as VentureServiceType | undefined,
           receiptRef: p.receiptRef,
         }));
@@ -293,6 +302,7 @@ export function applyLiabilityEvent(
       beneficiaryAgentRef: draft.beneficiaryAgentRef,
       funderRef: input.funderRef,
       basis: draft.basis,
+      components: draft.components,
       denomination: ledger.cell.denomination,
       amountMinorUnits: draft.amountMinorUnits,
       compensationRegime: regime,
@@ -321,15 +331,55 @@ export function applyLiabilityEvent(
 }
 
 /**
- * The basis a bundled obligation carries. A bundle containing a correct refusal
- * is recorded as `correct-refusal`, not as `service-completed`: the charter's
- * claim is that the refusal IS the compensable act, and a bundle that flattened
- * it to a generic completion would erase the one classification H3 reads.
+ * The TERMINAL basis a bundled obligation carries (operator ruling, 2026-07-29).
+ *
+ * A bundle containing a correct refusal is recorded as `correct-refusal`, not
+ * as `service-completed`: refusal is the load-bearing outcome for H3, and
+ * labelling the bundle merely "completed" would erase the distinction under
+ * test. `correct-refusal` is retained here as the bundle's terminal basis
+ * wherever refusal is the constitutionally valid terminal outcome.
+ *
+ * The qualification is `components`, populated alongside this value: the
+ * aggregate label describes how the bundled work ENDED, and the component list
+ * describes what the bundled work WAS. Read together they say
+ *
+ *     Bundle terminal basis: correct-refusal
+ *     Components: discovery completed · analysis completed · risk review
+ *                 completed · reconciliation completed · refusal refused
+ *
+ * which is true; the terminal basis alone would imply all of it was refusal.
+ * There is deliberately no `mixed` basis — see `ServiceObligationComponent`.
  */
 function bundleBasis(pending: readonly PendingServiceRecord[]): ServiceObligationBasis {
   if (pending.some((p) => p.basis === 'correct-refusal')) return 'correct-refusal';
   if (pending.some((p) => p.basis === 'execution-completed')) return 'execution-completed';
   return 'service-completed';
+}
+
+/** Project a pending service into the component record an obligation carries. */
+function obligationComponent(p: PendingServiceRecord): ServiceObligationComponent {
+  return {
+    serviceType: p.serviceType,
+    basis: p.basis,
+    // Derived from the basis, never asserted separately: two fields that could
+    // disagree about the same fact are two sources of truth.
+    disposition: p.basis === 'correct-refusal' ? 'refused' : 'completed',
+  };
+}
+
+/**
+ * The obligation rendered as a terminal basis PLUS its components — the shape a
+ * report or an adapter should surface, so the aggregate label never travels
+ * without the work it aggregates.
+ */
+export function describeObligationOutcome(obligation: ServiceObligation): {
+  terminalBasis: ServiceObligationBasis;
+  components: string[];
+} {
+  return {
+    terminalBasis: obligation.basis,
+    components: obligation.components.map((c) => `${c.serviceType}: ${c.disposition}`),
+  };
 }
 
 function transition(

@@ -106,6 +106,18 @@ export function reconcileRun(run: VentureScenarioRun): RunReconciliation {
     if (o.compensationRegime !== run.cell.compensationContingency) {
       violations.push(`obligation ${o.obligationId}: regime ${o.compensationRegime} != cell ${run.cell.compensationContingency}`);
     }
+    // Identity 11 — a liability names the work it compensates. An obligation
+    // with no components is a payment for no identifiable service, and under
+    // bundled pricing it is also an aggregate label with nothing behind it.
+    if (o.components.length === 0) {
+      violations.push(`obligation ${o.obligationId}: no component service bases`);
+    }
+    // Identity 12 — the terminal basis is one the components can support. A
+    // bundle terminal-labelled `correct-refusal` with no refused component
+    // would be an aggregate asserting an outcome none of its work produced.
+    if (o.basis === 'correct-refusal' && !o.components.some((c) => c.disposition === 'refused')) {
+      violations.push(`obligation ${o.obligationId}: terminal basis correct-refusal with no refused component`);
+    }
   }
 
   // Identity 8 — pending work is fully consumed or explicitly declined; work
@@ -176,6 +188,10 @@ export function runFingerprint(run: VentureScenarioRun): string {
     obligations: run.ledger.obligations.map((o) => [
       o.obligationId,
       o.basis,
+      // Component bases, not merely the terminal one: a bundle that lost its
+      // components would otherwise fingerprint identically to one that kept
+      // them (RULING 3).
+      o.components.map((c) => `${c.serviceType}:${c.disposition}`).join('+'),
       o.amountMinorUnits,
       o.denomination,
       o.state,

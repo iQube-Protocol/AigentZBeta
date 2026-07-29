@@ -48,7 +48,7 @@ import {
   costPerOpportunity,
 } from '@/services/venture/trading/preparationCost';
 import { assessConstitutionalCompletion } from '@/services/venture/trading/completionVerdict';
-import { liabilityArisesAt } from '@/services/venture/trading/serviceLedger';
+import { describeObligationOutcome, liabilityArisesAt } from '@/services/venture/trading/serviceLedger';
 import { buildCompensationExtension } from '@/services/venture/trading/compensationExtension';
 import {
   anchorVentureReceipt,
@@ -701,6 +701,10 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
       beneficiaryAgentRef: 'aaaa1111bbbb2222',
       funderRef: 'cccc3333dddd4444',
       basis: 'correct-refusal' as const,
+      components: [
+        { serviceType: 'risk-review' as const, basis: 'service-completed' as const, disposition: 'completed' as const },
+        { serviceType: 'refusal' as const, basis: 'correct-refusal' as const, disposition: 'refused' as const },
+      ],
       denomination: 'BASE_QC' as const,
       amountMinorUnits: '2000',
       compensationRegime: 'constitutional-completion-contingent' as const,
@@ -725,6 +729,103 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
       { disclosure: 'restricted', liabilityCreationEvent: 'constitutional-completion' },
     );
     expect(c.amountCommitment).not.toBe(a.amountCommitment);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-16 — RULING 3. A bundle keeps `correct-refusal` as its TERMINAL basis,
+//         and keeps the component bases so the label does not overclaim.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-16 a bundled refusal keeps its terminal basis AND its component bases', () => {
+  const bundled = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-BUNDLED-COMPLETE'));
+
+  it('the bundle is ONE obligation whose terminal basis is `correct-refusal`', () => {
+    // Retained deliberately: refusal is the load-bearing outcome for H3, and
+    // "completed" would erase the distinction under test.
+    expect(bundled.ledger.obligations).toHaveLength(1);
+    expect(bundled.ledger.obligations[0].basis).toBe('correct-refusal');
+  });
+
+  it('the component bases are preserved — four completed services and one refusal', () => {
+    const [obligation] = bundled.ledger.obligations;
+    // Hand-written from the S2 fixture, in fixture order. NOT derived from the
+    // scenario at test time: deriving it would assert the projection equals
+    // itself and a bundle that dropped components entirely would still pass.
+    expect(obligation.components.map((c) => `${c.serviceType}:${c.disposition}`)).toEqual([
+      'discovery:completed',
+      'analysis:completed',
+      'risk-review:completed',
+      'refusal:refused',
+      'reconciliation:completed',
+    ]);
+    // The aggregate label must not imply all of it was refusal.
+    expect(obligation.components.filter((c) => c.disposition === 'completed')).toHaveLength(4);
+    expect(obligation.components.filter((c) => c.disposition === 'refused')).toHaveLength(1);
+  });
+
+  it('an executed bundle carries NO refused component, so the split is real', () => {
+    // Guard against a vacuous canary: if every bundle were labelled the same
+    // way, the component list would carry no information.
+    const executed = runVentureScenario(SCENARIO_APPROVED_EXECUTED, cellById('USDC-BUNDLED-COMPLETE'));
+    const [obligation] = executed.ledger.obligations;
+    expect(obligation.basis).not.toBe('correct-refusal');
+    expect(obligation.components.every((c) => c.disposition === 'completed')).toBe(true);
+    expect(obligation.components).toHaveLength(SCENARIO_APPROVED_EXECUTED.services.length);
+  });
+
+  it('per-service obligations carry components too — a bundle is not a special case', () => {
+    const perService = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    expect(perService.ledger.obligations).toHaveLength(SCENARIO_CORRECT_REFUSAL.services.length);
+    for (const o of perService.ledger.obligations) {
+      expect(o.components).toHaveLength(1);
+      expect(o.components[0].basis).toBe(o.basis);
+    }
+    // Exactly one of them is the refusal.
+    expect(perService.ledger.obligations.filter((o) => o.components[0].disposition === 'refused')).toHaveLength(1);
+  });
+
+  it('the components travel into the R-8 extension, not just the ledger row', () => {
+    // The receipt is what a verifier reads. Components held only in memory
+    // would leave the anchored claim overclaiming exactly as before.
+    const earned = bundled.journal.receipts.find(
+      (r) => r.actionType === 'venture_obligation_earned' && r.compensation,
+    );
+    expect(earned).toBeDefined();
+    const ext = earned!.compensation!;
+    expect(ext.classification).toBe('refusal');
+    expect(ext.components.map((c) => `${c.serviceType}:${c.disposition}`)).toEqual([
+      'discovery:completed',
+      'analysis:completed',
+      'risk-review:completed',
+      'refusal:refused',
+      'reconciliation:completed',
+    ]);
+  });
+
+  it('there is NO `mixed` classification anywhere in the vocabulary', () => {
+    // Ruling 3 explicitly declines it: vocabulary without a Phase 1 treatment
+    // distinction. Revisit only when settlement or reporting needs multiple
+    // simultaneous terminal bases.
+    for (const file of readdirSync(TRADING_DIR).filter((f) => f.endsWith('.ts'))) {
+      const src = stripComments(readFileSync(join(TRADING_DIR, file), 'utf8'));
+      expect(src, `${file} introduces a 'mixed' basis/classification`).not.toMatch(/['"]mixed['"]/);
+    }
+    for (const run of runFullVentureMatrix()) {
+      for (const o of run.ledger.obligations) {
+        expect(['service-completed', 'correct-refusal', 'execution-completed', 'verification-completed', 'reconciliation-completed']).toContain(
+          o.basis,
+        );
+      }
+    }
+  });
+
+  it('the described outcome pairs the terminal basis with its components', () => {
+    const described = describeObligationOutcome(bundled.ledger.obligations[0]);
+    expect(described.terminalBasis).toBe('correct-refusal');
+    expect(described.components).toHaveLength(5);
+    expect(described.components).toContain('refusal: refused');
+    expect(described.components).toContain('discovery: completed');
   });
 });
 
