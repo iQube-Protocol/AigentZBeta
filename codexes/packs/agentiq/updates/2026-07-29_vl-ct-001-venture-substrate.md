@@ -459,6 +459,21 @@ live Phase 2 path would use.
 
 ## Flagged, not decided
 
+> **RULED 2026-07-29.** Items 1-4 below received operator rulings and are no
+> longer open. What each ruling changed -- and the one place a ruling's
+> qualification did NOT already hold (item 3) -- is recorded in
+> `codexes/packs/agentiq/updates/2026-07-29_vl-ct-001-operator-rulings-and-moneypenny-adapter.md`,
+> along with the next slice (the thin MoneyPenny simulation adapter) and the
+> operator SQL for the deployment compatibility probe. Item 5 is unchanged.
+>
+> | # | Ruling | Outcome |
+> |---|---|---|
+> | 1 | R-8 stays receipt-carried | approved; promotion boundary recorded + canaried |
+> | 2 | fixture receipts stay unanchored | approved; convention replaced by a runtime guard that throws |
+> | 3 | bundled refusal basis | approved WITH a qualification -- **component bases did not already hold; implemented** |
+> | 4 | `MAX_STANDING_SIGNAL_WEIGHT = 3` | retained as PROVISIONAL and experiment-scoped; the canary now pins the ordering, not the number |
+
+
 1. **The DVN payload extension ships as a receipt-carried object, not a pipeline
    change.** R-8 pre-approves the versioned partner-service compensation
    extension, but CLAUDE.md permits only `ANCHORABLE_ACTION_TYPES` additions to
