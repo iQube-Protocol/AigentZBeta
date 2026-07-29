@@ -85,8 +85,12 @@ import { CompanionSearchPanel } from "@/components/companion/CompanionSearchPane
 import { CompanionOverlayPanel } from "@/components/companion/CompanionOverlayPanel";
 import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
 import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
+import { CompanionPersonaBadgeModal } from "@/components/companion/CompanionPersonaBadgeModal";
+import { CompanionModelPicker, type CompanionModelSelection } from "@/components/companion/CompanionModelPicker";
 import { UserRound, Wallet as WalletIcon, MessageCircle, Search, LayoutGrid, Layers, Activity, ShieldCheck } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
+import type { PersonaState } from "@/types/smartWallet";
 import {
   resolveQuickLinks,
   quickLinkHref,
@@ -223,16 +227,27 @@ function CompanionShell() {
    * the one fact the header exists to surface.
    */
   const [agentLabel, setAgentLabel] = useState<string | null>(null);
+  /**
+   * Companion 1.1 header badge (2026-07-29): true exactly when the label
+   * above is the citizen's aigentMe DELEGATE's own name (the first branch
+   * below), never the active-persona fallback. Drives the header's amber
+   * Star marker and the collapsed-state green robot-vs-human indicator —
+   * same "which branch resolved" signal `agentLabel` already carries,
+   * just also kept as a boolean so the header can render on it directly.
+   */
+  const [isAigentMeActive, setIsAigentMeActive] = useState(false);
   useEffect(() => {
     let cancelled = false;
     if (!personaId) {
       setAccess(null);
       setAgentLabel(null);
+      setIsAigentMeActive(false);
       return;
     }
     (async () => {
       // Delegated aigentMe first — person-scoped, so it resolves whichever
       // owned persona sponsors it.
+      let delegateResolved = false;
       try {
         const res = await personaFetch("/api/agents/aigentme", {
           cache: "no-store",
@@ -243,11 +258,13 @@ function CompanionShell() {
           const name = body?.agent?.display_name ?? body?.agent?.displayName;
           if (!cancelled && typeof name === "string" && name.trim()) {
             setAgentLabel(name.trim());
+            delegateResolved = true;
           }
         }
       } catch {
         // No delegate resolvable — the active-persona label below carries it.
       }
+      if (!cancelled) setIsAigentMeActive(delegateResolved);
       try {
         const res = await personaFetch("/api/wallet/active-persona", {
           cache: "no-store",
@@ -277,6 +294,40 @@ function CompanionShell() {
       cancelled = true;
     };
   }, [personaId]);
+
+  /**
+   * Companion 1.1 header badge → persona/agent switcher (2026-07-29,
+   * operator-directed). The header element is now a clickable badge (MS-9:
+   * a control that cannot act must not render — it always can here, since
+   * opening the chooser needs no persona resolved yet). Selecting a persona
+   * calls `setActivePersonaId`, the SAME canonical spine mechanism
+   * `SmartWalletDrawer`'s own persona menu uses — never a parallel switch
+   * path (CLAUDE.md "Identity & Access Spine" — "don't rebuild these").
+   * `useCodexEmbedAuthBridge`'s `personaId` already listens for the
+   * synthetic `storage` event that dispatches, so every panel on this page
+   * (which all read `personaId`) picks up the switch the same way a
+   * cross-tab persona change already does — one state, not a second one
+   * layered on top (MS-3).
+   */
+  const { setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
+  const [personaBadgeOpen, setPersonaBadgeOpen] = useState(false);
+  const handleSelectPersona = useCallback(
+    (persona: PersonaState) => {
+      ctxSetActivePersonaId(persona.id);
+      setPersonaBadgeOpen(false);
+    },
+    [ctxSetActivePersonaId]
+  );
+
+  /**
+   * Companion 1.1 model-provider control (2026-07-29). Threaded into
+   * `CodexCopilotLayer.modelSelection`, which sends it as `provider_id`/
+   * `llm_id` on every `/api/codex/chat` call this copilot makes — the exact
+   * fields the route already resolves against "aigent-me"'s configured
+   * ModelQube providers (`services/metame/agentLlmOrchestra.ts`). Genuinely
+   * functional: this is not a cosmetic control.
+   */
+  const [modelSelection, setModelSelection] = useState<CompanionModelSelection | null>(null);
 
   /**
    * The observed page's shape, read from the SAME overlay route the Overlay
@@ -610,6 +661,25 @@ function CompanionShell() {
             onComposerSubmit={setSearchQuery}
             agent={{ id: "aigent-me", name: agentLabel ?? "Agent Me" }}
             personaId={personaId}
+            /* Companion 1.1 header badge → persona/agent switcher
+               (2026-07-29). Makes the header's persona label a clickable
+               badge (same interaction as the estate's cartridge badges)
+               opening the compact persona chooser below. `activePersonaKind`
+               drives the collapsed-state green human/robot indicator;
+               `isAigentMeActive` renders the amber Star marker. Every other
+               `CodexCopilotLayer` mount leaves all four props unset and
+               renders the header exactly as before. */
+            onHeaderIdentityClick={() => setPersonaBadgeOpen(true)}
+            isAigentMeActive={isAigentMeActive}
+            activePersonaKind={personaId ? (isAigentMeActive ? "agent" : "human") : null}
+            /* Companion 1.1 model-provider control (2026-07-29). Rendered as
+               a 4th icon beside pause/mic/avatar/chat; `modelSelection` rides
+               every /api/codex/chat call this copilot makes as
+               `provider_id`/`llm_id`. */
+            modelPickerSlot={
+              <CompanionModelPicker agentId="aigent-me" value={modelSelection} onChange={setModelSelection} />
+            }
+            modelSelection={modelSelection}
             bodySlot={activeSurface === "activity" ? (
           /* Pre-1.1 rail, preserved verbatim (§14.6): Timeline + Observer
              permissions. Reached from the identity chip because the ratified
@@ -695,6 +765,13 @@ function CompanionShell() {
                   agent={{ id: "companion", name: "metaMe Companion" }}
                   codexMode={true}
                   personaId={activePersonaId}
+                  /* Companion 1.1 wallet-chrome simplification (2026-07-29):
+                     drops the persona/sign-in trigger, Copilot toggle and
+                     Close Wallet button from the top row — all three are
+                     redundant now that the Companion header badge owns
+                     persona/sign-in context — and moves the Copilot toggle
+                     into the tab icon row instead. Scoped to THIS mount only. */
+                  simplifiedTopChrome
                 />
               ) : (
                 <div className="flex h-full items-center justify-center">
@@ -745,6 +822,17 @@ function CompanionShell() {
         </div>
 
       </div>
+
+      {/* Companion 1.1 header badge → persona/agent switcher (2026-07-29).
+          A fixed-position overlay, so its placement in the tree doesn't
+          matter functionally — mounted once, at the shell's top level, so it
+          renders above every surface regardless of which one is active. */}
+      <CompanionPersonaBadgeModal
+        open={personaBadgeOpen}
+        onClose={() => setPersonaBadgeOpen(false)}
+        activePersonaId={personaId ?? null}
+        onSelectPersona={handleSelectPersona}
+      />
     </div>
   );
 }

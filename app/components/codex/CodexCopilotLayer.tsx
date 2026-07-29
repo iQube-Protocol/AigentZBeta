@@ -17,6 +17,8 @@ import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./Copil
 import {
   Bot,
   User,
+  UserRound,
+  Star,
   MessageSquare,
   ChevronDown,
   Send,
@@ -224,6 +226,42 @@ interface CodexCopilotLayerProps {
    * the parallel SmartWalletDrawer (which has z-index conflicts).
    */
   walletTabSignal?: number;
+  /**
+   * Header identity badge — Companion 1.1 persona/agent switcher
+   * (codexes/packs/agentiq/updates/2026-07-29_companion-header-persona-model-controls.md).
+   * When set, the header's persona label becomes a clickable button that
+   * calls this handler (opens the host's compact persona/agent chooser).
+   * Omitted everywhere else — the header stays the static label it always
+   * was, with zero behaviour change for every existing mount.
+   */
+  onHeaderIdentityClick?: () => void;
+  /**
+   * True when the currently active persona IS the citizen's aigentMe
+   * delegate. Renders the same amber Star + "aigentMe" convention
+   * `SmartWalletDrawer`'s persona menu already uses for that row — never
+   * asserted for a human persona.
+   */
+  isAigentMeActive?: boolean;
+  /**
+   * Kind of the currently active persona, for the collapsed-badge indicator.
+   * `null` (the default) keeps the original green/grey connected dot, i.e.
+   * every mount that doesn't pass this renders byte-identical to before.
+   */
+  activePersonaKind?: "human" | "agent" | null;
+  /**
+   * Extra icon rendered in the copilot's own mode-toggle row (beside
+   * pause/mic/avatar/chat) — the model-provider picker. Same additive seam
+   * as `navExtras`: omitted everywhere except the host that supplies one.
+   */
+  modelPickerSlot?: React.ReactNode;
+  /**
+   * Provider/model to send on every `/api/codex/chat` call from this
+   * copilot, as `provider_id`/`llm_id` — the same fields the route already
+   * resolves against the agent's configured ModelQube providers. `null`/
+   * undefined omits both fields, so every existing caller's request body is
+   * byte-identical to before.
+   */
+  modelSelection?: { providerId: string; modelId: string } | null;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -314,6 +352,11 @@ export function CodexCopilotLayer({
   personaId,
   accentColor = 'cyan',
   walletTabSignal,
+  onHeaderIdentityClick,
+  isAigentMeActive = false,
+  activePersonaKind = null,
+  modelPickerSlot,
+  modelSelection,
 }: CodexCopilotLayerProps) {
   // Floating-copilot dedupe (CopilotHostContext): a 'tab'-role floating layer
   // registers itself; the shell's 'panel'-role generic layer yields (renders
@@ -1323,6 +1366,12 @@ export function CodexCopilotLayer({
           persona: personaId || "kn0w1",
           personaId: personaId || null,
           contextId: contextId || null,
+          // Companion model-provider picker (2026-07-29): additive fields the
+          // route already resolves against the agent's configured ModelQube
+          // providers. Undefined for every mount that doesn't pass
+          // `modelSelection`, so those callers' request bodies are unchanged.
+          ...(modelSelection?.providerId ? { provider_id: modelSelection.providerId } : {}),
+          ...(modelSelection?.modelId ? { llm_id: modelSelection.modelId } : {}),
           chatHistory,
           // DCIR observation seam (optional, additive): omitted entirely when
           // the host cartridge doesn't pass the groundContext prop, so every
@@ -1625,23 +1674,77 @@ export function CodexCopilotLayer({
                               dots (§3.2.3). The identity you are acting as and
                               the confidence of the answer belong in one glance
                               — split across two rows, the operator has to
-                              assemble them. */}
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            {/* Connected dot, carried over from the Companion's
-                                old identity chip. It is the only thing in the
-                                header that says the persona actually resolved —
-                                dropping the chip without it would have removed
-                                a live signal, not just a duplicate. */}
-                            <span
-                              className={`h-2 w-2 shrink-0 rounded-full ${
-                                personaId ? "bg-emerald-400" : "bg-slate-600"
-                              }`}
-                              aria-hidden="true"
-                            />
-                            <span className="truncate text-xs font-medium text-white/80">
-                              {agent?.name ?? ""}
+                              assemble them.
+
+                              Companion 1.1 persona/agent switcher (2026-07-29):
+                              when `onHeaderIdentityClick` is supplied, this
+                              whole element becomes a clickable badge — same
+                              interaction as the cartridge badges elsewhere in
+                              the estate — opening the host's compact persona
+                              chooser. Every other mount leaves this prop unset
+                              and renders the exact static label it always did. */}
+                          {onHeaderIdentityClick ? (
+                            <button
+                              type="button"
+                              onClick={onHeaderIdentityClick}
+                              title="Switch persona"
+                              aria-label="Switch persona"
+                              className="-mx-1 flex min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 transition-colors hover:bg-white/10"
+                            >
+                              {/* Collapsed-state indicator: green human/robot
+                                  icon shaped to the active persona's kind,
+                                  replacing the plain connected dot wherever
+                                  the host knows that kind. Same emerald tint,
+                                  just shaped rather than a bare dot. */}
+                              {activePersonaKind ? (
+                                activePersonaKind === "agent" ? (
+                                  <Bot className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                                ) : (
+                                  <UserRound className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                                )
+                              ) : (
+                                <span
+                                  className={`h-2 w-2 shrink-0 rounded-full ${
+                                    personaId ? "bg-emerald-400" : "bg-slate-600"
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <span className="truncate text-xs font-medium text-white/80">
+                                {agent?.name ?? ""}
+                              </span>
+                              {/* aigentMe marker — same amber Star convention
+                                  SmartWalletDrawer's persona menu already uses
+                                  for the delegate row. Never shown for a human
+                                  persona. */}
+                              {isAigentMeActive && (
+                                <span
+                                  className="inline-flex shrink-0 items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-0"
+                                  title="AigentMe"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-amber-300" aria-hidden="true" />
+                                </span>
+                              )}
+                              <ChevronDown className="h-3 w-3 shrink-0 text-white/40" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              {/* Connected dot, carried over from the Companion's
+                                  old identity chip. It is the only thing in the
+                                  header that says the persona actually resolved —
+                                  dropping the chip without it would have removed
+                                  a live signal, not just a duplicate. */}
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${
+                                  personaId ? "bg-emerald-400" : "bg-slate-600"
+                                }`}
+                                aria-hidden="true"
+                              />
+                              <span className="truncate text-xs font-medium text-white/80">
+                                {agent?.name ?? ""}
+                              </span>
                             </span>
-                          </span>
+                          )}
                           <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">R</span>
@@ -2039,6 +2142,11 @@ export function CodexCopilotLayer({
                               >
                                 <MessageSquare className="w-3 h-3" />
                               </button>
+                              {/* Model-provider picker — Companion-only (2026-07-29).
+                                  Same additive seam as `navExtras`: undefined for
+                                  every other mount, so this row is unchanged
+                                  everywhere else. */}
+                              {modelPickerSlot}
                             </div>
                           )}
                           {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause.
@@ -2198,6 +2306,9 @@ export function CodexCopilotLayer({
                             >
                               <MessageSquare className="w-3 h-3" />
                             </button>
+                            {/* Model-provider picker — Companion-only, same seam
+                                as the chat-mode row above. */}
+                            {modelPickerSlot}
                           </div>
                         )}
                         {/* RIGHT: host nav + wallet launcher + badge+dropdown */}
