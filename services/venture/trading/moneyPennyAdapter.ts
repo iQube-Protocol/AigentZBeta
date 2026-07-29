@@ -28,21 +28,43 @@
  *                              allocation in minor units.
  *   dashboards               — this returns a value. It renders nothing.
  *
- * ─── One fixed opportunity ──────────────────────────────────────────────────
+ * ─── EXACTLY TWO fixed opportunities (operator RULING 3, 2026-07-29) ────────
  *
- * There is no opportunity parameter. MoneyPenny submits THE fixed opportunity
- * or nothing — a Phase 1 adapter that accepted an arbitrary opportunity would
- * be the production intake surface with a different name. The fixed opportunity
- * is the correct-refusal one, because refusal is the load-bearing outcome for
- * H3 and it is the branch a commission-led system cannot express at all.
+ *   > Expand from one to exactly two fixed opportunities. Both run through all
+ *   > eight cells = 16 replays. This is the minimum balanced demonstration. It
+ *   > does NOT authorise arbitrary scenario authoring, live agents, or full
+ *   > orchestration — keep the catalogue closed at two.
+ *
+ * The catalogue is a CLOSED, hand-written pair. It is deliberately NOT derived
+ * from `VENTURE_SCENARIOS` (which holds three) and there is no registration
+ * function: an adapter that accepted an arbitrary opportunity — or that grew a
+ * third by a scenario being added elsewhere — would be the production intake
+ * surface with a different name. A canary asserts the count is two.
+ *
+ *   correct-refusal      the branch a commission-led system cannot express at
+ *                        all. Work is measured, the verdict is COMPLETE, and
+ *                        compensation survives only under completion-
+ *                        contingency. Under execution-contingency it produces
+ *                        NO liability — which is the effect H3 turns on.
+ *   approved-execution   the half the refusal cannot exercise: an obligation
+ *                        that actually settles. Execution creates a liability
+ *                        under BOTH regimes, so it produces an obligation in
+ *                        all eight cells.
+ *
+ * The asymmetry is the demonstration, not a defect: 8 of 8 cells bear an
+ * obligation for the execution, 4 of 8 for the refusal. One scenario alone
+ * could not show it — a refusal-only catalogue cannot distinguish "the regime
+ * withholds compensation" from "the substrate never creates any", and an
+ * execution-only catalogue never exercises the withholding at all.
  *
  * ─── It reuses the engine, it does not fork it ──────────────────────────────
  *
  * `runVentureScenario` runs the chain and `reconcileRun` checks it. This module
- * adds NO simulation logic of its own: it selects the fixed opportunity, calls
- * the engine, and projects the run into a shape a conversational agent can
- * report. Any behaviour that looked like it belonged here would belong in the
- * engine, where the 24-run replay and every canary already cover it.
+ * adds NO simulation logic of its own: it selects one of the two fixed
+ * opportunities, calls the engine, and projects the run into a shape a
+ * conversational agent can report. Any behaviour that looked like it belonged
+ * here would belong in the engine, where the 24-run replay and every canary
+ * already cover it.
  *
  * Deterministic, like everything else in this directory: no clock, no
  * randomness. The submission reference derives from the opportunity and the
@@ -54,7 +76,8 @@ import { parseVentureExperimentCellId, ventureExperimentCellId } from './experim
 import { aggregatePreparationCost, type PreparationCostAggregate } from './preparationCost';
 import { reconcileRun, type RunReconciliation } from './replay';
 import { runVentureScenario, type VentureScenarioRun } from './runScenario';
-import { SCENARIO_CORRECT_REFUSAL } from './scenarios';
+import { SCENARIO_APPROVED_EXECUTED, SCENARIO_CORRECT_REFUSAL } from './scenarios';
+import type { VentureScenario } from './scenarios';
 import { describeObligationOutcome } from './serviceLedger';
 import { ventureJournalArtifacts, type VentureJournalArtifacts } from './receipts';
 import { ventureObligationRef } from './refs';
@@ -70,7 +93,7 @@ import type {
 } from './types';
 
 /** Versioned so a later, wider adapter is a new version rather than a silent change. */
-export const MONEYPENNY_ADAPTER_VERSION = 'moneypenny-simulation/1';
+export const MONEYPENNY_ADAPTER_VERSION = 'moneypenny-simulation/2';
 
 /** The specialist this adapter speaks for — the id the router already uses. */
 export const MONEYPENNY_SPECIALIST_ID: SpecialistId = 'moneypenny';
@@ -79,11 +102,59 @@ export const MONEYPENNY_SPECIALIST_ID: SpecialistId = 'moneypenny';
 export const MONEYPENNY_CARTRIDGE_SLUG = 'moneypenny';
 
 /**
- * THE fixed opportunity. One, by design (see the header). The key is a stable
- * label, not the scenario's own id — so the adapter's public surface does not
- * hand callers the engine's internal fixture identifiers.
+ * The two opportunities MoneyPenny may submit. TWO, by ruling — not one, and
+ * not a registry (see the header).
  */
-export const MONEYPENNY_FIXED_OPPORTUNITY = 'mp-sim-001-suitability-refusal';
+export type MoneyPennyOpportunityKey = 'correct-refusal' | 'approved-execution';
+
+export interface MoneyPennyOpportunityEntry {
+  /**
+   * The stable public label. Deliberately NOT the scenario's own id, so the
+   * adapter's surface does not hand callers the engine's internal fixture
+   * identifiers.
+   */
+  key: string;
+  /** The engine fixture this opportunity runs. */
+  scenario: VentureScenario;
+  /** What this half of the pair exercises that the other cannot. */
+  exercises: string;
+}
+
+/**
+ * THE CLOSED CATALOGUE. Written out by hand, both members, in one object —
+ * so widening it is a visible edit to this literal and not a side effect of
+ * adding a scenario somewhere else. `AC-22` fails the build if it is not
+ * exactly these two.
+ */
+export const MONEYPENNY_OPPORTUNITIES: Readonly<
+  Record<MoneyPennyOpportunityKey, MoneyPennyOpportunityEntry>
+> = {
+  'correct-refusal': {
+    key: 'mp-sim-001-suitability-refusal',
+    scenario: SCENARIO_CORRECT_REFUSAL,
+    exercises:
+      'a completed constitutional service that declines to execute: compensation survives under completion-contingency and does NOT arise under execution-contingency',
+  },
+  'approved-execution': {
+    key: 'mp-sim-002-eligible-execution',
+    scenario: SCENARIO_APPROVED_EXECUTED,
+    exercises:
+      'an obligation that actually settles: execution creates a liability under BOTH regimes, so a liability arises in all eight cells',
+  },
+};
+
+/** The two keys, in a stable order, for a caller that wants to run the pair. */
+export const MONEYPENNY_OPPORTUNITY_KEYS: readonly MoneyPennyOpportunityKey[] = [
+  'correct-refusal',
+  'approved-execution',
+];
+
+/**
+ * The opportunity a submission runs when the caller does not name one. The
+ * refusal, because it is the load-bearing outcome for H3 and the branch a
+ * commission-led system cannot express at all.
+ */
+export const MONEYPENNY_DEFAULT_OPPORTUNITY: MoneyPennyOpportunityKey = 'correct-refusal';
 
 /** The cell a submission runs in when the caller does not name one. */
 export const MONEYPENNY_DEFAULT_CELL_ID = 'USDC-SERVICE-COMPLETE';
@@ -99,6 +170,12 @@ const DEFAULT_CELL: VentureExperimentCell = (() => {
 })();
 
 export interface MoneyPennySubmission {
+  /**
+   * Which of the TWO fixed opportunities to submit. Not a scenario, not an
+   * opportunity description — a key into the closed catalogue. Anything else
+   * is refused.
+   */
+  opportunity?: MoneyPennyOpportunityKey;
   /**
    * Which experiment cell to run in. Every one of the eight is valid — the cell
    * is a parameter of the engine, not a branch, so the adapter passes it
@@ -133,6 +210,13 @@ export interface MoneyPennySimulationOutcome {
   cartridgeSlug: string;
   /** Deterministic — the same submission is the same reference forever. */
   submissionRef: string;
+  /**
+   * Which half of the closed pair this was: `correct-refusal` or
+   * `approved-execution`. Named `catalogueEntry`, not `opportunity`, because
+   * `opportunity` below is the chain's opportunity record — two different
+   * things must not share one field name on the surface an agent reports.
+   */
+  catalogueEntry: MoneyPennyOpportunityKey;
   opportunityKey: string;
   experimentalCellId: string;
   /** Literal falses. A reader never has to infer that nothing real moved. */
@@ -201,11 +285,22 @@ function terminalDisposition(run: VentureScenarioRun): MoneyPennyTerminalDisposi
 export function submitMoneyPennyOpportunity(
   submission: MoneyPennySubmission = {},
 ): MoneyPennySimulationOutcome {
+  const opportunityKey = submission.opportunity ?? MONEYPENNY_DEFAULT_OPPORTUNITY;
+  const entry = MONEYPENNY_OPPORTUNITIES[opportunityKey];
+  // Refused rather than defaulted. A submission naming an opportunity that is
+  // not in the catalogue is a caller reaching for arbitrary intake; silently
+  // running the refusal instead would hide that and report a result for work
+  // nobody asked for.
+  if (!entry) {
+    throw new Error(
+      `MoneyPenny has no opportunity ${String(opportunityKey)} — the catalogue is closed at ${MONEYPENNY_OPPORTUNITY_KEYS.join(' and ')}`,
+    );
+  }
   const cell = submission.cell ?? DEFAULT_CELL;
   const experimentalCellId = ventureExperimentCellId(cell);
 
   // The engine, unforked. Everything below this line is projection.
-  const run = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cell, {
+  const run = runVentureScenario(entry.scenario, cell, {
     ...(submission.disclosure ? { disclosure: submission.disclosure } : {}),
   });
   const reconciliation = reconcileRun(run);
@@ -215,8 +310,9 @@ export function submitMoneyPennyOpportunity(
     adapter: MONEYPENNY_ADAPTER_VERSION,
     specialistId: MONEYPENNY_SPECIALIST_ID,
     cartridgeSlug: MONEYPENNY_CARTRIDGE_SLUG,
-    submissionRef: `${MONEYPENNY_FIXED_OPPORTUNITY}--${experimentalCellId}`,
-    opportunityKey: MONEYPENNY_FIXED_OPPORTUNITY,
+    submissionRef: `${entry.key}--${experimentalCellId}`,
+    catalogueEntry: opportunityKey,
+    opportunityKey: entry.key,
     experimentalCellId,
     liveFunds: false,
     externalAgents: false,

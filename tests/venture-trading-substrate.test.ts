@@ -62,9 +62,12 @@ import {
 } from '@/services/venture/trading/receipts';
 import {
   MONEYPENNY_CARTRIDGE_SLUG,
+  MONEYPENNY_OPPORTUNITIES,
+  MONEYPENNY_OPPORTUNITY_KEYS,
   MONEYPENNY_SPECIALIST_ID,
   submitMoneyPennyOpportunity,
   summariseMoneyPennySimulation,
+  type MoneyPennyOpportunityKey,
 } from '@/services/venture/trading/moneyPennyAdapter';
 import {
   assertVentureReceiptConstraintCompatible,
@@ -749,7 +752,7 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
 //         to end, with no live funds, no external agents, and no fork.
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('AC-19 MoneyPenny can submit the fixed opportunity and receive the reconciled outcome', () => {
+describe('AC-19 MoneyPenny can submit an opportunity and receive the reconciled outcome', () => {
   const outcome = submitMoneyPennyOpportunity();
 
   it('runs the WHOLE chain, every link present', () => {
@@ -827,7 +830,13 @@ describe('AC-19 MoneyPenny can submit the fixed opportunity and receive the reco
     const a = submitMoneyPennyOpportunity();
     const b = submitMoneyPennyOpportunity();
     expect(a.submissionRef).toBe(b.submissionRef);
+    // The DEFAULT is the refusal — the load-bearing branch for H3 — and the
+    // reference names which of the two ran, so a report cannot be misattributed.
+    expect(a.catalogueEntry).toBe('correct-refusal');
     expect(a.submissionRef).toBe('mp-sim-001-suitability-refusal--USDC-SERVICE-COMPLETE');
+    expect(submitMoneyPennyOpportunity({ opportunity: 'approved-execution' }).submissionRef).toBe(
+      'mp-sim-002-eligible-execution--USDC-SERVICE-COMPLETE',
+    );
     expect(a.receipts.artifacts.map((x) => x.receiptHash)).toEqual(
       b.receipts.artifacts.map((x) => x.receiptHash),
     );
@@ -880,6 +889,239 @@ describe('AC-19 MoneyPenny can submit the fixed opportunity and receive the reco
     for (const forbidden of ['fetch(', 'settlementExecutor', 'getSupabaseServer', 'wallet', 'transfer(']) {
       expect(src, `moneyPennyAdapter.ts reaches for ${forbidden}`).not.toContain(forbidden);
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-22 — RULING 3. EXACTLY TWO fixed opportunities, both across all eight
+//         cells: the 16-replay minimum balanced demonstration.
+//
+//   > Expand the MoneyPenny adapter from one to exactly two fixed
+//   > opportunities. Both run through all eight cells = 16 replays. This is
+//   > the minimum balanced demonstration. It does NOT authorise arbitrary
+//   > scenario authoring, live agents, or full orchestration — keep the
+//   > catalogue closed at two, and canary that it is exactly two.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-22 the MoneyPenny catalogue is closed at two, and both run all eight cells', () => {
+  it('is EXACTLY two — not one, not three, and not a registry', () => {
+    // The ruling's boundary, asserted as a literal. A third entry, or a
+    // catalogue derived from VENTURE_SCENARIOS (which holds three), fails here.
+    expect(Object.keys(MONEYPENNY_OPPORTUNITIES)).toEqual(['correct-refusal', 'approved-execution']);
+    expect(MONEYPENNY_OPPORTUNITY_KEYS).toHaveLength(2);
+    expect(VENTURE_SCENARIOS).toHaveLength(3);
+    expect(
+      Object.keys(MONEYPENNY_OPPORTUNITIES).length,
+      'the adapter catalogue tracks the scenario list — it must be a closed pair',
+    ).not.toBe(VENTURE_SCENARIOS.length);
+  });
+
+  it('has no registration surface — widening it must be an edit to the literal', () => {
+    const src = stripComments(readFileSync(join(TRADING_DIR, 'moneyPennyAdapter.ts'), 'utf8'));
+    for (const forbidden of [
+      'registerOpportunity',
+      'addOpportunity',
+      'VENTURE_SCENARIOS',
+      'SCENARIO_UNAUTHORISED_INCOMPLETE',
+    ]) {
+      expect(src, `moneyPennyAdapter.ts opens the catalogue via ${forbidden}`).not.toContain(forbidden);
+    }
+    // Both members are written out, by hand, in this file.
+    expect(src).toContain("'mp-sim-001-suitability-refusal'");
+    expect(src).toContain("'mp-sim-002-eligible-execution'");
+  });
+
+  it('REFUSES an opportunity that is not in the catalogue', () => {
+    // Defaulting to the refusal would hide a caller reaching for arbitrary
+    // intake, and report a result for work nobody asked for.
+    expect(() =>
+      submitMoneyPennyOpportunity({ opportunity: 'arbitrary-intake' as never }),
+    ).toThrow(/catalogue is closed/);
+  });
+
+  // ── THE 16-RUN MATRIX ──────────────────────────────────────────────────
+  //
+  // Hand-written, every row. Derived expectations would assert that the
+  // engine equals itself; these are the numbers a reader can check against
+  // the fixtures. Cells are in the charter's order.
+
+  interface Row {
+    cell: string;
+    obligations: number;
+    settled: number;
+    settledMinorUnits: string;
+    remainingMinorUnits: string;
+    receipts: number;
+  }
+
+  const REFUSAL_MATRIX: Row[] = [
+    { cell: 'USDC-BUNDLED-EXEC',        obligations: 0, settled: 0, settledMinorUnits: '0',    remainingMinorUnits: '5000000', receipts: 9 },
+    { cell: 'USDC-BUNDLED-COMPLETE',    obligations: 1, settled: 1, settledMinorUnits: '7500', remainingMinorUnits: '4992500', receipts: 12 },
+    { cell: 'USDC-SERVICE-EXEC',        obligations: 0, settled: 0, settledMinorUnits: '0',    remainingMinorUnits: '5000000', receipts: 9 },
+    { cell: 'USDC-SERVICE-COMPLETE',    obligations: 5, settled: 5, settledMinorUnits: '9500', remainingMinorUnits: '4990500', receipts: 24 },
+    { cell: 'BASEQC-BUNDLED-EXEC',      obligations: 0, settled: 0, settledMinorUnits: '0',    remainingMinorUnits: '5000000', receipts: 9 },
+    { cell: 'BASEQC-BUNDLED-COMPLETE',  obligations: 1, settled: 1, settledMinorUnits: '7500', remainingMinorUnits: '4992500', receipts: 12 },
+    { cell: 'BASEQC-SERVICE-EXEC',      obligations: 0, settled: 0, settledMinorUnits: '0',    remainingMinorUnits: '5000000', receipts: 9 },
+    { cell: 'BASEQC-SERVICE-COMPLETE',  obligations: 5, settled: 5, settledMinorUnits: '9500', remainingMinorUnits: '4990500', receipts: 24 },
+  ];
+
+  const EXECUTION_MATRIX: Row[] = [
+    { cell: 'USDC-BUNDLED-EXEC',        obligations: 1, settled: 1, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 12 },
+    { cell: 'USDC-BUNDLED-COMPLETE',    obligations: 1, settled: 1, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 12 },
+    { cell: 'USDC-SERVICE-EXEC',        obligations: 5, settled: 5, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 24 },
+    { cell: 'USDC-SERVICE-COMPLETE',    obligations: 5, settled: 5, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 24 },
+    { cell: 'BASEQC-BUNDLED-EXEC',      obligations: 1, settled: 1, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 12 },
+    { cell: 'BASEQC-BUNDLED-COMPLETE',  obligations: 1, settled: 1, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 12 },
+    { cell: 'BASEQC-SERVICE-EXEC',      obligations: 5, settled: 5, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 24 },
+    { cell: 'BASEQC-SERVICE-COMPLETE',  obligations: 5, settled: 5, settledMinorUnits: '9000', remainingMinorUnits: '4991000', receipts: 24 },
+  ];
+
+  const replay = (opportunity: MoneyPennyOpportunityKey) =>
+    VENTURE_EXPERIMENT_CELL_IDS.map((id) =>
+      submitMoneyPennyOpportunity({ opportunity, cell: cellById(id) }),
+    );
+
+  const refusalRuns = replay('correct-refusal');
+  const executionRuns = replay('approved-execution');
+
+  it('runs 16 replays — two opportunities across eight cells each', () => {
+    expect(refusalRuns).toHaveLength(8);
+    expect(executionRuns).toHaveLength(8);
+    expect(refusalRuns.length + executionRuns.length).toBe(16);
+    // Every run is a distinct submission, so no cell silently ran twice.
+    const refs = new Set([...refusalRuns, ...executionRuns].map((r) => r.submissionRef));
+    expect(refs.size).toBe(16);
+  });
+
+  it('every one of the 16 reconciles, with the deterministic preparation cost', () => {
+    for (const run of refusalRuns) {
+      expect(run.reconciliation.violations, `${run.submissionRef}`).toEqual([]);
+      expect(run.preparation.events).toBe(5);
+      expect(run.preparation.aggregate.elapsedMs).toBe(355000);
+      expect(run.completeness.outcomeClass).toBe('refused-complete');
+      expect(run.completeness.linksPerformed).toBe(7);
+      expect(run.terminal.disposition).toBe('correct-refusal');
+      expect(run.terminal.executed).toBe(false);
+    }
+    for (const run of executionRuns) {
+      expect(run.reconciliation.violations, `${run.submissionRef}`).toEqual([]);
+      expect(run.preparation.events).toBe(5);
+      expect(run.preparation.aggregate.elapsedMs).toBe(350000);
+      expect(run.completeness.outcomeClass).toBe('executed-complete');
+      expect(run.completeness.linksPerformed).toBe(7);
+      expect(run.terminal.disposition).toBe('execution');
+      expect(run.terminal.executed).toBe(true);
+    }
+  });
+
+  it('the refusal matrix matches, cell by cell', () => {
+    refusalRuns.forEach((run, i) => {
+      const row = REFUSAL_MATRIX[i];
+      expect(run.experimentalCellId, 'cell order drifted — re-point the matrix').toBe(row.cell);
+      expect(run.obligations, `${row.cell} obligations`).toHaveLength(row.obligations);
+      expect(run.settlement.obligationsSettled, `${row.cell} settled`).toBe(row.settled);
+      expect(run.settlement.settledMinorUnits, `${row.cell} settledMinorUnits`).toBe(row.settledMinorUnits);
+      expect(run.settlement.remainingMinorUnits, `${row.cell} remaining`).toBe(row.remainingMinorUnits);
+      expect(run.receipts.artifacts, `${row.cell} receipts`).toHaveLength(row.receipts);
+      expect(run.standing.decisions).toBe(1);
+      expect(run.standing.admitted[0].contributionType).toBe('correct-refusal');
+    });
+  });
+
+  it('the execution matrix matches, cell by cell', () => {
+    executionRuns.forEach((run, i) => {
+      const row = EXECUTION_MATRIX[i];
+      expect(run.experimentalCellId, 'cell order drifted — re-point the matrix').toBe(row.cell);
+      expect(run.obligations, `${row.cell} obligations`).toHaveLength(row.obligations);
+      expect(run.settlement.obligationsSettled, `${row.cell} settled`).toBe(row.settled);
+      expect(run.settlement.settledMinorUnits, `${row.cell} settledMinorUnits`).toBe(row.settledMinorUnits);
+      expect(run.settlement.remainingMinorUnits, `${row.cell} remaining`).toBe(row.remainingMinorUnits);
+      expect(run.receipts.artifacts, `${row.cell} receipts`).toHaveLength(row.receipts);
+      expect(run.standing.decisions).toBe(1);
+      expect(run.standing.admitted[0].contributionType).toBe('constitutional-completeness');
+    });
+  });
+
+  it('THE ASYMMETRY — 8 of 8 cells bear an obligation for the execution, 4 of 8 for the refusal', () => {
+    // The whole reason two scenarios are the minimum. A refusal-only catalogue
+    // cannot tell "the regime withholds compensation" from "the substrate
+    // never creates any"; an execution-only catalogue never exercises the
+    // withholding at all.
+    const withObligations = (runs: typeof refusalRuns) => runs.filter((r) => r.obligations.length > 0).length;
+    expect(withObligations(executionRuns)).toBe(8);
+    expect(withObligations(refusalRuns)).toBe(4);
+    // And the four are exactly the completion-contingent cells — the effect is
+    // the regime, not the denomination or the pricing structure.
+    const bearing = refusalRuns.filter((r) => r.obligations.length > 0).map((r) => r.experimentalCellId);
+    expect(bearing).toEqual([
+      'USDC-BUNDLED-COMPLETE',
+      'USDC-SERVICE-COMPLETE',
+      'BASEQC-BUNDLED-COMPLETE',
+      'BASEQC-SERVICE-COMPLETE',
+    ]);
+  });
+
+  it('the execution opportunity settles a real obligation — the half the refusal cannot show', () => {
+    // Not merely "an obligation exists": it reaches the settled state and the
+    // funder's budget moves, which is the link a refusal under execution-
+    // contingency never exercises.
+    for (const run of executionRuns) {
+      expect(run.obligations.every((o) => o.state === 'settled')).toBe(true);
+      expect(BigInt(run.settlement.settledMinorUnits)).toBeGreaterThan(0n);
+      expect(BigInt(run.settlement.remainingMinorUnits)).toBeLessThan(5000000n);
+      // Terminal bases are completion bases, never `correct-refusal`.
+      expect(run.obligations.some((o) => o.terminalBasis === 'correct-refusal')).toBe(false);
+    }
+  });
+
+  it('all 16 are deterministic — a second pass is byte-identical', () => {
+    for (const opportunity of MONEYPENNY_OPPORTUNITY_KEYS) {
+      const a = replay(opportunity);
+      const b = replay(opportunity);
+      expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+    }
+  });
+
+  it('no replay can reach activity_receipts', () => {
+    // Fixture mode is a RUNTIME guard, not a convention. Every one of the 16
+    // reports the four states, and the underlying journal REFUSES both egress
+    // paths — so a future refactor that wires the live writer into the replay
+    // path fails at the first receipt instead of contaminating the trail.
+    for (const run of [...refusalRuns, ...executionRuns]) {
+      expect(run.receipts.mode).toBe('fixture');
+      expect(run.receipts.generated).toBe(true);
+      expect(run.receipts.hashed).toBe(true);
+      expect(run.receipts.persisted).toBe(false);
+      expect(run.receipts.dvnAnchored).toBe(false);
+      expect(run.liveFunds).toBe(false);
+      expect(run.externalAgents).toBe(false);
+    }
+    for (const key of MONEYPENNY_OPPORTUNITY_KEYS) {
+      const scenario = MONEYPENNY_OPPORTUNITIES[key].scenario;
+      for (const id of VENTURE_EXPERIMENT_CELL_IDS) {
+        const journal = runVentureScenario(scenario, cellById(id)).journal;
+        expect(() => assertVentureJournalCanLeaveMemory(journal, 'persist')).toThrow(
+          VentureFixtureModeViolation,
+        );
+        expect(() => assertVentureJournalCanLeaveMemory(journal, 'anchor')).toThrow(
+          VentureFixtureModeViolation,
+        );
+      }
+    }
+  });
+
+  it('leaks no raw identifier across any of the 16', () => {
+    for (const run of [...refusalRuns, ...executionRuns]) {
+      expect(RAW_UUID_PATTERN.test(JSON.stringify(run)), run.submissionRef).toBe(false);
+      for (const line of summariseMoneyPennySimulation(run)) {
+        expect(RAW_UUID_PATTERN.test(line)).toBe(false);
+      }
+    }
+  });
+
+  it('the adapter version moved with the surface', () => {
+    // A wider adapter is a new version, not a silent change.
+    expect(refusalRuns[0].adapter).toBe('moneypenny-simulation/2');
   });
 });
 
