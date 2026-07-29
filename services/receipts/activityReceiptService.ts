@@ -207,7 +207,27 @@ export type ActivityActionType =
   | 'venture_obligation_approved'
   | 'venture_settlement_simulated'
   | 'venture_obligation_reversed'
-  | 'venture_opportunity_closed';
+  | 'venture_opportunity_closed'
+  // QriptoCENT cross-denomination settlement (2026-07-29) — the DVN-mediated
+  // inter-ledger settlement substrate. Nine SETTLEMENT acts, one LIQUIDITY
+  // ASSURANCE act, and two ISSUANCE acts. The three groups are constitutionally
+  // separate mechanisms and carry separate action types on purpose: this
+  // architecture has NO lock pool, so the receipt chain is the only evidence
+  // that a destination credit was backed by a finalised source debit, and a
+  // mint recorded under a settlement type would let new native supply be read
+  // as a payment. See services/qriptocent/settlement/receipts.ts.
+  | 'qriptocent_payment_instruction_accepted'
+  | 'qriptocent_settlement_authority_verified'
+  | 'qriptocent_source_debit_initiated'
+  | 'qriptocent_source_debit_finalised'
+  | 'qriptocent_settlement_message_verified'
+  | 'qriptocent_destination_liquidity_reserved'
+  | 'qriptocent_destination_credit_completed'
+  | 'qriptocent_settlement_reconciled'
+  | 'qriptocent_settlement_exception_recorded'
+  | 'qriptocent_liquidity_proof_verified'
+  | 'qriptocent_replenishment_authorised'
+  | 'qriptocent_native_issuance_executed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

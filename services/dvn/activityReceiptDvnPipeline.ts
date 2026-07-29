@@ -131,6 +131,26 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'venture_settlement_simulated',
   'venture_obligation_reversed',
   'venture_opportunity_closed',
+  // QriptoCENT cross-denomination settlement (2026-07-29) — the twelve
+  // consequential events of the inter-ledger settlement substrate. Anchoring
+  // matters more here than almost anywhere: with no lock pool standing for
+  // "this credit was backed", the receipt chain IS the evidence that a
+  // destination credit followed a finalised source debit, and that a mint
+  // followed a proven reserve. (Action-type addition only — the one change
+  // this file permits unilaterally. Payload shape, state machine, principal
+  // resolution and hashPersonaRef untouched.)
+  'qriptocent_payment_instruction_accepted',
+  'qriptocent_settlement_authority_verified',
+  'qriptocent_source_debit_initiated',
+  'qriptocent_source_debit_finalised',
+  'qriptocent_settlement_message_verified',
+  'qriptocent_destination_liquidity_reserved',
+  'qriptocent_destination_credit_completed',
+  'qriptocent_settlement_reconciled',
+  'qriptocent_settlement_exception_recorded',
+  'qriptocent_liquidity_proof_verified',
+  'qriptocent_replenishment_authorised',
+  'qriptocent_native_issuance_executed',
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',
