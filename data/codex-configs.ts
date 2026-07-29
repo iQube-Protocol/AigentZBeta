@@ -35,6 +35,16 @@
 
 import type { CodexConfig } from '@/types/codex';
 import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
+// THE EIGHT RESEARCH WORKSPACE VIEWS + THEIR ROLE MATRIX, from the one place
+// they are defined (SPEC-IRL-WORKSPACE-001 §7/§8). A VALUE import, deliberately:
+// the IRL cartridge's Research Workspace group is BUILT from this registry
+// rather than transcribing it, so the shipped access matrix and the specified
+// one cannot diverge. The module is pure (no server imports, no I/O) and safe
+// in the browser bundle this file already ships in.
+import {
+  RESEARCH_WORKSPACE_VIEWS,
+  RESEARCH_WORKSPACE_ADMIN_VIEW,
+} from '@/services/research/researchWorkspaceViews';
 
 // =============================================================================
 // RUNTIME TAKEOVER CONFIGS
@@ -5864,7 +5874,7 @@ export const IRL_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'Target', description: 'CRP-001 — the twelve research programmes; roadmap and backlog live in the charter (CFS-019 §8)' },
     },
-    // ── Research Workspace ────────────────────────────────────────
+    // ── Research Workspace (SPEC-IRL-WORKSPACE-001) ────────────
     //
     // THE RESEARCH HALF OF THE COMMON WORKSPACE SUBSTRATE. Every tab below
     // mounts the SAME `PartnerProgrammesTab` the Venture Lab's Partner group
@@ -5872,98 +5882,61 @@ export const IRL_CARTRIDGE: CodexConfig = {
     // and the research access domain (inv.engineering.036 — one implementation,
     // N entrances; a research-specific component would be the .037 defect).
     //
-    // ROLE MAPPING (operator ruling A, 2026-07-28) onto the EXISTING research-lab
-    // vocabulary in `DOMAIN_ROLES` — no role invented, none renamed:
+    // THE TABS ARE BUILT FROM `RESEARCH_WORKSPACE_VIEWS`, NOT HAND-LISTED.
+    // That registry is where SPEC-IRL-WORKSPACE-001 §7's eight views and §8's
+    // role matrix live. Hand-writing nine tab objects here would put an ACCESS
+    // matrix in two places — the worst possible duplicate, because a config that
+    // says `reviewer` while the matrix says otherwise fails open or closed
+    // silently and neither is visible from the screen. A canary asserts the
+    // shipped group against the registry AND the registry against the spec
+    // document, so neither can drift alone.
     //
-    //   researcher            → full workspace participation
-    //   research-steward      → full participation + governance/review (it is
-    //                           already DOMAIN_STEWARD_ROLES['research-lab'], so
-    //                           its invitation authority is server-derived, not
-    //                           a second gate declared here)
-    //   research-participant  → READ-ONLY: Overview + Evidence only
-    //   every other role      → no workspace access unless explicitly granted
-    //                           one of the three above (reviewer / ratifier /
-    //                           delegated-research-agent are experiment- and
-    //                           governance-scoped, not workspace roles)
-    //
-    // That yields the three paths the ruling requires — a positive reachability
-    // path (researcher), a read-only path (research-participant), and a
-    // fail-closed path (everything else) — asserted as EXACT slug sets in
-    // `tests/research-lab-workspace.test.ts`, never as `> 0` counts.
-    {
-      id: 'irl-workspace-overview',
-      label: 'Overview',
-      slug: 'irl-workspace-overview',
+    // The gate itself is unchanged in kind: `participationDomain: 'research-lab'`
+    // on every view (a caller with no research-lab grant still sees nothing),
+    // narrowed by the per-view `participationRoles` the matrix supplies, and
+    // narrowed again by cohort scope at read time (`satisfiesWorkspaceScope`,
+    // deny-by-default) both in the picker and server-side in the workspace route.
+    ...RESEARCH_WORKSPACE_VIEWS.map((view, index) => ({
+      id: view.slug,
+      label: view.label,
+      slug: view.slug,
       enabled: true,
       group: 'workspace',
-      order: 0,
-      type: 'static',
+      order: index,
+      type: 'static' as const,
       participationDomain: 'research-lab',
-      participationRoles: ['researcher', 'research-steward', 'research-participant'],
-      config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'overview', workspaceDomain: 'research' } },
-      metadata: { icon: 'LayoutDashboard', description: 'Research Workspace — Programme Command Center: series, owner, objectives, open actions', color: 'violet' },
-    },
-    {
-      id: 'irl-workspace-collaborate',
-      label: 'Collaborate',
-      slug: 'irl-workspace-collaborate',
-      enabled: true,
-      group: 'workspace',
-      order: 1,
-      type: 'static',
-      participationDomain: 'research-lab',
-      // FULL PARTICIPATION ONLY. This surface mounts invitations, peer exchange
-      // and the Locker — the workspace's write affordances. A read-only
-      // participant does not see it; who may actually ISSUE an invitation is
-      // still decided server-side from the caller's own grants.
-      participationRoles: ['researcher', 'research-steward'],
-      config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'collaborate', workspaceDomain: 'research' } },
-      metadata: { icon: 'Users', description: 'Invitations, peer exchange, and the research-scoped Locker', color: 'violet' },
-    },
-    {
-      id: 'irl-workspace-operate',
-      label: 'Operate',
-      slug: 'irl-workspace-operate',
-      enabled: true,
-      group: 'workspace',
-      order: 2,
-      type: 'static',
-      participationDomain: 'research-lab',
-      participationRoles: ['researcher', 'research-steward'],
-      config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'operate', workspaceDomain: 'research' } },
-      metadata: { icon: 'Rocket', description: 'Constitutional agreements and the delivery surfaces the programme runs on', color: 'violet' },
-    },
-    {
-      id: 'irl-workspace-evidence',
-      label: 'Evidence',
-      slug: 'irl-workspace-evidence',
-      enabled: true,
-      group: 'workspace',
-      order: 3,
-      type: 'static',
-      participationDomain: 'research-lab',
-      // READ-ONLY PATH included: evidence is the shared record, and a read-only
-      // observer of a research programme must be able to see what it produced.
-      participationRoles: ['researcher', 'research-steward', 'research-participant'],
-      config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'evidence', workspaceDomain: 'research' } },
-      metadata: { icon: 'FileCheck', description: 'Receipts and the canonical evidence record', color: 'violet' },
-    },
+      participationRoles: [...view.roles],
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: view.id, workspaceDomain: 'research' },
+      },
+      metadata: { icon: view.icon, description: view.description, color: 'violet' },
+    })),
     {
       // TIER 0 — the internal programme space, exactly as the Venture Lab's
-      // Partner Administration is. The server enforces the same boundary
-      // independently (`/api/venture/workspace/[workspaceId]` returns `tier0`
-      // to admins only), so this gate decides what RENDERS, not what is
-      // permitted.
-      id: 'irl-workspace-administration',
-      label: 'Administration',
-      slug: 'irl-workspace-administration',
+      // Partner Administration is. NOT one of the eight views: it carries
+      // `adminOnly`, which `getEnabledTabs` applies BEFORE any participation
+      // gate, so no research-lab grant of any role can open it. The server
+      // enforces the same boundary independently
+      // (`/api/venture/workspace/[workspaceId]` returns `tier0` to admins only),
+      // so this gate decides what RENDERS, not what is permitted.
+      id: RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
+      label: RESEARCH_WORKSPACE_ADMIN_VIEW.label,
+      slug: RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
       enabled: true,
       adminOnly: true,
       group: 'workspace',
-      order: 4,
-      type: 'static',
-      config: { component: 'PartnerProgrammesTab', props: { initialSurface: 'administration', workspaceDomain: 'research' } },
-      metadata: { icon: 'Lock', description: 'Internal programme space — reference integrity, resolved invariants, milestones, blockers, decisions', color: 'slate' },
+      order: RESEARCH_WORKSPACE_VIEWS.length,
+      type: 'static' as const,
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
+      },
+      metadata: {
+        icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
+        description: RESEARCH_WORKSPACE_ADMIN_VIEW.description,
+        color: 'slate',
+      },
     },
     // ── Participation ─────────────────────────────────────────────
     // The constitutional collaboration space (five-space IA, 2026-07-18 —

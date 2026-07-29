@@ -60,8 +60,23 @@ import {
   researchWorkspaceExperiments,
   researchWorkspaceLabel,
   researchWorkspaceObjectives,
+  researchWorkspaceOwner,
+  researchWorkspaceLayerOwners,
+  researchWorkspaceLinks,
+  researchWorkspaceInstitutions,
   RESEARCH_WORKSPACE_LAYERS,
 } from "@/services/research/researchWorkspace";
+import {
+  getLifecycleTemplate,
+  lifecycleStageIndex,
+  type LifecycleTemplate,
+  type WorkspaceType,
+} from "@/services/experiments/workspaceLifecycle";
+import {
+  RESEARCH_WORKSPACE_VIEWS,
+  RESEARCH_WORKSPACE_ADMIN_VIEW,
+} from "@/services/research/researchWorkspaceViews";
+import { MATERIAL_CLASSES, workspaceSurfaceAuthority } from "@/services/research/workspaceMaterials";
 // TYPE-ONLY (erased at compile time — nothing server-side enters the bundle).
 // The view shape has ONE definition, on the server that derives it; a hand-
 // copied interface here would be the stale-duplicate defect inv.engineering.037
@@ -103,7 +118,30 @@ const LAYER_LABELS: Record<(typeof PARTNER_WORKSPACE_LAYERS)[number], string> = 
 // internal programme space. It is reachable only from an adminOnly tab; the
 // server enforces the same boundary independently (the route returns `tier0`
 // to admins only), so a client mistake cannot leak it.
-const SUB_SURFACES = ["overview", "collaborate", "operate", "evidence", "communicate", "administration"] as const;
+//
+// The list is the UNION of both Labs' surfaces; WHICH of them an entrance
+// offers is decided per Lab by `KIND_SURFACES` below. A union rather than two
+// disjoint types because `initialSurface` is a string prop from the tab config
+// and has to narrow against one vocabulary.
+const SUB_SURFACES = [
+  "overview",
+  "collaborate",
+  "operate",
+  "evidence",
+  "communicate",
+  "administration",
+  // The Research Lab's added views (SPEC-IRL-WORKSPACE-001 §7). `locker` and
+  // `qubetalk` are PROMOTIONS of two views that already existed inside
+  // Collaborate, not new capabilities — the spec makes them first-class
+  // surfaces because the boundary between the mutable workspace and the
+  // authoritative record has to be visible in the navigation to be real.
+  "pipeline",
+  "review",
+  "working-materials",
+  "locker",
+  "qubetalk",
+  "participants",
+] as const;
 type SubSurface = (typeof SUB_SURFACES)[number];
 
 /**
@@ -129,11 +167,53 @@ function asVisibility(value: string | undefined): WorkspaceVisibility {
   return value === "public" ? "public" : "private";
 }
 
-/** Is this surface offered at this visibility? Private offers everything the
- *  caller's TAB gate already allowed; public offers only the allowlist. */
-function surfaceAllowed(surface: SubSurface, visibility: WorkspaceVisibility): boolean {
+/**
+ * Is this surface offered here? TWO independent conditions, both required:
+ *
+ *  1. the Lab offers it at all (`KIND_SURFACES`) — a venture entrance can never
+ *     reach a research view, and vice versa, whatever a config says;
+ *  2. the visibility clamp — private offers everything the caller's TAB gate
+ *     already allowed, public offers only `PUBLIC_SURFACES`.
+ *
+ * Kept as an AND of two checks rather than one merged list, because they answer
+ * different questions and fail for different reasons; merging them would make a
+ * mis-set posture and a mis-set domain indistinguishable in the fallback.
+ */
+function surfaceAllowed(
+  surface: SubSurface,
+  visibility: WorkspaceVisibility,
+  kind: WorkspaceKind,
+): boolean {
+  if (!KIND_SURFACES[kind].includes(surface)) return false;
   return visibility === "private" || PUBLIC_SURFACES.includes(surface);
 }
+/**
+ * WHICH surfaces each Lab offers, and in what order.
+ *
+ * The Venture Lab's list is unchanged, member for member and in order
+ * (SPEC-IRL-WORKSPACE-001 acceptance criterion 3: "existing Venture Lab
+ * workspaces remain unchanged") — the research views are simply not in it, so
+ * no venture entrance can reach one.
+ *
+ * The Research Lab's list is DERIVED from `RESEARCH_WORKSPACE_VIEWS`, the same
+ * registry `data/codex-configs.ts` builds the IRL tabs from, so the tier-3 menu
+ * and this component cannot offer different sets.
+ */
+const KIND_SURFACES: Record<WorkspaceKind, readonly SubSurface[]> = {
+  venture: ["overview", "collaborate", "operate", "evidence", "communicate", "administration"],
+  research: [
+    ...(RESEARCH_WORKSPACE_VIEWS.map((v) => v.id) as SubSurface[]),
+    RESEARCH_WORKSPACE_ADMIN_VIEW.id as SubSurface,
+  ],
+};
+
+/**
+ * Labels. `evidence` is the one surface the two Labs NAME differently — the
+ * Venture Lab's "Evidence" is the Research Lab's "Activity" (SPEC §7) — so the
+ * label is resolved per Lab while the id, the tab slug and every deep link stay
+ * put. Everything else is shared, and the research entries are read from the
+ * view registry rather than restated.
+ */
 const SUB_LABELS: Record<SubSurface, string> = {
   overview: "Overview",
   collaborate: "Collaborate",
@@ -141,7 +221,21 @@ const SUB_LABELS: Record<SubSurface, string> = {
   evidence: "Evidence",
   communicate: "Communicate",
   administration: "Administration",
+  pipeline: "Pipeline",
+  review: "Review",
+  "working-materials": "Working Materials",
+  locker: "Locker",
+  qubetalk: "QubeTalk",
+  participants: "Participants",
 };
+
+function surfaceLabel(surface: SubSurface, kind: WorkspaceKind): string {
+  if (kind === "research") {
+    const view = RESEARCH_WORKSPACE_VIEWS.find((v) => v.id === surface);
+    if (view) return view.label;
+  }
+  return SUB_LABELS[surface];
+}
 
 const COLLAB_VIEWS = ["invitations", "peer-exchange", "locker"] as const;
 type CollabView = (typeof COLLAB_VIEWS)[number];
@@ -269,13 +363,19 @@ interface WorkspaceView {
   contextLabel: string;
   /** Rendered in the counterparty metric card; null → "Not yet wired". */
   counterpartyValue: string | null;
-  /** Current phase; null → "Not yet wired" (research has no phase model yet). */
+  /** Current phase/stage; null → "Not yet wired". */
   phaseLabel: string | null;
-  ownerAgentId: PartnerLayerOwnerId;
+  /** Null when no ancestor declares an owner — renders as unassigned, never invented. */
+  ownerAgentId: PartnerLayerOwnerId | null;
   layers: PartnerWorkspaceLayer[];
   layerOwners: Partial<Record<PartnerWorkspaceLayer, PartnerLayerOwnerId | null>>;
   objectives: string[];
   links: PartnerWorkspaceLink[];
+  /** The workspace's lifecycle template (SPEC §7); null = the id resolves to none. */
+  lifecycle: LifecycleTemplate | null;
+  currentStage: string | null;
+  institutions: string[];
+  workspaceType: WorkspaceType;
   /** Extra, honestly-derived metric cards for this Lab. */
   extraMetrics: { label: string; value: string; detail?: string }[];
 }
@@ -292,6 +392,14 @@ function ventureView(ws: PartnerWorkspace): WorkspaceView {
     layerOwners: ws.layerOwners,
     objectives: ws.objectives,
     links: ws.links,
+    // The venture ladder is a lifecycle template like any other — resolved
+    // through the SAME registry the research pipelines use, so the Pipeline
+    // view is domain-neutral and the venture entrance is unaffected by it
+    // (its own sub-surface list never offers Pipeline).
+    lifecycle: getLifecycleTemplate("venture-pilot"),
+    currentStage: PHASE_LABELS[ws.phase],
+    institutions: [ws.partnerName],
+    workspaceType: "pilot",
     extraMetrics: [],
   };
 }
@@ -299,27 +407,51 @@ function ventureView(ws: PartnerWorkspace): WorkspaceView {
 function researchView(ws: ReturnType<typeof listResearchWorkspaces>[number]): WorkspaceView {
   const label = researchWorkspaceLabel(ws);
   const experiments = researchWorkspaceExperiments(ws);
+  // Owner, layer owners and links are INHERITED down the hierarchy by the
+  // registry's own derivations — the same ones the spine projects through — so
+  // a student project renders its programme's division of labour without the
+  // registry restating it, and the surface cannot disagree with the spine.
+  const owner = researchWorkspaceOwner(ws);
+  const institutions = researchWorkspaceInstitutions(ws);
+  const template = getLifecycleTemplate(ws.lifecycleTemplateId);
   return {
     id: ws.id,
     chipLabel: label,
     contextLabel: `${label} · Invariant Research Lab`,
-    counterpartyValue: ws.seriesId,
-    // The research registry declares no phase: a venture pilot's
-    // exploration→evidence ladder is not the lifecycle of a validation series,
-    // and asserting one would be an invention. "Not yet wired" is the honest
-    // state, the same discipline the venture metrics already follow.
-    phaseLabel: null,
-    ownerAgentId: ws.ownerAgentId,
+    // The counterparty of a research workspace is the institution(s) it is a
+    // collaboration WITH — for a series-convening programme that is still the
+    // series. Null when neither is declared, which renders "Not yet wired"
+    // rather than an invented value.
+    counterpartyValue: institutions.length > 0 ? institutions.join(' · ') : ws.seriesId ?? null,
+    // The workspace's stage on its OWN lifecycle template (SPEC §7). Before
+    // 2026-07-29 the research registry declared no phase and this was honestly
+    // null; it now declares one, so the metric reads the real value — and stays
+    // null for a workspace that declares none rather than inventing "stage 1".
+    phaseLabel: ws.currentStage ?? null,
+    ownerAgentId: owner,
     layers: RESEARCH_WORKSPACE_LAYERS,
-    layerOwners: ws.layerOwners,
+    layerOwners: researchWorkspaceLayerOwners(ws),
     objectives: researchWorkspaceObjectives(ws),
-    links: ws.links,
+    links: researchWorkspaceLinks(ws),
+    lifecycle: template,
+    currentStage: ws.currentStage ?? null,
+    institutions,
+    workspaceType: ws.workspaceType,
     extraMetrics: [
-      {
-        label: "Experiments",
-        value: String(experiments.length),
-        detail: "members of this series (registry-derived)",
-      },
+      // A count of ZERO is meaningful for a series-convening programme and
+      // MEANINGLESS for a cohort, which convenes no series at all. Offering the
+      // metric only where it has a referent is the same honesty rule the
+      // "Not yet wired" states follow — a "0 Experiments" card on a capstone
+      // reads as a broken derivation, not as an absence of series members.
+      ...(experiments.length > 0
+        ? [
+            {
+              label: "Experiments",
+              value: String(experiments.length),
+              detail: "members of this series (registry-derived)",
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -353,6 +485,112 @@ function DeepLinkCard({ link, personaId, isAdmin }: { link: PartnerWorkspaceLink
       <p className="text-sm font-medium text-slate-100">{link.label} →</p>
       <p className="mt-0.5 text-xs text-slate-400">{link.description}</p>
     </a>
+  );
+}
+
+/**
+ * The functional boundary of a surface, rendered FROM the authority table
+ * rather than written out per view (SPEC §9). Two surfaces claiming different
+ * boundaries than the gate enforces is exactly the drift this avoids: the
+ * sentence a reader sees and the rule a canary drives come from one record.
+ */
+function BoundaryNote({ surface }: { surface: string }) {
+  const authority = workspaceSurfaceAuthority(surface);
+  return (
+    <div className={`${PANEL} px-4 py-2.5`}>
+      <p className="text-[11px] leading-relaxed text-slate-500">
+        <span className="text-slate-400">Boundary:</span> this surface{" "}
+        {authority.mayMutateGovernedState ? "may change" : "cannot change"} governed state and{" "}
+        {authority.mayAdmitToLocker ? "may admit" : "cannot admit"} artefacts to the Locker.
+        {!authority.mayMutateGovernedState && surface === "qubetalk" && (
+          <> Deliberation is not a decision — no consequential decision may remain only here.</>
+        )}
+        {surface === "working-materials" && (
+          <> Working Materials are never the authoritative record.</>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The lifecycle template's stages with the workspace's own stage marked.
+ *
+ * Renders the TEMPLATE, not a computed position: a stage the template does not
+ * declare shows as unknown rather than silently snapping to the first stage
+ * (`lifecycleStageIndex` returns -1 for exactly this, and "we do not know" and
+ * "it is at the beginning" must not read alike).
+ */
+function PipelinePanel({ ws }: { ws: WorkspaceView }) {
+  if (!ws.lifecycle) {
+    return (
+      <div className={`${PANEL} p-4 text-xs text-slate-400`}>
+        This workspace names a lifecycle template that does not resolve — the pipeline cannot be
+        rendered honestly until it does.
+      </div>
+    );
+  }
+  const current = lifecycleStageIndex(ws.lifecycle, ws.currentStage);
+  return (
+    <div className="space-y-3">
+      <BoundaryNote surface="pipeline" />
+      <div className={`${PANEL} p-4`}>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold text-slate-100">{ws.lifecycle.label} pipeline</h3>
+          <span className="text-[10px] uppercase tracking-wide text-slate-500">
+            {ws.currentStage
+              ? current >= 0
+                ? `Stage ${current + 1} of ${ws.lifecycle.stages.length}`
+                : "Stage not in this template"
+              : "Stage not declared"}
+          </span>
+        </div>
+        <ol className="space-y-1.5">
+          {ws.lifecycle.stages.map((stage, i) => {
+            const isCurrent = i === current;
+            const isPast = current >= 0 && i < current;
+            return (
+              <li
+                key={stage}
+                className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 ${
+                  isCurrent
+                    ? "border-violet-500/50 bg-violet-500/10"
+                    : "border-slate-800 bg-slate-900/40"
+                }`}
+              >
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                    isCurrent
+                      ? "bg-violet-500/30 text-violet-100"
+                      : isPast
+                        ? "bg-slate-700 text-slate-300"
+                        : "bg-slate-800 text-slate-500"
+                  }`}
+                >
+                  {i + 1}
+                </span>
+                <span
+                  className={`text-xs ${
+                    isCurrent ? "text-violet-100" : isPast ? "text-slate-300" : "text-slate-500"
+                  }`}
+                >
+                  {stage}
+                </span>
+                {isCurrent && (
+                  <span className="ml-auto text-[10px] uppercase tracking-wide text-violet-300">
+                    Current
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        <p className="mt-3 text-[10px] leading-relaxed text-slate-500">
+          Stages are a description of where the work is, never a permission. Advancing a stage is an
+          act performed by the capability that owns the transition and receipted there.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -830,7 +1068,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   // config mistake degrades to the public surface instead of leaking one.
   const requestedSurface = asSubSurface(initialSurface);
   const menuSurface =
-    requestedSurface && surfaceAllowed(requestedSurface, visibility) ? requestedSurface : requestedSurface ? "overview" : null;
+    requestedSurface && surfaceAllowed(requestedSurface, visibility, kind)
+      ? requestedSurface
+      : requestedSurface
+        ? "overview"
+        : null;
   const [surface, setSurface] = useState<SubSurface>(menuSurface ?? "overview");
   // The tier-3 row keeps this component mounted and swaps the prop, so state
   // initialised once would stick on whichever surface was opened first.
@@ -921,8 +1163,8 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           <MetricCard label="Next Milestone">
             <NotYetWired />
           </MetricCard>
-          <MetricCard label="Owner" detail={ws.ownerAgentId}>
-            {ownerName}
+          <MetricCard label="Owner" detail={ws.ownerAgentId ?? undefined}>
+            {ownerName ?? <NotYetWired />}
           </MetricCard>
           <MetricCard label={copy.counterpartyLabel}>
             {ws.counterpartyValue ?? <NotYetWired />}
@@ -952,7 +1194,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
       {menuSurface === null && (
       <div className="flex flex-wrap gap-1.5">
-        {SUB_SURFACES.filter((s) => s !== "administration" && surfaceAllowed(s, visibility)).map((s) => (
+        {KIND_SURFACES[kind].filter((s) => s !== "administration" && surfaceAllowed(s, visibility, kind)).map((s) => (
           <button
             key={s}
             onClick={() => setSurface(s)}
@@ -962,7 +1204,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
                 : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
             }`}
           >
-            {SUB_LABELS[s]}
+            {surfaceLabel(s, kind)}
           </button>
         ))}
       </div>
@@ -1126,6 +1368,107 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
             </p>
           </div>
           <AreaLinks ws={ws} area="communicate" personaId={personaId} isAdmin={isAdmin} />
+        </div>
+      )}
+
+      {/* ── Pipeline (SPEC §7) ── */}
+      {surface === "pipeline" && <PipelinePanel ws={ws} />}
+
+      {/* ── Review — the IRL-REVIEW-001 front end (SPEC §7) ── */}
+      {surface === "review" && (
+        <div className="space-y-4">
+          <BoundaryNote surface="review" />
+          <div className={`${PANEL} p-4`}>
+            <h3 className="text-sm font-semibold text-slate-100">Independent Review</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              Review packages, reviewers, rubric, decisions, contested items and review receipts are
+              produced by the IRL-REVIEW-001 capability. This view is its workspace entrance — the
+              capability is mounted at its own home below, never reimplemented here.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+              A reviewer inspects, comments, submits a structured decision and raises objections.
+              Reviewers never write to source assets, and review is evidence — not ratification.
+            </p>
+          </div>
+          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} />
+        </div>
+      )}
+
+      {/* ── Working Materials (SPEC §7, §9) ── */}
+      {surface === "working-materials" && (
+        <div className="space-y-4">
+          <BoundaryNote surface="working-materials" />
+          <div className={`${PANEL} p-4`}>
+            <h3 className="text-sm font-semibold text-slate-100">Working Materials</h3>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+              Mutable drafts, notes, source packs, notebooks, code branches and unresolved
+              decisions. Nothing here is the record: promotion into the Locker requires a governed
+              freeze and a content commitment, and this surface cannot perform one.
+            </p>
+            <p className="mt-2 text-xs italic text-slate-500">
+              A workspace-scoped materials store is not yet wired — the working surfaces below are
+              where this programme&apos;s materials live today.
+            </p>
+          </div>
+          <AreaLinks ws={ws} area="operate" personaId={personaId} isAdmin={isAdmin} />
+        </div>
+      )}
+
+      {/* ── Locker — authoritative artefacts only (SPEC §7, §9) ── */}
+      {surface === "locker" && (
+        <div className="space-y-3">
+          <BoundaryNote surface="locker" />
+          <div className={`${PANEL} p-3`}>
+            <p className="mb-2 text-[11px] text-slate-500">
+              The holder-owned encrypted Locker (canonical, unfiltered — locker items are
+              holder-scoped, not workspace-scoped).
+            </p>
+            <LockerTab />
+          </div>
+        </div>
+      )}
+
+      {/* ── QubeTalk — deliberation only (SPEC §7, §9) ── */}
+      {surface === "qubetalk" && (
+        <div className="space-y-3">
+          <BoundaryNote surface="qubetalk" />
+          <div className={`${PANEL} p-3`}>
+            <p className="mb-2 text-[11px] text-slate-500">
+              QubeTalk Peer Exchange, filtered to channels opened from the{" "}
+              <span className="text-slate-300">{accessDomain}</span> domain. Same store as the
+              Locker&apos;s canonical inbox — this is a filter, not a second inbox.
+            </p>
+            <QubeTalkInboxTab domainFilter={accessDomain} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Participants (SPEC §7) ── */}
+      {surface === "participants" && (
+        <div className="space-y-3">
+          <BoundaryNote surface="participants" />
+          <div className={`${PANEL} p-3`}>
+            <p className="mb-2 text-[11px] text-slate-500">
+              People, institutions, roles, invitation status and scope. Bounded bearer invitations
+              for the <span className="text-slate-300">{accessDomain}</span> access domain — who may
+              actually issue one, into which domain, and scoped to which programmes is derived
+              server-side from the caller&apos;s OWN grants. This surface only offers what that
+              authority already allows.
+            </p>
+            {ws.institutions.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {ws.institutions.map((inst) => (
+                  <span
+                    key={inst}
+                    className="rounded-full border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300"
+                  >
+                    {inst}
+                  </span>
+                ))}
+              </div>
+            )}
+            <StewardParticipationTab initialDomain={accessDomain} />
+          </div>
         </div>
       )}
 
