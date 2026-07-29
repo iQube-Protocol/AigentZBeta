@@ -56,6 +56,12 @@ const SPINE_ENDPOINT_PREFIXES = [
   // indistinguishable from "no messages".
   '/api/qubetalk/',
   '/api/marketa/qubetalk',
+  // Added 2026-07-29 with the IRL-REVIEW-001 Lab surface. Every route under it
+  // resolves the caller through `requireReviewAccess`, which resolves through
+  // the spine — a raw `fetch` would 401 into an empty state indistinguishable
+  // from "no reviews yet", which for a review queue is the worst possible
+  // silent failure.
+  '/api/research/review',
 ] as const;
 
 /**
@@ -71,12 +77,14 @@ const PREFIX_ROUTE_PROOF: Record<string, string> = {
   '/api/participation/': 'app/api/participation/my-access/route.ts',
   '/api/qubetalk/': 'app/api/qubetalk/channels/route.ts',
   '/api/marketa/qubetalk': 'app/api/marketa/qubetalk/route.ts',
+  '/api/research/review': 'app/api/research/review/route.ts',
 };
 
 /** route file → the gate module it delegates caller resolution to. */
 const PREFIX_GATE_PROOF: Record<string, string> = {
   'app/api/qubetalk/channels/route.ts': 'app/api/qubetalk/_lib/requireChannelAccess.ts',
   'app/api/marketa/qubetalk/route.ts': 'app/api/marketa/qubetalk/_lib.ts',
+  'app/api/research/review/route.ts': 'app/api/research/review/_lib/gate.ts',
 };
 
 /**
@@ -167,9 +175,22 @@ describe('spine endpoints are reached only through personaFetch', () => {
         // Step 1: the route delegates to the named gate — and AWAITS it and
         // RETURNS its refusal. A gate that is imported and whose verdict is
         // discarded is the shape that reads as fixed and is not.
-        const gateName = gatePath.endsWith('requireChannelAccess.ts')
-          ? 'requireChannelAccess'
-          : 'requireMarketaQubeTalkAccess';
+        // DERIVED from the gate module's own exported name rather than a
+        // hand-maintained mapping — a third gate added to PREFIX_GATE_PROOF
+        // with a stale ternary here would silently assert against the WRONG
+        // function name and pass by matching nothing.
+        // DERIVED — the gate module's exported async functions intersected with
+        // the names the route actually calls. A hand-maintained mapping here
+        // would go stale the moment a third gate joined PREFIX_GATE_PROOF, and
+        // a stale entry asserts against the WRONG function name, which passes
+        // by matching nothing.
+        const gateSrcRaw = stripComments(readSource(gatePath));
+        const exported = [...gateSrcRaw.matchAll(/export async function (\w+)\s*\(/g)].map((m) => m[1]);
+        const gateName = exported.find((n) => new RegExp(`await ${n}\\(`).test(route));
+        expect(
+          gateName,
+          `${prefix}: ${routePath} awaits none of ${gatePath}'s exported gates (${exported.join(', ') || 'none'})`,
+        ).toBeTruthy();
         expect(
           new RegExp(`await ${gateName}\\(`).test(route),
           `${prefix}: ${routePath} does not await ${gateName}`,

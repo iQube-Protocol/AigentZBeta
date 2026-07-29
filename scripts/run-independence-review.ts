@@ -55,19 +55,13 @@ import {
   type StewardAssignment,
 } from '../services/research/review';
 import {
-  CLASS_C_BLOCK_RULING,
-  CLASS_C_POPULATION_QUERY,
-  EXP_P1_CHRONOLOGY,
-  EXP_P1_COVERAGE,
-  EXP_P1_NAMESPACE_BOUNDARY,
-  EXP_P1_NON_TARGETS,
   EXP_P1_REVIEWER_PAIR,
   EXP_P1_REVIEW_QUESTION,
-  EXP_P1_TARGET_STATEMENT,
-  expP1ClassCExceptionRules,
-  expP1MechanicalFlags,
 } from '../services/research/review/templates/expP1Admissibility';
-import { GENERAL_CONSTITUTIONAL_NAMESPACES } from '../services/research/experimentRelation';
+// ONE construction, shared with the Lab surface's New Review route. Two
+// constructions would drift, and the drift would be invisible exactly where it
+// matters: in the redacted preview a human approves before a run.
+import { buildReviewPlan } from '../services/research/independentReviewPlan';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(REPO, 'codexes/packs/irl/foundation/reviews');
@@ -96,52 +90,6 @@ function loadLocalEnv(): void {
   }
 }
 
-interface CorpusRow {
-  id: string;
-  seed_id: string | null;
-  statement: string;
-  namespace: string;
-  status: string;
-  provenance: unknown;
-  created_at: string;
-  updated_at: string | null;
-}
-
-function readProvenanceClass(provenance: unknown): string | null {
-  if (!provenance || typeof provenance !== 'object') return null;
-  const p = provenance as Record<string, unknown>;
-  for (const k of ['provenanceClass', 'evidenceProvenance', 'provenance_class']) {
-    if (typeof p[k] === 'string') return p[k] as string;
-  }
-  return null;
-}
-
-function readRefs(provenance: unknown, keys: string[]): string[] {
-  if (!provenance || typeof provenance !== 'object') return [];
-  const p = provenance as Record<string, unknown>;
-  const out: string[] = [];
-  for (const k of keys) {
-    const v = p[k];
-    if (typeof v === 'string' && v.trim()) out.push(v.trim());
-    if (Array.isArray(v)) out.push(...v.filter((x): x is string => typeof x === 'string'));
-  }
-  return out;
-}
-
-function toSubject(row: CorpusRow): ReviewSubjectRecord {
-  return {
-    subjectRef: row.seed_id || row.id,
-    statement: row.statement,
-    namespace: String(row.namespace),
-    sourceProvenance: readProvenanceClass(row.provenance),
-    sourceRefs: readRefs(row.provenance, ['sourceRefs', 'sources', 'source', 'sourceUrl', 'ratified_source']),
-    derivationRefs: readRefs(row.provenance, ['derivationRefs', 'derivedFrom', 'derivation', 'method']),
-    createdAt: String(row.created_at ?? ''),
-    revisedAt: row.updated_at ? String(row.updated_at) : null,
-    lifecycleStatus: String(row.status),
-  };
-}
-
 async function main(): Promise<void> {
   loadLocalEnv();
 
@@ -166,46 +114,14 @@ async function main(): Promise<void> {
 
   const admin = createClient(url, key, { auth: { persistSession: false } });
 
-  // ── Read the corpus (read-only; the review path itself never sees this client)
-  const rows: CorpusRow[] = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await admin
-      .from('invariants')
-      .select('id,seed_id,statement,namespace,status,provenance,created_at,updated_at')
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`corpus read failed: ${error.message}`);
-    rows.push(...((data ?? []) as unknown as CorpusRow[]));
-    if (!data || data.length < PAGE) break;
-  }
-  console.log(`Live Invariant Corpus: ${rows.length} rows.`);
+  const nowIso = new Date().toISOString();
+  // ONE construction, shared with the Lab's New Review route.
+  const plan = await buildReviewPlan(admin, { version: VERSION, createdAt: nowIso });
+  const { pkg, block, reviewId, assetCommitment } = plan;
 
-  const boundary = new Set(EXP_P1_NAMESPACE_BOUNDARY);
-  const inBoundary = rows.filter((r) => boundary.has(String(r.namespace)));
-  const outOfBoundary = rows.filter((r) => !boundary.has(String(r.namespace)));
-  console.log(`  in boundary:  ${inBoundary.length}`);
-  console.log(`  out of boundary (recorded with reasons): ${outOfBoundary.length}`);
-
-  const subjects = inBoundary.map(toSubject);
-
-  // ── Class C block decision ────────────────────────────────────────────────
-  const classC = subjects.filter((s) => GENERAL_CONSTITUTIONAL_NAMESPACES.has(s.namespace));
-  const individual = subjects.filter((s) => !GENERAL_CONSTITUTIONAL_NAMESPACES.has(s.namespace));
-
-  const block = buildBlockDecision({
-    blockId: `block.class-c.${VERSION}`,
-    ruling: CLASS_C_BLOCK_RULING,
-    populationQuery: CLASS_C_POPULATION_QUERY,
-    population: classC,
-    exceptionRules: expP1ClassCExceptionRules(),
-    taskConstructionBegun: false,
-    taskConstructionEvidence:
-      'No task specification exists in the repository at package-construction time; task ' +
-      'construction follows the freeze, never precedes it.',
-    sampleSeed: EXP_P1_COVERAGE.blockSampleSeed,
-    samplePerNamespace: EXP_P1_COVERAGE.blockSamplePerNamespace,
-  });
+  console.log(`Live Invariant Corpus: ${plan.corpusRowCount} rows.`);
+  console.log(`  in boundary:  ${plan.inBoundaryCount}`);
+  console.log(`  out of boundary (recorded with reasons): ${plan.outOfBoundaryCount}`);
 
   console.log('\n── Class C block decision ─────────────────────────────────');
   console.log(formatBlockDecision(block));
@@ -214,44 +130,8 @@ async function main(): Promise<void> {
     console.log(`    ${ns.padEnd(20)} ${String(n).padStart(4)}`);
   }
   console.log(`  earliest creation ${block.earliestCreatedAt ?? 'n/a'} · latest ${block.latestCreatedAt ?? 'n/a'}`);
-
-  // Rows extracted from the block are reviewed individually, alongside the
-  // non-Class-C rows and the block's representative sample.
-  const extractedRefs = new Set(block.extracted.map((e) => e.subjectRef));
-  const sampleRefs = new Set(block.representativeSample);
-  const packageSubjects = [
-    ...individual,
-    ...classC.filter((s) => extractedRefs.has(s.subjectRef) || sampleRefs.has(s.subjectRef)),
-  ];
-  console.log(`\n  rows enumerated individually in the package: ${packageSubjects.length}`);
-  console.log(`    (${individual.length} outside Class C, ${extractedRefs.size} extracted exceptions, ` +
-    `${[...sampleRefs].filter((r) => !extractedRefs.has(r)).length} additional sample rows)`);
-
-  // ── Seal the package ──────────────────────────────────────────────────────
-  const nowIso = new Date().toISOString();
-  const reviewId = `review.${VERSION}.${commit({ v: VERSION, n: packageSubjects.length, block: block.blockId }).slice(0, 12)}`;
-  const assetCommitment = commit({ subjects: packageSubjects.map((s) => s.subjectRef).sort() });
-
-  const pkg = buildReviewPackage({
-    packageId: `pkg.${reviewId}`,
-    reviewId,
-    assetRef: `crystal-${VERSION}`,
-    assetCommitment,
-    targetDefinition: EXP_P1_TARGET_STATEMENT,
-    nonTargets: EXP_P1_NON_TARGETS,
-    rubricRef: INDEPENDENCE_RUBRIC_ID,
-    rubricVersion: INDEPENDENCE_RUBRIC_VERSION,
-    sourceRefs: [
-      'codexes/packs/irl/foundation/SPEC-IRL-REVIEW-001_independent-review-capability.md',
-      'codexes/packs/agentiq/updates/2026-07-29_external-review-rulings.md',
-    ],
-    chronology: EXP_P1_CHRONOLOGY,
-    evidenceSummaries: [],
-    subjects: packageSubjects,
-    blockDecisions: [block],
-    exclusionsFromPackage: outOfBoundary.map((r) => r.seed_id || r.id),
-    createdAt: nowIso,
-  });
+  console.log(`\n  rows enumerated individually in the package: ${plan.individuallyEnumerated}`);
+  console.log(`  mechanically flagged for mandatory second review: ${plan.mechanicallyFlagged.length}`);
 
   const preview = redactedPreview(pkg);
   console.log(`\n  package ${pkg.packageId}`);
@@ -378,11 +258,11 @@ async function main(): Promise<void> {
     steward,
     determinism: DEFAULT_DETERMINISM,
     coverage: {
-      sampleRate: EXP_P1_COVERAGE.sampleRate,
-      sampleSeed: EXP_P1_COVERAGE.sampleSeed,
-      mechanicallyFlagged: expP1MechanicalFlags(packageSubjects),
+      sampleRate: plan.coverage.sampleRate,
+      sampleSeed: plan.coverage.sampleSeed,
+      mechanicallyFlagged: plan.mechanicallyFlagged,
     },
-    assetRef: `crystal-${VERSION}`,
+    assetRef: plan.assetRef,
     assetCommitment,
     now: () => new Date().toISOString(),
     onStep: (s, d) => console.log(`  [${s}] ${d}`),

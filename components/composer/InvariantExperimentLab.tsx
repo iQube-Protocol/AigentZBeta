@@ -45,6 +45,7 @@ import ExperimentReportTab from "./ExperimentReportTab";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
 import QubeTalkInboxTab from "./QubeTalkInboxTab";
+import IndependentReviewPanel from "./IndependentReviewPanel";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -120,6 +121,12 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     title: "Validation Programme",
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
+      // IRL-REVIEW-001 sits IN the experiments navigator rather than as a
+      // separate destination: the review is preparation for the experiment, and
+      // whoever is preparing one should not have to leave it to adjudicate its
+      // inputs. No experiment id — admin-only via the section filter, like the
+      // other cross-cutting lab capabilities.
+      { id: "independent-review", label: "Independent Review", icon: ShieldCheck, blurb: "IRL-REVIEW-001 · submit an experiment asset for independent single or dual adjudication — frozen blinded package, distinct model lineages, contested queue, review receipt. Review is evidence, never ratification." },
     ],
   },
   {
@@ -458,6 +465,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
         {tab === "discovery" && <InvariantDiscoveryTab />}
         {tab === "qubetalk" && <QubeTalkInboxTab researchOnly />}
+        {tab === "independent-review" && <IndependentReviewPanel />}
       </div>
     </div>
   );
