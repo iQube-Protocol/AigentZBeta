@@ -123,7 +123,10 @@ export function runVentureScenario(
   const runId = ventureRunId(scenario.scenarioId, cell);
   const opportunityRef = ventureOpportunityRef(scenario.opportunityId);
 
-  const journal = createReceiptJournal(runId, experimentalCellId);
+  // FIXTURE, always and explicitly (Ruling 2). A scenario run is a
+  // deterministic replay; there is no option to run one against the live trail,
+  // and the guard in `receipts.ts` throws if anything tries.
+  const journal = createReceiptJournal(runId, experimentalCellId, 'fixture');
   const ledger = createLedger(runId, cell);
   const funderRef = ventureFunderRef(scenario.funderPersonaId);
 

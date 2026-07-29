@@ -50,7 +50,16 @@ import {
 import { assessConstitutionalCompletion } from '@/services/venture/trading/completionVerdict';
 import { liabilityArisesAt } from '@/services/venture/trading/serviceLedger';
 import { buildCompensationExtension } from '@/services/venture/trading/compensationExtension';
-import { emitVentureReceipt, VENTURE_RECEIPT_ACTION_TYPES } from '@/services/venture/trading/receipts';
+import {
+  anchorVentureReceipt,
+  assertVentureJournalCanLeaveMemory,
+  createReceiptJournal,
+  emitVentureReceipt,
+  persistVentureReceipt,
+  VENTURE_RECEIPT_ACTION_TYPES,
+  VentureFixtureModeViolation,
+  ventureJournalArtifacts,
+} from '@/services/venture/trading/receipts';
 import { runVentureScenario } from '@/services/venture/trading/runScenario';
 import {
   reconcileMatrix,
@@ -862,6 +871,111 @@ describe('AC-10 no raw identifier reaches a receipt, ledger ref field or chain-b
         evidenceRefs: [],
       }),
     ).toThrow(/raw identifier/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-15 — RULING 2. Fixture receipts CANNOT persist and CANNOT anchor.
+//         Four states, and the two that do not hold are held by a throw.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-15 a fixture journal cannot reach the operational trail', () => {
+  it('every one of the 24 runs journals in FIXTURE mode', () => {
+    const runs = runFullVentureMatrix();
+    expect(runs).toHaveLength(24);
+    for (const run of runs) {
+      expect(run.journal.mode, `${run.runId} is not a fixture journal`).toBe('fixture');
+    }
+  });
+
+  it('persisting a fixture journal THROWS, and never reaches the writer', async () => {
+    const run = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    let writerCalls = 0;
+    const writer = async () => {
+      writerCalls += 1;
+      return 'written';
+    };
+    await expect(
+      persistVentureReceipt(run.journal, run.journal.receipts[0], writer),
+    ).rejects.toBeInstanceOf(VentureFixtureModeViolation);
+    // The throw alone is not enough: a guard placed AFTER the write would also
+    // throw, having already contaminated the trail.
+    expect(writerCalls, 'the writer ran before the guard refused').toBe(0);
+  });
+
+  it('anchoring a fixture journal THROWS, and never reaches the anchorer', async () => {
+    const run = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    let anchorCalls = 0;
+    const anchorer = async () => {
+      anchorCalls += 1;
+      return 'anchored';
+    };
+    await expect(
+      anchorVentureReceipt(run.journal, run.journal.receipts[0], anchorer),
+    ).rejects.toBeInstanceOf(VentureFixtureModeViolation);
+    expect(anchorCalls, 'the anchorer ran before the guard refused').toBe(0);
+  });
+
+  it('the guard is a throw, not a boolean a caller can ignore', () => {
+    const run = runVentureScenario(SCENARIO_APPROVED_EXECUTED, cellById('USDC-BUNDLED-EXEC'));
+    expect(() => assertVentureJournalCanLeaveMemory(run.journal, 'persist')).toThrow(
+      /FIXTURE mode/,
+    );
+    expect(() => assertVentureJournalCanLeaveMemory(run.journal, 'anchor')).toThrow(/FIXTURE mode/);
+    // A `live` journal is the ONLY thing the guard lets through — proving the
+    // guard discriminates on mode rather than refusing unconditionally, which
+    // would make it inert once Phase 2 needs it.
+    const live = createReceiptJournal('live-run', 'USDC-BUNDLED-EXEC', 'live');
+    expect(() => assertVentureJournalCanLeaveMemory(live, 'persist')).not.toThrow();
+  });
+
+  it('no substrate module writes a venture receipt to activity_receipts', () => {
+    for (const file of readdirSync(TRADING_DIR).filter((f) => f.endsWith('.ts'))) {
+      const src = stripComments(readFileSync(join(TRADING_DIR, file), 'utf8'));
+      expect(src, `${file} writes venture receipts to the production trail`).not.toContain(
+        'createActivityReceipt(',
+      );
+      expect(src, `${file} submits venture receipts to the DVN canister`).not.toContain(
+        'submitActivityReceiptToDvn(',
+      );
+    }
+  });
+
+  it('preserves the complete receipt artifacts and hashes as run output', () => {
+    const run = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    const artifacts = ventureJournalArtifacts(run.journal);
+
+    // Complete: one artifact per receipt, none dropped.
+    expect(artifacts.artifacts).toHaveLength(run.journal.receipts.length);
+    expect(artifacts.artifacts.length).toBeGreaterThan(0);
+    expect(artifacts.checkpoints).toHaveLength(run.journal.checkpoints.length);
+
+    // Hashed, and the hash is over the body — two different receipts must not
+    // share a hash, or the hash carries no evidence.
+    const hashes = new Set(artifacts.artifacts.map((a) => a.receiptHash));
+    expect(hashes.size).toBe(artifacts.artifacts.length);
+    for (const a of artifacts.artifacts) expect(a.receiptHash).toMatch(/^[0-9a-f]{64}$/);
+
+    // Deterministic across an independent replay — a hash that moved between
+    // runs would make the artifact useless as evidence.
+    const replay = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    expect(ventureJournalArtifacts(replay.journal).artifacts.map((a) => a.receiptHash)).toEqual(
+      artifacts.artifacts.map((a) => a.receiptHash),
+    );
+  });
+
+  it('reports the four states separately, and never as one "receipted" claim', () => {
+    const run = runVentureScenario(SCENARIO_APPROVED_EXECUTED, cellById('BASEQC-SERVICE-COMPLETE'));
+    const artifacts = ventureJournalArtifacts(run.journal);
+    // Hand-written, because this is the exact conflation Ruling 2 forbids.
+    expect(artifacts.generated).toBe(true);
+    expect(artifacts.hashed).toBe(true);
+    expect(artifacts.persisted).toBe(false);
+    expect(artifacts.dvnAnchored).toBe(false);
+    // Reported as false, not omitted: an absent field reads as "unknown", and
+    // "unknown" is how "generated" becomes "anchored" one report downstream.
+    expect(Object.keys(artifacts)).toContain('persisted');
+    expect(Object.keys(artifacts)).toContain('dvnAnchored');
   });
 });
 

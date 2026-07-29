@@ -25,14 +25,33 @@
  * matching CHECK-constraint migration. The payload the pipeline builds, its
  * state machine and `hashPersonaRef` are untouched.
  *
- * In Phase 1 receipts are written to an in-memory run journal rather than to
- * `activity_receipts`: the runs are deterministic simulations replayed eight
- * times per scenario, and writing 24 replays of the same fixture into the
- * production receipt table would pollute the real provenance trail with
- * simulation artifacts. The journal entries are ANCHOR-ELIGIBLE by
- * construction — `assertAnchorableActionTypes` proves every action type used
- * here is in the pipeline's anchorable set — so the same emitter serves the
- * live path when Phase 2 turns it on.
+ * ─── FIXTURE MODE — four states, and only two of them hold (RULING 2) ───────
+ *
+ * The 24 deterministic replays MUST NEVER write to the production
+ * `activity_receipts` trail. These are four DISTINCT states and conflating any
+ * two of them IS the defect — a report that says "the receipts exist" when it
+ * means "receipt objects were generated" claims provenance that does not exist:
+ *
+ *     receipt object generated   — YES
+ *     receipt hash computed      — YES (`ventureReceiptHash`, over the receipt
+ *                                  body; the cost stream has its own batch
+ *                                  commitment)
+ *     receipt persisted          — NO
+ *     receipt DVN-anchored       — NO
+ *
+ * The last two are held by a RUNTIME GUARD, not by a convention. A journal
+ * carries its `mode`, every persistence and anchoring path funnels through
+ * `assertVentureJournalCanLeaveMemory`, and that function THROWS on a fixture
+ * journal. A future refactor that wires the live writer into the replay path
+ * therefore fails loudly at the first receipt instead of silently contaminating
+ * the operational trail — which is the failure that would be discovered months
+ * later, in an audit, as unexplained fixture rows.
+ *
+ * The receipt artifacts and their hashes are PRESERVED — `ventureJournalArtifacts`
+ * returns the complete set, so "not persisted" costs nothing evidentially. The
+ * journal entries are also ANCHOR-ELIGIBLE by construction (every action type
+ * used here is in the pipeline's anchorable set), so the same emitter serves
+ * the live path when Phase 2 turns it on with `mode: 'live'`.
  *
  * T0/T2: every payload field is a commitment. `assertNoRawIdentifiers` fails
  * loudly rather than sanitising, so a leak is a build failure and not a quietly
@@ -102,16 +121,156 @@ export interface CostCheckpoint {
   at: string;
 }
 
+/**
+ * `fixture` — a deterministic replay. Objects and hashes only; persistence and
+ * anchoring are REFUSED at runtime, not merely avoided by discipline.
+ * `live`    — a real operator action. Phase 2 only, and it must additionally
+ * pass the deployment compatibility check before any write.
+ */
+export type VentureReceiptMode = 'fixture' | 'live';
+
 export interface VentureReceiptJournal {
   runId: string;
   experimentalCellId: string;
+  /** Which trail this journal is allowed to reach. Defaults to `fixture`. */
+  mode: VentureReceiptMode;
   receipts: VentureReceipt[];
   checkpoints: CostCheckpoint[];
   seq: number;
 }
 
-export function createReceiptJournal(runId: string, experimentalCellId: string): VentureReceiptJournal {
-  return { runId, experimentalCellId, receipts: [], checkpoints: [], seq: 0 };
+export function createReceiptJournal(
+  runId: string,
+  experimentalCellId: string,
+  mode: VentureReceiptMode = 'fixture',
+): VentureReceiptJournal {
+  return { runId, experimentalCellId, mode, receipts: [], checkpoints: [], seq: 0 };
+}
+
+/**
+ * Thrown when something tries to move a FIXTURE journal out of memory. A
+ * distinct class so a caller can tell "the substrate refused on principle" from
+ * "the database was unreachable" — the two need opposite responses.
+ */
+export class VentureFixtureModeViolation extends Error {
+  readonly runId: string;
+  readonly operation: 'persist' | 'anchor';
+  constructor(runId: string, operation: 'persist' | 'anchor') {
+    super(
+      `venture journal ${runId} is in FIXTURE mode and must not be ${operation === 'persist' ? 'persisted' : 'DVN-anchored'}. ` +
+        'These are deterministic replays of the same fixtures; writing them to activity_receipts would put simulation ' +
+        'artifacts in the operational provenance trail. Receipt objects and hashes are available via ventureJournalArtifacts().',
+    );
+    this.name = 'VentureFixtureModeViolation';
+    this.runId = runId;
+    this.operation = operation;
+  }
+}
+
+/**
+ * ── THE HARD GUARD ──
+ *
+ * Every path that would move a receipt out of memory calls this FIRST. It
+ * throws; it does not warn, log, no-op, or return false. A guard that returns
+ * a boolean is a guard a caller can ignore, and the whole point of Ruling 2 is
+ * that a future refactor cannot quietly wire the replay path to the live
+ * writer.
+ */
+export function assertVentureJournalCanLeaveMemory(
+  journal: VentureReceiptJournal,
+  operation: 'persist' | 'anchor',
+): void {
+  if (journal.mode === 'fixture') {
+    throw new VentureFixtureModeViolation(journal.runId, operation);
+  }
+}
+
+/**
+ * Persist a venture receipt through a caller-supplied writer. The writer is
+ * NEVER invoked for a fixture journal — the guard throws before it is reached,
+ * and the canary asserts the writer was not called, not merely that a throw
+ * occurred (a guard placed after the write would still throw).
+ */
+export async function persistVentureReceipt<T>(
+  journal: VentureReceiptJournal,
+  receipt: VentureReceipt,
+  writer: (receipt: VentureReceipt) => Promise<T>,
+): Promise<T> {
+  assertVentureJournalCanLeaveMemory(journal, 'persist');
+  return writer(receipt);
+}
+
+/** DVN anchoring, under the same guard and for the same reason. */
+export async function anchorVentureReceipt<T>(
+  journal: VentureReceiptJournal,
+  receipt: VentureReceipt,
+  anchorer: (receipt: VentureReceipt) => Promise<T>,
+): Promise<T> {
+  assertVentureJournalCanLeaveMemory(journal, 'anchor');
+  return anchorer(receipt);
+}
+
+/**
+ * The receipt's own hash — deterministic over the receipt body, with keys
+ * ordered so two structurally identical receipts hash identically regardless of
+ * construction order. This is the "receipt hash computed" state: it exists, and
+ * it is NOT an anchor. Nothing about having a hash implies anything was written
+ * anywhere.
+ */
+export function ventureReceiptHash(receipt: VentureReceipt): string {
+  return createHash('sha256').update(canonicalise(receipt)).digest('hex');
+}
+
+/** Stable JSON: object keys sorted at every depth, arrays left in order. */
+function canonicalise(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalise).join(',')}]`;
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalise(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
+}
+
+/**
+ * The complete receipt artifacts of a run, each with its hash, plus the four
+ * states spelled out. This is what a fixture run PRESERVES in place of a
+ * database row — so refusing to persist costs no evidence, and any report
+ * reading this cannot accidentally claim the receipts were anchored.
+ */
+export interface VentureReceiptArtifact {
+  receipt: VentureReceipt;
+  receiptHash: string;
+}
+
+export interface VentureJournalArtifacts {
+  runId: string;
+  experimentalCellId: string;
+  mode: VentureReceiptMode;
+  generated: true;
+  hashed: true;
+  persisted: boolean;
+  dvnAnchored: boolean;
+  artifacts: VentureReceiptArtifact[];
+  checkpoints: CostCheckpoint[];
+}
+
+export function ventureJournalArtifacts(journal: VentureReceiptJournal): VentureJournalArtifacts {
+  return {
+    runId: journal.runId,
+    experimentalCellId: journal.experimentalCellId,
+    mode: journal.mode,
+    generated: true,
+    hashed: true,
+    // Phase 1 writes nothing. These are reported as FALSE rather than omitted:
+    // an absent field reads as "unknown", and "unknown" is how "generated" gets
+    // reported as "anchored" downstream.
+    persisted: false,
+    dvnAnchored: false,
+    artifacts: journal.receipts.map((receipt) => ({ receipt, receiptHash: ventureReceiptHash(receipt) })),
+    checkpoints: [...journal.checkpoints],
+  };
 }
 
 /**
