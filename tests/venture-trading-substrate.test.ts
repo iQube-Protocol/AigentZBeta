@@ -61,6 +61,12 @@ import {
   ventureJournalArtifacts,
 } from '@/services/venture/trading/receipts';
 import {
+  MONEYPENNY_CARTRIDGE_SLUG,
+  MONEYPENNY_SPECIALIST_ID,
+  submitMoneyPennyOpportunity,
+  summariseMoneyPennySimulation,
+} from '@/services/venture/trading/moneyPennyAdapter';
+import {
   assertVentureReceiptConstraintCompatible,
   evaluateVentureReceiptConstraint,
   ventureReceiptDeploymentCheck,
@@ -735,6 +741,145 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
       { disclosure: 'restricted', liabilityCreationEvent: 'constitutional-completion' },
     );
     expect(c.amountCommitment).not.toBe(a.amountCommitment);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-19 — RULING 6. The thin MoneyPenny simulation adapter runs the chain end
+//         to end, with no live funds, no external agents, and no fork.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-19 MoneyPenny can submit the fixed opportunity and receive the reconciled outcome', () => {
+  const outcome = submitMoneyPennyOpportunity();
+
+  it('runs the WHOLE chain, every link present', () => {
+    // The chain the ruling names, link by link. A link that quietly went
+    // missing would leave the adapter looking like it worked.
+    expect(outcome.opportunity.opportunityRef).toMatch(/^[0-9a-f]{16}$/);
+    expect(outcome.preparation.events).toBeGreaterThan(0);
+    expect(outcome.completeness.linksRequired).toBe(7);
+    expect(outcome.terminal.disposition).toBe('correct-refusal');
+    expect(outcome.obligations.length).toBeGreaterThan(0);
+    expect(outcome.settlement.obligationsSettled).toBeGreaterThan(0);
+    expect(outcome.receipts.artifacts.length).toBeGreaterThan(0);
+    expect(outcome.standing.admitted.length).toBeGreaterThan(0);
+    expect(outcome.reconciliation.violations).toEqual([]);
+  });
+
+  it('the completeness verdict and preparation figures match the fixture, hand-written', () => {
+    // From the S2 fixture. Derived expectations would let the adapter report
+    // whatever the engine happened to return.
+    expect(outcome.completeness.complete).toBe(true);
+    expect(outcome.completeness.outcomeClass).toBe('refused-complete');
+    expect(outcome.completeness.linksPerformed).toBe(7);
+    expect(outcome.completeness.missingChecks).toEqual([]);
+    expect(outcome.preparation.events).toBe(5);
+    expect(outcome.preparation.aggregate.elapsedMs).toBe(355000);
+  });
+
+  it('reports NO live funds and NO external agents as literals, not as an inference', () => {
+    expect(outcome.liveFunds).toBe(false);
+    expect(outcome.externalAgents).toBe(false);
+    expect(outcome.settlement.simulated).toBe(true);
+    // The receipts are the Ruling 2 four states, carried through the adapter.
+    expect(outcome.receipts.generated).toBe(true);
+    expect(outcome.receipts.hashed).toBe(true);
+    expect(outcome.receipts.persisted).toBe(false);
+    expect(outcome.receipts.dvnAnchored).toBe(false);
+    expect(outcome.receipts.mode).toBe('fixture');
+  });
+
+  it('every obligation reports its terminal basis WITH its components (RULING 3)', () => {
+    for (const o of outcome.obligations) {
+      expect(o.obligationRef).toMatch(/^[0-9a-f]{16}$/);
+      expect(o.components.length).toBeGreaterThan(0);
+    }
+    const refusal = outcome.obligations.find((o) => o.terminalBasis === 'correct-refusal');
+    expect(refusal).toBeDefined();
+    expect(refusal!.components).toContain('refusal: refused');
+  });
+
+  it('Standing is an ADMISSION, never presented as an accrual (RULING 4)', () => {
+    expect(outcome.standing.accrualDeferredUntil).toBe('slice-c');
+    expect(outcome.standing.decisions).toBe(1);
+    expect(outcome.standing.admitted[0].contributionType).toBe('correct-refusal');
+    expect(outcome.standing.admitted[0].weight ?? 0).toBeGreaterThan(0);
+  });
+
+  it('the cell is a parameter — the execution-contingent cell yields NO obligation', () => {
+    // Proof the adapter passes the cell to the engine rather than pinning one.
+    // Same submission, different regime, structurally different outcome.
+    const exec = submitMoneyPennyOpportunity({ cell: cellById('USDC-SERVICE-EXEC') });
+    expect(exec.experimentalCellId).toBe('USDC-SERVICE-EXEC');
+    expect(exec.terminal.disposition).toBe('correct-refusal');
+    expect(exec.obligations).toHaveLength(0);
+    expect(exec.settlement.settledMinorUnits).toBe('0');
+    expect(exec.reconciliation.violations).toEqual([]);
+    // And all eight cells run without a code change.
+    for (const id of VENTURE_EXPERIMENT_CELL_IDS) {
+      const run = submitMoneyPennyOpportunity({ cell: cellById(id) });
+      expect(run.experimentalCellId).toBe(id);
+      expect(run.reconciliation.violations).toEqual([]);
+    }
+  });
+
+  it('is deterministic — the same submission returns the same reference and hashes', () => {
+    const a = submitMoneyPennyOpportunity();
+    const b = submitMoneyPennyOpportunity();
+    expect(a.submissionRef).toBe(b.submissionRef);
+    expect(a.submissionRef).toBe('mp-sim-001-suitability-refusal--USDC-SERVICE-COMPLETE');
+    expect(a.receipts.artifacts.map((x) => x.receiptHash)).toEqual(
+      b.receipts.artifacts.map((x) => x.receiptHash),
+    );
+  });
+
+  it('leaks no raw identifier into the outcome an agent would report', () => {
+    expect(RAW_UUID_PATTERN.test(JSON.stringify(outcome))).toBe(false);
+    for (const line of summariseMoneyPennySimulation(outcome)) {
+      expect(RAW_UUID_PATTERN.test(line)).toBe(false);
+    }
+  });
+
+  it('the summary qualifies every claim that could be quoted out of context', () => {
+    const text = summariseMoneyPennySimulation(outcome).join('\n');
+    expect(text).toContain('no live funds');
+    expect(text).toContain('SIMULATED');
+    expect(text).toContain('NOT DVN-anchored');
+    expect(text).toContain('an admission, not an accrual');
+    expect(text).toContain('terminal basis');
+  });
+
+  it('extends the existing MoneyPenny wiring rather than inventing a second one', () => {
+    // The specialist id the router already dispatches on.
+    const router = readFileSync(join(process.cwd(), 'services', 'agents', 'specialistRouter.ts'), 'utf8');
+    expect(router).toContain("| 'moneypenny'");
+    expect(MONEYPENNY_SPECIALIST_ID).toBe('moneypenny');
+    // The cartridge slug registered in the hand-curated codex config.
+    const configs = readFileSync(join(process.cwd(), 'data', 'codex-configs.ts'), 'utf8');
+    expect(configs).toContain("slug: 'moneypenny'");
+    expect(MONEYPENNY_CARTRIDGE_SLUG).toBe('moneypenny');
+  });
+
+  it('forks nothing — it calls the engine and adds no simulation of its own', () => {
+    const src = stripComments(readFileSync(join(TRADING_DIR, 'moneyPennyAdapter.ts'), 'utf8'));
+    // It must USE the engine...
+    expect(src).toContain('runVentureScenario(');
+    expect(src).toContain('reconcileRun(');
+    // ...and must not have rebuilt any part of it.
+    for (const forbidden of [
+      'applyLiabilityEvent',
+      'assessConstitutionalCompletion',
+      'evaluateTradingStandingSignal',
+      'emitVentureReceipt',
+      'createLedger',
+      'liabilityArisesAt',
+    ]) {
+      expect(src, `moneyPennyAdapter.ts re-implements ${forbidden}`).not.toContain(forbidden);
+    }
+    // And nothing that would make it production orchestration.
+    for (const forbidden of ['fetch(', 'settlementExecutor', 'getSupabaseServer', 'wallet', 'transfer(']) {
+      expect(src, `moneyPennyAdapter.ts reaches for ${forbidden}`).not.toContain(forbidden);
+    }
   });
 });
 
