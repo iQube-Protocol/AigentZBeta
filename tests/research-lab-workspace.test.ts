@@ -68,38 +68,55 @@ const access = (
   grants: Array<{ accessDomain: string; role: string; allowedScopes?: string[] | null }>,
 ): ParticipationAccessState => ({ loaded: true, grants });
 
-/** The workspace group's tabs, straight from the shipped config. */
+/**
+ * The Workspace tab's subTabs, straight from the shipped config.
+ *
+ * RE-POINTED 2026-07-29: the research half moved from nine TOP-LEVEL tabs in
+ * a `workspace` GROUP to one tab (`irl-workspace`, group `participation`)
+ * whose `subTabs` carry the same per-view gates one tier deeper — the exact
+ * nesting `irl-passport-steward` already uses for its own KNYT sub-items.
+ * `getEnabledTabs` only resolves TOP-LEVEL tabs, so the group-filter this
+ * helper used before the move no longer finds anything; the entrance is now
+ * `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs`.
+ */
 async function workspaceTabs() {
   const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-  return IRL_CARTRIDGE.tabs.filter((t: { group?: string }) => t.group === 'workspace') as Array<{
-    id: string;
-    slug: string;
-    label: string;
-    enabled?: boolean;
-    adminOnly?: boolean;
-    participationDomain?: string;
-    participationRoles?: string[];
-    config: { component: string; props?: Record<string, unknown> };
-  }>;
+  const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+    | { subTabs?: Array<{
+        id: string;
+        slug: string;
+        label: string;
+        enabled?: boolean;
+        adminOnly?: boolean;
+        participationDomain?: string;
+        participationRoles?: string[];
+        config: { component: string; props?: Record<string, unknown> };
+      }> }
+    | undefined;
+  return parent?.subTabs ?? [];
 }
 
-/** Every workspace-group slug this caller actually reaches, through the REAL filter. */
+/**
+ * Every subTab this caller actually reaches, through the SAME predicate
+ * `CodexPanelDynamic`'s real tier-3 row uses (`activeSubTabs` →
+ * `tabPassesAccessGates` over `activeTab.subTabs`) — `getEnabledTabs` cannot
+ * see one tier deeper, so it is not the right filter here any more.
+ *
+ * EQUIVALENT TO THE FULL RECURSIVE CHECK, not merely an approximation: the
+ * parent `irl-workspace` tab's OWN gate is `participationDomain:
+ * 'research-lab'` with no `participationRoles` — strictly more permissive
+ * than every one of its subTabs' own domain+role gate. Any caller who could
+ * pass a subTab's gate could therefore also pass the parent's, so evaluating
+ * subTab gates directly (without first re-checking the parent) can never
+ * admit a caller the real two-tier check would have refused.
+ */
 async function reachableWorkspaceSlugs(
   a: ParticipationAccessState,
   isAdmin: boolean,
 ): Promise<string[]> {
-  const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-  const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
-  return getEnabledTabs(
-    IRL_CARTRIDGE,
-    isAdmin,
-    false, // isPartner
-    false, // isInvestor
-    new Set(),
-    { isGlobalAdmin: isAdmin, cartridgeSlugs: new Set() },
-    a,
-  )
-    .filter((t) => t.group === 'workspace')
+  const tabs = await workspaceTabs();
+  return tabs
+    .filter((t) => t.enabled !== false && tabPassesAccessGates(t, a, isAdmin))
     .map((t) => t.slug)
     .sort();
 }
@@ -107,13 +124,23 @@ async function reachableWorkspaceSlugs(
 // The ratified tier split, pinned literally. Derived-only expectations would be
 // tautological against the config they are checking.
 //
-// RE-POINTED 2026-07-29 for SPEC-IRL-WORKSPACE-001 §7 (the eight views) and §8
-// (six roles). NOT LOOSENED: every assertion below is still an EXACT sorted
-// slug set driven through the REAL `getEnabledTabs` filter, and the file gained
-// four more per-role sets than it had. What changed is the surface being
-// pinned — the workspace went from four Tier-2 views admitting three roles to
-// eight admitting seven, and pinning the old shape would pin a surface that no
-// longer exists.
+// RE-POINTED 2026-07-29, TWICE OVER. First for SPEC-IRL-WORKSPACE-001 §7 (the
+// eight views) and §8 (six roles). SECOND, same day, for the Participation
+// restructure: LOCKER and PARTICIPANTS are PRUNED from the shipped `subTabs`
+// row (operator instruction — "the surrounding Participation tab already
+// covers that ground once Workspace lives inside it"; Keep QubeTalk and
+// Administration). The two views themselves are UNCHANGED in
+// `RESEARCH_WORKSPACE_VIEWS` (still all eight, still spec-exact — see
+// `tests/research-workspace-spec.test.ts`'s spec-parity canaries) and in
+// `PartnerProgrammesTab`'s own `SUB_SURFACES`/`KIND_SURFACES` — they are only
+// no longer OFFERED as a clickable tab here. `LOCKER`/`PARTICIPANTS` stay
+// defined below (still real slugs a URL could target) purely so the "these
+// two are absent from every role's reachable set" canary can name them.
+//
+// NOT LOOSENED by either change: every assertion below is still an EXACT
+// sorted slug set driven through the REAL two-tier gate
+// (`tabPassesAccessGates` over the Workspace tab's `subTabs` — see
+// `reachableWorkspaceSlugs` above; `getEnabledTabs` cannot see one tier deep).
 //
 // LITERAL, NEVER DERIVED FROM THE MATRIX. Computing these from
 // `RESEARCH_WORKSPACE_VIEWS[].roles` would be the tautology CLAUDE.md names as
@@ -125,46 +152,55 @@ const OVERVIEW = 'irl-workspace-overview';
 const PIPELINE = 'irl-workspace-pipeline';
 const REVIEW = 'irl-workspace-review';
 const MATERIALS = 'irl-workspace-materials';
+/** No longer offered as a subTab (pruned 2026-07-29) — kept as a slug
+ *  constant only to assert its ABSENCE from every role's reachable set. */
 const LOCKER = 'irl-workspace-locker';
 const QUBETALK = 'irl-workspace-qubetalk';
 /** SPEC §7 names this view "Activity"; the SLUG is unchanged so every existing
  *  `?tab=` deep link still resolves. Only what a human reads changed. */
 const ACTIVITY = 'irl-workspace-evidence';
+/** No longer offered as a subTab (pruned 2026-07-29) — same as `LOCKER` above. */
 const PARTICIPANTS = 'irl-workspace-participants';
 const TIER_0_SLUG = 'irl-workspace-administration';
 
-/** The eight views (SPEC §7), in slug order. */
-const EVERY_VIEW = [
-  OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY, PARTICIPANTS,
-].sort();
+/** The SIX views actually offered as subTabs (2026-07-29 prune — Locker and
+ *  Participants removed from the nav row; see the block comment above). */
+const EVERY_VIEW = [OVERVIEW, PIPELINE, REVIEW, MATERIALS, QUBETALK, ACTIVITY].sort();
 const TIER_0 = [TIER_0_SLUG];
 const EVERY_TAB = [...EVERY_VIEW, ...TIER_0].sort();
 
 /**
- * WHAT EACH ROLE REACHES, exactly. The load-bearing exclusions, each traceable
- * to a sentence in SPEC §8:
+ * WHAT EACH ROLE REACHES, exactly, recomputed against the SIX offered
+ * subTabs (2026-07-29). The load-bearing exclusions still traceable to SPEC
+ * §8:
  *
  *   reviewer          has NO Working Materials — "cannot alter"; a reviewer who
  *                     could open the mutable area is one habit from editing it.
- *   reviewer          has NO Participants     — reviewing is not administering.
- *   observer          has NO Review, Materials or Locker — "views agreed
- *                     materials and comments; changes nothing", and §10's
- *                     "access to one experiment must not imply access to … the
- *                     whole Locker".
+ *   observer          has NO Review or Materials — "views agreed materials and
+ *                     comments; changes nothing".
  *   student           has NO Review           — a student is reviewed, not a
  *                     reviewer.
- *   PI / researcher   have NO Participants    — a PI defines science, not access.
- *   ONLY steward and faculty-lead reach Participants — the two roles §8 gives
- *                     administrative authority.
+ *
+ * WHAT THE PRUNE FLATTENED, stated rather than hidden: Participants was the
+ * ONE view that distinguished the Research Steward and the Faculty Lead from
+ * every other admitted role in THIS reachability canary (SPEC §8's "only the
+ * two administrative roles reach Participants"). With Participants no longer
+ * a subTab for anyone, principal-investigator / research-steward /
+ * faculty-lead / researcher now reach the IDENTICAL six-view set — their
+ * ROLE AUTHORITY still differs (`RESEARCH_WORKSPACE_ROLE_AUTHORITY`,
+ * unaffected by this nav prune and asserted separately, canary R4/R9-adjacent
+ * material below), but this particular canary can no longer see that
+ * difference in the nav, and pretending otherwise would be the "false
+ * survivor" pattern CLAUDE.md warns against.
  */
 const REACHES: Record<string, string[]> = {
-  'principal-investigator': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  'research-steward': [...EVERY_VIEW],
-  reviewer: [OVERVIEW, PIPELINE, REVIEW, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'principal-investigator': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, QUBETALK, ACTIVITY].sort(),
+  'research-steward': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, QUBETALK, ACTIVITY].sort(),
+  reviewer: [OVERVIEW, PIPELINE, REVIEW, QUBETALK, ACTIVITY].sort(),
   'research-participant': [OVERVIEW, PIPELINE, QUBETALK, ACTIVITY].sort(),
-  'faculty-lead': [...EVERY_VIEW],
-  'student-researcher': [OVERVIEW, PIPELINE, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
-  researcher: [OVERVIEW, PIPELINE, REVIEW, MATERIALS, LOCKER, QUBETALK, ACTIVITY].sort(),
+  'faculty-lead': [OVERVIEW, PIPELINE, REVIEW, MATERIALS, QUBETALK, ACTIVITY].sort(),
+  'student-researcher': [OVERVIEW, PIPELINE, MATERIALS, QUBETALK, ACTIVITY].sort(),
+  researcher: [OVERVIEW, PIPELINE, REVIEW, MATERIALS, QUBETALK, ACTIVITY].sort(),
 };
 
 /** The roles that reach NOTHING — the fail-closed path, and it must stay real. */
@@ -202,16 +238,21 @@ describe('canary R1 — the Research Workspace is reachable by a researcher', ()
     expect(await reachableWorkspaceSlugs(researcher, false)).toEqual([...FULL_PARTICIPATION].sort());
   });
 
-  it('a research-steward reaches the FULL EIGHT, and holds the domain’s delegated invitation authority', async () => {
+  it('a research-steward reaches the SIX offered views, and holds the domain’s delegated invitation authority', async () => {
     const steward = access([
       { accessDomain: 'research-lab', role: 'research-steward', allowedScopes: [VP1] },
     ]);
-    // Strictly MORE than the researcher: the steward is the only research role
-    // that reaches Participants. Asserted as a superset relation too, so a
-    // change that levelled the two down to one set fails here even if both
-    // literals were edited to match.
+    // RE-POINTED 2026-07-29: before the Locker/Participants prune the steward
+    // reached STRICTLY MORE than the researcher (Participants was the
+    // distinguishing view). With Participants no longer offered as a subTab
+    // to anyone, the two roles now reach the SAME six-view set through this
+    // nav — asserted as an EQUALITY here rather than a stale superset claim,
+    // per the honesty discipline this file's own header names ("never
+    // guess/assume — verify"). The steward's administrative authority did not
+    // disappear; it simply is not visible to a NAV-reachability canary any
+    // more, which is exactly what the next block records.
     expect(await reachableWorkspaceSlugs(steward, false)).toEqual([...EVERY_VIEW]);
-    expect(REACHES['research-steward'].length).toBeGreaterThan(REACHES['researcher'].length);
+    expect(REACHES['research-steward']).toEqual(REACHES['researcher']);
     // "full workspace participation PLUS governance/review controls" is not a
     // second tab gate — it is the EXISTING server-side steward authority, and
     // research-steward must remain the role that carries it.
@@ -240,23 +281,36 @@ describe('canary R1 — the Research Workspace is reachable by a researcher', ()
     }
   });
 
-  it('ONLY the two administrative roles reach Participants — asserted from both sides', async () => {
-    // SPEC §8: the Research Steward (programme) and the Faculty Lead (one
-    // cohort) administer access; nobody else does. Both directions, because a
-    // one-sided assertion stays green when the gate is dropped entirely.
-    for (const role of ['research-steward', 'faculty-lead']) {
+  it('NOBODY reaches Locker or Participants via the Workspace nav — pruned 2026-07-29, not merely role-gated', async () => {
+    // SUPERSEDES the pre-2026-07-29 "only the two administrative roles reach
+    // Participants" canary. That distinction was a ROLE gate (SPEC §8); this
+    // is a NAV decision made on top of it (operator instruction, same day:
+    // "the surrounding Participation tab already covers that ground once
+    // Workspace lives inside it") — Locker and Participants are removed from
+    // the subTab row for EVERY role, including the two SPEC §8 names as
+    // administrative (research-steward, faculty-lead). Asserted over every
+    // admitted role, not just the two that used to differ, because the old
+    // per-role split no longer exists to assert.
+    for (const role of Object.keys(REACHES)) {
       const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
-      expect(await reachableWorkspaceSlugs(a, false)).toContain(PARTICIPANTS);
+      const slugs = await reachableWorkspaceSlugs(a, false);
+      expect(slugs, `'${role}' reached the pruned Locker view`).not.toContain(LOCKER);
+      expect(slugs, `'${role}' reached the pruned Participants view`).not.toContain(PARTICIPANTS);
     }
-    for (const role of Object.keys(REACHES).filter(
-      (r) => r !== 'research-steward' && r !== 'faculty-lead',
-    )) {
-      const a = access([{ accessDomain: 'research-lab', role, allowedScopes: [VP1] }]);
-      expect(
-        await reachableWorkspaceSlugs(a, false),
-        `'${role}' reached the access-administration surface`,
-      ).not.toContain(PARTICIPANTS);
-    }
+    // An admin — the ONE caller who still reaches Tier 0 — ALSO does not see
+    // Locker/Participants as subTabs, because they are not in the shipped
+    // list at all (not merely gated out for non-admins).
+    const admin = access([]);
+    const adminSlugs = await reachableWorkspaceSlugs(admin, true);
+    expect(adminSlugs).not.toContain(LOCKER);
+    expect(adminSlugs).not.toContain(PARTICIPANTS);
+    // The underlying SPEC role authority (who MAY administer access,
+    // server-side) is untouched by this nav prune — asserted so a future
+    // reader does not mistake "not offered as a tab" for "the role lost the
+    // capability".
+    expect(DOMAIN_STEWARD_ROLES['research-lab']).toEqual(
+      expect.arrayContaining(['research-steward', 'faculty-lead']),
+    );
   });
 
   it('and the workspace behind those tabs opens for the same caller — the picker lists exactly one entrance', () => {
@@ -294,12 +348,12 @@ describe('canary R2 — the read-only path is genuinely read-only', () => {
     const writeSurfaces = tabs.filter(
       (t) => EVERY_VIEW.includes(t.slug) && !READ_ONLY.includes(t.slug),
     );
-    // The exact surfaces an Institutional Observer must NOT reach — stated
-    // literally so "the observer is refused the write surfaces" cannot become
-    // true by the write surfaces disappearing.
-    expect(writeSurfaces.map((t) => t.slug).sort()).toEqual(
-      [REVIEW, MATERIALS, LOCKER, PARTICIPANTS].sort(),
-    );
+    // RE-POINTED 2026-07-29: Locker and Participants are no longer offered as
+    // subTabs at all (pruned from the nav row), so they cannot appear in
+    // `tabs` (this describes the SHIPPED subTab list, not the full SPEC §7
+    // view registry) — the write-surface set the read-only path is refused
+    // narrows to the two that remain offered: Review and Working Materials.
+    expect(writeSurfaces.map((t) => t.slug).sort()).toEqual([REVIEW, MATERIALS].sort());
     for (const tab of writeSurfaces) {
       expect(
         satisfiesParticipationGate(tab, readOnly, false),
@@ -309,20 +363,27 @@ describe('canary R2 — the read-only path is genuinely read-only', () => {
   });
 
   it('the excluded surfaces still MOUNT the affordances, so excluding them excludes something', async () => {
-    // If Participants stopped mounting the invitation flow, or Working
-    // Materials stopped being the mutable area, excluding them would no longer
-    // be excluding anything and this whole canary would pass vacuously.
+    // If Working Materials stopped being the mutable area, excluding it would
+    // no longer be excluding anything and this canary would pass vacuously.
+    // RE-POINTED 2026-07-29: Participants and Locker are no longer subTabs at
+    // all (see the block comment above `EVERY_VIEW`), so only the two
+    // still-offered write surfaces are checked as tab ENTRANCES here; their
+    // continued mount is checked separately, straight from the surface's own
+    // source, further below.
     const tabs = await workspaceTabs();
     for (const [slug, surface] of [
-      [PARTICIPANTS, 'participants'],
       [MATERIALS, 'working-materials'],
-      [LOCKER, 'locker'],
       [REVIEW, 'review'],
     ] as const) {
       const tab = tabs.find((t) => t.slug === slug);
       expect(tab, `the ${slug} entrance is gone`).toBeTruthy();
       expect(tab!.config.props?.initialSurface).toBe(surface);
     }
+    // Participants and Locker are pruned as NAV ENTRANCES, not as
+    // CAPABILITIES — the surface itself still implements both (SPEC §16: "no
+    // second … Locker, chat system"; a reachable-by-URL `initialSurface`
+    // could still target them). Checked against the component's own source
+    // rather than the tab list, since the tab list is exactly what changed.
     const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
     expect(src).toMatch(/<StewardParticipationTab initialDomain=\{accessDomain\}/);
     expect(src).toMatch(/research:\s*"research-lab"/);
@@ -665,9 +726,9 @@ describe('canary R6 — registry, spine and surface cannot disagree about the pr
 // ─── Canary R7 — ONE surface component, two entrances ───────────────────────
 
 describe('canary R7 — both Labs mount the same workspace implementation', () => {
-  it('every IRL workspace tab mounts PartnerProgrammesTab on the research domain', async () => {
+  it('every IRL workspace subTab mounts PartnerProgrammesTab on the research domain', async () => {
     const tabs = await workspaceTabs();
-    expect(tabs.length, 'the IRL Research Workspace group is empty').toBe(EVERY_TAB.length);
+    expect(tabs.length, 'the Workspace tab\'s subTabs are empty').toBe(EVERY_TAB.length);
     for (const t of tabs) {
       expect(t.config.component, `${t.id} mounts a different component — a second implementation`).toBe(
         'PartnerProgrammesTab',
@@ -690,11 +751,25 @@ describe('canary R7 — both Labs mount the same workspace implementation', () =
     }
   });
 
-  it('the group exists to be landed in, and carries no gate of its own', async () => {
+  it('the Workspace TAB exists to be landed in, lives in Participation, and is not admin-only', async () => {
+    // RE-POINTED 2026-07-29: there is no longer a `workspace` GROUP — the
+    // research entrance is now the `irl-workspace` TAB, one tier up from its
+    // own subTabs, inside the `participation` group. It DOES carry a
+    // `participationDomain` gate of its own (deliberately, unlike the old
+    // group, which carried none) — see the doc comment on the tab in
+    // data/codex-configs.ts: the coarse domain-only gate at the parent lets
+    // any research-lab grant land on the container, and the finer per-view
+    // role split lives one tier deeper, on each subTab.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-    const group = (IRL_CARTRIDGE.tabGroups ?? []).find((g: { id: string }) => g.id === 'workspace');
-    expect(group, 'the Research Workspace group was removed — its tabs have nowhere to render').toBeTruthy();
-    expect(group!.adminOnly, 'the group took a blanket admin gate — the read-only path would vanish').toBeUndefined();
+    const tab = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+      | { group?: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }
+      | undefined;
+    expect(tab, 'the Workspace tab was removed — Participation has nowhere to render it').toBeTruthy();
+    expect(tab!.group).toBe('participation');
+    expect(tab!.adminOnly, 'the Workspace tab took a blanket admin gate — the read-only path would vanish').toBeUndefined();
+    expect(tab!.participationDomain).toBe('research-lab');
+    // No role narrowing at the PARENT — narrowing happens per subTab instead.
+    expect(tab!.participationRoles).toBeUndefined();
   });
 });
 
@@ -709,10 +784,15 @@ describe('canary R8 — Workspace is a visible referent in both Labs', () => {
   // unchanged and now stronger: BOTH expressions must name themselves, and the
   // public one must not name a partner.
 
-  it('the IRL group and both Venture Lab expressions name their surface', async () => {
+  it('the IRL Workspace tab and both Venture Lab expressions name their surface', async () => {
+    // RE-POINTED 2026-07-29: the IRL referent moved from a GROUP label
+    // ("Research Workspace") to a TAB label — and the operator's own
+    // instruction for the move was explicit: "labeled simply 'Workspace'".
     const { IRL_CARTRIDGE, VENTURE_LAB_CODEX } = await import('../data/codex-configs');
-    const group = (IRL_CARTRIDGE.tabGroups ?? []).find((g: { id: string }) => g.id === 'workspace');
-    expect(group!.label).toBe('Research Workspace');
+    const tab = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+      | { label: string }
+      | undefined;
+    expect(tab!.label).toBe('Workspace');
     const entrance = VENTURE_LAB_CODEX.tabs.find((t: { id: string }) => t.id === 'partner-programmes');
     // PARTNER-AGNOSTIC by operator instruction: "labelled 'Public Workspace' —
     // NOT 'Partner Workspace'". The tab serves whichever partner public space

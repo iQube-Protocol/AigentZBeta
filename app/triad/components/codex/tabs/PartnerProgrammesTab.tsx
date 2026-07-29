@@ -44,6 +44,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
+import { Check, FlaskConical, GraduationCap, Pencil, Target, Users, X } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import {
@@ -638,6 +639,165 @@ function AreaLinks({ ws, area, personaId, isAdmin }: { ws: { links: PartnerWorks
   );
 }
 
+// ─── Research programme left-nav (2026-07-29 restructure) ───────────────────
+
+/** Decorative only — a generic icon per `workspaceType`, never an invented
+ *  per-workspace field. Mirrors the Laboratory → Experiments sidebar's
+ *  icon+label row shape (`components/composer/InvariantExperimentLab.tsx`). */
+const WORKSPACE_TYPE_ICON: Record<WorkspaceType, React.ComponentType<{ className?: string }>> = {
+  "research-programme": Target,
+  experiment: FlaskConical,
+  cohort: Users,
+  "student-project": GraduationCap,
+  // Venture kind never reaches this nav (it keeps its own horizontal
+  // selector), but the union requires every member.
+  pilot: Target,
+  "venture-programme": Target,
+};
+
+const TITLE_OVERRIDE_STORAGE_KEY = "research_workspace_title_overrides_v1";
+
+/** localStorage-only (CLAUDE.md "State Management Boundaries" — UX reactivity,
+ *  never a source of truth): the Lehigh/MFE/CS Capstone titles are casual
+ *  placeholders the operator may rename inline; Autonomi's items never offer
+ *  the control (`titleEditable` is false). No server persistence exists yet —
+ *  a rename here is this browser's own override, not a platform-wide edit. */
+function loadTitleOverrides(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(TITLE_OVERRIDE_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function ResearchProgrammeNav({
+  workspaces,
+  activeId,
+  onSelect,
+}: {
+  workspaces: WorkspaceView[];
+  activeId: string;
+  onSelect: (id: string) => void;
+}) {
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    setOverrides(loadTitleOverrides());
+  }, []);
+
+  const sections = useMemo(
+    () =>
+      RESEARCH_NAV_SECTIONS.map((section) => ({
+        ...section,
+        items: workspaces.filter((w) => w.navSection === section.id),
+      })).filter((section) => section.items.length > 0),
+    [workspaces],
+  );
+
+  function startEdit(w: WorkspaceView) {
+    setEditingId(w.id);
+    setDraft(overrides[w.id] ?? w.chipLabel);
+  }
+
+  function saveEdit(id: string) {
+    const trimmed = draft.trim();
+    const next = { ...overrides };
+    if (trimmed.length > 0) next[id] = trimmed;
+    else delete next[id];
+    setOverrides(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(TITLE_OVERRIDE_STORAGE_KEY, JSON.stringify(next));
+    }
+    setEditingId(null);
+  }
+
+  return (
+    <div className={`${PANEL} w-64 shrink-0 self-start p-2.5`}>
+      <div className="space-y-3">
+        {sections.map((section) => (
+          <div key={section.id}>
+            <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              {section.label}
+            </div>
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
+                const isActive = item.id === activeId;
+                const isEditing = editingId === item.id;
+                const displayLabel = overrides[item.id] ?? item.chipLabel;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-1"
+                    style={{ paddingLeft: `${item.navDepth * 14}px` }}
+                  >
+                    {isEditing ? (
+                      <div className="flex flex-1 items-center gap-1">
+                        <input
+                          autoFocus
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveEdit(item.id);
+                            if (e.key === "Escape") setEditingId(null);
+                          }}
+                          className="w-full rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-xs text-slate-100 focus:border-violet-500 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => saveEdit(item.id)}
+                          title="Save"
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-400 hover:bg-slate-800/60"
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          title="Cancel"
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => onSelect(item.id)}
+                          title={displayLabel}
+                          className={`flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                            isActive
+                              ? "bg-violet-500/20 text-violet-200"
+                              : "bg-white/5 text-slate-300 hover:bg-white/10"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                          <span className="truncate">{displayLabel}</span>
+                        </button>
+                        {item.titleEditable && (
+                          <button
+                            onClick={() => startEdit(item)}
+                            title="Rename (this browser only)"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── The tab ─────────────────────────────────────────────────────────────────
 
 /** Narrows the tier-3 prop to a real surface — an unknown value opens Overview
@@ -1169,8 +1329,19 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
   const ownerName = layerOwnerDisplayName(ws.ownerAgentId);
 
   return (
-    <div className="space-y-4 p-4">
-      {/* Workspace selector — derived from the registry (single source). */}
+    <div className="flex gap-4 p-4">
+      {/* Programme picker — RESEARCH kind gets the grouped left-hand nav
+          (mirrors the Laboratory → Experiments sidebar, 2026-07-29
+          restructure); VENTURE kind is unaffected and keeps its horizontal
+          selector inline below (rendered inside the flex-1 column so its
+          existing `space-y-4` sibling spacing is unchanged). */}
+      {kind === "research" && (
+        <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
+      )}
+      <div className="min-w-0 flex-1 space-y-4">
+      {/* Workspace selector — derived from the registry (single source).
+          VENTURE ONLY: research's programme picker is the left nav above. */}
+      {kind !== "research" && (
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-slate-500">{copy.selectorLabel}</span>
         {workspaces.map((w) => (
@@ -1187,6 +1358,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           </button>
         ))}
       </div>
+      )}
 
       {/* Command Center — the surface's own name is visible, per the 2026-07-28
           representation ruling: "Workspace" must have a real UI referent. */}
@@ -1545,6 +1717,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {surface === "administration" && (
         <WorkspaceAdministration workspaceId={ws.id} isAdmin={isAdmin === true} />
       )}
+      </div>
     </div>
   );
 }

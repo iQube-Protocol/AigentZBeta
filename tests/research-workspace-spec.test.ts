@@ -95,20 +95,27 @@ const access = (
   grants: Array<{ accessDomain: string; role: string; allowedScopes?: string[] | null }>,
 ): ParticipationAccessState => ({ loaded: true, grants });
 
-/** Every workspace-group slug this caller reaches, through the REAL filter. */
+/**
+ * Every Workspace subTab slug this caller reaches, through the REAL filter.
+ *
+ * RE-POINTED 2026-07-29: the research half moved from nine top-level tabs in
+ * a `workspace` GROUP to one tab (`irl-workspace`, group `participation`)
+ * whose `subTabs` carry the same per-view gates one tier deeper —
+ * `getEnabledTabs` only resolves top-level tabs, so the group filter this
+ * helper used before the move can no longer see them. It now reads
+ * `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs` and
+ * applies the SAME predicate (`tabPassesAccessGates`) CodexPanelDynamic's
+ * real tier-3 row uses — equivalent to the full two-tier check because the
+ * parent's own gate (`participationDomain: 'research-lab'`, no
+ * `participationRoles`) is strictly more permissive than every subTab's.
+ */
 async function reachable(a: ParticipationAccessState, isAdmin = false): Promise<string[]> {
   const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-  const { getEnabledTabs } = await import('../app/hooks/useCodexConfig');
-  return getEnabledTabs(
-    IRL_CARTRIDGE,
-    isAdmin,
-    false,
-    false,
-    new Set(),
-    { isGlobalAdmin: isAdmin, cartridgeSlugs: new Set() },
-    a,
-  )
-    .filter((t) => t.group === 'workspace')
+  const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+    | { subTabs?: Array<{ slug: string; enabled?: boolean; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }> }
+    | undefined;
+  return (parent?.subTabs ?? [])
+    .filter((t) => t.enabled !== false && tabPassesAccessGates(t, a, isAdmin))
     .map((t) => t.slug)
     .sort();
 }
@@ -221,14 +228,24 @@ describe('the first acceptance case — an invited Autonomi reviewer', () => {
     { accessDomain: 'research-lab', role: 'reviewer', allowedScopes: [EXP_P1] },
   ]);
 
-  it('reaches EXP-P1: review package, scoped QubeTalk, and the Locker artefacts', async () => {
+  it('reaches EXP-P1: review package and scoped QubeTalk (via the Workspace nav)', async () => {
     // POSITIVE REACHABILITY FIRST (ruling C). Every denial below is only
     // meaningful because this passes.
+    //
+    // RE-POINTED 2026-07-29: Locker is no longer offered as a Workspace
+    // subTab for ANY role (operator instruction, same day — pruned from the
+    // nav row because Participation's own Locker tab already covers that
+    // ground). The reviewer's SCOPE still covers Locker-gated DATA
+    // (`satisfiesWorkspaceScope`/`workspaceSurfaceAuthority('locker')` are
+    // untouched by this nav change) — what changed is that this cartridge no
+    // longer offers a clickable tab for it.
     const slugs = await reachable(reviewer);
     expect(slugs).toContain('irl-workspace-review');
     expect(slugs).toContain('irl-workspace-qubetalk');
-    expect(slugs).toContain('irl-workspace-locker');
     expect(slugs).toContain('irl-workspace-overview');
+    expect(slugs, 'Locker is pruned from the nav for every role, reviewer included').not.toContain(
+      'irl-workspace-locker',
+    );
     // …and the workspace behind those tabs actually opens for the SAME caller.
     // Passing the tab gate and then finding an empty picker is the same
     // invisible surface from the reviewer's seat.
@@ -253,11 +270,14 @@ describe('the first acceptance case — an invited Autonomi reviewer', () => {
     expect(slugs, 'a reviewer reached the Tier-0 internal space').not.toContain(
       RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
     );
-    // 3 — the gate itself refuses, not merely the filter.
+    // 3 — the gate itself refuses, not merely the filter. The subTab now
+    // lives one tier deeper (2026-07-29 restructure) — under the
+    // `irl-workspace` parent tab, not at `IRL_CARTRIDGE.tabs` top level.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-    const materials = IRL_CARTRIDGE.tabs.find(
-      (t: { slug: string }) => t.slug === 'irl-workspace-materials',
-    )!;
+    const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+      | { subTabs?: Array<{ slug: string }> }
+      | undefined;
+    const materials = parent?.subTabs?.find((t) => t.slug === 'irl-workspace-materials')!;
     expect(satisfiesParticipationGate(materials, reviewer, false)).toBe(false);
   });
 
@@ -298,9 +318,17 @@ describe('AC-6 — a Faculty Lead administers their own programme only', () => {
     { accessDomain: 'research-lab', role: 'faculty-lead', allowedScopes: [CS_COHORT, CS_PROJECT, OTHER_CS_PROJECT] },
   ]);
 
-  it('POSITIVE — reaches their own cohort and its projects, and the admin surfaces', async () => {
+  it('POSITIVE — reaches their own cohort and its projects', async () => {
+    // RE-POINTED 2026-07-29: Participants is pruned from the Workspace nav
+    // for every role, faculty-lead included (operator instruction, same day)
+    // — the Faculty Lead's administrative AUTHORITY over their cohort
+    // (`RESEARCH_WORKSPACE_ROLE_AUTHORITY['faculty-lead']`) is untouched; this
+    // canary no longer asserts a NAV entrance for it because none is offered
+    // to anyone.
     const slugs = await reachable(facultyCs);
-    expect(slugs).toContain('irl-workspace-participants');
+    expect(slugs, 'Participants is pruned from the nav for every role').not.toContain(
+      'irl-workspace-participants',
+    );
     expect(slugs).toContain('irl-workspace-materials');
     expect(slugs).toContain('irl-workspace-review');
     expect(satisfiesWorkspaceScope(facultyCs, 'research-lab', CS_COHORT, false)).toBe(true);
@@ -379,9 +407,12 @@ describe('AC-7 — a student reaches only their assigned project', () => {
   ]);
 
   it('POSITIVE — reaches their project and the surfaces they work in', async () => {
+    // RE-POINTED 2026-07-29: Locker is pruned from the Workspace nav for
+    // every role (operator instruction, same day) — the student's scoped
+    // access to Locker-gated DATA is untouched; no nav tab offers it any more.
     const slugs = await reachable(student);
     expect(slugs).toContain('irl-workspace-materials');
-    expect(slugs).toContain('irl-workspace-locker');
+    expect(slugs, 'Locker is pruned from the nav for every role').not.toContain('irl-workspace-locker');
     expect(slugs).toContain('irl-workspace-qubetalk');
     expect(satisfiesWorkspaceScope(student, 'research-lab', CS_PROJECT, false)).toBe(true);
   });
@@ -619,15 +650,28 @@ describe('AC-12 — every workspace has a reachable entrance', () => {
     }
   });
 
-  it('the shipped IRL tab group IS the eight views plus Tier 0, in spec order', async () => {
+  it('the shipped Workspace subTabs ARE six of the eight views plus Tier 0, in spec order', async () => {
+    // RE-POINTED 2026-07-29, TWICE. First, the research half moved from a
+    // `workspace` GROUP of top-level tabs to the `irl-workspace` TAB's
+    // `subTabs`, one tier deeper. Second, the SAME DAY, Locker and
+    // Participants were pruned from that subTab row (operator instruction —
+    // "the surrounding Participation tab already covers that ground"). The
+    // REGISTRY (`RESEARCH_WORKSPACE_VIEWS`) is UNCHANGED — still all eight,
+    // still spec-exact, asserted by the spec-parity canaries elsewhere in
+    // this file — only the SHIPPED SUBSET differs from it here.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-    const tabs = IRL_CARTRIDGE.tabs.filter((t: { group?: string }) => t.group === 'workspace');
-    expect(tabs.map((t: { slug: string }) => t.slug)).toEqual([
-      ...RESEARCH_WORKSPACE_VIEWS.map((v) => v.slug),
+    const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+      | { subTabs?: Array<{ slug: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }> }
+      | undefined;
+    const tabs = parent?.subTabs ?? [];
+    expect(tabs.map((t) => t.slug)).toEqual([
+      ...RESEARCH_WORKSPACE_VIEWS.filter((v) => v.id !== 'locker' && v.id !== 'participants').map(
+        (v) => v.slug,
+      ),
       RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
     ]);
-    // Every view carries the domain gate; only Tier 0 carries adminOnly.
-    for (const t of tabs as Array<{ slug: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }>) {
+    // Every offered view carries the domain gate; only Tier 0 carries adminOnly.
+    for (const t of tabs) {
       if (t.slug === RESEARCH_WORKSPACE_ADMIN_VIEW.slug) {
         expect(t.adminOnly).toBe(true);
         continue;
@@ -878,18 +922,33 @@ describe('student contributions earn Standing — through the ONE V-10 gate', ()
 
 describe('SPEC §16 — the reuse register holds', () => {
   it('the research workspace surface is the SHARED component, not a second one', async () => {
+    // RE-POINTED 2026-07-29: the research half is now the `irl-workspace`
+    // tab's `subTabs`, not a `workspace`-group tab list — reading the OLD
+    // group filter here would find nothing and let this whole loop pass
+    // VACUOUSLY (the exact "reachable by nobody" false-survivor shape this
+    // file's own header warns about), so the parent (which itself also
+    // mounts `PartnerProgrammesTab`) is included in the checked set too.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
-    const tabs = IRL_CARTRIDGE.tabs.filter((t: { group?: string }) => t.group === 'workspace');
-    for (const t of tabs as Array<{ slug: string; config: { component: string; props?: Record<string, unknown> } }>) {
-      expect(t.config.component, `${t.slug} mounts a second implementation`).toBe('PartnerProgrammesTab');
+    const parent = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
+      | { config: { component: string; props?: Record<string, unknown> }; subTabs?: Array<{ slug: string; config: { component: string; props?: Record<string, unknown> } }> }
+      | undefined;
+    const tabs = [parent, ...(parent?.subTabs ?? [])].filter(
+      (t): t is { config: { component: string; props?: Record<string, unknown> } } => Boolean(t),
+    );
+    expect(tabs.length, 'the Workspace tab and its subTabs are both empty').toBeGreaterThan(1);
+    for (const t of tabs) {
+      expect(t.config.component, `mounts a second implementation`).toBe('PartnerProgrammesTab');
       expect(t.config.props?.workspaceDomain).toBe('research');
     }
   });
 
-  it('the IRL tab group is BUILT from the view registry, not hand-listed', () => {
+  it('the IRL Workspace subTabs are BUILT from the view registry, not hand-listed', () => {
     const src = stripComments(readSource('data/codex-configs.ts'));
-    expect(src, 'the workspace group was hand-listed again').toMatch(
-      /\.\.\.RESEARCH_WORKSPACE_VIEWS\.map\(/,
+    // RE-POINTED 2026-07-29: the map now runs over a FILTER of the registry
+    // (Locker/Participants excluded from the shipped subTab row) rather than
+    // the bare registry — still a derivation, not a hand-listed copy.
+    expect(src, 'the workspace subTabs were hand-listed again').toMatch(
+      /RESEARCH_WORKSPACE_VIEWS\.filter\(\(view\) => [\s\S]{0,120}?\)\.map\(/,
     );
     // The behavioural half is the tab-order assertion in AC-12 above: adding a
     // view to the registry moves the shipped config, with no edit here.

@@ -98,7 +98,14 @@ export const RESEARCH_WORKSPACE_VIEWS: ResearchWorkspaceView[] = [
     id: 'overview',
     slug: 'irl-workspace-overview',
     label: 'Overview',
-    icon: 'LayoutDashboard',
+    // 'Compass' — NOT 'LayoutDashboard' (2026-07-29 restructure). The parent
+    // "Workspace" tab now carries 'LayoutGrid' (the Companion's own workspace
+    // icon, reused verbatim for visual parity — see data/codex-configs.ts's
+    // `irl-workspace` tab). 'LayoutDashboard' is visually adjacent to
+    // 'LayoutGrid' (both a grid of rectangles); giving Overview a clearly
+    // distinct icon keeps the parent and its default child from reading as
+    // near-duplicates of each other.
+    icon: 'Compass',
     description:
       'Purpose, phase, institutions, active roles, next action, blockers, decisions, milestones, recent receipts',
     roles: allRolesExcept(),

@@ -67,6 +67,30 @@ export type ResearchWorkspaceType = Extract<
   'research-programme' | 'experiment' | 'cohort' | 'student-project'
 >;
 
+/**
+ * The left-hand navigator's grouping (2026-07-29 restructure), mirroring the
+ * Laboratory → Experiments sidebar's section pattern
+ * (`components/composer/InvariantExperimentLab.tsx`). FOUR sections, per the
+ * operator's own list — a UI-level grouping, distinct from `parentId`
+ * hierarchy: 'autonomi' holds BOTH the Autonomi Independent Review Programme
+ * (whose three experiment children truly are `parentId`-nested beneath it)
+ * AND Validation Programme v1 as a SIBLING root within the same section — VP1
+ * is not a `parentId` child of the Autonomi programme (the registry does not
+ * express that membership; its members are EXP-P1/P2/P3 workspaces the
+ * Autonomi programme separately reviews), but the operator named it as
+ * belonging in the Autonomi section, so it sits there ungrouped rather than
+ * invented as a nested child it structurally is not.
+ */
+export type ResearchWorkspaceNavSection = 'autonomi' | 'lehigh' | 'mfe-capstone' | 'cs-capstone';
+
+/** The four sections, in left-nav display order. */
+export const RESEARCH_NAV_SECTIONS: { id: ResearchWorkspaceNavSection; label: string }[] = [
+  { id: 'autonomi', label: 'Autonomi' },
+  { id: 'lehigh', label: 'Lehigh' },
+  { id: 'mfe-capstone', label: 'MFE Capstone' },
+  { id: 'cs-capstone', label: 'CS Capstone' },
+];
+
 export interface ResearchWorkspace {
   id: string;
   /** Where this sits in the hierarchy (SPEC §6). */
@@ -78,6 +102,16 @@ export interface ResearchWorkspace {
    * every declared parent resolves and that no cycle exists.
    */
   parentId?: string;
+  /**
+   * The left-nav SECTION this workspace's subtree sits under (see
+   * `ResearchWorkspaceNavSection` above). Declared only on the workspace that
+   * STARTS a section — inherited by every descendant via the same
+   * nearest-ancestor walk `researchWorkspaceOwner` etc. use, so a child never
+   * has to restate it. `researchWorkspaceNavSection` resolves it; a workspace
+   * that resolves to none renders ungrouped (does not currently occur in the
+   * shipped registry — a canary asserts every workspace resolves a section).
+   */
+  navSection?: ResearchWorkspaceNavSection;
   /**
    * The validation series this workspace convenes. When present it MUST exist
    * in SERIES_REGISTRY. Optional because a cohort or student project convenes
@@ -138,6 +172,11 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     // review the Participation overview names as the reviewer engagement.
     id: 'irl-validation-programme-vp1',
     workspaceType: 'research-programme',
+    // Left-nav section (2026-07-29): grouped with Autonomi in the UI per the
+    // operator's own instruction, though NOT a `parentId` child of it — see
+    // `ResearchWorkspaceNavSection`'s doc comment for why the two are
+    // deliberately different relationships.
+    navSection: 'autonomi',
     seriesId: 'VP1',
     institutionRefs: ['Invariant Research Laboratory'],
     lifecycleTemplateId: 'research-experiment',
@@ -219,6 +258,7 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
   {
     id: 'autonomi-independent-review-programme',
     workspaceType: 'research-programme',
+    navSection: 'autonomi',
     title: 'Autonomi Independent Review Programme',
     description:
       'External independent review of EXP-P1/P2/P3 by the Autonomi research partner. Review packages, decisions, scoped deliberation and frozen artefacts in one space.',
@@ -296,6 +336,11 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
   {
     id: 'lehigh-capstone-programme',
     workspaceType: 'research-programme',
+    // Its OWN section (2026-07-29) — a flat, single left-nav entry. Its two
+    // cohorts each START their own section below (MFE Capstone / CS Capstone)
+    // rather than inheriting this one, per the operator's explicit three-way
+    // split; see `ResearchWorkspaceNavSection`'s doc comment.
+    navSection: 'lehigh',
     title: 'Lehigh University Capstone Programme',
     description:
       'Institutional capstone collaboration with Lehigh University — the Master of Financial Engineering and Undergraduate Computer Science capstones.',
@@ -331,6 +376,10 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     id: 'lehigh-mfe-capstone',
     workspaceType: 'cohort',
     parentId: 'lehigh-capstone-programme',
+    // Overrides the parent's 'lehigh' section — this cohort and its three
+    // student projects form their OWN left-nav section (the operator's "MFE
+    // Capstone" section: four items — the cohort plus its three projects).
+    navSection: 'mfe-capstone',
     title: 'MFE Capstone — Master of Financial Engineering',
     description:
       'Financial research, pricing, risk and financial-system artefacts.',
@@ -371,6 +420,8 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     id: 'lehigh-cs-capstone',
     workspaceType: 'cohort',
     parentId: 'lehigh-capstone-programme',
+    // Overrides the parent's 'lehigh' section — see lehigh-mfe-capstone above.
+    navSection: 'cs-capstone',
     title: 'CS Capstone — Undergraduate Computer Science',
     description:
       'Software design, implementation, testing and capability artefacts.',
@@ -508,6 +559,54 @@ export function researchWorkspaceLinks(ws: ResearchWorkspace): PartnerWorkspaceL
 /** The institutions this collaboration involves, inherited when not declared. */
 export function researchWorkspaceInstitutions(ws: ResearchWorkspace): string[] {
   return inherited(ws, 'institutionRefs') ?? [];
+}
+
+/**
+ * The left-nav section this workspace renders under (2026-07-29), inherited
+ * from the nearest ancestor that declares one. Null only for a workspace whose
+ * whole ancestry declares none — does not occur in the shipped registry (a
+ * canary asserts every workspace resolves a section), but a UI reading this
+ * must still handle the honest absence rather than assume every id resolves.
+ */
+export function researchWorkspaceNavSection(ws: ResearchWorkspace): ResearchWorkspaceNavSection | null {
+  return inherited(ws, 'navSection') ?? null;
+}
+
+/**
+ * This workspace's INDENTATION depth within its left-nav section (2026-07-29)
+ * — 0 for a workspace that STARTS a section (its nearest section-defining
+ * ancestor is itself), incrementing by one per ancestor step that stays
+ * within the SAME resolved section. A workspace whose parent sits in a
+ * DIFFERENT section — `lehigh-mfe-capstone`, whose `parentId` is
+ * `lehigh-capstone-programme` (section 'lehigh') but who itself starts the
+ * 'mfe-capstone' section — is depth 0 despite not being a tree root. Cycle-
+ * guarded the same way `researchWorkspaceAncestry` is: a workspace already
+ * visited on the walk stops the count rather than looping.
+ */
+export function researchWorkspaceNavDepth(ws: ResearchWorkspace): number {
+  const mySection = researchWorkspaceNavSection(ws);
+  let depth = 0;
+  let node: ResearchWorkspace | null = ws;
+  const seen = new Set<string>();
+  while (node && !seen.has(node.id)) {
+    seen.add(node.id);
+    const parent = researchWorkspaceParent(node);
+    if (!parent || researchWorkspaceNavSection(parent) !== mySection) break;
+    depth += 1;
+    node = parent;
+  }
+  return depth;
+}
+
+/**
+ * Is this workspace's title operator-editable (2026-07-29 ruling)? Autonomi's
+ * items are real, registered experiments — never editable. Every other
+ * section (Lehigh, MFE Capstone, CS Capstone) is a casual placeholder title
+ * and may be renamed. Derived from the resolved nav section rather than a
+ * second per-workspace flag, so the two can never disagree.
+ */
+export function researchWorkspaceTitleEditable(ws: ResearchWorkspace): boolean {
+  return researchWorkspaceNavSection(ws) !== 'autonomi';
 }
 
 // ─── Naming ──────────────────────────────────────────────────────────────────
