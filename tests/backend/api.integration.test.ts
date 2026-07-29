@@ -176,8 +176,14 @@ describe('Backend API Tests', () => {
   });
 
   describe('AA-API QubeTalk Integration', () => {
+    // The hardcoded `'demo-external-key'` this used to send was accepted as a
+    // valid production credential by the AA QubeTalk routes — a backdoor into
+    // any tenant's channel list and message history. It was removed on
+    // 2026-07-29; the lane now accepts only a key from the environment and
+    // fails closed when none is configured. This test consequently needs a real
+    // key provisioned in the environment it runs against.
     const externalHeaders = {
-      'X-API-Key': 'demo-external-key',
+      'X-API-Key': process.env.AA_API_KEY || process.env.EXTERNAL_AGENT_API_KEY || '',
       'X-Agent-ID': 'test-external-agent',
     };
 
