@@ -159,6 +159,21 @@
  *    invitation can be scoped to is grantable to nobody, which is invisible to
  *    every denial canary:
  *      tests/research-lab-workspace.test.ts
+ *  - The VL-CT-001 venture substrate's THREE declarations of one vocabulary:
+ *    VENTURE_RECEIPT_ACTION_TYPES (the emitter's own list) ↔ the
+ *    ActivityActionType union ↔ ANCHORABLE_ACTION_TYPES. A venture receipt type
+ *    present in the emitter but absent from the anchorable set writes a receipt
+ *    that is never anchored — the ledger's whole claim (that a correct refusal
+ *    earned compensation) then rests on an unanchored database row. The SQL
+ *    CHECK-constraint leg is covered by the existing action-type parity canary
+ *    indexed above. The same file carries the V-10 Standing-neutrality parity
+ *    check the gap register requires: no Standing input derives from executed-
+ *    trade count, notional or fee revenue, asserted against a HAND-WRITTEN list
+ *    of the seven prohibited commercial metrics (deriving it from the module's
+ *    own constant would only prove the module equals itself), plus a pin on the
+ *    existing veracity-led composition in services/standing/standingScore.ts so
+ *    a trading-outcome term added there fails the build:
+ *      tests/venture-trading-substrate.test.ts
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY
