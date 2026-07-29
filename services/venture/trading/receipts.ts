@@ -69,7 +69,7 @@ import {
 import type { PartnerServiceCompensationExtension } from './compensationExtension';
 import {
   assertVentureReceiptConstraintCompatible,
-  type VentureConstraintLoader,
+  type VentureConstraintProbe,
 } from './receiptCompatibility';
 import { containsRawIdentifier } from './refs';
 
@@ -216,7 +216,7 @@ export async function persistVentureReceipt<T>(
   assertVentureJournalCanLeaveMemory(journal, 'persist');
   // RULING 5 — verify the deployed action-type vocabulary BEFORE the write.
   // Discovering it from the insert failure is too quiet for this pipeline.
-  await assertVentureReceiptConstraintCompatible(opts.loadConstraintDefinition);
+  await assertVentureReceiptConstraintCompatible(opts.probeAcceptedActionTypes);
   return writer(receipt);
 }
 
@@ -228,13 +228,13 @@ export async function anchorVentureReceipt<T>(
   opts: VentureEmissionOptions = {},
 ): Promise<T> {
   assertVentureJournalCanLeaveMemory(journal, 'anchor');
-  await assertVentureReceiptConstraintCompatible(opts.loadConstraintDefinition);
+  await assertVentureReceiptConstraintCompatible(opts.probeAcceptedActionTypes);
   return anchorer(receipt);
 }
 
 export interface VentureEmissionOptions {
   /** Injectable probe, so the compatibility gate is testable without a database. */
-  loadConstraintDefinition?: VentureConstraintLoader;
+  probeAcceptedActionTypes?: VentureConstraintProbe;
 }
 
 /**

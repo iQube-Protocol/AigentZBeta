@@ -884,23 +884,24 @@ describe('AC-19 MoneyPenny can submit the fixed opportunity and receive the reco
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// AC-18 — RULING 5. A missing migration is loud and immediate, not a swallowed
-//         insert failure deep in the pipeline.
+// AC-18 — a missing migration is loud and immediate, not a swallowed insert
+//         failure deep in the pipeline.
 // ───────────────────────────────────────────────────────────────────────────
 
 describe('AC-18 live venture receipt emission refuses an incompatible schema', () => {
-  /** A constraint definition that accepts all nine — the compatible case. */
-  const goodDefinition = `CHECK ((action_type = ANY (ARRAY[${VENTURE_RECEIPT_ACTION_TYPES.map(
-    (t) => `'${t}'::text`,
-  ).join(', ')}])))`;
+  /** The probe result from a database that accepts all nine. */
+  const acceptsAll = (): string[] => [...VENTURE_RECEIPT_ACTION_TYPES];
 
   it('the probe being UNAVAILABLE is refused — "couldn\'t tell" is not "compatible"', () => {
     const result = evaluateVentureReceiptConstraint(null, false);
     expect(result.compatible).toBe(false);
     expect(result.reason).toBe('probe-unavailable');
-    // The remedy names the files, so the operator has nothing to look up.
+    // The remedy names the files, so the operator has nothing to look up —
+    // including the lockdown migration, because a database carrying only the
+    // first two has a probe that answers, from anon.
     expect(result.remedy).toContain('20260929000000_venture_substrate_receipt_types.sql');
     expect(result.remedy).toContain('20260929000100_venture_receipt_constraint_probe.sql');
+    expect(result.remedy).toContain('20260929000200_venture_receipt_probe_lockdown.sql');
   });
 
   it('the constraint being ABSENT is refused', () => {
@@ -912,10 +913,9 @@ describe('AC-18 live venture receipt emission refuses an incompatible schema', (
 
   it('a constraint SHORT of the vocabulary is refused, and names what is missing', () => {
     // The realistic half-applied case: an older constraint that predates the
-    // venture types. This is the state that used to surface as a check
-    // violation on the first receipt.
-    const stale = `CHECK ((action_type = ANY (ARRAY['intent_queued'::text, 'artifact_created'::text])))`;
-    const result = evaluateVentureReceiptConstraint(stale, true);
+    // venture types, so the probe finds no venture_* value at all. This is the
+    // state that used to surface as a check violation on the first receipt.
+    const result = evaluateVentureReceiptConstraint([], true);
     expect(result.compatible).toBe(false);
     expect(result.reason).toBe('action-types-missing');
     expect(result.missingActionTypes).toEqual([...VENTURE_RECEIPT_ACTION_TYPES]);
@@ -923,28 +923,39 @@ describe('AC-18 live venture receipt emission refuses an incompatible schema', (
   });
 
   it('one missing type is enough to refuse — the check is not "mostly there"', () => {
-    const partial = goodDefinition.replace(`'venture_settlement_simulated'::text, `, '');
+    const partial = acceptsAll().filter((t) => t !== 'venture_settlement_simulated');
     const result = evaluateVentureReceiptConstraint(partial, true);
     expect(result.compatible).toBe(false);
     expect(result.missingActionTypes).toEqual(['venture_settlement_simulated']);
   });
 
-  it('matches the type as a QUOTED VALUE, not as a substring of prose', () => {
-    // A comment mentioning the action type is not the database accepting it.
-    const prose = `CHECK ((action_type = ANY (ARRAY['intent_queued'::text]))) -- venture_opportunity_opened venture_service_completed venture_completion_assessed venture_refusal_recorded venture_obligation_earned venture_obligation_approved venture_settlement_simulated venture_obligation_reversed venture_opportunity_closed`;
-    expect(evaluateVentureReceiptConstraint(prose, true).compatible).toBe(false);
+  it('membership is EXACT — a near-miss name is not the type', () => {
+    // The substring era is over: the probe returns values, and the check tests
+    // set membership. A value that merely CONTAINS the required name is not it.
+    const nearMiss = acceptsAll().map((t) =>
+      t === 'venture_obligation_earned' ? 'x_venture_obligation_earned_v2' : t,
+    );
+    const result = evaluateVentureReceiptConstraint(nearMiss, true);
+    expect(result.compatible).toBe(false);
+    expect(result.missingActionTypes).toEqual(['venture_obligation_earned']);
   });
 
   it('a fully applied constraint is compatible (guard against a canary that always refuses)', () => {
-    const result = evaluateVentureReceiptConstraint(goodDefinition, true);
+    const result = evaluateVentureReceiptConstraint(acceptsAll(), true);
     expect(result.compatible).toBe(true);
     expect(result.missingActionTypes).toEqual([]);
     expect(result.requiredVersion).toBe('venture-substrate-receipt-types/1');
   });
 
+  it('extra action types the build does not know about do not make it incompatible', () => {
+    // A database ahead of the build is not the failure this gate exists for.
+    const result = evaluateVentureReceiptConstraint([...acceptsAll(), 'venture_future_thing'], true);
+    expect(result.compatible).toBe(true);
+  });
+
   it('a throwing probe fails CLOSED rather than proceeding', async () => {
     const check = await ventureReceiptDeploymentCheck(async () => {
-      throw new Error('function public.venture_receipt_action_type_constraint() does not exist');
+      throw new Error('permission denied for function venture_receipt_action_type_constraint');
     });
     expect(check.compatible).toBe(false);
     expect(check.reason).toBe('probe-unavailable');
@@ -955,7 +966,7 @@ describe('AC-18 live venture receipt emission refuses an incompatible schema', (
       assertVentureReceiptConstraintCompatible(async () => null),
     ).rejects.toBeInstanceOf(VentureReceiptCompatibilityError);
     await expect(
-      assertVentureReceiptConstraintCompatible(async () => goodDefinition),
+      assertVentureReceiptConstraintCompatible(async () => acceptsAll()),
     ).resolves.toBeUndefined();
   });
 
@@ -975,15 +986,74 @@ describe('AC-18 live venture receipt emission refuses an incompatible schema', (
       persistVentureReceipt(live, receipt, async () => {
         writerCalls += 1;
         return 'written';
-      }, { loadConstraintDefinition: async () => null }),
+      }, { probeAcceptedActionTypes: async () => null }),
     ).rejects.toBeInstanceOf(VentureReceiptCompatibilityError);
     expect(writerCalls, 'the insert ran and the check violation was the discovery').toBe(0);
 
     // And it lets a compatible schema through, so the gate is not simply closed.
     const ok = await persistVentureReceipt(live, receipt, async () => 'written', {
-      loadConstraintDefinition: async () => goodDefinition,
+      probeAcceptedActionTypes: async () => acceptsAll(),
     });
     expect(ok).toBe('written');
+  });
+
+  // ── the emission backstop is MEMOISED, per RULING 1 ────────────────────
+  //
+  //   > Keep the runtime emission guard as defence in depth — but explicitly
+  //   > do not run the database probe on every request or cold start.
+
+  it('probes ONCE per process for a compatible schema, not once per emission', async () => {
+    let probes = 0;
+    const probe = async () => {
+      probes += 1;
+      return acceptsAll();
+    };
+    for (let i = 0; i < 5; i += 1) await assertVentureReceiptConstraintCompatible(probe);
+    expect(probes, 'the backstop probed the database on every emission').toBe(1);
+  });
+
+  it('does NOT cache a refusal — applying the migration recovers without a redeploy', async () => {
+    // Caching the negative would turn a five-minute SQL fix into a deploy
+    // cycle, and would have the gate reporting a state that is no longer true.
+    let applied = false;
+    let probes = 0;
+    const probe = async () => {
+      probes += 1;
+      return applied ? acceptsAll() : null;
+    };
+    await expect(assertVentureReceiptConstraintCompatible(probe)).rejects.toBeInstanceOf(
+      VentureReceiptCompatibilityError,
+    );
+    applied = true;
+    await expect(assertVentureReceiptConstraintCompatible(probe)).resolves.toBeUndefined();
+    expect(probes).toBe(2);
+  });
+
+  it('the deployment check is NEVER memoised — the deploy gate wants a fresh answer', async () => {
+    let probes = 0;
+    const probe = async () => {
+      probes += 1;
+      return acceptsAll();
+    };
+    await ventureReceiptDeploymentCheck(probe);
+    await ventureReceiptDeploymentCheck(probe);
+    await ventureReceiptDeploymentCheck(probe);
+    expect(probes).toBe(3);
+  });
+
+  it('nothing probes the database at module load', () => {
+    // A cold-start round trip is the other half of the frequency ruling. The
+    // module must contain no top-level probe call — every probe is reached
+    // through a function a caller invokes.
+    const src = stripComments(readFileSync(join(TRADING_DIR, 'receiptCompatibility.ts'), 'utf8'));
+    const topLevel = src
+      .split('\n')
+      .filter((l) => l.length > 0 && !/^[\s})\]]/.test(l));
+    for (const line of topLevel) {
+      expect(line, 'a probe runs at module load').not.toMatch(
+        /^(await|void|defaultConstraintProbe\(|ventureReceiptDeploymentCheck\(|assertVentureReceiptConstraintCompatible\()/,
+      );
+    }
   });
 
   it('the probe migration exists and reads the constraint the check depends on', () => {
@@ -994,9 +1064,123 @@ describe('AC-18 live venture receipt emission refuses an incompatible schema', (
     expect(sql).toContain('venture_receipt_action_type_constraint');
     expect(sql).toContain('pg_get_constraintdef');
     expect(sql).toContain('activity_receipts_action_type_check');
-    // Executable by the roles the app actually runs as, or the probe is
-    // unavailable in production and every live emission fails closed.
-    expect(sql).toMatch(/GRANT EXECUTE[\s\S]*service_role/);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AC-20 — RULING 2 (SECURITY). The SECURITY DEFINER probe is service-role
+//         only, its search_path is pinned, it accepts no caller-controlled
+//         dynamic SQL, and it returns only the minimum compatibility result.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-20 the compatibility probe is locked down', () => {
+  const MIGRATIONS = join(process.cwd(), 'supabase', 'migrations');
+  const all = readdirSync(MIGRATIONS).filter((f) => f.endsWith('.sql')).sort();
+  const lockdown = '20260929000200_venture_receipt_probe_lockdown.sql';
+  const sql = () => readFileSync(join(MIGRATIONS, lockdown), 'utf8');
+
+  it('ships the lockdown migration', () => {
+    expect(all, 'the probe lockdown migration must exist').toContain(lockdown);
+  });
+
+  it('REVOKES execute from PUBLIC, anon and authenticated', () => {
+    // A SECURITY DEFINER function runs as its OWNER — it bypasses both the
+    // table grants and RLS, so an anon grant is a hole the table lockdown does
+    // not constrain at all. Same defect class as the QubeTalk statistics
+    // functions repaired in 20260907000000.
+    for (const role of ['PUBLIC', 'anon', 'authenticated']) {
+      expect(sql(), `execute must be revoked from ${role}`).toMatch(
+        new RegExp(
+          `revoke execute on function public\\.venture_receipt_action_type_constraint\\(\\)\\s+from ${role}`,
+          'i',
+        ),
+      );
+    }
+  });
+
+  it('grants execute to service_role and to NOTHING else', () => {
+    const grants = [...sql().matchAll(/grant\s+execute\s+on\s+function[^;]*?to\s+([^;]+);/gi)].map((m) =>
+      m[1]
+        .split(',')
+        .map((r) => r.trim().toLowerCase())
+        .filter(Boolean),
+    );
+    expect(grants.length, 'the migration must grant execute to the one role that calls it').toBe(1);
+    expect(grants[0]).toEqual(['service_role']);
+  });
+
+  it('REVOKES after CREATE — a new function is EXECUTE-able by PUBLIC by default', () => {
+    // Ordering is the whole defence here. A revoke written above the create
+    // would revoke the OLD function's grants and leave the new one wide open,
+    // and the migration would look correct in review.
+    const src = sql();
+    expect(src.search(/create function public\.venture_receipt_action_type_constraint/i)).toBeLessThan(
+      src.search(/revoke execute on function public\.venture_receipt_action_type_constraint/i),
+    );
+  });
+
+  it('pins search_path, and pins it WITHOUT public', () => {
+    // An unpinned search_path on a SECURITY DEFINER function is a privilege-
+    // escalation vector: a caller creates an object that shadows a name the
+    // definer resolves, and the definer executes it with the owner's rights.
+    // Trailing pg_temp closes the temp-schema variant of the same attack.
+    expect(sql()).toMatch(/SET\s+search_path\s*=\s*pg_catalog\s*,\s*pg_temp/i);
+    expect(sql()).not.toMatch(/SET\s+search_path\s*=[^\n]*\bpublic\b/i);
+    // And the body must therefore schema-qualify the one table it names.
+    expect(sql()).toContain("'public.activity_receipts'::regclass");
+  });
+
+  it('accepts NO argument and contains NO dynamic SQL', () => {
+    // No parameters at all — there is nothing for a caller to steer.
+    expect(sql()).toMatch(/create function public\.venture_receipt_action_type_constraint\(\)/i);
+    // Scoped to the dollar-quoted BODY. The surrounding migration necessarily
+    // says "execute" (in its GRANT/REVOKE lines); what must be clean is the
+    // code that runs with the definer's rights.
+    const body = (sql().split('$$')[1] ?? '').toLowerCase();
+    expect(body, 'the probe body is empty — re-point this canary').toContain('pg_get_constraintdef');
+    for (const construct of ['execute ', 'format(', 'quote_ident(', 'plpgsql', '||']) {
+      expect(body, `the probe body reaches for ${construct}`).not.toContain(construct);
+    }
+  });
+
+  it('returns the MINIMUM compatibility result, not the whole constraint definition', () => {
+    // The old probe returned pg_get_constraintdef verbatim — the platform's
+    // entire action vocabulary across every feature area. The decision needs
+    // the venture_* subset and nothing else.
+    expect(sql()).toMatch(/RETURNS\s+text\[\]/i);
+    expect(sql()).toContain("'''(venture_[a-z_]+)'''");
+  });
+
+  it('does not restate the nine action types — it filters by prefix', () => {
+    // A third declaration of a vocabulary that already lives in two would be a
+    // stale duplicate waiting to happen (inv.engineering.036/037).
+    const src = sql().split('$$')[1] ?? '';
+    for (const t of VENTURE_RECEIPT_ACTION_TYPES) {
+      expect(src, `the probe body hard-codes ${t}`).not.toContain(t);
+    }
+  });
+
+  it('no LATER migration re-grants the probe to anon or public', () => {
+    // How the hole comes back: a later migration re-runs a CREATE OR REPLACE
+    // with the original grant line copied along, and nothing notices.
+    for (const f of all.filter((x) => x > lockdown)) {
+      const later = readFileSync(join(MIGRATIONS, f), 'utf8');
+      expect(later, `${f} re-grants the venture probe to anon or public`).not.toMatch(
+        /grant\s+execute\s+on\s+function[^;]*venture_receipt_action_type_constraint[^;]*to[^;]*\b(anon|public|authenticated)\b/i,
+      );
+    }
+  });
+
+  it('the superseded migration is the only place the anon grant survives', () => {
+    // 20260929000100 is history — it is not re-run, and the lockdown drops the
+    // function it granted. What must never happen is a NEW migration carrying
+    // that grant forward, which the canary above covers.
+    const superseded = readFileSync(
+      join(MIGRATIONS, '20260929000100_venture_receipt_constraint_probe.sql'),
+      'utf8',
+    );
+    expect(superseded).toMatch(/GRANT EXECUTE[\s\S]*anon/);
+    expect(sql()).toMatch(/DROP FUNCTION IF EXISTS public\.venture_receipt_action_type_constraint\(\)/i);
   });
 });
 
