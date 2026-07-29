@@ -720,6 +720,91 @@ describe('AC-9 the compensation extension encodes a refusal as a success, and is
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// AC-14 — RULING 1. R-8 stays receipt-carried; the promotion boundary is a
+//         canary, not a comment.
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('AC-14 the compensation object is never a top-level canister payload field', () => {
+  const pipeline = readFileSync(
+    join(process.cwd(), 'services', 'dvn', 'activityReceiptDvnPipeline.ts'),
+    'utf8',
+  );
+
+  /** The object literal passed to JSON.stringify for the canister call. */
+  const canisterPayloadBlock = (): string => {
+    const start = pipeline.indexOf('const payload = JSON.stringify({');
+    expect(start, 'the canister payload literal moved — re-point this canary').toBeGreaterThan(-1);
+    const end = pipeline.indexOf('});', start);
+    expect(end).toBeGreaterThan(start);
+    return stripComments(pipeline.slice(start, end));
+  };
+
+  it('the canister payload carries exactly the pinned top-level keys', () => {
+    // Hand-written, in the pipeline's own order. Pinning the SET is what makes
+    // this catch a promotion: adding `compensation` (under any name) changes
+    // the set and fails here, so a payload-shape change cannot land as a side
+    // effect of venture work. Changing this list is a payload-shape review.
+    const expected = [
+      'action',
+      'receiptId',
+      'personaRef',
+      'activeCartridge',
+      'actionType',
+      'summary',
+      'agentsInvoked',
+      'toolsUsed',
+      'iqubesUsed',
+      'contextShared',
+      'artifactsCreated',
+      'approvalsGranted',
+      'timestamp',
+    ];
+    const keys = [...canisterPayloadBlock().matchAll(/^\s{6}([A-Za-z][A-Za-z0-9_]*):/gm)].map((m) => m[1]);
+    expect(keys.sort()).toEqual([...expected].sort());
+  });
+
+  it('names no compensation-class field anywhere in the canister payload', () => {
+    const block = canisterPayloadBlock();
+    for (const forbidden of [
+      'compensation',
+      'partner-service-compensation',
+      'obligationRef',
+      'amountMinorUnits',
+      'amountCommitment',
+      'settlementState',
+    ]) {
+      expect(block, `the canister payload promoted \`${forbidden}\` to a top-level field`).not.toContain(
+        forbidden,
+      );
+    }
+  });
+
+  it('the extension is reachable ONLY through the receipt body that carries it', () => {
+    // Behavioural half: the object exists on `receipt.compensation` and nowhere
+    // else on the receipt. A sibling top-level field on the venture receipt
+    // would be the same promotion, one layer earlier.
+    const run = runVentureScenario(SCENARIO_CORRECT_REFUSAL, cellById('USDC-SERVICE-COMPLETE'));
+    const bearing = run.journal.receipts.filter((r) => r.compensation);
+    expect(bearing.length).toBeGreaterThan(0);
+    for (const receipt of bearing) {
+      expect(receipt.compensation!.ext).toBe('partner-service-compensation');
+      const topLevel = Object.keys(receipt);
+      for (const extensionField of ['obligationRef', 'amountMinorUnits', 'settlementState', 'classification']) {
+        expect(topLevel, `${extensionField} was hoisted out of the extension`).not.toContain(extensionField);
+      }
+    }
+  });
+
+  it('the module records the promotion boundary rather than leaving it to memory', () => {
+    const src = readFileSync(join(TRADING_DIR, 'compensationExtension.ts'), 'utf8');
+    expect(src).toContain('THE PROMOTION BOUNDARY');
+    expect(src).toContain('settlement indexing');
+    expect(src).toContain('public verification');
+    expect(src).toContain('cross-runtime reconciliation');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // AC-10 — T0/T2 isolation
 // ───────────────────────────────────────────────────────────────────────────
 

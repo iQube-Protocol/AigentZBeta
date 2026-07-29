@@ -25,6 +25,30 @@
  * adding members to `ANCHORABLE_ACTION_TYPES`, which is the one unilateral
  * change CLAUDE.md permits.
  *
+ * ─── THE PROMOTION BOUNDARY (operator ruling, 2026-07-29) ───────────────────
+ *
+ * Ratified: R-8 stays RECEIPT-CARRIED.
+ *
+ *   > Phase 1 may record compensation evidence inside the versioned receipt
+ *   > body. A top-level canister field requires a separate payload-shape review
+ *   > and explicit approval.
+ *
+ * Promote to a top-level canister payload field ONLY when another runtime
+ * component must address compensation **independently of the containing
+ * receipt**:
+ *
+ *   - settlement indexing — a settlement service that must locate obligations
+ *     without first reading and parsing every receipt body;
+ *   - public verification — a verifier that checks a compensation claim it was
+ *     handed, with no access to the receipt that carried it;
+ *   - cross-runtime reconciliation — a second runtime reconciling its own
+ *     ledger against anchored compensation.
+ *
+ * None of those exist in Phase 1. Until one does, the extension is a field of
+ * the receipt body and nothing else, and `AC-14` in
+ * `tests/venture-trading-substrate.test.ts` fails the build if the DVN
+ * pipeline's canister payload grows a top-level compensation field.
+ *
  * ─── Restricted disclosure ──────────────────────────────────────────────────
  *
  * Where disclosure is restricted, the extension carries an **amount commitment
