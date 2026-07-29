@@ -1677,13 +1677,25 @@ describe('AC-17 the Standing ordering survives any re-scaling of the weights', (
         PERMITTED_STANDING_BASES[basis] = original[basis] * 10;
       }
 
-      // Proof the mutation ACTUALLY APPLIED. Without this the control would be
-      // a false survivor — a "mutation" that changed nothing, reported green,
-      // and told the reader nothing. (Two false survivors have already appeared
-      // on this substrate: an interface-only edit that was a no-op, and a
-      // module-collection throw that emitted no per-test marker.)
+      // Proof the mutation ACTUALLY APPLIED, asserted on the TABLE and not on
+      // a derived weight. Without this the control would be a false survivor —
+      // a "mutation" that changed nothing, reported green, and told the reader
+      // nothing. (Two false survivors have already appeared on this substrate:
+      // an interface-only edit that was a no-op, and a module-collection throw
+      // that emitted no per-test marker.)
+      //
+      // It cannot be asserted on the derived weight, and that is the point:
+      // MAX_STANDING_SIGNAL_WEIGHT absorbs the rescale, so an admitted refusal
+      // reports the SAME number before and after. The magnitude is not
+      // observable through the ceiling — which is precisely why it is not the
+      // property being guarded.
+      for (const basis of Object.keys(original) as StandingContributionType[]) {
+        expect(
+          PERMITTED_STANDING_BASES[basis],
+          `the ×10 mutation did not reach ${basis}`,
+        ).toBeCloseTo(original[basis] * 10, 10);
+      }
       const mutated = evidencedRefusal().weight ?? 0;
-      expect(mutated, 'the ×10 mutation did not reach the weight expression').not.toBe(baseline);
 
       // ...and the constitutional property is untouched by it.
       const execution = incompleteExecution(['realised-profit', 'executed-trade-count']).weight ?? 0;
