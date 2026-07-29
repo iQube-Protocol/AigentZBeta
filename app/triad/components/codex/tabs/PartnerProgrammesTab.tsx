@@ -44,7 +44,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, FlaskConical, GraduationCap, Pencil, Target, Users, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, FlaskConical, GraduationCap, Pencil, Target, Users, X } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import {
@@ -495,14 +495,47 @@ function NotYetWired() {
   return <span className="text-xs italic text-slate-500">Not yet wired</span>;
 }
 
-function MetricCard({ label, children, detail }: { label: string; children: React.ReactNode; detail?: string }) {
+/**
+ * `accent` (2026-07-29 correction) is an OPTIONAL hex tint — the Programme
+ * Command Center's per-programme colour accent (`NAV_SECTION_ACCENT`, see
+ * above). Omitted → identical rendering to before (plain slate `PANEL`); the
+ * venture kind (which has no nav section) never passes one. Kept restrained:
+ * a coloured top hairline + a faint background wash, not a coloured fill.
+ */
+function MetricCard({
+  label,
+  children,
+  detail,
+  accent,
+}: {
+  label: string;
+  children: React.ReactNode;
+  detail?: string;
+  accent?: string | null;
+}) {
   return (
-    <div className={`${PANEL} px-3 py-2.5`}>
+    <div
+      className={`${PANEL} px-3 py-2.5`}
+      style={
+        accent
+          ? { borderTopColor: accent, borderTopWidth: 2, backgroundColor: `${accent}12` }
+          : undefined
+      }
+    >
       <p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
       <div className="mt-1 text-sm text-slate-200">{children}</div>
       {detail && <p className="mt-0.5 text-[10px] text-slate-500">{detail}</p>}
     </div>
   );
+}
+
+/** A small colour dot for a subsection heading (2026-07-29 correction) — the
+ *  restrained "subsections underneath the Programme Command Center" accent
+ *  the operator asked for. Renders nothing when no accent applies (venture
+ *  kind, or a research workspace with no resolved section). */
+function AccentDot({ color }: { color: string | null | undefined }) {
+  if (!color) return null;
+  return <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />;
 }
 
 function DeepLinkCard({ link, personaId, isAdmin }: { link: PartnerWorkspaceLink; personaId?: string; isAdmin?: boolean }) {
@@ -655,6 +688,41 @@ const WORKSPACE_TYPE_ICON: Record<WorkspaceType, React.ComponentType<{ className
   "venture-programme": Target,
 };
 
+/**
+ * Restrained colour accents (2026-07-29 correction — operator: "it's all a bit
+ * monochromatic... use some colour... just to break up the monotony... not
+ * too much, just some accents and tones"). REUSED, not invented: these are the
+ * exact hex values of the AgentiQ Liquid Glass interpretation's field-sector
+ * tokens (`services/representation/interpretations/agentiqLiquidGlass.ts` —
+ * `field.reasoning` / `field.knowledge` / `field.consequence` /
+ * `field.intelligence`), the platform's own "bright, maximally separable
+ * hues" set, already curated there for distinguishing categorical sectors.
+ * This surface is not representation-adopted (no `RepresentationProvider` /
+ * `var(--rep-*)` here), so the hex values are read directly as a scoped
+ * exception to the slate house style (CLAUDE.md "Canonical Surface Styling")
+ * rather than through the CSS-variable path an adopted surface would use.
+ * Scope is deliberately narrow: the Programme Command Center's metric cards
+ * and the Overview subsection headers beneath it — never the left nav (which
+ * stays pixel-matched to the Laboratory sidebar) and never a wholesale
+ * re-theme.
+ */
+const FIELD_ACCENT = {
+  reasoning: "#818CF8", // field.reasoning — indigo
+  intelligence: "#38BDF8", // field.intelligence — sky
+  knowledge: "#C084FC", // field.knowledge — purple
+  consequence: "#FBBF24", // field.consequence — amber
+} as const;
+
+/** One accent per left-nav section, so a programme's Command Center and its
+ *  Overview subsections carry a hue tied to which section it belongs to —
+ *  Autonomi/Lehigh/MFE/CS Capstone each read as a distinct place. */
+const NAV_SECTION_ACCENT: Record<ResearchWorkspaceNavSection, string> = {
+  autonomi: FIELD_ACCENT.reasoning,
+  lehigh: FIELD_ACCENT.knowledge,
+  "mfe-capstone": FIELD_ACCENT.consequence,
+  "cs-capstone": FIELD_ACCENT.intelligence,
+};
+
 const TITLE_OVERRIDE_STORAGE_KEY = "research_workspace_title_overrides_v1";
 
 /** localStorage-only (CLAUDE.md "State Management Boundaries" — UX reactivity,
@@ -672,6 +740,27 @@ function loadTitleOverrides(): Record<string, string> {
   }
 }
 
+/**
+ * The research programme left-nav. STRUCTURALLY MIRRORS the Laboratory →
+ * Experiments sidebar (`components/composer/InvariantExperimentLab.tsx`) —
+ * not just visually, but the same scroll/collapse/truncation behaviour
+ * (operator correction, 2026-07-29: "the exact same formatting as that...
+ * separation between the menu on the left with scrolling as need be and
+ * collapsibility... labels are truncated as need be so that they all stay
+ * consistent"):
+ *   - outer rail: `border-r border-slate-800 bg-slate-900/40 overflow-y-auto
+ *     transition-all duration-200`, collapsing `w-56` ↔ `w-8` — identical
+ *     classes to the Laboratory sidebar's own rail.
+ *   - collapsed state: a vertical icon-only strip (all items flattened,
+ *     section grouping dropped) with an expand chevron — same shape as the
+ *     Laboratory sidebar's collapsed rail.
+ *   - expanded state: a header row (title + collapse chevron) then
+ *     `space-y-3` sections, each `space-y-1` items, each label `truncate`d —
+ *     same classes, same structure.
+ * The colour accent (`NAV_SECTION_ACCENT`) and the inline-rename affordance
+ * are additive to this shape, not deviations from it — the base scroll/
+ * collapse/truncate mechanics are unchanged from the Laboratory reference.
+ */
 function ResearchProgrammeNav({
   workspaces,
   activeId,
@@ -684,6 +773,7 @@ function ResearchProgrammeNav({
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     setOverrides(loadTitleOverrides());
@@ -716,84 +806,131 @@ function ResearchProgrammeNav({
   }
 
   return (
-    <div className={`${PANEL} w-64 shrink-0 self-start p-2.5`}>
-      <div className="space-y-3">
-        {sections.map((section) => (
-          <div key={section.id}>
-            <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-              {section.label}
-            </div>
-            <div className="space-y-1">
-              {section.items.map((item) => {
-                const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
-                const isActive = item.id === activeId;
-                const isEditing = editingId === item.id;
-                const displayLabel = overrides[item.id] ?? item.chipLabel;
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-1"
-                    style={{ paddingLeft: `${item.navDepth * 14}px` }}
-                  >
-                    {isEditing ? (
-                      <div className="flex flex-1 items-center gap-1">
-                        <input
-                          autoFocus
-                          value={draft}
-                          onChange={(e) => setDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit(item.id);
-                            if (e.key === "Escape") setEditingId(null);
-                          }}
-                          className="w-full rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-xs text-slate-100 focus:border-violet-500 focus:outline-none"
-                        />
-                        <button
-                          onClick={() => saveEdit(item.id)}
-                          title="Save"
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-400 hover:bg-slate-800/60"
-                        >
-                          <Check className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          title="Cancel"
-                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => onSelect(item.id)}
-                          title={displayLabel}
-                          className={`flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
-                            isActive
-                              ? "bg-violet-500/20 text-violet-200"
-                              : "bg-white/5 text-slate-300 hover:bg-white/10"
-                          }`}
-                        >
-                          <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                          <span className="truncate">{displayLabel}</span>
-                        </button>
-                        {item.titleEditable && (
-                          <button
-                            onClick={() => startEdit(item)}
-                            title="Rename (this browser only)"
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+    <div
+      className={`flex-shrink-0 self-stretch overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm transition-all duration-200 ${
+        collapsed ? "w-8" : "w-56"
+      }`}
+    >
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2 py-2">
+          <button
+            onClick={() => setCollapsed(false)}
+            title="Expand programme nav"
+            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+          {sections.flatMap((section) => section.items).map((item) => {
+            const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
+            const isActive = item.id === activeId;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  onSelect(item.id);
+                  setCollapsed(false);
+                }}
+                title={overrides[item.id] ?? item.chipLabel}
+                className={`flex h-6 w-6 items-center justify-center rounded transition ${
+                  isActive ? "bg-violet-500/20 text-violet-200" : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="p-2.5">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Programmes</h3>
+            <button
+              onClick={() => setCollapsed(true)}
+              title="Collapse programme nav"
+              className="flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
           </div>
-        ))}
-      </div>
+          <div className="space-y-3">
+            {sections.map((section) => (
+              <div key={section.id}>
+                <div className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  {section.label}
+                </div>
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const Icon = WORKSPACE_TYPE_ICON[item.workspaceType];
+                    const isActive = item.id === activeId;
+                    const isEditing = editingId === item.id;
+                    const displayLabel = overrides[item.id] ?? item.chipLabel;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-1"
+                        style={{ paddingLeft: `${item.navDepth * 14}px` }}
+                      >
+                        {isEditing ? (
+                          <div className="flex flex-1 items-center gap-1">
+                            <input
+                              autoFocus
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEdit(item.id);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                              className="w-full rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-xs text-slate-100 focus:border-violet-500 focus:outline-none"
+                            />
+                            <button
+                              onClick={() => saveEdit(item.id)}
+                              title="Save"
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-emerald-400 hover:bg-slate-800/60"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => setEditingId(null)}
+                              title="Cancel"
+                              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => onSelect(item.id)}
+                              title={displayLabel}
+                              className={`flex flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                                isActive
+                                  ? "bg-violet-500/20 text-violet-200"
+                                  : "bg-white/5 text-slate-300 hover:bg-white/10"
+                              }`}
+                            >
+                              <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                              <span className="truncate">{displayLabel}</span>
+                            </button>
+                            {item.titleEditable && (
+                              <button
+                                onClick={() => startEdit(item)}
+                                title="Rename (this browser only)"
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-slate-800/60 hover:text-slate-300"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1327,9 +1464,22 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
 
   const openAgreements = agreements.kind === "ready" ? agreements.rows.filter((r) => r.status !== "authorized") : [];
   const ownerName = layerOwnerDisplayName(ws.ownerAgentId);
+  // The Programme Command Center's colour accent (2026-07-29 correction) —
+  // research kind only, tied to the active workspace's left-nav section.
+  // `null` for venture (no nav section concept) or a research workspace whose
+  // ancestry resolves none (does not occur in the shipped registry).
+  const commandAccent: string | null =
+    kind === "research" && ws.navSection ? NAV_SECTION_ACCENT[ws.navSection] : null;
 
   return (
-    <div className="flex gap-4 p-4">
+    // RESEARCH kind gets a bounded, independently-scrolling row — the SAME
+    // `h-full overflow-hidden` shape the Laboratory → Experiments sidebar's
+    // own wrapper uses (`components/composer/InvariantExperimentLab.tsx`), so
+    // the left nav and the content column each scroll on their own rather
+    // than the whole page growing (2026-07-29 correction — genuine parity,
+    // not just matching classNames on the nav in isolation). VENTURE kind is
+    // untouched: same `flex gap-4 p-4` it always had.
+    <div className={kind === "research" ? "flex h-full gap-4 overflow-hidden" : "flex gap-4 p-4"}>
       {/* Programme picker — RESEARCH kind gets the grouped left-hand nav
           (mirrors the Laboratory → Experiments sidebar, 2026-07-29
           restructure); VENTURE kind is unaffected and keeps its horizontal
@@ -1338,7 +1488,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {kind === "research" && (
         <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
       )}
-      <div className="min-w-0 flex-1 space-y-4">
+      <div className={kind === "research" ? "min-w-0 flex-1 space-y-4 overflow-y-auto p-4" : "min-w-0 flex-1 space-y-4"}>
       {/* Workspace selector — derived from the registry (single source).
           VENTURE ONLY: research's programme picker is the left nav above. */}
       {kind !== "research" && (
@@ -1361,7 +1511,10 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       )}
 
       {/* Command Center — the surface's own name is visible, per the 2026-07-28
-          representation ruling: "Workspace" must have a real UI referent. */}
+          representation ruling: "Workspace" must have a real UI referent.
+          `commandAccent` (2026-07-29 correction) tints every metric card with
+          this programme's nav-section colour — restrained (a top hairline +
+          a faint wash, see MetricCard), and `null`/absent for venture. */}
       <div className={`${PANEL} p-4`}>
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-semibold text-slate-100">
@@ -1370,38 +1523,43 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           <span className="text-[10px] uppercase tracking-wide text-slate-500">{ws.contextLabel}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-          <MetricCard label="Health">
+          <MetricCard label="Health" accent={commandAccent}>
             <NotYetWired />
           </MetricCard>
-          <MetricCard label="Current Phase" detail={ws.phaseLabel ? "from the workspace registry" : undefined}>
+          <MetricCard
+            label="Current Phase"
+            detail={ws.phaseLabel ? "from the workspace registry" : undefined}
+            accent={commandAccent}
+          >
             {ws.phaseLabel ?? <NotYetWired />}
           </MetricCard>
-          <MetricCard label="Next Milestone">
+          <MetricCard label="Next Milestone" accent={commandAccent}>
             <NotYetWired />
           </MetricCard>
-          <MetricCard label="Owner" detail={ws.ownerAgentId ?? undefined}>
+          <MetricCard label="Owner" detail={ws.ownerAgentId ?? undefined} accent={commandAccent}>
             {ownerName ?? <NotYetWired />}
           </MetricCard>
-          <MetricCard label={copy.counterpartyLabel}>
+          <MetricCard label={copy.counterpartyLabel} accent={commandAccent}>
             {ws.counterpartyValue ?? <NotYetWired />}
           </MetricCard>
           {ws.extraMetrics.map((m) => (
-            <MetricCard key={m.label} label={m.label} detail={m.detail}>
+            <MetricCard key={m.label} label={m.label} detail={m.detail} accent={commandAccent}>
               {m.value}
             </MetricCard>
           ))}
           <MetricCard
             label="Open Actions"
             detail={agreements.kind === "ready" ? "open constitutional agreements (proposed/accepted)" : undefined}
+            accent={commandAccent}
           >
             {agreements.kind === "loading" && <span className="text-xs text-slate-500">Loading…</span>}
             {agreements.kind === "ready" && <span>{openAgreements.length}</span>}
             {agreements.kind === "unwired" && <NotYetWired />}
           </MetricCard>
-          <MetricCard label="Technical Blockers">
+          <MetricCard label="Technical Blockers" accent={commandAccent}>
             <NotYetWired />
           </MetricCard>
-          <MetricCard label="Last Sync">
+          <MetricCard label="Last Sync" accent={commandAccent}>
             <NotYetWired />
           </MetricCard>
         </div>
@@ -1426,19 +1584,31 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       </div>
       )}
 
-      {/* ── Overview ── */}
+      {/* ── Overview ──
+          Subsection panels below carry a restrained left-border accent +
+          heading dot in `commandAccent` (2026-07-29 correction — "the
+          subsections underneath the standard Programme Command Center — a
+          little bit more use of colour... not too much, just some accents
+          and tones"). `commandAccent` is `null` for venture, so these render
+          exactly as before there. */}
       {surface === "overview" && (
         <div className="space-y-4">
-          <div className={`${PANEL} p-4`}>
-            <h3 className="text-sm font-semibold text-slate-100">Objectives</h3>
+          <div className={`${PANEL} p-4`} style={commandAccent ? { borderLeftColor: commandAccent, borderLeftWidth: 2 } : undefined}>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <AccentDot color={commandAccent} />
+              Objectives
+            </h3>
             <ul className="mt-2 list-disc space-y-1.5 pl-5 text-xs text-slate-300">
               {ws.objectives.map((o, i) => (
                 <li key={i}>{o}</li>
               ))}
             </ul>
           </div>
-          <div className={`${PANEL} p-4`}>
-            <h3 className="text-sm font-semibold text-slate-100">Layer Owners</h3>
+          <div className={`${PANEL} p-4`} style={commandAccent ? { borderLeftColor: commandAccent, borderLeftWidth: 2 } : undefined}>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+              <AccentDot color={commandAccent} />
+              Layer Owners
+            </h3>
             <p className="mt-1 text-[11px] text-slate-500">
               The ratified agent division of labour — encoded as data in the workspace registry.
             </p>
@@ -1466,8 +1636,11 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               Relationship Builder link below stays the contact surface of
               record for anything beyond this short roster note. */}
           {ws.contacts.length > 0 && (
-            <div className={`${PANEL} p-4`}>
-              <h3 className="text-sm font-semibold text-slate-100">Contacts</h3>
+            <div className={`${PANEL} p-4`} style={commandAccent ? { borderLeftColor: commandAccent, borderLeftWidth: 2 } : undefined}>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                <AccentDot color={commandAccent} />
+                Contacts
+              </h3>
               <div className="mt-2 space-y-1.5">
                 {ws.contacts.map((c) => (
                   <p key={c.name} className="text-xs text-slate-300">

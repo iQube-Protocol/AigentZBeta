@@ -243,17 +243,17 @@ describe('D — the Steward surfaces are already invisible to non-admins (verifi
       codex: IRL_CARTRIDGE,
       group: 'participation',
       id: 'irl-passport-steward',
-      // 'irl-workspace' added 2026-07-29 (Research Workspace restructure): the
-      // Workspace tab lives in this group now, carries only a `research-lab`
-      // domain gate (no admin gate), so a delegated research-lab grant-holder
-      // sees it same as any other Participation tab.
+      // 'irl-workspace' briefly lived in THIS group (2026-07-29, first
+      // ruling); the SAME-DAY correction elevated it to its own top-level
+      // `workspace` group instead (see the long comment on
+      // `IRL_CARTRIDGE.tabGroups` in data/codex-configs.ts) — it is no
+      // longer a member of `participation`, so it does not appear here.
       openSlugs: [
         'irl-participation-overview',
         'irl-participation-standing',
         'irl-passport-apply',
         'irl-passport-delegation',
         'irl-passport-locker',
-        'irl-workspace',
       ],
     },
     {

@@ -98,12 +98,16 @@ const access = (
 /**
  * Every Workspace subTab slug this caller reaches, through the REAL filter.
  *
- * RE-POINTED 2026-07-29: the research half moved from nine top-level tabs in
- * a `workspace` GROUP to one tab (`irl-workspace`, group `participation`)
- * whose `subTabs` carry the same per-view gates one tier deeper —
- * `getEnabledTabs` only resolves top-level tabs, so the group filter this
- * helper used before the move can no longer see them. It now reads
- * `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs` and
+ * RE-POINTED 2026-07-29, TWICE THE SAME DAY. First the research half moved
+ * from nine top-level tabs in a `workspace` GROUP to one tab (`irl-workspace`)
+ * nested inside the `participation` group. The operator then corrected that
+ * shipped result back to Workspace's own top-level `workspace` group (a
+ * sibling of Participation, sited immediately after it) — see
+ * `IRL_CARTRIDGE.tabGroups` in `data/codex-configs.ts`. Neither move changes
+ * what this helper reads: `irl-workspace` stays a top-level member of
+ * `IRL_CARTRIDGE.tabs` with its own `subTabs` (`getEnabledTabs` only resolves
+ * top-level tabs, so a group filter alone was never the right tool here). It
+ * reads `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs` and
  * applies the SAME predicate (`tabPassesAccessGates`) CodexPanelDynamic's
  * real tier-3 row uses — equivalent to the full two-tier check because the
  * parent's own gate (`participationDomain: 'research-lab'`, no

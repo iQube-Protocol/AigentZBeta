@@ -37,15 +37,116 @@ import type { CodexConfig } from '@/types/codex';
 import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
 // THE EIGHT RESEARCH WORKSPACE VIEWS + THEIR ROLE MATRIX, from the one place
 // they are defined (SPEC-IRL-WORKSPACE-001 §7/§8). A VALUE import, deliberately:
-// the IRL cartridge's Participation group's "Workspace" tab (and its subTabs)
-// is BUILT from this registry rather than transcribing it, so the shipped
-// access matrix and the specified one cannot diverge. The module is pure (no
-// server imports, no I/O) and safe in the browser bundle this file already
-// ships in.
+// the IRL cartridge's (and, as of 2026-07-29, the IRL OS cartridge's) top-level
+// "Workspace" tab and its subTabs are BUILT from this registry rather than
+// transcribing it, so the shipped access matrix and the specified one cannot
+// diverge. The module is pure (no server imports, no I/O) and safe in the
+// browser bundle this file already ships in.
 import {
   RESEARCH_WORKSPACE_VIEWS,
   RESEARCH_WORKSPACE_ADMIN_VIEW,
 } from '@/services/research/researchWorkspaceViews';
+
+/**
+ * Builds the "Workspace" tab (SPEC-IRL-WORKSPACE-001) — the collaborative
+ * Research Workspace surface — for whichever cartridge mounts it. ONE
+ * function, TWO callers (`IRL_CARTRIDGE` and, per the operator's 2026-07-29
+ * correction "workspace should also be added to the IRL OS cartridge... reuse
+ * the same underlying tab/view definitions... rather than duplicating them",
+ * `IRL_OS_CARTRIDGE`): hand-copying this object a second time for IRL OS would
+ * be exactly the stale-duplicate defect inv.engineering.037 names — if
+ * `RESEARCH_WORKSPACE_VIEWS` ever gains a ninth view, both cartridges must
+ * pick it up from one call site, not two hand-maintained ones.
+ *
+ * `idPrefix` scopes every id/slug this generates so the two cartridges' deep
+ * links never collide (same convention as `polityPassportTabsByGroup` below).
+ * Callers place the returned tab in their own top-level `workspace` tabGroup
+ * (a sibling of Institution/Research/Laboratory/Publications/Participation,
+ * sited immediately after Participation) — see `IRL_CARTRIDGE.tabGroups` for
+ * the full rationale, including why this stays ONE tab with its own `subTabs`
+ * (the "single-tab group with subTabs" / Order-of-Metayé pattern
+ * `CodexPanelDynamic` already renders as two effective tiers).
+ *
+ * Locker and Participants stay pruned from the subTab row (operator
+ * instruction, 2026-07-29 — each cartridge's own Participation group already
+ * covers that ground); both remain real SPEC views in the registry and in
+ * `PartnerProgrammesTab`'s own surface list, just not offered as tabs here.
+ */
+// `RESEARCH_WORKSPACE_VIEWS`' own `slug` field bakes in a literal
+// `irl-workspace-` prefix (it was authored for the one original mount before
+// this became a two-cartridge, prefix-parameterised builder). Strip that
+// baked-in prefix and re-apply the CALLER's own `idPrefix` so `IRL_CARTRIDGE`
+// (idPrefix `irl-workspace`) reproduces byte-identical ids/slugs to before
+// this function existed, while `IRL_OS_CARTRIDGE` (idPrefix `irl-os-workspace`)
+// gets its own non-colliding namespace instead of a doubled prefix.
+function workspaceSlugSuffix(fullSlug: string): string {
+  return fullSlug.replace(/^irl-workspace-/, '');
+}
+
+function buildResearchWorkspaceTab(idPrefix: string) {
+  return {
+    id: idPrefix,
+    label: 'Workspace',
+    slug: idPrefix,
+    enabled: true,
+    group: 'workspace',
+    order: 0,
+    type: 'static' as const,
+    participationDomain: 'research-lab',
+    config: {
+      component: 'PartnerProgrammesTab',
+      props: { initialSurface: 'overview', workspaceDomain: 'research' },
+    },
+    metadata: {
+      icon: 'LayoutGrid',
+      description:
+        'The collaborative Research Workspace — programmes, pipeline, review, working materials, QubeTalk and the internal programme space',
+      color: 'violet',
+    },
+    subTabs: [
+      ...RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'locker' && view.id !== 'participants').map(
+        (view, index) => ({
+          id: `${idPrefix}-${workspaceSlugSuffix(view.slug)}`,
+          label: view.label,
+          slug: `${idPrefix}-${workspaceSlugSuffix(view.slug)}`,
+          enabled: true,
+          order: index,
+          type: 'static' as const,
+          participationDomain: 'research-lab',
+          participationRoles: [...view.roles],
+          config: {
+            component: 'PartnerProgrammesTab',
+            props: { initialSurface: view.id, workspaceDomain: 'research' },
+          },
+          metadata: { icon: view.icon, description: view.description, color: 'violet' },
+        }),
+      ),
+      {
+        // TIER 0 — the internal programme space, exactly as the Venture Lab's
+        // Partner Administration is. `adminOnly` is applied to subTabs the
+        // same way it is to top-level tabs (CodexPanelDynamic's
+        // `activeSubTabs` filter calls the same `tabPassesAccessGates`), so
+        // no research-lab grant of any role can open it.
+        id: `${idPrefix}-${workspaceSlugSuffix(RESEARCH_WORKSPACE_ADMIN_VIEW.slug)}`,
+        label: RESEARCH_WORKSPACE_ADMIN_VIEW.label,
+        slug: `${idPrefix}-${workspaceSlugSuffix(RESEARCH_WORKSPACE_ADMIN_VIEW.slug)}`,
+        enabled: true,
+        adminOnly: true,
+        order: 100,
+        type: 'static' as const,
+        config: {
+          component: 'PartnerProgrammesTab',
+          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
+        },
+        metadata: {
+          icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
+          description: RESEARCH_WORKSPACE_ADMIN_VIEW.description,
+          color: 'slate',
+        },
+      },
+    ],
+  };
+}
 
 // =============================================================================
 // RUNTIME TAKEOVER CONFIGS
@@ -5597,24 +5698,45 @@ export const IRL_CARTRIDGE: CodexConfig = {
   // as capabilities; Programme joins Institution; Participation is the
   // constitutional collaboration space.
   //
-  // RESEARCH WORKSPACE RELOCATED INSIDE PARTICIPATION (operator ruling,
-  // 2026-07-29). Until this change "Research Workspace" was its OWN top-level
-  // group, sitting as a sixth sibling beside Participation — a second
-  // constitutional-collaboration entrance next to the first, which read as two
-  // destinations for one concern. The operator's ruling folds it back into
-  // Participation as a single tab labelled "Workspace" (see the
-  // `irl-workspace` tab below): Participation is now the ONE place a caller
-  // goes to both learn how to join AND do the collaborative work once in. The
-  // group that used to exist here (`id: 'workspace'`) is gone — its nine
-  // former top-level tabs are now `irl-workspace`'s `subTabs`, one tier
-  // deeper, exactly the nesting `irl-passport-steward` already uses for its
-  // own KNYT sub-items.
+  // RESEARCH WORKSPACE — its OWN top-level group again, sited immediately
+  // AFTER Participation (operator correction, 2026-07-29, later the same day
+  // as the ruling below — see
+  // codexes/packs/agentiq/updates/2026-07-29_workspace-restored-top-level-plus-color-and-irl-os.md).
+  // The immediately-prior ruling ("RESEARCH WORKSPACE RELOCATED INSIDE
+  // PARTICIPATION") folded Workspace into a tab nested inside Participation,
+  // with its own former top-level tabs pushed one tier deeper into that tab's
+  // `subTabs` — three tiers deep end to end (group → Workspace tab among
+  // Participation's siblings → its subTabs). The operator tried the shipped
+  // result and found it too deeply nested ("the triple menu system is looking
+  // messy") and asked for Workspace to be elevated back to a first-class
+  // top-level group, positioned right after Participation ("logical place
+  // after request for participation then the user gets access to the
+  // workspace").
+  //
+  // THE FIX IS DELIBERATELY MINIMAL: the `irl-workspace` tab object below is
+  // UNCHANGED in every field except `group` (now `'workspace'`, was
+  // `'participation'`) and `order` (now `0`, the sole tab in its own group).
+  // Its `subTabs` array — the former nine (now seven, Locker/Participants
+  // still pruned) top-level views — is untouched. Because `irl-workspace` is
+  // the ONLY tab in the new `workspace` group, `CodexPanelDynamic` renders it
+  // via the SAME "single-tab group with subTabs" path already used for
+  // "Order of Metayé" (see that literal comment at
+  // `app/triad/components/CodexPanelDynamic.tsx` — the subTabs row renders
+  // inline on the breadcrumb instead of requiring an extra tab-selection step)
+  // — so a caller clicks "Workspace" once and lands directly on its subTabs
+  // (Overview, Pipeline, Review, Working Materials, QubeTalk, Administration).
+  // That is the same two-tier shape every other top-level cartridge tab in
+  // this system already has; nothing new was invented to achieve it.
   tabGroups: [
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
     { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
     { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
     { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+    // Sited immediately after Participation (operator: "the user gets access
+    // to the workspace" once they've joined) — LayoutGrid ties it visually to
+    // the Companion's own "Workspace" nav item, unchanged from the prior ruling.
+    { id: 'workspace', label: 'Workspace', icon: 'LayoutGrid', order: 5 },
   ],
   tabs: [
     {
@@ -5894,117 +6016,6 @@ export const IRL_CARTRIDGE: CodexConfig = {
       },
       metadata: { icon: 'ShieldCheck', description: 'How to join the Invariant Research Lab — roles, the passport → delegation → agreement path, and the public API for delegated agents', color: 'violet' },
     },
-    // ── Workspace (SPEC-IRL-WORKSPACE-001) ──────────────────────────
-    //
-    // RELOCATED INSIDE PARTICIPATION (operator ruling, 2026-07-29). Was its
-    // own top-level "Research Workspace" group, a sixth sibling beside
-    // Participation; the ruling folds it back in as ONE tab here, labelled
-    // simply "Workspace" — Participation is now the one destination for both
-    // "how to join" and "the collaborative work once in".
-    //
-    // THE RESEARCH HALF OF THE COMMON WORKSPACE SUBSTRATE. Mounts the SAME
-    // `PartnerProgrammesTab` the Venture Lab's Partner group mounts, with
-    // `workspaceDomain: 'research'` selecting the research registry and the
-    // research access domain (inv.engineering.036 — one implementation, N
-    // entrances; a research-specific component would be the .037 defect).
-    //
-    // THE ICON TIES IT TO THE COMPANION. `LayoutGrid` is the exact icon the
-    // Companion's own "Workspace" nav item uses
-    // (`services/companion/companionNavigation.ts:COMPANION_NAV_ICON.workspace`)
-    // — reused verbatim, not approximated, so the same visual vocabulary reads
-    // as the same concept in both surfaces. Overview (below, in `subTabs`) used
-    // to carry the visually-adjacent `LayoutDashboard`; it was given a
-    // distinct icon (`Compass`) in the same change so the parent and its
-    // default child no longer look like near-duplicates of one another.
-    //
-    // TOP-LEVEL GATE IS DOMAIN-ONLY, DELIBERATELY. `participationDomain:
-    // 'research-lab'` with NO `participationRoles` admits any research-lab
-    // grant to the CONTAINER — the finer seven-way (soon six-way, see below)
-    // per-view role split lives on each `subTabs` entry, exactly as
-    // `CodexPanelDynamic`'s own tier-3 gate (`activeSubTabs` →
-    // `tabPassesAccessGates`) evaluates it independently of the parent. A role
-    // the matrix names nowhere (`delegated-research-agent`, `ratifier`) still
-    // sees zero subTabs and therefore zero views — the coarser parent gate
-    // does not widen what those roles can actually reach.
-    //
-    // THE SUBTABS ARE BUILT FROM `RESEARCH_WORKSPACE_VIEWS`, NOT HAND-LISTED.
-    // That registry is where SPEC-IRL-WORKSPACE-001 §7's eight views and §8's
-    // role matrix live — unchanged by this move, so the spec-parity canaries
-    // that pin "eight views" keep holding. A canary asserts the shipped
-    // subTabs against the registry AND the registry against the spec
-    // document, so neither can drift alone.
-    //
-    // LOCKER + PARTICIPANTS ARE PRUNED FROM THE SUBTAB ROW (operator
-    // instruction, 2026-07-29): "the surrounding Participation tab already
-    // covers that ground once Workspace lives inside it." Participation's own
-    // `irl-passport-locker` tab is the general passport-related vault; the
-    // per-programme, boundary-scoped Locker view these two ids named
-    // (`workspaceSurfaceAuthority('locker')`) is still a real SPEC view — it
-    // stays in `RESEARCH_WORKSPACE_VIEWS` (still 8, still spec-exact) and in
-    // `PartnerProgrammesTab`'s own `SUB_SURFACES`/`KIND_SURFACES` — it is only
-    // not offered as a clickable tab in this nav row. QubeTalk and
-    // Administration are kept per the same instruction.
-    {
-      id: 'irl-workspace',
-      label: 'Workspace',
-      slug: 'irl-workspace',
-      enabled: true,
-      group: 'participation',
-      order: 0.5,
-      type: 'static',
-      participationDomain: 'research-lab',
-      config: {
-        component: 'PartnerProgrammesTab',
-        props: { initialSurface: 'overview', workspaceDomain: 'research' },
-      },
-      metadata: {
-        icon: 'LayoutGrid',
-        description: 'The collaborative Research Workspace — programmes, pipeline, review, working materials, QubeTalk and the internal programme space',
-        color: 'violet',
-      },
-      subTabs: [
-        ...RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'locker' && view.id !== 'participants').map(
-          (view, index) => ({
-            id: view.slug,
-            label: view.label,
-            slug: view.slug,
-            enabled: true,
-            order: index,
-            type: 'static' as const,
-            participationDomain: 'research-lab',
-            participationRoles: [...view.roles],
-            config: {
-              component: 'PartnerProgrammesTab',
-              props: { initialSurface: view.id, workspaceDomain: 'research' },
-            },
-            metadata: { icon: view.icon, description: view.description, color: 'violet' },
-          }),
-        ),
-        {
-          // TIER 0 — the internal programme space, exactly as the Venture
-          // Lab's Partner Administration is. `adminOnly` is applied to
-          // subTabs the same way it is to top-level tabs (CodexPanelDynamic's
-          // `activeSubTabs` filter calls the same `tabPassesAccessGates`), so
-          // no research-lab grant of any role can open it.
-          id: RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
-          label: RESEARCH_WORKSPACE_ADMIN_VIEW.label,
-          slug: RESEARCH_WORKSPACE_ADMIN_VIEW.slug,
-          enabled: true,
-          adminOnly: true,
-          order: 100,
-          type: 'static' as const,
-          config: {
-            component: 'PartnerProgrammesTab',
-            props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
-          },
-          metadata: {
-            icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
-            description: RESEARCH_WORKSPACE_ADMIN_VIEW.description,
-            color: 'slate',
-          },
-        },
-      ],
-    },
     {
       id: 'irl-passport-apply',
       label: 'Apply',
@@ -6076,6 +6087,12 @@ export const IRL_CARTRIDGE: CodexConfig = {
         return polityPassportTabsByGroup('steward', 'irl-passport-steward');
       },
     },
+    // ── Workspace (SPEC-IRL-WORKSPACE-001) ──────────────────────────
+    // Its OWN top-level group (`workspace`, see `tabGroups` above), sited
+    // immediately after Participation — see the long comment on `tabGroups`
+    // for the full correction history. Built by `buildResearchWorkspaceTab`
+    // so this cartridge and IRL OS share one definition, never two.
+    buildResearchWorkspaceTab('irl-workspace'),
   ],
 };
 
@@ -6136,6 +6153,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     // agents, without the full metaMe thin client. SmartWallet deep-dives
     // remain available via the floating copilot.
     { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+    // Workspace (added 2026-07-29, operator correction): "workspace should
+    // also be added to the IRL OS cartridge — that's really the main place
+    // it's going to live, but it can be in both IRL OS and the IRL
+    // cartridges." Same group shape, same `LayoutGrid` icon, and the SAME
+    // `buildResearchWorkspaceTab` builder as the internal IRL cartridge (see
+    // that cartridge's `tabGroups` comment for the full rationale) — this is
+    // a registry-level addition, not a second implementation of the surface.
+    { id: 'workspace', label: 'Workspace', icon: 'LayoutGrid', order: 5 },
   ],
   tabs: [
     {
@@ -6487,6 +6512,11 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         return polityPassportTabsByGroup('steward', 'irl-os-passport-steward');
       },
     },
+    // ── Workspace (SPEC-IRL-WORKSPACE-001) — added 2026-07-29 ───────
+    // Its OWN top-level group (`workspace`, see `tabGroups` above). Built by
+    // the SAME `buildResearchWorkspaceTab` the internal IRL cartridge uses —
+    // one definition, two mounts, never a hand-copied second implementation.
+    buildResearchWorkspaceTab('irl-os-workspace'),
   ],
   permissions: {
     view: ['*'],

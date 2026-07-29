@@ -71,13 +71,20 @@ const access = (
 /**
  * The Workspace tab's subTabs, straight from the shipped config.
  *
- * RE-POINTED 2026-07-29: the research half moved from nine TOP-LEVEL tabs in
- * a `workspace` GROUP to one tab (`irl-workspace`, group `participation`)
- * whose `subTabs` carry the same per-view gates one tier deeper — the exact
- * nesting `irl-passport-steward` already uses for its own KNYT sub-items.
- * `getEnabledTabs` only resolves TOP-LEVEL tabs, so the group-filter this
- * helper used before the move no longer finds anything; the entrance is now
- * `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs`.
+ * RE-POINTED 2026-07-29, TWICE. First: the research half moved from nine
+ * TOP-LEVEL tabs in a `workspace` GROUP to one tab (`irl-workspace`) nested
+ * inside the `participation` group, its `subTabs` carrying the same per-view
+ * gates one tier deeper. SECOND, the SAME DAY (operator correction — "the
+ * triple menu system is looking messy"): `irl-workspace` was elevated back to
+ * its OWN top-level `workspace` group (a sibling of Institution / Research /
+ * Laboratory / Publications / Participation, sited immediately after
+ * Participation) — see the long comment on `IRL_CARTRIDGE.tabGroups` in
+ * `data/codex-configs.ts`. The `subTabs` themselves are UNCHANGED by either
+ * move — same seven views + Tier-0, same slugs, same gates — only which
+ * group `irl-workspace` belongs to changed. `getEnabledTabs` only resolves
+ * TOP-LEVEL tabs, so a group-filter alone still cannot see one tier deep;
+ * the entrance stays `IRL_CARTRIDGE.tabs.find(t => t.id === 'irl-workspace').subTabs`,
+ * unaffected by which group that tab is filed under.
  */
 async function workspaceTabs() {
   const { IRL_CARTRIDGE } = await import('../data/codex-configs');
@@ -751,25 +758,43 @@ describe('canary R7 — both Labs mount the same workspace implementation', () =
     }
   });
 
-  it('the Workspace TAB exists to be landed in, lives in Participation, and is not admin-only', async () => {
-    // RE-POINTED 2026-07-29: there is no longer a `workspace` GROUP — the
-    // research entrance is now the `irl-workspace` TAB, one tier up from its
-    // own subTabs, inside the `participation` group. It DOES carry a
-    // `participationDomain` gate of its own (deliberately, unlike the old
-    // group, which carried none) — see the doc comment on the tab in
-    // data/codex-configs.ts: the coarse domain-only gate at the parent lets
-    // any research-lab grant land on the container, and the finer per-view
-    // role split lives one tier deeper, on each subTab.
+  it('the Workspace TAB exists to be landed in, is its OWN top-level group, and is not admin-only', async () => {
+    // RE-POINTED 2026-07-29, TWICE THE SAME DAY. The research entrance is
+    // still the `irl-workspace` TAB, one tier up from its own subTabs — that
+    // much is unchanged. What moved back is WHICH group it belongs to: the
+    // first ruling filed it under `participation`; the operator tried the
+    // shipped result and asked for it to be its own top-level `workspace`
+    // group instead (a sibling of Institution/Research/Laboratory/
+    // Publications/Participation, sited immediately after Participation — see
+    // the doc comment on `IRL_CARTRIDGE.tabGroups`). It still carries its own
+    // `participationDomain` gate: the coarse domain-only gate at the parent
+    // lets any research-lab grant land on the container, and the finer
+    // per-view role split lives one tier deeper, on each subTab.
     const { IRL_CARTRIDGE } = await import('../data/codex-configs');
     const tab = IRL_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-workspace') as
       | { group?: string; adminOnly?: boolean; participationDomain?: string; participationRoles?: string[] }
       | undefined;
-    expect(tab, 'the Workspace tab was removed — Participation has nowhere to render it').toBeTruthy();
-    expect(tab!.group).toBe('participation');
+    expect(tab, 'the Workspace tab was removed — nowhere renders it').toBeTruthy();
+    expect(tab!.group).toBe('workspace');
     expect(tab!.adminOnly, 'the Workspace tab took a blanket admin gate — the read-only path would vanish').toBeUndefined();
     expect(tab!.participationDomain).toBe('research-lab');
     // No role narrowing at the PARENT — narrowing happens per subTab instead.
     expect(tab!.participationRoles).toBeUndefined();
+
+    // The `workspace` tabGroup itself: a real sibling group, positioned after
+    // `participation` — this is the actual correction, not just the tab's own
+    // `group` field agreeing with a group that might not exist.
+    const groups = (IRL_CARTRIDGE.tabGroups ?? []) as Array<{ id: string; label: string; icon?: string; order: number }>;
+    const workspaceGroup = groups.find((g) => g.id === 'workspace');
+    const participationGroup = groups.find((g) => g.id === 'participation');
+    expect(workspaceGroup, 'the workspace tabGroup does not exist — Workspace has no top-level home').toBeTruthy();
+    expect(participationGroup).toBeTruthy();
+    expect(workspaceGroup!.label).toBe('Workspace');
+    expect(workspaceGroup!.icon).toBe('LayoutGrid');
+    expect(
+      workspaceGroup!.order,
+      'Workspace must sit AFTER Participation, not before it',
+    ).toBeGreaterThan(participationGroup!.order);
   });
 });
 
@@ -866,5 +891,113 @@ describe('canary R9 — the reachability lesson is on the record', () => {
     const updates = collections.collections.find((c) => c.id === 'col_updates');
     expect(updates, 'col_updates is missing').toBeTruthy();
     expect(updates!.items).toContain('updates/2026-07-28_terminal-outcome-and-composed-liveness-invariants.md');
+  });
+});
+
+// ─── Canary R10 — the 2026-07-29 correction: top-level Workspace, IRL OS
+//     reuse, and the restrained colour accent ──────────────────────────────
+//
+// Three distinct claims the correction brief made, each with its own canary
+// so a regression in any one is caught by name rather than by a shared,
+// vaguer assertion:
+//   1. Workspace is two tiers deep again (top-level group → its own subTabs),
+//      not three.
+//   2. IRL OS mounts the SAME builder, not a hand-copied second tab.
+//   3. The colour accent tokens are actually REFERENCED in the component
+//      that renders them — not merely declared and unused (an "added colour
+//      but never wired it up" defect would pass every other canary here).
+
+describe('canary R10 — Workspace restored to top level, mirrored in IRL OS, with a real colour accent', () => {
+  it('IRL_CARTRIDGE.workspace is two tiers: a top-level group whose one tab carries the seven-view + Tier-0 subTabs', async () => {
+    const { IRL_CARTRIDGE } = await import('../data/codex-configs');
+    const groups = (IRL_CARTRIDGE.tabGroups ?? []) as Array<{ id: string }>;
+    const workspaceTabsInGroup = IRL_CARTRIDGE.tabs.filter((t: { group?: string }) => t.group === 'workspace');
+    // Exactly one tab in the group — the wrapper carries the depth, not a row
+    // of siblings — and that same tab is the one with the subTabs.
+    expect(groups.some((g) => g.id === 'workspace')).toBe(true);
+    expect(workspaceTabsInGroup.length).toBe(1);
+    expect(workspaceTabsInGroup[0].id).toBe('irl-workspace');
+    const tabs = await workspaceTabs();
+    expect(tabs.length).toBe(EVERY_TAB.length);
+  });
+
+  it('IRL_OS_CARTRIDGE mounts the identical Workspace shape via the SAME builder, not a hand-copied tab', async () => {
+    const { IRL_OS_CARTRIDGE } = await import('../data/codex-configs');
+    const groups = (IRL_OS_CARTRIDGE.tabGroups ?? []) as Array<{ id: string; label: string; icon?: string; order: number }>;
+    const workspaceGroup = groups.find((g) => g.id === 'workspace');
+    const participationGroup = groups.find((g) => g.id === 'participation');
+    expect(workspaceGroup, 'IRL OS has no workspace group — the operator asked for it there too').toBeTruthy();
+    expect(workspaceGroup!.label).toBe('Workspace');
+    expect(workspaceGroup!.icon).toBe('LayoutGrid');
+    expect(workspaceGroup!.order).toBeGreaterThan(participationGroup!.order);
+
+    const tab = IRL_OS_CARTRIDGE.tabs.find((t: { id: string }) => t.id === 'irl-os-workspace') as
+      | { subTabs?: Array<{ slug: string; config: { component: string; props?: Record<string, unknown> } }> }
+      | undefined;
+    expect(tab, 'IRL OS Workspace tab is missing').toBeTruthy();
+    // Same view COUNT as the internal cartridge (built from the same
+    // RESEARCH_WORKSPACE_VIEWS registry, same Locker/Participants prune, same
+    // Tier-0 view) — a hand-copied second list could silently drift from this.
+    const osTabs = tab!.subTabs ?? [];
+    expect(osTabs.length).toBe(EVERY_TAB.length);
+    for (const t of osTabs) {
+      expect(t.config.component, `${t.slug} mounts a different component — a second implementation`).toBe(
+        'PartnerProgrammesTab',
+      );
+      expect(t.config.props?.workspaceDomain).toBe('research');
+      // Namespaced under the OS cartridge's own prefix — never colliding with
+      // the internal cartridge's identical-shaped slugs.
+      expect(t.slug.startsWith('irl-os-workspace-')).toBe(true);
+    }
+
+    // REUSE, NOT DUPLICATION: both cartridges' Workspace tabs are built by the
+    // literal SAME function call in source — a hand-copied second object
+    // literal for IRL OS is exactly the inv.engineering.037 defect this
+    // asserts against.
+    const src = stripComments(readSource('data/codex-configs.ts'));
+    // `buildResearchWorkspaceTab\(` alone also matches the function's own
+    // DEFINITION (`function buildResearchWorkspaceTab(idPrefix: string)`);
+    // requiring the opening quote isolates actual CALL sites.
+    const calls = src.match(/buildResearchWorkspaceTab\('/g) ?? [];
+    expect(calls.length, 'buildResearchWorkspaceTab should be CALLED exactly twice — once per cartridge').toBe(2);
+    expect(src).toMatch(/buildResearchWorkspaceTab\('irl-workspace'\)/);
+    expect(src).toMatch(/buildResearchWorkspaceTab\('irl-os-workspace'\)/);
+  });
+
+  it('the colour accent tokens are declared AND actually used on the Command Center + Overview subsections', () => {
+    const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
+    // Declared, reusing the platform's own field-sector hex values (not
+    // invented) — see the FIELD_ACCENT doc comment for the provenance.
+    expect(src).toMatch(/FIELD_ACCENT/);
+    expect(src).toMatch(/NAV_SECTION_ACCENT/);
+    expect(src).toMatch(/#818CF8/); // field.reasoning
+    expect(src).toMatch(/#C084FC/); // field.knowledge
+    expect(src).toMatch(/#FBBF24/); // field.consequence
+    expect(src).toMatch(/#38BDF8/); // field.intelligence
+    // ACTUALLY WIRED — a canary that only checked the constant existed would
+    // pass even if no component ever read it. `commandAccent` is threaded
+    // into MetricCard (Command Center) and AccentDot (Overview subsections).
+    expect(src).toMatch(/const commandAccent[\s\S]{0,120}NAV_SECTION_ACCENT\[ws\.navSection\]/);
+    expect(src.match(/accent=\{commandAccent\}/g)?.length ?? 0).toBeGreaterThan(5);
+    expect(src.match(/<AccentDot color=\{commandAccent\}/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    // Restrained: MetricCard applies the accent as a hairline + faint wash,
+    // never a solid coloured fill (the operator's "not too much" instruction).
+    expect(src).toMatch(/borderTopColor:\s*accent/);
+    expect(src).not.toMatch(/backgroundColor:\s*accent[,}]/); // no full-opacity fill
+  });
+
+  it('the left nav keeps the Laboratory sidebar\'s own scroll/collapse/truncate classes verbatim', () => {
+    const src = stripComments(readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx'));
+    // Same collapsing rail classes as InvariantExperimentLab's own sidebar —
+    // not approximated, not a different width/breakpoint.
+    expect(src).toMatch(/overflow-y-auto rounded-xl border border-slate-800 bg-slate-900\/40 backdrop-blur-sm transition-all duration-200/);
+    expect(src).toMatch(/collapsed \? "w-8" : "w-56"/);
+    // Truncation on every nav label — the operator's "labels are truncated as
+    // need be so that they all stay consistent" requirement.
+    expect(src).toMatch(/<span className="truncate">\{displayLabel\}<\/span>/);
+    // The collapsed-state icon-only rail (ChevronRight to expand) mirrors the
+    // Laboratory sidebar's own collapsed rendering, not a fresh invention.
+    expect(src).toMatch(/ChevronRight className="h-3\.5 w-3\.5"/);
+    expect(src).toMatch(/ChevronLeft className="h-3\.5 w-3\.5"/);
   });
 });
