@@ -31,11 +31,16 @@ import {
   settlementBeneficiaryRef,
   settlementCreditRef,
   settlementDelegationRef,
+  settlementExecutionAuthorisationRef,
   settlementInstructionRef,
   settlementMessageRef,
   settlementNonce,
   settlementPayerRef,
+  settlementProviderRef,
+  settlementQuoteRef,
+  settlementServiceRef,
   settlementSourceDebitRef,
+  settlementVenueRef,
 } from './refs';
 import {
   completeDestinationCredit,
@@ -63,7 +68,15 @@ import {
   type SettlementScenario,
   type SettlementStep,
 } from './scenarios';
-import type { SettlementOutcome, SettlementRefusal } from './types';
+import type {
+  AcceleratedService,
+  AttributedFee,
+  ExternalVenueExecution,
+  MarketObservation,
+  SettlementFeeBreakdown,
+  SettlementOutcome,
+  SettlementRefusal,
+} from './types';
 
 /** One step's observed result — kept whether it succeeded or was refused. */
 export interface StepResult {
@@ -145,6 +158,65 @@ function applyStep(book: SettlementBook, step: SettlementStep, refs: RunRefs): S
       const nonceInstruction = step.nonceFromSettlementId
         ? (book.settlements[step.nonceFromSettlementId]?.instructionRef ?? step.instructionId)
         : step.instructionId;
+
+      // ── The fee / market-fact split: fixture ids → commitments ──
+      //
+      // Derived HERE, never in the scenario, for the same reason the persona
+      // refs are: a scenario states what happened; the runner is the only place
+      // that knows how an identifier becomes a commitment.
+      const service: AcceleratedService | undefined = step.acceleratedService
+        ? {
+            kind: step.acceleratedService.kind,
+            serviceRef: settlementServiceRef(step.acceleratedService.serviceId),
+            providedByRef: settlementProviderRef(step.acceleratedService.providerId),
+            quotedAt: step.acceleratedService.quotedAt,
+          }
+        : undefined;
+      const execution: ExternalVenueExecution | undefined = step.externalExecution
+        ? {
+            venueRef: settlementVenueRef(step.externalExecution.venueId),
+            executionDeviationBps: step.externalExecution.executionDeviationBps,
+            providerRetainedMinorUnits: step.externalExecution.providerRetainedMinorUnits,
+            ...(step.externalExecution.authorisation
+              ? {
+                  authorisation: {
+                    authorisationRef: settlementExecutionAuthorisationRef(
+                      step.externalExecution.authorisation.authorisationId,
+                    ),
+                    acceptedByRef: refs.payerRefs[step.externalExecution.authorisation.acceptedBy],
+                    at: step.externalExecution.authorisation.at,
+                  },
+                }
+              : {}),
+          }
+        : undefined;
+      const observations: MarketObservation[] = (step.marketObservations ?? []).map((o) => ({
+        observationClass: o.observationClass,
+        venueRef: settlementVenueRef(o.venueId),
+        deviationBps: o.deviationBps,
+        observedAt: o.observedAt,
+        note: o.note,
+      }));
+      const attributed: AttributedFee[] = (step.attributedFees ?? []).map((f) => ({
+        feeClass: f.feeClass,
+        amountMinorUnits: f.amountMinorUnits,
+        chargedByRef: settlementProviderRef(f.providerId),
+        quoteRef: settlementQuoteRef(f.quoteId),
+        quotedAt: f.quotedAt,
+        // A timing fee points at the accelerated service; a retained spread
+        // points at the venue it was taken out of.
+        serviceRef:
+          f.pointsAt === 'external-venue'
+            ? (execution?.venueRef ?? '')
+            : (service?.serviceRef ?? ''),
+        ...(f.bearing ? { bearing: f.bearing } : {}),
+        basis: f.basis,
+      }));
+      const feeBreakdown: SettlementFeeBreakdown = {
+        ...(step.feeBreakdown ?? {}),
+        ...(attributed.length > 0 ? { attributedFees: attributed } : {}),
+      };
+
       return initiateSettlement(book, {
         settlementId: step.settlementId,
         instructionRef: settlementInstructionRef(step.instructionId),
@@ -160,7 +232,10 @@ function applyStep(book: SettlementBook, step: SettlementStep, refs: RunRefs): S
         payerRef: step.rawPayerId ?? refs.payerRefs[step.payer],
         beneficiaryRef: refs.beneficiaryRefs[step.beneficiary],
         delegationRef: refs.delegationRef,
-        feeBreakdown: step.feeBreakdown ?? {},
+        feeBreakdown,
+        ...(service ? { acceleratedService: service } : {}),
+        ...(observations.length > 0 ? { marketObservations: observations } : {}),
+        ...(execution ? { externalExecution: execution } : {}),
         initiatedAt: step.initiatedAt,
         expiresAt: step.expiresAt,
       });
@@ -254,6 +329,17 @@ export function settlementFingerprint(run: SettlementScenarioRun): string {
         s.sourceDebitFinalisedAt ?? null,
         s.settledAt ?? null,
         s.liquidityAdvance?.advanceRef ?? null,
+        // The classification of every difference, and every market fact — so a
+        // run that reclassified a retained spread as an observation, or moved a
+        // fee between the two presentation forms, fingerprints differently even
+        // though every ledger figure could still balance.
+        (s.feeBreakdown.attributedFees ?? []).map(
+          (f) => `${f.feeClass}:${f.amountMinorUnits}:${f.bearing ?? 'borne-separately'}`,
+        ),
+        (s.marketObservations ?? []).map((o) => `${o.observationClass}:${o.deviationBps}`),
+        s.externalExecution
+          ? `${s.externalExecution.executionDeviationBps}:${s.externalExecution.providerRetainedMinorUnits}:${s.externalExecution.authorisation ? 'accepted' : 'unaccepted'}`
+          : null,
       ];
     }),
     ledgers: (['BCENT', 'BASE_QC'] as const).map((d) => {
