@@ -4,10 +4,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import { receiptService } from '@/services/receipts/receiptService';
 import type { AgentReference } from '@/services/receipts/receiptService';
-import { 
-  getChannel, 
+import {
+  getChannel,
   createMessage,
   type MessageData
 } from '@/services/qubetalk/qubetalkStore';
@@ -64,8 +65,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // AUTHENTICATE. This route had no caller authentication at all: an
+    // anonymous POST could write a message into any channel whose participant
+    // ids it could guess, attributed to any `from_agent` it liked. The read
+    // leak (2026-07-28) got the attention, but the WRITE path was the same
+    // hole with worse consequences — forged agent speech inside a channel is
+    // not recoverable by revoking a read.
+    //
+    // The tenant is resolved from the caller; `body.tenant_id` is a REQUEST,
+    // checked against the caller's scope, never the scope itself.
+    const gate = await requireChannelAccess(request, body.tenant_id);
+    if (!gate.ok) return gate.response;
+    const tenantId = gate.access.tenantId;
+
     // Verify channel exists
-    const channel = await getChannel(body.channel_id, body.tenant_id);
+    const channel = await getChannel(body.channel_id, tenantId);
     if (!channel) {
       return NextResponse.json({
         error: 'Channel not found',
