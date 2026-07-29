@@ -3524,3 +3524,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-a10f5fd.md](../build_/COMMITS/COMMIT-a10f5fd.md)
 - Message: add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science
+
+## Commit `065fecd` — 2026-07-29T18:42:52-04:00
+- Type: `feat`
+- Brief: [COMMIT-065fecd.md](../build_/COMMITS/COMMIT-065fecd.md)
+- Message: add canonical metaMe and iQube brand source assets
