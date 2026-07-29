@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import { receiptService } from '@/services/receipts/receiptService';
 import type { AgentReference } from '@/services/receipts/receiptService';
 
@@ -15,16 +16,15 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    const tenant_id = searchParams.get('tenant_id');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        success: false,
-        error: 'tenant_id is required',
-      }, { status: 400 });
-    }
+    // The tenant is RESOLVED from the caller, never read from the query string.
+    // `?tenant_id=` used to be the only scope on this route, which made it a
+    // filter the caller chose rather than an authorization (2026-07-28 leak).
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
 
     const result = await qubetalkPersistence.listChannels({
       tenant_id,
