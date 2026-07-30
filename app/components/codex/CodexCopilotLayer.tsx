@@ -1953,7 +1953,7 @@ export function CodexCopilotLayer({
                       {((deepLinks && deepLinks.length > 0) ||
                         (operations && operations.length > 0) ||
                         (quickPrompts && quickPrompts.length > 0)) && (
-                        <div className="mb-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
+                        <div className="mb-0 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
                           {/* Single-row carousel: chips never wrap; overflow scrolls
                               horizontally. The opaque slate backing keeps chips and
                               the inference copy behind them both legible. */}
@@ -2077,7 +2077,7 @@ export function CodexCopilotLayer({
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
-                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                        <div className="mt-0 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
                           {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                           {hideAvatarToggle ? (
                             <div className="relative flex items-center gap-1">
