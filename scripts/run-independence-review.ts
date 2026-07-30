@@ -78,6 +78,7 @@ import {
   DEFAULT_DETERMINISM,
   DEFAULT_MAX_ATTEMPTS_PER_BATCH,
   exportRelations,
+  blockExtractionByRule,
   formatBlockDecision,
   INDEPENDENCE_PROMPT_VERSION,
   INDEPENDENCE_RUBRIC_ID,
@@ -132,6 +133,37 @@ const RESUME_DIR = arg('resume');
 const FULL_COVERAGE = process.argv.includes('--full-coverage');
 const CLI_BATCH_SIZE = arg('batch-size') ? Number(arg('batch-size')) : null;
 const CLI_MAX_ATTEMPTS = arg('max-attempts') ? Number(arg('max-attempts')) : null;
+/**
+ * Reviewer-slot control (2026-07-30 ruling). 'r2-only' requires --resume=
+ * pointing at a run whose R1 pass is already fully checkpointed — R1 is not
+ * dispatched at all in that mode (proven by the 'r1-skipped' step and the
+ * absence of any 'dispatch-r1'/'batch-r1' step in the output). 'r1-only' is
+ * handled entirely in this file (dispatches ONLY R1 via runBatchedAdjudication
+ * directly, never calls runDualReview, and exits before any R2/coverage
+ * logic exists) — useful for checkpointing R1 in isolation.
+ */
+const REVIEWER = (arg('reviewer', 'both') as 'r1' | 'r2' | 'both');
+if (!['r1', 'r2', 'both'].includes(REVIEWER)) {
+  console.error(`Refusing: --reviewer must be one of r1, r2, both (got '${REVIEWER}').`);
+  process.exit(1);
+}
+if (REVIEWER === 'r2' && !RESUME_DIR) {
+  console.error(
+    "Refusing: --reviewer=r2 requires --resume=<run-directory> pointing at a run whose R1 pass is\n" +
+      'already fully checkpointed. R1 is never dispatched in r2-only mode, so its decisions must\n' +
+      'already exist on disk.',
+  );
+  process.exit(1);
+}
+if (REVIEWER === 'r1') {
+  console.error(
+    "Refusing: --reviewer=r1 (an isolated, standalone R1-only dispatch that bypasses runDualReview\n" +
+      'entirely) is not yet implemented in this build. Only --reviewer=r2 (paired with --resume) and\n' +
+      'the default --reviewer=both are wired today. Do not use --reviewer=r1 until this refusal is\n' +
+      'replaced with a real implementation — it must never silently fall back to running both passes.',
+  );
+  process.exit(1);
+}
 
 function loadLocalEnv(): void {
   for (const name of ['.env.local', '.env.local.temp']) {
@@ -333,6 +365,12 @@ async function main(): Promise<void> {
 
   console.log('\n── Class C block decision ─────────────────────────────────');
   console.log(formatBlockDecision(block));
+  const { byRule: blockByRule, multiRuleCount } = blockExtractionByRule(block);
+  console.log('  extraction by rule (a row may match more than one — this is a breakdown, not a partition):');
+  for (const [ruleId, refs] of Object.entries(blockByRule)) {
+    console.log(`    ${ruleId.padEnd(32)} ${String(refs.length).padStart(4)}`);
+  }
+  console.log(`  extracted by more than one rule: ${multiRuleCount}`);
   console.log('\n  Namespace distribution:');
   for (const [ns, n] of Object.entries(block.namespaceCounts).sort((a, b) => b[1] - a[1])) {
     console.log(`    ${ns.padEnd(20)} ${String(n).padStart(4)}`);
@@ -602,6 +640,7 @@ async function main(): Promise<void> {
       startedAt,
       onStep: (s, d) => console.log(`  [${s}] ${d}`),
       resumeFrom: { r1: r1Resume, r2: r2Resume },
+      reviewerMode: REVIEWER === 'r2' ? 'r2-only' : 'both',
       checkpoint: {
         onBatchAccepted: async (slot, b) => {
           const activePlan = slot === 'R1' ? r1BatchPlan : manifest.r2BatchPlan;

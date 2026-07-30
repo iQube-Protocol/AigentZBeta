@@ -73,15 +73,26 @@ export function createdOrRevisedOnOrAfter(ruleId: string, reason: string, cutoff
  * look fine. It fires precisely because they cannot be shown to be fine: a row
  * with no source refs and no derivation refs is a claim about its own
  * independence with nothing behind it.
+ *
+ * Deliberately does NOT test `sourceProvenance === null` (removed 2026-07-30
+ * — the vP1 preview showed this single disjunct extracting all 402 Class C
+ * rows, since most predate a provenance-CLASS tagging convention that was
+ * never retrofitted onto them; that defeated the governed block ruling
+ * entirely, which is the opposite of what a block decision is for). A
+ * missing provenance-class LABEL is not the same fact as missing chronology
+ * or provenance evidence — a row can have real `sourceRefs`/`derivationRefs`
+ * and a real `createdAt` while nobody has yet tagged which provenance class
+ * it falls into. The ratified block ruling supplies the population's default
+ * chronology/provenance basis; this rule extracts only rows where the record
+ * ITSELF cannot establish when or how it arose — no creation date, or
+ * neither a source nor a derivation trail — which the block ruling does not
+ * and cannot resolve on their behalf.
  */
 export function unresolvedChronologyOrProvenance(ruleId: string, reason: string): BlockExceptionRule {
   return {
     ruleId,
     reason,
-    test: (r) =>
-      !r.createdAt ||
-      (r.sourceRefs.length === 0 && r.derivationRefs.length === 0) ||
-      r.sourceProvenance === null,
+    test: (r) => !r.createdAt || (r.sourceRefs.length === 0 && r.derivationRefs.length === 0),
   };
 }
 
@@ -192,6 +203,23 @@ export function formatBlockDecision(b: BlockDecision): string {
     `Result:               ${b.assessed} assessed under the block rule → ${b.admitted} admitted through the ` +
       `class decision → ${b.extracted.length} flagged for individual review`,
   ].join('\n');
+}
+
+/**
+ * Extraction counts per rule, plus how many rows were extracted by more than
+ * one rule at once (an overlap) — added 2026-07-30 so a block decision's
+ * result is legible rule-by-rule rather than one aggregate "extracted" count
+ * that could hide a single over-broad rule doing all the work.
+ */
+export function blockExtractionByRule(b: BlockDecision): { byRule: Record<string, string[]>; multiRuleCount: number } {
+  const byRule: Record<string, string[]> = {};
+  for (const ruleId of b.appliedRuleIds) byRule[ruleId] = [];
+  let multiRuleCount = 0;
+  for (const e of b.extracted) {
+    for (const ruleId of e.ruleIds) byRule[ruleId]?.push(e.subjectRef);
+    if (e.ruleIds.length > 1) multiRuleCount += 1;
+  }
+  return { byRule, multiRuleCount };
 }
 
 /** Arithmetic self-check, exported so a reader can verify an artifact. */

@@ -172,11 +172,18 @@ export async function buildReviewPlan(
     ...classC.filter((s) => extractedRefs.has(s.subjectRef) || sampleRefs.has(s.subjectRef)),
   ];
 
+  // Content-derived, NOT wall-clock-derived (2026-07-30 fix) — the same
+  // corpus/boundary/rubric/ruling must reproduce the same reviewId, so this
+  // hashes the actual package CONTENT (the exact subject set and the block
+  // decision's own outcome) rather than `input.createdAt`. Two builds from
+  // identical inputs now get identical reviewId/packageId, and therefore
+  // identical packageHash — see reviewPackage.ts's determinism fix.
   const reviewId = `review.${input.version}.${commit({
     v: input.version,
-    n: packageSubjects.length,
-    block: block.blockId,
-    at: input.createdAt,
+    subjectRefs: packageSubjects.map((s) => s.subjectRef).sort(),
+    blockAssessed: block.assessed,
+    blockAdmitted: block.admitted,
+    blockExtractedRefs: block.extracted.map((e) => e.subjectRef).sort(),
   }).slice(0, 12)}`;
   const assetCommitment = commit({ subjects: packageSubjects.map((s) => s.subjectRef).sort() });
 

@@ -19,6 +19,18 @@
  * The hash covers everything the reviewer will see. It deliberately does NOT
  * cover the hash field itself — that is computed over the package's canonical
  * form with `packageHash` absent, so a reader can recompute it.
+ *
+ * `createdAt` is ALSO excluded from the hashed body (2026-07-30 fix). Before
+ * this, the same corpus content produced a DIFFERENT `packageHash` on every
+ * invocation, because `createdAt` is a fresh wall-clock value each time the
+ * CLI/route runs — "no clock read inside this module" is not the same
+ * guarantee as "no run-varying value in the content commitment" when the
+ * caller's own fresh timestamp is folded into what gets hashed. `createdAt`
+ * remains a field on the returned `ReviewPackage` (real, useful metadata:
+ * when THIS instance was constructed) — it is simply not part of what
+ * `packageHash` proves. Execution/run metadata belongs in the run manifest
+ * (`checkpoint.ts`'s `RunManifestRecord`), never in the frozen content
+ * commitment.
  */
 
 import { commit } from './deterministic';
@@ -121,12 +133,16 @@ export function buildReviewPackage(input: BuildReviewPackageInput): ReviewPackag
   // assembling the body is still caught.
   assertBlinded(body, `review package ${input.packageId}`);
 
-  return { ...body, packageHash: commit(body) };
+  // `createdAt` is excluded from what gets hashed (see the file header) — the
+  // same corpus/boundary/rubric/ruling must reproduce the same packageHash
+  // regardless of when the package happened to be constructed.
+  const { createdAt, ...hashableBody } = body;
+  return { ...body, packageHash: commit(hashableBody) };
 }
 
 /** Recompute a package's hash. A reader can verify without trusting the field. */
 export function verifyPackageHash(pkg: ReviewPackage): boolean {
-  const { packageHash, ...body } = pkg;
+  const { packageHash, createdAt, ...body } = pkg;
   return commit(body) === packageHash;
 }
 

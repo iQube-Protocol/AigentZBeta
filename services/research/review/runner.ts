@@ -139,6 +139,17 @@ export interface RunDualReviewInput {
    */
   resumeFrom?: { r1?: readonly BatchAttemptRecord[]; r2?: readonly BatchAttemptRecord[] };
   /**
+   * Restrict this call to one reviewer pass (2026-07-30, reviewer-slot
+   * control). `'r2-only'` means R1 is NOT dispatched at all — its decisions
+   * come entirely from `resumeFrom.r1`, which must already cover every one
+   * of R1's subjects (verified before anything else happens; missing
+   * coverage refuses rather than silently treating gaps as `unanswered`).
+   * `runBatchedAdjudication` is never called for R1 in this mode — not "zero
+   * calls happened to occur," but the call itself does not exist on this
+   * path. Default `'both'`.
+   */
+  reviewerMode?: 'both' | 'r2-only';
+  /**
    * Checkpoint persistence hooks (2026-07-30 resilience amendment). Optional
    * and additive — omitted by both existing consumers (the CLI without
    * `--resume`, and the Lab route), which get identical behaviour to before
@@ -264,31 +275,62 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     subjectRefs: r1Subjects.map((s) => s.subjectRef),
     batchSize,
   });
-  step('batch-plan-r1', `${r1BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
-  await input.checkpoint?.onR1BatchPlanReady?.(r1BatchPlan);
 
-  const r1ModelId = input.r1.assignment.resolvedModelId ?? input.r1.assignment.requestedModelId ?? 'human';
-  step('dispatch-r1', `${r1Subjects.length} subjects to ${input.r1.provider.providerName} across ${r1BatchPlan.batches.length} batch(es)`);
-  const r1Outcome = await runBatchedAdjudication({
-    reviewId: input.request.reviewId,
-    reviewerSlot: 'R1',
-    reviewerRef: input.r1.assignment.humanReviewerRef ?? `${input.r1.provider.providerName}:${r1ModelId}`,
-    pkg: input.pkg,
-    subjects: r1Subjects,
-    includeBlockDecisions: true,
-    priorForeignDecisions: [],
-    provider: input.r1.provider,
-    modelId: r1ModelId,
-    determinism: input.determinism,
-    batchPlan: r1BatchPlan,
-    maxAttemptsPerBatch,
-    now: input.now,
-    onStep: step,
-    resumeFrom: input.resumeFrom?.r1,
-    onBatchAccepted: input.checkpoint?.onBatchAccepted
-      ? (b) => input.checkpoint!.onBatchAccepted!('R1', b)
-      : undefined,
-  });
+  let r1Outcome: Awaited<ReturnType<typeof runBatchedAdjudication>>;
+  if (input.reviewerMode === 'r2-only') {
+    // R1 is NOT dispatched — runBatchedAdjudication is never called on this
+    // path. Every one of R1's subjects must already have a decision supplied
+    // via resumeFrom.r1; any gap refuses rather than silently treating it as
+    // unanswered (SPEC-level fail-closed behaviour, same as the dispatched
+    // path's own completeness contract).
+    step('batch-plan-r1', `${r1BatchPlan.batches.length} batch(es) of up to ${batchSize} — NOT dispatched (reviewerMode=r2-only)`);
+    const decisionByRef = new Map<string, ReviewDecision>();
+    for (const attempt of input.resumeFrom?.r1 ?? []) {
+      for (const d of attempt.decisions ?? []) decisionByRef.set(d.subjectRef, d);
+    }
+    const missing = r1Subjects.map((s) => s.subjectRef).filter((ref) => !decisionByRef.has(ref));
+    if (missing.length > 0) {
+      throw new ReviewRefusal(
+        'r2-only-requires-complete-r1',
+        `reviewerMode 'r2-only' requires every R1 subject to already have a decision via resumeFrom.r1; ` +
+          `missing ${missing.length}: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}. ` +
+          'R1 is not dispatched in this mode — it cannot fill the gap.',
+      );
+    }
+    r1Outcome = {
+      decisions: r1Subjects.map((s) => decisionByRef.get(s.subjectRef)!),
+      unanswered: [],
+      rawOutputs: [],
+      attempts: [...(input.resumeFrom?.r1 ?? [])],
+    };
+    step('r1-skipped', `${r1Outcome.decisions.length} decisions sourced entirely from resumeFrom.r1 — no dispatch`);
+  } else {
+    step('batch-plan-r1', `${r1BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
+    await input.checkpoint?.onR1BatchPlanReady?.(r1BatchPlan);
+
+    const r1ModelId = input.r1.assignment.resolvedModelId ?? input.r1.assignment.requestedModelId ?? 'human';
+    step('dispatch-r1', `${r1Subjects.length} subjects to ${input.r1.provider.providerName} across ${r1BatchPlan.batches.length} batch(es)`);
+    r1Outcome = await runBatchedAdjudication({
+      reviewId: input.request.reviewId,
+      reviewerSlot: 'R1',
+      reviewerRef: input.r1.assignment.humanReviewerRef ?? `${input.r1.provider.providerName}:${r1ModelId}`,
+      pkg: input.pkg,
+      subjects: r1Subjects,
+      includeBlockDecisions: true,
+      priorForeignDecisions: [],
+      provider: input.r1.provider,
+      modelId: r1ModelId,
+      determinism: input.determinism,
+      batchPlan: r1BatchPlan,
+      maxAttemptsPerBatch,
+      now: input.now,
+      onStep: step,
+      resumeFrom: input.resumeFrom?.r1,
+      onBatchAccepted: input.checkpoint?.onBatchAccepted
+        ? (b) => input.checkpoint!.onBatchAccepted!('R1', b)
+        : undefined,
+    });
+  }
   rawOutputs.push(...r1Outcome.rawOutputs);
   if (r1Outcome.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R1', subjectRefs: r1Outcome.unanswered });
   step('parsed-r1', `${r1Outcome.decisions.length} decisions, ${r1Outcome.unanswered.length} unanswered`);
