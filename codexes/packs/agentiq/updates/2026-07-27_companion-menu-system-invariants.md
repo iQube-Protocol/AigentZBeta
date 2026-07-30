@@ -384,6 +384,54 @@ match a different one.
 
 ---
 
+## Open defect — quick links may offer a destination that does not exist (MS-7 shape)
+
+Operator-reported 2026-07-30, immediately after MS-11 was fixed and the Overlay began tracking the
+active tab correctly. **Not yet fixed — parked as a fast follow-up, to be taken with a broader
+quick-links review the operator has scoped separately.**
+
+**Scope, as corrected by the operator — this is NOT all metaMe deep links.** The `myCluster` quick
+links deep-link correctly. The failing ones are the **Financial Services** targets, and the operator's
+own read is that *that cartridge/tab may not technically exist*. Two reported symptoms are very
+likely **one root cause**:
+
+1. A **`metaMe · Financial Services`** chip lands on the cartridge home rather than the section it names.
+2. A **`Venture Lab α · Financial Services`** chip 404s outright:
+
+```
+https://dev-beta.aigentz.me/triad/embed/codex/venture-lab?personaId=<uuid>&from=companion&fromTab=agent-me&tab=financial-services
+→ "Failed to load codex — Codex not found"
+```
+
+Confirmed during triage: the slug **does** exist in the hand-curated registry
+(`data/codex-configs.ts`, `slug: 'venture-lab'`), and the 404 reproduced under two different
+personas, so it is neither a bad slug in the link nor persona-scoped. What has NOT been verified is
+whether `financial-services` is a real tab id on either cartridge — and if it is not, both symptoms
+follow directly: a link naming a nonexistent tab either falls back to the cartridge root (symptom 1)
+or fails the lookup outright (symptom 2), depending on which resolver handles it first.
+
+**If that is the cause, this is MS-7 — an inert mechanism is a defect.** A quick link offering a
+destination that cannot exist is the same class as a needle that can never fire: nothing errors, and
+the citizen reads a working feature as broken. The repair is then to gate link *offering* on the
+target actually resolving, not to special-case the two labels.
+
+Where to look: `services/companion/quickLinks.ts` builds these targets, `cartridgeLinkTarget()`
+picks the window, and `buildCodexUrl()` (`utils/codex-nav.ts`) is the canonical builder taking
+`{ tab, personaId, from, fromTab }`. For the 404 specifically, also check the dual-source collision
+CLAUDE.md documents under "Cartridge / Codex Registration" — and **read that section before touching
+the registry**: its documented failure mode is that "fixing" a duplicate by deleting the
+hand-curated definition silently strips every interactive tab and breaks the slug other surfaces
+target.
+
+Whatever the cause, the fix must keep identity propagation intact — CLAUDE.md's "Inter-Cartridge
+Navigation" rule requires `personaId` to travel on every cross-cartridge link, so a repair that
+hardcodes a path and drops the query params trades one defect for a worse one.
+
+Note that MS-11 masked all of this: until the Overlay tracked the real tab, the strip ranked on a
+stale domain, so a wrong destination was indistinguishable from a wrong ranking.
+
+---
+
 ## Third-party embeds — the standing caution
 
 The D-ID avatar SDK renders **outside** the container it is given: it injects nodes at
