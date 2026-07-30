@@ -1487,11 +1487,19 @@ export default function SmartWalletDrawer({
   const formatFixed = (value?: number | null, digits: number = 2) =>
     Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-  // BitCent (B¢) has no live balance source on ANY network yet — the Rune has
-  // not been etched (R-10 still open as of this session; see
-  // codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md
-  // and .../2026-07-28_vl-ct-001-gap-register.md). Stubbed "pending" on both
-  // Mainnet and Testnet rather than rendered as a silent zero balance.
+  // Bitcent (B¢) — canonical prose spelling per operator ruling 2026-07-30
+  // (was "BitCent"; the on-chain Rune name stays BITCENT, unaffected). The
+  // Rune was etched for real on Bitcoin testnet 2026-07-30 — tx
+  // 551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65 (see
+  // codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md,
+  // R-12 closed). Still stubbed "pending" on both Mainnet and Testnet: no
+  // reliably working Rune-balance indexer was found this session
+  // (mempool.space's assumed Rune API path returned a generic route-not-found,
+  // blockstream.info's Esplora API is not Ordinals/Runes-aware at all) — see
+  // app/api/ops/bitcent/testnet/route.ts for the same honest gap, and its
+  // ops card for the tokenomics + transaction status that ARE known. Flip
+  // these once a live balance source is wired; a fabricated number here would
+  // be worse than an honest "pending".
   const bcentMainnetPending = true;
   const bcentTestnetPending = true;
   const bcentMainnetAmount = 0;
@@ -1525,7 +1533,7 @@ export default function SmartWalletDrawer({
     // ─── Mainnet ───────────────────────────────────────────────────────────
     {
       key: "bcent-mainnet",
-      label: "BitCent (B¢)",
+      label: "Bitcent (B¢)",
       value: bcentMainnetPending ? "—" : formatFixed(bcentMainnetAmount),
       unit: "B¢",
       logo: TOKEN_LOGOS.bitcoin,
@@ -1545,7 +1553,7 @@ export default function SmartWalletDrawer({
     // ─── Testnet ───────────────────────────────────────────────────────────
     {
       key: "bcent-testnet",
-      label: "BitCent (B¢)",
+      label: "Bitcent (B¢)",
       value: bcentTestnetPending ? "—" : formatFixed(bcentTestnetAmount),
       unit: "B¢",
       logo: TOKEN_LOGOS.bitcoin,

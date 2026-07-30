@@ -223,6 +223,13 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // Anchoring makes the execution trail tamper-evident. Added per the
   // permitted action-type-addition rule.
   'finance_authoritative_execution',
+  // Bitcent (B¢) treasury etch (2026-07-30) — a real Bitcoin Runes etching
+  // transaction, broadcast under the pilot treasury authority gate. Anchoring
+  // makes the mandate/signatory/observer/tx-hash record tamper-evident, the
+  // same rationale as every other treasury/issuance action type above. Added
+  // per the permitted action-type-addition rule; no other part of this
+  // pipeline is touched.
+  'bitcent_treasury_etch_executed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

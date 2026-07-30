@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
+import { useBitcentTestnet } from "@/hooks/ops/useBitcentTestnet";
 import { btcExplorerBase, btcTxUrl, btcBlockHeightUrl, isBitcoinTxid } from "@/services/ops/btcExplorer";
 
 // Extend ChainStatus type to include latestTx if not present
@@ -439,7 +440,9 @@ function badgeClassFor(key: string): string {
   // Registry-style badge: bg-<color>-500/20 text-<color>-300 ring-1 ring-<color>-500/30
   switch (key) {
     case "btc_testnet":
-      return "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30"; // Bitcoin = Amber
+      return "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30"; // Bitcoin (PoS anchor) = Amber
+    case "bitcent_testnet":
+      return "bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30"; // Bitcent treasury = Orange (distinct from the PoS-anchor BTC card)
     case "eth_sepolia":
       return "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30"; // Sepolia = Indigo
     case "polygon_amoy":
@@ -524,6 +527,7 @@ export default function OpsPage() {
   // Hooks per card
   const icp = useCanisterHealth(30000);
   const btc = useBTC_Testnet(30000);
+  const bitcent = useBitcentTestnet(30000);
   const sepolia = useEthereumSepolia(30000);
   const amoy = usePolygonAmoy(30000);
   const optimismSepolia = useOptimismSepolia(30000);
@@ -632,6 +636,7 @@ export default function OpsPage() {
     { key: "cycles_management", title: "ICP Cycles Management" },
     { key: "base_mainnet", title: "Base Mainnet" },
     { key: "btc_testnet", title: "BTC Testnet" },
+    { key: "bitcent_testnet", title: "Bitcent Treasury" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
     { key: "optimism_sepolia", title: "Optimism Sepolia" },
@@ -812,6 +817,96 @@ export default function OpsPage() {
                       <span className="text-xs text-slate-300">{blockHeight}</span>
                     )}
                   </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          if (key === "bitcent_testnet") {
+            const ok = bitcent.data?.ok ?? false;
+            const at = bitcent.data?.at ?? "—";
+            const status = bitcent.data?.status ?? "unknown";
+            const statusColor = status === "confirmed" ? "text-emerald-400" : status === "pending" ? "text-amber-400" : "text-slate-500";
+            const txHash = bitcent.data?.txHash;
+            const txUrl = bitcent.data?.explorer;
+            const confirmations = bitcent.data?.confirmations;
+            const custodian = bitcent.data?.premineCustodianAddress;
+            const premine = bitcent.data?.premine;
+            const activeIssuance = bitcent.data?.initiallyActiveIssuance;
+            const governedReserve = bitcent.data?.governedReserve;
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
+                </span>
+              } actions={<IconRefresh onClick={bitcent.refresh} disabled={bitcent.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? statusColor : "text-red-400"}>● {status}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Rune:</span>
+                  <span className="text-xs text-slate-300">{bitcent.data?.runeName ?? "—"} ({bitcent.data?.symbol ?? "—"})</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Premine:</span>
+                  <span className="text-xs text-slate-300">{premine != null ? premine.toLocaleString() : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Active / Reserve:</span>
+                  <span className="text-xs text-slate-300">
+                    {activeIssuance != null ? activeIssuance.toLocaleString() : "—"} / {governedReserve != null ? governedReserve.toLocaleString() : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Custodian:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {custodian ? (
+                      <>
+                        <span className="truncate font-mono text-xs text-slate-300" title={custodian}>{custodian}</span>
+                        <button
+                          aria-label="Copy Custodian Address"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(custodian)}
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Etch TX:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {txHash && txUrl ? (
+                      <>
+                        <a href={txUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={txHash}>
+                          <span className="truncate font-mono">{txHash}</span>
+                          <ExternalLink size={12} className="flex-shrink-0" />
+                        </a>
+                        <button
+                          aria-label="Copy TX Hash"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(txHash)}
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Confirmations:</span>
+                  <span className="text-xs text-slate-300">{confirmations != null ? confirmations : "—"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>

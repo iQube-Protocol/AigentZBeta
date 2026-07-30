@@ -235,7 +235,15 @@ export type ActivityActionType =
   // `grantsStanding: false`, `changesLifecycle: false` and `freezesAsset: false`
   // in its payload, because a consumer that treats the presence of a review
   // receipt as approval is behaving reasonably unless the record says otherwise.
-  | 'independent_review_completed';
+  | 'independent_review_completed'
+  // Bitcent (B¢) treasury etch (2026-07-30, pilot treasury authority gate) — a
+  // real Bitcoin Runes etching transaction was broadcast under an authorised
+  // treasury mandate (operator passcode + Aigent Nakamoto required-signatory
+  // approval + Aigent Kn0w1 observation). The receipt records the mandate
+  // commitment, the transaction hash, and the ratified governed-reserve
+  // tokenomics — never the operator's passcode or the custodian's key.
+  // See services/treasury/bitcentTreasuryReceipts.ts.
+  | 'bitcent_treasury_etch_executed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
