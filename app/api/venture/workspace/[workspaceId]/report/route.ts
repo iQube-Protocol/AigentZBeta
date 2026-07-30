@@ -23,6 +23,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveParticipationSelfView } from '@/services/passport/participationSelfView';
 import { getExperimentWorkspace } from '@/services/experiments/experimentWorkspace';
+import { resolveAuthoritativePersonaForRole } from '@/services/workflows/identityEnvelope';
 import {
   buildWorkspaceReport,
   publishWorkspaceReport,
@@ -46,10 +47,17 @@ function readPeriod(req: NextRequest): ReportPeriod {
  * The ops-token branch mirrors the established scheduled-job convention
  * (`/api/access/finalize-receipts`, `/api/admin/kb/ingest-polity-commentary`):
  * a cron has no session and no persona, so it authenticates with
- * `ADMIN_OPS_TOKEN` and the receipt is attributed to an explicitly configured
- * persona. That persona is NEVER guessed — with `WORKSPACE_REPORT_PERSONA_ID`
- * unset the route refuses and says which variable is missing, rather than
- * attributing a governance receipt to whoever happens to resolve.
+ * `ADMIN_OPS_TOKEN`. The receipt's attributed persona is resolved through
+ * `resolveAuthoritativePersonaForRole('platform-state-reporter')` — the
+ * `WORKFLOW_AUTHORITATIVE_PERSONAS` registry, not a guess (operator ruling,
+ * 2026-07-30: Aigent Z composes and issues the platform-state report; see
+ * codexes/packs/agentiq/updates/2026-07-30_platform-state-reporter-role-resolver.md).
+ *
+ * `WORKSPACE_REPORT_PERSONA_ID` is kept ONLY as a deprecated compatibility
+ * override, used solely if the role resolver throws (e.g. a deployment that
+ * has not yet configured `WORKFLOW_AUTHORITATIVE_PERSONAS`). It carries no
+ * independent authority of its own and should be retired once every
+ * deployment relies on the role resolver.
  */
 async function authorize(req: NextRequest, workspaceId: string) {
   const opsToken = process.env.ADMIN_OPS_TOKEN;
@@ -57,18 +65,26 @@ async function authorize(req: NextRequest, workspaceId: string) {
     const header = req.headers.get('authorization') ?? req.headers.get('Authorization') ?? '';
     const presented = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (presented === opsToken) {
-      const attributedPersona = process.env.WORKSPACE_REPORT_PERSONA_ID;
-      if (!attributedPersona) {
-        return {
-          error: NextResponse.json(
-            {
-              ok: false,
-              error:
-                'WORKSPACE_REPORT_PERSONA_ID is not set — a scheduled report has no caller, and its receipt must be attributed to a configured persona rather than a guessed one',
-            },
-            { status: 500 },
-          ),
-        };
+      let attributedPersona: string | undefined;
+      try {
+        attributedPersona = resolveAuthoritativePersonaForRole('platform-state-reporter');
+      } catch (resolverError) {
+        // Deprecated compatibility fallback only — see comment above.
+        attributedPersona = process.env.WORKSPACE_REPORT_PERSONA_ID;
+        if (!attributedPersona) {
+          return {
+            error: NextResponse.json(
+              {
+                ok: false,
+                error:
+                  `Could not resolve the platform-state-reporter persona (${
+                    resolverError instanceof Error ? resolverError.message : String(resolverError)
+                  }), and the deprecated WORKSPACE_REPORT_PERSONA_ID compatibility override is not set either — a scheduled report has no caller, and its receipt must be attributed to a configured persona rather than a guessed one`,
+              },
+              { status: 500 },
+            ),
+          };
+        }
       }
       if (!getExperimentWorkspace(workspaceId)) {
         return { error: NextResponse.json({ ok: false, error: 'Workspace not found' }, { status: 404 }) };
