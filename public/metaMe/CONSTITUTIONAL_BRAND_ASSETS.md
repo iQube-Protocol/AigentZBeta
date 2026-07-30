@@ -139,6 +139,21 @@ listing.
 | App Store / Play Store | `metaMe/metame-1024.png` |
 | iQube colorway badge (128px+) | `iQube/<colorway>/iqube-<size>.png` |
 
+### Favicon color exception — white hand, not graphite
+
+`favicon.ico` / `favicon-16.png` / `favicon-32.png` / `favicon-48.png` deliberately recolor the
+hand glyph and dot **white** instead of the canonical Graphite (`#4A4A4A`-ish) used everywhere
+else. At browser-tab and toolbar size, these render against dark chrome (Brave/Chrome dark theme
+tab strips, extension toolbars) far more often than against a white card, and Graphite on a dark
+background is genuinely invisible — confirmed by rendering the icon over a dark background before
+and after. The hex outline stays Coral in both versions; only the interior glyph changes.
+
+This is the one documented exception to "Coral + Graphite for metaMe communications" — scoped
+to small, dark-chrome contexts only. The general-purpose `metame-16.png` … `metame-1024.png`
+ladder (cards, larger app icons, marketing) keeps Graphite. `extension/companion-observer/`'s
+toolbar icons (`icon16.png` … `icon128.png`) use the same white variant as the favicon, for the
+identical reason — a browser toolbar is exactly the same dark-chrome context a favicon renders in.
+
 ## Source of truth
 
 These assets are constitutional primitives (BRD-001). Every application, website, extension,
