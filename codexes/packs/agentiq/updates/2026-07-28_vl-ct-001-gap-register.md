@@ -648,16 +648,20 @@ Specifying it after V-8 rather than before avoids a scenario set that cannot exp
 | R-8 | Compensation in DVN receipts | **RATIFIED** — versioned partner-service extension; amount commitment + private ledger reference where restricted |
 | R-9 | Funding correct refusals | **RATIFIED** — *ex ante* operator-funded budget; executed-trade levy prohibited in the confirmatory arm |
 | V-10 | Standing contamination guard | **RATIFIED** — volume, revenue, execution count and profit-alone prohibited as Standing inputs |
+| R-11 | The hardcoded testnet WIF in `deploy-qct-bitcoin.js` | **FIXED, 2026-07-30** — moved to `BITCENT_TESTNET_DEPLOYER_WIF` env var (dotenv, `.env.local`/`.env.local.temp`), old key treated as compromised and rotated. Script refuses to run without it. Not a ruling — a code fix; no decision was needed once "rotate it" was the answer. G-3 closed. |
 
 ## Rulings still needed
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| **R-10** | **Which etching script is authoritative** — `deploy-qct-runes.*` (400M premine / 47,619 per mint / 21,000 cap) or `deploy-qct-bitcoin.js` (100M / 1,000 / 900M)? The loser should be deleted, not merely guarded. | G-2 — **irreversible once either is broadcast** |
-| **R-11** | **The hardcoded testnet WIF** in `deploy-qct-bitcoin.js` — rotate and move to an env var, or confirm the wallet is disposable? | G-3 — security |
+| **R-10** | **Which etching script is authoritative** — `deploy-qct-runes.*` (400M premine / 47,619 per mint / 21,000 cap) or `deploy-qct-bitcoin.js` (100M / 1,000 / 900M)? The loser should be deleted, not merely guarded. **Partial progress 2026-07-30:** the 100M/1B figures ARE ratified (`2026-07-29_qriptocent-supply-constitution.md`) — `deploy-qct-runes.*`'s 400M is confirmed superseded and should be deleted. Still open: the constitution requires a full ten-item frozen+hashed issuance record before either script may run, not just the amount; the authoritative script must be *generated from* that record, not selected from what exists today. | G-2 — **irreversible once either is broadcast** |
 | **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) | the etch itself |
 | **R-13** | The Base fee **observation window** for R-4's frozen profile — which dates, and by what rule are unusual blocks excluded? | Phase 1 reproducibility |
+| **R-14** | The B¢ **allocation schedule** — how the 100,000,000 premine splits across liquidity/service-reserves/operational/ecosystem/treasury/future-distribution (item 7 of the constitution's ten-item freeze list) | R-10 / the etch itself |
+| **R-15** | **Issuer/holder of the B¢ premine** — which wallet custodies the 100,000,000 (item 8 of the freeze list) | R-10 / the etch itself |
 
 R-10 and R-12 travel together: validating the name means nothing if two scripts can etch different
 tokenomics under it. R-13 is small but load-bearing — an undocumented observation window makes Phase 1
 unreproducible, and reproducibility is the one thing a deterministic phase is supposed to guarantee.
+R-14 and R-15 are the two items of the constitution's ten-item freeze list that remain genuinely
+undecided; the other eight already have answers between the constitution doc and R-1/R-11.
