@@ -156,15 +156,20 @@ describe('reading never writes', () => {
     expect(post).toMatch(/status: 403/);
   });
 
-  it('a scheduled run authenticates with the ops token and never guesses a persona', () => {
+  it('a scheduled run resolves the platform-state-reporter role first, never guessing a persona', () => {
     // A cron has no session. The established convention (finalize-receipts,
     // ingest-polity-commentary) is an ADMIN_OPS_TOKEN bearer — but a receipt
-    // still needs an attributed persona, and guessing one would attribute a
-    // governance record to whoever happens to resolve.
+    // still needs an attributed persona. Primary authority is the
+    // platform-state-reporter role (resolved from WORKFLOW_AUTHORITATIVE_
+    // PERSONAS, operator ruling 2026-07-30: Aigent Z, not MoneyPenny, is the
+    // report producer). WORKSPACE_REPORT_PERSONA_ID survives only as a
+    // deprecated compatibility override with no independent authority.
     const src = stripComments(readSource(ROUTE_PATH));
     expect(src).toMatch(/ADMIN_OPS_TOKEN/);
+    expect(src).toMatch(/resolveAuthoritativePersonaForRole\(\s*['"]platform-state-reporter['"]\s*\)/);
     expect(src).toMatch(/WORKSPACE_REPORT_PERSONA_ID/);
-    // Unset → refuse, naming the variable. Never a fallback persona.
+    // Unset (and resolver failure) → refuse, naming the failure. Never a
+    // silently guessed persona.
     expect(src).toMatch(/if \(!attributedPersona\)/);
     expect(src).toMatch(/status: 500/);
     expect(src, 'the ops path falls back to a resolved persona').not.toMatch(

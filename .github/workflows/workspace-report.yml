@@ -13,11 +13,17 @@ name: workspace-report
 # Required repo secret (Settings → Secrets and variables → Actions):
 #   ADMIN_OPS_TOKEN — the same value already set in Amplify env.
 #
-# Required Amplify env var:
-#   WORKSPACE_REPORT_PERSONA_ID — the operator persona the report receipt is
-#   attributed to. A scheduled run has no caller, so this must be explicit; the
-#   route refuses (500, naming the variable) rather than guessing a persona for
-#   a governance receipt.
+# Report-receipt attribution (2026-07-30 — operator ruling: Aigent Z composes
+# and issues the platform-state report, not MoneyPenny):
+#   Primary source of authority: resolveAuthoritativePersonaForRole
+#   ('platform-state-reporter') in services/workflows/identityEnvelope.ts,
+#   which resolves the WORKFLOW_AUTHORITATIVE_PERSONAS registry (falls back to
+#   a built-in default list — see that file — so no env var is required for
+#   this to work out of the box).
+#   Deprecated compatibility override: the Amplify env var
+#   WORKSPACE_REPORT_PERSONA_ID is read ONLY if the role resolver throws. It
+#   carries no independent authority of its own. See
+#   codexes/packs/agentiq/updates/2026-07-30_platform-state-reporter-role-resolver.md.
 #
 # Manual trigger: Actions → workspace-report → Run workflow (choose the period).
 
