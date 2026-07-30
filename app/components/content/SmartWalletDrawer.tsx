@@ -3044,11 +3044,11 @@ export default function SmartWalletDrawer({
             operator-approved ("if fitting it in requires the icon row to
             become a scrollable/carousel row, that's acceptable"). Every other
             mount keeps the original equal-width `flex-1` row, unchanged. */}
-        <div className="wallet-tab-nav px-3 py-2 bg-black/20">
+        <div className={`wallet-tab-nav px-3 bg-black/20 ${simplifiedTopChrome ? 'py-1' : 'py-2'}`}>
           <div
             className={
               simplifiedTopChrome
-                ? "flex w-full items-center gap-1 overflow-x-auto"
+                ? "flex w-full items-center gap-2.5 overflow-x-auto"
                 : "flex w-full items-center justify-between gap-0"
             }
           >
@@ -3060,7 +3060,7 @@ export default function SmartWalletDrawer({
                       setCopilotOpen(!copilotOpen);
                       onOpenCopilot?.();
                     }}
-                    className={`wallet-icon-btn py-2 px-2 ${copilotOpen ? 'active' : ''}`}
+                    className={`wallet-icon-btn py-1.5 px-2 ${copilotOpen ? 'active' : ''}`}
                     data-active={copilotOpen}
                   >
                     <Bot className="w-4 h-4" />
@@ -3073,7 +3073,7 @@ export default function SmartWalletDrawer({
                 <Tooltip text={tab.label}>
                   <button
                     onClick={() => setActiveTab(tab.key)}
-                    className={`wallet-icon-btn py-2 ${simplifiedTopChrome ? 'px-2' : ''} ${activeTab === tab.key ? 'active' : ''}`}
+                    className={`wallet-icon-btn ${simplifiedTopChrome ? 'py-1.5 px-2' : 'py-2'} ${activeTab === tab.key ? 'active' : ''}`}
                     data-active={activeTab === tab.key}
                   >
                     {tab.icon}
