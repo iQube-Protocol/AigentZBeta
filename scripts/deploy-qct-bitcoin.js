@@ -44,6 +44,25 @@
  *   BITCENT_TESTNET_DEPLOYER_WIF (testnet), or BITCENT_MAINNET_DEPLOYER_WIF
  *   (mainnet, not yet used by this script -- mainnet is refused outright
  *   below pending its own separate ratification path).
+ *   TREASURY_OPERATOR_PASSCODE_HASH / TREASURY_OPERATOR_PASSCODE_SALT --
+ *   required on the --execute path (see "Pilot treasury authority" below).
+ *
+ * ── Pilot treasury authority (2026-07-30, PILOT-AUTHORISED — PROVISIONAL
+ *    SECURITY PROFILE; see
+ *    codexes/packs/agentiq/updates/2026-07-30_pilot-treasury-authority.md) ──
+ *
+ * The --execute path additionally requires, in order: a fresh, single-use
+ * mandate (auto-built from this run's own known values -- asset, amount,
+ * source, destination, network, expiry); a verified operator passcode
+ * (bound procedurally to this mandate by the review-then-approve prompt
+ * sequence, never stored in plaintext, rate-limited); and BOTH required
+ * signatory checks for the 'bitcent-treasury-ordinary' transaction class
+ * (Aigent Nakamoto approval + Aigent Kn0w1 observation -- see
+ * services/treasury/pilotTreasuryAuthority.js). A second check, right
+ * before broadcast, confirms the REAL built transaction still matches the
+ * mandate the operator approved. None of this replaces the existing
+ * ratification gate or the "type yes" broadcast confirmation below -- it
+ * runs in addition to both.
  */
 
 const path = require('path');
@@ -61,6 +80,19 @@ const { networks, Psbt, payments, script: bscript, initEccLib } = require('bitco
 const ecc = require('tiny-secp256k1');
 const { ECPairFactory } = require('ecpair');
 const axios = require('axios');
+const crypto = require('crypto');
+
+const {
+  authorizeTreasuryAction,
+  assertMandateMatchesTransaction,
+  TreasuryAuthorityRefusal,
+  PILOT_SECURITY_STATUS,
+} = require('../services/treasury/pilotTreasuryAuthority');
+const {
+  createFileBackedNonceStore,
+  recordFailedPasscodeAttempt,
+  assertNotLockedOut,
+} = require('./_lib/treasuryMandateLedger');
 
 initEccLib(ecc);
 const ECPair = ECPairFactory(ecc);
@@ -181,6 +213,29 @@ function confirm(question) {
     rl.question(question, (answer) => {
       rl.close();
       resolve(answer.trim().toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Masked passcode prompt -- the passcode is never echoed to the terminal or
+ * written anywhere; it exists only in memory for the duration of the
+ * `verifyOperatorPasscode` comparison in pilotTreasuryAuthority.js.
+ */
+function promptPasscode(question) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const output = rl._writeToOutput;
+    let masked = false;
+    rl._writeToOutput = function (str) {
+      if (masked) return; // suppress echo of the passcode itself once the prompt has been written
+      output.call(rl, str);
+      masked = true;
+    };
+    rl.question(question, (answer) => {
+      rl.close();
+      process.stdout.write('\n');
+      resolve(answer);
     });
   });
 }
@@ -335,6 +390,74 @@ async function main() {
     console.warn(`⚠️  ILLUSTRATIVE, NOT RATIFIED: "premineCustodian" not yet set -- using the deployer's own testnet address (${deployerAddress}) as a stand-in for this dry run only.`);
   }
 
+  // ── Pilot treasury authority gate (EXECUTE only) ──────────────────────────
+  // Fails fast, BEFORE waiting on a funded UTXO or building the real PSBT --
+  // an unauthorised attempt should not need a funded address to be refused.
+  // See file header + services/treasury/pilotTreasuryAuthority.js.
+  let treasuryMandate = null;
+  if (EXECUTE) {
+    assertNotLockedOut();
+
+    treasuryMandate = {
+      action: 'bitcent-testnet-etch',
+      asset: tokenomics.name,
+      amount: tokenomics.premine,
+      source: deployerAddress,
+      destination: premineAddress,
+      network: 'testnet',
+      agent: 'aigent-z',
+      nonce: crypto.randomBytes(16).toString('hex'),
+      expiry: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      executionMode: 'testnet-broadcast',
+      expectedTxSummary: `Etch ${tokenomics.name} (premine ${tokenomics.premine.toLocaleString()}) to ${premineAddress} on testnet`,
+      transactionClass: 'bitcent-treasury-ordinary',
+    };
+
+    console.log(`\n── Treasury mandate for this run (${PILOT_SECURITY_STATUS}) ──`);
+    console.log(`  action:            ${treasuryMandate.action}`);
+    console.log(`  asset / amount:    ${treasuryMandate.asset} / ${treasuryMandate.amount.toLocaleString()}`);
+    console.log(`  source:            ${treasuryMandate.source}`);
+    console.log(`  destination:       ${treasuryMandate.destination}`);
+    console.log(`  network:           ${treasuryMandate.network}`);
+    console.log(`  expires:           ${treasuryMandate.expiry}`);
+    console.log(`  transaction class: ${treasuryMandate.transactionClass}`);
+
+    const providedPasscode = await promptPasscode('\nEnter the treasury operator passcode to approve this mandate: ');
+    const passcodeConfig = {
+      hash: process.env.TREASURY_OPERATOR_PASSCODE_HASH,
+      salt: process.env.TREASURY_OPERATOR_PASSCODE_SALT,
+    };
+    const context = {
+      issuanceRecordRatified: open.length === 0,
+      network: 'testnet',
+      mainnetMandateExplicit: false,
+      treasuryCap: null,
+      operatorIsSolePrincipal: true,
+    };
+
+    let authorization;
+    try {
+      authorization = authorizeTreasuryAction({
+        mandate: treasuryMandate,
+        providedPasscode,
+        passcodeConfig,
+        context,
+        nonceStore: createFileBackedNonceStore(),
+        nowIso: new Date().toISOString(),
+      });
+    } catch (err) {
+      if (err instanceof TreasuryAuthorityRefusal && err.refusalCode === 'passcode-incorrect') {
+        recordFailedPasscodeAttempt();
+      }
+      throw err;
+    }
+
+    console.log(`\n✅ Treasury mandate authorised.`);
+    console.log(`  mandate commitment: ${authorization.mandateCommitment}`);
+    console.log(`  required signatory: ${authorization.signatories.requiredSignatory} — ${authorization.signatories.requiredApproval.reason}`);
+    console.log(`  observer:           ${authorization.signatories.observer} — ${authorization.signatories.observerResult.reason}`);
+  }
+
   const { psbt, address } = await buildEtchingTransaction({
     network,
     apiBase,
@@ -352,6 +475,16 @@ async function main() {
     console.log('\nRun with --execute (after full ratification) to broadcast for real.');
     return;
   }
+
+  // The mandate the operator approved must be the transaction that
+  // executes -- checked against the REAL built transaction, not the
+  // pre-declared intent, right before broadcast.
+  assertMandateMatchesTransaction(treasuryMandate, {
+    asset: tokenomics.name,
+    amount: tokenomics.premine,
+    destination: premineAddress,
+    network: 'testnet',
+  });
 
   // EXECUTE path -- fully ratified by this point, real UTXO, real signature.
   const tx = psbt.extractTransaction();
