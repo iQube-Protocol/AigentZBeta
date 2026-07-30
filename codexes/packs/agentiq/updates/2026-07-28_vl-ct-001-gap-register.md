@@ -658,7 +658,7 @@ Specifying it after V-8 rather than before avoids a scenario set that cannot exp
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) — **MAINNET PASS, testnet still open** (see below) | the testnet etch |
+| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) — **MAINNET PASS, TESTNET PASS (non-conclusive, one indexer)** (see below) | the testnet etch |
 | **R-13** | The Base fee **observation window** for R-4's frozen profile — which dates, and by what rule are unusual blocks excluded? | Phase 1 reproducibility |
 
 R-10 and R-12 travel together: validating the name means nothing if two scripts can etch different
@@ -688,16 +688,28 @@ be etched by someone else between this check and a real broadcast — and Mainne
 unconditionally refused in `deploy-qct-bitcoin.js` regardless of this result, pending its own
 separate ratification path.
 
-**Testnet R-12 — still open**, and this is the specific check `deploy-qct-bitcoin.js --execute`
-(testnet-only) actually depends on; a mainnet pass does not satisfy it. `testnet.ordinals.com` did
-not resolve from the operator's machine, and this session's sandbox cannot reach any Rune indexer
-(network egress policy — confirmed blocked again this session against mempool.space, 403/405).
-`scripts/check-bitcent-name-availability.js` (added 2026-07-30, `npm run check:bitcent-name`) queries
-mempool.space's testnet Rune API and is ready to run from an environment with real network access;
-it abstains to `INCONCLUSIVE` rather than asserting availability if the indexer doesn't answer
-cleanly. The operator's fallback path is the official `ord` CLI
-(`brew install ord` / `ordinals.com/install.sh`) against a synced testnet Bitcoin Core node
-(`bitcoin-cli -testnet getblockchaininfo`), which — unlike the mempool.space API path — also doubles
-as the etching tool itself if `deploy-qct-bitcoin.js`'s `runelib`/Esplora path turns out not to be the
-fastest available route. **R-12 is now split: mainnet passed, testnet remains the one open item
-blocking the testnet etch.**
+**R-12 testnet check — PASS, non-conclusive (operator-run, `npm run check:bitcent-name`, 2026-07-30
+19:19 UTC).** `scripts/check-bitcent-name-availability.js` against mempool.space's live testnet Rune
+API:
+
+```text
+GET https://mempool.space/testnet/api/v1/runes/BITCENT
+HTTP 404
+verdict: LIKELY AVAILABLE (not found on this indexer)
+conclusive: false
+```
+
+`testnet.ordinals.com` never resolved from the operator's machine (DNS issue, unconfirmed cause), and
+`ord`'s own etching path (`ord wallet batch`) was confirmed to require a full synced Bitcoin Core
+testnet node (`bitcoin-cli` — confirmed absent on the operator's machine), so mempool.space is the
+only testnet indexer actually reachable for this check. One indexer returning "not found" is
+evidence, not proof — a name could still be claimed on a block the indexer hasn't caught up to, or by
+a transaction not yet confirmed. Combined with the mainnet PASS above (a different indexer, same
+name, same non-etched result), both reachable indexers independently show `BITCENT` unclaimed.
+
+**R-12 status: evidence gathered, decision to proceed is the operator's, not asserted here.**
+Whether "two indexers, non-conclusive" is sufficient to broadcast — versus first getting a synced
+`ord`/Bitcoin Core node running for a fully conclusive local check — is a right-sized-mandate
+judgment call (per `2026-07-30_control-authority-mandate-constitutional-security-model.md` §III.1:
+required proof strength scales with irreversibility, and an etch is irreversible). This document
+records the evidence; it does not rule R-12 closed on the operator's behalf.
