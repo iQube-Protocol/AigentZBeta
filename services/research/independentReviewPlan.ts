@@ -33,6 +33,7 @@ import {
   EXP_P1_TARGET_STATEMENT,
   expP1ClassCExceptionRules,
   expP1MechanicalFlags,
+  expP1MechanicalFlagsByRule,
 } from '@/services/research/review/templates/expP1Admissibility';
 import { GENERAL_CONSTITUTIONAL_NAMESPACES } from '@/services/research/experimentRelation';
 
@@ -102,9 +103,14 @@ export interface ReviewPlan {
   corpusRowCount: number;
   inBoundaryCount: number;
   outOfBoundaryCount: number;
+  /** Out-of-boundary rows by the namespace that excluded them (e.g. style, narrative). */
+  outOfBoundaryByNamespace: Record<string, number>;
   classCCount: number;
   individuallyEnumerated: number;
   mechanicallyFlagged: string[];
+  /** Same flags, broken down by which rule fired — see expP1MechanicalFlagsByRule. */
+  mechanicallyFlaggedByRule: Record<string, string[]>;
+  mechanicallyFlaggedRuleReasons: Record<string, string>;
   coverage: { sampleRate: number; sampleSeed: string };
 }
 
@@ -135,6 +141,12 @@ export async function buildReviewPlan(
   const inBoundary = rows.filter((r) => boundary.has(String(r.namespace)));
   const outOfBoundary = rows.filter((r) => !boundary.has(String(r.namespace)));
   const subjects = inBoundary.map(corpusRowToSubject);
+
+  const outOfBoundaryByNamespace: Record<string, number> = {};
+  for (const r of outOfBoundary) {
+    const ns = String(r.namespace);
+    outOfBoundaryByNamespace[ns] = (outOfBoundaryByNamespace[ns] ?? 0) + 1;
+  }
 
   const classC = subjects.filter((s) => GENERAL_CONSTITUTIONAL_NAMESPACES.has(s.namespace));
   const individual = subjects.filter((s) => !GENERAL_CONSTITUTIONAL_NAMESPACES.has(s.namespace));
@@ -189,6 +201,9 @@ export async function buildReviewPlan(
     createdAt: input.createdAt,
   });
 
+  const { byRule: mechanicallyFlaggedByRule, ruleReasons: mechanicallyFlaggedRuleReasons } =
+    expP1MechanicalFlagsByRule(packageSubjects);
+
   return {
     reviewId,
     pkg,
@@ -198,9 +213,12 @@ export async function buildReviewPlan(
     corpusRowCount: rows.length,
     inBoundaryCount: inBoundary.length,
     outOfBoundaryCount: outOfBoundary.length,
+    outOfBoundaryByNamespace,
     classCCount: classC.length,
     individuallyEnumerated: packageSubjects.length,
     mechanicallyFlagged: expP1MechanicalFlags(packageSubjects),
+    mechanicallyFlaggedByRule,
+    mechanicallyFlaggedRuleReasons,
     coverage: { sampleRate: EXP_P1_COVERAGE.sampleRate, sampleSeed: EXP_P1_COVERAGE.sampleSeed },
   };
 }

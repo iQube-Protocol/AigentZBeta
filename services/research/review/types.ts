@@ -310,9 +310,19 @@ export interface ReviewResolution {
 /** Base for every refusal this capability makes. All of them fail closed. */
 export class ReviewRefusal extends Error {
   readonly refusalCode: string;
-  constructor(refusalCode: string, message: string) {
+  /** HTTP status of the underlying provider call, when this refusal wraps
+   *  one -- e.g. 429. Undefined for refusals that aren't network-shaped
+   *  (isolation violations, missing config, etc). Additive: every existing
+   *  two-argument call site is unaffected. */
+  readonly httpStatus?: number;
+  /** Seconds the provider asked callers to wait, from a `Retry-After`
+   *  header, when present. */
+  readonly retryAfterSeconds?: number;
+  constructor(refusalCode: string, message: string, opts?: { httpStatus?: number; retryAfterSeconds?: number }) {
     super(message);
     this.name = 'ReviewRefusal';
     this.refusalCode = refusalCode;
+    this.httpStatus = opts?.httpStatus;
+    this.retryAfterSeconds = opts?.retryAfterSeconds;
   }
 }

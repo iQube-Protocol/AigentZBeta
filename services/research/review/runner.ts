@@ -104,7 +104,13 @@ export interface RunDualReviewInput {
   r2: { assignment: ReviewerAssignment; provider: ReviewProvider };
   steward: StewardAssignment;
   determinism: DeterminismSettings;
-  coverage: { sampleRate: number; sampleSeed: string; mechanicallyFlagged: readonly string[] };
+  coverage: {
+    sampleRate: number;
+    sampleSeed: string;
+    mechanicallyFlagged: readonly string[];
+    /** Operator-directed full coverage for this run — see coverage.ts. Optional; defaults off. */
+    fullCoveragePolicy?: boolean;
+  };
   assetRef: string;
   assetCommitment: string;
   /** Injected. No clock is read inside this module. */
@@ -256,6 +262,7 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     mechanicallyFlagged: input.coverage.mechanicallyFlagged,
     sampleRate: input.coverage.sampleRate,
     sampleSeed: input.coverage.sampleSeed,
+    fullCoveragePolicy: input.coverage.fullCoveragePolicy,
   });
   assertCoverageComplete(coverage, {
     subjects: input.pkg.subjects,
@@ -264,8 +271,24 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     mechanicallyFlagged: input.coverage.mechanicallyFlagged,
     sampleRate: input.coverage.sampleRate,
     sampleSeed: input.coverage.sampleSeed,
+    fullCoveragePolicy: input.coverage.fullCoveragePolicy,
   });
-  step('coverage', `${coverage.subjectRefs.length} rows to second review`);
+  // Honest breakdown, not a single opaque total (2026-07-30 ruling): the count
+  // dispatched to R2 is the sum of every MANDATORY_COVERAGE_RULES bucket, the
+  // stratified sample, and — only when this run set it — rows added solely by
+  // an operator-directed full-coverage policy for this specific run.
+  const byRuleCounts = Object.entries(coverage.byRule)
+    .map(([rule, refs]) => `${rule}:${refs.length}`)
+    .join(', ');
+  step(
+    'coverage',
+    `${coverage.subjectRefs.length} rows to second review ` +
+      `(by rule — ${byRuleCounts}` +
+      (coverage.addedByFullCoveragePolicy.length > 0
+        ? `, operator-directed-full-coverage:${coverage.addedByFullCoveragePolicy.length}`
+        : '') +
+      ')',
+  );
 
   const coveredSet = new Set(coverage.subjectRefs);
   const r2Subjects = input.pkg.subjects.filter((s) => coveredSet.has(s.subjectRef));

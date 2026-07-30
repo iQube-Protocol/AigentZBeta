@@ -248,3 +248,34 @@ export function expP1MechanicalFlags(subjects: readonly ReviewSubjectRecord[]): 
   const rules = expP1ClassCExceptionRules();
   return subjects.filter((s) => rules.some((r) => r.test(s))).map((s) => s.subjectRef);
 }
+
+/**
+ * The same flags, broken down by WHICH rule fired for each row. Added
+ * 2026-07-30 so a run can report the true reason a row was flagged instead of
+ * a single opaque count — a CLI line reading "mechanically flagged: 464" with
+ * no way to see whether that is mostly `mentions-experiment-or-target` or
+ * mostly `created-or-revised-after-cutoff` cannot be checked against the
+ * ratified rules by anyone reading the log alone.
+ *
+ * A row matching more than one rule appears under every rule it matched — this
+ * is a diagnostic breakdown, not a partition, so the totals across `byRule`
+ * are expected to exceed `expP1MechanicalFlags(...).length` whenever rows
+ * overlap.
+ */
+export function expP1MechanicalFlagsByRule(
+  subjects: readonly ReviewSubjectRecord[],
+): { byRule: Record<string, string[]>; ruleReasons: Record<string, string> } {
+  const rules = expP1ClassCExceptionRules();
+  const byRule: Record<string, string[]> = {};
+  const ruleReasons: Record<string, string> = {};
+  for (const r of rules) {
+    byRule[r.ruleId] = [];
+    ruleReasons[r.ruleId] = r.reason;
+  }
+  for (const s of subjects) {
+    for (const r of rules) {
+      if (r.test(s)) byRule[r.ruleId].push(s.subjectRef);
+    }
+  }
+  return { byRule, ruleReasons };
+}

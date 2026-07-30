@@ -23,6 +23,15 @@
  *   npx tsx scripts/run-independence-review.ts --version=vP1 --execute
  *   npx tsx scripts/run-independence-review.ts --version=vP1 --execute \
  *        --r2-human=<steward-ref> --r2-decisions=path/to/steward-decisions.json
+ *   npx tsx scripts/run-independence-review.ts --version=vP1 --execute \
+ *        --batch-size=8 --max-attempts=3 --full-coverage
+ *
+ * --batch-size / --max-attempts override the frozen defaults (batching.ts) for
+ * this run only — both are still recorded in the pre-run manifest, so a
+ * smaller batch size for a resumed pass is a visible, auditable choice rather
+ * than a silent deviation. --full-coverage is an operator-directed decision
+ * for THIS run (every subject goes to second review) and is reported under
+ * its own honest category — never folded into "mechanically flagged".
  *
  * Requires (server-side only, never NEXT_PUBLIC_, never committed):
  *   VENICE_API_KEY, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -40,7 +49,9 @@ import {
   commit,
   createFileBackedProvider,
   createVeniceProvider,
+  DEFAULT_BATCH_SIZE,
   DEFAULT_DETERMINISM,
+  DEFAULT_MAX_ATTEMPTS_PER_BATCH,
   exportRelations,
   formatBlockDecision,
   INDEPENDENCE_PROMPT_VERSION,
@@ -73,6 +84,18 @@ function arg(name: string, fallback: string | null = null): string | null {
 const EXECUTE = process.argv.includes('--execute');
 const PREVIEW = process.argv.includes('--preview');
 const VERSION = arg('version', 'vP1')!;
+/**
+ * Operator-directed full coverage for THIS run (2026-07-30 ruling, vP1 R2
+ * resume): every subject goes to second review, regardless of rule or sample
+ * outcome. This is a per-run operational decision, not a change to the
+ * template's ratified `EXP_P1_COVERAGE.sampleRate` — so it is a CLI flag, not
+ * a change to `expP1Admissibility.ts`, and it is reported under its own
+ * honest category (`operator-directed-full-coverage`) rather than folded into
+ * "mechanically flagged".
+ */
+const FULL_COVERAGE = process.argv.includes('--full-coverage');
+const BATCH_SIZE = Number(arg('batch-size', String(DEFAULT_BATCH_SIZE)));
+const MAX_ATTEMPTS_PER_BATCH = Number(arg('max-attempts', String(DEFAULT_MAX_ATTEMPTS_PER_BATCH)));
 
 function loadLocalEnv(): void {
   for (const name of ['.env.local', '.env.local.temp']) {
@@ -120,8 +143,15 @@ async function main(): Promise<void> {
   const { pkg, block, reviewId, assetCommitment } = plan;
 
   console.log(`Live Invariant Corpus: ${plan.corpusRowCount} rows.`);
-  console.log(`  in boundary:  ${plan.inBoundaryCount}`);
-  console.log(`  out of boundary (recorded with reasons): ${plan.outOfBoundaryCount}`);
+  console.log(`  pre-boundary:                             ${plan.corpusRowCount}`);
+  const outOfBoundaryBreakdown = Object.entries(plan.outOfBoundaryByNamespace)
+    .sort((a, b) => b[1] - a[1])
+    .map(([ns, n]) => `${ns}:${n}`)
+    .join(', ');
+  console.log(
+    `  excluded by namespace boundary (${plan.outOfBoundaryCount}${outOfBoundaryBreakdown ? ` — ${outOfBoundaryBreakdown}` : ''})`,
+  );
+  console.log(`  frozen package (in boundary):             ${plan.inBoundaryCount}`);
 
   console.log('\n── Class C block decision ─────────────────────────────────');
   console.log(formatBlockDecision(block));
@@ -131,7 +161,19 @@ async function main(): Promise<void> {
   }
   console.log(`  earliest creation ${block.earliestCreatedAt ?? 'n/a'} · latest ${block.latestCreatedAt ?? 'n/a'}`);
   console.log(`\n  rows enumerated individually in the package: ${plan.individuallyEnumerated}`);
-  console.log(`  mechanically flagged for mandatory second review: ${plan.mechanicallyFlagged.length}`);
+  console.log(`  mechanically flagged (union, any rule): ${plan.mechanicallyFlagged.length}`);
+  console.log('  by rule (a row may match more than one — this is a breakdown, not a partition):');
+  for (const [ruleId, refs] of Object.entries(plan.mechanicallyFlaggedByRule)) {
+    console.log(`    ${ruleId.padEnd(32)} ${String(refs.length).padStart(4)}  — ${plan.mechanicallyFlaggedRuleReasons[ruleId]}`);
+  }
+  if (FULL_COVERAGE) {
+    console.log(
+      '\n  --full-coverage set: every subject in this package goes to second review for THIS run. ' +
+        'Reported as "operator-directed-full-coverage" in the coverage step below — this is an ' +
+        'operator-directed full dual review for this run, not a claim that every row was ' +
+        'mechanically mandatory.',
+    );
+  }
 
   const preview = redactedPreview(pkg);
   console.log(`\n  package ${pkg.packageId}`);
@@ -246,6 +288,7 @@ async function main(): Promise<void> {
     );
     console.log(`  rubric ${INDEPENDENCE_RUBRIC_ID} v${INDEPENDENCE_RUBRIC_VERSION} · prompt v${INDEPENDENCE_PROMPT_VERSION}`);
     console.log(`  steward ${steward.stewardRef}${steward.interim ? ' (INTERIM)' : ''}`);
+    console.log(`  batch size ${BATCH_SIZE} · max attempts/batch ${MAX_ATTEMPTS_PER_BATCH}${FULL_COVERAGE ? ' · --full-coverage set' : ''}`);
     console.log('\n  Re-run with --execute to dispatch. The operator triggers the live review.');
     return;
   }
@@ -261,7 +304,9 @@ async function main(): Promise<void> {
       sampleRate: plan.coverage.sampleRate,
       sampleSeed: plan.coverage.sampleSeed,
       mechanicallyFlagged: plan.mechanicallyFlagged,
+      fullCoveragePolicy: FULL_COVERAGE,
     },
+    batching: { batchSize: BATCH_SIZE, maxAttemptsPerBatch: MAX_ATTEMPTS_PER_BATCH },
     assetRef: plan.assetRef,
     assetCommitment,
     now: () => new Date().toISOString(),

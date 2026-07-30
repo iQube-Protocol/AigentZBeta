@@ -94,6 +94,7 @@ export function createVeniceProvider(): ReviewProvider {
           'catalogue-unreachable',
           `Venice model catalogue could not be read (${res.error ?? `HTTP ${res.status}`}). ` +
             'Refusing the run: reviewer lineage cannot be verified against a catalogue we did not receive.',
+          { httpStatus: res.status ?? undefined },
         );
       }
       const entries = res.models.map(parseCatalogueEntry).filter((e): e is ModelCatalogueEntry => e !== null);
@@ -124,6 +125,7 @@ export function createVeniceProvider(): ReviewProvider {
           'reviewer-call-failed',
           `Venice adjudication for '${request.modelId}' failed (${res.error ?? `HTTP ${res.status}`}). ` +
             'The run stops here; a partial review is not a review.',
+          { httpStatus: res.status ?? undefined, retryAfterSeconds: res.retryAfterSeconds ?? undefined },
         );
       }
       return { raw: res.text, servedModelId: request.modelId };

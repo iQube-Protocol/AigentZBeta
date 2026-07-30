@@ -679,6 +679,7 @@ describe('second-review coverage is asymmetric, and private-source rows are mand
     subject({ subjectRef: 'b' }),
     subject({ subjectRef: 'private', privateEvidenceRef: 'summary/1' }),
     subject({ subjectRef: 'flagged' }),
+    subject({ subjectRef: 'excluded-1' }),
     ...Array.from({ length: 20 }, (_, i) => subject({ subjectRef: `bulk-${i}`, namespace: 'reasoning' })),
   ];
   const dec = (ref: string, decision: string): ReviewDecision => ({
@@ -692,8 +693,14 @@ describe('second-review coverage is asymmetric, and private-source rows are mand
       dec('b', 'unknown'),
       dec('private', 'independent'),
       dec('flagged', 'independent'),
+      dec('excluded-1', 'independent'),
       ...Array.from({ length: 20 }, (_, i) => dec(`bulk-${i}`, 'independent')),
     ],
+    // Note: 'excluded-1' is a real subject above, not a namespace-boundary
+    // exclusion (2026-07-30 fix — see coverage.ts's guard). A packageExclusion
+    // ref that is NOT among `subjects` (e.g. an out-of-boundary corpus row)
+    // cannot be dispatched to R2 at all, since R2 never receives a subject
+    // outside the frozen package; it is informational context only.
     packageExclusions: ['excluded-1'],
     mechanicallyFlagged: ['flagged'],
     sampleRate: 0.15,

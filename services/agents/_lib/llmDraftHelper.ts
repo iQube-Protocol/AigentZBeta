@@ -190,6 +190,9 @@ export interface VeniceChatResult {
   status: number | null;
   text: string | null;
   error: string | null;
+  /** Seconds from a `Retry-After` response header, when present (typically
+   *  only meaningful alongside a 429). Null when absent or unparseable. */
+  retryAfterSeconds: number | null;
 }
 
 /**
@@ -213,7 +216,7 @@ export async function callVeniceChatRaw(input: {
   timeoutMs?: number;
 }): Promise<VeniceChatResult> {
   const key = veniceApiKey();
-  if (!key) return { ok: false, status: null, text: null, error: 'VENICE_API_KEY is not set' };
+  if (!key) return { ok: false, status: null, text: null, error: 'VENICE_API_KEY is not set', retryAfterSeconds: null };
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), input.timeoutMs ?? 15_000);
   try {
@@ -234,12 +237,19 @@ export async function callVeniceChatRaw(input: {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!res.ok) return { ok: false, status: res.status, text: null, error: null };
+    if (!res.ok) {
+      // Retry-After is typically an integer seconds count for a 429; some
+      // servers send an HTTP-date instead, which Number() correctly turns
+      // into NaN rather than a false reading.
+      const rawRetryAfter = res.headers.get('retry-after');
+      const retryAfterSeconds = rawRetryAfter && Number.isFinite(Number(rawRetryAfter)) ? Number(rawRetryAfter) : null;
+      return { ok: false, status: res.status, text: null, error: null, retryAfterSeconds };
+    }
     const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const text = data?.choices?.[0]?.message?.content?.trim() ?? null;
-    return { ok: true, status: res.status, text, error: null };
+    return { ok: true, status: res.status, text, error: null, retryAfterSeconds: null };
   } catch (err) {
-    return { ok: false, status: null, text: null, error: err instanceof Error ? err.message : String(err) };
+    return { ok: false, status: null, text: null, error: err instanceof Error ? err.message : String(err), retryAfterSeconds: null };
   } finally {
     clearTimeout(timeoutId);
   }

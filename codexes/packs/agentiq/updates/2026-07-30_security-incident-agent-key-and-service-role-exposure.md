@@ -92,10 +92,16 @@ its value-reading uses.
   debug endpoints for secret-fragment slicing (`.substring`/`.slice` on a secret-named variable)
   and literal high-entropy prefix patterns (the `expected: { ENCRYPTION_KEY_starts: '...' }` shape
   that caused the worst leak). Verified to actually fail against an injected regression before being
-  trusted (reverted after confirming). This is a static-source-scan proof, not a build-output
-  inspection: if zero files ever reference `process.env.NEXT_PUBLIC_<secret>`, Next.js's
-  build-time inlining has nothing to place into any bundle, client or server — a stronger and
-  cheaper guarantee than checking one particular build's output after the fact.
+  trusted (reverted after confirming).
+
+  **Scope correction (Aletheon review):** the canary prevents known source-level reintroduction of
+  `NEXT_PUBLIC_`-prefixed secrets within its defined scan scope (`app/`, `services/`, `components/`,
+  `scripts/`, `packages/`, `apps/`). It does NOT prove that a build plugin cannot inject a value,
+  that Amplify's own configuration is free of a public secret, that a generated file outside the
+  scan scope can't expose one, that an API response can't leak a server-side secret through some
+  other path, or that a previously deployed bundle no longer contains the old value. The original
+  wording overstated this as a structural proof "no source file can ever cause" exposure; that claim
+  is corrected here rather than left standing.
 
 Full suite: 186 files / 3344 tests, green throughout.
 

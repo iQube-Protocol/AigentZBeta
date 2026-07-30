@@ -61,6 +61,65 @@ export const DEFAULT_BATCH_SIZE = 16;
  */
 export const DEFAULT_MAX_ATTEMPTS_PER_BATCH = 3;
 
+/**
+ * Retry backoff (2026-07-30 ruling, R2 resume from batch-011): a batch that
+ * fails is retried with a DELAY, not immediately — and the delay honors a
+ * provider's `Retry-After` header when the failure is HTTP 429 (capacity),
+ * falling back to bounded exponential backoff with jitter for a 429 with no
+ * `Retry-After` and for every other transient dispatch failure alike.
+ * `failureCategory` on the recorded attempt distinguishes a genuine capacity
+ * condition from an adjudication failure (isolation breach, cross-batch
+ * contamination, malformed output) even though both back off the same way —
+ * the distinction matters for reading the log afterward, not for whether a
+ * wait happens before the next attempt.
+ *
+ * The jitter is DERIVED, not read from `Math.random()` — this directory reads
+ * no clock and no random source (rulings, `tests/independent-review-capability
+ * .test.ts`'s "no Date.now / Math.random / new Date" canary), a guarantee that
+ * exists so a package and its hash are always reproducible independent of
+ * when or how many times construction runs. A retry delay is not part of any
+ * hashed artifact, but the rule is enforced at the file level, not per call
+ * site — so the jitter comes from `commit()` over the one thing that already
+ * makes this attempt unique (reviewer slot, batch id, attempt number),
+ * keeping the module's own no-randomness guarantee intact rather than
+ * carving out an exception for itself.
+ */
+const RETRY_BASE_DELAY_MS = 1_000;
+const RETRY_MAX_DELAY_MS = 30_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** A value in [0,1), deterministic in its inputs — never `Math.random()`. */
+function deterministicUnitInterval(seed: Record<string, unknown>): number {
+  const hash = commit(seed);
+  return parseInt(hash.slice(0, 8), 16) / 0x100000000;
+}
+
+export type BatchFailureCategory = 'rate-limited' | 'transient';
+
+export function computeBatchRetryBackoff(
+  reviewerSlot: ReviewerSlot,
+  batchId: string,
+  attempt: number,
+  err: unknown,
+): { delayMs: number; category: BatchFailureCategory } {
+  const httpStatus = err instanceof ReviewRefusal ? err.httpStatus : undefined;
+  const retryAfterSeconds = err instanceof ReviewRefusal ? err.retryAfterSeconds : undefined;
+  const jitter = deterministicUnitInterval({ purpose: 'batch-retry-backoff', reviewerSlot, batchId, attempt });
+  if (httpStatus === 429) {
+    if (typeof retryAfterSeconds === 'number' && Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0) {
+      return { delayMs: Math.min(retryAfterSeconds * 1000, RETRY_MAX_DELAY_MS), category: 'rate-limited' };
+    }
+    return { delayMs: jitter * Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS), category: 'rate-limited' };
+  }
+  return {
+    delayMs: jitter * Math.min(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1), RETRY_MAX_DELAY_MS),
+    category: 'transient',
+  };
+}
+
 export interface BatchPlanBatch {
   batchId: string;
   batchHash: string;
@@ -176,6 +235,8 @@ export interface BatchAttemptRecord {
   outputHash: string;
   accepted: boolean;
   failureReason?: string;
+  /** Set on a failed attempt — see `computeBatchRetryBackoff`. */
+  failureCategory?: BatchFailureCategory;
 }
 
 export interface BatchRawOutput {
@@ -352,6 +413,7 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
         );
       } catch (err) {
         lastFailure = err instanceof Error ? err.message : String(err);
+        const { delayMs, category } = computeBatchRetryBackoff(input.reviewerSlot, batch.batchId, attempt, err);
         attempts.push({
           reviewerSlot: input.reviewerSlot,
           batchId: batch.batchId,
@@ -362,16 +424,22 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
           outputHash: res ? commit({ raw: res.raw }) : '',
           accepted: false,
           failureReason: lastFailure,
+          failureCategory: category,
         });
         if (attempt === input.maxAttemptsPerBatch) {
           throw new ReviewRefusal(
             'batch-adjudication-failed',
-            `${input.reviewerSlot} batch ${batch.batchId} failed after ${attempt} attempt(s): ${lastFailure}. ` +
+            `${input.reviewerSlot} batch ${batch.batchId} failed after ${attempt} attempt(s) [${category}]: ${lastFailure}. ` +
               'The run stops here — retry is scoped to this batch, never silently to the whole reviewer pass, ' +
               'and a batch that cannot be completed is not recorded as a passing one.',
           );
         }
-        input.onStep?.(`batch-retry-${input.reviewerSlot.toLowerCase()}`, `${batch.batchId} attempt ${attempt} failed (${lastFailure}); retrying`);
+        input.onStep?.(
+          `batch-retry-${input.reviewerSlot.toLowerCase()}`,
+          `${batch.batchId} attempt ${attempt} failed [${category}] (${lastFailure}); ` +
+            `backing off ${Math.round(delayMs)}ms before retrying`,
+        );
+        await sleep(delayMs);
       }
     }
   }

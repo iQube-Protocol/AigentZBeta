@@ -50,6 +50,15 @@ export interface Reviewer2CoverageInput {
   mechanicallyFlagged: readonly string[];
   sampleRate: number;
   sampleSeed: string;
+  /**
+   * Operator-directed full coverage for this run (2026-07-30 ruling, vP1):
+   * every subject goes to R2, regardless of rule/sample outcome. Reported
+   * honestly as its own category (`fullCoveragePolicy` in the returned
+   * breakdown) — NEVER folded into `mechanically-flagged`, since that would
+   * claim a per-row rule fired when the real reason is an operator policy
+   * for this specific run. Absent or false: behaves exactly as before.
+   */
+  fullCoveragePolicy?: boolean;
 }
 
 export interface Reviewer2Coverage {
@@ -59,6 +68,13 @@ export interface Reviewer2Coverage {
   sampleSeed: string;
   /** Ordinary `independent` rows NOT sampled — recorded, so coverage is auditable. */
   notReviewedTwice: string[];
+  /**
+   * Rows added ONLY because `fullCoveragePolicy` was set — i.e. rows that
+   * were neither mandatory by rule nor drawn by the stratified sample.
+   * Empty whenever `fullCoveragePolicy` is unset. Kept separate from
+   * `byRule` so "mandatory" never silently comes to mean "included".
+   */
+  addedByFullCoveragePolicy: string[];
 }
 
 export function selectReviewer2Coverage(input: Reviewer2CoverageInput): Reviewer2Coverage {
@@ -86,7 +102,15 @@ export function selectReviewer2Coverage(input: Reviewer2CoverageInput): Reviewer
     'stratified-sample': [],
   };
 
-  for (const ref of input.packageExclusions) byRule['proposed-exclusion'].push(ref);
+  // Guarded by byRef.has(ref), same as mechanicallyFlagged below. Bug fixed
+  // 2026-07-30: this was previously unguarded, silently folding rows that
+  // were excluded from the PACKAGE ITSELF (out-of-boundary namespaces, never
+  // among these 464 subjects) into the dispatchable coverage set — inflating
+  // "rows to second review" from 464 to 478 in a live run. Package-exclusion
+  // rows are informational context for the operator (surfaced separately by
+  // the caller from the plan's own out-of-boundary count), never a subject
+  // this coverage set can actually dispatch.
+  for (const ref of input.packageExclusions) if (byRef.has(ref)) byRule['proposed-exclusion'].push(ref);
   for (const ref of input.mechanicallyFlagged) if (byRef.has(ref)) byRule['mechanically-flagged'].push(ref);
 
   // Mandatory, never sampled: the intermediated-evidence rows.
@@ -109,6 +133,22 @@ export function selectReviewer2Coverage(input: Reviewer2CoverageInput): Reviewer
   byRule['stratified-sample'] = proportionalStratifiedSample(input.sampleSeed, pool, input.sampleRate);
 
   const selected = new Set<string>([...mandatory, ...byRule['stratified-sample']]);
+
+  // Operator-directed full coverage (vP1 ruling, 2026-07-30): every subject
+  // not already selected by a rule or the sample is added, and recorded
+  // under its own honest category -- never merged into `mandatory` or
+  // `mechanically-flagged`, which would misstate a per-run policy as a
+  // per-row rule.
+  const addedByFullCoveragePolicy: string[] = [];
+  if (input.fullCoveragePolicy) {
+    for (const s of input.subjects) {
+      if (!selected.has(s.subjectRef)) {
+        selected.add(s.subjectRef);
+        addedByFullCoveragePolicy.push(s.subjectRef);
+      }
+    }
+  }
+
   const notReviewedTwice = pool.map((p) => p.key).filter((k) => !selected.has(k));
 
   return {
@@ -117,6 +157,7 @@ export function selectReviewer2Coverage(input: Reviewer2CoverageInput): Reviewer
     sampleRate: input.sampleRate,
     sampleSeed: input.sampleSeed,
     notReviewedTwice: notReviewedTwice.sort(),
+    addedByFullCoveragePolicy: addedByFullCoveragePolicy.sort(),
   };
 }
 
