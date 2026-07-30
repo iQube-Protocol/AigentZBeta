@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-30_prd-gjr-001-guided-journey-runtime.md",
         "updates/2026-07-30_bitcent-supabase-wiring-and-ops-surfacing.md",
         "updates/2026-07-30_bitcent-testnet-etch-broadcast.md",
         "updates/2026-07-30_control-authority-mandate-constitutional-security-model.md",
