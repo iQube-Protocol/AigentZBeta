@@ -135,14 +135,14 @@ describe('deterministic partitioning', () => {
       .toThrowError(/no subjects/);
   });
 
-  it('464 subjects at the frozen batch size of 32 produce exactly 15 batches', () => {
+  it('464 subjects at the frozen batch size of 16 produce exactly 29 batches', () => {
     const plan = buildBatchPlan({
       reviewerSlot: 'R1', packageHash: 'p', manifestHash: 'm',
       subjectRefs: Array.from({ length: 464 }, (_, i) => `inv.${i}`),
       batchSize: DEFAULT_BATCH_SIZE,
     });
-    expect(plan.batches).toHaveLength(15);
-    expect(plan.batches.at(-1)!.subjectRefs).toHaveLength(464 - 32 * 14);
+    expect(plan.batches).toHaveLength(29);
+    expect(plan.batches.at(-1)!.subjectRefs).toHaveLength(464 - 16 * 28);
   });
 });
 

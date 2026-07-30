@@ -33,17 +33,33 @@ import { ReviewRefusal, type ReviewDecision, type ReviewPackage, type ReviewSubj
 import type { AdjudicationResponse, DeterminismSettings, ReviewProvider } from './providers';
 
 /**
- * 32 subjects per batch (rulings §1): 464 subjects → 15 batches; each
- * completion asks for far fewer adjudications than the model has shown it can
- * reliably track; each call is far less exposed to the provider timeout; the
- * partition is trivial to inspect and reproduce. Configuration-backed and
- * frozen into the pre-run manifest — never hardcoded somewhere the manifest
- * can't see it (rulings §1).
+ * 16 subjects per batch: 464 subjects → 29 batches. Originally 32 per rulings
+ * §1 (464 → 15 batches); revised down after a live run (2026-07-30) against
+ * the real corpus at 32/batch and a 300s per-batch timeout still failed —
+ * batch-000 timed out on attempt 1 and succeeded on a fresh attempt 2 (so the
+ * work itself was not consistently over budget), but batch-001 timed out on
+ * BOTH attempts, refusing the whole run rather than silently completing a
+ * partial one. Halving batch size directly shrinks the output size and
+ * processing time of the single largest risk factor in that timeout, rather
+ * than layering on a third guess at `timeoutMs` alone. This is a deviation
+ * from the ratified rulings §1 number — flagged as such rather than silently
+ * overridden; open for the operator/Aletheon to confirm or set differently.
+ * Configuration-backed and frozen into the pre-run manifest either way — never
+ * hardcoded somewhere the manifest can't see it (rulings §1).
  */
-export const DEFAULT_BATCH_SIZE = 32;
+export const DEFAULT_BATCH_SIZE = 16;
 
-/** Batches beyond this many attempts per batch are not retried automatically. */
-export const DEFAULT_MAX_ATTEMPTS_PER_BATCH = 2;
+/**
+ * Batches beyond this many attempts per batch are not retried automatically.
+ * Raised from 2 to 3 (2026-07-30, same live-run evidence as DEFAULT_BATCH_SIZE
+ * above): batch-000's own attempt-1-fails/attempt-2-succeeds pattern shows a
+ * fresh attempt can clear a batch that stalled once: not "sit for a fixed time
+ * outside the model's control" — it's the difference between the same request
+ * landing in a slow window at Venice versus a fresh one. One more attempt
+ * gives a genuinely transient stall a further chance without extending any
+ * single attempt's own timeout.
+ */
+export const DEFAULT_MAX_ATTEMPTS_PER_BATCH = 3;
 
 export interface BatchPlanBatch {
   batchId: string;
