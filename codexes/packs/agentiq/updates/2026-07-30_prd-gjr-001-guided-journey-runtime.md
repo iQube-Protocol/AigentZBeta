@@ -335,7 +335,11 @@ authoritative state + required receipt = stage complete
 
 Do not alter a wallet, card, modal, tab, drawer or cartridge merely to make the pilot appear
 smoother. Journey-specific presentation goes through orchestration, framing, overlays, controlled
-viewport rendering, or contextual Companion guidance.
+viewport rendering, or contextual Companion guidance. **Amendment (2026-07-30, operator
+clarification):** every screenshot used in this PRD's early storyboarding for Verify/Passport/
+Founder Office (§7 stages 2, 4, 7) was a placeholder, not a confirmed surface reference — locating
+the REAL existing surface for each stage is required build work (§22), never a default license to
+build a new one.
 
 ### 5.3 One-State Principle
 > The journey bar, embedded surface and Companion must derive from the same authoritative journey
@@ -368,6 +372,30 @@ The journey should visibly teach: *Control says can. Authority says may. Mandate
 > accrue Standing. Standing shall accrue from the completeness, timeliness, consistency and veracity
 > of subsequent disclosures — not from profitability alone.
 
+### 5.9 Composable Overlay Principle (added 2026-07-30, operator clarification on the storyboard)
+> The guide is always an overlay on real, live platform surfaces. It is never itself the surface.
+
+Every rendered tab, cartridge, modal, drawer, wallet or copilot panel a stage shows must be the
+**real, live, unmodified (or durably-improved) component** — never a mock, a screenshot standing in
+for a real screen, or a parallel rendering built to look like the platform. The journey narration
+(stage title, Companion explanation, evidence summary) is composited **on top of** that real surface
+as a thin overlay/pop-up — describing what is happening, never replacing what is rendered.
+
+This composes freely: a stage's viewport may stack a cartridge tab + an agent drawer + a wallet
+drawer + the Companion, simultaneously, all real, in whatever combination that stage needs. There is
+no fixed one-surface-per-stage rule — decomposition and recombination of existing components is
+explicitly permitted (§5.2 already forbids *forking* a surface; this principle clarifies that
+*composing* several real surfaces together is not forking).
+
+**The browser itself is a valid surface**, including for an external partner's own environment. When
+a stage's completion depends on a partner's live system reflecting a real state change (e.g. Horizen
+recognising MoneyPenny's registration), the journey should open **Horizen's own real page** — showing
+Horizen's environment as Horizen actually presents it — rather than only showing metaMe's reflection
+of that same fact. metaMe's own view (Agent Card, receipt, evidence panel) is shown *complementarily
+alongside* the partner's live page, never as a substitute for it. This is the same discipline this
+session has already applied to code and to secrets: ground claims in the real, live thing, never in
+a mock or a memory of it.
+
 ---
 
 ## 6. Journey architecture
@@ -398,8 +426,9 @@ For the alpha, only **Journey** and a minimal **Evidence** view need to be fully
 [ Evidence summary / receipt status ]
 ```
 
-Supported alpha surface modes: `iframe`, `component`, `modal`, `drawer`, `receipt-view`. Where the
-Companion is already provided by the shell, do not duplicate it inside the journey page.
+Supported alpha surface modes: `iframe`, `component`, `modal`, `drawer`, `receipt-view`,
+`external-url` (§5.9 — the browser itself as a surface, for a partner's own live environment). Where
+the Companion is already provided by the shell, do not duplicate it inside the journey page.
 
 ---
 
@@ -414,6 +443,11 @@ Companion is already provided by the shell, do not duplicate it inside the journ
 | **5. Delegate** | Bounded Delegation + FS Runtime Bootstrap | delegate credential ∩ active bounded delegation ∩ contextual mandate ∩ bootstrap approval ∩ observer receipt ∩ FS Runtime activation |
 | **6. Transact** | Standing Gateway + a bounded payment | Standing gateway enabled ∩ (bounded payment prepared + mandate validated) or (executed + receipt) |
 | **7. Founder Office** | Evidence Chain + Founder Office landing | MoneyPenny active in Founder Office ∩ bounded FS capabilities visible ∩ complete evidence chain readable |
+
+**Stage 1 grounds the partner in their own reality, not ours** (added 2026-07-30, §5.9): Register
+composes Horizen's own live registry/agent page (`external-url`) alongside metaMe's complementary
+reflection (Agent Card component) — see §10.1's worked example. The partner should see their own
+environment showing the registration, not only a metaMe description of it.
 
 Companion narratives (per stage, templated for alpha):
 
@@ -446,7 +480,25 @@ brief refusal/block reason on hover or click.
 type JourneyStageState =
   | 'NOT_STARTED' | 'READY' | 'IN_PROGRESS' | 'BLOCKED' | 'REFUSED' | 'COMPLETE' | 'QUARANTINED';
 
-type JourneySurfaceMode = 'iframe' | 'component' | 'modal' | 'drawer' | 'receipt-view';
+// 'external-url' added 2026-07-30 (§5.9, Composable Overlay Principle) — the
+// browser itself is a valid surface, including for a partner's own live
+// environment (e.g. Horizen's real registry page for a registered agent).
+type JourneySurfaceMode = 'iframe' | 'component' | 'modal' | 'drawer' | 'receipt-view' | 'external-url';
+
+interface JourneySurfaceRef {
+  mode: JourneySurfaceMode;
+  ref: string;
+  route?: string;
+  /** Required when mode is 'external-url' — the real external page to open
+   *  (e.g. Horizen's own agent/registry page), never a metaMe-internal route. */
+  url?: string;
+  entityRef?: string;
+  props?: Record<string, unknown>;
+  /** Human-readable note on what this surface is, for storyboard/build
+   *  traceability — e.g. "Horizen's own live registry page for this agent,"
+   *  distinct from metaMe's complementary reflection of the same fact. */
+  note?: string;
+}
 
 interface JourneyStageDefinition {
   id: string;
@@ -455,13 +507,14 @@ interface JourneyStageDefinition {
   description: string;
   actor: string;
   subjectRef: string;
-  surface: {
-    mode: JourneySurfaceMode;
-    ref: string;
-    route?: string;
-    entityRef?: string;
-    props?: Record<string, unknown>;
-  };
+  /**
+   * One or more real, live surfaces composed together for this stage (§5.9 —
+   * composition, never forking). A stage MAY show more than one at once
+   * (e.g. a partner's external-url page alongside metaMe's own drawer/tab
+   * reflecting the same fact). The Companion/journey narration is always an
+   * overlay on top of these — never counted as a "surface" itself.
+   */
+  surfaces: JourneySurfaceRef[];
   prerequisites: string[];
   permittedActions: string[];
   completionEvidence: string[];
@@ -501,19 +554,47 @@ const JOURNEY_SURFACES = {
   'agent-card': AgentCardSurface,
   'ingestion-factory': IngestionFactorySurface,
   'agent-wallet': AgentWalletSurface,
-  'marketa-validation': MarketaValidationSurface,
-  'passport-bureau': PassportSurface,
+  'marketa-validation': MarketaValidationSurface,   // real ref TBD — §22, storyboard's was a placeholder
+  'passport-bureau': PassportSurface,               // confirmed real nav item; exact screen TBD — §22
   'delegation': DelegationSurface,
   'financial-services-runtime': MoneyPennyRuntimeSurface,
   'trust-standing': TrustSurface,
   'evidence-chain': EvidenceSurface,
-  'founder-office': FounderOfficeSurface,
+  'founder-office': FounderOfficeSurface,           // real ref TBD — §22, storyboard's was a placeholder
 };
 ```
 
 For iframe-rendered routes, pass controlled params (`journeyMode=true`, `subjectRef=moneypenny`,
 `stage=prove-control`). **Never weaken normal authentication or route authority. Never expose a
 route through an iframe the user could not normally access.**
+
+### 10.1 Composable, multi-surface stages (§5.9)
+
+A stage is not limited to one entry in `JOURNEY_SURFACES`. Any real drawer, tab, cartridge, modal or
+wallet may be stacked with any other for the same stage — decomposing and recombining existing
+components is explicitly allowed; forking one to make it "fit better" is not (§5.2).
+
+**Worked example — Stage 1 (Register), per the operator's storyboard correction:** the stage
+composes **two** real surfaces simultaneously, not one:
+
+```ts
+surfaces: [
+  {
+    mode: 'external-url',
+    ref: 'horizen-registry-agent-page',
+    url: '<Horizen's real, live agent/registry page for MoneyPenny's tokenId>',
+    note: "Horizen's own environment, showing the registration as Horizen actually presents it — grounds the partner in their own reality, not metaMe's description of it.",
+  },
+  {
+    mode: 'component',
+    ref: 'agent-card',
+    entityRef: 'moneypenny',
+    note: "metaMe's complementary reflection of the same registration — shown alongside, never instead of, Horizen's own page.",
+  },
+]
+```
+
+The Companion overlay narrates across both without becoming either.
 
 ## 11. Companion integration
 
@@ -749,11 +830,31 @@ Canaries:
 
 ## 22. Open questions to confirm during build (not blocking spec approval)
 
+**Confirmed 2026-07-30 (operator, reviewing the storyboard): stages 2 (Verify), 4 (Passport), and 7
+(Founder Office)'s storyboard screenshots were placeholders, not confirmed surface references.**
+Locating the real existing surface for each — per §5.9, composing several real components is fully
+allowed, but none may be invented as a default — is now P0 research, not a nice-to-have:
+
+- **Verify's real surface** — no confirmed screen yet for "activate Pulse / authorize P&L
+  disclosure." The storyboard's placeholder (a License Check/Dependency Inventory/Secret Scan/
+  Sandbox validation view) is a *capability* validation pipeline, not a financial-transparency
+  toggle — almost certainly the wrong surface, not merely an approximate one. Find the real one, or
+  make the case-by-case call (§5.2/§5.9) that a small new toggle component is genuinely needed.
 - **Marketa's real assessment surface** — does a live validation/reviews tab already render the
   eligibility fields §3.5 step 3 needs, or does it need a thin wrapper? Affects whether
   `marketa-validation` in §10's adapter registry is a pure reuse or a small new component.
-- **Passport Bureau / delegation UI** — same question for `passport-bureau` and `delegation` surface
-  adapters.
+- **Passport Bureau's real screen** — confirmed as a real nav item (storyboard shows it listed), but
+  the storyboard's actual panel content was a generic placeholder, not the Passport Bureau screen
+  itself. Find and reference the real one.
+- **Founder Office's real screen** — same gap; the storyboard's panel was the same generic
+  placeholder reused from Passport's slot, not a distinct Founder Office view. Find and reference
+  the real one.
+- **Delegation UI** — surface question for `delegation` in §10's adapter registry, though the
+  storyboard's Stage 5 (Venture Lab α → Partner Pilot Command Center → Constitutional Agreements)
+  is a strong, likely-correct real candidate, unlike 2/4/7.
+- **Horizen's real external agent/registry page URL** — needed for Stage 1's `external-url` surface
+  (§10.1); confirm the exact live URL pattern once MoneyPenny (or Nakamoto, in rehearsal) actually
+  has a `tokenId` to reference.
 - **Receipt-type reconciliation** (§15) — map each of the sixteen listed types against the real
   `ActivityActionType` union before writing any migration; several almost certainly already exist
   under different names and must be reused, not duplicated, per `inv.engineering.037`.
