@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-30_moneypenny-registration-and-bitcent-name-check-scripts.md",
         "updates/2026-07-30_moneypenny-horizen-presence-and-external-agent-admission.md",
         "updates/2026-07-30_platform-state-reporter-role-resolver.md",
         "updates/2026-07-30_bitcent-governed-reserve-ratification.md",
