@@ -75,7 +75,7 @@ for (const envFile of ['.env.local', '.env.local.temp']) {
   if (fs.existsSync(envPath)) dotenv.config({ path: envPath, override: false });
 }
 
-const { Runestone, Etching, Rune, Terms, Range, none, some } = require('runelib');
+const { Runestone, Etching, Rune, none, some } = require('runelib');
 const { networks, Psbt, payments, script: bscript, initEccLib } = require('bitcoinjs-lib');
 const ecc = require('tiny-secp256k1');
 const { ECPairFactory } = require('ecpair');
@@ -158,15 +158,18 @@ function resolveTokenomics(record, { allowIllustrative }) {
     return illustrative;
   };
 
-  const mintTermsEntry = record.mintTerms;
-  let mintTerms;
-  if (mintTermsEntry && mintTermsEntry.ratified === true) {
-    mintTerms = mintTermsEntry.value;
-  } else if (!allowIllustrative) {
-    throw new Error('resolveTokenomics called for unratified field "mintTerms" without allowIllustrative');
-  } else {
-    console.warn('⚠️  ILLUSTRATIVE, NOT RATIFIED: "mintTerms" using placeholder amountPerMint/cap for this dry run only.');
-    mintTerms = mintTermsEntry?.illustrativeOnly;
+  // Governed-reserve model (2026-07-30 amendment): mintTerms is a plain
+  // value object -- { initiallyActiveIssuance, governedReserve, openMint }
+  // -- resolved through the SAME generic path as every other field, no
+  // special-cased illustrative fallback. `openMint` must be exactly 'none'
+  // -- this script never constructs a public-mint Terms structure, so any
+  // other value is refused rather than silently ignored.
+  const mintTerms = val('mintTerms', 'illustrativeOnly');
+  if (mintTerms && mintTerms.openMint !== 'none') {
+    throw new Error(
+      `mintTerms.openMint is "${mintTerms.openMint}", but this script only implements openMint: "none" ` +
+        '(no permissionless public mint). A different open-mint policy requires new etching code, not just a new record value.',
+    );
   }
 
   return {
@@ -175,8 +178,9 @@ function resolveTokenomics(record, { allowIllustrative }) {
     divisibility: val('divisibility'),
     maxSupply: val('maxSupply'),
     premine: val('premine'),
-    amountPerMint: mintTerms?.amountPerMint,
-    cap: mintTerms?.cap,
+    initiallyActiveIssuance: mintTerms?.initiallyActiveIssuance,
+    governedReserve: mintTerms?.governedReserve,
+    openMint: mintTerms?.openMint,
   };
 }
 
@@ -287,19 +291,22 @@ async function buildEtchingTransaction({ network, apiBase, wif, tokenomics, prem
   });
 
   const rune = Rune.fromName(tokenomics.name);
-  const terms = new Terms(
-    tokenomics.amountPerMint * Math.pow(10, tokenomics.divisibility),
-    tokenomics.cap,
-    new Range(none(), none()),
-    new Range(none(), none()),
-  );
+  // Governed-reserve model (2026-07-30): openMint is always 'none' for this
+  // record (enforced in resolveTokenomics) -- NO Terms structure is
+  // constructed. The entire premine (the full maxSupply, per the
+  // governed-reserve amendment) is etched in the ONE custodial output below;
+  // nothing can ever be minted afterward. The 100M-active/900M-reserve split
+  // is a spend-authorisation POLICY enforced by
+  // services/treasury/pilotTreasuryAuthority.js, not a protocol-level split
+  // -- Runes has no mechanism to partition a premine into tranches at the
+  // UTXO level.
   const etching = new Etching(
     some(tokenomics.divisibility),
     some(tokenomics.premine * Math.pow(10, tokenomics.divisibility)),
     some(rune),
     none(),
     some(tokenomics.symbol),
-    some(terms),
+    none(),
     true,
   );
   const stone = new Runestone([], some(etching), none(), none());
@@ -368,9 +375,10 @@ async function main() {
   console.log('  Symbol:', tokenomics.symbol);
   console.log('  Divisibility:', tokenomics.divisibility);
   console.log('  Max supply:', tokenomics.maxSupply.toLocaleString());
-  console.log('  Premine:', tokenomics.premine.toLocaleString());
-  console.log('  Amount per mint:', tokenomics.amountPerMint?.toLocaleString?.() ?? tokenomics.amountPerMint);
-  console.log('  Public mint cap:', tokenomics.cap?.toLocaleString?.() ?? tokenomics.cap, '\n');
+  console.log('  On-chain premine (this etch):', tokenomics.premine.toLocaleString());
+  console.log('  Initially active issuance:', tokenomics.initiallyActiveIssuance?.toLocaleString?.() ?? tokenomics.initiallyActiveIssuance);
+  console.log('  Governed reserve (requires a new mandate to release):', tokenomics.governedReserve?.toLocaleString?.() ?? tokenomics.governedReserve);
+  console.log('  Open mint:', tokenomics.openMint, '\n');
 
   const wif = process.env.BITCENT_TESTNET_DEPLOYER_WIF;
   if (!wif) {
@@ -409,7 +417,10 @@ async function main() {
       nonce: crypto.randomBytes(16).toString('hex'),
       expiry: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
       executionMode: 'testnet-broadcast',
-      expectedTxSummary: `Etch ${tokenomics.name} (premine ${tokenomics.premine.toLocaleString()}) to ${premineAddress} on testnet`,
+      expectedTxSummary:
+        `Etch ${tokenomics.name}: on-chain premine ${tokenomics.premine.toLocaleString()} (of which ` +
+        `${tokenomics.initiallyActiveIssuance?.toLocaleString?.()} initially active, ` +
+        `${tokenomics.governedReserve?.toLocaleString?.()} governed reserve) to ${premineAddress} on testnet`,
       transactionClass: 'bitcent-treasury-ordinary',
     };
 
@@ -431,6 +442,12 @@ async function main() {
       issuanceRecordRatified: open.length === 0,
       network: 'testnet',
       mainnetMandateExplicit: false,
+      // No cap on THIS mandate: it is the one-time genesis issuance that
+      // CREATES the treasury balance (the full on-chain premine, per the
+      // governed-reserve model), not a spend FROM an existing balance. The
+      // 100M-active/900M-reserve split is enforced on FUTURE transfer
+      // mandates (not this script), which must set treasuryCap to
+      // tokenomics.initiallyActiveIssuance until a new mandate raises it.
       treasuryCap: null,
       operatorIsSolePrincipal: true,
     };

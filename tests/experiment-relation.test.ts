@@ -423,21 +423,34 @@ describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
     // decision every time someone reads this canary.
     expect(ratified, 'premine amount is ratified').toContain('premine');
     expect(ratified, 'max supply is ratified').toContain('maxSupply');
-    // Allocation/custody/mint-terms are NOT yet ratified -- a test that
-    // assumed otherwise would silently authorize a broadcast it shouldn't.
-    expect(open, 'allocation schedule is not yet ratified').toContain('allocationSchedule');
-    expect(open, 'premine custodian is not yet ratified').toContain('premineCustodian');
-    expect(open, 'mint terms are not yet ratified').toContain('mintTerms');
+    // Allocation/custody/mint-terms were ratified 2026-07-30 (governed-reserve
+    // amendment) -- all ten required fields are now ratified. There is no
+    // remaining open field for a test to assert here.
+    expect(ratified, 'allocation schedule is ratified').toContain('allocationSchedule');
+    expect(ratified, 'premine custodian is ratified').toContain('premineCustodian');
+    expect(ratified, 'mint terms are ratified').toContain('mintTerms');
+    expect(open, 'no field remains open after the 2026-07-30 governed-reserve ratification').toHaveLength(0);
 
-    // Broadcast-path resolution refuses for any open field -- never silently
-    // substitutes a placeholder into a real transaction.
-    expect(() => resolveTokenomics(record, { allowIllustrative: false }))
-      .toThrow(/allowIllustrative/);
-    // Dry-run resolution succeeds and yields the ratified values verbatim,
-    // never a value the record doesn't actually contain.
-    const dryRun = resolveTokenomics(record, { allowIllustrative: true });
-    expect(dryRun.premine).toBe(record.premine.value);
-    expect(dryRun.maxSupply).toBe(record.maxSupply.value);
+    // Broadcast-path resolution succeeds now that every field is ratified --
+    // it must NOT require the illustrative escape hatch to resolve.
+    const executed = resolveTokenomics(record, { allowIllustrative: false });
+    expect(executed.premine).toBe(record.premine.value);
+    expect(executed.maxSupply).toBe(record.maxSupply.value);
+    // The on-chain premine is the FULL max supply (1B) -- only a portion of
+    // it is initially active; the remainder is a governed reserve, not a
+    // separate on-chain tranche (Bitcoin Runes cannot split a premine output).
+    expect(executed.premine).toBe(executed.maxSupply);
+    expect(executed.initiallyActiveIssuance).toBe(record.mintTerms.value.initiallyActiveIssuance);
+    expect(executed.governedReserve).toBe(record.mintTerms.value.governedReserve);
+    expect(executed.openMint).toBe('none');
+    // No permissionless public mint -- resolveTokenomics must refuse any
+    // other open-mint policy rather than silently accepting it.
+    expect(() =>
+      resolveTokenomics(
+        { ...record, mintTerms: { value: { ...record.mintTerms.value, openMint: 'public' }, ratified: true } },
+        { allowIllustrative: false },
+      ),
+    ).toThrow(/openMint/);
   });
 
   it('package.json has exactly one BitCent deployment command, no stale alias', () => {
