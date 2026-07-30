@@ -658,7 +658,7 @@ Specifying it after V-8 rather than before avoids a scenario set that cannot exp
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) | the etch itself |
+| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) — **MAINNET PASS, testnet still open** (see below) | the testnet etch |
 | **R-13** | The Base fee **observation window** for R-4's frozen profile — which dates, and by what rule are unusual blocks excluded? | Phase 1 reproducibility |
 
 R-10 and R-12 travel together: validating the name means nothing if two scripts can etch different
@@ -666,7 +666,38 @@ tokenomics under it. R-13 is small but load-bearing — an undocumented observat
 unreproducible, and reproducibility is the one thing a deterministic phase is supposed to guarantee.
 R-14, R-15 and R-16 (the three remaining items of the constitution's ten-item freeze list) were
 ratified 2026-07-30 — see the resolved-rulings table above and
-`2026-07-30_bitcent-governed-reserve-ratification.md`. **R-12 is now the only remaining ruling that
-blocks the etch itself** — it requires checking a live Bitcoin Rune indexer, which this session's
-sandbox cannot reach (network egress policy blocks the relevant hosts); it must be verified from an
-environment with real network access before `--execute` is used in earnest.
+`2026-07-30_bitcent-governed-reserve-ratification.md`.
+
+**R-12 mainnet check — PASS (operator-run, 2026-07-30 08:51–08:53 UTC).** Against the official
+`ord` mainnet index (`https://ordinals.com/rune/BITCENT`):
+
+```text
+rune: BITCENT
+HTTP 404 (the Rune-availability page, not a generic failure)
+reserved: false
+unlockHeight: 944100
+indexedHeight: 960232
+runeIndex: true
+decision: AVAILABLE_AND_UNLOCKED
+observedAt: 2026-07-30T08:51:57Z
+```
+
+Not etched, not reserved, unlock height already passed, and the index itself is confirmed healthy
+and synced. This must be **rechecked immediately before any actual Mainnet commitment** — a name can
+be etched by someone else between this check and a real broadcast — and Mainnet remains
+unconditionally refused in `deploy-qct-bitcoin.js` regardless of this result, pending its own
+separate ratification path.
+
+**Testnet R-12 — still open**, and this is the specific check `deploy-qct-bitcoin.js --execute`
+(testnet-only) actually depends on; a mainnet pass does not satisfy it. `testnet.ordinals.com` did
+not resolve from the operator's machine, and this session's sandbox cannot reach any Rune indexer
+(network egress policy — confirmed blocked again this session against mempool.space, 403/405).
+`scripts/check-bitcent-name-availability.js` (added 2026-07-30, `npm run check:bitcent-name`) queries
+mempool.space's testnet Rune API and is ready to run from an environment with real network access;
+it abstains to `INCONCLUSIVE` rather than asserting availability if the indexer doesn't answer
+cleanly. The operator's fallback path is the official `ord` CLI
+(`brew install ord` / `ordinals.com/install.sh`) against a synced testnet Bitcoin Core node
+(`bitcoin-cli -testnet getblockchaininfo`), which — unlike the mempool.space API path — also doubles
+as the etching tool itself if `deploy-qct-bitcoin.js`'s `runelib`/Esplora path turns out not to be the
+fastest available route. **R-12 is now split: mainnet passed, testnet remains the one open item
+blocking the testnet etch.**
