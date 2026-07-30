@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-30_bitcent-testnet-etch-broadcast.md",
         "updates/2026-07-30_control-authority-mandate-constitutional-security-model.md",
         "updates/2026-07-30_moneypenny-registration-and-bitcent-name-check-scripts.md",
         "updates/2026-07-30_moneypenny-horizen-presence-and-external-agent-admission.md",

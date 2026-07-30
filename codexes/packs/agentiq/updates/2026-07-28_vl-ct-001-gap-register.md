@@ -658,7 +658,7 @@ Specifying it after V-8 rather than before avoids a scenario set that cannot exp
 
 | # | Ruling needed | Blocks |
 |---|---|---|
-| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) — **MAINNET PASS, TESTNET PASS (non-conclusive, one indexer)** (see below) | the testnet etch |
+| **R-12** | Final deployment validation of `BITCENT` as the Rune name (R-1 was explicitly "subject to" this) — **ETCHED, testnet. Broadcast `551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65`** (see below and `2026-07-30_bitcent-testnet-etch-broadcast.md`) | closed — awaiting confirmation |
 | **R-13** | The Base fee **observation window** for R-4's frozen profile — which dates, and by what rule are unusual blocks excluded? | Phase 1 reproducibility |
 
 R-10 and R-12 travel together: validating the name means nothing if two scripts can etch different
@@ -707,9 +707,16 @@ evidence, not proof — a name could still be claimed on a block the indexer has
 a transaction not yet confirmed. Combined with the mainnet PASS above (a different indexer, same
 name, same non-etched result), both reachable indexers independently show `BITCENT` unclaimed.
 
-**R-12 status: evidence gathered, decision to proceed is the operator's, not asserted here.**
-Whether "two indexers, non-conclusive" is sufficient to broadcast — versus first getting a synced
-`ord`/Bitcoin Core node running for a fully conclusive local check — is a right-sized-mandate
+**R-12 status: evidence gathered, decision to proceed was the operator's — and the operator proceeded.**
+Whether "two indexers, non-conclusive" was sufficient to broadcast — versus first getting a synced
+`ord`/Bitcoin Core node running for a fully conclusive local check — was a right-sized-mandate
 judgment call (per `2026-07-30_control-authority-mandate-constitutional-security-model.md` §III.1:
-required proof strength scales with irreversibility, and an etch is irreversible). This document
-records the evidence; it does not rule R-12 closed on the operator's behalf.
+required proof strength scales with irreversibility, and an etch is irreversible). The operator made
+that call and ran `deploy-qct-bitcoin.js --execute` for real.
+
+**R-12 — CLOSED, 2026-07-30.** Etching transaction broadcast:
+`551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65`. Full record, including the
+funding transaction, the treasury mandate authorised for this run, and the one real gap found (mandate
+expiry not re-checked immediately before broadcast), in
+`2026-07-30_bitcent-testnet-etch-broadcast.md`. Confirmation and indexer recognition are still
+pending as of that document — not yet verified as of this edit.
