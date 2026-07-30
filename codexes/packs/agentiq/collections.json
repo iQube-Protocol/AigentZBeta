@@ -45,6 +45,7 @@
         "updates/2026-07-30_pilot-treasury-authority.md",
         "updates/2026-07-30_constitutional-authority-supremacy-passport-security.md",
         "updates/2026-07-30_security-incident-agent-key-and-service-role-exposure.md",
+        "updates/2026-07-30_irl-review-001-class-c-fix-hash-stability-determinism-test.md",
         "updates/2026-07-30_irl-review-001-checkpoint-resume.md",
         "updates/2026-07-30_irl-review-001-r2-resume-resilience.md",
         "updates/2026-07-30_irl-review-001-batching-parameter-amendment.md",

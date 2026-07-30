@@ -64,6 +64,7 @@ import {
 } from '@/services/research/review';
 import {
   CLASS_C_BLOCK_RULING,
+  CLASS_C_POPULATION_QUERY,
   EXP_P1_BOUNDARY_EXCLUSIONS,
   EXP_P1_NAMESPACE_BOUNDARY,
   EXP_P1_NON_TARGETS,
@@ -71,6 +72,7 @@ import {
   EXP_P1_TARGET_STATEMENT,
   expP1ClassCExceptionRules,
 } from '@/services/research/review/templates/expP1Admissibility';
+import { buildReviewPlan } from '@/services/research/independentReviewPlan';
 
 const REPO = join(__dirname, '..');
 const REVIEW_DIR = join(REPO, 'services/research/review');
@@ -669,6 +671,80 @@ describe('a block decision reports its exceptions rather than presuming none', (
     expect(rule.test(subject({ subjectRef: 'inv.old' }))).toBe(false);
     expect(unresolvedChronologyOrProvenance('u', 'reason').test(bare)).toBe(true);
   });
+
+  // ── The 2026-07-30 fix, proven directly ─────────────────────────────────
+  //
+  // The vP1 --preview run showed this rule extracting all 402/402 Class C
+  // rows, because the OLD implementation also fired on `sourceProvenance ===
+  // null` — and most rows predate the provenance-CLASS tagging convention,
+  // so almost the entire population carries a null provenanceClass despite
+  // having real sourceRefs/derivationRefs/createdAt. That single disjunct
+  // defeated the ratified block ruling outright (a "block admits everything
+  // except this one exception rule that catches everything" is not a block
+  // decision). The fix removed that disjunct; the rule now fires ONLY when
+  // the record itself cannot establish chronology or provenance.
+  it('a null sourceProvenance LABEL alone does NOT extract a row that has real sourceRefs/derivationRefs/createdAt (2026-07-30 fix)', () => {
+    const untaggedButEvidenced = subject({
+      subjectRef: 'inv.untagged.pre-convention',
+      sourceProvenance: null,
+      sourceRefs: ['docs/legacy-source.md'],
+      derivationRefs: ['ratified 2024-01-01, before provenance-class tagging existed'],
+      createdAt: '2024-01-01T00:00:00.000Z',
+    });
+    const rule = unresolvedChronologyOrProvenance('unresolved-chronology-or-provenance', 'reason');
+    expect(rule.test(untaggedButEvidenced)).toBe(false);
+
+    // The genuinely-unresolved shape (no refs at all, whether or not it also
+    // lacks a provenanceClass label) still extracts, exactly as before.
+    const genuinelyUnresolved = subject({
+      subjectRef: 'inv.genuinely.unresolved',
+      sourceProvenance: null,
+      sourceRefs: [],
+      derivationRefs: [],
+    });
+    expect(rule.test(genuinelyUnresolved)).toBe(true);
+  });
+
+  it('a Class C population dominated by untagged-but-evidenced rows (the vP1 shape) admits most of it, rather than extracting 100% (regression guard for the 402/402 defect)', () => {
+    // 400 rows shaped exactly like the vP1 corpus majority: real sourceRefs +
+    // derivationRefs + createdAt, but sourceProvenance never back-filled to a
+    // provenance-class label. Plus 2 rows that are genuinely unresolved (no
+    // refs at all) and should still be caught.
+    const untaggedMajority = Array.from({ length: 400 }, (_, i) =>
+      subject({
+        subjectRef: `inv.vp1-shape.${i}`,
+        sourceProvenance: null,
+        sourceRefs: [`docs/legacy-source-${i}.md`],
+        derivationRefs: [`ratified pre-convention ${i}`],
+        namespace: i % 2 === 0 ? 'constitutional' : 'reasoning',
+      }),
+    );
+    const genuinelyUnresolved = [
+      subject({ subjectRef: 'inv.vp1-shape.unresolved-1', sourceProvenance: null, sourceRefs: [], derivationRefs: [] }),
+      subject({ subjectRef: 'inv.vp1-shape.unresolved-2', sourceProvenance: null, sourceRefs: [], derivationRefs: [] }),
+    ];
+    const b = buildBlockDecision({
+      blockId: 'block.vp1-shape',
+      ruling: CLASS_C_BLOCK_RULING,
+      populationQuery: CLASS_C_POPULATION_QUERY,
+      population: [...untaggedMajority, ...genuinelyUnresolved],
+      exceptionRules: expP1ClassCExceptionRules(),
+      taskConstructionBegun: false,
+      taskConstructionEvidence: 'no task specification exists',
+      sampleSeed: 'vp1-shape-seed',
+      samplePerNamespace: 5,
+    });
+    expect(b.assessed).toBe(402);
+    // Before the fix: extracted === 402 (100%), admitted === 0. After: only
+    // the 2 genuinely-unresolved rows are extracted by this rule.
+    expect(b.extracted).toHaveLength(2);
+    expect(b.extracted.map((e) => e.subjectRef).sort()).toEqual([
+      'inv.vp1-shape.unresolved-1',
+      'inv.vp1-shape.unresolved-2',
+    ]);
+    expect(b.admitted).toBe(400);
+    expect(b.admitted).toBeGreaterThan(0);
+  });
 });
 
 // ── 9. Coverage ─────────────────────────────────────────────────────────────
@@ -981,6 +1057,109 @@ describe('package construction and hashing read no clock and no random source', 
     expect(seededTake('s', keys, 5)).toEqual(seededTake('s', keys, 5));
     expect(seededTake('s', keys, 5)).not.toEqual(seededTake('other-seed', keys, 5));
     expect(seededTake('s', [...keys].reverse(), 5)).toEqual(seededTake('s', keys, 5));
+  });
+
+  // ── Determinism test, requested by the operator alongside the 2026-07-30 ───
+  // package-hash-stability fix (`packageHash`/`reviewId` used to be derived
+  // from a fresh wall-clock `createdAt` on every invocation — see the file
+  // header of reviewPackage.ts and independentReviewPlan.ts's reviewId
+  // derivation comment). These two tests prove the fix at both the layer
+  // where it lives (`buildReviewPackage`) and the layer the operator actually
+  // runs (`buildReviewPlan`, via the CLI), so a regression at either layer is
+  // caught even if the other stays correct.
+
+  it('buildReviewPackage: identical subjects/boundary/rubric/ruling with DIFFERENT createdAt produce the SAME packageHash, and createdAt is still returned (not dropped from the type)', () => {
+    const early = sealPackage({ createdAt: '2026-01-01T00:00:00.000Z' });
+    const late = sealPackage({ createdAt: '2099-12-31T23:59:59.999Z' });
+
+    expect(early.packageHash).toBe(late.packageHash);
+    expect(verifyPackageHash(early)).toBe(true);
+    expect(verifyPackageHash(late)).toBe(true);
+
+    // createdAt itself must still be present and still reflect what the
+    // caller supplied — the fix excludes it from the HASH, not from the type.
+    expect(early.createdAt).toBe('2026-01-01T00:00:00.000Z');
+    expect(late.createdAt).toBe('2099-12-31T23:59:59.999Z');
+    expect(early.createdAt).not.toBe(late.createdAt);
+  });
+
+  it('buildReviewPlan: two builds from an identical corpus produce byte-identical reviewId, packageId and packageHash, even from different createdAt (the "stable package ID/hash across repeated builds" requirement)', async () => {
+    const corpusRows = [
+      {
+        id: 'row-1',
+        seed_id: 'inv.constitutional.9001',
+        statement: 'A constitutional statement about authority and delegation.',
+        namespace: 'constitutional',
+        status: 'canonical',
+        provenance: {
+          provenanceClass: 'platform-doctrine',
+          sourceRefs: ['docs/source-a.md'],
+          derivationRefs: ['ratified 2026-01-01'],
+        },
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: null,
+      },
+      {
+        id: 'row-2',
+        seed_id: 'inv.reasoning.9002',
+        statement: 'A reasoning statement about transferable primitives.',
+        namespace: 'reasoning',
+        status: 'canonical',
+        provenance: {
+          provenanceClass: 'platform-doctrine',
+          sourceRefs: ['docs/source-b.md'],
+          derivationRefs: ['ratified 2026-01-02'],
+        },
+        created_at: '2026-01-02T00:00:00.000Z',
+        updated_at: null,
+      },
+      {
+        id: 'row-3',
+        seed_id: 'inv.finance.9003',
+        statement: 'A finance statement with no relation to the target system.',
+        namespace: 'finance',
+        status: 'canonical',
+        provenance: { provenanceClass: 'external-established', sourceRefs: ['docs/source-c.md'] },
+        created_at: '2026-01-03T00:00:00.000Z',
+        updated_at: null,
+      },
+    ];
+
+    // A minimal fake Supabase-shaped client — just enough of the
+    // `.from().select().order().range()` chain `buildReviewPlan` calls, with
+    // no clock and no randomness of its own, so any drift in the assertion
+    // below can only come from the code under test.
+    const fakeAdmin = () =>
+      ({
+        from: () => ({
+          select: () => ({
+            order: () => ({
+              range: async () => ({ data: corpusRows, error: null }),
+            }),
+          }),
+        }),
+      }) as unknown as Parameters<typeof buildReviewPlan>[0];
+
+    const planA = await buildReviewPlan(fakeAdmin(), {
+      version: 'vDeterminismTest',
+      createdAt: '2026-07-29T00:00:00.000Z',
+    });
+    const planB = await buildReviewPlan(fakeAdmin(), {
+      version: 'vDeterminismTest',
+      createdAt: '2099-01-01T00:00:00.000Z',
+    });
+
+    expect(planA.reviewId).toBe(planB.reviewId);
+    expect(planA.pkg.packageId).toBe(planB.pkg.packageId);
+    expect(planA.pkg.packageHash).toBe(planB.pkg.packageHash);
+    expect(verifyPackageHash(planA.pkg)).toBe(true);
+    expect(verifyPackageHash(planB.pkg)).toBe(true);
+
+    // The caller-supplied createdAt is still preserved as metadata on each
+    // instance — it is excluded from the hash, not discarded.
+    expect(planA.pkg.createdAt).toBe('2026-07-29T00:00:00.000Z');
+    expect(planB.pkg.createdAt).toBe('2099-01-01T00:00:00.000Z');
+    expect(planA.pkg.createdAt).not.toBe(planB.pkg.createdAt);
   });
 });
 
