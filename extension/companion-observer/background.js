@@ -57,10 +57,45 @@ let grantStateCache = emptyGrantState();
 
 // ─── Hydrate the cache from chrome.storage.local on worker start ──────────
 
-chrome.storage.local.get([STORAGE_KEY_GRANT_STATE], (result) => {
-  if (result && result[STORAGE_KEY_GRANT_STATE]) {
-    grantStateCache = result[STORAGE_KEY_GRANT_STATE];
-  }
+/**
+ * THE HYDRATION GATE — every grant read MUST await this. (MS-11.)
+ *
+ * `grantStateCache` above starts EMPTY and is filled from
+ * `chrome.storage.local` by an ASYNCHRONOUS callback. MV3 evicts this service
+ * worker after ~30s idle and restarts it on demand, so the ORDER on a cold
+ * start is:
+ *
+ *   1. Chrome starts the worker because a message arrived.
+ *   2. Top-level code runs — `grantStateCache = emptyGrantState()`, i.e. every
+ *      capability reads as UNGRANTED — and registers the storage callback.
+ *   3. The queued message is dispatched to `onMessage`.
+ *   4. ...only LATER does the storage callback run and fill the cache.
+ *
+ * A handler that answers synchronously at step 3 answers from the empty value
+ * at step 2. THE BUG THIS FIXES (operator-diagnosed 2026-07-30, after the
+ * Overlay showed the same stale site for hours): every `CHECK_GRANT` returned
+ * `false` on every domain, so `content.js`'s `buildObservation` populated NO
+ * fields and posted `{grantedCapabilities: [], observedAt}` — an observation
+ * with no `currentTabDomain` at all. The citizen had a `scope: 'global'`
+ * `current-tab` grant the whole time; the worker just could not see it yet.
+ * Nothing errored, and the extension popup correctly reported "grants in
+ * sync" — because storage WAS in sync. Only the in-memory mirror was empty.
+ *
+ * This is the invariant family CLAUDE.md's companion-menu invariants already
+ * name — two things describing one thing, and the stale one winning (MS-10's
+ * shape) — in a new place: an in-memory cache that can answer AUTHORITATIVELY
+ * before it has been hydrated. A fail-closed default is correct for consent,
+ * but only once it can be distinguished from "not loaded yet"; answering
+ * "denied" for "I don't know yet" is a lie with the same consequences as
+ * answering "granted" wrongly, just in the other direction.
+ */
+const grantStateReady = new Promise((resolve) => {
+  chrome.storage.local.get([STORAGE_KEY_GRANT_STATE], (result) => {
+    if (result && result[STORAGE_KEY_GRANT_STATE]) {
+      grantStateCache = result[STORAGE_KEY_GRANT_STATE];
+    }
+    resolve();
+  });
 });
 
 // Keep the in-memory cache in sync with chrome.storage.local regardless of
@@ -735,6 +770,12 @@ function setCaptureBadge(text, color) {
  * back to whatever the cache already had, same as before this call existed.
  */
 async function performCapture(info, tab) {
+  // Hydration first (see `grantStateReady`): "Pull Across" is a context-menu
+  // click, which is exactly the kind of one-off event that WAKES an evicted
+  // worker — so this path is especially likely to run against a cold, empty
+  // cache. Without this, a capture the citizen has globally granted is refused
+  // with a red ✗ badge and no explanation.
+  await grantStateReady;
   await refreshGrantsFromServer(COMPANION_SURFACE_OVERLAY);
 
   const capture = await buildCapture(info, tab);
@@ -962,8 +1003,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'CHECK_GRANT': {
       const { capability, siteDomain } = message;
-      sendResponse({ granted: isCapabilityGranted(grantStateCache, capability, siteDomain) });
-      return false;
+      // ASYNC ON PURPOSE (was synchronous — see `grantStateReady`). A cold-
+      // started worker has an EMPTY cache at the moment this message is
+      // dispatched, so answering synchronously reports every capability as
+      // ungranted. Awaiting hydration is the difference between "denied" and
+      // "not loaded yet".
+      grantStateReady.then(() => {
+        sendResponse({ granted: isCapabilityGranted(grantStateCache, capability, siteDomain) });
+      });
+      return true; // async response — the channel must stay open
     }
 
     case 'OBSERVATION': {
@@ -971,27 +1019,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // services/companion/observerContext.ts's assertObservationRespectsGrants.
       // Runs before this observation is used for anything (forwarded,
       // cached, or logged beyond this handler's own error path).
-      try {
-        assertObservationRespectsGrants(message.observation, grantStateCache);
-      } catch (err) {
-        sendResponse({ ok: false, error: String(err && err.message ? err.message : err) });
-        return false;
-      }
-      // PRD-MMC-IMPL-002 Increment 2, Step 1: forward the locally-checked
-      // observation to the real Companion API. The server independently
-      // re-validates consent against its OWN stored grant state (defense in
-      // depth) — this local check is not the only gate. Async: the content
-      // script gets its "ok: true" ack immediately from the local check
-      // above; the forward happens best-effort in the background and its
-      // own failure is logged, never surfaced as a rejection of the local
-      // consent decision.
-      forwardObservationToServer(message.observation).then((result) => {
-        if (!result.ok) {
-          console.warn('[metaMe Companion] observation forward failed:', result.reason);
+      //
+      // Gated on `grantStateReady` for the same reason CHECK_GRANT is: on a
+      // cold-started worker this assertion would otherwise run against an
+      // empty cache. It fails OPEN in the harmless direction there (an
+      // observation with no populated fields passes trivially) but the check
+      // would be vacuous, which is not what a consent choke point may be.
+      grantStateReady.then(() => {
+        try {
+          assertObservationRespectsGrants(message.observation, grantStateCache);
+        } catch (err) {
+          sendResponse({ ok: false, error: String(err && err.message ? err.message : err) });
+          return;
         }
+        // PRD-MMC-IMPL-002 Increment 2, Step 1: forward the locally-checked
+        // observation to the real Companion API. The server independently
+        // re-validates consent against its OWN stored grant state (defense in
+        // depth) — this local check is not the only gate.
+        //
+        // NOTE ON THE ACK: `ok: true` below reports the LOCAL CONSENT RESULT
+        // ONLY — it is sent before the forward resolves and says nothing about
+        // whether the server accepted the write. Reading it as "persisted"
+        // cost hours on 2026-07-30: the page console showed an unbroken run of
+        // `{ok: true}` while every forward was timing out, so the observation
+        // row never moved and the Overlay kept rendering a days-old site. The
+        // forward's own outcome is logged (worker console) — and it is the
+        // ONLY place that outcome is visible, so check there, not the page.
+        forwardObservationToServer(message.observation).then((result) => {
+          if (!result.ok) {
+            console.warn('[metaMe Companion] observation forward failed:', result.reason);
+          }
+        });
+        sendResponse({ ok: true });
       });
-      sendResponse({ ok: true });
-      return false;
+      return true; // async response — the channel must stay open
     }
 
     case 'PROBE_ACTIVE_PERSONA': {

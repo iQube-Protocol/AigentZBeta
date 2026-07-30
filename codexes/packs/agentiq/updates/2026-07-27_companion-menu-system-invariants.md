@@ -10,7 +10,7 @@ CCR-001's completion sections — **not a second artifact family** (CFS-049 Amen
 system are so we don't have to keep playing this game of whack-a-mole where fixing one thing
 breaks another persistently."*
 
-This is that definition. Ten invariants, each with the defect that proved it and the canary that
+This is that definition. Eleven invariants, each with the defect that proved it and the canary that
 enforces it. **Every one of them was learned from a live regression** — none is speculative.
 
 ## Capability identity
@@ -304,6 +304,86 @@ Two corollaries, both of which the defect below produced:
 
 ---
 
+## MS-11 — A cache may not answer authoritatively before it is hydrated
+
+A cache that mirrors durable state has a **third** state besides granted and denied: *not loaded
+yet*. Any read that cannot distinguish "I know the answer is no" from "I do not know yet" must
+**wait**, not answer. This is the sharpest possible case for it — a consent cache, where the
+fail-closed default is otherwise exactly right.
+
+Fail-closed is correct for consent, and it is precisely what made this invisible: answering "denied"
+looks like the safe direction, so nothing errors, nothing warns, and the surface degrades into a
+state indistinguishable from the citizen never having granted anything. **Answering "denied" for
+"not loaded yet" is a lie with the same consequences as wrongly answering "granted", in the other
+direction** — and in a consent system the second is audited while the first is assumed benign.
+
+- **Provenance:** regression-derived
+- **Status:** canonical
+- **Stage:** canonical
+- **Broke it:** `background.js`'s `CHECK_GRANT` handler answered **synchronously** from
+  `grantStateCache`, which starts as `emptyGrantState()` and is filled by an **asynchronous**
+  `chrome.storage.local.get` callback. MV3 evicts the worker after ~30s idle, so the message that
+  *wakes* the worker is dispatched to `onMessage` on an earlier task than the hydration callback.
+  Every grant check on a cold-started worker therefore returned `false`, on every domain, and
+  `buildObservation` populated **no fields at all** — posting `{grantedCapabilities: [], observedAt}`
+  with no `currentTabDomain`. The server upserted a domainless row, so the Overlay fell back to the
+  last row that had ever written successfully and rendered a **days-old site** for hours
+  (`CLAUDE.AI` while the active tab was `chatgpt.com`, then `github.com`). The citizen's
+  `scope: 'global'` `current-tab` grant was in `chrome.storage.local` the entire time, and the
+  extension popup correctly reported **"grants in sync"** — storage *was* in sync; only the
+  in-memory mirror was empty (2026-07-30).
+- **Why the MS-10 canary was blind to it:** the harness's fake `chrome.storage.local.get` invoked
+  its callback **synchronously**. That one detail made this entire defect class inexpressible: the
+  cache was always hydrated before any message could be dispatched, so a synchronous read always
+  looked correct. **A fake that is easier to satisfy than the real API cannot falsify anything.**
+  The fake now defers its callback, as Chrome's does.
+- **The diagnostic tell, and the trap:** the page console showed an unbroken run of
+  `[metaMe Observer] background observation handling result: {ok: true}`. That ack reports the
+  **local consent result only** — it is sent before the forward resolves and says nothing about
+  whether the server accepted the write. Reading it as "persisted" cost hours. The forward's real
+  outcome (`observation forward failed: TimeoutError: signal timed out`) is logged **only in the
+  service worker console** (`chrome://extensions` → Inspect views → `service worker`), never the
+  page console. When an observation is not landing, that is the only console that can tell you.
+- **Fixed by:** a `grantStateReady` promise gate resolved by the hydration callback. Every grant
+  read awaits it — `CHECK_GRANT` and `OBSERVATION` (both now async responders, returning `true` to
+  hold the message channel open) and `performCapture`, which is the likeliest of the three to run on
+  a cold worker since a context-menu click is exactly the kind of one-off event that wakes one.
+- **Also fixed alongside:** `content.js` **awaited** `REFRESH_GRANTS`, whose handler performs a
+  server fetch with a 10s ceiling — more than double the content script's own 4s message ceiling. It
+  therefore could not succeed whenever the server was slow: it stalled every observation for the
+  full 4s and continued anyway. That was the true source of the recurring
+  `background did not respond in time` warnings. The refresh is a **cache warm, never a
+  precondition**, so it is now fire-and-forget; the following checks read the fresh state on the
+  next observation, one 5s poll cycle later.
+- **Enforced by:** `tests/companion-observer.test.ts` — "a cold-started worker answers grant checks
+  from STORAGE, not from its empty initial cache". `hydrationDelayMs` pins the hydration callback
+  after the waking message rather than racing it. Verified to fail against the pre-fix code with
+  `expected [ undefined ] to deeply equal [ 'claude.ai' ]` — the domainless observation itself.
+
+---
+
+## Open defect — site-scoped grants store a URL where a hostname is compared
+
+Found while diagnosing MS-11, **not yet fixed**, and currently **masked** by the global grant that
+sits beside it. Live grant state contains:
+
+```json
+{ "capability": "current-tab", "scope": "site", "siteDomain": "https://github.com/" }
+```
+
+`isCapabilityGranted` compares `g.siteDomain === siteDomain`, and its caller passes
+`location.hostname` — `"github.com"`. `"https://github.com/" !== "github.com"`, so **every
+site-scoped grant is dead on arrival**: it can never match the domain it was granted for. Only the
+`scope: 'global'` grant is doing any work today, which is why this has never surfaced as a symptom.
+
+Whoever fixes this must fix it at the **write** path (normalise to a hostname when the grant is
+recorded) *and* migrate the existing rows — normalising only at comparison time would leave the
+stored records misleading, and a stored record that does not mean what it says is the MS-10/MS-11
+shape again. Needs a canary asserting a site-scoped grant matches the host it names, and does not
+match a different one.
+
+---
+
 ## Third-party embeds — the standing caution
 
 The D-ID avatar SDK renders **outside** the container it is given: it injects nodes at
@@ -330,7 +410,7 @@ document-level styles it may have taken.
 
 - Before changing anything in the menu system, name which invariant your change relies on.
 - A change that would violate an invariant is a discussion, not an implementation.
-- A defect that fits none of the ten is an eleventh invariant — add it here with its defect and its canary in the same change that fixes it.
+- A defect that fits none of the eleven is a twelfth invariant — add it here with its defect and its canary in the same change that fixes it.
 - Never add a second control, a second owner, a second mode value, or a second measurement for something the list above already assigns to one place.
 - Never widen a canary's tolerance to make a violating change pass; the canary is the invariant's only enforceable form.
 - Changing the vocabulary in `services/companion/companionNavigation.ts` is a vocabulary EXTENSION and needs the operator's sign-off — the ratified set is pinned by canary.
@@ -358,7 +438,7 @@ document-level styles it may have taken.
 | Field | Value |
 |-------|-------|
 | Proof class | constitutional |
-| Claim scope | These ten invariants, as governing the Companion menu system on this platform. NOT a claim that they generalise to menu systems at large — the recurrence shape (two owners, stale one wins) is a candidate for cross-capability promotion, which is a separate finding requiring its own evidence. |
+| Claim scope | These eleven invariants, as governing the Companion menu system on this platform. NOT a claim that they generalise to menu systems at large — the recurrence shape (two owners, stale one wins) is a candidate for cross-capability promotion, which is a separate finding requiring its own evidence. |
 | Evidence references | `tests/companion-1-1-navigation.test.ts`, `tests/companion-1-1-quicklinks.test.ts`, `tests/companion-observer.test.ts`, `tests/partner-workspace.test.ts`, `tests/capability-completion.test.ts` |
 | Approval record | None — not yet submitted |
 | Published | no |
@@ -370,5 +450,5 @@ document-level styles it may have taken.
 
 Before changing anything in the menu system, name which invariant your change relies on. If a
 change would violate one, that is the discussion — not the implementation. If a new defect turns
-out to fit none of these ten, it is an eleventh invariant: add it here with its defect and its canary
+out to fit none of these eleven, it is a twelfth invariant: add it here with its defect and its canary
 in the same change that fixes it.

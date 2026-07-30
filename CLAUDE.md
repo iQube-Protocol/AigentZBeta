@@ -496,8 +496,8 @@ This is a mature, actively evolving codebase. Before writing any new code:
 **Full definition with the defect and canary behind each rule:
 `codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md`.**
 
-Ten invariants, every one learned from a live regression. Seven of the ten failures were the SAME
-shape — **two things owning or describing one thing, and the stale one winning** — which is why
+Eleven invariants, every one learned from a live regression. Eight of the eleven failures were the
+SAME shape — **two things owning or describing one thing, and the stale one winning** — which is why
 fixing one kept breaking another.
 
 | # | Invariant |
@@ -512,14 +512,22 @@ fixing one kept breaking another.
 | **MS-8** | **An overlay is anchored to the box it occupies and does not intercept.** One rect for position AND size; a high-z layer without `pointer-events: none` swallows clicks. |
 | **MS-9** | **A control that cannot act must not render.** |
 | **MS-10** | **One observer, one record.** The observation of the page is ONE shared row; any "nothing changed, skip the write" decision must be made where that record lives, never in a per-observer cache of what that observer last sent. A stale observation must never render as current. |
+| **MS-11** | **A cache may not answer authoritatively before it is hydrated.** A cache mirroring durable state has a third state besides yes/no — *not loaded yet* — and a read that cannot tell it from "no" must WAIT, not answer. Answering "denied" for "not loaded yet" is a lie with the same consequences as wrongly answering "granted"; fail-closed is what makes it invisible. Also: an MV3 worker is evicted after ~30s idle, so the message that WAKES it is dispatched before its own async hydration callback runs — and a fake `chrome.storage` whose callback fires synchronously cannot falsify any of this. |
 
 **Third-party embeds render outside the container you give them.** The D-ID avatar SDK injects at
 `document.body` level and can write `document.body.style` — no host-wrapper styling reaches it.
 Unmount when unused, sweep artifacts on teardown, restore document-level styles.
 
 Before changing the menu system, name the invariant your change relies on. A change that would
-violate one is a discussion, not an implementation. A defect that fits none of the nine is a tenth
-invariant — add it, with its canary, in the same change that fixes it.
+violate one is a discussion, not an implementation. A defect that fits none of the eleven is a
+twelfth invariant — add it, with its canary, in the same change that fixes it.
+
+**When an observation is not landing, the page console cannot tell you.** `{ok: true}` from the
+`OBSERVATION` handler is the LOCAL consent result, sent before the server forward resolves — it is
+compatible with every forward failing. The forward's real outcome is logged only in the service
+worker console: `chrome://extensions` → metaMe Companion → Inspect views → `service worker`. Check
+there first, and check `chrome.storage.local.get(null, console.log)` for the grant state the worker
+actually holds.
 
 ---
 

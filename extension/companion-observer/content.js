@@ -163,10 +163,22 @@ async function buildObservation() {
   // here (no connection, network error) is non-fatal -- checkGrant() below
   // just falls back to whatever the cache already had, same as before this
   // refresh existed.
+  // FIRE-AND-FORGET, NOT AWAITED (changed 2026-07-30). `REFRESH_GRANTS` makes
+  // the worker perform a SERVER fetch whose own ceiling is 10s
+  // (API_FETCH_TIMEOUT_MS) — more than double this script's 4s message ceiling
+  // (MESSAGE_TIMEOUT_MS). Awaiting it therefore could not succeed whenever the
+  // server was slow: it stalled every observation for the full 4s and then
+  // continued anyway, which is what the awaited version's timeout warning
+  // (`background did not respond in time`, seen throughout 2026-07-30) actually
+  // was. The refresh is a CACHE WARM, never a precondition — when it lands, the
+  // worker updates `grantStateCache` and `chrome.storage.onChanged` mirrors it,
+  // so the following checks read the fresh state on the NEXT observation. With
+  // the panel re-observing every 5s the staleness window is one cycle; the old
+  // behaviour's cost was a guaranteed 4s stall on every single observation.
   const now = Date.now();
   if (now - lastGrantRefreshAt >= GRANT_REFRESH_MIN_INTERVAL_MS) {
     lastGrantRefreshAt = now;
-    await sendMessage({ type: 'REFRESH_GRANTS' });
+    void sendMessage({ type: 'REFRESH_GRANTS' });
   }
 
   const grantedCapabilities = [];

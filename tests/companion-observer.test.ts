@@ -670,7 +670,7 @@ describe('extension/companion-observer — MS-10: one observer, one record', () 
     for (let i = 0; i < 4; i += 1) await new Promise((r) => setTimeout(r, 5));
   };
 
-  function buildBrowser(opts?: { observationStatus?: () => number }) {
+  function buildBrowser(opts?: { observationStatus?: () => number; hydrationDelayMs?: number }) {
     /** The single shared server row the whole defect is about. */
     const posted: Array<Record<string, unknown>> = [];
     const storage: Record<string, unknown> = {
@@ -689,10 +689,18 @@ describe('extension/companion-observer — MS-10: one observer, one record', () 
     const workerListeners: Array<(m: unknown, s: unknown, r: (v: unknown) => void) => unknown> = [];
 
     const localStorageArea = {
+      // THE CALLBACK IS DEFERRED, because Chrome's is (MS-11, 2026-07-30).
+      // This fake used to invoke `cb` SYNCHRONOUSLY, and that single detail
+      // made the whole cold-start class of defect impossible to express here:
+      // `grantStateCache` was always hydrated before any message could be
+      // dispatched, so a handler reading it synchronously always looked
+      // correct. In a real MV3 worker the hydration callback lands on a LATER
+      // task than the message that woke the worker. A fake that is easier to
+      // satisfy than the real API cannot falsify anything.
       get: (keys: string[], cb?: (r: Record<string, unknown>) => void) => {
         const out: Record<string, unknown> = {};
         for (const k of keys) out[k] = storage[k];
-        if (cb) { cb(out); return undefined; }
+        if (cb) { setTimeout(() => cb(out), opts?.hydrationDelayMs ?? 0); return undefined; }
         return Promise.resolve(out);
       },
       set: (obj: Record<string, unknown>) => { Object.assign(storage, obj); return Promise.resolve(); },
@@ -824,6 +832,34 @@ describe('extension/companion-observer — MS-10: one observer, one record', () 
     expect(
       domainsOf(browser.posted),
       'an unchanged observation with no intervening tab must be written exactly once',
+    ).toEqual(['claude.ai']);
+  });
+
+  it('a cold-started worker answers grant checks from STORAGE, not from its empty initial cache', async () => {
+    // MS-11 — a cache may not answer authoritatively before it is hydrated.
+    //
+    // THE DEFECT (operator-diagnosed 2026-07-30, after the Overlay showed the
+    // same stale site for hours while the popup reported "grants in sync"):
+    // MV3 evicts the worker after ~30s idle, so the message that WAKES it is
+    // dispatched to `onMessage` on an earlier task than the worker's own async
+    // `chrome.storage.local.get` hydration callback. `CHECK_GRANT` answered
+    // synchronously from `emptyGrantState()` — `false` for every capability,
+    // on every domain — so `buildObservation` populated NO fields and posted
+    // `{grantedCapabilities: [], observedAt}` with no `currentTabDomain`. The
+    // citizen's `scope: 'global'` grant was in storage the entire time.
+    //
+    // `hydrationDelayMs` puts the hydration callback firmly AFTER the waking
+    // message rather than leaving it to chance, so this pins the ordering
+    // instead of racing it.
+    const browser = buildBrowser({ hydrationDelayMs: 10 });
+    const claude = browser.openTab('claude.ai', 'Claude');
+    await browser.flush();
+
+    expect(
+      domainsOf(browser.posted),
+      'the observation that woke the worker must carry the observed domain: a grant check ' +
+        'answered before hydration reports "denied" for what is really "not loaded yet", and ' +
+        'the resulting domainless observation leaves the shared row on whatever it last held',
     ).toEqual(['claude.ai']);
   });
 
