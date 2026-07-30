@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   EXPERIMENT_RELATIONS,
   CONTAMINATING_RELATIONS,
@@ -373,21 +374,76 @@ describe('QriptoCENT supply constitution (ratified 2026-07-29)', () => {
   const flat = (p: string) =>
     read(p).replace(/[*>`]/g, '').replace(/\s+/g, ' ');
 
-  it('both etching scripts refuse to run until the issuance constitution is ratified', () => {
-    // A Rune's name, divisibility, cap and premine are ALL immutable at etch.
-    for (const p of ['scripts/deploy-qct-runes.ts', 'scripts/deploy-qct-runes.js']) {
-      const src = read(p);
-      expect(src, `${p} must gate the etch`).toMatch(/BITCENT_ISSUANCE_CONSTITUTION_RATIFIED/);
-      expect(src, `${p} must refuse, not warn`).toMatch(/process\.exitCode = 1/);
-      // The refusal must say the ALLOCATION is incomplete — not that the amount
-      // is unknown. 100M is decided; presenting it as open would reopen a
-      // settled decision every time someone reads the error.
-      expect(src, `${p} must name the allocation as the blocker`).toMatch(/ALLOCATION CONSTITUTION is incomplete/);
-      expect(src, `${p} must state the intended amount`).toMatch(/100,000,000/);
-      expect(src, `${p} must mark 400M superseded`).toMatch(/SUPERSEDED/);
+  it('the five superseded/duplicate etching scripts are gone, not merely guarded', () => {
+    // R-10 (gap register): "the loser should be deleted, not merely guarded."
+    // A resurrected duplicate is exactly the source-of-truth-parity defect
+    // class (CLAUDE.md inv.engineering.037) this consolidation closed.
+    for (const p of [
+      'scripts/deploy-qct-runes.js',
+      'scripts/deploy-qct-runes.ts',
+      'scripts/deploy-qct-bitcoin-basic.js',
+      'scripts/deploy-qct-bitcoin-final.js',
+      'scripts/deploy-qct-bitcoin-simple.js',
+    ]) {
+      expect(existsSync(join(REPO, p)), `${p} must not exist -- consolidated into deploy-qct-bitcoin.js`).toBe(false);
     }
-    // The divergent script keeps its own separate guard.
-    expect(read('scripts/deploy-qct-bitcoin.js')).toMatch(/ACKNOWLEDGE_DIVERGENT_TOKENOMICS/);
+  });
+
+  it('the sole authoritative script never hardcodes tokenomics, loads the frozen issuance record instead', async () => {
+    const src = read('scripts/deploy-qct-bitcoin.js');
+    // Real Runestone protocol encoding (runelib), not the placeholder
+    // OP_RETURN this file carried before consolidation (RUNE_TEST magic
+    // string, Buffer.alloc(8) supply -- both non-functional).
+    expect(src, 'must use the real runelib encoder').toMatch(/require\(['"]runelib['"]\)/);
+    // Checks the actual old CODE pattern, not this file's own doc comment
+    // recounting the history -- a bare string match would false-positive on
+    // the paragraph above explaining what was removed.
+    expect(src, 'must not carry the old non-functional placeholder magic').not.toMatch(/Buffer\.from\(['"]RUNE_TEST['"]/);
+    // No literal tokenomics numbers in the script -- they live only in the record.
+    expect(src, 'must not hardcode the premine').not.toMatch(/100_?000_?000/);
+    expect(src, 'must not hardcode the max supply').not.toMatch(/1_?000_?000_?000/);
+    expect(src, 'must load the frozen issuance record').toMatch(/bitcent-issuance-record\.json/);
+    expect(src, 'must never accept a hardcoded WIF').not.toMatch(/(?:^|[^A-Za-z0-9_])[295KL][1-9A-HJ-NP-Za-km-z]{50,51}(?:[^A-Za-z0-9_]|$)/);
+    expect(src, 'must read the signer from the environment').toMatch(/process\.env\.BITCENT_TESTNET_DEPLOYER_WIF/);
+    // Testnet/Mainnet must be explicitly separated, Mainnet the harder gate.
+    expect(src, 'must gate Mainnet separately and explicitly').toMatch(/MAINNET/);
+    expect(src, 'must refuse Mainnet unconditionally pending its own ratification path').toMatch(/Mainnet execution requires its own separate ratification/);
+
+    const { loadIssuanceRecord, checkRatification, resolveTokenomics, REQUIRED_FIELDS } =
+      await import(pathToFileURL(join(REPO, 'scripts/deploy-qct-bitcoin.js')).href);
+
+    // Ten fields, matching the constitution's freeze list -- not a smaller
+    // ad hoc set that could silently drop a required item.
+    expect(REQUIRED_FIELDS).toHaveLength(10);
+
+    const record = loadIssuanceRecord();
+    const { ratified, open } = checkRatification(record);
+
+    // The amount IS decided; presenting it as open would reopen a settled
+    // decision every time someone reads this canary.
+    expect(ratified, 'premine amount is ratified').toContain('premine');
+    expect(ratified, 'max supply is ratified').toContain('maxSupply');
+    // Allocation/custody/mint-terms are NOT yet ratified -- a test that
+    // assumed otherwise would silently authorize a broadcast it shouldn't.
+    expect(open, 'allocation schedule is not yet ratified').toContain('allocationSchedule');
+    expect(open, 'premine custodian is not yet ratified').toContain('premineCustodian');
+    expect(open, 'mint terms are not yet ratified').toContain('mintTerms');
+
+    // Broadcast-path resolution refuses for any open field -- never silently
+    // substitutes a placeholder into a real transaction.
+    expect(() => resolveTokenomics(record, { allowIllustrative: false }))
+      .toThrow(/allowIllustrative/);
+    // Dry-run resolution succeeds and yields the ratified values verbatim,
+    // never a value the record doesn't actually contain.
+    const dryRun = resolveTokenomics(record, { allowIllustrative: true });
+    expect(dryRun.premine).toBe(record.premine.value);
+    expect(dryRun.maxSupply).toBe(record.maxSupply.value);
+  });
+
+  it('package.json has exactly one BitCent deployment command, no stale alias', () => {
+    const pkg = JSON.parse(read('package.json'));
+    expect(pkg.scripts['deploy:qct-runes'], 'stale alias must be removed').toBeUndefined();
+    expect(pkg.scripts['deploy:bitcent']).toMatch(/deploy-qct-bitcoin\.js/);
   });
 
   it('the deployment guide states the cap is PER DENOMINATION, not protocol-wide', () => {

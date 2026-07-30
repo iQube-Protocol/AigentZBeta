@@ -1,270 +1,380 @@
 /**
- * ⚠️  NON-AUTHORITATIVE DUPLICATE — DO NOT ETCH FROM THIS SCRIPT WITHOUT A RULING.
+ * BitCent (B¢) Runes Etching Script — the SOLE authoritative etching path.
  *
- * This script etches the same concept as `deploy-qct-runes.ts` / `.js` but with
- * DIFFERENT AND IRRECONCILABLE tokenomics. Rune etching parameters are immutable
- * once broadcast, so whichever script runs first fixes them forever:
+ * CONSOLIDATION (2026-07-30, operator-ruled). This repo previously carried
+ * SIX competing/duplicate BitCent deployment scripts. Five are deleted:
+ *   - deploy-qct-bitcoin-basic.js / -final.js / -simple.js: incomplete
+ *     drafts, two of which hardcoded a now-rotated testnet private key
+ *     (removed 2026-07-30, R-11/G-3).
+ *   - deploy-qct-runes.js / deploy-qct-runes.ts: used the correct `runelib`
+ *     Runestone/Etching/Terms protocol encoder, but carried the SUPERSEDED
+ *     400,000,000 premine tokenomics.
+ * THIS file is what remains, and it is deliberately NOT "the old
+ * deploy-qct-bitcoin.js with new numbers" — that file's OP_RETURN encoder
+ * was a non-functional placeholder (`Buffer.alloc(8) // needs proper
+ * encoding`, a `RUNE_TEST` magic string that is not the real Runestone
+ * protocol). This script ports the real `runelib`-based Taproot etching
+ * flow from deploy-qct-runes.* and combines it with the ratified tokenomics.
  *
- *   |                 | deploy-qct-runes.*   | this script      |
- *   |-----------------|----------------------|------------------|
- *   | premine         | 400,000,000 (40%)    | 100,000,000      |
- *   | amount per mint | 47,619               | 1,000            |
- *   | mint cap        | 21,000 mints         | 900,000,000      |
+ * TOKENOMICS ARE NEVER HARDCODED HERE. Every value is loaded from
+ * scripts/bitcent-issuance-record.json — the frozen issuance record — and
+ * this script refuses to broadcast (though NOT to dry-run) unless every one
+ * of the ten required fields is marked `ratified: true` there. A Rune's
+ * name, divisibility, cap and premine are immutable at etch; there is no
+ * second attempt, so "trust whoever edited this file last" is not an
+ * acceptable gate.
  *
- * Two scripts that etch one concept with different parameters is the
- * source-of-truth-parity defect class (CLAUDE.md `inv.engineering.037`), and
- * here the stale duplicate cannot be corrected after the fact.
+ * See:
+ *   codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md
+ *   codexes/packs/agentiq/updates/2026-07-30_bitcent-frozen-issuance-record.md
+ *   scripts/bitcent-issuance-record.json
  *
- * The naming canon below is applied to BOTH so that no path can etch the wrong
- * NAME while the TOKENOMICS question is open. The tokenomics question is an
- * operator ruling, not an agent's call — hence the guard in `deployQCTBitcoin`.
+ * Usage:
+ *   npx tsx scripts/... (this file is plain JS, run with node)
+ *   node scripts/deploy-qct-bitcoin.js                  # dry run (default)
+ *   node scripts/deploy-qct-bitcoin.js --execute         # real broadcast --
+ *                                                          refuses unless the
+ *                                                          issuance record is
+ *                                                          fully ratified
+ *   node scripts/deploy-qct-bitcoin.js --mainnet --execute  # refuses unless
+ *     BITCENT_MAINNET_ISSUANCE_RATIFIED=yes is ALSO set -- a separate,
+ *     deliberately harder gate than testnet.
  *
- * NAMING CANON (R-1, ratified 2026-07-28): the class is QriptoCENT / Q¢; this is
- * the Bitcoin-specific version, BitCent / B¢ (ASCII fallback `Bc`, long form
- * "Bitcoin Q¢"). Etch `BITCENT`, never `QRIPTOCENT`.
- *
- * SECURITY (R-11/G-3, FIXED 2026-07-30): this file used to contain a hardcoded
- * testnet WIF private key. It now reads BITCENT_TESTNET_DEPLOYER_WIF from the
- * environment (.env.example documents the var) and refuses to run without it.
- * The previously-committed key is treated as compromised regardless of its
- * testnet-only, zero-value status -- it had already been committed to git
- * history AND displayed in an agent session transcript, either of which is
- * enough on its own. A fresh key was generated to replace it; if the OLD
- * address (tb1qywewf6kshzgvq9awzr46awhylu40v68tr8acm2) holds testnet BTC from
- * an earlier faucet request, check it directly (this sandbox's outbound proxy
- * blocks blockstream.info, so that could not be verified here) and sweep it to
- * the new address before abandoning it, rather than assume either way.
+ * Requires (server-side only, never committed):
+ *   BITCENT_TESTNET_DEPLOYER_WIF (testnet), or BITCENT_MAINNET_DEPLOYER_WIF
+ *   (mainnet, not yet used by this script -- mainnet is refused outright
+ *   below pending its own separate ratification path).
  */
+
 const path = require('path');
 const fs = require('fs');
+const readline = require('readline');
 const dotenv = require('dotenv');
-const bitcoin = require('bitcoinjs-lib');
-const { ECPairFactory } = require('ecpair');
-const ecc = require('tiny-secp256k1');
-const axios = require('axios');
 
-// Same dual-path convention as scripts/show-deployer-info.js and
-// run-independence-review.ts's loadLocalEnv(): .env.local first, then the
-// .env.local.temp fallback this environment actually uses.
 for (const envFile of ['.env.local', '.env.local.temp']) {
   const envPath = path.join(__dirname, '..', envFile);
   if (fs.existsSync(envPath)) dotenv.config({ path: envPath, override: false });
 }
 
+const { Runestone, Etching, Rune, Terms, Range, none, some } = require('runelib');
+const { networks, Psbt, payments, script: bscript, initEccLib } = require('bitcoinjs-lib');
+const ecc = require('tiny-secp256k1');
+const { ECPairFactory } = require('ecpair');
+const axios = require('axios');
+
+initEccLib(ecc);
 const ECPair = ECPairFactory(ecc);
 
-// Bitcoin testnet configuration
-const NETWORK = bitcoin.networks.testnet;
-const BLOCKSTREAM_API = 'https://blockstream.info/testnet/api';
+const ISSUANCE_RECORD_PATH = path.join(__dirname, 'bitcent-issuance-record.json');
+const REQUIRED_FIELDS = [
+  'runeName',
+  'symbol',
+  'divisibility',
+  'maxSupply',
+  'premine',
+  'mintTerms',
+  'allocationSchedule',
+  'premineCustodian',
+  'relationshipToBaseQc',
+  'independenceDeclaration',
+];
 
-async function deployQCTBitcoin() {
-  // Guard: this script's tokenomics disagree with deploy-qct-runes.* and an etch
-  // is irreversible. Refuse rather than let the disagreement be settled by
-  // whichever script someone happens to run.
-  if (process.env.ACKNOWLEDGE_DIVERGENT_TOKENOMICS !== 'yes') {
-    console.error(
-      'Refusing to etch: this script disagrees with deploy-qct-runes.* on premine,\n' +
-      'amount-per-mint and cap, and Rune etching is irreversible. Resolve which\n' +
-      'script is authoritative first. To proceed deliberately anyway, re-run with\n' +
-      'ACKNOWLEDGE_DIVERGENT_TOKENOMICS=yes.',
-    );
-    process.exitCode = 1;
-    return;
+function loadIssuanceRecord() {
+  if (!fs.existsSync(ISSUANCE_RECORD_PATH)) {
+    throw new Error(`Frozen issuance record not found at ${ISSUANCE_RECORD_PATH}`);
+  }
+  return JSON.parse(fs.readFileSync(ISSUANCE_RECORD_PATH, 'utf8'));
+}
+
+/**
+ * Returns { ratified: string[], open: string[] } over the ten required
+ * fields. Never guesses -- a field missing from the record entirely counts
+ * as open, same as one explicitly marked `ratified: false`.
+ */
+function checkRatification(record) {
+  const ratified = [];
+  const open = [];
+  for (const field of REQUIRED_FIELDS) {
+    if (record[field] && record[field].ratified === true) ratified.push(field);
+    else open.push(field);
+  }
+  return { ratified, open };
+}
+
+/**
+ * Resolves the tokenomics actually used to build the transaction.
+ *
+ * `allowIllustrative`: when true (dry-run only), an open field falls back to
+ * its `illustrativeOnly` / `proposed` value SOLELY so the encoder has
+ * something to build a structurally valid demonstration transaction from --
+ * every such value is logged, loudly, as illustrative and unratified. When
+ * false (the --execute path), EVERY field -- mintTerms included -- throws
+ * rather than substituting a placeholder. This function enforces that
+ * itself (defense in depth): it does not rely solely on `main()`'s separate
+ * up-front refusal, because a future caller of this function directly must
+ * get the same guarantee the CLI path gets.
+ */
+function resolveTokenomics(record, { allowIllustrative }) {
+  const val = (field, illustrativeKey) => {
+    const entry = record[field];
+    if (entry && entry.ratified === true) return entry.value;
+    if (!allowIllustrative) {
+      throw new Error(`resolveTokenomics called for unratified field "${field}" without allowIllustrative`);
+    }
+    const illustrative = illustrativeKey ? entry?.[illustrativeKey] : entry?.value;
+    console.warn(`⚠️  ILLUSTRATIVE, NOT RATIFIED: "${field}" using placeholder value for this dry run only.`);
+    return illustrative;
+  };
+
+  const mintTermsEntry = record.mintTerms;
+  let mintTerms;
+  if (mintTermsEntry && mintTermsEntry.ratified === true) {
+    mintTerms = mintTermsEntry.value;
+  } else if (!allowIllustrative) {
+    throw new Error('resolveTokenomics called for unratified field "mintTerms" without allowIllustrative');
+  } else {
+    console.warn('⚠️  ILLUSTRATIVE, NOT RATIFIED: "mintTerms" using placeholder amountPerMint/cap for this dry run only.');
+    mintTerms = mintTermsEntry?.illustrativeOnly;
   }
 
-  console.log('🚀 Deploying BitCent (B¢) Bitcoin Runes Token...\n');
+  return {
+    name: val('runeName'),
+    symbol: val('symbol'),
+    divisibility: val('divisibility'),
+    maxSupply: val('maxSupply'),
+    premine: val('premine'),
+    amountPerMint: mintTerms?.amountPerMint,
+    cap: mintTerms?.cap,
+  };
+}
 
-  // R-11/G-3: never a hardcoded literal -- see the SECURITY note above.
-  const persistentWIF = process.env.BITCENT_TESTNET_DEPLOYER_WIF;
-  if (!persistentWIF) {
-    console.error(
-      'Refusing to run: BITCENT_TESTNET_DEPLOYER_WIF is not set. See .env.example ' +
-      'for what this variable is and why it is no longer hardcoded here (R-11/G-3).',
-    );
-    process.exitCode = 1;
-    return;
+function toXOnly(pubkey) {
+  return pubkey.subarray(1, 33);
+}
+
+async function waitUntilUTXO(address, apiBase) {
+  const url = `${apiBase}/address/${address}/utxo`;
+  console.log(`Waiting for a UTXO at ${address}...`);
+  let utxos = [];
+  while (utxos.length === 0) {
+    try {
+      const res = await axios.get(url);
+      utxos = Array.isArray(res.data) ? res.data : [];
+      if (utxos.length === 0) {
+        console.log('No UTXO yet, waiting 10s...');
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+      }
+    } catch (err) {
+      console.error('Error fetching UTXO:', err.message);
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+    }
   }
-  const keyPair = ECPair.fromWIF(persistentWIF, NETWORK);
-  const { address } = bitcoin.payments.p2wpkh({ 
-    pubkey: keyPair.publicKey, 
-    network: NETWORK 
+  console.log(`Found ${utxos.length} UTXO(s)`);
+  return utxos;
+}
+
+/** Node's own stdin prompt -- a real deliberate-confirmation gate, not just
+ *  another environment variable that can be copy-pasted without re-reading. */
+function confirm(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === 'yes');
+    });
+  });
+}
+
+async function buildEtchingTransaction({ network, apiBase, wif, tokenomics, premineAddress, requireRealUtxo }) {
+  const keyPair = ECPair.fromWIF(wif, network);
+
+  const etchingScriptAsm = `${toXOnly(keyPair.publicKey).toString('hex')} OP_CHECKSIG`;
+  const etchingScript = bscript.fromASM(etchingScriptAsm);
+  const scriptTree = { output: etchingScript };
+
+  const scriptP2tr = payments.p2tr({ internalPubkey: toXOnly(keyPair.publicKey), scriptTree, network });
+  const etchingRedeem = { output: etchingScript, redeemVersion: 192 };
+  const etchingP2tr = payments.p2tr({
+    internalPubkey: toXOnly(keyPair.publicKey),
+    scriptTree,
+    redeem: etchingRedeem,
+    network,
   });
 
-  console.log('🔑 Bitcoin Wallet Address:', address);
-  console.log('🔐 Private Key (WIF):', keyPair.toWIF());
+  const address = scriptP2tr.address;
+  console.log('📍 Etching (reveal) address:', address);
 
-  try {
-    // Check wallet balance
-    const response = await axios.get(`${BLOCKSTREAM_API}/address/${address}`);
-    const balance = response.data.chain_stats.funded_txo_sum - response.data.chain_stats.spent_txo_sum;
-    
-    console.log('💰 Wallet balance:', balance, 'sats');
-
-    if (balance < 10000) { // Need at least 0.0001 BTC for fees
-      console.log('\n❌ Insufficient Bitcoin for Runes deployment!');
-      console.log('📝 To deploy:');
-      console.log('1. Get testnet Bitcoin from: https://coinfaucet.eu/en/btc-testnet/');
-      console.log('2. Send to wallet:', address);
-      console.log('3. Run this script again');
-      return;
-    }
-
-    // Create Runes etching transaction
-    console.log('\n📄 Creating QCT Runes Token...');
-    
-    // Runes protocol parameters
-    const runesData = {
-      // IMMUTABLE ONCE ETCHED. Not 'QRIPTOCENT' — that names the class. See the
-      // naming canon at the top of this file.
-      name: 'BITCENT', // Runes name (max 26 chars)
-      symbol: 'B¢',
-      decimals: 8,
-      supply: 1000000000, // 1 billion QCT
-      premine: 100000000,  // 100 million premined
-      terms: {
-        amount: 1000,      // 1000 QCT per mint
-        cap: 900000000,    // 900M available for public minting
-        heightStart: null, // Start immediately
-        heightEnd: null,   // No end height
-        offsetStart: null,
-        offsetEnd: null
-      }
-    };
-
-    // Create OP_RETURN data for Runes protocol
-    const runesScript = createRunesScript(runesData);
-    
-    // Get UTXOs for the address
-    const utxosResponse = await axios.get(`${BLOCKSTREAM_API}/address/${address}/utxo`);
-    const utxos = utxosResponse.data;
-
-    if (utxos.length === 0) {
-      throw new Error('No UTXOs found for address');
-    }
-
-    // Create transaction
-    const psbt = new bitcoin.Psbt({ network: NETWORK });
-
-    // Add inputs
-    let inputValue = 0;
-    for (const utxo of utxos.slice(0, 3)) { // Use up to 3 UTXOs
-      const txHex = await getTxHex(utxo.txid);
-      psbt.addInput({
-        hash: utxo.txid,
-        index: utxo.vout,
-        nonWitnessUtxo: Buffer.from(txHex, 'hex')
-      });
-      inputValue += utxo.value;
-    }
-
-    // Add Runes OP_RETURN output
-    psbt.addOutput({
-      script: runesScript,
-      value: 0
-    });
-
-    // Add change output
-    const fee = 5000; // 5000 sats fee
-    const changeValue = inputValue - fee;
-    if (changeValue > 546) { // Dust limit
-      psbt.addOutput({
-        address: address,
-        value: changeValue
-      });
-    }
-
-    // Sign transaction
-    for (let i = 0; i < utxos.slice(0, 3).length; i++) {
-      psbt.signInput(i, keyPair);
-    }
-
-    psbt.finalizeAllInputs();
-    const tx = psbt.extractTransaction();
-    const txHex = tx.toHex();
-
-    console.log('✅ Runes transaction created');
-    console.log('📝 Transaction size:', txHex.length / 2, 'bytes');
-    console.log('💸 Estimated fee:', fee, 'sats');
-
-    // Broadcast transaction
-    console.log('\n📡 Broadcasting Runes etching transaction...');
-    const broadcastResponse = await axios.post(`${BLOCKSTREAM_API}/tx`, txHex, {
-      headers: { 'Content-Type': 'text/plain' }
-    });
-
-    const txid = tx.getId();
-    console.log('✅ Transaction broadcast successful!');
-    console.log('🔗 Transaction ID:', txid);
-    console.log('🌐 Explorer:', `https://mempool.space/testnet/tx/${txid}`);
-
-    // Save deployment info
-    const deploymentInfo = {
-      network: 'testnet',
-      runeName: runesData.name,
-      runeSymbol: runesData.symbol,
-      txid: txid,
-      address: address,
-      privateKey: keyPair.toWIF(),
-      supply: runesData.supply,
-      decimals: runesData.decimals,
-      deploymentTime: new Date().toISOString(),
-      explorer: `https://mempool.space/testnet/tx/${txid}`
-    };
-
-    console.log('\n💾 Deployment Summary:');
-    console.log(JSON.stringify(deploymentInfo, null, 2));
-
-    console.log('\n📋 Next Steps:');
-    console.log('1. Wait for 6 confirmations for Runes to be active');
-    console.log('2. Rune ID will be available after confirmation');
-    console.log('3. Update qct-contracts.ts with confirmed Rune ID');
-
-    return deploymentInfo;
-
-  } catch (error) {
-    console.error('❌ Bitcoin Runes deployment failed:', error);
-    throw error;
+  let utxos;
+  if (requireRealUtxo) {
+    console.log('⚠️  Send testnet BTC to this address and wait for confirmations.');
+    utxos = await waitUntilUTXO(address, apiBase);
+  } else {
+    // Dry-run without a funded address: fabricate a structurally-valid UTXO
+    // reference purely so the PSBT-building code path can be exercised and
+    // decoded locally. NEVER used on the broadcast path (requireRealUtxo is
+    // always true there).
+    utxos = [{ txid: '0'.repeat(64), vout: 0, value: 100000 }];
+    console.log('ℹ️  Dry run with no funded address: using a fabricated placeholder UTXO to exercise the encoder only.');
   }
+
+  const psbt = new Psbt({ network });
+  psbt.addInput({
+    hash: utxos[0].txid,
+    index: utxos[0].vout,
+    witnessUtxo: { value: BigInt(utxos[0].value), script: scriptP2tr.output },
+    tapLeafScript: [
+      {
+        leafVersion: etchingRedeem.redeemVersion,
+        script: etchingRedeem.output,
+        controlBlock: etchingP2tr.witness[etchingP2tr.witness.length - 1],
+      },
+    ],
+  });
+
+  const rune = Rune.fromName(tokenomics.name);
+  const terms = new Terms(
+    tokenomics.amountPerMint * Math.pow(10, tokenomics.divisibility),
+    tokenomics.cap,
+    new Range(none(), none()),
+    new Range(none(), none()),
+  );
+  const etching = new Etching(
+    some(tokenomics.divisibility),
+    some(tokenomics.premine * Math.pow(10, tokenomics.divisibility)),
+    some(rune),
+    none(),
+    some(tokenomics.symbol),
+    some(terms),
+    true,
+  );
+  const stone = new Runestone([], some(etching), none(), none());
+
+  psbt.addOutput({ script: stone.encipher(), value: BigInt(0) });
+  psbt.addOutput({ address: premineAddress, value: BigInt(546) });
+
+  const fee = 10000;
+  const change = utxos[0].value - 546 - fee;
+  if (change > 546) {
+    psbt.addOutput({ address: premineAddress, value: BigInt(change) });
+  }
+
+  if (requireRealUtxo) {
+    psbt.signAllInputs(keyPair);
+    psbt.finalizeAllInputs();
+  }
+
+  return { psbt, keyPair, address };
 }
 
-// Helper function to create Runes OP_RETURN script
-function createRunesScript(runesData) {
-  // Runes protocol magic number
-  const RUNES_MAGIC = Buffer.from('RUNE_TEST', 'utf8'); // Testnet magic
-  
-  // Encode Runes data (simplified - real implementation needs proper encoding)
-  const nameBuffer = Buffer.from(runesData.name, 'utf8');
-  const symbolBuffer = Buffer.from(runesData.symbol, 'utf8');
-  
-  // Create OP_RETURN script
-  const data = Buffer.concat([
-    RUNES_MAGIC,
-    nameBuffer,
-    symbolBuffer,
-    Buffer.from([runesData.decimals]),
-    Buffer.alloc(8) // Supply (needs proper encoding)
-  ]);
+async function main() {
+  const args = process.argv.slice(2);
+  const EXECUTE = args.includes('--execute');
+  const MAINNET = args.includes('--mainnet');
 
-  return bitcoin.script.compile([
-    bitcoin.opcodes.OP_RETURN,
-    data
-  ]);
+  const record = loadIssuanceRecord();
+  const { ratified, open } = checkRatification(record);
+
+  console.log('🚀 BitCent (B¢) Runes etching — sole authoritative script\n');
+  console.log(`Frozen issuance record: ${ISSUANCE_RECORD_PATH}`);
+  console.log(`Ratified fields (${ratified.length}/${REQUIRED_FIELDS.length}): ${ratified.join(', ') || '(none)'}`);
+  console.log(`Open fields (${open.length}/${REQUIRED_FIELDS.length}): ${open.join(', ') || '(none)'}\n`);
+
+  if (MAINNET) {
+    // Mainnet is refused unconditionally here, ahead of every other check.
+    // It requires its own separate ratification path -- ten frozen fields is
+    // the TESTNET bar; mainnet additionally requires a Mainnet-specific
+    // ratification flag and record this script does not yet implement,
+    // per the operator's explicit ruling (2026-07-30): "refuse Mainnet
+    // unless a separate Mainnet ratification flag and record are present."
+    console.error('Refusing: Mainnet execution requires its own separate ratification flag and record, not yet implemented. Testnet only.');
+    process.exitCode = 1;
+    return;
+  }
+
+  const network = networks.testnet;
+  const apiBase = 'https://blockstream.info/testnet/api';
+
+  if (EXECUTE && open.length > 0) {
+    console.error(
+      `Refusing to broadcast: ${open.length} of ${REQUIRED_FIELDS.length} required issuance fields are not ratified: ${open.join(', ')}.\n` +
+      'A Rune\'s name, divisibility, cap and premine are immutable at etch -- there is no second attempt.\n' +
+      `See each field's "note" in ${ISSUANCE_RECORD_PATH} for what remains, and\n` +
+      'codexes/packs/agentiq/updates/2026-07-30_bitcent-frozen-issuance-record.md for the full record.\n' +
+      'Run WITHOUT --execute for a dry run that demonstrates the encoding using illustrative placeholders for open fields.',
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const tokenomics = resolveTokenomics(record, { allowIllustrative: !EXECUTE });
+
+  console.log('Token configuration for this run:');
+  console.log('  Name:', tokenomics.name);
+  console.log('  Symbol:', tokenomics.symbol);
+  console.log('  Divisibility:', tokenomics.divisibility);
+  console.log('  Max supply:', tokenomics.maxSupply.toLocaleString());
+  console.log('  Premine:', tokenomics.premine.toLocaleString());
+  console.log('  Amount per mint:', tokenomics.amountPerMint?.toLocaleString?.() ?? tokenomics.amountPerMint);
+  console.log('  Public mint cap:', tokenomics.cap?.toLocaleString?.() ?? tokenomics.cap, '\n');
+
+  const wif = process.env.BITCENT_TESTNET_DEPLOYER_WIF;
+  if (!wif) {
+    console.error('Refusing: BITCENT_TESTNET_DEPLOYER_WIF is not set. See .env.example.');
+    process.exitCode = 1;
+    return;
+  }
+
+  // Premine recipient: the ratified custodian wallet if one exists, else the
+  // deployer's own address as an explicitly-illustrative testnet stand-in.
+  // NEVER silently substitutes on the real broadcast path -- EXECUTE with an
+  // unratified custodian was already refused above.
+  const keyPairForAddress = ECPair.fromWIF(wif, network);
+  const { address: deployerAddress } = payments.p2wpkh({ pubkey: keyPairForAddress.publicKey, network });
+  const premineAddress = record.premineCustodian?.ratified ? record.premineCustodian.value : deployerAddress;
+  if (!record.premineCustodian?.ratified) {
+    console.warn(`⚠️  ILLUSTRATIVE, NOT RATIFIED: "premineCustodian" not yet set -- using the deployer's own testnet address (${deployerAddress}) as a stand-in for this dry run only.`);
+  }
+
+  const { psbt, address } = await buildEtchingTransaction({
+    network,
+    apiBase,
+    wif,
+    tokenomics,
+    premineAddress,
+    requireRealUtxo: EXECUTE,
+  });
+
+  if (!EXECUTE) {
+    console.log('\n✅ Dry run complete -- valid protocol-encoded transaction built, NOT broadcast.');
+    console.log('  Reveal address:', address);
+    console.log('  Inputs:', psbt.data.inputs.length);
+    console.log('  Outputs:', psbt.txOutputs.length, psbt.txOutputs.map((o) => ({ value: o.value.toString() })));
+    console.log('\nRun with --execute (after full ratification) to broadcast for real.');
+    return;
+  }
+
+  // EXECUTE path -- fully ratified by this point, real UTXO, real signature.
+  const tx = psbt.extractTransaction();
+  const txHex = tx.toHex();
+  console.log('📝 Transaction ready.');
+  console.log('  Fee-inclusive size:', txHex.length / 2, 'bytes');
+  console.log('  Explorer (once broadcast):', `https://mempool.space/testnet/tx/${tx.getId()}`);
+
+  const proceed = await confirm('\nType "yes" to broadcast this transaction, anything else to abort: ');
+  if (!proceed) {
+    console.log('Aborted -- nothing broadcast.');
+    return;
+  }
+
+  const res = await axios.post(`${apiBase}/tx`, txHex, { headers: { 'Content-Type': 'text/plain' } });
+  console.log('✅ Broadcast successful. Response:', res.data);
 }
 
-// Helper function to get transaction hex
-async function getTxHex(txid) {
-  const response = await axios.get(`${BLOCKSTREAM_API}/tx/${txid}/hex`);
-  return response.data;
-}
-
-// Run if called directly
 if (require.main === module) {
-  deployQCTBitcoin()
-    .then(() => process.exit(0))
-    .catch((error) => {
-      console.error('❌ Deployment failed:', error);
-      process.exit(1);
-    });
+  main().catch((err) => {
+    console.error('❌ Failed:', err.message);
+    process.exitCode = 1;
+  });
 }
 
-module.exports = { deployQCTBitcoin };
+module.exports = { loadIssuanceRecord, checkRatification, resolveTokenomics, REQUIRED_FIELDS };
