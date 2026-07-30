@@ -61,8 +61,12 @@ async function migrateKeys() {
 
   // Check environment variable
   if (!process.env.AGENT_KEY_ENCRYPTION_SECRET) {
+    // SECURITY (2026-07-30): never print or hint at a real secret value here.
+    // The literal value this hint used to contain has been redacted across
+    // this repo and must be treated as compromised -- generate a fresh one,
+    // never reuse it.
     console.error('❌ ERROR: AGENT_KEY_ENCRYPTION_SECRET not set in environment');
-    console.error('   Add to .env.local: AGENT_KEY_ENCRYPTION_SECRET=e35c7d79651daadd8723ff952c90fe55c567143065e1159d5e683ff3c9703fda');
+    console.error('   Add AGENT_KEY_ENCRYPTION_SECRET to .env.local with a securely generated value.');
     process.exit(1);
   }
 
