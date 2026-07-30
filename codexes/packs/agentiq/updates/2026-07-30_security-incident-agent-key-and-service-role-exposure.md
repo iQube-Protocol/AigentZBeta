@@ -38,6 +38,15 @@ meaning both halves needed to decrypt real agent wallets were sitting in the sam
 The same `NEXT_PUBLIC_*`-fallback anti-pattern existed for this secret in five more files, plus
 one instance for `NEXT_PUBLIC_CORE_SUPABASE_SERVICE_ROLE_KEY` in a Nakamoto Core Hub client.
 
+**Confirmed by the operator (2026-07-30): `NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET` was actually
+set in Amplify with a real value.** This is the most severe single fact in this incident — it
+means the key that decrypts real agent private keys had been inlined into the client-side
+JavaScript bundle and shipped to every visitor's browser, a live public exposure, not a git-history
+one. Every reference to this variable name (including the two remaining presence-only boolean
+checks initially left in place, since a boolean read doesn't leak a value on its own) was removed
+per the operator's explicit instruction to eliminate the name from the codebase entirely, not only
+its value-reading uses.
+
 ### 3. Debug endpoints returning secret fragments, unauthenticated
 
 - `app/api/debug/env-check/route.ts` — printed 16–30 character prefixes of six different
@@ -73,8 +82,22 @@ one instance for `NEXT_PUBLIC_CORE_SUPABASE_SERVICE_ROLE_KEY` in a Nakamoto Core
   not leak secret values, so it was not deleted.
 - `.env.local.temp` untracked from git (separate commit, `8f16e7295`/`9f135a363`); `.env.*` in
   `.gitignore` now actually takes effect for it.
+- Every remaining reference to `NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET` removed, including the
+  two presence-only boolean checks initially left in place (`app/api/admin/debug/env-check/route.ts`,
+  `app/api/admin/debug/supabase-conflict/route.ts`) — per the operator's instruction to eliminate
+  the name entirely once its live exposure was confirmed, not merely its value-reading uses.
+- **New canary added:** `tests/security-no-next-public-secrets.test.ts`. Structurally scans every
+  file under `app/`, `services/`, `components/`, `scripts/`, `packages/`, `apps/` (500+ files) for
+  any non-boolean reference to the three confirmed-dangerous `NEXT_PUBLIC_*` names, and checks the
+  debug endpoints for secret-fragment slicing (`.substring`/`.slice` on a secret-named variable)
+  and literal high-entropy prefix patterns (the `expected: { ENCRYPTION_KEY_starts: '...' }` shape
+  that caused the worst leak). Verified to actually fail against an injected regression before being
+  trusted (reverted after confirming). This is a static-source-scan proof, not a build-output
+  inspection: if zero files ever reference `process.env.NEXT_PUBLIC_<secret>`, Next.js's
+  build-time inlining has nothing to place into any bundle, client or server — a stronger and
+  cheaper guarantee than checking one particular build's output after the fact.
 
-Full suite: 185 files / 3336 tests, green throughout.
+Full suite: 186 files / 3344 tests, green throughout.
 
 ## Explicitly NOT done in this slice (operator-directed)
 
