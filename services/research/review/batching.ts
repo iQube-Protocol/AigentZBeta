@@ -237,6 +237,15 @@ export interface BatchAttemptRecord {
   failureReason?: string;
   /** Set on a failed attempt — see `computeBatchRetryBackoff`. */
   failureCategory?: BatchFailureCategory;
+  /**
+   * Pre-parsed decisions for a batch resumed from a checkpoint that does not
+   * carry raw provider text (2026-07-30 checkpoint amendment — checkpoints
+   * deliberately omit raw provider output). When present, the resumed branch
+   * uses these directly instead of re-parsing `raw`. Absent for the ordinary
+   * in-memory `resumeFrom` path (e.g. within one process's own retry), which
+   * still re-parses `raw` exactly as before — fully backward compatible.
+   */
+  decisions?: ReviewDecision[];
 }
 
 export interface BatchRawOutput {
@@ -280,6 +289,22 @@ export interface RunBatchedAdjudicationInput {
    * unresolved batches (rulings §6, "resume safety").
    */
   resumeFrom?: readonly BatchAttemptRecord[];
+  /**
+   * Fired once per FRESHLY-accepted batch (never for a batch reused via
+   * `resumeFrom` — that batch's checkpoint already exists on disk). Awaited
+   * before the loop proceeds to the next batch, so a checkpoint write is
+   * complete before the next dispatch begins (2026-07-30 resilience
+   * amendment — the vP1 batch-011 run lost 11 completed R2 batches because
+   * nothing was persisted until the whole run finished; this is the hook
+   * that fixes it). This module still performs no IO itself — the callback
+   * is the caller's, same shape as `onStep`.
+   */
+  onBatchAccepted?: (input: {
+    batchId: string;
+    batchHash: string;
+    attempt: BatchAttemptRecord;
+    decisions: ReviewDecision[];
+  }) => void | Promise<void>;
 }
 
 /**
@@ -337,19 +362,21 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
         reviewerSlot: input.reviewerSlot,
         batchId: batch.batchId,
         rawOutputRef: resumed.rawOutputRef,
-        raw: resumed.raw,
+        raw: resumed.raw ?? '',
         outputHash: resumed.outputHash,
       });
-      const parsed = parseAdjudication({
-        reviewId: input.reviewId,
-        reviewerSlot: input.reviewerSlot,
-        reviewerRef: input.reviewerRef,
-        raw: resumed.raw,
-        rawOutputRef: resumed.rawOutputRef,
-        reviewedAt: input.now(),
-        expectedSubjectRefs: batch.subjectRefs,
-      });
-      for (const d of parsed.decisions) decisionsByRef.set(d.subjectRef, d);
+      const resumedDecisions = resumed.decisions
+        ? resumed.decisions
+        : parseAdjudication({
+            reviewId: input.reviewId,
+            reviewerSlot: input.reviewerSlot,
+            reviewerRef: input.reviewerRef,
+            raw: resumed.raw,
+            rawOutputRef: resumed.rawOutputRef,
+            reviewedAt: input.now(),
+            expectedSubjectRefs: batch.subjectRefs,
+          }).decisions;
+      for (const d of resumedDecisions) decisionsByRef.set(d.subjectRef, d);
       continue;
     }
 
@@ -394,7 +421,7 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
         }
         assertNoDuplicateSubjectRefs(input.reviewerSlot, batch.batchId, parsed.decisions);
 
-        attempts.push({
+        const acceptedAttempt: BatchAttemptRecord = {
           reviewerSlot: input.reviewerSlot,
           batchId: batch.batchId,
           batchHash: batch.batchHash,
@@ -403,7 +430,8 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
           raw: res.raw,
           outputHash: parsed.outputHash,
           accepted: true,
-        });
+        };
+        attempts.push(acceptedAttempt);
         rawOutputs.push({ reviewerSlot: input.reviewerSlot, batchId: batch.batchId, rawOutputRef, raw: res.raw, outputHash: parsed.outputHash });
         for (const d of parsed.decisions) decisionsByRef.set(d.subjectRef, d);
         accepted = true;
@@ -411,6 +439,9 @@ export async function runBatchedAdjudication(input: RunBatchedAdjudicationInput)
           `batch-${input.reviewerSlot.toLowerCase()}`,
           `${batch.batchId}: ${parsed.decisions.length} decisions, ${parsed.unanswered.length} unanswered (attempt ${attempt})`,
         );
+        // Persist BEFORE moving to the next batch — the fix for the
+        // vP1 batch-011 loss (see the input field's own doc comment).
+        await input.onBatchAccepted?.({ batchId: batch.batchId, batchHash: batch.batchHash, attempt: acceptedAttempt, decisions: parsed.decisions });
       } catch (err) {
         lastFailure = err instanceof Error ? err.message : String(err);
         const { delayMs, category } = computeBatchRetryBackoff(input.reviewerSlot, batch.batchId, attempt, err);

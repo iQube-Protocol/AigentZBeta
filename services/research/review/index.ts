@@ -30,3 +30,4 @@ export * from './providers';
 export * from './batching';
 export * from './receipt';
 export * from './runner';
+export * from './checkpoint';

@@ -49,6 +49,7 @@ import {
   type ReviewRequest,
   type ReviewResolution,
   type ReviewerAssignment,
+  type ReviewerSlot,
   type StewardAssignment,
 } from './types';
 import type { DeterminismSettings, ReviewProvider } from './providers';
@@ -115,6 +116,13 @@ export interface RunDualReviewInput {
   assetCommitment: string;
   /** Injected. No clock is read inside this module. */
   now: () => string;
+  /**
+   * Pins the pre-run-manifest's `committedAt` to an exact prior value —
+   * used ONLY when resuming a run, to reproduce the identical manifest
+   * commitment (and hence identical batchHashes) an interrupted run already
+   * committed to. Omitted by both existing consumers; defaults to `now()`.
+   */
+  startedAt?: string;
   /** Optional observer for the CLI's progress output. */
   onStep?: (step: string, detail: string) => void;
   /**
@@ -130,6 +138,25 @@ export interface RunDualReviewInput {
    * consumers today.
    */
   resumeFrom?: { r1?: readonly BatchAttemptRecord[]; r2?: readonly BatchAttemptRecord[] };
+  /**
+   * Checkpoint persistence hooks (2026-07-30 resilience amendment). Optional
+   * and additive — omitted by both existing consumers (the CLI without
+   * `--resume`, and the Lab route), which get identical behaviour to before
+   * this field existed. When supplied, `onBatchAccepted` fires once per
+   * FRESH batch acceptance (R1 or R2), and `onR2BatchPlanFrozen` fires the
+   * moment R2's batch plan is computed — BEFORE its first dispatch — so a
+   * caller can persist the frozen plan before any R2 batch executes (rulings:
+   * "a resumed run must use the same batch size and exact batch membership").
+   */
+  checkpoint?: {
+    onBatchAccepted?: (
+      reviewerSlot: ReviewerSlot,
+      input: { batchId: string; batchHash: string; attempt: BatchAttemptRecord; decisions: ReviewDecision[] },
+    ) => void | Promise<void>;
+    /** Fired right after R1's batch plan is built, before its first dispatch. */
+    onR1BatchPlanReady?: (batchPlan: BatchPlan) => void | Promise<void>;
+    onR2BatchPlanFrozen?: (batchPlan: BatchPlan) => void | Promise<void>;
+  };
 }
 
 export function buildPreRunManifest(input: {
@@ -199,7 +226,15 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
   const batchSize = input.batching?.batchSize ?? DEFAULT_BATCH_SIZE;
   const maxAttemptsPerBatch = input.batching?.maxAttemptsPerBatch ?? DEFAULT_MAX_ATTEMPTS_PER_BATCH;
 
-  const startedAt = input.now();
+  // A resumed run MUST reproduce the identical pre-run-manifest commitment —
+  // every batchHash is bound to it, so a fresh `committedAt` on resume would
+  // make EVERY checkpoint's batchHash mismatch even though nothing else
+  // changed. `startedAt` lets a resuming caller pin this to the ORIGINAL
+  // run's `committedAt` (read back from its manifest) while `input.now()`
+  // still supplies every OTHER timestamp in this run fresh (decision
+  // `reviewedAt`, `completedAt`) — only the manifest-commitment instant is
+  // pinned, nothing else is backdated.
+  const startedAt = input.startedAt ?? input.now();
   const preRunManifest = buildPreRunManifest({
     request: input.request,
     pkg: input.pkg,
@@ -230,6 +265,7 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     batchSize,
   });
   step('batch-plan-r1', `${r1BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
+  await input.checkpoint?.onR1BatchPlanReady?.(r1BatchPlan);
 
   const r1ModelId = input.r1.assignment.resolvedModelId ?? input.r1.assignment.requestedModelId ?? 'human';
   step('dispatch-r1', `${r1Subjects.length} subjects to ${input.r1.provider.providerName} across ${r1BatchPlan.batches.length} batch(es)`);
@@ -249,6 +285,9 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     now: input.now,
     onStep: step,
     resumeFrom: input.resumeFrom?.r1,
+    onBatchAccepted: input.checkpoint?.onBatchAccepted
+      ? (b) => input.checkpoint!.onBatchAccepted!('R1', b)
+      : undefined,
   });
   rawOutputs.push(...r1Outcome.rawOutputs);
   if (r1Outcome.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R1', subjectRefs: r1Outcome.unanswered });
@@ -311,6 +350,10 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     batchSize,
   });
   step('batch-plan-r2', `${r2BatchPlan.batches.length} batch(es) of up to ${batchSize}`);
+  // Fired BEFORE R2's first dispatch — a caller (the CLI) freezes the plan
+  // into its run manifest here, so a resumed run has the exact same batch
+  // membership to verify against rather than repartitioning mid-run.
+  await input.checkpoint?.onR2BatchPlanFrozen?.(r2BatchPlan);
 
   const r2ModelId = input.r2.assignment.resolvedModelId ?? input.r2.assignment.requestedModelId ?? 'human';
   step('dispatch-r2', `${r2Subjects.length} subjects to ${input.r2.provider.providerName} across ${r2BatchPlan.batches.length} batch(es)`);
@@ -331,6 +374,9 @@ export async function runDualReview(input: RunDualReviewInput): Promise<RunArtif
     now: input.now,
     onStep: step,
     resumeFrom: input.resumeFrom?.r2,
+    onBatchAccepted: input.checkpoint?.onBatchAccepted
+      ? (b) => input.checkpoint!.onBatchAccepted!('R2', b)
+      : undefined,
   });
   rawOutputs.push(...r2Outcome.rawOutputs);
   if (r2Outcome.unanswered.length > 0) unanswered.push({ reviewerSlot: 'R2', subjectRefs: r2Outcome.unanswered });
