@@ -23,14 +23,33 @@
  * the Bitcoin-specific version, BitCent / B¢ (ASCII fallback `Bc`, long form
  * "Bitcoin Q¢"). Etch `BITCENT`, never `QRIPTOCENT`.
  *
- * SECURITY: this file contains a hardcoded testnet WIF private key (below).
- * Committed keys are forbidden by CLAUDE.md regardless of network. Flagged for
- * the operator rather than rotated unilaterally, since the wallet may be funded.
+ * SECURITY (R-11/G-3, FIXED 2026-07-30): this file used to contain a hardcoded
+ * testnet WIF private key. It now reads BITCENT_TESTNET_DEPLOYER_WIF from the
+ * environment (.env.example documents the var) and refuses to run without it.
+ * The previously-committed key is treated as compromised regardless of its
+ * testnet-only, zero-value status -- it had already been committed to git
+ * history AND displayed in an agent session transcript, either of which is
+ * enough on its own. A fresh key was generated to replace it; if the OLD
+ * address (tb1qywewf6kshzgvq9awzr46awhylu40v68tr8acm2) holds testnet BTC from
+ * an earlier faucet request, check it directly (this sandbox's outbound proxy
+ * blocks blockstream.info, so that could not be verified here) and sweep it to
+ * the new address before abandoning it, rather than assume either way.
  */
+const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
 const bitcoin = require('bitcoinjs-lib');
 const { ECPairFactory } = require('ecpair');
 const ecc = require('tiny-secp256k1');
 const axios = require('axios');
+
+// Same dual-path convention as scripts/show-deployer-info.js and
+// run-independence-review.ts's loadLocalEnv(): .env.local first, then the
+// .env.local.temp fallback this environment actually uses.
+for (const envFile of ['.env.local', '.env.local.temp']) {
+  const envPath = path.join(__dirname, '..', envFile);
+  if (fs.existsSync(envPath)) dotenv.config({ path: envPath, override: false });
+}
 
 const ECPair = ECPairFactory(ecc);
 
@@ -55,8 +74,16 @@ async function deployQCTBitcoin() {
 
   console.log('🚀 Deploying BitCent (B¢) Bitcoin Runes Token...\n');
 
-  // Use persistent Bitcoin wallet (from previous generation)
-  const persistentWIF = 'cMnrk5hz22jhu2NEytoBxgXPCR21kThfjje2k4NjKMuPTCXzDFWS';
+  // R-11/G-3: never a hardcoded literal -- see the SECURITY note above.
+  const persistentWIF = process.env.BITCENT_TESTNET_DEPLOYER_WIF;
+  if (!persistentWIF) {
+    console.error(
+      'Refusing to run: BITCENT_TESTNET_DEPLOYER_WIF is not set. See .env.example ' +
+      'for what this variable is and why it is no longer hardcoded here (R-11/G-3).',
+    );
+    process.exitCode = 1;
+    return;
+  }
   const keyPair = ECPair.fromWIF(persistentWIF, NETWORK);
   const { address } = bitcoin.payments.p2wpkh({ 
     pubkey: keyPair.publicKey, 
