@@ -9,6 +9,11 @@ and gives the previously-informal "permitted transaction scope ∩ amount within
 mandate" bullets in that document's §0 formula their own first-class name and treatment: **Mandate**.
 This document records doctrine only; no code changes ship with it.
 
+**Amendment, same day:** §III.1 below (Right-Sized Mandate Strength) sharpens Mandate from a static
+permission object into a dynamic, risk-proportionate one — this is not a new leg, it is what gives
+Mandate its constitutional character. It operationalizes, for the Mandate leg specifically, what
+Invariant 8 (Progressive Security) already stated in general terms.
+
 ---
 
 ## 0. The core formula
@@ -28,13 +33,19 @@ The three-part model:
 
 - **Control** proves the actor *can* act.
 - **Authority** proves the actor *may* act.
-- **Mandate** proves *this particular action* is authorized *now*.
+- **Mandate** proves *this particular action* is authorized *now, under these conditions*.
 
 **Elevator pitch:** Traditional cybersecurity secures the key. Constitutional security secures the
 consequence. A key proves control, a passport and delegation prove authority, and a dynamic mandate
 proves that this exact action is intended and permitted now. Only all three together can execute.
 
-**Compressed line:** Control says can. Authority says may. Mandate says this, now.
+Refined, since Mandate is risk-proportionate rather than a static permission object (§III.1):
+**traditional systems ask whether a user has permission; constitutional security asks whether this
+person or agent has the right authority, under the right mandate, for this exact consequence, at
+this moment.**
+
+**Compressed line:** Control says can. Authority says may. Mandate says this, now, under these
+conditions.
 
 ---
 
@@ -101,6 +112,72 @@ Contextual mandate:   Aigent Z may transfer 100 B¢, on Bitcoin testnet, to addr
 ```
 
 **A mandate is a dynamic, contextual and transaction-bound proof of intent.**
+
+### III.1 Right-Sized Mandate Strength (amendment, same day)
+
+Mandate is not a static permission object. It changes with the consequence being proposed — its
+required strength scales with the risk of what it authorizes:
+
+```text
+risk + value + irreversibility + novelty + destination + timing = required mandate strength
+```
+
+A low-risk action may rely on a standing mandate:
+
+```text
+read data
+generate report
+retrieve proof
+perform bounded analysis
+```
+
+A higher-risk action requires a fresher, narrower and stronger mandate:
+
+```text
+move funds
+change custody
+appoint an agent
+expand delegation
+rotate recovery authority
+execute on Mainnet
+```
+
+**Contextual Mandate Principle (canonical):**
+
+> A mandate shall be dynamically scoped to the action, actor, asset, amount, destination, network,
+> duration and risk of the proposed consequence. Its strength, freshness and specificity must rise
+> in proportion to the value, irreversibility and potential harm of the action.
+
+**Right-Sized Constitutional Security Principle (canonical):**
+
+> Constitutional security shall impose no more friction than the consequence requires, but no less
+> proof than the risk demands.
+
+The governing rule: **the mandate must be no broader, older or weaker than the consequence
+justifies.** Applied as a ladder:
+
+- low consequence → low-friction mandate (a standing mandate suffices);
+- moderate consequence → fresh contextual confirmation;
+- high consequence → transaction-specific mandate plus stronger independent proofs;
+- exceptional consequence → heightened review, delay, observation or threshold approval.
+
+This is the same ladder the Passport doctrine's Progressive Authority Principle already establishes
+for authentication/consent friction generally (Routine/Moderate/High-consequence, §1 of
+`2026-07-30_constitutional-authority-supremacy-passport-security.md`) — this amendment states it as
+the operative rule for the Mandate leg specifically, not as a new, separate ladder.
+
+**Refined execution equation:**
+
+```text
+Proof of Control
+∩ Proof of Authority
+∩ Right-Sized Contextual Mandate
+= Constitutional Permission to Act
+```
+
+This refines, rather than replaces, §0's `= Consequential Authority` form — "Right-Sized Contextual
+Mandate" is what "Proof of Mandate" means once its required strength is understood to scale with
+risk rather than being fixed.
 
 ---
 
