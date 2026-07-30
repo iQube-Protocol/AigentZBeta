@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-30_moneypenny-horizen-presence-and-external-agent-admission.md",
         "updates/2026-07-30_horizen-moneypenny-pilot-first-slice-status-check.md",
         "updates/2026-07-30_bitcent-frozen-issuance-record.md",
         "updates/2026-07-30_pilot-treasury-authority.md",
