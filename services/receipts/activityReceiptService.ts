@@ -267,7 +267,14 @@ export type ActivityActionType =
   // decides this for the principal).
   | 'aigentme_activated'
   | 'experienceqube_focus_disposition_recorded'
-  | 'journey_completed';
+  | 'journey_completed'
+  // GJR-VFY-001 (Horizen Transparency Authorization and Wallet-Signing
+  // Capability), Phase 1, 2026-07-31 — the confirmed Pulse-monitoring
+  // authorization event: locally signed, Horizen accepted, reread confirms
+  // enabled. horizen_pnl_transparency_enabled and agent_card_enriched already
+  // existed (added by the PRD-GJR-001 migration); this is the third and last
+  // canonical GJR-VFY-001 receipt type. See services/horizen/authorizationClient.ts.
+  | 'horizen_pulse_authorized';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

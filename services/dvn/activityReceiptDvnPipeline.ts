@@ -248,6 +248,9 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'aigentme_activated',
   'experienceqube_focus_disposition_recorded',
   'journey_completed',
+  // GJR-VFY-001 Phase 1 (2026-07-31) — action-type addition only, the one
+  // change this file permits unilaterally per CLAUDE.md.
+  'horizen_pulse_authorized',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

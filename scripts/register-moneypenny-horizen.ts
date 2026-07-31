@@ -56,6 +56,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { HORIZEN_NETWORK_FACTS } from '../services/horizen/identity';
 import { HORIZEN_REGISTRY_MCP } from '../services/horizen/client';
+import { matchSchemaFields } from '../services/horizen/mcpSchemaMatch';
 
 const DEFAULT_AGENT_CARD_BASE = 'https://dev-beta.aigentz.me';
 const DEFAULT_RPC = process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org';
@@ -86,23 +87,6 @@ function confirm(question: string): Promise<boolean> {
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input, 'utf8').digest('hex');
-}
-
-/** Best-effort schema-to-argument matcher. Prints its reasoning; never silent. */
-function matchSchemaFields(schema: any, candidates: Record<string, unknown>): Record<string, unknown> {
-  const props: Record<string, unknown> = schema?.properties ?? {};
-  const propNames = Object.keys(props);
-  const matched: Record<string, unknown> = {};
-  for (const propName of propNames) {
-    const lower = propName.toLowerCase();
-    for (const [candidateKey, candidateValue] of Object.entries(candidates)) {
-      if (lower === candidateKey.toLowerCase() || lower.includes(candidateKey.toLowerCase())) {
-        matched[propName] = candidateValue;
-        break;
-      }
-    }
-  }
-  return matched;
 }
 
 async function fetchAgentCard(base: string): Promise<{ card: any; url: string; raw: string }> {
