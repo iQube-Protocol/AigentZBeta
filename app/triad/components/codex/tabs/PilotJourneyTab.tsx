@@ -31,6 +31,7 @@ import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPenny
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import { RegisterAgentPanel, PILOT_AGENTS } from '@/components/journey/RegisterAgentPanel';
+import { HorizenAgentPageSurface } from '@/components/journey/HorizenAgentPageSurface';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
@@ -101,6 +102,7 @@ function RotatingStatusLine({ slides }: { slides: Array<{ key: string; node: Rea
 const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
   AgentCardSurface,
   RegisterAgentPanel,
+  HorizenAgentPageSurface,
   PulseTransparencyToggle,
   MarketaEligibilityView,
   PassportBureauApplyTab,
@@ -427,7 +429,9 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
                         prefillAgentCardUrl: selectedAgent.agentCardPath,
                         prefillAgentDisplayName: selectedAgent.displayName,
                       }
-                    : {};
+                    : descriptor.component === 'HorizenAgentPageSurface'
+                      ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
+                      : {};
               return (
                 <div key={i}>
                   <Component personaId={personaId} {...journeyContextProps} {...(surfaceRef.props ?? {})} />

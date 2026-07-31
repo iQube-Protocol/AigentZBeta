@@ -37,7 +37,10 @@ interface StatusBody {
   network?: string;
 }
 
-async function updateRegistryAssetBinding(aigentQubeId: string, patch: { tokenId: string; registryAlias: string }) {
+async function updateRegistryAssetBinding(
+  aigentQubeId: string,
+  patch: { tokenId: string; registryAlias: string; agentIdentifier: string | null; humanReadableUrl: string | null },
+) {
   const admin = getSupabaseServer();
   if (!admin) return;
   const { data: row } = await admin.from('registry_assets').select('metadata').eq('asset_id', aigentQubeId).maybeSingle();
@@ -45,7 +48,14 @@ async function updateRegistryAssetBinding(aigentQubeId: string, patch: { tokenId
   const metadata = (row.metadata ?? {}) as { external_registry_bindings?: ExternalAgentRegistryBinding[] };
   const bindings = Array.isArray(metadata.external_registry_bindings) ? [...metadata.external_registry_bindings] : [];
   if (bindings.length === 0) return;
-  bindings[0] = { ...bindings[0], token_id: patch.tokenId, registry_alias: patch.registryAlias, status: 'registered' };
+  bindings[0] = {
+    ...bindings[0],
+    token_id: patch.tokenId,
+    registry_alias: patch.registryAlias,
+    agent_identifier: patch.agentIdentifier,
+    human_readable_url: patch.humanReadableUrl,
+    status: 'registered',
+  };
   await admin.from('registry_assets').update({ metadata: { ...metadata, external_registry_bindings: bindings }, updated_at: new Date().toISOString() }).eq('asset_id', aigentQubeId);
 }
 

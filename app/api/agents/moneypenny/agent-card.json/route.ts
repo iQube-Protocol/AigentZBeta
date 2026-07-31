@@ -180,6 +180,12 @@ export async function GET(req: NextRequest) {
           tokenId: binding?.token_id ?? null,
           registryAlias: binding?.registry_alias ?? null,
           status: binding?.status?.replace(/-/g, '_') ?? 'pending_registration',
+          // Horizen's human-readable agent page (confirmed live 2026-07-31,
+          // services/horizen/agentPageUrl.ts) — agentIdentifier is a
+          // DISTINCT field from tokenId (never conflated); both null until
+          // the Register stage's status reread resolves them.
+          agentIdentifier: binding?.agent_identifier ?? null,
+          humanReadableUrl: binding?.human_readable_url ?? null,
           // GJR-VFY-001 §10 — present only once a real, confirmed transparency
           // authorization has run (services/horizen/agentCardEnrichment.ts).
           // Absent means "not yet authorized", never fabricated as enabled.

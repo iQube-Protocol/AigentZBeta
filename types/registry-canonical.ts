@@ -203,6 +203,25 @@ export interface ExternalAgentRegistryBinding {
   agent_card_url?: string;
   agent_card_hash?: string;
   /**
+   * The path-segment identifier Horizen's own human-readable agent page
+   * uses (confirmed live, 2026-07-31: `https://agent-registry.horizenlabs.io
+   * /agent/{agentIdentifier}?network={network}`, e.g. `0xZkSignalAgent`).
+   * Deliberately a SEPARATE field from `token_id` — operator ruling
+   * 2026-07-31: "Do not assume agentIdentifier === tokenId without
+   * confirming that from the real Horizen response schema." Populated only
+   * when the reread response carries a distinct identifier field; never
+   * defaulted from token_id.
+   */
+  agent_identifier?: string | null;
+  /**
+   * The fully-constructed, allowlisted Horizen agent page URL — computed
+   * ONLY by services/horizen/agentPageUrl.ts's buildHorizenAgentPageUrl()
+   * from agent_identifier + network, never hand-typed or accepted from
+   * client input. Present only once agent_identifier resolves; absent means
+   * "not yet resolvable", never a guessed URL.
+   */
+  human_readable_url?: string | null;
+  /**
    * GJR-VFY-001 §10 — Horizen Pulse/PnL transparency authorization state.
    * Set ONLY by services/horizen/agentCardEnrichment.ts after
    * verifyHorizenTransparencyActivation() confirms (never fabricated ahead

@@ -209,8 +209,65 @@ describe('checkAgentRegistrationStatus', () => {
       createRegistrationReceipt: receiptSpy,
     });
     expect(result).toMatchObject({ ok: true, value: { confirmed: true, tokenId: '4567', registryAlias: '0x11d7', receiptId: 'receipt-register-1' } });
-    expect(updateSpy).toHaveBeenCalledWith('aigentqube-moneypenny', { tokenId: '4567', registryAlias: '0x11d7' });
+    expect(updateSpy).toHaveBeenCalledWith('aigentqube-moneypenny', { tokenId: '4567', registryAlias: '0x11d7', agentIdentifier: null, humanReadableUrl: null });
     expect(receiptSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves agentIdentifier from a DISTINCT field, never defaulting it from tokenId, and builds the confirmed-live Horizen URL', async () => {
+    const updateSpy = vi.fn();
+    const result = await checkAgentRegistrationStatus(baseInput, {
+      mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+      fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { tokenId: '4567', registryAlias: '0x11d7', agentIdentifier: '0xZkSignalAgent' } }),
+      updateRegistryAssetBinding: updateSpy,
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      value: {
+        tokenId: '4567',
+        agentIdentifier: '0xZkSignalAgent',
+        humanReadableUrl: 'https://agent-registry.horizenlabs.io/agent/0xZkSignalAgent?network=base-sepolia',
+      },
+    });
+    expect(updateSpy).toHaveBeenCalledWith('aigentqube-moneypenny', {
+      tokenId: '4567',
+      registryAlias: '0x11d7',
+      agentIdentifier: '0xZkSignalAgent',
+      humanReadableUrl: 'https://agent-registry.horizenlabs.io/agent/0xZkSignalAgent?network=base-sepolia',
+    });
+  });
+
+  it('agentIdentifier and tokenId are never silently conflated — no agentIdentifier field means no URL, even though tokenId resolved', async () => {
+    const result = await checkAgentRegistrationStatus(baseInput, {
+      mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+      fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { tokenId: '4567', registryAlias: '0x11d7' } }),
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.tokenId).toBe('4567');
+    expect(result.value.agentIdentifier).toBeNull();
+    expect(result.value.humanReadableUrl).toBeNull();
+  });
+
+  it('MoneyPenny and Nakamoto resolve different Horizen agent-page URLs from their own bindings', async () => {
+    const moneypenny = await checkAgentRegistrationStatus(
+      { ...baseInput, agentSlug: 'moneypenny' },
+      {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+        fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { tokenId: '1', registryAlias: '0x1', agentIdentifier: '0xMoneyPennyAgent' } }),
+      },
+    );
+    const nakamoto = await checkAgentRegistrationStatus(
+      { ...baseInput, agentSlug: 'nakamoto' },
+      {
+        mcpClient: fakeMcpClient({ statusText: '{"status":"active"}' }),
+        fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { tokenId: '2', registryAlias: '0x2', agentIdentifier: '0xNakamotoAgent' } }),
+      },
+    );
+    expect(moneypenny.ok && nakamoto.ok).toBe(true);
+    if (!moneypenny.ok || !nakamoto.ok) return;
+    expect(moneypenny.value.humanReadableUrl).not.toBe(nakamoto.value.humanReadableUrl);
+    expect(moneypenny.value.humanReadableUrl).toContain('0xMoneyPennyAgent');
+    expect(nakamoto.value.humanReadableUrl).toContain('0xNakamotoAgent');
   });
 
   it('refuses REGISTRY_REREAD_FAILED rather than fabricating a tokenId when the reread itself fails', async () => {
