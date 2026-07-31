@@ -86,6 +86,19 @@ export interface ReviewRecord {
   receiptId: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Set only by publishIndependenceReview.ts's governed import path — never
+   * by the web UI's own writer (app/api/research/review/route.ts), which
+   * leaves this undefined. Distinguishes a CLI-executed, artifact-verified
+   * publication from an ordinary web-submitted review. */
+  source?: 'cli-independent-review';
+  importedFrom?: { artifactDir: string; importedAt: string };
+  /** Set on a row that a LATER completed review (different content, hence a
+   * different reviewId) has replaced. The row is never deleted — only
+   * marked. A superseded row's own queueState is untouched (e.g. it may
+   * still correctly read 'planned' if it never ran) so its history stays
+   * honest; supersededBy is what tells a reader not to treat it as current. */
+  supersededBy?: string;
+  supersededReason?: string;
 }
 
 interface Row {
@@ -119,6 +132,10 @@ function toRecord(row: Row): ReviewRecord {
     receiptId: row.receipt_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    source: p.source,
+    importedFrom: p.importedFrom,
+    supersededBy: p.supersededBy,
+    supersededReason: p.supersededReason,
   };
 }
 
@@ -161,4 +178,39 @@ export async function upsertReview(
     { onConflict: 'object_kind,object_id' },
   );
   if (error) throw new Error(`review write failed: ${error.message}`);
+}
+
+/**
+ * Mark a prior review row as superseded by a later, completed review with
+ * different content (hence a different reviewId) — NEVER deletes it. The
+ * superseded row's own queueState/payload are otherwise untouched; only
+ * `supersededBy`/`supersededReason` are added, preserving the audit trail
+ * (operator ruling 2026-07-31). Which row to supersede must be named
+ * explicitly by the caller — this function never guesses "the stale
+ * planned row" by heuristics (e.g. matching a version prefix), since that
+ * risks superseding an unrelated legitimate review of the same version.
+ */
+export async function markReviewSuperseded(
+  admin: SupabaseClient,
+  reviewId: string,
+  supersededBy: string,
+  reason: string,
+): Promise<void> {
+  const existing = await getReview(admin, reviewId);
+  if (!existing) throw new Error(`cannot mark ${reviewId} superseded — no such review exists`);
+  // Same column split as upsertReview: reviewId/queueState/receiptId/
+  // createdAt/updatedAt are columns, not payload fields — only the
+  // remaining fields (plus the new supersede markers) go into `payload`.
+  const { reviewId: _id, queueState, receiptId, createdAt: _createdAt, updatedAt: _updatedAt, ...restPayload } = existing;
+  const { error } = await admin
+    .from(TABLE)
+    .update({
+      payload: { ...restPayload, supersededBy, supersededReason: reason },
+      lifecycle_state: queueState,
+      receipt_id: receiptId ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('object_kind', OBJECT_KIND)
+    .eq('object_id', reviewId);
+  if (error) throw new Error(`marking ${reviewId} superseded failed: ${error.message}`);
 }
