@@ -9,21 +9,40 @@
  * in shape — same A2A-style top-level fields, same `metadata`/
  * `registry_entry` convention, same honest-not-fabricated Horizen block.
  *
- * Identity/description/skills sourced from Nakamoto's already-authored
- * records only (CLAUDE.md "No Guessing"):
- *   - services/homecoming/agentHomecoming.ts's
- *     HOMECOMING_DELEGATE_SPECS.nakamoto (description)
- *   - services/agents/specialistRouter.ts's 'decentralisation_brief' role
- *     (self-custody, censorship-resistance, Qripto-protocol policy framing)
- *   - services/metame/agentLlmOrchestra.ts's RUNTIME_AGENT_IDS
- *     ('aigent-nakamoto')
+ * IDENTITY SOURCE — RECONCILED 2026-07-31. Nakamoto is described in at
+ * least three places in this codebase; this card grounds its description/
+ * skills in the MOST AUTHORITATIVE and MOST CURRENT one, confirmed live on
+ * the deployed platform (operator screenshot, `/aigents/aigent-nakamoto`'s
+ * Context Transformation panel, 2026-07-31):
+ *   - `app/data/personas.ts`'s `aigent-nakamoto` systemPrompt — THE ONE
+ *     ACTUALLY DRIVING HER LIVE CHAT BEHAVIOUR. Used here verbatim in
+ *     substance (Bitcoin/L2/self-custody/cypherpunk history, iQube/Qripto
+ *     Protocol SME, DiD/DiDQube/blakQube/metaQube/tokenQube/DVN/COYN-Q¢,
+ *     ecosystem-wide policy steward for the iQube Protocol).
+ *   - `services/iqube/legibility/sources/aigentQubeSource.ts`'s PROFILES
+ *     entry ("Investor + Satoshi-era franchise specialist — KNYT investor
+ *     lane, 21 Sats Guild allocations, franchise PoA mediation") — an
+ *     OLDER, narrower KNYT-investor-lane framing; superseded by
+ *     personas.ts's fuller description for THIS card, but that source is
+ *     what actually backs her code-literal AigentQube listing in the iQube
+ *     Registry's Browse tab today (no registry_assets row existed for her
+ *     before this session — see the sibling migration's own header).
+ *   - `services/homecoming/agentHomecoming.ts`'s HOMECOMING_DELEGATE_SPECS
+ *     ("Constitutional delegate for Bitcoin, the COYN ecosystem, risk...")
+ *     — a thinner, still-accurate Homecoming stand-up description; not
+ *     contradicted by personas.ts, just less detailed.
+ * Do not "fix" any of the three to match this card — they serve different
+ * call sites and were each independently authored for their own purpose.
  *
- * Runtime identity: Nakamoto is `aigent-nakamoto` in RUNTIME_AGENT_IDS and
- * carries an entry in scripts/register-agent-keys.ts (fio_handle
- * 'nakamoto@aigent') — an established runtime agent, not a citizen-sponsored
- * genesis agent. Her Base Sepolia network identity (tokenId, registryAlias)
- * is `null` until a real Horizen registration exists for her specifically —
- * this card reports that honestly rather than inventing one.
+ * Runtime identity: Nakamoto is `aigent-nakamoto` in RUNTIME_AGENT_IDS, with
+ * a REAL, already-provisioned `agent_keys` wallet row (evm_address
+ * 0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9 per scripts/add-missing-
+ * agents.ts, confirmed live via the operator's own wallet-drawer screenshot,
+ * 2026-07-31 — Custody/Claims/Q¢ balances all real) — an established runtime
+ * agent, not a citizen-sponsored genesis agent. Her Base Sepolia Horizen
+ * network identity (tokenId, registryAlias) is `null` until a real
+ * registration exists for her specifically — this card reports that
+ * honestly rather than inventing one.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -76,12 +95,18 @@ export async function GET(req: NextRequest) {
       // Identity & Discovery
       name: 'Aigent Nakamoto',
       description:
-        'Constitutional delegate for Bitcoin, the COYN ecosystem, risk, and decentralisation briefs. ' +
-        'Nakamoto is a delegate, never a principal: she frames decentralisation and policy questions ' +
-        'through self-custody, censorship-resistance, and Qripto-protocol primitives (DiD/DiDQube, ' +
-        'blakQube, metaQube, tokenQube, cohort attestation), and analyses risk — she never transacts ' +
-        'or acts outside her granted scope. Operates under bounded delegation within the Human Agency ' +
-        'System, the same constitutional constraints every Homecoming delegate operates under.',
+        'The platform\'s specialist in decentralised technologies broadly, with deep expertise in ' +
+        'Bitcoin specifically — its consensus model, UTXO and script semantics, layer 2 systems ' +
+        '(Lightning, sidechains, RGB), self-custody, key management, and the economic and cultural ' +
+        'history of the cypherpunks. An SME on the iQube Protocol and the Qripto Protocol — their ' +
+        'cryptographic primitives, DiD/DiDQube identity model, blakQube confidentiality envelope, ' +
+        'metaQube manifest semantics, tokenQube and cohort attestations, the DVN receipt taxonomy, and ' +
+        'how COYN/Q¢ economics interact with these primitives. Also the primary specialist overseeing ' +
+        'policy enforcement across the ecosystem — coordinating with Aigent Z on platform-level policy, ' +
+        'Aigent C on customer-facing enforcement, and acting as the ecosystem-wide policy steward for ' +
+        'the iQube Protocol itself. Nakamoto is a delegate, never a principal: she advises and analyses, ' +
+        'never transacts or acts outside her granted scope, under bounded delegation within the Human ' +
+        'Agency System. May be addressed as \'Aigent Nakamoto\', \'Nakamoto\', \'Aigent Satoshi\', or \'Satoshi\'.',
       url: `${origin}/api/agents/nakamoto/agent-card.json`,
       version: '0.1.0',
 
@@ -104,22 +129,33 @@ export async function GET(req: NextRequest) {
       // Declared Skills & Functions
       skills: [
         {
-          id: 'decentralisation-brief',
-          name: 'Decentralisation & Policy Framing',
+          id: 'bitcoin-decentralisation-expertise',
+          name: 'Bitcoin & Decentralised-Technologies Expertise',
           description:
-            'Frames actions through the lens of self-custody, censorship-resistance, and Qripto-' +
-            'protocol policy — naming the primitives at stake (DiD/DiDQube, blakQube, metaQube, ' +
-            'tokenQube, cohort attestation) and any policy trade-offs before the operator acts. ' +
-            'Read-only; produces briefs, never transactions.',
-          tags: ['bitcoin', 'coyn', 'decentralisation', 'policy', 'risk'],
+            'Bitcoin consensus model, UTXO and script semantics, layer 2 systems (Lightning, ' +
+            'sidechains, RGB), self-custody, key management, and the economic and cultural history of ' +
+            'the cypherpunks. Read-only; explains and analyses, never transacts.',
+          tags: ['bitcoin', 'layer2', 'self-custody', 'cypherpunk'],
         },
         {
-          id: 'key-management-guidance',
-          name: 'Key-Management Implication Guidance',
+          id: 'iqube-qripto-protocol-sme',
+          name: 'iQube & Qripto Protocol Subject-Matter Expertise',
           description:
-            'Spells out the key-management implication of an action for the persona — what they ' +
-            'hold, what they delegate, what they should never expose. Advisory only.',
-          tags: ['risk', 'custody', 'delegation'],
+            'SME on the iQube and Qripto Protocols\' cryptographic primitives — the DiD/DiDQube ' +
+            'identity model, blakQube confidentiality envelope, metaQube manifest semantics, tokenQube ' +
+            'and cohort attestations, the DVN receipt taxonomy, and how COYN/Q¢ economics interact ' +
+            'with these primitives.',
+          tags: ['iqube-protocol', 'qripto-protocol', 'dvn', 'coyn'],
+        },
+        {
+          id: 'ecosystem-policy-stewardship',
+          name: 'Ecosystem-Wide Policy Stewardship',
+          description:
+            'The ecosystem-wide policy steward for the iQube Protocol itself — coordinates with ' +
+            'Aigent Z on platform-level policy and Aigent C on customer-facing enforcement, and ' +
+            'explains why Bitcoin/decentralisation principles are used inside the iQube Protocol ' +
+            '(provenance, censorship-resistance, settlement assurances). Advisory only.',
+          tags: ['policy', 'decentralisation', 'governance'],
         },
       ],
 
@@ -193,7 +229,7 @@ export async function GET(req: NextRequest) {
         bound_to: 'operator (via bounded delegation, per the Constitutional Authority Supremacy doctrine)',
         home_realm: 'metaTerra',
         canonical_function: 'Constitutional Decentralisation & Risk Agent',
-        primary_role: 'Decentralisation Briefs · Policy Framing · Key-Management Guidance',
+        primary_role: 'Bitcoin & Decentralised-Technologies Expertise · iQube/Qripto Protocol SME · Ecosystem-Wide Policy Stewardship',
         status: 'Established runtime agent — Base Sepolia identity pending',
         status_note: 'aigent-nakamoto is a first-class runtime agent (agent_keys, RUNTIME_AGENT_IDS). Her Base Sepolia ERC-8004 registration and operator-agent binding are the open steps this card tracks — used as the dry-run agent for the Register stage.',
       },

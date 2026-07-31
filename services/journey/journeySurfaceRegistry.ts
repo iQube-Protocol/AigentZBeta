@@ -73,11 +73,24 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'AgentCardSurface',
     note:
-      "MoneyPenny's real Agent Card (built 2026-07-31, components/journey/AgentCardSurface.tsx) — a " +
-      "faithful display wrapper over the live /api/agents/moneypenny/agent-card.json route. As of " +
-      "the SS3.1.1 correction, that route's metadata.horizen block now PROJECTS from her AigentQube " +
-      "record (registry_assets 'aigentqube-moneypenny'), not a hand-typed literal. Honestly renders " +
-      "tokenId: null as 'not yet registered' rather than fabricating a value.",
+      "A real Agent Card (built 2026-07-31, components/journey/AgentCardSurface.tsx) — a " +
+      "faithful display wrapper over a served /api/agents/<agent>/agent-card.json route. As of " +
+      "the SS3.1.1 correction, that route's metadata.horizen block PROJECTS from the agent's AigentQube " +
+      "record (registry_assets), not a hand-typed literal. Honestly renders " +
+      "tokenId: null as 'not yet registered' rather than fabricating a value. Superseded as the " +
+      "Register stage's own surface by 'register-agent-panel' below (which composes this component " +
+      "internally) — kept registered here as the bare, agent-parameterizable display primitive.",
+  },
+  'register-agent-panel': {
+    kind: 'component',
+    component: 'RegisterAgentPanel',
+    note:
+      'Agent-selectable Register stage (2026-07-31, components/journey/RegisterAgentPanel.tsx) — lets ' +
+      'the operator choose which registrable agent (services/horizen/registrableAgents.ts: MoneyPenny ' +
+      'the demo agent, Aigent Nakamoto the dry-run agent) to register in Horizen\'s ERC-8004 registry, ' +
+      'then drives the real prepare->review->confirm->broadcast->status pipeline ' +
+      '(services/horizen/registrationClient.ts) end to end. Composes AgentCardSurface internally for ' +
+      'the selected agent\'s card display — never a second, parallel display.',
   },
   'horizen-registry-agent-page': {
     kind: 'external-url-unresolved',

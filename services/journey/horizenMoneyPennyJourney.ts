@@ -36,9 +36,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         },
         {
           mode: 'component',
-          ref: 'agent-card',
+          ref: 'register-agent-panel',
           entityRef: 'moneypenny',
-          note: "metaMe's complementary reflection of the same registration.",
+          note: "Agent-selectable registration panel — metaMe's complementary reflection of the same registration, plus the real Register action itself.",
         },
       ],
       prerequisites: [],

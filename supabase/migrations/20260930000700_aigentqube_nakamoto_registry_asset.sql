@@ -3,19 +3,43 @@
 -- Agent-selectable Register stage (2026-07-31, operator ruling): Aigent
 -- Nakamoto is the dry-run agent for the Horizen registration flow (MoneyPenny
 -- stays the demo agent). Mirrors 20260930000400's exact pattern for
--- MoneyPenny — Nakamoto needs the same persisted AigentQube record, never a
--- second, differently-shaped seed.
+-- MoneyPenny — Nakamoto needs the same persisted, metadata-bearing
+-- AigentQube record for the identical reason MoneyPenny got hers: the
+-- Horizen external_registry_bindings field needs a persistent carrier her
+-- PRE-EXISTING code-literal AigentQube representation cannot hold.
 --
--- Description sourced from services/homecoming/agentHomecoming.ts's
--- HOMECOMING_DELEGATE_SPECS.nakamoto (already-authored, ratified text) and
--- her specialist-router role (services/agents/specialistRouter.ts,
--- 'decentralisation_brief' — self-custody, censorship-resistance,
--- Qripto-protocol policy). Nothing here is invented.
+-- CONFIRMED REAL, NOT INVENTED, BEFORE THIS MIGRATION (operator screenshot,
+-- 2026-07-31 — the live deployed app, not this repo's static analysis):
+--   - agent_keys wallet row IS real: evm_address
+--     0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9 (scripts/add-missing-
+--     agents.ts), fio_handle 'nakamoto@aigent' (scripts/register-agent-
+--     keys.ts), a live wallet drawer with real Q¢/chain balances.
+--   - She ALREADY appears in the iQube Registry's "Browse iQubes" AigentQube
+--     tab today — via services/iqube/legibility/sources/aigentQubeSource.ts's
+--     hand-curated PROFILES entry (code:aigentQubeSource source, a
+--     DETERMINISTIC SYNTHETIC UUID via syntheticIQubeId(), NOT a
+--     registry_assets row — confirmed via services/registry/adapters/
+--     aigentQubeAdapter.ts's own comment: "registry_asset path — DB-backed
+--     AigentQube (5 rows: aigent-z, kn0w1, marketa, aigent-c, moneypenny)" —
+--     Nakamoto is explicitly NOT among those 5). This migration promotes her
+--     the same way MoneyPenny was promoted, not a duplicate of a duplicate:
+--     aigentQubeAdapter.list() merges BOTH the code-literal source AND
+--     registry_asset rows unconditionally (no dedup in that function), so
+--     MoneyPenny already carries this same dual-representation today; this
+--     migration does not introduce a new class of risk for Nakamoto, only
+--     the same one already accepted for MoneyPenny.
+--
+-- Description/skills sourced from app/data/personas.ts's 'aigent-nakamoto'
+-- systemPrompt — THE MOST AUTHORITATIVE, MOST CURRENT source, confirmed live
+-- on the deployed platform (operator screenshot, /aigents/aigent-nakamoto's
+-- Context Transformation panel) — not the older, narrower descriptions in
+-- services/homecoming/agentHomecoming.ts or aigentQubeSource.ts's PROFILES
+-- (see app/api/agents/nakamoto/agent-card.json/route.ts's header for the
+-- full three-source reconciliation). Nothing here is invented.
 --
 -- No wallet address stored here — same reasoning as MoneyPenny's migration:
--- her keys live in agent_keys (services/identity/agentKeyService.ts,
--- scripts/register-agent-keys.ts already carries an 'aigent-nakamoto' /
--- 'nakamoto@aigent' entry), read directly by the adapter at hydrate time.
+-- her keys live in agent_keys, read directly by the adapter at hydrate time,
+-- never duplicated into registry_assets.metadata.
 --
 -- external_registry_bindings starts PENDING, honestly — token_id/
 -- registry_alias stay null until a real Horizen registration transaction
@@ -32,15 +56,15 @@ INSERT INTO registry_assets (
   'AigentQube',
   'Aigent Nakamoto',
   'aigent-nakamoto',
-  'Constitutional delegate for Bitcoin, the COYN ecosystem, risk, and decentralisation briefs. Operates under bounded delegation within the Human Agency System; advises and analyses, never transacts or acts outside its granted scope.',
+  'The platform''s specialist in decentralised technologies broadly, with deep expertise in Bitcoin specifically -- consensus, UTXO/script semantics, layer 2 (Lightning, sidechains, RGB), self-custody, key management, and cypherpunk history. SME on the iQube and Qripto Protocols'' cryptographic primitives (DiD/DiDQube, blakQube, metaQube, tokenQube, cohort attestations, DVN receipts, COYN/Q¢ economics) and the ecosystem-wide policy steward for the iQube Protocol itself. Nakamoto is a delegate, never a principal.',
   '1.0.0',
   'L4_PRODUCTION_APPROVED',
   'published',
   'human_approval_required',
   'skill',
   '{"input": {"message": "string", "personaId": "string", "mode": "string"}, "output": {"response": "string", "artifacts": "array", "receipts": "array"}}',
-  '[{"name": "decentralisation_brief", "scope": "conversational"}, {"name": "policy_framing", "scope": "content"}, {"name": "chat", "scope": "conversational"}]',
-  '["bitcoin", "coyn", "risk", "decentralisation", "delegate", "agentiq-native"]',
+  '[{"name": "bitcoin_decentralisation_expertise", "scope": "conversational"}, {"name": "iqube_qripto_protocol_sme", "scope": "content"}, {"name": "ecosystem_policy_stewardship", "scope": "system"}, {"name": "chat", "scope": "conversational"}]',
+  '["bitcoin", "iqube-protocol", "qripto-protocol", "decentralisation", "policy", "delegate", "agentiq-native"]',
   '{
     "agentiq_native": true,
     "badge": "N",
@@ -54,7 +78,7 @@ INSERT INTO registry_assets (
     "receiptEmitted": true,
     "trustLevel": "production",
     "metaMePosture": "standard",
-    "skillCount": 2,
+    "skillCount": 3,
     "policyBindings": [
       {"policyId": "409-authorization-gate", "policyType": "behaviour", "policyName": "Bounded Financial Execution Gate", "enforced": true}
     ],
