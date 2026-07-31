@@ -21,7 +21,7 @@ const IDENTITY_REGISTRY = '0x8004A818BFB912233c491871b3d84c89A494BD9e';
 
 function fakeMcpClient(overrides: Partial<{ tools: any[]; unsignedTx: any; txHash: string; statusText: string }> = {}) {
   const tools = overrides.tools ?? [
-    { name: 'build_registration_tx', inputSchema: { properties: { agentURI: {}, network: {} } } },
+    { name: 'build_registration_tx', inputSchema: { properties: { walletAddress: {}, name: {}, description: {}, services: {}, network: {} } } },
     { name: 'submit_registry_tx', inputSchema: { properties: { signedTransaction: {}, network: {} } } },
     { name: 'get_onboarding_status', inputSchema: { properties: { transactionHash: {}, network: {} } } },
   ];
@@ -42,20 +42,24 @@ function fakeMcpClient(overrides: Partial<{ tools: any[]; unsignedTx: any; txHas
 function fakeFetchAgentCard(card: Record<string, unknown> = {}) {
   const full = {
     name: 'Aigent MoneyPenny',
+    description: 'The Constitutional Financial Services Agent.',
     url: 'https://dev-beta.aigentz.me/api/agents/moneypenny/agent-card.json',
     metadata: { runtime_agent_id: 'aigent-moneypenny', horizen: {} },
+    skills: [{ id: 'financial-advisory', name: 'Financial Advisory', description: 'Grounded financial guidance.' }],
     ...card,
   };
   const raw = JSON.stringify(full);
   return vi.fn(async () => ({ card: full, url: full.url, raw }));
 }
 
+const resolveOwnerWalletAddress = () => OWNER_WALLET.address;
+
 describe('prepareAgentRegistration', () => {
   it('builds and cross-checks the unsigned tx against this repo\'s recorded IdentityRegistry, without signing anything', async () => {
     const mcpClient = fakeMcpClient();
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient, fetchAgentCard: fakeFetchAgentCard() },
+      { mcpClient, fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress },
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -63,6 +67,25 @@ describe('prepareAgentRegistration', () => {
     expect(result.value.unsignedTx.to).toBe(IDENTITY_REGISTRY);
     expect(typeof result.value.agentCardHash).toBe('string');
     expect(result.value.agentCardHash).toHaveLength(64);
+
+    // Confirmed-live schema (2026-07-31): walletAddress/name/description/services.
+    const buildCall = mcpClient.callTool.mock.calls.find((c: any[]) => c[0].name === 'build_registration_tx');
+    expect(buildCall[0].arguments).toMatchObject({
+      walletAddress: OWNER_WALLET.address,
+      name: 'Aigent MoneyPenny',
+      description: 'The Constitutional Financial Services Agent.',
+      services: [{ name: 'Financial Advisory', description: 'Grounded financial guidance.' }],
+    });
+  });
+
+  it('refuses OWNER_KEY_NOT_CONFIGURED before ever calling build_registration_tx when no owner wallet is configured', async () => {
+    const mcpClient = fakeMcpClient();
+    const result = await prepareAgentRegistration(
+      { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
+      { mcpClient, fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress: () => null },
+    );
+    expect(result).toMatchObject({ ok: false, refusalCode: 'OWNER_KEY_NOT_CONFIGURED' });
+    expect(mcpClient.callTool).not.toHaveBeenCalled();
   });
 
   it('refuses UNKNOWN_AGENT for a slug not in the registrable-agents config', async () => {
@@ -73,7 +96,7 @@ describe('prepareAgentRegistration', () => {
   it('refuses ALREADY_REGISTERED rather than re-registering when the card already carries a tokenId', async () => {
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard({ metadata: { runtime_agent_id: 'aigent-moneypenny', horizen: { tokenId: '999' } } }) },
+      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard({ metadata: { runtime_agent_id: 'aigent-moneypenny', horizen: { tokenId: '999' } } }), resolveOwnerWalletAddress },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'ALREADY_REGISTERED' });
   });
@@ -81,7 +104,7 @@ describe('prepareAgentRegistration', () => {
   it('refuses AGENT_CARD_INVALID on a name mismatch, never proceeding with a mismatched identity', async () => {
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard({ name: 'Someone Else' }) },
+      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard({ name: 'Someone Else' }), resolveOwnerWalletAddress },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'AGENT_CARD_INVALID' });
   });
@@ -94,7 +117,7 @@ describe('prepareAgentRegistration', () => {
     });
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient, fetchAgentCard: fakeFetchAgentCard() },
+      { mcpClient, fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress },
     );
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -106,7 +129,7 @@ describe('prepareAgentRegistration', () => {
   it('refuses REGISTRATION_TOOL_NOT_FOUND rather than guessing a call shape', async () => {
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient: fakeMcpClient({ tools: [{ name: 'totally_unrelated', inputSchema: { properties: {} } }] }), fetchAgentCard: fakeFetchAgentCard() },
+      { mcpClient: fakeMcpClient({ tools: [{ name: 'totally_unrelated', inputSchema: { properties: {} } }] }), fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRATION_TOOL_NOT_FOUND' });
   });
@@ -114,7 +137,7 @@ describe('prepareAgentRegistration', () => {
   it('refuses NETWORK_OR_CONTRACT_MISMATCH when the returned unsigned tx targets a different contract', async () => {
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
-      { mcpClient: fakeMcpClient({ unsignedTx: { to: '0xDeadbeefDeadbeefDeadbeefDeadbeefDeadbeef', data: '0xabc' } }), fetchAgentCard: fakeFetchAgentCard() },
+      { mcpClient: fakeMcpClient({ unsignedTx: { to: '0xDeadbeefDeadbeefDeadbeefDeadbeefDeadbeef', data: '0xabc' } }), fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'NETWORK_OR_CONTRACT_MISMATCH' });
   });
