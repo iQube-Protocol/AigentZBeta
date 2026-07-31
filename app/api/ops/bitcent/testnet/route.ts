@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { btcApiBase, isBitcoinTxid, btcTxUrl } from '@/services/ops/btcExplorer';
+import { isBitcoinTxid, btcTxUrl, fetchBtcConfirmationWithFallback } from '@/services/ops/btcExplorer';
 
 /**
  * GET /api/ops/bitcent/testnet
@@ -11,9 +11,15 @@ import { btcApiBase, isBitcoinTxid, btcTxUrl } from '@/services/ops/btcExplorer'
  * hash, deployer) come from deployments/bitcent-testnet.json, mirroring the
  * deployments/qct-*-addresses.json precedent used for other chains. The
  * confirmation/block-height read is live, via the canonical btcExplorer
- * helper — see services/ops/btcExplorer.ts for which provider it uses and
- * why, and tests/btc-explorer.test.ts for the canary that keeps every
- * Bitcoin explorer reference flowing through that one helper.
+ * helper's bounded-fallback path (fetchBtcConfirmationWithFallback) — the
+ * configured primary explorer, with a secondary consulted only when the
+ * primary can't resolve the tx, divergence reported rather than merged, a
+ * total failure surfaced as confirmationError rather than a silent "—".
+ * See services/ops/btcExplorer.ts for which providers those are and why,
+ * and tests/btc-explorer.test.ts for the canary that keeps every Bitcoin
+ * explorer reference flowing through that one helper (this file is
+ * intentionally not in that canary's allowlist — never hardcode a provider
+ * host here even in a comment).
  *
  * Deliberately does NOT attempt a live Rune-supply/balance read: no reliably
  * working Rune-aware testnet indexer was found this session (the assumed
@@ -41,30 +47,28 @@ export async function GET() {
     );
 
     const txHash: string = deployment.txHash;
-    let confirmations: number | undefined;
-    let blockHeight: number | undefined;
+    let confirmations: number | null = null;
+    let blockHeight: number | null = null;
     let status: 'confirmed' | 'pending' | 'unknown' = 'unknown';
+    let source: 'blockstream' | 'mempool' | null = null;
+    let checkedAt: string | null = null;
+    let divergence: { blockstream: number | null; mempool: number | null } | null = null;
+    let explorerError: string | null = null;
 
     if (isBitcoinTxid(txHash)) {
-      try {
-        const base = btcApiBase();
-        const txRes = await fetch(`${base}/tx/${txHash}`, { cache: 'no-store' });
-        if (txRes.ok) {
-          const txJson: any = await txRes.json();
-          const confirmed = !!txJson?.status?.confirmed;
-          blockHeight = typeof txJson?.status?.block_height === 'number' ? txJson.status.block_height : undefined;
-          if (confirmed && typeof blockHeight === 'number') {
-            const tipRes = await fetch(`${base}/blocks/tip/height`, { cache: 'no-store' });
-            if (tipRes.ok) {
-              const tipHeight = Number(await tipRes.text());
-              if (Number.isFinite(tipHeight)) confirmations = Math.max(0, tipHeight - blockHeight + 1);
-            }
-          }
-          status = confirmed ? 'confirmed' : 'pending';
-        }
-      } catch {
-        // Explorer unreachable -- status stays 'unknown', never fabricated.
-      }
+      // Bounded fallback (operator ruling 2026-07-31, following the Bitcent
+      // ops-card incident): blockstream.info stays primary; mempool.space is
+      // consulted only when needed. Divergence is reported, never merged
+      // silently, and a total failure is surfaced as an explicit error —
+      // never silently collapsed into an unexplained "—" on the card.
+      const result = await fetchBtcConfirmationWithFallback(txHash);
+      confirmations = result.confirmations;
+      blockHeight = result.blockHeight;
+      status = result.confirmed ? 'confirmed' : result.error ? 'unknown' : 'pending';
+      source = result.source;
+      checkedAt = result.checkedAt;
+      divergence = result.divergence;
+      explorerError = result.error;
     }
 
     return NextResponse.json({
@@ -74,8 +78,12 @@ export async function GET() {
       txHash,
       explorer: isBitcoinTxid(txHash) ? btcTxUrl(txHash) : null,
       status,
-      confirmations: confirmations ?? null,
-      blockHeight: blockHeight ?? null,
+      confirmations,
+      blockHeight,
+      confirmationSource: source,
+      confirmationCheckedAt: checkedAt,
+      confirmationDivergence: divergence,
+      confirmationError: explorerError,
       runeName: record.runeName?.value ?? null,
       symbol: record.symbol?.value ?? null,
       maxSupply: record.maxSupply?.value ?? null,

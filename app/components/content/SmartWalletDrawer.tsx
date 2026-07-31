@@ -1534,8 +1534,14 @@ export default function SmartWalletDrawer({
     {
       key: "bcent-mainnet",
       label: "Bitcent (B¢)",
-      value: bcentMainnetPending ? "—" : formatFixed(bcentMainnetAmount),
-      unit: "B¢",
+      // Unresolved must never render as zero (operator ruling 2026-07-31):
+      // no Bitcoin explorer available to this app can read Rune balances —
+      // that requires a dedicated Runes-aware indexer, not yet wired in.
+      // "Awaiting Runes indexer" says exactly what's unresolved and why,
+      // rather than an ambiguous dash a viewer could read as "confirmed
+      // zero balance".
+      value: bcentMainnetPending ? "Awaiting Runes indexer" : formatFixed(bcentMainnetAmount),
+      unit: bcentMainnetPending ? "" : "B¢",
       logo: TOKEN_LOGOS.bitcoin,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
       group: "mainnet",
@@ -1554,8 +1560,9 @@ export default function SmartWalletDrawer({
     {
       key: "bcent-testnet",
       label: "Bitcent (B¢)",
-      value: bcentTestnetPending ? "—" : formatFixed(bcentTestnetAmount),
-      unit: "B¢",
+      // See bcent-mainnet above — unresolved must never render as zero.
+      value: bcentTestnetPending ? "Awaiting Runes indexer" : formatFixed(bcentTestnetAmount),
+      unit: bcentTestnetPending ? "" : "B¢",
       logo: TOKEN_LOGOS.bitcoin,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
       group: "testnet",

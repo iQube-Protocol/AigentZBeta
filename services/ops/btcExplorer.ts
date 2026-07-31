@@ -66,3 +66,127 @@ export function btcBlockHeightUrl(height: number | string): string {
 export function btcAddressUrl(address: string): string {
   return `${btcExplorerBase()}/address/${address}`;
 }
+
+/** The mempool.space Esplora-compatible API base, BTC_NETWORK-keyed. Used
+ * ONLY as a bounded fallback (see fetchBtcConfirmationWithFallback below) —
+ * blockstream.info stays the configured primary per the 2026-07-06 audit
+ * (docs/CANISTER_MONITORING_UPGRADE.md). Do not use this as a standalone
+ * primary source anywhere; that reintroduces the reliability problem the
+ * original switch to blockstream.info fixed. */
+function mempoolApiBase(): string {
+  return NETWORK === 'mainnet' ? 'https://mempool.space/api' : 'https://mempool.space/testnet/api';
+}
+
+interface TxConfirmationProbe {
+  confirmed: boolean;
+  blockHeight: number | null;
+  confirmations: number | null;
+}
+
+async function probeTxConfirmation(apiBase: string, txid: string): Promise<TxConfirmationProbe | null> {
+  const txRes = await fetch(`${apiBase}/tx/${txid}`, { cache: 'no-store' });
+  if (!txRes.ok) return null;
+  const txJson: any = await txRes.json();
+  const confirmed = !!txJson?.status?.confirmed;
+  const blockHeight = typeof txJson?.status?.block_height === 'number' ? txJson.status.block_height : null;
+  if (!confirmed || blockHeight == null) return { confirmed, blockHeight, confirmations: null };
+  const tipRes = await fetch(`${apiBase}/blocks/tip/height`, { cache: 'no-store' });
+  if (!tipRes.ok) return { confirmed, blockHeight, confirmations: null };
+  const tipHeight = Number(await tipRes.text());
+  if (!Number.isFinite(tipHeight)) return { confirmed, blockHeight, confirmations: null };
+  return { confirmed, blockHeight, confirmations: Math.max(0, tipHeight - blockHeight + 1) };
+}
+
+export type BtcExplorerSource = 'blockstream' | 'mempool';
+
+/** Human-readable labels for a BtcExplorerSource — UI surfaces must use
+ * this, never a hardcoded 'blockstream.info'/'mempool.space' string
+ * (tests/btc-explorer.test.ts's canary forbids that outside this file). */
+export const BTC_EXPLORER_LABELS: Record<BtcExplorerSource, string> = {
+  blockstream: 'blockstream.info',
+  mempool: 'mempool.space',
+};
+
+export interface BtcConfirmationResult {
+  confirmed: boolean;
+  confirmations: number | null;
+  blockHeight: number | null;
+  /** Which source the reported confirmations/blockHeight came from. Null
+   * only when neither source resolved the transaction at all. */
+  source: BtcExplorerSource | null;
+  checkedAt: string;
+  /** Present only when both sources answered AND their confirmation counts
+   * disagreed — never silently merged (operator ruling 2026-07-31). */
+  divergence: { blockstream: number | null; mempool: number | null } | null;
+  /** Surfaced, never collapsed into a bare "—" (operator ruling 2026-07-31):
+   * set when neither source could resolve the transaction at all. */
+  error: string | null;
+}
+
+/**
+ * Confirmation status with a bounded fallback (operator ruling 2026-07-31,
+ * following the 2026-07-31 Bitcent ops-card incident): blockstream.info
+ * stays the configured PRIMARY source — do not replace it globally, its
+ * 2026-07-06 switch had its own reliability rationale — but a transaction
+ * blockstream.info can't currently resolve is checked against mempool.space
+ * before giving up. When both sources answer and disagree, the LOWER
+ * confirmation count wins (confirmation state is determined conservatively
+ * — never over-claim finality) and the disagreement itself is reported via
+ * `divergence`, never silently merged into one number.
+ */
+export async function fetchBtcConfirmationWithFallback(txid: string): Promise<BtcConfirmationResult> {
+  const checkedAt = new Date().toISOString();
+  const primaryBase = btcCanonicalApiBase();
+  const fallbackBase = mempoolApiBase();
+
+  const [primary, fallback] = await Promise.all([
+    probeTxConfirmation(primaryBase, txid).catch(() => null),
+    probeTxConfirmation(fallbackBase, txid).catch(() => null),
+  ]);
+
+  const divergence =
+    primary?.confirmations != null && fallback?.confirmations != null && primary.confirmations !== fallback.confirmations
+      ? { blockstream: primary.confirmations, mempool: fallback.confirmations }
+      : null;
+
+  if (primary?.confirmed && fallback?.confirmed && primary.confirmations != null && fallback.confirmations != null) {
+    const conservative = Math.min(primary.confirmations, fallback.confirmations);
+    return {
+      confirmed: true,
+      confirmations: conservative,
+      blockHeight: primary.blockHeight,
+      source: conservative === fallback.confirmations && conservative !== primary.confirmations ? 'mempool' : 'blockstream',
+      checkedAt,
+      divergence,
+      error: null,
+    };
+  }
+  if (primary?.confirmed) {
+    return { confirmed: true, confirmations: primary.confirmations, blockHeight: primary.blockHeight, source: 'blockstream', checkedAt, divergence, error: null };
+  }
+  if (fallback?.confirmed) {
+    return { confirmed: true, confirmations: fallback.confirmations, blockHeight: fallback.blockHeight, source: 'mempool', checkedAt, divergence, error: null };
+  }
+  if (primary || fallback) {
+    // At least one source resolved the tx but it isn't confirmed yet.
+    const seen = primary ?? fallback!;
+    return {
+      confirmed: false,
+      confirmations: null,
+      blockHeight: seen.blockHeight,
+      source: primary ? 'blockstream' : 'mempool',
+      checkedAt,
+      divergence: null,
+      error: null,
+    };
+  }
+  return {
+    confirmed: false,
+    confirmations: null,
+    blockHeight: null,
+    source: null,
+    checkedAt,
+    divergence: null,
+    error: 'Neither blockstream.info nor mempool.space could resolve this transaction',
+  };
+}

@@ -9,6 +9,17 @@ interface BitcentTestnetData {
   status: 'confirmed' | 'pending' | 'unknown';
   confirmations: number | null;
   blockHeight: number | null;
+  /** Which explorer the reported confirmations/blockHeight came from —
+   * 'blockstream' (primary) or 'mempool' (fallback, consulted only when the
+   * primary can't resolve the tx). Null only when neither resolved it. */
+  confirmationSource: 'blockstream' | 'mempool' | null;
+  confirmationCheckedAt: string | null;
+  /** Present only when both explorers answered AND disagreed on the
+   * confirmation count — never silently merged into one number. */
+  confirmationDivergence: { blockstream: number | null; mempool: number | null } | null;
+  /** Surfaced, never collapsed into a bare "—": set when neither explorer
+   * could resolve the transaction at all. */
+  confirmationError: string | null;
   runeName: string | null;
   symbol: string | null;
   maxSupply: number | null;

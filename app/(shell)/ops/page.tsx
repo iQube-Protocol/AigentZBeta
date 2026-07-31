@@ -6,7 +6,7 @@ import { RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
 import { useBitcentTestnet } from "@/hooks/ops/useBitcentTestnet";
-import { btcExplorerBase, btcTxUrl, btcBlockHeightUrl, isBitcoinTxid } from "@/services/ops/btcExplorer";
+import { btcExplorerBase, btcTxUrl, btcBlockHeightUrl, isBitcoinTxid, BTC_EXPLORER_LABELS } from "@/services/ops/btcExplorer";
 
 // Extend ChainStatus type to include latestTx if not present
 type ChainStatus = {
@@ -834,6 +834,9 @@ export default function OpsPage() {
             const txHash = bitcent.data?.txHash;
             const txUrl = bitcent.data?.explorer;
             const confirmations = bitcent.data?.confirmations;
+            const confirmationSource = bitcent.data?.confirmationSource;
+            const confirmationDivergence = bitcent.data?.confirmationDivergence;
+            const confirmationError = bitcent.data?.confirmationError;
             const custodian = bitcent.data?.premineCustodianAddress;
             const premine = bitcent.data?.premine;
             const activeIssuance = bitcent.data?.initiallyActiveIssuance;
@@ -906,8 +909,29 @@ export default function OpsPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Confirmations:</span>
-                  <span className="text-xs text-slate-300">{confirmations != null ? confirmations : "—"}</span>
+                  <span className="text-xs text-slate-300">
+                    {confirmations != null ? confirmations : "—"}
+                    {confirmationSource && (
+                      <span className="ml-1 text-slate-500">
+                        (source: {BTC_EXPLORER_LABELS[confirmationSource]})
+                      </span>
+                    )}
+                  </span>
                 </div>
+                {confirmationDivergence && (
+                  <div className="flex items-center justify-between rounded bg-amber-500/10 px-2 py-1">
+                    <span className="text-amber-400 text-xs">Explorer divergence:</span>
+                    <span className="text-xs text-amber-300">
+                      {BTC_EXPLORER_LABELS.blockstream} {confirmationDivergence.blockstream ?? "—"} / {BTC_EXPLORER_LABELS.mempool} {confirmationDivergence.mempool ?? "—"}
+                    </span>
+                  </div>
+                )}
+                {confirmationError && (
+                  <div className="flex items-center justify-between rounded bg-red-500/10 px-2 py-1">
+                    <span className="text-red-400 text-xs">Confirmation check failed:</span>
+                    <span className="text-xs text-red-300">{confirmationError}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
