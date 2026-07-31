@@ -30,11 +30,19 @@ const DISPOSITIONS = [
 interface AigentMeFocusDispositionPromptProps {
   domainFocus?: string;
   agentLabel?: string;
+  /**
+   * Fired once a disposition is successfully recorded (Guided Journey
+   * Runtime §24.9 Ephemeral Interface, Durable Consequence) — lets a
+   * hosting capsule close itself immediately ("the closing ceremony").
+   * Never fired for the read-only "already answered" state on load.
+   */
+  onResolved?: () => void;
 }
 
 export function AigentMeFocusDispositionPrompt({
   domainFocus = 'Financial Services',
   agentLabel = 'MoneyPenny',
+  onResolved,
 }: AigentMeFocusDispositionPromptProps) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -75,13 +83,14 @@ export function AigentMeFocusDispositionPrompt({
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const json = await res.json();
         setDisposition(json.disposition ?? value);
+        onResolved?.();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not record your choice');
       } finally {
         setSubmitting(false);
       }
     },
-    [domainFocus],
+    [domainFocus, onResolved],
   );
 
   const chosen = DISPOSITIONS.find((d) => d.value === disposition);

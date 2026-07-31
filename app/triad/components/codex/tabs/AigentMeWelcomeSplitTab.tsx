@@ -539,7 +539,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // own bounded surface; the operator engages one, completes their
   // work, then moves to the next. Previous Capsules collapse into
   // the session-history strip and can be restored by click.
-  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists";
+  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists" | "moneypenny-focus";
   // CANONICAL Capsule → Layout mapping. Every Capsule template owns
   // exactly one dedicated foreground layout. Activating a Capsule MUST
   // mount its layout (both states stay in lockstep) — otherwise the
@@ -557,6 +557,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     "move-forward": "decision-board",
     "venture-progress": "venture-cockpit",
     "ask-specialists": "specialists",
+    "moneypenny-focus": "moneypenny-focus",
   };
   const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
   const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
@@ -894,6 +895,43 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       .finally(() => { if (!cancelled) setReceiptsLoading(false); });
 
     return () => { cancelled = true; };
+  }, [spine.status, personaId]);
+
+  // ── MoneyPenny focus disposition check (Guided Journey Runtime §24.7-
+  // §24.9 aigentMe Closing Ceremony) ─────────────────────────────────
+  // On arrival, if the principal hasn't yet answered whether MoneyPenny's
+  // Financial Services focus belongs in their ExperienceQube, aigentMe asks
+  // conversationally (via autoPrompt — a real Companion turn, never a
+  // canned line) while the 'moneypenny-focus' Welcome Capsule opens with
+  // the four structured choices. The server-persisted disposition is the
+  // single source of truth (§5.3 One-State Principle) — once answered, this
+  // never fires again. §24.10: no further screen activity once resolved.
+  useEffect(() => {
+    if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
+    let cancelled = false;
+
+    personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition', {
+      personaIdHint: personaId,
+      cache: 'no-store',
+    })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (cancelled || json?.disposition != null) return;
+        engageCapsuleAndMount('moneypenny-focus');
+        setAutoPrompt({
+          id: 'auto-moneypenny-focus-disposition',
+          text:
+            "[observed] MoneyPenny appears to represent a focus in Financial Services. In your own " +
+            'words, ask me whether that focus should be central to my ExperienceQube, secondary, ' +
+            "just for this journey, or not part of my experience at all — a capsule with those four " +
+            "choices is already open on my right pane for me to pick from; don't decide for me.",
+        });
+      })
+      .catch(() => { /* best-effort — the capsule simply won't auto-open this visit */ });
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spine.status, personaId]);
 
   // ── Fetchers ────────────────────────────────────────────────────────

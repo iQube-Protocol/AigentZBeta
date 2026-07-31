@@ -442,9 +442,9 @@ Marketa recommendation
 = initial MoneyPenny FS Runtime activation
 ```
 
-**Default observer: Aigent Z** (2026-07-30, operator review; terminology synced 2026-07-31) — she is already the authoritative
+**Default observer: Aigent Z** (2026-07-30, operator review; terminology synced 2026-07-31) — Aigent Z is already the authoritative
 platform-state reporter and system orchestrator (`platform-state-reporter → aigentz@aigent`, ratified
-the same day), so she is the deterministic default for alpha; no runtime choice between observers
+the same day), so Aigent Z is the deterministic default for alpha; no runtime choice between observers
 unless failover is actually required. **Platform Aletheon remains a configured alternative**,
 reserved for a future constitutional-review context needing stronger separation — not a second
 option the alpha demo should pick between live. This is the same observer/required-signatory shape
@@ -697,8 +697,12 @@ demonstrated live — do not let Stage 1's UI collapse that distinction back int
 
 Companion narratives (per stage, templated for alpha):
 
-- **Register:** "MoneyPenny is now discoverable in Horizen. Registry presence proves identity and
-  discoverability, but not constitutional authority."
+- **Register:**
+  - *Before:* "MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration
+    is still pending. Registry presence will establish external identity and discoverability, but not
+    constitutional authority."
+  - *Complete:* "MoneyPenny is now discoverable in Horizen. Registry presence proves identity and
+    discoverability, but not constitutional authority."
 - **Verify:** "Horizen has enriched MoneyPenny's verifiable operational state. It has not created or
   enlarged her constitutional authority."
 - **Claim:** "Control has been proven without revealing the private key. Control does not yet equal
@@ -1625,3 +1629,180 @@ means aigentMe lives inside Claude — Claude is the edge, not the destination.
 in-scope work is completing the Partner Journey tab + Companion synchronization (§11.2, §11.3, §14.1).
 Building the Claude/MCP-to-Threshold-Crossing extension is deliberately deferred — attempting both at
 once risks the same "parallel demo app" failure mode §0 already warns against.
+
+## 24. Guided Journey Runtime — Surface and Ceremony Invariants (added 2026-07-31, operator ruling — canonical, not Horizen-specific)
+
+These twelve invariants generalize the Passport/Delegate/Activate surface decision and the aigentMe
+MoneyPenny-focus ceremony into standing rules for the Guided Journey Runtime. They apply to every
+future journey configured on this runtime, not only the MoneyPenny × Horizen pilot — the pilot is
+simply where they were first tested against a real build.
+
+### Journey Surface Purity (§24.1)
+
+A journey stage should render the smallest authoritative functional surface required to complete
+that stage. The journey must not inherit an entire cartridge, shell, menu system, or navigation
+hierarchy merely because the underlying capability lives there.
+
+```
+capability → isolate functional surface → render without surrounding navigation
+```
+
+Not:
+
+```
+journey stage → open whole cartridge → require participant to navigate to the relevant function
+```
+
+The journey carries the participant to the act. It does not send them searching for it.
+
+### Canonical Surface Reuse (§24.2)
+
+Where a capability already has a clean, journey-ready surface, the journey must reuse that surface
+rather than returning to a more comprehensive but noisier source application. For the current
+constitutional journey, the canonical surfaces are the Venture Lab α Participate views:
+
+```
+Passport → Apply
+Delegate → Delegate
+Activate → Standing
+```
+
+These supersede the use of the full Polity Passport Bureau cartridge, the full Standing cartridge,
+and broader delegation or registry surfaces where the Participate version already provides the
+required function. The Venture Lab α Participate surfaces are preferred because they have already
+been reduced to the information and actions necessary for the journey.
+
+### Functional Surface Precedence (§24.3)
+
+The source of constitutional authority and the source of journey presentation need not be the same
+application surface. The Polity Passport Bureau may remain authoritative for Passport infrastructure
+and records, while the Journey Runtime presents the stripped Apply surface from Venture Lab α.
+Likewise:
+
+```
+authoritative Passport machinery ≠ journey presentation surface
+authoritative Standing machinery ≠ journey presentation surface
+```
+
+The journey reuses the most appropriate interface without changing the underlying authority.
+
+### Navigation Suppression (§24.4)
+
+A journey-rendered capability should not display its parent cartridge navigation unless that
+navigation is necessary to complete the current stage. For the Apply, Delegate, and Activate stages,
+suppress Venture Lab top menus, Partner submenus, Participate navigation, cartridge tabs, and
+unrelated contextual controls. Render only the functional modal, panel, or component. The participant
+should see stage purpose, functional surface, required action, and current evidence state — nothing
+else unless it materially supports the act.
+
+### No Incidental Journey Expansion (§24.5)
+
+A capability that is adjacent to the journey must not be added merely because it is present in the
+source application. The Participate Locker remains outside the initial journey because it is not
+required for the admission sequence:
+
+```
+Apply, Delegate, Standing = required journey surfaces
+Locker = available in Participate, but not currently part of the journey
+```
+
+Locker may later be added as its own explicit stage or supporting surface. It must not appear
+incidentally.
+
+### Stage-to-Surface Singularity (§24.6)
+
+Each journey stage should have one clearly identified primary functional surface:
+
+```
+Passport stage  → Participate / Apply
+Delegate stage  → Participate / Delegate
+Activate stage  → Participate / Standing
+```
+
+Supporting surfaces may appear where needed, but the primary action must remain unambiguous. This
+prevents the stage from becoming a dashboard containing several competing interpretations of what the
+user should do next.
+
+### aigentMe Closing Ceremony Invariants
+
+### Conversational Question, Visual Answer (§24.7)
+
+Where aigentMe needs a principal to make a simple constitutional or experiential choice, the question
+should be asked conversationally and the answer should be captured through a focused capsule. For
+MoneyPenny's arrival, aigentMe/Copilot asks: "MoneyPenny appears to represent a focus in Financial
+Services. Is that an important part of the experience you want to build?" The right-pane capsule
+presents the four dispositions (Central, Relevant but secondary, Temporary, Not carried forward). The
+conversation creates understanding. The capsule captures the structured decision.
+
+### Ceremony Capsule Principle (§24.8)
+
+A closing constitutional ceremony should be represented as a temporary, purpose-specific capsule
+rather than permanently expanding the destination interface. The MoneyPenny focus-disposition
+component is therefore a Welcome Capsule overlaid in the right pane of the aigentMe experience — it
+must not be permanently inserted at the bottom of the aigentMe tab, must not compress or distort the
+existing aigentMe layout, and must not create a new persistent section for a one-time decision. It
+appears when required, records the principal's response, and closes when complete.
+
+### Ephemeral Interface, Durable Consequence (§24.9)
+
+A journey capsule may be temporary in presentation while its decision remains durable in state and
+evidence:
+
+```
+aigentMe asks → capsule opens → principal selects disposition → disposition is recorded
+→ receipt is issued → capsule closes
+```
+
+The interface disappears. The constitutional and ExperienceQube consequences remain.
+
+### One Decision, No Unnecessary Continuation (§24.10)
+
+Once a bounded journey decision has been made and receipted, the journey must not manufacture
+additional steps merely to preserve screen activity. For the initial pilot, after the principal
+answers the MoneyPenny focus question: record the disposition, issue the required receipt, close the
+capsule, complete the closing ceremony. No additional questionnaire, setup form, or profile-editing
+sequence is required.
+
+### Experience Sovereignty (§24.11)
+
+An onboarding agent may propose a likely domain focus, but only the principal may determine whether
+that focus becomes part of their ExperienceQube population. MoneyPenny's Financial Services role is
+evidence for the inference, not authority to populate the principal's experience:
+
+```
+incoming agent suggests relevance → aigentMe makes the relevance visible
+→ principal determines its meaning → ExperienceQube population reflects that decision
+```
+
+### aigentMe Layout Preservation (§24.12)
+
+Journey-specific ceremonies must adapt to the aigentMe capsule architecture rather than forcing the
+aigentMe architecture to adapt around the journey. The existing left/right model remains: left pane is
+the aigentMe/Copilot conversation, right pane is the temporary Welcome Capsule with disposition
+choices. This preserves the native aigentMe experience while allowing the journey to complete within
+it.
+
+### Canonical stage mapping for the pilot
+
+```
+Register  → AigentQube / Agent Card / Horizen registration surfaces
+Verify    → Pulse and P&L authorization surface
+Claim     → proof-of-control + Marketa eligibility surfaces
+Passport  → Venture Lab α Participate / Apply functional surface
+Delegate  → Venture Lab α Participate / Delegate functional surface
+Activate  → Venture Lab α Participate / Standing functional surface
+aigentMe  → aigentMe conversation + temporary Welcome Capsule
+```
+
+No Venture Lab menus or submenus should be rendered inside the Apply, Delegate, or Activate stage
+viewports.
+
+### Consolidated constitutional formulation
+
+A guided journey must render the minimum authoritative surface required for the present act. It may
+reuse capabilities from broader applications, but it shall suppress unrelated navigation, adjacent
+functions, and interface noise. Conversational guidance belongs to the Companion; structured decisions
+belong in focused capsules; temporary ceremonies may close, but their receipts and constitutional
+consequences endure.
+
+Shortest product rule: **show the act, not the application that contains it.**

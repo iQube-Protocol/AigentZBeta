@@ -21,6 +21,7 @@ import { LedgerLayout } from "./LedgerLayout";
 import { KpiDetailLayout } from "./KpiDetailLayout";
 import { ActiveWorkDetailLayout } from "./ActiveWorkDetailLayout";
 import { SpecialistsLayout } from "./SpecialistsLayout";
+import { MoneyPennyFocusLayout } from "./MoneyPennyFocusLayout";
 import type { RightPaneLayoutDefinition, RightPaneLayoutId } from "./types";
 
 const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
@@ -34,6 +35,7 @@ const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
   "kpi-detail":          KpiDetailLayout,
   "active-work-detail":  ActiveWorkDetailLayout,
   "specialists":         SpecialistsLayout,
+  "moneypenny-focus":    MoneyPennyFocusLayout,
 };
 
 export function getLayout(id: RightPaneLayoutId | string | null | undefined): RightPaneLayoutDefinition {

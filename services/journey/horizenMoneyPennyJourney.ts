@@ -46,7 +46,8 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       completionEvidence: ['aigentQubeResolved', 'tokenId', 'registryRereadOk', 'ownerWalletMatches', 'agentCardResolves'],
       receiptTypes: ['agent_card_discovered', 'horizen_agent_registered'],
       companion: {
-        before: 'MoneyPenny has not yet registered with Horizen.',
+        before:
+          'MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
         complete:
           'MoneyPenny is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
@@ -108,8 +109,8 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
-          ref: 'passport-bureau-registry',
-          note: "Leading candidate for the operator's own passport-status view (§22 open item).",
+          ref: 'venture-participate-apply',
+          note: "Rendered bare — Venture Lab α's Participate → Apply module (the Citizen application). Not the Polity Passport Bureau cartridge.",
         },
       ],
       prerequisites: ['claim'],
@@ -130,9 +131,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       subjectRef: 'moneypenny',
       surfaces: [
         {
-          mode: 'iframe',
-          ref: 'constitutional-agreements',
-          note: 'Venture Lab α → Partner Pilot Command Center → Constitutional Agreements.',
+          mode: 'component',
+          ref: 'venture-participate-delegation',
+          note: "Rendered bare — Venture Lab α's Participate → Delegation module (bounded delegation).",
         },
       ],
       prerequisites: ['passport'],
@@ -154,8 +155,8 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
-          ref: 'agent-wallet',
-          note: 'MoneyPenny’s wallet + mandate, via the canonical embedded wallet pattern.',
+          ref: 'venture-participate-standing',
+          note: "Rendered bare — Venture Lab α's Participate → Standing module (lanes, reach, receipts, contribution history).",
         },
       ],
       prerequisites: ['delegate'],
@@ -180,12 +181,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'iframe',
           ref: 'aigentme-welcome',
-          note: 'aigentMe’s existing copilot/dashboard shell, composed as the base surface.',
-        },
-        {
-          mode: 'component',
-          ref: 'aigentme-focus-disposition-prompt',
-          note: 'Genuinely new component (§22) — the confirm/decline-focus prompt this stage requires.',
+          note:
+            "aigentMe's existing copilot/dashboard shell, composed as the base surface. The focus-" +
+            'disposition ceremony (formerly a bolted-on second surface here) now lives inside this ' +
+            'shell as a Welcome Capsule — never a second surface at the journey level (§24.8).',
         },
       ],
       prerequisites: ['activate'],

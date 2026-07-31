@@ -11,16 +11,23 @@
  *
  * Confirmed real, 2026-07-31 (§22 Surface Discovery Gate, via Explore-agent
  * research against the live codebase):
- *   - passport-bureau-apply / -registry: polity-passport-bureau-cartridge
- *   - constitutional-agreements:         alpha-knyt-codex (tab partner-operate)
+ *   - passport-bureau-apply:                    polity-passport-bureau-cartridge (unused by any stage; kept as a candidate)
+ *   - venture-participate-apply/-delegation/-standing:
+ *     PassportBureauApplyTab / BoundedDelegationTab / ParticipationStandingTab,
+ *     rendered bare (kind: 'component', no cartridge nav/tab-group chrome).
+ *     Per operator direction 2026-07-31: the journey's Passport/Delegate/
+ *     Activate stages compose ONLY these Venture Lab α Participate-group
+ *     modules — never the Polity Passport Bureau cartridge shell, never the
+ *     standalone Standing cartridge, and never Venture Lab's own Participate
+ *     tab-group navigation. Each module is the same instance those cartridges
+ *     already mount; nothing is forked.
  *   - founder-office:                    alpha-knyt-codex (tab founder-office)
  *   - aigentme-welcome:                  metame-codex (tab aigent-me)
  *   - agent-card:                        app/api/agents/moneypenny/route.ts (JSON API, not a tab)
  *
  * Confirmed genuinely absent — 'component-new' entries are the case-by-case
  * exception §5.2/§5.9 require, never a default, each justified in §22:
- *   - pulse-transparency-toggle, marketa-eligibility-view,
- *     aigentme-focus-disposition-prompt
+ *   - pulse-transparency-toggle, marketa-eligibility-view
  *
  * Unresolved, cannot be guessed (CLAUDE.md's no-guessing rule) — 'external-
  * url-unresolved': Horizen's human-browsable registry page. Only Horizen's
@@ -105,26 +112,28 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'apply',
     note: 'Confirmed real, live — the Polity Citizen Passport application wizard.',
   },
-  'passport-bureau-registry': {
-    kind: 'embed',
-    codexSlug: 'polity-passport-bureau-cartridge',
-    tab: 'registry',
-    note:
-      'Leading candidate for the "own passport status" view this stage needs (valid/continuing/' +
-      'sponsor-eligible) — not yet deeply verified against that specific content (§22 open item).',
-  },
-  'constitutional-agreements': {
-    kind: 'embed',
-    codexSlug: 'alpha-knyt-codex',
-    tab: 'partner-operate',
-    note:
-      'Confirmed real — PartnerProgrammesTab’s "Constitutional Agreements" panel, Venture Lab α, ' +
-      'header "Pilot Command Center", exactly as the storyboard suspected.',
-  },
-  'agent-wallet': {
+  'venture-participate-apply': {
     kind: 'component',
-    component: 'SmartWalletDrawer',
-    note: 'Reused via the canonical embedded-mode-inside-the-copilot pattern (CLAUDE.md Wallet-Over-Cartridge Overlay).',
+    component: 'PassportBureauApplyTab',
+    note:
+      'Citizen application — the same PassportBureauApplyTab module Venture Lab α’s Participate ' +
+      'group (and Polity Passport Bureau) mount; not a fork. Rendered bare, no cartridge nav or ' +
+      'tab-group chrome — the pure functional surface only.',
+  },
+  'venture-participate-delegation': {
+    kind: 'component',
+    component: 'BoundedDelegationTab',
+    note:
+      'Bounded delegation — the same BoundedDelegationTab module Venture Lab α’s Participate group ' +
+      'mounts. Rendered bare, superseding the Partner Pilot Command Center’s Constitutional ' +
+      'Agreements iframe for this stage.',
+  },
+  'venture-participate-standing': {
+    kind: 'component',
+    component: 'ParticipationStandingTab',
+    note:
+      'Standing — the deliberately lean Participation v1 surface (lanes, reach, receipts, ' +
+      'contribution history). Rendered bare, superseding the embedded SmartWalletDrawer for this stage.',
   },
   'aigentme-welcome': {
     kind: 'embed',
@@ -132,18 +141,8 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     tab: 'aigent-me',
     note:
       'Confirmed real and live — AigentMeWelcomeSplitTab, the operator’s existing copilot/dashboard ' +
-      'shell. NOT itself a threshold-crossing/onboarding-disposition surface; composed as the base, ' +
-      'with the disposition prompt layered on top (see aigentme-focus-disposition-prompt below).',
-  },
-  'aigentme-focus-disposition-prompt': {
-    kind: 'component',
-    component: 'AigentMeFocusDispositionPrompt',
-    note:
-      'Built 2026-07-31 (components/journey/AigentMeFocusDispositionPrompt.tsx) — the confirm/' +
-      'decline-focus prompt per §5.10 (aigentMe Onboarding Oversight Principle). Writes ' +
-      'experienceqube_focus_disposition_recorded (and, on first use, aigentme_activated) via ' +
-      '/api/journey/moneypenny-horizen/aigentme/disposition. The principal, never the onboarding ' +
-      'agent, decides whether its domain focus shapes their ExperienceQube population.',
+      'shell. The focus-disposition ceremony is a Welcome Capsule inside this shell itself (§24.8 ' +
+      'Ceremony Capsule Principle) — never a second journey-level surface stacked alongside it.',
   },
   'founder-office': {
     kind: 'embed',

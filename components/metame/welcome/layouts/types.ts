@@ -32,7 +32,8 @@ export type RightPaneLayoutId =
   | "ledger"
   | "kpi-detail"
   | "active-work-detail"
-  | "specialists";
+  | "specialists"
+  | "moneypenny-focus";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding

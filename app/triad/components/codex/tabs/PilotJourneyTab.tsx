@@ -29,8 +29,10 @@ import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2,
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
-import { AigentMeFocusDispositionPrompt } from '@/components/journey/AigentMeFocusDispositionPrompt';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
+import { PassportBureauApplyTab } from './PassportBureauApplyTab';
+import { BoundedDelegationTab } from './BoundedDelegationTab';
+import { ParticipationStandingTab } from './ParticipationStandingTab';
 import type { JourneyRuntimeState } from '@/types/journey';
 
 interface PilotJourneyTabProps {
@@ -46,10 +48,19 @@ interface PilotJourneyTabProps {
  * marks `kind: 'component'` (built) resolve here — `kind: 'component-new'`
  * entries render the explicit "not yet built" state below instead, never a
  * silent fallback into this map.
+ *
+ * PassportBureauApplyTab / BoundedDelegationTab / ParticipationStandingTab
+ * are rendered bare (Guided Journey Runtime §24.4 Navigation Suppression) —
+ * the same Venture Lab α Participate modules, with no cartridge nav or
+ * tab-group chrome around them. The aigentMe focus-disposition ceremony
+ * (formerly bolted onto this tab's 'aigentme' stage) now lives as a capsule
+ * inside AigentMeWelcomeSplitTab itself (§24.8 Ceremony Capsule Principle).
  */
 const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
-  AigentMeFocusDispositionPrompt,
   AgentCardSurface,
+  PassportBureauApplyTab,
+  BoundedDelegationTab,
+  ParticipationStandingTab,
 };
 
 function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
@@ -301,7 +312,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
               }
               return (
                 <div key={i}>
-                  <Component {...(surfaceRef.props ?? {})} />
+                  <Component personaId={personaId} {...(surfaceRef.props ?? {})} />
                 </div>
               );
             }
