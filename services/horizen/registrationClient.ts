@@ -222,7 +222,19 @@ export async function prepareAgentRegistration(
   const buildResult = await mcpClient.callTool({ name: 'build_registration_tx', arguments: buildArgs });
   const unsignedTx = extractUnsignedTx(buildResult);
   if (!unsignedTx) {
-    return { ok: false, refusalCode: 'UNSIGNED_TX_UNAVAILABLE', detail: 'could not locate an unsigned transaction in build_registration_tx\'s result' };
+    return {
+      ok: false,
+      refusalCode: 'UNSIGNED_TX_UNAVAILABLE',
+      // Surface the exact call and response — this refusal has no way to
+      // guess Horizen's real schema, so the operator needs to SEE it rather
+      // than get a bare "not found" (mirrors scripts/register-moneypenny-
+      // horizen.ts's own propose-and-confirm transparency: print what was
+      // sent and what came back, never assume).
+      detail:
+        'could not locate an unsigned transaction in build_registration_tx\'s result. ' +
+        `Arguments sent: ${JSON.stringify(buildArgs)}. ` +
+        `Raw result: ${JSON.stringify(buildResult).slice(0, 4000)}`,
+    };
   }
 
   if (unsignedTx.to && unsignedTx.to.toLowerCase() !== facts.identityRegistry.toLowerCase()) {
