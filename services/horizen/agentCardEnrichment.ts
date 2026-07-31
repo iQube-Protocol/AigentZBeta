@@ -8,15 +8,16 @@
  * completion" applies here too: this function must never run against an
  * unconfirmed authorization.
  *
- * Projects the confirmed state onto MoneyPenny's canonical AigentQube record
- * (registry_assets 'aigentqube-moneypenny') via the SAME
- * external_registry_bindings[0].transparency field the Agent Card route
- * already projects tokenId/registryAlias/status from — never a second,
- * parallel source of truth (inv.engineering.036/037). The served Agent Card
- * (app/api/agents/moneypenny/agent-card.json/route.ts) reads this same
- * binding and projects it into the card's own `metadata.horizen.pulse`/`.pnl`
- * and `metadata.evidence` — updated in the same change as this file so the
- * enrichment is never an inert write (CLAUDE.md Companion invariant MS-7).
+ * Projects the confirmed state onto the target agent's canonical AigentQube
+ * record (registry_assets, keyed by `aigentQubeId` — resolved by the caller
+ * from services/horizen/registrableAgents.ts, never hardcoded here since
+ * this now serves any registrable agent, not MoneyPenny alone) via the SAME
+ * external_registry_bindings[0].transparency field the served Agent Card
+ * route already projects tokenId/registryAlias/status from — never a
+ * second, parallel source of truth (inv.engineering.036/037). The served
+ * Agent Card reads this same binding and projects it into the card's own
+ * `metadata.horizen.pulse`/`.pnl` and `metadata.evidence` — never an inert
+ * write (CLAUDE.md Companion invariant MS-7).
  *
  * Establishes Standing ELIGIBILITY only (`evidence.standingStatus`). It does
  * not accrue Standing — that remains a separate governed act
@@ -27,11 +28,15 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 
-const AIGENTQUBE_ID = 'aigentqube-moneypenny';
-
 export interface EnrichAgentCardInput {
   /** The operator's own persona — recorded as the receipts' principal. */
   actorPersonaId: string;
+  /** registry_assets.asset_id for the target agent (services/horizen/registrableAgents.ts). */
+  aigentQubeId: string;
+  /** RUNTIME_AGENT_IDS entry for the target agent — recorded as the receipts' agentsInvoked. */
+  runtimeAgentId: string;
+  /** Display name for receipt summaries (e.g. 'Aigent MoneyPenny'). */
+  displayName: string;
   authorizationId: string;
   controllerWallet: string;
   tokenId: string;
@@ -53,10 +58,10 @@ export async function enrichAgentCardAfterHorizenAuthorization(
   const { data: row, error } = await admin
     .from('registry_assets')
     .select('metadata')
-    .eq('asset_id', AIGENTQUBE_ID)
+    .eq('asset_id', input.aigentQubeId)
     .maybeSingle();
   if (error || !row) {
-    return { ok: false, refusalCode: 'AIGENTQUBE_NOT_FOUND', detail: `no registry_assets row for "${AIGENTQUBE_ID}"` };
+    return { ok: false, refusalCode: 'AIGENTQUBE_NOT_FOUND', detail: `no registry_assets row for "${input.aigentQubeId}"` };
   }
 
   const metadata = (row.metadata ?? {}) as { external_registry_bindings?: ExternalAgentRegistryBinding[] };
@@ -84,15 +89,15 @@ export async function enrichAgentCardAfterHorizenAuthorization(
   const { error: updateError } = await admin
     .from('registry_assets')
     .update({ metadata: { ...metadata, external_registry_bindings: bindings }, updated_at: new Date().toISOString() })
-    .eq('asset_id', AIGENTQUBE_ID);
+    .eq('asset_id', input.aigentQubeId);
   if (updateError) throw new Error(`enrichAgentCardAfterHorizenAuthorization: metadata update failed: ${updateError.message}`);
 
   const commonInput = {
     personaId: input.actorPersonaId,
     activeCartridge: 'agentiq' as const,
-    agentsInvoked: ['aigent-moneypenny'],
+    agentsInvoked: [input.runtimeAgentId],
     actionInput: {
-      aigentQubeId: AIGENTQUBE_ID,
+      aigentQubeId: input.aigentQubeId,
       controllerWallet: input.controllerWallet,
       tokenId: input.tokenId,
       network: input.network,
@@ -105,12 +110,12 @@ export async function enrichAgentCardAfterHorizenAuthorization(
   const pnlReceipt = await createActivityReceipt({
     ...commonInput,
     actionType: 'horizen_pnl_transparency_enabled',
-    summary: `Horizen P&L transparency disclosure authorized for MoneyPenny (token ${input.tokenId}, ${input.network})`,
+    summary: `Horizen P&L transparency disclosure authorized for ${input.displayName} (token ${input.tokenId}, ${input.network})`,
   });
   const enrichmentReceipt = await createActivityReceipt({
     ...commonInput,
     actionType: 'agent_card_enriched',
-    summary: `MoneyPenny's Agent Card enriched with confirmed Horizen Pulse/PnL transparency state (token ${input.tokenId}, ${input.network})`,
+    summary: `${input.displayName}'s Agent Card enriched with confirmed Horizen Pulse/PnL transparency state (token ${input.tokenId}, ${input.network})`,
   });
 
   return {

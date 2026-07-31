@@ -58,7 +58,7 @@ vi.mock('@/app/api/agents/_lib/requestOrigin', () => ({
 import { GET, POST } from '@/app/api/journey/moneypenny-horizen/claim/prove-control/route';
 
 function makeRequest(): NextRequest {
-  return {} as unknown as NextRequest;
+  return { nextUrl: { searchParams: new URLSearchParams() } } as unknown as NextRequest;
 }
 
 const VERIFIED_BOUND_ROW = {

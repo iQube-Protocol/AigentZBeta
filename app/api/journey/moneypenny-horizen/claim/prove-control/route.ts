@@ -20,6 +20,10 @@
  *
  * Spine-gated: getActivePersona resolves the operator, recorded as every
  * receipt's principal.
+ *
+ * Agent-selectable (2026-07-31, services/horizen/registrableAgents.ts) —
+ * GET takes ?agentSlug=, POST takes body.agentSlug; both default to
+ * MoneyPenny for backward compatibility.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -31,19 +35,23 @@ import { signPartnerAuthorization } from '@/services/signing/partnerAuthorizatio
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { runMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentRunner';
 import { getCurrentMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentStore';
+import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 
 export const dynamic = 'force-dynamic';
-
-const AIGENTQUBE_ID = 'aigentqube-moneypenny';
-const AGENT_KEY_REF = 'aigent-moneypenny';
 
 /** The current (non-superseded) assessment, if any — lets the Claim surface survive a page reload without re-running the flow. */
 export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
-  const current = await getCurrentMarketaAdmissionAssessment(AIGENTQUBE_ID);
+  const agentSlug = request.nextUrl.searchParams.get('agentSlug') ?? DEFAULT_REGISTRABLE_AGENT_SLUG;
+  const agent = resolveRegistrableAgent(agentSlug);
+  if (!agent) {
+    return NextResponse.json({ ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` }, { status: 400 });
+  }
+
+  const current = await getCurrentMarketaAdmissionAssessment(agent.aigentQubeId);
   return NextResponse.json({
     ok: true,
     assessment: current
@@ -60,9 +68,27 @@ export async function GET(request: NextRequest) {
   });
 }
 
+interface ProveControlBody {
+  /** Which registrable agent (services/horizen/registrableAgents.ts) — defaults to MoneyPenny for backward compatibility. */
+  agentSlug?: string;
+}
+
 export async function POST(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
+
+  let body: ProveControlBody = {};
+  try {
+    body = (await request.json()) as ProveControlBody;
+  } catch {
+    // No body is fine — agentSlug falls back to the default below.
+  }
+  const agent = resolveRegistrableAgent(body.agentSlug ?? DEFAULT_REGISTRABLE_AGENT_SLUG);
+  if (!agent) {
+    return NextResponse.json({ ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${body.agentSlug}" is not a registrable agent` }, { status: 400 });
+  }
+  const AIGENTQUBE_ID = agent.aigentQubeId;
+  const AGENT_KEY_REF = agent.runtimeAgentId;
 
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
@@ -80,7 +106,7 @@ export async function POST(request: NextRequest) {
   const binding = metadata.external_registry_bindings?.[0];
   if (!binding?.token_id) {
     return NextResponse.json(
-      { ok: false, refusalCode: 'MISSING_TOKEN_ID', error: 'MoneyPenny has no Horizen tokenId yet — the Register stage must complete first' },
+      { ok: false, refusalCode: 'MISSING_TOKEN_ID', error: `${agent.displayName} has no Horizen tokenId yet — the Register stage must complete first` },
       { status: 409 },
     );
   }
@@ -116,7 +142,7 @@ export async function POST(request: NextRequest) {
     personaId: persona.personaId,
     activeCartridge: 'agentiq',
     actionType: 'agent_control_proven',
-    summary: `Wallet control proven for MoneyPenny (token ${binding.token_id}, ${network}) without revealing the private key`,
+    summary: `Wallet control proven for ${agent.displayName} (token ${binding.token_id}, ${network}) without revealing the private key`,
     agentsInvoked: [AGENT_KEY_REF],
     actionInput: {
       aigentQubeId: AIGENTQUBE_ID,
@@ -132,7 +158,7 @@ export async function POST(request: NextRequest) {
   const assessmentResult = await runMarketaAdmissionAssessment({
     aigentQubeId: AIGENTQUBE_ID,
     actorPersonaId: persona.personaId,
-    agentCardUrl: `${origin}/api/agents/moneypenny/agent-card.json`,
+    agentCardUrl: `${origin}${agent.agentCardPath}`,
     mode: 'FINAL',
   });
 

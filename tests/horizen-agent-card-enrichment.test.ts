@@ -70,6 +70,9 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
 
     const result = await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
+      aigentQubeId: 'aigentqube-moneypenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      displayName: 'Aigent MoneyPenny',
       authorizationId: 'auth-1',
       controllerWallet: '0xController',
       tokenId: '1234',
@@ -99,6 +102,9 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
     seedAigentQube([BASE_BINDING]);
     await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
+      aigentQubeId: 'aigentqube-moneypenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      displayName: 'Aigent MoneyPenny',
       authorizationId: 'auth-1',
       controllerWallet: '0xController',
       tokenId: '1234',
@@ -114,6 +120,9 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
   it('refuses AIGENTQUBE_NOT_FOUND when no registry_assets row exists', async () => {
     const result = await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
+      aigentQubeId: 'aigentqube-moneypenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      displayName: 'Aigent MoneyPenny',
       authorizationId: 'auth-1',
       controllerWallet: '0xController',
       tokenId: '1234',
@@ -129,6 +138,9 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
     seedAigentQube([BASE_BINDING]);
     const result = await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
+      aigentQubeId: 'aigentqube-moneypenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      displayName: 'Aigent MoneyPenny',
       authorizationId: 'auth-1',
       controllerWallet: '0xController',
       tokenId: '9999',
@@ -144,6 +156,9 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
     seedAigentQube([{ ...BASE_BINDING, transparency: { pulse_enabled: true, pulse_authorization_ref: 'old', pnl_disclosure_authorized: true, pnl_proof_refs: ['proof-1'] } }]);
     const result = await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
+      aigentQubeId: 'aigentqube-moneypenny',
+      runtimeAgentId: 'aigent-moneypenny',
+      displayName: 'Aigent MoneyPenny',
       authorizationId: 'auth-2',
       controllerWallet: '0xController',
       tokenId: '1234',

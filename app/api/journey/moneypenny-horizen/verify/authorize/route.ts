@@ -2,17 +2,18 @@
  * POST /api/journey/moneypenny-horizen/verify/authorize
  *
  * GJR-VFY-001 Phase 2 — the Verify stage's one consequential action: the
- * operator authorizes Horizen Pulse monitoring + P&L disclosure for
- * MoneyPenny. Drives the Phase 1 signing substrate
- * (services/horizen/authorizationClient.ts) end to end — prepare, sign,
- * submit, verify — then enriches her Agent Card
+ * operator authorizes Horizen Pulse monitoring + P&L disclosure for the
+ * selected registrable agent (default MoneyPenny; agent-selectable per
+ * services/horizen/registrableAgents.ts, 2026-07-31). Drives the Phase 1
+ * signing substrate (services/horizen/authorizationClient.ts) end to end —
+ * prepare, sign, submit, verify — then enriches the Agent Card
  * (services/horizen/agentCardEnrichment.ts) only once Horizen's authoritative
  * reread confirms activation.
  *
  * Resolves every input from REAL sources, never a guess:
- *   - tokenId/network/registryAlias  <- registry_assets 'aigentqube-moneypenny'
- *     external_registry_bindings[0] (the same binding the Agent Card route
- *     itself projects from)
+ *   - tokenId/network/registryAlias  <- registry_assets (agentSlug's
+ *     aigentQubeId) external_registry_bindings[0] (the same binding the
+ *     Agent Card route itself projects from)
  *   - controllerWallet               <- agent_keys, via AgentKeyService's
  *     client-safe getAgentAddresses() (never the private key)
  *   - agentCardHash                  <- sha256 of the currently served
@@ -23,7 +24,7 @@
  * has nothing real to authorize against.
  *
  * Spine-gated: resolves the caller's OWN active persona (the operator, never
- * MoneyPenny's) via getActivePersona — recorded as every receipt's principal.
+ * the agent's) via getActivePersona — recorded as every receipt's principal.
  */
 
 import { createHash } from 'crypto';
@@ -33,17 +34,17 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { runHorizenTransparencyAuthorization } from '@/services/horizen/authorizationClient';
 import { enrichAgentCardAfterHorizenAuthorization } from '@/services/horizen/agentCardEnrichment';
+import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 import type { HorizenNetwork } from '@/services/horizen/identity';
 
 export const dynamic = 'force-dynamic';
 
-const AIGENTQUBE_ID = 'aigentqube-moneypenny';
-const AGENT_KEY_REF = 'aigent-moneypenny';
-
 interface AuthorizeBody {
   /** The exact disclosure scope the operator reviewed before authorizing (spec §5 "operator reviews exact scope"). */
   scope?: string[];
+  /** Which registrable agent (services/horizen/registrableAgents.ts) — defaults to MoneyPenny for backward compatibility. */
+  agentSlug?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -54,9 +55,19 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as AuthorizeBody;
   } catch {
-    // No body is fine — scope falls back to the default below.
+    // No body is fine — scope/agentSlug fall back to the defaults below.
   }
   const scope = Array.isArray(body.scope) && body.scope.length > 0 ? body.scope : ['pulse-monitoring', 'pnl-disclosure'];
+
+  const agent = resolveRegistrableAgent(body.agentSlug ?? DEFAULT_REGISTRABLE_AGENT_SLUG);
+  if (!agent) {
+    return NextResponse.json(
+      { ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${body.agentSlug}" is not a registrable agent` },
+      { status: 400 },
+    );
+  }
+  const AIGENTQUBE_ID = agent.aigentQubeId;
+  const AGENT_KEY_REF = agent.runtimeAgentId;
 
   const admin = getSupabaseServer();
   if (!admin) return NextResponse.json({ ok: false, error: 'Service unavailable' }, { status: 500 });
@@ -99,7 +110,7 @@ export async function POST(request: NextRequest) {
   const origin = resolveRequestOrigin(request);
   let agentCardHash: string;
   try {
-    const cardRes = await fetch(`${origin}/api/agents/moneypenny/agent-card.json`, { cache: 'no-store' });
+    const cardRes = await fetch(`${origin}${agent.agentCardPath}`, { cache: 'no-store' });
     if (!cardRes.ok) throw new Error(`agent-card fetch failed: HTTP ${cardRes.status}`);
     const cardText = await cardRes.text();
     agentCardHash = createHash('sha256').update(cardText, 'utf8').digest('hex');
@@ -129,6 +140,9 @@ export async function POST(request: NextRequest) {
 
   const enrichment = await enrichAgentCardAfterHorizenAuthorization({
     actorPersonaId: persona.personaId,
+    aigentQubeId: AIGENTQUBE_ID,
+    runtimeAgentId: AGENT_KEY_REF,
+    displayName: agent.displayName,
     authorizationId,
     controllerWallet: addresses.evmAddress,
     tokenId: binding.token_id,

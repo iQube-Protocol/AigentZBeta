@@ -25,10 +25,9 @@ import { listActivityReceiptsForPersona, type ActivityActionType } from '@/servi
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
+import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 
 export const dynamic = 'force-dynamic';
-
-const MONEYPENNY_FIO_HANDLE = 'moneypenny@aigent';
 
 const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'agent_card_discovered',
@@ -51,10 +50,12 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
 
 export async function GET(req: NextRequest) {
   const origin = resolveRequestOrigin(req);
+  const agentSlug = req.nextUrl.searchParams.get('agentSlug') ?? DEFAULT_REGISTRABLE_AGENT_SLUG;
+  const agent = resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
 
   let agentCard: Record<string, unknown> | null = null;
   try {
-    const res = await fetch(`${origin}/api/agents/moneypenny/agent-card.json`, { cache: 'no-store' });
+    const res = await fetch(`${origin}${agent.agentCardPath}`, { cache: 'no-store' });
     if (res.ok) agentCard = await res.json();
   } catch {
     // Soft-fail — Agent Card unreachable, Register stage stays evidence-incomplete.
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
     const { data: persona } = await supabase
       .from('personas')
       .select('id')
-      .ilike('fio_handle', MONEYPENNY_FIO_HANDLE)
+      .ilike('fio_handle', agent.fioHandle)
       .maybeSingle();
 
     if (persona?.id) {
@@ -85,7 +86,7 @@ export async function GET(req: NextRequest) {
     const { data: aigentQube } = await supabase
       .from('registry_assets')
       .select('asset_id')
-      .eq('asset_id', 'aigentqube-moneypenny')
+      .eq('asset_id', agent.aigentQubeId)
       .maybeSingle();
     aigentQubeResolved = !!aigentQube;
   } catch {
