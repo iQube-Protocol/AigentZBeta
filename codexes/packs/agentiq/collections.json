@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-31_aigentqube-migration-001-backlog.md",
         "updates/2026-07-31_signing-spine-001-deferred-capability.md",
         "updates/2026-07-31_gjr-vfy-001-gjr-mkt-001-specifications.md",
         "updates/2026-07-31_passport-application-branching-invariants.md",
