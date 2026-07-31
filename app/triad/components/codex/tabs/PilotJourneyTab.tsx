@@ -30,7 +30,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
-import { RegisterAgentPanel } from '@/components/journey/RegisterAgentPanel';
+import { RegisterAgentPanel, PILOT_AGENTS } from '@/components/journey/RegisterAgentPanel';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
@@ -114,6 +114,16 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
+  // Which registrable agent the Register stage is currently sponsoring
+  // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
+  // Carried forward to later stages (e.g. Passport) so they can prefill from
+  // the SAME agent the operator just registered, rather than each stage
+  // resolving its own, possibly-disagreeing notion of "which agent" (operator
+  // ruling 2026-07-31: "do not pass independent IDs to each route and hope
+  // they agree"). This is a narrow, local version of that ruling's larger
+  // JourneyAgentSubject parameterization — carrying only the slug, not yet
+  // the full subject shape.
+  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('moneypenny');
 
   const journey = HORIZEN_MONEYPENNY_JOURNEY;
 
@@ -402,9 +412,25 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
                   </div>
                 );
               }
+              // Journey-context props for the two components that need to
+              // agree on "which agent is being sponsored" — the selection
+              // lives here (lifted from RegisterAgentPanel), never
+              // independently re-resolved by each stage.
+              const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
+              const journeyContextProps: Record<string, unknown> =
+                descriptor.component === 'RegisterAgentPanel'
+                  ? { agentSlug: selectedAgentSlug, onAgentSlugChange: setSelectedAgentSlug }
+                  : descriptor.component === 'PassportBureauApplyTab'
+                    ? {
+                        // Relative path — fetch() resolves it against the current
+                        // origin in the browser; avoids touching `window` during SSR.
+                        prefillAgentCardUrl: selectedAgent.agentCardPath,
+                        prefillAgentDisplayName: selectedAgent.displayName,
+                      }
+                    : {};
               return (
                 <div key={i}>
-                  <Component personaId={personaId} {...(surfaceRef.props ?? {})} />
+                  <Component personaId={personaId} {...journeyContextProps} {...(surfaceRef.props ?? {})} />
                 </div>
               );
             }
