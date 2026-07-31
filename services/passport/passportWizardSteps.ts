@@ -20,23 +20,36 @@ export type StepId = 'class' | 'account' | 'identity' | 'vault' | 'agent' | 'con
 export type PassportClass = 'citizen' | 'participant';
 
 /**
- * Where the wizard goes immediately after the applicant picks a class.
- *
- * Human Personhood Exclusivity: a Delegate/agent application never binds
- * human personhood, so it never visits 'identity'. If the applicant already
- * has platform access it goes straight to 'agent'; otherwise it still needs
- * SOME account to act through, so it visits 'account' first — but
- * `resolveStepAfterAccountCreation` below ensures that account step still
- * routes onward to 'agent', never 'identity'.
+ * Citizen route resolvers. Deliberately independent of the Delegate
+ * resolvers below (Branch by Constitutional Subject) — a future change to
+ * the Citizen path's rule must never leak into the Delegate path, or vice
+ * versa. Do not merge these back into one class-branching function; that
+ * shape is exactly what caused the 2026-07-31 regression (see the Delegate
+ * resolver's comment below).
  */
-export function resolveStepAfterClassChoice(passportClass: PassportClass, signedIn: boolean): StepId {
-  if (passportClass === 'participant') return signedIn ? 'agent' : 'account';
+export function resolveCitizenStepAfterClassChoice(signedIn: boolean): StepId {
   return signedIn ? 'identity' : 'account';
 }
 
-/** Where the wizard goes after account creation/sign-in completes. */
-export function resolveStepAfterAccountCreation(passportClass: PassportClass): StepId {
-  return passportClass === 'participant' ? 'agent' : 'identity';
+/** Only the Citizen route ever reaches the account-creation step. */
+export function resolveCitizenStepAfterAccountCreation(): StepId {
+  return 'identity';
+}
+
+/**
+ * Delegate/agent route resolver. ALWAYS 'agent' — never conditional on
+ * signedIn/session state. Human Personhood Exclusivity means a Delegate/
+ * agent application never visits 'account' or 'identity', full stop.
+ *
+ * 2026-07-31 regression, fixed here: this used to return 'account' when the
+ * applicant had no session yet, reasoning that "it still needs SOME account
+ * to act through." That reasoning was wrong — the Agent step's own handlers
+ * (handleQuickAgent/handleGenesisAgent) already resolve whatever auth they
+ * need independently via authedFetchHeaders(), and an agent is not a human
+ * who needs a Bureau account. Do not reintroduce a signedIn parameter here.
+ */
+export function resolveDelegateStepAfterClassChoice(): StepId {
+  return 'agent';
 }
 
 /**

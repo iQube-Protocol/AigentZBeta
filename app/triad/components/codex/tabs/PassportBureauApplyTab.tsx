@@ -47,8 +47,9 @@ import {
 } from '@/services/passport/selfCustodyVault';
 import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 import {
-  resolveStepAfterClassChoice,
-  resolveStepAfterAccountCreation,
+  resolveCitizenStepAfterClassChoice,
+  resolveCitizenStepAfterAccountCreation,
+  resolveDelegateStepAfterClassChoice,
   wizardSteps,
   type StepId,
   type PassportClass,
@@ -459,7 +460,11 @@ export function PassportBureauApplyTab() {
     (chosen: PassportClass) => {
       setPassportClass(chosen);
       setChecks({});
-      setStep(resolveStepAfterClassChoice(chosen, signedIn));
+      // Two fully independent resolvers (services/passport/passportWizardSteps.ts)
+      // — never a single function branching on `chosen` internally. That
+      // shape is what caused the 2026-07-31 regression where a Delegate/
+      // agent applicant was routed through the human Account step.
+      setStep(chosen === 'participant' ? resolveDelegateStepAfterClassChoice() : resolveCitizenStepAfterClassChoice(signedIn));
     },
     [signedIn],
   );
@@ -485,14 +490,17 @@ export function PassportBureauApplyTab() {
       });
       if (signInError) throw new Error(signInError.message);
       setSignedIn(true);
-      setStep(resolveStepAfterAccountCreation(passportClass));
+      // Only the Citizen route ever reaches this step — Delegate/agent
+      // applicants never visit Account (resolveDelegateStepAfterClassChoice
+      // sends them straight to 'agent' from Class).
+      setStep(resolveCitizenStepAfterAccountCreation());
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Account step failed');
     } finally {
       setBusy(false);
     }
-  }, [username, password, recoveryEmail, mode, loadStatus, passportClass]);
+  }, [username, password, recoveryEmail, mode, loadStatus]);
 
   const handleBind = useCallback(async () => {
     setBusy(true);

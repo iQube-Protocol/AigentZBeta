@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
-  resolveStepAfterClassChoice,
-  resolveStepAfterAccountCreation,
+  resolveCitizenStepAfterClassChoice,
+  resolveCitizenStepAfterAccountCreation,
+  resolveDelegateStepAfterClassChoice,
   wizardSteps,
 } from '../services/passport/passportWizardSteps';
 
@@ -9,34 +10,38 @@ import {
 // A human Citizen applicant and a non-human Delegate/agent applicant have
 // different constitutional requirements; these canaries pin the rule that
 // keeps them from being forced through a common linear sequence.
+//
+// Citizen and Delegate resolvers are separate functions (not one function
+// branching on class) BY DESIGN — a 2026-07-31 regression routed Delegate
+// applicants through the human Account step whenever they weren't already
+// signed in, because the old combined resolver's Delegate branch took a
+// `signedIn` parameter at all. These tests pin each resolver's signature as
+// well as its behavior: the Delegate resolver must never gain a `signedIn`
+// parameter again.
 
 describe('Passport wizard branching — Citizen advances to Account', () => {
   it('an unauthenticated Citizen applicant goes to account first', () => {
-    expect(resolveStepAfterClassChoice('citizen', false)).toBe('account');
+    expect(resolveCitizenStepAfterClassChoice(false)).toBe('account');
   });
 
   it('an already-authenticated Citizen applicant skips straight to personhood binding', () => {
-    expect(resolveStepAfterClassChoice('citizen', true)).toBe('identity');
+    expect(resolveCitizenStepAfterClassChoice(true)).toBe('identity');
   });
 });
 
-describe('Passport wizard branching — Delegate advances directly to Agent', () => {
+describe('Passport wizard branching — Delegate advances directly to Agent, unconditionally', () => {
   it('an already-authenticated Delegate applicant goes straight to the Agent step', () => {
-    expect(resolveStepAfterClassChoice('participant', true)).toBe('agent');
+    expect(resolveDelegateStepAfterClassChoice()).toBe('agent');
   });
 
-  it('an unauthenticated Delegate applicant still needs an account, but never personhood binding', () => {
-    expect(resolveStepAfterClassChoice('participant', false)).toBe('account');
+  it('takes no arguments — session state must never gate the Delegate route again (2026-07-31 regression)', () => {
+    expect(resolveDelegateStepAfterClassChoice.length).toBe(0);
   });
 });
 
 describe('Passport wizard branching — agent applications never invoke personhood binding', () => {
-  it('account creation routes a Delegate/agent applicant to Agent, never Identity', () => {
-    expect(resolveStepAfterAccountCreation('participant')).toBe('agent');
-  });
-
   it('account creation routes a Citizen applicant to Identity (personhood binding)', () => {
-    expect(resolveStepAfterAccountCreation('citizen')).toBe('identity');
+    expect(resolveCitizenStepAfterAccountCreation()).toBe('identity');
   });
 
   it('the Delegate/agent step sequence never contains the identity (personhood) step', () => {
