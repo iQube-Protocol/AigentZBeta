@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
+import { createClient } from '@supabase/supabase-js';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { updateTokenQubeChainAnchor } from '@/server/services/iqRegistryService';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getTokenExplorerUrl, getTxExplorerUrl } from '@/services/chain/mintChains';
 
 // Minimal ABI — only functions called from the server
 const IQUBE_NFT_ABI = [
@@ -14,23 +17,64 @@ const IQUBE_NFT_ABI = [
   'event QubeAnchored(uint256 indexed tokenId, address indexed to, address indexed minter, string uri)',
 ] as const;
 
-function getExplorerUrl(chainId: number, txHash: string): string {
-  switch (chainId) {
-    case 8453:   return `https://basescan.org/tx/${txHash}`;
-    case 84532:  return `https://sepolia.basescan.org/tx/${txHash}`;
-    case 1:      return `https://etherscan.io/tx/${txHash}`;
-    case 11155111: return `https://sepolia.etherscan.io/tx/${txHash}`;
-    default:     return `https://basescan.org/tx/${txHash}`;
-  }
+// Explorer URLs come from services/chain/mintChains — a second copy here is
+// how a Base Sepolia mint ends up linking to mainnet.
+
+/**
+ * Resolve the calling user from the Supabase Bearer token. Minting spends the
+ * deployer's gas and (when tokenQubeId is supplied) writes a chain anchor into
+ * the registry, so this route cannot be anonymous. Clients must call it through
+ * `personaFetch`, which attaches the token.
+ */
+async function resolveAuthedUserId(request: NextRequest): Promise<string | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const anon = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  if (!url || !anon || !token) return null;
+
+  const supabase = createClient(url, anon, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data: { user }, error } = await supabase.auth.getUser();
+  return error || !user ? null : user.id;
+}
+
+/**
+ * A caller may only anchor a TokenQube that their own staged iQube references.
+ * Without this an authenticated caller could pass any tokenQubeId and overwrite
+ * another subject's chain anchor — the anchor is what key escrow later trusts.
+ */
+async function callerOwnsTokenQube(userId: string, tokenQubeId: string): Promise<boolean> {
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  const { data } = await admin
+    .from('iqube_mint_stubs')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('token_qube_id', tokenQubeId)
+    .maybeSingle();
+  return Boolean(data);
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const userId = await resolveAuthedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { metaIdentifier, tokenQubeId, recipientAddress, network = 'base' } = body;
 
     if (!metaIdentifier) {
       return NextResponse.json({ error: 'metaIdentifier required' }, { status: 400 });
+    }
+
+    if (tokenQubeId && !(await callerOwnsTokenQube(userId, tokenQubeId))) {
+      return NextResponse.json(
+        { error: 'tokenQubeId does not belong to the calling user' },
+        { status: 403 },
+      );
     }
 
     const contractAddress = process.env.IQUBE_NFT_CONTRACT_ADDRESS;
@@ -51,6 +95,15 @@ export async function POST(request: NextRequest) {
 
     // URI: use metaIdentifier as the on-chain pointer (IPFS CID, Autonomys CID, or iq: ref)
     const uri = metaIdentifier;
+    // The recipient is the persona's own connected wallet. It falls back to the
+    // deployer only when no address was supplied — a persona that has not
+    // connected a wallet yet.
+    if (recipientAddress && !/^0x[0-9a-fA-F]{40}$/.test(String(recipientAddress))) {
+      return NextResponse.json(
+        { error: 'recipientAddress must be a 0x-prefixed 20-byte EVM address' },
+        { status: 400 },
+      );
+    }
     const to = recipientAddress || wallet.address;
 
     const tx = await (contract.mintQube as (to: string, uri: string) => Promise<ethers.ContractTransactionResponse>)(to, uri);
@@ -73,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     const txHash = receipt.hash;
-    const explorerUrl = getExplorerUrl(chainId, txHash);
+    const explorerUrl = getTxExplorerUrl(chainId, txHash);
 
     // Write chain anchor back to Supabase if a tokenQubeId was provided
     if (tokenQubeId && mintedTokenId !== null) {
@@ -144,7 +197,7 @@ export async function GET() {
             (contract.minterOf as (id: number) => Promise<string>)(tokenId),
             (contract.ownerOf as (id: number) => Promise<string>)(tokenId),
           ]);
-          return { tokenId, uri, minter, owner, explorerUrl: `https://sepolia.basescan.org/token/${contractAddress}?a=${tokenId}` };
+          return { tokenId, uri, minter, owner, explorerUrl: getTokenExplorerUrl(chainId, contractAddress, tokenId) };
         } catch {
           return null;
         }

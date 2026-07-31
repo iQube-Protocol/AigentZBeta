@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.review-decision.schema.json",
+  "title": "Polity Passport Review Decision",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "decision_id",
+    "application_id",
+    "review_type",
+    "decision",
+    "decided_at",
+    "reviewer"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "decision_id": {
+      "type": "string"
+    },
+    "application_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "review_type": {
+      "type": "string",
+      "enum": [
+        "automated",
+        "steward",
+        "appeal",
+        "renewal",
+        "revocation",
+        "suspension"
+      ]
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "provisional",
+        "restricted",
+        "needs_more_information",
+        "denied",
+        "suspended",
+        "revoked",
+        "renewed"
+      ]
+    },
+    "decision_reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "schema_valid",
+          "schema_invalid",
+          "identity_binding_valid",
+          "identity_binding_incomplete",
+          "personhood_proof_valid",
+          "personhood_proof_insufficient",
+          "agent_card_valid",
+          "agent_card_missing",
+          "operator_disclosure_sufficient",
+          "operator_disclosure_insufficient",
+          "risk_acceptable",
+          "risk_requires_restriction",
+          "risk_unacceptable",
+          "obligations_accepted",
+          "obligations_not_accepted",
+          "auditability_sufficient",
+          "auditability_insufficient",
+          "blackqube_access_restricted",
+          "human_review_required",
+          "fraud_or_impersonation_risk",
+          "other"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "decision_notes": {
+      "type": "string"
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "restrictions": {
+      "type": "array",
+      "items": {
+        "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/policyConstraint"
+      },
+      "uniqueItems": true
+    },
+    "reviewer": {
+      "type": "object",
+      "required": [
+        "reviewer_type",
+        "reviewer_id"
+      ],
+      "properties": {
+        "reviewer_type": {
+          "type": "string",
+          "enum": [
+            "system",
+            "steward",
+            "committee",
+            "agent_reviewer"
+          ]
+        },
+        "reviewer_id": {
+          "type": "string"
+        },
+        "reviewer_did": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "decided_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "effective_until": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "receipt": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/receiptRef"
+    }
+  },
+  "additionalProperties": false
+}

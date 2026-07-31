@@ -18,6 +18,8 @@
 
 import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
 import type { GoogleSource } from '@/services/google/oauth';
+import { runShadow } from '@/services/invariants/engine';
+import { nbeRankingProjector } from '@/services/invariants/nodes/nbeRanking';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types.
@@ -70,6 +72,10 @@ export interface NbeCandidate {
     workspaceNotConnected?: GoogleSource[];
     /** Only surface when the persona is eligible to advance their ExperienceStage. */
     stageAdvanceEligible?: boolean;
+    /** Golden path: only surface when this commercial-spine stage is NOT complete. */
+    spineStageNotComplete?: string;
+    /** Golden path: only surface when this prerequisite spine stage IS complete. */
+    spineStagePrereq?: string;
   };
   /**
    * Soft signals for goals-aware re-ranking. Case-insensitive substring
@@ -263,13 +269,13 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     impact: 'medium',
   },
 
-  // ── AgentiQ Venture Lab (AVL) ────────────────────────────────────────
+  // ── metaMe Venture Lab (MVL) ─────────────────────────────────────────
   {
-    id: 'avl.generate-progress-report',
+    id: 'mvl.generate-progress-report',
     label: 'Generate a venture progress report',
     rationale:
       'Snapshot operational + commercial KPI movement, blockers, and the next strongest commercial action.',
-    cartridge: 'avl',
+    cartridge: 'mvl',
     suggestedArtifact: 'venture-report',
     approvalRequired: false,
     weight: 70,
@@ -278,16 +284,62 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     goalKeywords: ['venture', 'progress', 'kpi', 'milestone', 'investor'],
   },
   {
-    id: 'avl.schedule-review-block',
+    id: 'mvl.schedule-review-block',
     label: 'Schedule a venture review block',
     rationale:
-      'Reserve focused time to review AVL progress with the people who unblock it.',
-    cartridge: 'avl',
+      'Reserve focused time to review MVL progress with the people who unblock it.',
+    cartridge: 'mvl',
     suggestedArtifact: 'calendar-block',
     approvalRequired: true,
     weight: 50,
     effort: 'light',
     impact: 'medium',
+  },
+
+  // ── Commercial Spine (golden path) ───────────────────────────────────────
+  // Sequential nudges along Passport → aigentMe → Standing → Founder Office →
+  // Venture Lab. Each surfaces only when its spine stage is incomplete AND its
+  // prerequisite stage is complete (gated via getCommercialSpineState). aigentMe
+  // actively guides the operator toward the founder-operator apex.
+  {
+    id: 'metame.establish-standing',
+    label: 'Establish your Standing',
+    rationale:
+      'Make declarations and verify facts to build veracity-backed Standing. Standing calibrates confidence across your ventures and unlocks the Founder Office.',
+    cartridge: 'metame',
+    approvalRequired: false,
+    weight: 86,
+    effort: 'standard',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'standing', spineStagePrereq: 'aigentme_delegation' },
+    goalKeywords: ['standing', 'identity', 'fact', 'verification', 'credential', 'founder'],
+  },
+  {
+    id: 'metame.open-founder-office',
+    label: 'Open your Founder Office',
+    rationale:
+      'Create your first VentureQube — turn your idea into an executable Venture Blueprint. This opens the Founder Office and Venture Lab.',
+    cartridge: 'metame',
+    approvalRequired: false,
+    weight: 84,
+    effort: 'light',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'founder_office', spineStagePrereq: 'standing' },
+    goalKeywords: ['founder', 'venture', 'office', 'blueprint', 'create', 'build'],
+  },
+  {
+    id: 'metame.advance-venture-lab',
+    label: 'Advance a venture in Venture Lab',
+    rationale:
+      'Move a VentureQube from concept toward formation — the path to founder-operator and the commercial apex.',
+    cartridge: 'metame',
+    specialist: 'aigent-z',
+    approvalRequired: false,
+    weight: 82,
+    effort: 'standard',
+    impact: 'high',
+    requires: { spineStageNotComplete: 'venture_lab', spineStagePrereq: 'founder_office' },
+    goalKeywords: ['venture', 'scale', 'build', 'formation', 'venture lab', 'operator'],
   },
 ];
 
@@ -308,6 +360,56 @@ export interface NbeSelectionContext {
   experienceGoals?: string[];
   /** True when the persona meets every criterion for the next stage. */
   stageAdvanceEligible?: boolean;
+  /** Commercial-spine stage completion map (id → complete), from getCommercialSpineState. */
+  spineStagesComplete?: Record<string, boolean>;
+  /**
+   * Names of intents the persona recently COMPLETED — observed from the
+   * IntentQube record (the AR/CPS observer rule: a recommender must know
+   * what its space has already produced). Candidates whose label matches
+   * completed work are deprioritised out of selection so the NBE never
+   * re-recommends what the operator just finished. When EVERY eligible
+   * candidate matches completed work, the unfiltered set is returned
+   * (never an empty recommendation — the rerank's liveContext carries the
+   * completion state so its reason can say "everything current is done").
+   */
+  recentlyCompletedNames?: string[];
+}
+
+/**
+ * Normalize an NBE label / intent name for completed-work matching. Pure.
+ * Lowercase, strip punctuation, collapse whitespace — so "Generate a
+ * venture progress report." and "generate a venture progress report"
+ * compare equal.
+ */
+export function normalizeNbeName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Containment only counts when the shorter side is a real phrase. */
+const COMPLETED_MATCH_MIN_LEN = 10;
+
+/**
+ * True when a candidate label matches one of the normalized completed
+ * names — exact normalized equality, or containment either way for the
+ * LLM-contextualised titles ("Generate a venture progress report for
+ * Operation Leap" completes the catalog's "Generate a venture progress
+ * report"). Pure — canary-pinned.
+ */
+export function nbeNameMatchesCompleted(label: string, completedNormalized: string[]): boolean {
+  if (completedNormalized.length === 0) return false;
+  const norm = normalizeNbeName(label);
+  if (!norm) return false;
+  return completedNormalized.some((done) => {
+    if (!done) return false;
+    if (done === norm) return true;
+    const shorter = done.length <= norm.length ? done : norm;
+    if (shorter.length < COMPLETED_MATCH_MIN_LEN) return false;
+    return done.includes(norm) || norm.includes(done);
+  });
 }
 
 /** Goal-keyword boost applied per keyword match. Capped at 3 hits per candidate. */
@@ -329,7 +431,11 @@ function countGoalHits(candidate: NbeCandidate, goals: string[]): number {
 
 function passesRequires(
   candidate: NbeCandidate,
-  ctx: { connected: GoogleSource[]; stageAdvanceEligible: boolean },
+  ctx: {
+    connected: GoogleSource[];
+    stageAdvanceEligible: boolean;
+    spineStagesComplete: Record<string, boolean>;
+  },
 ): boolean {
   const r = candidate.requires;
   if (!r) return true;
@@ -344,6 +450,14 @@ function passesRequires(
     }
   }
   if (r.stageAdvanceEligible === true && !ctx.stageAdvanceEligible) return false;
+  // Golden path: hide once the target spine stage is complete; require the
+  // prerequisite stage to be complete first (so nudges surface in order).
+  if (r.spineStageNotComplete && ctx.spineStagesComplete[r.spineStageNotComplete] === true) {
+    return false;
+  }
+  if (r.spineStagePrereq && ctx.spineStagesComplete[r.spineStagePrereq] !== true) {
+    return false;
+  }
   return true;
 }
 
@@ -362,6 +476,8 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     workspaceConnected = [],
     experienceGoals = [],
     stageAdvanceEligible = false,
+    spineStagesComplete = {},
+    recentlyCompletedNames = [],
   } = ctx;
 
   const cartridgeSet = scopedCartridge
@@ -373,17 +489,41 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     if (c.stages && c.stages.length > 0 && !c.stages.includes(currentStage)) {
       return false;
     }
-    if (!passesRequires(c, { connected: workspaceConnected, stageAdvanceEligible })) return false;
+    if (!passesRequires(c, { connected: workspaceConnected, stageAdvanceEligible, spineStagesComplete })) return false;
     return true;
   });
 
-  const scored = filtered.map((c) => ({
+  // Observer awareness (operator report 2026-07-14: move-forward kept
+  // re-recommending the actions just completed): candidates matching
+  // recently completed intent names drop out of the pool. If that empties
+  // the pool entirely, keep the unfiltered set — never recommend nothing.
+  const completedNormalized = recentlyCompletedNames.map(normalizeNbeName).filter(Boolean);
+  const fresh = completedNormalized.length > 0
+    ? filtered.filter((c) => !nbeNameMatchesCompleted(c.label, completedNormalized))
+    : filtered;
+  const pool = fresh.length > 0 ? fresh : filtered;
+
+  const scored = pool.map((c) => ({
     candidate: c,
     score: c.weight + countGoalHits(c, experienceGoals) * GOAL_BOOST_PER_HIT,
   }));
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map((s) => s.candidate);
+  const result = scored.slice(0, limit).map((s) => s.candidate);
+
+  // CFS-035 Phase 2 — the NBE-ranking Invariant Decision Node runs in SHADOW
+  // against this weight+goal-fit heuristic: it re-expresses the same score as a
+  // transparent importance/need projection and emits the divergence for the
+  // Evolution face. Observe-only — `result` (the incumbent) is served unchanged.
+  // runShadow never throws.
+  runShadow(
+    nbeRankingProjector,
+    { items: scored.map((s) => ({ candidate: s.candidate, weight: s.candidate.weight, score: s.score })) },
+    result,
+    (c) => c.id,
+  );
+
+  return result;
 }
 
 /**
@@ -397,6 +537,8 @@ export function selectTopNbeForCartridge(
     workspaceConnected?: GoogleSource[];
     experienceGoals?: string[];
     stageAdvanceEligible?: boolean;
+    spineStagesComplete?: Record<string, boolean>;
+    recentlyCompletedNames?: string[];
   },
 ): NbeCandidate | null {
   const candidates = selectNbeCandidates({
@@ -407,6 +549,8 @@ export function selectTopNbeForCartridge(
     workspaceConnected: options?.workspaceConnected ?? [],
     experienceGoals: options?.experienceGoals ?? [],
     stageAdvanceEligible: options?.stageAdvanceEligible ?? false,
+    spineStagesComplete: options?.spineStagesComplete ?? {},
+    recentlyCompletedNames: options?.recentlyCompletedNames ?? [],
   });
   return candidates[0] ?? null;
 }

@@ -155,7 +155,7 @@ export const SUPPORTED_CHAINS: ChainConfig[] = [
     name: 'Bitcoin Testnet',
     ticker: 'BTC',
     color: 'text-orange-400',
-    explorer: 'https://mempool.space/testnet',
+    explorer: 'https://blockstream.info/testnet',
     active: false, // Coming soon
   },
   {

@@ -15,7 +15,7 @@
  * - Qriptopian (Qriptopian Codex) - MoneyPenny persona
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEmbeddingService } from '@/services/content/embeddingService';
 import {
@@ -28,6 +28,48 @@ import {
   buildComposerPromptParts,
   type ComposerSessionContext,
 } from '@/services/copilot/composer';
+import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
+import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
+import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
+import { buildAigentZPlatformKnowledge } from '@/services/knowledge/aigentZPlatformKnowledge';
+import {
+  buildStageInstructionBlock,
+  extractStageProposals,
+  detectRequestedStage,
+  looksLikeUnfulfilledProposalPromise,
+  STAGE_PROPOSAL_KIND,
+  type StageProposalKind,
+} from '@/services/devCommandCenter/stageOrchestrator';
+import type { DevLoopStage } from '@/types/devCommandCenter';
+import {
+  buildResearchInstructionBlock,
+  extractResearchProposals,
+} from '@/services/research/proposals';
+import { researchStageProposalKind, isResearchLoopStage } from '@/services/research/researchLoop';
+import {
+  APPLIED_RESEARCH_CHAIN,
+  ROADMAP_PRIORITIZATION_CRITERIA,
+  RESEARCH_THEMES,
+  OPEN_CONSTITUTIONAL_QUESTIONS,
+  CONSTITUTIONAL_DISTINCTIONS,
+} from '@/types/research';
+import { renderObservationLines } from '@/services/dcir/eventStream';
+import { renderStateSnapshotLines, DCIR_OBSERVED_PATTERN_LIMIT } from '@/services/dcir/stateEngine';
+import { buildStageGroundData } from '@/services/devCommandCenter/stageGroundData';
+import { initializeKnowledge, type KnowledgeManifest } from '@/services/invariants';
+import { resolveOntology, ontologyPromptBlock, citeResolvedConcepts } from '@/services/constitutional/ontologyResolver';
+import { MODEL_ROUTING_INVARIANTS } from '@/services/constitutional/modelQube';
+
+// The heaviest chat turns — DCC consequence-validation with a full session
+// ground context + dual-stage proposal schemas — outlive the Lambda DEFAULT
+// duration; the gateway then kills the request with a NON-JSON body, which
+// the client surfaces as the generic "Sorry, I encountered an error" (the
+// route's own JSON error envelope is never reached). Same budget as the
+// other provider-bound long routes (homecoming produce). Fix 2026-07-14:
+// operator hit this deterministically on every "validate the build" turn.
+export const maxDuration = 120;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,6 +122,75 @@ interface UserContext {
   receiptVisibility?: boolean;
   skillFilter?: 'curated' | 'all';
   explanationFirst?: boolean;
+  // metaMe cartridge enrichment — populated when the active runtime
+  // agent is aigent-me. Reads ExperienceQube.meta + PersonalGuide.blak
+  // server-side from the user's metaMe cartridge state. Surfaces the
+  // user's declared focus, primary goal, stage, and active cartridges
+  // to aigentMe so its responses are framed in the user's actual
+  // workstream — not a generic system orchestrator voice.
+  metameContext?: {
+    experienceName?: string | null;
+    experienceType?: string | null;
+    primaryGoal?: string | null;
+    currentStage?: string | null;
+    activeCartridges?: string[];
+    focusIntent?: string | null;
+    alignmentState?: string | null;
+    /** Observer awareness (AR/CPS rule, 2026-07-14): intent names the
+     *  operator recently COMPLETED — the LLM must never re-recommend these,
+     *  even if earlier turns in the conversation did. */
+    recentlyCompletedActions?: string[];
+    /** Intent names currently live (in_progress / awaiting_approval). */
+    activeWork?: string[];
+  };
+  /**
+   * Phase 8 (myCartridge PRD §16) — cartridge-scoped chat context.
+   * Populated when the POST body carries `cartridgeSlug` and the slug
+   * matches a Phase 4a/6 cartridge row in `codex_configs`. Surfaces the
+   * cartridge title, owner-authored purpose, available specialists, and
+   * copilot prompt context so the system prompt frames the reply as a
+   * cartridge copilot rather than a generic agent.
+   *
+   * T1-safe — slugs + role enum + display labels only. The owner
+   * persona id loaded by `getCartridgeChatContext` is consumed
+   * server-side (logging today; persona-swap in Phase 8b) and never
+   * propagates into UserContext.
+   */
+  cartridgeContext?: {
+    cartridgeSlug: string;
+    cartridgeTitle: string;
+    purpose: string | null;
+    category: string | null;
+    visibility: string | null;
+    availableSpecialists: string[];
+    copilotPromptContext: string | null;
+    copilotSource: string | null;
+  };
+  /**
+   * T1-safe snapshot of what the calling surface is currently rendering
+   * (the live brief shape, move-forward bundle, expModel state). When
+   * present, the system prompt instructs the LLM to narrate ONLY these
+   * rows by label and rationale rather than inventing a template. Set
+   * by the chat client on every POST when available; null/undefined =>
+   * generic narrative falls back to KB / persona prompt.
+   */
+  groundContext?: Record<string, unknown> | null;
+  /**
+   * Pre-formatted system-prompt block listing the persona uploads the
+   * operator attached to this turn. The POST handler fetches each
+   * upload's indexed content + composes the block before calling
+   * buildSystemPrompt; buildSystemPrompt appends it verbatim to the
+   * persona prompt so the LLM sees the file content as additional
+   * context.
+   *
+   * Format produced by composeAttachedUploadsBlock():
+   *   ## Attached uploads
+   *   <attached_file id="..." filename="..." mime="...">
+   *   CONTENT (truncated)
+   *   </attached_file>
+   *   ...
+   */
+  attachedUploadsBlock?: string;
 }
 
 interface CodexMetadata {
@@ -220,6 +331,193 @@ function inferWalletActions(message: string, assistantMessage: string): WalletAc
   return Array.from(requested).map((actionId) => buildWalletAction(actionId));
 }
 
+/**
+ * Suggested-layouts inference — mirrors the inferWalletActions pattern.
+ *
+ * Scans the user message + assistant response for explicit `[layout:<id>]`
+ * tags emitted by the LLM, then falls back to a keyword regex sweep. The
+ * resulting set drives the left-pane chip strip highlight: any returned id
+ * pulses emerald + scrolls into view so the operator can click to open
+ * the corresponding right-pane layout with the prompt context already
+ * captured by the auto-seed effects.
+ *
+ * The 12 chip targets cover every left-pane-driven right-pane surface:
+ *   - 4 Capsule layouts: brief, decision-board, venture-cockpit, specialists
+ *   - 6 Composer kinds:  gmail, event, doc, sheet, slides, marketa
+ *   - 2 utility drawers: upload, download
+ *
+ * Capping at 4 hints prevents the entire strip from pulsing on chatty
+ * turns. Order is insertion order; UI scrolls the first off-fold hit
+ * into view.
+ */
+export type ChipTargetId =
+  | 'brief'
+  | 'decision-board'
+  | 'venture-cockpit'
+  | 'specialists'
+  | 'gmail'
+  | 'event'
+  | 'doc'
+  | 'sheet'
+  | 'slides'
+  | 'marketa'
+  | 'upload'
+  | 'download'
+  | 'terminal'
+  | 'github'
+  | 'devtools'
+  | 'linear'
+  | 'intent'
+  | 'context'
+  | 'gap-analysis'
+  | 'consequence-canvas'
+  | 'validation'
+  | 'project-overview';
+
+export interface SuggestedLayoutHint {
+  layoutId: ChipTargetId;
+  reason: string;
+  /** Pre-fill text the chip click should feed into the layout's auto-seed. */
+  promptHint: string;
+  /** Parsed email draft extracted from conversation history — bypasses draft-email API when present. */
+  parsedDraft?: {
+    subject: string;
+    bodyText: string;
+    recipientHint?: string; // name extracted from salutation e.g. "Hi David,"
+  };
+}
+
+const LAYOUT_TAG_IDS: ReadonlyArray<ChipTargetId> = [
+  'brief', 'decision-board', 'venture-cockpit', 'specialists',
+  'gmail', 'event', 'doc', 'sheet', 'slides', 'marketa',
+  'upload', 'download',
+  'terminal', 'github', 'devtools', 'linear',
+  'intent', 'context', 'gap-analysis', 'consequence-canvas', 'validation', 'project-overview',
+];
+
+const LAYOUT_KEYWORDS: Array<{ id: ChipTargetId; pattern: RegExp; reason: string }> = [
+  { id: 'brief',            pattern: /(brief me|today'?s brief|my daily brief|what should i focus|top priorities|what's on (my )?plate)/i, reason: 'Operator wants a daily/contextual brief' },
+  { id: 'decision-board',   pattern: /(next best action|move (this )?forward|what's next|next step|decision board|move my goals forward)/i, reason: 'Operator wants the next-action decision board' },
+  { id: 'venture-cockpit',  pattern: /(venture progress|venture cockpit|kpi|metrics dashboard|where am i (on|with) my venture|venture status)/i, reason: 'Operator wants the venture progress cockpit' },
+  { id: 'specialists',      pattern: /(specialist|consult marketa|consult quill|consult kn0w1|ask the team|ask marketa|ask quill|ask kn0w1|partner proposal|outreach play)/i, reason: 'Operator wants to consult a specialist' },
+  { id: 'gmail',            pattern: /(draft (an? )?email|gmail|send (an? )?email|outreach email|email draft|reply to|send (?:it|the (?:doc|deck|brief|file|presentation|proposal|report|link))\s+to\b|email (?:it|them|him|her|the team)\b|\bsend it\b|send it again|resend( that| it| the email)?|send that again)/i, reason: 'Operator wants to draft an email' },
+  { id: 'event',            pattern: /(schedule (a )?meeting|book (a )?call|calendar (event|invite)|set up (a )?meeting|set up (a )?call|create (a )?calendar|arrange (a )?meeting|find (a )?time|block (out )?(time|my calendar)|send (a )?invite)/i, reason: 'Operator wants to schedule a calendar event' },
+  { id: 'doc',              pattern: /(google doc|create (a )?doc|write (up )?(a )?doc|memo|write (up )?(a )?memo|working doc|long-?form (write|document)|write (up )?(a )?(report|summary|proposal|write-up|writeup|brief|plan|strategy|roadmap))/i, reason: 'Operator wants to create a Google Doc' },
+  { id: 'sheet',            pattern: /(spreadsheet|google sheet|create (a )?sheet|tracking sheet|cohort sheet|kpi sheet|tracker|build (a )?(table|tracker|list|grid))/i, reason: 'Operator wants to create a sheet' },
+  { id: 'slides',           pattern: /(slide deck|presentation|create (a )?deck|pitch deck|slides outline|google slides|(?:proposal|partner|launch|investor|go-to-market|partnership|sales|marketing|strategy)\s+deck|build (a )?(deck|presentation|slides))/i, reason: 'Operator wants to create a slide deck' },
+  { id: 'marketa',          pattern: /(marketa (campaign|send|cohort)|send to cohort|campaign blast|cohort email|marketa email|email (the )?(cohort|list|subscribers|audience|community))/i, reason: 'Operator wants a Marketa campaign send' },
+  { id: 'upload',           pattern: /(upload (a |my )?(file|document|pdf|doc|image)|attach (a |my )?(file|doc|pdf|image)|drop (a |my )?file|share (a |my )?(file|document|pdf))/i, reason: 'Operator wants to upload a file' },
+  { id: 'download',         pattern: /(download|export (my )?(ledger|receipts|history|brief)|save (a )?(copy|pdf)|export the)/i, reason: 'Operator wants to download/export something' },
+  { id: 'terminal',          pattern: /(open (a |the )?terminal|terminal session|run (a )?command|shell|cli|command line)/i, reason: 'Operator wants a terminal session' },
+  { id: 'github',            pattern: /(open (the )?repo|github|pull request|PR|commit history|branches|merge)/i, reason: 'Operator wants to view the repository' },
+  { id: 'devtools',          pattern: /(build (log|error)|type error|diagnostic|dev ?tools|lint|compile|debug)/i, reason: 'Operator wants build diagnostics / devtools' },
+  { id: 'linear',            pattern: /(linear|issue tracker|tickets?|backlog|sprint|task board)/i, reason: 'Operator wants the issue tracker' },
+  { id: 'intent',            pattern: /(new intent|distill (my |the |an? )?intent|what am i (trying to )?build|capture (my |the )?intent|start (a |the )?dev (loop|session))/i, reason: 'Operator wants to distill a development intent' },
+  { id: 'context',           pattern: /(context pack|assemble context|relevant (code|files|docs)|codebase context|what (code |files )?do (i|we) (need|have))/i, reason: 'Operator wants to assemble a context pack' },
+  { id: 'gap-analysis',      pattern: /(gap analysis|capability gaps?|what (do we |is )missing|what can (we |i )reuse|existing (capabilities|code)|what needs to be built)/i, reason: 'Operator wants a capability gap analysis' },
+  { id: 'consequence-canvas', pattern: /(consequence|what should happen|what must never|model (the )?consequences|consequence canvas|should happen|should not happen|guardrails)/i, reason: 'Operator wants to model consequences' },
+  { id: 'validation',        pattern: /(validate|post-prompt validation|check (the )?build|verify (the )?(implementation|code|output)|consequence validation)/i, reason: 'Operator wants to validate against the consequence canvas' },
+  { id: 'project-overview',  pattern: /(project overview|where are we|status update|dev loop status|what stage|current (stage|progress)|how far along)/i, reason: 'Operator wants a project overview' },
+];
+
+/** Detect a structured email draft in an assistant message. Returns subject + body or null. */
+function parseEmailDraft(text: string): { subject: string; bodyText: string; recipientHint?: string } | null {
+  // Look for "Subject:" line — the canonical signal an email draft is present
+  const subjectMatch = text.match(/^Subject:\s*(.+)$/im);
+  if (!subjectMatch) return null;
+  const subject = subjectMatch[1].trim();
+  // Body is everything after the subject line (skip the blank separator line)
+  const subjectIndex = text.indexOf(subjectMatch[0]);
+  const afterSubject = text.slice(subjectIndex + subjectMatch[0].length).replace(/^\s*\n/, '');
+  if (!afterSubject.trim()) return null;
+  // Extract recipient name from greeting e.g. "Hi David Chaum," / "Dear Dr. Chaum,"
+  // Captures up to 3 capitalised words so "David Chaum" and "Dr. David Chaum" both work.
+  const greetingMatch = afterSubject.match(/^(?:Hi|Hello|Dear|Hey)[,\s]+(?:(?:Dr|Prof|Mr|Mrs|Ms)\.?\s+)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})[,!]/m);
+  const recipientHint = greetingMatch ? greetingMatch[1].trim() : undefined;
+  return { subject, bodyText: afterSubject.trim(), recipientHint };
+}
+
+function inferSuggestedLayouts(
+  message: string,
+  assistantMessage: string,
+  history?: ChatMessage[],
+): SuggestedLayoutHint[] {
+  const hints: SuggestedLayoutHint[] = [];
+  const seen = new Set<ChipTargetId>();
+  const MAX = 4;
+
+  // baseHint — the user's prompt, used as a seed for downstream surfaces
+  // (composer "What's the deck for?", etc.) when the LLM didn't emit a
+  // [layout:<id>|<substance>] tag. Empty for trivial acknowledgements
+  // ("yes", "ok") so the composer doesn't end up pre-filled with a
+  // meta-instruction the user didn't intend as content.
+  const trimmedMessage = message.trim();
+  const TRIVIAL_ACK = /^(yes|yep|yeah|ok|okay|sure|go|do it|let'?s go|please|cool|thx|thanks?|go ahead|y|n|no)[!.?]*$/i;
+  const baseHint = TRIVIAL_ACK.test(trimmedMessage) ? '' : trimmedMessage.slice(0, 240);
+
+  // Scan recent assistant messages (newest first) for a structured email draft
+  let historyEmailDraft: { subject: string; bodyText: string; recipientHint?: string } | undefined;
+  if (history && history.length > 0) {
+    for (let i = history.length - 1; i >= 0 && i >= history.length - 6; i--) {
+      const msg = history[i];
+      if (msg.role !== 'assistant') continue;
+      const draft = parseEmailDraft(msg.content);
+      if (draft) { historyEmailDraft = draft; break; }
+    }
+    // Also check the current assistant message
+    if (!historyEmailDraft) {
+      const draft = parseEmailDraft(assistantMessage);
+      if (draft) historyEmailDraft = draft;
+    }
+  }
+
+  const register = (id: ChipTargetId, reason: string, promptHint: string) => {
+    if (seen.has(id) || hints.length >= MAX) return;
+    seen.add(id);
+    // LLM-tag substance wins; fall back to baseHint when the tag wasn't
+    // emitted (keyword sweep) or the tag had no substance.
+    const hint: SuggestedLayoutHint = { layoutId: id, reason, promptHint: promptHint.trim() || baseHint };
+    // Attach parsed email draft to gmail hints so the composer can bypass draft-email API
+    if (id === 'gmail' && historyEmailDraft) hint.parsedDraft = historyEmailDraft;
+    hints.push(hint);
+  };
+
+  // Explicit tags — `[layout:<id>|<substance>]`. The system prompt
+  // instructs the LLM to emit these whenever it proposes a concrete
+  // action, with substance = WHAT to do (distilled from conversation).
+  const tagMatches = Array.from(
+    assistantMessage.matchAll(/\[layout:([a-z-]+)(?:\|([^\]]+))?\]/gi),
+  );
+  for (const match of tagMatches) {
+    const raw = (match[1] || '').toLowerCase() as ChipTargetId;
+    if (!LAYOUT_TAG_IDS.includes(raw)) continue;
+    const hint = (match[2] || '').trim();
+    register(raw, 'LLM-tagged layout suggestion', hint);
+  }
+
+  // Keyword sweep over user message + assistant response — lights the
+  // chip even when the LLM didn't emit a tag; promptHint falls back to
+  // baseHint inside register() so the composer still gets a seed.
+  const combined = `${message}\n${assistantMessage}`;
+  for (const k of LAYOUT_KEYWORDS) {
+    if (k.pattern.test(combined)) register(k.id, k.reason, '');
+  }
+
+  return hints;
+}
+
+/**
+ * Strip `[layout:<id>|<substance>]` control tags from the user-facing
+ * assistant text so the operator never sees the chip-strip control codes.
+ */
+function stripLayoutTags(assistantMessage: string): string {
+  return assistantMessage
+    .replace(/\s*\[layout:[a-z-]+(?:\|[^\]]+)?\]\s*/gi, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function createEventMeta(source: string) {
   const eventId =
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -264,6 +562,28 @@ function getProviderAvailability(): ProviderAvailability {
     anthropic: providerHasApiKey('anthropic'),
     chaingpt: providerHasApiKey('chaingpt'),
   };
+}
+
+/**
+ * Does this turn carry a constitutional ground context?
+ *
+ * This USED to be `groundContext.surface === 'smart-triad'` — an equality check
+ * against one literal, written when the shell copilot was the only producer.
+ * The effect was that IRE-resolved invariants, constitutional memory and the
+ * `resolved_invariants` echo reached exactly ONE mount. Every surface that
+ * declared its own surface id (dev-command-center, irl-research,
+ * aigentme-welcome, studio-composer, registry-asset-detail) failed the check
+ * and was grounded on nothing — the richest surfaces, excluded by a string
+ * comparison.
+ *
+ * The question the gate should have been asking is "did the client send a
+ * ground context?", not "is the client this one surface". Any surface that
+ * names itself is asking to be grounded.
+ */
+function isConstitutionallyGrounded(groundContext: unknown): boolean {
+  if (!groundContext || typeof groundContext !== 'object') return false;
+  const surface = (groundContext as Record<string, unknown>).surface;
+  return typeof surface === 'string' && surface.trim().length > 0;
 }
 
 function defaultAgentIdForPersona(persona: string): string {
@@ -403,7 +723,12 @@ function buildProviderAttempts(
     pushAttempt(provider.id, preferredModel);
   }
 
-  for (const fallbackProviderId of ['openai', 'venice', 'anthropic', 'chaingpt'] as RuntimeProviderId[]) {
+  // Sovereign-survivability (CFS-015 principle 4, governed by MODEL_ROUTING_INVARIANTS):
+  // the fallback ladder ALWAYS terminates at the open-weight provider (venice), so
+  // reasoning survives a frontier outage instead of ending on a frontier rung. venice
+  // moves from 2nd to LAST — the requested/primary path above is untouched; only the
+  // last-resort order changes.
+  for (const fallbackProviderId of ['openai', 'anthropic', 'chaingpt', 'venice'] as RuntimeProviderId[]) {
     pushAttempt(fallbackProviderId);
   }
 
@@ -631,7 +956,7 @@ const MARKETA_TOOLS_ANTHROPIC = [
       properties: {
         prompt: { type: 'string', description: 'Detailed description of the video to generate' },
         skill_id: { type: 'string', enum: ['sora_video_gen_curated', 'venice_video_gen'], description: 'Video provider — use sora_video_gen_curated for high quality, venice_video_gen as alternative' },
-        duration: { type: 'number', description: 'Duration in seconds (4-12 for Sora, 5-10 for Venice)' },
+        duration: { type: 'number', description: 'Duration in seconds. Both Sora and Venice (incl. Wan) accept 4, 8, or 12 (default 12). Values are snapped to the nearest supported duration.' },
         aspect_ratio: { type: 'string', enum: ['16:9', '9:16', '1:1'], description: 'Video aspect ratio' },
         style: { type: 'string', enum: ['cinematic', 'animation', 'comic', 'photorealistic'], description: 'Visual style' },
         experience_id: { type: 'string', description: 'Optional experience ID' },
@@ -737,6 +1062,28 @@ const MARKETA_TOOLS_ANTHROPIC = [
       },
     },
   },
+  {
+    name: 'search_contacts',
+    description: 'Search the persona\'s personal address book (imported from Google Contacts, iPhone, LinkedIn, Outlook, etc.). Use this whenever the user asks about a specific person, company, email address, phone number, or wants to find contacts affiliated with a project, organisation, or topic. Returns matching contacts with name, email, phone, organisation, and job title.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'Free-text search — name, email, company, job title, or any keyword. Pass the most specific term the user mentioned (e.g. "Project Liberty", "Goldman Sachs", "Alice").',
+        },
+        source: {
+          type: 'string',
+          description: 'Optional: filter by import source — google_contacts | vcard | icloud | linkedin | outlook | csv | manual. Omit to search all sources.',
+        },
+        limit: {
+          type: 'number',
+          description: 'Max results to return. Default 20.',
+        },
+      },
+      required: ['query'],
+    },
+  },
 ];
 
 const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
@@ -748,7 +1095,7 @@ const MARKETA_TOOLS_OPENAI = MARKETA_TOOLS_ANTHROPIC.map((t) => ({
   },
 }));
 
-async function executeMarketaTool(name: string, input: Record<string, unknown>): Promise<string> {
+async function executeMarketaTool(name: string, input: Record<string, unknown>, personaId?: string): Promise<string> {
   const base = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   try {
     if (name === 'list_workflows') {
@@ -902,6 +1249,61 @@ async function executeMarketaTool(name: string, input: Record<string, unknown>):
       const json = await res.json();
       return JSON.stringify({ ready: json.ready, checks: json.checks, details: json.details, errors: json.errors });
     }
+    if (name === 'search_contacts') {
+      if (!personaId) return JSON.stringify({ error: 'No active persona — cannot search contacts' });
+      const rawQ = String(input.query ?? '').trim();
+      const source = typeof input.source === 'string' ? input.source : '';
+      const limit = Math.min(Number(input.limit ?? 20), 100);
+      // Strip meta-words that describe the query type but won't appear in
+      // contact records (e.g. "contacts", "people", "email") so they don't
+      // create impossible AND conditions in the FTS query.
+      const STRIP_WORDS = /\b(contact|contacts|people|person|email|phone|reach|find|show|list|who|what|where|are|is|my|the|a|an|of|from|in|at|for|to|with)\b/gi;
+      const q = rawQ.replace(STRIP_WORDS, ' ').replace(/\s+/g, ' ').trim();
+      let query = supabase
+        .from('persona_contacts')
+        .select('display_name, first_name, last_name, organization, job_title, email, email_2, phone, phone_2, address, source')
+        .eq('persona_id', personaId)
+        .limit(limit);
+      if (source) query = query.eq('source', source);
+      if (q) {
+        query = (query as any).textSearch(
+          'fts',
+          q.split(/\s+/).filter((w: string) => w.length > 1).map((w: string) => w + ':*').join(' & '),
+          { config: 'english', type: 'plain' },
+        );
+      } else {
+        query = query.order('display_name', { ascending: true });
+      }
+      const { data, error } = await query;
+      if (error) return JSON.stringify({ error: error.message });
+      if (!data || data.length === 0) {
+        // Check if address book is empty vs just no matches for this query
+        const { count } = await supabase
+          .from('persona_contacts')
+          .select('*', { count: 'exact', head: true })
+          .eq('persona_id', personaId);
+        if (!count || count === 0) {
+          return JSON.stringify({ contacts: [], total: 0, message: 'Address book is empty — no contacts have been imported yet. Ask the user to import contacts from Google, iPhone, or CSV via the Contacts section in the aigentMe right pane.' });
+        }
+        return JSON.stringify({ contacts: [], total: 0, message: `No contacts matched "${q || '(all)'}". The address book has ${count} contact${count !== 1 ? 's' : ''} total.` });
+      }
+      return JSON.stringify({
+        contacts: data.map((c: any) => ({
+          name: c.display_name,
+          firstName: c.first_name,
+          lastName: c.last_name,
+          organization: c.organization,
+          jobTitle: c.job_title,
+          email: c.email,
+          email2: c.email_2 ?? undefined,
+          phone: c.phone,
+          phone2: c.phone_2 ?? undefined,
+          address: c.address ?? undefined,
+          source: c.source,
+        })),
+        total: data.length,
+      });
+    }
     return JSON.stringify({ error: `Unknown tool: ${name}` });
   } catch (err: any) {
     return JSON.stringify({ error: err?.message ?? 'Tool execution failed' });
@@ -913,6 +1315,7 @@ async function callAnthropicWithTools(
   history: ChatMessage[],
   message: string,
   modelId: string,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   const anthropicMessages: any[] = [
     ...history.filter((e) => e.role !== 'system').map((e) => ({ role: e.role, content: e.content })),
@@ -950,7 +1353,7 @@ async function callAnthropicWithTools(
     const toolUseBlocks = (data.content ?? []).filter((b: any) => b.type === 'tool_use');
     const toolResults: any[] = [];
     for (const block of toolUseBlocks) {
-      const result = await executeMarketaTool(block.name, block.input ?? {});
+      const result = await executeMarketaTool(block.name, block.input ?? {}, personaId);
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: result });
     }
     // Append assistant turn + tool results
@@ -985,7 +1388,7 @@ async function callAnthropicWithTools(
   return { providerId: 'anthropic', modelId: mapAnthropicModelId(modelId || ANTHROPIC_MODEL), content };
 }
 
-async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Promise<ProviderExecutionResult> {
+async function callOpenAiWithTools(messages: ChatMessage[], modelId: string, personaId?: string): Promise<ProviderExecutionResult> {
   let currentMessages: any[] = messages;
 
   let response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1018,7 +1421,7 @@ async function callOpenAiWithTools(messages: ChatMessage[], modelId: string): Pr
     for (const tc of toolCalls) {
       let inputObj: Record<string, unknown> = {};
       try { inputObj = JSON.parse(tc.function?.arguments ?? '{}'); } catch { /* ignore */ }
-      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj);
+      const result = await executeMarketaTool(tc.function?.name ?? '', inputObj, personaId);
       currentMessages.push({ role: 'tool', tool_call_id: tc.id, content: result });
     }
     response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1052,6 +1455,7 @@ async function executeProviderAttempt(
   history: ChatMessage[],
   message: string,
   isMarketa: boolean,
+  personaId?: string,
 ): Promise<ProviderExecutionResult> {
   switch (attempt.providerId) {
     case 'openai':
@@ -1059,6 +1463,7 @@ async function executeProviderAttempt(
         return callOpenAiWithTools(
           [{ role: 'system', content: systemPrompt }, ...history, { role: 'user', content: message }],
           attempt.modelId,
+          personaId,
         );
       }
       return callOpenAi([...history, { role: 'user', content: message }], attempt.modelId);
@@ -1066,7 +1471,7 @@ async function executeProviderAttempt(
       return callVenice([...history, { role: 'user', content: message }], attempt.modelId);
     case 'anthropic':
       if (isMarketa) {
-        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId);
+        return callAnthropicWithTools(systemPrompt, history, message, attempt.modelId, personaId);
       }
       return callAnthropic(systemPrompt, history, message, attempt.modelId);
     case 'chaingpt':
@@ -1256,9 +1661,10 @@ async function fetchKnytLiveContext(personaId?: string): Promise<KnytLiveContext
 
 // Search Knowledge Base for relevant content with timeout
 async function searchKnowledgeBase(
-  query: string, 
+  query: string,
   domain: ContentDomain,
-  limit: number = 3
+  limit: number = 3,
+  cartridgeSlug?: string,
 ): Promise<KBSearchResult[]> {
   try {
     // Bumped from 5s → 15s. The original 5s budget routinely blew through on
@@ -1270,7 +1676,11 @@ async function searchKnowledgeBase(
       setTimeout(() => reject(new Error('KB search timeout')), 15000)
     );
 
-    const searchPromise = embeddingService.hybridSearch(query, domain, limit);
+    // Phase 8 — cartridgeSlug threads through to embeddingService so v0.5
+    // can wire cartridge-scoped semantic search without touching this
+    // route. Today the embedding service logs the slug and falls back to
+    // domain-scoped lookup (the cartridge KB pipeline lands in v0.5).
+    const searchPromise = embeddingService.hybridSearch(query, domain, limit, { cartridgeSlug });
 
     const results = await Promise.race([searchPromise, timeoutPromise]);
 
@@ -1320,7 +1730,21 @@ async function fetchCodexMetadata(domain: ContentDomain = 'metaKnyts'): Promise<
     };
   }
 
-  // Default: Fetch metaKnyts content
+  // Global SmartTriad KB fallback chain (operator decision 2026-06-12):
+  //   aigentMe → metaMe → aigentC → aigentZ
+  // Only metaKnyts and qriptopian have populated KB content today.
+  // Every other domain (including the default 'aigentMe') returns an
+  // empty content scaffold so the LLM uses persona/cartridge context
+  // instead of KNYT lore. When aigentMe/metaMe KBs are populated,
+  // add their branches above this gate.
+  if (domain !== 'metaKnyts') {
+    return {
+      characters: [],
+      episodes: [],
+      stats: { characterCount: 0, episodeCount: 0, coverCount: 0, masterCount: 0 },
+    };
+  }
+
   const { data: characters } = await supabase
     .from('codex_characters')
     .select(`
@@ -1465,7 +1889,134 @@ This user is a story enthusiast interested in the metaKnyts universe.
 // Agents that need the KNYT codex character/episode context injected
 const KNYT_FOCUSED_AGENTS = new Set(['aigent-kn0w1', 'aigent-marketa']);
 
+/**
+ * Franchise-NEUTRAL role guidelines — for every persona outside
+ * KNYT_FOCUSED_AGENTS. The lore-flavoured getRoleGuidelines blocks name
+ * metaKnyts explicitly, and injecting them for every persona bled metaKnyts
+ * references into unrelated surfaces (the IRL research copilot described
+ * invariants "in the context of the metaKnyts universe" — operator report
+ * 2026-07-20). metaKnyts lore stays confined to the KNYT cartridge agents
+ * or explicit user enquiries; it is never ambient system-prompt material.
+ */
+function getNeutralRoleGuidelines(role: UserRole): string {
+  switch (role) {
+    case 'investor':
+      return `
+## User Context: INVESTOR
+This user is business/value-focused.
+- Be professional and data-oriented; surface economics only when relevant to their question`;
+    case 'creative':
+      return `
+## User Context: CREATIVE
+This user is a creator.
+- Be inspiring and concrete; focus on the tools and content of the CURRENT cartridge`;
+    case 'developer':
+      return `
+## User Context: DEVELOPER
+This user is a technical builder.
+- Be precise and technical; ground answers in this platform's actual architecture`;
+    case 'entrepreneur':
+      return `
+## User Context: ENTREPRENEUR
+This user is business-focused.
+- Be professional and opportunity-focused within the current cartridge's scope`;
+    case 'fan':
+    default:
+      return `
+## User Context: PARTICIPANT
+This user is engaging with the current cartridge's content.
+- Answer within THIS cartridge's domain. Do not import lore, characters, or
+  framing from other cartridges (e.g. metaKnyts/KNYT) unless the user
+  explicitly asks about them`;
+  }
+}
+
+/**
+ * Load the metaMe cartridge state for a persona so aigentMe can answer
+ * inside the user's actual workstream context. Reads ExperienceQube.meta
+ * (experience name / type, primary goal, current stage, active cartridges)
+ * and PersonalGuide.blak (focus intent, alignment state).
+ *
+ * Returns null when either:
+ *   - personaId is missing / not a string (anonymous chat — generic mode)
+ *   - getExperienceQube returns null (no cartridge state yet)
+ *
+ * Errors are caught and swallowed (returns null) so a hiccup in the
+ * cartridge store doesn't break the chat — generic mode is the safe
+ * fallback.
+ */
+async function loadMetameContext(
+  personaId: string | undefined | null,
+): Promise<UserContext['metameContext']> {
+  if (!personaId || typeof personaId !== 'string') return undefined;
+  try {
+    const [qube, guide, intents] = await Promise.all([
+      getExperienceQube(personaId).catch(() => null),
+      getPersonalGuide(personaId).catch(() => null),
+      // Observer awareness (operator report 2026-07-14: the runtime chat
+      // kept re-recommending JUST-completed actions as "Next Focus" — the
+      // brief/move-forward builders are completion-filtered, but this chat
+      // path never consults them, and the conversation history contains the
+      // model's own stale recommendations). Read the IntentQube record so
+      // the system prompt carries observed completion state.
+      listRecentIntentsForPersona(personaId, { limit: 20 }).catch(() => []),
+    ]);
+    if (!qube && !guide) return undefined;
+    const dedupe = (names: string[]) => {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const n of names) {
+        const k = n.trim().toLowerCase();
+        if (!k || seen.has(k)) continue;
+        seen.add(k);
+        out.push(n.trim());
+      }
+      return out;
+    };
+    const cutoff = Date.now() - 72 * 60 * 60 * 1000;
+    const recentlyCompletedActions = dedupe(
+      intents
+        .filter((i) => i.status === 'completed' && Date.parse(i.createdAt) >= cutoff)
+        .map((i) => i.intentName),
+    ).slice(0, 8);
+    const activeWork = dedupe(
+      intents
+        .filter((i) => i.status === 'in_progress' || i.status === 'awaiting_approval')
+        .map((i) => i.intentName),
+    ).slice(0, 5);
+    return {
+      experienceName:   qube?.meta.experienceName ?? null,
+      experienceType:   qube?.meta.experienceType ?? null,
+      primaryGoal:      qube?.meta.primaryGoal ?? null,
+      currentStage:     qube?.meta.currentStage ?? null,
+      activeCartridges: qube?.meta.activeCartridges ?? [],
+      focusIntent:      guide?.focusIntent ?? null,
+      alignmentState:   guide?.alignmentState ?? null,
+      recentlyCompletedActions,
+      activeWork,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 // Build system prompt with codex context, user role, and KB content
+/**
+ * Render the L1 common constitutional ground as a system-prompt block.
+ *
+ * ONE rendering, shared by every prompt path (persona and composer alike), so
+ * no surface can drift into its own phrasing of the substrate — or quietly
+ * omit it. An empty list renders nothing: never fabricate a block resolution
+ * did not produce.
+ */
+function constitutionalGroundPromptBlock(
+  items?: Array<{ seedId: string; statement: string }>,
+): string {
+  if (!items || items.length === 0) return '';
+  const lines = items.map((inv) => `- [${inv.seedId}] ${inv.statement}`).join('\n');
+  return `\n\n## Governing platform invariants — the constitution you reason inside\n\nThese are IRE-resolved for THIS message (plus any carried session memory) from the platform's canonical invariant corpus. They hold on every surface, in every cartridge: they are the ground you share with every other copilot, NOT this cartridge's domain knowledge. Cite them by seed id when they ground a claim. Never contradict one; if a request would require contradicting one, say so plainly and name the invariant.\n\n${lines}`;
+}
+
 function buildSystemPrompt(
   metadata: CodexMetadata,
   aigentId: string,
@@ -1473,16 +2024,37 @@ function buildSystemPrompt(
   kbContext?: KBSearchResult[],
   liveContext?: KnytLiveContext,
   activeSkill?: Know1SkillId | null,
+  platformKnowledgeBlock?: string,
+  knowledgeInit?: KnowledgeManifest | null,
+  latestUserMessage?: string,
+  /**
+   * The L1 common constitutional ground for this turn, resolved by the caller
+   * BEFORE any cartridge signal. Rendered unconditionally — an empty list
+   * renders nothing (never fabricate a block resolution did not produce), but
+   * an absent CARTRIDGE must never be what empties it.
+   */
+  constitutionalGround?: Array<{ seedId: string; statement: string }>,
 ): string {
-  // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
-  const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
+  // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1').
+  // Fall back via defaultAgentIdForPersona (not a hardcoded 'aigent-kn0w1') so any
+  // aigent-*-prefixed persona unknown to RUNTIME_AGENT_IDS (e.g. SmartTriad-instantiated
+  // cartridge faces like 'aigent-community-concierge') keeps its OWN id — and therefore
+  // its own personas[] system prompt — instead of silently collapsing onto Kn0w1's
+  // KNYT-lore-flavoured prompt. Bug found 2026-07-23: Founders Club's Community Concierge
+  // was narrating "the metaKnyts universe" because this line discarded its persona id.
+  const resolvedPersonaId = normalizeAgentId(aigentId) ?? defaultAgentIdForPersona(aigentId ?? '');
   const personaConfig =
     personas[resolvedPersonaId as keyof typeof personas] ??
     personas['aigent-kn0w1'];
   const personaIntro = personaConfig.systemPrompt;
 
-  // Get role-specific guidelines
-  const roleGuidelines = userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan');
+  // Get role-specific guidelines. Lore-flavoured blocks (which name
+  // metaKnyts) are KNYT-cartridge material — only KNYT-focused agents get
+  // them. Every other persona gets franchise-neutral guidelines so KNYT
+  // lore never bleeds into IRL / metaMe / studio inference (2026-07-20).
+  const roleGuidelines = KNYT_FOCUSED_AGENTS.has(resolvedPersonaId)
+    ? (userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan'))
+    : getNeutralRoleGuidelines(userContext?.primaryRole ?? 'fan');
 
   // Build metaMe policy block when settings are present
   const policyLines: string[] = [];
@@ -1510,6 +2082,493 @@ function buildSystemPrompt(
   const policyBlock = policyLines.length > 0
     ? `\n\n## Active Policy Rules (metaMe Settings)\n\n${policyLines.join('\n')}`
     : '';
+
+  // metaMe cartridge context — only rendered for aigent-me. Surfaces the
+  // user's ExperienceQube + PersonalGuide state so aigentMe answers
+  // inside their actual workstream context rather than as a generic
+  // system orchestrator. Loaded by loadMetameContext() in the POST
+  // handler; absent fields are omitted (no hallucination of state).
+  const metameLines: string[] = [];
+  if (resolvedPersonaId === 'aigent-me' && userContext?.metameContext) {
+    const m = userContext.metameContext;
+    if (m.experienceName)   metameLines.push(`- Current experience: **${m.experienceName}**${m.experienceType ? ` (${m.experienceType})` : ''}`);
+    if (m.primaryGoal)      metameLines.push(`- Primary goal: ${m.primaryGoal}`);
+    if (m.currentStage)     metameLines.push(`- Current stage: ${m.currentStage}`);
+    if (m.activeCartridges && m.activeCartridges.length > 0) {
+      metameLines.push(`- Active cartridges: ${m.activeCartridges.join(', ')}`);
+    }
+    if (m.focusIntent)      metameLines.push(`- Today's focus (PersonalGuide): ${m.focusIntent}`);
+    if (m.alignmentState)   metameLines.push(`- Alignment state: ${m.alignmentState}`);
+    // Observer awareness (AR/CPS rule): completed work is a FACT the reply
+    // must respect. The explicit override of conversation history matters —
+    // the model's own earlier "Next Focus" messages are in the transcript
+    // and would otherwise be parroted after the work completed.
+    if (m.recentlyCompletedActions && m.recentlyCompletedActions.length > 0) {
+      metameLines.push(
+        `- RECENTLY COMPLETED (observed from the intent record — these are DONE): ${m.recentlyCompletedActions.join('; ')}. ` +
+        `NEVER re-recommend a completed action as a next step or "top priority" — this rule OVERRIDES any earlier recommendation in this conversation. ` +
+        `Acknowledge the completion briefly and propose the next NEW action instead.`,
+      );
+    }
+    if (m.activeWork && m.activeWork.length > 0) {
+      metameLines.push(`- Currently in progress (do not re-initiate; reference status instead): ${m.activeWork.join('; ')}`);
+    }
+  }
+  const metameContextBlock = metameLines.length > 0
+    ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`
+    : '';
+
+  // Phase 8 — cartridge-scoped chat. When the client passes a
+  // cartridgeSlug and the slug resolves to a Phase 4a/6 cartridge,
+  // the copilot voice is reframed as the cartridge's regent. The block
+  // includes the cartridge title, owner-authored purpose, and the
+  // available-specialists list (so the model can suggest handoffs
+  // inside the cartridge's specialist whitelist instead of guessing).
+  //
+  // Per PRD §16, MVP `copilotSource` is always 'aigentMe' — the
+  // cartridge copilot IS the cartridge owner's aigentMe operating
+  // their cartridge. The `cartridge-copilot` and `specialist` sources
+  // are typed but unwired in MVP.
+  const cartridgeLines: string[] = [];
+  if (userContext?.cartridgeContext) {
+    const cc = userContext.cartridgeContext;
+    cartridgeLines.push(`- Cartridge: **${cc.cartridgeTitle}** (slug: ${cc.cartridgeSlug})`);
+    if (cc.category) cartridgeLines.push(`- Category: ${cc.category}`);
+    if (cc.visibility) cartridgeLines.push(`- Visibility: ${cc.visibility}`);
+    if (cc.purpose) cartridgeLines.push(`- Owner's stated purpose: ${cc.purpose}`);
+    if (cc.copilotPromptContext) cartridgeLines.push(`- Copilot prompt context: ${cc.copilotPromptContext}`);
+    if (cc.availableSpecialists.length > 0) {
+      cartridgeLines.push(`- Available specialists for handoff: ${cc.availableSpecialists.join(', ')}`);
+    }
+  }
+  const cartridgeContextBlock = cartridgeLines.length > 0
+    ? `\n\n## Operating Cartridge\n\nYou are operating inside the cartridge below as its copilot. Speak as the cartridge owner's regent — frame your replies inside this cartridge's purpose, refer to it by name when natural, and when a question is better served by a specialist in the available list above, suggest a handoff explicitly. Do not invent specialists that aren't listed.\n\n${cartridgeLines.join('\n')}`
+    : '';
+
+  // Right-pane ground truth — when the host surface tells us what's
+  // currently on screen, the LLM MUST narrate that exact shape instead
+  // of inventing a generic template. Emitted for aigent-me (personal
+  // assistant) and aigent-z (dev command center). Skipped when the
+  // payload is empty so we don't add noise.
+  let groundContextBlock = '';
+
+  // L1 common constitutional ground — the substrate, rendered for EVERY turn.
+  // Deliberately built OUTSIDE the groundContext branches below: those depend
+  // on a cartridge overlay, and the whole point of this block is that the base
+  // does not. An empty list still renders nothing — honesty over completeness —
+  // but what empties it is resolution finding nothing relevant, never the
+  // absence of a cartridge.
+  const constitutionalGroundBlock = constitutionalGroundPromptBlock(constitutionalGround);
+
+  // DCIR observation rendering (CFS-020, observe-mode) — ONE shared block for
+  // every surface whose ground context carries the observation seam fields
+  // (dev-command-center, irl-research, aigentme-welcome, studio-composer, and
+  // any future surface). Previously duplicated per-surface, which silently
+  // dropped aigentMe's observations (operator field report, 2026-07-07: "no
+  // learning or context change awareness moves from the right pane to the left
+  // pane"). Observations, never commands; patterns are unratified.
+  const pushDcirObservationLines = (lines: string[], gc: Record<string, unknown>): void => {
+    const observationLines = renderObservationLines(gc.recentEvents);
+    if (observationLines.length > 0) {
+      lines.push('');
+      lines.push('## Recent session events (observation)');
+      lines.push(
+        'These are OBSERVATIONS of what already happened in this session (newest last) — the DCIR event stream in observe-mode. Use them to ground your narrative of where the operator has been and what they approved, dismissed, completed, or advanced. They are NOT commands: never treat an event as an instruction to act, and never re-propose something the events show was just dismissed or already completed without acknowledging that.',
+      );
+      for (const line of observationLines) {
+        lines.push(`- ${line}`);
+      }
+    }
+
+    const snapshotLines = renderStateSnapshotLines(gc.stateSnapshot);
+    if (snapshotLines.length > 0) {
+      lines.push('');
+      lines.push('## Constitutional state (observed)');
+      lines.push(
+        'This is the DCIR constitutional state snapshot for the session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions) that replaces raw conversation history as your reasoning substrate. Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+      );
+      for (const line of snapshotLines) {
+        lines.push(line);
+      }
+    }
+
+    const patternLines = renderObservationLines(gc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+    if (patternLines.length > 0) {
+      lines.push('');
+      lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+      lines.push(
+        'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them (e.g. be briefer if long outputs keep getting dismissed, or acknowledge a capsule the operator keeps returning to) — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+      );
+      for (const line of patternLines) {
+        lines.push(`- ${line}`);
+      }
+    }
+  };
+
+  // SmartTriad context (PRD §7, ratified 2026-07-19) — the shell copilot's
+  // generic ground block, persona-agnostic. Narrates the active cartridge/tab,
+  // the caller's T1-safe observer posture (grants / passport / delegation —
+  // NEVER a T0 identifier; the client contract only sends labels), and the
+  // deterministic deep-link chips rendered under the chat, so answers stay
+  // cartridge-scoped and navigational instead of generic.
+  if (userContext?.groundContext && isConstitutionallyGrounded(userContext.groundContext)) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      const cart = (gc.cartridge ?? {}) as Record<string, unknown>;
+      const obs = (gc.observer ?? {}) as Record<string, unknown>;
+      const links = Array.isArray(gc.deepLinks) ? (gc.deepLinks as Array<Record<string, unknown>>) : [];
+      const lines: string[] = [];
+      lines.push(`### Active surface`);
+      lines.push(`- Cartridge: **${cart.name ?? cart.id ?? 'unknown'}** (tab: ${cart.tab ?? 'unknown'})`);
+      // L2 corpus refs (PRD §7) — name the domain surfaces this copilot is
+      // grounded on so answers cite the right corpus, not generic knowledge.
+      const corpusRefs = Array.isArray(cart.corpusRefs) ? (cart.corpusRefs as string[]) : [];
+      if (corpusRefs.length > 0) {
+        lines.push(`### Cartridge ground-truth corpus (answer FROM these surfaces; name them when citing)`);
+        for (const ref of corpusRefs) lines.push(`- ${ref}`);
+      }
+      const capabilities = Array.isArray(gc.capabilities) ? (gc.capabilities as string[]) : [];
+      if (capabilities.length > 0) {
+        lines.push(`### Your capabilities on this surface`);
+        for (const cap of capabilities) lines.push(`- ${cap}`);
+      }
+      lines.push(`### Operator state (observed, T1-safe)`);
+      lines.push(`- Authenticated: ${obs.authenticated ? 'yes' : 'no'}`);
+      if (obs.passportState) lines.push(`- Passport: ${obs.passportState}`);
+      if (typeof obs.delegationActive === 'boolean') lines.push(`- Agent delegation active: ${obs.delegationActive ? 'yes' : 'no'}`);
+      const participation = Array.isArray(obs.participation) ? (obs.participation as Array<Record<string, unknown>>) : [];
+      if (participation.length > 0) {
+        lines.push(`- Participation grants: ${participation.map((p) => `${p.domain}/${p.role}`).join(', ')}`);
+      } else if (obs.authenticated) {
+        lines.push(`- Participation grants: none yet (not onboarded to any access domain)`);
+      }
+      if (links.length > 0) {
+        lines.push(`### Quick links available as chips below the chat`);
+        for (const l of links) lines.push(`- ${l.label}${l.codexSlug ? ' (opens another cartridge)' : ''}`);
+      }
+      // Phase 3 Actions — admin operations surfaced as amber chips. The model
+      // can DIRECT the operator to run one by name; it can never execute them.
+      const operations = Array.isArray(gc.operations) ? (gc.operations as Array<Record<string, unknown>>) : [];
+      if (operations.length > 0) {
+        lines.push(`### Operations available to this (admin) operator — amber chips below the chat`);
+        for (const op of operations) lines.push(`- ${op.label}`);
+      }
+      // NOTE: the IRE-resolved platform invariants are NOT rendered here.
+      // They are the L1 substrate and render in constitutionalGroundBlock,
+      // which is emitted whether or not this overlay block runs at all. Moving
+      // them back inside this block would re-couple the base to the overlay.
+      // CFS-045 constitutional memory — the operator's compiled memory
+      // invariants (what survived reasoning in prior sessions, never
+      // transcripts). Tailor guidance to these durable patterns.
+      const memoryInvariants = Array.isArray(gc.memoryInvariants)
+        ? (gc.memoryInvariants as Array<Record<string, unknown>>)
+        : [];
+      if (memoryInvariants.length > 0) {
+        lines.push(`### Partnership memory invariants (compiled from prior sessions — durable patterns, not conversation history). Weight 'validated' highest (human-ratified), 'active' as working inference, 'candidate' as tentative`);
+        for (const m of memoryInvariants) lines.push(`- [${m.status}] ${m.statement}`);
+      }
+      groundContextBlock = `\n\n## Surface & operator context — ground your answer in THIS\n\nYou are the copilot for the cartridge named above. Keep answers scoped to this cartridge's domain; use the operator state to tailor guidance (e.g. if their passport is 'none' and they ask about participating, walk them through applying first; if 'issued' but not claimed, point at claiming; delegation is OPTIONAL — never present it as required to run experiments). Prefer NAVIGATING the operator over describing UI: when a quick link above matches the need, tell them to use that chip by name. Never invent state not listed here.\n\nNAVIGATION MARKERS: when you direct the operator to a destination that appears in the quick-links list, embed the marker [[nav:<label>]] inline at that point of your reply, using the label VERBATIM from the list (e.g. "start by claiming your passport [[nav:Claim Passport]]"). The UI renders each marker as a clickable chip; the raw marker is never shown to the operator. Use ONLY labels from the quick-links list — never invent one — and do not wrap markers in backticks or quotes.\n\nANSWER FULLY, NOW: when the operator asks how to do something, give the concrete steps immediately in this reply, tailored to their state above. Replying with only an acknowledgment ("I can help with that", "Sure, happy to help") and no steps is a FAILURE — never do it.\n\n${lines.join('\n')}`;
+    } catch {
+      // Malformed context — fall back to the persona's default framing.
+    }
+  }
+
+  if (
+    resolvedPersonaId === 'aigent-me' &&
+    userContext?.groundContext &&
+    // The shell copilot's smart-triad context is handled by the generic block
+    // above — don't let this NBA-shaped parser overwrite it.
+    !isConstitutionallyGrounded(userContext.groundContext)
+  ) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      const brief = gc.brief as Record<string, unknown> | null | undefined;
+      const moveForward = gc.moveForward as Record<string, unknown> | null | undefined;
+      const expModel = gc.experienceModel as Record<string, unknown> | null | undefined;
+      const pending = gc.pendingApproval as Record<string, unknown> | null | undefined;
+      const queuedIds = Array.isArray(gc.queuedIntentIds) ? (gc.queuedIntentIds as string[]) : [];
+      const activeCartridges = Array.isArray(gc.activeCartridges) ? (gc.activeCartridges as string[]) : [];
+
+      const lines: string[] = [];
+
+      if (brief && Array.isArray(brief.nextBestActions) && (brief.nextBestActions as unknown[]).length > 0) {
+        const priorities = (brief.topPriorities as Array<{ label?: string; cartridge?: string }> | undefined) ?? [];
+        const nbas = (brief.nextBestActions as Array<Record<string, unknown>>) ?? [];
+        lines.push(`### Active brief on the right pane`);
+        if (brief.experienceName) lines.push(`- Experience: **${brief.experienceName}**`);
+        if (brief.primaryGoal)    lines.push(`- Primary goal: ${brief.primaryGoal}`);
+        if (brief.currentStage)   lines.push(`- Stage: ${brief.currentStage}`);
+        if (priorities.length > 0) {
+          lines.push(`- Top priorities:`);
+          for (const p of priorities.slice(0, 6)) {
+            if (p?.label) lines.push(`  • ${p.label}${p.cartridge ? ` (${p.cartridge})` : ''}`);
+          }
+        }
+        lines.push(`- Next-best actions (deterministic + LLM-reranked):`);
+        for (let i = 0; i < nbas.length; i++) {
+          const a = nbas[i];
+          const label = typeof a.label === 'string' ? a.label : 'Unnamed action';
+          const cartridge = typeof a.cartridge === 'string' ? a.cartridge : '';
+          const rationale = typeof a.rationale === 'string' ? a.rationale : '';
+          const impact = typeof a.impact === 'string' ? ` · ${a.impact} impact` : '';
+          const approval = a.approvalRequired ? ' · approval required' : '';
+          const hint = typeof a.promptHint === 'string' && a.promptHint.length > 0 ? `\n     hint: ${a.promptHint}` : '';
+          const artifact = typeof a.suggestedArtifact === 'string' && a.suggestedArtifact ? ` · suggested artifact: ${a.suggestedArtifact}` : '';
+          lines.push(`  ${i + 1}. **${label}** (${cartridge})${impact}${approval}${artifact}\n     why: ${rationale}${hint}`);
+        }
+      }
+
+      if (moveForward && (moveForward.topAction || (Array.isArray(moveForward.alternates) && (moveForward.alternates as unknown[]).length > 0))) {
+        lines.push(`### Move-forward bundle on the right pane`);
+        if (moveForward.cartridge) lines.push(`- Cartridge focus: ${moveForward.cartridge}`);
+        if (moveForward.topActionReason) lines.push(`- Top action reason: ${moveForward.topActionReason}`);
+        const top = moveForward.topAction as Record<string, unknown> | null | undefined;
+        if (top) {
+          const hint = typeof top.promptHint === 'string' && top.promptHint.length > 0 ? `\n   hint: ${top.promptHint}` : '';
+          lines.push(`- Top action: **${top.label}** (${top.cartridge})\n   why: ${top.rationale}${hint}`);
+        }
+        const alts = (moveForward.alternates as Array<Record<string, unknown>>) ?? [];
+        if (alts.length > 0) {
+          lines.push(`- Alternates:`);
+          for (const a of alts.slice(0, 3)) {
+            const hint = typeof a.promptHint === 'string' && a.promptHint.length > 0 ? `\n     hint: ${a.promptHint}` : '';
+            lines.push(`  • **${a.label}** (${a.cartridge}) — ${a.rationale}${hint}`);
+          }
+        }
+      }
+
+      if (expModel && typeof expModel.configured === 'boolean') {
+        lines.push(`### Experience model`);
+        lines.push(`- Configured: ${expModel.configured ? 'yes' : 'no'}`);
+        if (expModel.stage) lines.push(`- Stage: ${expModel.stage}`);
+        if (expModel.primaryGoal) lines.push(`- Primary goal: ${expModel.primaryGoal}`);
+      }
+
+      if (activeCartridges.length > 0) {
+        lines.push(`### Active cartridges\n- ${activeCartridges.join(', ')}`);
+      }
+
+      if (pending && pending.label) {
+        lines.push(`### Pending approval\n- ${pending.label} (${pending.cartridge ?? 'metame'})`);
+      }
+      if (queuedIds.length > 0) {
+        lines.push(`### Queued intents (already approved, awaiting execution)\n- ${queuedIds.join(', ')}`);
+      }
+
+      // DCIR observation seam (aigentme-welcome surface) — the same
+      // observe-mode block the dev/research surfaces get, so completed tasks
+      // and capsule activity flow into the copilot's awareness.
+      pushDcirObservationLines(lines, gc);
+
+      if (lines.length > 0) {
+        groundContextBlock = `\n\n## Right-pane ground truth — narrate THIS, do not invent\n\nThe operator's right pane is currently showing the structured data below. Your reply MUST mirror these exact rows — refer to each NBA by its label and rationale, cite the persona's primary goal / stage / active cartridges as the framing axis, and use the per-NBA hint (when present) as the starting frame for any "Act" guidance. NEVER emit placeholder strings like "[Priority 1]", "[Action 1]", or "[Event/Document/Message 1]" — those indicate you ignored this block. If the operator asks "give me my daily brief", paraphrase the brief below as a short narrative followed by 2-3 sentences of WHY each NBA is the move right now.\n\n${lines.join('\n')}`;
+      }
+    } catch {
+      // groundContext malformed — fall back to general narrative.
+    }
+  }
+
+  // aigent-z Dev Command Center ground truth — feeds the LLM with the
+  // current dev loop session state so it can give stage-aware advice,
+  // suggest the right capsule/tool, and reason about what's next.
+  if (resolvedPersonaId === 'aigent-z' && userContext?.groundContext) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      if (gc.surface === 'dev-command-center') {
+        const lines: string[] = [];
+
+        lines.push(`### Dev Command Center session state`);
+        lines.push(`- Surface: Dev Command Center`);
+        lines.push(`- Current stage: **${gc.activeStage ?? 'unknown'}**`);
+        lines.push(`- Active layout: ${gc.activeLayout ?? 'stack'}`);
+        lines.push(`- Active capsule: ${gc.activeCapsule ?? 'none'}`);
+        lines.push(`- Session: ${gc.sessionId ?? 'unknown'}`);
+        lines.push(`- Can advance to next stage: ${gc.canAdvance ? 'yes' : 'no'}`);
+        lines.push(`- Implementation package: ${gc.implementationPackage ?? 'unknown'}`);
+
+        if (gc.intentSummary) {
+          lines.push('');
+          lines.push(gc.intentSummary as string);
+        }
+        if (gc.contextPackSummary) {
+          lines.push('');
+          lines.push(gc.contextPackSummary as string);
+        }
+        if (gc.gapAnalysisSummary) {
+          lines.push('');
+          lines.push(gc.gapAnalysisSummary as string);
+        }
+        if (gc.consequenceCanvasSummary) {
+          lines.push('');
+          lines.push(gc.consequenceCanvasSummary as string);
+        }
+        if (gc.validationSummary) {
+          lines.push('');
+          lines.push(gc.validationSummary as string);
+        }
+
+        // DCIR observation seam — shared block (see pushDcirObservationLines).
+        pushDcirObservationLines(lines, gc);
+
+        groundContextBlock = `\n\n## Dev loop ground truth — narrate THIS, do not invent\n\nYou are aigentZ, the development command center agent. The operator's right pane shows the Dev Command Center with the session state below. Your replies MUST reference this exact state — cite the current stage, the intent goal, the gap analysis ratios, and consequence guardrails when relevant. Guide the operator through the dev loop: intent → context → gaps → consequences → implementation → validation → complete.\n\nWhen you suggest an action, emit a [layout:<id>|<substance>] tag (same format as aigent-me). Valid dev IDs: intent, context, gap-analysis, consequence-canvas, implementation, validation, project-overview, terminal, github, devtools, linear.\n\n${lines.join('\n')}`;
+
+        // ICE engine (Phase 1A): stage-specific execution instructions +
+        // the structured stage_data proposal contract for this stage.
+        // Stage precedence, deterministic:
+        //   1. the stage the operator's MESSAGE explicitly requests
+        //      (detectRequestedStage) — fixes the capsule-override trap where
+        //      "validate the build" typed while the Consequence Canvas
+        //      capsule was open produced another consequence_canvas proposal
+        //      that read like a validation confirmation;
+        //   2. the viewed capsule's stage (activeCapsule);
+        //   3. the session's official stage.
+        const CAPSULE_TO_STAGE: Record<string, string> = {
+          intent: 'intent_capture',
+          context: 'context_assembly',
+          'gap-analysis': 'gap_analysis',
+          'consequence-canvas': 'consequence_modeling',
+          decision: 'constitutional_decision',
+          implementation: 'implementation',
+          validation: 'consequence_validation',
+          remediation: 'remediation',
+          'deployment-authorization': 'deployment_authorization',
+        };
+        const viewedCapsule = typeof gc.activeCapsule === 'string' ? gc.activeCapsule : null;
+        const requestedStage = latestUserMessage ? detectRequestedStage(latestUserMessage) : null;
+        const contextStage =
+          (viewedCapsule && CAPSULE_TO_STAGE[viewedCapsule]) ||
+          (typeof gc.activeStage === 'string' ? gc.activeStage : undefined);
+        const effectiveStage = requestedStage || contextStage;
+        // The detected stage is a hint, not a suppressor: when it differs
+        // from the capsule/session stage, BOTH schemas are presented and the
+        // LLM emits the kind the operator's request actually means.
+        const altStage = requestedStage && contextStage !== requestedStage ? contextStage : null;
+        groundContextBlock += buildStageInstructionBlock(effectiveStage, altStage);
+
+        // Feedback Coordinator (CFS-020 #12, first slice) — the surface sends
+        // an `[observed]`-prefixed turn when an approval advanced the loop.
+        // The turn is observation-initiated, not operator-typed: respond as a
+        // short proactive guide, not a session recap.
+        if (typeof latestUserMessage === 'string' && latestUserMessage.trimStart().startsWith('[observed]')) {
+          groundContextBlock += `\n\n## Observation-initiated turn (Feedback Coordinator)\n\nThis turn was TRIGGERED BY AN OBSERVED STATE CHANGE (a proposal approval advanced the dev loop) — the operator did not type it. Respond with a SHORT proactive guide to the next task (2-4 sentences, no full-session recap), then proceed to produce the next stage's proposal fence if your ground data suffices. If it does not suffice, ask the ONE question that unblocks it instead of emitting a fence built on invented data.`;
+        }
+      }
+
+      // aigent-z IRL Research Copilot ground truth (CFS-019 C2) —
+      // NARRATE-ONLY by design: the copilot observes and narrates the live
+      // lab state (lifecycles derived from the canonical record, series
+      // claims, hash-committed results). Deliberately NO stage instruction
+      // block and NO proposal contract on this surface — research
+      // stage-proposal kinds (experiment design, finding drafts) are C2.1,
+      // their own increment after usage observation, per the dev-loop
+      // misroute precedent (CFS-015).
+      if (gc.surface === 'irl-research') {
+        const lines: string[] = [];
+
+        lines.push(`### IRL research laboratory — live state`);
+        const lifecycleOrder = Array.isArray(gc.lifecycleOrder) ? (gc.lifecycleOrder as string[]) : [];
+        if (lifecycleOrder.length > 0) {
+          lines.push(`- Experiment lifecycle order: ${lifecycleOrder.join(' → ')}`);
+        }
+        // CFS-019 C3 — the research ICE loop position for the ACTIVE experiment.
+        // design → protocol → run → analyze → publish. The `run` stage is the
+        // Experiment Lab hand-off: running is NOT a copilot action (execution
+        // stays in the lab, the research analog of CFS-016 D1). Narrate the
+        // stage and, at `run`, point the operator to the Experiment Lab.
+        if (isResearchLoopStage(gc.activeExperimentStage)) {
+          const activeId = typeof gc.activeExperimentId === 'string' ? gc.activeExperimentId : null;
+          lines.push(
+            `- Research ICE loop stage${activeId ? ` for ${activeId}` : ''}: **${gc.activeExperimentStage}** (design → protocol → run → analyze → publish)`,
+          );
+          if (gc.activeExperimentStage === 'run') {
+            lines.push(
+              `  • The active experiment is at the RUN stage — running is EXECUTED in the Experiment Lab (the EXP-001…005 runner tabs), NOT here. Point the operator to the Experiment Lab; the run advances the lifecycle, which advances the loop to Analyze. Do NOT emit a proposal fence for a run.`,
+            );
+          }
+        }
+        if (typeof gc.overviewError === 'string' && gc.overviewError) {
+          lines.push(`- Overview UNAVAILABLE (degrade honestly — say so, do not invent state): ${gc.overviewError}`);
+        }
+        const experiments = Array.isArray(gc.experiments) ? (gc.experiments as Array<Record<string, unknown>>) : [];
+        if (experiments.length > 0) {
+          lines.push(`- Experiments (lifecycle DERIVED from the canonical record, never asserted):`);
+          for (const e of experiments) {
+            lines.push(
+              `  • **${e.id}** (${e.family}) — lifecycle: ${e.lifecycle} · ${e.publishedRuns} published run(s) · ${e.distinctProviders} distinct provider(s)`,
+            );
+          }
+        }
+        const seriesList = Array.isArray(gc.series) ? (gc.series as Array<Record<string, unknown>>) : [];
+        if (seriesList.length > 0) {
+          lines.push(`- Series claims:`);
+          for (const s of seriesList) {
+            const members = Array.isArray(s.members) ? (s.members as string[]).join(', ') : '';
+            lines.push(`  • **${s.id}** (${s.name}; members: ${members}) — claim: ${s.claim}`);
+          }
+        }
+        if (typeof gc.resultsError === 'string' && gc.resultsError) {
+          lines.push(`- Canonical results UNAVAILABLE (degrade honestly): ${gc.resultsError}`);
+        }
+        const recentResults = Array.isArray(gc.recentResults) ? (gc.recentResults as Array<Record<string, unknown>>) : [];
+        if (recentResults.length > 0) {
+          lines.push(`- Latest canonical results (hash-committed):`);
+          for (const r of recentResults) {
+            lines.push(`  • ${r.experiment} · ${r.provider} · commitment ${r.contentHashPrefix}… · ${r.createdAt}`);
+          }
+        }
+
+        // Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) — the
+        // applied-research agenda the Copilot PLANS against. Static charter
+        // constants (types/research.ts), rendered so proposals are framed by
+        // the roadmap, open questions stay hypotheses (never asserted answers),
+        // and the applied-research chain + the method of distinctions inform how
+        // the copilot structures research questions.
+        lines.push('');
+        lines.push('### Research agenda (CFS-019 roadmap — plan against THIS)');
+        lines.push(
+          `- Applied Constitutional Research: the objective is not theory alone but constitutional capabilities that can be implemented, validated, and integrated — implementation is PART of research. Preferred outcome chain: ${APPLIED_RESEARCH_CHAIN.join(' → ')}.`,
+        );
+        lines.push(`- Prioritize research satisfying ALL THREE: ${ROADMAP_PRIORITIZATION_CRITERIA.map((c) => c.toLowerCase()).join('; ')}.`);
+        lines.push('- Reasoning Systems programme (EXPLORATORY — long-term; frame every item as a hypothesis, never assume answers where evidence does not yet exist). Themes:');
+        for (const t of RESEARCH_THEMES) {
+          lines.push(`  • **${t.title}** — investigate: ${t.investigate.join(', ')}.${t.hypothesis ? ` Working hypothesis (refine or falsify, do not prove): ${t.hypothesis}` : ''}`);
+        }
+        lines.push('- Open Constitutional Questions — keep these as EXPLICIT questions, hypothesis-driven until experimental evidence supports an answer; never present as conclusions:');
+        for (const q of OPEN_CONSTITUTIONAL_QUESTIONS) lines.push(`  • ${q}`);
+        lines.push(
+          `- Research METHOD (the laboratory's emerging style — guidance, NOT a ratified law): progress comes from discovering the correct constitutional DISTINCTIONS and then validating them experimentally. Distinctions already surfaced: ${CONSTITUTIONAL_DISTINCTIONS.join('; ')}. When structuring a research question, prefer sharpening a distinction over proposing a grand theory.`,
+        );
+
+        // DCIR observation seam — shared block (see pushDcirObservationLines).
+        pushDcirObservationLines(lines, gc);
+
+        groundContextBlock = `\n\n## IRL research ground truth — narrate THIS, do not invent\n\nYou are aigentZ operating as the IRL research copilot (the Constitutional Cybernetics Research Laboratory, CFS-019). The operator's right pane shows the live lab state below. Your replies MUST narrate this exact state — cite experiments by id and family, lifecycle states as DERIVED facts (published = a canonical run exists; replicated = runs on ≥2 distinct providers), series claims verbatim, and results by their hash commitments. When you plan or propose research, frame it by the Research agenda below: prioritize applied items (implementable + experimentally validatable + a pathway to constitutional capability), keep open questions as hypotheses rather than answers, and structure questions by sharpening a constitutional distinction. NEVER invent experiments, runs, providers, or lifecycle states not present below; when a section is marked UNAVAILABLE, say so honestly. Narration is your PRIMARY mandate; do NOT emit [layout:...] tags on this surface.\n\n${lines.join('\n')}`;
+        // CFS-019 C2.1 — research proposal kinds (ICE reuse): when the operator
+        // asks aigentZ to DESIGN an experiment, RATIFY a protocol, RECORD a
+        // finding, or DRAFT a publication, it emits a structured
+        // ```research_data proposal (extracted below, returned as
+        // stage_proposals, rendered as a pending approval card). SUGGEST-ONLY
+        // and lifecycle-legal — nothing commits without operator approval.
+        //
+        // CFS-019 C3 (research ICE loop): the tab sends the ACTIVE experiment's
+        // loop stage. When that stage produces a proposal kind (design →
+        // experiment_proposal, protocol → protocol_draft, analyze → finding,
+        // publish → publication_draft), narrow the instruction block to that ONE
+        // schema so the copilot primarily expects the stage's object — mirroring
+        // how the dev branch feeds buildStageInstructionBlock the current stage.
+        // At the RUN stage (proposal kind null — the lab hand-off) NO kind is
+        // passed: the full four-schema block is offered and the CONDITIONAL fence
+        // contract is unchanged (running narrates, it never emits a fence).
+        const activeStage = isResearchLoopStage(gc.activeExperimentStage)
+          ? gc.activeExperimentStage
+          : undefined;
+        const stageKind = activeStage ? researchStageProposalKind(activeStage) : null;
+        groundContextBlock += buildResearchInstructionBlock(stageKind ?? undefined);
+      }
+    } catch {
+      // groundContext malformed — fall back to general narrative.
+    }
+  }
 
   // Shared KB context section (appended for all agents when search returns results)
   const kbSection = kbContext && kbContext.length > 0 ? `
@@ -1624,13 +2683,119 @@ After your response, add:
 6. Be engaging and immersive — you are a guide to this universe${kbSection}${liveSection}${skillFocusSection}`;
   }
 
-  // Platform/system agents: persona system prompt only, plus any KB hits
-  return `${personaIntro}${policyBlock}${kbSection}`;
+  // Platform/system agents: persona system prompt only, plus any KB hits.
+  // metameContextBlock is aigent-me only. groundContextBlock + layoutSuggestionsBlock
+  // are built for both aigent-me and aigent-z (empty strings for other agents).
+  // Attached uploads block — only emitted for aigent-me (the only
+  // surface that currently exposes the upload-attach UI). When the
+  // POST handler resolved uploads against the persona, the block is
+  // a fully-formatted markdown section ready to append.
+  const attachedUploadsBlock =
+    resolvedPersonaId === 'aigent-me' && userContext?.attachedUploadsBlock
+      ? userContext.attachedUploadsBlock
+      : '';
+
+  // Layout-suggestion control block — aigent-me only. Instructs the LLM
+  // to emit a [layout:<id>|<substance>] tag whenever it proposes a concrete
+  // action. Tags are stripped from the user-facing response before render.
+  const layoutSuggestionsBlock =
+    resolvedPersonaId === 'aigent-me'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you propose an action\n\nThe operator's left pane (where you live) has a chip strip — and the right pane has matching surfaces. When YOU propose a concrete action in your reply, append a control tag at the end of your message in this exact form:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble — the operator never sees it. Its only role is to make the matching chip pulse so the operator can one-click into the right-pane surface with the action substance already seeded.\n\nValid <id> values (12 total):\n- brief, decision-board, venture-cockpit, specialists  (Capsule chips, left strip)\n- gmail, event, doc, sheet, slides, marketa            (Composer chips, right strip)\n- upload, download                                     (Drawer chips, right strip)\n\n<substance> rules (NON-NEGOTIABLE):\n- ≤180 chars.\n- Describe WHAT to do, distilled from the conversation. Example: "Draft a partnership outreach to Lamina 1 framing the three-lane metaProof campaign and offering co-marketing on the KNYT Wheel launch".\n- NEVER restate the user's meta-instruction. "Ask Marketa to draft a plan" is WRONG — that's the request, not the substance. The substance is what the plan IS ABOUT.\n- NEVER use placeholder strings like "[partner name]" or "[your goal]" — if you don't have grounded content, omit the tag entirely.\n- One tag per action you propose. Maximum 2 tags per reply (the chip strip caps suggestions at 4 total; we leave headroom for the keyword classifier).\n- Tag goes at the END of your reply, on its own line.\n\nWhen NOT to emit a tag:\n- You're answering a question, not proposing an action.\n- You don't have enough conversation context to write a real substance (≥10 words of actual content).\n- The user is in mid-clarification ("yes", "ok", "go ahead") — wait until the next turn when you have something concrete to propose.`
+    : resolvedPersonaId === 'aigent-z'
+      ? `\n\n## Right-pane chip-strip control — append a layout tag when you suggest a dev action\n\nYou are aigentZ in the Development Command Center. The operator's left pane (your copilot) has capability quick-prompt chips, and the right pane has the Dev Command Center with capability capsules + an explore strip. When YOU propose a concrete next step, append a control tag:\n\n[layout:<id>|<substance>]\n\nThe tag is stripped from the chat bubble. Its role is to pulse the matching chip/button so the operator can one-click into the right surface.\n\nValid <id> values for dev surfaces:\n- intent, context, gap-analysis, consequence-canvas, validation, project-overview  (Capability capsules)\n- terminal, github, devtools, linear  (Explore strip tools)\n- upload, download  (Explore strip drawers)\n\n<substance> rules: same as aigent-me — ≤180 chars, describe WHAT to do, never placeholders, never meta-instructions.\n\nExamples:\n- [layout:intent|Distill the Executive Mobility Travel booking service into structured intent with users, constraints, and success criteria]\n- [layout:gap-analysis|Analyze which existing services (Passport Bureau, CRM, Marketa) can be reused for the travel workflow]\n- [layout:consequence-canvas|Model what should happen when a booking completes and what must never happen with travel data sovereignty]\n- [layout:terminal|Open a terminal to run the spine verification script against the dev environment]\n\nMaximum 2 tags per reply. Tag goes at the END of your reply.`
+      : '';
+
+  // Platform knowledge (repo map + pack excerpts + registry/network
+  // snapshots) — built async in the POST handler, aigent-z only.
+  const platformBlock =
+    resolvedPersonaId === 'aigent-z' && platformKnowledgeBlock ? platformKnowledgeBlock : '';
+
+  // Knowledge initialization (CFS-006 §3) — the canonical invariant closure
+  // for this context, injected for the platform/system agents so every turn
+  // begins already knowing what the platform has validated. Statements cite
+  // by seedId marker (same convention as the specialist router); the model
+  // is bound to reason from these, never contradict one, and cite what it
+  // relies on. KNYT content personas keep their tighter prompt budget.
+  const canonBlock =
+    knowledgeInit && knowledgeInit.nodes.length > 0
+      ? `
+
+## Validated Invariants — Canonical Memory (knowledge initialization)
+
+Reason FROM these validated invariants rather than re-deriving from scratch. Never contradict one; if the ask conflicts with an invariant, say so. Cite the markers of the invariants you rely on.
+
+${knowledgeInit.nodes
+          .map((n) => `- ${n.seedId ? `[${n.seedId}] ` : ''}(${n.namespace}) ${n.statement}`)
+          .join('\n')}`
+      : '';
+
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${constitutionalGroundBlock}${groundContextBlock}${platformBlock}${layoutSuggestionsBlock}${attachedUploadsBlock}${kbSection}${canonBlock}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
 export async function OPTIONS() {
   return new NextResponse(null, { status: 200,  });
+}
+
+/**
+ * Compose the system-prompt block listing the operator's attached
+ * uploads. Each upload is fetched via the persona service (enforces
+ * ownership) and its indexed contentMd (or summary for unparsed
+ * types) is included verbatim. Per-file content is capped at 16k
+ * chars and the list is capped at 8 attachments to keep the model
+ * context within budget. Returns an empty string when the list is
+ * empty / unparseable / persona-mismatched so callers can append it
+ * unconditionally.
+ */
+async function composeAttachedUploadsBlock(
+  personaId: string,
+  uploadIds: unknown,
+): Promise<string> {
+  if (!personaId) return '';
+  if (!Array.isArray(uploadIds) || uploadIds.length === 0) return '';
+  const ids = uploadIds
+    .filter((x): x is string => typeof x === 'string' && x.length > 0)
+    .slice(0, 8);
+  if (ids.length === 0) return '';
+
+  const service = getPersonaUploadService();
+  const blocks: string[] = [];
+  // Tool-kind uploads get a separate framing so the LLM treats them
+  // as structured data to query rather than narrative context. Both
+  // kinds inject the same content; only the wrapper prose differs.
+  const toolBlocks: string[] = [];
+  for (const id of ids) {
+    try {
+      const upload = await service.get(id, personaId);
+      if (!upload) continue;
+      if (upload.status !== 'ready') {
+        blocks.push(
+          `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}" status="${upload.status}">\n(File is still ${upload.status} — content not yet available.)\n</attached_file>`,
+        );
+        continue;
+      }
+      const content = upload.index?.contentMd ?? upload.index?.summary ?? '(no extracted content)';
+      const truncated = content.length > 16000 ? content.slice(0, 16000) + '\n...(truncated)' : content;
+      const block = `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}" use_kind="${upload.useKind}">\n${truncated}\n</attached_file>`;
+      if (upload.useKind === 'tool') toolBlocks.push(block);
+      else blocks.push(block);
+    } catch (err) {
+      console.warn(`[chat] attached upload fetch failed for ${id}:`, err);
+    }
+  }
+  const sections: string[] = [];
+  if (blocks.length > 0) {
+    sections.push(
+      `## Attached uploads — operator-supplied context for this turn\n\nThe operator has attached the following file(s) to this message. Read them, cite them where relevant, and use them as primary source material when the operator asks about their content.\n\n${blocks.join('\n\n')}`,
+    );
+  }
+  if (toolBlocks.length > 0) {
+    sections.push(
+      `## Attached structured data — operator-supplied as a queryable tool input\n\nThe operator has attached the following structured file(s) (JSON / CSV) and wants you to treat them as a query surface. When the operator asks questions, filter / aggregate / look up entries against this data directly. Quote specific rows / keys when you cite values.\n\n${toolBlocks.join('\n\n')}`,
+    );
+  }
+  if (sections.length === 0) return '';
+  return `\n\n${sections.join('\n\n')}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -1644,7 +2809,12 @@ export async function POST(request: NextRequest) {
       mode = 'default',
       composerSessionContext,
       // New: User context fields
-      domain = 'metaKnyts',
+      // NOT defaulted to 'metaKnyts' any more. No copilot mount sends `domain`,
+      // so that default loaded the KNYT corpus + KB on every turn of every
+      // cartridge — the "copilot answers as metaKnyts lore everywhere" defect.
+      // Left undefined here and DERIVED from the resolved agent below, so KNYT
+      // agents still get KNYT grounding without pinning everyone else to it.
+      domain: requestedDomain,
       declaredRoles,
       walletBalance,
       nftCount,
@@ -1661,6 +2831,26 @@ export async function POST(request: NextRequest) {
       explanation_first,
       // Kn0w1 live context — optional personaId to fetch live KNYT state
       personaId,
+      // Right-pane ground truth — T1-safe snapshot of what the calling
+      // surface is rendering. Only honoured for aigent-me; ignored for
+      // other personas to avoid leaking aigentMe-flavoured narrative
+      // into KNYT / Marketa replies.
+      groundContext,
+      // Persona upload ids the operator attached for this turn. The
+      // handler validates ownership via the spine, fetches each
+      // upload's indexed content (contentMd / contentJson summary),
+      // and composes a system-prompt block that buildSystemPrompt
+      // appends to the persona intro so the LLM sees the file
+      // content. Capped at 8 attachments per turn / 16k chars per
+      // file so the model context budget stays sane.
+      attachedUploadIds,
+      // Phase 8 (myCartridge PRD §16) — cartridge-scoped chat. When
+      // set, the route resolves the cartridge config via
+      // getCartridgeChatContext, prepends a "Operating Cartridge" block
+      // to the system prompt, and passes the slug into the KB lookup
+      // for cartridge-scoped semantic search (v0.5 fully wires the KB
+      // filter; today it falls back to domain-scoped).
+      cartridgeSlug,
     } = body;
 
     if (!message) {
@@ -1670,9 +2860,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Resolve the active persona once so both the upload block and the
+    // search_contacts tool handler have a reliable personaId from the spine.
+    // The body's `personaId` field is used as fallback for callers that don't
+    // attach a Bearer token (e.g. embed surfaces).
+    const activePersonaCtx = await getActivePersona(request).catch(() => null);
+    const resolvedCallerPersonaId: string | undefined =
+      activePersonaCtx?.personaId ?? (typeof personaId === 'string' ? personaId : undefined);
+
+    // Resolve attached-upload contents through the spine. Ownership
+    // is enforced by the persona service — uploadIds that don't
+    // belong to the active persona are silently skipped.
+    let attachedUploadsBlock = '';
+    if (Array.isArray(attachedUploadIds) && attachedUploadIds.length > 0) {
+      try {
+        const resolvedPersonaId = resolvedCallerPersonaId;
+        if (resolvedPersonaId) {
+          attachedUploadsBlock = await composeAttachedUploadsBlock(resolvedPersonaId, attachedUploadIds);
+        }
+      } catch (err) {
+        console.warn('[chat] attached uploads composition failed:', err);
+      }
+    }
+
+    // Phase 8 — cartridge-scoped chat context. Resolved BEFORE the
+    // KB lookup + system-prompt assembly so both can consume it.
+    // Returns null when cartridgeSlug is unset, doesn't match, or
+    // matches a legacy hand-curated cartridge that has no Phase 4a
+    // fields populated (those don't carry a purpose / specialists).
+    let cartridgeContext: UserContext['cartridgeContext'] | undefined;
+    if (typeof cartridgeSlug === 'string' && cartridgeSlug.length > 0) {
+      const cc = await getCartridgeChatContext(cartridgeSlug);
+      if (cc) {
+        cartridgeContext = {
+          cartridgeSlug: cc.cartridgeSlug,
+          cartridgeTitle: cc.cartridgeTitle,
+          purpose: cc.purpose,
+          category: cc.category,
+          visibility: cc.visibility,
+          availableSpecialists: cc.availableSpecialists,
+          copilotPromptContext: cc.copilotPromptContext,
+          copilotSource: cc.copilotSource,
+        };
+        console.log(
+          `[CodexChat] cartridge=${cc.cartridgeSlug} title="${cc.cartridgeTitle}" ` +
+            `specialists=${cc.availableSpecialists.length} copilotSource=${cc.copilotSource ?? 'aigentMe'}`
+        );
+      }
+    }
+
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
-    
+
     // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
       domain,
@@ -1691,9 +2930,15 @@ export async function POST(request: NextRequest) {
         : skill_filter === false || skill_filter === 'all' ? 'all'
         : undefined,
       explanationFirst: typeof explanation_first === 'boolean' ? explanation_first : undefined,
+      groundContext:
+        groundContext && typeof groundContext === 'object' && !Array.isArray(groundContext)
+          ? (groundContext as Record<string, unknown>)
+          : undefined,
+      attachedUploadsBlock: attachedUploadsBlock || undefined,
+      cartridgeContext,
     };
 
-    console.log('[CodexChat] User context:', { 
+    console.log('[CodexChat] User context:', {
       domain, 
       primaryRole, 
       roles: userContext.roles,
@@ -1705,22 +2950,271 @@ export async function POST(request: NextRequest) {
     let metadata: CodexMetadata | null = null;
     let kbResults: KBSearchResult[] = [];
     let systemPrompt = '';
+    // ICE fence-enforcement retry context (operator field report 2026-07-06):
+    // non-null ONLY for aigent-z turns on the dev-command-center surface whose
+    // effective stage produces a proposal kind. Every other surface — including
+    // the narrate-only irl-research surface — leaves it null, so the
+    // promised-but-missing-fence retry below can never fire there.
+    let fenceRetryKind: StageProposalKind | null = null;
+    // IRL research surface (CFS-019 C2.1): the copilot promises a research
+    // proposal but sometimes emits no ```research_data fence, so no pending card
+    // appears in the right pane (operator field report, 2026-07-07). Unlike the
+    // dev loop this surface has no stage, so eligibility is keyed on the surface
+    // alone; the retry only actually fires when the reply PROMISED a proposal
+    // (looksLikeUnfulfilledProposalPromise) and zero were extracted — pure
+    // narration / status / run answers never promise a card, so they never
+    // trigger it. The retry demands a research_data fence (the model picks the
+    // matching schema of the four).
+    let researchFenceRetry = false;
+
+    // ── Common constitutional ground (L1 substrate) ───────────────────────────
+    // PRD §161: "Every embedded copilot is one constitutional intelligence,
+    // specialized by context, not by hardcoded prompts." The substrate is
+    // therefore resolved for EVERY turn, BEFORE the composer/persona split and
+    // independently of whether the client sent a ground context at all.
+    //
+    // The category error this replaces: resolution used to sit behind
+    // `isConstitutionallyGrounded(groundContext)`. That predicate answers "is
+    // there a cartridge OVERLAY?" — a question about specialization. Using it to
+    // decide whether the BASE exists let an overlay substitute for the
+    // substrate, so a surface that sent no ground context was grounded on
+    // nothing at all. A cartridge narrows the ground; it can never remove it.
+    let constitutionalGround: Array<{ seedId: string; statement: string }> = [];
+    if (typeof message === 'string' && message.trim().length > 0) {
+      const gcOverlay = userContext.groundContext as Record<string, unknown> | undefined;
+      try {
+        const { resolveCommonConstitutionalGround, INVARIANT_BUDGET } = await import(
+          '@/services/invariants/resolution'
+        );
+        // OVERLAY, not gate: the active cartridge narrows WHICH invariants
+        // surface. Absent (no ground context, or one carrying no cartridge) the
+        // unscoped field resolves — the base, undiminished. The agent-derived
+        // content domain is deliberately NOT used here: it selects a KB corpus,
+        // and conflating corpus selection with constitutional scope is what
+        // pinned grounding to KNYT.
+        const overlayCartridge = String(
+          ((gcOverlay?.cartridge ?? {}) as Record<string, unknown>).id ?? '',
+        ).trim();
+        constitutionalGround = await resolveCommonConstitutionalGround(
+          message,
+          overlayCartridge ? { domains: [overlayCartridge] } : undefined,
+          INVARIANT_BUDGET.currentTurn,
+        );
+        // Constitutional memory v0 — invariants cited on EARLIER turns (echoed
+        // back by the client as sessionInvariants) stay in the ground so
+        // guidance remains constitutionally consistent across the session.
+        // Current-turn resolution leads; memory tops up to the shared ceiling.
+        const remembered = Array.isArray(gcOverlay?.sessionInvariants)
+          ? (gcOverlay.sessionInvariants as Array<Record<string, unknown>>)
+          : [];
+        const seen = new Set(constitutionalGround.map((m) => m.seedId));
+        for (const inv of remembered) {
+          if (constitutionalGround.length >= INVARIANT_BUDGET.withSessionMemory) break;
+          const seedId = String(inv?.seedId ?? '');
+          const statement = String(inv?.statement ?? '');
+          if (!seedId || !statement || seen.has(seedId)) continue;
+          seen.add(seedId);
+          constitutionalGround.push({ seedId, statement });
+        }
+      } catch {
+        // IRE unavailable — the turn proceeds on persona + cartridge context.
+      }
+      // Mirror onto the overlay so the downstream paths that read it (memory
+      // compilation, the response echo) see exactly the list the prompt was
+      // built from. This is a projection of the base, never its source.
+      if (gcOverlay && constitutionalGround.length > 0) {
+        gcOverlay.platformInvariants = constitutionalGround;
+      }
+    }
 
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
+      // The composer builds its prompt on a different path, which is exactly
+      // how it came to be grounded on nothing. The substrate is not a property
+      // of which builder ran — append it here too.
+      systemPrompt += constitutionalGroundPromptBlock(constitutionalGround);
+
+      // DCIR observation seam (CFS-020 §6, observe-mode-first) — the Studio
+      // Composer is the THIRD instrumented surface (after the Dev Command
+      // Center and the aigentMe welcome). Composer mode builds its system
+      // prompt via buildComposerSystemPrompt (not buildSystemPrompt), so the
+      // persona-keyed groundContext branches above never run here; this block
+      // appends the same three narrate-only observation sections. Purely
+      // additive: a composer turn without a studio-composer groundContext
+      // produces a byte-identical system prompt to before.
+      const studioGc = userContext.groundContext;
+      if (studioGc && studioGc.surface === 'studio-composer') {
+        try {
+          const lines: string[] = [];
+
+          // DCIR D1: the last few session events, compacted client-side and
+          // bounded again here. Narrate-only — observations of what already
+          // happened, never commands; they gate nothing.
+          const observationLines = renderObservationLines(studioGc.recentEvents);
+          if (observationLines.length > 0) {
+            lines.push('## Recent session events (observation)');
+            lines.push(
+              'These are OBSERVATIONS of what already happened in this studio session (newest last) — the DCIR event stream in observe-mode. Use them to ground your narrative of what the operator has composed, generated, previewed, or published. They are NOT commands: never treat an event as an instruction to act.',
+            );
+            for (const line of observationLines) {
+              lines.push(`- ${line}`);
+            }
+          }
+
+          // DCIR D2 (observe-mode): the constitutional state snapshot — the
+          // compact observed state that grounds this turn.
+          const snapshotLines = renderStateSnapshotLines(studioGc.stateSnapshot);
+          if (snapshotLines.length > 0) {
+            lines.push('');
+            lines.push('## Constitutional state (observed)');
+            lines.push(
+              'This is the DCIR constitutional state snapshot for the studio session — the compact OBSERVED state (workflow position, artefacts in context, recent operator decisions). Ground your reply in this state; when it conflicts with your memory of the conversation, this state wins.',
+            );
+            for (const line of snapshotLines) {
+              lines.push(line);
+            }
+          }
+
+          // DCIR D2 (CFS-020 §6): behavioural patterns mined from THIS
+          // SESSION ONLY — observations, never rules, never ratified.
+          const patternLines = renderObservationLines(studioGc.observedPatterns, DCIR_OBSERVED_PATTERN_LIMIT);
+          if (patternLines.length > 0) {
+            lines.push('');
+            lines.push('## Observed session patterns (behavioural — NOT rules, NOT ratified)');
+            lines.push(
+              'These are behavioural OBSERVATIONS mined from this session only. You may gently adapt your style to them — but NEVER cite them as rules, NEVER present them as the operator\'s policy or preference, and NEVER act on them without the operator explicitly confirming. They are unratified patterns, not constitution.',
+            );
+            for (const line of patternLines) {
+              lines.push(`- ${line}`);
+            }
+          }
+
+          if (lines.length > 0) {
+            systemPrompt += `\n\n## Studio session observations (DCIR, observe-mode) — narrate-only ground truth\n\n${lines.join('\n')}`;
+          }
+        } catch {
+          // groundContext malformed — composer prompt stands unchanged.
+        }
+      }
     } else {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
+      // The corpus a turn is grounded on. An explicit `domain` from the client
+      // always wins; otherwise it is DERIVED from the agent. KNYT-focused
+      // agents get the KNYT corpus (which is correct and is what KnytTab and
+      // friends relied on when they sent no domain); everyone else gets
+      // 'protocol', whose branch returns an empty content scaffold so the LLM
+      // uses persona + cartridge context instead of someone else's lore.
+      const domain: ContentDomain =
+        (requestedDomain as ContentDomain | undefined) ??
+        (KNYT_FOCUSED_AGENTS.has(resolvedAgentForFetch) ? 'metaKnyts' : 'protocol');
+      const isAigentMe = resolvedAgentForFetch === 'aigent-me';
+      const isAigentZ = resolvedAgentForFetch === 'aigent-z';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
 
-      // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
+      // aigentMe enrichment: when the active agent is the user's
+      // sovereign aigentMe, load their metaMe cartridge state so the
+      // system prompt frames the reply inside their actual workstream.
+      // Loaded in parallel with the KB / metadata fetches below.
+      if (isAigentMe) {
+        const ctx = await loadMetameContext(typeof personaId === 'string' ? personaId : undefined);
+        if (ctx) userContext.metameContext = ctx;
+      }
+
+      // ICE engine: the dev loop stage the calling surface reports — drives
+      // stage-specific live inventories (cartridges, API routes, registry).
+      // MUST resolve to the SAME effective stage as the instruction block
+      // (requested > viewed capsule > session stage) — operator finding 4,
+      // 2026-07-06: this previously skipped detectRequestedStage, so a
+      // free-typed "analyze the gaps" while another capsule was open got
+      // gap-stage instructions but mismatched (or no) ground data, starving
+      // the stage_data fence.
+      const CAPSULE_STAGE_MAP: Record<string, string> = {
+        intent: 'intent_capture',
+        context: 'context_assembly',
+        'gap-analysis': 'gap_analysis',
+        'consequence-canvas': 'consequence_modeling',
+        implementation: 'implementation',
+        validation: 'consequence_validation',
+        remediation: 'remediation',
+        'deployment-authorization': 'deployment_authorization',
+      };
+      const gc_ = groundContext as Record<string, unknown> | undefined;
+      const viewedCapsule_ = gc_ && typeof gc_.activeCapsule === 'string' ? gc_.activeCapsule : null;
+      const requestedStage_ =
+        isAigentZ && gc_?.surface === 'dev-command-center' && typeof message === 'string'
+          ? detectRequestedStage(message)
+          : null;
+      const devLoopStage = isAigentZ
+        ? requestedStage_ ||
+          (viewedCapsule_ && CAPSULE_STAGE_MAP[viewedCapsule_]) ||
+          (gc_ && typeof gc_.activeStage === 'string' ? gc_.activeStage as string : undefined)
+        : undefined;
+
+      // Fence-enforcement retry eligibility: mirrors buildStageInstructionBlock's
+      // stage coercion (unknown/undefined stage → intent_capture) so the retry
+      // demands the SAME proposal kind the instruction block asked for. Only
+      // 'complete' maps to null (no proposal kind → no retry).
+      if (isAigentZ && gc_?.surface === 'dev-command-center') {
+        const stageForKind: DevLoopStage =
+          typeof devLoopStage === 'string' && devLoopStage in STAGE_PROPOSAL_KIND
+            ? (devLoopStage as DevLoopStage)
+            : 'intent_capture';
+        fenceRetryKind = STAGE_PROPOSAL_KIND[stageForKind];
+      } else if (isAigentZ && gc_?.surface === 'irl-research') {
+        researchFenceRetry = true;
+      }
+
+      // Fetch codex metadata, KB results, protocol KB (when relevant), live KNYT
+      // state, and aigent-z platform knowledge + stage ground data in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext, resolvedPlatformKnowledge, resolvedStageGroundData, resolvedKnowledgeInit, resolvedOntology] = await Promise.all([
         fetchCodexMetadata(domain),
-        searchKnowledgeBase(message, domain, 3),
-        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3) : Promise.resolve([]),
+        // Prompt-assembly slimming (2026-07-15, operator-ratified): the
+        // 'aigentMe' domain is an EMPTY content scaffold by design (only
+        // metaKnyts + qriptopian carry KB content — see CLAUDE.md) — yet every
+        // DCC/metaMe turn paid an embedding round-trip (up to the 15s KB
+        // deadline on cold starts) to search it. Assembly is a Promise.all,
+        // so that call alone could burn half the ~30s platform response
+        // ceiling. Skip it; the empty result is identical.
+        domain === 'aigentMe'
+          ? Promise.resolve([] as KBSearchResult[])
+          : searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
+        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
+        isAigentZ
+          ? buildAigentZPlatformKnowledge(message, new URL(request.url).origin).catch((err) => {
+              console.warn('[CodexChat] aigent-z platform knowledge failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
+        isAigentZ
+          ? buildStageGroundData(devLoopStage).catch((err) => {
+              console.warn('[CodexChat] aigent-z stage ground data failed:', err);
+              return '';
+            })
+          : Promise.resolve(''),
+        // Knowledge initialization (CFS-006 §3): the canonical invariant
+        // closure for this context. Cached per (context, canon version) in
+        // the Invariant Service, so warm turns cost no extra queries.
+        // Enrichment-only — any failure yields null and the turn proceeds.
+        initializeKnowledge({
+          domains: [domain, cartridgeContext?.cartridgeSlug].filter(
+            (d, i, a): d is string => Boolean(d) && a.indexOf(d) === i,
+          ),
+        }).catch((err) => {
+          console.warn('[CodexChat] knowledge initialization failed (non-fatal):', err);
+          return null;
+        }),
+        // Canonical Ontology Service (CFS-015): resolve the message's terms
+        // against canon BEFORE reasoning. Enrichment-only — failure yields
+        // null and the turn proceeds.
+        resolveOntology(message).catch((err) => {
+          console.warn('[CodexChat] ontology resolution failed (non-fatal):', err);
+          return null;
+        }),
       ]);
+      const platformKnowledgeBlock = `${resolvedPlatformKnowledge}${resolvedStageGroundData}`;
       metadata = resolvedMetadata;
       // Merge domain KB + protocol KB results, deduplicated by content prefix
       const seen = new Set<string>();
@@ -1733,7 +3227,58 @@ export async function POST(request: NextRequest) {
 
       console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
+      // Cartridge-scoped overlay enrichments. The L1 substrate was already
+      // resolved unconditionally above (`constitutionalGround`) — what remains
+      // here genuinely NEEDS a cartridge, because it is keyed by cartridge id.
+      // This gate is therefore asking the question it can actually answer:
+      // "is there an overlay?", never "does the operator have ground?".
+      if (userContext?.groundContext && isConstitutionallyGrounded(userContext.groundContext)) {
+        // CFS-045 constitutional memory (persistent layer, ratified
+        // 2026-07-19): retrieve the operator's compiled memory invariants for
+        // this cartridge into the ground truth. SPINE-RESOLVED persona ONLY —
+        // the body's personaId fallback is never trusted for memory (durable
+        // per-persona state). Best-effort: no persona / no table → no memory.
+        if (activePersonaCtx?.personaId) {
+          try {
+            const { retrieveMemoryInvariants } = await import('@/services/memory/memoryCompilation');
+            const { INVARIANT_BUDGET } = await import('@/services/invariants/resolution');
+            const gcNow = userContext.groundContext as Record<string, unknown>;
+            const cartId = String(((gcNow.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+            if (cartId) {
+              const memory = await retrieveMemoryInvariants(
+                activePersonaCtx.personaId,
+                cartId,
+                INVARIANT_BUDGET.partnershipMemory,
+              );
+              if (memory.length > 0) {
+                gcNow.memoryInvariants = memory.map((m) => ({
+                  statement: m.statement,
+                  // CFS-045-A1 tiers: 'validated' = partnership-ratified
+                  // (human-approved); 'active'/'candidate' = machine tier.
+                  status: m.humanValidated ? 'validated' : m.status,
+                }));
+                // A2: server-held row ids for trajectory capture (memory
+                // activations). Never echoed to the client — the response
+                // serialises platformInvariants only.
+                gcNow.retrievedMemoryIds = memory.map((m) => m.id);
+              }
+            }
+          } catch {
+            // Memory unavailable — the turn proceeds without it.
+          }
+        }
+      }
+
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill, platformKnowledgeBlock || undefined, resolvedKnowledgeInit, typeof message === 'string' ? message : undefined, constitutionalGround);
+
+      // Canonical Ontology (CFS-015): append canonical-term guidance to the
+      // prompt and cite the governing invariants (Reach, Law XII) —
+      // fire-and-forget so the hot path never waits on the flywheel.
+      if (resolvedOntology) {
+        const ontologyBlock = ontologyPromptBlock(resolvedOntology);
+        if (ontologyBlock) systemPrompt += `\n${ontologyBlock}`;
+        void citeResolvedConcepts(resolvedOntology).catch(() => {});
+      }
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
@@ -1753,7 +3298,9 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt },
       ...chatHistory.slice(-10), // Keep last 10 messages for context
     ];
-    const isMarketa = resolvedAgentId === 'aigent-marketa';
+    // Tool-calling is enabled for Marketa (full tool set) and all aigentMe
+    // agents that have contacts access (search_contacts tool).
+    const isMarketa = resolvedAgentId === 'aigent-marketa' || resolvedAgentId === 'aigent-me';
     let executionResult: ProviderExecutionResult | null = null;
     const providerErrors: Array<{ providerId: RuntimeProviderId; modelId: string; error: string }> = [];
 
@@ -1765,11 +3312,18 @@ export async function POST(request: NextRequest) {
           conversationHistory,
           message,
           isMarketa,
+          resolvedCallerPersonaId,
         );
         console.log('[CodexChat] Provider success:', {
           providerId: executionResult.providerId,
           modelId: executionResult.modelId,
         });
+        // Sovereign-survivability provenance (CFS-015 principle 4): when the
+        // open-weight floor (venice) answered after a frontier rung failed, the
+        // reasoning survived a frontier outage — record the governing invariants.
+        if (executionResult.providerId === 'venice' && attempt !== providerAttempts[0]) {
+          console.warn('[CodexChat] answered on open-weight sovereign floor (venice) — governed by', MODEL_ROUTING_INVARIANTS.join(', '));
+        }
         break;
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
@@ -1801,10 +3355,13 @@ export async function POST(request: NextRequest) {
           })
         : generateFallbackResponse(message, metadata as CodexMetadata, persona);
       const walletActions = inferWalletActions(message, fallbackResponse);
+      const suggestedLayouts = inferSuggestedLayouts(message, fallbackResponse, chatHistory);
+      const responseForClient = stripLayoutTags(fallbackResponse);
       return NextResponse.json({
-        response: fallbackResponse,
+        response: responseForClient,
         persona,
         wallet_actions: walletActions,
+        suggested_layouts: suggestedLayouts,
         event_meta: eventMeta,
         fallback: true,
         provider_availability: providerAvailability,
@@ -1815,16 +3372,185 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantMessage = executionResult.content || 'I apologize, I could not generate a response.';
-    const walletActions = inferWalletActions(message, assistantMessage);
-    
-    console.log('[CodexChat] Response length:', assistantMessage.length);
-    console.log('[CodexChat] Response preview:', assistantMessage.substring(0, 200) + '...');
-    console.log('[CodexChat] Response ending:', assistantMessage.substring(assistantMessage.length - 200));
+    // ICE engine: pull structured proposals (aigent-z only) out of the reply
+    // before layout-tag stripping; they return as stage_proposals. Two fence
+    // families share the channel, surface-scoped so they never collide:
+    //  - ```stage_data  → dev-command-center stages (STAGE_PROPOSAL_KIND)
+    //  - ```research_data → IRL research objects (CFS-019 C2.1)
+    // Running both extractors for aigent-z is surface-agnostic: the dev surface
+    // never emits research_data and the irl-research surface never emits
+    // stage_data, so each pass is a no-op on the other surface.
+    let messageSansStageData = assistantMessage;
+    let stageProposals: Array<{ kind: string; summary: string; data: Record<string, unknown> }> = [];
+    if (resolvedAgentId === 'aigent-z') {
+      const stageEx = extractStageProposals(messageSansStageData);
+      messageSansStageData = stageEx.cleanText;
+      stageProposals = stageEx.proposals;
+      const researchEx = extractResearchProposals(messageSansStageData);
+      messageSansStageData = researchEx.cleanText;
+      if (researchEx.proposals.length > 0) {
+        stageProposals = [...stageProposals, ...researchEx.proposals];
+      }
+    }
+
+    // ICE fence enforcement — server-side retry (operator field report,
+    // 2026-07-06, deployed test on gpt-4o-mini): small models sometimes
+    // NARRATE creating a stage proposal ("I will now prepare a context
+    // proposal… This proposal is now awaiting your approval") while emitting
+    // ZERO ```stage_data fences. The lenient fence repair in
+    // extractStageProposals only fixes fences that ARRIVE — this failure is
+    // zero fences, so no pending card appears and the loop stalls (worst at
+    // gap analysis, the largest payload). When the reply promises a proposal
+    // but extraction found none, make exactly ONE follow-up call to the SAME
+    // provider/model (same messages plus an appended user-role instruction
+    // demanding the fence alone) and attach the follow-up's proposals to the
+    // ORIGINAL visible reply. Strictly scoped: aigent-z + dev-command-center
+    // surface only (fenceRetryKind is null everywhere else, including the
+    // narrate-only irl-research surface) + stageProposals.length === 0 +
+    // one retry max. If the retry still yields nothing, append an honest
+    // line — never let the model's promise stand unfulfilled silently.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      fenceRetryKind !== null &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        `[CodexChat] fence-enforcement: reply promised a ${fenceRetryKind} proposal with zero stage_data fences — retrying once`,
+      );
+      try {
+        const fenceRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          `Your previous reply promised a proposal but did not include the required \`\`\`stage_data fence. Output ONLY the fenced stage_data JSON for the ${fenceRetryKind} proposal now — no prose.`,
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const retryExtraction = extractStageProposals(fenceRetryResult.content || '');
+        if (retryExtraction.proposals.length > 0) {
+          stageProposals = retryExtraction.proposals;
+          console.log(
+            '[CodexChat] fence-enforcement retry recovered proposals:',
+            retryExtraction.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal was produced — say "try again" to regenerate.)`;
+      }
+    }
+
+    // IRL research-surface fence enforcement — the same discipline as the dev
+    // loop above, but keyed on the surface (no stage) and demanding a
+    // ```research_data fence. Fires ONLY when the reply promised a proposal and
+    // none was extracted, so narrate/status/run answers (which never promise a
+    // card) are untouched.
+    if (
+      resolvedAgentId === 'aigent-z' &&
+      researchFenceRetry &&
+      stageProposals.length === 0 &&
+      looksLikeUnfulfilledProposalPromise(messageSansStageData)
+    ) {
+      console.warn(
+        '[CodexChat] research fence-enforcement: reply promised a research proposal with zero research_data fences — retrying once',
+      );
+      try {
+        const researchRetryResult = await executeProviderAttempt(
+          { providerId: executionResult.providerId, modelId: executionResult.modelId },
+          systemPrompt,
+          [
+            ...conversationHistory,
+            { role: 'user', content: message },
+            { role: 'assistant', content: assistantMessage },
+          ],
+          'Your previous reply promised a research proposal but did not include the required ```research_data fence. Output ONLY the fenced research_data JSON now — choose the ONE schema (experiment_proposal | protocol_draft | finding | publication_draft) that matches what you promised — no prose.',
+          isMarketa,
+          resolvedCallerPersonaId,
+        );
+        const researchRetry = extractResearchProposals(researchRetryResult.content || '');
+        if (researchRetry.proposals.length > 0) {
+          stageProposals = [...stageProposals, ...researchRetry.proposals];
+          console.log(
+            '[CodexChat] research fence-enforcement retry recovered proposals:',
+            researchRetry.proposals.map((p) => p.kind).join(', '),
+          );
+        }
+      } catch (retryError) {
+        console.warn(
+          '[CodexChat] research fence-enforcement retry call failed:',
+          retryError instanceof Error ? retryError.message : retryError,
+        );
+      }
+      if (stageProposals.length === 0) {
+        messageSansStageData = `${messageSansStageData}\n\n(No structured proposal reached the right pane — say "try again" to regenerate it.)`;
+      }
+    }
+
+    const walletActions = inferWalletActions(message, messageSansStageData);
+    const suggestedLayouts = inferSuggestedLayouts(message, messageSansStageData, chatHistory);
+    const responseForClient = stripLayoutTags(messageSansStageData);
+
+    console.log('[CodexChat] Response length:', responseForClient.length);
+    console.log('[CodexChat] Response preview:', responseForClient.substring(0, 200) + '...');
+    console.log('[CodexChat] Response ending:', responseForClient.substring(responseForClient.length - 200));
+
+    // CFS-045 Memory Compilation — the turn's reasoning is not finished when
+    // the answer is generated; it ends when the learning has been compressed.
+    // Runs AFTER the response is sent (next/server after()) so the hot path
+    // is never blocked. Spine-resolved persona ONLY (durable per-persona
+    // state is never keyed from a client-supplied id). Silent on failure.
+    if (
+      activePersonaCtx?.personaId &&
+      userContext?.groundContext &&
+      isConstitutionallyGrounded(userContext.groundContext) &&
+      typeof message === 'string' &&
+      message.trim().length > 0
+    ) {
+      const gcDone = userContext.groundContext as Record<string, unknown>;
+      const compileCartridgeId = String(((gcDone.cartridge ?? {}) as Record<string, unknown>).id ?? '');
+      const compileSeedIds = Array.isArray(gcDone.platformInvariants)
+        ? (gcDone.platformInvariants as Array<Record<string, unknown>>).map((i) => String(i.seedId ?? '')).filter(Boolean)
+        : [];
+      if (compileCartridgeId) {
+        const compilePersonaId = activePersonaCtx.personaId;
+        // A2: memory activations (server-held ids) + opaque session marker
+        // (client-generated random token — sanitised in the service).
+        const compileMemoryIds = Array.isArray(gcDone.retrievedMemoryIds)
+          ? (gcDone.retrievedMemoryIds as string[]).map(String)
+          : [];
+        const compileSessionMarker =
+          typeof gcDone.sessionMarker === 'string' ? gcDone.sessionMarker : undefined;
+        after(async () => {
+          const { compileInteraction } = await import('@/services/memory/memoryCompilation');
+          await compileInteraction({
+            personaId: compilePersonaId,
+            cartridgeId: compileCartridgeId,
+            userMessage: message,
+            assistantResponse: responseForClient,
+            sourceSeedIds: compileSeedIds,
+            retrievedMemoryIds: compileMemoryIds,
+            sessionMarker: compileSessionMarker,
+          });
+        });
+      }
+    }
 
     return NextResponse.json({
-      response: assistantMessage,
+      response: responseForClient,
       persona,
       wallet_actions: walletActions,
+      suggested_layouts: suggestedLayouts,
+      stage_proposals: stageProposals,
       event_meta: eventMeta,
       userContext: {
         domain: userContext.domain,
@@ -1847,6 +3573,16 @@ export async function POST(request: NextRequest) {
         title: r.title,
         category: r.contentCategory,
       })) : undefined,
+      // SmartTriad Phase 3 constitutional memory v0 — echo the invariants that
+      // grounded THIS turn (current resolution + carried session memory) so
+      // the client can accumulate them and send them back as
+      // groundContext.sessionInvariants on the next turn. T2-safe content.
+      // Echo the invariants that grounded THIS turn so the client can
+      // accumulate them and send them back as sessionInvariants next turn.
+      // Read from the resolved base, NOT from the ground context: a surface
+      // that sends no cartridge overlay still has ground, and still needs its
+      // memory to carry. T2-safe content (seed ids + statements only).
+      resolved_invariants: constitutionalGround.length > 0 ? constitutionalGround : undefined,
     });
 
   } catch (error) {

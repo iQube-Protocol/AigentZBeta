@@ -1,0 +1,5 @@
+{
+  "sealed": false,
+  "note": "EXP-P3 / D1 held-out change-set. Populate `cases` with >=20 changes whose affected invariant sets are ground-truthed BEFORE any forecast, then set sealed=true. Each case: { id, changeText, seedInvariantIds: [invariant ids the change touches], groundTruthAffectedIds: [invariant ids actually affected] }. This file ships EMPTY on purpose — the harness refuses to emit numbers until a real sealed set exists (no fabricated ground truth).",
+  "cases": []
+}

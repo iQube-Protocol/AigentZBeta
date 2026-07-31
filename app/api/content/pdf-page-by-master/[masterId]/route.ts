@@ -127,10 +127,11 @@ async function renderPdfPageToPng(pdfBytes: Buffer, pageNumber: number, targetWi
 }
 
 interface RouteParams {
-  params: { masterId: string };
+  params: Promise<{ masterId: string }>;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const { masterId } = params;
 
   if (!masterId) {

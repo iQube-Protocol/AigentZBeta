@@ -367,9 +367,9 @@ export default function MarketaQubeTalk() {
     } else {
       // Rose theme for off-platform channels
       return {
-        selected: 'bg-rose-500/20 border border-rose-500/50 text-white',
-        unselected: 'bg-slate-800/50 border border-white/10 text-slate-300 hover:bg-rose-900/30 hover:border-rose-500/30',
-        icon: 'text-rose-400'
+        selected: 'bg-pink-400/20 border border-pink-400/50 text-white',
+        unselected: 'bg-slate-800/50 border border-white/10 text-slate-300 hover:bg-pink-900/30 hover:border-pink-400/30',
+        icon: 'text-pink-300'
       };
     }
   };
@@ -629,7 +629,7 @@ export default function MarketaQubeTalk() {
       <GlassCard className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-rose-400 mb-2 flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-pink-300 mb-2 flex items-center gap-3">
               <MessageSquare className="w-6 h-6" />
               QubeTalk Interface
             </h2>
@@ -659,15 +659,15 @@ export default function MarketaQubeTalk() {
       <GlassCard className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-white/10">
-            <TabsTrigger value="messages" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="messages" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <MessageSquare className="w-4 h-4 mr-2" />
               Messages
             </TabsTrigger>
-            <TabsTrigger value="transfers" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="transfers" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Package className="w-4 h-4 mr-2" />
               Content Transfer
             </TabsTrigger>
-            <TabsTrigger value="iqubes" className="data-[state=active]:bg-rose-500 data-[state=active]:text-white">
+            <TabsTrigger value="iqubes" className="data-[state=active]:bg-pink-400/20 data-[state=active]:ring-1 data-[state=active]:ring-pink-400/40 data-[state=active]:text-pink-100">
               <Bot className="w-4 h-4 mr-2" />
               iQubes
             </TabsTrigger>
@@ -719,7 +719,7 @@ export default function MarketaQubeTalk() {
                     key={message.message_id}
                     className={`mb-4 p-3 rounded-lg ${
                       message.from_agent.id === 'marketa-agq'
-                        ? 'bg-rose-500/20 border border-rose-500/30 ml-8'
+                        ? 'bg-pink-400/20 border border-pink-400/30 ml-8'
                         : 'bg-slate-700/50 border border-white/10 mr-8'
                     }`}
                   >
@@ -745,12 +745,12 @@ export default function MarketaQubeTalk() {
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Type your message..."
-                    className="flex-1 px-4 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-rose-500/50"
+                    className="flex-1 px-4 py-2 bg-slate-800/50 border border-white/10 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-pink-400/50"
                   />
                   <Button
                     onClick={sendMessage}
                     disabled={isLoading || !messageInput.trim()}
-                    className="bg-rose-500 hover:bg-rose-600 text-white"
+                    className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
                   >
                     {isLoading ? (
                       <RefreshCcw className="w-4 h-4 animate-spin" />
@@ -783,7 +783,7 @@ export default function MarketaQubeTalk() {
                       />
                       <label
                         htmlFor="file-upload"
-                        className="inline-block px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg cursor-pointer transition-colors"
+                        className="inline-block px-4 py-2 bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm rounded-lg cursor-pointer transition-colors"
                       >
                         Choose File
                       </label>

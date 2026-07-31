@@ -10,10 +10,8 @@ import { getSmartContentService } from '@/services/content';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const svc = getSmartContentService();
     const article = await svc.getById(params.id);
@@ -26,10 +24,8 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body = await req.json();
     const { title, body_markdown, excerpt, cover_image_url, target_section, campaign_tag } = body;

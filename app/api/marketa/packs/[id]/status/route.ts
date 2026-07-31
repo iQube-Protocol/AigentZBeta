@@ -16,10 +16,8 @@ function getMarketaClient() {
   return createClient(url, key, { db: { schema: 'marketa' } });
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const marketaClient = getMarketaClient();
   if (!marketaClient) {
     return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });

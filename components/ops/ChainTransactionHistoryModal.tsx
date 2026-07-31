@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, ExternalLink, Copy, ChevronDown } from 'lucide-react';
+import { btcTxUrl } from '@/services/ops/btcExplorer';
 
 interface Transaction {
   id: string;
@@ -101,7 +102,7 @@ export default function ChainTransactionHistoryModal({
       case 'solana':
         return `https://explorer.solana.com/tx/${hash}?cluster=testnet`;
       case 'bitcoin':
-        return `https://mempool.space/testnet/tx/${hash}`;
+        return btcTxUrl(hash);
       default:
         return '#';
     }

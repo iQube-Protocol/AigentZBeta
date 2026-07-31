@@ -11,12 +11,14 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2, Target, ChevronRight, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2, Target, ChevronRight, CheckCircle2, Circle, Users, TrendingUp } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
 import { ExperienceGoalsEditor } from "@/components/metame/setup/ExperienceGoalsEditor";
+import { PriorityPartnersEditor } from "@/components/metame/setup/PriorityPartnersEditor";
+import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -70,6 +72,8 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
   const [modelWizardOpen, setModelWizardOpen] = useState(false);
   const [guideWizardOpen, setGuideWizardOpen] = useState(false);
   const [goalsEditorOpen, setGoalsEditorOpen] = useState(false);
+  const [partnersEditorOpen, setPartnersEditorOpen] = useState(false);
+  const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!personaId) { setLoading(false); return; }
@@ -188,16 +192,34 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
             <Layers className="w-4 h-4 text-violet-400" />
             <h3 className="text-sm font-semibold">Venture posture (ExperienceModel)</h3>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {hasModel && (
-              <button
-                type="button"
-                onClick={() => setGoalsEditorOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
-              >
-                <Target className="w-3 h-3" />
-                Edit goals
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setGoalsEditorOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
+                >
+                  <Target className="w-3 h-3" />
+                  Edit goals
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPartnersEditorOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
+                >
+                  <Users className="w-3 h-3" />
+                  Partners
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKpisEditorOpen(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
+                >
+                  <TrendingUp className="w-3 h-3" />
+                  KPIs
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -258,9 +280,45 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
                     </p>
                   )}
                   {strategy.venturePosture.blockers.length > 0 && (
-                    <p className="text-xs text-amber-300">
-                      <span className="text-slate-400">Blockers:</span> {strategy.venturePosture.blockers.join(" · ")}
-                    </p>
+                    <div className="text-xs">
+                      <span className="text-slate-400">Blockers:</span>{" "}
+                      <span className="inline-flex flex-wrap items-center gap-1.5 align-middle">
+                        {strategy.venturePosture.blockers.map((b) => {
+                          // Map known blocker phrases to the editor that
+                          // resolves them. Unknown phrases render as plain
+                          // amber text so future inference additions don't
+                          // appear unactionable.
+                          const lower = b.toLowerCase();
+                          const action =
+                            lower.includes("priority partners")
+                              ? { label: "Declare partners", open: () => setPartnersEditorOpen(true) }
+                              : lower.includes("kpi")
+                                ? { label: "Add KPIs", open: () => setKpisEditorOpen(true) }
+                                : lower.includes("experiencegoal")
+                                  ? { label: "Set goals", open: () => setGoalsEditorOpen(true) }
+                                  : null;
+                          return action ? (
+                            <button
+                              key={b}
+                              type="button"
+                              onClick={action.open}
+                              className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-amber-200 hover:bg-amber-500/20 hover:border-amber-400/60 transition"
+                              title={b}
+                            >
+                              <span className="opacity-80">{b}</span>
+                              <span className="text-amber-300/90 font-medium">→ {action.label}</span>
+                            </button>
+                          ) : (
+                            <span
+                              key={b}
+                              className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/5 px-2 py-0.5 text-amber-300"
+                            >
+                              {b}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </div>
                   )}
                 </>
               ) : (
@@ -477,6 +535,18 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
       <ExperienceGoalsEditor
         open={goalsEditorOpen}
         onOpenChange={setGoalsEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void refreshStrategy(); }}
+      />
+      <PriorityPartnersEditor
+        open={partnersEditorOpen}
+        onOpenChange={setPartnersEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void refreshStrategy(); }}
+      />
+      <ActiveKpisEditor
+        open={kpisEditorOpen}
+        onOpenChange={setKpisEditorOpen}
         personaId={personaId}
         onSaved={() => { void refreshStrategy(); }}
       />

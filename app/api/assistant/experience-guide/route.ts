@@ -32,7 +32,10 @@ import {
   MATURITY_LEVELS,
   SPHERE_AXES,
   SPHERE_LABEL,
+  backfillSphereAlignment,
+  defaultSphereAlignment,
   defaultSphereMaturity,
+  deriveOverallAlignment,
   type AlignmentState,
   type MaturityLevel,
   type PersonalGuideData,
@@ -100,6 +103,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 interface PostBody {
   sphereMaturity?: Partial<Record<SphereAxis, MaturityLevel>>;
+  sphereAlignment?: Partial<Record<SphereAxis, AlignmentState>>;
   alignmentState?: AlignmentState;
   repairRisks?: RepairRisk[];
   precedenceMode?: PrecedenceMode;
@@ -142,10 +146,29 @@ function buildPayload(raw: unknown, existing: PersonalGuideData | null): Persona
     }
   }
 
-  const alignmentState: AlignmentState =
-    typeof body.alignmentState === 'string' && VALID_ALIGNMENT.has(body.alignmentState)
-      ? body.alignmentState
-      : existing?.alignmentState ?? 'drifting';
+  // Per-sphere alignment. Seed from the existing record (preferring its
+  // own per-sphere map, falling back to fanning out the legacy overall
+  // alignmentState if that is all we ever saved). Then overlay any values
+  // the client sent.
+  const alignmentSeed = existing?.sphereAlignment
+    ? existing.sphereAlignment
+    : existing?.alignmentState
+      ? backfillSphereAlignment(existing.alignmentState)
+      : defaultSphereAlignment();
+  const sphereAlignment = { ...alignmentSeed };
+  if (body.sphereAlignment && typeof body.sphereAlignment === 'object') {
+    for (const sphere of SPHERE_AXES) {
+      const v = body.sphereAlignment[sphere];
+      if (typeof v === 'string' && VALID_ALIGNMENT.has(v as AlignmentState)) {
+        sphereAlignment[sphere] = v as AlignmentState;
+      }
+    }
+  }
+
+  // Overall alignment — always derived from sphereAlignment so the headline
+  // tracks the per-sphere data. The body.alignmentState is accepted for
+  // back-compat but ignored if it contradicts the derived value.
+  const alignmentState: AlignmentState = deriveOverallAlignment(sphereAlignment);
 
   const precedenceMode: PrecedenceMode =
     typeof body.precedenceMode === 'string' && VALID_PRECEDENCE.has(body.precedenceMode)
@@ -163,11 +186,13 @@ function buildPayload(raw: unknown, existing: PersonalGuideData | null): Persona
 
   const payload: PersonalGuideData = {
     sphereMaturity,
+    sphereAlignment,
     alignmentState,
     repairRisks,
     precedenceMode,
     lastAssessedAt: new Date().toISOString(),
     ...(focusIntent ? { focusIntent } : {}),
+    ...(existing?.goalAlignmentPattern ? { goalAlignmentPattern: existing.goalAlignmentPattern } : {}),
   };
   return payload;
 }

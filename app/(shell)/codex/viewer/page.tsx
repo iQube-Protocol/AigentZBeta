@@ -195,9 +195,9 @@ export default function CodexViewerPage() {
   }, [tabOptions]);
 
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
-    { id: "knyt-codex", label: "KNYT Cartridge", color: "purple" },
-    { id: "qripto-codex", label: "Qriptopian Cartridge", color: "indigo" },
-    { id: "agentiq-codex", label: "AgentiQ Cartridge", color: "blue" },
+    { id: "knyt-codex", label: "KNYT", color: "purple" },
+    { id: "qripto-codex", label: "Qriptopian", color: "indigo" },
+    { id: "agentiq-codex", label: "AgentiQ", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
@@ -207,7 +207,10 @@ export default function CodexViewerPage() {
     if (!codexList || codexList.length === 0) return fallbackCodexes;
     return codexList.map((codex: CodexListItem) => ({
       id: codex.id,
-      label: codex.name,
+      // The PICKER name when the cartridge declares one, else its header name.
+      // Two names, one for each reading context (operator, 2026-07-28) — never
+      // a truncation of the header string.
+      label: codex.shortName ?? codex.name,
       color: normalizeColor(codex.metadata?.color),
     }));
   }, [codexList, fallbackCodexes]);
@@ -227,6 +230,27 @@ export default function CodexViewerPage() {
       setActiveTab(visibleTabOptions[0].slug);
     }
   }, [visibleTabOptions, activeTab, enabledTabs]);
+
+  // Cartridge-agnostic intra-cartridge tab navigation. A tab component
+  // dispatches `window.dispatchEvent(new CustomEvent('codex:navigate-tab',
+  // { detail: { tab: '<slug>' } }))` to jump to a sibling tab WITHIN the same
+  // cartridge without prop-drilling a setter (the generic sibling of KNYT's
+  // `knyt:navigate-tab`). The target must be a currently-visible tab of THIS
+  // codex — an unknown/hidden slug is ignored, so this can't reach across
+  // cartridges or reveal a hidden tab. First used by the IRL research ICE
+  // loop's Run stage to open the Experiment Lab (navigation, not execution).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const target = detail.tab;
+      if (typeof target !== "string") return;
+      if (target !== activeTab && visibleTabOptions.some(tab => tab.slug === target)) {
+        setActiveTab(target);
+      }
+    };
+    window.addEventListener("codex:navigate-tab", handler);
+    return () => window.removeEventListener("codex:navigate-tab", handler);
+  }, [visibleTabOptions, activeTab]);
 
   const codexSlug = codexId.replace("-codex", "");
   const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";

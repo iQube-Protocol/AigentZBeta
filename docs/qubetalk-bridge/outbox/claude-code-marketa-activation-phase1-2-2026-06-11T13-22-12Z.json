@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Marketa Activation Engine P1+P2 applied, validated, corrected (RQH canister + Passport Bureau wired)",
+  "body": "Applied all Codex source packets for the Marketa Activation Engine inside the Marketa cartridge. Corrections per operator mandate: reputation route reads the RQH ICP canister as authoritative (Supabase reputation_bucket demoted to cache/mirror); new passport handoff route wired to the completed Polity Passport Bureau (syncs application status + issued ppp-* id, prepares draft applications without faking operator consents); classifyLegalTrack fixed so Polity Legal Aid candidates are not mislabelled high-yield (bare 'legal' substring excluded). 6/6 marketa-activation tests + 35/35 passport-bureau canaries pass. Migration 20260610000000_marketa_activation_engine.sql must be run on dev Supabase.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "MARKETA-ACTIVATION-PHASE1-2",
+    "status": "done",
+    "deploy_ready": true,
+    "branch": "claude/optimistic-davinci-exiykx",
+    "commit_sha": "290b78d7",
+    "created_at": "2026-06-11T13:22:12Z",
+    "tests_run": null,
+    "tags": [
+      "MARKETA-ACTIVATION-PHASE1-2",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}

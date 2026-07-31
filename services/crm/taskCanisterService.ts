@@ -395,6 +395,103 @@ export async function syncReputationToRQH(
   }
 }
 
+export interface SyncStandingToRQHInput {
+  /** CRM persona id — used to look up kybeDid (partition id). */
+  crmPersonaId: string;
+  /** Identity persona id — used by updatePersonaRQHSync to tag the CRM reputation row. */
+  identityPersonaId: string;
+  /** Standing snapshot after the write. */
+  standing: {
+    personal: number;
+    delegated: number;
+    stewardship: number;
+    capability: number;
+    overall: number;
+    bucket: number;
+  };
+  /** Which lane changed — 'consequence' | 'capability'. */
+  lane: 'consequence' | 'capability';
+}
+
+/**
+ * Auto-sync standing scores to RQH canister after every standing write.
+ * Uses the same create-or-add-evidence pattern as syncReputationToRQH.
+ * Resolves the partition id (kybeDid) from the CRM persona record.
+ * Best-effort — never throws; returns success/failure for logging only.
+ */
+export async function syncStandingToRQH(
+  input: SyncStandingToRQHInput,
+): Promise<SyncToRQHResult> {
+  const { crmPersonaId, identityPersonaId, standing, lane } = input;
+
+  if (!RQH_CANISTER_ID) {
+    return { success: true, bucketId: `local:${crmPersonaId}` };
+  }
+
+  try {
+    const client = getCrmClient();
+
+    // Resolve kybeDid (partition id) from crm_personas.
+    const { data: crmRow } = await client
+      .from('crm_personas')
+      .select('kyb_did')
+      .eq('id', crmPersonaId)
+      .maybeSingle();
+    const partitionId: string = (crmRow as { kyb_did?: string } | null)?.kyb_did
+      ?? `persona:${crmPersonaId}`;
+
+    const rqh = await getActor<any>(RQH_CANISTER_ID, rqhIdl);
+
+    // Check for existing bucket.
+    const existing = await rqh.get_reputation_bucket(partitionId);
+
+    const evidenceData = JSON.stringify({
+      lane,
+      personal: standing.personal,
+      delegated: standing.delegated,
+      stewardship: standing.stewardship,
+      capability: standing.capability,
+      overall: standing.overall,
+      bucket: standing.bucket,
+      timestamp: new Date().toISOString(),
+    });
+
+    let bucketId: string;
+
+    if (!existing.ok || !existing.data) {
+      // First time — create the bucket seeded with overall as initial score.
+      const created = await rqh.create_reputation_bucket({
+        partition_id: partitionId,
+        skill_category: 'standing',
+        initial_score: [standing.overall],
+      });
+      if (!created.ok) throw new Error(created.error ?? 'create_reputation_bucket failed');
+      bucketId = created.data?.id ?? partitionId;
+      console.log('[RQH] Created standing bucket:', bucketId);
+    } else {
+      bucketId = existing.data.id;
+    }
+
+    // Add standing evidence to the bucket.
+    const evidenceResult = await rqh.add_reputation_evidence({
+      bucket_id: bucketId,
+      evidence_type: `standing_${lane}`,
+      evidence_data: evidenceData,
+      weight: standing.overall,
+    });
+
+    if (!evidenceResult.ok) throw new Error(evidenceResult.error ?? 'add_reputation_evidence failed');
+
+    await updatePersonaRQHSync(identityPersonaId, bucketId, partitionId);
+
+    console.log('[RQH] Standing evidence added to bucket:', bucketId);
+    return { success: true, bucketId };
+  } catch (error: any) {
+    console.error('[RQH] Standing sync failed:', error);
+    return { success: false, error: error.message ?? 'RQH standing sync failed' };
+  }
+}
+
 /**
  * Fetch reputation from RQH and update CRM
  */

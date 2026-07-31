@@ -1,0 +1,756 @@
+"use client";
+
+/**
+ * Independent Review — the Lab surface for IRL-REVIEW-001 (SPEC §12).
+ *
+ * Three views and no more: **New Review** (choose reviewers, preview the
+ * redacted package, freeze and run) · **Review Queue** (running · completed ·
+ * contested · awaiting resolution) · **Review Result** (agreement, contested
+ * items, limitations, hashes, receipt, and the four governed resolutions).
+ *
+ * It lives INSIDE the experiments navigator rather than as a separate
+ * destination, because the review is preparation for an experiment: the person
+ * preparing it should not have to leave it to adjudicate its inputs.
+ *
+ * ── The three things this surface must not get wrong ───────────────────────
+ *
+ * 1. THE SAME-FAMILY GUARD IS THE SERVER'S. The `<select>` below disables
+ *    same-family options, which is a courtesy — a direct POST ignores it
+ *    entirely. The refusal that matters happens in the API. What the UI must
+ *    guarantee is that its disabled set is DERIVED from the very family
+ *    metadata the server enforces on (`/api/research/review/models`), so the
+ *    dropdown and the rule can never disagree. There is no model list in this
+ *    file.
+ *
+ * 2. THE PREVIEW IS THE PACKAGE. `preview.package` is the sealed object the
+ *    reviewers receive, with `preview.packageHash` its recorded hash and
+ *    `hashVerified` the server's recomputation of it. A human looks at this in
+ *    order to trust what they cannot see; a second projection built for display
+ *    would be the one thing that must not drift.
+ *
+ * 3. NO ACTION HERE WRITES TO THE CORPUS. Accept · revise · defer · reject
+ *    record a governed resolution on the REVIEW. The response says so in data
+ *    (`corpusWritten: false`, …) and this surface renders it, because "accept"
+ *    is the word a reader will assume means admitted.
+ *
+ * Transport: `personaFetch` only. These routes resolve the caller through the
+ * identity spine, and a raw `fetch` would 401 into an empty state that looks
+ * exactly like "no reviews yet".
+ */
+
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Eye, FlaskConical, Loader2, Lock, ShieldCheck, User } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
+
+// ── Server-shaped types (mirrors of the route payloads, not a second model) ──
+
+interface SelectableModel {
+  id: string;
+  family: string | null;
+  familyEvidence: string | null;
+  offline: boolean;
+  deprecationDate: string | null;
+  selectable: boolean;
+  unselectableReason: string | null;
+}
+
+interface DefaultPair {
+  pairVersion: string;
+  rationale: string;
+  R1: { provider: string; modelId: string; declaredLineage: string };
+  R2: { provider: string; modelId: string; declaredLineage: string };
+}
+
+interface QueueRow {
+  reviewId: string;
+  queueState: "planned" | "running" | "completed" | "contested" | "resolved";
+  packageHash: string | null;
+  reviewers: Array<{
+    reviewerSlot: string;
+    reviewerType: string;
+    requestedModelId: string | null;
+    resolvedModelId: string | null;
+    modelFamily: string | null;
+    humanReviewerRef: string | null;
+  }>;
+  subjectCount: number;
+  contestedCount: number;
+  agreedCount: number;
+  action: string | null;
+  updatedAt: string;
+}
+
+type SlotKind = "external-model" | "human";
+
+const QUEUE_LABEL: Record<QueueRow["queueState"], string> = {
+  planned: "Planned",
+  running: "Running",
+  completed: "Completed",
+  contested: "Contested — awaiting resolution",
+  resolved: "Resolved",
+};
+
+const QUEUE_TONE: Record<QueueRow["queueState"], string> = {
+  planned: "text-slate-300",
+  running: "text-blue-300",
+  completed: "text-emerald-300",
+  contested: "text-amber-300",
+  resolved: "text-violet-300",
+};
+
+const ACTIONS = ["accept", "revise", "defer", "reject"] as const;
+type Action = (typeof ACTIONS)[number];
+
+// ── Slate house style. No white hairlines anywhere in this file. ────────────
+const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 p-4";
+const FIELD =
+  "w-full rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-200 " +
+  "focus:border-slate-700 focus:outline-none disabled:opacity-50";
+
+export default function IndependentReviewPanel() {
+  const [view, setView] = useState<"new" | "queue" | "result">("new");
+  const [models, setModels] = useState<SelectableModel[] | null>(null);
+  const [defaultPair, setDefaultPair] = useState<DefaultPair | null>(null);
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
+
+  const [r1Kind, setR1Kind] = useState<SlotKind>("external-model");
+  const [r2Kind, setR2Kind] = useState<SlotKind>("external-model");
+  const [r1Model, setR1Model] = useState<string>("");
+  const [r2Model, setR2Model] = useState<string>("");
+  const [r1Human, setR1Human] = useState<string>("");
+  const [r2Human, setR2Human] = useState<string>("");
+  const [r1HumanDecisions, setR1HumanDecisions] = useState<string>("");
+  const [r2HumanDecisions, setR2HumanDecisions] = useState<string>("");
+  const [stewardRef, setStewardRef] = useState<string>("");
+
+  const [busy, setBusy] = useState<null | "preview" | "run">(null);
+  const [refusal, setRefusal] = useState<{ code?: string; message: string } | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+
+  const [queue, setQueue] = useState<QueueRow[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
+  const [actionReason, setActionReason] = useState("");
+  const [actionOutcome, setActionOutcome] = useState<Record<string, unknown> | null>(null);
+
+  // ── Catalogue ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await personaFetch("/api/research/review/models", { cache: "no-store" });
+        const d = await res.json();
+        if (d?.ok) {
+          setModels(d.models as SelectableModel[]);
+          setDefaultPair(d.defaultPair as DefaultPair);
+          setR1Model(d.defaultPair?.R1?.modelId ?? "");
+          setR2Model(d.defaultPair?.R2?.modelId ?? "");
+        } else {
+          setModels([]);
+          setCatalogueError(d?.error ?? "the model catalogue could not be read");
+        }
+      } catch (e) {
+        setModels([]);
+        setCatalogueError(e instanceof Error ? e.message : "the model catalogue could not be read");
+      }
+    })();
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    try {
+      const res = await personaFetch("/api/research/review", { cache: "no-store" });
+      const d = await res.json();
+      setQueue(d?.ok ? (d.reviews as QueueRow[]) : []);
+    } catch {
+      setQueue([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === "queue") void loadQueue();
+  }, [view, loadQueue]);
+
+  /**
+   * The family each slot currently resolves to, read from the SERVER's
+   * catalogue. This is the single input to the disabled-option logic below —
+   * there is no second list, so the dropdown cannot offer a pair the server
+   * would refuse, and cannot hide one it would accept.
+   */
+  const familyOf = useCallback(
+    (modelId: string): string | null => models?.find((m) => m.id === modelId)?.family ?? null,
+    [models],
+  );
+
+  const r1Family = r1Kind === "external-model" ? familyOf(r1Model) : null;
+  const r2Family = r2Kind === "external-model" ? familyOf(r2Model) : null;
+  const sameFamily = Boolean(r1Family && r2Family && r1Family === r2Family);
+
+  const optionsFor = useCallback(
+    (slot: "R1" | "R2"): Array<SelectableModel & { disabled: boolean; disabledReason: string | null }> => {
+      const otherFamily = slot === "R1" ? r2Family : r1Family;
+      return (models ?? []).map((m) => {
+        const sameLineage = Boolean(m.family && otherFamily && m.family === otherFamily);
+        return {
+          ...m,
+          disabled: !m.selectable || sameLineage,
+          disabledReason: !m.selectable
+            ? m.unselectableReason
+            : sameLineage
+              ? `same lineage as the other reviewer (${m.family}) — two instances of one family are not two reviewers`
+              : null,
+        };
+      });
+    },
+    [models, r1Family, r2Family],
+  );
+
+  const submit = useCallback(
+    async (mode: "preview" | "run") => {
+      setBusy(mode);
+      setRefusal(null);
+      setResult(null);
+      setActionOutcome(null);
+      try {
+        const res = await personaFetch("/api/research/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode,
+            version: "vP1",
+            reviewers: {
+              R1:
+                r1Kind === "human"
+                  ? { reviewerType: "human", humanReviewerRef: r1Human }
+                  : { reviewerType: "external-model", modelId: r1Model },
+              R2:
+                r2Kind === "human"
+                  ? { reviewerType: "human", humanReviewerRef: r2Human }
+                  : { reviewerType: "external-model", modelId: r2Model },
+            },
+            stewardRef: stewardRef.trim() || undefined,
+            humanDecisions: {
+              ...(r1Kind === "human" && r1HumanDecisions.trim() ? { R1: r1HumanDecisions } : {}),
+              ...(r2Kind === "human" && r2HumanDecisions.trim() ? { R2: r2HumanDecisions } : {}),
+            },
+          }),
+        });
+        const d = await res.json();
+        if (!d?.ok) setRefusal({ code: d?.refusalCode, message: d?.error ?? "the review was refused" });
+        else setResult(d as Record<string, unknown>);
+      } catch (e) {
+        setRefusal({ message: e instanceof Error ? e.message : "request failed" });
+      } finally {
+        setBusy(null);
+      }
+    },
+    [r1Kind, r2Kind, r1Model, r2Model, r1Human, r2Human, r1HumanDecisions, r2HumanDecisions, stewardRef],
+  );
+
+  const openResult = useCallback(async (reviewId: string) => {
+    setSelected(reviewId);
+    setView("result");
+    setDetail(null);
+    setActionOutcome(null);
+    try {
+      const res = await personaFetch(`/api/research/review/${encodeURIComponent(reviewId)}`, { cache: "no-store" });
+      const d = await res.json();
+      setDetail(d?.ok ? (d as Record<string, unknown>) : null);
+    } catch {
+      setDetail(null);
+    }
+  }, []);
+
+  const recordAction = useCallback(
+    async (action: Action) => {
+      if (!selected || !actionReason.trim()) return;
+      try {
+        const res = await personaFetch(`/api/research/review/${encodeURIComponent(selected)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action, reason: actionReason }),
+        });
+        const d = await res.json();
+        setActionOutcome(d as Record<string, unknown>);
+      } catch (e) {
+        setActionOutcome({ ok: false, error: e instanceof Error ? e.message : "failed" });
+      }
+    },
+    [selected, actionReason],
+  );
+
+  const preview = (result?.preview ?? detail?.preview) as
+    | { packageId: string; packageHash: string; hashVerified: boolean; package: Record<string, unknown> }
+    | null
+    | undefined;
+
+  // Supersession preserves evidence and removes authority to resolve the
+  // superseded record (operator ruling 2026-07-31) — this disables the
+  // client-side controls; app/api/research/review/[reviewId]/route.ts's
+  // POST handler is the authoritative enforcement.
+  const isSuperseded = Boolean((detail?.review as Record<string, unknown> | undefined)?.supersededBy);
+
+  const previewSubjects = useMemo(() => {
+    const subjects = (preview?.package?.subjects ?? []) as Array<Record<string, unknown>>;
+    return subjects.slice(0, 5);
+  }, [preview]);
+
+  return (
+    <div className="space-y-4">
+      {/* View switch — three views, exactly as the spec allows */}
+      <div className="flex flex-wrap gap-1.5">
+        {(
+          [
+            ["new", "New Review", FlaskConical],
+            ["queue", "Review Queue", ClipboardList],
+            ["result", "Review Result", ShieldCheck],
+          ] as const
+        ).map(([id, label, Icon]) => (
+          <button
+            key={id}
+            onClick={() => setView(id)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] transition ${
+              view === id
+                ? "border-blue-500/40 bg-blue-500/20 text-blue-100"
+                : "border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/60"
+            }`}
+          >
+            <Icon className="h-3 w-3" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── NEW REVIEW ───────────────────────────────────────────────────── */}
+      {view === "new" && (
+        <div className="space-y-4">
+          <div className={PANEL}>
+            <div className="mb-2 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-slate-400" />
+              <h3 className="text-sm font-semibold text-slate-100">Reviewers</h3>
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+              Two reviewers of <span className="text-slate-200">different model families</span>. Shared hosting is an
+              acceptable correlate; shared weights are not — two instances of one lineage check nothing, because a
+              systematic bias appears in both and the second review confirms rather than tests. Either slot may be
+              occupied by a human, who reviews the same frozen package with the same rubric and returns the same
+              decision schema.
+            </p>
+
+            {catalogueError && (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-[11px] text-amber-200">
+                <AlertTriangle className="mr-1 inline h-3 w-3" />
+                {catalogueError}
+              </div>
+            )}
+
+            {defaultPair && (
+              <div className="mb-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-400">
+                Ratified default pair <span className="text-slate-200">{defaultPair.pairVersion}</span> —{" "}
+                <span className="text-slate-300">{defaultPair.R1.modelId}</span> ({defaultPair.R1.declaredLineage}) and{" "}
+                <span className="text-slate-300">{defaultPair.R2.modelId}</span> ({defaultPair.R2.declaredLineage}).
+                Changing either slot is a versioned pair amendment and is recorded as a change.
+              </div>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {(["R1", "R2"] as const).map((slot) => {
+                const kind = slot === "R1" ? r1Kind : r2Kind;
+                const setKind = slot === "R1" ? setR1Kind : setR2Kind;
+                const model = slot === "R1" ? r1Model : r2Model;
+                const setModel = slot === "R1" ? setR1Model : setR2Model;
+                const human = slot === "R1" ? r1Human : r2Human;
+                const setHuman = slot === "R1" ? setR1Human : setR2Human;
+                const humanDecisions = slot === "R1" ? r1HumanDecisions : r2HumanDecisions;
+                const setHumanDecisions = slot === "R1" ? setR1HumanDecisions : setR2HumanDecisions;
+                const family = slot === "R1" ? r1Family : r2Family;
+                return (
+                  <div key={slot} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-200">
+                        {slot === "R1" ? "Reviewer 1 — complete package" : "Reviewer 2 — mandatory second review"}
+                      </span>
+                      {family && <span className="text-[10px] text-slate-500">family: {family}</span>}
+                    </div>
+
+                    <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Slot type</label>
+                    <select
+                      className={`${FIELD} mb-2`}
+                      value={kind}
+                      onChange={(e) => setKind(e.target.value as SlotKind)}
+                    >
+                      <option value="external-model">External model</option>
+                      <option value="human">Human — Independent Review Steward</option>
+                    </select>
+
+                    {kind === "external-model" ? (
+                      <>
+                        <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">Model</label>
+                        <select
+                          className={FIELD}
+                          value={model}
+                          disabled={!models || models.length === 0}
+                          onChange={(e) => setModel(e.target.value)}
+                        >
+                          {(optionsFor(slot) ?? []).map((m) => (
+                            <option key={m.id} value={m.id} disabled={m.disabled} title={m.disabledReason ?? undefined}>
+                              {m.id}
+                              {m.family ? ` · ${m.family}` : " · lineage unknown"}
+                              {m.disabled ? " — unavailable" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">
+                          Steward reference
+                        </label>
+                        <input
+                          className={`${FIELD} mb-2`}
+                          value={human}
+                          placeholder="steward reference (attributable)"
+                          onChange={(e) => setHuman(e.target.value)}
+                        />
+                        <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">
+                          Adjudication — same schema a model returns
+                        </label>
+                        <textarea
+                          className={`${FIELD} h-24 font-mono`}
+                          value={humanDecisions}
+                          placeholder={'{"decisions":[{"subjectRef":"…","decision":"independent","reason":"…"}]}'}
+                          onChange={(e) => setHumanDecisions(e.target.value)}
+                        />
+                        <p className="mt-1 flex items-start gap-1 text-[10px] leading-relaxed text-slate-500">
+                          <User className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                          The steward reviews contested cases, private-source summaries, material exclusions and the
+                          required sample. The role cannot edit source assets, grant Standing, or freeze anything.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {sameFamily && (
+              <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+                <AlertTriangle className="mr-1 inline h-3 w-3" />
+                Both slots resolve to family <span className="font-semibold">{r1Family}</span>. The server will refuse
+                this pair — the check is authoritative there, not here.
+              </div>
+            )}
+
+            <div className="mt-3">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-slate-500">
+                Independent Review Steward (optional — defaults to you, recorded as interim)
+              </label>
+              <input
+                className={FIELD}
+                value={stewardRef}
+                placeholder="steward reference"
+                onChange={(e) => setStewardRef(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => void submit("preview")}
+                disabled={busy !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-50"
+              >
+                {busy === "preview" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                Freeze &amp; preview the redacted package
+              </button>
+              <button
+                onClick={() => void submit("run")}
+                disabled={busy !== null}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/20 px-3 py-1.5 text-xs text-blue-100 transition hover:bg-blue-500/30 disabled:opacity-50"
+              >
+                {busy === "run" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FlaskConical className="h-3.5 w-3.5" />}
+                Run the review
+              </button>
+              <span className="text-[10px] text-slate-500">
+                Preview first — it is where blinding can be seen to have held before a run is committed to.
+              </span>
+            </div>
+          </div>
+
+          {refusal && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold">
+                <Lock className="h-3.5 w-3.5" />
+                Refused{refusal.code ? ` — ${refusal.code}` : ""}
+              </div>
+              <p className="leading-relaxed">{refusal.message}</p>
+            </div>
+          )}
+
+          {result && <SummaryPanel result={result} />}
+
+          {preview && (
+            <div className={PANEL}>
+              <div className="mb-2 flex items-center gap-2">
+                <Eye className="h-4 w-4 text-slate-400" />
+                <h3 className="text-sm font-semibold text-slate-100">Redacted package — exactly what the reviewers receive</h3>
+              </div>
+              <div className="mb-3 grid gap-1 text-[11px] text-slate-400 sm:grid-cols-2">
+                <div>
+                  package <span className="font-mono text-slate-300">{preview.packageId}</span>
+                </div>
+                <div>
+                  hash <span className="font-mono text-slate-300">{preview.packageHash?.slice(0, 24)}…</span>{" "}
+                  {preview.hashVerified ? (
+                    <span className="text-emerald-300">verified</span>
+                  ) : (
+                    <span className="text-rose-300">MISMATCH</span>
+                  )}
+                </div>
+              </div>
+              <div className="mb-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Target statement</div>
+                <p className="text-[11px] leading-relaxed text-slate-300">
+                  {String(preview.package?.targetDefinition ?? "")}
+                </p>
+              </div>
+              <div className="mb-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+                <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">The target is not</div>
+                <ul className="list-disc pl-4 text-[11px] leading-relaxed text-slate-400">
+                  {((preview.package?.nonTargets ?? []) as string[]).map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                First 5 of {(preview.package?.subjects as unknown[] | undefined)?.length ?? 0} rows
+              </div>
+              <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+                <pre className="overflow-x-auto text-[10px] leading-relaxed text-slate-400">
+                  {JSON.stringify(previewSubjects, null, 2)}
+                </pre>
+              </div>
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                No current label, Standing, prior decision, desired count, arm allocation or expected result appears
+                above — a package carrying any of them is refused at sealing, not filtered here.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── REVIEW QUEUE ─────────────────────────────────────────────────── */}
+      {view === "queue" && (
+        <div className={PANEL}>
+          <h3 className="mb-2 text-sm font-semibold text-slate-100">Review queue</h3>
+          {queue === null && <div className="text-xs text-slate-400">Loading…</div>}
+          {queue !== null && queue.length === 0 && (
+            <div className="text-xs text-slate-400">No reviews yet. Start one from New Review.</div>
+          )}
+          <div className="space-y-2">
+            {(queue ?? []).map((r) => (
+              <button
+                key={r.reviewId}
+                onClick={() => void openResult(r.reviewId)}
+                className="flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left transition hover:bg-slate-800/60"
+              >
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-[11px] text-slate-200">{r.reviewId}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {r.subjectCount} rows · {r.reviewers.map((a) => a.resolvedModelId ?? a.humanReviewerRef ?? "—").join(" / ")}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[10px]">
+                  <span className={QUEUE_TONE[r.queueState]}>{QUEUE_LABEL[r.queueState]}</span>
+                  {r.contestedCount > 0 && <span className="text-amber-300">{r.contestedCount} contested</span>}
+                  {r.action && <span className="text-violet-300">{r.action}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── REVIEW RESULT ────────────────────────────────────────────────── */}
+      {view === "result" && (
+        <div className="space-y-4">
+          {!selected && <div className={`${PANEL} text-xs text-slate-400`}>Pick a review from the queue.</div>}
+          {selected && !detail && <div className={`${PANEL} text-xs text-slate-400`}>Loading {selected}…</div>}
+          {detail && <ResultPanel detail={detail} />}
+
+          {detail && (
+            <div className={PANEL}>
+              <h3 className="mb-1 text-sm font-semibold text-slate-100">Governed resolution</h3>
+              {isSuperseded ? (
+                <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+                  This review is superseded — its actions are disabled. The row remains here for audit inspection
+                  only.
+                </p>
+              ) : (
+                <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+                  These record a resolution on the <span className="text-slate-200">review</span>. None writes to the
+                  corpus, grants Standing, changes an asset&apos;s lifecycle, or freezes anything — accepting a review
+                  accepts its findings as evidence. The freeze remains a separate governed act.
+                </p>
+              )}
+              <input
+                className={`${FIELD} mb-2`}
+                value={actionReason}
+                disabled={isSuperseded}
+                placeholder="reason (required — an unexplained resolution is a stray click in the audit trail)"
+                onChange={(e) => setActionReason(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {ACTIONS.map((a) => (
+                  <button
+                    key={a}
+                    disabled={isSuperseded || !actionReason.trim()}
+                    onClick={() => void recordAction(a)}
+                    className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs capitalize text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-40"
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+              {actionOutcome && (
+                <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-300">
+                  <CheckCircle2 className="mr-1 inline h-3 w-3 text-emerald-300" />
+                  {String(actionOutcome.effect ?? actionOutcome.error ?? "recorded")}
+                  <div className="mt-1 text-[10px] text-slate-500">
+                    corpus written: {String(actionOutcome.corpusWritten ?? false)} · Standing granted:{" "}
+                    {String(actionOutcome.standingGranted ?? false)} · lifecycle changed:{" "}
+                    {String(actionOutcome.lifecycleChanged ?? false)} · asset frozen:{" "}
+                    {String(actionOutcome.assetFrozen ?? false)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryPanel({ result }: { result: Record<string, unknown> }) {
+  const s = (result.summary ?? {}) as Record<string, unknown>;
+  const classC = (s.classC ?? {}) as Record<string, unknown>;
+  const tally = result.tally as Record<string, number> | undefined;
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <h3 className="mb-2 text-sm font-semibold text-slate-100">Package summary</h3>
+      <div className="grid gap-1 text-[11px] text-slate-400 sm:grid-cols-2">
+        <div>
+          corpus rows <span className="text-slate-200">{String(s.corpusRowCount ?? "—")}</span>
+        </div>
+        <div>
+          in boundary <span className="text-slate-200">{String(s.inBoundaryCount ?? "—")}</span> · outside{" "}
+          <span className="text-slate-200">{String(s.outOfBoundaryCount ?? "—")}</span>
+        </div>
+        <div>
+          rows enumerated individually <span className="text-slate-200">{String(s.individuallyEnumerated ?? "—")}</span>
+        </div>
+        <div>
+          mechanically flagged <span className="text-slate-200">{String(s.mechanicallyFlagged ?? "—")}</span>
+        </div>
+      </div>
+      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-400">
+        <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Class C block decision</div>
+        <p className="text-slate-300">
+          {String(classC.assessed ?? "—")} assessed under the block rule → {String(classC.admitted ?? "—")} admitted
+          through the class decision → {String(classC.extracted ?? "—")} flagged for individual review
+        </p>
+        <p className="mt-1 text-[10px] text-slate-500">
+          The extracted count is computed by running every exception rule over every row. A zero here would be an
+          outcome, not a default.
+        </p>
+      </div>
+      {tally && (
+        <div className="mt-3 flex flex-wrap gap-3 text-[11px]">
+          <span className="text-emerald-300">{tally.agreed} agreed</span>
+          <span className="text-amber-300">{tally.contested} contested</span>
+          <span className="text-rose-300">{tally.rejected} rejected</span>
+          <span className="text-slate-400">{tally.unknown} unknown (fails closed)</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultPanel({ detail }: { detail: Record<string, unknown> }) {
+  const review = (detail.review ?? {}) as Record<string, unknown>;
+  const tally = (review.tally ?? {}) as Record<string, number>;
+  const contested = (review.contested ?? []) as Array<Record<string, unknown>>;
+  const limitations = (review.limitations ?? []) as string[];
+  const reviewers = (review.reviewers ?? []) as Array<Record<string, unknown>>;
+  const supersededBy = review.supersededBy as string | null | undefined;
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-mono text-xs text-slate-200">{String(review.reviewId ?? "")}</h3>
+        <span className="text-[10px] text-slate-500">{String(review.queueState ?? "")}</span>
+      </div>
+      {supersededBy && (
+        <div className="mb-3 rounded-lg border border-slate-600 bg-slate-800/60 p-2.5 text-[11px] text-slate-300">
+          <p className="font-semibold uppercase tracking-wide text-slate-200">Superseded</p>
+          <p className="mt-1">
+            This {String(review.queueState ?? "")} review was replaced by{" "}
+            <span className="font-mono text-slate-100">{supersededBy}</span>.
+          </p>
+          <p className="mt-1 text-slate-400">No governed resolution may be recorded against this row.</p>
+        </div>
+      )}
+      <div className="mb-3 flex flex-wrap gap-3 text-[11px]">
+        <span className="text-emerald-300">{tally.agreed ?? 0} agreed</span>
+        <span className="text-amber-300">{tally.contested ?? 0} contested</span>
+        <span className="text-rose-300">{tally.rejected ?? 0} rejected</span>
+        <span className="text-slate-400">{tally.unknown ?? 0} unknown</span>
+      </div>
+
+      <div className="mb-3 space-y-1 text-[11px] text-slate-400">
+        {reviewers.map((a) => (
+          <div key={String(a.reviewerSlot)}>
+            <span className="text-slate-300">{String(a.reviewerSlot)}</span>{" "}
+            {a.reviewerType === "human" ? (
+              <>human · {String(a.humanReviewerRef ?? "")}</>
+            ) : (
+              <>
+                requested <span className="font-mono">{String(a.requestedModelId ?? "")}</span> → resolved{" "}
+                <span className="font-mono">{String(a.resolvedModelId ?? "")}</span> · family{" "}
+                {String(a.modelFamily ?? "unknown")}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {contested.length > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-amber-200">
+            Contested — excluded pending governed resolution
+          </div>
+          <div className="max-h-48 space-y-1 overflow-y-auto">
+            {contested.map((c) => (
+              <div key={String(c.subjectRef)} className="text-[11px] text-amber-100">
+                <span className="font-mono">{String(c.subjectRef)}</span> — R1{" "}
+                <span className="font-semibold">{String(c.reviewer1Decision ?? "—")}</span> vs R2{" "}
+                <span className="font-semibold">{String(c.reviewer2Decision ?? "—")}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1 text-[10px] text-amber-200/70">
+            Both labels are carried verbatim. Nothing is averaged — a contested row is a fact about the evidence.
+          </p>
+        </div>
+      )}
+
+      {limitations.length > 0 && (
+        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">Stated limitations</div>
+          <ul className="list-disc pl-4 text-[11px] leading-relaxed text-slate-400">
+            {limitations.slice(0, 12).map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}

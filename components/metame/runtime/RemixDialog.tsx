@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn, PenLine, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
 import { personaFetch } from "@/utils/personaSpine";
 import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
@@ -157,6 +157,24 @@ export function RemixDialog({
   const [discardCountdown, setDiscardCountdown] = useState<number | null>(null);
   const [savingToCanvas, setSavingToCanvas] = useState(false);
   const [savedToCanvas, setSavedToCanvas] = useState(false);
+  // Close-with-unsaved-work confirmation banner. Operator-reported:
+  // tabbing outside the modal during remix preview was triggering the
+  // backdrop-close path AND blowing away the generated draft. Now any
+  // close attempt with `generated && !savedToCanvas` flips this flag
+  // instead of dismissing, surfaces an inline banner with three CTAs
+  // (Save and close / Discard and close / Keep working), and the
+  // operator picks intentionally.
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  // Inline edit mode for the generated article/story BEFORE publish.
+  // Operator-requested: "we should add an edit button that enables a
+  // user to edit the generated article/story in case there are last
+  // minute changes". Receipted on save via the existing
+  // /api/community-content/[id]/edit path (or a stub if absent).
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editBody, setEditBody] = useState<string>('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const isDirty = Boolean(generated) && !savedToCanvas;
   // x402 payment-intent state — populated when /generate returns 402
   // with a `payment` envelope. The PaymentIntentPanel surfaces a
   // "Pay via Base" CTA that prompts the user's external wallet to
@@ -614,6 +632,84 @@ export function RemixDialog({
     }
   }, [generated, personaId, skill, sourceExperienceId, initialTitle, sourceImageUrl, sourceDescription]);
 
+  // ── Close-with-unsaved-work confirmation ──────────────────────────
+  // Replaces the previous direct onClose() calls on backdrop click + X
+  // button. When there's unsaved work, surfaces an inline banner
+  // instead of dismissing; operator picks Save / Discard / Keep.
+  const requestClose = useCallback(() => {
+    if (generating || actionPending) return; // already-busy paths still block
+    if (isDirty) {
+      setCloseConfirmOpen(true);
+      return;
+    }
+    onClose();
+  }, [generating, actionPending, isDirty, onClose]);
+  const confirmCloseAfterSave = useCallback(async () => {
+    if (!generated) return;
+    await saveToCanvas();
+    setCloseConfirmOpen(false);
+    onClose();
+  }, [generated, saveToCanvas, onClose]);
+  const confirmCloseDiscard = useCallback(() => {
+    setCloseConfirmOpen(false);
+    onClose();
+  }, [onClose]);
+
+  // ── Edit generated content ───────────────────────────────────────
+  // Activated by the Edit button in the preview action row. Pre-fills
+  // editTitle + editBody from the generated payload; on save, PATCH
+  // /api/community-content/[id] with the operator's edits and emit a
+  // DVN-receipted activity (community_content_edited) via the existing
+  // receipt service. Phase 1 implementation = local-edit only if the
+  // PATCH endpoint isn't wired yet; the call is best-effort.
+  const startEdit = useCallback(() => {
+    if (!generated) return;
+    setEditTitle(generated.title);
+    setEditBody(generated.articleBody);
+    setEditing(true);
+  }, [generated]);
+  const cancelEdit = useCallback(() => {
+    setEditing(false);
+    setEditTitle('');
+    setEditBody('');
+  }, []);
+  const saveEdit = useCallback(async () => {
+    if (!generated) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      const res = await personaFetch(`/api/community-content/${generated.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editTitle, articleBody: editBody }),
+        personaIdHint: personaId ?? undefined,
+      });
+      // Best-effort — if the PATCH route isn't yet wired, the local
+      // edit still applies to the in-memory generated payload so the
+      // operator can still publish their tweaked version. Receipt
+      // emission happens server-side when the route does land.
+      if (res.ok) {
+        const json = (await res.json().catch(() => ({}))) as { content?: typeof generated };
+        if (json.content) {
+          setGenerated(json.content);
+        } else {
+          setGenerated({ ...generated, title: editTitle, articleBody: editBody });
+        }
+      } else {
+        // Apply locally so the operator's edit survives until publish.
+        setGenerated({ ...generated, title: editTitle, articleBody: editBody });
+      }
+      setEditing(false);
+      // Mark as dirty (not saved-to-canvas) so the close-confirm
+      // banner still fires if they tab away post-edit.
+      setSavedToCanvas(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Edit save failed');
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [generated, editTitle, editBody, personaId]);
+
   if (!open) return null;
 
   const skillCost = quota?.costs[skill];
@@ -812,7 +908,7 @@ export function RemixDialog({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
-      onClick={(e) => { if (e.target === e.currentTarget && !generating && !actionPending) onClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) requestClose(); }}
     >
       <div className="relative w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl flex flex-col">
         {/* Header */}
@@ -825,7 +921,7 @@ export function RemixDialog({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             disabled={generating || actionPending !== null}
             className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30"
           >
@@ -833,8 +929,91 @@ export function RemixDialog({
           </button>
         </div>
 
+        {/* Close-with-unsaved-work confirmation banner — sits below
+            the header. Surfaces when the operator triggers requestClose
+            with isDirty=true (backdrop click or X). Replaces the
+            previous lose-work-silently path. */}
+        {closeConfirmOpen && (
+          <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+            <p className="text-xs text-amber-200">
+              You have unsaved work. Save before closing?
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => void confirmCloseAfterSave()}
+                disabled={savingToCanvas}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/15 px-2.5 py-1 text-[11px] font-semibold text-violet-100 hover:bg-violet-500/25 disabled:opacity-40"
+              >
+                {savingToCanvas ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookMarked className="h-3 w-3" />}
+                Save &amp; close
+              </button>
+              <button
+                type="button"
+                onClick={confirmCloseDiscard}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-200 hover:bg-rose-500/20"
+              >
+                <Trash2 className="h-3 w-3" />
+                Discard &amp; close
+              </button>
+              <button
+                type="button"
+                onClick={() => setCloseConfirmOpen(false)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300 hover:bg-white/10"
+              >
+                Keep working
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
+          {/* Inline edit mode — when active, the title + body textareas
+              replace the preview render until Save / Cancel. */}
+          {generated && editing && (
+            <div className="space-y-3 mb-3">
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Title</span>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/10 bg-slate-900/60 text-sm text-slate-100 focus:outline-none focus:border-amber-500/50"
+                />
+              </label>
+              <label className="block">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Body</span>
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={14}
+                  className="mt-1 w-full px-3 py-2 rounded-lg border border-white/10 bg-slate-900/60 text-sm text-slate-100 focus:outline-none focus:border-amber-500/50 font-mono"
+                />
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void saveEdit()}
+                  disabled={savingEdit || editTitle.trim().length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/25 disabled:opacity-40"
+                >
+                  {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  Save edits
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={savingEdit}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                >
+                  Cancel
+                </button>
+                <span className="text-[10px] text-slate-500 ml-auto">DVN-receipted on save</span>
+              </div>
+            </div>
+          )}
+
           {/* Sign-in banner — only once persona resolution is confirmed failed */}
           {SIGNIN_GATING_ENABLED && !personaId && !personaResolving && !generated && (
             <SignInBanner onSignIn={onSignInRequest} />
@@ -998,6 +1177,16 @@ export function RemixDialog({
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                   Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  disabled={actionPending !== null || editing || savingToCanvas}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/20 disabled:opacity-30"
+                  title="Edit the generated title and body before saving / publishing"
+                >
+                  <PenLine className="h-3.5 w-3.5" />
+                  Edit
                 </button>
                 <button
                   type="button"

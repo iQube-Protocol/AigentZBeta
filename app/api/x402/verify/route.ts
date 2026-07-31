@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { JsonRpcProvider } from "ethers";
+import { btcExplorerBase } from '@/services/ops/btcExplorer';
 
 interface ChainRpcConfig {
   rpcUrl: string;
@@ -55,7 +56,7 @@ const CHAIN_RPC_CONFIG: Record<string | number, ChainRpcConfig> = {
   },
   "btc-testnet": {
     rpcUrl: process.env.BTC_TESTNET_RPC || "",
-    explorer: "https://mempool.space/testnet",
+    explorer: btcExplorerBase(),
     name: "Bitcoin Testnet",
     active: false,
   },

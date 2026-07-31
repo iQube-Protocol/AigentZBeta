@@ -33,11 +33,17 @@ import {
   verifyPersonaSessionToken,
 } from '@/services/identity/personaSessionToken';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getCartridgeAdminGrants } from '@/services/access/cartridgeAdminGrants';
+import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
 
 import type {
   ActivePersonaContext,
   Identifiability,
 } from '@/types/access';
+import type {
+  CartridgeMembershipsMap,
+  CartridgeRole,
+} from '@/types/cartridgeMembership';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Supabase client — timeout-guarded factory (8s in prod, 4s in dev) so a
@@ -177,6 +183,31 @@ interface OwnedPersonaRow {
   id: string;
   default_identity_state: string | null;
   fio_handle: string | null;
+  app_origin: string | null;
+}
+
+/**
+ * Pure. Stable-sorts delegated agent personas (app_origin ===
+ * AIGENT_ME_APP_ORIGIN, e.g. the citizen's own aigentMe,
+ * services/agents/provisionAigentMePersona.ts) to the END of an
+ * already-created_at-ordered row list. Exported for direct, DB-free
+ * behavioural testing — the same reason selectPersonaChoice in
+ * passportPendingAuth.ts is pure and exported.
+ *
+ * Agent rows are NEVER removed, only reordered: explicit selection via
+ * session token, header, or URL param (resolveActivePersonaId steps 1-3)
+ * must still validate against the full returned array. Only the step-4
+ * "first owned persona" IMPLICIT fallback is affected by the ordering.
+ * Without this, a citizen whose aigentMe was provisioned before their first
+ * real persona (or who simply has an earlier created_at on the agent row)
+ * silently resolves as their delegate agent instead of themselves.
+ */
+export function sortOwnedPersonaRowsAgentLast<T extends { app_origin: string | null }>(
+  rows: readonly T[],
+): T[] {
+  const nonAgent = rows.filter((r) => r.app_origin !== AIGENT_ME_APP_ORIGIN);
+  const agent = rows.filter((r) => r.app_origin === AIGENT_ME_APP_ORIGIN);
+  return [...nonAgent, ...agent];
 }
 
 async function listOwnedPersonas(
@@ -188,18 +219,25 @@ async function listOwnedPersonas(
 
   const { data, error } = await admin
     .from('personas')
-    .select('id,default_identity_state,fio_handle,created_at')
+    .select('id,default_identity_state,fio_handle,app_origin,created_at')
     .in('auth_profile_id', visibleAuthProfileIds)
     .eq('status', 'active')
     .order('created_at', { ascending: true });
 
   if (error) return { personas: [], linkedAuthProfileIds };
-  const rows = (data || []) as Array<{ id: string; default_identity_state: string | null; fio_handle: string | null }>;
+  const rows = (data || []) as Array<{
+    id: string;
+    default_identity_state: string | null;
+    fio_handle: string | null;
+    app_origin: string | null;
+  }>;
+  const ordered = sortOwnedPersonaRowsAgentLast(rows);
   return {
-    personas: rows.map((row) => ({
+    personas: ordered.map((row) => ({
       id: String(row.id),
       default_identity_state: row.default_identity_state ?? null,
       fio_handle: row.fio_handle ?? null,
+      app_origin: row.app_origin ?? null,
     })),
     linkedAuthProfileIds,
   };
@@ -272,6 +310,53 @@ function resolvePartnerFlag(): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Cartridge memberships — Phase 4b
+//
+// Returns the (slug → role) projection of `cartridge_memberships` rows
+// for this persona. The set covers non-admin roles (member, editor,
+// contributor, partner, franchisee, correspondent, guest) — admin
+// scopes still resolve via getCartridgeAdminGrants(). A persona that is
+// admin of a cartridge AND a member of it would appear in both
+// `adminCartridges` and `cartridgeMemberships`.
+//
+// T0 → T1 projection contract:
+//   - Read rows by persona_id (T0).
+//   - Project to { slug: role } only. The persona_id / granted_by /
+//     metadata fields never propagate.
+//
+// Defensive: any error returns {} so a transient DB outage produces a
+// fail-closed (no-membership) posture, never a thrown spine. Pattern
+// matches resolveAdminFlag.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function resolveCartridgeMemberships(
+  personaId: string,
+): Promise<CartridgeMembershipsMap> {
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from('cartridge_memberships')
+      .select('cartridge_slug,role')
+      .eq('persona_id', personaId);
+    if (error || !Array.isArray(data)) return {};
+    const map: CartridgeMembershipsMap = {};
+    for (const row of data as Array<{ cartridge_slug?: string; role?: string }>) {
+      const slug = row?.cartridge_slug;
+      const role = row?.role;
+      if (typeof slug === 'string' && slug && typeof role === 'string' && role) {
+        // Only the first row per slug wins — the table PK is (slug, persona)
+        // so a persona has at most one role per cartridge by construction;
+        // this guard is defensive against future schema changes.
+        if (!(slug in map)) map[slug] = role as CartridgeRole;
+      }
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Identifiability
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -330,9 +415,29 @@ export async function getActivePersona(
   const identifiability = normaliseIdentifiability(personaRow?.default_identity_state ?? null);
 
   // 5. Cartridge flags
-  const [isAdmin, isPartner] = await Promise.all([
+  //
+  //    `isAdmin` is global (uber/platform-tier — boolean).
+  //    `adminCartridges` is the per-cartridge admin scope array added
+  //    2026-05-26 — see codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+  //    Both resolve in the same pass so the spine is the single
+  //    source-of-truth for admin authorization; downstream callers
+  //    (evaluateAccess, UI gates, admin endpoints) read from
+  //    cartridgeFlags rather than re-querying CRM.
+  const [isAdmin, isPartner, adminGrants, cartridgeMemberships] = await Promise.all([
     resolveAdminFlag(caller.authProfileId, linkedAuthProfileIds, caller.email ?? null),
     Promise.resolve(resolvePartnerFlag()),
+    getCartridgeAdminGrants(
+      caller.authProfileId,
+      linkedAuthProfileIds,
+      caller.email ?? null,
+    ).catch(() => ({
+      isGlobalAdmin: false,
+      cartridgeSlugs: [] as string[],
+    })),
+    // Phase 4b — non-admin cartridge role memberships, resolved in the
+    // same pass so the spine stays the single source of truth. See
+    // codexes/packs/agentiq/updates/2026-06-02_mycartridge-phase-4b-spine-extension.md.
+    resolveCartridgeMemberships(personaId),
   ]);
 
   // 6. Cohort memberships — table not yet built (cohort backlog Phase 3 wire-up).
@@ -345,8 +450,15 @@ export async function getActivePersona(
     authProfileId: caller.authProfileId,
     identifiability,
     cartridgeFlags: {
-      isAdmin,
+      // `isAdmin` and `adminGrants.isGlobalAdmin` resolve from different
+      // queries today; either path that reads "global admin" should set
+      // the flag so callers don't have to know which resolver ran first.
+      isAdmin: isAdmin || adminGrants.isGlobalAdmin,
       isPartner,
+      adminCartridges: adminGrants.cartridgeSlugs,
+      // Phase 4b — slug → role projection. T1-safe (slugs + role enum,
+      // no persona ids or granted_by fields).
+      cartridgeMemberships,
     },
     cohortMemberships,
     fioHandle: personaRow?.fio_handle ?? null,

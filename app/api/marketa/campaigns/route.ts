@@ -114,7 +114,7 @@ export async function GET() {
     const partnerCampaign = {
       id: "knyt_partners",
       name: "KNYT Partners",
-      description: "18 AVL strategic partners — 2 activation waves",
+      description: "18 MVL strategic partners — 2 activation waves",
       status: "pending",
       total: partnerRows.length,
       wave_1: {

@@ -15,10 +15,8 @@ function getMarketaClient() {
   return createClient(url, key, { db: { schema: 'marketa' } });
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const db = getMarketaClient();
   if (!db) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
 
@@ -42,10 +40,8 @@ export async function PATCH(
   return NextResponse.json({ ok: true, campaign: data });
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const db = getMarketaClient();
   if (!db) return NextResponse.json({ ok: false, error: 'DB unavailable' }, { status: 503 });
 

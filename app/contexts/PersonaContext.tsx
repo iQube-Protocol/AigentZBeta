@@ -197,7 +197,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     displayLabel?: string;
     ownFioHandle?: string;
     identifiability?: string;
-    cartridgeFlags?: { isAdmin?: boolean; isPartner?: boolean };
+    cartridgeFlags?: { isAdmin?: boolean; isPartner?: boolean; adminCartridges?: string[] };
     cohortMemberships?: string[];
     sessionExpiresAt?: string;
   };

@@ -45,12 +45,13 @@ interface Props {
 const DEFAULT_LINKS: QuickLink[] = [
   { id: "knyt-bundles",     label: "KNYT · Bundles",          hint: "Episodes + collector tiers",     slug: "knyt",                 tab: "store-bundles" },
   { id: "knyt-codex",       label: "KNYT · Codex",            hint: "Scrolls, characters, lore",      slug: "knyt",                 tab: "scrolls" },
-  { id: "qriptopian",       label: "The Qriptopian",          hint: "Editorial layer with Quill",     slug: "qripto",               tab: "qriptopia" },
+  { id: "qriptopian",       label: "The Qriptopian",          hint: "Editorial layer with Quill",     slug: "qripto",               tab: "scrolls" },
   { id: "marketa-propose",  label: "Marketa · Propose",       hint: "Pitch a partner / campaign",     slug: "marketa",              tab: "propose" },
   { id: "marketa-reports",  label: "Marketa · Reports",       hint: "Campaign performance",           slug: "marketa",              tab: "reports" },
   { id: "agentiq-alpha",    label: "AgentiQ · Alpha Program", hint: "Build plan + golden path",       slug: "aigentiq",             tab: "alpha-program" },
   { id: "venture-lab",      label: "Venture Lab α",           hint: "AgentiQ Lab workstream",         slug: "alpha-knyt",           tab: "alpha-programme" },
   { id: "agentiq-os",       label: "AgentiQ OS",              hint: "Developer cartridge",            slug: "agentiq-os-cartridge", tab: "os-readme" },
+  { id: "irl-os",           label: "IRL OS",                  hint: "Open research institute",        slug: "irl-os-cartridge",     tab: "irl-os-charter" },
 ];
 
 export function QuickLinksCard({

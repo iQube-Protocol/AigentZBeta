@@ -46,6 +46,7 @@ interface CommunityContentItem {
     personaId: string;
     firstName: string | null;
     handle: string | null;
+    fioHandle: string | null;
     isMe: boolean;
   };
   promotedToRuntime: boolean;
@@ -58,9 +59,18 @@ interface Props {
   personaId?: string;
   isAdmin?: boolean;
   theme?: "light" | "dark";
+  /**
+   * Cartridge filter. When set, only rows where
+   * community_generated_content.cartridge matches are returned by
+   * /api/community-content/list?cartridge=<cartridge>. Defaults to
+   * undefined (no filter — every cartridge) for back-compat with the
+   * existing KNYT cartridge mount, which historically expected the
+   * unfiltered list. The Qriptopian Pulse tab passes 'qripto'.
+   */
+  cartridge?: "knyt" | "qripto";
 }
 
-export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props) {
+export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridge }: Props) {
   const [items, setItems] = useState<CommunityContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +88,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
       } else {
         params.set("status", "shared,runtime_promoted");
       }
+      if (cartridge) params.set("cartridge", cartridge);
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
       let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
       try {
@@ -99,7 +110,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
     } finally {
       setLoading(false);
     }
-  }, [personaId, filter]);
+  }, [personaId, filter, cartridge]);
 
   useEffect(() => {
     void load();
@@ -263,7 +274,7 @@ function ContentCard({
           <p className="text-sm font-semibold text-white leading-tight line-clamp-2">{item.title}</p>
           <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
             <User className="h-3 w-3" />
-            {item.creator.firstName ?? item.creator.handle ?? "Creator"}
+            {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"}
             {item.qcCost > 0 && (
               <span className="ml-auto inline-flex items-center gap-0.5">
                 <Coins className="h-3 w-3 text-amber-400/60" />
@@ -341,7 +352,7 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
           <h1 className="text-xl font-bold text-white leading-tight">{item.title}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            By {item.creator.firstName ?? item.creator.handle ?? "Creator"}
+            By {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"}
           </p>
         </div>
         <div className="flex items-center gap-2">

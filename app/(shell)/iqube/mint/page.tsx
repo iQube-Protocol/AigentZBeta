@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
+import { personaFetch } from "@/utils/personaSpine";
 
 const NETWORKS = [
   { label: "Base Sepolia (testnet)", value: "base-sepolia" },
@@ -45,7 +46,7 @@ export default function MintQube() {
   async function loadTokens() {
     setTokensLoading(true);
     try {
-      const res = await fetch("/api/core/mint-tokenqube");
+      const res = await personaFetch("/api/core/mint-tokenqube");
       const data = await res.json();
       if (data.tokens) setTokens(data.tokens);
     } catch {
@@ -64,7 +65,7 @@ export default function MintQube() {
     setResult(null);
 
     try {
-      const response = await fetch("/api/core/mint-tokenqube", {
+      const response = await personaFetch("/api/core/mint-tokenqube", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metaIdentifier, recipientAddress: recipientAddress || undefined, network }),

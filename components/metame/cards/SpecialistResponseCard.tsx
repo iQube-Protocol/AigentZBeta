@@ -18,12 +18,15 @@ import React from "react";
 import {
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Pencil,
   Loader2,
   X,
   Bot,
 } from "lucide-react";
 import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "./PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface SpecialistResponseData {
   specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto";
@@ -37,6 +40,8 @@ export interface SpecialistResponseData {
   confidence: "low" | "medium" | "high";
   source: "llm" | "template";
   generatedAt: string;
+  preflightContext?: PreflightContext;
+  handoffFrom?: { specialistId: SpecialistResponseData["specialistId"]; priorTitle: string };
 }
 
 interface Props {
@@ -47,6 +52,13 @@ interface Props {
   onDismiss?: () => void;
   /** Click an artifact chip → request Aigent Me create it. */
   onCreateArtifact?: (artifactType: string) => void;
+  /**
+   * When set, the "Approval required to implement" footer pill becomes
+   * a button that scrolls to / opens the implement-approval surface
+   * (the second-tier approval on the matching artifact, or the
+   * suggested-artifact chips when no artifact has been drafted yet).
+   */
+  onRequestApproval?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -77,6 +89,7 @@ export function SpecialistResponseCard({
   using = ["PersonaQube", "ExperienceQube", "IntentQube"],
   onDismiss,
   onCreateArtifact,
+  onRequestApproval,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -88,6 +101,9 @@ export function SpecialistResponseCard({
   const chipClass = isDark
     ? "border-slate-700 text-slate-300 hover:border-violet-500/60"
     : "border-slate-300 text-slate-700 hover:border-violet-400";
+
+  // Must be declared before any early returns (Rules of Hooks).
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
 
   if (loading) {
     return (
@@ -115,19 +131,30 @@ export function SpecialistResponseCard({
 
   const conf = CONFIDENCE_META[data.confidence];
   const requestLabel = REQUEST_TYPE_LABELS[data.requestType] ?? data.requestType;
+  const hasDetails = data.recommendations.length > 0;
 
   return (
     <div className={`rounded-lg border p-5 ${surfaceClass} space-y-4`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Bot className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {data.specialistLabel} · {requestLabel}
             </span>
+            {data.handoffFrom && (
+              <span
+                className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${chipClass}`}
+                title={data.handoffFrom.priorTitle ? `Hand-off from ${data.handoffFrom.specialistId} — prior take: "${data.handoffFrom.priorTitle}"` : `Hand-off from ${data.handoffFrom.specialistId}`}
+              >
+                ← {data.handoffFrom.specialistId}
+              </span>
+            )}
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-lg font-semibold leading-tight">{data.title}</h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
         </div>
         <div className="flex items-start gap-2 shrink-0">
           {data.source === "template" && (
@@ -155,28 +182,12 @@ export function SpecialistResponseCard({
       {/* iQube disclosure */}
       <IqubeContextDisclosure using={using} theme={theme} />
 
-      {/* Recommendations */}
-      {data.recommendations.length > 0 && (
-        <section>
-          <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Recommendations
-          </h4>
-          <ul className="space-y-1.5 text-sm">
-            {data.recommendations.map((r, i) => (
-              <li key={i} className="flex gap-2 items-start">
-                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
-                <span>{r}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Suggested artifacts */}
+      {/* Suggested artifacts — always-visible primary CTAs so operator
+          never has to expand to find the action. */}
       {data.suggestedArtifacts.length > 0 && (
         <section>
           <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Suggested artifacts
+            Suggested next steps
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {data.suggestedArtifacts.map((a) => (
@@ -197,6 +208,35 @@ export function SpecialistResponseCard({
         </section>
       )}
 
+      {/* Expand toggle — text recommendations only, collapsed by default */}
+      {hasDetails && (
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          className={`flex items-center gap-1 text-xs uppercase tracking-wider ${accentClass} hover:opacity-80 transition`}
+          aria-expanded={detailsOpen}
+        >
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform ${detailsOpen ? "" : "-rotate-90"}`}
+          />
+          {detailsOpen ? "Hide further recommendations" : "Show further recommendations"}
+        </button>
+      )}
+
+      {/* Recommendations — behind toggle */}
+      {detailsOpen && data.recommendations.length > 0 && (
+        <section>
+          <ul className="space-y-1.5 text-sm">
+            {data.recommendations.map((r, i) => (
+              <li key={i} className="flex gap-2 items-start">
+                <ChevronRight className={`w-4 h-4 mt-0.5 shrink-0 ${accentClass}`} />
+                <span>{r}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Footer */}
       <footer
         className={`flex flex-wrap items-center gap-2 text-xs ${mutedClass} pt-3 border-t border-slate-800/40`}
@@ -205,9 +245,20 @@ export function SpecialistResponseCard({
           {conf.label}
         </span>
         {data.requiresApproval && (
-          <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
-            Approval required to implement
-          </span>
+          onRequestApproval ? (
+            <button
+              type="button"
+              onClick={onRequestApproval}
+              title="Jump to the approval gate for this recommendation"
+              className="px-2 py-0.5 rounded-full border border-amber-500/60 text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 hover:border-amber-400/80 transition cursor-pointer"
+            >
+              Approval required to implement →
+            </button>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
+              Approval required to implement
+            </span>
+          )
         )}
         <span className="ml-auto flex items-center gap-1">
           <Sparkles className="w-3 h-3" />

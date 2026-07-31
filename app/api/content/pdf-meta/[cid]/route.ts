@@ -23,10 +23,11 @@ const supabase = createClient(
 );
 
 interface RouteParams {
-  params: { cid: string };
+  params: Promise<{ cid: string }>;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   try {
     const cid = params?.cid;
     if (!cid) {

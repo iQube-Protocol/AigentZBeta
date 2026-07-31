@@ -8,6 +8,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { CodexConfig, CodexRegistryResponse } from '@/types/codex';
 import { getCodexById, getCodexBySlug } from '@/data/codex-configs';
+import {
+  satisfiesParticipationGate,
+  EMPTY_PARTICIPATION_ACCESS,
+  type ParticipationAccessState,
+} from '@/services/passport/participationTabGate';
 
 interface UseCodexConfigOptions {
   codexId: string;
@@ -133,6 +138,21 @@ export function hasCodexPermission(
  * `activeActivations` is the set of catalog ids that this persona has
  * an `active` row for in `persona_activations`. Pass an empty Set (the
  * default) to disable activation gating entirely.
+ *
+ * `cartridgeAdminGrants` is the per-cartridge admin grant set returned
+ * by /api/persona/cartridge-admin-grants. Tabs declaring
+ * `adminOfCartridge` are hidden unless the persona either holds a
+ * global uber/platform admin role OR has a tenant/franchise admin
+ * grant on the named cartridge. Default is the no-grants posture
+ * (every adminOfCartridge tab is hidden) — fail-closed.
+ *
+ * `participationAccess` is the caller's own participation grants
+ * (/api/participation/my-access). Tabs declaring `participationDomain`
+ * are the Tier 2 workspace views — visible to anyone holding an active
+ * grant in that domain WITHOUT platform admin (Horizen audit §B.3).
+ * The predicate itself lives in ONE place,
+ * services/passport/participationTabGate.ts, so no filter re-implements
+ * it; the default posture is not-loaded, i.e. fail-closed.
  */
 export function getEnabledTabs(
   codex: CodexConfig | undefined,
@@ -140,14 +160,25 @@ export function getEnabledTabs(
   isPartner = false,
   isInvestor = false,
   activeActivations: Set<string> = new Set(),
+  cartridgeAdminGrants: { isGlobalAdmin: boolean; cartridgeSlugs: Set<string> } = { isGlobalAdmin: false, cartridgeSlugs: new Set() },
+  participationAccess: ParticipationAccessState = EMPTY_PARTICIPATION_ACCESS,
 ) {
   if (!codex) return [];
   return codex.tabs
     .filter(tab => {
       if (!tab.enabled) return false;
       if (tab.adminOnly && !isAdmin) return false;
+      if (!satisfiesParticipationGate(tab, participationAccess, isAdmin)) return false;
       if (tab.partnerOnly && !isPartner && !isAdmin) return false;
       if (tab.investorOnly && !isInvestor && !isAdmin) return false;
+      // Per-cartridge admin gate — fail-closed when grants aren't set.
+      // A global admin satisfies any adminOfCartridge gate; otherwise
+      // the persona must hold an explicit grant on that cartridge slug.
+      if (tab.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(tab.adminOfCartridge)) {
+          return false;
+        }
+      }
       // Activation gate — tab-level
       if (tab.activationId && !activeActivations.has(tab.activationId)) return false;
       // Activation gate — inherited from group when not explicitly set on the tab

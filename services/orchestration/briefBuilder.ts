@@ -23,10 +23,16 @@ import {
   selectTopNbeForCartridge,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import { listRecentIntentsForPersona } from '@/services/iqube/intentQube';
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
+import { getCommercialSpineState } from '@/services/journey/commercialSpine';
+import { getPersonaPlan } from '@/services/billing/personaPlan';
+import { getPlanModelId } from '@/services/billing/planModelTier';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -48,6 +54,53 @@ async function readConnectedWorkspaceSources(personaId: string): Promise<GoogleS
   } catch {
     return [];
   }
+}
+
+/** How far back a completed intent suppresses its matching NBE candidate. */
+const COMPLETED_INTENT_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+
+/**
+ * Observer awareness (the AR/CPS rule, operator report 2026-07-14: the
+ * brief / move-forward kept re-recommending actions just completed): the
+ * names of intents this persona COMPLETED recently. Fed into NBE selection
+ * (matching candidates drop out of the pool) and into the rerank's
+ * liveContext (so contextual titles + the top-action reason acknowledge
+ * what is already done instead of asserting it as new work). Tolerant —
+ * failures return [] and the recommendation degrades to its pre-observer
+ * baseline rather than failing the surface.
+ */
+async function readRecentlyCompletedIntentNames(personaId: string): Promise<string[]> {
+  try {
+    const intents = await listRecentIntentsForPersona(personaId, { limit: 20 });
+    const cutoff = Date.now() - COMPLETED_INTENT_LOOKBACK_MS;
+    return intents
+      .filter((i) => i.status === 'completed' && Date.parse(i.createdAt) >= cutoff)
+      .map((i) => i.intentName)
+      .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fold the observed completion state into the rerank's liveContext. The
+ * completion block goes FIRST so it survives the rerank prompt's 600-char
+ * liveContext cap even when a preflight summary is long. Pure.
+ */
+function foldCompletedIntoLiveContext(
+  liveContext: string | null | undefined,
+  recentlyCompletedNames: string[],
+): string | null {
+  const completedBlock =
+    recentlyCompletedNames.length > 0
+      ? `Recently completed by the operator (observed from the IntentQube record — do NOT re-recommend these; acknowledge them and pick the next move):\n${recentlyCompletedNames
+          .map((n) => `- ${n}`)
+          .join('\n')}`
+      : null;
+  const parts = [completedBlock, liveContext].filter(
+    (s): s is string => typeof s === 'string' && s.trim().length > 0,
+  );
+  return parts.length > 0 ? parts.join('\n\n') : null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -106,12 +159,29 @@ export interface BriefShape {
    * call ran or the call failed.
    */
   topNbeReason?: string | null;
+  /**
+   * Optional per-NBA compose / action prompt hints keyed by NBA id.
+   * Produced by the LLM rerank pass alongside `topNbeReason`. Empty
+   * record when no LLM call ran or the call returned no usable hints.
+   * Surfaces as the "aigentMe's take" italic line under each NBA card
+   * and seeds composerInitialPrompt when Act maps to a compose modal.
+   */
+  nbaContextualTitles?: Record<string, string>;
+  nbaPromptHints?: Record<string, string>;
   /** Counts of pending approvals. Surfaced in the brief header. */
   pendingApprovalsCount: number;
   /** iQube usage disclosure for the calling surface to render. */
   using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
   /** Categories explicitly NOT shared. */
   notShared: string[];
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT is enabled for the `brief` surface and
+   * the gather succeeded. Cards render `summary` as a small
+   * "aigentMe researched: …" byline; `workOrderId` is for receipt
+   * correlation, never displayed as a primary identifier.
+   */
+  preflightContext?: PreflightContext;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -128,6 +198,14 @@ export interface BuildBriefInput {
   scopedCartridge?: ActiveCartridgeSlug;
   /** Defaults — if no ExperienceQube configured we still produce a useful brief. */
   defaultActiveCartridges?: ActiveCartridgeSlug[];
+  /**
+   * Optional fresh signal from the Capability Gateway pre-flight pass
+   * (e.g. web-search digest). Routed into the LLM rerank prompt as
+   * `liveContext` so the model can use it to break ties / boost a
+   * candidate whose rationale lines up with the signal. Ignored when
+   * the LLM rerank pass is off or the value is empty.
+   */
+  liveContext?: string | null;
 }
 
 const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
@@ -135,7 +213,7 @@ const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
   knyt: 'Move KNYT forward',
   qriptopian: 'Advance The Qriptopian',
   marketa: 'Push partner / campaign motion',
-  avl: 'Tighten venture progress',
+  mvl: 'Tighten venture progress',
 };
 
 function buildGuidanceNote(
@@ -153,13 +231,26 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan, recentlyCompletedNames] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    readRecentlyCompletedIntentNames(input.personaId),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
+
+  // Commercial-spine stage completion map — gates the golden-path NBE candidates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges =
     qube?.meta.activeCartridges ?? input.defaultActiveCartridges ?? ['metame'];
@@ -197,6 +288,8 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
+        recentlyCompletedNames,
       })
     : selectNbeCandidates({
         activeCartridges,
@@ -205,6 +298,8 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         workspaceConnected,
         experienceGoals,
         stageAdvanceEligible,
+        spineStagesComplete,
+        recentlyCompletedNames,
       });
 
   const rerank = await llmRerankNbeCandidates(nbeCandidates, {
@@ -213,9 +308,14 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     primaryGoal,
     experienceGoals,
     strategy,
+    operatorArchetype: qube?.meta.operatorArchetype ?? null,
+    liveContext: foldCompletedIntoLiveContext(input.liveContext, recentlyCompletedNames),
+    modelOverride,
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
+  const nbaPromptHints = rerank.nbaPromptHints;
+  const nbaContextualTitles = rerank.nbaContextualTitles;
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -263,6 +363,8 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     topPriorities,
     nextBestActions,
     topNbeReason,
+    nbaContextualTitles,
+    nbaPromptHints,
     pendingApprovalsCount: 0, // Phase 6 wires this.
     using,
     notShared: [
@@ -285,8 +387,13 @@ export interface MoveForwardShape {
   alternates: BriefNextBestAction[];
   /** ≤140-char rationale for the top pick from the LLM rerank pass. */
   topActionReason?: string | null;
+  /** See `BriefShape.nbaPromptHints` — same shape, same meaning. */
+  nbaContextualTitles?: Record<string, string>;
+  nbaPromptHints?: Record<string, string>;
   using: BriefShape['using'];
   notShared: string[];
+  /** See `BriefShape.preflightContext` — same shape, same meaning. */
+  preflightContext?: PreflightContext;
 }
 
 export async function buildMoveForward(input: {
@@ -297,14 +404,31 @@ export async function buildMoveForward(input: {
    * Use the explicit form when the user has steered to a specific cartridge.
    */
   cartridge?: ActiveCartridgeSlug;
+  /** See `BuildBriefInput.liveContext` — same meaning. */
+  liveContext?: string | null;
 }): Promise<MoveForwardShape> {
-  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
+  const adminClient = getSupabaseServer();
+  const [qube, guide, workspaceConnected, strategy, stageEval, spine, personaPlan, recentlyCompletedNames] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
     evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
+    adminClient
+      ? getCommercialSpineState(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    adminClient
+      ? getPersonaPlan(adminClient, input.personaId).catch(() => null)
+      : Promise.resolve(null),
+    readRecentlyCompletedIntentNames(input.personaId),
   ]);
+  const modelOverride = getPlanModelId(personaPlan);
+
+  // Mirror buildBrief: populate spineStagesComplete so golden-path NBEs
+  // (establish-standing, open-founder-office, advance-venture-lab) surface
+  // correctly via their spineStagePrereq/spineStageNotComplete gates.
+  const spineStagesComplete: Record<string, boolean> = {};
+  for (const s of spine?.stages ?? []) spineStagesComplete[s.id] = s.complete;
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
@@ -323,12 +447,16 @@ export async function buildMoveForward(input: {
   let topCandidate: NbeCandidate | null;
   let altsRaw: NbeCandidate[];
   let topActionReason: string | null = null;
+  let nbaPromptHints: Record<string, string> = {};
+  let nbaContextualTitles: Record<string, string> = {};
 
   if (input.cartridge) {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
+      recentlyCompletedNames,
     });
     altsRaw = selectNbeCandidates({
       activeCartridges,
@@ -338,6 +466,8 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
+      recentlyCompletedNames,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
     const baseline = selectNbeCandidates({
@@ -347,6 +477,8 @@ export async function buildMoveForward(input: {
       workspaceConnected,
       experienceGoals,
       stageAdvanceEligible,
+      spineStagesComplete,
+      recentlyCompletedNames,
     });
     const rerank = await llmRerankNbeCandidates(baseline, {
       currentStage,
@@ -354,10 +486,15 @@ export async function buildMoveForward(input: {
       primaryGoal,
       experienceGoals,
       strategy,
+      operatorArchetype: qube?.meta.operatorArchetype ?? null,
+      liveContext: foldCompletedIntoLiveContext(input.liveContext, recentlyCompletedNames),
+      modelOverride,
     });
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);
     topActionReason = rerank.topReason;
+    nbaPromptHints = rerank.nbaPromptHints;
+    nbaContextualTitles = rerank.nbaContextualTitles;
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
@@ -401,6 +538,8 @@ export async function buildMoveForward(input: {
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
     topActionReason,
+    nbaContextualTitles,
+    nbaPromptHints,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
       : ['PersonaQube', 'IntentQube'],

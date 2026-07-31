@@ -20,7 +20,8 @@
     "https://*.aigentz.me",
     "https://*.netlify.app",
     "http://localhost:*",
-    "http://127.0.0.1:*"
+    "http://127.0.0.1:*",
+    "chrome-extension://iilmfkmooabjinenhphppmdgiemhieef"
   ],
   "authAllowedOrigins": [
     "https://qriptopia.com",

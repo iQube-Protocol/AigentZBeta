@@ -7,7 +7,7 @@
  * Body (all optional):
  *   {
  *     briefType?: 'daily' | 'project' | 'cartridge',  // default 'daily'
- *     scopedCartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl',
+ *     scopedCartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'mvl',
  *   }
  *
  * Response: BriefShape (services/orchestration/briefBuilder.ts).
@@ -30,6 +30,9 @@ import {
   buildBrief,
   type BriefType,
 } from '@/services/orchestration/briefBuilder';
+import { runPreflightGather } from '@/services/capabilities/preflight';
+import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
+import { refreshCapabilityStandingFromActivity } from '@/services/crm/standingAccrualService';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -40,7 +43,7 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
   'knyt',
   'qriptopian',
   'marketa',
-  'avl',
+  'mvl',
 ];
 
 interface PostBody {
@@ -84,14 +87,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { briefType, scopedCartridge } = sanitiseBody(raw);
 
   try {
+    // Capability Gateway — Pattern A pre-flight gather. Surface id is
+    // 'brief' so the env allowlist can target this independently. The
+    // query reflects which brief variant the user asked for so a future
+    // search tool can return audience-appropriate context.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: 'brief',
+      query: `aigentMe ${briefType} brief${scopedCartridge ? ` for ${scopedCartridge}` : ''}`,
+      cartridge: scopedCartridge ?? 'metame',
+    });
+
+    // 2026-05-26 chief-of-staff extension: fold admin-tier signals
+    // into liveContext when the persona admins any cartridge. The
+    // recommender uses this to bias toward chief-of-staff moves
+    // (review queues, partner ops) over ground-level operator moves.
+    // No-op for non-admins.
+    const adminSummary = await summarizeCartridgeAdminContext(
+      context.personaId,
+      context.cartridgeFlags.adminCartridges,
+      context.cartridgeFlags.isAdmin,
+    );
+    const liveContext = [preflight?.summary, adminSummary]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      .join('\n\n') || null;
+
+    // Refresh Capability Standing from live VentureQube signals on each Brief engagement.
+    void refreshCapabilityStandingFromActivity(context.personaId);
+
     const brief = await buildBrief({
       personaId: context.personaId,
       briefType,
       scopedCartridge,
+      liveContext,
     });
-    return NextResponse.json(brief, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...brief, preflightContext: preflight } : brief,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/brief] build failed: ${msg}`);

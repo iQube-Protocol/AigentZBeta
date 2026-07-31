@@ -4,10 +4,11 @@ import { fetchAndFingerprint } from "@/services/registry/fetcherService";
 import { classifySource } from "@/services/registry/classifierService";
 import { packageAsset } from "@/services/registry/packagerService";
 
-type Params = { params: { intakeId: string } };
+type Params = { params: Promise<{ intakeId: string }> };
 
 /** GET /api/registry/intake/[intakeId] */
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(_req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const intake = await getIntake(params.intakeId);
     if (!intake) {
@@ -27,7 +28,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
  *   { action: "classify" }   — run ClassifierService (requires sourceId)
  *   { action: "package" }    — run PackagerService (requires sourceId + classification)
  */
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const body = await req.json() as Record<string, unknown>;
     const action = body.action as string;
@@ -106,7 +108,8 @@ export async function POST(req: NextRequest, { params }: Params) {
  * Published items (currentStage = "asset.published") are rejected to prevent
  * orphaning live registry entries.
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const intake = await getIntake(params.intakeId);
     if (!intake) {

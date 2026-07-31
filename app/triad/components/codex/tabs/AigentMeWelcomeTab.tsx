@@ -55,6 +55,7 @@ import { StageProgressionChip } from "@/components/metame/welcome/StageProgressi
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { CartridgeSetupWizard } from "@/components/metame/setup/CartridgeSetupWizard";
 import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
 import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
 import {
@@ -78,6 +79,7 @@ import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierAppr
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ContactsImportPanel } from "@/components/metame/connections/ContactsImportPanel";
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
 import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
@@ -134,7 +136,7 @@ const CONTEXT_CHIPS = [
   'KNYT',
   'The Qriptopian',
   'Marketa',
-  'AVL',
+  'MVL',
   'Metayé Media',
   'Google Workspace',
 ];
@@ -149,6 +151,13 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [expModel, setExpModel] = useState<ExperienceModelCardData | null>(null);
   const [expModelLoading, setExpModelLoading] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Phase 6 — CartridgeSetupWizard state. Wizard opens via the
+  // 'set-up-cartridge' CTA id; the chip rendering lands when bootstrap
+  // surfaces the entry in its `primaryCtas` list. Phase 7's operator
+  // manager surface will read the newly-created cartridge directly.
+  // See codexes/packs/agentiq/updates/2026-06-02_mycartridge-phase-6-wizard.md.
+  const [cartridgeWizardOpen, setCartridgeWizardOpen] = useState(false);
 
   // Phase 3 — brief + move-forward state.
   const [brief, setBrief] = useState<BriefCardData | null>(null);
@@ -420,6 +429,15 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') {
       setWizardOpen(true);
+      return;
+    }
+    if (ctaId === 'set-up-cartridge') {
+      // Phase 6 — myCartridge wizard. Bootstrap doesn't surface this CTA in
+      // the chip strip yet; the always-visible button next to the
+      // ExperienceModel wizard mount triggers it directly. Wired here so
+      // the chip strip can route to it once Phase 7 adds the bootstrap
+      // entry.
+      setCartridgeWizardOpen(true);
       return;
     }
     if (ctaId === 'brief-me') {
@@ -1218,6 +1236,14 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
         } : undefined}
         onSaved={handleWizardSaved}
       />
+      <CartridgeSetupWizard
+        open={cartridgeWizardOpen}
+        onOpenChange={setCartridgeWizardOpen}
+        onSaved={() => {
+          // The wizard closes itself on save; Phase 7's operator manager
+          // surface will refresh the cartridge list. No-op for Phase 6.
+        }}
+      />
     </>
   );
 }
@@ -1996,6 +2022,18 @@ function AigentMeWelcomeBody({
             accentClass={accentClass}
           >
             <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+          </CollapsibleSection>
+
+          {/* Contacts — import from Google or iPhone vCard. */}
+          <CollapsibleSection
+            title="Contacts"
+            summary="Import from Google Contacts or iPhone vCard — searchable address book for aigentMe"
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            <ContactsImportPanel theme={theme} />
           </CollapsibleSection>
 
           {/* Active context chips — collapsible. */}

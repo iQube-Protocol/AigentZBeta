@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useRouter } from "next/navigation";
 import { liquidTemplateRegistry } from "@/app/triad/components/codex/liquidTemplates/registry";
@@ -8,7 +8,21 @@ import { LiquidUIPlaceholderTemplate } from "@/app/triad/components/codex/liquid
 import { ExperienceBlockHeader } from "@/components/composer/ExperienceBlockChrome";
 import SkillVideoPlayer from "@/components/composer/SkillVideoPlayer";
 import SkillImagePlayer from "@/components/composer/SkillImagePlayer";
-import { BookOpen, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+import { Award, BookOpen, CheckSquare, ChevronDown, ChevronUp, Headphones, Loader2, PencilLine, Square } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
+
+/**
+ * Formats a rail value for display. Costs are typically Q¢ and rewards $KNYT,
+ * but either rail is supported on either field via an explicit asset. Q¢ renders
+ * in canonical USD-primary form ($1 = 100 Q¢) with the Q¢ count as a secondary;
+ * $KNYT renders as a token count. Returns "" for non-positive amounts.
+ */
+function formatRailValue(amount: number, asset: string): string {
+  if (!Number.isFinite(amount) || amount <= 0) return "";
+  const normalized = asset.replace(/\s/g, "").toUpperCase();
+  if (normalized === "KNYT" || normalized === "$KNYT") return `${amount} $KNYT`;
+  return `$${(amount / 100).toFixed(2)} · ${amount} Q¢`;
+}
 
 type ArticleDraftSection = {
   heading: string;
@@ -43,12 +57,50 @@ function buildTTSText(article: {
 function CompositionBundleBrief({
   packet,
   experienceId,
+  canEdit = false,
+  costAmount = 0,
+  costAsset = "Q¢",
+  rewardAmount = 0,
+  rewardAsset = "Q¢",
+  cartridgeSlug = "",
 }: {
   packet: Record<string, any>;
   experienceId: string;
+  canEdit?: boolean;
+  costAmount?: number;
+  costAsset?: string;
+  rewardAmount?: number;
+  rewardAsset?: string;
+  cartridgeSlug?: string;
 }) {
+  const rewardLabel = formatRailValue(rewardAmount, rewardAsset);
+  const costLabel = formatRailValue(costAmount, costAsset);
   const router = useRouter();
   const [articleExpanded, setArticleExpanded] = useState(false);
+  // Consumer task-runner completion state. Persisted to localStorage for UX
+  // reactivity only — the durable record (and reward/reputation distribution)
+  // is Workstream C, which posts a task-completion receipt the cartridge
+  // treasury/registry consumes.
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
+  // C-b: when every task is checked we POST a completion that grants the
+  // configured reward + reputation. hasSubmitted guards against duplicate
+  // POSTs; completionNotice surfaces the grant result to the consumer.
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [completionNotice, setCompletionNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`exp_tasks_${experienceId}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setCompletedTasks(new Set(parsed.filter((x): x is string => typeof x === "string")));
+        }
+      }
+    } catch {
+      /* ignore corrupt localStorage */
+    }
+  }, [experienceId]);
   const { ttsState, handleListen } = useTTSPlayer({
     getText: () => buildTTSText(
       articleGenerated ?? {
@@ -113,6 +165,62 @@ function CompositionBundleBrief({
     articleTakeaways.length > 0 ||
     articleGlossary.length > 0 ||
     Boolean(articleGenerated?.nextAction);
+  const completedCount = nextActions.filter((task) => completedTasks.has(task)).length;
+
+  // C-b: fire the live grant once all tasks are complete. Partial progress
+  // stays client-side (localStorage). On 200/409 the server is the SoT, so we
+  // clear localStorage and surface the grant result. personaFetch attaches the
+  // Bearer token — raw fetch would 401 against the spine-resolved route.
+  const fireCompletion = (tasks: Set<string>) => {
+    if (hasSubmitted) return;
+    if (nextActions.length === 0 || tasks.size < nextActions.length) return;
+    setHasSubmitted(true);
+    void personaFetch("/api/experience/complete-tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        experienceId,
+        completedTasks: [...tasks],
+        totalTasks: nextActions.length,
+        cartridgeSlug,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok && res.status !== 409) {
+          setHasSubmitted(false);
+          return;
+        }
+        try {
+          window.localStorage.removeItem(`exp_tasks_${experienceId}`);
+        } catch {
+          /* ignore */
+        }
+        const data = await res.json().catch(() => null);
+        const g = data?.grant as { asset?: string; amount?: number } | null | undefined;
+        if (g && Number(g.amount) > 0) {
+          setCompletionNotice(`Completed — earned ${formatRailValue(Number(g.amount), g.asset === "KNYT" ? "KNYT" : "Q¢")}`);
+        } else {
+          setCompletionNotice("Completed");
+        }
+      })
+      .catch(() => setHasSubmitted(false));
+  };
+
+  const toggleTask = (task: string) => {
+    const next = new Set(completedTasks);
+    if (next.has(task)) next.delete(task);
+    else next.add(task);
+    setCompletedTasks(next);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(`exp_tasks_${experienceId}`, JSON.stringify([...next]));
+      } catch {
+        /* ignore quota / serialization errors */
+      }
+    }
+    fireCompletion(next);
+  };
+
   if (!composition && !articleDraft) return null;
 
   const handleEditDraft = () => {
@@ -249,14 +357,16 @@ function CompositionBundleBrief({
                   <span>{articleExpanded ? "Collapse" : "Read Draft"}</span>
                   {articleExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleEditDraft}
-                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
-                >
-                  <PencilLine className="h-3.5 w-3.5" />
-                  <span>Edit Draft</span>
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={handleEditDraft}
+                    className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                    <span>Edit Draft</span>
+                  </button>
+                ) : null}
               </>
             }
             className="flex items-center justify-between pb-3"
@@ -325,40 +435,101 @@ function CompositionBundleBrief({
                 <BookOpen className="h-3.5 w-3.5" />
                 <span>{articleExpanded ? "Show Summary" : "Read Full Draft"}</span>
               </button>
-              <button
-                type="button"
-                onClick={handleEditDraft}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
-              >
-                <PencilLine className="h-3.5 w-3.5" />
-                <span>Edit in Customizer</span>
-              </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={handleEditDraft}
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-700 px-2.5 py-1 text-[11px] text-slate-200 transition hover:border-slate-500 hover:text-white"
+                >
+                  <PencilLine className="h-3.5 w-3.5" />
+                  <span>Edit in Customizer</span>
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
       ) : null}
 
       <div className="mt-3 space-y-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Sequencing</div>
-          <div className="mt-2 space-y-1 text-xs text-slate-400">
-            {sequencing.map((step) => (
-              <div key={step}>{step}</div>
-            ))}
+        {sequencing.length > 0 ? (
+          <div>
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Sequencing</div>
+            <div className="mt-2 space-y-1 text-xs text-slate-400">
+              {sequencing.map((step) => (
+                <div key={step}>{step}</div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Next Actions</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {nextActions.map((item) => (
-              <span
-                key={item}
-                className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
-              >
-                {item}
-              </span>
-            ))}
+          <div className="flex items-center justify-between">
+            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+              {canEdit ? "Next Actions" : "Your tasks"}
+            </div>
+            {!canEdit && nextActions.length > 0 ? (
+              <div className="text-[11px] text-slate-500">
+                {completedCount}/{nextActions.length} complete
+              </div>
+            ) : null}
           </div>
+          {!canEdit && (rewardLabel || costLabel) ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {rewardLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+                  <Award className="h-3.5 w-3.5" /> Earn {rewardLabel}
+                </span>
+              ) : null}
+              {costLabel ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200">
+                  Unlock {costLabel}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {!canEdit && completionNotice ? (
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] text-emerald-200">
+              <Award className="h-3.5 w-3.5" /> {completionNotice}
+            </div>
+          ) : null}
+          {canEdit ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {nextActions.map((item) => (
+                <span
+                  key={item}
+                  className="rounded-full border border-slate-700 bg-slate-900/70 px-2.5 py-1 text-[11px] text-slate-300"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          ) : nextActions.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              {nextActions.map((item) => {
+                const done = completedTasks.has(item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleTask(item)}
+                    className={`flex w-full items-start gap-2 rounded-xl border px-3 py-2 text-left text-xs transition ${
+                      done
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                        : "border-slate-700 bg-slate-900/60 text-slate-200 hover:border-slate-500"
+                    }`}
+                  >
+                    {done ? (
+                      <CheckSquare className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                    ) : (
+                      <Square className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+                    )}
+                    <span className={done ? "line-through opacity-80" : ""}>{item}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-slate-500">No tasks for this experience yet.</div>
+          )}
         </div>
       </div>
     </div>
@@ -370,6 +541,7 @@ type ExperienceQube = {
   name: string;
   description?: string;
   configuration?: Record<string, any>;
+  metadata?: Record<string, any>;
 };
 
 interface ExperienceLiquidRendererProps {
@@ -377,6 +549,9 @@ interface ExperienceLiquidRendererProps {
   packet: Record<string, any> | null;
   theme?: "light" | "dark";
   personaId?: string;
+  /** When false, all authoring/editing affordances are hidden and the consumer
+      task-runner is shown instead. Resolved admin-side by the host viewer. */
+  canEdit?: boolean;
 }
 
 export function ExperienceLiquidRenderer({
@@ -384,8 +559,25 @@ export function ExperienceLiquidRenderer({
   packet,
   theme = "dark",
   personaId,
+  canEdit = false,
 }: ExperienceLiquidRendererProps) {
   const templateKey = packet?.ui?.primary_template as string | undefined;
+
+  // Reward/cost rails live on the experience config. Costs default to Q¢ and
+  // rewards to Q¢ for back-compat, but either field accepts an explicit asset
+  // (e.g. $KNYT rewards) via *_asset. Surfaced read-only in the task runner.
+  const walletRewards = (experience.configuration?.wallet_rewards ?? {}) as Record<string, any>;
+  const costAmount = Number(walletRewards.unlock_price || 0);
+  const costAsset = typeof walletRewards.unlock_asset === "string" ? walletRewards.unlock_asset : "Q¢";
+  const rewardAmount = Number(walletRewards.reward_amount || 0);
+  const rewardAsset = typeof walletRewards.reward_asset === "string" ? walletRewards.reward_asset : "Q¢";
+  // Cartridge that published this experience to the runtime — drives the
+  // C-b completion grant's tenant/treasury routing. Read from the runtime
+  // publication metadata (same field ComposerExperienceViewer resolves).
+  const cartridgeSlug =
+    typeof (experience.metadata?.runtime_publication as { cartridge_id?: unknown } | undefined)?.cartridge_id === "string"
+      ? ((experience.metadata?.runtime_publication as { cartridge_id?: string }).cartridge_id as string)
+      : "";
 
   if (!packet) {
     return (
@@ -399,7 +591,16 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:video_player_v1" && packet.skill) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
+        <CompositionBundleBrief
+          packet={packet}
+          experienceId={experience.id}
+          canEdit={canEdit}
+          costAmount={costAmount}
+          costAsset={costAsset}
+          rewardAmount={rewardAmount}
+          rewardAsset={rewardAsset}
+          cartridgeSlug={cartridgeSlug}
+        />
         <SkillVideoPlayer
           skill_id={packet.skill.skill_id}
           prompt={packet.skill.prompt}
@@ -414,6 +615,9 @@ export function ExperienceLiquidRenderer({
           persona_id={personaId}
           initial_generation_id={packet.skill.generation_id}
           initial_venice_model={packet.skill.venice_model_for_status}
+          segment_prompts={
+            Array.isArray(packet.skill.segment_prompts) ? packet.skill.segment_prompts : undefined
+          }
           packet={packet}
           experience={experience}
         />
@@ -424,7 +628,16 @@ export function ExperienceLiquidRenderer({
   if (templateKey === "skill:image_player_v1" && packet.image_generation) {
     return (
       <>
-        <CompositionBundleBrief packet={packet} experienceId={experience.id} />
+        <CompositionBundleBrief
+          packet={packet}
+          experienceId={experience.id}
+          canEdit={canEdit}
+          costAmount={costAmount}
+          costAsset={costAsset}
+          rewardAmount={rewardAmount}
+          rewardAsset={rewardAsset}
+          cartridgeSlug={cartridgeSlug}
+        />
         <SkillImagePlayer
           provider_id={packet.image_generation.provider_id}
           portrait_prompt={packet.image_generation.portrait_prompt}
