@@ -25,10 +25,10 @@
  *   - aigentme-welcome:                  metame-codex (tab aigent-me)
  *   - agent-card:                        app/api/agents/moneypenny/route.ts (JSON API, not a tab)
  *   - pulse-transparency-toggle:         PulseTransparencyToggle (built GJR-VFY-001 Phase 2, 2026-07-31)
+ *   - marketa-eligibility-view:          MarketaEligibilityView (built GJR-MKT-001 Phase 5, 2026-07-31)
  *
- * Confirmed genuinely absent — 'component-new' entries are the case-by-case
- * exception §5.2/§5.9 require, never a default, each justified in §22:
- *   - marketa-eligibility-view (Phase 3/4, not yet built)
+ * No 'component-new' entries remain as of Phase 5 — every stage's surface is
+ * built (only 'horizen-registry-agent-page', below, stays unresolved).
  *
  * Unresolved, cannot be guessed (CLAUDE.md's no-guessing rule) — 'external-
  * url-unresolved': Horizen's human-browsable registry page. Only Horizen's
@@ -98,15 +98,15 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'fabricating a toggle when Register has not completed.',
   },
   'marketa-eligibility-view': {
-    kind: 'component-new',
+    kind: 'component',
     component: 'MarketaEligibilityView',
-    status: 'to-build',
-    trackedIn: '§22 Claim row',
     note:
-      'Confirmed absent for this domain 2026-07-31: MarketaActivationEngineTab is a real but ' +
-      'domain-mismatched surface (revenue/marketing-lane recruitment). ' +
-      'services/passport/externalAgentAdmission.ts states no Marketa vetting workflow is implemented. ' +
-      'Must wrap that service’s real eligibility logic, never the marketing-lane tab.',
+      'Built GJR-MKT-001 Phase 5 (2026-07-31, components/journey/MarketaEligibilityView.tsx) — ' +
+      'wraps the real deterministic engine (services/marketa/admissionAssessmentEngine.ts) via ' +
+      'POST /api/journey/moneypenny-horizen/claim/prove-control, never the domain-mismatched ' +
+      'marketing-lane MarketaActivationEngineTab. Wallet control is proven and Marketa\'s FINAL ' +
+      'assessment runs together, server-side — Control Before Recommendation is structural, not a ' +
+      'UI ordering convention.',
   },
   'passport-bureau-apply': {
     kind: 'embed',

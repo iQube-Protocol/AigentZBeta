@@ -31,6 +31,7 @@ import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPenny
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
+import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -98,6 +99,7 @@ function RotatingStatusLine({ slides }: { slides: Array<{ key: string; node: Rea
 const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
   AgentCardSurface,
   PulseTransparencyToggle,
+  MarketaEligibilityView,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
