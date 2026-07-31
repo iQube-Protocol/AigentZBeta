@@ -85,6 +85,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   const domain = domainStillGranted ? observation!.currentTabDomain! : null;
 
+  // The observed tab TITLE — same grant, same revocation-live check as the
+  // domain above (title was captured under the identical 'current-tab'
+  // observation, gated the identical way). Not a new observation: the
+  // extension has always sent `document.title` (content.js) and this route
+  // has always read it internally for `composeGenericOverlayCard`'s search
+  // hint — it was simply never returned to the client. Exposing it lets a
+  // caller (the Companion embed) rank Quick Links against the page's actual
+  // identity rather than only its host, without granting anything new.
+  const title = domainStillGranted ? (observation!.currentTabTitle ?? null) : null;
+
   // P5 — the full resolution path: ratified code seed, then promoted profile,
   // then abstention. `shapeForDomain` remains the pure seed-only path used by
   // canaries and any sync caller; this route needs the storage tier too.
@@ -131,7 +141,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // is stated -- the citizen decides whether to look. Presenting the card
     // here would be the assertion L3 forbids.
     return NextResponse.json(
-      { ok: true, domain, shape: null, card: null, reason: null, provisional },
+      { ok: true, domain, title, shape: null, card: null, reason: null, provisional },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -157,12 +167,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (reason === 'domain-unmapped' && domain) {
       const card = await composeGenericOverlayCard(persona, observation?.currentTabTitle, domain);
       return NextResponse.json(
-        { ok: true, domain, shape: 'generic', card, reason: null },
+        { ok: true, domain, title, shape: 'generic', card, reason: null },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
     return NextResponse.json(
-      { ok: true, domain, shape: null, card: null, reason },
+      { ok: true, domain, title, shape: null, card: null, reason },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   }
@@ -170,7 +180,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const card = await composeOverlayCard(shape, persona, observation?.currentTabTitle, domain);
 
   return NextResponse.json(
-    { ok: true, domain, shape, card, reason: null },
+    { ok: true, domain, title, shape, card, reason: null },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

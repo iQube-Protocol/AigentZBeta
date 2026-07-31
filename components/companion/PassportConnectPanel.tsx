@@ -77,7 +77,7 @@ type ConnectState =
   | { kind: "choose-wallet"; addresses: string[] } // D (renamed from `choose` — ruling 3)
   | { kind: "link-passport"; address: string } // NEW — "present Passport" (ruling 1)
   | { kind: "choose-persona"; transactionToken: string; personas: PersonaChoice[]; passport: PassportFacts } // NEW (ruling 2)
-  | { kind: "connected"; passport: PassportFacts } // E
+  | { kind: "connected"; passport: PassportFacts; handoffUrl?: string } // E
   | { kind: "working"; step: string }
   | { kind: "error"; message: string };
 
@@ -399,11 +399,38 @@ export function PassportConnectPanel({
       // above landed exactly where the app reads them — so a handoff tab
       // would redeem a second grant for a world that already has one. Skip.
       if (world === "companion" && typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
-        window.open(
-          `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`,
-          "_blank",
-          "noreferrer",
-        );
+        const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`;
+
+        // POPUP-BLOCKED DETECTION (bug fix, 2026-07-31: "Passport sign-in
+        // doesn't connect on non-metaMe sites"). This `window.open` is the
+        // ONLY thing that completes the crossing for a non-metaMe site — the
+        // same-origin pairing in `background.js`'s `isCompanionAppUrl` gate
+        // is deliberately refused there, so THIS panel's handoff is load-
+        // bearing, not a redundant nicety. By the time this line runs, the
+        // original click has passed through `fetch`/`await` at least three
+        // times (finalize → verifyOtp → the resolved-persona read) — long
+        // enough that several browsers (Safari and Firefox reliably; Chrome
+        // on a slow connection) no longer treat the call as tied to the
+        // user's original gesture and silently block the popup. A blocked
+        // popup returns `null` (or an already-closed `Window`) with NO thrown
+        // error, so the citizen saw "Connected" here while the top-level app
+        // tab — the actual site they were trying to sign into — never
+        // received its session. Trusting `connected` unconditionally here
+        // would be exactly the "No Simulated Completion" defect CLAUDE.md
+        // forbids: claiming a crossing that did not happen. Detect it and
+        // offer a manual, one-click fallback (a real user gesture, so it is
+        // never blocked) instead of a silent dead end.
+        let popup: Window | null = null;
+        try {
+          popup = window.open(handoffUrl, "_blank", "noreferrer");
+        } catch {
+          popup = null;
+        }
+        if (!popup || popup.closed) {
+          setState({ kind: "connected", passport: fin.passport as PassportFacts, handoffUrl });
+          onConnected?.();
+          return;
+        }
       }
 
       setState({ kind: "connected", passport: fin.passport as PassportFacts }); // E
@@ -603,6 +630,21 @@ export function PassportConnectPanel({
             Your Passport established this session.
             {state.passport?.passportClass ? ` Class: ${state.passport.passportClass}.` : ""}
           </p>
+          {state.handoffUrl ? (
+            <>
+              <p className="max-w-[22rem] text-xs text-amber-300">
+                Your browser blocked the automatic handoff to this site&apos;s tab, so it has not
+                signed in yet.
+              </p>
+              <button
+                type="button"
+                onClick={() => window.open(state.handoffUrl, "_blank", "noreferrer")}
+                className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
+              >
+                Finish signing in on this site
+              </button>
+            </>
+          ) : null}
           <p className="max-w-[22rem] text-[11px] text-slate-500">
             Agent Me delegation is separate from access — if it is not active yet, activate it from
             your wallet.

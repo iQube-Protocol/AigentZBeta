@@ -115,6 +115,33 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
 
   const journey = HORIZEN_MONEYPENNY_JOURNEY;
 
+  // Companion Quick Links context signal (bug fix, 2026-07-31: "Companion
+  // quick-links defaulting to stale KNYT set" while this pilot is active).
+  //
+  // The Companion (the extension's side panel/popup, `app/(embed)/triad/
+  // embed/companion/page.tsx`) runs in its own window — it cannot see a
+  // same-document `journey:select-stage` CustomEvent. What it CAN see is the
+  // browser's OBSERVED TAB TITLE, which the extension already captures and
+  // forwards under the existing 'current-tab' grant
+  // (`extension/companion-observer/content.js`'s `document.title` read,
+  // `GET /api/companion/overlay`'s `title` field). This tab otherwise leaves
+  // `document.title` at the app's generic default, so that signal is inert
+  // for this exact page. Setting it here — to text matching this component's
+  // own on-screen header ("metaMe × Horizen") and the journey's own label
+  // (`HORIZEN_MONEYPENNY_JOURNEY.stages[0]`'s parent label, "Constitutional
+  // Admission Journey") — makes the signal true only while this stage view is
+  // genuinely mounted, and restores the previous title on unmount so no
+  // other page inherits it. See `services/companion/quickLinks.ts`'s
+  // `QUICK_LINK_TITLE_NEEDLES` for the matching table.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const previous = document.title;
+    document.title = 'metaMe × Horizen — Constitutional Admission Journey';
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);

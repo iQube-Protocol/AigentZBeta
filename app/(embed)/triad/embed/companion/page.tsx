@@ -98,6 +98,8 @@ import {
   quickLinkContextNeedle,
   quickLinkSurfaceNeedle,
   quickLinkDomainNeedle,
+  quickLinkJourneyNeedle,
+  quickLinkTitleNeedle,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
 import {
@@ -337,11 +339,56 @@ function CompanionShell() {
    */
   const [observedShape, setObservedShape] = useState<string | null>(null);
   const [observedDomain, setObservedDomain] = useState<string | null>(null);
+
+  /**
+   * A Guided Journey Runtime session is active (found 2026-07-31 — quick
+   * links showed KNYT-first order in `agent-me` chat mode while a journey
+   * was engaged, because `agent-me` deliberately has no needle of its own
+   * and nothing else told this strip a journey was underway). Listens for the
+   * same `journey:select-stage` window event `PilotJourneyTab.tsx` and the
+   * Companion's own `JourneyCompanionCarousel.tsx` already dispatch/consume.
+   *
+   * SCOPE OF THIS SIGNAL (confirmed 2026-07-31 by reading
+   * `extension/companion-observer/constants.js` + `popup.js`): this route is
+   * loaded ONLY by the browser extension, in its own window (side panel /
+   * popup) — nothing else in the app ever navigates here. `PilotJourneyTab`
+   * dispatches `journey:select-stage` on ITS OWN window (the app tab), and no
+   * relay in `background.js`/`content.js` forwards it into the extension's
+   * window (grepped for "journey" — none exists). So this listener is live
+   * and correct for any FUTURE same-document mount of this shell (e.g. an
+   * in-app embed sharing the app tab's window with a journey view), but it is
+   * NOT what closes the loop for the one deployment that produced the
+   * reported symptom. `observedTitle` below is — see its needle for why.
+   * Kept rather than removed: a real, already-dispatched event with a real,
+   * verified rank-word table (`QUICK_LINK_JOURNEY_ACTIVE_NEEDLE`) costs
+   * nothing to leave wired, and asking "what does the citizen currently have
+   * selected" is never wrong to check first.
+   */
+  const [journeyActive, setJourneyActive] = useState(false);
+  useEffect(() => {
+    const onSelectStage = () => setJourneyActive(true);
+    window.addEventListener("journey:select-stage", onSelectStage);
+    return () => window.removeEventListener("journey:select-stage", onSelectStage);
+  }, []);
+
+  /**
+   * The observed tab's TITLE (see `quickLinkTitleNeedle` in
+   * `services/companion/quickLinks.ts` for the full rationale). This is the
+   * signal that actually reaches this shell in its one confirmed deployment
+   * (the extension's own window): `GET /api/companion/overlay` now returns
+   * it alongside `shape`/`domain`, sourced from the SAME 'current-tab'
+   * observation and the SAME revocation-live check — no new grant, no new
+   * capture, just a field the route already read internally that was never
+   * returned to the client before.
+   */
+  const [observedTitle, setObservedTitle] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     if (!personaId) {
       setObservedShape(null);
       setObservedDomain(null);
+      setObservedTitle(null);
       return;
     }
     (async () => {
@@ -359,6 +406,7 @@ function CompanionShell() {
         // observation, no new permission (the domain is only present here when
         // the grant that produced it is still live).
         setObservedDomain(typeof data?.domain === "string" ? data.domain : null);
+        setObservedTitle(typeof data?.title === "string" ? data.title : null);
       } catch {
         // No observation available — quick links stay exactly as they are
         // without one. Context specialises the set; it never gates it.
@@ -391,13 +439,27 @@ function CompanionShell() {
         // which is precisely right for the surfaces that have no needle of their
         // own because they are ABOUT the page (`overlay`) or have no topic at all
         // (`agent-me`). Context refines the offer; it never overrides the choice.
+        // Journey/title precedence sits between the surface needle and the
+        // coarse observation needles: a journey session is a real, deliberate
+        // context the citizen entered (checked first of the two, though today
+        // only live in a same-document mount — see `journeyActive` above);
+        // the observed page TITLE is the next-most-specific real signal —
+        // per-PAGE, unlike `observedShape`/`observedDomain` which are
+        // per-HOST and so resolve identically for every page on a verified
+        // domain (the exact staleness this chain exists to avoid). A distinct
+        // chosen surface (Wallet/Search/Workspace/Permissions/Activity) still
+        // wins over both — those needles are unaffected. Only `agent-me`
+        // (which maps to nothing above) and `overlay`/unresolved surfaces
+        // actually reach this fallback.
         context:
           quickLinkSurfaceNeedle(activeSurface) ??
+          quickLinkJourneyNeedle(journeyActive) ??
+          quickLinkTitleNeedle(observedTitle) ??
           quickLinkContextNeedle(observedShape) ??
           quickLinkDomainNeedle(observedDomain),
         limit: 6,
       }),
-    [access, observedShape, observedDomain, activeSurface]
+    [access, observedShape, observedDomain, observedTitle, activeSurface, journeyActive]
   );
 
   /** The copilot's own carousel shape. Labels are the visible affordance. */

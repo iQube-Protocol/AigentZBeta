@@ -820,6 +820,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             });
           });
         }
+        // Capsule ↔ Layout Contract (CLAUDE.md "aigentMe Capsule ↔ Layout
+        // Contract"): the two states must stay in lockstep. `engageCapsule
+        // AndMount` already guarantees that on the way IN; every layout's own
+        // dismiss handler (BriefLayout, DecisionBoardLayout, VentureCockpit
+        // Layout, SpecialistsLayout, MoneyPennyFocusLayout) calls exactly
+        // `onRequestLayout('stack')` to leave — none of them also clear
+        // `activeCapsuleId`, so it was left claiming a Capsule was still
+        // engaged after the operator had already been returned to the
+        // stack/manual fallback (bug fix, 2026-07-31: Focus check-in capsule
+        // not auto-closing). Only clears when `prev` really was THAT
+        // capsule's own dedicated layout — a different template's dismiss
+        // that also lands on 'stack' (ledger, approval-interrupt, composer)
+        // must never clear an unrelated engaged Capsule.
+        if (next === 'stack') {
+          setActiveCapsuleId((cur) => (cur && CAPSULE_LAYOUT[cur] === prev ? null : cur));
+        }
         return next;
       });
     },

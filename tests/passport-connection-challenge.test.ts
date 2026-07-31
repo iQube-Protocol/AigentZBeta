@@ -451,9 +451,29 @@ describe('the Companion session reaches the application', () => {
   it('the handoff is exchanged top-level, and the panel opens it in the browser', () => {
     const panel = stripComments(readSource(CONNECT_PANEL));
     expect(panel).toContain('/passport-connect/complete?token_hash=');
-    expect(panel, 'the handoff must leave the iframe').toMatch(/window\.open\(\s*`\/passport-connect\/complete/);
+    // The handoff URL is built once (`handoffUrl`) and passed to `window.open`
+    // — reused by the popup-blocked fallback button (bug fix, 2026-07-31:
+    // "Passport sign-in doesn't connect on non-metaMe sites") so the manual
+    // retry opens the SAME URL the automatic attempt tried, never a second
+    // hand-derived one.
+    expect(panel, 'the handoff URL is built from the real template').toMatch(
+      /handoffUrl = `\/passport-connect\/complete\?token_hash=/,
+    );
+    expect(panel, 'the handoff must leave the iframe').toMatch(/window\.open\(handoffUrl/);
     const page = stripComments(readSource(COMPLETE_PAGE));
     expect(page).toContain("type: \"magiclink\"");
+  });
+
+  it('a blocked handoff popup is detected and offered as a manual, one-click retry — never a silent "connected" that never crossed', () => {
+    // window.open() returns null (or an already-closed Window) when a popup
+    // is blocked, with no thrown error — the ONLY reliable signal. Trusting
+    // `connected` unconditionally here would be exactly the class of "No
+    // Simulated Completion" defect CLAUDE.md forbids for this reason.
+    const panel = stripComments(readSource(CONNECT_PANEL));
+    expect(panel).toMatch(/if \(!popup \|\| popup\.closed\)/);
+    expect(panel).toMatch(/handoffUrl \}\);\s*onConnected\?\.\(\);\s*return;/);
+    // The fallback renders a real user-gesture retry, so it is never blocked.
+    expect(panel).toMatch(/onClick=\{\(\) => window\.open\(state\.handoffUrl,/);
   });
 
   it('the complete page permits no open redirect', async () => {

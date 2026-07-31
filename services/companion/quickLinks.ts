@@ -180,6 +180,31 @@ export function quickLinkSurfaceNeedle(
 }
 
 /**
+ * A GUIDED JOURNEY RUNTIME SESSION IS ACTIVE, as a ranking needle (found
+ * 2026-07-31 — the Companion's quick-links strip showed KNYT-first order
+ * while the citizen was mid-journey on the Horizen x MoneyPenny pilot, in
+ * `agent-me` chat mode). `agent-me` deliberately maps to nothing above
+ * ("the conversation surface has no topic of its own") — but a journey
+ * session IS a real, always-on-topic-while-active signal, dispatched by
+ * `services/journey/journeyCompanionTrigger.ts` / `PilotJourneyTab.tsx` as
+ * the `journey:select-stage` window event every time a stage is selected.
+ * That event carries only `stageId`, not a `journeyId` — there is exactly
+ * one configured journey today (`HORIZEN_MONEYPENNY_JOURNEY`), so this table
+ * is deliberately keyed on "a journey is active" rather than which one. If a
+ * second journey is ever added, the event needs a real `journeyId` field and
+ * this table becomes keyed on it — do not guess a second journey's rank
+ * words ahead of that.
+ *
+ * Rank words are real: `data/codex-configs.ts`'s Venture Lab α codex
+ * (`name: 'Venture Lab α'`) and its `moneypenny` tab slug — never invented.
+ */
+export const QUICK_LINK_JOURNEY_ACTIVE_NEEDLE: readonly string[] = ['venture lab', 'moneypenny'];
+
+export function quickLinkJourneyNeedle(journeyActive: boolean): readonly string[] | null {
+  return journeyActive ? QUICK_LINK_JOURNEY_ACTIVE_NEEDLE : null;
+}
+
+/**
  * OBSERVED HOST → destination needles.
  *
  * The Overlay surface deliberately has no needle of its own: its context is
@@ -217,6 +242,73 @@ export function quickLinkDomainNeedle(
 export function quickLinkContextNeedle(shape: string | null | undefined): string | null {
   if (!shape) return null;
   return QUICK_LINK_CONTEXT_NEEDLE[shape] ?? null;
+}
+
+/**
+ * OBSERVED TAB TITLE → destination needles (Companion symptom fix,
+ * 2026-07-31: "Companion quick-links defaulting to stale KNYT set" while a
+ * Guided Journey Runtime pilot session is active).
+ *
+ * WHY THIS EXISTS, AND WHY IT'S A TITLE TABLE AND NOT A NEW OBSERVATION.
+ * The Companion embed (`app/(embed)/triad/embed/companion/page.tsx`) is
+ * loaded by the browser extension in its OWN window (side panel / popup) —
+ * confirmed by reading `extension/companion-observer/constants.js` and
+ * `popup.js`: nothing else ever navigates to this route. It does not share a
+ * `window` with the app tab the citizen is browsing, so a same-document
+ * signal (a `CustomEvent` such as `journey:select-stage`) cannot reach it —
+ * that mechanism only helps two surfaces in the SAME document (confirmed:
+ * `PilotJourneyTab.tsx` and `JourneyCompanionCarousel.tsx`, which is mounted
+ * by `CodexPanelDynamic.tsx`'s own in-page floating copilot, a different
+ * `CodexCopilotLayer` instance from this one). Wiring that event here would
+ * be inert in the one browsing configuration the symptom is actually about.
+ *
+ * The extension's observer (`content.js`) has always captured and sent
+ * `document.title` alongside the domain (same 'current-tab' grant, same
+ * revocation-live check) — `GET /api/companion/overlay` read it internally
+ * for `composeGenericOverlayCard`'s search hint but never returned it. That
+ * is the one already-flowing, per-PAGE (not per-host) signal available here.
+ * Exposing it (`app/api/companion/overlay/route.ts`) and keying a SMALL,
+ * EXPLICIT table on it — this module's own established pattern — lets the
+ * strip specialise for a distinctive page without any new capability, grant,
+ * or observation.
+ *
+ * The Guided Journey Runtime pilot page does not otherwise set a distinctive
+ * `document.title` — `PilotJourneyTab.tsx` now does so only while its own
+ * stage view is mounted (see that file), so the signal is present exactly
+ * when the symptom's premise ("a Guided Journey Runtime session is active")
+ * is true, and absent otherwise.
+ *
+ * VALUES are verified rank-key words, not guesses (`data/codex-configs.ts`,
+ * read directly): `'journey'` and `'partner-pilot-journey'` both appear in
+ * the Journey tab's own `rankKey` (`venture lab α journey partner-pilot-
+ * journey partner`); `'venture lab'` matches that codex's name; `'moneypenny'`
+ * matches `MONEYPENNY_CARTRIDGE.name` ('Aigent MoneyPenny'). `'horizen'` is
+ * deliberately NOT a value here — it appears nowhere in any codex name, tab
+ * label, tab slug, or tab group in `data/codex-configs.ts`, so including it
+ * would rank nothing and be dead weight, the exact "guessed" association
+ * this module's doctrine forbids.
+ */
+export const QUICK_LINK_TITLE_NEEDLES: Readonly<Record<string, readonly string[]>> = {
+  'constitutional admission journey': ['journey', 'venture lab', 'moneypenny'],
+  'horizen': ['journey', 'venture lab', 'moneypenny'],
+  'moneypenny': ['journey', 'venture lab', 'moneypenny'],
+};
+
+/**
+ * Substring match, unlike `quickLinkDomainNeedle`'s exact hostname lookup —
+ * a tab title is free text, not a normalized key, so the table's keys are
+ * matched as substrings of the (lower-cased) observed title.
+ */
+export function quickLinkTitleNeedle(
+  title: string | null | undefined,
+): readonly string[] | null {
+  if (!title) return null;
+  const lowered = title.trim().toLowerCase();
+  if (!lowered) return null;
+  for (const [key, needles] of Object.entries(QUICK_LINK_TITLE_NEEDLES)) {
+    if (lowered.includes(key)) return needles;
+  }
+  return null;
 }
 
 export function resolveQuickLinks(input: {

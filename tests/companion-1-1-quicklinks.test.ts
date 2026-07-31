@@ -25,6 +25,8 @@ import {
   quickLinkContextNeedle,
   quickLinkSurfaceNeedle,
   quickLinkDomainNeedle,
+  quickLinkJourneyNeedle,
+  quickLinkTitleNeedle,
   QUICK_LINK_DOMAIN_NEEDLES,
   type QuickLinkAccessContext,
 } from '@/services/companion/quickLinks';
@@ -326,10 +328,60 @@ describe('the ranking signal is one that is actually present', () => {
     // that deliberately have no needle of their own.
     const page = stripComments(readSource(COMPANION_PAGE));
     expect(page, 'the observation still overrides the chosen surface').toMatch(
-      /quickLinkSurfaceNeedle\(activeSurface\)\s*\?\?\s*quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkDomainNeedle\(observedDomain\)/,
+      /quickLinkSurfaceNeedle\(activeSurface\)\s*\?\?\s*quickLinkJourneyNeedle\(journeyActive\)\s*\?\?\s*quickLinkTitleNeedle\(observedTitle\)\s*\?\?\s*quickLinkContextNeedle\(observedShape\)\s*\?\?\s*quickLinkDomainNeedle\(observedDomain\)/,
     );
-    // …and re-ranks when any of the three changes, or it is static again.
-    expect(page).toMatch(/\[access, observedShape, observedDomain, activeSurface\]/);
+    // …and re-ranks when any of the five changes, or it is static again.
+    expect(page).toMatch(/\[access, observedShape, observedDomain, observedTitle, activeSurface, journeyActive\]/);
+  });
+
+  it('a journey session ranks real Venture Lab / MoneyPenny destinations when no surface needle exists', () => {
+    // Found 2026-07-31: `agent-me` chat mode showed KNYT-first order while a
+    // Guided Journey Runtime session was active, because nothing told this
+    // strip a journey was underway. quickLinkJourneyNeedle fills that gap.
+    expect(quickLinkJourneyNeedle(true)).toEqual(['venture lab', 'moneypenny']);
+    expect(quickLinkJourneyNeedle(false)).toBeNull();
+  });
+
+  it('the journey needle never fires ahead of a chosen surface needle', () => {
+    const page = stripComments(readSource(COMPANION_PAGE));
+    // wallet/workspace/permissions/etc. still resolve via quickLinkSurfaceNeedle
+    // FIRST in the ?? chain asserted above — quickLinkJourneyNeedle only ever
+    // reaches surfaces (agent-me, overlay) that already yield null there.
+    expect(quickLinkSurfaceNeedle('wallet')).not.toBeNull();
+    expect(page).toMatch(/quickLinkSurfaceNeedle\(activeSurface\)\s*\?\?\s*quickLinkJourneyNeedle/);
+  });
+
+  it('the observed TAB TITLE ranks real destinations when no surface or journey-event signal exists', () => {
+    // THE ACTUAL FIX for the reported symptom (2026-07-31): the Companion
+    // embed (`page.tsx`) is loaded ONLY by the browser extension, in its own
+    // window (verified against `extension/companion-observer/constants.js` +
+    // `popup.js`) — it does not share a document with `PilotJourneyTab.tsx`,
+    // so `journey:select-stage` never reaches it in that deployment. The
+    // observed tab TITLE does, via the extension's existing 'current-tab'
+    // observation (`GET /api/companion/overlay`'s new `title` field) — no new
+    // capability, no new grant.
+    expect(quickLinkTitleNeedle('metaMe × Horizen — Constitutional Admission Journey')).toEqual([
+      'journey',
+      'venture lab',
+      'moneypenny',
+    ]);
+    expect(quickLinkTitleNeedle('Some Unrelated Page Title')).toBeNull();
+    expect(quickLinkTitleNeedle(null)).toBeNull();
+    expect(quickLinkTitleNeedle('')).toBeNull();
+  });
+
+  it('the title needle values are real rank-key words, never a guessed one', () => {
+    // `data/codex-configs.ts`, read directly: 'journey' and 'venture lab' are
+    // real substrings of the Journey tab's own rankKey ('venture lab α
+    // journey partner-pilot-journey partner'); 'moneypenny' is a real
+    // substring of MONEYPENNY_CARTRIDGE.name ('Aigent MoneyPenny'). 'horizen'
+    // is deliberately absent from the VALUES (only ever a table KEY / title
+    // substring to detect) because it appears in no codex name, tab label,
+    // tab slug, or tab group — including it as a rank word would match
+    // nothing.
+    const needle = quickLinkTitleNeedle('horizen');
+    expect(needle).not.toBeNull();
+    expect(needle).not.toContain('horizen');
   });
 
   it('MS-5/MS-7 — every needled surface visibly changes the strip', () => {
