@@ -66,9 +66,10 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     component: 'AgentCardSurface',
     note:
       "MoneyPenny's real Agent Card (built 2026-07-31, components/journey/AgentCardSurface.tsx) — a " +
-      "faithful display wrapper over the live /api/agents/moneypenny/agent-card.json route, never " +
-      "reshaping its fields. Honestly renders tokenId: null as 'not yet registered' rather than " +
-      "fabricating a value.",
+      "faithful display wrapper over the live /api/agents/moneypenny/agent-card.json route. As of " +
+      "the SS3.1.1 correction, that route's metadata.horizen block now PROJECTS from her AigentQube " +
+      "record (registry_assets 'aigentqube-moneypenny'), not a hand-typed literal. Honestly renders " +
+      "tokenId: null as 'not yet registered' rather than fabricating a value.",
   },
   'horizen-registry-agent-page': {
     kind: 'external-url-unresolved',

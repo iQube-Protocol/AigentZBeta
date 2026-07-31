@@ -33,6 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { currentIdentityRegistry } from '@/services/horizen/agentBinding';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
+import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,8 +48,36 @@ export async function OPTIONS() {
   return withCors(new NextResponse(null, { status: 204 }));
 }
 
+/**
+ * PRD-GJR-001, operator ruling 2026-07-31: this card's `metadata.horizen`
+ * block is now a PROJECTION of MoneyPenny's canonical AigentQube record
+ * (registry_assets asset_id 'aigentqube-moneypenny'), not a second,
+ * hand-typed source of truth. Reads her `external_registry_bindings[0]`
+ * (types/registry-canonical.ts) via the same adapter path the iQube Registry
+ * itself uses. Soft-fails to the honest pending-registration defaults below
+ * if the registry is unreachable — this is a live, external-facing A2A
+ * discovery endpoint and must never 500 or block on a registry read.
+ */
+async function resolveHorizenBinding(): Promise<ExternalAgentRegistryBinding | null> {
+  try {
+    const { getSupabaseServer } = await import('@/app/api/_lib/supabaseServer');
+    const supabase = getSupabaseServer();
+    const { data } = await supabase
+      .from('registry_assets')
+      .select('metadata')
+      .eq('asset_id', 'aigentqube-moneypenny')
+      .maybeSingle();
+    const bindings = (data?.metadata as { external_registry_bindings?: ExternalAgentRegistryBinding[] } | null)
+      ?.external_registry_bindings;
+    return Array.isArray(bindings) && bindings.length > 0 ? bindings[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const origin = resolveRequestOrigin(req);
+  const binding = await resolveHorizenBinding();
 
   return withCors(
     NextResponse.json({
@@ -146,11 +175,11 @@ export async function GET(req: NextRequest) {
         // for exactly what step is blocked (network egress + the missing
         // on-chain registration ABI) and what is ready to run once unblocked.
         horizen: {
-          network: 'base-sepolia',
-          identityRegistry: currentIdentityRegistry('base-sepolia'),
-          tokenId: null,
-          registryAlias: null,
-          status: 'pending_registration',
+          network: binding?.network ?? 'base-sepolia',
+          identityRegistry: binding?.identity_registry_contract ?? currentIdentityRegistry('base-sepolia'),
+          tokenId: binding?.token_id ?? null,
+          registryAlias: binding?.registry_alias ?? null,
+          status: binding?.status?.replace(/-/g, '_') ?? 'pending_registration',
         },
 
         motto: 'Specialize the agent, not the engine.',

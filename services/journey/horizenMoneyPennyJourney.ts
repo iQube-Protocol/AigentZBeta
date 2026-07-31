@@ -43,7 +43,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: [],
       permittedActions: ['view-registration'],
-      completionEvidence: ['tokenId', 'registryRereadOk', 'ownerWalletMatches', 'agentCardResolves'],
+      completionEvidence: ['aigentQubeResolved', 'tokenId', 'registryRereadOk', 'ownerWalletMatches', 'agentCardResolves'],
       receiptTypes: ['agent_card_discovered', 'horizen_agent_registered'],
       companion: {
         before: 'MoneyPenny has not yet registered with Horizen.',

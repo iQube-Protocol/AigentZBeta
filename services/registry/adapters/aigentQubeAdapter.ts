@@ -148,7 +148,8 @@ export const aigentQubeAdapter: RegistryPrimitiveAdapter = {
       };
     }
 
-    // registry_asset path — DB-backed AigentQube (4 rows per Stage 0 audit)
+    // registry_asset path — DB-backed AigentQube (5 rows: aigent-z, kn0w1,
+    // marketa, aigent-c, moneypenny)
     const sb = client();
     const { data } = await sb
       .from('registry_assets')
@@ -158,6 +159,33 @@ export const aigentQubeAdapter: RegistryPrimitiveAdapter = {
     if (!data) return null;
     const row = data as any;
     const aigent = defaultGovernance(row.asset_id);
+
+    // PRD-GJR-001, operator ruling 2026-07-31: an AigentQube's own
+    // declaration of its external-registry presences (ERC-8004/A2A) lives in
+    // metadata.external_registry_bindings — additive, only present once a
+    // migration seeds it (currently: MoneyPenny only). Never fabricated when
+    // absent.
+    const externalBindings = row.metadata?.external_registry_bindings;
+    if (Array.isArray(externalBindings) && externalBindings.length > 0) {
+      aigent.external_registry_bindings = externalBindings;
+    }
+
+    // Controller wallet — READ from agent_keys, never duplicated into
+    // registry_assets.metadata as a second copy (inv.engineering.036/037).
+    // Public address only; no key material touches this path. Soft-fail:
+    // most AigentQubes have no agent_keys row, which is not an error.
+    try {
+      const { data: keyRow } = await sb
+        .from('agent_keys')
+        .select('evm_address')
+        .eq('agent_id', row.slug)
+        .maybeSingle();
+      if (keyRow?.evm_address) {
+        aigent.controller = { wallet_address: keyRow.evm_address, proof_of_control_ref: null };
+      }
+    } catch {
+      // agent_keys table/row absent — not an error, controller stays unset.
+    }
 
     return {
       iqube_id: entry.iqube_id,

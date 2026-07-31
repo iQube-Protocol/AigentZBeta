@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
   }
 
   const receiptRefs: Record<string, string[]> = {};
+  let aigentQubeResolved = false;
   try {
     const supabase = getSupabaseServer();
     const { data: persona } = await supabase
@@ -77,8 +78,17 @@ export async function GET(req: NextRequest) {
         (receiptRefs[receipt.actionType] ??= []).push(receipt.id);
       }
     }
+
+    // §3.1.1 correction — Register requires a real, persisted AigentQube
+    // before anything else (registered externally != backed by an AigentQube).
+    const { data: aigentQube } = await supabase
+      .from('registry_assets')
+      .select('asset_id')
+      .eq('asset_id', 'aigentqube-moneypenny')
+      .maybeSingle();
+    aigentQubeResolved = !!aigentQube;
   } catch {
-    // Soft-fail — receipts unavailable, journey stays at its currently-evidenced state.
+    // Soft-fail — receipts/registry unavailable, journey stays at its currently-evidenced state.
   }
 
   const hasReceipt = (type: ActivityActionType) => (receiptRefs[type]?.length ?? 0) > 0;
@@ -90,6 +100,7 @@ export async function GET(req: NextRequest) {
     receiptRefs,
     stages: {
       register: {
+        aigentQubeResolved,
         tokenId: (horizen?.tokenId as string | null) ?? null,
         registryRereadOk: hasReceipt('horizen_agent_registered'),
         ownerWalletMatches: hasReceipt('horizen_agent_registered'),

@@ -132,6 +132,62 @@ Discoverable agent → assessed candidate → sponsored agent → delegated cons
 `registered externally ≠ authorised internally` is the distinction the whole journey exists to make
 visible.
 
+### 3.1.1 Correction, 2026-07-31 (operator ruling): Register is AigentQube-first, not Horizen-first
+
+An earlier framing of Stage 1 treated "register MoneyPenny in Horizen" as the whole of the stage. That
+is incomplete: **MoneyPenny may not appear as an agent-shaped entry in the iQube Registry merely
+because a wallet key row and a hand-authored Agent Card exist for her.** She must be backed by an
+actual, persisted **AigentQube** record — the canonical metaProof object for any agent — with the
+external Agent Card and any Horizen registry token id being **bindings recorded ON that AigentQube**,
+never substitutes for it.
+
+```
+AigentQube
+= canonical metaProof agent object (registry_assets, asset_class 'AigentQube')
+
+Agent Card (A2A / ERC-8004)
+= interoperable projection of the AigentQube
+
+Horizen ERC-8004 token id
+= external registry binding of the AigentQube (external_registry_bindings[0])
+
+wallet
+= the AigentQube's proof-of-control instrument (read from agent_keys, never duplicated)
+
+Polity Delegate Passport
+= bounded constitutional authority (a later stage — §4)
+```
+
+**Corrected Stage 1 sequence:**
+```
+Resolve MoneyPenny's AigentQube (registry_assets asset_id 'aigentqube-moneypenny')
+→ project her Agent Card from it (app/api/agents/moneypenny/route.ts)
+→ register that card in Horizen
+→ write the returned tokenId back into the SAME AigentQube's external_registry_bindings
+```
+
+**Status, 2026-07-31:** the AigentQube record now exists —
+`supabase/migrations/20260930000400_aigentqube_moneypenny_registry_asset.sql` seeds
+`aigentqube-moneypenny` into `registry_assets` (mirroring the exact pattern used for aigent-z, kn0w1,
+marketa and aigent-c) plus its `iqube_id_map` row, and `types/registry-canonical.ts` gained
+`ExternalAgentRegistryBinding`/`AigentControllerBinding` — additive fields on the existing
+`CanonicalAigentBlock`, confirmed via a dedicated audit to be a genuinely new gap, not a duplicate of
+`agent_identity_bindings` (that table is the authority/attribution record — who is constitutionally
+responsible for a tokenId; `external_registry_bindings` is the AigentQube's own declaration of its
+external presences — the two coexist, they don't compete). MoneyPenny's Agent Card route now
+**projects** its `metadata.horizen` block from this record (soft-failing to the same honest
+`pending_registration` defaults if the registry is unreachable — this is a live, external-facing A2A
+discovery endpoint and must never break on a registry read). The actual write-back once a real
+Horizen registration succeeds is **not yet built** — deliberately: `scripts/register-moneypenny-horizen.ts`
+itself already documents this as its own next, not-yet-run step ("persist a metaMe binding record...
+for this OUTBOUND registration"), and building the write path before there is a real transaction to
+write would be exactly the speculative, unexercised code this session's principles forbid.
+
+One AigentQube gap this correction does **not** attempt to close in this pass: aigent-me, Aigent
+Nakamoto and the Community Concierge runtime agents have the identical gap (code-only, synthetic
+registry presence, no persisted `registry_assets` row) — out of scope here, since this pass is
+deliberately scoped to MoneyPenny for the pilot, not a platform-wide AigentQube backfill.
+
 ### 3.2 She enters Horizen already payment-capable — this is the strengthened proposition
 
 MoneyPenny does not enter Horizen with an empty Agent Card and a generic wallet. Her controlling
@@ -610,7 +666,7 @@ not the journey's terminus.
 
 | Bar stage | Groups (§3.5 steps) | Completion (authoritative) |
 |---|---|---|
-| **1. Register** | Horizen Registry Presence | tokenId exists ∩ registry reread succeeds ∩ owner wallet matches ∩ Agent Card resolves |
+| **1. Register** | AigentQube resolved → Agent Card projected → Horizen Registry Presence | AigentQube record exists (`aigentqube-moneypenny`) ∩ Agent Card resolves as its projection ∩ tokenId exists ∩ registry reread succeeds ∩ owner wallet matches ∩ tokenId written back to the AigentQube's `external_registry_bindings` (§3.1.1) |
 | **2. Verify** | Pulse and P&L Transparency | Pulse authorization verified ∩ P&L transparency enabled ∩ Agent Card enrichment committed |
 | **3. Claim** | Proof of Wallet Control → Marketa Eligibility (Final Recommendation) | **fresh proof of wallet control ∩ Marketa final eligibility recommendation** (control first — a final recommendation may never precede it; an earlier Marketa DRAFT assessment may) |
 | **4. Passport** | Operator Passport → Sponsorship → Polity Delegate Passport issued | valid operator Polity Citizen Passport ∩ sponsor binding ∩ Polity Delegate Passport issued |
