@@ -166,7 +166,7 @@ export function PassportClaimModal({
   }, [passportId, onClaimed]);
 
   const isCitizen = passportClass === 'citizen';
-  const typeLabel = isCitizen ? 'Citizen Passport' : 'Participant Passport';
+  const typeLabel = isCitizen ? 'Polity Citizen Passport' : 'Polity Delegate Passport';
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>

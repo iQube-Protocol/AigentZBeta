@@ -46,9 +46,13 @@ import {
   buildSelfCustodyRef,
 } from '@/services/passport/selfCustodyVault';
 import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
-
-type StepId = 'class' | 'account' | 'identity' | 'vault' | 'agent' | 'consents' | 'submit';
-type PassportClass = 'citizen' | 'participant';
+import {
+  resolveStepAfterClassChoice,
+  resolveStepAfterAccountCreation,
+  wizardSteps,
+  type StepId,
+  type PassportClass,
+} from '@/services/passport/passportWizardSteps';
 
 // Mirrors BoundedDelegationTab's grant vocabulary (AgentiQ OS cartridge).
 const DELEGATION_TRUST_BANDS = [
@@ -90,7 +94,7 @@ function getTurnstile(): TurnstileApi | null {
 }
 
 const PARTICIPANT_CONSENT_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'participant_terms_accepted', label: 'I accept the Participant Passport terms on behalf of this agent.' },
+  { key: 'participant_terms_accepted', label: 'I accept the Polity Delegate Passport terms on behalf of this agent.' },
   { key: 'registry_pending_record_consent', label: 'I consent to a public pending-registry record for this application.' },
   { key: 'constraints_and_obligations_accepted', label: 'I accept the participant constraints and obligations.' },
   { key: 'review_process_accepted', label: 'I accept the steward review process.' },
@@ -270,7 +274,7 @@ export function PassportBureauApplyTab() {
         (pq: { claimedAt: string | null }) => pq.claimedAt,
       );
       if (!claimed) {
-        setError('You need a claimed Citizen Passport first. Apply on the Class → Identity steps, then come back here.');
+        setError('You need a claimed Polity Citizen Passport first — a Polity Delegate Passport derives its authority from one. Apply as a Citizen, then come back here.');
         return;
       }
       const name = agentName.trim() || 'Polity Helper';
@@ -303,7 +307,7 @@ export function PassportBureauApplyTab() {
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: name });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its participant passport will map to your aigentMe.`
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its Polity Delegate Passport will map to your aigentMe.`
           : `Agent Card live at ${data.agent.agentCardUrl}`,
       );
     } catch (e) {
@@ -343,8 +347,8 @@ export function PassportBureauApplyTab() {
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: agentName.trim() });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Participant Passport.`
-          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Participant Passport.`,
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Polity Delegate Passport.`
+          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Polity Delegate Passport.`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
@@ -376,6 +380,11 @@ export function PassportBureauApplyTab() {
   // Step 5 — submit
   const [captchaToken, setCaptchaToken] = useState('');
   const [applications, setApplications] = useState<OwnApplication[]>([]);
+  // Citizen-to-agent continuation (Guided Journey Runtime — Continuity
+  // Without Premature Approval): offered once, right after a successful
+  // Citizen submission, in this same session.
+  const [citizenJustSubmitted, setCitizenJustSubmitted] = useState(false);
+  const [continuationDismissed, setContinuationDismissed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
 
   // Render the Turnstile challenge when the citizen submit panel mounts
@@ -441,7 +450,7 @@ export function PassportBureauApplyTab() {
     (chosen: PassportClass) => {
       setPassportClass(chosen);
       setChecks({});
-      setStep(signedIn ? 'identity' : 'account');
+      setStep(resolveStepAfterClassChoice(chosen, signedIn));
     },
     [signedIn],
   );
@@ -467,14 +476,14 @@ export function PassportBureauApplyTab() {
       });
       if (signInError) throw new Error(signInError.message);
       setSignedIn(true);
-      setStep('identity');
+      setStep(resolveStepAfterAccountCreation(passportClass));
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Account step failed');
     } finally {
       setBusy(false);
     }
-  }, [username, password, recoveryEmail, mode, loadStatus]);
+  }, [username, password, recoveryEmail, mode, loadStatus, passportClass]);
 
   const handleBind = useCallback(async () => {
     setBusy(true);
@@ -489,26 +498,33 @@ export function PassportBureauApplyTab() {
       const res = await fetch('/api/passport/identity/bind', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ displayName: displayName || undefined }),
+        // Defaults to the applicant's own persona name, never a hardcoded
+        // placeholder — Persona–Personhood Separation still holds (the
+        // persona name identifies how they act; personhood is bound
+        // independently), but an unset display name shouldn't silently
+        // become a generic label when we already know their persona name.
+        body: JSON.stringify({ displayName: displayName || username || undefined }),
       });
-      const json = await res.json().catch(() => ({ ok: false, error: `Identity bind failed (HTTP ${res.status})` }));
-      if (!json.ok) throw new Error(json.error || 'Identity bind failed');
+      const json = await res.json().catch(() => ({ ok: false, error: `Personhood bind failed (HTTP ${res.status})` }));
+      if (!json.ok) throw new Error(json.error || 'Personhood bind failed');
       setBound(true);
       setKybeRef(json.kybePublicRef ?? null);
       setNotice(
         json.alreadyBound
-          ? 'Identity already bound — continuing with your existing KybeDID.'
+          ? 'Personhood already bound — continuing with your existing KybeDID.'
           : json.existingRootDidMapped
-            ? 'Existing platform identity mapped — your KybeDID was reused.'
+            ? 'Existing platform personhood mapped — your KybeDID was reused.'
             : 'New KybeDID minted and bound.',
       );
-      setStep(passportClass === 'participant' ? 'agent' : 'vault');
+      // Only the Citizen route ever reaches this step (Human Personhood
+      // Exclusivity) — always continues to the private vault step.
+      setStep('vault');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bind failed');
     } finally {
       setBusy(false);
     }
-  }, [displayName, passportClass]);
+  }, [displayName, username]);
 
   // Participant — bind the agent to the applicant with an AgentiQ OS
   // bounded-delegation grant (same surface as BoundedDelegationTab).
@@ -673,6 +689,7 @@ export function PassportBureauApplyTab() {
         throw new Error(json.error || 'Submission failed');
       }
       setNotice(`Application submitted — status: ${json.applicationStatus}`);
+      setCitizenJustSubmitted(true);
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submission failed');
@@ -681,16 +698,40 @@ export function PassportBureauApplyTab() {
     }
   }, [captchaToken, vaultRef, loadStatus]);
 
-  const steps: Array<{ id: StepId; label: string; icon: React.ReactNode }> = [
-    { id: 'class', label: 'Class', icon: <ShieldCheck className="h-4 w-4" /> },
-    { id: 'account', label: 'Account', icon: <UserPlus className="h-4 w-4" /> },
-    { id: 'identity', label: 'Identity', icon: <KeyRound className="h-4 w-4" /> },
-    ...(passportClass === 'participant'
-      ? [{ id: 'agent' as StepId, label: 'Agent', icon: <Bot className="h-4 w-4" /> }]
-      : [{ id: 'vault' as StepId, label: 'Private Vault', icon: <Lock className="h-4 w-4" /> }]),
-    { id: 'consents', label: 'Consents', icon: <FileCheck2 className="h-4 w-4" /> },
-    { id: 'submit', label: 'Submit', icon: <Send className="h-4 w-4" /> },
-  ];
+  // "Continue with my agent?" — carries forward the active persona/principal
+  // context (they're already signed in and have just submitted a Citizen
+  // application) straight into the Agent step. Application continuity does
+  // NOT collapse approval dependencies: the agent application may be
+  // prepared and submitted here, but the existing genesis/sponsor checks
+  // (handleQuickAgent above) still require a CLAIMED Citizen Passport before
+  // an agent can actually be sponsored — submitting here does not bypass
+  // that, it only avoids restarting the wizard from Class later.
+  const handleContinueWithAgent = useCallback(() => {
+    setPassportClass('participant');
+    setChecks({});
+    setStep('agent');
+  }, []);
+
+  // Branch by constitutional subject (Guided Journey Runtime invariant:
+  // Branch by Constitutional Subject). The Delegate/agent route NEVER
+  // shows Account or Personhood as steps at all — not even as mysteriously
+  // skipped boxes — because an agent application never touches either.
+  // Membership/order comes from the authoritative wizardSteps() rule
+  // (services/passport/passportWizardSteps.ts); only label/icon are a UI
+  // concern kept here.
+  const STEP_META: Record<StepId, { label: string; icon: React.ReactNode }> = {
+    class: { label: 'Class', icon: <ShieldCheck className="h-4 w-4" /> },
+    account: { label: 'Account', icon: <UserPlus className="h-4 w-4" /> },
+    identity: { label: 'Personhood', icon: <KeyRound className="h-4 w-4" /> },
+    vault: { label: 'Private Vault', icon: <Lock className="h-4 w-4" /> },
+    agent: { label: 'Agent', icon: <Bot className="h-4 w-4" /> },
+    consents: { label: 'Consents', icon: <FileCheck2 className="h-4 w-4" /> },
+    submit: { label: 'Submit', icon: <Send className="h-4 w-4" /> },
+  };
+  const steps: Array<{ id: StepId; label: string; icon: React.ReactNode }> = wizardSteps(passportClass).map(
+    (id) => ({ id, ...STEP_META[id] }),
+  );
+  const stepGridClass = steps.length === 4 ? 'grid-cols-4' : 'grid-cols-6';
 
   // Tier-3 right-justified context badge — shows which passport class the
   // applicant has chosen. Portaled into SubHeaderSlot so it sits on the same
@@ -698,7 +739,7 @@ export function PassportBureauApplyTab() {
   const tierBadge = step !== 'class' ? (
     <div className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-300">
       <ShieldCheck className="h-3 w-3" />
-      {passportClass === 'participant' ? 'Participant Application' : 'Citizen Application'}
+      {passportClass === 'participant' ? 'Delegate Application' : 'Citizen Application'}
     </div>
   ) : null;
 
@@ -709,12 +750,12 @@ export function PassportBureauApplyTab() {
         <ShieldCheck className="h-7 w-7 text-violet-400" />
         <div>
           <h2 className="text-lg font-semibold text-slate-100">
-            {passportClass === 'participant' ? 'Participant Passport Application' : 'Citizen Passport Application'}
+            {passportClass === 'participant' ? 'Polity Delegate Passport Application' : 'Polity Citizen Passport Application'}
           </h2>
           <p className="text-sm text-slate-400">
             {passportClass === 'participant'
-              ? 'Apply for a passport for an agent and bind it to yourself with a bounded delegation.'
-              : 'Anonymous proof of personhood. Your private data stays in your custody — always.'}
+              ? 'A revocable authority credential for an agent, derived from an eligible Polity Citizen Passport — never an independent personhood claim.'
+              : 'Continuing constitutional personhood for a human principal. Your private data stays in your custody — always.'}
           </p>
         </div>
       </div>
@@ -722,8 +763,10 @@ export function PassportBureauApplyTab() {
       {/* Step strip — rounded-rectangle boxes, equal-width, one row.
           Replaces the prior pill design which wrapped to two lines on
           'Private Vault'. Per operator note 2026-06-13: 'use a better
-          kind of more polished looking boxes... still rounded corners'. */}
-      <div className="grid grid-cols-6 gap-2">
+          kind of more polished looking boxes... still rounded corners'.
+          Step count/labels are derived from the selected class (One
+          Journey, Conditional Steps) — never a fixed six-box line. */}
+      <div className={cls('grid gap-2', stepGridClass)}>
         {steps.map((s, i) => (
           <button
             key={s.id}
@@ -758,16 +801,16 @@ export function PassportBureauApplyTab() {
 
       {step === 'class' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-          <p className="text-sm text-slate-300">Who is this passport for?</p>
+          <p className="text-sm text-slate-300">Who is this Passport for?</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
               onClick={() => handleClassChoice('citizen')}
               className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
             >
               <User className="h-6 w-6 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-100">Citizen Passport</span>
+              <span className="text-sm font-semibold text-slate-100">Polity Citizen Passport</span>
               <span className="text-xs text-slate-400">
-                For you — anonymous proof of personhood with self-custody privacy.
+                Continuing constitutional personhood — for you, a human principal. Anonymous, self-custody privacy.
               </span>
             </button>
             <button
@@ -775,9 +818,9 @@ export function PassportBureauApplyTab() {
               className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
             >
               <Bot className="h-6 w-6 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-100">Participant Passport</span>
+              <span className="text-sm font-semibold text-slate-100">Polity Delegate Passport</span>
               <span className="text-xs text-slate-400">
-                For an agent you operate — bound to you via an AgentiQ OS bounded delegation.
+                A revocable authority credential for an agent you operate — derived from your Polity Citizen Passport via a bounded delegation.
               </span>
             </button>
           </div>
@@ -1064,9 +1107,13 @@ export function PassportBureauApplyTab() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username (lowercase letters, digits, hyphens)"
+            placeholder="Persona name (lowercase letters, numbers and hyphens)"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
+          <p className="text-xs text-slate-500">
+            Your persona name is the handle through which you enter and act within the platform. It
+            is not the proof of your personhood.
+          </p>
           <input
             type="password"
             value={password}
@@ -1102,16 +1149,17 @@ export function PassportBureauApplyTab() {
       {step === 'identity' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
-            Binding creates your Bureau persona and KybeDID — the anonymous anchor proving you are
-            one unique person. If you already have a platform identity, it is reused (one KybeDID
-            per human).
+            Binding establishes your KybeDID — the privacy-preserving anchor proving that one
+            continuing person exists behind this Passport. Existing personhood is reused rather than
+            duplicated (one KybeDID per human).
           </p>
           <input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Display name (optional — defaults to 'Polity Citizen')"
+            placeholder="Display name — optional"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
+          <p className="text-xs text-slate-500">Defaults to your persona name.</p>
           {bound && kybeRef && (
             <p className="font-mono text-xs text-slate-400">KybeDID commitment: {kybeRef}</p>
           )}
@@ -1121,7 +1169,7 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            {bound ? 'Re-check binding' : 'Bind identity'}
+            {bound ? 'Re-check personhood binding' : 'Bind personhood'}
           </button>
         </div>
       )}
@@ -1276,7 +1324,7 @@ export function PassportBureauApplyTab() {
       {step === 'submit' && passportClass === 'participant' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
-            Submit the participant application for <strong>{agentName || 'your agent'}</strong>.
+            Submit the Polity Delegate Passport application for <strong>{agentName || 'your agent'}</strong>.
             A steward reviews it in the Bureau queue; you can watch status below.
           </p>
           {!allChecked && (
@@ -1287,7 +1335,7 @@ export function PassportBureauApplyTab() {
                 onClick={() => setStep('consents')}
                 className="underline hover:text-amber-200"
               >
-                Step 5 (Consents)
+                Step 3 (Consents)
               </button>{' '}
               before submitting.
             </p>
@@ -1301,7 +1349,7 @@ export function PassportBureauApplyTab() {
                 onClick={() => setStep('agent')}
                 className="underline hover:text-amber-200"
               >
-                Go back to Step 4 to bind.
+                Go back to Step 2 to bind.
               </button>
             </p>
           )}
@@ -1311,7 +1359,7 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit participant application
+            Submit the Polity Delegate Passport application for this agent
           </button>
         </div>
       )}
@@ -1344,8 +1392,35 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit application
+            Submit your Polity Citizen Passport application
           </button>
+        </div>
+      )}
+
+      {citizenJustSubmitted && !continuationDismissed && (
+        <div className="space-y-3 rounded-xl border border-violet-700/50 bg-violet-950/20 p-4">
+          <p className="text-sm text-slate-200">
+            Do you also want to apply for a Polity Delegate Passport for an agent?
+          </p>
+          <p className="text-xs text-slate-400">
+            Your Polity Citizen Passport application must still be approved before any linked Polity
+            Delegate Passport can be approved or activated — but you can prepare and submit both in
+            one continuous journey.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleContinueWithAgent}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500"
+            >
+              Continue with my agent
+            </button>
+            <button
+              onClick={() => setContinuationDismissed(true)}
+              className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700"
+            >
+              Not now
+            </button>
+          </div>
         </div>
       )}
 
