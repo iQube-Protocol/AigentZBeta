@@ -177,6 +177,46 @@ export interface AigentQubeGovernance {
   };
 }
 
+/**
+ * An external interoperability registry's binding of THIS AigentQube to its
+ * own identity record (e.g. Horizen's ERC-8004 registry). The AigentQube is
+ * canonical; this is a binding ON it, never a substitute for it — the
+ * external registry's own identity/capability declaration is a PROJECTION
+ * (see the agent's `/api/agents/{slug}/agent-card.json` route), not a
+ * second source of truth (PRD-GJR-001, operator ruling 2026-07-31).
+ *
+ * `token_id`/`registry_alias` are `null` until a real registration
+ * transaction exists — never fabricated (CLAUDE.md "No Guessing"). Mirrors
+ * `ChainAnchor`'s shape (chain_id/contract/token_id) but allows the pending
+ * state `ChainAnchor` does not, since `ChainAnchor` models a CONFIRMED mint.
+ */
+export interface ExternalAgentRegistryBinding {
+  protocol: 'erc-8004' | 'a2a';
+  /** e.g. 'horizen'. Free text — registries beyond the first are representable without a schema change. */
+  registry: string;
+  network?: string;
+  identity_registry_contract?: string;
+  token_id: string | null;
+  registry_alias: string | null;
+  status: 'pending-registration' | 'registered' | 'suspended' | 'revoked';
+  /** The projected Agent Card's own URL and content hash, for provenance. */
+  agent_card_url?: string;
+  agent_card_hash?: string;
+}
+
+/**
+ * The cryptographic control instrument for this AigentQube. The wallet
+ * address itself is READ from `agent_keys` (services/identity/agentKeyService.ts)
+ * at hydrate time — never duplicated into `registry_assets.metadata` as a
+ * second copy (inv.engineering.036/037). `proof_of_control_ref` is a T2
+ * commitment, populated once a real wallet-control-proof ceremony
+ * (services/horizen/agentBinding.ts) has run — null until then.
+ */
+export interface AigentControllerBinding {
+  wallet_address: string | null;
+  proof_of_control_ref?: string | null;
+}
+
 export interface CanonicalAigentBlock {
   /** Per KNYT framework §10.1 — durable trust anchor across deployments + personas. */
   root_agent_id: string;
@@ -200,6 +240,16 @@ export interface CanonicalAigentBlock {
     runtime_url?: string;
     studio_url?: string;
   };
+
+  /**
+   * Added 2026-07-31 (PRD-GJR-001, operator ruling) — an agent must be
+   * backed by an AigentQube before it may appear as an agent-shaped entry in
+   * the iQube Registry; external Agent Cards and registry token ids are
+   * BINDINGS of this object, never substitutes for it. Both optional and
+   * additive — existing AigentQubes without either field are unaffected.
+   */
+  controller?: AigentControllerBinding;
+  external_registry_bindings?: ExternalAgentRegistryBinding[];
 }
 
 // ── ClusterQube composition (PRD v1.0 §5 / v0.2 §B.8) ─────────────────────
