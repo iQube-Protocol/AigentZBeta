@@ -20,6 +20,7 @@ import { Award, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
 // another's standing and receipts. `authedFetchHeaders` attaches the Bearer but
 // carries no persona selection (CLAUDE.md, 2026-07-20 incident).
 import { personaFetch } from '@/utils/personaSpine';
+import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
 
 interface StandingLanes {
   personal: number;
@@ -36,15 +37,6 @@ interface Reach {
   totalTasksCompleted: number;
 }
 
-interface ReceiptRow {
-  id: string;
-  actionType: string;
-  summary: string;
-  receiptStatus: string;
-  dvnReceiptId: string | null;
-  createdAt: string;
-}
-
 const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip: string }> = [
   { key: 'personal', label: 'Personal', color: 'bg-cyan-400', tip: 'Accrues from your own completed, receipted work' },
   { key: 'delegated', label: 'Delegated', color: 'bg-violet-400', tip: 'Accrues from work your bounded delegates complete under your authority' },
@@ -55,7 +47,9 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
 export function ParticipationStandingTab() {
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
-  const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
+  const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
+  const [personaDisplayLabel, setPersonaDisplayLabel] = useState<string | null>(null);
+  const [expandedReceiptId, setExpandedReceiptId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,7 +74,8 @@ export function ParticipationStandingTab() {
       }
       if (receiptsRes.status === 'fulfilled' && receiptsRes.value.ok) {
         const data = await receiptsRes.value.json();
-        setReceipts((data?.receipts ?? []) as ReceiptRow[]);
+        setReceipts((data?.receipts ?? []) as ActivityReceiptData[]);
+        setPersonaDisplayLabel(data?.personaDisplayLabel ?? null);
       } else if (tasksRes.status !== 'fulfilled' || !tasksRes.value.ok) {
         setError('Sign in with a persona to see your standing.');
       }
@@ -181,22 +176,36 @@ export function ParticipationStandingTab() {
           <p className="text-xs text-slate-500 italic">No receipts yet — contributions appear here as they are receipted.</p>
         ) : (
           <div className="space-y-1">
-            {receipts.map((r) => (
-              <div key={r.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px]">
-                <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
-                  {r.actionType}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-slate-300" title={r.summary}>{r.summary}</span>
-                {r.dvnReceiptId ? (
-                  <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`DVN-anchored · ${r.dvnReceiptId}`}>
-                    <ShieldCheck className="h-3 w-3" /> anchored
-                  </span>
-                ) : (
-                  <span className="text-slate-500 shrink-0">{r.receiptStatus}</span>
-                )}
-                <span className="text-slate-500 shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
-              </div>
-            ))}
+            {receipts.map((r) => {
+              const expanded = expandedReceiptId === r.id;
+              return (
+                <div key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedReceiptId(expanded ? null : r.id)}
+                    className="flex w-full items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] text-left transition-colors hover:bg-white/10"
+                  >
+                    <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
+                      {r.actionType}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-slate-300" title={r.summary}>{r.summary}</span>
+                    {r.dvnReceiptId ? (
+                      <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`DVN-anchored · ${r.dvnReceiptId}`}>
+                        <ShieldCheck className="h-3 w-3" /> anchored
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 shrink-0">{r.receiptStatus}</span>
+                    )}
+                    <span className="text-slate-500 shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
+                  </button>
+                  {expanded && (
+                    <div className="mt-1">
+                      <ActivityReceiptCard data={r} personaDisplayLabel={personaDisplayLabel} theme="dark" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
