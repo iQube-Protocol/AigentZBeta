@@ -294,8 +294,14 @@ export function RegisterAgentPanel(_props: { personaId?: string }) {
         {flow.step === 'error' && (
           <div className="flex items-start gap-2 text-xs text-rose-300">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <div>
-              <p>{flow.message}</p>
+            <div className="min-w-0 flex-1">
+              {/* Some refusals (e.g. UNSIGNED_TX_UNAVAILABLE) embed the raw MCP
+                  arguments + response so the exact call/response is visible —
+                  never a bare "not found" — rendered as a scrollable, wrapped
+                  block rather than a single unreadable paragraph. */}
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded border border-rose-900/40 bg-rose-950/20 p-2 font-mono text-[11px] leading-snug text-rose-200">
+                {flow.message}
+              </pre>
               <button
                 onClick={() => setFlow({ step: 'idle' })}
                 className="mt-2 rounded-md border border-slate-700 px-2 py-1 text-slate-300 hover:bg-slate-800/60"

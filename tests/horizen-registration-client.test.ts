@@ -86,6 +86,23 @@ describe('prepareAgentRegistration', () => {
     expect(result).toMatchObject({ ok: false, refusalCode: 'AGENT_CARD_INVALID' });
   });
 
+  it('refuses UNSIGNED_TX_UNAVAILABLE with the raw arguments + response visible, never a bare "not found"', async () => {
+    const mcpClient = fakeMcpClient();
+    mcpClient.callTool = vi.fn(async ({ name }: { name: string }) => {
+      if (name === 'build_registration_tx') return { content: [{ type: 'text', text: JSON.stringify({ someUnrelatedShape: true }) }] };
+      throw new Error(`unexpected tool call: ${name}`);
+    });
+    const result = await prepareAgentRegistration(
+      { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
+      { mcpClient, fetchAgentCard: fakeFetchAgentCard() },
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe('UNSIGNED_TX_UNAVAILABLE');
+    expect(result.detail).toContain('someUnrelatedShape');
+    expect(result.detail).toContain('Arguments sent');
+  });
+
   it('refuses REGISTRATION_TOOL_NOT_FOUND rather than guessing a call shape', async () => {
     const result = await prepareAgentRegistration(
       { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
