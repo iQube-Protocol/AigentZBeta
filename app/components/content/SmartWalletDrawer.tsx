@@ -18,6 +18,7 @@ import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
+import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -2530,6 +2531,54 @@ export default function SmartWalletDrawer({
                   <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
                     <p className="text-xs text-white/60 truncate">{sessionEmail}</p>
+                  </div>
+                )}
+
+                {/* Passport-native connect — PAS-001 §20 Phase 2 (2026-07-31): the
+                    passport-first entry door, offered ahead of and alongside the
+                    legacy password path below (never replacing it yet — §3/§18
+                    invariant 3's "password becomes a step within the funnel"
+                    reordering is a later, separately-scoped phase). Always visible
+                    while signed out, not gated behind the "Sign In" click below, so
+                    a citizen with a wallet is never funneled into the password form
+                    first.
+                    Reuses the SAME `/api/passport-connect/*` mechanics
+                    `PassportConnectPanel` already implements for the Companion and
+                    `/passport-connect` — composition, not a fork
+                    (inv.engineering.036/037). `world="application"` because this
+                    drawer always mounts in the top-level application document,
+                    never inside the Companion's cross-origin iframe partition, so
+                    Ruling A.7's handoff-tab dance does not apply here — the session
+                    and persona pin land directly in this document's storage. */}
+                {!sessionEmail && (
+                  <div className="border-b border-white/10">
+                    <PassportConnectPanel
+                      world="application"
+                      onConnected={() => {
+                        // The panel already pinned the chosen persona to
+                        // localStorage directly (ruling A.11.2) — but a same-tab
+                        // localStorage write does not fire the native `storage`
+                        // event PersonaContext's listener needs (only OTHER tabs
+                        // receive that event for a same-document write). Route the
+                        // pinned id through the existing `ctxSetActivePersonaId`
+                        // so the SAME write+dispatch+broadcast path every other
+                        // persona switch in this file already uses fires here too
+                        // — composition, never a parallel pin.
+                        try {
+                          const pinned = window.localStorage.getItem('currentPersonaId');
+                          if (pinned) ctxSetActivePersonaId(pinned);
+                        } catch {
+                          /* ignore */
+                        }
+                        void refreshPersonas();
+                        setPersonaMenuOpen(false);
+                      }}
+                    />
+                    <div className="flex items-center gap-2 px-3 pb-3">
+                      <div className="h-px flex-1 bg-white/10" />
+                      <span className="text-[10px] uppercase tracking-wider text-white/30">or</span>
+                      <div className="h-px flex-1 bg-white/10" />
+                    </div>
                   </div>
                 )}
 

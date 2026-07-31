@@ -504,3 +504,82 @@ describe('the Companion session reaches the application', () => {
     expect(scrub, 'the scrub no longer precedes the exchange').toBeLessThan(exchange);
   });
 });
+
+// ─── The wallet's OWN inline door — PAS-001 §20 Phase 2 (2026-07-31) ───────
+//
+// The Companion-page `gated()` wrapper above (already tested) substitutes
+// `connectGate` for `SmartWalletDrawer` when there is no session — but every
+// OTHER mount of `SmartWalletDrawer` (the "Wallet-Over-Cartridge Overlay"
+// pattern, CLAUDE.md) renders it directly, with no page-level gate in front
+// of it. For those call sites `SmartWalletDrawer` itself was the ONLY door,
+// and it only ever offered the raw email/password form — the exact estate-
+// wide gap PAS-001 §0.3 names ("`SmartWalletDrawer`... still renders a raw
+// email + password Sign In / Sign Up toggle... as its ONLY sign-in path").
+// These canaries assert the wallet's own dropdown now offers the SAME
+// Passport-native mechanics, reused (never forked), alongside — never yet
+// replacing — the legacy form.
+
+const WALLET_DRAWER = 'app/components/content/SmartWalletDrawer.tsx';
+
+describe('the wallet itself offers the Passport door, not only a password form', () => {
+  it('imports the SAME PassportConnectPanel the Companion and /passport-connect already use — no fork', () => {
+    const code = stripComments(readSource(WALLET_DRAWER));
+    expect(code).toMatch(
+      /import \{ PassportConnectPanel \} from ["']@\/components\/companion\/PassportConnectPanel["']/,
+    );
+    // One call site of the mechanics, not a hand-rolled second implementation
+    // of the challenge/proof/finalize sequence inside the drawer itself.
+    expect(
+      code,
+      'the drawer re-implements the passport-connect fetch sequence instead of reusing the panel',
+    ).not.toMatch(/fetch\(\s*["'`]\/api\/passport-connect\//);
+  });
+
+  it('mounts the panel in the top-level application storage world, never the Companion iframe world', () => {
+    // This drawer is mounted directly in the top-level document by every
+    // non-Companion surface (Wallet-Over-Cartridge Overlay pattern) — the
+    // default `world="companion"` would open a handoff tab this context
+    // never needs and could never redeem (there is no partitioned iframe to
+    // hand off FROM).
+    const code = stripComments(readSource(WALLET_DRAWER));
+    const at = code.indexOf('<PassportConnectPanel');
+    expect(at, 'PassportConnectPanel is not mounted in the drawer').toBeGreaterThan(-1);
+    const mountBlock = code.slice(at, code.indexOf('/>', at) + 2);
+    expect(mountBlock).toContain('world="application"');
+  });
+
+  it('the passport door is offered unconditionally while signed out — never gated behind the legacy "Sign In" click', () => {
+    const code = stripComments(readSource(WALLET_DRAWER));
+    const panelAt = code.indexOf('<PassportConnectPanel');
+    const legacyFormAt = code.indexOf('!sessionEmail && signingIn');
+    expect(panelAt).toBeGreaterThan(-1);
+    expect(legacyFormAt).toBeGreaterThan(-1);
+    // Sequenced ahead of the legacy form, per §3's funnel ordering.
+    expect(panelAt).toBeLessThan(legacyFormAt);
+    // The nearest `!sessionEmail && (` wrapper before the panel must not also
+    // require `signingIn` — a regression that re-adds that gate would hide
+    // the door behind the same click it exists to remove.
+    const wrapperStart = code.lastIndexOf('{!sessionEmail && (', panelAt);
+    expect(wrapperStart, 'no unconditional !sessionEmail wrapper precedes the panel').toBeGreaterThan(-1);
+    expect(code.slice(wrapperStart, panelAt)).not.toContain('signingIn');
+  });
+
+  it('the legacy email/password path still exists — this is additive, not a replacement (§3/§18 invariant 3 is a later, separately-scoped phase)', () => {
+    const code = stripComments(readSource(WALLET_DRAWER));
+    expect(code).toContain('signInWithEmail');
+    expect(code).toContain('signUpWithEmail');
+  });
+
+  it('a successful passport-native connect re-pins the persona through the SAME context setter every other switch in this file uses, not a parallel write', () => {
+    // `ctxSetActivePersonaId` writes localStorage AND dispatches the synthetic
+    // `storage` event PersonaContext's same-tab listener needs — a same-tab
+    // `localStorage.setItem` alone (which is all the panel itself does) does
+    // not fire that event, so a parallel write here would silently leave
+    // PersonaContext on the pre-connect persona.
+    const code = stripComments(readSource(WALLET_DRAWER));
+    const at = code.indexOf('<PassportConnectPanel');
+    const onConnectedBlock = code.slice(at, code.indexOf('/>', at) + 2);
+    expect(onConnectedBlock).toContain('ctxSetActivePersonaId(pinned)');
+    expect(onConnectedBlock).toContain('refreshPersonas()');
+  });
+});
