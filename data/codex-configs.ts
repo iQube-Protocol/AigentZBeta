@@ -3084,32 +3084,6 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
-      // PRD-GJR-001 (Guided Journey Runtime) — the Pilot > Journey view
-      // (§6.1, §14). Orchestrates the Horizen x MoneyPenny constitutional
-      // admission pilot: a compact stage bar over real, live platform
-      // surfaces, never a parallel demo app. See services/journey/.
-      id: 'partner-pilot-journey',
-      label: 'Journey',
-      slug: 'partner-pilot-journey',
-      enabled: true,
-      // Tier 2 — visible on venture-lab participation, not platform admin.
-      participationDomain: 'venture-lab',
-      // ROLE RESTRICTION — see partner-programmes above.
-      participationRoles: ['partner-operator', 'workspace-steward'],
-      group: 'partner',
-      order: 0.5,
-      type: 'static',
-      config: {
-        component: 'PartnerProgrammesTab',
-        props: { initialSurface: 'journey' }
-      },
-      metadata: {
-        icon: 'Milestone',
-        description: 'The Guided Journey Runtime — Horizen x MoneyPenny constitutional admission pilot',
-        color: 'amber'
-      }
-    },
-    {
       id: 'partner-operate',
       label: 'Operate',
       slug: 'partner-operate',
@@ -3183,7 +3157,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       // pre-release reporting. Splitting it out is what lets the Tier 2 views
       // above open to partner operators without exposing any of this.
       id: 'partner-administration',
-      label: 'Administration',
+      label: 'Administer',
       slug: 'partner-administration',
       enabled: true,
       adminOnly: true,
@@ -3198,6 +3172,33 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'Lock',
         description: 'Internal programme space — assessment, posture, assumptions, risk. Never shared with the partner',
         color: 'slate'
+      }
+    },
+    {
+      // PRD-GJR-001 (Guided Journey Runtime) — the Pilot > Journey view
+      // (§6.1, §14). Orchestrates the Horizen x MoneyPenny constitutional
+      // admission pilot: a compact stage bar over real, live platform
+      // surfaces, never a parallel demo app. See services/journey/. Ordered
+      // last in the Partner sub-menu, per operator UI review (2026-07-31).
+      id: 'partner-pilot-journey',
+      label: 'Journey',
+      slug: 'partner-pilot-journey',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'journey' }
+      },
+      metadata: {
+        icon: 'Milestone',
+        description: 'The Guided Journey Runtime — Horizen x MoneyPenny constitutional admission pilot',
+        color: 'amber'
       }
     },
     {

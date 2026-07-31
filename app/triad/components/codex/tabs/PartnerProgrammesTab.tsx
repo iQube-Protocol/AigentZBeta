@@ -243,7 +243,7 @@ const SUB_LABELS: Record<SubSurface, string> = {
   operate: "Operate",
   evidence: "Evidence",
   communicate: "Communicate",
-  administration: "Administration",
+  administration: "Administer",
   pipeline: "Pipeline",
   review: "Review",
   "working-materials": "Working Materials",
@@ -1506,6 +1506,12 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
         <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
       )}
       <div className={kind === "research" ? "min-w-0 flex-1 space-y-4 overflow-y-auto p-4" : "min-w-0 flex-1 space-y-4"}>
+      {/* Workspace selector + Command Center — omitted for the Journey surface
+          (operator UI review, 2026-07-31): the Guided Journey Runtime is its
+          own lightweight capability, not a workspace panel, and does not
+          need the Pilot/Programme Command Center chrome above it. */}
+      {surface !== "journey" && (
+      <>
       {/* Workspace selector — derived from the registry (single source).
           VENTURE ONLY: research's programme picker is the left nav above. */}
       {kind !== "research" && (
@@ -1581,6 +1587,8 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           </MetricCard>
         </div>
       </div>
+      </>
+      )}
 
       {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
       {menuSurface === null && (

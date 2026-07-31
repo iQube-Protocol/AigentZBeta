@@ -100,6 +100,76 @@ the same `external_registry_bindings` array — never a parallel field, and neve
 (Horizen ERC-8004 token id, an A2A card URL, an MCP endpoint, a DID reference, etc.) without a schema
 change.
 
+## Fuller completeness picture (operator-directed follow-up audit, 2026-07-31)
+
+The framing above, on its own, reads as "this pilot slice built the A2A/ERC-8004 integration from
+scratch." **That is not accurate**, and the operator asked for a second audit pass specifically to
+correct it. A substantial A2A/ERC-8004 Agent Card integration already existed in this codebase before
+2026-07-31 — the gap this proposal's shipped slice closed was narrower and specific: **the connection
+between that existing integration and the persisted, canonical `AigentQube` record.**
+
+The system has four layers, and only the fourth had the gap:
+
+| # | Layer | State before 2026-07-31 |
+|---|---|---|
+| 1 | AgentQube Card specification (identity/interfaces/capabilities/trust/policy/economics/context/receipts) | Already designed |
+| 2 | A2A-style Agent Card publication (`GET /api/agents/{slug}/agent-card.json`, mirrored across MoneyPenny/Aletheon) | Already built |
+| 3 | ERC-8004/Horizen ingestion, identity normalization, correlation, evidence, and binding stack | Already built — `services/horizen/agentCard.ts`, `identity.ts`, `correlate.ts`, `evidence.ts`, `evidenceChain.ts`, `agentBinding.ts` (+ `agent_identity_bindings` table); `scripts/register-moneypenny-horizen.ts` performs the real outbound sequence (fetch card → validate → connect to Horizen MCP → discover tool schemas → build + verify + sign + submit the registration tx → poll onboarding status) |
+| 4 | Canonical AigentQube registry persistence (`registry_assets`, asset_class `AigentQube`) | Existed for 4 agents only; **not joined to layers 1–3** for MoneyPenny — her card was hand-authored, her registry presence synthesized through the code-only runtime fallback |
+
+So: **the A2A/ERC-8004 integration is an existing platform capability, not new work from this pilot.**
+What this pilot's shipped slice (above) did was join layer 4 to layers 1–3 for one agent (MoneyPenny),
+by making her Agent Card's `metadata.horizen` block a real projection of her (newly persisted)
+AigentQube's `external_registry_bindings`, instead of a disconnected literal.
+
+### Current completeness by layer
+
+| Capability | Status |
+|---|---|
+| AgentQube Card concept/spec | Built |
+| A2A-style public card route | Built |
+| ERC-8004 card parser (handles hostile JSON, optional/identity-only cards, `data:`/`https:`/`ipfs:`/unknown URI schemes, size caps, additive extensions, unresolved-vs-invalid) | Built |
+| Network-qualified token identity normalization (`(network, tokenId)` as the identity key; `BigInt`, not unsafe number conversion; catalogue row ≠ on-chain identity) | Built |
+| Horizen read/correlation/evidence/evidence-chain services | Built |
+| External identity binding model (`agent_identity_bindings`) | Built |
+| MoneyPenny outbound registration script | Built, **not executed** |
+| MoneyPenny persisted AigentQube | Built (this slice) |
+| MoneyPenny card reads Horizen binding from AigentQube | Built (this slice) |
+| Entire MoneyPenny card projected from AigentQube (name/description/capabilities/skills/constitutional statements/registry-entry fields) | **Partial** — only the `metadata.horizen` subsection projects; the rest is still route literals |
+| Live Horizen token id | Not yet issued |
+| Token id write-back to AigentQube | Not yet built/executed (see "deliberately NOT built yet" #1 above) |
+| Bidirectional AigentQube ↔ Horizen reread | Not yet complete |
+| Generic canonical AigentQube creation factory | Still deficient (`createAigentQube()` is dead code — see the Stage-0 audit) |
+| All production agents backed by persisted AigentQubes | Not yet true (see "deliberately NOT built yet" #2) |
+
+### The remaining architectural gap, precisely
+
+MoneyPenny's Agent Card route now projects its Horizen subsection from her persisted AigentQube, but
+the rest of the card (name, description, capabilities, skills, constitutional statements,
+registry-entry fields) is still authored directly in the route. The target end-state, once pursued:
+
+```
+persisted AigentQube
+├── native identity
+├── capabilities
+├── policy/governance
+├── controller reference
+├── Agent Card profile
+├── external registry bindings
+├── constitutional authority references
+└── evidence references
+              ↓ projection (one service, not bespoke route literals)
+A2A / ERC-8004 Agent Card
+```
+
+Recommended (not yet built): a reusable `projectAigentCard(aigentQubeId)` service that assembles the
+full card from the canonical AigentQube record, joining fast-changing external fields (token
+lifecycle, Pulse/P&L proofs) from their own authoritative sources (`services/horizen/*`,
+`agent_identity_bindings`) rather than duplicating them into `registry_assets.metadata`. Migrating
+Aletheon and other agents onto it should happen incrementally, agent by agent, never as a wholesale
+replacement of the working `services/horizen/*` integration — that stack is preserved and reused, not
+rebuilt.
+
 ## Cross-reference
 
 Full first-slice detail: `2026-07-30_prd-gjr-001-guided-journey-runtime.md` §3.1.1, §7 (Register row),

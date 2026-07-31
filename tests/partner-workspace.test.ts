@@ -252,19 +252,22 @@ describe('tab registration — the Partner tier split on the hand-curated Ventur
     // for Participate, as 'Public Workspace'. What remains is the private
     // workspace: the partner↔metaProof record plus the internal space.
     // 'Journey' added 2026-07-31 (PRD-GJR-001, Guided Journey Runtime,
-    // operator-directed) — the Pilot > Journey view, order 0.5, between
-    // Collaborate and Operate. Still ONE component (below):
-    // PartnerProgrammesTab renders it via initialSurface: 'journey', same as
-    // every other entrance in this group — the Journey Runtime's own logic
-    // lives in PilotJourneyTab.tsx / services/journey/, composed in, not a
-    // second top-level implementation.
+    // operator-directed) — the Pilot > Journey view. Re-ordered to LAST
+    // (2026-07-31, UI review) — after Administer, not between Collaborate
+    // and Operate. Still ONE component (below): PartnerProgrammesTab renders
+    // it via initialSurface: 'journey', same as every other entrance in this
+    // group — the Journey Runtime's own logic lives in PilotJourneyTab.tsx /
+    // services/journey/, composed in, not a second top-level implementation.
+    // 'Administration' relabelled 'Administer' the same day, to match the
+    // verb pattern of its Partner-group siblings (Collaborate/Operate/
+    // Communicate/Administer) — id/slug/initialSurface value are unchanged.
     expect(tabs.map((t: { label: string }) => t.label)).toEqual([
       'Collaborate',
-      'Journey',
       'Operate',
       'Evidence',
       'Communicate',
-      'Administration',
+      'Administer',
+      'Journey',
     ]);
     expect(tabs.map((t: { label: string }) => t.label)).not.toContain('Partner Workspace');
     // The ratified split: four Tier 2 views, two Tier 0 views.

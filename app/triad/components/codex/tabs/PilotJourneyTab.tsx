@@ -3,25 +3,35 @@
 /**
  * PilotJourneyTab — Partner workspace "Pilot > Journey" surface (PRD-GJR-001
  * §6, §7, §14). Renders the Guided Journey Runtime for the one configured
- * journey (services/journey/horizenMoneyPennyJourney.ts): a compact stage
- * bar, the current stage's real composed surface(s), and a Companion
- * narrative overlay — never a parallel demo app (§0, §5.9).
+ * journey (services/journey/horizenMoneyPennyJourney.ts): a compact circles-
+ * and-lines stage stepper (mirrors AccessionProgressBar's visual pattern,
+ * app/triad/components/codex/AccessionProgressBar.tsx — the IRL onboarding
+ * stepper) over the current stage's real composed surface(s) — never a
+ * parallel demo app, and never its own embedded Companion panel (§0, §5.9).
+ * The platform's real Companion (Metayé) is a separate, independently
+ * toggled overlay; this component does not duplicate it.
  *
  * One-State Principle (§5.3): stage state comes ONLY from
  * /api/journey/moneypenny-horizen/state, which resolves it via
  * resolveJourneyState() against real receipts/Agent Card data. This
- * component never marks a stage complete on its own — clicking a stage bar
- * item only selects which stage's surface is shown (§5.1).
+ * component never marks a stage complete on its own — clicking a stage node
+ * only selects which stage's surface is shown (§5.1).
+ *
+ * Full-screen (operator UI review, 2026-07-31): an expand toggle portals the
+ * stepper + viewport to a fixed, full-viewport overlay via createPortal —
+ * raised above the Venture Lab shell's z-index, not a modal/popup. Collapse
+ * returns it to its normal embedded position; nothing unmounts either way.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Lock, Loader2, RefreshCw, ExternalLink, Construction } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2 } from 'lucide-react';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 import { AigentMeFocusDispositionPrompt } from '@/components/journey/AigentMeFocusDispositionPrompt';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
-import type { JourneyRuntimeState, JourneyStageState } from '@/types/journey';
+import type { JourneyRuntimeState } from '@/types/journey';
 
 interface PilotJourneyTabProps {
   personaId?: string;
@@ -42,21 +52,12 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   AgentCardSurface,
 };
 
-const STAGE_ICON: Record<JourneyStageState, React.ReactNode> = {
-  COMPLETE: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
-  IN_PROGRESS: <Loader2 className="h-4 w-4 text-purple-400 animate-pulse" />,
-  READY: <Circle className="h-4 w-4 text-slate-300" />,
-  NOT_STARTED: <Circle className="h-4 w-4 text-slate-600" />,
-  BLOCKED: <Lock className="h-4 w-4 text-slate-600" />,
-  REFUSED: <Lock className="h-4 w-4 text-rose-400" />,
-  QUARANTINED: <Lock className="h-4 w-4 text-amber-400" />,
-};
-
-export function PilotJourneyTab({ personaId }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [fullScreen, setFullScreen] = useState(false);
 
   const journey = HORIZEN_MONEYPENNY_JOURNEY;
 
@@ -79,11 +80,22 @@ export function PilotJourneyTab({ personaId }: PilotJourneyTabProps) {
     void refresh();
   }, [refresh]);
 
+  // Escape collapses full screen — matches the old cartridge full-screen convention.
+  useEffect(() => {
+    if (!fullScreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullScreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullScreen]);
+
   const activeStageId = selectedStageId ?? runtimeState?.currentStageId ?? journey.stages[0]?.id;
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
+  const activeIdx = journey.stages.findIndex((s) => s.id === activeStageId);
 
-  return (
+  const content = (
     <div className="flex h-full flex-col gap-4 p-4 text-slate-100">
       <div className="flex items-center justify-between">
         <div>
@@ -91,13 +103,22 @@ export function PilotJourneyTab({ personaId }: PilotJourneyTabProps) {
           <h2 className="text-lg font-semibold text-slate-100">{journey.label}</h2>
           <p className="text-xs text-slate-400">Destination: aigentMe (Founder Office available as a next destination)</p>
         </div>
-        <button
-          onClick={() => void refresh()}
-          className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh state
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void refresh()}
+            className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh state
+          </button>
+          <button
+            onClick={() => setFullScreen((v) => !v)}
+            title={fullScreen ? 'Collapse' : 'Full screen'}
+            className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
+          >
+            {fullScreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -106,140 +127,182 @@ export function PilotJourneyTab({ personaId }: PilotJourneyTabProps) {
         </div>
       )}
 
-      {/* Journey bar — clicking selects a stage's viewport; it never completes a stage (§5.1). */}
-      <div className="flex gap-2 overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/40 p-2">
-        {journey.stages.map((stage, idx) => {
-          const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
-          const isActive = stage.id === activeStageId;
-          return (
-            <button
-              key={stage.id}
-              onClick={() => setSelectedStageId(stage.id)}
-              title={stageState === 'BLOCKED' ? 'Blocked — prerequisites not yet met' : stage.description}
-              className={`flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
-                isActive
-                  ? 'border-purple-700/60 bg-purple-950/30 text-purple-100'
-                  : 'border-slate-800 bg-slate-900/40 text-slate-300 hover:bg-slate-800/40'
-              }`}
-            >
-              {STAGE_ICON[stageState]}
-              <span>{idx + 1}. {stage.label}</span>
-            </button>
-          );
-        })}
+      {/* Stage stepper — circles + connecting lines, mirroring AccessionProgressBar.
+          Clicking selects a stage's viewport; it never completes a stage (§5.1). */}
+      <div className="border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
+        <div className="flex items-center overflow-x-auto">
+          {journey.stages.map((stage, i) => {
+            const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
+            const isDone = stageState === 'COMPLETE';
+            const isCurrent = stage.id === activeStageId;
+            const isBlocked = stageState === 'BLOCKED';
+            const prevDone =
+              i === 0 ||
+              (runtimeState?.stages.find((s) => s.stageId === journey.stages[i - 1].id)?.state ?? 'NOT_STARTED') ===
+                'COMPLETE';
+            return (
+              <React.Fragment key={stage.id}>
+                {i > 0 && <div className={`h-px flex-1 min-w-[16px] ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
+                <button
+                  onClick={() => setSelectedStageId(stage.id)}
+                  className="flex shrink-0 items-center gap-1.5 px-1"
+                  title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
+                >
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                      isDone
+                        ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                        : isCurrent
+                          ? 'border-purple-400 bg-purple-500/20 text-purple-200'
+                          : isBlocked
+                            ? 'border-slate-700 text-slate-600'
+                            : 'border-slate-600 text-slate-400'
+                    }`}
+                  >
+                    {isBlocked && !isDone ? (
+                      <Lock className="h-2.5 w-2.5" />
+                    ) : loading && isCurrent ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : isDone ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      i + 1
+                    )}
+                  </span>
+                  <span
+                    className={`whitespace-nowrap text-[11px] ${
+                      isCurrent ? 'font-semibold text-purple-200' : isDone ? 'text-emerald-300/80' : 'text-slate-400'
+                    }`}
+                  >
+                    {stage.label}
+                  </span>
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-[2fr_1fr]">
-        {/* Stage viewport — composes the stage's real surfaces (§5.9). */}
-        <div className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <div>
-            <h3 className="text-sm font-medium text-slate-100">{activeStage.label}</h3>
-            <p className="text-xs text-slate-400">{activeStage.description}</p>
+      {/* Stage viewport — composes the stage's real surfaces (§5.9). Full width:
+          the Companion is a separate, independently-toggled overlay elsewhere
+          in the shell, never duplicated here. */}
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+        <div>
+          <h3 className="text-sm font-medium text-slate-100">
+            {activeIdx + 1}. {activeStage.label}
+          </h3>
+          <p className="text-xs text-slate-400">{activeStage.description}</p>
+        </div>
+        {activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0 && (
+          <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
+            Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}
           </div>
-          {activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0 && (
-            <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
-              Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            {activeStage.surfaces.map((surfaceRef, i) => {
-              const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
-              if (!descriptor) {
-                return (
-                  <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-500">
-                    Surface not registered: {surfaceRef.ref}
+        )}
+        {activeStageRuntime?.refusalReason && (
+          <p className="rounded-md border border-rose-900/60 bg-rose-950/30 p-2 text-xs text-rose-300">
+            Refused: {activeStageRuntime.refusalReason}
+          </p>
+        )}
+        <div className="flex flex-col gap-2">
+          {activeStage.surfaces.map((surfaceRef, i) => {
+            const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
+            if (!descriptor) {
+              return (
+                <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-500">
+                  Surface not registered: {surfaceRef.ref}
+                </div>
+              );
+            }
+            if (descriptor.kind === 'embed') {
+              const src = buildCodexUrl(descriptor.codexSlug, { tab: descriptor.tab, personaId, shell: 'embed' });
+              return (
+                <iframe
+                  key={i}
+                  src={src}
+                  title={surfaceRef.ref}
+                  className={`w-full rounded-md border border-slate-800 bg-slate-950 ${fullScreen ? 'h-[calc(100vh-260px)]' : 'h-96'}`}
+                />
+              );
+            }
+            if (descriptor.kind === 'api') {
+              return (
+                <a
+                  key={i}
+                  href={descriptor.route}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/40"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> {descriptor.note}
+                </a>
+              );
+            }
+            if (descriptor.kind === 'external-url-unresolved') {
+              // Quieter than an error card (operator UI review, 2026-07-31): this
+              // isn't a Journey failure, it's a genuine external data gap — the
+              // human-browsable Horizen URL hasn't been confirmed yet. Once one
+              // is supplied, this surface resolves to an 'api'/'embed' descriptor
+              // and the Companion/browser shell opens it; no iframe support for
+              // partner sites is required here.
+              return (
+                <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+                  <p className="text-slate-300">Awaiting confirmation from Horizen</p>
+                  <p className="mt-1">{descriptor.note}</p>
+                </div>
+              );
+            }
+            if (descriptor.kind === 'component-new') {
+              return (
+                <div key={i} className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+                  <Construction className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+                  <div>
+                    <p className="font-medium text-slate-300">{descriptor.component} — not yet built</p>
+                    <p className="mt-1">{descriptor.note}</p>
+                    <p className="mt-1 text-slate-500">Tracked in {descriptor.trackedIn}.</p>
                   </div>
-                );
-              }
-              if (descriptor.kind === 'embed') {
-                const src = buildCodexUrl(descriptor.codexSlug, { tab: descriptor.tab, personaId, shell: 'embed' });
-                return (
-                  <iframe
-                    key={i}
-                    src={src}
-                    title={surfaceRef.ref}
-                    className="h-96 w-full rounded-md border border-slate-800 bg-slate-950"
-                  />
-                );
-              }
-              if (descriptor.kind === 'api') {
-                return (
-                  <a
-                    key={i}
-                    href={descriptor.route}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800/40"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> {descriptor.note}
-                  </a>
-                );
-              }
-              if (descriptor.kind === 'external-url-unresolved') {
+                </div>
+              );
+            }
+            if (descriptor.kind === 'component') {
+              const Component = JOURNEY_COMPONENTS[descriptor.component];
+              if (!Component) {
                 return (
                   <div key={i} className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
-                    <p className="font-medium">External URL not yet resolvable</p>
-                    <p className="mt-1 text-amber-200/80">{descriptor.note}</p>
-                  </div>
-                );
-              }
-              if (descriptor.kind === 'component-new') {
-                return (
-                  <div key={i} className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
-                    <Construction className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
-                    <div>
-                      <p className="font-medium text-slate-300">{descriptor.component} — not yet built</p>
-                      <p className="mt-1">{descriptor.note}</p>
-                      <p className="mt-1 text-slate-500">Tracked in {descriptor.trackedIn}.</p>
-                    </div>
-                  </div>
-                );
-              }
-              if (descriptor.kind === 'component') {
-                const Component = JOURNEY_COMPONENTS[descriptor.component];
-                if (!Component) {
-                  return (
-                    <div key={i} className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
-                      {descriptor.component} is marked built in the registry but is not wired into
-                      PilotJourneyTab&apos;s JOURNEY_COMPONENTS map.
-                    </div>
-                  );
-                }
-                return (
-                  <div key={i}>
-                    <Component {...(surfaceRef.props ?? {})} />
+                    {descriptor.component} is marked built in the registry but is not wired into
+                    PilotJourneyTab&apos;s JOURNEY_COMPONENTS map.
                   </div>
                 );
               }
               return (
-                <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
-                  {descriptor.note}
+                <div key={i}>
+                  <Component {...(surfaceRef.props ?? {})} />
                 </div>
               );
-            })}
-          </div>
-        </div>
-
-        {/* Companion overlay (§5.9) — narrates the real surfaces above; never renders as one itself. */}
-        <div className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-400">Companion</h4>
-          <p className="text-sm text-slate-200">
-            {activeStageRuntime?.state === 'COMPLETE' ? activeStage.companion.complete : activeStage.companion.before}
-          </p>
-          {activeStageRuntime?.refusalReason && (
-            <p className="rounded-md border border-rose-900/60 bg-rose-950/30 p-2 text-xs text-rose-300">
-              Refused: {activeStageRuntime.refusalReason}
-            </p>
-          )}
-          {activeStageRuntime && activeStageRuntime.receiptRefs.length > 0 && (
-            <div className="text-xs text-slate-500">
-              Receipts: {activeStageRuntime.receiptRefs.length}
-            </div>
-          )}
+            }
+            return (
+              <div key={i} className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+                {descriptor.note}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
   );
+
+  if (!fullScreen) return content;
+
+  // Raised above the shell's z-index via a portal to document.body — not a
+  // modal, not a popup: the same content, rendered outside the Venture Lab
+  // shell so it can occupy the full viewport, un-distracted.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] bg-slate-950">{content}</div>,
+    document.body,
+  );
+}
+
+export function PilotJourneyTab(props: PilotJourneyTabProps) {
+  return <PilotJourneyTabInner {...props} />;
 }
 
 export default PilotJourneyTab;

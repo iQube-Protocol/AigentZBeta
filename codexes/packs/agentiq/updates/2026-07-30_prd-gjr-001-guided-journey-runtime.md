@@ -944,6 +944,52 @@ APPROVE_MANDATE       — does not exist as a Companion intent
 *surfaces* the action for the human operator to perform through the real surface underneath (§5.9) —
 it never performs the act on the operator's behalf.
 
+### 11.2 `OPEN_SURFACE` target types (added 2026-07-31, operator refinement)
+
+`OPEN_SURFACE` needed a target shape to actually be dispatchable. Four target kinds, matching the
+existing `JOURNEY_SURFACES` descriptor kinds (`services/journey/journeySurfaceRegistry.ts`) so the
+Companion and the Partner Journey tab describe surfaces identically — one vocabulary, not two:
+
+```ts
+type OpenSurfaceTarget =
+  | { kind: 'internal-route'; route: string }
+  | { kind: 'cartridge-tab'; codexSlug: string; tab: string }
+  | { kind: 'modal-or-drawer'; component: string; props?: Record<string, unknown> }
+  | { kind: 'external-url'; url: string };
+```
+
+`external-url` opens through the browser/Companion shell — the Journey Runtime does not need iframe
+support for arbitrary partner sites, and an external URL being unresolvable is a genuine data gap
+(§14.1), never a Journey Runtime failure. `OPEN_SURFACE` never marks a stage complete; only real
+receipts/state (§5.3, §9) do that.
+
+### 11.3 Companion journey quick-link carousel (added 2026-07-31, operator refinement)
+
+The Companion is the conversational entry point into the journey; the Partner Journey tab (§14) is the
+authoritative visual execution surface. Both render from the **same** `JourneyDefinition` +
+`JourneyRuntimeState` — never two journey definitions:
+
+```
+JourneyDefinition + JourneyRuntimeState
+  → Partner Journey tab: the full stage stepper + current-stage viewport (§14)
+  → Companion: a compact seven-chip quick-link carousel
+```
+
+Selecting a stage chip in the Companion does three things, in order: (1) selects the stage — the same
+`selectedStageId` the Journey tab uses, so both views agree on "current" without two sources of truth;
+(2) the Companion narrates that stage conversationally (templated from the journey definition per
+§11, until generation is warranted); (3) the Companion emits `OPEN_SURFACE` for that stage's
+registered surface(s) (`journeySurfaceRegistry.ts`), which opens in the left browser pane. A stage
+completing (real receipt, §5.3) advances both renderings; a blocked/refused stage shows the same
+refusal reason in both. The Companion never renders its own narrative panel inside the Journey tab
+(§14.1) — this carousel is additive to the Companion's own existing surface, not a duplicate mounted
+elsewhere.
+
+Implementation note: this needs the Companion's actual current action-chip/quick-prompt mechanism
+identified before it's wired (which prop/config feeds its chip row today, and whether `OPEN_SURFACE`
+already has a real dispatch path or is type-only so far) — tracked as follow-up work, not yet built as
+of this revision.
+
 ## 12. Demo strategy — rehearse, then perform live
 
 ### 12.1 Two separate executions
@@ -1040,6 +1086,32 @@ sync.
 
 **Evidence drawer:** evidence required; evidence present; latest receipt; anchor status; refusal
 reason; deterministic reread link.
+
+### 14.1 UI corrections, 2026-07-31 (operator review of the first build)
+
+- **Stage stepper, not a boxy button row.** The journey bar is circles connected by lines — numbered,
+  checkmarked on completion — mirroring `AccessionProgressBar.tsx` (the IRL onboarding stepper)
+  exactly, not a novel visual pattern. Clicking a node still only selects a stage's viewport; it never
+  completes one (§5.1 unchanged).
+- **No embedded Companion column.** The stage viewport is full width. The platform's real Companion
+  (Metayé) is a separate, independently-toggled overlay elsewhere in the shell — PilotJourneyTab must
+  never render its own narrative column that duplicates it. (This was a live violation of the
+  Composable Overlay Principle, §5.9, in the first build — corrected.)
+- **No "Pilot Command Center" header above the journey.** That header (workspace-selector chips +
+  Health/Phase/Milestone/Owner/Open-Actions/etc. metric tiles) is `PartnerProgrammesTab`'s persistent
+  header, rendered above every Partner sub-surface — now suppressed specifically for
+  `initialSurface: 'journey'`. It remains exactly as-is for Operate/Evidence/Collaborate/Communicate.
+- **Full-screen toggle.** Mirrors the old cartridge full-screen convention: an expand/collapse button
+  raises the stepper + viewport above the shell's z-index via a `createPortal` to `document.body` —
+  not a modal, not a popup, the same content rendered outside the Venture Lab shell so it can occupy
+  the full viewport. Escape also collapses it. **Not yet resolved:** whether full-screen mode should
+  also surface the Partner sub-menu (so the operator can jump to Program Command Center etc. without
+  collapsing first) — this needs one more investigation pass into which component owns that outer tab
+  strip before it can be wired correctly; the current full-screen view shows the journey content only.
+- **Journey moved to the end of the Partner sub-menu**, after Administer (previously between
+  Collaborate and Operate) — order: Collaborate, Operate, Evidence, Communicate, Administer, Journey.
+- **"Administration" relabelled "Administer"** (id/slug/`initialSurface` value unchanged) to match the
+  verb pattern of its Partner-group siblings.
 
 ## 15. Required receipts
 
@@ -1320,3 +1392,32 @@ brief, never a guessed one.
 - **MoneyPenny's owner wallet for Horizen registration** — still needs a funded Base Sepolia wallet
   (flagged when the registration script was built); this journey's Stage 1/Claim depends on it
   existing before rehearsal even starts.
+
+## 23. Threshold Crossing alignment (added 2026-07-31, operator direction — recorded, not built)
+
+The MoneyPenny × Horizen seven-stage journey (§7) is not the entire onboarding story. It is the
+agent-admission segment configured *inside* a wider journey — **Threshold Crossing** — which for a
+technical founder/operator plausibly runs:
+
+```
+1. Founder is working in Claude / Claude Code
+2. metaMe MCP is installed
+3. constitutional Companion is established
+4. Companion identifies the operator and the onboarding agent
+5. Polity Citizen Passport process begins
+6. onboarding agent is assessed and admitted        ← the configured Register→aigentMe journey (§7)
+7. aigentMe assumes constitutional oversight
+8. principal decides whether the agent's focus enters the ExperienceQube population
+9. agent becomes one of up to three delegated agents
+10. next destination is selected
+```
+
+Read against §8 (Claude remains the acquisition/setup edge): Claude is where a technical founder first
+encounters and installs the metaMe capability; the Companion then carries the guided constitutional
+journey; aigentMe is the enduring constitutional companion after the threshold is crossed. None of this
+means aigentMe lives inside Claude — Claude is the edge, not the destination.
+
+**This is recorded as the next journey envelope, not implemented in this increment.** The immediate,
+in-scope work is completing the Partner Journey tab + Companion synchronization (§11.2, §11.3, §14.1).
+Building the Claude/MCP-to-Threshold-Crossing extension is deliberately deferred — attempting both at
+once risks the same "parallel demo app" failure mode §0 already warns against.
