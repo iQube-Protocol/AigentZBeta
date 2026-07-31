@@ -69,7 +69,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       prerequisites: ['register'],
       permittedActions: ['authorize-pnl-disclosure'],
       completionEvidence: ['pulseAuthorizationVerified', 'pnlTransparencyEnabled', 'agentCardEnrichmentCommitted'],
-      receiptTypes: ['horizen_pnl_transparency_enabled', 'agent_card_enriched'],
+      // GJR-VFY-001 Phase 2 (2026-07-31): horizen_pulse_authorized is the
+      // authorizationClient's own confirmation receipt (Phase 1); the other
+      // two are written by the Phase 2 enrichment step immediately after.
+      receiptTypes: ['horizen_pulse_authorized', 'horizen_pnl_transparency_enabled', 'agent_card_enriched'],
       companion: {
         before: 'Horizen can enrich MoneyPenny’s verifiable operational state once you authorize disclosure.',
         complete:

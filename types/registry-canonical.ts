@@ -202,6 +202,19 @@ export interface ExternalAgentRegistryBinding {
   /** The projected Agent Card's own URL and content hash, for provenance. */
   agent_card_url?: string;
   agent_card_hash?: string;
+  /**
+   * GJR-VFY-001 §10 — Horizen Pulse/PnL transparency authorization state.
+   * Set ONLY by services/horizen/agentCardEnrichment.ts after
+   * verifyHorizenTransparencyActivation() confirms (never fabricated ahead
+   * of that confirmation; absent means "not yet authorized", not "denied").
+   * Establishes Standing ELIGIBILITY only — it does not itself accrue Standing.
+   */
+  transparency?: {
+    pulse_enabled: boolean;
+    pulse_authorization_ref: string;
+    pnl_disclosure_authorized: boolean;
+    pnl_proof_refs: string[];
+  };
 }
 
 /**

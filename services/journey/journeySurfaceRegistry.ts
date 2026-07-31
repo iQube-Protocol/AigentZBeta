@@ -24,10 +24,11 @@
  *   - founder-office:                    alpha-knyt-codex (tab founder-office)
  *   - aigentme-welcome:                  metame-codex (tab aigent-me)
  *   - agent-card:                        app/api/agents/moneypenny/route.ts (JSON API, not a tab)
+ *   - pulse-transparency-toggle:         PulseTransparencyToggle (built GJR-VFY-001 Phase 2, 2026-07-31)
  *
  * Confirmed genuinely absent — 'component-new' entries are the case-by-case
  * exception §5.2/§5.9 require, never a default, each justified in §22:
- *   - pulse-transparency-toggle, marketa-eligibility-view
+ *   - marketa-eligibility-view (Phase 3/4, not yet built)
  *
  * Unresolved, cannot be guessed (CLAUDE.md's no-guessing rule) — 'external-
  * url-unresolved': Horizen's human-browsable registry page. Only Horizen's
@@ -87,13 +88,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'Stage 1 can compose it, per CLAUDE.md’s no-guessing rule.',
   },
   'pulse-transparency-toggle': {
-    kind: 'component-new',
+    kind: 'component',
     component: 'PulseTransparencyToggle',
-    status: 'to-build',
-    trackedIn: '§22 Verify row',
     note:
-      'Confirmed absent 2026-07-31: only read-only backend fetchers exist (services/horizen/client.ts). ' +
-      'No pnlDisclosure/pulseEnabled/financialTransparency UI exists anywhere in this repo.',
+      'Built GJR-VFY-001 Phase 2 (2026-07-31, components/journey/PulseTransparencyToggle.tsx) — drives ' +
+      'the real prepare->sign->submit->verify pipeline (services/horizen/authorizationClient.ts) via ' +
+      'POST /api/journey/moneypenny-horizen/verify/authorize, then enriches the Agent Card ' +
+      '(services/horizen/agentCardEnrichment.ts). Honestly blocks on a missing tokenId rather than ' +
+      'fabricating a toggle when Register has not completed.',
   },
   'marketa-eligibility-view': {
     kind: 'component-new',

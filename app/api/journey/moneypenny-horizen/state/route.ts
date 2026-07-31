@@ -33,6 +33,7 @@ const MONEYPENNY_FIO_HANDLE = 'moneypenny@aigent';
 const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'agent_card_discovered',
   'horizen_agent_registered',
+  'horizen_pulse_authorized',
   'horizen_pnl_transparency_enabled',
   'agent_card_enriched',
   'agent_control_proven',
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
         agentCardResolves: !!agentCard,
       },
       verify: {
-        pulseAuthorizationVerified: hasReceipt('horizen_pnl_transparency_enabled'),
+        pulseAuthorizationVerified: hasReceipt('horizen_pulse_authorized'),
         pnlTransparencyEnabled: hasReceipt('horizen_pnl_transparency_enabled'),
         agentCardEnrichmentCommitted: hasReceipt('agent_card_enriched'),
       },

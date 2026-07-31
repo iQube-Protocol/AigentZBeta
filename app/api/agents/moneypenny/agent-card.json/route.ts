@@ -180,7 +180,24 @@ export async function GET(req: NextRequest) {
           tokenId: binding?.token_id ?? null,
           registryAlias: binding?.registry_alias ?? null,
           status: binding?.status?.replace(/-/g, '_') ?? 'pending_registration',
+          // GJR-VFY-001 §10 — present only once a real, confirmed transparency
+          // authorization has run (services/horizen/agentCardEnrichment.ts).
+          // Absent means "not yet authorized", never fabricated as enabled.
+          ...(binding?.transparency
+            ? {
+                pulse: { enabled: binding.transparency.pulse_enabled, authorizationRef: binding.transparency.pulse_authorization_ref },
+                pnl: { disclosureAuthorized: binding.transparency.pnl_disclosure_authorized, proofRefs: binding.transparency.pnl_proof_refs },
+              }
+            : {}),
         },
+
+        // Present only once Pulse/PnL transparency is confirmed authorized.
+        // Establishes Standing ELIGIBILITY only — it does not itself accrue
+        // Standing (services/crm/standingAccrualService.ts remains the
+        // separate governed act for that).
+        ...(binding?.transparency
+          ? { evidence: { standingStatus: 'eligible', standingSignals: ['pnl-transparency-enabled'] } }
+          : {}),
 
         motto: 'Specialize the agent, not the engine.',
       },
