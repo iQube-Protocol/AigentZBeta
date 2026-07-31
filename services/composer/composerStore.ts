@@ -586,11 +586,13 @@ export function initializeDefaultTemplates(): void {
     tags: ['qriptopian', 'reading', 'smarttriad'],
   };
 
-  // Sora Video Generation Template (Skill-backed)
+  // AI Video Generation Template (Skill-backed) — supports OpenAI Sora and
+  // Venice (incl. Wan) providers; template id kept as 'sora-video-generation'
+  // for backward compatibility with existing persisted experiences.
   const soraVideoGeneration: TemplateData = {
     id: 'sora-video-generation',
-    name: 'Sora Video Generation',
-    description: 'Generate AI video using OpenAI Sora skill — curated or community. Full supply chain with trust badges, PoSR, and DVN receipts.',
+    name: 'AI Video Generation',
+    description: 'Generate standalone AI video — no article. OpenAI Sora, Venice, or community provider. Full supply chain with trust badges, PoSR, and DVN receipts.',
     category: 'interactive',
     complexity: 'intermediate',
     estimated_time: 15,
@@ -640,6 +642,21 @@ export function initializeDefaultTemplates(): void {
               ],
             },
             { id: 'trust_override', name: 'Accept lower trust badge?', type: 'checkbox', required: false },
+            {
+              id: 'venice_model', name: 'Venice model (optional)', type: 'select', required: false,
+              // Only applies when the Venice skill is selected. Empty = let the
+              // server pick by priority. Values mirror VENICE_PREFERRED_TEXT_TO_VIDEO_MODELS
+              // in app/api/skills/invoke/route.ts — do not add models not registered there.
+              options: [
+                { value: '', label: 'Auto (server priority)' },
+                { value: 'ltx-2-19b-full-text-to-video', label: 'LTX-2 19B' },
+                { value: 'kling-2.6-pro-text-to-video', label: 'Kling 2.6 Pro' },
+                { value: 'kling-2.5-turbo-pro-text-to-video', label: 'Kling 2.5 Turbo Pro' },
+                { value: 'veo3.1-fast-text-to-video', label: 'Veo 3.1 Fast' },
+                { value: 'wan-2.6-text-to-video', label: 'Wan 2.6' },
+                { value: 'wan-2.5-preview-text-to-video', label: 'Wan 2.5 (preview)' },
+              ],
+            },
           ],
         },
       },
@@ -653,7 +670,23 @@ export function initializeDefaultTemplates(): void {
           layout: 'form',
           fields: [
             { id: 'prompt', name: 'Video Prompt', type: 'textarea', required: true },
-            { id: 'duration', name: 'Duration (seconds)', type: 'slider', required: false, validation: { min: 5, max: 60, step: 5 } },
+            {
+              id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
+              default_value: '12',
+              // Sora and Venice (incl. Wan) both accept 4/8/12s in a single call.
+              // 24s/48s are produced by generating 2/4 12s clips and stitching
+              // them hierarchically (SkillVideoPlayer → /api/skills/video/stitch,
+              // 2-3 clips per pass). A distinct prompt per segment (segment_prompts)
+              // is required for a true continuous story — see the Invariant Video
+              // Brief panel; a single repeated prompt produces duplicate clips.
+              options: [
+                { value: '4', label: '4 seconds' },
+                { value: '8', label: '8 seconds' },
+                { value: '12', label: '12 seconds' },
+                { value: '24', label: '24 seconds (2 clips, stitched)' },
+                { value: '48', label: '48 seconds (4 clips, stitched)' },
+              ],
+            },
             {
               id: 'aspect_ratio', name: 'Aspect Ratio', type: 'select', required: false,
               options: [
@@ -807,12 +840,261 @@ export function initializeDefaultTemplates(): void {
     tags: ['article', 'editorial', 'writing', 'draft'],
   };
 
+  // AI Video + Article Bundle Template — first-class starting point for the
+  // video_article_bundle preset (services/composer/experienceBundlePresets.ts).
+  // Steps mirror soraVideoGeneration's video steps + aiArticleDraft's article
+  // step. On completion, ComposerStudio.tsx applies the same
+  // buildExperienceBundlePresetPatch used by the Template tab's manual
+  // "Apply bundle preset" flow, so the resulting experience is identical to
+  // one created via video-first-then-apply-bundle.
+  const videoArticleBundle: TemplateData = {
+    id: 'video-article-bundle',
+    name: 'AI Video + Article Bundle',
+    description: 'Generate an AI video with a companion article draft in one flow. OpenAI Sora, Venice, or community provider for the video; structured editorial copy for the article.',
+    category: 'interactive',
+    complexity: 'intermediate',
+    estimated_time: 30,
+    required_components: ['ToolQube', 'ContentQube'],
+    optional_components: ['DataQube'],
+    steps: [
+      {
+        id: 'intent_timebox',
+        title: 'Video Intent',
+        description: 'Define the video generation goal and creative context.',
+        type: 'selection',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'experience_name', name: 'Experience Name', type: 'text', required: true },
+            { id: 'goal', name: 'Creative Goal', type: 'textarea', required: false },
+            {
+              id: 'creative_pack', name: 'Creative Pack', type: 'select', required: false,
+              options: [
+                { value: 'metaKnyts_motion_comic', label: 'metaKnyts Motion Comic' },
+                { value: 'synthsimms_trailer', label: 'SynthSimms Trailer' },
+                { value: 'penny_drops_explainer', label: 'Penny Drops Explainer' },
+                { value: 'custom', label: 'Custom / Freeform' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'skill_selection',
+        title: 'Skill Selection',
+        description: 'Choose between OpenAI, Venice, or community-backed video generation skills.',
+        type: 'selection',
+        required: true,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'skill_id', name: 'Sora Skill', type: 'select', required: true,
+              default_value: 'sora_video_gen_curated',
+              options: [
+                { value: 'sora_video_gen_curated', label: 'Sora Video Gen (Curated) — Badge A, Trusted' },
+                { value: 'venice_video_gen', label: 'Venice Video Gen — Badge A, Trusted' },
+                { value: 'sora_video_gen_community', label: 'Sora Video Gen (Community) — Badge C, Basic' },
+              ],
+            },
+            { id: 'trust_override', name: 'Accept lower trust badge?', type: 'checkbox', required: false },
+            {
+              id: 'venice_model', name: 'Venice model (optional)', type: 'select', required: false,
+              options: [
+                { value: '', label: 'Auto (server priority)' },
+                { value: 'ltx-2-19b-full-text-to-video', label: 'LTX-2 19B' },
+                { value: 'kling-2.6-pro-text-to-video', label: 'Kling 2.6 Pro' },
+                { value: 'kling-2.5-turbo-pro-text-to-video', label: 'Kling 2.5 Turbo Pro' },
+                { value: 'veo3.1-fast-text-to-video', label: 'Veo 3.1 Fast' },
+                { value: 'wan-2.6-text-to-video', label: 'Wan 2.6' },
+                { value: 'wan-2.5-preview-text-to-video', label: 'Wan 2.5 (preview)' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'video_prompt',
+        title: 'Video Prompt',
+        description: 'Describe the video you want to generate.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'prompt', name: 'Video Prompt', type: 'textarea', required: true },
+            {
+              id: 'duration', name: 'Duration (seconds)', type: 'select', required: false,
+              default_value: '12',
+              options: [
+                { value: '4', label: '4 seconds' },
+                { value: '8', label: '8 seconds' },
+                { value: '12', label: '12 seconds' },
+                { value: '24', label: '24 seconds (2 clips, stitched)' },
+                { value: '48', label: '48 seconds (4 clips, stitched)' },
+              ],
+            },
+            {
+              id: 'aspect_ratio', name: 'Aspect Ratio', type: 'select', required: false,
+              options: [
+                { value: '16:9', label: 'Landscape (16:9)' },
+                { value: '9:16', label: 'Portrait (9:16)' },
+                { value: '1:1', label: 'Square (1:1)' },
+              ],
+            },
+            {
+              id: 'style', name: 'Visual Style', type: 'select', required: false,
+              options: [
+                { value: 'cinematic', label: 'Cinematic' },
+                { value: 'animation', label: 'Animation' },
+                { value: 'comic', label: 'Comic Book' },
+                { value: 'photorealistic', label: 'Photorealistic' },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: 'article_draft',
+        title: 'Article Draft',
+        description: 'Configure the companion article title, prompt, and structure.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'title', name: 'Article title', type: 'text', required: true },
+            { id: 'prompt', name: 'Article prompt', type: 'textarea', required: true, help_text: 'What should the article cover? Include tone, audience, and key points.' },
+            { id: 'outputs', name: 'Include sections', type: 'multiselect', required: false, options: [{ value: 'takeaways', label: 'Key takeaways' }, { value: 'next_action', label: 'Next action' }, { value: 'summary', label: 'Summary' }] },
+            { id: 'takeaways_count', name: 'Number of takeaways', type: 'slider', required: false, validation: { min: 1, max: 5, step: 1 } },
+          ],
+        },
+      },
+      {
+        id: 'wallet_rewards',
+        title: 'Rewards (Optional)',
+        description: 'Configure optional rewards for this experience.',
+        type: 'configuration',
+        required: false,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'reward_amount', name: 'Reward amount (Q¢)', type: 'text', required: false },
+          ],
+        },
+      },
+    ],
+    tags: ['video', 'article', 'bundle', 'sora', 'venice', 'ai-generation'],
+  };
+
+  // Constitutional Video (2026-07-19) — a BLANK CANVAS bound by the
+  // constitutional grammar. The operator supplies what the video is about
+  // (content direction); the skill supplies the rules (cadence, one-invariant
+  // thresholds, CTA ceremony) and the invariant grounding. 24/36/48s.
+  const constitutionalVideoTemplate: TemplateData = {
+    id: 'constitutional-video',
+    name: 'Constitutional Video',
+    description:
+      'Generate a 24/36/48-second invariant-grounded constitutional video — complete 12-second micro-films that stitch seamlessly and stand alone, each ending on one constitutional threshold statement, closing on a threshold-crossing CTA. A blank canvas bound by the constitutional grammar: you supply the subject and concepts; the skill supplies the rules and the invariant grounding. Full voiceover audio.',
+    category: 'content',
+    complexity: 'intermediate',
+    estimated_time: 20,
+    required_components: ['ToolQube'],
+    optional_components: ['DataQube'],
+    steps: [
+      {
+        id: 'content_direction',
+        title: 'Content Direction',
+        description: 'What is this video about? Describe the subject and the constitutional ideas it explores — this is your blank canvas.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'subject', name: 'What the video is about', type: 'textarea', required: true },
+            { id: 'concepts', name: 'Constitutional concepts to explore (comma-separated)', type: 'text', required: false },
+            { id: 'audience', name: 'Audience (optional)', type: 'text', required: false },
+            { id: 'tone', name: 'Tone (optional)', type: 'text', required: false },
+          ],
+        },
+      },
+      {
+        id: 'invariant_grounding',
+        title: 'Invariant Grounding',
+        description: 'Choose the invariant namespace/collection the threshold statements are grounded in.',
+        type: 'selection',
+        required: true,
+        component_type: 'ToolQube',
+        ui_config: {
+          layout: 'form',
+          fields: [
+            { id: 'semantic_namespace', name: 'Grounding namespace', type: 'text', required: false, default_value: 'constitutional' },
+            { id: 'style_namespace', name: 'Style namespace (optional)', type: 'text', required: false },
+            { id: 'narrative_namespace', name: 'Narrative namespace (optional)', type: 'text', required: false },
+          ],
+        },
+      },
+      {
+        id: 'duration_and_cta',
+        title: 'Duration & Threshold CTA',
+        description: 'Pick the length and configure the closing threshold-crossing call to action.',
+        type: 'configuration',
+        required: true,
+        ui_config: {
+          layout: 'form',
+          fields: [
+            {
+              id: 'durationSeconds', name: 'Duration', type: 'select', required: true, default_value: '48',
+              options: [
+                { value: '24', label: '24 seconds (2 segments)' },
+                { value: '36', label: '36 seconds (3 segments)' },
+                { value: '48', label: '48 seconds (4 segments)' },
+              ],
+            },
+            {
+              id: 'cta_target', name: 'CTA target', type: 'select', required: true, default_value: 'passport',
+              options: [
+                { value: 'passport', label: 'Claim Passport' },
+                { value: 'delegation', label: 'Delegate an Agent' },
+                { value: 'founder-office', label: 'Founder Office' },
+                { value: 'research-lab', label: 'Research Lab' },
+                { value: 'custom', label: 'Custom' },
+              ],
+            },
+            { id: 'cta_claimLine', name: 'Claim line (e.g. "Claim Your Polity Passport.")', type: 'text', required: true },
+          ],
+        },
+      },
+      {
+        id: 'generate',
+        title: 'Generate',
+        description: 'Generate the grammar-bound plan, render the voiced segments, and stitch the film.',
+        type: 'configuration',
+        required: true,
+        ui_config: { layout: 'form', fields: [] },
+      },
+      {
+        id: 'review',
+        title: 'Review',
+        description: 'Review the stitched video, per-segment thresholds, grammar verdict, and coherence score.',
+        type: 'configuration',
+        required: false,
+        ui_config: { layout: 'form', fields: [] },
+      },
+    ],
+    tags: ['video', 'constitutional', 'invariant-grounded', 'micro-film', 'threshold', 'voiceover', 'blank-canvas'],
+  };
+
   createTemplate(contentAnalysisTemplate);
   createTemplate(interactiveStoryTemplate);
   createTemplate(qriptopianReadingSprint);
   createTemplate(soraVideoGeneration);
   createTemplate(aiImageGeneration);
   createTemplate(aiArticleDraft);
+  createTemplate(videoArticleBundle);
+  createTemplate(constitutionalVideoTemplate);
 }
 
 // Initialize default templates on import

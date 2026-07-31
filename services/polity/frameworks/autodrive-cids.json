@@ -1,0 +1,23 @@
+{
+  "network": "mainnet",
+  "records": [
+    {
+      "asset": "constitution",
+      "version": "1.0.0",
+      "cid": "bafkr6ie7xpb76mbi43zcq6bza5u6w7hkoiyzzt6u2dzc77n434khlatvqq",
+      "publishedAt": "2026-06-20T21:11:38.471Z"
+    },
+    {
+      "asset": "agent-charter",
+      "version": "1.0.0",
+      "cid": "bafkr6ifttkd6vwktjy45aqsxzirap5p7iizyy6ligekmqtgbkmfonxygxq",
+      "publishedAt": "2026-06-20T21:11:39.123Z"
+    },
+    {
+      "asset": "delegation-framework",
+      "version": "1.0.0",
+      "cid": "bafkr6ibmhpwihx7ghvalps3a3dk5wf7iq7yl7dwc35b4a2rhkfx5vqenbm",
+      "publishedAt": "2026-06-20T21:11:39.736Z"
+    }
+  ]
+}

@@ -111,10 +111,11 @@ async function encodeWebPUnderLimit(inputPng: Buffer, targetWidth: number) {
 }
 
 interface RouteParams {
-  params: { cid: string };
+  params: Promise<{ cid: string }>;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, props: RouteParams) {
+  const params = await props.params;
   const { cid } = params;
 
   if (!cid) {

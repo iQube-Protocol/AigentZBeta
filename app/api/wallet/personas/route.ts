@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 import { getMergedLinkedAuthProfileIds, getPersonaPrefs } from '@/services/wallet/multiEmailIdentity';
+import { AIGENT_ME_APP_ORIGIN } from '@/services/agents/provisionAigentMePersona';
 
 // Anon client for validating user JWTs (service role client cannot use getUser with token).
 // Keep on bare createClient — JWT validation hits /auth/v1/user, not the DB, so the
@@ -14,7 +15,7 @@ const supabaseAnon = createClient(
 
 export const dynamic = 'force-dynamic';
 
-type PersonaRow = {
+export type PersonaRow = {
   id: string;
   tenant_id: string;
   auth_profile_id: string | null;
@@ -51,10 +52,24 @@ type UserIQubeRow = {
 const personaSelect =
   'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at,evm_address,evm_key';
 
-function dedupeById(rows: PersonaRow[]): PersonaRow[] {
+export function dedupeById(rows: PersonaRow[]): PersonaRow[] {
   const byId = new Map<string, PersonaRow>();
   for (const row of rows) byId.set(row.id, row);
-  return Array.from(byId.values()).sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+  const byRecency = Array.from(byId.values()).sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+  // Callers (MetaMeRuntimeClient.tsx's first-load bootstrap) pick index 0 as
+  // the default persona when localStorage is empty. A citizen's own
+  // delegated aigentMe (app_origin === AIGENT_ME_APP_ORIGIN,
+  // provisionAigentMePersona.ts) shares the same auth_profile_id and can
+  // have a more recent created_at than the citizen's real persona, so a pure
+  // recency sort can hand a default-picker the agent instead of the
+  // citizen — the exact mechanism 20260832000000_passport_persona_activation_handoff.sql
+  // names as compounding cause #2 of the Companion first-load failure.
+  // Agent rows are reordered to the end (still recency-sorted among
+  // themselves), never dropped — this route also serves agent-management
+  // surfaces that legitimately need to see them.
+  const nonAgent = byRecency.filter((r) => r.app_origin !== AIGENT_ME_APP_ORIGIN);
+  const agent = byRecency.filter((r) => r.app_origin === AIGENT_ME_APP_ORIGIN);
+  return [...nonAgent, ...agent];
 }
 
 function toOwnerSafePersona(record: any) {

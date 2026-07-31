@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aigentz.me/downloads/ventureQube-portfolio-schema.json",
+  "title": "Venture Portfolio iQube (v1.0)",
+  "description": "The multi-venture upload schema for Operator Pro / Operator Elite. It is a strict SUPERSET of the Pro schema (v1.0): everything the Pro schema has (operator, strategy, experienceModel, experienceGuide, standing, plan, full 13-layer ventures, and the operating model) PLUS multiple ventures and a portfolio block (thesis, prioritisation, cross-venture intelligence). An Operator Pro/Elite operator downloads and maintains ONLY this one file.",
+  "_agent_briefing": {
+    "audience": "An off-platform AI assistant helping a Pro/Elite operator prepare a Venture Portfolio iQube.",
+    "cumulative_design": "Schemas are cumulative supersets: Venture Light (v0.5) ⊂ Venture Pro (v1.0) ⊂ Venture Portfolio (this file). A portfolio operator uploads this single file — it populates ExperienceModel, ExperienceGuide, Standing, every venture's full 13-layer VentureQube, AND the portfolio-level thesis + priority order. There is no need to also upload the Light or Pro files.",
+    "ventures": "Each entry in `ventures[]` uses the SAME full 13-layer VentureQube shape defined in the Venture Pro schema (ventureQube-pro-schema.json → definitions.ventureProV1): identity, thesis, intent, signalEvidence, archetypes, revenueArchitecture, commercialModel, capability, resource, execution, delegation, outcome, governance, institutional. Pro/Elite may include multiple ventures (Pro up to 3, Elite unlimited — enforced server-side).",
+    "portfolio_block": "The `portfolio` block is the portfolio-only KNOWLEDGE layer: a `thesis` that spans all ventures, an explicit `priorities` order (by venture name or slug), and free-form `notes`. Cross-venture intelligence (shared capabilities, stage spread) is DERIVED server-side from the ventures — you don't provide it.",
+    "operating_model_block": "The OPTIONAL `operatingModel` block is the portfolio-only OPERATING layer — distinct from `portfolio`, which is knowledge. Where `portfolio.thesis` says WHY this portfolio exists, `operatingModel` says HOW it is run day to day (mission, successMetrics, activeObjectives, priorityPartners, priorityActions, reviewCadence, primaryMetric). This is what turns the portfolio into a living brief aigentMe executes against as Chief of Staff. Omit it unless the operator wants daily operating execution. Do NOT hardwire these operating fields into the core schema or into a venture — they belong only here.",
+    "what_to_produce": "A single JSON file: the Pro base + the ventures array (full 13-layer each) + the portfolio block (+ optionally the operatingModel block)."
+  },
+  "type": "object",
+  "required": ["schemaVersion", "operator", "strategy", "ventures", "plan", "portfolio", "operatingModel"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "enum": ["venture-iqube-portfolio/v1.0"],
+      "description": "Use 'venture-iqube-portfolio/v1.0'."
+    },
+    "emittedAt": { "type": "string", "format": "date-time" },
+    "operator": {
+      "type": "object",
+      "required": ["displayLabel", "archetype"],
+      "additionalProperties": false,
+      "properties": {
+        "displayLabel": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "archetype": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "tagline": { "type": "string", "maxLength": 280 },
+        "fioHandle": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "strategy": {
+      "type": "object",
+      "required": ["headline", "thesis"],
+      "additionalProperties": false,
+      "properties": {
+        "headline": { "type": "string", "minLength": 1, "maxLength": 280 },
+        "thesis": { "type": "string", "minLength": 1, "maxLength": 8000 },
+        "currentStage": { "type": "string", "maxLength": 64 },
+        "blockers": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "experienceGoals": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 30 },
+    "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 12 },
+    "experienceGuide": { "type": "object", "additionalProperties": true, "description": "Same as Venture Light/Pro (sphere lattice + focusIntent)." },
+    "standing": { "type": "object", "additionalProperties": true, "description": "Same as Venture Light/Pro (standing.core + linkedInUrl)." },
+    "plan": { "type": "object", "additionalProperties": true, "description": "Same as Venture Light/Pro (horizon plan)." },
+    "kpiBoard": { "type": "array", "items": { "type": "object", "additionalProperties": true } },
+    "operatingModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mission"],
+      "description": "REQUIRED operating-artifact layer at Portfolio level. A portfolio without an operating model is just a collection of ventures; with one it is an operating system aigentMe can execute daily as Chief of Staff. The core schema stays a general-purpose knowledge artifact; operations live here.",
+      "properties": {
+        "mission": { "type": "string", "maxLength": 2000, "description": "The OPERATIONAL expression of portfolio.thesis — what we are doing right now in service of that Why. There is no separate operating thesis; portfolio.thesis is the single Why, mission is the What-right-now." },
+        "successMetrics": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Concrete portfolio success metrics — e.g. \"1,000 active users\", \"$10k MRR\", \"3 partnerships signed\". These are outcomes." },
+        "activeObjectives": {
+          "type": "array",
+          "maxItems": 30,
+          "description": "Cross-venture objectives currently in flight, each with a lifecycle status so aigentMe can distinguish active / completed / blocked / deferred.",
+          "items": {
+            "type": "object",
+            "required": ["objective", "status"],
+            "additionalProperties": false,
+            "properties": {
+              "objective": { "type": "string", "maxLength": 280 },
+              "status": { "type": "string", "enum": ["active", "completed", "blocked", "deferred"] }
+            }
+          }
+        },
+        "priorityPartners": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20, "description": "Strategic partners across the portfolio (e.g. a channel partner, a platform integration, a distribution partner)." },
+        "priorityActions": { "type": "array", "items": { "type": "string", "maxLength": 280 }, "maxItems": 30, "description": "Next concrete actions across the portfolio, highest-priority first." },
+        "reviewCadence": { "type": "string", "maxLength": 64, "description": "How often you review — e.g. \"weekly\"." },
+        "nextReviewDate": { "type": "string", "format": "date", "description": "When the next review is due (ISO date). Cadence is how often; this is when — lets aigentMe auto-generate the next review brief." },
+        "primaryMetric": { "type": "string", "maxLength": 280, "description": "The portfolio north-star KPI. Layered framing: public mental model = Time-to-Value (\"did our actions reduce time-to-value?\"); internal metric = Proof of Time Saved (PoTS); constitutional principle = Net Value Acceleration (Time-to-Value minus Risk Repair Burden)." }
+      }
+    },
+    "ventures": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Each venture uses the FULL 13-layer VentureQube shape from the Venture Pro schema (definitions.ventureProV1). Multiple ventures allowed (Pro ≤3, Elite unlimited; enforced server-side).",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "portfolio": {
+      "type": "object",
+      "required": ["thesis"],
+      "additionalProperties": false,
+      "description": "Portfolio-only layer. Cross-venture intelligence (sharedCapabilities, stageSpread) is derived server-side and is NOT provided here.",
+      "properties": {
+        "thesis": {
+          "type": "string",
+          "maxLength": 8000,
+          "description": "The throughline that ties all ventures together — why this portfolio, what it compounds toward."
+        },
+        "priorities": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "description": "Explicit prioritisation order, listing venture names or slugs from `ventures[]` highest-priority first."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 8000,
+          "description": "Prioritisation rationale, shared resources, sequencing across ventures."
+        }
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@ import type { RuntimeTakeoverConfig } from './runtimeTakeover';
  * created, edited, and managed via API and UI.
  */
 
-export type CodexTabType = 'static' | 'dynamic' | 'liquid-ui';
+export type CodexTabType = 'static' | 'dynamic' | 'liquid-ui' | 'template';
 
 export interface CodexMetadata {
   description: string;
@@ -35,6 +35,14 @@ export interface CodexTabConfig {
   dataSource?: string;          // API endpoint or data source
   filters?: Record<string, any>;
   props?: Record<string, any>;  // Additional props for component
+  /**
+   * Tab template id for `type: 'template'` tabs. Looked up in
+   * `app/triad/components/codex/tabTemplates/registry.ts:TAB_TEMPLATES`.
+   * Added 2026-06-02 as Phase 5 of the myCartridge PRD (§22 Tab Template
+   * Framework). Source-of-truth enum lives in
+   * `types/ventureQube.ts:CartridgeTabTemplateId`.
+   */
+  templateId?: import('./ventureQube').CartridgeTabTemplateId;
 }
 
 export interface CodexTabMetadata {
@@ -58,6 +66,14 @@ export interface TabGroup {
    */
   activationId?: string;
   order: number;       // Position in the primary tab bar (interleaved with standalone tabs)
+  /**
+   * When true, the group nav chip renders only its icon — no label, tight
+   * width. Used for first-class persistent surfaces that don't need a
+   * verbose label (e.g. a web-embed tab pointing at metame.com on the
+   * metaMe cartridge). Independent of density: iconOnly groups stay
+   * icon-only even on `wide`.
+   */
+  iconOnly?: boolean;
 }
 
 export interface CodexTab {
@@ -69,6 +85,20 @@ export interface CodexTab {
   partnerOnly?: boolean;   // When true, tab is only visible to partner users (admins also see it)
   investorOnly?: boolean;  // When true, tab is only visible to verified investors (admins also see it)
   /**
+   * Per-cartridge admin gate. When set, the tab is visible ONLY when the
+   * active persona is an admin of the named cartridge (slug match against
+   * the grants returned by /api/persona/cartridge-admin-grants). Used to
+   * surface a foreign cartridge's Admin tab inside another cartridge's
+   * Activation sub-surface — e.g. metaMe's Order of Metayé group mirrors
+   * the KNYT cartridge's Admin tab so a KNYT admin running in their
+   * metaMe view gets full chief-of-staff visibility without leaving the
+   * surface, while a non-admin sees nothing.
+   *
+   * Independent of `adminOnly`. A global uber/platform admin
+   * (isGlobalAdmin: true) satisfies any adminOfCartridge gate.
+   */
+  adminOfCartridge?: string;
+  /**
    * When set, tab is visible only when the persona has an `active` row in
    * `persona_activations` for this activation id (catalog id from
    * data/activation-catalog.ts). Admins are not implicitly bypassed — they
@@ -76,6 +106,48 @@ export interface CodexTab {
    * controlled by `adminOnly: true`, not an activation.
    */
   activationId?: string;
+  /**
+   * Phase 4a (myCartridge PRD §23) — per-cartridge tab gates, mirroring
+   * the columns added to `codex_tabs`. Tab is rendered only when the
+   * persona satisfies the gate via `evaluateAccess` with the
+   * `member:<cartridgeSlug>` / `role:<cartridgeSlug>:<role>` credential.
+   *
+   * `memberOnly`     — persona holds ANY role on the cartridge.
+   * `inviteOnly`     — persona holds a role granted via explicit invite
+   *                    (semantics enforced server-side; the tab type
+   *                    here just declares the intent).
+   * `tokenGated`     — persona's wallet meets the token threshold.
+   *                    (UI typed in Phase 5; verification path lands in
+   *                    Phase 8 alongside the wallet primitives.)
+   * `roleRequired`   — persona meets-or-exceeds the named role in the
+   *                    PRD §23 hierarchy. The literal type matches the
+   *                    CartridgeRole union in types/cartridgeMembership.ts;
+   *                    inlined as `string` here so types/codex.ts stays
+   *                    free of the membership import cycle.
+   */
+  memberOnly?: boolean;
+  inviteOnly?: boolean;
+  tokenGated?: { tokenId: string; minBalance: string };
+  roleRequired?: string;
+  /**
+   * Tier 2 participation gate (Horizen Phase 3, audit §B.3). Tab is visible to
+   * anyone holding an ACTIVE participation grant in this access domain — a
+   * partner operator sees the shared workspace record WITHOUT becoming a
+   * platform admin, which is the hard blocker this resolves.
+   *
+   * Distinct from the cartridge-membership gates above: those resolve through
+   * `evaluateAccess` with `member:<cartridgeSlug>` credentials; this resolves
+   * through `participationAccess` grants (`ACCESS_DOMAINS` × `DOMAIN_ROLES`),
+   * the substrate both Labs already share.
+   *
+   * Typed as `string` (an `AccessDomain`) so types/codex.ts stays free of the
+   * participation import. Evaluated ONLY by
+   * `services/passport/participationTabGate.ts` — never re-implemented in a
+   * filter. Fails CLOSED before grants resolve, and never widens `adminOnly`.
+   */
+  participationDomain?: string;
+  /** Optional narrowing to specific roles within the domain; omit = any role. */
+  participationRoles?: string[];
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;
@@ -91,9 +163,38 @@ export interface CodexTab {
   subTabs?: CodexTab[];
 }
 
+/**
+ * SmartTriad copilot configuration authored ON the cartridge definition
+ * (SmartTriad Context-Aware Copilot PRD §1, ratified 2026-07-19 — the
+ * `cartridge.copilot.*` API). Cartridge authors own their copilot's voice;
+ * cartridges without one get the shell default (placeholder derived from the
+ * cartridge display name, Aigent Z persona). `disabled: true` suppresses the
+ * shell's floating copilot on this cartridge entirely.
+ */
+export interface CodexCopilotConfig {
+  disabled?: boolean;
+  accentColor?: string;
+  agent?: { id: string; name: string };
+  promptPlaceholder?: string;
+  initialMessage?: string;
+  quickPrompts?: string[];
+}
+
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')
-  name: string;                  // Display name
+  name: string;                  // Display name — the CARTRIDGE HEADER name
+  /**
+   * Optional PICKER name — what the cartridge is called in the viewer's
+   * "Select Cartridge" sidebar and any other list of cartridges.
+   *
+   * This is a SECOND NAME, not a shortened first one (operator, 2026-07-28:
+   * IRL is "IRL" in the sidebar and "metaMe Invariant Research Lab" in the
+   * header). Deriving one from the other by truncation would be wrong: they
+   * are different names for different reading contexts, and a truncation rule
+   * would silently mangle every other cartridge. Absent ⇒ the picker uses
+   * `name`, so this changes nothing for the cartridges that need one name.
+   */
+  shortName?: string;
   slug: string;                  // URL-friendly identifier
   enabled: boolean;              // API-controlled enable/disable
   version: string;               // Semantic versioning
@@ -102,6 +203,8 @@ export interface CodexConfig {
   tabs: CodexTab[];
   /** Optional tab groups — define top-level headers that cluster sub-tabs. */
   tabGroups?: TabGroup[];
+  /** SmartTriad copilot config for this cartridge (PRD §1). */
+  copilot?: CodexCopilotConfig;
   permissions: CodexPermissions;
   liquidUI?: CodexLiquidUIConfig;
   /**
@@ -117,6 +220,8 @@ export interface CodexConfig {
 export interface CodexListItem {
   id: string;
   name: string;
+  /** Picker name — see `CodexConfig.shortName`. Absent ⇒ fall back to `name`. */
+  shortName?: string;
   slug: string;
   enabled: boolean;
   owner: string;

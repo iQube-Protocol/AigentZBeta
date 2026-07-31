@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, MessageCircle, BarChart3, Target, Zap, Settings, Wallet, Users } from "lucide-react";
+import { TrendingUp, MessageCircle, BarChart3, Target, Zap, Settings, Wallet, Users, Compass, Cpu } from "lucide-react";
 
 // Import tab components
 import { HFTConsole } from "./HFTConsole";
@@ -23,6 +23,8 @@ import { X402Dashboard } from "./X402Dashboard";
 import { FIOManager } from "./FIOManager";
 import { MoneyPennySmartTriad } from "./MoneyPennySmartTriad";
 import { CRMIntegration } from "./CRMIntegration";
+import { ArchitectPanel } from "./ArchitectPanel";
+import { RuntimePanel } from "./RuntimePanel";
 
 // Import hooks
 import { useMoneyPennyClient } from "../hooks/useMoneyPennyClient";
@@ -111,6 +113,18 @@ export default function MoneyPennyCartridge() {
       icon: Users,
       description: "Contributions and tasks",
     },
+    {
+      id: "architect",
+      label: "Architect",
+      icon: Compass,
+      description: "Design constitutional financial structures (PRD-MPY-001)",
+    },
+    {
+      id: "runtime",
+      label: "Runtime",
+      icon: Cpu,
+      description: "Constitutional service pattern — shadow preview (PRD-MPY-001)",
+    },
   ];
 
   const getStatusColor = (status: string) => {
@@ -172,7 +186,7 @@ export default function MoneyPennyCartridge() {
 
       {/* Main Interface */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-        <TabsList className="grid w-full grid-cols-8 bg-black/20 ring-1 ring-white/10 border-0">
+        <TabsList className="grid w-full grid-cols-10 bg-black/20 ring-1 ring-white/10 border-0">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -218,6 +232,14 @@ export default function MoneyPennyCartridge() {
 
         <TabsContent value="crm" className="space-y-4">
           <CRMIntegration />
+        </TabsContent>
+
+        <TabsContent value="architect" className="space-y-4">
+          <ArchitectPanel />
+        </TabsContent>
+
+        <TabsContent value="runtime" className="space-y-4">
+          <RuntimePanel />
         </TabsContent>
       </Tabs>
     </div>

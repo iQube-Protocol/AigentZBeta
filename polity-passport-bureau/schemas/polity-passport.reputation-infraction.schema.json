@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.reputation-infraction.schema.json",
+  "title": "Polity Passport Reputation Infraction Event",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "infraction_id",
+    "passport_id",
+    "subject_type",
+    "infraction_class",
+    "severity",
+    "created_at",
+    "reported_by",
+    "recommended_action"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "infraction_id": {
+      "type": "string"
+    },
+    "passport_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "reputation_binding_id": {
+      "type": "string"
+    },
+    "subject_type": {
+      "type": "string",
+      "enum": [
+        "citizen",
+        "agent_participant",
+        "robot_participant",
+        "organization_participant"
+      ]
+    },
+    "subject_ref": {
+      "type": "object",
+      "$comment": "T0 WARNING: persona_id, kybe_did, and root_did are server-internal identifiers. They MUST NOT appear in browser-bound JSON, public registry projections, or chain-bound receipts — use public commitment references in those surfaces.",
+      "properties": {
+        "persona_id": {
+          "type": "string"
+        },
+        "kybe_did": {
+          "type": "string"
+        },
+        "root_did": {
+          "type": "string"
+        },
+        "agent_id": {
+          "type": "string"
+        },
+        "agent_card_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "agent_iqube_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "infraction_class": {
+      "type": "string",
+      "enum": [
+        "minor_policy_violation",
+        "scope_violation",
+        "receipt_failure",
+        "audit_failure",
+        "blackqube_boundary_violation",
+        "unauthorized_outbound_action",
+        "misrepresentation",
+        "impersonation",
+        "unsafe_advice",
+        "legal_advice_boundary_violation",
+        "vulnerable_person_safeguard_violation",
+        "data_exfiltration_attempt",
+        "revocation_noncompliance",
+        "high_risk_incident",
+        "other"
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "description_public": {
+      "type": "string"
+    },
+    "description_private_ref": {
+      "type": "string",
+      "description": "Reference to private or steward-only incident details. Must not expose citizen self-custody blakQube contents."
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reported_by": {
+      "type": "object",
+      "required": [
+        "reporter_type",
+        "reporter_id"
+      ],
+      "properties": {
+        "reporter_type": {
+          "type": "string",
+          "enum": [
+            "citizen",
+            "agent",
+            "system",
+            "steward",
+            "committee",
+            "external_reporter"
+          ]
+        },
+        "reporter_id": {
+          "type": "string"
+        },
+        "reporter_did": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "recommended_action": {
+      "type": "string",
+      "enum": [
+        "no_action",
+        "warning",
+        "reputation_penalty",
+        "citizen_privilege_restriction",
+        "citizen_privilege_suspension",
+        "participant_scope_restriction",
+        "participant_temporary_suspension",
+        "mandatory_steward_review",
+        "participant_passport_revocation",
+        "participant_registry_delisting",
+        "appeal_available"
+      ]
+    },
+    "citizen_passport_revocation_allowed": {
+      "const": false,
+      "description": "Citizen Passport itself cannot be revoked for reputation infractions."
+    },
+    "participant_passport_revocation_allowed": {
+      "type": "boolean",
+      "description": "True when subject is an agent, robot, organization participant, or other non-human participant."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "reported",
+        "under_review",
+        "validated",
+        "dismissed",
+        "resolved",
+        "appealed",
+        "overturned"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "receipt_ref": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

@@ -3,12 +3,30 @@ import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 import { getQCTEventListener } from '@/services/qct/EventListener';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const BATCH_SIZE = 10;
+
+function decodePayload(message: any): { txHash: string; txDetails: any } {
+  try {
+    const payloadBytes = Array.isArray(message.payload)
+      ? message.payload
+      : Object.values(message.payload || {});
+    const payloadStr = new TextDecoder().decode(Uint8Array.from(payloadBytes));
+    const payloadJson = JSON.parse(payloadStr);
+    return { txHash: payloadJson.txHash || 'unknown', txDetails: payloadJson };
+  } catch {
+    return { txHash: 'unknown', txDetails: {} };
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const { action = 'process_pending', messageIds = [] } = await request.json().catch(() => ({}));
-    
+
     const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
-    
+
     if (!DVN_ID) {
       return NextResponse.json({
         ok: false,
@@ -17,126 +35,115 @@ export async function POST(request: Request) {
     }
 
     const dvn = await getActor<any>(DVN_ID, dvnIdl);
-    
+
     if (action === 'process_pending') {
-      // Get all pending messages and process them
       const pendingMessages = await dvn.get_pending_messages().catch(() => []);
-      
+
       if (!Array.isArray(pendingMessages) || pendingMessages.length === 0) {
         return NextResponse.json({
           ok: true,
           message: 'No pending messages to process',
           processed: 0,
+          total: 0,
           results: []
         });
       }
 
-      const results = [];
-      let processed = 0;
+      const batch = pendingMessages.slice(0, BATCH_SIZE);
       const listener = getQCTEventListener();
 
-      for (const message of pendingMessages) {
-        try {
-          // Extract message details
+      const settled = await Promise.allSettled(
+        batch.map(async (message: any) => {
           const messageId = message.id;
           const sourceChain = message.source_chain;
-          
-          // Decode payload to get transaction details
-          let txHash = 'unknown';
-          let txDetails: any = {};
-          try {
-            const payloadBytes = Array.isArray(message.payload) 
-              ? message.payload 
-              : Object.values(message.payload || {});
-            const payloadStr = new TextDecoder().decode(Uint8Array.from(payloadBytes));
-            const payloadJson = JSON.parse(payloadStr);
-            txHash = payloadJson.txHash || 'unknown';
-            txDetails = payloadJson;
-          } catch {}
+          const { txHash, txDetails } = decodePayload(message);
 
-          // Submit attestation for LayerZero processing
-          // Using a mock validator signature for demonstration
-          const validatorId = `validator_${Date.now()}`;
+          const validatorId = `validator_${Date.now()}_${messageId}`;
           const mockSignature = new TextEncoder().encode(`sig_${messageId}_${Date.now()}`);
-          
+
           const attestResult = await dvn.submit_attestation(
             messageId,
             validatorId,
             Array.from(mockSignature)
           );
 
-          results.push({
+          try {
+            listener.recordDVNTransaction({
+              messageId,
+              sourceChain,
+              txHash,
+              timestamp: Number(message.timestamp) || Date.now(),
+              from: txDetails.fromAddress || message.sender || 'unknown',
+              to: txDetails.toAddress || 'unknown',
+              amount: txDetails.amount || '0',
+              operation: txDetails.operation || 'transfer',
+              metadata: txDetails.metadata || {}
+            });
+          } catch { /* event recording is best-effort */ }
+
+          return {
             messageId,
             sourceChain,
             txHash,
-            status: 'processed',
-            attestResult: attestResult.Ok || attestResult,
+            status: 'processed' as const,
+            attestResult: attestResult?.Ok ?? attestResult,
             validator: validatorId
-          });
-          
-          processed++;
-          
-          // Notify Event Listener of processed iQube transaction
-          listener.recordDVNTransaction({
-            messageId,
-            sourceChain,
-            txHash,
-            timestamp: Number(message.timestamp) || Date.now(),
-            from: txDetails.fromAddress || message.sender || 'unknown',
-            to: txDetails.toAddress || 'unknown',
-            amount: txDetails.amount || '0',
-            operation: txDetails.operation || 'transfer',
-            metadata: txDetails.metadata || {}
-          });
-          
-        } catch (error: any) {
-          results.push({
-            messageId: message.id,
-            sourceChain: message.source_chain,
-            status: 'failed',
-            error: error.message
-          });
-        }
-      }
+          };
+        })
+      );
+
+      const results = settled.map((s, i) => {
+        if (s.status === 'fulfilled') return s.value;
+        return {
+          messageId: batch[i]?.id,
+          sourceChain: batch[i]?.source_chain,
+          status: 'failed' as const,
+          error: s.reason?.message ?? String(s.reason)
+        };
+      });
+
+      const processed = results.filter((r) => r.status === 'processed').length;
 
       return NextResponse.json({
         ok: true,
-        message: `Processed ${processed}/${pendingMessages.length} messages`,
+        message: `Processed ${processed}/${batch.length} messages`,
         processed,
         total: pendingMessages.length,
+        batchSize: batch.length,
+        hasMore: pendingMessages.length > BATCH_SIZE,
         results,
         at: new Date().toISOString()
       });
     }
 
     if (action === 'verify_message' && messageIds.length > 0) {
-      // Verify specific messages with LayerZero
-      const results = [];
-      
-      for (const messageId of messageIds) {
-        try {
-          // Mock LayerZero endpoint for verification
+      const verifyBatch = (messageIds as string[]).slice(0, BATCH_SIZE);
+
+      const settled = await Promise.allSettled(
+        verifyBatch.map(async (messageId: string) => {
           const dvnEndpoint = 'https://api.layerzero.network/dvn';
           const verifyResult = await dvn.verify_layerzero_message(
-            80002, // Source chain (Polygon Amoy)
+            80002,
             messageId,
             dvnEndpoint
           );
+          return {
+            messageId,
+            verified: verifyResult?.Ok ?? false,
+            status: 'verified' as const
+          };
+        })
+      );
 
-          results.push({
-            messageId,
-            verified: verifyResult.Ok || false,
-            status: 'verified'
-          });
-        } catch (error: any) {
-          results.push({
-            messageId,
-            verified: false,
-            status: 'failed',
-            error: error.message
-          });
-        }
-      }
+      const results = settled.map((s, i) => {
+        if (s.status === 'fulfilled') return s.value;
+        return {
+          messageId: verifyBatch[i],
+          verified: false,
+          status: 'failed' as const,
+          error: s.reason?.message ?? String(s.reason)
+        };
+      });
 
       return NextResponse.json({
         ok: true,

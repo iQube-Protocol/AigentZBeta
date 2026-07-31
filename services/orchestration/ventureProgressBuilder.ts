@@ -3,14 +3,14 @@
  * Per PRD v0.2 §8 Golden Path 4 (Review Venture Progress) and §9.2
  * (Venture Progress Card render contract).
  *
- * Aigent Me's read-only window into AgentiQ Venture Lab (AVL):
+ * Aigent Me's read-only window into metaMe Venture Lab (MVL):
  *   - active venture / project name + stage
  *   - operational + commercial goal counts (BlakQube T1-safe counts only)
  *   - KPI counts (never values)
  *   - recent IntentQube activity (acted-upon NBEs)
  *   - blockers (alpha: empty; Phase 6 wires pending-approval queue)
  *   - linked cartridges
- *   - recommended NBE actions (AVL-tier from the catalogue)
+ *   - recommended NBE actions (MVL-tier from the catalogue)
  *
  * Deterministic generation; LLM-enriched prose lands in Phase 4.b alongside
  * the brief enrichment work. Structure is the contract.
@@ -29,13 +29,40 @@ import {
 } from '@/services/iqube/experienceQube';
 import {
   listRecentIntentsForPersona,
+  setIntentQubeStatus,
   type IntentStatus,
 } from '@/services/iqube/intentQube';
 import {
   selectNbeCandidates,
+  normalizeNbeName,
+  nbeNameMatchesCompleted,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder';
+import type { PreflightContext } from '@/services/capabilities/preflight';
+import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
+import { resolveKpis } from '@/services/strategy/kpiResolver';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getActiveActivationIds } from '@/services/activations/spineActivations';
+import {
+  actionsForActiveActivations,
+  type ActivationAction,
+} from '@/data/activation-catalog';
+import { listActivityReceiptsForPersona } from '@/services/receipts/activityReceiptService';
+import { listVentureQubes } from '@/services/venture/ventureQubeService';
+import { getVenturePortfolio } from '@/services/venture/venturePortfolio';
+
+// ─────────────────────────────────────────────────────────────────────────
+// VentureQube-layer enrichment shapes (Sprint 1 — cockpit live data).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface OperatingObjectiveSummary {
+  id: string;
+  label: string;
+  status: 'active' | 'completed' | 'blocked' | 'deferred';
+  targetDate: string | null;
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -60,6 +87,15 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: IntentStatus;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities so the cockpit's
+  // Active Work card can render an actionable context menu. All
+  // derived from status + targetAgents; no schema change in IntentQube.
+  canResume: boolean;
+  canHandOff: boolean;
+  canCancel: boolean;
+  specialist: string | null;
+  nextActionHint: string | null;
+  blockers: string[];
 }
 
 export interface VentureProgressShape {
@@ -71,6 +107,12 @@ export interface VentureProgressShape {
   linkedCartridges: ActiveCartridgeSlug[];
 
   kpiSummary: VentureProgressKpiSummary;
+  /**
+   * Phase 2 B.1 — rich KPI records (id / name / target / current /
+   * unit / trend / source / lastUpdatedAt). Resolved per-source by
+   * `services/strategy/kpiResolver.ts`. Empty when no KPIs declared.
+   */
+  activeKpis: import('@/services/strategy/kpiTypes').KpiRecord[];
 
   /** Operational goal labels — count only, no values (BlakQube). */
   operationalGoalsCount: number;
@@ -80,19 +122,66 @@ export interface VentureProgressShape {
   /** Most recent IntentQubes acted upon by this persona. */
   recentActivity: VentureProgressRecentActivity[];
 
+  /**
+   * Verified work done — operator-logged actions + proof-of-work documents
+   * (the Standing signals). This is the ONLY evidence of PROGRESS from the
+   * ingested baseline; a grounded report cites these instead of inventing
+   * metrics. Empty ⇒ the report must say "no verified activity yet", not
+   * fabricate movement.
+   */
+  standingSignals: Array<{
+    id: string;
+    kind: 'operator_action_logged' | 'standing_document_added';
+    summary: string;
+    ventureRef: string | null;
+    createdAt: string;
+  }>;
+
   /** Pending blockers count. Alpha: 0; Phase 6 populates from approvals. */
   blockersCount: number;
 
-  /** Recommended next NBEs (AVL-tier from the catalogue, then top mixed). */
+  /** Recommended next NBEs (MVL-tier from the catalogue, then top mixed). */
   recommendedActions: BriefNextBestAction[];
+
+  /**
+   * Per-NBA compose / action prompt hints keyed by NBE id, produced
+   * by the LLM rerank pass — mirrors `BriefShape.nbaPromptHints` so
+   * the Venture Capsule's Pills land pre-populated with the same
+   * SoT-tailored take the Brief Capsule provides. Empty when the
+   * rerank LLM key isn't configured.
+   */
+  nbaPromptHints?: Record<string, string>;
 
   /** Suggested artifact types the user could create now. */
   suggestedArtifacts: Array<NonNullable<NbeCandidate['suggestedArtifact']>>;
 
   /** iQube usage disclosure. */
-  using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
+  using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube' | 'VentureQube')[];
   /** Categories explicitly not shared. */
   notShared: string[];
+  /** See `BriefShape.preflightContext` — same shape, same meaning. */
+  preflightContext?: PreflightContext;
+
+  // ── VentureQube-layer enrichment (Sprint 1) ──────────────────────────
+  /** T1-safe public venture ref (not persona id, not raw venture id). */
+  venturePublicRef: string | null;
+  /** Thesis mission + problem statement for cockpit header strip. */
+  thesisSummary: { mission: string | null; problem: string | null } | null;
+  /** Signal Evidence aggregate — avg confidence + count. */
+  signalSummary: {
+    confidence: number | null;
+    count: number;
+    /** Four roll-up confidence dimensions from the signal evidence layer (0–100). */
+    opportunityConfidence: number | null;
+    demandConfidence: number | null;
+    capabilityConfidence: number | null;
+  } | null;
+  /** Operating model active objectives (active/blocked/completed). */
+  operatingObjectives: OperatingObjectiveSummary[];
+  /** Sum of NVA hours across all verified ProofOfOutcomeClaims. */
+  nvaTotal: number;
+  /** Governance layer standing score (0–100). */
+  standingGovScore: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -113,6 +202,107 @@ function toAction(c: NbeCandidate): BriefNextBestAction {
   };
 }
 
+/**
+ * Map a catalog action (declared on an activation entry the persona
+ * has switched on) into the same `BriefNextBestAction` shape the
+ * cockpit's Recommended row + the DecisionBoardLayout already render.
+ *
+ * Catalog-driven NBAs replace `selectNbeCandidates` as the primary
+ * source for venture-progress recommendations. The static NBE catalog
+ * stays as a fallback when the persona has no active activations
+ * exposing actions yet — keeps the cockpit non-empty during ramp-up.
+ *
+ * Effort + impact default to 'standard' / 'medium' for activity-class
+ * actions; outcome-class actions surface as 'high' impact so the
+ * Recommended row visually prioritises value-bearing moves. Class
+ * inference is best-effort from naming (the catalog doesn't carry
+ * a per-action class yet — easy follow-on).
+ */
+function catalogActionToBrief(input: {
+  activationId: string;
+  cartridge: ActiveCartridgeSlug | 'metame';
+  action: ActivationAction;
+}): BriefNextBestAction {
+  const cartridge = (input.cartridge === 'metame' ? 'metame' : input.cartridge) as ActiveCartridgeSlug;
+  const impact: NbeCandidate['impact'] = input.action.approvalRequired ? 'high' : 'medium';
+  return {
+    id: `activation:${input.activationId}:${input.action.action}`,
+    label: input.action.label,
+    rationale: input.action.rationale,
+    cartridge,
+    effort: 'standard',
+    impact,
+    approvalRequired: !!input.action.approvalRequired,
+    specialist: input.action.specialist ?? null,
+    suggestedArtifact: null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Intent hygiene sweep (operator request 2026-07-14).
+//
+// Repeated acts on the same recommendation created sibling intents that
+// lingered as in_progress forever — the cockpit dedupe hides them, but the
+// underlying rows stayed dirty. This sweep cancels:
+//   - SUPERSEDED live duplicates: an in_progress / awaiting_approval intent
+//     with a NEWER sibling of the same (normalized name, cartridge) — the
+//     newest row is the current state of that action; older live twins are
+//     redundant.
+//   - STALE live singletons: a live intent older than 14 days with no newer
+//     sibling — abandoned work that can never complete itself. The operator
+//     can always re-act; a fresh intent is one click.
+// Completed / failed / cancelled rows are history and are NEVER touched.
+// Best-effort + capped: never throws, never blocks the surface that runs
+// it, at most MAX_SWEEP_CANCELS_PER_RUN mutations per sweep (the backlog
+// drains across a few cockpit loads instead of stalling one).
+// ─────────────────────────────────────────────────────────────────────────
+
+const SWEEP_FETCH_LIMIT = 50;
+const STALE_INTENT_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_SWEEP_CANCELS_PER_RUN = 20;
+
+export interface IntentSweepResult {
+  cancelledSuperseded: number;
+  cancelledStale: number;
+}
+
+export async function sweepSupersededIntents(personaId: string): Promise<IntentSweepResult> {
+  const result: IntentSweepResult = { cancelledSuperseded: 0, cancelledStale: 0 };
+  if (!personaId) return result;
+  try {
+    const intents = await listRecentIntentsForPersona(personaId, { limit: SWEEP_FETCH_LIMIT });
+    const isLive = (s: IntentStatus) => s === 'in_progress' || s === 'awaiting_approval';
+    const now = Date.now();
+    // Rows arrive created_at desc — the first row seen per key is the
+    // newest and is always retained, whatever its status.
+    const seenKeys = new Set<string>();
+    const toCancel: { id: string; reason: 'superseded' | 'stale' }[] = [];
+    for (const i of intents) {
+      const key = `${normalizeNbeName(i.intentName)}|${i.activeCartridge}`;
+      const hasNewerSibling = seenKeys.has(key);
+      seenKeys.add(key);
+      if (!isLive(i.status)) continue;
+      if (hasNewerSibling) {
+        toCancel.push({ id: i.id, reason: 'superseded' });
+      } else {
+        const age = now - Date.parse(i.createdAt);
+        if (Number.isFinite(age) && age > STALE_INTENT_MAX_AGE_MS) {
+          toCancel.push({ id: i.id, reason: 'stale' });
+        }
+      }
+    }
+    for (const c of toCancel.slice(0, MAX_SWEEP_CANCELS_PER_RUN)) {
+      const updated = await setIntentQubeStatus(c.id, 'cancelled');
+      if (!updated) continue;
+      if (c.reason === 'superseded') result.cancelledSuperseded += 1;
+      else result.cancelledStale += 1;
+    }
+  } catch {
+    // Hygiene never breaks the surface that runs it.
+  }
+  return result;
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Build.
 // ─────────────────────────────────────────────────────────────────────────
@@ -130,7 +320,7 @@ export async function buildVentureProgress(
 ): Promise<VentureProgressShape> {
   const qube = await getExperienceQube(input.personaId);
 
-  const linkedCartridges = qube?.meta.activeCartridges ?? ['metame', 'avl'];
+  const linkedCartridges = qube?.meta.activeCartridges ?? ['metame', 'mvl'];
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
   const ventureName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
@@ -152,6 +342,30 @@ export async function buildVentureProgress(
     ? Object.keys(blak.activeKpis).length
     : 0;
 
+  // Phase 2 B.1 — resolve activation-bound KPI values.
+  // 1) Coerce legacy `{name: target}` rows into the rich shape.
+  // 2) Resolver checks each activation-bound KPI against the persona's
+  //    active Activations + runs the metric query.
+  // 3) Manual KPIs pass through. Failed lookups mark `unresolvedReason`.
+  let resolvedKpis: KpiRecord[] = [];
+  try {
+    const raw = (blak.activeKpis ?? {}) as Record<string, unknown>;
+    const rich = coerceKpisToRichShape(raw);
+    const supabase = getSupabaseServer();
+    if (supabase && Object.keys(rich).length > 0) {
+      const resolved = await resolveKpis(supabase, {
+        personaId: input.personaId,
+        kpis: rich,
+      });
+      resolvedKpis = Object.values(resolved);
+    } else {
+      resolvedKpis = Object.values(rich);
+    }
+  } catch {
+    // Never block the cockpit on a KPI resolver failure.
+    resolvedKpis = [];
+  }
+
   const kpiSummary: VentureProgressKpiSummary = {
     activeKpisCount,
     operationalGoalsCount,
@@ -163,38 +377,146 @@ export async function buildVentureProgress(
       blak.confidentialStrategyNotes.trim().length > 0,
   };
 
-  // Recent activity — pulled from the IntentQube service.
+  // Recent activity — pulled from the IntentQube service. Fetch a wider
+  // window than the display limit: the extra rows feed (a) the dedupe below
+  // and (b) the completed-work observer signal for Recommended.
   const recentLimit = Math.min(Math.max(input.recentLimit ?? 5, 1), 20);
-  const intents = await listRecentIntentsForPersona(input.personaId, {
-    limit: recentLimit,
-    cartridge: input.cartridge,
+  const allIntents = await listRecentIntentsForPersona(input.personaId, {
+    limit: Math.max(recentLimit, 20),
   });
-  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => ({
-    intentId: i.id,
-    intentName: i.intentName,
-    cartridge: i.activeCartridge,
-    status: i.status,
-    createdAt: i.createdAt,
-  }));
 
-  // Recommended actions:
-  //   1. AVL-tier candidates first (regardless of active cartridges, the user
-  //      is reviewing AVL).
-  //   2. Then the top 2 across the user's active cartridges to keep cross-
-  //      cartridge motion visible.
+  // Observer awareness (operator report 2026-07-14): what the operator
+  // completed recently must inform what the cockpit recommends next.
+  const recentlyCompletedNames = allIntents
+    .filter((i) => i.status === 'completed')
+    .map((i) => i.intentName)
+    .filter((n): n is string => typeof n === 'string' && n.trim().length > 0);
+  const completedNormalized = recentlyCompletedNames.map(normalizeNbeName).filter(Boolean);
+
+  // Active Work dedupe (operator report 2026-07-14: "the same actions
+  // repeated multiple times in the venture cockpit"): repeated acts on the
+  // same recommendation create sibling intents with the same name — show
+  // only the MOST RECENT row per (name, cartridge). Rows arrive ordered
+  // created_at desc, so first occurrence wins.
+  const scopedIntents = input.cartridge
+    ? allIntents.filter((i) => i.activeCartridge === input.cartridge)
+    : allIntents;
+  const seenWork = new Set<string>();
+  const intents = scopedIntents
+    .filter((i) => {
+      const key = `${normalizeNbeName(i.intentName)}|${i.activeCartridge}`;
+      if (seenWork.has(key)) return false;
+      seenWork.add(key);
+      return true;
+    })
+    .slice(0, recentLimit);
+  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => {
+    // Derived action capabilities — what the operator can do with
+    // this row from the cockpit's Active Work context menu. Pure
+    // function of status + targetAgents; no schema additions.
+    const isLive = i.status === 'in_progress' || i.status === 'awaiting_approval';
+    const specialist = i.targetAgents?.find((a) => a !== 'aigent-me') ?? i.targetAgents?.[0] ?? null;
+    const nextActionHint =
+      i.status === 'awaiting_approval' ? 'Approval pending — confirm to proceed' :
+      i.status === 'in_progress'       ? (specialist ? `Working with ${specialist}` : 'Working…') :
+      i.status === 'completed'         ? 'Completed — see receipt' :
+      i.status === 'failed'            ? 'Failed — retry or hand off' :
+      i.status === 'cancelled'         ? 'Cancelled' :
+      null;
+    return {
+      intentId: i.id,
+      intentName: i.intentName,
+      cartridge: i.activeCartridge,
+      status: i.status,
+      createdAt: i.createdAt,
+      canResume: i.status === 'failed',
+      canHandOff: isLive && !!specialist,
+      canCancel: isLive,
+      specialist,
+      nextActionHint,
+      blockers: [],
+    };
+  });
+
+  // Recommended actions — Phase 2 B.2 (1/2):
+  //
+  // PRIMARY source = catalog actions exposed by the persona's active
+  // activations. This is the activation-driven NBA pipeline that
+  // mirrors B.1's KPI flow — what the persona has switched on is the
+  // single source of truth for what they should be doing next.
+  //
+  // FALLBACK = the original static `selectNbeCandidates` output. Kept
+  // alive so the cockpit stays non-empty during ramp-up when an
+  // operator's active activations haven't yet declared actions, and
+  // so MVL-stage moves still surface during alpha-activation.
+  //
+  // Order: catalog actions first (operator-chosen surface area), MVL
+  // candidates next (operator's current review context), mixed
+  // candidates last (cross-cartridge motion). Capped at 8 total to
+  // keep the Recommended row scannable.
+  const activeActivationIds = await getActiveActivationIds(input.personaId).catch(
+    () => new Set<string>(),
+  );
+  const catalogActions = actionsForActiveActivations(activeActivationIds).map((row) =>
+    catalogActionToBrief({
+      activationId: row.activationId,
+      cartridge: row.cartridge,
+      action: row.action,
+    }),
+  );
+
   const avlActions = selectNbeCandidates({
-    activeCartridges: ['avl'],
+    activeCartridges: ['mvl'],
     currentStage,
-    scopedCartridge: 'avl',
+    scopedCartridge: 'mvl',
     limit: 3,
+    recentlyCompletedNames,
   });
   const mixedActions = selectNbeCandidates({
     activeCartridges: linkedCartridges,
     currentStage,
     limit: 5,
-  }).filter((c) => c.cartridge !== 'avl').slice(0, 2);
+    recentlyCompletedNames,
+  }).filter((c) => c.cartridge !== 'mvl').slice(0, 2);
 
-  const recommendedActions = [...avlActions, ...mixedActions].map(toAction);
+  // Dedupe by id so a fallback NbeCandidate doesn't duplicate a
+  // catalog action with the same key. Catalog wins on conflict.
+  const seen = new Set(catalogActions.map((a) => a.id));
+  const fallback = [...avlActions, ...mixedActions]
+    .map(toAction)
+    .filter((a) => !seen.has(a.id));
+  // Observer awareness on the PRIMARY (activation-catalog) source too:
+  // a catalog action whose label matches recently completed work drops
+  // out of Recommended. Never-empty guard: if the filter clears the whole
+  // row, keep the unfiltered list (everything current is done — repeating
+  // is more honest than an empty cockpit).
+  const combined = [...catalogActions, ...fallback];
+  const freshRecommended = completedNormalized.length > 0
+    ? combined.filter((a) => !nbeNameMatchesCompleted(a.label, completedNormalized))
+    : combined;
+  const recommendedActions = (freshRecommended.length > 0 ? freshRecommended : combined).slice(0, 8);
+
+  // LLM rerank — produces per-NBA compose / action prompt hints
+  // tailored to the persona's SoT (current stage, active cartridges,
+  // primary goal, experience goals). Mirrors what BriefBuilder does
+  // so the Venture Capsule's Pills land with the same pre-populated
+  // "aigentMe's take" lines + composer seed prompts as the Brief
+  // Capsule. Reranks the underlying NbeCandidate list, then re-maps
+  // hints by id back onto the BriefNextBestAction shape. No-op when
+  // the LLM key isn't configured (alpha environments).
+  const experienceGoalsForRerank: string[] = [
+    ...(Array.isArray(blak.experienceGoals) ? (blak.experienceGoals as string[]).filter((g): g is string => typeof g === 'string') : []),
+  ];
+  const rerankCandidates = [...avlActions, ...mixedActions];
+  const rerank = await llmRerankNbeCandidates(rerankCandidates, {
+    currentStage,
+    activeCartridges: linkedCartridges,
+    primaryGoal,
+    experienceGoals: experienceGoalsForRerank,
+    strategy: null,
+    liveContext: null,
+  }).catch(() => ({ ranked: rerankCandidates, topReason: null, nbaPromptHints: {}, llmApplied: false }));
+  const nbaPromptHints = rerank.nbaPromptHints;
 
   const suggestedArtifacts = Array.from(
     new Set(
@@ -204,6 +526,138 @@ export async function buildVentureProgress(
     ),
   );
 
+  // Standing signals — verified work done (operator-logged actions + proof-of-
+  // work documents). This is the progress-from-baseline evidence; the report
+  // cites these instead of inventing movement. Best-effort; never blocks.
+  let standingSignals: VentureProgressShape['standingSignals'] = [];
+  try {
+    const sigs = await listActivityReceiptsForPersona(input.personaId, {
+      actionTypes: ['operator_action_logged', 'standing_document_added'],
+      limit: 10,
+    });
+    standingSignals = sigs.map((r) => ({
+      id: r.id,
+      kind: r.actionType as 'operator_action_logged' | 'standing_document_added',
+      summary: r.summary,
+      ventureRef: r.contextShared?.[0] ?? null,
+      createdAt: r.createdAt,
+    }));
+  } catch {
+    standingSignals = [];
+  }
+
+  // ── VentureQube enrichment (Sprint 1) ──────────────────────────────────
+  // Fetch the persona's primary active VentureQube and extract cockpit-
+  // relevant data from the 13 layers. Never blocks: all failures fall
+  // back to null / empty so the cockpit stays functional without a venture.
+  let venturePublicRef: string | null = null;
+  let thesisSummary: VentureProgressShape['thesisSummary'] = null;
+  let signalSummary: VentureProgressShape['signalSummary'] = null;
+  let operatingObjectives: OperatingObjectiveSummary[] = [];
+  let nvaTotal = 0;
+  let standingGovScore: number | null = null;
+
+  try {
+    const ventureRecords = await listVentureQubes(input.personaId).catch(() => []);
+    const primaryVenture = ventureRecords.find((v) => v.status === 'active') ?? ventureRecords[0] ?? null;
+
+    if (primaryVenture) {
+      venturePublicRef = primaryVenture.venturePublicRef ?? null;
+      const vl = primaryVenture.layers;
+
+      // Thesis layer — mission + problem statement for header strip.
+      if (vl?.thesis) {
+        thesisSummary = {
+          mission: vl.thesis.mission ?? null,
+          problem: vl.thesis.problemStatement ?? null,
+        };
+      }
+
+      // Signal Evidence layer — aggregate per-item confidence + four roll-up dimensions.
+      const se = vl?.signalEvidence;
+      if (se) {
+        const items = Array.isArray(se.items) ? se.items : [];
+        const withScore = items.filter((s) => typeof s.confidenceScore === 'number');
+        const avgConfidence = withScore.length > 0
+          ? withScore.reduce((sum, s) => sum + (s.confidenceScore as number), 0) / withScore.length
+          : (typeof se.signalConfidence === 'number' ? se.signalConfidence : null);
+        signalSummary = {
+          count: items.length,
+          confidence: avgConfidence,
+          opportunityConfidence: typeof se.opportunityConfidence === 'number' ? se.opportunityConfidence : null,
+          demandConfidence: typeof se.demandConfidence === 'number' ? se.demandConfidence : null,
+          capabilityConfidence: typeof se.capabilityConfidence === 'number' ? se.capabilityConfidence : null,
+        };
+      }
+
+      // Commercial Model layer — revenue targets as synthetic KPIs.
+      // Merge into resolvedKpis so the cockpit carousel shows them alongside
+      // activation-bound KPIs. source.kind='manual', current=null (targets only).
+      const com = vl?.commercialModel;
+      if (com) {
+        const revenueTargets: string[] = [
+          ...(Array.isArray(com.mrrTargets) ? com.mrrTargets : []),
+          ...(Array.isArray(com.arrTargets) ? com.arrTargets : []),
+          ...(Array.isArray(com.revenueTargets) ? com.revenueTargets : []),
+        ];
+        const syntheticKpis: KpiRecord[] = revenueTargets
+          .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+          .map((target, idx) => ({
+            id: `venture-revenue-${idx}`,
+            name: target,
+            target,
+            current: null,
+            unit: undefined,
+            trend: 'flat' as const,
+            lastUpdatedAt: null,
+            source: { kind: 'manual' as const },
+            class: 'outcome' as const,
+          }));
+        // Only append if not already present (deduplication by name).
+        const existingNames = new Set(resolvedKpis.map((k) => k.name));
+        for (const sk of syntheticKpis) {
+          if (!existingNames.has(sk.name)) {
+            resolvedKpis.push(sk);
+            existingNames.add(sk.name);
+          }
+        }
+      }
+
+      // Outcome layer — NVA sum from verified ProofOfOutcomeClaims.
+      // NVA = max(0, timeSavedHours − riskRepairHours) per verified claim.
+      if (Array.isArray(vl?.outcome?.proofOfOutcomeClaims)) {
+        nvaTotal = vl.outcome.proofOfOutcomeClaims
+          .filter((c) => c.verificationStatus === 'verified')
+          .reduce((sum, c) => {
+            const nva = Math.max(0, (c.timeSavedHours ?? 0) - (c.riskRepairHours ?? 0));
+            return sum + nva;
+          }, 0);
+      }
+
+      // Governance layer — standing score.
+      if (typeof vl?.governance?.standingScore === 'number') {
+        standingGovScore = vl.governance.standingScore;
+      }
+    }
+
+    // Portfolio operating model — active objectives come from the cross-venture
+    // portfolio layer (separate from per-venture VentureQube layers).
+    const supabase = getSupabaseServer();
+    if (supabase) {
+      const portfolio = await getVenturePortfolio(supabase, input.personaId).catch(() => null);
+      if (portfolio?.operatingModel?.activeObjectives) {
+        operatingObjectives = portfolio.operatingModel.activeObjectives.map((obj, idx) => ({
+          id: `obj-${idx}`,
+          label: obj.objective,
+          status: obj.status ?? 'active',
+          targetDate: null,
+        }));
+      }
+    }
+  } catch {
+    // Never block the cockpit on a VentureQube fetch failure.
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     ventureName,
@@ -212,19 +666,32 @@ export async function buildVentureProgress(
     experienceConfigured,
     linkedCartridges,
     kpiSummary,
+    activeKpis: resolvedKpis,
     operationalGoalsCount,
     commercialGoalsCount,
     recentActivity,
+    standingSignals,
     blockersCount: 0, // Phase 6 wires this from the approval queue.
     recommendedActions,
+    nbaPromptHints,
     suggestedArtifacts,
-    using: experienceConfigured
-      ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
-      : ['PersonaQube', 'IntentQube'],
+    using: [
+      'PersonaQube',
+      ...(experienceConfigured ? (['ExperienceQube'] as const) : []),
+      'IntentQube',
+      ...(venturePublicRef ? (['VentureQube'] as const) : []),
+    ] as ('PersonaQube' | 'ExperienceQube' | 'IntentQube' | 'VentureQube')[],
     notShared: [
       'confidential strategy notes',
       'private investor data',
       'unreleased IP',
     ],
+    // VentureQube-layer enrichment (Sprint 1)
+    venturePublicRef,
+    thesisSummary,
+    signalSummary,
+    operatingObjectives,
+    nvaTotal,
+    standingGovScore,
   };
 }

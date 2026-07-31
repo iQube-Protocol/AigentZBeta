@@ -10,7 +10,7 @@
  * gated by the second-tier ApprovalCard.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, FileText, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -36,9 +36,18 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
+  inline?: boolean;
+  /**
+   * When set on mount, the modal pre-fills the AI prompt textarea
+   * AND auto-fires the draft once. Used by the SpecialistsLayout
+   * suggested-artifact buttons so the operator lands on a fully
+   * populated form (review → edit → send) rather than an empty one.
+   */
+  initialPrompt?: string;
 }
 
-export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark" }: Props) {
+export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -66,15 +75,13 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
     ? "border border-slate-700 text-slate-300 hover:border-slate-500"
     : "border border-slate-300 text-slate-700 hover:border-slate-500";
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the doc is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTitle(draft.title ?? "");
       setBodyText(draft.bodyText ?? "");
       const firstShare = (draft.shareSuggestions ?? [])[0];
@@ -91,7 +98,29 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the doc is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt. The ref tracks the last prompt we
+  // drafted from so the effect re-fires when the suggested-artifact
+  // button passes a different prompt without the modal unmounting
+  // (same compose kind, different artifact), but doesn't loop on
+  // unrelated re-renders.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,11 +146,11 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
     }
   }, [title, bodyText, shareEmail, shareRole, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div className={overlayClass} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}>
-      <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+  const formBody = (
+      <form onSubmit={handleSubmit} className={inline ? "w-full" : `rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+        {!inline && (
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-violet-400" />
@@ -131,6 +160,7 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
             <X className="w-4 h-4" />
           </button>
         </div>
+        )}
 
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
@@ -224,6 +254,13 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
           </button>
         </div>
       </form>
+  );
+
+  if (inline) return formBody;
+
+  return (
+    <div className={overlayClass} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}>
+      {formBody}
     </div>
   );
 }

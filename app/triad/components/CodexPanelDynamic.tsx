@@ -19,18 +19,30 @@ const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
 );
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false }
+);
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
+import { CopilotHostProvider } from "@/app/components/codex/CopilotHostContext";
+import { useSmartTriadContext } from "@/app/hooks/useSmartTriadContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
+import { tabPassesAccessGates } from "@/services/passport/participationTabGate";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
+import { AccessionProgressBar } from "./codex/AccessionProgressBar";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
-
+import { resolveLegacyTabSlug } from "@/data/codex-configs";
+import { isHorizenTrigger, focusJourneyStage } from "@/services/journey/journeyCompanionTrigger";
+import { JourneyCompanionCarousel } from "@/components/journey/JourneyCompanionCarousel";
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -43,6 +55,7 @@ interface CodexPanelDynamicProps {
   isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
   isInvestor?: boolean;         // Investor identity — shows investorOnly tabs (IAM service resolves this)
   partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
+  autoActivate?: string;        // Activation ID to auto-activate on mount (e.g. 'polity-passport')
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -101,6 +114,7 @@ export default function CodexPanelDynamic({
   isPartner: isPartnerProp,
   isInvestor = false,
   partnerId,
+  autoActivate,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -114,6 +128,13 @@ export default function CodexPanelDynamic({
   // Resolve personaId: explicit prop wins; fall back to global PersonaContext
   const { activePersonaId: ctxPersonaId, setActivePersonaId } = usePersonaSafe();
   const resolvedPersonaId = personaId || ctxPersonaId || undefined;
+
+  // Direct SmartWallet overlay (variant="overlay") launched from the
+  // active-persona header badge — opens on the wallet tab so the operator
+  // can switch the active persona. This is the standalone wallet overlay
+  // (mirrors DevPersonaTab's "Open SmartWallet → iQube tab" gem), NOT the
+  // copilot-embedded wallet.
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
 
   // When SmartWalletDrawer reports a persona switch, update the global context
   const handlePersonaChange = React.useCallback(
@@ -142,9 +163,10 @@ export default function CodexPanelDynamic({
     (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
     null;
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
-  const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
-  const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
-  const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
+  // One copilot open-state for the config-driven mount (SmartTriad Phase 1 —
+  // the floating copilot renders on EVERY cartridge unless its config disables
+  // it, replacing the per-cartridge hardcoded blocks + open states).
+  const [copilotOpen, setCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -183,7 +205,7 @@ export default function CodexPanelDynamic({
     if (isAdmin) return; // admins see all tabs regardless
 
     let cancelled = false;
-    fetch(`/api/avl/partners/by-email?email=${encodeURIComponent(personaId)}`)
+    fetch(`/api/mvl/partners/by-email?email=${encodeURIComponent(personaId)}`)
       .then((r) => r.json())
       .then((d) => {
         if (!cancelled && d.ok && d.partner?.id) {
@@ -202,11 +224,102 @@ export default function CodexPanelDynamic({
   // wraps the embed/shell layouts. Single source of truth — the Activations
   // panel mutates via the same context, so optimistic updates propagate
   // through React's render cycle (no window events, no fetch race).
-  const { activeIds: activeActivations } = useActivations();
+  const { activeIds: activeActivations, activate: activateActivation } = useActivations();
+
+  const autoActivateRef = useRef(false);
+  useEffect(() => {
+    if (!autoActivate || autoActivateRef.current) return;
+    if (activeActivations.has(autoActivate)) return;
+    autoActivateRef.current = true;
+    void activateActivation(autoActivate).catch(() => {});
+  }, [autoActivate, activeActivations, activateActivation]);
+
+  // NOTE: cartridge access (the paywall) is enforced at the ELIGIBILITY layer
+  // (who may activate a gated premium activation — admin or plan), NOT here.
+  // Rendering follows the persona's actual activation toggles (activeActivations)
+  // so the Activations tab can deactivate them. (An earlier version injected
+  // plan/admin grants into the render set, which forced premium cartridges
+  // always-on and broke deactivation — regression fixed 2026-06-21.)
+
+  // Per-cartridge admin grants — fail-CLOSED while loading so the
+  // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
+  // Order group) stay hidden during the brief fetch window for
+  // non-admin personas.
+  const cartridgeAdminGrants = useCartridgeAdminGrants();
+  // Tier 2 participation grants (Horizen §B.3). Hinted with the resolved
+  // persona so every read on this surface resolves the SAME identity.
+  const participationAccess = useParticipationAccess(resolvedPersonaId ?? null);
+
+  // Published personal cartridges — only fetched when rendering metame-codex.
+  // Each published cartridge surfaces as a dynamic sub-tab in the mycluster
+  // group strip (e.g. "metaWill" alongside myCanvas / myWorkspace / etc.).
+  // The mycluster group is activation-gated ('mycanvas'), so we apply the
+  // same gate before merging — tabs don't appear until the activation is on.
+  const isMetaMe = codexId === 'metame-codex';
+  const [publishedCartridgeTabs, setPublishedCartridgeTabs] = useState<CodexTab[]>([]);
+  // Bump this to force a refetch — MyCartridgeTab dispatches a window
+  // event ('mycluster:published-changed') after a successful publish/
+  // unpublish toggle so the new tab appears in the strip without a page
+  // reload.
+  const [publishedRefetchToken, setPublishedRefetchToken] = useState(0);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    if (typeof window === 'undefined') return;
+    const handler = () => setPublishedRefetchToken((t) => t + 1);
+    window.addEventListener('mycluster:published-changed', handler);
+    return () => window.removeEventListener('mycluster:published-changed', handler);
+  }, [isMetaMe]);
+
+  useEffect(() => {
+    if (!isMetaMe) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/cartridge/published-for-cluster');
+        if (!res.ok) return;
+        const body = (await res.json()) as {
+          ok: boolean;
+          cartridges: Array<{ id: string; slug: string; title: string }>;
+        };
+        if (!body.ok || !Array.isArray(body.cartridges)) return;
+        if (cancelled) return;
+        setPublishedCartridgeTabs(
+          body.cartridges.map((c, idx) => ({
+            id: `personal-cluster-${c.slug}`,
+            slug: c.slug,
+            label: c.title,
+            enabled: true,
+            // After the 2026-06-07 swap, myLedger is at order 2 and
+            // myCartridge at order 3 — published cartridges land after
+            // both at order 10+.
+            order: 10 + idx,
+            type: 'static' as const,
+            group: 'mycluster',
+            config: {
+              component: 'PersonalCartridgeTab',
+              props: { cartridgeSlug: c.slug },
+            },
+            metadata: { icon: 'Boxes', color: 'violet' },
+          })),
+        );
+      } catch {
+        // best-effort — published tabs simply don't appear
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isMetaMe, publishedRefetchToken]);
 
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, hiddenTabSet]
+    () => [
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      // Inject published personal cartridge tabs into the mycluster group.
+      // Gated on 'mycanvas' activation to match the group's own activationId.
+      ...(activeActivations.has('mycanvas')
+        ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
+        : []),
+    ],
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -217,7 +330,24 @@ export default function CodexPanelDynamic({
     if (!normalizedInitialTab) return;
     if (lastAppliedInitialTabRef.current === normalizedInitialTab) return;
     if (enabledTabs.length > 0 && !enabledTabs.some((tab) => tab.slug === normalizedInitialTab)) {
-      lastAppliedInitialTabRef.current = normalizedInitialTab;
+      // NOT FOUND *YET* IS NOT NOT FOUND (2026-07-28: a `?tab=my-workspace`
+      // deep link from the Companion landed on the cartridge's default tab).
+      //
+      // `enabledTabs` resolves ASYNCHRONOUSLY — a tab can carry an
+      // `activationId` (my-workspace requires `mycanvas`), an adminOnly gate, or
+      // a persona-dependent condition, so the set grows over several renders.
+      // This branch used to LATCH the ref on a miss, which permanently
+      // abandoned the deep link: when the target tab finally appeared, the
+      // guard above short-circuited and the requested tab was never applied.
+      // The next effect then fell back to `enabledTabs[0]` — the cartridge's
+      // default landing tab, exactly what the operator saw.
+      //
+      // The latch now happens ONLY on success. A miss simply returns and lets
+      // a later `enabledTabs` change re-attempt, which is safe because this
+      // effect's only other dependency is the (stable) requested slug. This is
+      // the MS-4 shape — "a zero measurement is a teardown artifact, never a
+      // layout value" — applied to tab resolution: an absence observed before
+      // the observation completed is not an absence.
       return;
     }
     setActiveTabSlug(normalizedInitialTab);
@@ -234,6 +364,29 @@ export default function CodexPanelDynamic({
     }
     setActiveTabSlug(enabledTabs[0].slug);
   }, [enabledTabs, activeTabSlug, normalizedInitialTab]);
+
+  // Cartridge-agnostic intra-cartridge tab navigation INSIDE the embed. The
+  // shell viewer (app/(shell)/codex/viewer/page.tsx) listens for the same
+  // `codex:navigate-tab` CustomEvent in the PARENT window — but tab components
+  // render inside this embed's iframe, so their dispatches never cross the
+  // frame boundary. This panel owns the embed's tab state, so it must listen
+  // too (same guard as the viewer: the target must be a currently-enabled tab
+  // of THIS codex — unknown/hidden slugs are ignored, so the seam can't reach
+  // across cartridges or reveal a hidden tab). Legacy slugs resolve first so
+  // pre-rename dispatchers keep working.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string }>).detail || {};
+      const raw = detail.tab;
+      if (typeof raw !== "string") return;
+      const target = resolveLegacyTabSlug(raw.trim().toLowerCase());
+      if (target !== activeTabSlug && enabledTabs.some((tab) => tab.slug === target)) {
+        setActiveTabSlug(target);
+      }
+    };
+    window.addEventListener("codex:navigate-tab", handler);
+    return () => window.removeEventListener("codex:navigate-tab", handler);
+  }, [enabledTabs, activeTabSlug]);
 
   const isQriptopian = codexId === 'qripto-codex';
   const [issueSlug, setIssueSlug] = useState<string>(() => {
@@ -315,6 +468,11 @@ export default function CodexPanelDynamic({
   // Third-tier (sub-sub-tab) active slug, keyed by parent tab slug. Resets
   // when the user navigates to a different parent tab.
   const [activeSubSubTabSlug, setActiveSubSubTabSlug] = useState<string | null>(null);
+  // Fourth-tier (sub-sub-sub-tab) active slug — surfaces when a tier-3 tab
+  // has its own subTabs (e.g. metaMe's Order of Metayé → Admin → KNYT
+  // admin sub-items, where Order of Metayé is the single-tab parent group
+  // and Admin is the tier-3 tab whose subTabs need their own row).
+  const [activeSubSubSubTabSlug, setActiveSubSubSubTabSlug] = useState<string | null>(null);
 
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
@@ -322,9 +480,23 @@ export default function CodexPanelDynamic({
   );
 
   // Resolve the third-tier active tab when the parent has subTabs.
+  // Defense in depth — the same gates that apply to top-level tabs in
+  // getEnabledTabs are mirrored here so a mis-configured parent tab
+  // can't accidentally surface gated sub-tabs.
   const activeSubTabs = useMemo(
-    () => (activeTab?.subTabs ?? []).filter((t) => t.enabled && (!t.adminOnly || isAdmin)),
-    [activeTab, isAdmin]
+    () => (activeTab?.subTabs ?? []).filter((t) => {
+      if (!t.enabled) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
+      if (t.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [activeTab, isAdmin, cartridgeAdminGrants, participationAccess]
   );
   const activeSubSubTab = useMemo(() => {
     if (activeSubTabs.length === 0) return null;
@@ -334,11 +506,53 @@ export default function CodexPanelDynamic({
     );
   }, [activeSubTabs, activeSubSubTabSlug]);
 
+  // SmartTriadContext (PRD §7, ratified 2026-07-19) — cartridge + T1-safe
+  // observer + deep links, fed to the shell copilot as its ground context.
+  // Called before the loading/error early-returns (rules of hooks).
+  const smartTriadContext = useSmartTriadContext(
+    codexId,
+    codex?.name ?? codexId,
+    activeTabSlug,
+  );
+
+  // Tier-4: subTabs of the currently-active tier-3 tab. Filtered by the
+  // same gates as tier-3 so admin/per-cartridge tabs don't leak through
+  // the deeper nesting (defense in depth).
+  const activeSubSubTabSubTabs = useMemo(
+    () => (activeSubSubTab?.subTabs ?? []).filter((t) => {
+      if (!t.enabled) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
+      if (t.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [activeSubSubTab, isAdmin, cartridgeAdminGrants, participationAccess]
+  );
+  const activeSubSubSubTab = useMemo(() => {
+    if (activeSubSubTabSubTabs.length === 0) return null;
+    return (
+      activeSubSubTabSubTabs.find((t) => t.slug === activeSubSubSubTabSlug) ||
+      activeSubSubTabSubTabs[0]
+    );
+  }, [activeSubSubTabSubTabs, activeSubSubSubTabSlug]);
+
   // When the parent active tab changes, reset the third-tier slug so the
   // next parent opens at its first subTab.
   useEffect(() => {
     setActiveSubSubTabSlug(null);
+    setActiveSubSubSubTabSlug(null);
   }, [activeTabSlug]);
+
+  // When the tier-3 selection changes, reset tier-4 so the new tier-3
+  // tab opens at its own first leaf.
+  useEffect(() => {
+    setActiveSubSubSubTabSlug(null);
+  }, [activeSubSubTabSlug]);
 
   // Publish this codex into the CartridgePresenceRegistry so the wallet
   // + cross-cartridge callers can switch tabs in place (instead of a full
@@ -533,6 +747,7 @@ export default function CodexPanelDynamic({
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
+     <CopilotHostProvider>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         {!singleTabMode && (() => {
           const accentColor = codex.metadata.color || 'indigo';
@@ -543,6 +758,13 @@ export default function CodexPanelDynamic({
           const visibleGroups = groups.filter(g => {
             if (g.adminOnly && !isAdmin) return false;
             if (g.activationId && !activeActivations.has(g.activationId)) return false;
+            // MS-9 (Companion Menu System invariants): a control that cannot
+            // act must not render. A group whose every tab is gated away —
+            // e.g. Partner for a caller with no venture-lab participation
+            // grant — has nothing for handleGroupClick to select, so the chip
+            // would be inert. This is also what lets a group carry a mix of
+            // Tier 0 and Tier 2 tabs without a group-level gate of its own.
+            if (!enabledTabs.some(t => t.group === g.id)) return false;
             return true;
           });
           // Standalone tabs: enabled tabs with no group, sorted by order
@@ -587,7 +809,15 @@ export default function CodexPanelDynamic({
                       )}
                       {displayCodexName}
                     </h2>
-                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                    {/* Top nav carousel — matches the tier-2/3/4 rows below
+                        with `no-scrollbar` so the persistent scrollbar stub
+                        doesn't render on platforms that show a placeholder
+                        track even when overflow isn't active. Reported
+                        2026-05-26: metaMe cartridge top menu carousel scroll
+                        bar was sticking and not disappearing because the
+                        outer container missed the same scrollbar-hide class
+                        every inner row uses. */}
+                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar">
                       {topItems.map((item) => {
                         if (item.kind === 'group') {
                           const { group } = item;
@@ -597,14 +827,16 @@ export default function CodexPanelDynamic({
                             <button
                               key={`group-${group.id}`}
                               onClick={() => handleGroupClick(group.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              title={group.iconOnly ? group.label : undefined}
+                              aria-label={group.iconOnly ? group.label : undefined}
+                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
                                   ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                   : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                               }`}
                             >
                               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                              {density === 'wide' && group.label}
+                              {!group.iconOnly && density === 'wide' && group.label}
                             </button>
                           );
                         }
@@ -617,7 +849,7 @@ export default function CodexPanelDynamic({
                           <button
                             key={tab.id}
                             onClick={() => setActiveTabSlug(tab.slug)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium transition-all whitespace-nowrap rounded-lg ${
                               isActive
                                 ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                 : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -645,16 +877,19 @@ export default function CodexPanelDynamic({
                         On narrow screens the label truncates with an ellipsis
                         so a long FIO handle can't push the theme toggle off. */}
                     {headerPersonaLabel && (
-                      <div
-                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none ${
+                      <button
+                        type="button"
+                        onClick={() => setWalletDrawerOpen(true)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none transition-colors cursor-pointer ${
                           isDark
-                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
-                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
+                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200 hover:bg-${accentColor}-500/20 hover:border-${accentColor}-500/50`
+                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700 hover:bg-${accentColor}-100 hover:border-${accentColor}-400`
                         }`}
-                        title={`Active persona: ${headerPersonaLabel}`}
+                        title={`Active persona: ${headerPersonaLabel} — open wallet to switch persona`}
                       >
+                        <UserCircle2 className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">Welcome, {headerPersonaLabel}</span>
-                      </div>
+                      </button>
                     )}
                     {/* Theme toggle */}
                     <button
@@ -710,6 +945,10 @@ export default function CodexPanelDynamic({
                   Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
                   so the row can't push the page beyond the viewport. The right-cluster title hides on mobile
                   (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
+              {/* Hide the entire sub-header row when the group has a single
+                  tab and no sub-sub-tabs — the row adds nothing and wastes
+                  vertical space (aigentZ Command Center, for example). */}
+              {(activeGroupSubTabs.length > 1 || activeSubTabs.length > 0) && (
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
@@ -720,11 +959,19 @@ export default function CodexPanelDynamic({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTabSlug(tab.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                           }`}
+                          /* The tab's own description as a tooltip — the SAME
+                             convention the tier-3 and tier-4 rows below already
+                             follow (operator, 2026-07-28: "sub menu info as
+                             tool tip … per other cartridge protocol"). The
+                             tier-2 row was the one row that dropped it, so the
+                             cartridge-menu tooltip appeared to work everywhere
+                             except the sub menu operators actually use most. */
+                          title={tab.metadata?.description}
                         >
                           <Icon className="w-3 h-3 flex-shrink-0" />
                           {tab.label}
@@ -745,7 +992,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={sub.id}
                           onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -787,14 +1034,87 @@ export default function CodexPanelDynamic({
                     </span>
                   )}
                   {activeGroupDef && <span className="hidden md:inline text-xs text-slate-600">·</span>}
-                  <span className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
-                  {activeTabDescription && (
-                    <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
-                      {activeTabDescription}
-                    </span>
-                  )}
+                  <span
+                    className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap"
+                    title={activeTabDescription || undefined}
+                  >
+                    {activeTabTitle}
+                  </span>
                 </div>
               </div>
+              )}
+
+              {/*
+                Tier-3 sub-sub-tab row — rendered as a SEPARATE row below
+                the tier-2 nav when BOTH conditions hold:
+                  - the active group has multiple sibling tabs (tier-2 is
+                    rendering the siblings in the bar above), AND
+                  - the active tab has its own subTabs (tier-3).
+                Prior behaviour collapsed tier-3 into the tier-2 slot via
+                an `else if` — that only fired for single-tab groups, so
+                multi-tab groups whose active tab also had subTabs (e.g.
+                AgentiQ OS Home → its 3rd-tier sub-tabs) silently dropped
+                the third row after the ed2ad425 refactor. This second
+                row restores the missing tier without disturbing the
+                single-tab-group inline path above.
+              */}
+              {activeGroup && activeGroupSubTabs.length > 1 && activeSubTabs.length > 0 && (
+                <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-100 bg-slate-50/60'}`}>
+                  {activeSubTabs.map((sub) => {
+                    const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                    const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          isActive
+                            ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                            : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={sub.metadata?.description}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/*
+                Tier-4 sub-sub-sub-tab row — surfaces when the currently
+                selected tier-3 tab has its own subTabs. Catches BOTH the
+                single-tab parent group case (Order of Metayé → Admin →
+                KNYT admin children inside metaMe) AND the multi-tab
+                parent group case (e.g. AgentiQ OS group → Home → its own
+                deep children if any). Without this row, deep-nested
+                admin-tier surfaces render as the "Select a sub-tab"
+                fallback because TabRenderer falls through to the
+                placeholder for a parent tab with no leaf selected.
+              */}
+              {activeSubSubTabSubTabs.length > 0 && (
+                <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.03] bg-white/[0.005]' : 'border-slate-100 bg-slate-50/40'}`}>
+                  {activeSubSubTabSubTabs.map((leaf) => {
+                    const isActive = (activeSubSubSubTab?.slug ?? activeSubSubTabSubTabs[0].slug) === leaf.slug;
+                    const Icon = getIconComponent(leaf.metadata?.icon || 'Circle');
+                    return (
+                      <button
+                        key={leaf.id}
+                        onClick={() => setActiveSubSubSubTabSlug(leaf.slug)}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          isActive
+                            ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                            : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={leaf.metadata?.description}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        {leaf.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </>
           );
         })()}
@@ -835,10 +1155,16 @@ export default function CodexPanelDynamic({
               `activeGroup && activeGroupSubTabs.length > 1` (siblings) or
               `activeSubTabs.length > 0` (single-tab group with subTabs). */}
           <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* IRL accession stepper — self-scopes to IRL cartridges + the
+                onboarding step tabs; observes real state and pulls the user
+                along (Welcome → Passport → Delegate → Access → Experiments). */}
+            {activeTab && (
+              <AccessionProgressBar codexId={codexId} activeSlug={activeTab.slug} personaId={resolvedPersonaId} />
+            )}
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
                 <TabRenderer
-                  tab={activeSubSubTab ?? activeTab}
+                  tab={activeSubSubSubTab ?? activeSubSubTab ?? activeTab}
                   codexId={codexId}
                   theme={resolvedTheme}
                   density={density}
@@ -859,57 +1185,66 @@ export default function CodexPanelDynamic({
 
       <SmartTriadSurfaces personaId={resolvedPersonaId} onPersonaChange={handlePersonaChange} cartridgeSlug={codexId} />
 
-      {codexId === 'marketa-codex' && (
-        <CodexCopilotLayer
-          isOpen={marketaCopilotOpen}
-          onClose={() => setMarketaCopilotOpen(false)}
-          onOpen={() => setMarketaCopilotOpen(true)}
-          variant="floating"
-          accentColor="rose"
-          agent={{ id: 'aigent-marketa', name: 'Marketa' }}
-          personaId={resolvedPersonaId ?? 'aigent-marketa'}
-          enableInferenceRendering
-          promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
-          initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next."
-          quickPrompts={['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack']}
-        />
-      )}
-      {codexId === 'knyt-codex' && activeTabSlug.startsWith('store-') && (
-        <CodexCopilotLayer
-          isOpen={knytCopilotOpen}
-          onClose={() => setKnytCopilotOpen(false)}
-          onOpen={() => setKnytCopilotOpen(true)}
-          variant="floating"
-          accentColor="amber"
-          agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
-          personaId={resolvedPersonaId ?? undefined}
-          enableInferenceRendering
-          contextId={`knyt-${activeTabSlug}`}
-          promptPlaceholder="Ask about episodes, characters, bundles..."
-          quickPrompts={['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing']}
-        />
-      )}
+      {/* SmartTriad floating copilot — config-driven, mounts on EVERY cartridge
+          tab (Phase 1 of the Context-Aware Copilot PRD). Curated cartridges get
+          their persona/copy from the definition's `copilot` field
+          (data/codex-configs.ts — PRD §1 cartridge.copilot API); others get
+          the default whose placeholder derives from the cartridge display name.
+          contextId carries cartridge+tab so the chat context follows the user. */}
+      {(() => {
+        const cfg = codex.copilot ?? {};
+        if (cfg.disabled) return null;
+        return (
+          <CodexCopilotLayer
+            isOpen={copilotOpen}
+            onClose={() => setCopilotOpen(false)}
+            onOpen={() => setCopilotOpen(true)}
+            variant="floating"
+            hostRole="panel"
+            accentColor={cfg.accentColor ?? codex.metadata.color ?? 'cyan'}
+            agent={cfg.agent ?? { id: 'aigent-z', name: 'Aigent Z' }}
+            personaId={resolvedPersonaId ?? cfg.agent?.id ?? undefined}
+            enableInferenceRendering
+            contextId={`${codexId}-${activeTabSlug}`}
+            promptPlaceholder={cfg.promptPlaceholder ?? `Ask about ${displayCodexName}...`}
+            initialMessage={cfg.initialMessage}
+            quickPrompts={cfg.quickPrompts}
+            groundContext={smartTriadContext as unknown as Record<string, unknown>}
+            deepLinks={smartTriadContext.deepLinks}
+            operations={smartTriadContext.operations}
+            // PRD-GJR-001 §11.4 — the canonical `Horizen` Companion trigger for
+            // the Guided Journey Runtime pilot. Recognized here, client-side,
+            // before the message would otherwise reach /api/codex/chat — same
+            // fixed-action convention CodexCopilotLayer's own
+            // shouldBypassInference already uses for "reset runtime" etc.
+            // Works from any cartridge (focusJourneyStage navigates cross-
+            // cartridge into Venture Lab's Partner > Journey tab when needed).
+            onUserPrompt={async (prompt: string) => {
+              if (!isHorizenTrigger(prompt)) return undefined;
+              focusJourneyStage('register', codexId, resolvedPersonaId);
+              return { content: <JourneyCompanionCarousel personaId={resolvedPersonaId} codexId={codexId} /> };
+            }}
+          />
+        );
+      })()}
 
-      {/* Aigent Me — copilot on every metaMe cartridge tab.
-          Emerald branding per the locked decision; persona = 'aigent-me' so
-          the chat route picks up the Aigent Me system prompt from
-          app/data/personas.ts. */}
-      {codexId === 'metame-codex' && (
-        <CodexCopilotLayer
-          isOpen={metameCopilotOpen}
-          onClose={() => setMetameCopilotOpen(false)}
-          onOpen={() => setMetameCopilotOpen(true)}
-          variant="floating"
-          accentColor="emerald"
-          agent={{ id: 'aigent-me', name: 'aigentMe' }}
-          personaId={resolvedPersonaId ?? 'aigent-me'}
-          enableInferenceRendering
-          contextId={`metame-${activeTabSlug}`}
-          promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
-          initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
-          quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto']}
+      {/* Standalone SmartWallet overlay launched from the active-persona
+          header badge. variant="overlay" renders the full wallet on top of
+          the cartridge (not via the copilot layer); opens on the wallet tab
+          where the persona switcher lives. */}
+      {walletDrawerOpen && (
+        <SmartWalletDrawer
+          open={walletDrawerOpen}
+          onClose={() => setWalletDrawerOpen(false)}
+          variant="overlay"
+          initialTab="wallet"
+          personaId={resolvedPersonaId}
+          onPersonaChange={handlePersonaChange}
+          cartridgeSlug={codexId}
+          agent={{ id: resolvedPersonaId ?? codexId, name: headerPersonaLabel ?? 'Wallet' }}
         />
       )}
+     </CopilotHostProvider>
     </SmartTriadProvider>
   );
 }

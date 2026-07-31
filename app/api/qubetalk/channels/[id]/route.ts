@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import { qubetalkPersistence } from '@/services/qubetalk/qubetalkPersistence';
 
 interface RouteParams {
@@ -19,8 +20,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     
-    const tenant_id = searchParams.get('tenant_id');
-
+    // Tenant scope is RESOLVED from the caller, never trusted from the query
+    // string — the 2026-07-28 anonymous-read leak. Fails closed on no persona.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
     if (!id) {
       return NextResponse.json({
         success: false,
@@ -28,12 +32,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        success: false,
-        error: 'tenant_id is required',
-      }, { status: 400 });
-    }
 
     const channel = await qubetalkPersistence.getChannel(id, tenant_id);
 
@@ -69,7 +67,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { searchParams } = new URL(request.url);
     const body = await request.json();
     
-    const tenant_id = searchParams.get('tenant_id');
+    // Write paths were ungated too: an anonymous caller could modify or delete
+    // a channel, which is worse than the read leak that surfaced the incident.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
 
     if (!id) {
       return NextResponse.json({
@@ -78,12 +80,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        success: false,
-        error: 'tenant_id is required',
-      }, { status: 400 });
-    }
 
     // Check if channel exists
     const existingChannel = await qubetalkPersistence.getChannel(id, tenant_id);
@@ -114,7 +110,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     
-    const tenant_id = searchParams.get('tenant_id');
+    // Write paths were ungated too: an anonymous caller could modify or delete
+    // a channel, which is worse than the read leak that surfaced the incident.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
 
     if (!id) {
       return NextResponse.json({
@@ -123,12 +123,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        success: false,
-        error: 'tenant_id is required',
-      }, { status: 400 });
-    }
 
     // Check if channel exists
     const existingChannel = await qubetalkPersistence.getChannel(id, tenant_id);

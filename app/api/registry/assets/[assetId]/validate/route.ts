@@ -7,7 +7,7 @@ import {
   listArtifactsForValidation,
 } from "@/services/registry/persistence";
 
-type Params = { params: { assetId: string } };
+type Params = { params: Promise<{ assetId: string }> };
 
 /**
  * GET /api/registry/assets/[assetId]/validate
@@ -15,7 +15,8 @@ type Params = { params: { assetId: string } };
  * ?history=1 returns all validations for the asset.
  * ?validationId=xxx&artifacts=1 returns artifacts for a specific validation.
  */
-export async function GET(req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const { searchParams } = new URL(req.url);
     const history = searchParams.get("history") === "1";
@@ -51,7 +52,8 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 /** POST /api/registry/assets/[assetId]/validate — trigger validation + trust scoring */
-export async function POST(req: NextRequest, { params }: Params) {
+export async function POST(req: NextRequest, props: Params) {
+  const params = await props.params;
   try {
     const body = await req.json() as { triggeredBy?: string };
     const triggeredBy = body.triggeredBy ?? "system";

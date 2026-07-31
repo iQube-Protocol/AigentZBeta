@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Copy, ExternalLink } from "lucide-react";
 import { useCanisterHealth } from "@/hooks/ops/useCanisterHealth";
 import { useBTC_Testnet } from "@/hooks/ops/useBTC_Testnet";
+import { useBitcentTestnet } from "@/hooks/ops/useBitcentTestnet";
+import { btcExplorerBase, btcTxUrl, btcBlockHeightUrl, isBitcoinTxid, BTC_EXPLORER_LABELS } from "@/services/ops/btcExplorer";
 
 // Extend ChainStatus type to include latestTx if not present
 type ChainStatus = {
@@ -19,6 +21,7 @@ import { usePolygonAmoy } from "@/hooks/ops/usePolygonAmoy";
 import { useOptimismSepolia } from "@/hooks/ops/useOptimismSepolia";
 import { useArbitrumSepolia } from "@/hooks/ops/useArbitrumSepolia";
 import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
+import { useBaseMainnet } from "@/hooks/ops/useBaseMainnet";
 import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
@@ -35,6 +38,8 @@ import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
 import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
+import { AnchorCalibrationCard } from "@/components/ops/AnchorCalibrationCard";
+import { CyclesManagementCard } from "@/components/ops/CyclesManagementCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -435,7 +440,9 @@ function badgeClassFor(key: string): string {
   // Registry-style badge: bg-<color>-500/20 text-<color>-300 ring-1 ring-<color>-500/30
   switch (key) {
     case "btc_testnet":
-      return "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30"; // Bitcoin = Amber
+      return "bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30"; // Bitcoin (PoS anchor) = Amber
+    case "bitcent_testnet":
+      return "bg-orange-500/20 text-orange-300 ring-1 ring-orange-500/30"; // Bitcent treasury = Orange (distinct from the PoS-anchor BTC card)
     case "eth_sepolia":
       return "bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30"; // Sepolia = Indigo
     case "polygon_amoy":
@@ -445,7 +452,9 @@ function badgeClassFor(key: string): string {
     case "arbitrum_sepolia":
       return "bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30"; // Arbitrum = Blue
     case "base_sepolia":
-      return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base = Cyan
+      return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base testnet = Cyan
+    case "base_mainnet":
+      return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Base mainnet = Emerald (production)
     case "solana_testnet":
       return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Solana = Emerald
     case "sync_status":
@@ -453,6 +462,60 @@ function badgeClassFor(key: string): string {
     default:
       return "bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30"; // Default = Slate
   }
+}
+
+function ActivityReceiptsDvnPanel() {
+  const [receipts, setReceipts] = useState<Array<{
+    id: string;
+    action_type: string;
+    receipt_status: string;
+    summary: string | null;
+    created_at: string;
+    dvn_receipt_id: string | null;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/ops/dvn/activity-receipts')
+      .then(r => r.ok ? r.json() : { receipts: [] })
+      .then(d => setReceipts(d.receipts ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (receipts.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-700">
+      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide">Recent Delegation Receipts</p>
+      <div className="space-y-1.5">
+        {receipts.map(r => {
+          const label = r.action_type === 'agent_delegated' ? 'Delegated' : 'Revoked';
+          const statusColor = r.receipt_status === 'dvn_recorded'
+            ? 'text-emerald-400'
+            : r.receipt_status === 'dvn_pending'
+            ? 'text-amber-400'
+            : r.receipt_status === 'dvn_failed'
+            ? 'text-red-400'
+            : 'text-slate-400';
+          const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return (
+            <div key={r.id} className="flex items-start justify-between gap-2 text-xs">
+              <span className={`font-medium shrink-0 ${r.action_type === 'agent_delegated' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {label}
+              </span>
+              <span className="text-slate-400 truncate flex-1 min-w-0">
+                {r.summary ? r.summary.slice(0, 60) : r.id.slice(0, 8)}
+              </span>
+              <span className={`shrink-0 ${statusColor}`}>{r.receipt_status.replace('dvn_', '')}</span>
+              <span className="shrink-0 text-slate-500">{ts}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function OpsPage() {
@@ -464,11 +527,13 @@ export default function OpsPage() {
   // Hooks per card
   const icp = useCanisterHealth(30000);
   const btc = useBTC_Testnet(30000);
+  const bitcent = useBitcentTestnet(30000);
   const sepolia = useEthereumSepolia(30000);
   const amoy = usePolygonAmoy(30000);
   const optimismSepolia = useOptimismSepolia(30000);
   const arbitrumSepolia = useArbitrumSepolia(30000);
   const baseSepolia = useBaseSepolia(30000);
+  const baseMainnet = useBaseMainnet(30000);
   const syncStatus = useSyncStatus(30000);
   const dvn = useDVNStatus(30000);
   const xchain = useCrossChain(30000);
@@ -567,7 +632,11 @@ export default function OpsPage() {
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "a2a_tests", title: "A2A Tx Tests" },
     { key: "a2a_dvn", title: "A2A DVN Integration" },
+    { key: "anchor_calibration", title: "Anchor Calibration (K / T / cron)" },
+    { key: "cycles_management", title: "ICP Cycles Management" },
+    { key: "base_mainnet", title: "Base Mainnet" },
     { key: "btc_testnet", title: "BTC Testnet" },
+    { key: "bitcent_testnet", title: "Bitcent Treasury" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
     { key: "optimism_sepolia", title: "Optimism Sepolia" },
@@ -627,6 +696,12 @@ export default function OpsPage() {
           if (key === "funding_status") {
             return <FundingStatusCard key={key} title={title} />;
           }
+          if (key === "anchor_calibration") {
+            return <AnchorCalibrationCard key={key} title={title} />;
+          }
+          if (key === "cycles_management") {
+            return <CyclesManagementCard key={key} title={title} />;
+          }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
           }
@@ -673,17 +748,16 @@ export default function OpsPage() {
           if (key === "btc_testnet") {
             const ok = btc.data?.ok ?? false;
             const at = btc.data?.at ?? "—";
-            const rpcApi = process.env.NEXT_PUBLIC_RPC_BTC_TESTNET || '';
-            // Show the actual API being used, not just the configured one
-            const actualEndpoint = (btc.data as any)?.details?.includes('blockstream.info') ? 'blockstream.info/testnet' : 
-                                  (btc.data as any)?.details?.includes('mempool.space') ? 'mempool.space/testnet' : 
-                                  rpcApi ? rpcApi.replace(/^https?:\/\//, '').replace(/\/api\/?$/, '') : '—';
-            const rpcHost = actualEndpoint;
+            // Show the actual API host in use — btcService reports it as
+            // "endpoint: <host>" (provider-agnostic; defaults to blockstream).
+            const endpointMatch = String((btc.data as any)?.details ?? '').match(/endpoint:\s*([^\s(]+)/);
+            const rpcHost = endpointMatch?.[1] ?? btcExplorerBase().replace(/^https?:\/\//, '');
             // Get block height from testnet data, not anchor data
             const blockHeight = typeof (btc.data as any)?.blockHeight === 'number' ? (btc.data as any).blockHeight : '—';
-            const latestTx = btc.anchor?.txid || btc.latestTx?.txid || '—';
-            const explorerBase = 'https://blockstream.info/testnet';
-            const txUrl = (latestTx !== '—') ? `${explorerBase}/tx/${latestTx}` : undefined;
+            const _rawTxid = btc.anchor?.txid || btc.latestTx?.txid;
+            // Only show real 64-char hex txids — mock/placeholder values produce 404s
+            const latestTx = isBitcoinTxid(_rawTxid) ? _rawTxid : '—';
+            const txUrl = (latestTx !== '—') ? btcTxUrl(latestTx) : undefined;
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
@@ -727,7 +801,7 @@ export default function OpsPage() {
                   <span className="flex items-center gap-1 max-w-[60%] justify-end">
                     {blockHeight !== '—' ? (
                       <>
-                        <a href={`https://blockstream.info/testnet/block-height/${blockHeight}`} target="_blank" rel="noreferrer" className="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1">
+                        <a href={btcBlockHeightUrl(blockHeight)} target="_blank" rel="noreferrer" className="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1">
                           <span>{blockHeight}</span>
                           <ExternalLink size={12} className="flex-shrink-0" />
                         </a>
@@ -744,6 +818,120 @@ export default function OpsPage() {
                     )}
                   </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+              </Card>
+            );
+          }
+
+          if (key === "bitcent_testnet") {
+            const ok = bitcent.data?.ok ?? false;
+            const at = bitcent.data?.at ?? "—";
+            const status = bitcent.data?.status ?? "unknown";
+            const statusColor = status === "confirmed" ? "text-emerald-400" : status === "pending" ? "text-amber-400" : "text-slate-500";
+            const txHash = bitcent.data?.txHash;
+            const txUrl = bitcent.data?.explorer;
+            const confirmations = bitcent.data?.confirmations;
+            const confirmationSource = bitcent.data?.confirmationSource;
+            const confirmationDivergence = bitcent.data?.confirmationDivergence;
+            const confirmationError = bitcent.data?.confirmationError;
+            const custodian = bitcent.data?.premineCustodianAddress;
+            const premine = bitcent.data?.premine;
+            const activeIssuance = bitcent.data?.initiallyActiveIssuance;
+            const governedReserve = bitcent.data?.governedReserve;
+            return (
+              <Card key={key} title={
+                <span className="inline-flex items-center gap-2">
+                  {title}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${badgeClassFor(key)}`}>Testnet</span>
+                </span>
+              } actions={<IconRefresh onClick={bitcent.refresh} disabled={bitcent.loading} />}>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? statusColor : "text-red-400"}>● {status}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Rune:</span>
+                  <span className="text-xs text-slate-300">{bitcent.data?.runeName ?? "—"} ({bitcent.data?.symbol ?? "—"})</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Premine:</span>
+                  <span className="text-xs text-slate-300">{premine != null ? premine.toLocaleString() : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Active / Reserve:</span>
+                  <span className="text-xs text-slate-300">
+                    {activeIssuance != null ? activeIssuance.toLocaleString() : "—"} / {governedReserve != null ? governedReserve.toLocaleString() : "—"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Custodian:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {custodian ? (
+                      <>
+                        <span className="truncate font-mono text-xs text-slate-300" title={custodian}>{custodian}</span>
+                        <button
+                          aria-label="Copy Custodian Address"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(custodian)}
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Etch TX:</span>
+                  <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                    {txHash && txUrl ? (
+                      <>
+                        <a href={txUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate" title={txHash}>
+                          <span className="truncate font-mono">{txHash}</span>
+                          <ExternalLink size={12} className="flex-shrink-0" />
+                        </a>
+                        <button
+                          aria-label="Copy TX Hash"
+                          className="text-slate-400 hover:text-white flex-shrink-0"
+                          onClick={() => navigator.clipboard.writeText(txHash)}
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-300">—</span>
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Confirmations:</span>
+                  <span className="text-xs text-slate-300">
+                    {confirmations != null ? confirmations : "—"}
+                    {confirmationSource && (
+                      <span className="ml-1 text-slate-500">
+                        (source: {BTC_EXPLORER_LABELS[confirmationSource]})
+                      </span>
+                    )}
+                  </span>
+                </div>
+                {confirmationDivergence && (
+                  <div className="flex items-center justify-between rounded bg-amber-500/10 px-2 py-1">
+                    <span className="text-amber-400 text-xs">Explorer divergence:</span>
+                    <span className="text-xs text-amber-300">
+                      {BTC_EXPLORER_LABELS.blockstream} {confirmationDivergence.blockstream ?? "—"} / {BTC_EXPLORER_LABELS.mempool} {confirmationDivergence.mempool ?? "—"}
+                    </span>
+                  </div>
+                )}
+                {confirmationError && (
+                  <div className="flex items-center justify-between rounded bg-red-500/10 px-2 py-1">
+                    <span className="text-red-400 text-xs">Confirmation check failed:</span>
+                    <span className="text-xs text-red-300">{confirmationError}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
@@ -938,6 +1126,97 @@ export default function OpsPage() {
             );
           }
 
+          // Base Mainnet card — production rail (post live deployment of
+          // iQube + Q¢ contracts on Base mainnet). Sits next to the
+          // testnet card; testnet is retained for ongoing test-rail use.
+          if (key === "base_mainnet") {
+            const ok = baseMainnet.data?.ok ?? false;
+            const at = baseMainnet.data?.at ?? "—";
+            const latestTx = baseMainnet.data?.latestTx || "—";
+            const blockNumber = baseMainnet.data?.blockNumber ?? "—";
+            const qctAddr = baseMainnet.data?.contracts?.qct || null;
+            const qctReserveAddr = baseMainnet.data?.contracts?.qctReserve || null;
+            return (
+              <Card
+                key={key}
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    {title}
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">Mainnet</span>
+                  </span>
+                }
+                actions={<IconRefresh onClick={baseMainnet.refresh} disabled={baseMainnet.loading} />}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-xs text-slate-300">8453</span>
+                </div>
+                {latestTx && latestTx !== "—" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest TX:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a
+                        href={`https://basescan.org/tx/${latestTx}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate"
+                        title={latestTx}
+                      >
+                        <span className="truncate font-mono">{latestTx}</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Block:</span>
+                  <span className="text-xs text-slate-300">{blockNumber}</span>
+                </div>
+                {qctAddr && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">QCT:</span>
+                    <a
+                      href={`https://basescan.org/address/${qctAddr}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate max-w-[60%]"
+                      title={qctAddr}
+                    >
+                      <span className="truncate font-mono">{qctAddr}</span>
+                      <ExternalLink size={12} className="flex-shrink-0" />
+                    </a>
+                  </div>
+                )}
+                {qctReserveAddr && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">QCT Reserve:</span>
+                    <a
+                      href={`https://basescan.org/address/${qctReserveAddr}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate max-w-[60%]"
+                      title={qctReserveAddr}
+                    >
+                      <span className="truncate font-mono">{qctReserveAddr}</span>
+                      <ExternalLink size={12} className="flex-shrink-0" />
+                    </a>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+                {baseMainnet.error && (
+                  <div className="text-rose-300 text-[11px]">{baseMainnet.error}</div>
+                )}
+              </Card>
+            );
+          }
+
           // Base Sepolia card
           if (key === "base_sepolia") {
             const ok = baseSepolia.data?.ok ?? false;
@@ -996,13 +1275,12 @@ export default function OpsPage() {
             const anchorStatus = btc.anchor?.status;
             const details = btc.anchor?.details ?? '';
             const latestTx = btc.latestTx;
-            const explorer = 'https://blockstream.info/testnet';
-            // Only use txid for display - lastAnchorId is a batch ID, not a Bitcoin txid
-            const displayTx = txid;
-            const txUrl = displayTx ? `${explorer.replace('/api','')}/tx/${displayTx}` : undefined;
-            const latestTxUrl = latestTx?.txid ? `${explorer.replace('/api','')}/tx/${latestTx.txid}` : undefined;
-            // Helper to check if string is a valid Bitcoin txid (64 hex chars)
-            const isValidBitcoinTxid = (str: string) => /^[a-f0-9]{64}$/i.test(str);
+            // Only use txid for display - lastAnchorId is a batch ID (Merkle
+            // root), not a Bitcoin txid — a root is ALSO 64-hex, so provenance
+            // (anchor.txid only) is the real guard; the shape check is backstop.
+            const displayTx = isBitcoinTxid(txid) ? txid : undefined;
+            const txUrl = displayTx ? btcTxUrl(displayTx) : undefined;
+            const latestTxUrl = isBitcoinTxid(latestTx?.txid) ? btcTxUrl(latestTx!.txid) : undefined;
             async function doAnchor() {
               try {
                 const response = await fetch('/api/ops/btc/anchor', { method: 'POST' });
@@ -1360,6 +1638,8 @@ export default function OpsPage() {
                   <span className="text-slate-400">DVN Pending:</span>
                   <span className="text-xs text-slate-300">{dvnCount}</span>
                 </div>
+                {/* Activity receipts feeding the DVN pipeline — entry point view */}
+                <ActivityReceiptsDvnPanel />
                 {drift > 0 && !isLegitimate && (
                   <div className="pt-2">
                     <button
@@ -1473,7 +1753,7 @@ export default function OpsPage() {
                 case 421614: return 'https://sepolia.arbiscan.io/tx/';
                 case 84532: return 'https://sepolia.basescan.org/tx/';
                 case 101: return 'https://explorer.solana.com/tx/?cluster=testnet';
-                case 0: return 'https://blockstream.info/testnet/tx/';
+                case 0: return `${btcExplorerBase()}/tx/`;
                 default: return 'https://sepolia.etherscan.io/tx/';
               }
             };

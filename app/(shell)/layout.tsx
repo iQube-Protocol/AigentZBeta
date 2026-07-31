@@ -83,6 +83,32 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
         height: "var(--metaavatar-codex-h, 240px)",
       };
     }
+    // NO ACTIVE CONTAINER — the host stays MOUNTED (rebuilding the avatar
+    // session is expensive; this file"s whole design is "move it with CSS,
+    // never unmount it") but it must be genuinely INERT.
+    //
+    // It was not. `avatarInitialized` latches true on the first avatar use and
+    // never resets, so from then on this branch rendered a permanently mounted
+    // `position: fixed` element — and its INLINE z-index overrode the `-z-10`
+    // in the hidden class, parking an auto-sized, opacity-0 layer above the
+    // copilot. An `opacity < 1` fixed layer forms its own composited stacking
+    // context, which is exactly what stops `backdrop-filter` resolving on the
+    // panel beneath it: the frosted backdrop silently stops rendering and the
+    // near-transparent panel fill lets the page bleed through. Operator report
+    // 2026-07-26 — "after the avatar has been clicked... the opacity has
+    // disappeared", plus broken scrolling from the stray full-size layer.
+    //
+    // Zero-size + hidden + behind everything: mounted, costless, invisible.
+    if (!activeContainer) {
+      // display:none, nothing weaker. The first fix used visibility+zIndex on a
+      // zero-size box — but a zero-size overflow:hidden wrapper does NOT clip
+      // position:fixed descendants (fixed positions against the viewport), a
+      // child can override inherited visibility, and an opacity-0 layer still
+      // composites. display:none removes the entire subtree from rendering; no
+      // child can escape it by any positioning scheme. This is the property the
+      // operator's "once and for all" requires (third report, 2026-07-26).
+      return { display: "none" };
+    }
     return { position: "fixed", zIndex: 100 };
   };
 
@@ -134,8 +160,13 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
         </SmartContentActionProvider>
       </AGUIProvider>
       
-      {/* GLOBAL PERSISTENT METAAVATAR */}
-      {avatarInitialized && (
+      {/* GLOBAL PERSISTENT METAAVATAR — mounted only while a container owns it.
+          `avatarInitialized` latches true permanently, so gating on it alone
+          kept the D-ID SDK's DOCUMENT-BODY-level nodes alive for the rest of
+          the session after one avatar use; no wrapper style can reach those,
+          which is why every "hide the host" fix left the panel beneath it
+          broken. Unmounting sweeps them (MetaAvatar.tsx, 2026-07-27). */}
+      {avatarInitialized && activeContainer && (
         <div 
           className={getAvatarPositionClasses()}
           style={getAvatarPositionStyle()}

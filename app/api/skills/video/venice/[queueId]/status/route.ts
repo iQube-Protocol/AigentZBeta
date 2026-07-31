@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import {
   extractThumbnailFromBuffer,
   extractThumbnailFromUrl,
@@ -8,6 +9,52 @@ import {
 export const runtime = "nodejs";
 
 const VENICE_VIDEO_BASE = "https://api.venice.ai/api/v1/video";
+const MAX_PERSIST_BYTES = 60 * 1024 * 1024;
+
+const BUCKET_CANDIDATES = [
+  process.env.SUPABASE_STORAGE_BUCKET,
+  "content-assets",
+  "assets",
+  "codex-lite",
+].filter((v, i, arr): v is string => Boolean(v) && arr.indexOf(v) === i);
+
+/**
+ * Persist a completed Venice video to Supabase storage — parity with the
+ * Sora proxy route (generated/openai/videos). Venice retains queue assets
+ * only transiently, and before this existed a completed Venice clip left NO
+ * durable trace: the 2026-07-05 EXP-002 runs' segments became untraceable
+ * after their stitch pass failed. Best-effort and idempotent (HEAD check
+ * first); status polling continues fine if it fails.
+ */
+async function persistVeniceVideo(queueId: string, bytes: Buffer): Promise<void> {
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_PERSIST_BYTES) return;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) return;
+  const supabase = createClient(url, key);
+  const path = `generated/venice/videos/${queueId}.mp4`;
+  const body: ArrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  for (const bucket of BUCKET_CANDIDATES) {
+    try {
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+      if (data?.publicUrl) {
+        const head = await fetch(data.publicUrl, { method: "HEAD", cache: "no-store" }).catch(() => null);
+        if (head?.ok) return; // already persisted
+      }
+      const { error } = await supabase.storage.from(bucket).upload(path, body, {
+        contentType: "video/mp4",
+        upsert: true,
+        cacheControl: "86400",
+      });
+      if (!error || /already exists|duplicate/i.test(error.message)) {
+        console.log(`[VeniceStatus] persisted ${queueId} (${Math.round(bytes.byteLength / 1024 / 1024)}MB) to ${bucket}/${path}`);
+        return;
+      }
+    } catch {
+      // try next bucket
+    }
+  }
+}
 function extractRemoteVideoUrl(data: any): string | null {
   const candidates = [
     data?.video_url,
@@ -61,6 +108,7 @@ export async function GET(
     if (contentType.startsWith("video/") || contentType.startsWith("application/octet-stream")) {
       const proxyUrl = `/api/skills/video/venice/${queueId}?model=${encodeURIComponent(model)}`;
       const videoBytes = res.body ? Buffer.from(await res.arrayBuffer()) : null;
+      if (videoBytes) await persistVeniceVideo(queueId, videoBytes).catch(() => {});
       const thumbBuffer = videoBytes
         ? await extractThumbnailFromBuffer(videoBytes, queueId).catch(() => null)
         : null;

@@ -32,6 +32,24 @@ export interface DraftEmailContext {
   activeCartridge?: string;
   /** Optional intent name from a queued NBE. */
   intentName?: string;
+  /**
+   * Artifacts produced by other quick-actions in the current workflow
+   * turn (e.g. a Slides deck created moments before this email draft).
+   * Each entry carries a publicly-resolvable URL. The drafter is
+   * instructed to embed these URLs inline next to any "attached" /
+   * "shared" / "see the deck" reference so the recipient gets a
+   * clickable link instead of a broken attachment promise. Empty /
+   * undefined when no prior artifact exists.
+   */
+  relatedArtifacts?: Array<{
+    artifactType: string;
+    title: string;
+    locationUrl: string;
+  }>;
+  /** Verified email address resolved from persona_contacts — pre-fills the To field. */
+  recipientEmail?: string;
+  /** Display name of the resolved contact (for body personalisation). */
+  recipientName?: string;
 }
 
 export interface DraftEmailInput {
@@ -54,6 +72,8 @@ export interface DraftEmailOutput {
   generatedAt: string;
 }
 
+import { callDraftLlm } from './_lib/llmDraftHelper';
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.SPECIALIST_LLM_MODEL || 'gpt-4o-mini';
 
@@ -62,15 +82,54 @@ const SYSTEM_PROMPT = [
   'You draft a single short, professional Gmail message on behalf of the active persona.',
   'You return STRICT JSON ONLY with the keys: to, cc, bcc, subject, bodyText, rationale.',
   'Empty strings are valid for to / cc / bcc when the user did not specify a recipient.',
-  'bodyText must be plain text (no Markdown, no HTML), 50–250 words, signed off with the persona label when present.',
+  'bodyText must be PLAIN TEXT ONLY. NEVER use Markdown syntax: no asterisks for bold (**word**), no underscores for italic (_word_), no hash headers (#), no backticks for code (`code`), no bracket links, no horizontal rules. If you need emphasis, use capitalised key terms or rephrase in plain prose. Numbered lists are fine as "1. " "2. " etc. on their own lines, but item text after the number is plain — never bold the lead-in phrase. 50–250 words, signed off with the persona label when present.',
+  'ATTACHMENT URL RULE (non-negotiable): If the user prompt references an attached / shared / linked document, deck, doc, sheet, file, presentation, proposal, report, or artifact AND the RELATED ARTIFACTS block lists one, you MUST include its URL inline next to the reference. Use bare URLs only (Gmail auto-linkifies them) — for example: "Please review the Partnership Proposal Deck: https://docs.google.com/presentation/d/... — and let me know your thoughts." Never write "attached" / "see attached" / "find attached" / "I have attached" without a URL on the same line. If the RELATED ARTIFACTS block is empty AND the user prompt references an attachment, OMIT the reference entirely rather than promise something that is not there.',
   'rationale is one sentence (<= 25 words) describing why you wrote it this way.',
-  'Never invent recipient email addresses. If the user names a person without an address, leave "to" blank and reference the name in the body so they know who to fill in.',
+  'Never invent recipient email addresses. If a RESOLVED RECIPIENT block is present in the user message, use that email address exactly in the "to" field. Otherwise, if the user names a person without an address, leave "to" blank and reference the name in the body.',
 ].join(' ');
+
+/**
+ * Strip Markdown formatting from generated text. Belt-and-suspenders
+ * for the system-prompt "no Markdown" rule — Sonnet still leaks
+ * `**bold**` and `__underline__` into "plain text" bodyText. Operator-
+ * facing email bodies render in Gmail's plain-text view, so unstripped
+ * markdown ships as visible **asterisks** in the customer's inbox.
+ *
+ * Conservative — only patterns that are unambiguously formatting:
+ *   - **bold** / __bold__   → bold
+ *   - *italic* / _italic_   → italic (avoids touching `a_b_c` snake_case
+ *                             by requiring leading + trailing word boundary)
+ *   - `code`                → code
+ *   - leading #/##/### hash headers
+ *   - leading > blockquote markers
+ */
+function stripMarkdown(text: string): string {
+  return text
+    // Bold / strong: **x** or __x__ → x
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    // Italic: *x* or _x_ → x (require non-alnum boundary so snake_case
+    // and asterisks-as-bullets at line start don't get clobbered)
+    .replace(/(^|[^A-Za-z0-9])\*([^*\n]+)\*(?=[^A-Za-z0-9]|$)/g, '$1$2')
+    .replace(/(^|[^A-Za-z0-9])_([^_\n]+)_(?=[^A-Za-z0-9]|$)/g, '$1$2')
+    // Inline code: `x` → x
+    .replace(/`([^`\n]+)`/g, '$1')
+    // Leading hash headers: # H1, ## H2, ### H3, etc.
+    .replace(/^#{1,6}\s+/gm, '')
+    // Leading blockquote marker: > x → x
+    .replace(/^>\s?/gm, '')
+    // Collapse any triple+ newlines the strips left behind
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 function userPrompt(input: DraftEmailInput): string {
   const ctx = input.context;
   const lines: string[] = [];
   lines.push(`USER PROMPT: ${input.prompt.trim()}`);
+  if (ctx.recipientEmail) {
+    lines.push(`RESOLVED RECIPIENT: ${ctx.recipientName ? `${ctx.recipientName} <${ctx.recipientEmail}>` : ctx.recipientEmail} — use this email address exactly in the "to" field.`);
+  }
   if (ctx.displayLabel) lines.push(`Persona label: ${ctx.displayLabel}`);
   if (ctx.experience?.experienceName) lines.push(`Experience: ${ctx.experience.experienceName}`);
   if (ctx.experience?.primaryGoal) lines.push(`Primary goal: ${ctx.experience.primaryGoal}`);
@@ -78,6 +137,13 @@ function userPrompt(input: DraftEmailInput): string {
   if (ctx.experience?.currentStage) lines.push(`Current stage: ${ctx.experience.currentStage}`);
   if (ctx.activeCartridge) lines.push(`Active cartridge: ${ctx.activeCartridge}`);
   if (ctx.intentName) lines.push(`Recent intent: ${ctx.intentName}`);
+  if (ctx.relatedArtifacts && ctx.relatedArtifacts.length > 0) {
+    lines.push('');
+    lines.push('RELATED ARTIFACTS (already created in this workflow — include URLs inline when referenced):');
+    for (const a of ctx.relatedArtifacts) {
+      lines.push(`- ${a.title} (${a.artifactType}): ${a.locationUrl}`);
+    }
+  }
   lines.push('');
   lines.push('Draft the email now and return JSON.');
   return lines.join('\n');
@@ -160,7 +226,7 @@ export async function draftEmail(input: DraftEmailInput): Promise<DraftEmailOutp
     };
   }
 
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 700);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftEmailOutput>;
@@ -172,8 +238,8 @@ export async function draftEmail(input: DraftEmailInput): Promise<DraftEmailOutp
           to: typeof parsed.to === 'string' ? parsed.to : '',
           cc: typeof parsed.cc === 'string' ? parsed.cc : '',
           bcc: typeof parsed.bcc === 'string' ? parsed.bcc : '',
-          subject: parsed.subject.trim(),
-          bodyText: parsed.bodyText,
+          subject: stripMarkdown(parsed.subject.trim()),
+          bodyText: stripMarkdown(parsed.bodyText),
           rationale:
             typeof parsed.rationale === 'string' && parsed.rationale.trim().length > 0
               ? parsed.rationale.trim()

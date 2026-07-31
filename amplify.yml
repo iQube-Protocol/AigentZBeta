@@ -29,6 +29,14 @@ frontend:
         - npm install --os=linux --cpu=x64 sharp
     build:
       commands:
+        # CONSTITUTIONAL GATE — fail the deploy on any NEW persona-spine
+        # violation (persona-unaware client fetch). Runs first, before the
+        # expensive build. Identity is foundational; a break here compounds
+        # through every gate/receipt/grant downstream. See CLAUDE.md →
+        # "Client-side spine fetches" and scripts/check-persona-spine.mjs.
+        - echo "=== Persona-spine gate ==="
+        - node scripts/check-persona-spine.mjs
+
         - echo "Creating .env.production with required SSR env vars..."
         - rm -f .env.production
 
@@ -52,16 +60,174 @@ frontend:
         # Hard fail if PayPal creds missing
         - node -e "if(!process.env.PAYPAL_CLIENT_ID||!process.env.PAYPAL_CLIENT_SECRET){console.error('PAYPAL env vars missing in build env');process.exit(1)}"
 
+        # CONSTITUTIONAL GATE — VL-CT-001 venture receipt vocabulary (RULING 1,
+        # 2026-07-29). Runs AFTER the migrations the operator applies to
+        # Supabase and BEFORE this artifact is promoted, and exits non-zero on
+        # any incompatibility.
+        #
+        # WHAT IT PREVENTS. The nine venture action types are declared twice —
+        # the TypeScript union and the activity_receipts CHECK constraint. A
+        # build carrying them against a database without the migration
+        # typechecks, passes every canary, and deploys green; the breakage
+        # surfaces later as a check violation inside a receipt write that
+        # several call sites wrap in an empty catch, so the row AND its DVN
+        # anchor are lost with no log. Promoting an artifact that cannot write
+        # its own receipts IS the failure.
+        #
+        # FAILS CLOSED, with no bypass flag: probe missing, probe revoked (it is
+        # service_role-only since 20260929000200), credentials absent, network
+        # unreachable, constraint absent or short — all exit 1. The runtime
+        # emission guard stays in place as defence in depth, memoised per
+        # process, so it is NOT a per-request or cold-start database probe.
+        #
+        # Placed after create-env-production.js because it needs
+        # SUPABASE_SERVICE_ROLE_KEY, and ahead of the Next compile so a refusal costs
+        # seconds rather than a full build. See CLAUDE.md → "DVN
+        # Pipeline Protection" and
+        # codexes/packs/agentiq/updates/2026-07-29_vl-ct-001-deployment-gate-and-probe-lockdown.md.
+        - echo "=== VL-CT-001 venture receipt constraint gate ==="
+        - npx tsx scripts/check-venture-receipt-constraint.ts
+
         - echo ".env.production created. Building Next.js..."
-        - export NODE_OPTIONS="--max-old-space-size=3072"
+        # Next 15 build memory. Empirically on the CURRENT (small) Amplify build
+        # instance no single heap value works — the instance itself is the limit:
+        #   3072: compile is FLAKY — sometimes fits, sometimes OOMs mid-compile
+        #         (V8 "Ineffective mark-compacts"); Next 15 compile peaks ~3.2 GB.
+        #   4096/6144: compile reliable, but then `spawn ENOMEM` — the ~4 GB
+        #         parent can't fork the page-data worker within the instance RAM.
+        # 6144: comfortable compile headroom (~2x Next 15's ~3.2GB peak) on the
+        # enlarged Amplify build instance. Parent (~6GB) + page-data worker fork
+        # still sit well under a 16GB instance, so no spawn ENOMEM. Kept below
+        # the instance ceiling so the fork always has room; if a future build
+        # needs more, raise the instance tier rather than the heap past ~half of
+        # instance RAM (that reintroduces the fork squeeze).
+        - export NODE_OPTIONS="--max-old-space-size=6144"
         - export NEXT_PRIVATE_BUILD_WORKER=1
         - npm run build
+
+        # Pack-corpus export (Phase B — FATAL): upload the pack markdown+JSON to
+        # Supabase Storage (the runtime read path) + pin the canonical subset to
+        # AutoDrive (provenance). As of Phase B next.config no longer traces the
+        # pack .md into the bundle, so the deployed copilot + docs tabs DEPEND on
+        # this blob. Making it fatal is the safety interlock: if the upload fails,
+        # the build fails and the previous (corpus-bundled) revision keeps serving
+        # — there is never a window where a corpus-less bundle ships. The script
+        # itself exits nonzero on missing creds / failed upload in an Amplify build.
+        - echo "=== Exporting pack corpus to remote store (Phase B, required) ==="
+        - node scripts/export-pack-corpus.mjs
 
         - echo "Copying .env.production into standalone bundle..."
         - cp .env.production .next/standalone/.env.production || true
 
         - echo "Patching standalone server.js to load dotenv at runtime..."
         - node scripts/patch-standalone-dotenv.js
+
+        # Amplify Hosting SSR compute has a HARD 220 MB (230686720 byte)
+        # uncompressed bundle limit — not an app-configurable quota (AWS docs +
+        # aws-amplify/amplify-hosting#3841/#3863/#3647/#3699/#3980 confirm the
+        # same literal byte value is a platform ceiling). Next's file tracing
+        # conservatively bundles native binaries for platforms other than the
+        # one Amplify's Lambda actually runs (linux x64 glibc) into
+        # .next/standalone/node_modules. Deleting the non-runtime platform
+        # variants AFTER build, directly on the packaged filesystem, is AWS's
+        # own documented remedy for this error (troubleshooting-ssr-deployment)
+        # and — unlike next.config.js outputFileTracingExcludes on a per-route
+        # key — is not subject to any cross-route include/dedupe semantics:
+        # bytes removed here are gone from the artifact, full stop.
+        - echo "=== .next/standalone size BEFORE native-binary cleanup ==="
+        - du -sh .next/standalone 2>/dev/null || true
+        - echo "Removing non-linux-x64-gnu native binaries (build-only; unused at Amplify SSR runtime)..."
+        - find .next/standalone/node_modules/@next -maxdepth 1 -type d -name "swc-*" ! -name "swc-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@swc -maxdepth 1 -type d -name "core-*" ! -name "core-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@esbuild -maxdepth 1 -type d ! -name "linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@img -maxdepth 1 -type d \( -name "sharp-*" -o -name "*-libvips-*" \) ! -name "sharp-linux-x64" ! -name "sharp-libvips-linux-x64" -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules/@napi-rs -maxdepth 1 -type d -name "canvas-*" ! -name "canvas-linux-x64-gnu" -exec rm -rf {} + 2>/dev/null || true
+        # Next's file tracing already yields a minimal node_modules, so the
+        # native-binary sweep above reclaims little on its own. The reliable,
+        # zero-runtime-risk headroom is DEBUG/DEV artifacts the SSR runtime never
+        # loads: source maps (*.map) across the whole .next tree, and any type
+        # declarations / package docs that slipped into the traced node_modules.
+        # None are require()d at runtime — deleting them cannot change behaviour.
+        - echo "Removing source maps + non-runtime dev artifacts (never loaded at SSR runtime)..."
+        - find .next -type f -name "*.map" -delete 2>/dev/null || true
+        # NOTE: *.ts / *.mts / *.cts source (incl. all .d.ts) — a compiled Next
+        # standalone app runs on plain Node with NO TypeScript loader, so NO
+        # package's runtime entry resolves to a .ts file; only the compiled .js is
+        # ever require()d. Deleting TS source cannot change runtime behaviour and
+        # reclaims MBs (many packages ship src/*.ts alongside dist/*.js) — the
+        # reliable headroom under the 230686720-byte cap now that the app has grown
+        # to the ceiling (2026-07-21: ~206 KB over even after the pack-corpus move).
+        - find .next/standalone/node_modules -type f \( -name "*.ts" -o -name "*.mts" -o -name "*.cts" -o -name "*.md" -o -name "*.markdown" -o -iname "readme*" -o -iname "license*" -o -iname "licence*" -o -iname "changelog*" -o -iname "notice*" -o -iname "authors*" -o -iname "contributors*" -o -iname "history*" -o -iname "changes*" -o -name "*.map" \) -delete 2>/dev/null || true
+        # @types packages are TYPE-ONLY (never require()d at runtime) and .bin holds
+        # CLI shim symlinks the SSR runtime never invokes — both are pure dead weight
+        # in the packaged standalone. Removing them is zero-runtime-risk headroom
+        # under the 230686720-byte cap (the artifact sat ~10 KB over on 2026-07-21
+        # even after the file-level sweep above; the growing browsable pack corpus
+        # keeps it pinned at the ceiling).
+        - find .next/standalone/node_modules/@types -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+        - rm -rf .next/standalone/node_modules/.bin 2>/dev/null || true
+        # playwright-core (~6 MB) — the agentic-browser exec loads it via a guarded
+        # dynamic require in try/catch (degrades to "unavailable"); browser
+        # automation can't run in the SSR Lambda anyway. Biggest single traced
+        # package per the compute-composition log; ~30x the size overage. This
+        # filesystem delete is the reliable lever (config excludes proved unreliable
+        # for the packaged artifact). If a future SSR path genuinely needs headless
+        # browsing, move it to a dedicated worker rather than re-bundling this.
+        - rm -rf .next/standalone/node_modules/playwright-core 2>/dev/null || true
+        # Test/doc/example DIRECTORIES + build-meta files that npm installs into
+        # every package but the SSR runtime never require()s. Module resolution
+        # uses package.json main/exports → dist/lib, never these. This is the
+        # battle-tested "modclean-safe" set; deleting it cannot change runtime
+        # behaviour and reclaims several MB — the reliable headroom under the
+        # 230686720-byte cap when the file-level sweep above isn't enough
+        # (2026-07-21: the artifact was ~260 KB over even after that sweep).
+        - echo "Removing test/doc/example dirs + build-meta from node_modules (never loaded at SSR runtime)..."
+        - find .next/standalone/node_modules -type d \( -name test -o -name tests -o -name __tests__ -o -name example -o -name examples -o -name doc -o -name docs -o -name coverage -o -name .nyc_output -o -name .github -o -name .idea \) -prune -exec rm -rf {} + 2>/dev/null || true
+        - find .next/standalone/node_modules -type f \( -name "*.flow" -o -name "*.coffee" -o -name "*.ts.map" -o -name ".eslintrc*" -o -name ".editorconfig" -o -name ".npmignore" -o -name ".travis.yml" -o -name "*.tsbuildinfo" -o -name ".DS_Store" \) -delete 2>/dev/null || true
+        # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
+        # include stops NEW tracing, but Next still copies the pack .md that land
+        # in .next/standalone/codexes/packs (include/exclude carry cross-route
+        # dedupe semantics; a postBuild delete does not — bytes removed here are
+        # gone from the artifact, full stop). We serve these .md from the remote
+        # corpus store at runtime (services/knowledge/packCorpusStore.ts), so
+        # deleting the ~5 MB of bundled bodies is what actually drops the artifact
+        # under the 230686720-byte cap. GATED on PACK_CORPUS_URL being pinned in
+        # .env.production — the exporter writes it ONLY after a successful,
+        # verified public upload — so we never strip the bundle unless the blob
+        # is confirmed live. The pack .json (registry metadata) is preserved.
+        # EXCLUDES: the two sync-context .md readers kept bundled on purpose
+        # (services/experiments/exp001.ts artifacts + the constitutional glossary
+        # read by ontologyResolver) have NO remote fallback, so preserve them.
+        # Also strips NON-MANIFEST pack .json (index.json, data blobs) — those are
+        # served from the corpus blob too; only collections.json + meta.json stay
+        # (packRegistry reads them via fs to build the picker + lists pack dirs).
+        - >
+          if grep -q "^PACK_CORPUS_URL=" .env.production 2>/dev/null; then
+            echo "Corpus blob live — removing bundled pack .md + non-manifest .json from standalone (served remotely)...";
+            find .next/standalone/codexes/packs -type f -name "*.md" \
+              ! -path "*/exp-001-living-knowledgeqube/*" \
+              ! -name "constitutional-glossary.md" \
+              -delete 2>/dev/null || true;
+            find .next/standalone/codexes/packs -type f -name "*.json" \
+              ! -name "collections.json" \
+              ! -name "meta.json" \
+              -delete 2>/dev/null || true;
+          else
+            echo "PACK_CORPUS_URL not pinned — keeping bundled pack corpus (corpus store falls back to FS)";
+          fi
+        - echo "=== .next/standalone size AFTER native-binary + dev-artifact cleanup ==="
+        - du -sh .next/standalone 2>/dev/null || true
+        - echo "=== .next total size AFTER cleanup ==="
+        - du -sh .next 2>/dev/null || true
+        # COMPUTE COMPOSITION (bytes) — the Amplify SSR 'build output' cap measures
+        # .next/standalone + .next/static. Log each component + the biggest traced
+        # node_modules packages so we trim the ACTUAL weight, not the wrong tree.
+        - echo "=== COMPUTE COMPOSITION (bytes) ==="
+        - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/.next .next/standalone/codexes 2>/dev/null || true
+        - echo "=== biggest .next/standalone/node_modules packages (MB) ==="
+        - du -sm .next/standalone/node_modules/* .next/standalone/node_modules/@*/* 2>/dev/null | sort -rn | head -30 || true
+        - echo "=== biggest .next/static subtrees (MB) ==="
+        - du -sm .next/static/* 2>/dev/null | sort -rn | head -15 || true
 
   artifacts:
     baseDirectory: .next

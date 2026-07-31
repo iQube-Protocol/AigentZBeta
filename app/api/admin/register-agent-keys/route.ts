@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
     // Get environment variables
     const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET || process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET;
+    // SECURITY (2026-07-30): never a NEXT_PUBLIC_-prefixed fallback for this --
+    // see app/api/identity/persona/route.ts for the full rationale.
+    const encryptionKey = process.env.AGENT_KEY_ENCRYPTION_SECRET;
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return NextResponse.json({ 

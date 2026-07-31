@@ -10,7 +10,7 @@
  * Phase 6.b wires Google Workspace OAuth.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   FileText,
   Mail,
@@ -20,17 +20,19 @@ import {
   Presentation,
   Layers,
   Clipboard,
+  ClipboardCheck,
   X,
   ExternalLink,
   Loader2,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 
 export interface ArtifactCardData {
   artifactId: string;
   artifactType: string;
   title: string;
-  destination: "runtime" | "drive" | "gmail" | "cartridge_store";
+  destination: "runtime" | "drive" | "gmail" | "calendar" | "cartridge_store";
   status: "draft" | "ready_for_review" | "approved" | "sent" | "published";
   receiptId: string | null;
   intentId: string | null;
@@ -38,6 +40,15 @@ export interface ArtifactCardData {
   createdAt: string;
   /** Phase 6.b populates this when destination !== 'runtime'. */
   locationUrl?: string | null;
+  /**
+   * Optional connector-emitted warning for a partial-success outcome
+   * (e.g. Drive created the doc but the Docs API was disabled so the
+   * body insert failed 403). Rendered as an amber callout on the
+   * card. When the text contains a Google Cloud Console URL, the
+   * card extracts it as a clickable "Enable API" CTA so the operator
+   * can fix the disabled-API issue in one click.
+   */
+  warning?: string | null;
   /**
    * Phase 6.b Part 2.5 — externalisation hint. When present, ArtifactCard
    * renders a "Send / share / publish" button bound to this connector. The
@@ -70,6 +81,8 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   "video-script": <Video className="w-4 h-4" />,
   "slide-outline": <Presentation className="w-4 h-4" />,
   "venture-report": <Clipboard className="w-4 h-4" />,
+  "marketa-email": <Mail className="w-4 h-4" />,
+  "marketa-cohort-email": <Mail className="w-4 h-4" />,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -82,6 +95,8 @@ const TYPE_LABELS: Record<string, string> = {
   "video-script": "Video script",
   "slide-outline": "Slide outline",
   "venture-report": "Venture report",
+  "marketa-email": "Marketa email",
+  "marketa-cohort-email": "Marketa cohort email",
 };
 
 const STATUS_META: Record<ArtifactCardData["status"], { label: string; ring: string }> = {
@@ -92,6 +107,48 @@ const STATUS_META: Record<ArtifactCardData["status"], { label: string; ring: str
   published:        { label: "Published",        ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
 };
 
+/**
+ * Renders `receipt: <8-char prefix>…` followed by a small Clipboard button
+ * that copies the FULL receipt id to the system clipboard. Click feedback
+ * swaps the icon to ClipboardCheck for ~1.5s. Lives inside the artifact
+ * chip row in ArtifactCard / ExpandedNBEPill so the operator can grab the
+ * id without leaving the Capsule. Receipt-detail view in-pill is on the
+ * backlog; this is the smaller, safe interim.
+ */
+function ReceiptIdChip({ receiptId, mutedClass }: { receiptId: string; mutedClass: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(receiptId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Permission denied / non-secure-context — silently no-op; the
+      // truncated id is still visible for manual copy.
+    }
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 ${mutedClass}`}>
+      receipt: <span className="font-mono">{receiptId.slice(0, 8)}…</span>
+      <button
+        type="button"
+        onClick={onCopy}
+        title={copied ? "Copied!" : `Copy receipt id ${receiptId}`}
+        aria-label={copied ? "Receipt id copied" : "Copy receipt id"}
+        className={`p-0.5 rounded transition-colors ${
+          copied
+            ? "text-emerald-300"
+            : "text-slate-500 hover:text-violet-300 hover:bg-violet-500/10"
+        }`}
+      >
+        {copied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+      </button>
+    </span>
+  );
+}
+
 export function ArtifactCard({
   data,
   onDismiss,
@@ -101,9 +158,35 @@ export function ArtifactCard({
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  const surfaceClass = isDark
-    ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
-    : "bg-white border-slate-200 text-slate-900";
+  // Emerald-bordered "complete" state.
+  //
+  // 1. status='sent' / 'published' — the existing rule. Applies after the
+  //    operator clicks Send on Gmail / Marketa drafts, Send-invites on
+  //    Calendar events with external attendees, or Share on Doc / Sheet
+  //    / Slides with pending share suggestions.
+  //
+  // 2. completedOnCreation — destination-agnostic semantic rule that
+  //    covers compose surfaces with no follow-up action: the artifact
+  //    exists at an external locationUrl AND there is no pending
+  //    actionConnectorId waiting on the operator. This is exactly the
+  //    state Calendar (private) / Doc / Sheet / Slides / etc. land in
+  //    when created with no share suggestions or external attendees —
+  //    the act of creation IS the completion. Without this rule those
+  //    artifacts would stay grey forever despite being fully done.
+  //    Gmail and Marketa drafts always carry an actionConnectorId until
+  //    sent, so this branch correctly leaves them grey pre-Send.
+  const completedOnCreation =
+    data.status === "draft" &&
+    !!data.locationUrl &&
+    !data.actionConnectorId;
+  const isSent = data.status === "sent" || data.status === "published" || completedOnCreation;
+  const surfaceClass = isSent
+    ? isDark
+      ? "bg-emerald-500/5 border-emerald-500/60 text-slate-100"
+      : "bg-emerald-50 border-emerald-400 text-slate-900"
+    : isDark
+      ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
+      : "bg-white border-slate-200 text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const accentClass = isDark ? "text-violet-300" : "text-violet-700";
   const actionBtnClass = isDark
@@ -131,10 +214,30 @@ export function ArtifactCard({
           {data.message && (
             <p className={`text-xs mt-1 ${mutedClass}`}>{data.message}</p>
           )}
+          {data.warning && (
+            <ArtifactWarningCallout warning={data.warning} theme={theme} />
+          )}
           <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
             <span className={`px-2 py-0.5 rounded-full border ${statusMeta.ring}`}>
               {statusMeta.label}
             </span>
+            {(() => {
+              // Attachment-count chip — surfaces the persona uploads that
+              // will ride with the artifact when the operator clicks
+              // Send. Diagnostic: without this the picker can fall to
+              // empty (wrong persona, fetch race, etc.) and the operator
+              // ships an email expecting an attachment that never made
+              // it into the multipart MIME body. Lives on the card so
+              // the count is visible before Send + confirmed after.
+              const ids = (data.actionInput as { attachmentUploadIds?: unknown } | undefined)?.attachmentUploadIds;
+              const count = Array.isArray(ids) ? ids.length : 0;
+              if (count === 0) return null;
+              return (
+                <span className="px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-200">
+                  {count} attached
+                </span>
+              );
+            })()}
             {data.locationUrl && (
               <a
                 href={data.locationUrl}
@@ -142,13 +245,18 @@ export function ArtifactCard({
                 rel="noopener noreferrer"
                 className={`flex items-center gap-1 underline ${accentClass}`}
               >
-                Open <ExternalLink className="w-3 h-3" />
+                {data.destination === "gmail"
+                  ? "View in Gmail"
+                  : data.destination === "drive"
+                    ? "View in Drive"
+                    : data.destination === "calendar"
+                      ? "View in Calendar"
+                      : "Open"}{" "}
+                <ExternalLink className="w-3 h-3" />
               </a>
             )}
             {data.receiptId && (
-              <span className={mutedClass}>
-                receipt: <span className="font-mono">{data.receiptId.slice(0, 8)}…</span>
-              </span>
+              <ReceiptIdChip receiptId={data.receiptId} mutedClass={mutedClass} />
             )}
             <span className={`${mutedClass} ml-auto`}>
               {new Date(data.createdAt).toLocaleTimeString()}
@@ -186,6 +294,59 @@ export function ArtifactCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Amber callout for a connector-emitted partial-success warning.
+ * Extracts the first URL from the warning text — when it points at
+ * `console.developers.google.com` or `console.cloud.google.com`, the
+ * URL is surfaced as an "Enable API" CTA the operator can click to
+ * fix the disabled-API issue and re-run.
+ */
+function ArtifactWarningCallout({
+  warning,
+  theme,
+}: {
+  warning: string;
+  theme: "light" | "dark";
+}) {
+  const isDark = theme === "dark";
+  const box = isDark
+    ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+    : "border-amber-400 bg-amber-50 text-amber-800";
+  const linkClass = isDark
+    ? "text-amber-100 underline hover:text-amber-50"
+    : "text-amber-900 underline hover:text-amber-700";
+  // Pull the first https:// URL out of the warning if present.
+  const urlMatch = warning.match(/https?:\/\/[^\s)>"']+/);
+  const fullUrl = urlMatch?.[0] ?? null;
+  const isGoogleApiConsole =
+    !!fullUrl &&
+    /console\.(developers|cloud)\.google\.com\/apis\/api\//.test(fullUrl);
+  // Strip the URL out of the displayed text so the CTA isn't
+  // duplicated as raw text plus button.
+  const displayText = fullUrl ? warning.replace(fullUrl, "").trim() : warning;
+  return (
+    <div className={`mt-2 rounded-md border px-2.5 py-1.5 text-[11px] leading-snug ${box}`}>
+      <div className="flex items-start gap-1.5">
+        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <div className="break-words">{displayText}</div>
+          {fullUrl && (
+            <a
+              href={fullUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${linkClass}`}
+            >
+              {isGoogleApiConsole ? "Enable API" : "Open link"}{" "}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

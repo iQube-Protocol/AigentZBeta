@@ -1,12 +1,49 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
   CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
-  Play, Ban, Terminal,
+  Play, Ban, Terminal, Bot, Sparkles, Lock, Crown,
 } from "lucide-react";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { personaFetch } from "@/utils/personaSpine";
+
+interface DelegateAgent {
+  agentRootId: string;
+  displayName: string;
+  didUri: string;
+  agentClass: string;
+  isAigentMe?: boolean;
+  /** True for the platform/system agents — delegation gated to admins. */
+  isSystem?: boolean;
+}
+
+/** The capacity a bound agent acts in FOR a persona (CFS-024 assignment). */
+type AssignmentRole = "aigentMe" | "delegate";
+
+// System (platform) agents. Delegating to these is admin-only — they are the
+// shared orchestration agents, not personal delegates.
+const PLATFORM_AGENTS: DelegateAgent[] = [
+  { agentRootId: 'aigent-c-os-root', displayName: 'Aigent C-OS', didUri: 'did:iqube:aigent-c-os-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'aigent-z-root', displayName: 'Aigent Z', didUri: 'did:iqube:aigent-z-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'marketa-root', displayName: 'Marketa', didUri: 'did:iqube:marketa-root', agentClass: 'platform', isSystem: true },
+  { agentRootId: 'kn0w1-root', displayName: 'Kn0w1', didUri: 'did:iqube:kn0w1-root', agentClass: 'platform', isSystem: true },
+];
+
+function agentClassColor(cls: string): string {
+  switch (cls) {
+    case 'platform': return 'bg-violet-500/20 text-violet-300 border-violet-500/30';
+    case 'mobility': return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+    case 'legal': return 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+    default: return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
+  }
+}
+
+function truncateDid(did: string): string {
+  if (did.length <= 28) return did;
+  return did.slice(0, 16) + '...' + did.slice(-8);
+}
 
 interface DelegationState {
   active: boolean;
@@ -108,19 +145,39 @@ interface DemoLogEntry {
   timestamp: string;
 }
 
+// Maps a raw sponsored-agents / aigentme payload into a DelegateAgent.
+function mapAgent(a: Record<string, unknown>): DelegateAgent {
+  return {
+    agentRootId: String(a.agentRootId ?? a.id ?? ''),
+    displayName: String(a.displayName ?? a.display_name ?? 'Agent'),
+    didUri: String(a.didUri ?? a.did_uri ?? ''),
+    agentClass: String(a.agentClass ?? a.agent_class ?? 'polity_bound'),
+    isAigentMe: Boolean(a.isAigentMe ?? a.is_aigent_me ?? false),
+  };
+}
+
 export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const { sessionPersonas } = useSupabaseSessionPersonas();
-  const activePersona = sessionPersonas.find((p) => p.id === personaId) ?? sessionPersonas[0] ?? null;
+
+  // CFS-024 persona-first: delegation is EXERCISED at the persona level. The
+  // operator selects "who am I delegating as", and every section below derives
+  // from that ONE persona — so the tab, the wallet, and the resolver all agree.
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(personaId ?? null);
+  const effectivePersonaId = selectedPersonaId ?? personaId ?? sessionPersonas[0]?.id ?? null;
+  const activePersona =
+    sessionPersonas.find((p) => p.id === effectivePersonaId) ?? sessionPersonas[0] ?? null;
 
   const [activeSubTab, setActiveSubTab] = useState<"delegation" | "demo">("delegation");
 
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
+  const [delegationAgentDid, setDelegationAgentDid] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [granting, setGranting] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [showConcept, setShowConcept] = useState(false);
+  const [justRevoked, setJustRevoked] = useState(false);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
@@ -128,6 +185,26 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   // Demo sub-tab state
   const [demoLog, setDemoLog] = useState<DemoLogEntry[]>([]);
   const [demoRunning, setDemoRunning] = useState(false);
+
+  // Delegate roster state.
+  const [selectedAgent, setSelectedAgent] = useState<DelegateAgent | null>(null);
+  const [otherAgents, setOtherAgents] = useState<DelegateAgent[]>([]); // sponsored (active persona), non-aigentMe
+  const [boundAgents, setBoundAgents] = useState<DelegateAgent[]>([]); // person-scoped (CFS-024), all personas
+  const [agentsLoading, setAgentsLoading] = useState(false);
+
+  // Per-persona ASSIGNMENTS (CFS-024 Phase 3) — for the SELECTED persona. Many
+  // agents may be assigned; exactly one is aigentMe.
+  const [assignments, setAssignments] = useState<Array<{ agentRootId: string; role: AssignmentRole }>>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [assignmentBusy, setAssignmentBusy] = useState<string | null>(null); // agentRootId in flight
+
+  // Slot 1 — aigentMe (the citizen's primary personal delegate).
+  const [aigentMe, setAigentMe] = useState<DelegateAgent | null>(null);
+  const [aigentMeLoading, setAigentMeLoading] = useState(true);
+  const [creatingAigentMe, setCreatingAigentMe] = useState(false);
+
+  // System-agent delegation is admin-only.
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [selectedTrustBand, setSelectedTrustBand] = useState("L2_VERIFIED_COMMUNITY");
   const [selectedTtl, setSelectedTtl] = useState(4);
@@ -140,9 +217,21 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [curatedSkillsOnly, setCuratedSkillsOnly] = useState(true);
   const [explainBeforeActing, setExplainBeforeActing] = useState(false);
 
-  const pid = personaId ?? "anonymous";
+  const pid = effectivePersonaId ?? "anonymous";
   const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
   const bandIndex = TRUST_BANDS.indexOf(maxGrantableBand);
+
+  // Clamp the selected trust band to what the persona can actually grant. The
+  // default (L2) exceeds a fresh citizen's reputation (bucket 0 → L1), which
+  // otherwise fails the grant with "Insufficient reputation". Runs when the
+  // persona's reputation resolves.
+  useEffect(() => {
+    if (TRUST_BANDS.indexOf(selectedTrustBand) > bandIndex) {
+      const clamped = TRUST_BANDS[bandIndex] ?? "L1_EXPERIMENTAL";
+      setSelectedTrustBand(clamped);
+      setSelectedActions(TRUST_BAND_ACTIONS[clamped] ?? []);
+    }
+  }, [bandIndex, selectedTrustBand]);
 
   const loadDelegation = useCallback(async () => {
     setLoading(true);
@@ -151,6 +240,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       const res = await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`);
       const data = await res.json();
       setDelegation(data);
+      if (data?.agent_root_did) setDelegationAgentDid(data.agent_root_did);
     } catch {
       setError("Failed to load delegation state.");
     } finally {
@@ -177,11 +267,233 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     loadDelegation();
   }, [loadDelegation]);
 
+  // Resolve admin status (system-agent delegation gate) via the spine.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/active-persona', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled) setIsAdmin(Boolean(data?.cartridgeFlags?.isAdmin));
+        }
+      } catch {
+        // Non-admin by default — fail closed.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Fetch the aigentMe (slot 1).
+  const loadAigentMe = useCallback(async () => {
+    setAigentMeLoading(true);
+    try {
+      const res = await personaFetch('/api/agents/aigentme', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.agent) {
+          const a = { ...mapAgent(data.agent), isAigentMe: true };
+          setAigentMe(a);
+        } else {
+          setAigentMe(null);
+        }
+      }
+    } catch {
+      // aigentMe optional — slot 1 falls back to the create affordance.
+    } finally {
+      setAigentMeLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAigentMe();
+  }, [loadAigentMe]);
+
+  // Fetch sponsored agents (slots 2 & 3 pool). aigentMe is filtered out — it
+  // owns slot 1.
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchSponsoredAgents() {
+      setAgentsLoading(true);
+      try {
+        const res = await personaFetch('/api/persona/sponsored-agents', {
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (!cancelled && data.agents) {
+            const mapped = (data.agents as Array<Record<string, unknown>>)
+              .map(mapAgent)
+              .filter((a) => !a.isAigentMe);
+            setOtherAgents(mapped);
+          }
+        }
+      } catch {
+        // Sponsored agents are optional.
+      } finally {
+        if (!cancelled) setAgentsLoading(false);
+      }
+    }
+    fetchSponsoredAgents();
+    return () => { cancelled = true; };
+  }, []);
+
+  // CFS-024 — the person-scoped bound-agent roster. Bound agents belong to the
+  // constitutional PERSON, not the active persona, so a delegate sponsored under
+  // a DIFFERENT persona (e.g. Aletheon, stood up under the passport-holder
+  // persona) must still appear here. The single-source-of-truth resolver returns
+  // them across every persona the caller owns. Merged with the active-persona
+  // sponsored list below (deduped) so nothing is lost if a surface lags.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/identity/constitutional-context', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const bound = data?.context?.boundAgents;
+        if (!cancelled && Array.isArray(bound)) {
+          const mapped: DelegateAgent[] = bound.map((b: Record<string, unknown>) => ({
+            agentRootId: String(b.agentId ?? ''),
+            displayName: String(b.displayName ?? 'Agent'),
+            didUri: String(b.agentDid ?? ''),
+            agentClass: String(b.agentClass ?? 'polity_bound'),
+            isAigentMe: false,
+          }));
+          setBoundAgents(mapped);
+        }
+      } catch {
+        // Person-scoped roster is additive — sponsored-agents remains the base.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (showAudit) loadAuditEvents();
   }, [showAudit, loadAuditEvents]);
 
+  // Per-persona assignments for the SELECTED persona. Reloads whenever the
+  // operator switches "delegating as".
+  const loadAssignments = useCallback(async () => {
+    if (!effectivePersonaId) { setAssignments([]); return; }
+    setAssignmentsLoading(true);
+    try {
+      const res = await personaFetch(
+        `/api/identity/persona-assignments?personaId=${encodeURIComponent(effectivePersonaId)}`,
+        { cache: 'no-store' },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.assignments)) {
+          setAssignments(
+            data.assignments.map((a: { agentRootId: string; role: AssignmentRole }) => ({
+              agentRootId: String(a.agentRootId),
+              role: a.role === 'aigentMe' ? 'aigentMe' : 'delegate',
+            })),
+          );
+        }
+      }
+    } catch {
+      // Assignments are additive — the tab still renders the bound roster.
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  }, [effectivePersonaId]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  // Switching persona clears the in-flight grant selection so it never leaks
+  // across personas.
+  useEffect(() => {
+    setSelectedAgent(null);
+    setShowGrantForm(false);
+  }, [effectivePersonaId]);
+
+  // Assign a bound agent to the selected persona (role delegate|aigentMe), then
+  // reload. Setting aigentMe demotes the prior aigentMe server-side.
+  const mutateAssignment = useCallback(
+    async (agentRootId: string, role: AssignmentRole) => {
+      if (!effectivePersonaId) return;
+      setAssignmentBusy(agentRootId);
+      setError(null);
+      try {
+        const res = await personaFetch('/api/identity/persona-assignments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personaId: effectivePersonaId, agentRootId, role }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? 'Could not update assignment.');
+        } else {
+          await loadAssignments();
+        }
+      } catch {
+        setError('Assignment request failed.');
+      } finally {
+        setAssignmentBusy(null);
+      }
+    },
+    [effectivePersonaId, loadAssignments],
+  );
+
+  const removeAssignment = useCallback(
+    async (agentRootId: string) => {
+      if (!effectivePersonaId) return;
+      setAssignmentBusy(agentRootId);
+      setError(null);
+      try {
+        const res = await personaFetch(
+          `/api/identity/persona-assignments?personaId=${encodeURIComponent(effectivePersonaId)}&agentRootId=${encodeURIComponent(agentRootId)}`,
+          { method: 'DELETE' },
+        );
+        const data = await res.json();
+        if (!res.ok || !data.ok) {
+          setError(data.error ?? 'Could not remove assignment.');
+        } else {
+          await loadAssignments();
+        }
+      } catch {
+        setError('Unassign request failed.');
+      } finally {
+        setAssignmentBusy(null);
+      }
+    },
+    [effectivePersonaId, loadAssignments],
+  );
+
+  async function handleCreateAigentMe() {
+    setCreatingAigentMe(true);
+    setError(null);
+    try {
+      const res = await personaFetch('/api/agents/aigentme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setError(data.error ?? 'Could not create your aigentMe.');
+      } else if (data.agent) {
+        const a = { ...mapAgent(data.agent), isAigentMe: true };
+        setAigentMe(a);
+        setSelectedAgent(a);
+      }
+    } catch {
+      setError('aigentMe creation failed.');
+    } finally {
+      setCreatingAigentMe(false);
+    }
+  }
+
   async function handleGrant() {
+    if (!selectedAgent) {
+      setError('Select a delegate first.');
+      return;
+    }
     setGranting(true);
     setError(null);
     try {
@@ -190,6 +502,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           persona_id: pid,
+          agent_root_did: selectedAgent.didUri || selectedAgent.agentRootId,
           trust_band: selectedTrustBand,
           selected_actions: selectedActions,
           ttl_hours: selectedTtl,
@@ -210,6 +523,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         setShowGrantForm(false);
         await loadDelegation();
         if (showAudit) await loadAuditEvents();
+        // Nudge shell observers (AccessionProgressBar) to re-read state —
+        // the Delegate step flips green immediately, not on next page load.
+        try { window.dispatchEvent(new CustomEvent("accession:refresh")); } catch { /* non-fatal */ }
       }
     } catch {
       setError("Grant request failed.");
@@ -225,6 +541,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`, {
         method: "DELETE",
       });
+      setJustRevoked(true);
       await loadDelegation();
       if (showAudit) await loadAuditEvents();
     } catch {
@@ -238,6 +555,72 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
   const lastBlockedEvent = auditEvents.find((e) => e.event_type === "policy_blocked");
   const hasInjectionWarning = !!lastBlockedEvent;
+
+  // The delegate pool = active-persona sponsored agents ∪ person-scoped bound
+  // agents (CFS-024), deduped by agentRootId (falling back to didUri), with the
+  // aigentMe (slot 1) removed. This is what makes a cross-persona delegate like
+  // Aletheon appear even when a different persona is active.
+  const pooledOtherAgents = useMemo<DelegateAgent[]>(() => {
+    const seen = new Set<string>();
+    const aigentMeKeys = new Set(
+      [aigentMe?.agentRootId, aigentMe?.didUri].filter((k): k is string => !!k),
+    );
+    const out: DelegateAgent[] = [];
+    for (const a of [...otherAgents, ...boundAgents]) {
+      const key = a.agentRootId || a.didUri;
+      if (!key || seen.has(key)) continue;
+      if (aigentMeKeys.has(a.agentRootId) || aigentMeKeys.has(a.didUri)) continue;
+      seen.add(key);
+      if (a.agentRootId) seen.add(a.agentRootId);
+      if (a.didUri) seen.add(a.didUri);
+      out.push(a);
+    }
+    return out;
+  }, [otherAgents, boundAgents, aigentMe]);
+
+  // Every agent the caller could assign: the person's bound roster (+ system
+  // agents for admins), deduped. Assignment agentRootId == agent_root_identity
+  // row id, which is what boundAgents/otherAgents carry, so lookups match.
+  const allKnownAgents = useMemo<DelegateAgent[]>(() => {
+    const seen = new Set<string>();
+    const out: DelegateAgent[] = [];
+    for (const a of [
+      ...(aigentMe ? [aigentMe] : []),
+      ...pooledOtherAgents,
+      ...(isAdmin ? PLATFORM_AGENTS : []),
+    ]) {
+      const k = a.agentRootId || a.didUri;
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      out.push(a);
+    }
+    return out;
+  }, [aigentMe, pooledOtherAgents, isAdmin]);
+
+  const assignedRoleByAgent = useMemo(() => {
+    const m = new Map<string, AssignmentRole>();
+    for (const a of assignments) m.set(a.agentRootId, a.role);
+    return m;
+  }, [assignments]);
+
+  // The selected persona's assignments, resolved to agents (aigentMe first).
+  const assignedAgentsList = useMemo(() => {
+    return assignments
+      .map((a) => {
+        const agent = allKnownAgents.find(
+          (x) => x.agentRootId === a.agentRootId || x.didUri === a.agentRootId,
+        );
+        return agent ? { agent, role: a.role } : null;
+      })
+      .filter((x): x is { agent: DelegateAgent; role: AssignmentRole } => x !== null)
+      .sort((l, r) => (l.role === 'aigentMe' ? -1 : r.role === 'aigentMe' ? 1 : 0));
+  }, [assignments, allKnownAgents]);
+
+  // Bound agents not yet assigned to this persona — the "Assign an agent" pool.
+  const unassignedRoster = useMemo(
+    () => allKnownAgents.filter((a) => !assignedRoleByAgent.has(a.agentRootId)),
+    [allKnownAgents, assignedRoleByAgent],
+  );
 
   async function runDemoAction(type: "allowed" | "denied") {
     const prompt =
@@ -295,7 +678,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Aigent Delegates</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Grant bounded authority to Aigents with audit logs — sealed, time-limited, DVN-signed.
+            Grant bounded authority to your Aigents — sealed, time-limited, DVN-signed.
           </p>
         </div>
       </div>
@@ -320,34 +703,161 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
       {activeSubTab === "delegation" && (<>
 
+      {/* Persona-first delegation (CFS-024): choose who you're delegating AS */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-violet-400" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Delegating as</p>
+        </div>
+        {sessionPersonas.length > 0 ? (
+          <select
+            value={effectivePersonaId ?? ""}
+            onChange={(e) => setSelectedPersonaId(e.target.value || null)}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200"
+          >
+            {sessionPersonas.map((p) => (
+              <option key={p.id} value={p.id}>{p.displayName}</option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[11px] text-slate-500">Loading your personas…</p>
+        )}
+        <p className="text-[10px] text-slate-500">
+          Every agent is bound to your citizen. Each persona assigns which of them act on its behalf — exactly one as its aigentMe.
+        </p>
+      </div>
+
+      {/* Assigned agents for the selected persona */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="h-4 w-4 text-violet-400" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Assigned agents{activePersona ? ` · ${activePersona.displayName}` : ""}
+            </p>
+          </div>
+          <span className="text-[10px] text-slate-500">One aigentMe · many delegates</span>
+        </div>
+
+        {assignmentsLoading || agentsLoading ? (
+          <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
+            <Loader2 className="h-3 w-3 animate-spin" /> Loading assignments…
+          </div>
+        ) : assignedAgentsList.length === 0 ? (
+          <p className="text-[11px] text-slate-400">
+            No agents assigned to this persona yet. Assign one below — the first you mark as aigentMe becomes this persona&apos;s primary delegate.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {assignedAgentsList.map(({ agent, role }) => {
+              const selected = selectedAgent?.agentRootId === agent.agentRootId;
+              const busy = assignmentBusy === agent.agentRootId;
+              return (
+                <div
+                  key={agent.agentRootId}
+                  className={`rounded-xl border p-3 transition ${selected ? "border-violet-500/60 bg-violet-500/10 ring-1 ring-violet-500/30" : "border-slate-700/50 bg-slate-900/30"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAgent(agent)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    >
+                      <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${selected ? "bg-violet-500/30" : "bg-slate-700/50"}`}>
+                        <Bot className={`h-4 w-4 ${selected ? "text-violet-300" : "text-slate-400"}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm font-medium truncate ${selected ? "text-violet-200" : "text-slate-200"}`}>{agent.displayName}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{truncateDid(agent.didUri)}</p>
+                      </div>
+                    </button>
+                    {role === "aigentMe" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                        <Crown className="h-2.5 w-2.5" /> aigentMe
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => mutateAssignment(agent.agentRootId, "aigentMe")}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        {busy ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Crown className="h-2.5 w-2.5" />} Make aigentMe
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => removeAssignment(agent.agentRootId)}
+                      className="text-[10px] text-slate-500 hover:text-rose-300 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Assign an agent from the person's bound roster */}
+        {unassignedRoster.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const nextRole: AssignmentRole = assignedAgentsList.some((a) => a.role === "aigentMe") ? "delegate" : "aigentMe";
+              mutateAssignment(e.target.value, nextRole);
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300"
+          >
+            <option value="" disabled>Assign an agent…</option>
+            {unassignedRoster.map((a) => (
+              <option key={a.agentRootId} value={a.agentRootId}>
+                {a.displayName}{a.isSystem ? " (system · admin)" : ""}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {unassignedRoster.length === 0 && assignedAgentsList.length === 0 && !assignmentsLoading && !agentsLoading && (
+          <p className="text-[11px] text-slate-500">
+            No agents bound to your citizen yet. Sponsor one from <span className="text-slate-400">Polity Passport → Apply</span>, or create your aigentMe below — then assign it here.
+          </p>
+        )}
+
+        {!aigentMe && (
+          <button
+            type="button"
+            onClick={handleCreateAigentMe}
+            disabled={creatingAigentMe}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+          >
+            {creatingAigentMe ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {creatingAigentMe ? "Creating…" : "Create a new aigentMe agent"}
+          </button>
+        )}
+
+        {!isAdmin && (
+          <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <Lock className="h-3 w-3" />
+            System agents (Aigent Z, Aigent C-OS, Marketa, Kn0w1) are admin-only.
+          </p>
+        )}
+      </div>
+
       {/* Injection warning banner */}
-      {hasInjectionWarning && showAudit && (
+      {hasInjectionWarning && showAudit && selectedAgent && (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">Aigent C-OS blocked a potential injection attempt</p>
+            <p className="font-medium">{selectedAgent.displayName} blocked a potential injection attempt</p>
             <p className="text-xs text-red-400 mt-0.5">
               at {new Date(lastBlockedEvent!.created_at).toLocaleString()}
             </p>
           </div>
         </div>
       )}
-
-      {/* Agent identity card */}
-      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Aigent C-OS Identity</p>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Root DiD</span>
-          <code className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded">
-            did:iqube:aigent-c-os-root
-          </code>
-        </div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-slate-400">Bounded persona</span>
-          <code className="text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded">aigent-c-os</code>
-        </div>
-        <p className="text-[11px] text-slate-500 italic">Personas may vary. Accountability does not.</p>
-      </div>
 
       {/* Persona wallet state */}
       {activePersona && (
@@ -387,7 +897,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </button>
         {showConcept && (
           <div className="px-4 pb-4 text-xs text-slate-400 space-y-2 border-t border-slate-700/40 pt-3">
-            <p>Bounded delegation grants any Aigent — platform or custom — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
+            <p>Bounded delegation grants any Aigent — your aigentMe, a sponsored delegate, or (for admins) a system agent — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
             <p>The envelope is immutable after creation — no conversation can expand it. Injection attempts and forbidden actions are blocked at the API boundary before reaching the LLM.</p>
             <p>Every delegation event emits a receipt-eligible <strong className="text-slate-300">OrchestrationEvent</strong> anchored to both Root DiDs (yours and the agent&apos;s). See <strong className="text-slate-300">Build → Aigent Ref</strong> for the full model including custom agent registration.</p>
           </div>
@@ -425,6 +935,33 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               Revoke
             </button>
           </div>
+
+          {/* Delegated agent identity */}
+          {delegationAgentDid && (() => {
+            const allAgents = [
+              ...(aigentMe ? [aigentMe] : []),
+              ...pooledOtherAgents,
+              ...PLATFORM_AGENTS,
+            ];
+            const matched = allAgents.find((a) => a.agentRootId === delegationAgentDid || a.didUri === delegationAgentDid);
+            return (
+              <div className="flex items-center gap-2 rounded-lg border border-green-500/15 bg-green-500/5 px-3 py-2">
+                <Bot className="h-4 w-4 text-green-400" />
+                <span className="text-sm text-green-200 font-medium">{matched?.displayName ?? delegationAgentDid}</span>
+                {matched?.isAigentMe && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                    <Crown className="h-2.5 w-2.5" /> aigentMe
+                  </span>
+                )}
+                {matched && (
+                  <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(matched.agentClass)}`}>
+                    {matched.agentClass}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-1.5 text-slate-400">
               <Clock className="h-3.5 w-3.5" />
@@ -435,6 +972,12 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               {delegation.actions_taken ?? 0} / {delegation.max_actions ?? 20} actions
             </div>
           </div>
+          {delegation.trust_band && (
+            <div className="flex items-center gap-1.5 text-sm text-slate-400">
+              <Shield className="h-3.5 w-3.5" />
+              Trust Band: <span className="text-violet-300">{String(delegation.trust_band).replace(/_/g, ' ')}</span>
+            </div>
+          )}
           <div>
             <p className="text-xs text-slate-500 mb-1.5">Allowed actions</p>
             <div className="flex flex-wrap gap-1.5">
@@ -466,26 +1009,58 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       ) : (
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-slate-500" />
-            <span className="text-sm text-slate-400">No active delegation</span>
-          </div>
-          <p className="text-xs text-slate-500">Grant authority to enable delegated actions in Aigent C-OS.</p>
+          {justRevoked ? (
+            <>
+              <div className="flex items-center gap-2">
+                <ShieldX className="h-5 w-5 text-red-400" />
+                <span className="text-sm font-semibold text-red-300">Delegation Revoked</span>
+              </div>
+              <p className="text-xs text-slate-400">Authority has been revoked. A DVN receipt has been recorded. You can re-delegate at any time.</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-slate-500" />
+                <span className="text-sm text-slate-400">No active delegation</span>
+              </div>
+              <p className="text-xs text-slate-500">
+                {selectedAgent
+                  ? `Grant authority to enable delegated actions for ${selectedAgent.displayName}.`
+                  : "Select a delegate above to grant authority."}
+              </p>
+            </>
+          )}
           <button
             type="button"
-            onClick={() => setShowGrantForm((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 transition-colors"
+            disabled={!selectedAgent}
+            onClick={() => { setShowGrantForm((v) => !v); setJustRevoked(false); }}
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <Shield className="h-4 w-4" />
-            {showGrantForm ? "Cancel" : "Grant Authority"}
+            {showGrantForm ? "Cancel" : justRevoked ? "Delegate" : "Grant Authority"}
           </button>
         </div>
       )}
 
       {/* Grant form */}
-      {showGrantForm && !delegation?.active && (
+      {showGrantForm && !delegation?.active && selectedAgent && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
-          <p className="text-sm font-semibold text-slate-200">Configure Delegation</p>
+          <p className="text-sm font-semibold text-slate-200">Configure Delegation for {selectedAgent.displayName}</p>
+
+          {/* Selected agent summary */}
+          <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2">
+            <Bot className="h-4 w-4 text-violet-400" />
+            <span className="text-sm text-violet-200 font-medium">{selectedAgent.displayName}</span>
+            {selectedAgent.isAigentMe && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                <Crown className="h-2.5 w-2.5" /> aigentMe
+              </span>
+            )}
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium capitalize ${agentClassColor(selectedAgent.agentClass)}`}>
+              {selectedAgent.agentClass}
+            </span>
+            <code className="text-[10px] text-slate-500 ml-auto">{truncateDid(selectedAgent.didUri)}</code>
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400">
@@ -778,7 +1353,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
 
           {!delegation?.active && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-300">
-              Grant delegation first (Delegation tab) to see the full enforcement chain. The denied action will still be blocked regardless.
+              Grant delegation first (Delegate tab) to see the full enforcement chain. The denied action will still be blocked regardless.
             </div>
           )}
 

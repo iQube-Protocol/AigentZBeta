@@ -6,7 +6,7 @@
  *
  * Body (all optional):
  *   {
- *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl'
+ *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'mvl'
  *   }
  *
  * - Body omitted → builder picks the strongest NBE across the user's active
@@ -24,6 +24,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { buildMoveForward } from '@/services/orchestration/briefBuilder';
+import { runPreflightGather } from '@/services/capabilities/preflight';
+import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +35,7 @@ const VALID_CARTRIDGES: ActiveCartridgeSlug[] = [
   'knyt',
   'qriptopian',
   'marketa',
-  'avl',
+  'mvl',
 ];
 
 interface PostBody {
@@ -65,13 +67,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       : undefined;
 
   try {
+    // Capability Gateway — Pattern A pre-flight gather. Surface id is
+    // 'move-forward' so the env allowlist can target this independently.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: 'move-forward',
+      query: `next best action${scoped ? ` for ${scoped} cartridge` : ' across active cartridges'}`,
+      cartridge: scoped ?? 'metame',
+    });
+
+    // 2026-05-26 chief-of-staff: fold admin-tier signals into
+    // liveContext when the persona admins any cartridge. Recommender
+    // biases toward orchestration moves (review queues, partner ops)
+    // for admins; no-op for non-admin operators.
+    const adminSummary = await summarizeCartridgeAdminContext(
+      context.personaId,
+      context.cartridgeFlags.adminCartridges,
+      context.cartridgeFlags.isAdmin,
+    );
+    const liveContext = [preflight?.summary, adminSummary]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      .join('\n\n') || null;
+
     const result = await buildMoveForward({
       personaId: context.personaId,
       ...(scoped ? { cartridge: scoped } : {}),
+      liveContext,
     });
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...result, preflightContext: preflight } : result,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/move-forward] build failed: ${msg}`);

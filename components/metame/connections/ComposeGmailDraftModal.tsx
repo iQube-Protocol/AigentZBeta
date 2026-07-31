@@ -18,9 +18,10 @@
  * artifacts list by the parent.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, Mail, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
 interface Props {
@@ -37,6 +38,11 @@ interface Props {
     bodyText: string;
     cc?: string;
     bcc?: string;
+    /** Persona upload ids — picker mounts inline; Phase 2 wires the
+     *  Gmail multipart MIME builder so attachments ride with the
+     *  draft. Until then they round-trip as actionInput metadata so
+     *  the artifact record remembers the operator's selections. */
+    attachmentUploadIds?: string[];
   }) => Promise<void>;
   /**
    * Phase 6.b Part 2.5b — aigentMe drafts a full email from a one-liner
@@ -53,6 +59,37 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /**
+   * Phase 2 Slice 4 migration: when true, renders the form *inline* with
+   * no overlay / dialog chrome so it can host inside ComposerLayout's
+   * right-pane body. The caller manages dismissal (typically via the
+   * layout's header X). `open` is ignored in inline mode — the form
+   * always renders when the layout mounts it.
+   */
+  inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
+  /**
+   * When set, pre-populates all fields directly without calling the draft-email
+   * API. Used for "send it again" / resend flows where the email was already
+   * drafted in a prior turn. Takes precedence over initialPrompt.
+   */
+  prefill?: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string } | null;
+  /** Active persona — required by UploadAttachmentPicker so it fetches
+   *  the operator's uploads (not the spine's default persona). Without
+   *  this prop the picker falls back to localStorage-based persona
+   *  resolution and can render an empty / wrong-persona list, leaving
+   *  attachmentUploadIds silently empty at submit time. */
+  personaId?: string;
+  /**
+   * Case A — seed the local attachmentUploadIds on first mount from
+   * the parent's chat-attachment escrow (what the operator paperclip-
+   * attached to the chat copilot's last successful turn). Only seeds
+   * when the current state is empty — the picker UI remains the
+   * source of truth once the operator interacts with it. Optional;
+   * omitting it preserves the legacy empty-init behaviour.
+   */
+  initialAttachmentUploadIds?: string[];
 }
 
 export function ComposeGmailDraftModal({
@@ -61,6 +98,11 @@ export function ComposeGmailDraftModal({
   onCreate,
   onDraftWithAigentMe,
   theme = "dark",
+  inline = false,
+  initialPrompt,
+  prefill,
+  personaId,
+  initialAttachmentUploadIds,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -69,20 +111,29 @@ export function ComposeGmailDraftModal({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>(
+    () => (Array.isArray(initialAttachmentUploadIds) ? [...initialAttachmentUploadIds] : []),
+  );
+  // Case A — re-seed from the parent's chat-attachment escrow ONLY
+  // when the local picker is still empty. After the operator touches
+  // the picker, the local state owns the truth; escrow changes from
+  // the parent never overwrite operator edits.
+  useEffect(() => {
+    if (!Array.isArray(initialAttachmentUploadIds) || initialAttachmentUploadIds.length === 0) return;
+    setAttachmentUploadIds((prev) => (prev.length > 0 ? prev : [...initialAttachmentUploadIds]));
+  }, [initialAttachmentUploadIds]);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the email is for (one sentence).');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
@@ -95,7 +146,41 @@ export function ComposeGmailDraftModal({
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the email is for (one sentence).');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Prefill — when a prior draft is available (e.g. "send it again" resend flow),
+  // populate fields directly without calling the draft-email API. Takes
+  // precedence: if prefill is set on mount, skip the initialPrompt auto-draft.
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!prefill || prefillAppliedRef.current) return;
+    prefillAppliedRef.current = true;
+    setTo(prefill.to ?? '');
+    setCc(prefill.cc ?? '');
+    setBcc(prefill.bcc ?? '');
+    setSubject(prefill.subject ?? '');
+    setBodyText(prefill.bodyText ?? '');
+  }, [prefill]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal. Skipped when
+  // prefill is set so the resend path doesn't overwrite the restored content.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prefill) return; // prefill path takes precedence
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, prefill, draftWithPrompt]);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
@@ -116,8 +201,19 @@ export function ComposeGmailDraftModal({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
-      setError("To, Subject and Body are all required.");
+    // Specific error per missing field — the previous one-message-for-all
+    // confused users when they'd drafted Subject + Body but only To was
+    // empty (or vice versa). Lists exactly what's missing.
+    const missing: string[] = [];
+    if (!to.trim())       missing.push("To");
+    if (!subject.trim())  missing.push("Subject");
+    if (!bodyText.trim()) missing.push("Body");
+    if (missing.length > 0) {
+      setError(
+        missing.length === 1
+          ? `${missing[0]} is required.`
+          : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]} are required.`,
+      );
       return;
     }
     setSubmitting(true);
@@ -128,6 +224,7 @@ export function ComposeGmailDraftModal({
         bodyText,
         ...(cc.trim() ? { cc: cc.trim() } : {}),
         ...(bcc.trim() ? { bcc: bcc.trim() } : {}),
+        ...(attachmentUploadIds.length > 0 ? { attachmentUploadIds } : {}),
       });
       // Reset on success so the modal is clean next time.
       setAiPrompt("");
@@ -138,6 +235,7 @@ export function ComposeGmailDraftModal({
       setBodyText("");
       setCc("");
       setBcc("");
+      setAttachmentUploadIds([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -146,39 +244,39 @@ export function ComposeGmailDraftModal({
     }
   }, [to, subject, bodyText, cc, bcc, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div
-      className={overlayClass}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="compose-gmail-heading"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
-      }}
-    >
+  // Form body — identical between inline (ComposerLayout host) and modal
+  // (legacy dialog) renderings. The only difference between the two is
+  // the chrome wrapping it.
+  const formBody = (
       <form
         onSubmit={handleSubmit}
-        className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}
+        className={
+          inline
+            ? "w-full"
+            : `rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`
+        }
       >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-violet-400" />
-            <h3 id="compose-gmail-heading" className="font-semibold">
-              Compose Gmail draft
-            </h3>
+        {!inline && (
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-violet-400" />
+              <h3 id="compose-gmail-heading" className="font-semibold">
+                Compose Gmail draft
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="p-1 rounded hover:bg-slate-800/40"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="p-1 rounded hover:bg-slate-800/40"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        )}
 
         {/* aigentMe drafter — one-line prompt + Sparkle button. The
             response auto-fills the To / Cc / Bcc / Subject / Body fields
@@ -277,6 +375,16 @@ export function ComposeGmailDraftModal({
               />
             </label>
           </div>
+          {/* Attachment picker — Phase 1 surfaces the affordance and
+              persists the upload ids onto the artifact actionInput.
+              Phase 2 wires the Gmail multipart MIME builder to send
+              the bytes as draft attachments. */}
+          <UploadAttachmentPicker
+            personaId={personaId}
+            value={attachmentUploadIds}
+            onChange={setAttachmentUploadIds}
+            theme={theme}
+          />
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>Subject</span>
             <input
@@ -328,6 +436,24 @@ export function ComposeGmailDraftModal({
           </button>
         </div>
       </form>
+  );
+
+  // Inline mode: caller (ComposerLayout) owns the wrapper. Skip dialog
+  // chrome entirely — header X / dismiss live on the layout itself.
+  if (inline) return formBody;
+
+  // Legacy modal mode: overlay + dialog chrome wrap the same form body.
+  return (
+    <div
+      className={overlayClass}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="compose-gmail-heading"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onClose();
+      }}
+    >
+      {formBody}
     </div>
   );
 }

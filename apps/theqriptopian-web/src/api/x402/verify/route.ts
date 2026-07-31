@@ -56,7 +56,7 @@ const CHAIN_RPC_CONFIG: Record<string | number, ChainRpcConfig> = {
   // Non-EVM Chains (coming soon)
   'btc-testnet': {
     rpcUrl: process.env.BTC_TESTNET_RPC || '',
-    explorer: 'https://mempool.space/testnet',
+    explorer: 'https://blockstream.info/testnet',
     name: 'Bitcoin Testnet',
     active: false,
   },
@@ -163,7 +163,7 @@ async function verifyBTCTransaction(
   txHash: string,
   config: ChainRpcConfig
 ): Promise<VerificationResult> {
-  // Bitcoin verification via mempool.space API
+  // Bitcoin verification via Esplora API (blockstream.info — mempool.space proved unreliable; both serve the same Esplora shapes)
   const baseResult: VerificationResult = {
     ok: false,
     status: 'not_found',
@@ -174,7 +174,7 @@ async function verifyBTCTransaction(
   };
 
   try {
-    const response = await fetch(`https://mempool.space/testnet/api/tx/${txHash}`);
+    const response = await fetch(`https://blockstream.info/testnet/api/tx/${txHash}`);
     
     if (!response.ok) {
       return baseResult;
@@ -183,7 +183,7 @@ async function verifyBTCTransaction(
     const tx = await response.json();
     
     // Get confirmation status
-    const statusResponse = await fetch(`https://mempool.space/testnet/api/tx/${txHash}/status`);
+    const statusResponse = await fetch(`https://blockstream.info/testnet/api/tx/${txHash}/status`);
     const status = await statusResponse.json();
 
     return {

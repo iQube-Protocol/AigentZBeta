@@ -60,6 +60,14 @@ interface UploadItem {
   editionMax?: number;
   editionTier?: EditionTier;
   displayMode?: DisplayMode;
+  // ── Qriptopian-only fields ─────────────────────────────────────────────
+  // Stamped by handleQriptoFileSelect so the queue row can branch its
+  // dropdown UI without re-reading activeTab. `seriesMode='part-of-series'`
+  // surfaces the partNumber + partTotal number inputs (X of Y).
+  cartridge?: 'knyt' | 'qriptopian';
+  seriesMode?: 'standalone' | 'part-of-series';
+  partNumber?: number;
+  partTotal?: number;
 }
 
 type Props = {
@@ -77,6 +85,47 @@ const EPISODES: { number: number | null; title: string }[] = [
     number: i + 1,
     title: `Episode #${i}`,
   })),
+];
+
+// ── Qriptopian series dropdown ───────────────────────────────────────────────
+// Qriptopian content is organised by series rather than episodes. Two groups:
+//   - Papers: long-form thesis pieces grouped by series (Protocols, The
+//     Polity, COYN Thesis, Experience Sovereignty, The Polity and the
+//     Plutocracy).
+//   - Magazines: numbered issues of The Qriptopian (#0, #1, ...).
+// Series scope flows into Supabase storage paths as `papers-<sub>` or
+// `magazines-<issue>` (see /api/admin/codex/storage/sign).
+const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazines' }[] = [
+  { value: 'papers/protocols',                  label: 'Papers · Protocols',                       group: 'papers' },
+  { value: 'papers/polity',                     label: 'Papers · The Polity',                      group: 'papers' },
+  { value: 'papers/coyn-thesis',                label: 'Papers · COYN Thesis',                     group: 'papers' },
+  { value: 'papers/experience-sovereignty',     label: 'Papers · Experience Sovereignty',          group: 'papers' },
+  { value: 'papers/polity-plutocracy',          label: 'Papers · The Polity and the Plutocracy',   group: 'papers' },
+  { value: 'magazines/0',                       label: 'Magazines · #0',                           group: 'magazines' },
+  { value: 'magazines/1',                       label: 'Magazines · #1',                           group: 'magazines' },
+  { value: 'magazines/2',                       label: 'Magazines · #2',                           group: 'magazines' },
+  { value: 'magazines/3',                       label: 'Magazines · #3',                           group: 'magazines' },
+];
+
+// ── Qriptopian content type categories ───────────────────────────────────────
+// Replaces the KNYT ASSET_CATEGORIES for the qriptopian tab. White-papers
+// are scoped to the Papers series; the rest are valid for both Papers and
+// Magazines.
+type QriptoCategoryId = 'cover' | 'white-paper' | 'article' | 'video' | 'audio' | 'image' | 'infographic';
+const QRIPTO_CATEGORIES: {
+  id: QriptoCategoryId;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  accept: string;
+}[] = [
+  { id: 'cover',       label: 'Cover',         icon: Image,    description: 'Card cover for a paper / magazine — image only (JPG, PNG, WebP). Use a separate Cover upload for the thumbnail; the PDF body goes through White-papers / Articles.', accept: '.jpg,.jpeg,.png,.webp' },
+  { id: 'white-paper', label: 'White-papers',  icon: FileText, description: 'Long-form thesis PDFs (Papers series)',           accept: '.pdf' },
+  { id: 'article',     label: 'Articles',      icon: FileText, description: 'Magazine articles (markdown / Word / PDF)',       accept: '.md,.docx,.pdf,.txt' },
+  { id: 'video',       label: 'Video',         icon: Video,    description: 'Video pieces (interviews, explainers, reels)',    accept: '.mp4,.webm,.mov' },
+  { id: 'audio',       label: 'Audio',         icon: Video,    description: 'Audio essays, podcasts, interview cuts',          accept: '.mp3,.wav,.m4a,.ogg' },
+  { id: 'image',       label: 'Images',        icon: Image,    description: 'Editorial photography, illustrations, covers',    accept: '.png,.jpg,.jpeg,.webp,.gif' },
+  { id: 'infographic', label: 'Infographics',  icon: Image,    description: 'Diagrams + visual explainers (SVG / PNG / PDF)',  accept: '.svg,.png,.jpg,.pdf' },
 ];
 
 const ASSET_CATEGORIES: {
@@ -111,9 +160,11 @@ const ASSET_CATEGORIES: {
     id: 'cover',
     label: 'Covers',
     icon: Image,
-    description: 'Limited edition still cover variants (PDF or image)',
+    // Covers are IMAGE ONLY across every cartridge. Don't add cover_pdf
+    // back — see CLAUDE.md "Grids of PDF assets with covers" for the
+    // working pattern and the rasteriser-failure history.
+    description: 'Limited edition still cover variants (image only — JPG/PNG/WebP)',
     assetKinds: [
-      { value: 'cover_pdf', label: 'Cover PDF', accept: '.pdf' },
       { value: 'cover_image', label: 'Cover Image', accept: '.png,.jpg,.jpeg,.webp' },
     ],
   },
@@ -221,16 +272,18 @@ interface QueueItemProps {
 }
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
+  const isQripto = item.cartridge === 'qriptopian';
   const isCover = item.category === 'cover';
   const isMaster = item.category === 'master' || item.category === 'still';
   const isPrint = item.category === 'print';
-  const isLore = item.category === 'lore';
+  const isLore = item.category === 'lore' && !isQripto;
   const isCharacter = item.category === 'character';
   const isRaBadge = item.category === 'rabadges';
   // Motion Comics (master), Print, Characters and RaBadges all expose the same
   // Common/Rare/Epic/Legendary tier dropdown so the operator can flag the
-  // upload's edition/rarity tier alongside the asset.
-  const showEditionTier = isPrint || isMaster || isCharacter || isRaBadge;
+  // upload's edition/rarity tier alongside the asset. Qripto rows opt out —
+  // they use a Standalone | Part-of-series picker instead.
+  const showEditionTier = !isQripto && (isPrint || isMaster || isCharacter || isRaBadge);
 
   const borderColor =
     item.status === 'success' ? 'border-green-500/30 bg-green-500/10' :
@@ -266,7 +319,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
             <span>{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
             <span>{item.episodeNumber == null ? 'Series' : item.episodeNumber === -1 ? 'GN' : `Ep. #${item.episodeNumber}`}</span>
 
-            {item.status === 'pending' && !isPrint && (
+            {item.status === 'pending' && !isPrint && !isQripto && (
               <select
                 value={isMaster ? item.masterType : item.assetKind}
                 onChange={(e) => {
@@ -279,6 +332,48 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                   <option key={k.value} value={k.value}>{k.label}</option>
                 ))}
               </select>
+            )}
+
+            {item.status === 'pending' && isQripto && (
+              <>
+                <select
+                  value={item.seriesMode ?? 'standalone'}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'standalone' | 'part-of-series';
+                    onUpdate(
+                      mode === 'part-of-series'
+                        ? { seriesMode: mode, partNumber: item.partNumber ?? 1, partTotal: item.partTotal ?? 1 }
+                        : { seriesMode: mode, partNumber: undefined, partTotal: undefined },
+                    );
+                  }}
+                  className="rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                  title="Series mode"
+                >
+                  <option value="standalone">Standalone</option>
+                  <option value="part-of-series">Part of a series</option>
+                </select>
+                {item.seriesMode === 'part-of-series' && (
+                  <span className="inline-flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.partNumber ?? 1}
+                      onChange={(e) => onUpdate({ partNumber: Math.max(1, Number(e.target.value) || 1) })}
+                      className="w-12 rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                      title="Part number"
+                    />
+                    <span className="text-gray-500">of</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.partTotal ?? 1}
+                      onChange={(e) => onUpdate({ partTotal: Math.max(1, Number(e.target.value) || 1) })}
+                      className="w-12 rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                      title="Total parts"
+                    />
+                  </span>
+                )}
+              </>
             )}
 
             {item.status === 'pending' && showEditionTier && (
@@ -344,12 +439,21 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
           {item.status === 'error' && item.error && (
             <p className="mt-1 text-xs text-red-400">{item.error}</p>
           )}
-          {item.status === 'success' && item.result && (
+          {item.status === 'success' && item.result && (() => {
+            // Supabase uploads return the full public URL in result.cid.
+            // /api/content/cover/[cid] is the IMAGE cover proxy (sharp →
+            // webp) and Next path-routing collapses '//' in the URL, so
+            // routing a full URL through it 404s. Link straight to the
+            // storage URL for Supabase uploads; only the image cover
+            // proxy gets the legacy CID form for Autonomys assets.
+            const isHttpUrl = item.result.cid.startsWith('http://') || item.result.cid.startsWith('https://');
+            const previewHref = isHttpUrl ? item.result.cid : `/api/content/cover/${item.result.cid}`;
+            return (
             <div className="mt-1.5 space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-500 shrink-0">CID:</span>
+                <span className="text-[10px] text-gray-500 shrink-0">{isHttpUrl ? 'URL:' : 'CID:'}</span>
                 <a
-                  href={`/api/content/cover/${item.result.cid}`}
+                  href={previewHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="truncate font-mono text-[10px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2 max-w-[180px]"
@@ -377,7 +481,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                 </button>
               </div>
               <a
-                href={`/api/content/cover/${item.result.cid}`}
+                href={previewHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-medium"
@@ -385,7 +489,8 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                 <Image className="h-3 w-3" /> Preview asset →
               </a>
             </div>
-          )}
+            );
+          })()}
           {item.status === 'uploading' && (
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-700">
               <div
@@ -416,12 +521,24 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const [activeTab, setActiveTab] = useState<CodexTab>('knyt');
   const [selectedCategory, setSelectedCategory] = useState<UploadCategory>('master');
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(1);
+  // Qriptopian-side state — series scope (e.g. 'papers/protocols') and
+  // content type. Independent of KNYT's selectedCategory / selectedEpisode
+  // so switching tabs doesn't clobber the other side's selection.
+  const [selectedQriptoSeries, setSelectedQriptoSeries] = useState<string>(QRIPTO_SERIES[0].value);
+  const [selectedQriptoCategory, setSelectedQriptoCategory] = useState<QriptoCategoryId>('white-paper');
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [storageProvider, setStorageProvider] = useState<'auto-drive' | 'supabase'>('auto-drive');
+  const qriptoFileInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentCategory = ASSET_CATEGORIES.find((c) => c.id === selectedCategory)!;
+  const currentQriptoCategory = QRIPTO_CATEGORIES.find((c) => c.id === selectedQriptoCategory)!;
+
+  // Series string passed to backend uploads. KNYT = 'metaKnyts',
+  // Qripto = 'qriptopian'. Used in storage paths + master_content_qubes /
+  // codex_media_assets rows so the two cartridges don't collide.
+  const seriesForUpload = activeTab === 'knyt' ? 'metaKnyts' : 'qriptopian';
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -458,6 +575,54 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
     [selectedCategory, selectedEpisode, currentCategory],
   );
 
+  // Qripto file picker — slimmer than the KNYT version because qripto
+  // doesn't have edition tiers, rarity, or display-mode complexity.
+  // Maps every qripto content type onto category='lore' (the generic
+  // document/asset bucket) and stamps the assetKind so storage paths
+  // route per type. The seriesScope ('papers/protocols', 'magazines/2'
+  // etc.) flows separately into buildPath via the upload request body.
+  const handleQriptoFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length === 0) return;
+      // Non-cover categories ride 'lore' as the catch-all bucket so storage
+      // routing stays uniform. Covers go through the dedicated 'cover'
+      // bucket so the register route writes cover_thumb_url and the asset
+      // surfaces in card grids without further wiring.
+      const assetKindByCategory: Record<Exclude<QriptoCategoryId, 'cover'>, CodexAssetKind> = {
+        'white-paper': 'background_lore_doc',
+        'article':     'background_lore_doc',
+        'video':       'game_video',
+        'audio':       'background_lore_doc',
+        'image':       'social_campaign_image',
+        'infographic': 'social_campaign_image',
+      };
+      const isCover = selectedQriptoCategory === 'cover';
+      const newItems: UploadItem[] = files.map((file, idx) => ({
+        id: `${Date.now()}-q-${idx}`,
+        file,
+        category: isCover ? 'cover' : 'lore',
+        // Covers are images only — matches the KNYT pattern (cover_image
+        // rendered via plain <img src>). PDF covers were dropped because
+        // rendering page 1 server-side requires pdfjs + a Lambda-friendly
+        // worker setup that we don't have.
+        assetKind: isCover
+          ? ('cover_image' as CodexAssetKind)
+          : assetKindByCategory[selectedQriptoCategory as Exclude<QriptoCategoryId, 'cover'>],
+        episodeNumber: null,
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        status: 'pending' as const,
+        progress: 0,
+        displayMode: 'pdf' as DisplayMode,
+        cartridge: 'qriptopian' as const,
+        seriesMode: 'standalone' as const,
+      }));
+      setUploadQueue((prev) => [...prev, ...newItems]);
+      if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
+    },
+    [selectedQriptoCategory],
+  );
+
   const updateItem = useCallback((id: string, updates: Partial<UploadItem>) => {
     setUploadQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   }, []);
@@ -492,7 +657,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
             headers: { 'Content-Type': 'application/json', ...authHeaders },
             body: JSON.stringify({
               category: item.category,
-              series: 'metaKnyts',
+              series: seriesForUpload,
+              // For Qripto uploads, seriesScope (e.g. 'papers/protocols')
+              // overrides the episode-based path segment in buildPath.
+              seriesScope: activeTab === 'qriptopian' ? selectedQriptoSeries : undefined,
               episodeNumber: item.episodeNumber ?? 0,
               assetKind: item.assetKind,
               contentType: isMaster ? contentType : undefined,
@@ -541,7 +709,8 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           path, bucket,
           category: item.category,
           title: item.title,
-          series: 'metaKnyts',
+          series: seriesForUpload,
+          seriesScope: activeTab === 'qriptopian' ? selectedQriptoSeries : undefined,
           episodeNumber: item.episodeNumber ?? 0,
           mimeType: item.file.type || undefined,
           fileSize: item.file.size,
@@ -556,6 +725,14 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if (item.editionMax) registerBody.editionMax = item.editionMax;
           if ((item.category === 'character' || item.category === 'rabadges') && item.editionTier) registerBody.rarityTier = item.editionTier;
           if (item.category === 'lore' && item.displayMode) registerBody.displayMode = item.displayMode;
+        }
+        if (item.cartridge === 'qriptopian') {
+          registerBody.cartridge = 'qriptopian';
+          registerBody.seriesMode = item.seriesMode ?? 'standalone';
+          if (item.seriesMode === 'part-of-series') {
+            registerBody.partNumber = item.partNumber ?? 1;
+            registerBody.partTotal = item.partTotal ?? 1;
+          }
         }
 
         let regRes: Response;
@@ -580,7 +757,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       formData.append('file', item.file);
       formData.append('title', item.title);
       formData.append('episodeNumber', String(item.episodeNumber ?? 0));
-      formData.append('series', 'metaKnyts');
+      formData.append('series', seriesForUpload);
+      if (activeTab === 'qriptopian') {
+        formData.append('seriesScope', selectedQriptoSeries);
+      }
 
       let endpoint: string;
       if (item.category === 'master' || item.category === 'still' || item.category === 'print') {
@@ -602,6 +782,14 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         }
         if (item.category === 'lore' && item.displayMode) {
           formData.append('displayMode', item.displayMode);
+        }
+      }
+      if (item.cartridge === 'qriptopian') {
+        formData.append('cartridge', 'qriptopian');
+        formData.append('seriesMode', item.seriesMode ?? 'standalone');
+        if (item.seriesMode === 'part-of-series') {
+          formData.append('partNumber', String(item.partNumber ?? 1));
+          formData.append('partTotal', String(item.partTotal ?? 1));
         }
       }
 
@@ -795,21 +983,100 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
-                <Sparkles className="h-8 w-8 text-purple-400" />
+            // ── Qriptopian tab — Series + Content Type pickers ──────────
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* Series — Papers (sub-series) + Magazines (issues) */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Series</label>
+                  <select
+                    value={selectedQriptoSeries}
+                    onChange={(e) => setSelectedQriptoSeries(e.target.value)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    <optgroup label="Papers">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'papers').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Magazines">
+                      {QRIPTO_SERIES.filter((s) => s.group === 'magazines').map((s) => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                {/* Content Type */}
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Content Type</label>
+                  <select
+                    value={selectedQriptoCategory}
+                    onChange={(e) => setSelectedQriptoCategory(e.target.value as QriptoCategoryId)}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  >
+                    {QRIPTO_CATEGORIES.map((c) => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <h3 className="mb-2 text-lg font-medium text-white">Qriptopian Codex Coming Soon</h3>
-              <p className="max-w-md text-gray-400">
-                The Qriptopian Codex will support uploading Qriptopian-specific content, including
-                world-building documents, character profiles, and interactive experiences.
-              </p>
+
+              {/* Category description */}
+              <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+                <p className="text-xs text-purple-200">
+                  <strong>{currentQriptoCategory.label}:</strong>{' '}
+                  {currentQriptoCategory.description}{' '}
+                  <span className="text-gray-400">· Accepted: {currentQriptoCategory.accept}</span>
+                </p>
+              </div>
+
+              {/* Drag-drop zone */}
+              <div
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-600 bg-gray-800/30 py-8 transition hover:border-purple-500/50 hover:bg-purple-500/5"
+                onClick={() => qriptoFileInputRef.current?.click()}
+              >
+                <Upload className="mb-2 h-8 w-8 text-gray-400" />
+                <p className="text-sm text-white">Click to select files or drag and drop</p>
+                <p className="mt-1 text-xs text-gray-500">Accepted: {currentQriptoCategory.accept}</p>
+                <input
+                  ref={qriptoFileInputRef}
+                  type="file"
+                  multiple
+                  accept={currentQriptoCategory.accept}
+                  onChange={handleQriptoFileSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Upload queue — reuses the existing KNYT UploadQueueItem.
+                  Qripto items carry category='lore' (catchall) so the row
+                  renders the title + status without KNYT-specific
+                  controls (edition tier, rarity, display mode). The
+                  seriesScope flows through uploadItem() separately. */}
+              {uploadQueue.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="mb-2 text-sm font-medium text-gray-300">
+                    Upload Queue ({uploadQueue.length})
+                  </h4>
+                  <div className="max-h-64 space-y-2 overflow-y-auto">
+                    {uploadQueue.map((item) => (
+                      <UploadQueueItem
+                        key={item.id}
+                        item={item}
+                        category={ASSET_CATEGORIES.find((c) => c.id === 'lore')!}
+                        onUpdate={(updates) => updateItem(item.id, updates)}
+                        onRemove={() => removeItem(item.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        {activeTab === 'knyt' && uploadQueue.length > 0 && (
+        {uploadQueue.length > 0 && (
           <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800/50 px-6 py-4">
             <div className="flex items-center gap-4 text-sm">
               {pendingCount > 0 && <span className="text-gray-400">{pendingCount} pending</span>}

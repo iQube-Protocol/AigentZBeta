@@ -48,7 +48,13 @@ function getEnv(name: string): string | undefined {
   return v && v.length > 0 ? v : undefined;
 }
 
-function getSupabaseAdminClient(): SupabaseClient {
+/**
+ * Service-role client. Exported (2026-07-26) so the passport-native access path
+ * can reach `auth.admin` without standing up a second client factory — one
+ * definition, per `inv.engineering.036`. Callers outside this module must be
+ * server-only; this key must never reach a browser bundle.
+ */
+export function getSupabaseAdminClient(): SupabaseClient {
   const url = getEnv('SUPABASE_URL') || getEnv('NEXT_PUBLIC_SUPABASE_URL');
   const key = getEnv('SUPABASE_SERVICE_ROLE_KEY');
   if (!url || !key) throw new Error('Missing Supabase server configuration');
@@ -116,9 +122,27 @@ async function ensureAuthProfileExistsById(authProfileId: string): Promise<strin
 export type CallerIdentityContext = {
   authProfileId: string;
   email: string | null;
+  /**
+   * Supabase auth user id (T0, server-internal — NEVER serialise). Additive
+   * 2026-07-20: this is the key into root_identity.auth_user_id, the entry
+   * point of the DidQube chain (root DID → kybe DID). Populated only on the
+   * Bearer-token path — header/dev fallbacks carry null. Exposing it here
+   * keeps ONE token parser; personhood resolvers compose it rather than
+   * re-parsing the JWT (no parallel resolvers).
+   */
+  authUserId?: string | null;
 };
 
-async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string | null> {
+/**
+ * Exported (2026-07-26) for the passport-native path, which reaches a canonical
+ * auth profile through the personhood lineage rather than a Bearer token.
+ *
+ * NOTE ON THE EMAIL ARGUMENT: this is NOT email-based binding. The passport
+ * path reads the address off an auth user it already resolved by walking
+ * kybe → root → auth_user_id; the caller never supplies it, and nothing
+ * matches a caller-supplied email to an account.
+ */
+export async function getOrCreateCanonicalAuthProfileId(email: string): Promise<string | null> {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail) return null;
 
@@ -244,6 +268,7 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
           return {
             authProfileId: canonicalAuthProfileId,
             email: tokenEmail,
+            authUserId: userId,
           };
         }
       } catch {
@@ -254,6 +279,7 @@ export async function getCallerIdentityContext(request: NextRequest): Promise<Ca
     return {
       authProfileId: userId,
       email: tokenEmail,
+      authUserId: userId,
     };
   }
 

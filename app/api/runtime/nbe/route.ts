@@ -13,6 +13,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { emitJourneyTelemetry } from '@/services/orchestration/journeyTelemetry';
+import { runValueShadow } from '@/services/invariants/engine';
+import { DEPTH_LADDER, journeyProgressionProjector } from '@/services/invariants/nodes/journeyProgression';
+import type { JourneyStage } from '@/types/orchestration';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +122,16 @@ export async function GET(request: NextRequest) {
   const disposition = dispositionForStage(stage);
   const rationale = rationaleForStage(stage, depth, recDepth);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24h TTL
+
+  // CFS-035 — the journey-progression Invariant Decision Node runs in SHADOW on
+  // the universal ExperienceStage axis: it re-expresses the next-depth decision
+  // as a transparent value projection and emits the delta vs the incumbent
+  // (matrix-or-ladder) depth. Observe-only — `recDepth`/`disposition` are served
+  // unchanged. runValueShadow never throws.
+  runValueShadow(
+    DEPTH_LADDER.indexOf(recDepth as (typeof DEPTH_LADDER)[number]),
+    journeyProgressionProjector({ journeyStage: stage as JourneyStage, currentDepth: depth }),
+  );
 
   // 4. Persist computed plan
   const { data: nbe, error } = await db

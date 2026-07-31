@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { requireAdminPersona } from '@/app/api/_lib/requireAdmin';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,13 @@ const ALLOWED_FIELDS = new Set([
 const CHUNK_SIZE = 100;
 
 export async function POST(request: NextRequest) {
+  if (!(await requireAdminPersona(request))) {
+    return NextResponse.json(
+      { error: 'Admin access required' },
+      { status: 403 },
+    );
+  }
+
   let body: { ids?: unknown; updates?: unknown };
   try {
     body = await request.json();

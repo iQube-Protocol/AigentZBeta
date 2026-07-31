@@ -102,9 +102,9 @@ export default function MarketaSmartTriad({ data, onAction, compact = false }: M
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-400">Active Campaigns</p>
-                <p className="text-lg font-bold text-rose-400">{mockData.campaigns.filter(c => c.status === 'active').length}</p>
+                <p className="text-lg font-bold text-pink-300">{mockData.campaigns.filter(c => c.status === 'active').length}</p>
               </div>
-              <Target className="w-5 h-5 text-rose-400/50" />
+              <Target className="w-5 h-5 text-pink-300/50" />
             </div>
           </div>
           <div className="bg-slate-800/50 rounded-lg p-3 border border-white/10">
@@ -153,7 +153,7 @@ export default function MarketaSmartTriad({ data, onAction, compact = false }: M
         <div className="flex gap-2">
           <Button 
             size="sm" 
-            className="flex-1 bg-rose-500 hover:bg-rose-600 text-white text-xs"
+            className="flex-1 bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm text-xs"
             onClick={() => handleAction('create_campaign', null)}
           >
             <Plus className="w-3 h-3 mr-1" />
@@ -179,14 +179,14 @@ export default function MarketaSmartTriad({ data, onAction, compact = false }: M
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-rose-400 mb-1 flex items-center gap-2">
+          <h3 className="text-xl font-bold text-pink-300 mb-1 flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
             Marketa SmartTriad
           </h3>
           <p className="text-slate-400 text-sm">Marketing automation and campaign management</p>
         </div>
         <Button 
-          className="bg-rose-500 hover:bg-rose-600 text-white"
+          className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
           onClick={() => handleAction('open_full', null)}
         >
           <Package className="w-4 h-4 mr-2" />
@@ -233,10 +233,10 @@ export default function MarketaSmartTriad({ data, onAction, compact = false }: M
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">QC</p>
-              <p className="text-lg font-bold text-rose-400">{formatNumber(mockData.kpiStats.rewardsQc)}</p>
+              <p className="text-lg font-bold text-pink-300">{formatNumber(mockData.kpiStats.rewardsQc)}</p>
             </div>
-            <div className="w-6 h-6 bg-rose-400/20 rounded flex items-center justify-center">
-              <span className="text-rose-400 text-xs">QC</span>
+            <div className="w-6 h-6 bg-pink-300/20 rounded flex items-center justify-center">
+              <span className="text-pink-300 text-xs">QC</span>
             </div>
           </div>
         </div>
@@ -263,7 +263,7 @@ export default function MarketaSmartTriad({ data, onAction, compact = false }: M
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3">
         <Button 
-          className="bg-rose-500 hover:bg-rose-600 text-white"
+          className="bg-pink-400/20 hover:bg-pink-400/30 border border-pink-400/40 text-pink-100 backdrop-blur-sm"
           onClick={() => handleAction('create_campaign', null)}
         >
           <Plus className="w-4 h-4 mr-2" />

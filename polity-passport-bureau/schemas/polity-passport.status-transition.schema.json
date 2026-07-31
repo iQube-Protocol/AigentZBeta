@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.metame.com/polity/passport/v0.1/polity-passport.status-transition.schema.json",
+  "title": "Polity Passport Status Transition",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "transition_id",
+    "passport_or_application_id",
+    "from_status",
+    "to_status",
+    "transitioned_at",
+    "actor",
+    "reason"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "transition_id": {
+      "type": "string"
+    },
+    "passport_or_application_id": {
+      "type": "string"
+    },
+    "registry_record_id": {
+      "type": "string"
+    },
+    "from_status": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/passportStatus"
+    },
+    "to_status": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/passportStatus"
+    },
+    "transitioned_at": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/isoDatetime"
+    },
+    "actor": {
+      "type": "object",
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "properties": {
+        "actor_type": {
+          "type": "string",
+          "enum": [
+            "applicant",
+            "agent",
+            "system",
+            "steward",
+            "committee",
+            "admin"
+          ]
+        },
+        "actor_id": {
+          "type": "string"
+        },
+        "actor_did": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "reason": {
+      "type": "string"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "application_submitted",
+          "pending_record_created",
+          "automated_review_complete",
+          "steward_review_complete",
+          "approved",
+          "restricted",
+          "needs_more_information",
+          "denied",
+          "suspended",
+          "revoked",
+          "expired",
+          "renewed",
+          "appeal_submitted",
+          "appeal_granted",
+          "appeal_denied",
+          "security_event",
+          "policy_violation",
+          "applicant_request",
+          "other"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "receipt": {
+      "$ref": "https://schemas.metame.com/polity/passport/v0.1/common.schema.json#/$defs/receiptRef"
+    }
+  },
+  "additionalProperties": false
+}

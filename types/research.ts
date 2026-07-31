@@ -1,0 +1,789 @@
+/**
+ * Research object model — CFS-019 §4, Phase C contract.
+ *
+ * Contract-first (the Chrysalis discipline): these types + pinned registries
+ * are the object model; DB tables arrive only when lifecycle automation
+ * demands rows. Lifecycle ORDER is constitutional data (sequencing
+ * corollary, inv.constitutional.078) — pinned by canary.
+ */
+
+// ─── Lifecycles (order is meaning — canary-pinned) ──────────────────────────
+
+export const EXPERIMENT_LIFECYCLE = [
+  'designed',
+  'protocol-ratified',
+  'running',
+  'evaluated',
+  'published',
+  'replicated',
+] as const;
+export type ExperimentLifecycleState = (typeof EXPERIMENT_LIFECYCLE)[number];
+
+export const PUBLICATION_LIFECYCLE = ['draft', 'internal', 'canonical', 'superseded'] as const;
+export type PublicationLifecycleState = (typeof PUBLICATION_LIFECYCLE)[number];
+
+/** Finding maturity: an observation becomes constitutional knowledge only
+ * through replication and canonization (never by assertion). */
+export const FINDING_LIFECYCLE = ['observed', 'replicated', 'canonized-as-invariant'] as const;
+export type FindingLifecycleState = (typeof FINDING_LIFECYCLE)[number];
+
+/** Publication kinds (CFS-019 §4) — the `publishResult` discipline generalized. */
+export const PUBLICATION_KINDS = ['working', 'technical', 'white', 'note', 'conference'] as const;
+export type PublicationKind = (typeof PUBLICATION_KINDS)[number];
+
+// ─── Objects ─────────────────────────────────────────────────────────────────
+
+export type ConstitutionalLayer = 'I' | 'II' | 'III';
+
+export interface ResearchExperiment {
+  id: string; // EXP-NNN
+  layer: ConstitutionalLayer;
+  family: string;
+  seriesId: string;
+  hypothesis: string;
+  /** Repo path of the protocol/design doc — provenance, not prose. */
+  protocolRef: string;
+  /** Seed ids of governing invariants (invariantsUsed rides receipts). */
+  governingInvariants: string[];
+  /**
+   * PROGRAMME FOCUS — the one-word-ish role this experiment plays in the
+   * foundational sequence (Compression → Consequence → Representation →
+   * Interaction). Distinct from `family`, which carries the PROTOCOL TITLE.
+   *
+   * Two fields rather than one label (operator, 2026-07-27): compressing them
+   * into "Reasoning Compression — Representation & Runtime Gauntlet" made the
+   * focus and the title read as competing descriptions of the same thing. They
+   * are different truths, so surfaces render whichever one their context needs:
+   * a SERIES view shows `EXP-P1 — {programmeFocus}`, a DETAIL view shows the
+   * protocol title, and metadata shows "Foundational focus: {programmeFocus}".
+   * Set on the four reserved P-slots; absent elsewhere, where `family` alone is
+   * the hypothesis class.
+   */
+  programmeFocus?: string;
+  /**
+   * LINEAGE — the designation this experiment previously carried, if it was
+   * renumbered. Structured rather than buried in prose so the parity canaries
+   * can assert it and no renumbered design can be silently returned to the
+   * foundational slot it vacated. Absent for experiments that never moved.
+   */
+  formerly?: string;
+  /**
+   * INSTANTIATION — the foundational experiment whose constitutional question
+   * this experiment instantiates in ONE consequence domain. Operator ruling
+   * 2026-07-27: "P2 should no longer be one monolithic protocol. It should
+   * become a family of consequence experiments that share the same
+   * constitutional framework but operate in different consequence domains."
+   *
+   * Structured rather than encoded in `family` prose, for the same reason
+   * `formerly` is: a canary can assert it, and a surface reading `family`
+   * cannot mistake an instantiation for a foundational slot. An instantiation
+   * is NOT a renumbering — the parent slot still exists and still holds the
+   * constitutional question — so `instantiationOf` and `formerly` are never
+   * both set to the same id.
+   *
+   * An instantiation carries no `programmeFocus` (the focus belongs to the
+   * slot) and is not a member of the foundational series.
+   */
+  instantiationOf?: string;
+}
+
+export interface ResearchSeries {
+  id: string;
+  name: string;
+  claim: string;
+  members: string[]; // experiment ids
+  charterRef: string;
+}
+
+export interface ResearchOverviewEntry {
+  experiment: ResearchExperiment;
+  /** Derived honestly from canonical publications — never asserted. */
+  lifecycle: ExperimentLifecycleState;
+  publishedRuns: number;
+  distinctProviders: number;
+  latestRunAt: string | null;
+}
+
+/**
+ * Finding (CFS-019 §4): claim + evidence refs + maturity status. A finding
+ * enters at `observed` and only earns `replicated` / `canonized-as-invariant`
+ * through the lifecycle — never by assertion. `evidenceRefs` carry hash
+ * commitments / canonical-result ids (provenance), never raw T0 identifiers.
+ */
+export interface ResearchFinding {
+  id: string; // FIND-<slug> — session-local, T2-safe
+  /** Governing experiment (EXP-NNN) the observation came from. */
+  experimentId: string;
+  claim: string;
+  /** Hash commitments / canonical result ids — provenance, never prose, never T0 ids. */
+  evidenceRefs: string[];
+  lifecycle: FindingLifecycleState;
+  /** Seed ids of governing invariants (ride receipts as invariantsUsed). */
+  governingInvariants: string[];
+}
+
+/**
+ * Publication (CFS-019 §4): the `publishResult` discipline generalized —
+ * kind, source artifacts (experiment ids / result hashes / finding ids),
+ * abstract, lineage via lifecycle. Enters at `draft`.
+ */
+export interface ResearchPublication {
+  id: string; // PUB-<slug> — session-local, T2-safe
+  kind: PublicationKind;
+  title: string;
+  /** Experiment ids, canonical result hashes, or finding ids — provenance. */
+  sourceArtifacts: string[];
+  abstract: string;
+  lifecycle: PublicationLifecycleState;
+}
+
+// ─── Pinned registries (the founding holdings — CFS-019 §3) ─────────────────
+
+export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
+  {
+    id: 'EXP-001',
+    layer: 'I',
+    family: 'Semantic Fidelity',
+    seriesId: 'FVS',
+    hypothesis:
+      'A living KnowledgeQube grounded in canonical invariants preserves semantic fidelity across independent renderings.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/README.md',
+    governingInvariants: ['inv.constitutional.060', 'inv.reasoning.001'],
+  },
+  {
+    id: 'EXP-002',
+    layer: 'I',
+    family: 'Temporal Fidelity',
+    seriesId: 'FVS',
+    hypothesis:
+      'Invariant-carried video preserves identity and narrative coherence across segments; sequence is scored, not validated.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-002-invariant-video/README.md',
+    governingInvariants: ['inv.constitutional.078', 'inv.reasoning.095', 'inv.reasoning.096'],
+  },
+  {
+    id: 'EXP-003',
+    layer: 'I',
+    family: 'Reasoning Economics',
+    seriesId: 'FVS',
+    hypothesis:
+      'Initialized (invariant-grounded) reasoning reduces rediscovery cost versus cold reasoning at equal or better groundedness.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-003-rediscovery-savings/README.md',
+    governingInvariants: ['inv.constitutional.062'],
+  },
+  {
+    id: 'EXP-004',
+    layer: 'I',
+    family: 'Constitutional Sovereignty',
+    seriesId: 'PSE',
+    hypothesis:
+      'Constitutional operation survives on a non-frontier (open-weight) provider alone; quality may degrade, constitutional operation shall not.',
+    protocolRef: 'services/experiments/exp004.ts',
+    governingInvariants: ['inv.sovereignty.100', 'inv.sovereignty.102', 'inv.sovereignty.103'],
+  },
+  {
+    id: 'EXP-005',
+    layer: 'I',
+    family: 'Provider Choice',
+    seriesId: 'PSE',
+    hypothesis:
+      'Provider choice is a real, measured sovereignty-bundle component: the same constitutional battery hands across providers mid-run (cross-provider judged) and constitutional operation survives the switch. Demonstrates S2 (substitutable) exercised, not merely available.',
+    protocolRef: 'services/experiments/exp005.ts',
+    governingInvariants: ['inv.sovereignty.102'],
+  },
+  // ─── Invariant Intelligence Validation Series (CRP-002 · metaMe IRL) ────────
+  {
+    id: 'EXP-006',
+    layer: 'I',
+    family: 'Intent → Invariant Projection Fidelity',
+    seriesId: 'IIVS',
+    hypothesis:
+      'Intent projects onto a minimal invariant set predictable against the CIRS (Stage A: overlap/precision/recall), and that set produces superior downstream reasoning (Stage B). Every predicted-vs-CIRS disagreement is a classified Invariant Delta — first-class data for the emergent WP0 (Option 1A).',
+    protocolRef: 'services/experiments/irlExp001.ts',
+    governingInvariants: ['inv.epistemology.119', 'inv.epistemology.120'],
+  },
+  {
+    id: 'EXP-007',
+    layer: 'I',
+    family: 'Reasoning Entropy Reduction',
+    seriesId: 'IIVS',
+    hypothesis:
+      'Invariant-initialised reasoning reduces reasoning entropy vs retrieval across a four-arm ladder (large-context → naive-rag → existing-kb → invariant-runtime). Beating naïve RAG is easy; the honest bar is beating our own production KB retrieval.',
+    protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    governingInvariants: ['inv.epistemology.119', 'inv.constitutional.062'],
+  },
+  {
+    id: 'EXP-008',
+    layer: 'I',
+    family: 'Cross-Modal Invariant Reuse (Propagation Fidelity)',
+    seriesId: 'IIVS',
+    hypothesis:
+      'A single invariant set propagates across modalities (article/story/image/ux/prd) with high fidelity: blind reviewers can reconstruct the original invariant set from the artifacts. Propagation Fidelity is the benchmark.',
+    protocolRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+    governingInvariants: ['inv.epistemology.119'],
+  },
+  // Stage 0 — Instrument Validation (2026-07-17). Validate the IRE + IPE engines
+  // before they carry any science (IRL_VALIDATION_ROADMAP.md). Hypothesis class:
+  // Operational — scores the engines, not LLM task performance.
+  {
+    id: 'IRV-001',
+    layer: 'I',
+    family: 'Instrument Validation — Invariant Resolution (Operational)',
+    seriesId: 'IV0',
+    hypothesis:
+      'Does the IRE resolve a sensible, stable, reproducible governing-invariant field for an intent, measured against a Synthetic Expert Baseline (coverage / compression / novelty / stability)? Engineering calibration, not a scientific claim; SEB is not a Delphi study.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/irv-001-invariant-resolution-validation/README.md',
+    governingInvariants: ['inv.reasoning.310', 'inv.reasoning.322'],
+  },
+  {
+    id: 'IPV-001',
+    layer: 'I',
+    family: 'Instrument Validation — Invariant Projection (Operational)',
+    seriesId: 'IV0',
+    hypothesis:
+      'Are the IPE’s projections exactly reproducible across repeated runs on the frozen substrate (standing + coordinate dimension weights, meanAbsDelta, diverges)? Reproducibility is necessary, not sufficient — semantics are EXP-P2 B4.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/ipv-001-invariant-projection-validation/README.md',
+    governingInvariants: ['inv.reasoning.312', 'inv.reasoning.315'],
+  },
+  // Validation Programme v1 (2026-07-17) — the three orthogonal-by-hypothesis-class
+  // experiments (IRL_VALIDATION_ROADMAP.md). Each answers ONE class; none proves another's.
+  {
+    id: 'EXP-P1',
+    layer: 'I',
+    // `family` is the PROTOCOL TITLE; `programmeFocus` is the sequence role.
+    // Kept apart so neither has to be bent into the other (see the field docs).
+    family: 'Representation & Runtime Gauntlet (Comparative)',
+    programmeFocus: 'Reasoning Compression',
+    seriesId: 'VP1',
+    hypothesis:
+      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
+    governingInvariants: ['inv.reasoning.310', 'inv.reasoning.313', 'inv.reasoning.318'],
+  },
+  {
+    // DESIGNATION REASSIGNED 2026-07-27 (operator: "let's move the old EXP P2
+    // and P3 to new numbers … P1/2/3/4 need to be reserved for these
+    // strategically core experiments"). EXP-P2 is the CONSEQUENCE experiment of
+    // the series — invariant-governed generation and verification for physical
+    // design. The Structural Invariance battery that held this designation is
+    // renumbered EXP-011 below: renumbered, never withdrawn.
+    // WIDENED 2026-07-27 (second operator ruling of the day): EXP-P2 is no
+    // longer one monolithic protocol. It is the FAMILY — it holds the
+    // constitutional question and the shared constitutional framework, and the
+    // domains live in its instantiations (EXP-P2A software, EXP-P2B physical).
+    // The former family title, "Invariant-Governed Physical Design", moved with
+    // its protocol to EXP-P2B; the P2 slot itself was NOT renumbered.
+    id: 'EXP-P2',
+    layer: 'I',
+    family: 'Family of Consequence Experiments — P2A Software · P2B Physical',
+    programmeFocus: 'Consequential Performance',
+    seriesId: 'VP1',
+    hypothesis:
+      'Does the Condition-Directed Gated Verification Workflow improve consequential correctness and/or reduce expert effort to acceptance compared with condition-directed prose review, without producing materially worse consequential failures? (v0.5 §3.) The programme-facing framing remains the constitutional question — do invariant-guided representations improve consequential task performance under equivalent informational content — but §7.3 requires the mechanism-level construct in registered claims. v0.5 architecture settled; PREREGISTRATION NOT YET AUTHORIZED until Appendix C is resolved.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/02_protocol-v0.5.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    // ESTABLISHED 2026-07-27 by the same ruling. P2A is the first of the two
+    // consequence domains and the condition CFS-053 §10.0 names first ("P2A
+    // exists") for Law XVII — existence only; the other two conditions
+    // (software consequence formally IN the programme, one supporting result)
+    // are untouched by registering it.
+    id: 'EXP-P2A',
+    layer: 'I',
+    family: 'Software Consequences — Constitutional Computing applied to software',
+    seriesId: 'CEF',
+    hypothesis:
+      'Whether the workflow improves executable software outcomes and reduces expert effort required to reach a frozen acceptance threshold (v0.5 §9.1). One of two independently confirmatory domains; primary contrast W3 versus W2 within domain, anchored by held-out executable acceptance suites (§19). PREREGISTRATION NOT YET AUTHORIZED — task classes frozen only after pilot feasibility assessment.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2a-software-consequences/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    instantiationOf: 'EXP-P2',
+  },
+  {
+    // ESTABLISHED 2026-07-27. "This remains the lamp experiment" — P2B is
+    // continuous with the design that held the P2 slot; its v1.0 candidate
+    // protocol moved with the directory and is preserved verbatim as prior art.
+    // NOT `formerly: 'EXP-P2'`: EXP-P2 was not renumbered, it became the family.
+    id: 'EXP-P2B',
+    layer: 'I',
+    family: 'Physical Consequences — Invariant-Governed Generation and Verification for Physical Design',
+    seriesId: 'CEF',
+    hypothesis:
+      'Whether the workflow improves the correctness, safety, and acceptance efficiency of buildable physical designs (v0.5 §9.2). Candidate object classes lamp, shelf, enclosure; anchored by blinded expert assessment and a preregistered fabricated subsample (§20.5), whose proxy-validity hypothesis H2.7 downgrades to exploratory if it cannot be powered. PREREGISTRATION NOT YET AUTHORIZED.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2b-physical-consequences/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    instantiationOf: 'EXP-P2',
+  },
+  {
+    // DESIGNATION REASSIGNED 2026-07-27 (operator: "EXP P3 is supposed to be
+    // about invariant representation not capability. What's in the lab does not
+    // seem to be in line with the file I shared"). EXP-P3 is the Representation
+    // of Structural Invariants experiment — the third question of the series
+    // (P1 compression → P2 consequence → P3 representation → P4 interaction),
+    // authored from the operator-supplied source as the six-doc set below.
+    //
+    // The Capability Validation demonstration that held this designation is
+    // renumbered EXP-012 below: renumbered, never withdrawn.
+    id: 'EXP-P3',
+    layer: 'I',
+    family: 'Representation of Structural Invariants',
+    programmeFocus: 'Representation',
+    seriesId: 'VP1',
+    hypothesis:
+      'Under conditions of audited informational equivalence, does representational substrate materially affect computational reasoning over structural knowledge? Isolates representation as the causal variable — P1 tests compression, P2 tests consequence, P3 tests representation itself.',
+    protocolRef:
+      'codexes/packs/irl/foundation/experiments/exp-p3-representation-of-structural-invariants/02_experimental-protocol.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
+  },
+  {
+    // RESERVED 2026-07-27 — the fourth core designation, held so it cannot be
+    // taken before the interaction protocol is written. The Laboratory shows it
+    // as reserved rather than silently absent; `protocolRef` points at a
+    // reservation note that is explicitly NOT a design and carries no
+    // predictions. No result may be attributed to EXP-P4 until a ratified
+    // protocol replaces that file. Named and deferred in the operator-supplied
+    // P3 source: interaction/interference/resonance/field behaviour concern the
+    // invariants themselves, not their representation.
+    id: 'EXP-P4',
+    layer: 'I',
+    family: 'Invariant Interaction — RESERVED, not yet designed',
+    programmeFocus: 'Interaction',
+    seriesId: 'VP1',
+    hypothesis:
+      'RESERVED — no protocol yet. The reserved question: do structural invariants exhibit interaction or field-like behaviour? Deferred from EXP-P3 deliberately, because interaction concerns properties of the invariants themselves rather than their representation.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p4-invariant-interaction/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322'],
+  },
+  // ─── Renumbered 2026-07-27 to free the reserved P2 / P3 slots (operator
+  //     ruling: EXP-P1…P4 are the four strategically core experiments). Both
+  //     designs are retained in FULL and stay in the Laboratory — only their
+  //     numbers changed, taking the next free EXP-0NN values rather than reused
+  //     ones (no-number-reuse). Cross-references predating that date which name
+  //     "EXP-P2" for Structural Invariance, or "EXP-P3" for Capability
+  //     Validation, refer to these two entries. ────────────────────────────────
+  {
+    id: 'EXP-011',
+    layer: 'I',
+    family: 'Structural Invariance (Structural)',
+    seriesId: 'SCS',
+    hypothesis:
+      'Can structural invariants be discovered, composed and reused as a reasoning substrate independently of prompt/context engineering — tested representation-vs-representation on ONE corpus (same-corpus control). The empirical test of inv.reasoning.323.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-011-structural-invariance/README.md',
+    governingInvariants: ['inv.reasoning.323', 'inv.reasoning.322', 'inv.reasoning.313'],
+    formerly: 'EXP-P2',
+  },
+  {
+    id: 'EXP-012',
+    layer: 'I',
+    family: 'Capability Validation (Capability)',
+    seriesId: 'SCS',
+    hypothesis:
+      'What becomes practical because reasoning is a reusable invariant field? Demonstration (not proof): consequence engineering by field projection vs similarity-retrieval baseline on held-out changes.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-012-capability-validation/README.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.313'],
+    formerly: 'EXP-P3',
+  },
+  // ─── Constitutional Knowledge Evolution (the institute's first longitudinal
+  //     series — dynamical, not static). DESIGN (deferred 2026-07-14). ──────────
+  {
+    id: 'EXP-009',
+    layer: 'I',
+    family: 'Constitutional Knowledge Evolution (Longitudinal)',
+    seriesId: 'CKE',
+    hypothesis:
+      'Validated action changes Standing; changed Standing reorganizes the knowledge substrate; the reorganized substrate changes subsequent reasoning — a dynamical loop, not a static Knowledge→Reasoning→Measurement pipeline. Sub-experiments 9A/9B compare standing-weighted vs confidence-weighted retrieval.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-009-constitutional-knowledge-evolution/README.md',
+    governingInvariants: ['inv.epistemology.131', 'inv.epistemology.132'],
+  },
+  // ─── The Representation Gauntlet (co-designed with an external reviewer; the
+  //     externally-countersigned four-arm design that VP1/EXP-P1 froze). DESIGN. ─
+  {
+    id: 'EXP-010',
+    layer: 'I',
+    family: 'Representation Gauntlet (Comparative, externally co-designed)',
+    seriesId: 'RGP',
+    hypothesis:
+      'Two separable claims: (A) compressed validated knowledge at inference improves reasoning economy (likely true, not novel — EXP-003 shows it); (B) invariant REPRESENTATION + runtime beats conventional context engineering at equal token budget under externally-specified controls. Only (B) is distinctively ours; the four-arm design is the object EXP-P1 countersigned and froze.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/exp-010-representation-gauntlet/README.md',
+    governingInvariants: ['inv.epistemology.132', 'inv.epistemology.133', 'inv.reasoning.085'],
+  },
+  // ─── Constitutional Computing Experiments (CCE) — executed demonstrations that
+  //     Constitutional Computing is an executable engineering discipline. ────────
+  {
+    id: 'CCE-006',
+    layer: 'II',
+    family: 'Constitutional Capability Convergence (Executed — CVR-001)',
+    seriesId: 'CCE',
+    hypothesis:
+      'A Constitutional Capability Pipeline can identify constitutional inconsistencies within its own output and converge on a corrected result — the first empirical evidence that Constitutional Computing is an executable engineering discipline, not merely an architectural philosophy.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/cce-006-constitutional-capability-convergence/README.md',
+    governingInvariants: ['inv.cybernetics.108', 'inv.reasoning.311'],
+  },
+  {
+    id: 'CCE-007',
+    layer: 'II',
+    family: 'Constitutional Reconciliation Loop (Executed — CFS-030)',
+    seriesId: 'CCE',
+    hypothesis:
+      "The platform's own infrastructure can detect its validation failure, dispatch a correction to an external executor, and revalidate the corrected result end-to-end — a full detect → correct → revalidate → deploy cycle through in-platform mechanism, with no manual re-authoring step.",
+    protocolRef: 'codexes/packs/irl/foundation/experiments/cce-007-constitutional-reconciliation-loop/README.md',
+    governingInvariants: ['inv.cybernetics.108', 'inv.cybernetics.109'],
+  },
+  // ─── Invariant Software Engineering (ISE) — a new research line studying
+  //     software itself (ISR-001 charter + Stage-0 freeze, 2026-07-21). DESIGN. ──
+  {
+    id: 'ISR-001',
+    layer: 'I',
+    family: 'Invariant Software Reduction (Structural/Capability, applied to software)',
+    seriesId: 'ISE',
+    hypothesis:
+      'A software capability has a minimum sufficient causal structure derivable from an explicit invariant set, so it can be reduced/re-projected while provably preserving behaviour, constitutional properties, robustness and evolvability. Four arms (existing / conventional optimisation / IRE-flattened / IPE-projected) scored on Effective Invariant Compression = ISCR × BPS. Amplify SSR pruning is Phase Zero.',
+    protocolRef: 'codexes/packs/irl/foundation/experiments/isr-001-invariant-software-reduction/README.md',
+    governingInvariants: ['inv.reasoning.322', 'inv.reasoning.324'],
+  },
+];
+
+export const SERIES_REGISTRY: ResearchSeries[] = [
+  {
+    id: 'FVS',
+    name: 'Foundational Validation Series',
+    claim: 'The invariant substrate is real: semantic, temporal, and efficiency properties are measurable.',
+    members: ['EXP-001', 'EXP-002', 'EXP-003'],
+    charterRef: 'codexes/packs/irl/foundation/CFS-015_operation-chrysalis-2-prd.md',
+  },
+  {
+    id: 'PSE',
+    name: 'Platform Sovereignty Experiment Series',
+    claim: 'Platform sovereignty is a measurable bundle: model, provider choice, commercial independence, infrastructure.',
+    members: ['EXP-004', 'EXP-005'],
+    charterRef: 'codexes/packs/irl/foundation/CFS-018_platform-sovereignty.md',
+  },
+  {
+    id: 'IIVS',
+    name: 'Invariant Intelligence Validation Series',
+    claim: 'Intent projects onto minimal invariant sets; those sets reason more faithfully at lower entropy and propagate across modalities — and the disagreements teach us what an invariant is.',
+    members: ['EXP-006', 'EXP-007', 'EXP-008'],
+    charterRef: 'codexes/packs/irl/foundation/CRP-002_invariant-intelligence-intent-driven-compression.md',
+  },
+  {
+    id: 'IV0',
+    name: 'Instrument Validation (Stage 0)',
+    claim: 'The IRE + IPE engines are stable, reproducible instruments — validated before they carry any science (calibrate the telescope before observing).',
+    members: ['IRV-001', 'IPV-001'],
+    charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
+  },
+  {
+    // REDEFINED 2026-07-27 (operator ruling). VP1 is the FOUR strategically
+    // core experiments covering the breadth of invariant research — one per
+    // fundamental question. Its former Structural and Capability members were
+    // renumbered EXP-011 / EXP-012 and now sit in the SCS companion series;
+    // they were renumbered, never withdrawn.
+    id: 'VP1',
+    name: 'Validation Programme v1',
+    claim: 'Four foundational experiments, one per fundamental question — Compression (can reasoning be compressed into structural invariants?), Consequence (do invariant-guided workflows improve outcomes?), Representation (does representational substrate affect reasoning?), and Interaction (do invariants exhibit field-like behaviour? — reserved, not yet designed). Together they cover the breadth of the programme; no one of them substitutes for another.',
+    members: ['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4'],
+    charterRef: 'codexes/packs/irl/foundation/IRL_VALIDATION_ROADMAP.md',
+  },
+  {
+    // ESTABLISHED 2026-07-27 (operator ruling). The instantiations of EXP-P2 —
+    // a family, in the operator's word: "It should become a family of
+    // consequence experiments that share the same constitutional framework but
+    // operate in different consequence domains." A separate series, not extra
+    // VP1 members: VP1 holds the four foundational SLOTS and P2 is still the
+    // slot. `members` is canary-pinned against the `instantiationOf` field so
+    // the two cannot drift into disagreeing about who is in the family.
+    id: 'CEF',
+    name: 'Consequence Experiment Family (EXP-P2)',
+    claim:
+      'One constitutional question — do invariant-guided representations improve consequential task performance compared with conventional documentation under equivalent informational content? — instantiated in different consequence domains: software (EXP-P2A) and physical construction (EXP-P2B). Everything above the experimental domain is shared and written once; only the domain changes. Every representation entering either instantiation must first pass RSS-001 certification.',
+    members: ['EXP-P2A', 'EXP-P2B'],
+    charterRef:
+      'codexes/packs/irl/foundation/experiments/exp-p2-consequential-performance/01_shared-constitutional-framework.md',
+  },
+  {
+    // The two designs displaced from the reserved P2 / P3 slots on 2026-07-27.
+    // A companion series rather than a demotion: both keep their full designs,
+    // their hypothesis classes, and their place in the Laboratory.
+    id: 'SCS',
+    name: 'Structural & Capability Studies',
+    claim: 'The substrate-and-capability companion studies to the four core experiments: is the invariant substrate real and reusable independently of prompt engineering (EXP-011, Structural), and what becomes practical because reasoning is a reusable invariant field (EXP-012, Capability)? Renumbered from EXP-P2 / EXP-P3 in 2026-07-27 when the P1-P4 designations were reserved for the core series.',
+    members: ['EXP-011', 'EXP-012'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/SERIES-RATIFICATION_p1-p2-p3.md',
+  },
+  {
+    id: 'CKE',
+    name: 'Constitutional Knowledge Evolution',
+    claim: 'Knowledge is dynamical, not static: validated action changes Standing, changed Standing reorganizes the substrate, and the reorganized substrate changes subsequent reasoning — the institute’s first longitudinal series.',
+    members: ['EXP-009'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/exp-009-constitutional-knowledge-evolution/README.md',
+  },
+  {
+    id: 'RGP',
+    name: 'Representation Gauntlet Programme',
+    claim: 'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally-specified controls — the two-claim decomposition co-designed with an external reviewer, whose four-arm design VP1 froze.',
+    members: ['EXP-010'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/exp-010-representation-gauntlet/README.md',
+  },
+  {
+    id: 'CCE',
+    name: 'Constitutional Computing Experiments',
+    claim: 'Constitutional Computing is an executable engineering discipline: a capability pipeline can detect its own constitutional inconsistencies, dispatch corrections, and revalidate — demonstrated end-to-end (CCE-006 convergence, CCE-007 reconciliation loop).',
+    members: ['CCE-006', 'CCE-007'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/cce-006-constitutional-capability-convergence/README.md',
+  },
+  {
+    id: 'ISE',
+    name: 'Invariant Software Engineering',
+    claim: 'Software itself has a minimum sufficient causal structure derivable from an explicit invariant set — so a capability can be reduced or re-projected while provably preserving behaviour, constitutional properties and evolvability. Begins with ISR-001.',
+    members: ['ISR-001'],
+    charterRef: 'codexes/packs/irl/foundation/experiments/isr-001-invariant-software-reduction/RESEARCH-LINE_invariant-software-engineering.md',
+  },
+];
+
+/**
+ * Research Programmes — Aletheon nomenclature (CFS-019 institute-standing
+ * amendment, 2026-07-06): Research Programmes → Validation Series →
+ * Experiments. The A/B/C names are the validation-work presentation of the
+ * foundational holdings; canary-pinned like the registries above. EXP-004
+ * sits in the PSE series pending its programme letter.
+ */
+export const RESEARCH_PROGRAMMES = [
+  { id: 'A', name: 'Invariant Knowledge', experiments: ['EXP-001'], exploratory: false },
+  { id: 'B', name: 'Temporal Composition', experiments: ['EXP-002'], exploratory: false },
+  { id: 'C', name: 'Reasoning Compression', experiments: ['EXP-003'], exploratory: false },
+  // Research Roadmap Expansion (CFS-019 amendment, 2026-07-07). A long-term,
+  // EXPLORATORY programme — no experiments yet. Its purpose is to identify the
+  // invariant structures stable across reasoning systems and the properties
+  // unique to particular forms of reasoning, framed as hypotheses, never
+  // assuming answers where evidence does not yet exist.
+  { id: 'D', name: 'Reasoning Systems', experiments: [], exploratory: true },
+  // CRP-002 (metaMe IRL) — the first programme formally chartered under CRP-001.
+  // Intent Science is the entry point; Knowledge Compression is one mechanism.
+  { id: 'E', name: 'Invariant Intelligence', experiments: ['EXP-006', 'EXP-007', 'EXP-008'], exploratory: false },
+] as const;
+
+// ─── Research Roadmap Expansion (CFS-019 amendment, 2026-07-07) ──────────────
+// The applied-research agenda the IRL Copilot plans against. Incorporated into
+// the EXISTING roadmap/registry — not a parallel framework. Canary-pinned.
+
+/**
+ * Applied Constitutional Research (CFS-019 guiding principle). Research aims not
+ * at theory alone but at constitutional capabilities that can be implemented,
+ * experimentally validated, and integrated. Implementation is PART of research,
+ * not a downstream activity. The preferred outcome of every programme is this
+ * chain — experimental evidence, measured consequence, and constitutional
+ * standing together form the empirical validation process.
+ */
+export const APPLIED_RESEARCH_CHAIN = [
+  'Discovery',
+  'Compression',
+  'Implementation',
+  'Validation',
+  'Standing',
+  'Canonical Knowledge',
+] as const;
+
+/**
+ * Roadmap prioritization — prefer research satisfying ALL THREE. Preserves the
+ * applied emphasis while letting exploratory programmes mature over time.
+ */
+export const ROADMAP_PRIORITIZATION_CRITERIA = [
+  'Advances foundational constitutional understanding',
+  'Can be experimentally validated using the current platform',
+  'Has a plausible pathway to improving constitutional capability',
+] as const;
+
+/** What every research item should seek to produce (research governance). */
+export const RESEARCH_OUTPUT_KINDS = [
+  'validated invariants',
+  'constitutional refinements',
+  'engineering capabilities',
+  'experimental evidence',
+  'implementation guidance',
+] as const;
+
+/**
+ * Initial research themes of the Reasoning Systems programme. `exploratory`
+ * items remain explicitly marked until sufficient evidence exists to produce
+ * implementation outcomes (research governance).
+ */
+export interface ResearchTheme {
+  id: string;
+  title: string;
+  investigate: string[];
+  hypothesis?: string;
+  exploratory: boolean;
+}
+
+export const RESEARCH_THEMES: ResearchTheme[] = [
+  {
+    id: 'reasoning-systems',
+    title: 'Reasoning Systems',
+    investigate: [
+      'biological reasoning', 'machine reasoning', 'collective reasoning', 'institutional reasoning',
+      'shared invariant structures', 'unique properties', 'constitutional implications',
+    ],
+    exploratory: true,
+  },
+  {
+    id: 'representational-artifacts',
+    title: 'Representational Artifacts',
+    investigate: ['the role of representational artifacts in reasoning'],
+    hypothesis:
+      'Reasoning performed through shared representational artifacts provides the common substrate through which biological and machine reasoning contribute to constitutional invariant discovery. The objective is not to prove this but to experimentally refine or falsify it.',
+    exploratory: true,
+  },
+  {
+    id: 'invariant-discovery',
+    title: 'Invariant Discovery',
+    investigate: [
+      'how invariants emerge', 'how invariants evolve', 'reasoning compression',
+      'invariant stability', 'invariant provenance', 'invariant supersession',
+    ],
+    exploratory: true,
+  },
+  {
+    id: 'constitutional-invariant-evolution',
+    title: 'Constitutional Invariant Evolution',
+    investigate: [
+      'natural invariants', 'constitutional invariants',
+      'relationships between discovered and ratified invariants',
+      'constitutional standing of invariants', 'mechanisms for constitutional evolution',
+    ],
+    exploratory: true,
+  },
+] as const as ResearchTheme[];
+
+/**
+ * Open Constitutional Questions — maintained as EXPLICIT research questions,
+ * NOT conclusions. Hypothesis-driven until supported by experimental evidence.
+ */
+export const OPEN_CONSTITUTIONAL_QUESTIONS = [
+  'What differentiates biological and machine reasoning once representational artifacts are held constant?',
+  'What role does embodiment play in reasoning?',
+  'What role does perception play?',
+  'What role does sentience play?',
+  'What role does intentionality play?',
+  'What role does consciousness play?',
+  'Which of these properties are constitutionally relevant?',
+  'Which are implementation-specific rather than constitutional?',
+  'How should constitutional systems evolve as additional classes of reasoning systems emerge?',
+] as const;
+
+/**
+ * The laboratory's emerging research METHOD (operator note, 2026-07-07):
+ * progress comes not from grand theories but from discovering the correct
+ * constitutional DISTINCTIONS, then validating them experimentally. Recorded as
+ * method, NOT as a ratified law — it informs how research questions are
+ * structured. Each pair is a distinction the work has already surfaced.
+ */
+export const CONSTITUTIONAL_DISTINCTIONS = [
+  'Information ≠ Knowledge',
+  'Knowledge ≠ Invariants',
+  'Standing ≠ Truth',
+  'Standing ≠ Reach',
+  'Human reasoning ≠ Machine reasoning',
+  'Artificial ≠ Machine',
+  'Natural invariants ≠ Constitutional invariants',
+] as const;
+
+// ─── Transition legality ─────────────────────────────────────────────────────
+
+/**
+ * A legal transition moves one step forward in the lifecycle, or re-enters
+ * `running` from any post-protocol state (re-runs are first-class — the
+ * flywheel). Everything else is rejected honestly.
+ */
+export function isLegalExperimentTransition(
+  from: ExperimentLifecycleState,
+  to: ExperimentLifecycleState,
+): boolean {
+  const fi = EXPERIMENT_LIFECYCLE.indexOf(from);
+  const ti = EXPERIMENT_LIFECYCLE.indexOf(to);
+  if (fi < 0 || ti < 0) return false;
+  if (ti === fi + 1) return true;
+  if (to === 'running' && fi >= EXPERIMENT_LIFECYCLE.indexOf('protocol-ratified')) return true;
+  return false;
+}
+
+// ─── Frozen artifacts — PRD-EPI-001 §2 (EXP-P1 Experimental Infrastructure) ──
+//
+// A per-EXPERIMENT sub-object model, one altitude BELOW EXPERIMENT_LIFECYCLE.
+// Additive only — none of this touches ResearchExperiment, EXPERIMENT_REGISTRY,
+// or EXPERIMENT_LIFECYCLE above. Persisted via services/research/artifacts.ts,
+// which stores each FrozenArtifact as a `research_objects` row with
+// object_kind='artifact' (payload carries the fields below) — reusing the
+// existing durable-lab-record table rather than a parallel one.
+
+/** The per-artifact freeze lifecycle. Deliberately distinct vocabulary from
+ * EXPERIMENT_LIFECYCLE (composes with it — see PROTOCOL_FREEZE_ARTIFACT_KINDS
+ * and deriveProtocolRatified in services/research/lifecycle.ts) so the two
+ * never collide on a status string. */
+export const ARTIFACT_LIFECYCLE = ['draft', 'validated', 'frozen', 'executed', 'archived'] as const;
+export type ArtifactLifecycleState = (typeof ARTIFACT_LIFECYCLE)[number];
+
+/** WHEN in the experiment's life an artifact is expected to exist. Informational
+ * (drives the Readiness Dashboard's section mapping, PRD-EPI-001 §10) — the
+ * protocol-ratified derivation filters by `kind` against
+ * PROTOCOL_FREEZE_ARTIFACT_KINDS below, not by `phase`, so there is one source
+ * of truth for the gate and `phase` never has to be kept in sync with it. */
+export type ArtifactPhase = 'protocol' | 'execution' | 'evaluation' | 'publication';
+
+export type FrozenArtifactKind =
+  | 'crystal-version'
+  | 'arm-config'
+  | 'task-set'
+  | 'answer-key'
+  | 'judge-config'
+  | 'analysis-config'
+  | 'interpretation-table'
+  | 'execution-run'
+  | 'research-package';
+
+export interface FrozenArtifact {
+  id: string; // T2-safe slug, e.g. 'EXP-P1:crystal-version:v1'
+  kind: FrozenArtifactKind;
+  phase: ArtifactPhase;
+  experimentId: string; // FK to ResearchExperiment.id (e.g. 'EXP-P1')
+  lifecycle: ArtifactLifecycleState;
+  /** Hash of current immutable content, whenever it exists (protocol artifacts
+   * get this at freeze; execution-run gets it when the run closes; research-
+   * package gets its export-manifest hash — PRD-EPI-001 §2.1). */
+  contentHash: string | null;
+  /** The PROTOCOL commitment — set at freeze for protocol-phase artifacts; set
+   * when the run closes for execution-run; set to the export manifest hash for
+   * research-package. Kept distinct from contentHash because a single
+   * "set only at frozen" field cannot describe an execution-run, whose content
+   * only exists once the run has happened (Aletheon review, 2026-07-22). */
+  commitmentHash: string | null;
+  frozenAt: string | null;
+  signedBy: string[]; // T2 refs of signatories (IRL + reviewer, per IRL-016 §2)
+}
+
+/** task-set and answer-key are mutually referential by design (PRD-EPI-001
+ * §5): an answer key is meaningless detached from the exact task-set version
+ * it answers. An answer-key row is invalid unless taskSetContentHash matches
+ * its referenced task-set row's contentHash at the moment both freeze. */
+export interface AnswerKeyArtifact extends FrozenArtifact {
+  kind: 'answer-key';
+  taskSetId: string;
+  taskSetContentHash: string;
+}
+
+/** The pre-execution protocol commitment — the ONLY kinds an experiment's
+ * `protocol-ratified` transition depends on. execution-run and
+ * research-package are deliberately EXCLUDED: they cannot exist, let alone
+ * freeze, before the experiment runs, so including them would make
+ * protocol-ratified permanently unreachable (Aletheon review, 2026-07-22;
+ * PRD-EPI-001 §2.2). */
+export const PROTOCOL_FREEZE_ARTIFACT_KINDS = [
+  'crystal-version',
+  'arm-config',
+  'task-set',
+  'answer-key',
+  'judge-config',
+  'analysis-config',
+  'interpretation-table',
+] as const satisfies readonly FrozenArtifactKind[];

@@ -56,7 +56,7 @@ export function MarketaMyReportsTab({ theme = 'dark', partnerId }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-16">
-        <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+        <Loader2 className="w-6 h-6 animate-spin text-pink-300" />
       </div>
     );
   }
@@ -66,7 +66,7 @@ export function MarketaMyReportsTab({ theme = 'dark', partnerId }: Props) {
     { label: 'KNYT Earned',      value: stats.rewards_knyt.toLocaleString(), sub: 'KNYT', icon: Trophy,           accent: d ? 'text-amber-300' : 'text-amber-700' },
     { label: 'Qc Earned',        value: stats.rewards_qc.toLocaleString(),   sub: 'Qc',   icon: Trophy,           accent: d ? 'text-sky-400' : 'text-sky-600' },
     { label: 'Est. Reach',       value: stats.reach_estimate.toLocaleString(), icon: Users,       accent: d ? 'text-emerald-400' : 'text-emerald-600' },
-    { label: 'Clicks',           value: stats.clicks.toLocaleString(),        icon: MousePointerClick, accent: d ? 'text-rose-400' : 'text-rose-600' },
+    { label: 'Clicks',           value: stats.clicks.toLocaleString(),        icon: MousePointerClick, accent: d ? 'text-pink-300' : 'text-pink-500' },
     { label: 'Conversions',      value: stats.conversions.toLocaleString(),   icon: TrendingUp,  accent: d ? 'text-indigo-400' : 'text-indigo-600' },
   ] : [];
 
@@ -75,7 +75,7 @@ export function MarketaMyReportsTab({ theme = 'dark', partnerId }: Props) {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-rose-400" />
+          <BarChart3 className="w-4 h-4 text-pink-300" />
           <span className={`text-sm font-semibold ${s.textPrimary}`}>My Performance</span>
         </div>
         <Button
@@ -114,7 +114,7 @@ export function MarketaMyReportsTab({ theme = 'dark', partnerId }: Props) {
           <p className={`text-xs font-semibold ${s.textMuted} mb-3`}>Progress to next reward tier</p>
           <div className={`w-full h-2 rounded-full ${d ? 'bg-slate-800' : 'bg-slate-200'} overflow-hidden`}>
             <div
-              className="h-full rounded-full bg-gradient-to-r from-rose-500 to-violet-500 transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-pink-400 to-violet-500 transition-all duration-500"
               style={{ width: `${Math.min(100, (stats.conversions / 10) * 100)}%` }}
             />
           </div>

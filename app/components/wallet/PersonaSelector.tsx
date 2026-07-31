@@ -16,6 +16,7 @@ import {
   Trash2,
   Loader2,
   RotateCcw,
+  Copy,
 } from 'lucide-react';
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
@@ -396,12 +397,29 @@ export function PersonaSelector({
                   {!allowManage && persona.id === activePersona?.id && (
                     <Check className="w-4 h-4 text-purple-400 shrink-0" />
                   )}
+                  {/* Copy UUID — always visible on hover, even without allowManage */}
+                  {!allowManage && (
+                    <button
+                      title={`Copy persona ID: ${persona.id}`}
+                      onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(persona.id); }}
+                      className="p-1 rounded hover:bg-white/10 text-white/0 group-hover:text-white/40 hover:!text-cyan-400 transition-colors shrink-0"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  )}
                   {allowManage && !isConfirming && (
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       {isPending
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white/40" />
                         : (
                           <>
+                            <button
+                              title={`Copy persona ID: ${persona.id}`}
+                              onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(persona.id); }}
+                              className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-cyan-400 transition-colors"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                            </button>
                             <button
                               title={isArchived ? 'Restore' : 'Archive'}
                               onClick={() => handleArchive(persona.id, !isArchived)}
