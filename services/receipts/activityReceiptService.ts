@@ -274,7 +274,16 @@ export type ActivityActionType =
   // enabled. horizen_pnl_transparency_enabled and agent_card_enriched already
   // existed (added by the PRD-GJR-001 migration); this is the third and last
   // canonical GJR-VFY-001 receipt type. See services/horizen/authorizationClient.ts.
-  | 'horizen_pulse_authorized';
+  | 'horizen_pulse_authorized'
+  // GJR-MKT-001 (Marketa External-Agent Constitutional Eligibility Engine),
+  // Phase 4, 2026-07-31 — the three canonical receipt types not already
+  // present (marketa_eligibility_recommended already existed). `assessed`
+  // fires for every assessment; `refused`/`quarantined` fire additionally
+  // when the decision is REFUSED/QUARANTINED. Never issue `recommended` for
+  // a DRAFT assessment. See services/marketa/admissionAssessmentEngine.ts.
+  | 'marketa_eligibility_assessed'
+  | 'marketa_eligibility_refused'
+  | 'marketa_eligibility_quarantined';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

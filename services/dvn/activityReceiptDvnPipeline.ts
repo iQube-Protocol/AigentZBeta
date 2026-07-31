@@ -251,6 +251,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // GJR-VFY-001 Phase 1 (2026-07-31) — action-type addition only, the one
   // change this file permits unilaterally per CLAUDE.md.
   'horizen_pulse_authorized',
+  // GJR-MKT-001 Phase 4 (2026-07-31) — same permitted addition-only change.
+  'marketa_eligibility_assessed',
+  'marketa_eligibility_refused',
+  'marketa_eligibility_quarantined',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
