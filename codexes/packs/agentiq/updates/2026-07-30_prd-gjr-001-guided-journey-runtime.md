@@ -1174,9 +1174,28 @@ table:
 - **Horizen's real external agent/registry page URL** — needed for Stage 1's `external-url` surface
   (§10.1); confirm the exact live URL pattern once MoneyPenny (or Nakamoto, in rehearsal) actually
   has a `tokenId` to reference.
-- **Receipt-type reconciliation** (§15) — map each of the eighteen listed types against the real
-  `ActivityActionType` union before writing any migration; several almost certainly already exist
-  under different names and must be reused, not duplicated, per `inv.engineering.037`.
+- **Receipt-type reconciliation** (§15) — **completed, 2026-07-31, via Explore agent against
+  `services/receipts/activityReceiptService.ts`'s real `ActivityActionType` union.** Of the eighteen
+  proposed types, 6 map to existing types (reuse, don't duplicate, per `inv.engineering.037`):
+  `agent.delegation.granted` → **`agent_delegated`** (exists verbatim); `horizen.pulse.authorized` →
+  **`partner_agent_evidence_recorded`**; `financial-services-runtime.activated` →
+  **`finance_authoritative_execution`**; `standing.gateway.enabled` → **`standing_accrued`** (note: a
+  genuine semantic gap — "gateway enabled" vs. "accrual" — worth a second look, not a blocker);
+  `payment.executed` → **`finance_authoritative_execution`** or **`qriptocent_destination_credit_completed`**
+  (latter only if settlement is Qriptocent-denominated); `payment.mandate.approved` → check against
+  **`agreement_authorized`** before minting new (same "authorize under agreement" shape). The
+  remaining ~9 — `agent.card.discovered`, `horizen.agent.registered`, `horizen.pnl.transparency.enabled`,
+  `agent.card.enriched`, `agent.control.proven`, `marketa.eligibility.recommended`,
+  `operator.passport.validated`, `agent.sponsorship.recorded`, `agent.delegate-passport.issued`,
+  `journey.completed` — are confirmed genuinely new (no equivalent found anywhere in the union,
+  including the unrelated Polity Passport Bureau's own `passport_*` types, which are a different
+  subject domain). Add these the same 3-file way `bitcent_treasury_etch_executed` was added
+  (`2026-07-30_bitcent-supabase-wiring-and-ops-surfacing.md`): the `ActivityActionType` union, the
+  `ANCHORABLE_ACTION_TYPES` set in `services/dvn/activityReceiptDvnPipeline.ts`, and the
+  `activity_receipts_action_type_check` CHECK constraint (rebuilt in full via a new migration, per the
+  `bitcent_treasury_receipt_type.sql` precedent). `aigentme.activated` and
+  `experienceqube.focus.disposition.recorded` are confirmed genuinely new as well (expected — they're
+  this addendum's own new evidence classes).
 - **Nakamoto's wallet** — confirm it is a real, already-funded wallet (mirroring the operator's own
   Bitcoin wallet reuse for the Bitcent etch) before rehearsal, so funding delay doesn't eat into
   tomorrow's timeline.
