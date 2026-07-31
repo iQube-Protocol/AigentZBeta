@@ -1189,16 +1189,18 @@ been verified real.
 | Passport | Passport Bureau — Apply wizard confirmed real; "own status" view not confirmed | `PassportBureauApplyTab.tsx` (tab slug `apply`, `polity-passport-bureau-cartridge`); leading candidate for a status view: `PassportRegistryTab` (slug `registry`, same cartridge) — not yet deeply verified | — | The Apply tab is the intake wizard, not a status display; confirm whether `PassportRegistryTab` already shows valid/continuing/sponsor-eligible state before building anything new | Compose, pending confirmation of `PassportRegistryTab`'s actual content |
 | Delegate | Constitutional Agreements panel (confirmed real) + `BoundedDelegationTab` (confirmed real) | `PartnerProgrammesTab.tsx` "Constitutional Agreements" panel, Venture Lab α cartridge, tab slug `partner-operate`, header "Pilot Command Center"; `BoundedDelegationTab` mounted independently at several cartridge slugs | — | Minor — confirm which mount of `BoundedDelegationTab` fits this journey's delegation object | Compose |
 | Activate | Wallet + mandate + Trust + Standing gateway | `agent-wallet` + Companion; `standing_accrued` (existing receipt type, §15) | — | Not separately investigated this round — carried forward unchanged | Compose |
-| aigentMe | `AigentMeWelcomeSplitTab.tsx` confirmed real and live — but it is the operator's copilot/dashboard shell (Brief/Move Forward/Venture Progress/Ask Specialists), **not** a threshold-crossing/onboarding-disposition surface. No such surface exists anywhere in the repo. | metaMe cartridge, tab slug `aigent-me` | principal ref, MoneyPenny's declared domain focus, disposition options (§5.10) | The welcome shell is real and reusable as the base surface; the confirm/decline-focus prompt itself has no existing home | Compose (welcome shell) + **build new** (onboarding-disposition prompt, case-by-case exception, justified — this is genuinely new functionality, not a re-skin) |
+| aigentMe | `AigentMeWelcomeSplitTab.tsx` confirmed real and live (the operator's copilot/dashboard shell) — composed as the base surface, per the plan below. The confirm/decline-focus prompt is **built**: `AigentMeFocusDispositionPrompt.tsx`. | metaMe cartridge, tab slug `aigent-me`; `components/journey/AigentMeFocusDispositionPrompt.tsx` + `/api/journey/moneypenny-horizen/aigentme/disposition` | principal ref (spine-resolved), MoneyPenny's declared domain focus, disposition options (§5.10) | None remaining — built 2026-07-31, writes `aigentme_activated` + `experienceqube_focus_disposition_recorded` | Compose (welcome shell) + component (disposition prompt) — **done** |
 | Founder Office (optional next destination) | **Confirmed real and substantial — corrects the earlier storyboard-era "placeholder" assumption** | `FounderOfficeTab.tsx`, Venture Lab α cartridge, tab group `operate`, tab slug `founder-office` | — | None — this surface is ready to compose as-is | Compose |
 
-Two rows now have a **confirmed, justified "build new"** decision (Verify, and the Marketa-eligibility
-half of Claim), plus one **partial** build-new (aigentMe's onboarding-disposition prompt, layered on
-top of a real, reused base surface) — each is the case-by-case exception §5.2/§5.9 already require,
-not a default, and each is justified by a confirmed absence of any existing surface, not by
-convenience. Passport's row still has one open confirmation (`PassportRegistryTab`'s actual content)
-before its decision is final. Register's Horizen-URL half cannot be resolved from this repo's code
-alone — it needs the actual URL from Horizen or their partner brief, never a guessed one.
+Two rows still have a **confirmed, justified "build new"** decision open (Verify, and the
+Marketa-eligibility half of Claim) — each is the case-by-case exception §5.2/§5.9 already require, not
+a default, and each is justified by a confirmed absence of any existing surface, not by convenience.
+The aigentMe row's build-new piece is **done** (2026-07-31): `AigentMeFocusDispositionPrompt.tsx`,
+layered on the real, reused `AigentMeWelcomeSplitTab` base — the journey's §5.10 disposition-recording
+requirement is now real, not a placeholder. Passport's row still has one open confirmation
+(`PassportRegistryTab`'s actual content) before its decision is final. Register's Horizen-URL half
+cannot be resolved from this repo's code alone — it needs the actual URL from Horizen or their partner
+brief, never a guessed one.
 
 - **Verify's real surface** — confirmed absent, 2026-07-31. Not merely "the storyboard's placeholder
   was wrong" (though it was) — there is no financial-transparency toggle UI at all in this codebase,

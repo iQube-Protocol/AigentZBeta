@@ -131,14 +131,14 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'with the disposition prompt layered on top (see aigentme-focus-disposition-prompt below).',
   },
   'aigentme-focus-disposition-prompt': {
-    kind: 'component-new',
+    kind: 'component',
     component: 'AigentMeFocusDispositionPrompt',
-    status: 'to-build',
-    trackedIn: '§22 aigentMe row',
     note:
-      'Confirmed absent 2026-07-31: no confirm/decline-focus prompt exists anywhere. New per §5.10 ' +
-      '(aigentMe Onboarding Oversight Principle) — the principal, never the onboarding agent, decides ' +
-      'whether its domain focus shapes their ExperienceQube population.',
+      'Built 2026-07-31 (components/journey/AigentMeFocusDispositionPrompt.tsx) — the confirm/' +
+      'decline-focus prompt per §5.10 (aigentMe Onboarding Oversight Principle). Writes ' +
+      'experienceqube_focus_disposition_recorded (and, on first use, aigentme_activated) via ' +
+      '/api/journey/moneypenny-horizen/aigentme/disposition. The principal, never the onboarding ' +
+      'agent, decides whether its domain focus shapes their ExperienceQube population.',
   },
   'founder-office': {
     kind: 'embed',

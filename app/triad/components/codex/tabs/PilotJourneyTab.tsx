@@ -19,6 +19,7 @@ import { CheckCircle2, Circle, Lock, Loader2, RefreshCw, ExternalLink, Construct
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
+import { AigentMeFocusDispositionPrompt } from '@/components/journey/AigentMeFocusDispositionPrompt';
 import type { JourneyRuntimeState, JourneyStageState } from '@/types/journey';
 
 interface PilotJourneyTabProps {
@@ -27,6 +28,17 @@ interface PilotJourneyTabProps {
   isPartner?: boolean;
   theme?: string;
 }
+
+/**
+ * Real, built journey-surface components, keyed by
+ * journeySurfaceRegistry.ts's `component` name. Only surfaces the registry
+ * marks `kind: 'component'` (built) resolve here — `kind: 'component-new'`
+ * entries render the explicit "not yet built" state below instead, never a
+ * silent fallback into this map.
+ */
+const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
+  AigentMeFocusDispositionPrompt,
+};
 
 const STAGE_ICON: Record<JourneyStageState, React.ReactNode> = {
   COMPLETE: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
@@ -178,6 +190,22 @@ export function PilotJourneyTab({ personaId }: PilotJourneyTabProps) {
                       <p className="mt-1">{descriptor.note}</p>
                       <p className="mt-1 text-slate-500">Tracked in {descriptor.trackedIn}.</p>
                     </div>
+                  </div>
+                );
+              }
+              if (descriptor.kind === 'component') {
+                const Component = JOURNEY_COMPONENTS[descriptor.component];
+                if (!Component) {
+                  return (
+                    <div key={i} className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
+                      {descriptor.component} is marked built in the registry but is not wired into
+                      PilotJourneyTab&apos;s JOURNEY_COMPONENTS map.
+                    </div>
+                  );
+                }
+                return (
+                  <div key={i}>
+                    <Component {...(surfaceRef.props ?? {})} />
                   </div>
                 );
               }
