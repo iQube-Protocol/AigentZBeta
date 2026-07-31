@@ -38,10 +38,32 @@
  */
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 import { validateAndBuildPublishedReview, type CompletedReviewArtifacts } from '@/services/research/independentReviewPublish';
 import { upsertReview, markReviewSuperseded, getReview } from '@/services/research/independentReviewStore';
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** Same inline .env.local/.env.local.temp loader run-independence-review.ts
+ * uses — mirrored, not reinvented, so this script picks up the operator's
+ * existing local env exactly the way its sibling runner already does. */
+function loadLocalEnv(): void {
+  for (const name of ['.env.local', '.env.local.temp']) {
+    const path = join(REPO, name);
+    if (!existsSync(path)) continue;
+    for (const raw of readFileSync(path, 'utf-8').split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith('#')) continue;
+      const eq = line.indexOf('=');
+      if (eq < 1) continue;
+      const k = line.slice(0, eq).trim();
+      if (process.env[k]) continue;
+      process.env[k] = line.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+    }
+  }
+}
 
 function arg(name: string): string | null {
   const i = process.argv.indexOf(`--${name}`);
@@ -62,6 +84,8 @@ function readRequiredJson(path: string): unknown {
 class PublishCliRefusal extends Error {}
 
 async function main() {
+  loadLocalEnv();
+
   const reviewDir = arg('review-dir');
   const reviewId = arg('review-id');
   const supersedes = arg('supersedes');
