@@ -121,30 +121,111 @@ sufficiently complete MAF.
 
 ---
 
-## metaMe IRL
+## Invariant Research Lab (IRL)
 
-**Canonical names (all three are correct, co-equal):**
-- **metaMe Invariant Research Lab** (full name)
-- **metaMe IRL** (short form)
-- **IRL** (abbreviation — always uppercase)
+**Canonical name:** **Invariant Research Lab**. The `metaMe` qualifier is CONTEXTUAL, not part of
+the canonical name (operator ruling, 2026-07-28) — it names the product/brand context the
+institution is being referenced from, the same way "metaMe Studio" names a product without making
+`metaMe` part of the word "Studio". Do not hard-code one display label for every surface; pick the
+form the context calls for from the three below.
+
+**Three correct forms, used contextually — none is "the" primary name that the others qualify:**
+
+| Form | Use when |
+|---|---|
+| **Invariant Research Lab** | canonical expansion; institutional/scientific contexts; anywhere the full name is written without needing product framing |
+| **IRL** | abbreviation — sidebars, compact UI, cross-references. Always uppercase. |
+| **metaMe IRL** | branded form — headers, marketing, external contexts where product qualification is appropriate |
 
 **Definition:** The platform's research laboratory — the constitutional scientific institution
-(institutionalised by CFS-019) under its ratified primary name. metaMe IRL pursues **Invariant
-Intelligence** and **Computational Epistemology**: the study of knowledge as a measurable
-computational object (`inv.epistemology.119`–`120`). Its founding research programme is
-**CRP-002 — Invariant Intelligence: Intent-Driven Knowledge Compression**, the first programme
-formally chartered under the Constitutional Research Program (CRP-001).
+(institutionalised by CFS-019). It pursues **Invariant Intelligence** and **Computational
+Epistemology**: the study of knowledge as a measurable computational object
+(`inv.epistemology.119`–`120`). Its founding research programme is **CRP-002 — Invariant
+Intelligence: Intent-Driven Knowledge Compression**, the first programme formally chartered under
+the Constitutional Research Program (CRP-001).
 
 **Former name:** "CCRL" / "Constitutional Cybernetics Research Laboratory" is SUPERSEDED
 (operator direction 2026-07-13) — do not use it in new copy. "Constitutional Cybernetics" remains
-the *discipline name* for Layer III of the lab's work (the study of governed adaptive systems).
-metaMe IRL is the institution's **primary name**; IRL is the abbreviation. This resolves the naming decision
-recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the earlier proposed external
-banner "Invariant Intelligence Research Institute" is superseded by **metaMe IRL**.
+the *discipline name* for Layer III of the lab's work (the study of governed adaptive systems). This
+resolves the naming decision recorded as PENDING in CFS-019 (operator ratification, 2026-07-09): the
+earlier proposed external banner "Invariant Intelligence Research Institute" is superseded by
+**Invariant Research Lab**.
 
-**Usage rule:** Prefer **metaMe IRL** (or **IRL**) as the institution's name in new copy and docs.
-"IRL" remains valid when naming the Constitutional Cybernetics discipline specifically. Never
-introduce other lab names.
+**Usage rule:** Choose the form the surface calls for — full name, `IRL`, or `metaMe IRL` — per the
+table above; none is a fallback for the others. "IRL" remains valid when naming the Constitutional
+Cybernetics discipline specifically. Never introduce other lab names.
+
+---
+
+## metaProof
+
+**Canonical spelling:** **metaProof** — lowercase `m`, capital `P`, one word. Never "MetaProof",
+never "Metaproof", never "meta Proof", never "METAPROOF" outside all-caps display contexts.
+
+**Definition:** The organisation. metaProof produces organisation-branded products and is staffed
+by **metaProof Operators**. The spelling convention is the same as **metaMe** — lowercase prefix,
+capitalised second element — and the two are siblings, not variants of one another.
+
+**Organisation-branded products** carry the organisation name as a prefix:
+
+| Product | What it is |
+|---|---|
+| **metaProof Commons** (product name **metaCommons**) | the governed constitutional proof commons |
+| **metaProof Agent Harness** | the canonical agent-harness spec (`docs/agent-harness/metaproof-core.md`) |
+
+**Usage rule:** "metaProof" alone names the ORGANISATION. A product is named by its full branded
+form (metaProof Commons, metaProof Agent Harness), and may then be referred to by its product name
+where one exists (metaCommons). People employed by or acting for the organisation are **metaProof
+Operators** — never "MetaProof operators".
+
+**Note on file names:** `docs/agent-harness/metaproof-core.md` uses an all-lowercase filename by
+repository convention. Filenames are not display copy; the document's own heading and every prose
+reference use **metaProof**.
+
+---
+
+## metaProof Commons
+
+**Canonical concept:** **metaProof Commons**
+**Canonical product / UI name:** **metaCommons**
+
+**Definition:** The governed constitutional commons of scientific, operational, commercial and
+constitutional proof generated across the metaProof ecosystem. It is a **governed proof
+substrate** — knowledge is an interpretation or projection of accumulated proof, never the other
+way round.
+
+**What it is NOT** (operator ruling 2026-07-27, stated as exclusions because each was a live
+misreading): it is not a document repository, not a social feed, not a wiki, and not simply a
+knowledge base.
+
+**The four proof classes** are first-class constitutional concepts:
+
+| Class | Produced primarily by | Answers |
+|---|---|---|
+| **Scientific Proof** | Research Lab | What is structurally true? |
+| **Commercial Proof** | Venture Lab | Does this create demonstrable value? |
+| **Operational Proof** | Venture Lab + platform operations | Can this be deployed repeatedly and reliably? |
+| **Constitutional Proof** | **Everywhere** | Did the platform preserve constitutional guarantees? |
+
+Constitutional proof — Passport validity, delegation bounds, Standing attribution, receipt
+generation, access decisions, governance interventions, personhood continuity — is the substrate
+both Labs natively share, and therefore the spine the other three classes hang from.
+
+**Governing principle:** *Only governed proof enters the metaProof Commons.* Not every
+observation, discussion or report — only proof that has passed the governance appropriate to its
+domain and classification. The promotion verb is **Submit Proof** / **Promote to metaCommons**,
+never "publish to" it.
+
+**Usage rule:** use **metaProof Commons** for the constitutional object (specs, charters,
+governance text) and **metaCommons** in product and UI copy ("Submit to metaCommons", "Review in
+metaCommons", "Search metaCommons"). The pairing mirrors **metaProof** (the organisation) and
+**metaMe** (the experiential runtime). Never "Proof Commons" alone as an identifier, and never
+"meta commons", "Meta-Commons" or "MetaCommons" as spellings.
+
+**Naming note — metaProof is the ORGANISATION; its products carry its name.** There is no
+ambiguity to reconcile: **metaProof** (the organisation) produces **metaProof Commons** and the
+**metaProof Agent Harness**, and employs **metaProof Operators** — the ordinary relationship
+between a company and its branded products. See the `metaProof` entry above.
 
 ---
 
@@ -156,4 +237,4 @@ All agents (Claude Code, Codex, Lovable, any future agent) must:
 3. Never introduce a variant spelling, even in comments or variable names
 4. Treat a non-canonical spelling as a bug to be fixed, not a style preference
 
-Last updated: 2026-06-17
+Last updated: 2026-07-27

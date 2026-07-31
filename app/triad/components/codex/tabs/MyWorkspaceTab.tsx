@@ -16,6 +16,11 @@
  *                    /api/assistant/workbench-ledger. Paginated 20/page.
  *   Working Drafts — embeds MyCanvasTab(surface='workspace') which now
  *                    talks to /api/myworkspace/entries exclusively.
+ *   Inbox          — SPEC-MMC-001 Movement I (Capture)'s Workspace Inbox
+ *                    (PRD-MMC-IMPL-003 Increment 3, DESIGN). Every capture
+ *                    lands here first (status='inbox'); "Bring into
+ *                    Intent"/"Bring into Venture" assigns it onward via
+ *                    CaptureInboxPanel + /api/companion/capture.
  *   Uploads        — persona_uploads filtered to use_kind in
  *                    (venture_iqube / iqube_payload / workbench).
  *                    Paginated 20/page.
@@ -30,13 +35,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronLeft, ChevronRight, ExternalLink, Inbox } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MyCanvasTab } from "./MyCanvasTab";
 import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
 import { ChainDetailDrawer } from "@/components/metame/chains/ChainDetailDrawer";
 import { IntentChainPanel, useIntentChainCache } from "@/components/metame/workbench/IntentChainPanel";
 import { GenesisCapsule, type IntentStage } from "@/components/metame/workbench/GenesisCapsule";
+import { CaptureInboxPanel } from "@/components/companion/CaptureInboxPanel";
 
 interface Props {
   personaId?: string;
@@ -60,7 +66,7 @@ interface StrategicUpload {
   createdAt: string;
 }
 
-type WorkspaceSubTab = 'intents' | 'drafts' | 'uploads' | 'cohorts';
+type WorkspaceSubTab = 'intents' | 'drafts' | 'inbox' | 'uploads' | 'cohorts';
 
 const PAGE_SIZE = 20;
 
@@ -252,6 +258,7 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
         <div className="mx-1 h-4 w-px bg-slate-700/60" />
         {tabBtn('intents', 'Active Intents', Sparkles, intents.length)}
         {tabBtn('drafts', 'Working Drafts', Hammer)}
+        {tabBtn('inbox', 'Inbox', Inbox)}
         {tabBtn('uploads', 'Uploads', UploadCloud, uploads.length)}
         {tabBtn('cohorts', 'Cohorts', Users)}
       </div>
@@ -339,6 +346,16 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
         {activeSubTab === 'drafts' && (
           <div className="h-full">
             <MyCanvasTab personaId={personaId} theme={theme} surface="workspace" />
+          </div>
+        )}
+
+        {activeSubTab === 'inbox' && (
+          <div className="px-4 py-3">
+            {personaId ? (
+              <CaptureInboxPanel personaIdHint={personaId} />
+            ) : (
+              <div className="text-xs text-slate-500 italic">Sign in to see your Inbox.</div>
+            )}
           </div>
         )}
 

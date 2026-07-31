@@ -70,6 +70,13 @@ export async function POST(req: NextRequest): Promise<Response> {
       coordinates: ipe.coordinates,
       meanAbsDelta: Math.round(ipe.meanAbsDelta * 10000) / 10000,
       diverges: ipe.diverges,
+      // IPV-001 reads this block. `diverges` alone cannot distinguish computed
+      // agreement from two faithful defaults, and a result with no calibration
+      // stamp cannot be compared across a coordinate-scale change — both were
+      // live defects in the Stage-0 instrument (operator ruling 2026-07-27).
+      comparable: ipe.comparable,
+      matched: ipe.matched,
+      calibration: ipe.calibration,
       describe: describeProjection(ipe),
     },
     basis: {

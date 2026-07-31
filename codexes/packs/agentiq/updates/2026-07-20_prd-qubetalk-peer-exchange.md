@@ -84,6 +84,29 @@ Either way: **reuse `passport_locker_items`/`passport_locker_grants` for locker
 sharing, `receiptService`/DVN for receipts, and the identity spine for auth.**
 The peer layer is the only genuinely new surface.
 
+## 2b. Discovery & invitation — the counterparty handle (operator direction 2026-07-20)
+
+A peer channel needs the counterparty's identifier. The interim (Increment 1) is
+an **explicit paste of the counterparty's Polity Public Reference**. The ratified
+target is friendlier and invite-driven:
+
+- **Human handle = `persona-name@domain`.** Each principal has a shareable
+  handle (off-platform-shareable, or surfaced in the passport). It resolves to
+  the principal's Polity Public Reference server-side; the raw persona UUID is
+  never exposed.
+- **Invite-creates-channel, reusing the existing passport invitation/claim
+  flow.** When a user claims a passport, a persona is assigned/generated. So an
+  inviter can include the invitee's persona (handle/ref) in the invite; when the
+  invitee **accepts the invite** (the existing x409 invitation-link / agreement
+  claim flow — CFS-043 onboarding, `passport_locker_grants`, the Constitutional
+  Access Service invitation-claim), they may **also accept an invitation to the
+  QubeTalk channel**. Channel establishment thus rides the invitation accept, not
+  a raw ref paste.
+
+Increment 1 accepts the pasted public ref; the handle resolver + invite→accept→
+channel binding is a Phase 2 surface that MUST reuse the existing invitation/claim
+machinery (not a parallel invite system).
+
 ## 3. Constitutional requirements (fixed now)
 
 1. **Personhood-bound channel ownership.** Channels belong to *principals*, not

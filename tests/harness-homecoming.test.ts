@@ -8,8 +8,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { HOMECOMING_DELEGATE_SPECS } from '@/services/homecoming/agentHomecoming';
+import { HOMECOMING_DELEGATES, type HomecomingDelegateId } from '@/types/homecoming';
 import {
   resolveDelegateIdentity,
+  resolveAuthoredOrGenericIdentity,
+  GENERIC_DELEGATE_DESCRIPTION,
   buildDelegateSystemPrompt,
 } from '@/services/homecoming/delegateConverse';
 
@@ -21,11 +25,63 @@ describe('resolveDelegateIdentity', () => {
     expect(id.agentClass).toBe('specialist');
   });
 
-  it('falls back to a generic-but-true identity for un-authored delegates', () => {
+  it('every roster delegate resolves; an un-authored one would fall back, not crash', () => {
+    // The original test used 'moneypenny' as its un-authored example. All three
+    // roster delegates (aletheon, moneypenny, nakamoto) have since been
+    // AUTHORED, so no id exercises the fallback any more.
+    //
+    // A fictitious id is NOT a valid substitute: `resolveDelegateIdentity` takes
+    // a `HomecomingDelegateId`, and an off-roster string throws on the charter
+    // metadata lookup. That crash is unreachable by contract, so testing it
+    // would assert behaviour the type system already forbids.
+    //
+    // So this asserts the real state and stays correct either way: every roster
+    // delegate resolves to a usable identity, and IF one ever lacks a spec, the
+    // generic-but-true description is used rather than an invented one.
+    const roster = Object.keys(HOMECOMING_DELEGATE_SPECS) as HomecomingDelegateId[];
+    expect(roster.length).toBeGreaterThan(0);
+    for (const slug of HOMECOMING_DELEGATES) {
+      const id = resolveDelegateIdentity(slug);
+      expect(id.label.trim().length, `${slug} has no label`).toBeGreaterThan(0);
+      expect(id.description).toContain('bounded delegation');
+      expect(id.agentClass.trim().length).toBeGreaterThan(0);
+      if (!HOMECOMING_DELEGATE_SPECS[slug]) {
+        // The fallback path: true, generic, never invented.
+        expect(id.label).toBe(slug);
+      }
+    }
+  });
+
+  it('the generic-identity RULE is directly testable without an invalid delegate id', () => {
+    // Operator refinement 2026-07-25: the rule is extracted as a pure function
+    // so the forward-compatibility branch can be proven without fabricating an
+    // off-roster id (which the type boundary forbids and which throws).
+    const generic = resolveAuthoredOrGenericIdentity({
+      delegateId: 'future-delegate',
+      authoredIdentity: null,
+      agentClass: 'guide-agent',
+    });
+    expect(generic.label).toBe('future-delegate');
+    expect(generic.description).toBe(GENERIC_DELEGATE_DESCRIPTION);
+    // TRUE of every delegate by charter, and free of invented specifics.
+    expect(generic.description).toContain('bounded delegation');
+
+    // ...and an authored identity is used verbatim rather than genericised.
+    const authored = resolveAuthoredOrGenericIdentity({
+      delegateId: 'future-delegate',
+      authoredIdentity: { displayName: 'Future', description: 'Authored copy.' },
+      agentClass: 'guide-agent',
+    });
+    expect(authored.label).toBe('Future');
+    expect(authored.description).toBe('Authored copy.');
+  });
+
+  it('an AUTHORED delegate keeps its card identity (regression: moneypenny was authored)', () => {
+    // The other half of the same change, now asserted rather than assumed --
+    // authoring a delegate must actually take effect.
     const id = resolveDelegateIdentity('moneypenny');
-    expect(id.label).toBe('moneypenny');
-    expect(id.description).toContain('bounded delegation');
-    expect(id.agentClass).toBe('guide-agent'); // from the charter roster, not invented
+    expect(id.label).toBe('MoneyPenny');
+    expect(id.description.trim().length).toBeGreaterThan(0);
   });
 });
 

@@ -129,6 +129,25 @@ export interface CodexTab {
   inviteOnly?: boolean;
   tokenGated?: { tokenId: string; minBalance: string };
   roleRequired?: string;
+  /**
+   * Tier 2 participation gate (Horizen Phase 3, audit §B.3). Tab is visible to
+   * anyone holding an ACTIVE participation grant in this access domain — a
+   * partner operator sees the shared workspace record WITHOUT becoming a
+   * platform admin, which is the hard blocker this resolves.
+   *
+   * Distinct from the cartridge-membership gates above: those resolve through
+   * `evaluateAccess` with `member:<cartridgeSlug>` credentials; this resolves
+   * through `participationAccess` grants (`ACCESS_DOMAINS` × `DOMAIN_ROLES`),
+   * the substrate both Labs already share.
+   *
+   * Typed as `string` (an `AccessDomain`) so types/codex.ts stays free of the
+   * participation import. Evaluated ONLY by
+   * `services/passport/participationTabGate.ts` — never re-implemented in a
+   * filter. Fails CLOSED before grants resolve, and never widens `adminOnly`.
+   */
+  participationDomain?: string;
+  /** Optional narrowing to specific roles within the domain; omit = any role. */
+  participationRoles?: string[];
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;
@@ -163,7 +182,19 @@ export interface CodexCopilotConfig {
 
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')
-  name: string;                  // Display name
+  name: string;                  // Display name — the CARTRIDGE HEADER name
+  /**
+   * Optional PICKER name — what the cartridge is called in the viewer's
+   * "Select Cartridge" sidebar and any other list of cartridges.
+   *
+   * This is a SECOND NAME, not a shortened first one (operator, 2026-07-28:
+   * IRL is "IRL" in the sidebar and "metaMe Invariant Research Lab" in the
+   * header). Deriving one from the other by truncation would be wrong: they
+   * are different names for different reading contexts, and a truncation rule
+   * would silently mangle every other cartridge. Absent ⇒ the picker uses
+   * `name`, so this changes nothing for the cartridges that need one name.
+   */
+  shortName?: string;
   slug: string;                  // URL-friendly identifier
   enabled: boolean;              // API-controlled enable/disable
   version: string;               // Semantic versioning
@@ -189,6 +220,8 @@ export interface CodexConfig {
 export interface CodexListItem {
   id: string;
   name: string;
+  /** Picker name — see `CodexConfig.shortName`. Absent ⇒ fall back to `name`. */
+  shortName?: string;
   slug: string;
   enabled: boolean;
   owner: string;

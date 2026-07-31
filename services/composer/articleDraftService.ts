@@ -84,9 +84,18 @@ export function buildFallbackArticleDraftArtifact(params: {
   takeawaysCount?: number;
   mediaMode?: 'image' | 'video';
 }): ArticleDraftArtifact | null {
-  const title = firstNonEmptyString([params.title, params.experienceName, 'Editorial draft']);
+  // The generic title is applied AFTER the no-invention guard, never inside the
+  // resolution chain. With 'Editorial draft' as a chain fallback, `title` could
+  // never be falsy, so the guard below was dead code and the service fabricated
+  // a complete editorial draft from no title and no prompt -- the precise
+  // behaviour "never invents" exists to forbid.
+  const providedTitle = firstNonEmptyString([params.title, params.experienceName]);
   const prompt = firstNonEmptyString([params.prompt]);
-  if (!title && !prompt) return null;
+  if (!providedTitle && !prompt) return null;
+  // A prompt with no title is still a real request, so it keeps the generic
+  // title rather than losing the draft -- the fix restores the guard without
+  // narrowing the prompt-only path.
+  const title = providedTitle ?? 'Editorial draft';
 
   const outputs = normalizeStringArray(params.outputs);
   const takeawaysCount = Math.min(Math.max(params.takeawaysCount || 3, 1), 5);

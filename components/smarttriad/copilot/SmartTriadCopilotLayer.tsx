@@ -32,6 +32,7 @@ import {
 
 // Import CSS
 import "./styles/smarttriad-copilot.css";
+import { useSessionInvariants } from '@/hooks/useSessionInvariants';
 
 interface SmartTriadCopilotLayerProps {
   isOpen: boolean;
@@ -436,6 +437,12 @@ export function SmartTriadCopilotLayer({
   // the POST goes out, so the LLM always sees the freshest right-pane
   // state (e.g. a brief that finished loading between chip click and
   // send). Stable callback identity is preserved.
+  // Constitutional memory v0 — same hook the codex copilot uses, so this
+  // surface accumulates and carries invariants identically. Previously this
+  // layer sent groundContext verbatim with no marker and no memory, so every
+  // turn here restarted the operator's constitutional session from zero.
+  const sessionInvariants = useSessionInvariants();
+
   const groundContextRef = useRef<Record<string, unknown> | null | undefined>(groundContext);
   useEffect(() => {
     groundContextRef.current = groundContext;
@@ -585,7 +592,7 @@ export function SmartTriadCopilotLayer({
           domain: domainForPersona,
           provider_id: selectedProvider,
           personaId,
-          groundContext: currentGroundContext,
+          groundContext: sessionInvariants.decorate(currentGroundContext),
           // Operator-attached uploads — server fetches indexed content
           // for each, injects as <attached_file> blocks in the system
           // prompt so the LLM sees the file content this turn.
@@ -594,6 +601,10 @@ export function SmartTriadCopilotLayer({
       });
 
       const data = await res.json();
+
+      // Fold this turn's resolved invariants into the session's carried
+      // memory so the next turn ships them back as sessionInvariants.
+      sessionInvariants.ingest(data?.resolved_invariants);
 
       const assistantMessage: SmartTriadMessage = {
         id: `assistant-${Date.now()}`,
@@ -830,6 +841,9 @@ export function SmartTriadCopilotLayer({
           tenantConfig={tenantConfig}
           onModelChange={handleModelChange}
           personaId={personaId}
+          agentName={agent?.name}
+          agentId={agent?.id}
+          agentSubtitle={agentSubtitle}
         />
       )}
     </div>
@@ -1122,9 +1136,15 @@ function FloatingCopilot({
             </div>
           </div>
 
-          {/* Quick prompts strip — above input, below messages */}
+          {/* Quick prompts strip — above input, below messages. Single-row
+              horizontal carousel (overflow-x-auto, no wrap), not a wrapped
+              grid — on a narrow/compressed viewport (e.g. the Companion
+              extension's docked side panel) a wrapped strip can eat several
+              rows of vertical space that belong to the conversation itself.
+              Standard rule for every copilot mounted through this shared
+              component (2026-07-23, operator-directed). */}
           {visibleQuickPrompts && (
-            <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
+            <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-nowrap overflow-x-auto no-scrollbar flex-shrink-0">
               {/* Clear pill — only renders when any chip is pulsing a
                   chat-driven suggestion AND the parent wired an
                   onClearHighlights callback. Mirrors the right-pane
@@ -1138,7 +1158,7 @@ function FloatingCopilot({
                   onClick={onClearHighlights}
                   title="Clear pulsing capsule suggestions"
                   aria-label="Clear pulsing capsule suggestions"
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors bg-emerald-500/10 text-emerald-200 ring-1 ring-emerald-400/40 hover:bg-emerald-500/20 hover:text-white flex-shrink-0"
                 >
                   Clear
                 </button>
@@ -1157,7 +1177,7 @@ function FloatingCopilot({
                     key={i}
                     onClick={() => onQuickPrompt(qp)}
                     title={typeof qp !== "string" ? qp.prompt : undefined}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${base}`}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors flex-shrink-0 ${base}`}
                   >
                     {label}
                   </button>
@@ -1424,6 +1444,9 @@ function EmbeddedCopilot({
   tenantConfig,
   onModelChange,
   personaId,
+  agentName,
+  agentId,
+  agentSubtitle,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -1451,21 +1474,34 @@ function EmbeddedCopilot({
   tenantConfig?: any;
   onModelChange: (model: string, provider: string) => void;
   personaId?: string;
+  agentName?: string;
+  agentId?: string;
+  agentSubtitle?: string;
 }) {
-  
+
   return (
     <div className={`h-full flex flex-col ${panelClassName}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b">
-        <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-cyan-600" />
-          <h3 className="font-medium text-sm text-foreground">SmartTriad Copilot</h3>
+      {/* Header — mirrors FloatingCopilot's header (agent identity, slate
+          house style). Falls back to "SmartTriad Copilot" only when no
+          agentName is supplied, so consumers that don't pass an agent
+          identity keep working unchanged. */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800 bg-slate-900/40">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+          <span className="font-medium text-sm text-slate-100 truncate">
+            {agentName ?? "SmartTriad Copilot"}
+          </span>
+          {agentSubtitle && (
+            <span className="text-[10px] uppercase tracking-wider text-slate-500 truncate">
+              {agentSubtitle}
+            </span>
+          )}
         </div>
         {enableAdvancedRendering && (
-          <span className="text-xs text-cyan-600">Advanced</span>
+          <span className="text-xs text-cyan-400 flex-shrink-0">Advanced</span>
         )}
       </div>
-      
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.map((message) => (
@@ -1480,10 +1516,10 @@ function EmbeddedCopilot({
         ))}
         <div ref={messagesEndRef} />
       </div>
-      
+
       {/* Input */}
       {!disablePromptInput && (
-        <div className={`p-3 border-t ${inputPanelClassName}`}>
+        <div className={`p-3 border-t border-slate-800 ${inputPanelClassName}`}>
           <div className="flex gap-2">
             <input
               ref={inputRef}
@@ -1499,7 +1535,7 @@ function EmbeddedCopilot({
                 }
               }}
               placeholder={promptPlaceholder}
-              className={`flex-1 px-3 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm ${inputPanelInputClassName}`}
+              className={`flex-1 px-3 py-2 bg-slate-900/40 border border-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm text-slate-100 placeholder:text-slate-500 ${inputPanelInputClassName}`}
               disabled={isProcessing}
             />
             <button
@@ -1516,10 +1552,10 @@ function EmbeddedCopilot({
           </div>
         </div>
       )}
-      
+
       {/* Footer */}
       {footerContent && (
-        <div className="p-3 border-t bg-muted/50">
+        <div className="p-3 border-t border-slate-800 bg-slate-900/40">
           {footerContent}
         </div>
       )}

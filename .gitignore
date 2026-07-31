@@ -117,6 +117,7 @@ apps/theqriptopian-web/src/pages/ArticleTest.tsx
 
 *.xd
 scripts/data/
+scripts/.treasury-mandate-ledger.json
 
 # Capstone secrets (do not commit)
 capstone/**/.env
@@ -125,3 +126,7 @@ capstone/**/env.meta
 capstone/**/principal.body
 capstone/**/principal.meta
 .claude/worktrees/
+
+# Build-generated pack corpus manifest (scripts/export-pack-corpus.mjs)
+codexes/pack-manifest.json
+dist/

@@ -149,6 +149,15 @@ function parseJson(text) {
   if (start < 0 || end < 0) return null;
   try { return JSON.parse(body.slice(start, end + 1)); } catch { return null; }
 }
+// Coordinate calibration this harness is valid against (IRE-6). Mirrors
+// `CALIBRATION` in services/invariants/projectionBridge.ts; a .mjs script cannot
+// import the TS module, so tests/instrument-engine-briefs.test.ts pins the two
+// together and fails the build if they drift (inv.engineering.036 — a mirror
+// that cannot be derived gets a parity canary, never a hand-maintained copy).
+const EXPECTED_CALIBRATION = 'coordinates/v2-normalised';
+const PRE_FIX_DIAGNOSTIC_LABEL =
+  'Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with post-fix runs.';
+
 const jaccard = (a, b) => { const A = new Set(a), B = new Set(b); const inter = [...A].filter((x) => B.has(x)).length; const uni = new Set([...A, ...B]).size; return uni === 0 ? 1 : inter / uni; };
 
 async function fetchJson(url, opts) {
@@ -234,6 +243,26 @@ async function main() {
 
     if (EXP === 'ipv' || EXP === 'both') {
       const projs = ireRuns.map((f) => f.ipeProjection || {});
+      // Calibration gate (operator ruling 2026-07-27 — IRE-6). Every IPV metric
+      // below except `ireSeedSetStability` reads the coordinate path. Before the
+      // units fix, evidenceDensity was clamp01(standing) over a 0-100 column, so
+      // the coordinate weight vector was a PRESENCE indicator rather than a
+      // magnitude — its cross-rep stability was then identical by construction to
+      // the seed-set stability reported beside it, and could not fail
+      // independently. Scoring against a host that still serves the old
+      // calibration would reproduce that vacuous number, so refuse instead.
+      // Fail-closed: no stamp at all IS the pre-fix case.
+      const calibrations = [...new Set(projs.map((p) => p.calibration ?? null))];
+      const preFix = calibrations.filter((c) => c !== EXPECTED_CALIBRATION);
+      if (!DRY && preFix.length > 0) {
+        console.error(
+          `\n[iv] REFUSED — intent '${it.id}': the host's projection reports calibration ` +
+            `${JSON.stringify(preFix)}, expected '${EXPECTED_CALIBRATION}'.\n` +
+            `[iv] ${PRE_FIX_DIAGNOSTIC_LABEL}\n` +
+            `[iv] Deploy the IRE-6 coordinate fix to ${HOST} before rerunning Stage 0.`,
+        );
+        process.exit(2);
+      }
       const meanDeltas = projs.map((p) => p.meanAbsDelta).filter((x) => typeof x === 'number');
       const divergeVals = projs.map((p) => !!p.diverges);
       const stdKeysStable = projs.every((p) => JSON.stringify(p.standing) === JSON.stringify(projs[0]?.standing));
@@ -279,7 +308,9 @@ async function main() {
   const outDir = join(REPO, OUT_DIR);
   mkdirSync(outDir, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 10);
-  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', band: BAND, framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, personaModel: ACTIVE_MODEL, judgeModel: JUDGE_MODEL || ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
+  // The calibration stamp travels with the result, so a future comparison can
+  // tell post-fix numbers from pre-fix ones without remembering a date.
+  const payload = { experiment: EXP === 'ipv' ? 'IPV-001' : 'IRV-001', kind: 'instrument-validation', band: BAND, calibration: EXPECTED_CALIBRATION, framing: 'Synthetic Expert Baseline (SEB) — engineering calibration, NOT a Delphi study; personas are correlated models, not independent experts.', host: HOST, provider: ACTIVE_PROVIDER, model: ACTIVE_MODEL, personaModel: ACTIVE_MODEL, judgeModel: JUDGE_MODEL || ACTIVE_MODEL, reps: REPS, tokens: TOKENS, generatedAt: new Date().toISOString(), summary, results };
   const json = JSON.stringify(payload, null, 2);
   const hash = createHash('sha256').update(json).digest('hex');
   const base = `${EXP}-results-${stamp}`;

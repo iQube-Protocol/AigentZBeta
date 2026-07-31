@@ -15,7 +15,21 @@ For a resolved field, does the IPE produce the **same projection** every time?
 - **Projection stability** — `meanAbsDelta` (standing vs coordinate weights) has near-zero variance across reps.
 - **Seed-set stability** — the underlying IRE resolution is stable (shared with IRV-001).
 
-By construction the IPE's default axis equals the standing axis, so a well-behaved IPE should be **exactly reproducible** on a frozen substrate — this experiment confirms that construction holds live and surfaces any nondeterminism (caching, ordering, race) before it can contaminate a science result.
+By construction the IPE's default axis is *derived from* the standing axis, so a well-behaved IPE should be **exactly reproducible** on a frozen substrate — this experiment confirms that construction holds live and surfaces any nondeterminism (caching, ordering, race) before it can contaminate a science result.
+
+> **⚠ The 2026-07-18 run of this experiment is a pre-fix diagnostic (operator ruling, 2026-07-27).**
+> The premise above was false when that run executed. `evidenceDensity` was `clamp01(standing)` over
+> a 0–100 column, so the coordinate axis was not derived from standing but *saturated* against it —
+> flat where standing is proportional. The coordinate weight vector was therefore a **presence
+> indicator**, not a magnitude, and its cross-rep stability was identical by construction to the
+> seed-set stability this same experiment reports separately. **`coordinateReproducibleRate` could
+> not have failed**, which makes 1.0 a vacuous measurement rather than a mis-scaled one.
+>
+> ***Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with
+> post-fix runs.*** Applies to `coordinateWeightsReproducible`, `meanAbsDelta`,
+> `meanAbsDeltaVariance` and `divergesConsistent`. It does **not** apply to
+> `standingWeightsReproducible` or `ireSeedSetStability`, which read raw standing and resolved seed
+> ids respectively and were never touched by the defect.
 
 ## Method
 
@@ -45,5 +59,7 @@ Writes `results/ipv-results-<date>.json` + `.manifest.json` (sha256).
 
 - [x] READY TO RUN — chartered 2026-07-17 (operator direction; Stage-0 shake-down).
 - [x] Sibling IRV-001 shakedown (2026-07-18) confirmed the shared substrate: **IRE seed-set stability = 1.0** across all reps (the reproducibility precondition IPV depends on). The one pathology found there (unscoped-fallback discovery pollution) is fixed in `resolution.ts`.
-- [x] Full IPV run (anchored band, 10 intents × 5 reps) — 2026-07-18. **standingReproducibleRate 1.0 · coordinateReproducibleRate 1.0 · seed-set stability 1.0 — 100% reproducible, zero nondeterminism.** `ipv-results-2026-07-18.json` sha256 `8f86238069142fcf…`.
-- [x] IPE **validated for EXP-P1** — reproducibility confirmed live on the frozen substrate (not merely by construction); no caching/ordering nondeterminism observed.
+- [x] Full IPV run (anchored band, 10 intents × 5 reps) — 2026-07-18. **standingReproducibleRate 1.0 · coordinateReproducibleRate 1.0 · seed-set stability 1.0 — 100% reproducible, zero nondeterminism.** `ipv-results-2026-07-18.json` sha256 `8f86238069142fcf…`. Calibration: `coordinates/v1-clamped`.
+  - ⛔ **`coordinateReproducibleRate 1.0` — *Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with post-fix runs.*** (operator ruling 2026-07-27, IRE-6). `standingReproducibleRate` and `seed-set stability` are unaffected and stand.
+- [ ] ⛔ **RERUN REQUIRED** — Stage 0 from a frozen configuration on `coordinates/v2-normalised`. Requirements + the copyable command: `../exp-p1-representation-runtime-gauntlet/STAGE-0_HANDOFF.md` § "Rerun requirements". The harness (`scripts/run-instrument-validation.mjs`) exits 2 rather than scoring IPV against a host that still serves the old calibration.
+- [ ] IPE validated for EXP-P1 on the coordinate path — **NOT YET EARNED.** The 2026-07-18 record claimed it ("reproducibility confirmed live on the frozen substrate"); that claim is preserved as what was asserted then and is superseded for the coordinate path. Reproducibility remains necessary, not sufficient, either way.

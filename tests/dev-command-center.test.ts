@@ -989,11 +989,22 @@ describe('Constitutional Development Environment', () => {
   // preserves the canAdvance/nextStage semantics the tab rehydrates into.
 
   it('exports STAGE_ORDER + isDevLoopStage for route validation (no hardcoded stage sets)', () => {
-    expect(STAGE_ORDER).toEqual([
-      'intent_capture', 'context_assembly', 'gap_analysis', 'consequence_modeling',
-      'implementation', 'consequence_validation', 'remediation',
-      'deployment_authorization', 'complete',
-    ]);
+    // The loop GROWS -- 'constitutional_decision' was added between modelling
+    // and implementation, and a frozen membership list turned a legitimate
+    // stage addition into a red build (the same defect as the hardcoded
+    // RESEARCH_PROGRAMMES list). What is worth pinning is the SHAPE and the
+    // ORDERING CONSTRAINTS that carry meaning.
+    expect(new Set(STAGE_ORDER).size, 'duplicate stage').toBe(STAGE_ORDER.length);
+    expect(STAGE_ORDER[0]).toBe('intent_capture');
+    expect(STAGE_ORDER[STAGE_ORDER.length - 1]).toBe('complete');
+    const at = (s: string) => STAGE_ORDER.indexOf(s as never);
+    // Understand before building; validate before authorising; authorise last.
+    expect(at('context_assembly')).toBeGreaterThan(at('intent_capture'));
+    expect(at('implementation')).toBeGreaterThan(at('gap_analysis'));
+    expect(at('consequence_validation')).toBeGreaterThan(at('implementation'));
+    expect(at('deployment_authorization')).toBeGreaterThan(at('consequence_validation'));
+    expect(at('deployment_authorization')).toBe(STAGE_ORDER.length - 2);
+    // Every stage the loop declares must be recognised by the route guard.
     for (const stage of STAGE_ORDER) expect(isDevLoopStage(stage)).toBe(true);
     expect(isDevLoopStage('validated')).toBe(false);
     expect(isDevLoopStage('')).toBe(false);

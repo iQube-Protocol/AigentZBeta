@@ -44,7 +44,7 @@ export const dynamic = 'force-dynamic';
 const SUBMISSION_CAPABILITY = 'irl:experiment-result:submit';
 
 /** External submissions: Validation Programme + Stage-0 series only. */
-const EXTERNAL_EXPERIMENTS: PublishableExperiment[] = ['EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001'];
+const EXTERNAL_EXPERIMENTS: PublishableExperiment[] = ['EXP-P1', 'EXP-P2', 'EXP-P3', 'IRV-001', 'IPV-001', 'ISR-001'];
 
 export async function POST(request: NextRequest) {
   let body: {

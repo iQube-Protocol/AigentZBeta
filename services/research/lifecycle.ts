@@ -33,11 +33,15 @@ import {
   type ResearchOverviewEntry,
 } from '@/types/research';
 
-/** Floor lifecycle from the canonical record: any published run ⇒ at least
+/** Floor lifecycle from the canonical record — verified over claimed
+ * (inv.polity.162, inv.reasoning.346–349): any published run ⇒ at least
  * `published`; runs across ≥2 distinct providers ⇒ `replicated` (independent
  * substitution is the replication signal we can compute honestly today);
- * no runs ⇒ `running` for experiments whose runners ship (all registry
- * members do), since the machinery exists and is exercised operator-paced. */
+ * NO published runs ⇒ `designed`. A design-stage experiment (e.g. EXP-P1 before
+ * its joint signature) must present as pre-freeze, never as `running` — claiming
+ * `running` without an evidence trail over-states the record (review QA, Austin
+ * 2026-07-21). A true `running`/`protocol-ratified` state is set explicitly via
+ * recordExperimentTransition, not floored from absence. */
 export async function deriveOverview(): Promise<ResearchOverviewEntry[]> {
   const client = getSupabaseServer();
   const rows: Array<{ experiment: string; provider: string; created_at: string }> = [];
@@ -58,7 +62,7 @@ export async function deriveOverview(): Promise<ResearchOverviewEntry[]> {
   return EXPERIMENT_REGISTRY.map((experiment) => {
     const runs = rows.filter((r) => r.experiment === experiment.id);
     const providers = new Set(runs.map((r) => r.provider));
-    let lifecycle: ExperimentLifecycleState = 'running';
+    let lifecycle: ExperimentLifecycleState = 'designed';
     if (providers.size >= 2) lifecycle = 'replicated';
     else if (runs.length > 0) lifecycle = 'published';
     return {
@@ -78,7 +82,7 @@ export async function deriveOverview(): Promise<ResearchOverviewEntry[]> {
  * initiated, must ride the same `research_lifecycle_transition` action type
  * (DVN-anchorable) with governing invariants carried as invariants_used.
  */
-async function writeLifecycleReceipt(input: {
+export async function writeLifecycleReceipt(input: {
   personaId: string;
   summary: string;
   invariantSeedIds: string[];
@@ -132,7 +136,7 @@ export async function recordExperimentTransition(input: {
 
 // ─── Phase C2.2 — persisted research objects + create-kind receipts ──────────
 
-export type ResearchObjectKind = 'experiment' | 'finding' | 'publication';
+export type ResearchObjectKind = 'experiment' | 'finding' | 'publication' | 'artifact';
 
 export interface ResearchObjectRecord {
   objectKind: ResearchObjectKind;

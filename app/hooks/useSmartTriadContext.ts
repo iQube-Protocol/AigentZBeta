@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { personaFetch } from "@/utils/personaSpine";
 import type { SmartTriadContext, SmartTriadDeepLink, SmartTriadObserverContext, SmartTriadOperation } from "@/types/smartTriadContext";
+import { ARCHETYPE_DEFAULT_ACTION_MODES } from "@/services/iqube/actionModes";
 
 /** Per-cartridge deep-link catalogs. IRL tab slugs differ by edition (irl-os-*
  *  public vs irl-* internal) — resolved from the codexId. */
@@ -153,6 +154,22 @@ export function useSmartTriadContext(
         const res = await personaFetch("/api/experiments/access", { cache: "no-store" });
         const d = await res.json();
         next.isAdmin = Boolean(d?.isAdmin);
+      } catch { /* best-effort */ }
+      try {
+        // Constitutional Action Modes (Founder Office amendment, ratified
+        // 2026-07-22 — session/runtime state, not persisted profile data).
+        // No explicit mode-selection UX exists yet (deferred per the
+        // amendment §6.1/§8 item 5), so the observer's `activeActionModes` is
+        // always the read-time seed derived from the persona's declared
+        // `operatorArchetype` via ARCHETYPE_DEFAULT_ACTION_MODES — never a
+        // write to the archetype record itself.
+        const res = await personaFetch("/api/assistant/experience-model", { cache: "no-store" });
+        const d = await res.json();
+        const archetype = d?.meta?.operatorArchetype;
+        if (typeof archetype === "string" && archetype in ARCHETYPE_DEFAULT_ACTION_MODES) {
+          next.activeActionModes =
+            ARCHETYPE_DEFAULT_ACTION_MODES[archetype as keyof typeof ARCHETYPE_DEFAULT_ACTION_MODES];
+        }
       } catch { /* best-effort */ }
       if (!cancelled) setObserver(next);
     })();

@@ -10,7 +10,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import * as fs from 'fs';
+import {
+  ensureCorpusHydrated,
+  corpusReadFile,
+  corpusListMarkdown,
+} from '@/services/knowledge/packCorpusStore';
 import * as path from 'path';
 import { personas } from '@/app/data/personas';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
@@ -108,33 +112,18 @@ function runDelegationGuard(message: string): DelegationGuardResult {
 // Filesystem helpers — reads ONLY from agentiq-os pack
 // ============================================================================
 
+// Reads route through the pack-corpus seam: local FS in dev, the in-memory
+// corpus (hydrated from the remote blob) in the SSR Lambda. The POST handler
+// awaits ensureCorpusHydrated() before the synchronous searchPack below.
 function readPackFile(relPath: string): string | null {
-  try {
-    const abs = path.join(PACK_ROOT, relPath);
-    // Strict path containment — never read outside pack root
-    if (!abs.startsWith(PACK_ROOT)) return null;
-    return fs.readFileSync(abs, 'utf8');
-  } catch {
-    return null;
-  }
+  const abs = path.join(PACK_ROOT, relPath);
+  // Strict path containment — never read outside pack root
+  if (!abs.startsWith(PACK_ROOT)) return null;
+  return corpusReadFile(abs);
 }
 
 function listMarkdownFiles(dir: string): string[] {
-  const results: string[] = [];
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...listMarkdownFiles(full));
-      } else if (entry.name.endsWith('.md') && !entry.name.startsWith('.')) {
-        results.push(path.relative(PACK_ROOT, full));
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return results;
+  return corpusListMarkdown(dir, PACK_ROOT);
 }
 
 /** Keyword search across agentiq-os items only. */
@@ -314,6 +303,10 @@ export async function POST(request: NextRequest) {
         { status: 403 },
       );
     }
+
+    // Hydrate the pack corpus (no-op in dev; fetches the remote blob once per
+    // container in the SSR Lambda) before the synchronous searchPack below.
+    await ensureCorpusHydrated();
 
     // Search agentiq-os KB only
     const searchResults = searchPack(message, 5);

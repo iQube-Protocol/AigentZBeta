@@ -13,7 +13,7 @@ Two constitutional builds landed in the same session arc, both extension-only:
 
 ## 2. CFS-048 IDE Phase 0 — constitutional discovery arm, Financial Services
 
-Charter: `2026-07-20_cfs-048-invariant-discovery-engine-charter.md` (doctrine `inv.reasoning.334–339` canonical). Phase 0 built on operator ratification:
+Charter: `codexes/packs/irl/foundation/CFS-048_invariant-discovery-engine-charter.md` (filed into the foundation 2026-07-28, byte-identical; authored here as `2026-07-20_cfs-048-invariant-discovery-engine-charter.md`) (doctrine `inv.reasoning.334–339` canonical). Phase 0 built on operator ratification:
 
 - **Orchestration over existing primitives** — composes `callSovereign` (invariant-aware inference) for extraction/compression and `discoverInvariant()` for promotion; never re-implements the lifecycle.
 - `discovery_evidence` (Stage 1) + `discovery_candidates` (Stages 2–3), migration `20260803000000`; T2-safe committer commitments; RLS service-role only.

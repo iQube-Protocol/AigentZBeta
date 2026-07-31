@@ -26,10 +26,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { corpusReadFile } from './packCorpusStore';
 import {
   searchCodex,
   getRecentCommits,
   buildCodexExcerptsBlock,
+  ensureCorpusHydrated,
   buildRecentCommitsBlock,
   GITHUB_BLOB_BASE,
 } from './agentiqPackSearch';
@@ -99,11 +101,17 @@ function buildRepoFileBlock(query: string): string {
     const githubUrl = `${GITHUB_BLOB_BASE}/${rel}`;
     let content: string | null = null;
     if (inlined < MAX_INLINE_FILES) {
-      try {
-        const stat = fs.statSync(abs);
-        if (stat.isFile()) content = fs.readFileSync(abs, 'utf8');
-      } catch {
-        content = null; // not on disk (e.g. untraced in Lambda) — link only
+      if (rel.startsWith('codexes/packs/')) {
+        // Pack .md bodies live in the corpus store (remote in the Lambda). The
+        // caller (buildAigentZPlatformKnowledge) has already hydrated it.
+        content = corpusReadFile(abs);
+      } else {
+        try {
+          const stat = fs.statSync(abs);
+          if (stat.isFile()) content = fs.readFileSync(abs, 'utf8');
+        } catch {
+          content = null; // not on disk (e.g. untraced in Lambda) — link only
+        }
       }
     }
 
@@ -286,8 +294,10 @@ async function buildNetworkOpsSnapshot(origin: string): Promise<string> {
 export async function buildAigentZPlatformKnowledge(query: string, origin: string): Promise<string> {
   const blocks: string[] = [PLATFORM_MAP];
 
-  // Pack retrieval — cheap fs keyword search, always attempted
+  // Pack retrieval — keyword search over the corpus (local FS in dev; remote
+  // in-memory corpus hydrated once per container in the SSR Lambda).
   try {
+    await ensureCorpusHydrated();
     const results = searchCodex(query, 5);
     const excerpts = buildCodexExcerptsBlock(results);
     if (excerpts) blocks.push(excerpts);

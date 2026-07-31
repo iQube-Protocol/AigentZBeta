@@ -20,7 +20,7 @@
  * stray `?token=…` can never enter the buffer.
  *
  * PURE MODULE: no fs, no DB, no React, no I/O — module state only. Unit-testable
- * in isolation (tests/dcc-tools.test.ts).
+ * in isolation (tests/dcc-tools.node-drill.ts).
  */
 
 /** Ring-buffer cap — the in-process buffer never holds more than this many entries. */

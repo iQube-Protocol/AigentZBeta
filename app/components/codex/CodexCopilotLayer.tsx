@@ -2,22 +2,27 @@
  * CodexCopilotLayer - Enhanced floating copilot drawer for the Codex
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useCopilotHost } from "./CopilotHostContext";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { personaFetch } from "@/utils/personaSpine";
+import { useSessionInvariants } from "@/hooks/useSessionInvariants";
+import { resolveVoicePersona } from "@/services/metame/voicePersona";
 import type { SmartTriadDeepLink, SmartTriadOperation } from "@/types/smartTriadContext";
 const SmartWalletDrawer = dynamic(() => import("../content/SmartWalletDrawer"), { ssr: false });
 import { CopilotInferenceBodyRenderer, type PromptSuggestionMeta } from "./CopilotInferenceBodyRenderer";
 import {
   Bot,
   User,
+  UserRound,
+  Star,
   MessageSquare,
   ChevronDown,
   Send,
+  Search as SearchIcon,
   Loader2,
   BookOpen,
   Sparkles,
@@ -44,6 +49,23 @@ interface CodexCopilotLayerProps {
   variant?: "floating" | "embedded";
   className?: string;
   hideAvatarToggle?: boolean;
+  /** Which existing copilot mode to open in. Defaults to 'chat' (unchanged
+   *  for every current mount). Companion 1.1 / SCOPE-MMC-004 D-8. */
+  initialCopilotMode?: "chat" | "avatar";
+  /**
+   * Told whenever the copilot's mode changes, whoever changed it.
+   *
+   * THE DEFECT THIS PAIR CLOSES (operator, 2026-07-26, third report: "coming
+   * back from the avatar... something is diabolically broken"). Mode lived in
+   * two places that never spoke: `initialCopilotMode` was read ONCE into
+   * useState, and the copilot's own footer toggles changed internal state the
+   * host never heard about. So after entering avatar via the copilot's toggle,
+   * the host still believed the mode was chat — every nav click updated host
+   * state into a surface the avatar branch never renders, and the menu system
+   * appeared dead. Not a rendering bug: a two-sources-of-truth bug, the exact
+   * Capsule/layout defect class CLAUDE.md documents.
+   */
+  onCopilotModeChange?: (mode: "chat" | "avatar") => void;
   contextOptions?: Array<{ id: string; label: string }>;
   contextId?: string;
   onContextChange?: (contextId: string) => void;
@@ -62,6 +84,60 @@ interface CodexCopilotLayerProps {
       }
   >;
   onPrompt?: (prompt: string) => void;
+  /**
+   * Extra controls rendered INSIDE the copilot's own bottom menu row, beside
+   * the modes it already owns. This is how a host deployment migrates its
+   * surface switches into the one navigation system (SCOPE-MMC-004 §3.2:
+   * the Copilot is the shell) without every cartridge inheriting them.
+   */
+  navExtras?: React.ReactNode;
+  /**
+   * Told whenever the copilot opens its wallet, so a host that owns surface
+   * selection can move its own state to the wallet surface at the same moment.
+   *
+   * Without it the copilot's internal panel state is the truth, exactly as
+   * before. With it there is ONE answer to "which surface is showing": a host
+   * whose `bodySlot` takes precedence over the wallet would otherwise leave
+   * the wallet button looking dead — it set state nobody rendered.
+   */
+  onWalletLaunch?: () => void;
+  /**
+   * Hide the close control.
+   *
+   * Set ONLY by a host where the copilot IS the shell and therefore never
+   * closes — the Companion, whose own chrome closes the panel. Everywhere else
+   * this chevron is the only way to dismiss the copilot once opened, so it
+   * must stay: removing it outright (2026-07-26) stranded the platform copilot
+   * open with no exit.
+   */
+  hideCloseControl?: boolean;
+  /**
+   * Renders in place of the message list, keeping the copilot's header, chip
+   * carousel, composer and menu row mounted around it.
+   *
+   * This is what makes "the Copilot is the shell" literally true (SCOPE-MMC-004
+   * §3.2): a host surface swaps the BODY, and the navigation persists — rather
+   * than unmounting the copilot and taking its menu row with it, which left the
+   * citizen with no way back once a surface was activated.
+   *
+   * The conversation is not torn down while a body slot is showing, so
+   * returning to Agent Me returns to the same session (D-8).
+   */
+  bodySlot?: React.ReactNode;
+  /**
+   * Hides the composer entirely. A surface that is not a conversation has no
+   * use for a prompt bar, and showing one there invites the citizen to type
+   * into something that will not answer.
+   */
+  hideComposer?: boolean;
+  /**
+   * What the composer submits to. `'search'` REPURPOSES the same bar as the
+   * search input — send icon becomes a search icon, submission goes to
+   * `onComposerSubmit` instead of the model, and nothing is added to the
+   * conversation. One input bar, not two (operator, 2026-07-26).
+   */
+  composerMode?: "chat" | "search";
+  onComposerSubmit?: (value: string) => void;
   onUserPrompt?: (
     prompt: string
   ) => Promise<
@@ -122,6 +198,16 @@ interface CodexCopilotLayerProps {
   density?: "narrow" | "wide" | "extra-wide";
   walletEmbeddedAnchor?: "left" | "right";
   walletAllowWideLayout?: boolean;
+  /**
+   * How the embedded wallet sizes itself. `"fixed"` (the default, and the
+   * behaviour every existing mount had when this was a hardcoded constant)
+   * gives the wallet its own rem width beside the copilot inside a wide
+   * cartridge. `"fill"` makes it take whatever width the host actually
+   * provides — which is what a Companion pane needs, because there the
+   * copilot IS the whole surface and a fixed cartridge-sized wallet either
+   * overflows the pane or leaves a gap beside it.
+   */
+  walletEmbeddedWidth?: "fill" | "fixed";
   agent?: {
     id: string;
     name: string;
@@ -140,6 +226,42 @@ interface CodexCopilotLayerProps {
    * the parallel SmartWalletDrawer (which has z-index conflicts).
    */
   walletTabSignal?: number;
+  /**
+   * Header identity badge — Companion 1.1 persona/agent switcher
+   * (codexes/packs/agentiq/updates/2026-07-29_companion-header-persona-model-controls.md).
+   * When set, the header's persona label becomes a clickable button that
+   * calls this handler (opens the host's compact persona/agent chooser).
+   * Omitted everywhere else — the header stays the static label it always
+   * was, with zero behaviour change for every existing mount.
+   */
+  onHeaderIdentityClick?: () => void;
+  /**
+   * True when the currently active persona IS the citizen's aigentMe
+   * delegate. Renders the same amber Star + "aigentMe" convention
+   * `SmartWalletDrawer`'s persona menu already uses for that row — never
+   * asserted for a human persona.
+   */
+  isAigentMeActive?: boolean;
+  /**
+   * Kind of the currently active persona, for the collapsed-badge indicator.
+   * `null` (the default) keeps the original green/grey connected dot, i.e.
+   * every mount that doesn't pass this renders byte-identical to before.
+   */
+  activePersonaKind?: "human" | "agent" | null;
+  /**
+   * Extra icon rendered in the copilot's own mode-toggle row (beside
+   * pause/mic/avatar/chat) — the model-provider picker. Same additive seam
+   * as `navExtras`: omitted everywhere except the host that supplies one.
+   */
+  modelPickerSlot?: React.ReactNode;
+  /**
+   * Provider/model to send on every `/api/codex/chat` call from this
+   * copilot, as `provider_id`/`llm_id` — the same fields the route already
+   * resolves against the agent's configured ModelQube providers. `null`/
+   * undefined omits both fields, so every existing caller's request body is
+   * byte-identical to before.
+   */
+  modelSelection?: { providerId: string; modelId: string } | null;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -182,13 +304,23 @@ export function CodexCopilotLayer({
   variant = "floating",
   className,
   hideAvatarToggle = false,
+  initialCopilotMode,
+  onCopilotModeChange,
   contextOptions,
   contextId,
   onContextChange,
   inputPanelClassName,
   inputPanelInputClassName,
   promptMaxHeight,
+  quickPrompts,
   onPrompt,
+  navExtras,
+  onWalletLaunch,
+  hideCloseControl = false,
+  bodySlot,
+  hideComposer = false,
+  composerMode = "chat",
+  onComposerSubmit,
   onUserPrompt,
   getChatRequestContext,
   groundContext,
@@ -215,10 +347,16 @@ export function CodexCopilotLayer({
   density = "narrow",
   walletEmbeddedAnchor = "right",
   walletAllowWideLayout = true,
+  walletEmbeddedWidth: walletEmbeddedWidthProp = "fixed",
   agent,
   personaId,
   accentColor = 'cyan',
   walletTabSignal,
+  onHeaderIdentityClick,
+  isAigentMeActive = false,
+  activePersonaKind = null,
+  modelPickerSlot,
+  modelSelection,
 }: CodexCopilotLayerProps) {
   // Floating-copilot dedupe (CopilotHostContext): a 'tab'-role floating layer
   // registers itself; the shell's 'panel'-role generic layer yields (renders
@@ -259,34 +397,10 @@ export function CodexCopilotLayer({
     }
   }, []);
 
-  // Constitutional memory v0 (SmartTriad Phase 3): invariants the IRE resolved
-  // on earlier turns, accumulated from resolved_invariants echoes and sent
-  // back as groundContext.sessionInvariants. T2-safe (seed ids + statements).
-  const sessionInvariantsRef = useRef<Array<{ seedId: string; statement: string }>>([]);
-  // CFS-045-A2 session marker — opaque random token grouping this mount's
-  // turns into one reasoning session for trajectory capture. NEVER derived
-  // from any identifier.
-  const sessionMarkerRef = useRef<string>("");
-  if (!sessionMarkerRef.current) {
-    sessionMarkerRef.current = Math.random().toString(36).slice(2, 12);
-  }
-  const accumulateResolvedInvariants = (
-    incoming: CodexChatResponse["resolved_invariants"],
-  ) => {
-    if (!Array.isArray(incoming) || incoming.length === 0) return;
-    const merged: Array<{ seedId: string; statement: string }> = [];
-    const seen = new Set<string>();
-    // Newest resolution first, then prior memory — cap at 12, matching the
-    // server-side merge ceiling.
-    for (const inv of [...incoming, ...sessionInvariantsRef.current]) {
-      const seedId = String(inv?.seedId ?? "");
-      const statement = String(inv?.statement ?? "");
-      if (!seedId || !statement || seen.has(seedId) || merged.length >= 12) continue;
-      seen.add(seedId);
-      merged.push({ seedId, statement });
-    }
-    sessionInvariantsRef.current = merged;
-  };
+  // Constitutional memory v0 (SmartTriad Phase 3 + CFS-045-A2). Shared with
+  // SmartTriadCopilotLayer via the hook so both copilot mounts carry memory
+  // the same way — one implementation, not two that can drift.
+  const sessionInvariants = useSessionInvariants();
 
   // Inference-driven navigation (SmartTriad PRD §6): the model embeds
   // [[nav:Label]] markers in its reply; labels are validated VERBATIM against
@@ -434,7 +548,33 @@ export function CodexCopilotLayer({
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
-  const [copilotMode, setCopilotMode] = useState<CopilotMode>("chat");
+  // `initialCopilotMode` lets a HOST choose which existing mode the copilot
+  // opens in (Companion 1.1 / SCOPE-MMC-004 D-8: the Companion's Avatar nav
+  // item enters the copilot's OWN avatar mode rather than mounting anything
+  // parallel). Additive and defaulted — no existing mount changes behaviour,
+  // and no new capability is introduced: both modes already shipped.
+  const [copilotMode, setCopilotMode] = useState<CopilotMode>(initialCopilotMode ?? "chat");
+
+  /** Every mode change goes through here so the host always hears about it. */
+  const switchCopilotMode = useCallback(
+    (mode: CopilotMode) => {
+      setCopilotMode(mode);
+      onCopilotModeChange?.(mode);
+    },
+    [onCopilotModeChange],
+  );
+
+  // HOST → COPILOT half of the sync. The prop used to be initial-only, so a
+  // host-driven mode change (clicking a nav item while in avatar) was silently
+  // ignored. Keyed on prop TRANSITIONS via a ref — the copilot's own toggles
+  // still work between prop changes without being fought.
+  const lastModePropRef = useRef(initialCopilotMode);
+  useEffect(() => {
+    if (initialCopilotMode === undefined) return;
+    if (initialCopilotMode === lastModePropRef.current) return;
+    lastModePropRef.current = initialCopilotMode;
+    setCopilotMode(initialCopilotMode);
+  }, [initialCopilotMode]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chatMessages, setChatMessages] = useState<CopilotMessage[]>([]);
@@ -454,8 +594,7 @@ export function CodexCopilotLayer({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('reopenWallet') !== '1') return;
-    setWalletPanelOpen(true);
-    setWalletPanelCollapsed(false);
+    launchWallet();
     params.delete('reopenWallet');
     const search = params.toString();
     const newUrl =
@@ -474,12 +613,19 @@ export function CodexCopilotLayer({
 
   useEffect(() => {
     if (hideAvatarToggle && copilotMode !== "chat") {
-      setCopilotMode("chat");
+      switchCopilotMode("chat");
     }
-  }, [hideAvatarToggle, copilotMode]);
+  }, [hideAvatarToggle, copilotMode, switchCopilotMode]);
   const [inputPanelHover, setInputPanelHover] = useState(false);
 
-  // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
+  // ── Voice (Vapi) — speaks as THIS SURFACE'S agent ───────────────────────────
+  //
+  // Was hardcoded to Marketa in four places (session name, greeting, system
+  // prompt, tooltips), so every mount introduced her regardless of the agent
+  // the citizen was actually talking to — Agent Me in the Companion, a
+  // cartridge lead elsewhere. The copilot is ONE conversation rendered three
+  // ways (text / avatar / voice, D-8); an agent that changes identity with the
+  // modality breaks the premise that there is one agent to address.
   type VapiState = "idle" | "connecting" | "active" | "speaking" | "error";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
   const [vapiPaused, setVapiPaused] = useState(false);
@@ -515,7 +661,14 @@ export function CodexCopilotLayer({
     return () => { vapi?.stop(); };
   }, []);
 
-  const toggleMarketa = useCallback(async () => {
+  /** Derived from the host's agent prop; falls back to Marketa when a mount
+   *  names no agent, so surfaces that never declared one are unchanged. */
+  const voicePersona = useMemo(
+    () => resolveVoicePersona(agent),
+    [agent],
+  );
+
+  const toggleVoice = useCallback(async () => {
     if (!vapiRef.current) return;
     if (vapiState !== "idle" && vapiState !== "error") {
       vapiRef.current.stop();
@@ -529,37 +682,91 @@ export function CodexCopilotLayer({
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
-        name: "Marketa",
-        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What would you like to do?",
+        name: voicePersona.name,
+        firstMessage: voicePersona.greeting,
         transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
         voice: {
           provider: "cartesia",
-          voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
+          voiceId: voicePersona.voiceId,
           model: "sonic-english",
         },
         model: {
           provider: "openai",
           model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are Marketa, a creative AI co-pilot in the iQube platform. Help users with their questions and tasks. Be concise, helpful, and friendly. Keep responses to 2-3 sentences max.",
-            },
-          ],
+          messages: [{ role: "system", content: voicePersona.systemPrompt }],
         },
       });
     } catch {
       setVapiState("idle");
     }
-  }, [vapiState]);
-  // ── end Marketa voice ───────────────────────────────────────────────────────
+  }, [vapiState, voicePersona]);
+  // ── end voice ───────────────────────────────────────────────────────────────
 
-  const headerHeight = 44;
+  const headerHeight = 32;
   const resolvedHeaderHeight = showTrustIndicators ? headerHeight : 0;
-  const footerRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const [footerMeasuredHeight, setFooterMeasuredHeight] = useState(floatingInput ? 100 : 80);
   const resolvedFooterHeight = disablePromptInput ? 0 : footerMeasuredHeight;
+
+  /**
+   * THE AVATAR/MENU DEFECT — root cause, found 2026-07-27 after ten cycles of
+   * fixing the wrong layer.
+   *
+   * The footer element this measures is rendered ONLY inside the
+   * `copilotMode === "chat"` branch, and it CONTAINS THE ENTIRE MENU ROW
+   * (nav items, avatar/chat toggles, mic, pause) as well as the composer.
+   * `resolvedFooterHeight` is what tells the body region — both `bodySlot` and
+   * the chat scroll container, each absolutely positioned with
+   * `bottom: resolvedFooterHeight` — how much room to leave for it.
+   *
+   * The previous implementation attached one `ResizeObserver` in a
+   * `useEffect(..., [])`. That is correct only if the observed node lives for
+   * the lifetime of the component. This one does not:
+   *
+   *   1. mount in chat  → observer attaches to footer node A → height ~96px
+   *   2. enter avatar   → the chat branch UNMOUNTS; node A detaches. The
+   *                       observer fires, and `offsetHeight` on an element with
+   *                       no layout box is **0** → footerMeasuredHeight = 0
+   *   3. return to chat → a NEW footer node B mounts, but `[]` deps mean the
+   *                       effect never re-runs: the observer is still watching
+   *                       the detached node A, so node B is never measured and
+   *                       the height stays **0 for the rest of the mount**
+   *
+   * From then on the body renders with `bottom: 0` — extending underneath the
+   * whole menu row, which is a near-transparent `bg-white/5` bar. That is
+   * simultaneously "the menu is broken" and "the opacity has disappeared": the
+   * chat/wallet/search body is now painting behind the menu instead of stopping
+   * above it. In the Companion the copilot never unmounts, so one visit to the
+   * avatar corrupts the layout permanently.
+   *
+   * Every earlier fix targeted the D-ID host — inerting it, hiding it,
+   * unmounting it, sweeping its artifacts. None of them could have helped,
+   * because the broken geometry is the COPILOT'S OWN, and it survives the
+   * avatar being gone.
+   *
+   * The fix is a callback ref, so the observer always tracks the node that is
+   * actually mounted, plus a zero-guard so a teardown measurement can never be
+   * mistaken for a real height.
+   */
+  const footerObserverRef = useRef<ResizeObserver | null>(null);
+  const attachFooterNode = useCallback((node: HTMLDivElement | null) => {
+    footerRef.current = node;
+    footerObserverRef.current?.disconnect();
+    footerObserverRef.current = null;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const next = node.offsetHeight;
+      // 0 means "no layout box" — detached, or measured before first layout.
+      // Keeping the last good height is always closer to the truth than
+      // collapsing the footer the menu row lives in.
+      if (next > 0) setFooterMeasuredHeight(next);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(node);
+    footerObserverRef.current = ro;
+  }, []);
+  useEffect(() => () => footerObserverRef.current?.disconnect(), []);
   const seededRef = useRef(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -636,9 +843,7 @@ export function CodexCopilotLayer({
   // direct SmartWalletDrawer triggers which have z-index conflicts in embeds.
   useEffect(() => {
     if (walletTabSignal === undefined) return;
-    setWalletPanelOpen(true);
-    setWalletPanelCollapsed(false);
-    setWalletPanelTab('wallet');
+    launchWallet('wallet');
   }, [walletTabSignal]);
 
   useEffect(() => {
@@ -682,13 +887,6 @@ export function CodexCopilotLayer({
     };
   }, []);
 
-  useEffect(() => {
-    const el = footerRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(() => setFooterMeasuredHeight(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -717,19 +915,33 @@ export function CodexCopilotLayer({
 
   useEffect(() => {
     if (!copilotPanelRef.current) return;
+    // ONLY while the avatar is actually showing. This drives a
+    // requestAnimationFrame loop that writes CSS custom properties on
+    // document.documentElement every frame; ungated it ran for the lifetime of
+    // the mount, so in the Companion — where the copilot never unmounts — it
+    // wrote to the document root at 60fps forever, in chat mode, with nothing
+    // reading the values. Style recalc on the root every frame is exactly the
+    // kind of load that shows up as janky scrolling.
+    if (copilotMode !== "avatar") return;
 
     const updateAnchor = () => {
-      const node = copilotPanelRef.current;
-      if (!node) return;
-      const rect = node.getBoundingClientRect();
+      // ONE rect, the frame's own. Position used to come from the PANEL while
+      // size came from the frame — a mismatch that drew the fixed, z-180 avatar
+      // layer at the panel's origin with the frame's dimensions. Wherever the
+      // frame is not flush with the panel's top-left (any surface with a
+      // header, any padding), the overlay lands over the wrong region and, at
+      // z-180 with no `pointer-events: none`, swallows clicks there. The frame
+      // IS the box the avatar is supposed to occupy; anchoring to anything else
+      // is how an overlay ends up on top of controls (cf. the historical
+      // "raise compose modals and wallet drawer above MetaAvatar overlay" fix).
+      const frameNode = metaAvatarFrameRef.current ?? copilotPanelRef.current;
+      if (!frameNode) return;
+      const rect = frameNode.getBoundingClientRect();
       const root = document.documentElement;
       root.style.setProperty("--metaavatar-codex-x", `${Math.round(rect.left)}px`);
       root.style.setProperty("--metaavatar-codex-y", `${Math.round(rect.top)}px`);
-      const frame = metaAvatarFrameRef.current?.getBoundingClientRect();
-      const width = frame?.width ?? 320;
-      const height = frame?.height ?? 240;
-      root.style.setProperty("--metaavatar-codex-w", `${Math.round(width)}px`);
-      root.style.setProperty("--metaavatar-codex-h", `${Math.round(height)}px`);
+      root.style.setProperty("--metaavatar-codex-w", `${Math.round(rect.width) || 320}px`);
+      root.style.setProperty("--metaavatar-codex-h", `${Math.round(rect.height) || 240}px`);
     };
 
     updateAnchor();
@@ -924,16 +1136,143 @@ export function CodexCopilotLayer({
     return null;
   };
 
+  /**
+   * The audio pause. Lives beside the mic (operator, 2026-07-26) — it is the
+   * other half of one voice control, and splitting them put "stop talking"
+   * and "pause listening" at opposite ends of the row.
+   *
+   * Only rendered mid-session (`vapiState !== 'idle'`), so the left group is
+   * three icons at rest and four while the citizen is actually talking.
+   */
+  const pauseButton = vapiState !== "idle" ? (
+      <button
+        onClick={() => {
+          const next = !vapiPaused;
+          setVapiPaused(next);
+          vapiPausedRef.current = next;
+        }}
+        title={vapiPaused ? "Resume audio input" : "Pause audio input"}
+        className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
+      >
+        {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+      </button>
+  ) : null;
+
+  /**
+   * The voice control. ONE definition, rendered once per footer.
+   *
+   * Placement (operator, 2026-07-26): it belongs with Avatar and Chat — the
+   * three ways of addressing Agent Me — not stranded at the far right among
+   * the surface-navigation icons. Where the mode toggle is hidden there is no
+   * left group to join, so it falls back to the right cluster.
+   *
+   * The two footers previously carried near-copies of this markup and they had
+   * already drifted: only the chat copy handled `vapiState === 'error'`, so a
+   * voice error in avatar mode could not be dismissed. One definition removes
+   * both the duplication and the drift.
+   */
+  const micButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (vapiState === "error") { setVapiState("idle"); return; }
+        void toggleVoice();
+      }}
+      title={
+        vapiState === "idle" ? `Talk to ${voicePersona.name}`
+          : vapiState === "error" ? "Voice unavailable — tap to dismiss"
+          : `Stop ${voicePersona.name}`
+      }
+      className={`p-1.5 rounded-lg transition-colors ${
+        vapiState === "idle"
+          ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
+          : vapiState === "connecting"
+            ? "animate-pulse text-amber-300 bg-amber-500/10"
+            : vapiState === "error"
+              ? "text-rose-400 bg-rose-500/10"
+              : vapiState === "speaking"
+                ? "animate-pulse text-green-300 bg-green-500/10"
+                : "text-fuchsia-300 bg-fuchsia-500/15"
+      }`}
+    >
+      {vapiState === "idle" ? (
+        <Mic className="w-4 h-4" />
+      ) : vapiState === "connecting" ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : vapiState === "error" ? (
+        <MicOff className="w-4 h-4" />
+      ) : vapiState === "speaking" ? (
+        <Volume2 className="w-4 h-4" />
+      ) : (
+        <MicOff className="w-4 h-4" />
+      )}
+    </button>
+  );
+
+  /**
+   * The ONE way the wallet is opened from inside the copilot.
+   *
+   * Every call site routes through here so a host that owns surface selection
+   * hears about it. Before this, the copilot set its own `walletPanelOpen` and
+   * nothing else — so in the Companion, where a host `bodySlot` deliberately
+   * takes precedence over the wallet, pressing Wallet after landing on any
+   * other surface changed state that could never render. It read as "the
+   * wallet is broken" (operator, 2026-07-26).
+   */
+  /**
+   * A host that supplies `onWalletLaunch` OWNS wallet surfacing — it renders the
+   * wallet itself through `bodySlot` when its own surface selection says so
+   * (the Companion does exactly this). In that arrangement the copilot must NOT
+   * also keep a wallet of its own.
+   *
+   * Why (operator regression, 2026-07-27): the copilot used to set
+   * `walletPanelOpen` AND notify the host. `bodySlot` takes precedence, so
+   * while the host was on its wallet surface the copilot's private wallet was
+   * masked and invisible — but nothing ever cleared it. The moment the citizen
+   * pressed Agent Me, the host's `bodySlot` went away and the copilot's own
+   * stale wallet surfaced ON TOP of the conversation, reachable only by the
+   * wallet's own X. Two owners of one surface, and the hidden one won.
+   */
+  const hostOwnsWalletSurface = typeof onWalletLaunch === "function";
+
+  const launchWallet = useCallback(
+    (tab: WalletTab = "wallet") => {
+      if (hostOwnsWalletSurface) {
+        // Hand it over entirely — no private wallet state to go stale.
+        onWalletLaunch?.();
+        return;
+      }
+      setWalletPanelTab(tab);
+      setWalletPanelOpen(true);
+      setWalletPanelCollapsed(false);
+    },
+    [hostOwnsWalletSurface, onWalletLaunch],
+  );
+
   const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
     const matchedTab = resolveWalletPromptTab(prompt);
     if (matchedTab) {
-      setWalletPanelTab(matchedTab);
-      setWalletPanelOpen(true);
-      setWalletPanelCollapsed(false);
+      launchWallet(matchedTab);
       showWalletMenuWithTimeout(6000);
       return;
     }
     void sendMessage(prompt);
+  };
+
+  /**
+   * The one submit path for the composer. In `search` mode the SAME bar hands
+   * its value to the host and clears — the model is never called and nothing
+   * joins the conversation, because a search is a query over the platform, not
+   * a question to the agent.
+   */
+  const submitComposer = () => {
+    if (composerMode === "search") {
+      const value = inputValue.trim();
+      if (!value) return;
+      onComposerSubmit?.(value);
+      return;
+    }
+    void sendMessage();
   };
 
   const sendMessage = async (override?: string, options?: { skipInference?: boolean }) => {
@@ -1011,35 +1350,45 @@ export function CodexCopilotLayer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message,
+          // The agent this copilot IS. The layer has always known it and never
+          // sent it, so the route fell back to `defaultAgentIdForPersona()`
+          // (route.ts:570 → 'aigent-kn0w1') on every request — which is why
+          // every copilot answered as Kn0w1 with metaKnyts lore regardless of
+          // the cartridge it was mounted in (operator, 2026-07-26).
+          //
+          // `persona` below is NOT a substitute: it carries the USER's persona
+          // UUID, and the route treats that field as an AGENT slug. A UUID can
+          // never match `normalizeAgentId`'s alias table, so it always fell
+          // through to the Kn0w1 default. Sending the agent id explicitly is
+          // additive — a mount whose agent id isn't a known alias resolves
+          // exactly as it did before.
+          aigentId: agent?.id,
           persona: personaId || "kn0w1",
           personaId: personaId || null,
           contextId: contextId || null,
+          // Companion model-provider picker (2026-07-29): additive fields the
+          // route already resolves against the agent's configured ModelQube
+          // providers. Undefined for every mount that doesn't pass
+          // `modelSelection`, so those callers' request bodies are unchanged.
+          ...(modelSelection?.providerId ? { provider_id: modelSelection.providerId } : {}),
+          ...(modelSelection?.modelId ? { llm_id: modelSelection.modelId } : {}),
           chatHistory,
           // DCIR observation seam (optional, additive): omitted entirely when
           // the host cartridge doesn't pass the groundContext prop, so every
           // existing caller's request body is unchanged. On smart-triad
           // surfaces the accumulated session invariants ride along
           // (constitutional memory v0).
-          ...(groundContext
-            ? {
-                groundContext:
-                  groundContext.surface === "smart-triad"
-                    ? {
-                        ...groundContext,
-                        sessionMarker: sessionMarkerRef.current,
-                        ...(sessionInvariantsRef.current.length > 0
-                          ? { sessionInvariants: sessionInvariantsRef.current }
-                          : {}),
-                      }
-                    : groundContext,
-              }
-            : {}),
+          // Constitutional memory rides along for EVERY surface that sends a
+          // ground context — not just the one that happened to be named
+          // "smart-triad". Omitted entirely when the host cartridge passes no
+          // groundContext, so those callers' request bodies are unchanged.
+          ...(groundContext ? { groundContext: sessionInvariants.decorate(groundContext) } : {}),
           ...extraContext,
         }),
       });
       const data = (await response.json().catch(() => ({}))) as CodexChatResponse;
       const structuredWalletActions = normalizeWalletActions(data?.wallet_actions);
-      accumulateResolvedInvariants(data?.resolved_invariants);
+      sessionInvariants.ingest(data?.resolved_invariants);
       // PRD §6 — lift [[nav:Label]] markers out of the reply into chips.
       const navParsed =
         typeof data?.response === "string" ? extractNavMarkers(data.response) : null;
@@ -1162,20 +1511,63 @@ export function CodexCopilotLayer({
         ? "w-full md:w-[32rem]"
         : "w-full md:w-[22rem]";
   const widthClass = panelClassName ?? defaultPanelWidthClass;
+  const walletEmbeddedWidth = walletEmbeddedWidthProp;
+  // "fill" drops the `md:` rem cap entirely: the wallet takes the host's width
+  // rather than a cartridge-sized column. Without this the class below would
+  // pin it back to 22.25rem on md+ and `embeddedWidth="fill"` would have no
+  // visible effect — the wallet would render at cartridge width inside a
+  // Companion pane, which is the defect this prop fixes.
   const walletPanelWidthClass =
-    density === "extra-wide"
+    walletEmbeddedWidth === "fill"
+      ? "w-full"
+      : density === "extra-wide"
       ? "w-full md:w-[40.25rem]"
       : !walletAllowWideLayout
         ? "w-full md:w-[22.25rem]"
         : density === "wide" || (density === "narrow" && walletCopilotOpen)
         ? "w-full md:w-[32.25rem]"
         : "w-full md:w-[22.25rem]";
-  const walletEmbeddedWidth = "fixed";
   const walletMenuBottomClass = floatingInput ? "bottom-[93px]" : "bottom-[89px]";
   const embeddedContainerClass = `relative h-full w-full overflow-hidden flex flex-col ${
     walletEmbeddedAnchor === "left" ? "md:flex-row-reverse" : "md:flex-row"
   } gap-2`;
   const embeddedPanelClass = "flex-1 min-w-0 h-full";
+  // In "fill" mode the wallet IS the body — it takes the pane, but INSIDE the
+  // copilot's chrome, so the header and the menu row stay put. The first
+  // attempt hid the whole copilot panel instead, which took the navigation
+  // with it and stranded the citizen in the wallet (operator, 2026-07-26) —
+  // the same defect as the surfaces, reached by a different route.
+  // `!hostOwnsWalletSurface` is the second half of the one-owner rule above: a
+  // host that renders the wallet itself must never find the copilot's wallet
+  // underneath its own surfaces waiting to reappear.
+  const walletFillsSurface =
+    !hostOwnsWalletSurface &&
+    walletEmbeddedWidth === "fill" &&
+    walletPanelOpen &&
+    !walletPanelCollapsed;
+  // One wallet definition, mounted in one of two places. Duplicating the JSX
+  // for the two placements would be the parallel-implementation defect
+  // (`inv.engineering.037`) and would drift on the next prop change.
+  const walletDrawerNode = (
+    <SmartWalletDrawer
+      open={true}
+      onClose={() => {
+        setWalletPanelOpen(false);
+        setWalletPanelCollapsed(false);
+        setWalletCopilotOpen(false);
+      }}
+      variant="embedded"
+      embeddedWidth={walletEmbeddedWidth}
+      embeddedAnchor={walletEmbeddedAnchor}
+      allowWideLayout={walletAllowWideLayout}
+      initialTab={walletPanelTab}
+      onTabChange={setWalletPanelTab}
+      onCopilotStateChange={setWalletCopilotOpen}
+      agent={agent || { id: "default", name: "Demo Agent" }}
+      codexMode={true}
+      personaId={personaId}
+    />
+  );
   const currentWalletLayout: "narrow" | "wide" =
     walletAllowWideLayout && (walletCopilotOpen || (density === "wide" || density === "extra-wide"))
       ? "wide"
@@ -1275,9 +1667,85 @@ export function CodexCopilotLayer({
                     <div className="flex-1 relative overflow-hidden">
                       {showTrustIndicators ? (
                         <div
-                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 pr-6 py-2 flex items-center gap-4 border-b border-white/10 justify-end"
+                          className="absolute top-0 left-0 right-0 z-20 bg-slate-950 px-3 py-1.5 flex items-center gap-4 border-b border-white/10 justify-between"
                           style={{ height: `${headerHeight}px` }}
                         >
+                          {/* ACTIVE PERSONA, left, on the same row as the R/T
+                              dots (§3.2.3). The identity you are acting as and
+                              the confidence of the answer belong in one glance
+                              — split across two rows, the operator has to
+                              assemble them.
+
+                              Companion 1.1 persona/agent switcher (2026-07-29):
+                              when `onHeaderIdentityClick` is supplied, this
+                              whole element becomes a clickable badge — same
+                              interaction as the cartridge badges elsewhere in
+                              the estate — opening the host's compact persona
+                              chooser. Every other mount leaves this prop unset
+                              and renders the exact static label it always did. */}
+                          {onHeaderIdentityClick ? (
+                            <button
+                              type="button"
+                              onClick={onHeaderIdentityClick}
+                              title="Switch persona"
+                              aria-label="Switch persona"
+                              className="flex min-w-0 items-center gap-1.5 rounded-md py-0.5 transition-colors hover:bg-white/10"
+                            >
+                              {/* Collapsed-state indicator: green human/robot
+                                  icon shaped to the active persona's kind,
+                                  replacing the plain connected dot wherever
+                                  the host knows that kind. Same emerald tint,
+                                  just shaped rather than a bare dot. */}
+                              {activePersonaKind ? (
+                                activePersonaKind === "agent" ? (
+                                  <Bot className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                                ) : (
+                                  <UserRound className="h-3.5 w-3.5 shrink-0 text-emerald-400" aria-hidden="true" />
+                                )
+                              ) : (
+                                <span
+                                  className={`h-2 w-2 shrink-0 rounded-full ${
+                                    personaId ? "bg-emerald-400" : "bg-slate-600"
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <span className="truncate text-xs font-medium text-white/80">
+                                {agent?.name ?? ""}
+                              </span>
+                              {/* aigentMe marker — same amber Star convention
+                                  SmartWalletDrawer's persona menu already uses
+                                  for the delegate row. Never shown for a human
+                                  persona. */}
+                              {isAigentMeActive && (
+                                <span
+                                  className="inline-flex shrink-0 items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1 py-0"
+                                  title="AigentMe"
+                                >
+                                  <Star className="h-2.5 w-2.5 text-amber-300" aria-hidden="true" />
+                                </span>
+                              )}
+                              <ChevronDown className="h-3 w-3 shrink-0 text-white/40" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              {/* Connected dot, carried over from the Companion's
+                                  old identity chip. It is the only thing in the
+                                  header that says the persona actually resolved —
+                                  dropping the chip without it would have removed
+                                  a live signal, not just a duplicate. */}
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${
+                                  personaId ? "bg-emerald-400" : "bg-slate-600"
+                                }`}
+                                aria-hidden="true"
+                              />
+                              <span className="truncate text-xs font-medium text-white/80">
+                                {agent?.name ?? ""}
+                              </span>
+                            </span>
+                          )}
+                          <div className="flex items-center gap-4">
                           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                             <span className="text-[10px] text-white/60">R</span>
                             {renderDots(getReliabilityScore(), "reliability", isLoading || !!externalIsProcessing)}
@@ -1286,11 +1754,32 @@ export function CodexCopilotLayer({
                             <span className="text-[10px] text-white/60">T</span>
                             {renderDots(getTrustScore(), "trust", isLoading || !!externalIsProcessing)}
                           </div>
+                          </div>
+                        </div>
+                      ) : null}
+                      {/* A host surface occupying the body. Same box as the
+                          message list, so header, chips, composer and menu row
+                          stay exactly where they are and navigation persists
+                          across surfaces. */}
+                      {walletFillsSurface || bodySlot ? (
+                        <div
+                          className="absolute left-0 right-0 flex flex-col overflow-hidden"
+                          style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px` }}
+                        >
+                          {/* A body slot WINS over the wallet. Without this the wallet stayed
+                              mounted after the citizen navigated away — it is opened by a
+                              nav item but closed by nothing, so its rail rendered on top of
+                              every other surface and the menu stopped working (operator,
+                              2026-07-26). Precedence, not a close-on-change effect: the
+                              surface the citizen chose is simply the one that renders. */}
+                          {bodySlot ?? walletDrawerNode}
                         </div>
                       ) : null}
                       <div
                         ref={chatContainerRef}
-                        className="absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain"
+                        className={`absolute left-0 right-0 overflow-y-auto px-4 space-y-3 overscroll-contain ${
+                          bodySlot || walletFillsSurface ? "hidden" : ""
+                        }`}
                         style={{ top: `${resolvedHeaderHeight}px`, bottom: `${resolvedFooterHeight}px`, paddingTop: "12px", paddingBottom: "12px" }}
                       >
                         {displayMessages.map((msg, index) => {
@@ -1356,9 +1845,7 @@ export function CodexCopilotLayer({
                                       key={`${msg.id}-${card.id}`}
                                       type="button"
                                       onClick={() => {
-                                        setWalletPanelTab(card.tab);
-                                        setWalletPanelOpen(true);
-                                        setWalletPanelCollapsed(false);
+                                        launchWallet(card.tab);
                                         showWalletMenuWithTimeout(6000);
                                       }}
                                       className={`inline-flex items-center gap-1.5 rounded-full border ${ACCENT.pillBorder} ${ACCENT.pillBg} px-2.5 py-1 text-[11px] font-medium ${ACCENT.pillText} transition-colors ${ACCENT.pillHoverBg}`}
@@ -1390,7 +1877,7 @@ export function CodexCopilotLayer({
 
                     {!disablePromptInput ? (
                       <div
-                        ref={footerRef}
+                        ref={attachFooterNode}
                         className={`absolute inset-x-0 bottom-0 px-3 pb-0 pt-0 z-30 ${
                           floatingInput ? "bg-transparent" : "bg-white/5"
                         }`}
@@ -1463,12 +1950,63 @@ export function CodexCopilotLayer({
                           via codex:navigate-tab, cross-cartridge via
                           buildCodexUrl. Rendered by the layer (never parsed
                           from model output) so navigation is always reliable. */}
-                      {((deepLinks && deepLinks.length > 0) || (operations && operations.length > 0)) && (
-                        <div className="mb-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
+                      {((deepLinks && deepLinks.length > 0) ||
+                        (operations && operations.length > 0) ||
+                        (quickPrompts && quickPrompts.length > 0)) && (
+                        <div className="mb-0 rounded-lg border border-slate-800 bg-slate-900/90 px-1.5 py-1 backdrop-blur">
                           {/* Single-row carousel: chips never wrap; overflow scrolls
                               horizontally. The opaque slate backing keeps chips and
                               the inference copy behind them both legible. */}
                           <div className="flex flex-nowrap items-center gap-1 overflow-x-auto no-scrollbar">
+                            {/* Host-supplied quick prompts. `quickPrompts` was
+                                DECLARED on this component but never destructured
+                                or rendered — passing it did nothing, which is why
+                                the Companion's Quick Links carousel did not appear
+                                (found 2026-07-26). It renders here, in the SAME
+                                single row the deep-link chips already use, rather
+                                than in a second strip: the operator's standard is
+                                one row above the composer.
+
+                                `skipInference` means the chip is an ACT, not a
+                                question — it calls `onPrompt` and never enters the
+                                model path. That is what lets a Companion Quick Link
+                                open a cartridge in the browser instead of asking
+                                the copilot about it. */}
+                            {(quickPrompts ?? []).map((qp, i) => {
+                              const item = typeof qp === "string" ? { label: qp } : qp;
+                              const prompt = item.prompt ?? item.label;
+                              return (
+                                <button
+                                  key={item.id ?? `${item.label}-${i}`}
+                                  onClick={() => {
+                                    if (item.skipInference) {
+                                      onPrompt?.(prompt);
+                                      return;
+                                    }
+                                    setInputValue(prompt);
+                                    void sendMessage(prompt);
+                                  }}
+                                  title={item.label}
+                                  // Quick-prompt chip styling matches the standard
+                                  // SmartTriadCopilotLayer declares for every copilot's
+                                  // quick-prompts strip (2026-07-23, operator-directed;
+                                  // components/smarttriad/copilot/SmartTriadCopilotLayer.tsx
+                                  // ~line 1174) — deliberately distinct from this row's
+                                  // own ACCENT-themed deep-link/operation chips below,
+                                  // which are a different chip class, not "quick links".
+                                  className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white"
+                                >
+                                  {item.icon ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      {item.icon}
+                                      {item.iconOnly ? null : <span>{item.label}</span>}
+                                    </span>
+                                  ) : (
+                                    item.label
+                                  )}
+                                </button>
+                              );
+                            })}
                             {(deepLinks ?? []).map((dl) => (
                               <button
                                 key={dl.label}
@@ -1496,7 +2034,7 @@ export function CodexCopilotLayer({
                           {opNote && <div className="mt-1 text-[10px] text-slate-400">{opNote}</div>}
                         </div>
                       )}
-                      {!floatingInput && (
+                      {!floatingInput && !hideComposer && (
                         <div>
                           <div className="h-px bg-white/10 mb-2" />
                           <div className="flex gap-2 items-end">
@@ -1514,7 +2052,7 @@ export function CodexCopilotLayer({
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" && !e.shiftKey) {
                                   e.preventDefault();
-                                  sendMessage();
+                                  submitComposer();
                                 }
                               }}
                               onFocus={() => {
@@ -1527,12 +2065,15 @@ export function CodexCopilotLayer({
                               disabled={isLoading}
                             />
                             <button
-                              onClick={() => sendMessage()}
+                              onClick={submitComposer}
                               disabled={!inputValue.trim() || isLoading}
+                              title={composerMode === "search" ? "Search" : "Send"}
                               className={`p-1.5 ${ACCENT.btnBg} ${ACCENT.btnHoverBg} disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0`}
                             >
                               {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : composerMode === "search" ? (
+                                <SearchIcon className="w-4 h-4" />
                               ) : (
                                 <Send className="w-4 h-4" />
                               )}
@@ -1543,7 +2084,7 @@ export function CodexCopilotLayer({
                         {footerContent ? (
                           <div className={floatingInput ? "pt-3" : "mt-3"}>{footerContent}</div>
                         ) : showNavMenu ? (
-                        <div className="mt-1 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
+                        <div className="mt-0 flex items-center justify-between border-t border-white/10 pt-1 pb-2">
                           {/* LEFT: integrated badge+dropdown when hideAvatarToggle, else mode toggle */}
                           {hideAvatarToggle ? (
                             <div className="relative flex items-center gap-1">
@@ -1582,8 +2123,12 @@ export function CodexCopilotLayer({
                             </div>
                           ) : (
                             <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                              {pauseButton}
+                              {micButton}
                               <button
-                                onClick={() => setCopilotMode("avatar")}
+                                onClick={() => switchCopilotMode("avatar")}
+                                title="Avatar"
+                                aria-label="Avatar"
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "avatar"
                                     ? "bg-purple-500/20 text-purple-400"
@@ -1593,7 +2138,9 @@ export function CodexCopilotLayer({
                                 <User className="w-3 h-3" />
                               </button>
                               <button
-                                onClick={() => setCopilotMode("chat")}
+                                onClick={() => switchCopilotMode("chat")}
+                                title={agent?.name ?? "Chat"}
+                                aria-label={agent?.name ?? "Chat"}
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "chat"
                                     ? ACCENT_HIGHLIGHT_STRONG
@@ -1602,24 +2149,38 @@ export function CodexCopilotLayer({
                               >
                                 <MessageSquare className="w-3 h-3" />
                               </button>
+                              {/* Model-provider picker — Companion-only (2026-07-29).
+                                  Same additive seam as `navExtras`: undefined for
+                                  every other mount, so this row is unchanged
+                                  everywhere else. */}
+                              {modelPickerSlot}
                             </div>
                           )}
-                          {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
-                          <div className="relative flex items-center gap-1">
+                          {/* RIGHT: host nav + wallet launcher + badge+dropdown + pause.
+                              `gap-2` rather than `gap-1`: with the migrated nav
+                              items in this cluster the icons read as one dense
+                              block at gap-1 and become hard to hit accurately.
+                              Still right-aligned — only the spacing changes. */}
+                          <div className="relative flex items-center gap-2">
                             {showWalletMenu && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setWalletPanelTab("wallet");
-                                  setWalletPanelOpen(true);
-                                  setWalletPanelCollapsed(false);
-                                }}
+                                onClick={() => launchWallet("wallet")}
                                 title="Open wallet"
                                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                               >
                                 <Wallet className="w-4 h-4" />
                               </button>
                             )}
+                            {/* Host-supplied nav items, in the copilot's OWN menu
+                                row beside the modes it already owns (avatar /
+                                chat / wallet). Additive rather than a
+                                replacement: `footerContent` would have taken
+                                this row over and cost the copilot the modes it
+                                already has. Nothing passes this except the
+                                Companion, so the migration stays contained to
+                                that deployment (operator, 2026-07-26). */}
+                            {navExtras}
                             {!hideAvatarToggle && (
                               <>
                                 {contextOptions && contextOptions.length > 0 ? (
@@ -1631,9 +2192,20 @@ export function CodexCopilotLayer({
                                     {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                     <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                   </button>
-                                ) : (
+                                ) : null}
+                                {/* THE CLOSE CONTROL. Live everywhere except a
+                                    host where the copilot is the shell — there
+                                    `onClose` is a no-op and the host's own
+                                    chrome does the closing, so it is hidden
+                                    rather than rendered dead. Removing it for
+                                    every mount (2026-07-26) left the platform
+                                    copilot with no way to close once opened. */}
+                                {!hideCloseControl && (
                                   <button
+                                    type="button"
                                     onClick={onClose}
+                                    title="Close copilot"
+                                    aria-label="Close copilot"
                                     className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                                   >
                                     <ChevronDown className="w-4 h-4" />
@@ -1661,54 +2233,8 @@ export function CodexCopilotLayer({
                                 )}
                               </>
                             )}
-                            {vapiState !== "idle" && (
-                              <button
-                                onClick={() => {
-                                  const next = !vapiPaused;
-                                  setVapiPaused(next);
-                                  vapiPausedRef.current = next;
-                                }}
-                                title={vapiPaused ? "Resume audio input" : "Pause audio input"}
-                                className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
-                              >
-                                {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (vapiState === "error") { setVapiState("idle"); return; }
-                                void toggleMarketa();
-                              }}
-                              title={
-                                vapiState === "idle" ? "Talk to Marketa"
-                                  : vapiState === "error" ? "Voice unavailable — tap to dismiss"
-                                  : "Stop Marketa"
-                              }
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                vapiState === "idle"
-                                  ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                  : vapiState === "connecting"
-                                    ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                    : vapiState === "error"
-                                      ? "text-rose-400 bg-rose-500/10"
-                                      : vapiState === "speaking"
-                                        ? "animate-pulse text-green-300 bg-green-500/10"
-                                        : "text-fuchsia-300 bg-fuchsia-500/15"
-                              }`}
-                            >
-                              {vapiState === "idle" ? (
-                                <Mic className="w-4 h-4" />
-                              ) : vapiState === "connecting" ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : vapiState === "error" ? (
-                                <MicOff className="w-4 h-4" />
-                              ) : vapiState === "speaking" ? (
-                                <Volume2 className="w-4 h-4" />
-                              ) : (
-                                <MicOff className="w-4 h-4" />
-                              )}
-                            </button>
+                            {hideAvatarToggle ? pauseButton : null}
+                            {hideAvatarToggle ? micButton : null}
                           </div>
                         </div>
                       ) : null}
@@ -1761,8 +2287,12 @@ export function CodexCopilotLayer({
                           </div>
                         ) : (
                           <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10 flex-shrink-0">
+                            {pauseButton}
+                            {micButton}
                             <button
-                              onClick={() => setCopilotMode("avatar")}
+                              onClick={() => switchCopilotMode("avatar")}
+                              title="Avatar"
+                              aria-label="Avatar"
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "avatar"
                                   ? "bg-purple-500/20 text-purple-400"
@@ -1772,7 +2302,9 @@ export function CodexCopilotLayer({
                               <User className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={() => setCopilotMode("chat")}
+                              onClick={() => switchCopilotMode("chat")}
+                              title={agent?.name ?? "Chat"}
+                              aria-label={agent?.name ?? "Chat"}
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "chat"
                                   ? ACCENT_HIGHLIGHT_STRONG
@@ -1781,18 +2313,28 @@ export function CodexCopilotLayer({
                             >
                               <MessageSquare className="w-3 h-3" />
                             </button>
+                            {/* Model-provider picker — Companion-only, same seam
+                                as the chat-mode row above. */}
+                            {modelPickerSlot}
                           </div>
                         )}
-                        {/* RIGHT: wallet launcher + badge+dropdown (non-hideAvatarToggle only) + pause + mic */}
+                        {/* RIGHT: host nav + wallet launcher + badge+dropdown */}
                         <div className="relative flex items-center gap-1">
+                          {/* HOST NAV RENDERS IN AVATAR MODE TOO. Avatar is
+                              another renderer of the SAME session (D-8), not a
+                              separate surface — so the navigation must survive
+                              the mode change. It rendered only in the chat
+                              branch, so entering avatar mode took the migrated
+                              Companion items (Search / Workspace / Overlay /
+                              Activity / Permissions) with it and left the
+                              citizen with no way out but the chat toggle
+                              (operator, 2026-07-26: "navigating to the avatar
+                              is still breaking the companion menu system"). */}
+                          {navExtras}
                           {showWalletMenu && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setWalletPanelTab("wallet");
-                                setWalletPanelOpen(true);
-                                setWalletPanelCollapsed(false);
-                              }}
+                              onClick={() => launchWallet("wallet")}
                               title="Open wallet"
                               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                             >
@@ -1810,9 +2352,21 @@ export function CodexCopilotLayer({
                                   {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                   <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
                                 </button>
-                              ) : (
+                              ) : null}
+                              {/* THE CLOSE CONTROL — same gate as the chat
+                                  footer. Avatar is another renderer of the SAME
+                                  session (D-8), so it needs the same exit:
+                                  without it, entering avatar mode meant
+                                  switching back to chat before you could close
+                                  the copilot at all. Hidden only where the
+                                  copilot is the shell and `onClose` is a
+                                  no-op. */}
+                              {!hideCloseControl && (
                                 <button
+                                  type="button"
                                   onClick={onClose}
+                                  title="Close copilot"
+                                  aria-label="Close copilot"
                                   className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 ring-1 ring-white/10 transition-colors"
                                 >
                                   <ChevronDown className="w-4 h-4" />
@@ -1840,43 +2394,8 @@ export function CodexCopilotLayer({
                               )}
                             </>
                           )}
-                          {vapiState !== "idle" && (
-                            <button
-                              onClick={() => {
-                                const next = !vapiPaused;
-                                setVapiPaused(next);
-                                vapiPausedRef.current = next;
-                              }}
-                              title={vapiPaused ? "Resume audio input" : "Pause audio input"}
-                              className={`p-1.5 rounded-lg transition ${vapiPaused ? "text-amber-300 bg-amber-500/10" : "text-slate-400 hover:text-slate-200 hover:bg-white/10"}`}
-                            >
-                              {vapiPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => void toggleMarketa()}
-                            title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              vapiState === "idle"
-                                ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                                : vapiState === "connecting"
-                                  ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                  : vapiState === "speaking"
-                                    ? "animate-pulse text-green-300 bg-green-500/10"
-                                    : "text-fuchsia-300 bg-fuchsia-500/15"
-                            }`}
-                          >
-                            {vapiState === "idle" ? (
-                              <Mic className="w-4 h-4" />
-                            ) : vapiState === "connecting" ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : vapiState === "speaking" ? (
-                              <Volume2 className="w-4 h-4" />
-                            ) : (
-                              <MicOff className="w-4 h-4" />
-                            )}
-                          </button>
+                          {hideAvatarToggle ? pauseButton : null}
+                          {hideAvatarToggle ? micButton : null}
                         </div>
                       </div>
                     ) : null}
@@ -1886,29 +2405,12 @@ export function CodexCopilotLayer({
             </div>
           </div>
 
-          {walletPanelOpen && !walletPanelCollapsed && (
+          {/* Fixed-width mode keeps the wallet BESIDE the copilot, as a
+              cartridge has room for. Fill mode renders the same node inside
+              the body box above instead, so the copilot's chrome survives. */}
+          {walletPanelOpen && !walletPanelCollapsed && !walletFillsSurface && (
             <div className={`rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl ${walletPanelWidthClass} h-full min-h-0 md:h-full md:max-h-none`}>
-              <SmartWalletDrawer
-                open={true}
-                onClose={() => {
-                  setWalletPanelOpen(false);
-                  setWalletPanelCollapsed(false);
-                  setWalletCopilotOpen(false);
-                }}
-                variant="embedded"
-                embeddedWidth={walletEmbeddedWidth}
-                embeddedAnchor={walletEmbeddedAnchor}
-                allowWideLayout={walletAllowWideLayout}
-                initialTab={walletPanelTab}
-                onTabChange={setWalletPanelTab}
-                onCopilotStateChange={setWalletCopilotOpen}
-                agent={agent || {
-                  id: "default",
-                  name: "Demo Agent",
-                }}
-                codexMode={true}
-                personaId={personaId}
-              />
+              {walletDrawerNode}
             </div>
           )}
         </div>

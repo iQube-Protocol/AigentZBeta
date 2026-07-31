@@ -84,6 +84,11 @@ export interface RegisterCapabilityInput {
   governingInvariants?: string[];
   /** How future work should treat it: 'compose' (default) | 'extend' | 'reference'. */
   reuseDisposition?: string;
+  /** The capability's Constitutional Capability Brief (CFS-049) — the repo
+   *  path (or published Artifact URL) a reader lands on to learn what this
+   *  capability does, where to find it, and how to use it. Optional: not
+   *  every registered capability has a Brief yet. */
+  briefUrl?: string;
 }
 
 /** PURE — builds the capability's ConstitutionalObject exactly as the
@@ -95,6 +100,7 @@ export function buildCapabilityObject(input: RegisterCapabilityInput): Constitut
     prNumber: input.prNumber ?? null,
     mergeCommit: input.mergeCommit ?? null,
     reuseDisposition: input.reuseDisposition ?? 'compose',
+    briefUrl: input.briefUrl ?? null,
   };
   const receiptIds = [
     ...(input.validationReceiptIds ?? []),
@@ -366,6 +372,102 @@ export async function recordOperationalValidation(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     softFail('operational-validation', msg);
+    return { ok: false, reason: msg };
+  }
+}
+
+export type DeprecateCapabilityResult =
+  | { ok: true; capability: RegisteredCapability; receiptId: string | null; alreadyDeprecated: boolean }
+  | { ok: false; reason: string };
+
+/**
+ * Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24) — transition a capability's
+ * lifecycle to 'deprecated'. A pure status-flag update + receipt: no
+ * execution, no deployment, no external side effect. Mirrors
+ * `recordOperationalValidation`'s shape (look up by capabilityId → mutate →
+ * receipt → persist), but note this function does NOT itself check who is
+ * calling — ownership (only the citizen who registered a capability may
+ * archive it) is enforced by the CALLER (the persona-scoped route), which
+ * re-derives the caller's own registered-capability set from their own
+ * receipts before ever reaching this function. This mirrors the ownership
+ * re-derivation `/api/constitutional/capability-registry/mine`'s GET already
+ * performs — never trust a client-supplied "is mine" flag.
+ *
+ * Idempotent: archiving an already-deprecated capability returns it
+ * unchanged with `alreadyDeprecated: true`, no duplicate receipt.
+ */
+export async function deprecateCapability(
+  personaId: string,
+  input: { capabilityId: string },
+): Promise<DeprecateCapabilityResult> {
+  const capabilityId = input.capabilityId?.trim();
+  if (!capabilityId) return { ok: false, reason: 'capabilityId required' };
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, reason: 'registry store unavailable' };
+
+  try {
+    const { data: row, error } = await admin
+      .from('capability_registry')
+      .select('*')
+      .eq('capability_id', capabilityId)
+      .maybeSingle();
+    if (error) {
+      softFail('deprecate', error.message);
+      return { ok: false, reason: error.message };
+    }
+    if (!row) {
+      return { ok: false, reason: `capability "${capabilityId}" is not registered` };
+    }
+    if (String(row.lifecycle_state) === 'deprecated') {
+      return {
+        ok: true,
+        capability: rowToCapability(row),
+        receiptId: row.last_operational_receipt_id ? String(row.last_operational_receipt_id) : null,
+        alreadyDeprecated: true,
+      };
+    }
+
+    const object = row.object as ConstitutionalObject;
+    const updatedObject: ConstitutionalObject = {
+      ...object,
+      lifecycle: { ...object.lifecycle, state: 'deprecated' },
+    };
+
+    let receiptId: string | null = null;
+    try {
+      const receipt = await createActivityReceipt({
+        personaId,
+        actionType: 'capability_deprecated',
+        activeCartridge: 'metame',
+        summary:
+          `Capability archived: "${String(row.display_label)}" [cap=${capabilityId}] ` +
+          `ref=${object.identity.ref} lifecycle published/canonized → deprecated`,
+        agentsInvoked: ['aigent-z'],
+        contextShared: ['capability_id'],
+      });
+      receiptId = receipt?.id ?? null;
+    } catch (e) {
+      console.error('[capability registry] capability_deprecated receipt failed — archive stands, receipt missing:', e);
+    }
+
+    const { data: updated, error: upErr } = await admin
+      .from('capability_registry')
+      .update({
+        lifecycle_state: 'deprecated',
+        object: updatedObject,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id)
+      .select('*')
+      .single();
+    if (upErr) {
+      softFail('deprecate-update', upErr.message);
+      return { ok: false, reason: upErr.message };
+    }
+    return { ok: true, capability: rowToCapability(updated), receiptId, alreadyDeprecated: false };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    softFail('deprecate', msg);
     return { ok: false, reason: msg };
   }
 }

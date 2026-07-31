@@ -27,6 +27,36 @@
 import { createHash, randomBytes } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { personaPublicRef } from '@/services/identity/personaReferences';
+import { createOrGetChannel } from '@/services/qubetalk/peerChannel';
+import { EXPERIMENT_REGISTRY } from '@/types/research';
+
+/**
+ * Invite → auto-channel: when an invitation was flagged `open_peer_channel`,
+ * open a QubeTalk peer channel between the ISSUER and the CLAIMANT the moment
+ * the claimant redeems it (both personas are now known). Best-effort — a channel
+ * failure NEVER blocks the access grant. Reuses createOrGetChannel (idempotent
+ * per unordered pair), so a re-claim does not duplicate the channel.
+ */
+async function maybeOpenInviteChannel(
+  inv: { open_peer_channel?: boolean; issuer_persona_id?: string | null; access_domain?: string | null },
+  claimantPersonaId: string,
+): Promise<string | null> {
+  try {
+    if (!inv.open_peer_channel || !inv.issuer_persona_id) return null;
+    if (inv.issuer_persona_id === claimantPersonaId) return null; // no self-channel
+    // Tag the channel's origin with the invitation's access domain so the Lab's
+    // filtered research view surfaces it (Locker shows all channels).
+    const res = await createOrGetChannel(
+      inv.issuer_persona_id,
+      personaPublicRef(claimantPersonaId),
+      inv.access_domain ? String(inv.access_domain) : undefined,
+    );
+    return res.ok ? res.value.id : null;
+  } catch {
+    return null;
+  }
+}
 
 export const ACCESS_DOMAINS = [
   'passport',
@@ -42,13 +72,54 @@ export const DOMAIN_LABELS: Record<AccessDomain, string> = {
   'research-lab': 'Research Lab',
   'venture-lab': 'Venture Lab',
   'metame-studio': 'metaMe Studio',
-  'developer-studio': 'Developer Studio / Aigent Z',
+  // LABEL ONLY (2026-07-28 naming pass). The KEY 'developer-studio' is an
+  // identifier — it is the persisted `access_domain` value on every invitation
+  // and grant row, and the key of DOMAIN_ROLES / DOMAIN_STEWARD_ROLES — so it
+  // must not move. Only what a human reads changes.
+  'developer-studio': 'metaMe Studio (Dev)',
 };
 
 export const DOMAIN_ROLES: Record<AccessDomain, string[]> = {
   'passport': ['citizen', 'sovereign-citizen', 'citizen-steward', 'passport-steward'],
-  'research-lab': ['research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier'],
-  'venture-lab': ['founder-operator', 'venture-participant', 'mentor', 'venture-steward', 'portfolio-reviewer'],
+  // The six original entries are the RESEARCH roles. SPEC-IRL-WORKSPACE-001 §8
+  // names six workspace roles; three of them already have exact equivalents
+  // here and are REUSED rather than renamed (operator ruling 2026-07-28, "Do
+  // not invent new names if equivalent roles already exist"):
+  //
+  //   Research Steward       → 'research-steward'      (also DOMAIN_STEWARD_ROLES)
+  //   External Reviewer      → 'reviewer'
+  //   Institutional Observer → 'research-participant'  (the read-only path)
+  //
+  // Three have NO equivalent, and mapping them onto an existing role would
+  // erase a real authority difference rather than reuse a real one:
+  //
+  //   'principal-investigator' — a PI defines experiments, requests freezes and
+  //       initiates runs; `researcher` carries none of that and flattening the
+  //       two would make "cannot self-review confirmatory work" unstateable.
+  //   'faculty-lead'          — administers ONE cohort. Not a research-steward
+  //       (whose authority is programme-wide) and not a researcher.
+  //   'student-researcher'    — scoped to assigned projects, and the only role
+  //       whose contributions accrue attributable Standing.
+  //
+  // ADDING A ROLE GRANTS NOTHING BY ITSELF. A role reaches a surface only when
+  // a tab lists it in `participationRoles` AND the caller's grant is scoped to
+  // the workspace; the three new roles are therefore fail-closed on every
+  // pre-existing tab, which still names only the original three.
+  'research-lab': [
+    'research-participant', 'researcher', 'delegated-research-agent', 'reviewer', 'research-steward', 'ratifier',
+    'principal-investigator', 'faculty-lead', 'student-researcher',
+  ],
+  // WORKSPACE ROLES added 2026-07-27 (operator decision). The five original
+  // entries are VENTURE roles — what someone is to a venture. A partner pilot
+  // needs what someone is to a WORKSPACE, and the two do not map 1:1: a partner
+  // operator is not a founder-operator, and an observer is not a mentor.
+  // Extended rather than forked so there is still ONE participation mechanism
+  // across all five access domains (the substrate the Horizen Workspace reuses).
+  'venture-lab': [
+    'founder-operator', 'venture-participant', 'mentor', 'venture-steward', 'portfolio-reviewer',
+    'workspace-steward', 'partner-operator', 'technical-contributor',
+    'communications-contributor', 'observer', 'agent-participant',
+  ],
   'metame-studio': ['creator', 'publisher', 'studio-member', 'studio-steward'],
   'developer-studio': ['developer', 'technical-operator', 'contributor', 'maintainer', 'development-steward', 'deployment-approver'],
 };
@@ -57,24 +128,172 @@ export function isAccessDomain(v: string): v is AccessDomain {
   return (ACCESS_DOMAINS as readonly string[]).includes(v);
 }
 
-/** The runnable experiments an invitation can scope a reviewer to. Acceptance
- *  tests, reports, and plates are deliberately absent — they stay admin-only. */
-export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = [
-  { id: 'EXP-001', label: 'EXP-001 · Bundle Evaluation' },
-  { id: 'EXP-002', label: 'EXP-002 · Invariant-Carried Video' },
-  { id: 'EXP-003', label: 'EXP-003 · Rediscovery Savings' },
-  { id: 'EXP-004', label: 'EXP-004 · Sovereignty' },
-  { id: 'EXP-005', label: 'EXP-005 · Provider Choice' },
-  // Invariant Intelligence Validation Series (EXP-006 runs in-app; 007/008 are
-  // design-stage, assignable so a reviewer can scope + develop them).
-  { id: 'EXP-006', label: 'EXP-006 · Projection Fidelity' },
-  { id: 'EXP-007', label: 'EXP-007 · Reasoning Entropy' },
-  { id: 'EXP-008', label: 'EXP-008 · Cross-Modal Reuse' },
-  // Validation Programme (design-stage).
-  { id: 'EXP-P1', label: 'EXP-P1 · Representation Gauntlet' },
-  { id: 'EXP-P2', label: 'EXP-P2 · Projection Semantics' },
-  { id: 'EXP-P3', label: 'EXP-P3 · Programme Arm 3' },
-];
+// ─── DELEGATED INVITATION AUTHORITY (operator, 2026-07-28) ───────────────────
+//
+// "There should be an admin gate on our side, which enables partners and
+// various parties to be invited. But a partner operator … should be able to
+// have rights to invite others to a pilot project or a research programme
+// accordingly … so that we don't become the gate for that."
+//
+// TWO AUTHORITIES, NOT ONE GATE WITH TWO AUDIENCES:
+//
+//   platform  — a platform admin. Admits a party into ANY domain and confers
+//               invitation authority itself (by inviting a steward role). This
+//               is the gate the operator explicitly keeps on our side.
+//   delegated — a persona holding an active STEWARD grant in a domain. May
+//               invite into THAT domain only, scoped to the projects/pilots
+//               their own grant covers, and may NOT confer a steward role.
+//
+// The whole security property is that `delegated` is derived SERVER-SIDE from
+// the caller's own grants (resolved through the spine), never from anything the
+// client sends. A domain in the request body is checked against this derivation
+// and refused if absent — a delegated inviter naming another domain is a
+// privilege-escalation attempt, not a valid request.
+
+/**
+ * The role in each domain that carries DELEGATED invitation authority — the
+ * partner-side / programme-side administrator. Derived designation over the
+ * existing DOMAIN_ROLES catalogue: no new role vocabulary, no schema change.
+ */
+export const DOMAIN_STEWARD_ROLES: Record<AccessDomain, string[]> = {
+  'passport': ['passport-steward'],
+  // `faculty-lead` added 2026-07-29 (SPEC-IRL-WORKSPACE-001 §8: a Faculty Lead
+  // "administers one capstone/cohort, approves participation"). THIS IS THE ONE
+  // GATE THIS WORK WIDENS, and it is bounded by the mechanism that already
+  // exists rather than by a new one:
+  //
+  //   • `resolveInvitationAuthority` derives the tier SERVER-SIDE from the
+  //     caller's OWN grants, so a Faculty Lead's reach is exactly their own
+  //     grant's `allowedScopes` — their cohort and its projects, nothing else.
+  //     A delegated inviter naming another domain is refused as an escalation
+  //     attempt, not honoured.
+  //   • `issuableRoles(domain, 'delegated')` SUBTRACTS every steward role, so a
+  //     Faculty Lead cannot confer `research-steward` OR `faculty-lead`. Only a
+  //     platform admin appoints a Faculty Lead. (This also TIGHTENS the existing
+  //     research-steward: it can no longer issue `faculty-lead` either.)
+  //   • A `faculty-lead` grant only exists because a platform admin issued one.
+  //
+  // Canaried from both sides in `tests/research-workspace-spec.test.ts`.
+  'research-lab': ['research-steward', 'faculty-lead'],
+  // A partner administrator IS a workspace steward (the role added 2026-07-27
+  // for exactly this: "what someone is to a WORKSPACE"). `venture-steward` is
+  // the platform-side venture equivalent and carries the same authority.
+  'venture-lab': ['workspace-steward', 'venture-steward'],
+  'metame-studio': ['studio-steward'],
+  'developer-studio': ['development-steward'],
+};
+
+export type InvitationTier = 'platform' | 'delegated' | 'none';
+
+export interface InvitationAuthority {
+  tier: InvitationTier;
+  /** The domains this caller may issue into. Empty when tier === 'none'. */
+  domains: AccessDomain[];
+  /**
+   * Per-domain project/pilot/experiment scope the caller may confer, derived
+   * from their OWN grants. `'all'` means unrestricted WITHIN that domain (what
+   * a platform admin has, and what an unscoped steward grant confers).
+   */
+  scopes: Record<string, 'all' | string[]>;
+}
+
+/**
+ * Roles a caller of the given tier may CONFER in a domain.
+ *
+ * NO ROLE MAY GRANT ITSELF OR GRANT UPWARD. A delegated steward's issuable set
+ * excludes every steward role in the domain, so delegated authority cannot
+ * replicate itself and cannot hand out the authority that created it. Only a
+ * platform admin confers invitation authority — which is precisely the gate the
+ * operator asked to keep on our side.
+ */
+export function issuableRoles(domain: AccessDomain, tier: InvitationTier): string[] {
+  if (tier === 'platform') return DOMAIN_ROLES[domain];
+  if (tier === 'delegated') {
+    const stewardRoles = new Set(DOMAIN_STEWARD_ROLES[domain]);
+    return DOMAIN_ROLES[domain].filter((r) => !stewardRoles.has(r));
+  }
+  return [];
+}
+
+/**
+ * Resolve what a caller may invite, from platform-admin status plus the
+ * caller's OWN active grants. Pure — the caller resolves the grants through the
+ * spine and passes them in, so there is exactly one persona resolution per
+ * request and the gate cannot be handed a client-supplied identity.
+ */
+export function resolveInvitationAuthority(
+  isAdmin: boolean,
+  grants: { accessDomain: string; role: string; allowedScopes?: string[] | null }[],
+): InvitationAuthority {
+  if (isAdmin) {
+    const scopes: Record<string, 'all' | string[]> = {};
+    for (const d of ACCESS_DOMAINS) scopes[d] = 'all';
+    return { tier: 'platform', domains: [...ACCESS_DOMAINS], scopes };
+  }
+
+  const domains: AccessDomain[] = [];
+  const scopes: Record<string, 'all' | string[]> = {};
+  for (const g of grants) {
+    if (!isAccessDomain(g.accessDomain)) continue;
+    if (!DOMAIN_STEWARD_ROLES[g.accessDomain].includes(g.role)) continue;
+    if (!domains.includes(g.accessDomain)) domains.push(g.accessDomain);
+    const existing = scopes[g.accessDomain];
+    const own = g.allowedScopes;
+    // An unscoped steward grant is unrestricted within its domain; a scoped one
+    // contributes only its own ids. Unions across several grants.
+    if (!own || own.length === 0) scopes[g.accessDomain] = 'all';
+    else if (existing !== 'all') {
+      scopes[g.accessDomain] = Array.from(new Set([...(existing ?? []), ...own]));
+    }
+  }
+  if (domains.length === 0) return { tier: 'none', domains: [], scopes: {} };
+  return { tier: 'delegated', domains, scopes };
+}
+
+/**
+ * Is `requested` a legal scope for an invitation this authority issues in this
+ * domain? SCOPE CONTAINMENT — a delegated inviter can never widen beyond what
+ * they themselves hold, and must name a scope at all when their own is
+ * restricted (an unrestricted invitation from a restricted steward would be a
+ * silent widening).
+ */
+export function scopeWithinAuthority(
+  authority: InvitationAuthority,
+  domain: AccessDomain,
+  requested: string[],
+): { ok: true } | { ok: false; error: string } {
+  const own = authority.scopes[domain];
+  if (own === 'all' || own === undefined) return { ok: true };
+  const clean = requested.map((s) => s.trim()).filter(Boolean);
+  if (clean.length === 0) {
+    return {
+      ok: false,
+      error: `Your ${DOMAIN_LABELS[domain]} authority is scoped to ${own.join(', ')} — an invitation must name one of them.`,
+    };
+  }
+  const outside = clean.filter((s) => !own.includes(s));
+  if (outside.length > 0) {
+    return { ok: false, error: `Outside your authority: ${outside.join(', ')}` };
+  }
+  return { ok: true };
+}
+
+/**
+ * The runnable experiments an invitation can scope a reviewer to. Acceptance
+ * tests, reports, and plates are deliberately absent — they stay admin-only.
+ *
+ * DERIVED from EXPERIMENT_REGISTRY (types/research.ts) — the platform's single
+ * source of truth for experiments (the same registry the Laboratory →
+ * Experiments view and the disk-parity canary key off). This list previously
+ * hand-duplicated the registry as a static array and went stale every time an
+ * experiment was added (EXP-009/010, CCE-006/007, ISR-001 were all missing
+ * from the invitation scoping UI — operator QA, 2026-07-22). Deriving it means
+ * a new EXPERIMENT_REGISTRY entry is automatically assignable; there is no
+ * second place to remember to update.
+ */
+export const ASSIGNABLE_EXPERIMENTS: { id: string; label: string }[] = EXPERIMENT_REGISTRY.map(
+  (exp) => ({ id: exp.id, label: `${exp.id} · ${exp.family}` }),
+);
 
 /**
  * Resolve a persona's research-lab experiment access from their active grants.
@@ -160,6 +379,8 @@ export async function createAccessInvitation(
     /** Experiment ids/labels this invitation scopes the reviewer to. Empty =
      *  unrestricted. Only meaningful for the research-lab domain. */
     allowedExperiments?: string[];
+    /** Open a QubeTalk peer channel with the issuer when the invitee claims. */
+    openPeerChannel?: boolean;
   },
 ): Promise<{ ok: true; rawCode: string; invitation: AccessInvitationRow } | { ok: false; error: string }> {
   if (!DOMAIN_ROLES[input.domain].includes(input.role)) {
@@ -184,6 +405,10 @@ export async function createAccessInvitation(
       expires_at: expiresAt,
       issuer_persona_id: input.issuerPersonaId,
       allowed_experiments: allowedExperiments.length > 0 ? allowedExperiments : null,
+      // Only touch the new column when the feature is opted into, so invitation
+      // creation is byte-identical (and safe) on a DB that hasn't applied
+      // 20260805300000 yet.
+      ...(input.openPeerChannel === true ? { open_peer_channel: true } : {}),
     })
     .select('*')
     .single();
@@ -191,21 +416,42 @@ export async function createAccessInvitation(
   return { ok: true, rawCode, invitation: toInvitationRow(data) };
 }
 
-export async function listAccessInvitations(admin: SupabaseClient, domain?: AccessDomain): Promise<AccessInvitationRow[]> {
+/**
+ * `issuerPersonaId` narrows the list to invitations the caller issued — the
+ * read half of delegated authority. A delegated steward administers what they
+ * created; the estate-wide view stays a platform-admin capability.
+ */
+export async function listAccessInvitations(
+  admin: SupabaseClient,
+  domain?: AccessDomain,
+  issuerPersonaId?: string,
+): Promise<AccessInvitationRow[]> {
   let q = admin.from('access_invitations').select('*').order('created_at', { ascending: false });
   if (domain) q = q.eq('access_domain', domain);
+  if (issuerPersonaId) q = q.eq('issuer_persona_id', issuerPersonaId);
   const { data, error } = await q;
   if (error) return [];
   return (data ?? []).map(toInvitationRow);
 }
 
-export async function revokeAccessInvitation(admin: SupabaseClient, invitationId: string): Promise<boolean> {
-  const { data, error } = await admin
+/**
+ * `issuerPersonaId`, when supplied, constrains the revoke to invitations the
+ * caller issued. Enforced IN THE UPDATE PREDICATE, not by a read-then-write
+ * check, so there is no window in which another issuer's invitation could be
+ * revoked. Omitted only for a platform admin.
+ */
+export async function revokeAccessInvitation(
+  admin: SupabaseClient,
+  invitationId: string,
+  issuerPersonaId?: string,
+): Promise<boolean> {
+  let q = admin
     .from('access_invitations')
     .update({ status: 'revoked', revoked_at: new Date().toISOString() })
     .eq('id', invitationId)
-    .eq('status', 'active')
-    .select('id');
+    .eq('status', 'active');
+  if (issuerPersonaId) q = q.eq('issuer_persona_id', issuerPersonaId);
+  const { data, error } = await q.select('id');
   return !error && (data?.length ?? 0) > 0;
 }
 
@@ -255,7 +501,7 @@ export async function claimAccessInvitation(
   rawCode: string,
   claimant: { personaId: string; passportId?: string | null },
 ): Promise<
-  | { ok: true; grant: { id: string; accessDomain: string; role: string; grantedAt: string }; alreadyGranted?: boolean }
+  | { ok: true; grant: { id: string; accessDomain: string; role: string; grantedAt: string }; alreadyGranted?: boolean; peerChannelId?: string }
   | { ok: false; error: string }
 > {
   const { data: inv, error } = await admin
@@ -332,9 +578,13 @@ export async function claimAccessInvitation(
     .update({ uses: nextUses, ...(nextUses >= Number(inv.max_uses) ? { status: 'exhausted' } : {}) })
     .eq('id', inv.id);
 
+  // Invite → auto-channel (best-effort; never blocks the grant).
+  const peerChannelId = await maybeOpenInviteChannel(inv as { open_peer_channel?: boolean; issuer_persona_id?: string | null; access_domain?: string | null }, claimant.personaId);
+
   return {
     ok: true,
     grant: { id: String(grant.id), accessDomain: String(grant.access_domain), role: String(grant.role), grantedAt: String(grant.granted_at) },
+    ...(peerChannelId ? { peerChannelId } : {}),
   };
 }
 

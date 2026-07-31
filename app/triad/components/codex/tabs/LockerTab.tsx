@@ -27,6 +27,14 @@ const WorldIdButton = dynamic(
   { ssr: false, loading: () => <span className="text-[10px] text-sky-400">Loading…</span> },
 );
 
+// QubeTalk Peer Exchange — personhood-bound peer messaging + artifact sharing
+// between two INDEPENDENT principals (distinct from the holder↔agent "Agent
+// Channels" above). Lazy + client-only (clipboard/personaFetch).
+const QubeTalkInboxTab = dynamic(() => import('@/components/composer/QubeTalkInboxTab'), {
+  ssr: false,
+  loading: () => <span className="text-[10px] text-slate-400">Loading…</span>,
+});
+
 interface WorldIdProofBundle {
   proof: string;
   merkle_root: string;
@@ -170,7 +178,14 @@ export function LockerTab() {
   const [passportVcsLoading, setPassportVcsLoading] = useState(true);
   const [passportVcExpanded, setPassportVcExpanded] = useState<string | null>(null);
   const [passportVcCopied, setPassportVcCopied] = useState<string | null>(null);
-  const [passportCardCollapsed, setPassportCardCollapsed] = useState(false);
+  // COLLAPSED BY DEFAULT, every panel (operator ruling, 2026-07-28). The
+  // Locker opens on "My Credentials & Relationships" — the holder's own record
+  // — with every panel shut, so the surface reads as an index the holder opens
+  // into rather than a wall of simultaneously-expanded forms. The two
+  // safeguards that make collapsing-by-default safe are below: a code-bearing
+  // deep link force-expands Invitation, and any panel with work in flight
+  // force-expands itself.
+  const [passportCardCollapsed, setPassportCardCollapsed] = useState(true);
   const [sponsoredAgentItems, setSponsoredAgentItems] = useState<SponsoredAgentItem[]>([]);
   const [claimBusy, setClaimBusy] = useState<string | null>(null);
   const [pendingApplications, setPendingApplications] = useState<PendingApplication[]>([]);
@@ -192,10 +207,30 @@ export function LockerTab() {
   const [x409Agreement, setX409Agreement] = useState<X409AgreementView | null>(null);
   const [x409Busy, setX409Busy] = useState(false);
   const [x409Note, setX409Note] = useState<string | null>(null);
-  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(false);
+  const [qubeTalkCollapsed, setQubeTalkCollapsed] = useState(true);
+  const [peerExchangeCollapsed, setPeerExchangeCollapsed] = useState(true);
+  // Upload + Invitation collapse with the same affordance as the two panels
+  // above them, so every panel on this surface behaves the same way. They
+  // defaulted OPEN until 2026-07-28 on the reasoning that a first-time holder
+  // with an empty locker must see how to fill it; the operator's ruling
+  // supersedes that — the panels are one click away, and landing on the
+  // holder's own credentials matters more than pre-opening a form.
+  const [uploadCollapsed, setUploadCollapsed] = useState(true);
+  const [invitationCollapsed, setInvitationCollapsed] = useState(true);
+  // Location Tracking gained a collapse on 2026-07-28 with the same affordance
+  // as every panel above, and moved to the BOTTOM of the surface.
+  const [locationCollapsed, setLocationCollapsed] = useState(true);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [messageSending, setMessageSending] = useState(false);
+
+  // Collapse is a display preference; work in flight is not. A panel whose
+  // action is running stays open regardless, so collapsing mid-upload cannot
+  // hide "Encrypting + publishing…" and leave the holder unable to tell
+  // whether their document is being written. Same for a claim in flight.
+  const uploadOpen = !uploadCollapsed || uploadBusy;
+  const invitationOpen = !invitationCollapsed || x409ClaimBusy;
+  const locationOpen = !locationCollapsed || locationBusy;
 
   // Derive last location from items when loaded
   useEffect(() => {
@@ -297,7 +332,10 @@ export function LockerTab() {
     try {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('x409') || params.get('invite');
-      if (code) setX409Code(code);
+      // Expanding is part of pre-filling: an invitee who arrives on a deep
+      // link must land on a VISIBLE input. Pre-filling a collapsed panel
+      // would leave them staring at a locker with no sign of their invitation.
+      if (code) { setX409Code(code); setInvitationCollapsed(false); }
     } catch { /* non-fatal */ }
   }, []);
 
@@ -652,36 +690,10 @@ export function LockerTab() {
         </div>
       )}
 
-      {/* Location tracking */}
-      <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-emerald-400" />
-            <span className="text-sm font-semibold text-slate-200">Location Tracking</span>
-          </div>
-          <button
-            onClick={() => void handleTrackLocation()}
-            disabled={locationBusy}
-            className="flex items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 disabled:opacity-50"
-          >
-            {locationBusy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <MapPin className="h-4 w-4" />
-            )}
-            Track My Location
-          </button>
-        </div>
-        {lastLocation && (
-          <div className="flex items-center gap-4 rounded-lg border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
-            <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
-            <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
-            <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Passport Credentials & Sponsored Agents */}
+      {/* Passport Credentials & Sponsored Agents — THE FIRST SECTION (operator
+          ruling, 2026-07-28). The holder's own record is what they came for;
+          Location Tracking, which used to sit above it, is now the last panel
+          on the surface. */}
       <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -908,6 +920,7 @@ export function LockerTab() {
           <div className="flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-sky-400" />
             <span className="text-sm font-semibold text-slate-200">Agent Channels</span>
+            <span className="hidden sm:inline text-[10px] text-sky-300/70">· delegate access — you grant one of YOUR agents access to your locker</span>
             {qubeTalkChannels.length > 0 && (
               <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300">
                 {qubeTalkChannels.length}
@@ -1011,12 +1024,57 @@ export function LockerTab() {
         )}
       </div>
 
+      {/* QubeTalk Peer Exchange — principal ↔ principal (distinct from Agent Channels) */}
+      <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setPeerExchangeCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-indigo-400" />
+            <span className="text-sm font-semibold text-slate-200">Peer Exchange</span>
+            <span className="rounded-full border border-indigo-500/40 bg-indigo-500/10 px-2 py-0.5 text-[10px] text-indigo-300">
+              QubeTalk
+            </span>
+            <span className="hidden sm:inline text-[10px] text-indigo-300/70">· a channel with ANOTHER person (their delegated agents may join)</span>
+          </div>
+          {peerExchangeCollapsed ? (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {!peerExchangeCollapsed && (
+          <div className="rounded-lg border border-indigo-500/20 bg-slate-950/40 p-3">
+            {/* Personhood-bound peer messaging + artifact sharing with another
+                principal by their Polity Public Reference. Self-contained
+                surface (own reference, open channel, messages, shared
+                artifacts, open + copy-to-locker). */}
+            <QubeTalkInboxTab />
+          </div>
+        )}
+      </div>
+
       {/* Upload */}
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-          <Upload className="h-4 w-4 text-violet-400" />
-          Upload to locker
-        </div>
+        <button
+          type="button"
+          onClick={() => setUploadCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
+            <Upload className="h-4 w-4 text-violet-400" />
+            Upload to locker
+          </div>
+          {uploadOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {uploadOpen && (
+        <>
 
         {/* Document class selector */}
         <div className="relative">
@@ -1085,16 +1143,31 @@ export function LockerTab() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Encrypting + publishing…
           </p>
         )}
+        </>
+        )}
       </div>
 
       {/* x409 invitation claim — the contract-delivery seam (CFS-042/044).
           An invited party pastes (or arrives with ?x409=) their code and the
           agreement lands in this locker as a contract item to execute. */}
       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 space-y-2">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-violet-300" />
-          <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
-        </div>
+        <button
+          type="button"
+          onClick={() => setInvitationCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-violet-300" />
+            <h3 className="text-sm font-semibold text-slate-200">Invitation</h3>
+          </div>
+          {invitationOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {invitationOpen && (
+        <>
         <p className="text-[11px] text-slate-400">
           Invited to a contract or a permissioned area? Enter your invitation code. Contract invitations
           (x409-…) land the agreement in your locker to review and execute; access invitations (pinv-…)
@@ -1117,6 +1190,8 @@ export function LockerTab() {
           </button>
         </div>
         {x409Note && <p className="text-[11px] text-slate-300">{x409Note}</p>}
+        </>
+        )}
       </div>
 
       {/* Items list */}
@@ -1336,6 +1411,60 @@ export function LockerTab() {
               </div>
             );
           })
+        )}
+      </div>
+
+      {/* Location tracking — THE LAST SECTION (operator ruling, 2026-07-28).
+          It used to be the first thing the holder saw, above their own
+          credentials; it is an occasional act, not the reason anyone opens the
+          Locker. Collapsed by default like every other panel, and — like
+          Upload and Invitation — force-expanded while its action is in flight,
+          so a checkpoint being written can never be hidden behind a collapsed
+          header. */}
+      <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
+        <button
+          type="button"
+          onClick={() => setLocationCollapsed((p) => !p)}
+          className="flex w-full items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-emerald-400" />
+            <span className="text-sm font-semibold text-slate-200">Location Tracking</span>
+          </div>
+          {locationOpen ? (
+            <ChevronUp className="h-4 w-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          )}
+        </button>
+        {locationOpen && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] text-slate-400">
+                Write a signed location checkpoint into your Locker. Holder-owned like every other
+                item — nothing is shared until you grant it.
+              </p>
+              <button
+                onClick={() => void handleTrackLocation()}
+                disabled={locationBusy}
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-900/40 px-4 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-900/60 disabled:opacity-50"
+              >
+                {locationBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4" />
+                )}
+                Track My Location
+              </button>
+            </div>
+            {lastLocation && (
+              <div className="flex items-center gap-4 rounded-lg border border-emerald-800/40 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+                <span className="font-mono">{lastLocation.lat.toFixed(6)}, {lastLocation.lng.toFixed(6)}</span>
+                <span className="text-emerald-400/60">accuracy: {lastLocation.accuracy.toFixed(0)}m</span>
+                <span className="text-emerald-400/60">{new Date(lastLocation.timestamp).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

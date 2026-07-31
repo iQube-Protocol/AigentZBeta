@@ -320,7 +320,7 @@ function PartnerCard({ partner, ventureNames, onRefresh }: { partner: Partner; v
   const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
     setSaving(true);
     try {
-      await fetch("/api/mvl/partners", {
+      await personaFetch("/api/mvl/partners", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: partner.id, ...fields }),
@@ -443,7 +443,7 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
     if (!name.trim()) { setErr("Name required"); return; }
     setSaving(true); setErr("");
     try {
-      const res = await fetch("/api/mvl/partners", {
+      const res = await personaFetch("/api/mvl/partners", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), org: org.trim() || name.trim(), wave, contact_name: contact.trim() || null, contact_email: email.trim() || null }),
@@ -493,7 +493,10 @@ function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-function PartnersPanel({ personaId, ventureNames }: { personaId?: string; ventureNames: string[] }) {
+/** A summary figure a panel reports up to the sub-menu row. */
+interface NavStat { label: string; value: string | number; accent: string }
+
+function PartnersPanel({ personaId, ventureNames, onStats }: { personaId?: string; ventureNames: string[]; onStats?: (s: NavStat[]) => void }) {
   const [partners,     setPartners]     = useState<Partner[]>([]);
   const [summary,      setSummary]      = useState<PartnerSummary | null>(null);
   const [loading,      setLoading]      = useState(true);
@@ -519,28 +522,28 @@ function PartnersPanel({ personaId, ventureNames }: { personaId?: string; ventur
 
   useEffect(() => { void load(waveFilter); }, [load, waveFilter]);
 
+  // Report the summary up to the sub-menu row (operator: stats right-justified
+  // on the sub-menu row). The derivation stays HERE, where the data is — the
+  // parent renders the numbers, it does not recompute them.
+  useEffect(() => {
+    if (!onStats) return;
+    onStats(
+      summary
+        ? [
+            { label: "Total",       value: summary.total,       accent: "text-slate-200" },
+            { label: "Tier 1",      value: summary.tier1,       accent: "text-amber-300" },
+            { label: "Uncontacted", value: summary.uncontacted, accent: "text-sky-300" },
+          ]
+        : [],
+    );
+  }, [summary, onStats]);
+
   const visiblePartners = scopeFilter === "all"
     ? partners
     : partners.filter((p) => (p.ventureScope ?? "all") === scopeFilter);
 
   return (
     <div className="space-y-3">
-      {/* Summary tiles */}
-      {summary && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: "Total",       value: summary.total,       accent: "text-slate-200" },
-            { label: "Tier 1",      value: summary.tier1,       accent: "text-amber-300" },
-            { label: "Uncontacted", value: summary.uncontacted, accent: "text-sky-300" },
-          ].map(({ label, value, accent }) => (
-            <div key={label} className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-              <div className={`text-base font-bold leading-none ${accent}`}>{value}</div>
-              <div className="text-[10px] text-slate-600 mt-0.5">{label}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Wave filter + venture scope filter */}
       <div className="flex items-center gap-1.5 flex-wrap">
         {([["", "All"], ["1", "Wave 1"], ["2", "Wave 2"]] as const).map(([val, label]) => (
@@ -717,7 +720,7 @@ function CustomerCard({ customer }: { customer: Customer }) {
   );
 }
 
-function CustomersPanel({ ventureNames }: { ventureNames: string[] }) {
+function CustomersPanel({ ventureNames, onStats }: { ventureNames: string[]; onStats?: (s: NavStat[]) => void }) {
   const [customers,      setCustomers]      = useState<Customer[]>([]);
   const [total,          setTotal]          = useState(0);
   const [loading,        setLoading]        = useState(true);
@@ -734,7 +737,7 @@ function CustomersPanel({ ventureNames }: { ventureNames: string[] }) {
       const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(opts.offset), sort: opts.sort });
       if (opts.search) params.set("search", opts.search);
       if (opts.cohort) params.set("cohort", opts.cohort);
-      const res = await fetch(`/api/crm/investors?${params}`);
+      const res = await personaFetch(`/api/crm/investors?${params}`);
       const json = await res.json() as { data: Customer[]; total: number };
       setCustomers(json.data ?? []);
       setTotal(json.total ?? 0);
@@ -747,28 +750,19 @@ function CustomersPanel({ ventureNames }: { ventureNames: string[] }) {
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
+  // Report the summary up to the sub-menu row — same contract as PartnersPanel.
+  const activatedCount = customers.filter((c) => c.isActivated).length;
+  const tieredCount = customers.filter((c) => c.omTier).length;
+  useEffect(() => {
+    onStats?.([
+      { label: "Total",     value: total,                                            accent: "text-slate-200" },
+      { label: "Activated", value: activatedCount > 0 ? `${activatedCount}+` : "—",  accent: "text-emerald-300" },
+      { label: "Tiered",    value: tieredCount > 0 ? `${tieredCount}` : "—",         accent: "text-amber-300" },
+    ]);
+  }, [total, activatedCount, tieredCount, onStats]);
+
   return (
     <div className="space-y-3">
-      {/* Summary row */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-slate-200">{total}</div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Total</div>
-        </div>
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-emerald-300">
-            {customers.filter((c) => c.isActivated).length > 0 ? `${customers.filter((c) => c.isActivated).length}+` : "—"}
-          </div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Activated</div>
-        </div>
-        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
-          <div className="text-base font-bold leading-none text-amber-300">
-            {customers.filter((c) => c.omTier).length > 0 ? `${customers.filter((c) => c.omTier).length}` : "—"}
-          </div>
-          <div className="text-[10px] text-slate-600 mt-0.5">Tiered</div>
-        </div>
-      </div>
-
       {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-600" />
@@ -985,7 +979,7 @@ function ComposerPanel() {
       setLoadingInit(true);
       const [packsRes, partnersRes] = await Promise.all([
         fetch("/api/mvl/comms-packs").catch(() => null),
-        fetch("/api/mvl/partners").catch(() => null),
+        personaFetch("/api/mvl/partners").catch(() => null),
       ]);
       if (packsRes?.ok) {
         const j = await packsRes.json() as { ok: boolean; data?: CommsPack[] };
@@ -1241,6 +1235,12 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
   const [ventureNames, setVentureNames] = useState<string[]>([]);
 
   const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "compose" | "qubetalk">("partners");
+  // The active panel's summary tiles, reported up so they can render
+  // right-justified on the sub-menu row. Cleared on every nav change so a
+  // panel's numbers can never survive as a stale label over another panel
+  // (MS-10 — a stale observation must never render as current).
+  const [navStats, setNavStats] = useState<NavStat[]>([]);
+  useEffect(() => { setNavStats([]); }, [activeNav]);
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
   const [loading,   setLoading]    = useState(true);
   const [sources,   setSources]    = useState<{ bridge: number; live: number }>({ bridge: 0, live: 0 });
@@ -1288,8 +1288,14 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
     if (!draft.trim() || !personaId) return;
     setSending(true);
     try {
-      await fetch("/api/marketa/qubetalk", {
+      // personaFetch, not raw fetch: /api/marketa/qubetalk now authenticates
+      // through the spine (it used to trust this `x-persona-id` header as
+      // proof of identity). Every other call in this file already uses
+      // personaFetch — this one was the odd transport out, which is exactly
+      // the mixed-transport shape that resolves two different personas.
+      await personaFetch("/api/marketa/qubetalk", {
         method: "POST",
+        personaIdHint: personaId,
         headers: {
           "Content-Type": "application/json",
           "x-persona-id": personaId,
@@ -1316,57 +1322,64 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
   return (
     <div className="p-4 space-y-4">
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-100 flex items-center gap-2">
-            <Users className="h-4 w-4 text-amber-400" />
-            Relationship Builder α
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">7,000+ persona CRM · 18 partner pipeline</p>
+      {/* THIRD SUB-HEADER REMOVED + SUB MENU LIFTED TO THE TOP (operator,
+          2026-07-28: "Remove third sub header moving partners/customers/compose
+          etc sub menus to top of page. Stats can be right justified on same row
+          as sub sub menu"). The in-body "Relationship Builder α" title restated
+          what the group chip and tab chip already say; the sub menu is now the
+          first thing on the page, and each panel's summary tiles ride
+          right-justified on that same row instead of consuming a band of their
+          own beneath it. The tiles are still each panel's OWN derivation — they
+          are reported up, not recomputed here (one source, one number). */}
+      <div className="flex items-center gap-3 border-b border-white/[0.06] pb-0">
+        <div className="flex gap-1">
+          {([
+            { key: "partners",  label: "Partners",  icon: Building2 },
+            { key: "customers", label: "Customers", icon: Users },
+            { key: "compose",   label: "Compose",   icon: PenLine },
+            { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
+          ] as const).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveNav(key)}
+              className={`flex items-center gap-1.5 text-[11px] px-3 py-1.5 border-b-2 -mb-px transition-colors ${
+                activeNav === key
+                  ? "border-amber-500 text-amber-300"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+            </button>
+          ))}
         </div>
-        {activeNav === "qubetalk" && personaId && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 text-[11px] border-violet-800/50 text-violet-300 hover:bg-violet-500/10"
-            onClick={() => setComposing((c) => !c)}
-          >
-            <Send className="h-3 w-3 mr-1" />
-            Message
-          </Button>
-        )}
-      </div>
-
-      {/* Nav tabs: Partners | Customers | Compose | QubeTalk */}
-      <div className="flex gap-1 border-b border-white/[0.06] pb-0">
-        {([
-          { key: "partners",  label: "Partners",  icon: Building2 },
-          { key: "customers", label: "Customers", icon: Users },
-          { key: "compose",   label: "Compose",   icon: PenLine },
-          { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
-        ] as const).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveNav(key)}
-            className={`flex items-center gap-1.5 text-[11px] px-3 py-1.5 border-b-2 -mb-px transition-colors ${
-              activeNav === key
-                ? "border-amber-500 text-amber-300"
-                : "border-transparent text-slate-500 hover:text-slate-300"
-            }`}
-          >
-            <Icon className="h-3 w-3" />
-            {label}
-          </button>
-        ))}
+        <div className="ml-auto flex items-center gap-3 pb-1">
+          {navStats.map(({ label, value, accent }) => (
+            <div key={label} className="flex items-baseline gap-1.5">
+              <span className={`text-sm font-bold leading-none ${accent}`}>{value}</span>
+              <span className="text-[10px] text-slate-600">{label}</span>
+            </div>
+          ))}
+          {activeNav === "qubetalk" && personaId && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-[11px] border-violet-800/50 text-violet-300 hover:bg-violet-500/10"
+              onClick={() => setComposing((c) => !c)}
+            >
+              <Send className="h-3 w-3 mr-1" />
+              Message
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Partners panel */}
-      {activeNav === "partners" && <PartnersPanel personaId={personaId} ventureNames={ventureNames} />}
+      {activeNav === "partners" && <PartnersPanel personaId={personaId} ventureNames={ventureNames} onStats={setNavStats} />}
 
       {/* Customers panel */}
-      {activeNav === "customers" && <CustomersPanel ventureNames={ventureNames} />}
+      {activeNav === "customers" && <CustomersPanel ventureNames={ventureNames} onStats={setNavStats} />}
 
       {/* Compose panel */}
       {activeNav === "compose" && <ComposerPanel />}

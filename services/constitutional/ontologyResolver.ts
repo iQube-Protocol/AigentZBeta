@@ -243,23 +243,37 @@ export async function resolveOntology(text: string): Promise<OntologyResolution>
 // ---------------------------------------------------------------------------
 
 import type { ContextPack } from '@/types/constitutional';
-import { citeInvariants, type GroundingContext } from '@/services/invariants/grounding';
-import { groundReasoning } from '@/services/invariants/engine';
+import { citeInvariants, type GroundingContext, type InvariantSlice } from '@/services/invariants/grounding';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
 import { getInvariantsBySeedIds } from '@/services/invariants/store';
+
+/** The honest empty slice when resolution finds nothing / the substrate is
+ *  unreachable. Never fabricated content — an empty pack, plainly. */
+const emptySlice = (context: GroundingContext): InvariantSlice => ({
+  generatedAt: null,
+  context,
+  items: [],
+  citedIds: [],
+});
 
 /**
  * Assemble the ontology-resolved, invariant-grounded ContextPack for one
  * reasoning call: resolution precedes reasoning (CFS-015 principle 5).
+ *
+ * IRE → IPE (operator ruling 2026-07-27). CFS-015 principle 5 is literally the
+ * constitutional sequence, so this surface of all of them must not ground by
+ * raw substrate query. `text` is the intent the IRE qualifies; `context` is the
+ * overlay. Registered as `ontology-context-pack` in GROUNDING_SURFACES.
  */
 export async function assembleContextPack(
   text: string,
   context: GroundingContext = {},
 ): Promise<ContextPack> {
-  const [resolution, snapshot] = await Promise.all([
+  const [resolution, field] = await Promise.all([
     resolveOntology(text),
-    groundReasoning(context), // CFS-035 Phase 1 — through the Reasoning-face seam
+    resolveConstitutionalField(text, context),
   ]);
-  const slice = snapshot.slice;
+  const slice = field.snapshot?.slice ?? emptySlice(context);
   return {
     resolvedTerms: resolution.resolvedTerms,
     slice,

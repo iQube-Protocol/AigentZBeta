@@ -20,7 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
-import { promises as fs } from 'fs';
+import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getKnowledgeBaseService } from '@/services/content/knowledgeBaseService';
 import { getEmbeddingService } from '@/services/content/embeddingService';
@@ -55,14 +55,11 @@ function stripFrontmatter(md: string): string {
 }
 
 async function readPackFile(relPath: string): Promise<string | null> {
-  const packRoot = path.join(process.cwd(), 'codexes', 'packs', 'polity-core');
-  const full = path.join(packRoot, path.normalize(relPath));
-  if (!full.startsWith(packRoot + path.sep)) return null;
-  try {
-    return await fs.readFile(full, 'utf-8');
-  } catch {
-    return null;
-  }
+  // Reject traversal, then read via the pack-corpus seam (local FS in dev; the
+  // in-memory corpus hydrated from the remote blob in the SSR Lambda).
+  const normalized = path.normalize(relPath);
+  if (path.isAbsolute(normalized) || normalized.startsWith('..')) return null;
+  return corpusReadPackFile('polity-core', normalized);
 }
 
 interface IngestTarget {

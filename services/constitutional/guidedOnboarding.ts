@@ -110,6 +110,14 @@ export interface DeepLinkOptions {
  * Deep links into the IRL OS cartridge's Polity Passport tabs, so the principal
  * onboards from the IRL OS embed alone (no full metaMe thin client). Built with
  * buildCodexUrl so identity + breadcrumb params attach correctly.
+ *
+ * REGISTRY IS THE ONE EXCEPTION (2026-07-28). The operator removed the Passport
+ * Registry tab from BOTH Labs, so `irl-os-passport-registry` no longer exists.
+ * A `?tab=` naming a removed tab does not error — the embed silently lands the
+ * principal on the cartridge's default tab, which is worse than a 404 because
+ * nothing announces the miss. The public record keeps its home in AgentiQ OS
+ * (`os-passport-registry`), the same open, public-facing edition IRL OS is, so
+ * the link moves there rather than dying.
  */
 export function passportDeepLinks(opts: DeepLinkOptions = {}): {
   apply: string; delegation: string; registry: string; locker: string;
@@ -118,7 +126,7 @@ export function passportDeepLinks(opts: DeepLinkOptions = {}): {
   return {
     apply: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-apply' }),
     delegation: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-delegation' }),
-    registry: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-registry' }),
+    registry: buildCodexUrl('agentiq-os', { ...base, tab: 'os-passport-registry' }),
     locker: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-locker' }),
   };
 }

@@ -12,6 +12,8 @@ import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useEntitlementsList } from "@/app/hooks/useEntitlementsList";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
+import { useQctBaseMainnetBalance } from "@/app/hooks/useQctBaseMainnetBalance";
+import type { QriptoDenomination } from "@/services/qriptocent/settlement/types";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
@@ -30,6 +32,8 @@ import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
 import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
 import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
+import { MoneyPennyWalletArchitect } from "../wallet/MoneyPennyWalletArchitect";
+import { MoneyPennyWalletRuntime } from "../wallet/MoneyPennyWalletRuntime";
 import { TransactionModal } from "../wallet/TransactionModal";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
@@ -103,6 +107,8 @@ import {
   Loader2,
   ShieldCheck,
   Download,
+  Compass,
+  Cpu,
 } from "lucide-react";
 const WorldIdButton = dynamic(
   () => import("@/components/passport/WorldIdButton").then((m) => ({ default: m.WorldIdButton })),
@@ -216,6 +222,28 @@ interface SmartWalletDrawerProps {
   onCopilotStateChange?: (open: boolean) => void;
   /** When provided, the persona menu shows a "Set as default for this cartridge" option. */
   cartridgeSlug?: string;
+  /**
+   * Companion 1.1 wallet-chrome simplification (2026-07-29, operator-directed).
+   *
+   * When true, hides the ENTIRE top identity row — the persona/sign-in
+   * trigger + dropdown, the Copilot toggle, and the Close Wallet button —
+   * and instead renders the Copilot toggle inline in the tab icon row,
+   * which becomes a horizontally scrollable strip to make room. The persona
+   * chooser and sign-in are redundant there because the Companion's own
+   * header badge now drives persona/sign-in context (see
+   * `components/companion/CompanionPersonaBadgeModal.tsx`); the close
+   * button is redundant for the same reason.
+   *
+   * SCOPED TO THE COMPANION'S OWN EMBEDDED WALLET MOUNT ONLY — set at
+   * exactly one call site, `app/(embed)/triad/embed/companion/page.tsx`'s
+   * `activeSurface === "wallet"` branch. Every other embedded/overlay mount
+   * (marketa-codex, knyt-codex, metame-codex, the Polity Passport Bureau
+   * cartridge, CodexCopilotLayer's own `walletDrawerNode`) leaves this unset
+   * and renders the exact top chrome it always has — this prop touches ONLY
+   * the header/tab-row layout below, never the balance/currency rendering
+   * elsewhere in this file.
+   */
+  simplifiedTopChrome?: boolean;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -232,7 +260,13 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
 const TOKEN_LOGOS: Record<string, string> = {
   ethereum: "https://cryptologos.cc/logos/ethereum-eth-logo.png?v=040",
   arbitrum: "https://cryptologos.cc/logos/arbitrum-arb-logo.png?v=040",
-  base: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png",
+  // No `base` entry: the only asset previously mapped here (a trustwallet/assets
+  // mirror) resolves to a plain blue square with no "B" glyph and a baked-in
+  // white background — not Coinbase's actual Base brand mark. Rather than
+  // fabricate a replacement URL, the two Base Q¢ balance rows fall back to
+  // their existing lucide `fallbackIcon` until a real Base logo asset is
+  // supplied (operator-provided file, same pattern as the metaMe/iQube brand
+  // assets in public/metaMe/).
   optimism: "https://cryptologos.cc/logos/optimism-ethereum-op-logo.png?v=040",
   polygon: "https://cryptologos.cc/logos/polygon-matic-logo.png?v=040",
   solana: "https://cryptologos.cc/logos/solana-sol-logo.png?v=040",
@@ -267,6 +301,7 @@ export default function SmartWalletDrawer({
   codexMode = false,
   onCopilotStateChange,
   cartridgeSlug,
+  simplifiedTopChrome = false,
 }: SmartWalletDrawerProps) {
   const isValidEvmAddress = (value?: string): value is `0x${string}` =>
     typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -369,7 +404,17 @@ export default function SmartWalletDrawer({
   const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useEntitlementsList(effectivePersonaId);
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
-  const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
+  const { balance: baseQcBalance, refresh: refreshDvnQc } = useBaseQcBalance(effectivePersonaId);
+  // Base Q¢ MAINNET (chain 8453, live ERC-20 read) — distinct from bals.qctBase,
+  // which reads the Base SEPOLIA testnet contract, and from baseQcBalance above,
+  // which is the off-chain DVN custody ledger.
+  const canonicalEvmAddress = sanitizedEvmArb || sanitizedEvmSepolia;
+  const {
+    balance: qctMainnetBalance,
+    configured: qctMainnetConfigured,
+    loading: qctMainnetLoading,
+    refresh: refreshQctMainnet,
+  } = useQctBaseMainnetBalance(canonicalEvmAddress);
   const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -391,6 +436,11 @@ export default function SmartWalletDrawer({
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
   const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
+  // Sub-mode within the "MoneyPenny" (avatar) tab — additive PRD-MPY-001
+  // wallet surface: Chat (existing avatar iframe, default/unchanged),
+  // Architect (proposal drafting), Runtime (read-only shadow-preview
+  // trace). See MoneyPennyWalletArchitect / MoneyPennyWalletRuntime.
+  const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime'>('chat');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
@@ -557,12 +607,18 @@ export default function SmartWalletDrawer({
     }
     
     try {
-      // Call the wallet copilot API
-      const response = await fetch('/api/wallet-copilot', {
+      // Wallet Copilot is grounded through the same MoneyPenny backend as the
+      // "MoneyPenny" tab / avatar mode (app/api/moneypenny/chat/route.ts) —
+      // it shares the common invariant/Canon grounding + domain knowledge,
+      // not a standalone ungrounded implementation (previously
+      // /api/wallet-copilot, a bare OpenAI call with no invariant grounding).
+      const response = await fetch('/api/moneypenny/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: localReply ? [...baseMessages, localReply] : baseMessages,
+          agent_class: 'moneypenny',
+          tenant_id: 'wallet-copilot',
           context: {
             walletBalance: bals.qctArb ? Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18) : 0,
             personaId: effectivePersonaId,
@@ -570,10 +626,10 @@ export default function SmartWalletDrawer({
           }
         }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
-        const message = data.message || "I'm here to help! What would you like to know?";
+        const message = data.message || data.response || "I'm here to help! What would you like to know?";
         const content = localIntent.handled ? `More detail: ${message}` : message;
         setCopilotMessages(prev => [...prev, { role: 'assistant', content }]);
       } else {
@@ -624,7 +680,9 @@ export default function SmartWalletDrawer({
   const refreshWalletBalances = useCallback(() => {
     setBalanceRefreshKey((key) => key + 1);
     refreshKnyt();
-  }, [refreshKnyt]);
+    refreshDvnQc();
+    refreshQctMainnet();
+  }, [refreshKnyt, refreshDvnQc, refreshQctMainnet]);
 
   useEffect(() => {
     const generateDid = async () => {
@@ -650,17 +708,22 @@ export default function SmartWalletDrawer({
     generateDid();
   }, [agent?.fioHandle, activePersona?.fioHandle]);
 
-  // Request/release avatar based on copilot state and mode
+  // Request/release avatar based on copilot state and mode. The live
+  // MetaAvatar iframe is a fixed-position overlay anchored to
+  // avatarAnchorRef's bounding rect (see app/(shell)/layout.tsx) — it must
+  // only be requested while the "MoneyPenny" tab's Chat sub-mode is showing,
+  // otherwise it would render on top of the Architect/Runtime panels that
+  // share the same anchor section.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === 'avatar') {
+    if (open && copilotOpen && copilotMode === 'avatar' && moneyPennyMode === 'chat') {
       requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
     }
-    
+
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
-  }, [open, copilotOpen, copilotMode, requestAvatar, releaseAvatar, agent?.id]);
+  }, [open, copilotOpen, copilotMode, moneyPennyMode, requestAvatar, releaseAvatar, agent?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -748,6 +811,11 @@ export default function SmartWalletDrawer({
   const [convertStep, setConvertStep] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [convertError, setConvertError] = useState<string | null>(null);
   const [convertResult, setConvertResult] = useState<any>(null);
+  // Destination denomination for the USDC→Q¢ conversion — reuses the
+  // QriptoDenomination union from the cross-denomination settlement substrate
+  // (services/qriptocent/settlement/types.ts) so the choice stays in lockstep
+  // with the rest of the platform's B¢/Base Q¢ naming.
+  const [convertDestination, setConvertDestination] = useState<QriptoDenomination>("BASE_QC");
 
   const openTransactionModal = (
     tab: TransactionTab,
@@ -1419,6 +1487,35 @@ export default function SmartWalletDrawer({
   const formatFixed = (value?: number | null, digits: number = 2) =>
     Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
+  // Bitcent (B¢) — canonical prose spelling per operator ruling 2026-07-30
+  // (was "BitCent"; the on-chain Rune name stays BITCENT, unaffected). The
+  // Rune was etched for real on Bitcoin testnet 2026-07-30 — tx
+  // 551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65 (see
+  // codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md,
+  // R-12 closed). Still stubbed "pending" on both Mainnet and Testnet: no
+  // reliably working Rune-balance indexer was found this session
+  // (mempool.space's assumed Rune API path returned a generic route-not-found,
+  // blockstream.info's Esplora API is not Ordinals/Runes-aware at all) — see
+  // app/api/ops/bitcent/testnet/route.ts for the same honest gap, and its
+  // ops card for the tokenomics + transaction status that ARE known. Flip
+  // these once a live balance source is wired; a fabricated number here would
+  // be worse than an honest "pending".
+  const bcentMainnetPending = true;
+  const bcentTestnetPending = true;
+  const bcentMainnetAmount = 0;
+  const bcentTestnetAmount = 0;
+
+  // Base Q¢ MAINNET — live ERC-20 read via useQctBaseMainnetBalance (chain 8453).
+  const baseQcMainnetAmount = Number(qctMainnetBalance?.balanceFormatted ?? 0);
+  // Base Q¢ TESTNET — bals.qctBase already reads the Base SEPOLIA contract.
+  const baseQcTestnetAmount = (() => {
+    try {
+      return Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
+    } catch {
+      return 0;
+    }
+  })();
+
   const balanceRows: Array<{
     key: string;
     label: string;
@@ -1427,7 +1524,58 @@ export default function SmartWalletDrawer({
     logo?: string;
     fallbackIcon: React.ReactNode;
     dvn?: boolean;
+    /** Which expanded-balances group this row renders in. Q¢ rows only —
+     * KNYT/USDC rows below are untouched by the Mainnet/Testnet split and
+     * don't set this field. */
+    group?: "mainnet" | "testnet" | "dvn";
+    pending?: boolean;
   }> = [
+    // ─── Mainnet ───────────────────────────────────────────────────────────
+    {
+      key: "bcent-mainnet",
+      label: "Bitcent (B¢)",
+      // Unresolved must never render as zero (operator ruling 2026-07-31):
+      // no Bitcoin explorer available to this app can read Rune balances —
+      // that requires a dedicated Runes-aware indexer, not yet wired in.
+      // "Awaiting Runes indexer" says exactly what's unresolved and why,
+      // rather than an ambiguous dash a viewer could read as "confirmed
+      // zero balance".
+      value: bcentMainnetPending ? "Awaiting Runes indexer" : formatFixed(bcentMainnetAmount),
+      unit: bcentMainnetPending ? "" : "B¢",
+      logo: TOKEN_LOGOS.bitcoin,
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
+      group: "mainnet",
+      pending: bcentMainnetPending,
+    },
+    {
+      key: "base-qc-mainnet",
+      label: "Base Q¢",
+      value: qctMainnetLoading ? "…" : formatFixed(baseQcMainnetAmount),
+      unit: "Q¢",
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
+      group: "mainnet",
+      pending: !qctMainnetConfigured,
+    },
+    // ─── Testnet ───────────────────────────────────────────────────────────
+    {
+      key: "bcent-testnet",
+      label: "Bitcent (B¢)",
+      // See bcent-mainnet above — unresolved must never render as zero.
+      value: bcentTestnetPending ? "Awaiting Runes indexer" : formatFixed(bcentTestnetAmount),
+      unit: bcentTestnetPending ? "" : "B¢",
+      logo: TOKEN_LOGOS.bitcoin,
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,
+      group: "testnet",
+      pending: bcentTestnetPending,
+    },
+    {
+      key: "base-qc-testnet",
+      label: "Base Q¢",
+      value: formatQcent(bals.qctBase, bals.qctBaseDecimals),
+      unit: "Q¢",
+      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
+      group: "testnet",
+    },
     {
       key: "eth-qc",
       label: "Ethereum Q¢",
@@ -1435,6 +1583,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.ethereum,
       fallbackIcon: <Coins className="w-4 h-4 text-indigo-300" />,
+      group: "testnet",
     },
     {
       key: "arb-qc",
@@ -1443,22 +1592,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.arbitrum,
       fallbackIcon: <Zap className="w-4 h-4 text-cyan-300" />,
-    },
-    {
-      key: "base-qc",
-      label: "Base Q¢",
-      value: formatQcent(bals.qctBase, bals.qctBaseDecimals),
-      unit: "Q¢",
-      logo: TOKEN_LOGOS.base,
-      fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
-    },
-    {
-      key: "dvn-qc",
-      label: "Q¢ (DVN)",
-      value: (baseQcBalance?.dvnQc ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-      unit: "Q¢",
-      fallbackIcon: <Coins className="w-4 h-4 text-cyan-300" />,
-      dvn: true,
+      group: "testnet",
     },
     {
       key: "opt-qc",
@@ -1467,6 +1601,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.optimism,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-rose-300" />,
+      group: "testnet",
     },
     {
       key: "polygon-qc",
@@ -1475,6 +1610,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.polygon,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-purple-300" />,
+      group: "testnet",
     },
     {
       key: "sol-qc",
@@ -1483,6 +1619,7 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.solana,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-emerald-300" />,
+      group: "testnet",
     },
     {
       key: "btc-qc",
@@ -1491,7 +1628,19 @@ export default function SmartWalletDrawer({
       unit: "Q¢",
       logo: TOKEN_LOGOS.bitcoin,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-amber-300" />,
+      group: "testnet",
     },
+    // ─── DVN (off-chain deferred custody Q¢) ──────────────────────────────
+    {
+      key: "dvn-qc",
+      label: "Q¢ (DVN)",
+      value: (baseQcBalance?.dvnQc ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      unit: "Q¢",
+      fallbackIcon: <Coins className="w-4 h-4 text-cyan-300" />,
+      dvn: true,
+      group: "dvn",
+    },
+    // ─── KNYT + USDC — Cartridge Economy section, untouched by this change ──
     {
       key: "knyt-dvn",
       label: "KNYT (DVN)",
@@ -1515,8 +1664,70 @@ export default function SmartWalletDrawer({
       fallbackIcon: <CircleDollarSign className="w-4 h-4 text-green-300" />,
     },
   ];
-  const qcentBalanceRows = balanceRows.filter((row) => row.unit === "Q¢");
-  const nonQcentBalanceRows = balanceRows.filter((row) => row.unit !== "Q¢");
+  // Mainnet/Testnet/DVN groups drive the expanded "Balances" section (item 6:
+  // B¢ and Base Q¢ appear in BOTH groups, sourced from the contract
+  // appropriate to that group). KNYT + USDC below are ungrouped and untouched.
+  const mainnetBalanceRows = balanceRows.filter((row) => row.group === "mainnet");
+  const testnetBalanceRows = balanceRows.filter((row) => row.group === "testnet");
+  const dvnBalanceRows = balanceRows.filter((row) => row.group === "dvn");
+  const nonQcentBalanceRows = balanceRows.filter((row) => !row.group && row.unit !== "Q¢");
+
+  // Shared row renderer for the expanded Balances section — one visual
+  // pattern for dvn / pending / normal so Mainnet, Testnet, and the DVN line
+  // stay pixel-identical instead of three hand-copied JSX blocks.
+  const renderBalanceRow = (row: (typeof balanceRows)[number]) => {
+    if (row.dvn) {
+      return (
+        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+          <span className="flex items-center gap-2 text-xs">
+            {row.fallbackIcon}
+            <span className="text-cyan-300">{row.label}</span>
+            <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Deferred</span>
+          </span>
+          <span className="font-mono text-xs text-cyan-300">{row.value}</span>
+        </li>
+      );
+    }
+    if (row.pending) {
+      return (
+        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5 border-dashed opacity-70">
+          <span className="flex items-center gap-2">
+            {row.logo && !logoLoadErrors[row.key] ? (
+              <img
+                src={row.logo}
+                alt={`${row.label} logo`}
+                className="w-4 h-4 rounded-full object-cover grayscale"
+                onError={() => setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }))}
+              />
+            ) : (
+              row.fallbackIcon
+            )}
+            <span>{row.label}</span>
+            <span className="text-[9px] text-white/40 bg-white/10 px-1 rounded">Pending</span>
+          </span>
+          <span className="font-mono text-white/50">{row.value} {row.unit}</span>
+        </li>
+      );
+    }
+    return (
+      <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+        <span className="flex items-center gap-2">
+          {row.logo && !logoLoadErrors[row.key] ? (
+            <img
+              src={row.logo}
+              alt={`${row.label} logo`}
+              className="w-4 h-4 rounded-full object-cover"
+              onError={() => setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }))}
+            />
+          ) : (
+            row.fallbackIcon
+          )}
+          <span>{row.label}</span>
+        </span>
+        <span className="font-mono text-white">{row.value} {row.unit}</span>
+      </li>
+    );
+  };
 
   const detectIntentAndSwitchTab = (
     message: string
@@ -1796,20 +2007,41 @@ export default function SmartWalletDrawer({
     };
   };
 
-  const qctEvmTotal = (() => {
+  // L1s = B¢ + Base Q¢ (MAINNET). This REPLACES the old "EVM total", which
+  // summed every legacy testnet EVM Q¢ balance (eth/arb/opt/polygon/sol/btc).
+  // Those legacy rows still render in the expanded Testnet group below — they
+  // just no longer feed the headline L1s / Total Q¢ figures.
+  const l1sTotal = bcentMainnetAmount + baseQcMainnetAmount;
+  const l1sTotalStr = l1sTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // "Total Q¢" in the expanded Balances section = L1s + DVN (unchanged shape,
+  // just fed by the redefined L1s total instead of the old EVM total).
+  const qctDvnTotal = baseQcBalance?.dvnQc ?? 0;
+  const qctCombinedTotal = l1sTotal + qctDvnTotal;
+  const qctTotalStr = qctCombinedTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // Legacy testnet-only EVM Q¢ balances (eth/arb Sepolia + generic BTC Q¢) —
+  // still part of the Testnet group's subtotal (item 6: "the remaining
+  // balances... plus their subtotal"). opt/polygon/sol are hardcoded 0 today.
+  const testnetLegacyTotal = (() => {
     try {
       const ethQ = Number(BigInt(bals.qctSep || "0")) / 10 ** (bals.qctSepDecimals ?? 0);
       const arbQ = Number(BigInt(bals.qctArb || "0")) / 10 ** (bals.qctArbDecimals ?? 0);
-      const baseQ = Number(BigInt(bals.qctBase || "0")) / 10 ** (bals.qctBaseDecimals ?? 0);
       const btcQ = Number(BigInt(bals.btcQcent || "0"));
-      return ethQ + arbQ + baseQ + btcQ;
+      return ethQ + arbQ + btcQ;
     } catch {
       return 0;
     }
   })();
-  const qctDvnTotal = baseQcBalance?.dvnQc ?? 0;
-  const qctCombinedTotal = qctEvmTotal + qctDvnTotal;
-  const qctTotalStr = qctCombinedTotal.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const testnetTotal = bcentTestnetAmount + baseQcTestnetAmount + testnetLegacyTotal;
+  const testnetTotalStr = testnetTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  // Top-of-wallet total (item 4) — B¢ + Base Q¢ only; DVN is NOT folded in
+  // here (it stays in the Balances section's "Total Q¢" above).
+  const qcTopTotal = l1sTotal;
+  const qcTopTotalStr = qcTopTotal.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  // CLAUDE.md Q¢ pricing: $1 = 100 Q¢ — usd = qc / 100, never qc === usd.
+  const qcTopTotalUsd = (qcTopTotal / 100).toFixed(2);
 
   const knytTotal = knytBalance?.totalKnyt ?? 0;
   const knytUsd = knytPriceUsd ? (knytTotal * knytPriceUsd).toFixed(2) : "0.00";
@@ -2207,7 +2439,7 @@ export default function SmartWalletDrawer({
       const r = await fetch("/api/wallet/qct/convert/usdc-to-qc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ personaId: effectivePersonaId, usdcAmount: n }),
+        body: JSON.stringify({ personaId: effectivePersonaId, usdcAmount: n, destination: convertDestination }),
       });
 
       const j = await r.json().catch(() => ({}));
@@ -2261,7 +2493,14 @@ export default function SmartWalletDrawer({
         className={`${getDrawerClasses()} overflow-hidden min-h-0 flex flex-col transition-all duration-300 pt-4`}
         style={variant === "overlay" && isFullscreen ? { left: `${sidebarOffset}px` } : undefined}
       >
-        {/* Header with persona switch + controls (Qriptopian parity) */}
+        {/* Header with persona switch + controls (Qriptopian parity).
+            Companion 1.1 (2026-07-29): entirely hidden when
+            `simplifiedTopChrome` is set — the persona/sign-in trigger, the
+            Copilot toggle and the Close Wallet button all become redundant
+            once the Companion's own header badge owns persona/sign-in
+            context; the Copilot toggle moves into the tab icon row below
+            instead of disappearing. */}
+        {!simplifiedTopChrome && (
         <header className="flex items-center justify-between gap-2 px-3 py-2 mx-3 rounded-xl bg-white/5 ring-1 ring-white/10 flex-shrink-0">
           <div className="relative z-[100]">
             <button
@@ -2770,6 +3009,7 @@ export default function SmartWalletDrawer({
             </Tooltip>
           </div>
         </header>
+        )}
 
         {/* Acting-as-aigentMe banner (B+) — visible while the active persona is
             an aigentMe, with a one-tap return to the citizen persona. */}
@@ -2812,15 +3052,43 @@ export default function SmartWalletDrawer({
           );
         })()}
 
-        {/* Tab Navigation */}
-        <div className="wallet-tab-nav px-3 py-2 bg-black/20">
-          <div className="flex w-full items-center justify-between gap-0">
+        {/* Tab Navigation.
+            Companion 1.1 (2026-07-29): when `simplifiedTopChrome` hid the top
+            row's Copilot toggle, it is re-added here as one more icon and the
+            row becomes a horizontally scrollable strip to make room —
+            operator-approved ("if fitting it in requires the icon row to
+            become a scrollable/carousel row, that's acceptable"). Every other
+            mount keeps the original equal-width `flex-1` row, unchanged. */}
+        <div className={`wallet-tab-nav px-3 bg-black/20 ${simplifiedTopChrome ? 'py-1' : 'py-2'}`}>
+          <div
+            className={
+              simplifiedTopChrome
+                ? "flex w-full items-center gap-2.5 overflow-x-auto"
+                : "flex w-full items-center justify-between gap-0"
+            }
+          >
+            {simplifiedTopChrome && (
+              <div className="flex shrink-0 justify-center">
+                <Tooltip text="Copilot">
+                  <button
+                    onClick={() => {
+                      setCopilotOpen(!copilotOpen);
+                      onOpenCopilot?.();
+                    }}
+                    className={`wallet-icon-btn py-1.5 px-2 ${copilotOpen ? 'active' : ''}`}
+                    data-active={copilotOpen}
+                  >
+                    <Bot className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
             {TAB_CONFIG.map((tab) => (
-              <div key={tab.key} className="flex flex-1 justify-center">
+              <div key={tab.key} className={simplifiedTopChrome ? "flex shrink-0 justify-center" : "flex flex-1 justify-center"}>
                 <Tooltip text={tab.label}>
                   <button
                     onClick={() => setActiveTab(tab.key)}
-                    className={`wallet-icon-btn py-2 ${activeTab === tab.key ? 'active' : ''}`}
+                    className={`wallet-icon-btn ${simplifiedTopChrome ? 'py-1.5 px-2' : 'py-2'} ${activeTab === tab.key ? 'active' : ''}`}
                     data-active={activeTab === tab.key}
                   >
                     {tab.icon}
@@ -3129,21 +3397,83 @@ export default function SmartWalletDrawer({
               )}
             </div>
             ) : (
+              // "MoneyPenny" avatar mode: PRD-MPY-001 exposes three modes —
+              // Advisor (Chat, the pre-existing embedded MetaAvatar iframe
+              // below — unchanged), Architect (proposal drafting), and
+              // Runtime (read-only constitutional-service shadow preview).
+              // The sub-nav below is additive; Chat stays the default and
+              // its content/behavior is untouched.
               <section
                 ref={avatarAnchorRef}
-                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col items-center justify-center"
+                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col overflow-hidden"
               >
-                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
-                <p className="text-sm text-white/40 text-center mb-4">
-                  MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
-                </p>
-                <button
-                  onClick={refreshAvatar}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Refresh Avatar
-                </button>
+                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5 mb-3 flex-shrink-0 self-center">
+                  <button
+                    onClick={() => setMoneyPennyMode('chat')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'chat' ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                    Chat
+                  </button>
+                  <button
+                    onClick={() => setMoneyPennyMode('architect')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'architect' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3" />
+                    Architect
+                  </button>
+                  <button
+                    onClick={() => setMoneyPennyMode('runtime')}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
+                      moneyPennyMode === 'runtime' ? 'bg-violet-500/20 text-violet-300' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Cpu className="w-3 h-3" />
+                    Runtime
+                  </button>
+                </div>
+
+                {moneyPennyMode === 'chat' && (
+                  // This is an embedded MetaAvatar iframe (useMetaAvatar /
+                  // requestAvatar('copilot', 'aigent-moneypenny') above), not
+                  // a fetch() call from this component — it does not hit
+                  // /api/moneypenny/chat or any other route in this file, so
+                  // there is no divergent grounded/ungrounded path to
+                  // reconcile HERE. Whatever chat backend the avatar host
+                  // itself calls is outside this repo's API layer and out of
+                  // scope for this pass; flagging it so a future session
+                  // doesn't assume parity with the "Copilot" tab's grounding
+                  // above.
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center">
+                    <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
+                    <p className="text-sm text-white/40 text-center mb-4">
+                      MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
+                    </p>
+                    <button
+                      onClick={refreshAvatar}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Refresh Avatar
+                    </button>
+                  </div>
+                )}
+
+                {moneyPennyMode === 'architect' && (
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
+                  </div>
+                )}
+
+                {moneyPennyMode === 'runtime' && (
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
+                  </div>
+                )}
               </section>
             )}
           </div>
@@ -3166,34 +3496,28 @@ export default function SmartWalletDrawer({
                 </section>
               )}
               {effectivePersonaId && (
-                <section className="rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/30 p-3">
+                <section className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-purple-500/10 ring-1 ring-cyan-500/30 p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-2xl font-bold text-amber-300">
-                        {knytLoading
+                      <div className="text-2xl font-bold text-cyan-300">
+                        {qctMainnetLoading
                           ? "Loading..."
-                          : `${knytTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} `}
-                        <span className="text-amber-400 text-lg">KNYT</span>
+                          : `${qcTopTotalStr} `}
+                        <span className="text-cyan-400 text-lg">Q¢</span>
                       </div>
-                      <div className="text-xs text-white/50 mt-0.5">≈ ${knytUsd} USD</div>
+                      <div className="text-xs text-white/50 mt-0.5">≈ ${qcTopTotalUsd} USD · B¢ + Base Q¢</div>
                     </div>
-                    <button
-                      onClick={() => setBuyKnytModalOpen(true)}
-                      className="px-2 py-1 text-[10px] bg-amber-500/20 text-amber-300 rounded hover:bg-amber-500/30"
-                    >
-                      Buy
-                    </button>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-white/10">
                     <button
-                      onClick={() => openTransactionModal("send")}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-medium transition-colors"
+                      onClick={() => openTransactionModal("send", { chainId: 8453 })}
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-xs font-medium transition-colors"
                     >
                       <Send className="w-3.5 h-3.5" />
                       Send
                     </button>
                     <button
-                      onClick={() => openTransactionModal("receive")}
+                      onClick={() => openTransactionModal("receive", { chainId: 8453 })}
                       className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/20 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium transition-colors"
                     >
                       <Wallet className="w-3.5 h-3.5" />
@@ -3224,9 +3548,9 @@ export default function SmartWalletDrawer({
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-[11px] uppercase tracking-wider text-white/60">
-                      KNYT + USDC
+                      B¢ + Base Q¢ + USDC
                     </div>
-                    {knytLoading ? (
+                    {qctMainnetLoading ? (
                       <div className="text-[10px] text-amber-400 flex items-center gap-1">
                         <RefreshCw className="w-3 h-3 animate-spin" />
                         Loading
@@ -3239,24 +3563,22 @@ export default function SmartWalletDrawer({
                     )}
                   </div>
                   <div className="space-y-1.5 text-sm text-white/90">
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-orange-500/5 border border-orange-500/10">
                       <span className="flex items-center gap-2 text-xs">
-                        <Award className="w-4 h-4 text-amber-400" />
-                        <span className="text-amber-300">KNYT (DVN)</span>
-                        <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1 rounded">Spendable</span>
+                        <TrendingUp className="w-4 h-4 text-orange-400/70" />
+                        <span className="text-orange-300/70">BitCent (B¢)</span>
+                        <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Pending etch</span>
                       </span>
-                      <span className="font-mono text-xs text-amber-300">
-                        {knytBalance?.dvnKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-                      </span>
+                      <span className="font-mono text-xs text-orange-300/70">—</span>
                     </div>
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
                       <span className="flex items-center gap-2 text-xs">
-                        <Award className="w-4 h-4 text-amber-400/60" />
-                        <span className="text-amber-300/60">KNYT (EVM)</span>
-                        <span className="text-[9px] text-white/40 bg-white/10 px-1 rounded">On-chain</span>
+                        <TrendingUp className="w-4 h-4 text-blue-400" />
+                        <span className="text-blue-300">Base Q¢</span>
+                        <span className="text-[9px] text-emerald-400 bg-emerald-500/20 px-1 rounded">Mainnet</span>
                       </span>
-                      <span className="font-mono text-xs text-amber-300/60">
-                        {knytBalance?.evmKnyt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
+                      <span className="font-mono text-xs text-blue-300">
+                        {formatFixed(baseQcMainnetAmount)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between p-2 rounded-lg bg-green-500/10 border border-green-500/20">
@@ -3285,42 +3607,42 @@ export default function SmartWalletDrawer({
                 </div>
                 
                 <ul className="space-y-1.5 text-sm text-white/90">
-                  {showQcBreakdown &&
-                    qcentBalanceRows.map((row) =>
-                      row.dvn ? (
-                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-                          <span className="flex items-center gap-2 text-xs">
-                            {row.fallbackIcon}
-                            <span className="text-cyan-300">{row.label}</span>
-                            <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">Deferred</span>
-                          </span>
-                          <span className="font-mono text-xs text-cyan-300">
-                            {row.value}
-                          </span>
-                        </li>
-                      ) : (
-                        <li key={row.key} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                          <span className="flex items-center gap-2">
-                            {row.logo && !logoLoadErrors[row.key] ? (
-                              <img
-                                src={row.logo}
-                                alt={`${row.label} logo`}
-                                className="w-4 h-4 rounded-full object-cover"
-                                onError={() => {
-                                  setLogoLoadErrors((prev) => ({ ...prev, [row.key]: true }));
-                                }}
-                              />
-                            ) : (
-                              row.fallbackIcon
-                            )}
-                            <span>{row.label}</span>
-                          </span>
-                          <span className="font-mono text-white">
-                            {row.value} {row.unit}
-                          </span>
-                        </li>
-                      )
-                    )}
+                  {showQcBreakdown && (
+                    <>
+                      {/* Mainnet — B¢ then Base Q¢, sourced from mainnet contracts */}
+                      <li className="pt-1 pb-0.5">
+                        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-blue-300/80">
+                          <span className="h-px flex-1 bg-blue-500/20" />
+                          Mainnet
+                          <span className="h-px flex-1 bg-blue-500/20" />
+                        </div>
+                      </li>
+                      {mainnetBalanceRows.map(renderBalanceRow)}
+                      <li className="flex items-center justify-between px-2 text-[10px] text-white/50">
+                        <span>Mainnet subtotal</span>
+                        <span className="font-mono text-white/70">{l1sTotalStr} Q¢</span>
+                      </li>
+
+                      {/* Testnet — B¢ then Base Q¢ (from TESTNET contracts), then the
+                          remaining legacy per-chain testnet balances */}
+                      <li className="pt-2 pb-0.5">
+                        <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-purple-300/80">
+                          <span className="h-px flex-1 bg-purple-500/20" />
+                          Testnet
+                          <span className="h-px flex-1 bg-purple-500/20" />
+                        </div>
+                      </li>
+                      {testnetBalanceRows.map(renderBalanceRow)}
+                      <li className="flex items-center justify-between px-2 text-[10px] text-white/50">
+                        <span>Testnet subtotal</span>
+                        <span className="font-mono text-white/70">{testnetTotalStr} Q¢</span>
+                      </li>
+
+                      {/* DVN — off-chain deferred custody Q¢, bottom of the list,
+                          just above the grand total */}
+                      {dvnBalanceRows.map(renderBalanceRow)}
+                    </>
+                  )}
 
                   {/* Total Q¢ (always visible, controls collapse/expand) */}
                   <li className="pt-2 mt-1 border-t border-white/10">
@@ -3344,15 +3666,16 @@ export default function SmartWalletDrawer({
                         )}
                       </span>
                     </button>
-                    {/* EVM vs DVN breakdown (always shown under total) */}
+                    {/* L1s vs DVN breakdown (always shown under total). L1s =
+                        B¢ + Base Q¢ (mainnet) — replaces the old EVM total. */}
                     <div className="mt-1 grid grid-cols-2 gap-1.5 px-1">
                       <div className="flex items-center justify-between p-1.5 rounded bg-white/5 border border-white/5">
                         <span className="text-[10px] text-white/50 flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />
-                          EVM
+                          L1s
                         </span>
                         <span className="text-[10px] font-mono text-white/70">
-                          {qctEvmTotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          {l1sTotalStr}
                         </span>
                       </div>
                       <div className="flex items-center justify-between p-1.5 rounded bg-cyan-500/10 border border-cyan-500/20">
@@ -3420,6 +3743,40 @@ export default function SmartWalletDrawer({
                   Convert USDC → Q¢
                 </div>
                 <div className="text-[10px] text-white/50 mb-2">1 USDC = 99 Q¢ (1% fee)</div>
+                <div className="mb-2">
+                  <div className="text-[10px] text-white/50 mb-1">Credit as</div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setConvertDestination("BASE_QC")}
+                      aria-pressed={convertDestination === "BASE_QC"}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        convertDestination === "BASE_QC"
+                          ? "bg-blue-500/20 ring-1 ring-blue-500/50 text-blue-300"
+                          : "bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10"
+                      }`}
+                    >
+                      Base Q¢
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConvertDestination("BCENT")}
+                      aria-pressed={convertDestination === "BCENT"}
+                      className={`px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        convertDestination === "BCENT"
+                          ? "bg-orange-500/20 ring-1 ring-orange-500/50 text-orange-300"
+                          : "bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10"
+                      }`}
+                    >
+                      BitCent (B¢)
+                    </button>
+                  </div>
+                  {convertDestination === "BCENT" && (
+                    <div className="text-[9px] text-orange-300/60 mt-1">
+                      Settles off-chain until the BitCent Rune is etched — 1 B¢ = 1 Base Q¢.
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <input
                     value={convertUsdcAmount}
@@ -3431,14 +3788,14 @@ export default function SmartWalletDrawer({
                   <button
                     onClick={handleConvertUsdcToQc}
                     disabled={convertStep === "processing"}
-                    className="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-medium disabled:opacity-60"
+                    className="px-3 py-2 rounded-lg bg-emerald-500/15 ring-1 ring-emerald-400/30 backdrop-blur-sm text-emerald-200 text-xs font-medium transition-colors hover:bg-emerald-500/25 disabled:opacity-60"
                   >
                     {convertStep === "processing" ? "Converting" : "Convert"}
                   </button>
                 </div>
                 {convertStep === "success" && convertResult?.quote && (
                   <div className="mt-2 p-2 rounded-lg bg-emerald-500/10 ring-1 ring-emerald-500/30 text-xs text-emerald-200">
-                    Credited {convertResult.quote.qctNet} Q¢ (fee {convertResult.quote.feeQct} Q¢)
+                    Credited {convertResult.quote.qctNet} {convertResult.destination === "BCENT" ? "B¢" : "Q¢"} (fee {convertResult.quote.feeQct} Q¢)
                   </div>
                 )}
                 {convertStep === "error" && convertError && (

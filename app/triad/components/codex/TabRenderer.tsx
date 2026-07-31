@@ -35,6 +35,7 @@ import { PackBrowserTab } from "./tabs/PackBrowserTab";
 import { MarketaTab } from "./tabs/MarketaTab";
 import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
+import { MoneyPennyPanelTab } from "./tabs/MoneyPennyPanelTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
 import { AdminAccessRequestsTab } from "./tabs/AdminAccessRequestsTab";
@@ -47,6 +48,8 @@ import { MyWorkbenchTab } from "./tabs/MyWorkbenchTab";
 import { MyWorkspaceTab } from "./tabs/MyWorkspaceTab";
 import { MyCartridgeTab } from "./tabs/MyCartridgeTab";
 import { MyLedgerTab } from "./tabs/MyLedgerTab";
+import { MyResearchTab } from "./tabs/MyResearchTab";
+import { MySoftwareTab } from "./tabs/MySoftwareTab";
 import { PersonalCartridgeTab } from "./tabs/PersonalCartridgeTab";
 import { CartridgeCatalogueAdminTab } from "./tabs/CartridgeCatalogueAdminTab";
 import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
@@ -79,6 +82,7 @@ import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPubli
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { FounderOfficeTab } from "./tabs/FounderOfficeTab";
+import { FoundersClubTab } from "./tabs/FoundersClubTab";
 import { FinancialServicesTab } from "./tabs/FinancialServicesTab";
 import { VentureFunnelTab } from "./tabs/VentureFunnelTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
@@ -122,12 +126,16 @@ import CapabilityPipelineTab from "@/components/composer/CapabilityPipelineTab";
 import IRLDashboardTab from "@/components/composer/IRLDashboardTab";
 import IRLResearchCopilotTab from "@/components/composer/IRLResearchCopilotTab";
 import InvariantFieldExplorerTab from "@/components/composer/InvariantFieldExplorerTab";
+import ExpP1ReadinessTab from "@/components/composer/ExpP1ReadinessTab";
 import { PassportBureauApplyTab } from "./tabs/PassportBureauApplyTab";
 import { PassportBureauStewardTab } from "./tabs/PassportBureauStewardTab";
 import { PassportRegistryTab } from "./tabs/PassportRegistryTab";
 import { LockerTab } from "./tabs/LockerTab";
 import { ParticipationStandingTab } from "./tabs/ParticipationStandingTab";
 import { StewardParticipationTab } from "./tabs/StewardParticipationTab";
+import { PartnerProgrammesTab } from "./tabs/PartnerProgrammesTab";
+import { CorpusScoutTab } from "./tabs/CorpusScoutTab";
+import { ExperimentRegistryTab } from "./tabs/ExperimentRegistryTab";
 import { IRLWelcomeTab } from "./tabs/IRLWelcomeTab";
 import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
 import { PassportEnsTab } from "./tabs/PassportEnsTab";
@@ -224,6 +232,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PlaceholderTab,
   IframeTab,
   MoneyPennyTab,
+  MoneyPennyPanelTab,
   ExperienceDashboardTab,
   AdminAccessRequestsTab,
   Persona360InspectorTab,
@@ -235,6 +244,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MyWorkspaceTab,
   MyCartridgeTab,
   MyLedgerTab,
+  MyResearchTab,
+  MySoftwareTab,
   PersonalCartridgeTab,
   CartridgeCatalogueAdminTab,
   InvestorDirectoryTab,
@@ -267,6 +278,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
   FounderOfficeTab,
+  FoundersClubTab,
   FinancialServicesTab,
   VentureFunnelTab,
   QriptopianEditTab,
@@ -310,12 +322,16 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IRLDashboardTab,
   IRLResearchCopilotTab,
   InvariantFieldExplorerTab,
+  ExpP1ReadinessTab,
   PassportBureauApplyTab,
   PassportBureauStewardTab,
   PassportRegistryTab,
   LockerTab,
   ParticipationStandingTab,
   StewardParticipationTab,
+  PartnerProgrammesTab,
+  CorpusScoutTab,
+  ExperimentRegistryTab,
   IRLWelcomeTab,
   PassportDoctrineTab,
   PassportEnsTab,

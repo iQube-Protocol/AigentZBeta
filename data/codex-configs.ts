@@ -35,6 +35,118 @@
 
 import type { CodexConfig } from '@/types/codex';
 import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
+// THE EIGHT RESEARCH WORKSPACE VIEWS + THEIR ROLE MATRIX, from the one place
+// they are defined (SPEC-IRL-WORKSPACE-001 §7/§8). A VALUE import, deliberately:
+// the IRL cartridge's (and, as of 2026-07-29, the IRL OS cartridge's) top-level
+// "Workspace" tab and its subTabs are BUILT from this registry rather than
+// transcribing it, so the shipped access matrix and the specified one cannot
+// diverge. The module is pure (no server imports, no I/O) and safe in the
+// browser bundle this file already ships in.
+import {
+  RESEARCH_WORKSPACE_VIEWS,
+  RESEARCH_WORKSPACE_ADMIN_VIEW,
+} from '@/services/research/researchWorkspaceViews';
+
+/**
+ * Builds the "Workspace" tab (SPEC-IRL-WORKSPACE-001) — the collaborative
+ * Research Workspace surface — for whichever cartridge mounts it. ONE
+ * function, TWO callers (`IRL_CARTRIDGE` and, per the operator's 2026-07-29
+ * correction "workspace should also be added to the IRL OS cartridge... reuse
+ * the same underlying tab/view definitions... rather than duplicating them",
+ * `IRL_OS_CARTRIDGE`): hand-copying this object a second time for IRL OS would
+ * be exactly the stale-duplicate defect inv.engineering.037 names — if
+ * `RESEARCH_WORKSPACE_VIEWS` ever gains a ninth view, both cartridges must
+ * pick it up from one call site, not two hand-maintained ones.
+ *
+ * `idPrefix` scopes every id/slug this generates so the two cartridges' deep
+ * links never collide (same convention as `polityPassportTabsByGroup` below).
+ * Callers place the returned tab in their own top-level `workspace` tabGroup
+ * (a sibling of Institution/Research/Laboratory/Publications/Participation,
+ * sited immediately after Participation) — see `IRL_CARTRIDGE.tabGroups` for
+ * the full rationale, including why this stays ONE tab with its own `subTabs`
+ * (the "single-tab group with subTabs" / Order-of-Metayé pattern
+ * `CodexPanelDynamic` already renders as two effective tiers).
+ *
+ * Locker and Participants stay pruned from the subTab row (operator
+ * instruction, 2026-07-29 — each cartridge's own Participation group already
+ * covers that ground); both remain real SPEC views in the registry and in
+ * `PartnerProgrammesTab`'s own surface list, just not offered as tabs here.
+ */
+// `RESEARCH_WORKSPACE_VIEWS`' own `slug` field bakes in a literal
+// `irl-workspace-` prefix (it was authored for the one original mount before
+// this became a two-cartridge, prefix-parameterised builder). Strip that
+// baked-in prefix and re-apply the CALLER's own `idPrefix` so `IRL_CARTRIDGE`
+// (idPrefix `irl-workspace`) reproduces byte-identical ids/slugs to before
+// this function existed, while `IRL_OS_CARTRIDGE` (idPrefix `irl-os-workspace`)
+// gets its own non-colliding namespace instead of a doubled prefix.
+function workspaceSlugSuffix(fullSlug: string): string {
+  return fullSlug.replace(/^irl-workspace-/, '');
+}
+
+function buildResearchWorkspaceTab(idPrefix: string) {
+  return {
+    id: idPrefix,
+    label: 'Workspace',
+    slug: idPrefix,
+    enabled: true,
+    group: 'workspace',
+    order: 0,
+    type: 'static' as const,
+    participationDomain: 'research-lab',
+    config: {
+      component: 'PartnerProgrammesTab',
+      props: { initialSurface: 'overview', workspaceDomain: 'research' },
+    },
+    metadata: {
+      icon: 'LayoutGrid',
+      description:
+        'The collaborative Research Workspace — programmes, pipeline, review, working materials, QubeTalk and the internal programme space',
+      color: 'violet',
+    },
+    subTabs: [
+      ...RESEARCH_WORKSPACE_VIEWS.filter((view) => view.id !== 'locker' && view.id !== 'participants').map(
+        (view, index) => ({
+          id: `${idPrefix}-${workspaceSlugSuffix(view.slug)}`,
+          label: view.label,
+          slug: `${idPrefix}-${workspaceSlugSuffix(view.slug)}`,
+          enabled: true,
+          order: index,
+          type: 'static' as const,
+          participationDomain: 'research-lab',
+          participationRoles: [...view.roles],
+          config: {
+            component: 'PartnerProgrammesTab',
+            props: { initialSurface: view.id, workspaceDomain: 'research' },
+          },
+          metadata: { icon: view.icon, description: view.description, color: 'violet' },
+        }),
+      ),
+      {
+        // TIER 0 — the internal programme space, exactly as the Venture Lab's
+        // Partner Administration is. `adminOnly` is applied to subTabs the
+        // same way it is to top-level tabs (CodexPanelDynamic's
+        // `activeSubTabs` filter calls the same `tabPassesAccessGates`), so
+        // no research-lab grant of any role can open it.
+        id: `${idPrefix}-${workspaceSlugSuffix(RESEARCH_WORKSPACE_ADMIN_VIEW.slug)}`,
+        label: RESEARCH_WORKSPACE_ADMIN_VIEW.label,
+        slug: `${idPrefix}-${workspaceSlugSuffix(RESEARCH_WORKSPACE_ADMIN_VIEW.slug)}`,
+        enabled: true,
+        adminOnly: true,
+        order: 100,
+        type: 'static' as const,
+        config: {
+          component: 'PartnerProgrammesTab',
+          props: { initialSurface: RESEARCH_WORKSPACE_ADMIN_VIEW.id, workspaceDomain: 'research' },
+        },
+        metadata: {
+          icon: RESEARCH_WORKSPACE_ADMIN_VIEW.icon,
+          description: RESEARCH_WORKSPACE_ADMIN_VIEW.description,
+          color: 'slate',
+        },
+      },
+    ],
+  };
+}
 
 // =============================================================================
 // RUNTIME TAKEOVER CONFIGS
@@ -292,7 +404,7 @@ export const KNYT_LIVING_CANON: LivingCanonBranchConfig = {
 
 export const KNYT_CODEX: CodexConfig = {
   id: 'knyt-codex',
-  name: 'KNYT Cartridge',
+  name: 'KNYT',
   slug: 'knyt-codex',
   enabled: true,
   version: '1.0.0',
@@ -875,7 +987,7 @@ export const KNYT_CODEX: CodexConfig = {
 
 export const QRIPTO_CODEX: CodexConfig = {
   id: 'qripto-codex',
-  name: 'Qriptopian Cartridge',
+  name: 'Qriptopian',
   slug: 'qripto',
   enabled: true,
   version: '2.0.0',
@@ -1387,7 +1499,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   //   packId 'agentiq' → codexes/packs/agentiq/  (build-layer docs: AgentiQ OS, Alpha Program)
   //   static components → FactoryIntakeTab, RegistrySupplyTab
   id: 'agentiq-codex',
-  name: 'AgentiQ Cartridge',
+  name: 'AgentiQ',
   slug: 'agentiq',
   enabled: true,
   version: '1.0.0',
@@ -1851,6 +1963,42 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
 
+    {
+      // CAPABILITY ARTEFACT HOME (operator ruling 2026-07-27: "the natural home
+      // for these would be the registries tabs for AgentiQ and AgentiQ OS —
+      // AgentiQ should be the home and AgentiQ OS a mirror").
+      //
+      // Constitutional Capability Briefs previously existed ONLY as dated
+      // entries in the Updates tab, indistinguishable from a deploy note among
+      // 300+ other docs. They are registry material — the backward-looking
+      // record of what exists — so they belong beside the Factory, the Supply
+      // registry and the Invariant Registry.
+      //
+      // Composition, not a new surface: `AgentiqCartridgeTab` over a dedicated
+      // `col_capabilities` collection. The DOCS are unmoved and unduplicated —
+      // the collection references the same files the Updates collection does,
+      // so there is one copy of every brief and no second source of truth.
+      id: 'capability-briefs',
+      label: 'Capabilities',
+      slug: 'capabilities',
+      enabled: true,
+      group: 'registry',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_capabilities'
+        }
+      },
+      metadata: {
+        icon: 'FileBadge',
+        description: 'Constitutional Capability Briefs — what shipped, where it lives, how to use it, and what must stay true (CFS-049 + CCR-001)',
+        color: 'violet'
+      }
+    },
+
     // ── Governance group (Operation Chrysalis Phase 0) ────────
     {
       id: 'governance-constitution',
@@ -2283,6 +2431,28 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Shield', description: 'Grant bounded authority to Aigent C with audit logs' },
     },
 
+    {
+      // MIRROR of the AgentiQ cartridge's capability-artefact home (same
+      // operator ruling). Same pack, same collection, same component — a
+      // mirror is a second ENTRANCE, never a second copy. Editing a brief in
+      // one place changes it in both because there is only one file.
+      id: 'agentiq-os-capability-briefs',
+      label: 'Capabilities',
+      slug: 'os-capabilities',
+      enabled: true,
+      group: 'registry',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_capabilities'
+        }
+      },
+      metadata: { icon: 'FileBadge', description: 'Constitutional Capability Briefs (mirrors the AgentiQ cartridge home)' },
+    },
+
     // ── Governance group (Operation Chrysalis Phase 0) ─────────
     {
       id: 'agentiq-os-constitution',
@@ -2476,6 +2646,103 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     category: 'build',
     tags: ['venture-lab', 'alpha-knyt', 'agentiq', 'build', 'planning']
   },
+  // SPEC-VLM-001 Phase 1 (2026-07-24) — the five-domain regroup, CFS-050
+  // Sovereignty Navigation's first applied test case. Eleven flat top-level
+  // tabs collapse into five intent-driven domains via the Standard Cartridge
+  // Navigation Framework (the same TabGroup/group mechanism IRL OS, Polity
+  // Core, and Marketa already use) -- re-grouping only, per SPEC-VLM-001 §11:
+  // every tab below keeps its own id/slug/component/adminOnly unchanged,
+  // gaining only a `group` + a re-sequenced `order` local to that group.
+  tabGroups: [
+    { id: 'operate',    label: 'Operate',    icon: 'Rocket',    order: 0 },
+    { id: 'connect',    label: 'Connect',    icon: 'Users',     order: 1 },
+    // "Service" (singular) — SUPERSEDES the same day's earlier "Services"
+    // (plural) ruling. Operator, 2026-07-28 (second ruling): tab-GROUP labels
+    // are VERBS — Operate, Connect, Grow, Participate, Administer — so the
+    // domain that serves is "Service", not the noun-plural "Services". The
+    // family of capability suites the earlier comment pointed at has not gone
+    // away; it now lives entirely in the sub menu, whose first member is
+    // "Financial Services" (relabelled from "Financial" in the same ruling —
+    // "epistemically coherent": the suite names itself, the group names the act).
+    { id: 'service',    label: 'Service',    icon: 'Landmark',  order: 2 },
+    { id: 'grow',       label: 'Grow',       icon: 'TrendingUp', order: 3 },
+    // PARTICIPATE (Phase 1, 2026-07-27) — the participant-facing expression of
+    // the SAME domain-scoped participation substrate the Research Lab already
+    // surfaces (`ACCESS_DOMAINS` × `DOMAIN_ROLES`, one mechanism, five domains).
+    // Its own cross-programme group rather than a Partner sub-item: participation
+    // spans every venture programme, not one partner. The tabs below mount the
+    // SAME components the IRL cartridge mounts — the ruling was "do not copy
+    // Research Lab Participation into Venture Lab", and these are the identical
+    // modules, configured for the venture domain.
+    //
+    // AHEAD OF PARTNER since 2026-07-28 (operator ruling — the two groups
+    // SWAPPED). Participate is the CROSS-PARTNER, CROSS-PROGRAMME surface:
+    // every user with Venture Lab access gets an iteration of it, metaMe runs
+    // cross-partner pilots through it, and partners invite their own
+    // ecosystems through the SAME invitation system. Partner is the narrow
+    // bilateral space by comparison, so the broad surface now comes first.
+    { id: 'participate', label: 'Participate', icon: 'ShieldCheck', order: 3.5 },
+    // FIRST-CLASS PARTNER DOMAIN (operator, 2026-07-27, seeing it in situ):
+    // "Partner should be a first class menu item between grow and administer,
+    // and that sub menu should then drive the content across the sub sections
+    // … we don't need the duplicate sub menus." The Partner Workspace's areas
+    // are the STANDARD cartridge tabs of this group — the cartridge's own
+    // navigation drives what renders beneath the Pilot Command Center,
+    // instead of a second surface row inside the tab body.
+    //
+    // TIER SPLIT (Horizen Phase 3, audit §B.3; operator ruling "Partner gate =
+    // split agreed", 2026-07-27). The group is NO LONGER adminOnly, because it
+    // now holds two tiers at once:
+    //
+    //   Tier 2 — Collaborate · Operate · Evidence
+    //            `participationDomain: 'venture-lab'` + `participationRoles`:
+    //            the SHARED workspace record a partner operator must be able
+    //            to see, without becoming a platform admin. That requirement
+    //            was the hard blocker recorded in the base audit (§7 item 4).
+    //   Tier 0 — Communicate · Administration
+    //            `adminOnly`: internal drafting and internal partner
+    //            assessment. Communicate becomes two-stage (draft internal,
+    //            share approved output) in a later increment; until then the
+    //            SAFE half is the one that ships.
+    //
+    // THIS GROUP IS THE PARTNER **PRIVATE** WORKSPACE (operator ruling,
+    // 2026-07-28). Its public counterpart — the Overview surface, which was
+    // this group's `partner-programmes` tab — MOVED OUT to Participate as
+    // "Public Workspace". What remains here is the partner↔metaProof bilateral
+    // record and the internal programme space, and the operator's requirement
+    // is that it "renders only to partner ops/personnel cohorts and metaMe
+    // admins — invisible to everyone else, not merely empty".
+    //
+    // That invisibility is STRUCTURAL, not a group-level `adminOnly` (which
+    // would also hide it from the partner operators who must see it): every
+    // remaining tab carries either `participationRoles: ['partner-operator',
+    // 'workspace-steward']` or `adminOnly`, and CodexPanelDynamic does not
+    // render a group whose every tab is gated away (MS-9 — a control that
+    // cannot act must not render). A caller with a plain `venture-participant`
+    // or `observer` grant therefore sees no Partner pill at all.
+    // `tests/venture-lab-cohort-isolation.test.ts` canary 10 asserts exactly
+    // that, from both sides.
+    { id: 'partner',    label: 'Partner',    icon: 'Handshake',  order: 3.7 },
+    // adminOnly on the GROUP itself, not just its children: every current
+    // Administer tab (Plan Pricing, α Docs) is adminOnly:true -- without this,
+    // a non-admin founder would see an "Administer" pill that renders nothing
+    // when clicked (its enabledTabs would filter to empty). AgentiQ OS α left
+    // this group for Grow on 2026-07-28 — it is a public surface.
+    //
+    // VERIFIED 2026-07-28 (operator asked whether a PARTNER admin could satisfy
+    // this): `adminOnly` resolves against the PLATFORM admin flag only. The
+    // group gate is `if (g.adminOnly && !isAdmin) return false` in
+    // CodexPanelDynamic's `visibleGroups`, and `isAdmin` there is
+    // `isAdminProp === true`, fed from the server-resolved
+    // `cartridgeFlags.isAdmin`. The per-cartridge grant set travels in a
+    // SEPARATE argument (`cartridgeAdminGrants`) that `getEnabledTabs` consults
+    // only for `adminOfCartridge` — never for `adminOnly`. So no
+    // `cartridgeFlags.adminCartridges` entry, partner or otherwise, can open
+    // this group. No tightening was required; the canary in
+    // `tests/venture-lab-cohort-isolation.test.ts` now pins that separation so
+    // a future edit cannot quietly fold the two admin notions together.
+    { id: 'administer', label: 'Administer', icon: 'Settings',  order: 4, adminOnly: true },
+  ],
   tabs: [
     {
       id: 'founder-office',
@@ -2483,6 +2750,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'founder-office',
       enabled: true,
       adminOnly: false,
+      group: 'operate',
       order: 0,
       type: 'static',
       config: {
@@ -2496,6 +2764,33 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // PRD-FDC-001 (Founders Club, ratified 2026-07-22) — the Human Domain
+      // counterpart to the Founder Office tab above (Operational Domain).
+      // A second PRIMARY section, coordinate with Founder Office, per §2.1 —
+      // explicitly NOT a sub-view folded into FounderOfficeTab's own
+      // Workspace/Discover/Validate/Architect/Blueprint switcher, and
+      // explicitly NOT named "Community" (Community is one of the Club's own
+      // internal sub-bodies, §2.2 — naming the section after one of its parts
+      // would be a category error).
+      id: 'founders-club',
+      label: 'Founders Club',
+      slug: 'founders-club',
+      enabled: true,
+      adminOnly: false,
+      group: 'connect',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FoundersClubTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'The Human Domain of the Founder Office — connection, collaboration, opportunity, wellbeing, recognition, community, and mentoring',
+        color: 'violet'
+      }
+    },
+    {
       // CRP-003a Increment 3 — the first Founder Office Capability Suite.
       // Runs the canonical constitutional service pattern (N1 agreement gate +
       // N2 12-step pipeline) on a Domain-3 (Financial Intelligence, read-only)
@@ -2506,7 +2801,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'financial-services',
       enabled: true,
       adminOnly: false,
-      order: 0.5,
+      group: 'service',
+      order: 0,
       type: 'static',
       config: {
         component: 'FinancialServicesTab',
@@ -2516,7 +2812,35 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'Landmark',
         description: 'Constitutional Financial Services Programme (CRP-003a) — Pilot Series 001 with Horizen. Domain 3 Financial Intelligence, constitutional service loop.',
         color: 'emerald'
-      }
+      },
+      // THE SERVICE SUB MENU (operator, 2026-07-28: "VL Services should have a
+      // sub menu with Financial"). A single-tab group renders no sub-header row
+      // at all — deliberately, so a lone tab does not cost a row of chrome — so
+      // Services appeared without the sub menu every sibling group has. Declaring
+      // the domain's capability suites as `subTabs` uses the SAME third-tier
+      // mechanism the Passport Steward group and metaMe's Order of Metayé
+      // already use (no new nav concept, MS-1), and gives the next suite a home
+      // to be added beside Financial rather than a second navigation.
+      subTabs: [
+        {
+          // "Financial Services", not "Financial" (operator, 2026-07-28,
+          // second ruling — "epistemically coherent"): the group label is the
+          // verb (Service), so the suite inside it must name itself in full.
+          // A bare adjective under a verb reads as a fragment, not a suite.
+          id: 'vl-services-financial',
+          label: 'Financial Services',
+          slug: 'vl-services-financial',
+          enabled: true,
+          order: 0,
+          type: 'static',
+          config: { component: 'FinancialServicesTab', props: {} },
+          metadata: {
+            icon: 'Landmark',
+            description: 'Constitutional Financial Services Programme (CRP-003a) — Intelligence, Investment and Market domains under the 12-step constitutional service pattern',
+            color: 'emerald',
+          },
+        },
+      ],
     },
     {
       id: 'commercial-funnel',
@@ -2524,7 +2848,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'commercial-funnel',
       enabled: true,
       adminOnly: false,
-      order: 1,
+      group: 'operate',
+      order: 2,
       type: 'static',
       config: {
         component: 'VentureFunnelTab',
@@ -2537,12 +2862,353 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // Partner Workspace pattern (operator + Aletheon, 2026-07-26) — a pilot
+      // workspace COMPOSED from existing Venture Lab capabilities, instantiated
+      // first with Horizen (Pilot Series 001, CRP-003a). Partner instances live
+      // in services/venture/partnerWorkspace.ts (single source); this tab only
+      // renders that registry. adminOnly during the pilot.
+      //
+      // ── Participate group (Phase 1) ───────────────────────────────────
+      //
+      // ONE participation mechanism, two Lab expressions. Every component here
+      // is the module the Research Lab's Participation group already mounts;
+      // none is a venture-specific fork. What differs is the DOMAIN they are
+      // configured for and the language around them — exactly the asymmetry the
+      // cross-Lab ruling preserves.
+      id: 'venture-participate-overview',
+      label: 'Overview',
+      slug: 'venture-participate-overview',
+      enabled: true,
+      group: 'participate',
+      order: 0,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'alpha-knyt', collectionId: 'col_venture_lab' } },
+      metadata: { icon: 'LayoutDashboard', description: 'How participation works in the Venture Lab — roles, entry, and what a participant can do', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-apply',
+      label: 'Apply',
+      slug: 'venture-participate-apply',
+      enabled: true,
+      group: 'participate',
+      order: 1,
+      type: 'static',
+      config: { component: 'PassportBureauApplyTab', props: {} },
+      metadata: { icon: 'FileSignature', description: 'Apply or claim an invitation to a venture programme or partner pilot', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-delegation',
+      label: 'Delegation',
+      slug: 'venture-participate-delegation',
+      enabled: true,
+      group: 'participate',
+      order: 2,
+      type: 'static',
+      config: { component: 'BoundedDelegationTab', props: {} },
+      metadata: { icon: 'Bot', description: 'Sponsor and bound an agent to act for you in a venture programme', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-locker',
+      label: 'Locker',
+      slug: 'venture-participate-locker',
+      enabled: true,
+      group: 'participate',
+      order: 3,
+      type: 'static',
+      config: { component: 'LockerTab', props: {} },
+      metadata: { icon: 'Lock', description: 'Your sovereign Locker — private by default, shared only by explicit act (Tier 1)', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-standing',
+      label: 'Standing',
+      slug: 'venture-participate-standing',
+      enabled: true,
+      group: 'participate',
+      order: 4,
+      type: 'static',
+      config: { component: 'ParticipationStandingTab', props: {} },
+      metadata: { icon: 'Award', description: 'Your standing, reach and receipted contribution history', color: 'amber' },
+    },
+    {
+      id: 'venture-participate-steward',
+      label: 'Steward',
+      slug: 'venture-participate-steward',
+      enabled: true,
+      // TIER 0 — THE PLATFORM STEWARD SURFACE. Stays admin-gated (operator,
+      // 2026-07-28: "VL — Steward should be admin gated"), and two ratified
+      // canaries hold it there: `tests/tier-surface-map.test.ts` ("every
+      // entrance keeps a steward, and it stays admin-gated") and
+      // `tests/partner-workspace.test.ts` ("the steward surface is the only
+      // adminOnly one" in the Participate group).
+      //
+      // TWO-TIER AUTHORITY LIVES ACROSS TWO SURFACES, NOT ON THIS ONE. The
+      // operator's follow-on requirement — a partner administrator invites into
+      // their own pilot "so that we don't become the gate for that" — is served
+      // by the Partner group's Tier 2 `partner-collaborate` tab (ratified
+      // 2026-07-27, `participationDomain: 'venture-lab'`), whose Invitations
+      // view mounts this SAME StewardParticipationTab on the venture domain.
+      // Widening this tab instead would have collapsed the two tiers back onto
+      // one surface and removed the platform gate the operator asked to keep.
+      //
+      // What changed on 2026-07-28 is the SERVER, not this gate:
+      // /api/steward/participation[/invitations] now derives a delegated tier
+      // from the caller's own grants, so a venture-lab steward can issue from
+      // the Tier 2 surface — bounded to the domains and pilots their grant
+      // covers, and never able to confer a steward role (no grant-upward).
+      // See services/passport/participationAccess.ts.
+      adminOnly: true,
+      group: 'participate',
+      order: 5,
+      type: 'static',
+      // The SAME steward workspace the Passport and Research Lab domains use,
+      // opened on the venture-lab domain. `initialDomain` is the only difference.
+      config: { component: 'StewardParticipationTab', props: { initialDomain: 'venture-lab' } },
+      metadata: { icon: 'Gavel', description: 'Issue and revoke venture-domain invitations — steward only', color: 'amber' },
+    },
+    {
+      // ── THE PUBLIC WORKSPACE (operator ruling, 2026-07-28) ────────────────
+      //
+      // MOVED OUT OF THE PARTNER GROUP INTO PARTICIPATE. This is the workspace
+      // Overview surface — objectives, layer owners, the Command Center, and
+      // the overview-area deep links. It was the Partner group's first tab
+      // ("Partner Workspace"); it is now the Participate group's public
+      // entrance, and its label is deliberately PARTNER-AGNOSTIC.
+      //
+      // THE OPERATOR'S SPECIFICATION, which matters more than the mechanics:
+      // Participate is the cross-partner, cross-programme surface. Every user
+      // with Venture Lab access gets an iteration of it. metaMe can run
+      // cross-partner pilots here and invite (e.g.) Founder Office operators
+      // into partner programmes; partners can invite their own ecosystems. The
+      // SAME invitation system serves both directions. This tab dynamically
+      // surfaces whichever partner public space the viewing cohort qualifies
+      // for — which is why the label must not say "Partner", and why NOTHING
+      // here names a partner.
+      //
+      // HORIZEN IS NOT HARDCODED, AND MUST NEVER BE. The qualifying
+      // workspace(s) resolve from the caller's own cohort grants inside
+      // PartnerProgrammesTab (`scopesGrantedIn` over the registry), and the
+      // pilot badge/selector chip is the mechanism that lets one partner-
+      // agnostic tab serve N partners. That today only Horizen qualifies falls
+      // out of the DATA (`PARTNER_WORKSPACES` has one entry), not out of any
+      // conditional here. This is the scaling path for pilots and ventures
+      // across both ecosystems.
+      //
+      // WHY THIS DOES NOT WIDEN ANYTHING (the highest-risk part of the move —
+      // a surface leaving an admin-adjacent group for one every Venture Lab
+      // user can see):
+      //   · `participationDomain: 'venture-lab'` is KEPT — "Venture Lab
+      //     access" is exactly a venture-lab grant, so a caller with no grant
+      //     still never sees the tab (canary 6).
+      //   · `participationRoles` is DROPPED — deliberately, and it is the one
+      //     genuine access-model change in this ruling. The Amendment G
+      //     restriction ("Partner access requires domain + scope + role")
+      //     continues to hold in full over the PARTNER group, which is what it
+      //     was written to protect. This is a different, deliberately public
+      //     surface.
+      //   · COHORT ISOLATION IS UNTOUCHED and is the invariant that actually
+      //     matters here: the workspace CONTENT is scope-filtered per caller
+      //     (`satisfiesWorkspaceScope` / `scopesGrantedIn`, deny-by-default),
+      //     server-enforced in /api/venture/workspace/[workspaceId]. The tab
+      //     may be visible while it resolves to "no qualifying workspace";
+      //     what can never happen is one cohort seeing another's public
+      //     workspace. Canaries 1, 4 and 11 hold that from both sides.
+      //   · `workspaceVisibility: 'public'` clamps the component to its public
+      //     surface set, so no private area (Collaborate / Operate /
+      //     Communicate / Administration) is reachable from this entrance even
+      //     if a future edit mis-set `initialSurface`.
+      //
+      // The id and slug are UNCHANGED across the move — they are what existing
+      // `?tab=` deep links and the workspace's own `fromTab` resolve against,
+      // and a dangling `?tab=` silently lands the operator on the cartridge's
+      // default tab rather than erroring.
+      id: 'partner-programmes',
+      label: 'Public Workspace',
+      slug: 'partner-programmes',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      group: 'participate',
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'overview', workspaceVisibility: 'public' }
+      },
+      metadata: {
+        icon: 'LayoutDashboard',
+        description: 'Public Workspace — the partner public space your cohort qualifies for: Command Center, objectives, and layer owners',
+        color: 'amber'
+      }
+    },
+    {
+      // ── THE PARTNER PRIVATE WORKSPACE'S TABS ─────────────────────────────
+      //
+      // THE PARTNER DOMAIN'S TABS (operator, 2026-07-27, revising the same
+      // day's first cut). Seen in situ, the earlier shape rendered TWO menus for
+      // one concept: a tier-3 row above and the component's own surface row
+      // below the Pilot Command Center. The operator's correction — "we use the
+      // standard cartridge menu and use that to drive the content beneath the
+      // pilot command centre rather than having another menu again beneath the
+      // command centre" — makes each area a first-class tab of the Partner
+      // group. One navigation, the cartridge's own.
+      //
+      // ONE component, N entrances: every tab renders `PartnerProgrammesTab`
+      // with its area pre-selected (`inv.engineering.036` — a component per area
+      // would be the parallel implementation this avoids). The component keeps
+      // the Pilot Command Center above the area content, so the command centre
+      // is present on every tab exactly as it was.
+      //
+      // Collaborate is now the group's FIRST tab: the Overview entrance moved
+      // to Participate as "Public Workspace" (see above), so what remains is
+      // the partner↔metaProof bilateral record, which is what the component's
+      // header now names — "Partner Private Workspace".
+      id: 'partner-collaborate',
+      label: 'Collaborate',
+      slug: 'partner-collaborate',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
+      group: 'partner',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'collaborate' }
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'Invitations, peer exchange, and the venture-scoped Locker',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'partner-operate',
+      label: 'Operate',
+      slug: 'partner-operate',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
+      group: 'partner',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'operate' }
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Delivery surfaces the pilot runs on',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'partner-evidence',
+      label: 'Evidence',
+      slug: 'partner-evidence',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
+      group: 'partner',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'evidence' }
+      },
+      metadata: {
+        icon: 'FileCheck',
+        description: 'Receipts and the canonical evidence record',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'partner-communicate',
+      label: 'Communicate',
+      slug: 'partner-communicate',
+      enabled: true,
+      // Tier 0 for now. The audit's target posture is two-stage — drafting
+      // internal, approved output shared (§B.3) — and until the approval step
+      // exists, the whole surface stays internal. Widening it first would
+      // publish drafts, which is the failure the two-stage design prevents.
+      adminOnly: true,
+      group: 'partner',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'communicate' }
+      },
+      metadata: {
+        icon: 'MessageSquare',
+        description: 'Partner communication surfaces — linked, never forked',
+        color: 'amber'
+      }
+    },
+    {
+      // TIER 0 — Partner Administration. The internal programme space the
+      // audit found had no home (§B.3): internal partner assessment,
+      // negotiation posture, commercial assumptions, internal risk analysis,
+      // pre-release reporting. Splitting it out is what lets the Tier 2 views
+      // above open to partner operators without exposing any of this.
+      id: 'partner-administration',
+      label: 'Administer',
+      slug: 'partner-administration',
+      enabled: true,
+      adminOnly: true,
+      group: 'partner',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'administration' }
+      },
+      metadata: {
+        icon: 'Lock',
+        description: 'Internal programme space — assessment, posture, assumptions, risk. Never shared with the partner',
+        color: 'slate'
+      }
+    },
+    {
+      // PRD-GJR-001 (Guided Journey Runtime) — the Pilot > Journey view
+      // (§6.1, §14). Orchestrates the Horizen x MoneyPenny constitutional
+      // admission pilot: a compact stage bar over real, live platform
+      // surfaces, never a parallel demo app. See services/journey/. Ordered
+      // last in the Partner sub-menu, per operator UI review (2026-07-31).
+      id: 'partner-pilot-journey',
+      label: 'Journey',
+      slug: 'partner-pilot-journey',
+      enabled: true,
+      // Tier 2 — visible on venture-lab participation, not platform admin.
+      participationDomain: 'venture-lab',
+      // ROLE RESTRICTION — see partner-programmes above.
+      participationRoles: ['partner-operator', 'workspace-steward'],
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'PartnerProgrammesTab',
+        props: { initialSurface: 'journey' }
+      },
+      metadata: {
+        icon: 'Milestone',
+        description: 'The Guided Journey Runtime — Horizen x MoneyPenny constitutional admission pilot',
+        color: 'amber'
+      }
+    },
+    {
       id: 'alpha-programme',
       label: 'α Programme',
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      group: 'grow',
+      order: 1,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
@@ -2555,11 +3221,20 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      // GROW, NOT ADMINISTER (operator ruling, 2026-07-28). AgentiQ OS α is a
+      // PUBLIC surface — the builder substrate dashboard anyone growing on the
+      // platform needs — and it sat in the internal Administer group behind
+      // `adminOnly`, which both hid it from its own audience and mis-stated
+      // what it is. It joins Grow as a sub-item beside Growth Matrix (order 0,
+      // public) and α Programme (order 1, adminOnly); the gate it drops was
+      // mis-scoping, not protection, so nothing behind it becomes newly
+      // readable that was not already public.
       id: 'agentiq-os-vl',
       label: 'AgentiQ OS α',
       slug: 'agentiq-os-vl',
       enabled: true,
-      adminOnly: true,
+      adminOnly: false,
+      group: 'grow',
       order: 2,
       type: 'static',
       config: {
@@ -2578,7 +3253,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'relationship-builder',
       enabled: true,
       adminOnly: false,
-      order: 3,
+      group: 'connect',
+      order: 1,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
@@ -2596,7 +3272,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'alpha-docs',
       enabled: true,
       adminOnly: true,
-      order: 4,
+      group: 'administer',
+      order: 2,
       type: 'static',
       config: {
         component: 'AlphaDocsTab',
@@ -2614,7 +3291,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'plan-pricing',
       enabled: true,
       adminOnly: true,
-      order: 4.5,
+      group: 'administer',
+      order: 1,
       type: 'static',
       config: {
         component: 'PlanPriceConfigAdminTab',
@@ -2632,7 +3310,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'growth-matrix',
       enabled: true,
       adminOnly: false,
-      order: 5,
+      group: 'grow',
+      order: 0,
       type: 'static',
       config: {
         component: 'VentureLabGrowthMatrixTab',
@@ -2650,7 +3329,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'portfolio',
       enabled: true,
       adminOnly: false,
-      order: 6,
+      group: 'operate',
+      order: 1,
       type: 'static',
       config: {
         component: 'VentureLabPortfolioTab',
@@ -2810,7 +3490,7 @@ const ventureLabAdminTabsForMetameVl = () =>
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
-  name: 'metaMe Cartridge',
+  name: 'metaMe',
   slug: 'metame',
   enabled: true,
   version: '1.0.0',
@@ -3015,7 +3695,7 @@ export const METAME_CODEX: CodexConfig = {
     //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
-      label: 'myCluster',
+      label: 'myCanvas',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
@@ -3052,7 +3732,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       activationId: 'mycanvas',
       group: 'mycluster',
-      order: 3,
+      order: 5,
       type: 'static',
       config: { component: 'MyCartridgeTab', props: {} },
       metadata: {
@@ -3074,6 +3754,38 @@ export const METAME_CODEX: CodexConfig = {
       metadata: {
         icon: 'BookMarked',
         description: 'Personal ledger of canvas + workspace artifacts — activity, receipts, audit',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'myresearch',
+      label: 'myResearch',
+      slug: 'my-research',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 3,
+      type: 'static',
+      config: { component: 'MyResearchTab', props: {} },
+      metadata: {
+        icon: 'FlaskConical',
+        description: 'Live research programme state — experiments, lifecycle, recent findings',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'mysoftware',
+      label: 'mySoftware',
+      slug: 'my-software',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 4,
+      type: 'static',
+      config: { component: 'MySoftwareTab', props: {} },
+      metadata: {
+        icon: 'Code',
+        description: 'Software, agents, and capabilities you have built through the Developer strand',
         color: 'violet',
       },
     },
@@ -4019,6 +4731,181 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
 };
 
 // ───────────────────────────────────────────────────────────────────────────
+// MONEYPENNY_CARTRIDGE — hand-curated (SPEC-VLM-001 Phase 2, 2026-07-24 —
+// CFS-050 Sovereignty Navigation's second applied test case, after Venture
+// Lab). Before this, MoneyPenny's codex was auto-generated by packRegistry
+// from a single collection into ONE CodexTab wrapping the whole
+// `MoneyPennyCartridge` component -- which forced her to hand-roll her own
+// flat ten-tab bar, since `CodexPanelDynamic` skips its own two-level nav
+// chrome whenever a cartridge has ≤1 tab. This hand-curated definition
+// gives her ten real CodexTabs (grouped Operate/Connect/Service/Administer,
+// same Standard Cartridge Navigation Framework Venture Lab now uses)
+// instead. Its id ('moneypenny-codex') intentionally matches the auto-gen
+// codex's own id -- `app/api/codex/registry/route.ts`'s
+// `CODEX_DEFINITIONS.filter(...)` dedup already suppresses the pack-driven
+// duplicate by id collision, the exact same mechanism MARKETA_CARTRIDGE
+// above already relies on (no packRegistry.ts skip-list edit needed).
+//
+// The pre-existing standalone `/moneypenny` route
+// (`app/(shell)/moneypenny/page.tsx` → `MoneyPennyCartridge.tsx`) is
+// UNTOUCHED by this -- it keeps its own flat ten-tab bar exactly as
+// before. The ten panel components it wraps (`HFTConsole`,
+// `MoneyPennyChat`, etc.) are reused unchanged by the codex-side tabs
+// below via `MoneyPennyPanelTab.tsx`'s dispatcher -- extend, don't
+// duplicate.
+export const MONEYPENNY_CARTRIDGE: CodexConfig = {
+  id: 'moneypenny-codex',
+  name: 'Aigent MoneyPenny',
+  slug: 'moneypenny',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'aigent-moneypenny',
+  metadata: {
+    description: 'Aigent MoneyPenny — the Constitutional Financial Services Agent. Real-time HFT console, portfolio analytics, strategy building, and the constitutional Financial Services Runtime (PRD-MPY-001)',
+    icon: 'TrendingUp',
+    color: 'emerald',
+    category: 'finance',
+    tags: ['moneypenny', 'finance', 'trading', 'hft', 'constitutional-runtime'],
+  },
+  tabGroups: [
+    { id: 'operate',    label: 'Operate',    icon: 'Rocket',   order: 0 },
+    { id: 'connect',    label: 'Connect',    icon: 'Users',    order: 1 },
+    { id: 'service',    label: 'Service',    icon: 'Landmark', order: 2 },
+    { id: 'administer', label: 'Administer', icon: 'Settings', order: 3 },
+  ],
+  tabs: [
+    {
+      id: 'moneypenny-hft-console',
+      label: 'HFT Console',
+      slug: 'hft-console',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 0,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'hft-console' } },
+      metadata: { icon: 'TrendingUp', description: 'Real-time quotes and execution', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-portfolio',
+      label: 'Portfolio',
+      slug: 'portfolio',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 1,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'portfolio' } },
+      metadata: { icon: 'BarChart3', description: 'Analytics and performance', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-strategies',
+      label: 'Strategies',
+      slug: 'strategies',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 2,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'strategies' } },
+      metadata: { icon: 'Target', description: 'Build and manage strategies', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-smarttriad',
+      label: 'SmartTriad',
+      slug: 'smarttriad',
+      enabled: true,
+      adminOnly: false,
+      group: 'operate',
+      order: 3,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'smarttriad' } },
+      metadata: { icon: 'Settings', description: 'Trading operations hub', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-chat',
+      label: 'AI Assistant',
+      slug: 'chat',
+      enabled: true,
+      adminOnly: false,
+      group: 'connect',
+      order: 0,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'chat' } },
+      metadata: { icon: 'MessageCircle', description: 'MoneyPenny trading assistant', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-crm',
+      label: 'CRM',
+      slug: 'crm',
+      enabled: true,
+      adminOnly: false,
+      group: 'connect',
+      order: 1,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'crm' } },
+      metadata: { icon: 'Users', description: 'Contributions and tasks', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-x402',
+      label: 'X402',
+      slug: 'x402',
+      enabled: true,
+      adminOnly: false,
+      group: 'service',
+      order: 0,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'x402' } },
+      metadata: { icon: 'Zap', description: 'Payment settlements', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-architect',
+      label: 'Architect',
+      slug: 'architect',
+      enabled: true,
+      adminOnly: false,
+      group: 'service',
+      order: 1,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'architect' } },
+      metadata: { icon: 'Compass', description: 'Design constitutional financial structures (PRD-MPY-001)', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-runtime',
+      label: 'Runtime',
+      slug: 'runtime',
+      enabled: true,
+      adminOnly: false,
+      group: 'service',
+      order: 2,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'runtime' } },
+      metadata: { icon: 'Cpu', description: 'Constitutional service pattern — shadow/authoritative runtime (PRD-MPY-001)', color: 'emerald' },
+    },
+    {
+      id: 'moneypenny-identity',
+      label: 'Identity',
+      slug: 'identity',
+      enabled: true,
+      adminOnly: false,
+      group: 'administer',
+      order: 0,
+      type: 'static',
+      config: { component: 'MoneyPennyPanelTab', props: { panel: 'identity' } },
+      metadata: { icon: 'Wallet', description: 'FIO and persona management', color: 'emerald' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-moneypenny', 'admin'],
+    admin: ['aigent-moneypenny', 'admin'],
+  },
+  liquidUI: { enabled: false },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+// ───────────────────────────────────────────────────────────────────────────
 // IQUBE_REGISTRY_CARTRIDGE — Stage 1 stub (PRD v1.1 §A.1)
 // Reserves the 'iqube-registry' slug as a top-level cartridge. Tabs are
 // PlaceholderTab stubs; real components land in Stage 8 of the registry
@@ -4499,7 +5386,7 @@ export const HUMAN_MOBILITY_SERVICES_CARTRIDGE: CodexConfig = {
 
 export const STANDING_CARTRIDGE: CodexConfig = {
   id: 'standing-cartridge',
-  name: 'Standing Cartridge',
+  name: 'Standing',
   slug: 'standing-cartridge',
   enabled: true,
   version: '0.1.0',
@@ -4801,7 +5688,19 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 export const IRL_CARTRIDGE: CodexConfig = {
   id: 'irl-cartridge',
-  name: 'metaMe IRL — Research Laboratory',
+  // TWO NAMES, ONE CARTRIDGE. `name` is the header, `shortName` is the
+  // sidebar/picker — not a truncation of each other.
+  //
+  // Operator ruling 2026-07-28: "metaMe IRL is fine for header. IRL for
+  // sidebar. Invariant Research Lab should be added as well — doesn't always
+  // need the metaMe qualifier — so this should be added to the ontology."
+  // `docs/platform-ontology.md` § Invariant Research Lab (amended same date)
+  // now carries three contextual forms — full name, IRL, metaMe IRL — none a
+  // fallback for the others. This cartridge uses the branded form in the
+  // header (product context) and the abbreviation in the sidebar, per the
+  // operator's explicit choice for THIS surface.
+  name: 'metaMe IRL',
+  shortName: 'IRL',
   slug: 'irl-cartridge',
   enabled: true,
   version: '1.0.0',
@@ -4825,12 +5724,46 @@ export const IRL_CARTRIDGE: CodexConfig = {
   // Consequence Engineering + Living Knowledge fold into Laboratory/Research
   // as capabilities; Programme joins Institution; Participation is the
   // constitutional collaboration space.
+  //
+  // RESEARCH WORKSPACE — its OWN top-level group again, sited immediately
+  // AFTER Participation (operator correction, 2026-07-29, later the same day
+  // as the ruling below — see
+  // codexes/packs/agentiq/updates/2026-07-29_workspace-restored-top-level-plus-color-and-irl-os.md).
+  // The immediately-prior ruling ("RESEARCH WORKSPACE RELOCATED INSIDE
+  // PARTICIPATION") folded Workspace into a tab nested inside Participation,
+  // with its own former top-level tabs pushed one tier deeper into that tab's
+  // `subTabs` — three tiers deep end to end (group → Workspace tab among
+  // Participation's siblings → its subTabs). The operator tried the shipped
+  // result and found it too deeply nested ("the triple menu system is looking
+  // messy") and asked for Workspace to be elevated back to a first-class
+  // top-level group, positioned right after Participation ("logical place
+  // after request for participation then the user gets access to the
+  // workspace").
+  //
+  // THE FIX IS DELIBERATELY MINIMAL: the `irl-workspace` tab object below is
+  // UNCHANGED in every field except `group` (now `'workspace'`, was
+  // `'participation'`) and `order` (now `0`, the sole tab in its own group).
+  // Its `subTabs` array — the former nine (now seven, Locker/Participants
+  // still pruned) top-level views — is untouched. Because `irl-workspace` is
+  // the ONLY tab in the new `workspace` group, `CodexPanelDynamic` renders it
+  // via the SAME "single-tab group with subTabs" path already used for
+  // "Order of Metayé" (see that literal comment at
+  // `app/triad/components/CodexPanelDynamic.tsx` — the subTabs row renders
+  // inline on the breadcrumb instead of requiring an extra tab-selection step)
+  // — so a caller clicks "Workspace" once and lands directly on its subTabs
+  // (Overview, Pipeline, Review, Working Materials, QubeTalk, Administration).
+  // That is the same two-tier shape every other top-level cartridge tab in
+  // this system already has; nothing new was invented to achieve it.
   tabGroups: [
     { id: 'institution', label: 'Institution', icon: 'Landmark', order: 0 },
     { id: 'research', label: 'Research', icon: 'Layers', order: 1 },
     { id: 'laboratory', label: 'Laboratory', icon: 'FlaskConical', order: 2 },
     { id: 'publications', label: 'Publications', icon: 'BookOpen', order: 3 },
     { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+    // Sited immediately after Participation (operator: "the user gets access
+    // to the workspace" once they've joined) — LayoutGrid ties it visually to
+    // the Companion's own "Workspace" nav item, unchanged from the prior ruling.
+    { id: 'workspace', label: 'Workspace', icon: 'LayoutGrid', order: 5 },
   ],
   tabs: [
     {
@@ -4968,6 +5901,61 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'InvariantFieldExplorerTab', props: {} },
       metadata: { icon: 'Network', description: 'Computational Epistemology made visible — the live enables/constrains/contradicts field + consequence forecast (CFS-019 Phase E first slice)', color: 'violet' },
     },
+    // ── Corpus Scout + EXP-P1 Readiness — PRIMARY HOME (2026-07-23,
+    // operator-directed). These are internal experimentation instruments;
+    // metaMe IRL (this cartridge) is their canonical home, not IRL OS. The
+    // irl-os-corpus-scout / irl-os-exp-p1-readiness entries in
+    // IRL_OS_CARTRIDGE below are kept (not removed) — admin-visible there
+    // too, deliberately stubbed as the future access point IF invariant
+    // aggregation opens beyond admin (cohort/token/payment-gated), but not
+    // built now. Both stay adminOnly: true in both cartridges either way.
+    {
+      id: 'irl-corpus-scout',
+      label: 'Corpus Scout',
+      slug: 'irl-corpus-scout',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 4,
+      type: 'static',
+      config: { component: 'CorpusScoutTab', props: {} },
+      metadata: { icon: 'FileSearch', description: 'PRD-ICA-001 §9 — verify, review, and hand approved sources to the Discovery Engine. Retrieval → byte verification → human approval → add-evidence.', color: 'violet' },
+    },
+    {
+      id: 'irl-exp-p1-readiness',
+      label: 'EXP-P1 Readiness',
+      slug: 'irl-exp-p1-readiness',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 5,
+      type: 'static',
+      config: { component: 'ExpP1ReadinessTab', props: {} },
+      metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
+    },
+    // ── Experiment / Constitutional / Invariant Registry (CFS-051,
+    // Strand 1 build 2026-07-24) — the living register of candidate
+    // experiments, candidate constitutional principles, candidate
+    // structural invariants, and the research backlog.
+    //
+    // The API gate (services/research/registryAccess.ts) was WIDENED 2026-07-25
+    // per the operator's "both" answer: admin OR a CAS `research-lab` grant OR
+    // the configured token grants read+propose; CURATE stays platform-admin.
+    // This TAB stays `adminOnly: true` deliberately — widening the API is
+    // additive, but exposing a public proposal surface needs its own operator
+    // authorization (CLAUDE.md "Security — Access Gates").
+    {
+      id: 'irl-experiment-registry',
+      label: 'Experiment Pipeline',
+      slug: 'irl-experiment-registry',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 6,
+      type: 'static',
+      config: { component: 'ExperimentRegistryTab', props: {} },
+      metadata: { icon: 'ListTodo', description: 'CFS-051 — the informal idea pipeline that feeds the formal, ratified experiment/invariant registry: candidate experiments, candidate constitutional principles, candidate structural invariants, and the research backlog, before anything enters the official process unchanged elsewhere.', color: 'violet' },
+    },
     // ── Living Knowledge ──────────────────────────────────────────
     {
       id: 'irl-invariant-registry',
@@ -5077,17 +6065,16 @@ export const IRL_CARTRIDGE: CodexConfig = {
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
     },
-    {
-      id: 'irl-passport-registry',
-      label: 'Passport Registry',
-      slug: 'irl-passport-registry',
-      enabled: true,
-      group: 'participation',
-      order: 4,
-      type: 'static',
-      config: { component: 'PassportRegistryTab' },
-      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-    },
+    // REMOVED 2026-07-28 (operator ruling): the Passport Registry tab is gone
+    // from BOTH Labs. The public passport record is not a Lab surface — it
+    // keeps its homes in the AgentiQ cartridge (`passport-registry`), AgentiQ
+    // OS (`os-passport-registry`), the iQube registry (`passports`) and the
+    // Passport Bureau (`registry`). The one inbound deep link that pointed
+    // here (`passportDeepLinks().registry` in
+    // services/constitutional/guidedOnboarding.ts) was repointed at the
+    // AgentiQ OS entrance in the same change — a dangling `?tab=` silently
+    // lands the operator on the cartridge's default tab, which is the defect
+    // this note exists to stop being reintroduced.
     {
       id: 'irl-passport-locker',
       label: 'Locker',
@@ -5127,6 +6114,12 @@ export const IRL_CARTRIDGE: CodexConfig = {
         return polityPassportTabsByGroup('steward', 'irl-passport-steward');
       },
     },
+    // ── Workspace (SPEC-IRL-WORKSPACE-001) ──────────────────────────
+    // Its OWN top-level group (`workspace`, see `tabGroups` above), sited
+    // immediately after Participation — see the long comment on `tabGroups`
+    // for the full correction history. Built by `buildResearchWorkspaceTab`
+    // so this cartridge and IRL OS share one definition, never two.
+    buildResearchWorkspaceTab('irl-workspace'),
   ],
 };
 
@@ -5187,6 +6180,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     // agents, without the full metaMe thin client. SmartWallet deep-dives
     // remain available via the floating copilot.
     { id: 'participation', label: 'Participation', icon: 'ShieldCheck', order: 4 },
+    // Workspace (added 2026-07-29, operator correction): "workspace should
+    // also be added to the IRL OS cartridge — that's really the main place
+    // it's going to live, but it can be in both IRL OS and the IRL
+    // cartridges." Same group shape, same `LayoutGrid` icon, and the SAME
+    // `buildResearchWorkspaceTab` builder as the internal IRL cartridge (see
+    // that cartridge's `tabGroups` comment for the full rationale) — this is
+    // a registry-level addition, not a second implementation of the surface.
+    { id: 'workspace', label: 'Workspace', icon: 'LayoutGrid', order: 5 },
   ],
   tabs: [
     {
@@ -5290,6 +6291,42 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'InvariantExperimentLab', props: { density: 'narrow' } },
       metadata: { icon: 'FlaskConical', description: 'Run the Foundational Series live and independently — EXP-001–005, Results, and Report. Requires research access (Sovereign/Steward) or a reviewer grant.' },
+    },
+    // ── EXP-P1 Readiness — PRD-EPI-001 §10 dashboard (steward-gated) ──
+    // Canonical/primary home moved to metaMe IRL (irl-cartridge's
+    // 'irl-exp-p1-readiness', added 2026-07-23) — this entry is kept
+    // deliberately, not removed: a stub for a future cohort/token/payment-
+    // gated access point if invariant aggregation opens beyond admin.
+    // adminOnly: true today either way; not built out beyond that flag.
+    {
+      id: 'irl-os-exp-p1-readiness',
+      label: 'EXP-P1 Readiness',
+      slug: 'irl-os-exp-p1-readiness',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 4,
+      type: 'static',
+      config: { component: 'ExpP1ReadinessTab', props: {} },
+      metadata: { icon: 'Gauge', description: 'PRD-EPI-001 §10 — seven per-gate readiness sections for EXP-P1 (protocol-ratified derivation, live). Execution/Publication are expected red pre-run.', color: 'violet' },
+    },
+    // ── Corpus Scout — PRD-ICA-001 human review workspace (steward-gated) ──
+    // Canonical/primary home moved to metaMe IRL (irl-cartridge's
+    // 'irl-corpus-scout', added 2026-07-23) — this entry is kept
+    // deliberately, not removed: a stub for a future cohort/token/payment-
+    // gated access point if invariant aggregation opens beyond admin.
+    // adminOnly: true today either way; not built out beyond that flag.
+    {
+      id: 'irl-os-corpus-scout',
+      label: 'Corpus Scout',
+      slug: 'irl-os-corpus-scout',
+      enabled: true,
+      adminOnly: true,
+      group: 'laboratory',
+      order: 5,
+      type: 'static',
+      config: { component: 'CorpusScoutTab', props: {} },
+      metadata: { icon: 'FileSearch', description: 'PRD-ICA-001 §9 — verify, review, and hand approved sources to the Discovery Engine. Retrieval → byte verification → human approval → add-evidence.', color: 'violet' },
     },
     // ── Constitutional Evaluation — the external-researcher front door ──
     {
@@ -5461,17 +6498,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'BoundedDelegationTab' },
       metadata: { icon: 'Link2', description: 'Grant bounded delegations to sponsored agents — the sponsor authorizes; agents never self-delegate (CFS-043)', color: 'violet' },
     },
-    {
-      id: 'irl-os-passport-registry',
-      label: 'Passport Registry',
-      slug: 'irl-os-passport-registry',
-      enabled: true,
-      group: 'participation',
-      order: 4,
-      type: 'static',
-      config: { component: 'PassportRegistryTab' },
-      metadata: { icon: 'BookOpenCheck', description: 'Public record of issued passports', color: 'violet' },
-    },
+    // REMOVED 2026-07-28 (operator ruling) — see the identical note on the IRL
+    // cartridge above. Same removal, same reason, same repointed deep link.
     {
       id: 'irl-os-passport-locker',
       label: 'Locker',
@@ -5511,6 +6539,11 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
         return polityPassportTabsByGroup('steward', 'irl-os-passport-steward');
       },
     },
+    // ── Workspace (SPEC-IRL-WORKSPACE-001) — added 2026-07-29 ───────
+    // Its OWN top-level group (`workspace`, see `tabGroups` above). Built by
+    // the SAME `buildResearchWorkspaceTab` the internal IRL cartridge uses —
+    // one definition, two mounts, never a hand-copied second implementation.
+    buildResearchWorkspaceTab('irl-os-workspace'),
   ],
   permissions: {
     view: ['*'],
@@ -5537,6 +6570,12 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   VENTURE_LAB_CODEX,
   METAME_CODEX,
   MARKETA_CARTRIDGE,
+  // MONEYPENNY_CARTRIDGE is hand-curated (SPEC-VLM-001 Phase 2, 2026-07-24)
+  // to replace the pack-driven single-tab auto-registration -- same
+  // dedup-by-id precedent as MARKETA_CARTRIDGE above (both share their pack
+  // id's auto-generated codex id, so `CODEX_DEFINITIONS` here takes
+  // priority per the registry route's own merge rule).
+  MONEYPENNY_CARTRIDGE,
   IQUBE_REGISTRY_CARTRIDGE,
   POLITY_PASSPORT_BUREAU_CARTRIDGE,
   HUMAN_MOBILITY_SERVICES_CARTRIDGE,

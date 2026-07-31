@@ -51,8 +51,29 @@ describe('composeFindingsReport — sequential + coherent, single ordered spine'
     expect(i6).toBeGreaterThan(-1);
     expect(i4).toBeLessThan(i5);
     expect(i5).toBeLessThan(i6);
-    // EXP-005 has no runs → its section says publication pending, not a fabricated result.
-    expect(md).toMatch(/EXP-005 — Provider Choice[\s\S]*publication pending/);
+    // EXP-005 has no runs -> it is shown IN SLOT as publication pending, never
+    // a fabricated result and never a silent gap.
+    //
+    // Asserted semantically. The old regex required the literal
+    // 'EXP-005 — Provider Choice' followed by the phrase, but the programme map
+    // renders the id with markdown emphasis (**EXP-005**) and the plain section
+    // heading no longer carries the status line -- so a compliant report failed
+    // on emphasis characters and phrase placement rather than on substance.
+    const pendingLine = md
+      .split('\n')
+      .find((l) => l.includes('EXP-005') && l.includes('Provider Choice'));
+    expect(pendingLine, 'EXP-005 is missing from the report entirely').toBeTruthy();
+    // Wording corrected 2026-07-25: an experiment with ZERO recorded runs now
+    // reads "no canonical run completed" rather than "run complete;
+    // publication pending", which asserted a run that never happened. What the
+    // test guards is unchanged -- EXP-005 is shown in slot with an HONEST
+    // status, never a fabricated result and never a silent gap.
+    expect(pendingLine, 'EXP-005 has no runs and must say so').toContain(
+      'no canonical run completed',
+    );
+    expect(pendingLine, 'a zero-run experiment must not claim a completed run').not.toMatch(
+      /\brun complete\b/,
+    );
   });
 
   it('emits series in canonical order (Foundational → Sovereignty → Invariant Intelligence → Instrument Validation)', () => {

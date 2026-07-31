@@ -82,10 +82,18 @@ describe('Canonical Ontology Service (CFS-015)', () => {
 
   it('attaches governing invariants to resolved concepts', async () => {
     const r = await resolveOntology('How does Standing differ from Reach?');
-    const standing = r.resolvedTerms.find((t) => t.canonical === 'standing');
-    expect(standing?.invariantIds).toContain('inv.constitutional.061');
-    const reach = r.resolvedTerms.find((t) => t.canonical === 'reach');
-    expect(reach?.invariantIds).toContain('inv.constitutional.062');
+    // Canonical CASING is not part of the contract. When a concept also exists
+    // as a glossary/ontology canon term, the resolver MERGES the two into one
+    // entry (source 'both') and keeps the glossary's canonical form -- so
+    // 'Standing' may be the surviving spelling. Pinning the lowercase form
+    // asserted an implementation detail and broke on a deliberate merge; what
+    // matters is that exactly one entry exists and the invariants are attached.
+    const find = (c: string) =>
+      r.resolvedTerms.filter((t) => t.canonical.toLowerCase() === c);
+    expect(find('standing'), 'standing resolved to 0 or >1 entries').toHaveLength(1);
+    expect(find('standing')[0].invariantIds).toContain('inv.constitutional.061');
+    expect(find('reach'), 'reach resolved to 0 or >1 entries').toHaveLength(1);
+    expect(find('reach')[0].invariantIds).toContain('inv.constitutional.062');
   });
 
   it('surfaces unresolvable qube-flavoured drift instead of dropping it', async () => {
@@ -119,7 +127,12 @@ describe('Model Router v1 (CFS-015)', () => {
     expect(routes.map((r) => r.stage).sort()).toEqual([...REASONING_STAGES].sort());
     for (const r of routes) {
       expect(isAllowedExperimentModel(r.provider, r.model), `${r.stage} → ${r.provider}:${r.model}`).toBe(true);
-      expect(r.source).toBe('default');
+      // ModelQube routing (CFS-015 Phase 2) made routing constitutional data:
+      // a stage now normally resolves via 'modelqube', with 'default' as the
+      // defensive fallback when no qube is fit. The contract this test guards
+      // is that EVERY stage routes to an ALLOWLISTED model -- not which of the
+      // two non-override sources produced it.
+      expect(['modelqube', 'default'], `${r.stage} source`).toContain(r.source);
     }
   });
 
@@ -127,11 +140,16 @@ describe('Model Router v1 (CFS-015)', () => {
     process.env.CONSTITUTIONAL_ROUTE_CONSEQUENCE = 'openai:gpt-4o';
     expect(routeFor('consequence')).toMatchObject({ provider: 'openai', model: 'gpt-4o', source: 'override' });
 
+    // An ignored override falls back to normal resolution -- which is
+    // ModelQube-driven, with the literal default beneath it. The assertion
+    // that matters is that the bad override did NOT take effect.
     process.env.CONSTITUTIONAL_ROUTE_RISK = 'not-a-provider:whatever';
-    expect(routeFor('risk').source).toBe('default');
+    expect(routeFor('risk').source).not.toBe('override');
+    expect(isAllowedExperimentModel(routeFor('risk').provider, routeFor('risk').model)).toBe(true);
 
     process.env.CONSTITUTIONAL_ROUTE_VALUE = 'anthropic:made-up-model-9000';
-    expect(routeFor('value').source).toBe('default');
+    expect(routeFor('value').source).not.toBe('override');
+    expect(routeFor('value').model).not.toBe('made-up-model-9000');
   });
 
   it('the sovereign fallback (venice) has allowlisted models available', () => {
@@ -410,7 +428,26 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
       'designed', 'protocol-ratified', 'running', 'evaluated', 'published', 'replicated',
     ]);
     expect(PUBLICATION_LIFECYCLE).toEqual(['draft', 'internal', 'canonical', 'superseded']);
-    expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual(['EXP-001', 'EXP-002', 'EXP-003', 'EXP-004']);
+    // The pinned experiment holdings (order is meaning — a new experiment is a
+    // deliberate registry update, so this pin must move with it). Kept in sync
+    // with the disk-parity guard below so the Lab can never silently drop one.
+    expect(EXPERIMENT_REGISTRY.map((e) => e.id)).toEqual([
+      'EXP-001', 'EXP-002', 'EXP-003', 'EXP-004', 'EXP-005', 'EXP-006', 'EXP-007', 'EXP-008',
+      // EXP-P1…P4 are the four RESERVED core designations (operator ruling,
+      // 2026-07-27): compression · consequence · representation · interaction.
+      // P4 is registered as reserved-with-no-protocol so the slot cannot be
+      // taken silently. EXP-011 / EXP-012 are the two designs renumbered out of
+      // the P2 / P3 slots the same day — renumbered, never withdrawn, and
+      // numbers are never reused.
+      // EXP-P2A / EXP-P2B are the two INSTANTIATIONS of the P2 slot (second
+      // ruling of 2026-07-27: P2 becomes "a family of consequence experiments
+      // that share the same constitutional framework but operate in different
+      // consequence domains"). They sit immediately after the slot they
+      // instantiate; the slot itself is unchanged and unrenumbered.
+      'IRV-001', 'IPV-001', 'EXP-P1', 'EXP-P2', 'EXP-P2A', 'EXP-P2B', 'EXP-P3', 'EXP-P4',
+      'EXP-011', 'EXP-012',
+      'EXP-009', 'EXP-010', 'CCE-006', 'CCE-007', 'ISR-001',
+    ]);
     // Every registry member belongs to a registered series; every governing
     // invariant exists in the seed crystal (no invented ids).
     const seriesIds = new Set(SERIES_REGISTRY.map((s) => s.id));
@@ -424,6 +461,74 @@ describe('EXP-004 Sovereignty Drill (CFS-015 principle 4)', () => {
     expect(isLegalExperimentTransition('published', 'running')).toBe(true);
     expect(isLegalExperimentTransition('designed', 'published')).toBe(false);
     expect(isLegalExperimentTransition('designed', 'running')).toBe(false);
+  });
+
+  // Reliability guard (operator 2026-07-21): every experiment that has a design
+  // doc on disk MUST be in EXPERIMENT_REGISTRY — otherwise it silently never
+  // surfaces in the Laboratory → Experiments view (the completeness guard only
+  // iterates the registry). This is the drift that hid EXP-009/010, CCE-006/007
+  // and ISR-001. Derives the id from the directory prefix (exp-p1-… → EXP-P1).
+  it('every experiment design doc on disk is registered (Laboratory can never silently drop one)', async () => {
+    const { EXPERIMENT_REGISTRY } = await import('@/types/research');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const dir = path.join(process.cwd(), 'codexes/packs/irl/foundation/experiments');
+    const registered = new Set(EXPERIMENT_REGISTRY.map((e) => e.id));
+    const onDisk = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      // Underscore-prefixed dirs (e.g. _source) are staging areas, not experiment design docs.
+      .filter((d) => !d.name.startsWith('_'))
+      .map((d) => d.name.split('-').slice(0, 2).join('-').toUpperCase()); // exp-p1-… → EXP-P1
+    for (const id of onDisk) {
+      expect(registered.has(id), `${id} has a doc on disk but is missing from EXPERIMENT_REGISTRY`).toBe(true);
+    }
+  });
+
+  it('EXP-P1…P4 are reserved for the four core experiments, and P4 stays honestly reserved', async () => {
+    // Operator ruling 2026-07-27: "EXP P1/2/3/4 are four fundamental experiments
+    // that cover the core breadth of invariant research … P1/2/3/4 need to be
+    // reserved for these strategically core experiments." Two designs were
+    // renumbered out of the P2/P3 slots to make that true; this canary stops the
+    // slots being quietly re-taken or re-pointed.
+    const { EXPERIMENT_REGISTRY, SERIES_REGISTRY } = await import('@/types/research');
+    const byId = new Map(EXPERIMENT_REGISTRY.map((e) => [e.id, e]));
+
+    // One fundamental question each — the family names carry the class.
+    // The sequence lives in `programmeFocus`; `family` is the protocol title.
+    // Kept as separate fields so neither has to be bent into the other.
+    expect(byId.get('EXP-P1')!.programmeFocus).toBe('Reasoning Compression');
+    expect(byId.get('EXP-P2')!.programmeFocus).toBe('Consequential Performance');
+    expect(byId.get('EXP-P3')!.programmeFocus).toBe('Representation');
+    expect(byId.get('EXP-P4')!.programmeFocus).toBe('Interaction');
+
+    // P3 is the REPRESENTATION experiment, not the capability demonstration —
+    // the Laboratory reads protocolRef, so a stale ref shows the wrong design.
+    expect(byId.get('EXP-P3')!.protocolRef).toContain('exp-p3-representation-of-structural-invariants');
+    // P2 is the FAMILY since the 2026-07-27 ruling: its ref is the family index,
+    // not a domain protocol. The physical-design protocol it used to point at
+    // now belongs to EXP-P2B, and a P2 ref that still resolved there would show
+    // the Laboratory one domain as if it were the whole consequence question.
+    expect(byId.get('EXP-P2')!.protocolRef).toContain('exp-p2-consequential-performance');
+    expect(byId.get('EXP-P2')!.protocolRef).not.toContain('physical');
+
+    // P4 is RESERVED: no protocol, and it must say so rather than implying one.
+    expect(byId.get('EXP-P4')!.family).toMatch(/RESERVED/);
+    expect(byId.get('EXP-P4')!.hypothesis).toMatch(/^RESERVED/);
+
+    // The renumbered pair is retained and registered — renumbered, never lost.
+    expect(byId.get('EXP-011')!.family).toMatch(/Structural/i);
+    expect(byId.get('EXP-012')!.family).toMatch(/Capability/i);
+    // Lineage is structured metadata now, not a phrase inside prose.
+    expect(byId.get('EXP-011')!.formerly).toBe('EXP-P2');
+    expect(byId.get('EXP-012')!.formerly).toBe('EXP-P3');
+
+    // Numbers are never reused: no renumbered design may sit back in a P slot.
+    for (const id of ['EXP-011', 'EXP-012']) {
+      expect(byId.get(id)!.seriesId).not.toBe('VP1');
+    }
+    const vp1 = SERIES_REGISTRY.find((s) => s.id === 'VP1')!;
+    expect(vp1.members).toEqual(['EXP-P1', 'EXP-P2', 'EXP-P3', 'EXP-P4']);
   });
 
   it('Constitutional Cybernetics (CFS-019): glossary term resolves with its governing invariants', async () => {
@@ -481,7 +586,21 @@ describe('Computational Epistemology — Aletheon institute-standing amendment (
 
   it('RESEARCH_PROGRAMMES pinned — the A/B/C nomenclature maps to registered experiments', async () => {
     const { RESEARCH_PROGRAMMES, EXPERIMENT_REGISTRY } = await import('@/types/research');
-    expect(RESEARCH_PROGRAMMES.map((p) => `${p.id}:${p.name}`)).toEqual([
+    // The programme list GROWS -- D (Reasoning Systems) and E (Invariant
+    // Intelligence) were added after this test was written, and a hardcoded
+    // three-item list turned every legitimate addition into a red build.
+    // What is actually worth pinning is the SHAPE: single-letter ids, unique,
+    // sequential from A, each with a name. The membership check below (every
+    // programme experiment exists in the registry) is the real contract.
+    const ids = RESEARCH_PROGRAMMES.map((p) => p.id);
+    expect(ids).toEqual(ids.map((_, i) => String.fromCharCode(65 + i)));
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const p of RESEARCH_PROGRAMMES) {
+      expect(p.name.trim().length, `programme ${p.id} has no name`).toBeGreaterThan(0);
+    }
+    // The three original programmes must still be present and correctly named
+    // -- growth is fine, silent renaming of a shipped programme is not.
+    expect(RESEARCH_PROGRAMMES.slice(0, 3).map((p) => `${p.id}:${p.name}`)).toEqual([
       'A:Invariant Knowledge',
       'B:Temporal Composition',
       'C:Reasoning Compression',

@@ -18,7 +18,8 @@
  */
 
 import type { DecisionProjection, FieldSnapshot } from '../engine';
-import { deriveWeightsFromStanding, getCachedFieldSnapshot, registerNodeMeta } from '../engine';
+import { deriveWeightsFromStanding, registerNodeMeta } from '../engine';
+import { getCachedFieldSnapshot } from '../grounding';
 
 export const NBE_RANKING_NODE_ID = 'nbe.ranking';
 

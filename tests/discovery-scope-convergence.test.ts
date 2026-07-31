@@ -84,6 +84,92 @@ describe('Compare discipline (Phase 2 — earned domain invariants)', () => {
     expect(src).toMatch(/Do NOT invent invariants unsupported/);
   });
 
+  it('includes PROMOTED sub-domain invariants as compare inputs (promote-first workflow must not break Compare)', () => {
+    // Both the sub-domain gather and the baseline gather must admit candidate+promoted,
+    // else promoting sub-domain findings (the intended next step) empties the compare set.
+    expect(src).toMatch(/\.in\('status', \['candidate', 'promoted'\]\)[\s\S]*?\.not\('sub_domain', 'is', null\)/);
+    expect(src).toMatch(/\.is\('sub_domain', null\)[\s\S]*?\.in\('status', \['candidate', 'promoted'\]\)/);
+  });
+});
+
+describe('Recursive compression discipline (parent-child keystone)', () => {
+  const src = readFileSync(join(__dirname, '..', 'services', 'invariants', 'discoveryEngine.ts'), 'utf8');
+
+  it('needs at least 2 domain invariants and grounds strictly (no invented relationships)', () => {
+    expect(src).toMatch(/export async function compressDomainInvariants/);
+    expect(src).toMatch(/needs at least 2 domain invariants/);
+    expect(src).toMatch(/Do NOT invent invariants or relationships/i);
+  });
+
+  it('is acyclic + drops self-references, and only accepts in-range parent indices', () => {
+    expect(src).toMatch(/MUST be acyclic/);
+    // The filter was rewritten (inverted polarity, renamed variable, plus an
+    // integer check and a seen-set dedupe) with IDENTICAL semantics, so the
+    // old `p !== idx` / `p < items.length` literals pinned an expression that
+    // no longer exists while the rule it guards held throughout.
+    //
+    // Asserted by SEMANTICS, not by expression text: the guard must reject a
+    // non-integer, a self-reference, and an out-of-range index. Naming and
+    // polarity are free to change; dropping a condition is not.
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    const guard = code
+      .split('\n')
+      .find((l) => l.includes('items.length') && l.includes('continue'));
+    expect(guard, 'the parent-index guard was not found').toBeTruthy();
+    expect(guard, 'integer check dropped').toMatch(/Number\.isInteger/);
+    expect(guard, 'self-reference check dropped').toMatch(/idx/);
+    expect(guard, 'lower-bound check dropped').toMatch(/<\s*0/);
+    expect(guard, 'upper-bound check dropped').toMatch(/items\.length/);
+  });
+
+  it('role/derived: a node is derived only when it has ≥1 valid parent, else root', () => {
+    expect(src).toMatch(/String\(n\.role\) === 'derived' && parents\.length > 0 \? 'derived' : 'root'/);
+  });
+
+  it('is DE-BIASED — the prompt names no worked FS example that steers which invariant is a root', () => {
+    const prompt = src.slice(src.indexOf('COMPRESS_DOMAIN_SYSTEM'), src.indexOf('interface CompressExtraction'));
+    // must not confirm a preferred ontology
+    expect(prompt).toMatch(/DISCOVER the\s+structure the statements actually support|NOT to confirm any preferred/i);
+    // no biasing worked examples naming specific FS invariants as roots/derived
+    expect(prompt).not.toMatch(/Risk-management practices are required|harmonized regulatory framework/i);
+    // a flat all-roots result is explicitly acceptable
+    expect(prompt).toMatch(/flat.*all-roots.*acceptable/i);
+  });
+
+  it('edges are TYPED (entails/specializes/depends_on/supports); uncertain → weakest (supports)', () => {
+    expect(src).toMatch(/COMPRESSION_RELATIONSHIPS = \['entails', 'specializes', 'depends_on', 'supports'\]/);
+    // unknown/uncertain relationship coerces to the weakest link, never over-claims entailment
+    expect(src).toMatch(/normalizeRelationship[\s\S]*?: 'supports'/);
+    // each proposed edge carries a claim + confidence
+    expect(src).toMatch(/claim:.*slice\(0, 400\)/);
+    expect(src).toMatch(/confidence: Math\.max\(0, Math\.min\(1/);
+  });
+
+  it('proposals are NOT auto-materialised — persisted with materialized:false', () => {
+    const fn = src.slice(src.indexOf('export async function compressDomainInvariants'));
+    const body = fn.slice(0, fn.indexOf('\nexport '));
+    expect(body).toMatch(/materialized: false/);
+    // structure discovery only — no promotion/canonize/confidence writes
+    expect(body).not.toMatch(/status: 'promoted'|canonize|addEdge/);
+  });
+
+  it('promotion does NOT auto-insert recursive edges (operator-confirmed only)', () => {
+    const promote = src.slice(src.indexOf('export async function promoteCandidate'));
+    const body = promote.slice(0, promote.indexOf('\nexport '));
+    // the auto-merge of compression parents must be gone from promotion
+    expect(body).not.toMatch(/compressionParents|resolveCompressionParentInvariantIds/);
+  });
+
+  it('materializeCompressionEdges is operator-confirmed + typed + skips un-promoted parents', () => {
+    expect(src).toMatch(/export async function materializeCompressionEdges/);
+    // requires the child to be promoted
+    expect(src).toMatch(/candidate is not promoted — promote it/);
+    // resolves parents, skipping un-promoted
+    expect(src).toMatch(/\.not\('promoted_invariant_id', 'is', null\)/);
+    // materialises with the PROPOSED relationship's edge type (not hardcoded specializes)
+    expect(src).toMatch(/RELATIONSHIP_EDGE_TYPE\[normalizeRelationship\(p\.relationship\)\]/);
+  });
+
   it('confidence is recurrence-based (coverage breadth), not model self-report', () => {
     expect(src).toMatch(/0\.55 \+ 0\.1 \* cov/);
   });

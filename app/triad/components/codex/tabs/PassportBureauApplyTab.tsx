@@ -46,9 +46,15 @@ import {
   buildSelfCustodyRef,
 } from '@/services/passport/selfCustodyVault';
 import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
-
-type StepId = 'class' | 'account' | 'identity' | 'vault' | 'agent' | 'consents' | 'submit';
-type PassportClass = 'citizen' | 'participant';
+import {
+  resolveCitizenStepAfterClassChoice,
+  resolveCitizenStepAfterAccountCreation,
+  resolveDelegateStepAfterClassChoice,
+  wizardSteps,
+  type StepId,
+  type PassportClass,
+} from '@/services/passport/passportWizardSteps';
+import { personaFetch } from '@/utils/personaSpine';
 
 // Mirrors BoundedDelegationTab's grant vocabulary (AgentiQ OS cartridge).
 const DELEGATION_TRUST_BANDS = [
@@ -90,7 +96,7 @@ function getTurnstile(): TurnstileApi | null {
 }
 
 const PARTICIPANT_CONSENT_LABELS: Array<{ key: string; label: string }> = [
-  { key: 'participant_terms_accepted', label: 'I accept the Participant Passport terms on behalf of this agent.' },
+  { key: 'participant_terms_accepted', label: 'I accept the Polity Delegate Passport terms on behalf of this agent.' },
   { key: 'registry_pending_record_consent', label: 'I consent to a public pending-registry record for this application.' },
   { key: 'constraints_and_obligations_accepted', label: 'I accept the participant constraints and obligations.' },
   { key: 'review_process_accepted', label: 'I accept the steward review process.' },
@@ -214,6 +220,69 @@ export function PassportBureauApplyTab() {
     return () => { cancelled = true; };
   }, []);
 
+  // Sponsorship/approval-dependency display (Guided Journey Runtime —
+  // Citizen-to-agent continuation). handleQuickAgent/handleDeployAutonomous
+  // already REFUSE server-side without a claimed Citizen Passport, but that
+  // only surfaced reactively, as an error AFTER the operator clicked
+  // "Generate & bind agent" — exactly the pattern the "Continue with my
+  // agent?" flow makes likely to hit immediately (a Citizen application can
+  // be SUBMITTED without being CLAIMED yet). This proactively shows the real
+  // dependency the moment the Agent step is reached, so the button disables
+  // itself instead of failing after the fact.
+  const [sponsorEligibility, setSponsorEligibility] = useState<
+    { status: 'loading' | 'claimed' | 'pending' | 'none'; detail: string } | null
+  >(null);
+  useEffect(() => {
+    if (step !== 'agent') return;
+    let cancelled = false;
+    setSponsorEligibility({ status: 'loading', detail: 'Checking sponsorship eligibility…' });
+    personaFetch('/api/polity-passport/wallet', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        const passportQubes = (json?.passportQubes ?? []) as Array<{
+          passportId: string; passportClass: string; claimedAt: string | null; claimableReason?: string | null;
+        }>;
+        const claimed = passportQubes.find((pq) => pq.claimedAt && pq.passportClass === 'citizen')
+          ?? passportQubes.find((pq) => pq.claimedAt);
+        if (claimed) {
+          if (!cancelled) setSponsorEligibility({ status: 'claimed', detail: `Citizen Passport ${claimed.passportId} is claimed — ready to sponsor.` });
+          return;
+        }
+        const unclaimedCitizen = passportQubes.find((pq) => pq.passportClass === 'citizen');
+        if (unclaimedCitizen) {
+          if (!cancelled) {
+            setSponsorEligibility({
+              status: 'pending',
+              detail: unclaimedCitizen.claimableReason
+                ? `Citizen Passport issued but not yet claimed — ${unclaimedCitizen.claimableReason}.`
+                : 'Citizen Passport issued but not yet claimed.',
+            });
+          }
+          return;
+        }
+        const pendingApplications = (json?.pendingApplications ?? []) as Array<{ passportClass: string; applicationStatus: string }>;
+        const pendingCitizenApp = pendingApplications.find((a) => a.passportClass === 'citizen');
+        if (pendingCitizenApp) {
+          if (!cancelled) {
+            setSponsorEligibility({
+              status: 'pending',
+              detail: `Citizen application ${pendingCitizenApp.applicationStatus.replace(/_/g, ' ')} — not yet claimed.`,
+            });
+          }
+          return;
+        }
+        if (!cancelled) {
+          setSponsorEligibility({
+            status: 'none',
+            detail: 'No Citizen Passport application yet — a Polity Delegate Passport derives its authority from a claimed Citizen Passport.',
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setSponsorEligibility(null); });
+    return () => { cancelled = true; };
+  }, [step]);
+
   // Option A (admin-only) — deploy an autonomous agent. Binds to the current
   // constitution; agent class only (no kybe / citizenship), enforced server-side.
   const [autonomousBusy, setAutonomousBusy] = useState(false);
@@ -270,7 +339,7 @@ export function PassportBureauApplyTab() {
         (pq: { claimedAt: string | null }) => pq.claimedAt,
       );
       if (!claimed) {
-        setError('You need a claimed Citizen Passport first. Apply on the Class → Identity steps, then come back here.');
+        setError('You need a claimed Polity Citizen Passport first — a Polity Delegate Passport derives its authority from one. Apply as a Citizen, then come back here.');
         return;
       }
       const name = agentName.trim() || 'Polity Helper';
@@ -303,7 +372,7 @@ export function PassportBureauApplyTab() {
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: name });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its participant passport will map to your aigentMe.`
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — its Polity Delegate Passport will map to your aigentMe.`
           : `Agent Card live at ${data.agent.agentCardUrl}`,
       );
     } catch (e) {
@@ -343,8 +412,8 @@ export function PassportBureauApplyTab() {
       if (data.agent.isAigentMe) setExistingAigentMe({ displayName: agentName.trim() });
       setNotice(
         data.agent.isAigentMe
-          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Participant Passport.`
-          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Participant Passport.`,
+          ? `aigentMe Agent Card live at ${data.agent.agentCardUrl} — submit below to issue your aigentMe its Polity Delegate Passport.`
+          : `Agent Card live at ${data.agent.agentCardUrl} — submit below to issue ${agentName.trim()} a Polity Delegate Passport.`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
@@ -352,6 +421,41 @@ export function PassportBureauApplyTab() {
       setGenesisBusy(false);
     }
   }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId, makeAigentMe]);
+
+  // Agent Card autofill (Delegate/agent route, "Paste existing Agent Card
+  // URL" path). Without this, name/description/capabilities had to be
+  // re-typed by hand even though the pasted card already publishes them —
+  // a coherence risk (the application could say something the card itself
+  // disagrees with) as well as needless data entry. Never overwrites a
+  // field the card doesn't itself declare; never invents a value the card
+  // doesn't have.
+  const [cardFetchBusy, setCardFetchBusy] = useState(false);
+  const [cardFetchError, setCardFetchError] = useState<string | null>(null);
+  const handleFetchCardDetails = useCallback(async () => {
+    const url = agentCardUrl.trim();
+    if (!url) return;
+    setCardFetchBusy(true);
+    setCardFetchError(null);
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Could not fetch Agent Card (HTTP ${res.status})`);
+      const card = await res.json();
+      if (typeof card?.name === 'string' && card.name.trim()) setAgentName(card.name.trim());
+      if (typeof card?.description === 'string' && card.description.trim()) setAgentDescription(card.description.trim());
+      const skillNames = Array.isArray(card?.skills)
+        ? card.skills
+            .map((s: unknown) => (s && typeof s === 'object' ? (s as Record<string, unknown>).name : undefined))
+            .filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 0)
+        : [];
+      if (skillNames.length > 0) setAgentCapabilities(skillNames.join(', '));
+      const runtimeAgentId = card?.metadata?.runtime_agent_id;
+      if (typeof runtimeAgentId === 'string' && runtimeAgentId.trim()) setAgentType(runtimeAgentId.trim());
+    } catch (e) {
+      setCardFetchError(e instanceof Error ? e.message : 'Could not fetch Agent Card');
+    } finally {
+      setCardFetchBusy(false);
+    }
+  }, [agentCardUrl]);
 
   // Step 1 — account
   const [username, setUsername] = useState('');
@@ -376,6 +480,11 @@ export function PassportBureauApplyTab() {
   // Step 5 — submit
   const [captchaToken, setCaptchaToken] = useState('');
   const [applications, setApplications] = useState<OwnApplication[]>([]);
+  // Citizen-to-agent continuation (Guided Journey Runtime — Continuity
+  // Without Premature Approval): offered once, right after a successful
+  // Citizen submission, in this same session.
+  const [citizenJustSubmitted, setCitizenJustSubmitted] = useState(false);
+  const [continuationDismissed, setContinuationDismissed] = useState(false);
   const turnstileRef = useRef<HTMLDivElement | null>(null);
 
   // Render the Turnstile challenge when the citizen submit panel mounts
@@ -430,7 +539,16 @@ export function PassportBureauApplyTab() {
   useEffect(() => {
     void (async () => {
       const { data } = await getSupabaseBrowserClient().auth.getSession();
-      if (data?.session) {
+      // Account–Personhood Separation: a Supabase session from the broader
+      // platform (the operator's normal login) is NOT a Bureau account. If
+      // `signedIn` treated any session as sufficient, an already-logged-in
+      // operator applying as Citizen would silently skip the Account step
+      // and never create the Bureau persona that step exists to create —
+      // the KybeDID bind that follows has nothing to bind. Only a session
+      // whose email is the Bureau's own synthetic-account domain (minted by
+      // handleAccount below) counts.
+      const email = data?.session?.user?.email;
+      if (email && email.endsWith('@passport.metame.internal')) {
         setSignedIn(true);
         void loadStatus();
       }
@@ -441,7 +559,11 @@ export function PassportBureauApplyTab() {
     (chosen: PassportClass) => {
       setPassportClass(chosen);
       setChecks({});
-      setStep(signedIn ? 'identity' : 'account');
+      // Two fully independent resolvers (services/passport/passportWizardSteps.ts)
+      // — never a single function branching on `chosen` internally. That
+      // shape is what caused the 2026-07-31 regression where a Delegate/
+      // agent applicant was routed through the human Account step.
+      setStep(chosen === 'participant' ? resolveDelegateStepAfterClassChoice() : resolveCitizenStepAfterClassChoice(signedIn));
     },
     [signedIn],
   );
@@ -467,7 +589,10 @@ export function PassportBureauApplyTab() {
       });
       if (signInError) throw new Error(signInError.message);
       setSignedIn(true);
-      setStep('identity');
+      // Only the Citizen route ever reaches this step — Delegate/agent
+      // applicants never visit Account (resolveDelegateStepAfterClassChoice
+      // sends them straight to 'agent' from Class).
+      setStep(resolveCitizenStepAfterAccountCreation());
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Account step failed');
@@ -489,26 +614,33 @@ export function PassportBureauApplyTab() {
       const res = await fetch('/api/passport/identity/bind', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ displayName: displayName || undefined }),
+        // Defaults to the applicant's own persona name, never a hardcoded
+        // placeholder — Persona–Personhood Separation still holds (the
+        // persona name identifies how they act; personhood is bound
+        // independently), but an unset display name shouldn't silently
+        // become a generic label when we already know their persona name.
+        body: JSON.stringify({ displayName: displayName || username || undefined }),
       });
-      const json = await res.json().catch(() => ({ ok: false, error: `Identity bind failed (HTTP ${res.status})` }));
-      if (!json.ok) throw new Error(json.error || 'Identity bind failed');
+      const json = await res.json().catch(() => ({ ok: false, error: `Personhood bind failed (HTTP ${res.status})` }));
+      if (!json.ok) throw new Error(json.error || 'Personhood bind failed');
       setBound(true);
       setKybeRef(json.kybePublicRef ?? null);
       setNotice(
         json.alreadyBound
-          ? 'Identity already bound — continuing with your existing KybeDID.'
+          ? 'Personhood already bound — continuing with your existing KybeDID.'
           : json.existingRootDidMapped
-            ? 'Existing platform identity mapped — your KybeDID was reused.'
+            ? 'Existing platform personhood mapped — your KybeDID was reused.'
             : 'New KybeDID minted and bound.',
       );
-      setStep(passportClass === 'participant' ? 'agent' : 'vault');
+      // Only the Citizen route ever reaches this step (Human Personhood
+      // Exclusivity) — always continues to the private vault step.
+      setStep('vault');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Bind failed');
     } finally {
       setBusy(false);
     }
-  }, [displayName, passportClass]);
+  }, [displayName, username]);
 
   // Participant — bind the agent to the applicant with an AgentiQ OS
   // bounded-delegation grant (same surface as BoundedDelegationTab).
@@ -673,6 +805,7 @@ export function PassportBureauApplyTab() {
         throw new Error(json.error || 'Submission failed');
       }
       setNotice(`Application submitted — status: ${json.applicationStatus}`);
+      setCitizenJustSubmitted(true);
       void loadStatus();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Submission failed');
@@ -681,16 +814,40 @@ export function PassportBureauApplyTab() {
     }
   }, [captchaToken, vaultRef, loadStatus]);
 
-  const steps: Array<{ id: StepId; label: string; icon: React.ReactNode }> = [
-    { id: 'class', label: 'Class', icon: <ShieldCheck className="h-4 w-4" /> },
-    { id: 'account', label: 'Account', icon: <UserPlus className="h-4 w-4" /> },
-    { id: 'identity', label: 'Identity', icon: <KeyRound className="h-4 w-4" /> },
-    ...(passportClass === 'participant'
-      ? [{ id: 'agent' as StepId, label: 'Agent', icon: <Bot className="h-4 w-4" /> }]
-      : [{ id: 'vault' as StepId, label: 'Private Vault', icon: <Lock className="h-4 w-4" /> }]),
-    { id: 'consents', label: 'Consents', icon: <FileCheck2 className="h-4 w-4" /> },
-    { id: 'submit', label: 'Submit', icon: <Send className="h-4 w-4" /> },
-  ];
+  // "Continue with my agent?" — carries forward the active persona/principal
+  // context (they're already signed in and have just submitted a Citizen
+  // application) straight into the Agent step. Application continuity does
+  // NOT collapse approval dependencies: the agent application may be
+  // prepared and submitted here, but the existing genesis/sponsor checks
+  // (handleQuickAgent above) still require a CLAIMED Citizen Passport before
+  // an agent can actually be sponsored — submitting here does not bypass
+  // that, it only avoids restarting the wizard from Class later.
+  const handleContinueWithAgent = useCallback(() => {
+    setPassportClass('participant');
+    setChecks({});
+    setStep('agent');
+  }, []);
+
+  // Branch by constitutional subject (Guided Journey Runtime invariant:
+  // Branch by Constitutional Subject). The Delegate/agent route NEVER
+  // shows Account or Personhood as steps at all — not even as mysteriously
+  // skipped boxes — because an agent application never touches either.
+  // Membership/order comes from the authoritative wizardSteps() rule
+  // (services/passport/passportWizardSteps.ts); only label/icon are a UI
+  // concern kept here.
+  const STEP_META: Record<StepId, { label: string; icon: React.ReactNode }> = {
+    class: { label: 'Class', icon: <ShieldCheck className="h-4 w-4" /> },
+    account: { label: 'Account', icon: <UserPlus className="h-4 w-4" /> },
+    identity: { label: 'Personhood', icon: <KeyRound className="h-4 w-4" /> },
+    vault: { label: 'Private Vault', icon: <Lock className="h-4 w-4" /> },
+    agent: { label: 'Agent', icon: <Bot className="h-4 w-4" /> },
+    consents: { label: 'Consents', icon: <FileCheck2 className="h-4 w-4" /> },
+    submit: { label: 'Submit', icon: <Send className="h-4 w-4" /> },
+  };
+  const steps: Array<{ id: StepId; label: string; icon: React.ReactNode }> = wizardSteps(passportClass).map(
+    (id) => ({ id, ...STEP_META[id] }),
+  );
+  const stepGridClass = steps.length === 4 ? 'grid-cols-4' : 'grid-cols-6';
 
   // Tier-3 right-justified context badge — shows which passport class the
   // applicant has chosen. Portaled into SubHeaderSlot so it sits on the same
@@ -698,7 +855,7 @@ export function PassportBureauApplyTab() {
   const tierBadge = step !== 'class' ? (
     <div className="ml-auto flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] text-emerald-300">
       <ShieldCheck className="h-3 w-3" />
-      {passportClass === 'participant' ? 'Participant Application' : 'Citizen Application'}
+      {passportClass === 'participant' ? 'Delegate Application' : 'Citizen Application'}
     </div>
   ) : null;
 
@@ -709,12 +866,12 @@ export function PassportBureauApplyTab() {
         <ShieldCheck className="h-7 w-7 text-violet-400" />
         <div>
           <h2 className="text-lg font-semibold text-slate-100">
-            {passportClass === 'participant' ? 'Participant Passport Application' : 'Citizen Passport Application'}
+            {passportClass === 'participant' ? 'Polity Delegate Passport Application' : 'Polity Citizen Passport Application'}
           </h2>
           <p className="text-sm text-slate-400">
             {passportClass === 'participant'
-              ? 'Apply for a passport for an agent and bind it to yourself with a bounded delegation.'
-              : 'Anonymous proof of personhood. Your private data stays in your custody — always.'}
+              ? 'A revocable authority credential for an agent, derived from an eligible Polity Citizen Passport — never an independent personhood claim.'
+              : 'Continuing constitutional personhood for a human principal. Your private data stays in your custody — always.'}
           </p>
         </div>
       </div>
@@ -722,8 +879,10 @@ export function PassportBureauApplyTab() {
       {/* Step strip — rounded-rectangle boxes, equal-width, one row.
           Replaces the prior pill design which wrapped to two lines on
           'Private Vault'. Per operator note 2026-06-13: 'use a better
-          kind of more polished looking boxes... still rounded corners'. */}
-      <div className="grid grid-cols-6 gap-2">
+          kind of more polished looking boxes... still rounded corners'.
+          Step count/labels are derived from the selected class (One
+          Journey, Conditional Steps) — never a fixed six-box line. */}
+      <div className={cls('grid gap-2', stepGridClass)}>
         {steps.map((s, i) => (
           <button
             key={s.id}
@@ -758,16 +917,16 @@ export function PassportBureauApplyTab() {
 
       {step === 'class' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
-          <p className="text-sm text-slate-300">Who is this passport for?</p>
+          <p className="text-sm text-slate-300">Who is this Passport for?</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
               onClick={() => handleClassChoice('citizen')}
               className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
             >
               <User className="h-6 w-6 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-100">Citizen Passport</span>
+              <span className="text-sm font-semibold text-slate-100">Polity Citizen Passport</span>
               <span className="text-xs text-slate-400">
-                For you — anonymous proof of personhood with self-custody privacy.
+                Continuing constitutional personhood — for you, a human principal. Anonymous, self-custody privacy.
               </span>
             </button>
             <button
@@ -775,9 +934,9 @@ export function PassportBureauApplyTab() {
               className="flex flex-col items-start gap-2 rounded-xl border border-slate-700 bg-slate-800/60 p-4 text-left hover:border-violet-500/60 hover:bg-slate-800"
             >
               <Bot className="h-6 w-6 text-violet-400" />
-              <span className="text-sm font-semibold text-slate-100">Participant Passport</span>
+              <span className="text-sm font-semibold text-slate-100">Polity Delegate Passport</span>
               <span className="text-xs text-slate-400">
-                For an agent you operate — bound to you via an AgentiQ OS bounded delegation.
+                A revocable authority credential for an agent you operate — derived from your Polity Citizen Passport via a bounded delegation.
               </span>
             </button>
           </div>
@@ -790,6 +949,30 @@ export function PassportBureauApplyTab() {
             Describe the agent this passport is for, then bind it to yourself. The Bureau anchors
             participant identity on the agent card URL.
           </p>
+
+          {/* Sponsorship/approval-dependency display — proactive, not
+              reactive-on-click. See the sponsorEligibility effect above. */}
+          {sponsorEligibility && (
+            <div
+              className={cls(
+                'flex items-start gap-2 rounded-lg border px-3 py-2 text-xs',
+                sponsorEligibility.status === 'claimed'
+                  ? 'border-emerald-700/50 bg-emerald-900/10 text-emerald-200'
+                  : sponsorEligibility.status === 'loading'
+                    ? 'border-slate-700/50 bg-slate-900/40 text-slate-400'
+                    : 'border-amber-600/50 bg-amber-900/10 text-amber-200',
+              )}
+            >
+              {sponsorEligibility.status === 'loading' ? (
+                <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+              ) : sponsorEligibility.status === 'claimed' ? (
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              )}
+              <span>{sponsorEligibility.detail}</span>
+            </div>
+          )}
 
           {/* Agent Card source toggle (Sprint 3) */}
           <div className="flex flex-wrap gap-2 text-xs">
@@ -884,7 +1067,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleDeployAutonomous}
-                disabled={autonomousBusy || !!autonomousDeployed}
+                disabled={autonomousBusy || !!autonomousDeployed || sponsorEligibility?.status !== 'claimed'}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] font-medium text-purple-200 hover:bg-purple-500/20 disabled:opacity-50 transition-colors"
               >
                 {autonomousBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
@@ -917,7 +1100,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleQuickAgent}
-                disabled={genesisBusy || genesisCompleted}
+                disabled={genesisBusy || genesisCompleted || sponsorEligibility?.status !== 'claimed'}
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
@@ -956,7 +1139,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleGenesisAgent}
-                disabled={genesisBusy || genesisCompleted}
+                disabled={genesisBusy || genesisCompleted || sponsorEligibility?.status !== 'claimed'}
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
               >
                 {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
@@ -967,12 +1150,30 @@ export function PassportBureauApplyTab() {
               )}
             </div>
           ) : (
-            <input
-              value={agentCardUrl}
-              onChange={(e) => setAgentCardUrl(e.target.value)}
-              placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            />
+            <div className="space-y-1.5">
+              <div className="flex gap-2">
+                <input
+                  value={agentCardUrl}
+                  onChange={(e) => setAgentCardUrl(e.target.value)}
+                  placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleFetchCardDetails()}
+                  disabled={cardFetchBusy || !agentCardUrl.trim()}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {cardFetchBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  Fetch &amp; autofill
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Pastes the name, description, and declared skills from the card itself into the fields
+                below — never re-typed by hand, never drifting from what the card actually says.
+              </p>
+              {cardFetchError && <p className="text-xs text-rose-400">{cardFetchError}</p>}
+            </div>
           )}
           <input
             value={agentType}
@@ -1064,9 +1265,13 @@ export function PassportBureauApplyTab() {
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username (lowercase letters, digits, hyphens)"
+            placeholder="Persona name (lowercase letters, numbers and hyphens)"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
+          <p className="text-xs text-slate-500">
+            Your persona name is the handle through which you enter and act within the platform. It
+            is not the proof of your personhood.
+          </p>
           <input
             type="password"
             value={password}
@@ -1102,16 +1307,17 @@ export function PassportBureauApplyTab() {
       {step === 'identity' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
-            Binding creates your Bureau persona and KybeDID — the anonymous anchor proving you are
-            one unique person. If you already have a platform identity, it is reused (one KybeDID
-            per human).
+            Binding establishes your KybeDID — the privacy-preserving anchor proving that one
+            continuing person exists behind this Passport. Existing personhood is reused rather than
+            duplicated (one KybeDID per human).
           </p>
           <input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Display name (optional — defaults to 'Polity Citizen')"
+            placeholder="Display name — optional"
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
           />
+          <p className="text-xs text-slate-500">Defaults to your persona name.</p>
           {bound && kybeRef && (
             <p className="font-mono text-xs text-slate-400">KybeDID commitment: {kybeRef}</p>
           )}
@@ -1121,7 +1327,7 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-            {bound ? 'Re-check binding' : 'Bind identity'}
+            {bound ? 'Re-check personhood binding' : 'Bind personhood'}
           </button>
         </div>
       )}
@@ -1276,7 +1482,7 @@ export function PassportBureauApplyTab() {
       {step === 'submit' && passportClass === 'participant' && (
         <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-sm text-slate-300">
-            Submit the participant application for <strong>{agentName || 'your agent'}</strong>.
+            Submit the Polity Delegate Passport application for <strong>{agentName || 'your agent'}</strong>.
             A steward reviews it in the Bureau queue; you can watch status below.
           </p>
           {!allChecked && (
@@ -1287,7 +1493,7 @@ export function PassportBureauApplyTab() {
                 onClick={() => setStep('consents')}
                 className="underline hover:text-amber-200"
               >
-                Step 5 (Consents)
+                Step 3 (Consents)
               </button>{' '}
               before submitting.
             </p>
@@ -1301,7 +1507,7 @@ export function PassportBureauApplyTab() {
                 onClick={() => setStep('agent')}
                 className="underline hover:text-amber-200"
               >
-                Go back to Step 4 to bind.
+                Go back to Step 2 to bind.
               </button>
             </p>
           )}
@@ -1311,7 +1517,7 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit participant application
+            Submit the Polity Delegate Passport application for this agent
           </button>
         </div>
       )}
@@ -1344,8 +1550,35 @@ export function PassportBureauApplyTab() {
             className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit application
+            Submit your Polity Citizen Passport application
           </button>
+        </div>
+      )}
+
+      {citizenJustSubmitted && !continuationDismissed && (
+        <div className="space-y-3 rounded-xl border border-violet-700/50 bg-violet-950/20 p-4">
+          <p className="text-sm text-slate-200">
+            Do you also want to apply for a Polity Delegate Passport for an agent?
+          </p>
+          <p className="text-xs text-slate-400">
+            Your Polity Citizen Passport application must still be approved before any linked Polity
+            Delegate Passport can be approved or activated — but you can prepare and submit both in
+            one continuous journey.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleContinueWithAgent}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500"
+            >
+              Continue with my agent
+            </button>
+            <button
+              onClick={() => setContinuationDismissed(true)}
+              className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700"
+            >
+              Not now
+            </button>
+          </div>
         </div>
       )}
 

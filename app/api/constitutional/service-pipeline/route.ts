@@ -24,8 +24,8 @@ import {
   type ServicePipelineMode,
 } from '@/services/constitutional/constitutionalServicePipeline';
 import type { FinancialDomain } from '@/services/constitutional/financialIntelligenceExecutor';
-
-const DOMAINS: FinancialDomain[] = ['intelligence', 'investment', 'market'];
+// SPEC-CDR-001 D-1: derive the domain list, never restate it.
+import { isExecutionDomain } from '@/services/resolution/executionTaxonomy';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'intent, capabilityRef, selectedAgentRef required' }, { status: 400 });
   }
   const mode: ServicePipelineMode = body.mode === 'authoritative' ? 'authoritative' : 'shadow';
-  const domain: FinancialDomain = DOMAINS.includes(body.domain as FinancialDomain) ? (body.domain as FinancialDomain) : 'intelligence';
+  const domain: FinancialDomain = isExecutionDomain(body.domain) ? body.domain : 'intelligence';
 
   const result = await runConstitutionalServicePattern({
     intent,

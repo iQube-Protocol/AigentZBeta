@@ -1,7 +1,8 @@
 /**
  * CFS-045 Memory Compilation — Post-Inference Knowledge Compression.
  * Ratified by the operator 2026-07-19 (charter:
- * codexes/packs/agentiq/updates/2026-07-19_cfs-045-memory-compilation-charter.md).
+ * codexes/packs/irl/foundation/CFS-045_memory-compilation-charter.md — filed
+ * into the foundation 2026-07-28, byte-identical, from the agentiq updates pack).
  *
  * The constitutional memory layer: persistent memory stores what SURVIVED
  * reasoning, never the conversation. Every compiled interaction answers one

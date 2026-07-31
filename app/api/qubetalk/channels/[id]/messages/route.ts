@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import {
   getChannel,
   getChannelMessages,
@@ -18,7 +19,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
 
-    const tenant_id = searchParams.get('tenant_id');
+    // Tenant scope is RESOLVED from the caller, never trusted from the query
+    // string — the 2026-07-28 anonymous-read leak. Fails closed on no persona.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
     
     if (!id) {
       return NextResponse.json({
@@ -27,12 +32,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }, { status: 400 });
     }
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        error: 'tenant_id is required',
-        code: 'MISSING_TENANT'
-      }, { status: 400 });
-    }
 
     // Verify channel exists
     const channel = await getChannel(id, tenant_id);

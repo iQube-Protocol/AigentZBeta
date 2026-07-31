@@ -14,6 +14,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
+import { ensureCorpusHydrated, corpusReadFile } from '@/services/knowledge/packCorpusStore';
 import path from 'path';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 
@@ -224,7 +225,19 @@ export async function GET(request: NextRequest) {
   const fullPath = path.join(process.cwd(), entry.path);
 
   try {
-    const content = await readFile(fullPath, 'utf-8');
+    // Pack docs (codexes/packs/**) read through the corpus seam (remote in the
+    // Lambda where their .md bodies are no longer bundled); the two docs/*.md
+    // legibility files stay on the bundled filesystem.
+    let content: string | null;
+    if (entry.path.startsWith('codexes/packs/')) {
+      await ensureCorpusHydrated();
+      content = corpusReadFile(fullPath);
+    } else {
+      content = await readFile(fullPath, 'utf-8');
+    }
+    if (content === null) {
+      return NextResponse.json({ error: 'read_failed', detail: 'not found' }, { status: 500 });
+    }
     return NextResponse.json({
       doc: entry,
       content,

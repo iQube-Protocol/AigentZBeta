@@ -17,7 +17,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
-import { promises as fs } from 'fs';
+import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,13 @@ const PACK_ID = 'irl';
 
 function sanitizePath(filePath: string): string | null {
   if (path.isAbsolute(filePath)) return null;
-  const normalized = path.normalize(filePath);
+  // Accept BOTH path schemes (review-surface QA, Austin 2026-07-21): the
+  // pack-relative form this route reads (`foundation/…`) AND the repo-relative
+  // form the registry publishes as protocolRef (`codexes/packs/irl/foundation/…`).
+  // Strip a leading `./` and the `codexes/packs/irl/` pack prefix so a registry
+  // protocolRef passed verbatim resolves instead of double-prefixing → 404.
+  const stripped = filePath.trim().replace(/^\.\//, '').replace(/^codexes\/packs\/irl\//, '');
+  const normalized = path.normalize(stripped);
   if (normalized.startsWith('..')) return null;
   return normalized;
 }
@@ -43,14 +49,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Unsupported file type (.md/.json only).' }, { status: 400 });
   }
 
-  const packRoot = path.join(process.cwd(), 'codexes', 'packs', PACK_ID);
-  const fullPath = path.join(packRoot, safePath);
-  if (!fullPath.startsWith(packRoot + path.sep)) {
-    return NextResponse.json({ ok: false, error: 'Path out of bounds.' }, { status: 400 });
-  }
-
+  // Read through the pack-corpus seam (local FS in dev; the remote in-memory
+  // corpus in the SSR Lambda where the irl .md bodies are no longer bundled).
   try {
-    const raw = await fs.readFile(fullPath, 'utf-8');
+    const raw = await corpusReadPackFile(PACK_ID, safePath);
+    if (raw === null) {
+      return NextResponse.json({ ok: false, error: 'File not found.' }, { status: 404 });
+    }
     const filename = path.basename(safePath);
     return new NextResponse(raw, {
       status: 200,

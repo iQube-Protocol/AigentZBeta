@@ -10,6 +10,13 @@
  *
  * The change-set is authored + sealed by the operator/researcher in
  * services/experiments/exp-p3-changeset.json (sealed:true, cases:[…]).
+ *
+ * DESIGNATION (2026-07-27): this implementation belongs to **EXP-012 — Capability
+ * Validation**, chartered as EXP-P3 and renumbered when EXP-P3 was assigned to
+ * Representation of Structural Invariants. File names, service paths and API
+ * routes deliberately keep their `expP3` / `exp-p3` identifiers: renaming them
+ * would churn live routes and stored results for a cosmetic gain. The REGISTRY
+ * binding (`ITEM_EXPERIMENT.vp3 -> 'EXP-012'`) is what carries the designation.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

@@ -25,7 +25,8 @@
 import type { RuntimeCapsuleRecord } from '@/types/runtimeCapsules';
 import type { OperatorArchetype } from '@/services/iqube/experienceQube';
 import type { DecisionProjection, FieldSnapshot, NodeProjector } from '../engine';
-import { deriveWeightsFromStanding, getCachedFieldSnapshot, registerNodeMeta } from '../engine';
+import { deriveWeightsFromStanding, registerNodeMeta } from '../engine';
+import { getCachedFieldSnapshot } from '../grounding';
 import { getLens, applyLensToWeights, lensLabel } from '../experience';
 
 export const DISCOVERY_RANKING_NODE_ID = 'discovery.ranking';

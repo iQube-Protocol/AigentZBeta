@@ -43,7 +43,9 @@ export interface MetaQubeParams {
 export interface BlakQubeParams {
   cid: string;
   payloadType: string;
-  provider: 'autonomys' | 'ipfs' | 'payload-cms';
+  // 'supabase' covers the fallback where the encrypted payload is held in the
+  // staging table because Auto Drive is unconfigured or the upload failed.
+  provider: 'autonomys' | 'ipfs' | 'payload-cms' | 'supabase';
   encryptionAlg: string;
   iv: string;
   authTag?: string;
@@ -242,6 +244,38 @@ export async function getBlakQube(id: string): Promise<BlakQube | null> {
   }
 
   return data;
+}
+
+/**
+ * Re-point an existing BlakQube at a freshly encrypted payload.
+ *
+ * Re-staging a persona iQube produces new ciphertext (new IV, new auth tag,
+ * possibly a new CID) for the SAME iQube identity. Updating in place keeps one
+ * BlakQube per subject instead of orphaning a row on every re-stage.
+ */
+export async function updateBlakQubePayload(
+  id: string,
+  params: BlakQubeParams
+): Promise<void> {
+  const supabase = getSupabase();
+
+  const { error } = await supabase
+    .from('iq_blak_qubes')
+    .update({
+      payload_pointer: params.cid,
+      payload_type: params.payloadType,
+      payload_provider: params.provider,
+      payload_size: params.size,
+      encryption_alg: params.encryptionAlg,
+      encryption_iv: params.iv,
+      encryption_auth_tag: params.authTag,
+      checksum: params.checksum,
+    })
+    .eq('id', id);
+
+  if (error) {
+    throw new Error(`Failed to update BlakQube: ${error.message}`);
+  }
 }
 
 /**

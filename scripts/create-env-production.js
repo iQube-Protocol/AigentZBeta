@@ -24,6 +24,13 @@ const envVars = [
   'VENICE_IMAGE_MODEL',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL',
+  // ── SPEC-CDR-001 P5 — presentation threshold for provisional (L3) domain
+  //    profiles. Operational policy, NOT a constitutional constant: it governs
+  //    when the runtime may interrupt a citizen with a hedged contextual
+  //    offer, and is calibrated from evidence. A per-profile
+  //    `presentation_threshold` row value overrides it. UNSET OR INVALID =
+  //    SILENT ABSTENTION (never 0, never show-everything).
+  'CDR_PRESENTATION_THRESHOLD',
   // ── Groq — third-tier STT fallback (Whisper-large-v3, OpenAI-compatible) ─
   'GROQ_API_KEY',
   // ── Cartesia — primary TTS provider (Sonic English, sounds better than OpenAI tts-1) ─
@@ -128,6 +135,12 @@ const envVars = [
   'MARKETA_DISCOVERY_SOURCES',
   // Polity Passport Bureau — credential HMAC signing (Phase A stub)
   'PASSPORT_BUREAU_CREDENTIAL_SECRET',
+  // Public origin pin — makes publicOrigin() independent of the spoofable
+  // x-forwarded-host header (security review 2026-07-21, Finding 1). Set to the
+  // deployed host, e.g. https://dev-beta.aigentz.me. THRESHOLD_TRUSTED_HOSTS is
+  // an optional comma-separated allowlist of hosts x-forwarded-host may match.
+  'NEXT_PUBLIC_APP_URL',
+  'THRESHOLD_TRUSTED_HOSTS',
   // Pairwise External Service References — keyed HMAC derivation for the
   // three-level persona reference model. When unset, external-ref issuance
   // is disabled (private UUIDs + Polity public refs still work).
@@ -258,6 +271,12 @@ const envVars = [
   'LINEAR_API_KEY',
   // Linear lifecycle mirror target team (e.g. 'ENG') — services/linear/lifecycleMirror.ts
   'LINEAR_TEAM_KEY',
+  // CFS-051 Experiment Pipeline token gate (widened 2026-07-25). One of the
+  // three OR'd paths in services/research/registryAccess.ts. Value is the
+  // access spine's own credential grammar: 'token:<chain>:<contract>' (ERC-721)
+  // or 'token:<chain>:<contract>:<tokenId>' (ERC-1155). UNSET = the token path
+  // is inert (fails closed); it never opens access on its own.
+  'RESEARCH_REGISTRY_TOKEN_CREDENTIAL',
 ];
 
 let content = '';

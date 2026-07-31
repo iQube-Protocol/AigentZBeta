@@ -27,10 +27,37 @@
  */
 
 export type IntelligenceConfidence = 'low' | 'medium' | 'high';
-export type FinancialDomain = 'intelligence' | 'investment' | 'market';
 
-/** Injected grounding — the invariants relevant to the request. */
-export type GroundingFn = (namespaces: string[], limit: number) => Promise<{ id: string; statement: string }[]>;
+/**
+ * The canonical execution-domain tuple. SPEC-CDR-001 §3 / D-1 (RATIFIED
+ * 2026-07-25): every registry, profile schema, or presentation surface that
+ * enumerates execution domains MUST derive them from HERE rather than restate
+ * them. `FinancialDomain` is derived from this tuple, not the other way round,
+ * so a value list and the type can never drift apart.
+ *
+ * Widening this tuple widens the money-moving execution contract. SPEC-CDR-001
+ * §10.1 explicitly does NOT authorise that — governance domains are a separate,
+ * non-executable class (§4.2) and must never be added here.
+ */
+export const FINANCIAL_DOMAINS = ['intelligence', 'investment', 'market'] as const;
+
+export type FinancialDomain = (typeof FINANCIAL_DOMAINS)[number];
+
+/**
+ * Injected grounding — the invariants relevant to the request.
+ *
+ * `intent` is FIRST and is not optional (operator ruling 2026-07-27). Without
+ * it the executor could only ask for a namespace slice, which is a substrate
+ * query, not a resolution: the pipeline's IRE call produced a trace string
+ * while the evidence this executor actually reasons from was grounded
+ * separately. The constitutional sequence was in the transcript and absent
+ * from the computation. The intent is what makes resolution possible here.
+ */
+export type GroundingFn = (
+  intent: string,
+  namespaces: string[],
+  limit: number,
+) => Promise<{ id: string; statement: string }[]>;
 
 /** Injected analysis — LLM reasoning over the grounded evidence. Returns null
  *  when unavailable (the executor then keeps the grounded summary). */
@@ -40,9 +67,15 @@ export type AnalyzeFn = (
   domain: FinancialDomain,
 ) => Promise<{ summary: string; confidence: IntelligenceConfidence } | null>;
 
-export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering'];
+// PRD-MPY-001 Phase 3 (P3-3) — includes `finance` (the FS Invariant Library
+// derived from the QriptoCENT Corpus) so every domain (intelligence,
+// investment, market) grounds step 7 execution in real financial-services
+// invariants, not just the platform-general namespaces.
+export const FINANCIAL_GROUNDING_NAMESPACES = ['constitutional', 'epistemology', 'engineering', 'finance'];
 
-const DOMAIN_LABEL: Record<FinancialDomain, string> = {
+/** Shipped domain labels. Exported so SPEC-CDR-001's taxonomy derives these
+ *  rather than maintaining a second label table (inv.engineering.036). */
+export const FINANCIAL_DOMAIN_LABEL: Record<FinancialDomain, string> = {
   intelligence: 'Financial Intelligence',
   investment: 'Investment Operations',
   market: 'Market Operations',
@@ -79,7 +112,7 @@ export async function runFinancialCapability(
   let items: { id: string; statement: string }[] = [];
   if (ground) {
     try {
-      items = await ground(FINANCIAL_GROUNDING_NAMESPACES, 6);
+      items = await ground(intent, FINANCIAL_GROUNDING_NAMESPACES, 6);
     } catch {
       items = [];
     }
@@ -89,7 +122,7 @@ export async function runFinancialCapability(
   let confidence: IntelligenceConfidence = evidenceRefs.length >= 3 ? 'high' : evidenceRefs.length >= 1 ? 'medium' : 'low';
 
   let summary =
-    `${DOMAIN_LABEL[domain]} brief for: "${intent}". ` +
+    `${FINANCIAL_DOMAIN_LABEL[domain]} brief for: "${intent}". ` +
     (evidenceRefs.length > 0
       ? `Grounded in ${evidenceRefs.length} constitutional invariant(s).`
       : `No grounding available — un-grounded (fails verification). Advice only, no fund movement.`);

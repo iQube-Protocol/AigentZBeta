@@ -552,23 +552,35 @@ function templateResponse(
     };
   }
   if (specialistId === 'moneypenny') {
+    // PRD-MPY-001 Phase 3 — when a finance-scoped invariant slice was
+    // resolved for this consult (ask-agent's buildSpecialistInvariantSlice
+    // with namespaces:['finance']), ground the recommendations in it instead
+    // of the hand-authored Q¢ framing (PRD's stated gap: "her recommendations
+    // are hand-authored strings, not constitutional projections"). Falls
+    // back to the original text honestly when no slice was resolved — never
+    // fabricates a citation.
+    const financeSlice = (ctx.invariantSlice ?? []).filter((i) => i.namespace === 'finance');
+    const recommendations = financeSlice.length > 0
+      ? financeSlice.slice(0, 4).map((i) => `[${i.seedId ?? 'unseeded'}] ${i.statement}`)
+      : [
+          `Spell out the Q¢ price (and USD parity) for any unit the user is metering.`,
+          `Identify the settlement rail — Q¢, KNYT, USDC, PayPal — and the receipt that will be emitted.`,
+          `Surface any approval thresholds and the second-tier approval flow that applies.`,
+          `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
+        ];
     return {
       requestType,
       title: `Q¢ economics framing for "${intent}"`,
-      summary:
-        `MoneyPenny frames ${intent} around Q¢ pricing, micro-transaction flows, and payment-ops integrity. The recommendation focuses on how value moves, where it settles, and how the user retains custody.`,
-      recommendations: [
-        `Spell out the Q¢ price (and USD parity) for any unit the user is metering.`,
-        `Identify the settlement rail — Q¢, KNYT, USDC, PayPal — and the receipt that will be emitted.`,
-        `Surface any approval thresholds and the second-tier approval flow that applies.`,
-        `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
-      ],
+      summary: financeSlice.length > 0
+        ? `MoneyPenny grounds ${intent} in ${financeSlice.length} constitutional financial-services invariant(s) from the FS Invariant Library, cited below by seed id.`
+        : `MoneyPenny frames ${intent} around Q¢ pricing, micro-transaction flows, and payment-ops integrity. The recommendation focuses on how value moves, where it settles, and how the user retains custody.`,
+      recommendations,
       // MoneyPenny artifacts are pricing memos (doc), a spreadsheet with
       // the unit-economics math, and an outreach email if pricing needs
       // counterparty alignment.
       suggestedArtifacts: ['google-doc', 'sheet', 'gmail-draft', 'myworkbench-draft'],
       requiresApproval: true,
-      confidence: 'medium',
+      confidence: financeSlice.length > 0 ? 'high' : 'medium',
     };
   }
   if (specialistId === 'researcher') {

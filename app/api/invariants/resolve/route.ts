@@ -71,6 +71,13 @@ export async function POST(req: NextRequest): Promise<Response> {
       coordinates: ipe.coordinates,
       meanAbsDelta: Math.round(ipe.meanAbsDelta * 10000) / 10000,
       diverges: ipe.diverges,
+      // `diverges` is meaningless without these. When comparable is false both
+      // paths defaulted to all-1 and no agreement was computed; and the
+      // calibration stamp is what makes a stored result comparable (or not)
+      // with results produced under a different coordinate scale convention.
+      comparable: ipe.comparable,
+      matched: ipe.matched,
+      calibration: ipe.calibration,
       describe: describeProjection(ipe),
     },
     // The CCR basis summary — what the topography renders against (CFS-038).

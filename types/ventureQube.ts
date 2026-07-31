@@ -585,6 +585,15 @@ export interface VentureSignalEvidenceItem {
   signalId: string;
   signalType: string;
   signalSource: string;
+  /**
+   * The evidence's own content, when the signal carries text rather than only
+   * a pointer. Added 2026-07-27 for Companion capture: pulling something across
+   * from the web into an existing venture IS signal evidence about that
+   * venture, and a signal with a source but no readable content is the "you
+   * can see it exists and cannot read it" defect. Optional, so every existing
+   * item stays valid.
+   */
+  note?: string;
   confidenceScore: ConfidenceScore;
   standingScore: ConfidenceScore;
   proofOfWorkPotential?: ConfidenceScore;

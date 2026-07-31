@@ -9,8 +9,28 @@
  * - Container ID management
  * - Refresh handling
  * 
- * IMPORTANT: This component should NEVER be unmounted during app lifecycle.
- * Use the MetaAvatarContext to show/hide via CSS instead.
+ * MOUNT LIFECYCLE (corrected 2026-07-27 — the fourth opacity report).
+ *
+ * The original rule was "never unmount; hide with CSS". That rule assumed the
+ * SDK renders ONLY inside our container. It does not: the D-ID v2 SDK in
+ * `data-mode="full"` also injects its own nodes at DOCUMENT BODY level. Those
+ * nodes live OUTSIDE the host wrapper the layout positions, so hiding the
+ * wrapper — by opacity, by visibility, by zero size, and finally by
+ * `display:none` — could never reach them. A body-level fixed layer left
+ * behind after the avatar is released is what kept killing `backdrop-filter`
+ * on the panel beneath it, which the operator sees as "the opacity has
+ * disappeared" every time they come back from the avatar.
+ *
+ * This file already carried the evidence: `init()` sweeps
+ * `script[src*="agent.d-id.com"]` and `[id^="did-avatar-container-"]` GLOBALLY
+ * before injecting, because the SDK was known to leave artifacts around the
+ * document. That sweep just never ran on the way OUT.
+ *
+ * So: the host now unmounts when no container owns the avatar (see the two
+ * layouts), and unmounting sweeps the SDK's body-level artifacts as well as
+ * our own container. Re-entering avatar mode re-injects the SDK — a real
+ * reload cost of a second or two, accepted deliberately: three attempts at
+ * keeping it mounted-but-inert each left the surface beneath it broken.
  */
 
 import { useEffect, useRef } from 'react';
@@ -20,6 +40,48 @@ import { useMetaAvatar } from '@/app/contexts/MetaAvatarContext';
 const DID_CLIENT_KEY = process.env.NEXT_PUBLIC_DID_CLIENT_KEY || 'Z29vZ2xlLW9hdXRoMnwxMDcyNjU3ODI2NjQ5ODgyODU4MDk6YkoxSDdROEp5S2Q1Mk1CbEx0ODE2';
 const DID_AGENT_ID = process.env.NEXT_PUBLIC_DID_AGENT_ID || 'v2_agt_dY78cKv2';
 
+/**
+ * Every DOM signature the D-ID SDK is known to stamp on nodes it owns — its
+ * script tag, our target container, and the `did-agent` element family it
+ * mounts (named by `data-name="did-agent"` in the script attributes below).
+ *
+ * Selector-based rather than "anything that appeared after init", so the sweep
+ * can never remove a node belonging to another component that happened to
+ * mount in the same window. No element in this codebase outside this file
+ * carries a `did-` identity.
+ */
+const DID_ARTIFACT_SELECTOR = [
+  // Anything the SDK serves — its module script AND the iframe this file's own
+  // header documents it injecting. The iframe is the node most likely to be the
+  // stray fixed layer, and `[id^=…]`/`[data-name=…]` alone would never catch it.
+  '[src*="d-id.com"]',
+  '[id^="did-avatar-container-"]',
+  '[data-name="did-agent"]',
+  'did-agent',
+  '[id*="did-agent"]',
+  '[class*="did-agent"]',
+  // The SDK's own attribute set, verified absent everywhere else in this
+  // codebase — nothing outside this file declares `data-agent-id`.
+  '[data-agent-id]',
+].join(',');
+
+/**
+ * Removes the SDK's nodes wherever they live in the document — including the
+ * body-level ones the host wrapper cannot reach. `keepContainer` spares the
+ * React-owned container during init (React owns its lifecycle; removing it
+ * from under React would desync the tree), while unmount sweeps everything.
+ */
+export function sweepDidArtifacts(keepContainer?: HTMLElement | null): void {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll(DID_ARTIFACT_SELECTOR).forEach((node) => {
+    if (keepContainer && node === keepContainer) {
+      if (node instanceof HTMLElement) node.innerHTML = '';
+      return;
+    }
+    node.remove();
+  });
+}
+
 export function MetaAvatar() {
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
@@ -27,6 +89,19 @@ export function MetaAvatar() {
   const { activeAgent } = useMetaAvatar();
 
   useEffect(() => {
+    // The document-level styles the SDK is known to reach for BEFORE it loads.
+    // An embedded third-party widget commonly writes `document.body.style`
+    // (overflow / position) to manage its own overlay; those writes are not
+    // nodes, so no amount of element sweeping undoes them, and they outlive
+    // the avatar — a leftover `overflow: hidden` reads as "the panel stopped
+    // scrolling", which the operator has also reported.
+    //
+    // Only these two properties are captured and restored — NOT the whole
+    // style attribute. A blanket restore would also wipe anything another
+    // component legitimately set while the avatar happened to be open.
+    const bodyOverflowBeforeSdk = document.body.style.overflow;
+    const bodyPositionBeforeSdk = document.body.style.position;
+
     const init = () => {
       // Generate unique container ID for this instance
       const containerId = `did-avatar-container-${Math.random().toString(36).slice(2)}`;
@@ -34,11 +109,9 @@ export function MetaAvatar() {
 
       console.log('[MetaAvatar] init', { containerId, agent: activeAgent, ts: new Date().toISOString() });
 
-      // Remove any previously injected D-ID artifacts (global cleanup)
-      document.querySelectorAll('script[src*="agent.d-id.com"]').forEach((s) => s.remove());
-      document.querySelectorAll('[id^="did-avatar-container-"]').forEach((el) => {
-        if (el instanceof HTMLElement) el.innerHTML = '';
-      });
+      // Remove any previously injected D-ID artifacts (global cleanup),
+      // including the body-level nodes the host wrapper never contained.
+      sweepDidArtifacts(containerRef.current);
 
       // Ensure container has the unique id
       if (containerRef.current) {
@@ -92,13 +165,24 @@ export function MetaAvatar() {
 
     return () => {
       window.removeEventListener('metaAvatarRefresh', handleRefresh);
-      
-      // Cleanup on unmount
+
+      // Cleanup on unmount. The container clear + script removal below were
+      // always here; the body-level sweep is what was missing, and it is the
+      // half that actually frees the surface underneath (see the header note).
       if (scriptRef.current && scriptRef.current.parentNode) {
         scriptRef.current.parentNode.removeChild(scriptRef.current);
       }
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
+      }
+      sweepDidArtifacts(containerRef.current);
+
+      // Put back only what the SDK may have taken (see the capture above).
+      if (document.body.style.overflow !== bodyOverflowBeforeSdk) {
+        document.body.style.overflow = bodyOverflowBeforeSdk;
+      }
+      if (document.body.style.position !== bodyPositionBeforeSdk) {
+        document.body.style.position = bodyPositionBeforeSdk;
       }
     };
   }, []);

@@ -93,6 +93,7 @@ import { InlineExperienceRenderer } from "@/components/metame/runtime/InlineExpe
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { personaFetch } from "@/utils/personaSpine";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { getRuntimeContextPreference, setRuntimeContextPreference, RUNTIME_CONTEXT_PREF_KEY } from "@/utils/runtimeContextPreference";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
@@ -2967,7 +2968,15 @@ export default function MetaMeRuntimeClient() {
     const loadChannels = async () => {
       setChannelsLoading(true);
       try {
-        const res = await fetch("/api/qubetalk/channels?tenant_id=metame");
+        // Spine endpoint since 2026-07-28 (the anonymous-read leak): the tenant
+        // is DERIVED from the caller server-side, so `?tenant_id=metame` is gone
+        // — a filter the caller chooses was never an authorization. personaFetch
+        // is mandatory here (CLAUDE.md): raw fetch attaches no Bearer and this
+        // surface would silently render its empty state for a signed-in user.
+        const res = await personaFetch("/api/qubetalk/channels", {
+          cache: "no-store",
+          personaIdHint: activePersonaId ?? undefined,
+        });
         const data = await res.json();
         if (mounted && data?.success && Array.isArray(data.channels)) {
           setChannels(data.channels);
@@ -2982,7 +2991,7 @@ export default function MetaMeRuntimeClient() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [activePersonaId]);
 
   const refreshRuntime = useCallback(async () => {
     await fetchRuntimeData();

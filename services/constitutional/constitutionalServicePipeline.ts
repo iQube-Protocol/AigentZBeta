@@ -99,10 +99,17 @@ export interface ServicePipelineDeps {
 const EXECUTOR_ACTION = 'knowledge_retrieval';
 
 export function defaultServicePipelineDeps(): ServicePipelineDeps {
-  const groundFn = async (namespaces: string[], limit: number) => {
-    const { groundReasoning } = await import('@/services/invariants/engine');
-    const snap = await groundReasoning({ namespaces, limit });
-    return snap.slice.items.map((i) => ({ id: i.id, statement: i.statement }));
+  // IRE → IPE (operator ruling 2026-07-27). The evidence the delegated
+  // executor reasons from is now RESOLVED from the intent, not fetched as a
+  // namespace slice. Before this, `resolveField` below produced a trace string
+  // for step 1 while THIS function supplied the actual evidence by raw
+  // substrate query — the flagship pipeline narrated the constitutional
+  // sequence without performing it. Registered as
+  // `constitutional-service-pipeline` in GROUNDING_SURFACES.
+  const groundFn = async (intent: string, namespaces: string[], limit: number) => {
+    const { resolveConstitutionalField } = await import('@/services/invariants/resolution');
+    const field = await resolveConstitutionalField(intent, { namespaces, limit });
+    return (field.snapshot?.slice.items ?? []).map((i) => ({ id: i.id, statement: i.statement }));
   };
   // LLM analysis over the grounded evidence (callSovereign — invariant-governed,
   // sovereign-fallback ladder). Reasons ONLY from the supplied evidence.

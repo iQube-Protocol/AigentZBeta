@@ -76,6 +76,21 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'experiment_result_published',
   // Standing accrual — NVA-backed outcome credit anchored for audit trail
   'standing_accrued',
+  // Partner agent evidence (metaProof × Horizen Labs pilot, operator ruling
+  // 2026-07-28). The evidence carries an Agent Card sha256 commitment plus the
+  // zkVerify attestation / adapter tx identifiers of an EXTERNAL proof;
+  // anchoring makes our record of that external proof tamper-evident, which is
+  // the whole point of ingesting someone else's attestation. (Added per the
+  // permitted action-type-addition rule; no other part of this pipeline is
+  // touched.)
+  'partner_agent_evidence_recorded',
+  // Attributable correction of Capability Standing under a superseded scoring
+  // formula. A DOWNWARD write against a monotone personhood-bound ledger is
+  // the one standing act most in need of tamper-evidence — if any receipt
+  // must be anchorable, it is the one that says a citizen's score was lowered
+  // and by whose authority. (Added per the permitted action-type-addition
+  // rule; no other part of this pipeline is touched.)
+  'standing_corrected',
   // Autonomous agent delegation lifecycle — provenance of who was delegated what
   'agent_delegated',
   'agent_delegation_revoked',
@@ -89,6 +104,62 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'invariant_superseded',
   // InvariantQube publication (Phase 2) — compressed-expertise provenance
   'invariant_qube_published',
+  // Experiment Workspace administration (Horizen Phase 3) — Aigent Z's daily
+  // and weekly report over a workspace. Anchoring makes the record of
+  // programme state at a point in time tamper-evident, like every other
+  // governance artifact above. (Action-type addition only — the one change
+  // this file permits unilaterally.)
+  'workspace_report_published',
+  // VL-CT-001 venture substrate (charter R-6) — the nine consequential events
+  // of the opportunity→liability→settlement chain. Anchoring matters most for
+  // the refusal path: `venture_refusal_recorded` and the obligation events that
+  // follow it are the tamper-evident record that a justified refusal was a
+  // COMPLETED constitutional service that earned compensation, not a failed
+  // trade. Without an anchor, that claim is a database row asserting its own
+  // truth. Ordinary preparation-cost lines are NOT here — they are batch
+  // checkpointed into a commitment (services/venture/trading/receipts.ts).
+  // (Action-type addition only — the one change this file permits
+  // unilaterally. Payload shape, state machine and hashPersonaRef untouched;
+  // the R-8 compensation extension is built by the venture substrate and rides
+  // inside the receipt it is attached to.)
+  'venture_opportunity_opened',
+  'venture_service_completed',
+  'venture_completion_assessed',
+  'venture_refusal_recorded',
+  'venture_obligation_earned',
+  'venture_obligation_approved',
+  'venture_settlement_simulated',
+  'venture_obligation_reversed',
+  'venture_opportunity_closed',
+  // QriptoCENT cross-denomination settlement (2026-07-29) — the twelve
+  // consequential events of the inter-ledger settlement substrate. Anchoring
+  // matters more here than almost anywhere: with no lock pool standing for
+  // "this credit was backed", the receipt chain IS the evidence that a
+  // destination credit followed a finalised source debit, and that a mint
+  // followed a proven reserve. (Action-type addition only — the one change
+  // this file permits unilaterally. Payload shape, state machine, principal
+  // resolution and hashPersonaRef untouched.)
+  'qriptocent_payment_instruction_accepted',
+  'qriptocent_settlement_authority_verified',
+  'qriptocent_source_debit_initiated',
+  'qriptocent_source_debit_finalised',
+  'qriptocent_settlement_message_verified',
+  'qriptocent_destination_liquidity_reserved',
+  'qriptocent_destination_credit_completed',
+  'qriptocent_settlement_reconciled',
+  'qriptocent_settlement_exception_recorded',
+  'qriptocent_liquidity_proof_verified',
+  'qriptocent_replenishment_authorised',
+  'qriptocent_native_issuance_executed',
+  // IRL-REVIEW-001 — completion of an independent review over an experiment
+  // asset. Anchoring matters here for the same reason it matters for a
+  // governance record: the review's reproducibility claim rests on WHICH models
+  // adjudicated WHICH frozen package, and a tamper-evident anchor is what stops
+  // that claim from being a database row asserting its own truth. (Added per
+  // the permitted action-type-addition rule; no other part of this pipeline is
+  // touched — payload shape, state machine, principal resolution and
+  // hashPersonaRef are unchanged.)
+  'independent_review_completed',
   // Consequence Operating Model (Phase 3) — forecast + flywheel evolution
   'consequence_forecast_recorded',
   'knowledge_evolved',
@@ -117,6 +188,11 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // action-type-addition rule.
   'capability_registered',
   'capability_operationally_validated',
+  // Capability lifecycle — Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24): a
+  // registrant deprecated their own capability. Anchoring keeps the
+  // acceptance→accrual→deprecation arc tamper-evident end to end. Added per
+  // the permitted action-type-addition rule.
+  'capability_deprecated',
   'research_lifecycle_transition',
   // Artifact Runtime (CFS-025 Phase 2) — a constitutional-tier artifact was
   // PUBLISHED; anchoring makes the publication commitment tamper-evident.
@@ -134,6 +210,51 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // (operator-approved 2026-07-17).
   'agreement_formed',
   'agreement_authorized',
+  // QubeTalk Peer Exchange (Phase 1 Increment 3, 2026-07-21) — consequential
+  // peer-channel acts (artifact shared / opened / copied-to-locker). The
+  // payload carries only T2-safe references (counterparty Polity Public
+  // Reference + sha256/16 channel & artifact commitments), so anchoring the
+  // provenance is chain-safe. Added per the permitted action-type-addition rule.
+  'qubetalk_artifact_shared',
+  'qubetalk_artifact_opened',
+  'qubetalk_artifact_copied',
+  // MoneyPenny Runtime (PRD-MPY-001 Phase 4, P4-4) — an authoritative
+  // constitutional-service-pattern run on Domain 3 (Financial Intelligence).
+  // Anchoring makes the execution trail tamper-evident. Added per the
+  // permitted action-type-addition rule.
+  'finance_authoritative_execution',
+  // Bitcent (B¢) treasury etch (2026-07-30) — a real Bitcoin Runes etching
+  // transaction, broadcast under the pilot treasury authority gate. Anchoring
+  // makes the mandate/signatory/observer/tx-hash record tamper-evident, the
+  // same rationale as every other treasury/issuance action type above. Added
+  // per the permitted action-type-addition rule; no other part of this
+  // pipeline is touched.
+  'bitcent_treasury_etch_executed',
+  // PRD-GJR-001 (Guided Journey Runtime) — the Horizen x MoneyPenny constitutional
+  // admission pilot. Every stage of the journey's ten-step sequence (§3.5) must
+  // produce a real, anchorable receipt so the closing evidence chain (§15.1,
+  // §17) is tamper-evident, not merely a local database row — this is the exact
+  // property the journey exists to demonstrate. Added per the permitted
+  // action-type-addition rule; no other part of this pipeline is touched.
+  'agent_card_discovered',
+  'horizen_agent_registered',
+  'horizen_pnl_transparency_enabled',
+  'agent_card_enriched',
+  'agent_control_proven',
+  'marketa_eligibility_recommended',
+  'operator_passport_validated',
+  'agent_sponsorship_recorded',
+  'agent_delegate_passport_issued',
+  'aigentme_activated',
+  'experienceqube_focus_disposition_recorded',
+  'journey_completed',
+  // GJR-VFY-001 Phase 1 (2026-07-31) — action-type addition only, the one
+  // change this file permits unilaterally per CLAUDE.md.
+  'horizen_pulse_authorized',
+  // GJR-MKT-001 Phase 4 (2026-07-31) — same permitted addition-only change.
+  'marketa_eligibility_assessed',
+  'marketa_eligibility_refused',
+  'marketa_eligibility_quarantined',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

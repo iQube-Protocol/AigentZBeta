@@ -1,68 +1,51 @@
 /**
- * The Invariant Engine — Level 2 of CFS-035 (constitutional runtime).
+ * The Invariant PROJECTION Engine (IPE) — Level 2 of CFS-035, designated the
+ * IPE by CFS-039.
  *
- * ONE seam over the existing invariant substrate (Level 1: store / grounding /
- * fields / citation). Every consumer reads the same **Field Snapshot** and the
- * engine's four faces; nothing embeds its own invariant logic (CFS-035 §3 — the
- * engine stays constitutional; the OS composes it).
+ * ══════════════════════════════════════════════════════════════════════════
+ * THE IPE NEVER RESOLVES ITS OWN FIELD. It consumes one produced upstream.
+ * ══════════════════════════════════════════════════════════════════════════
  *
- * The four faces (CFS-035 §5):
- *   1. Reasoning              — `groundReasoning` (LLM ← invariant slice)
- *   2. Constitutional Projection — `resolvePolicy` (decision ← invariant field)
- *   3. Experience             — field → UI/journey (Phase 2)
- *   4. Evolution              — outcome → learning (the shadow loop; §11)
+ * The constitutional sequence is: **IRE resolves the applicable invariant field
+ * → IPE projects from that resolved field.** This module is the second half. It
+ * is therefore structurally incapable of performing the first: it imports the
+ * Field Snapshot as a TYPE ONLY (`import type … from './grounding'`), exactly as
+ * `projectionBridge` imports the resolved field. A value import would restore
+ * the ability, and the canary in tests/instrument-engine-briefs.test.ts fails if
+ * one appears.
  *
- * This module is pure composition of existing façades — it adds NO new reader
- * or ranker. Server-only. It never reads the clock (callers stamp).
+ * This was a real violation, corrected 2026-07-27 on operator ruling. Until
+ * then `computeFieldSnapshot`, `groundReasoning` and `getCachedFieldSnapshot`
+ * all lived HERE, so every decision node weighted from a field the IPE had
+ * resolved for itself — while the comment on `deriveWeightsFromCoordinates`
+ * asserted the opposite. Field construction now lives in `grounding.ts` (the
+ * substrate reader) and is composed by `resolution.ts` (the IRE).
+ *
+ * NO SELF-RESOLVING FALLBACK. The obvious shape — accept an injected field,
+ * resolve one when it is absent — is expressly prohibited: it would unbind the
+ * mechanism from its upstream act at exactly the moment the binding matters.
+ * An absent field yields a FAITHFUL projection (all-1 weights, `engaged: false`)
+ * which consumers must read as "nothing was computed", never as a measurement.
+ *
+ * The remaining faces (CFS-035 §5):
+ *   2. Constitutional Projection — decision ← resolved field
+ *   3. Experience                — field → UI/journey (Phase 2)
+ *   4. Evolution                 — outcome → learning (the shadow loop; §11)
+ * Face 1 (Reasoning / `groundReasoning`) is a RESOLUTION act and lives in
+ * `grounding.ts`.
+ *
+ * Pure composition — it adds NO new reader or ranker. Server-only. It never
+ * reads the clock (callers stamp).
  *
  * Adoption is observe-mode-first (CFS-017): a node runs its projection in
  * SHADOW alongside the incumbent heuristic and emits the comparison; the
  * shadow→authoritative flip is a separate, operator-gated ratification.
  */
 
-import { buildInvariantSlice, type GroundingContext, type InvariantSlice } from './grounding';
+import type { FieldSnapshot } from './grounding';
 import { persistObservation } from './observationStore';
 
-// ─────────────────────────────────────────────────────────────────────────
-// The Field Snapshot — one per intent/request; the shared interface (CFS-035 §5).
-// ─────────────────────────────────────────────────────────────────────────
-
-export interface FieldSnapshot {
-  /** ISO timestamp stamped by the caller (this module never reads the clock). */
-  stampedAt: string | null;
-  /** The context signals the snapshot was projected from. */
-  context: GroundingContext;
-  /** The projected governing invariants for this request (standing-ranked). */
-  slice: InvariantSlice;
-  /** Convenience — the cited invariant ids (the citation/Reach return path). */
-  citedIds: string[];
-}
-
-/**
- * Compute the Field Snapshot for a context — the single projection every face
- * reads. Composes `buildInvariantSlice` (Level 1). DB-backed: callers on hot
- * read paths should decide whether to await it (observe-mode nodes may run
- * their pure projection without a snapshot — see the node contract below).
- */
-export async function computeFieldSnapshot(
-  context: GroundingContext,
-  stampedAt: string | null = null,
-): Promise<FieldSnapshot> {
-  const slice = await buildInvariantSlice(context);
-  return { stampedAt, context, slice: { ...slice, generatedAt: stampedAt }, citedIds: slice.citedIds };
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Face 1 — Reasoning. Phase-1 consolidation target: LLM surfaces call this
-// instead of hand-rolling a slice. For now a thin wrapper returning the snapshot.
-// ─────────────────────────────────────────────────────────────────────────
-
-export async function groundReasoning(
-  context: GroundingContext,
-  stampedAt: string | null = null,
-): Promise<FieldSnapshot> {
-  return computeFieldSnapshot(context, stampedAt);
-}
+export type { FieldSnapshot };
 
 // ── Shared node helpers (CFS-035 §6) — the discovery-node pattern, generalised
 // so every Invariant Decision Node derives dimension weights + fetches its
@@ -81,20 +64,59 @@ export function deriveWeightsFromStanding<K extends string>(
   snapshot: FieldSnapshot | null | undefined,
   seedMap: Record<K, string>,
 ): Record<K, number> {
-  const keys = Object.keys(seedMap) as K[];
+  return deriveFromStanding(snapshot, seedMap).weights;
+}
+
+// ── The faithful-default problem, made observable ──────────────────────────
+//
+// Both derivations return all-1 when they have nothing to weight FROM. That is
+// the right behaviour (a node stays behaviour-preserving until its invariants
+// earn standing) but it is INDISTINGUISHABLE, at the return value, from two
+// derivations that computed identical weights. A consumer comparing the two —
+// `projectionBridge.compareProjection` — would then report agreement that
+// nobody computed: the mirror of the units defect, and equally silent.
+//
+// So the derivation reports whether it ENGAGED. The weights are unchanged;
+// `deriveWeightsFrom*` still return exactly what they returned before.
+
+export interface WeightDerivation<K extends string> {
+  weights: Record<K, number>;
+  /** How many of `seedMap`'s governing invariants were found in the input. */
+  matched: number;
+  /**
+   * True when the derivation had something to re-balance from — at least one
+   * governing invariant present AND carrying a positive value. When false the
+   * weights are a FAITHFUL DEFAULT (all-1), not a measurement, and two such
+   * derivations agreeing means nothing.
+   */
+  engaged: boolean;
+}
+
+/** Mean-normalise per-dimension values to 1. The single normalisation — both
+ *  derivations use it, so they cannot drift into two formulas. Pure. */
+function meanNormalise<K extends string>(keys: K[], vals: number[]): WeightDerivation<K> {
   const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
-  if (!snapshot) return base;
-  const bySeed = new Map<string, number>();
-  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
-  const standings = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
-  const total = standings.reduce((a, b) => a + b, 0);
-  if (total <= 0) return base;
+  const matched = vals.filter((v) => v > 0).length;
+  const total = vals.reduce((a, b) => a + b, 0);
+  if (total <= 0) return { weights: base, matched, engaged: false };
   const mean = total / keys.length;
   const weights = { ...base };
   keys.forEach((k, i) => {
-    weights[k] = mean > 0 ? standings[i] / mean : 1;
+    weights[k] = mean > 0 ? vals[i] / mean : 1;
   });
-  return weights;
+  return { weights, matched, engaged: true };
+}
+
+/** `deriveWeightsFromStanding` + whether it engaged. Pure. */
+export function deriveFromStanding<K extends string>(
+  snapshot: FieldSnapshot | null | undefined,
+  seedMap: Record<K, string>,
+): WeightDerivation<K> {
+  const keys = Object.keys(seedMap) as K[];
+  if (!snapshot) return meanNormalise(keys, keys.map(() => 0));
+  const bySeed = new Map<string, number>();
+  for (const item of snapshot.slice.items) if (item.seedId) bySeed.set(item.seedId, item.standing);
+  return meanNormalise(keys, keys.map((k) => bySeed.get(seedMap[k]) ?? 0));
 }
 
 /** Minimal coordinate-bearing shape (CFS-039 / PRD-IPE-001). A resolved field's
@@ -127,43 +149,26 @@ export function deriveWeightsFromCoordinates<K extends string>(
   seedMap: Record<K, string>,
   axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
 ): Record<K, number> {
+  return deriveFromCoordinates(coordinates, seedMap, axis).weights;
+}
+
+/** `deriveWeightsFromCoordinates` + whether it engaged. Pure. */
+export function deriveFromCoordinates<K extends string>(
+  coordinates: CoordinateBearing[] | null | undefined,
+  seedMap: Record<K, string>,
+  axis: 'evidenceDensity' | 'verifiability' | 'adoption' = 'evidenceDensity',
+): WeightDerivation<K> {
   const keys = Object.keys(seedMap) as K[];
-  const base = Object.fromEntries(keys.map((k) => [k, 1])) as Record<K, number>;
-  if (!coordinates || coordinates.length === 0) return base;
+  if (!coordinates || coordinates.length === 0) return meanNormalise(keys, keys.map(() => 0));
   const bySeed = new Map<string, number>();
   for (const c of coordinates) if (c.seedId) bySeed.set(c.seedId, c.structural[axis].value);
-  const vals = keys.map((k) => bySeed.get(seedMap[k]) ?? 0);
-  const total = vals.reduce((a, b) => a + b, 0);
-  if (total <= 0) return base;
-  const mean = total / keys.length;
-  const weights = { ...base };
-  keys.forEach((k, i) => {
-    weights[k] = mean > 0 ? vals[i] / mean : 1;
-  });
-  return weights;
+  return meanNormalise(keys, keys.map((k) => bySeed.get(seedMap[k]) ?? 0));
 }
 
-// Per-key cached Field Snapshots for hot node paths. Guarded — any failure
-// yields null (→ faithful projection). Short TTL so standing changes propagate.
-const _snapshotCaches = new Map<string, { at: number; snap: FieldSnapshot | null }>();
-
-export async function getCachedFieldSnapshot(
-  key: string,
-  context: GroundingContext,
-  ttlMs = 60_000,
-): Promise<FieldSnapshot | null> {
-  const now = Date.now();
-  const cached = _snapshotCaches.get(key);
-  if (cached && now - cached.at < ttlMs) return cached.snap;
-  try {
-    const snap = await computeFieldSnapshot(context);
-    _snapshotCaches.set(key, { at: now, snap });
-    return snap;
-  } catch {
-    _snapshotCaches.set(key, { at: now, snap: null });
-    return null;
-  }
-}
+// NOTE — `getCachedFieldSnapshot` used to live here. It resolves a field (it
+// calls computeFieldSnapshot on a cache miss), so it is a resolution act and
+// now lives in `grounding.ts`. Leaving it here is what made every decision node
+// a self-resolving projector.
 
 // ─────────────────────────────────────────────────────────────────────────
 // Face 2 — Constitutional Projection. The Invariant Decision Node (CFS-035 §6).

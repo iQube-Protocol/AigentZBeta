@@ -34,6 +34,16 @@ export interface SmartTriadObserverContext {
   participation?: { domain: string; role: string }[];
   /** Platform admin (server-resolved; optimistic UI only — routes re-gate). */
   isAdmin?: boolean;
+  /**
+   * Currently active Constitutional Action Modes (Founder Office Action
+   * Modes amendment, ratified 2026-07-22; `ConstitutionalActionMode` in
+   * `services/iqube/experienceQube.ts`). Zero-to-many, session/runtime
+   * state — NOT persisted profile data (amendment §6.1/§6.2). Seeded from
+   * the persona's `operatorArchetype` via `ARCHETYPE_DEFAULT_ACTION_MODES`
+   * (`services/iqube/actionModes.ts`) when no explicit selection exists yet.
+   * T1-safe: bare mode-name strings only, never a T0 identifier.
+   */
+  activeActionModes?: string[];
 }
 
 /**

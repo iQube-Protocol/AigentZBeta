@@ -5,10 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireChannelAccess } from '@/app/api/qubetalk/_lib/requireChannelAccess';
 import { receiptService } from '@/services/receipts/receiptService';
 import type { AgentReference } from '@/services/receipts/receiptService';
-import { 
-  createDelegation, 
+import {
+  createDelegation,
   getDelegation, 
   getAllDelegations, 
   createChannel, 
@@ -100,9 +101,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // AUTHENTICATE — a delegation is an instruction to an agent. Unauthenticated
+    // creation let an anonymous caller task any agent in any tenant.
+    const gate = await requireChannelAccess(request, body.tenant_id);
+    if (!gate.ok) return gate.response;
+    const tenantId = gate.access.tenantId;
+
     const delegation = await createDelegation({
       delegation_id: `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      tenant_id: body.tenant_id,
+      tenant_id: tenantId,
       channel_id: body.channel_id,
       request_id: body.request_id,
       status: 'pending',
@@ -121,7 +128,7 @@ export async function POST(request: NextRequest) {
         fromAgent: body.from_agent,
         toAgent: body.to_agent,
         taskCompleted: `Delegation created: ${body.task.type}`,
-        tenantId: body.tenant_id,
+        tenantId,
         resultData: {
           delegationId: delegation.delegation_id,
           requestId: body.request_id,
@@ -130,7 +137,7 @@ export async function POST(request: NextRequest) {
           status: delegation.status,
         },
         policyContext: {
-          tenantId: body.tenant_id,
+          tenantId,
           personaId:
             typeof body.context?.session_context?.persona_id === 'string'
               ? body.context.session_context.persona_id
@@ -169,18 +176,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     
-    const tenant_id = searchParams.get('tenant_id');
     const channel_id = searchParams.get('channel_id');
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (!tenant_id) {
-      return NextResponse.json({
-        success: false,
-        error: 'tenant_id is required',
-      }, { status: 400 });
-    }
+    // The SAME defect as the channel/message read leak, on a table nobody
+    // looked at: `tenant_id` off the query string was the whole of the scope,
+    // and delegation rows carry task prompts and iQube refs. Resolve the
+    // caller and derive the tenant; the query param is only a request.
+    const gate = await requireChannelAccess(request, searchParams.get('tenant_id'));
+    if (!gate.ok) return gate.response;
+    const tenant_id = gate.access.tenantId;
 
     const delegations = await getAllDelegations(tenant_id, {
       channel_id: channel_id || undefined,

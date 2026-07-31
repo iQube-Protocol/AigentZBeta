@@ -38,6 +38,8 @@ import {
   type ConstitutionalObject,
 } from '@/types/constitutionalObject';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { PROOF_REQUIREMENT } from '@/services/constitutional/guidedOnboarding';
+import { hasVerifiedWorldIdPassport } from '@/services/passport/personhoodProof';
 import {
   getAcceptanceProvider,
   type AcceptanceRecord,
@@ -463,6 +465,28 @@ export async function authorizeAgreement(
     return { ok: false, reason: `cannot authorize an agreement in status '${row.status}' — it must be accepted first` };
   }
   if (!row.acceptance) return { ok: false, reason: 'agreement has no acceptance record — accept it first' };
+
+  // Graded proof-of-humanity (CFS-043 §6 / PRD-MPY-001 §7): the required grade
+  // is a token ON THE CONTRACT (verificationRequirements), never a hard-coded
+  // domain check — this is the ONE place delegated execution can be opened, so
+  // it is the ONE place the grade is enforced. An agreement demanding
+  // world-id-verified-authorizer (money-moving) cannot reach 'authorized'
+  // unless the authorizing human holds a live, World-ID-verified Polity
+  // Passport — the passport application's captcha-grade proof is insufficient
+  // for money movement. Fail closed: a lookup error reads as unverified, never
+  // as verified.
+  const requirements = row.object.payload.verificationRequirements ?? [];
+  if (requirements.includes(PROOF_REQUIREMENT.world_id)) {
+    const verified = await hasVerifiedWorldIdPassport(personaId);
+    if (!verified) {
+      return {
+        ok: false,
+        reason:
+          'this agreement requires a World-ID-verified Polity Passport to authorize (money-moving grade) — ' +
+          'verify World ID on your passport (Polity Passport → World ID upgrade) before authorizing',
+      };
+    }
+  }
 
   const updatedObject: ConstitutionalObject<AgreementPayload> = {
     ...row.object,

@@ -1,0 +1,327 @@
+/**
+ * metaMe Companion — Observer extension content script
+ * (PRD-MMC-IMPL-001 §7 Increment 6).
+ *
+ * Runs in every http(s) page (per manifest.json's `content_scripts` match
+ * pattern) but reads NOTHING beyond a console-visible injection marker until
+ * it has asked the background service worker — the single source of truth
+ * for grant state (`background.js`) — whether each capability it wants to
+ * populate is actually granted for this page. This script NEVER maintains
+ * its own notion of "granted"; every check is a `CHECK_GRANT` message
+ * round-trip.
+ *
+ * `constants.js` is loaded ahead of this file (manifest.json's
+ * `content_scripts[0].js` array) so `PAGE_DOCUMENT_EXCERPT_MAX_CHARS` is
+ * already in scope here.
+ */
+
+console.log('[metaMe Observer] content script injected on', location.href);
+
+// Presence marker for background.js's `healObserverInOpenTabs` probe. Set in
+// the ISOLATED world (where both this script and the probe's `func` run), so
+// healing can tell "this tab already has an observer" from "this tab lost its
+// observer to an extension reload" and skip the former. Without it, healing
+// re-injects over a live script and the top-level `const` declarations below
+// throw a redeclaration SyntaxError — harmless (the existing script keeps
+// running) but noisy in every page console on browser startup.
+window.__metameObserverLoaded = true;
+
+/**
+ * How long to wait for the background service worker before giving up on a
+ * single message. MV3 tears the worker down after ~30s idle and restarts it
+ * on demand; a normal round-trip (including a cold start) is well under this.
+ */
+const MESSAGE_TIMEOUT_MS = 4000;
+
+/**
+ * Wraps `chrome.runtime.sendMessage` in a Promise for async/await use.
+ *
+ * ALWAYS SETTLES. Never rejects, never hangs. Resolves `null` on any failure
+ * so callers treat "no answer" exactly like "no data", which every caller
+ * here already handles (checkGrant coerces with Boolean, the REFRESH_GRANTS
+ * call ignores its result, observeAndSend checks `result && result.ok`).
+ *
+ * THE BUG THIS FIXES (operator, 2026-07-25: "it works until about four or
+ * five tab changes and then it just gets stuck... refresh isn't doing
+ * anything at all"). The previous version had no timeout, no
+ * `chrome.runtime.lastError` check, and no try/catch:
+ *
+ *   - MV3 kills the background worker after ~30s idle. If it died mid-call,
+ *     the callback never fired and the promise NEVER SETTLED.
+ *   - After an extension reload, content scripts left in open tabs have an
+ *     INVALIDATED extension context; `chrome.runtime.sendMessage` then throws
+ *     synchronously ("Extension context invalidated"), which rejected the
+ *     promise with nothing to catch it.
+ *
+ * Either way `observeAndSend` awaited forever, and because every subsequent
+ * observation runs through the same awaits, that tab's observer was dead for
+ * good — no reload of the panel, no Refresh, and no tab switch could revive
+ * it. That is exactly the "works a few times then permanently stuck"
+ * signature, and why Refresh appeared to do nothing at all rather than
+ * showing stale data.
+ */
+function sendMessage(message) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    // Hard ceiling: a worker that never answers must not wedge this tab.
+    const timer = setTimeout(() => {
+      console.warn('[metaMe Observer] background did not respond in time — continuing without it');
+      settle(null);
+    }, MESSAGE_TIMEOUT_MS);
+
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        // Reading lastError is REQUIRED — leaving it unread also logs an
+        // "Unchecked runtime.lastError" console error on every failed call.
+        if (chrome.runtime.lastError) {
+          console.warn('[metaMe Observer] message failed:', chrome.runtime.lastError.message);
+          settle(null);
+          return;
+        }
+        settle(response ?? null);
+      });
+    } catch (err) {
+      // Invalidated extension context (post-reload orphan) throws here.
+      console.warn('[metaMe Observer] extension context unavailable:', err?.message ?? err);
+      settle(null);
+    }
+  });
+}
+
+async function checkGrant(capability) {
+  const response = await sendMessage({
+    type: 'CHECK_GRANT',
+    capability,
+    siteDomain: location.hostname,
+  });
+  return Boolean(response && response.granted);
+}
+
+/**
+ * Builds a `BrowserContextObservation`-shaped object (mirrors
+ * `types/companionObserver.ts`'s interface field-for-field — kept in sync by
+ * hand, same known-risk duplication flagged in `constants.js`), populating
+ * ONLY fields whose capability the background worker confirms is granted.
+ */
+/**
+ * Grant-refresh throttle. `buildObservation` refreshes the background
+ * worker's grant cache from the SERVER on every call (see the comment inside
+ * it for why that refresh exists at all). Once re-observation runs on every
+ * tab switch rather than once per page load, an un-throttled refresh means a
+ * network round-trip per flick between tabs.
+ *
+ * 15s is chosen against what the refresh is FOR: catching a capability the
+ * operator just granted in the Companion panel. That's a deliberate human
+ * action followed by looking at the Overlay — comfortably more than 15s of
+ * wall-clock. So the staleness bug the refresh fixes stays fixed, and the
+ * per-switch cost goes away. Page load always refreshes (lastGrantRefreshAt
+ * starts at 0).
+ */
+const GRANT_REFRESH_MIN_INTERVAL_MS = 15_000;
+let lastGrantRefreshAt = 0;
+
+/** Trailing debounce for visibility-driven re-observation: rapid A→B→A tab
+ *  flicking collapses to ONE observation instead of three. */
+const OBSERVE_DEBOUNCE_MS = 400;
+let observeTimer = null;
+
+// NO PER-TAB "unchanged since last send" MEMORY LIVES HERE. It used to
+// (`lastSentSignature`), and that was the MS-10 defect (2026-07-27, operator:
+// "overlay is not picking up the current site").
+//
+// The observation is ONE shared row on the server — `companion_observation_latest`,
+// one per persona, last writer wins. This file runs once PER TAB, so a
+// signature cached here describes only what THIS tab last sent. The moment any
+// other tab writes, that memory is a false claim about the shared row: the tab
+// believes the server already holds its observation when it no longer does, and
+// suppresses the very write that would correct it. Observing claude.ai, then
+// github.com, then returning to claude.ai left the row permanently on
+// github.com — and Refresh could not help, because Refresh's re-observe hop
+// lands in `observeAndSend` below, which was doing the suppressing.
+//
+// The suppression is not gone, it is RELOCATED to `forwardObservationToServer`
+// in background.js — the one place that both makes every write and knows what
+// the shared row currently holds. See MS-10 in
+// codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md.
+
+async function buildObservation() {
+  // Refresh the background worker's grant cache from the server FIRST. The
+  // worker's `grantStateCache` is only populated at Connect time or on an
+  // explicit REFRESH_GRANTS message (background.js) -- granting/revoking a
+  // capability through the Companion web panel writes straight to the
+  // server and never touches this cache on its own. Without this refresh,
+  // every checkGrant() below silently answers against stale, pre-grant
+  // state -- the real reason Overlay kept showing "no observation" even
+  // after granting Current-tab and reloading the tab (2026-07-23). Failure
+  // here (no connection, network error) is non-fatal -- checkGrant() below
+  // just falls back to whatever the cache already had, same as before this
+  // refresh existed.
+  // FIRE-AND-FORGET, NOT AWAITED (changed 2026-07-30). `REFRESH_GRANTS` makes
+  // the worker perform a SERVER fetch whose own ceiling is 10s
+  // (API_FETCH_TIMEOUT_MS) — more than double this script's 4s message ceiling
+  // (MESSAGE_TIMEOUT_MS). Awaiting it therefore could not succeed whenever the
+  // server was slow: it stalled every observation for the full 4s and then
+  // continued anyway, which is what the awaited version's timeout warning
+  // (`background did not respond in time`, seen throughout 2026-07-30) actually
+  // was. The refresh is a CACHE WARM, never a precondition — when it lands, the
+  // worker updates `grantStateCache` and `chrome.storage.onChanged` mirrors it,
+  // so the following checks read the fresh state on the NEXT observation. With
+  // the panel re-observing every 5s the staleness window is one cycle; the old
+  // behaviour's cost was a guaranteed 4s stall on every single observation.
+  const now = Date.now();
+  if (now - lastGrantRefreshAt >= GRANT_REFRESH_MIN_INTERVAL_MS) {
+    lastGrantRefreshAt = now;
+    void sendMessage({ type: 'REFRESH_GRANTS' });
+  }
+
+  const grantedCapabilities = [];
+  const observation = { grantedCapabilities, observedAt: new Date().toISOString() };
+
+  if (await checkGrant('current-tab')) {
+    grantedCapabilities.push('current-tab');
+    observation.currentTabDomain = location.hostname;
+    observation.currentTabTitle = document.title;
+  }
+
+  if (await checkGrant('selection')) {
+    const text = window.getSelection ? String(window.getSelection()) : '';
+    if (text) {
+      grantedCapabilities.push('selection');
+      observation.selectionText = text;
+    }
+  }
+
+  if (await checkGrant('page-document')) {
+    grantedCapabilities.push('page-document');
+    const bodyText = document.body ? document.body.innerText : '';
+    observation.pageDocumentExcerpt = bodyText.slice(0, PAGE_DOCUMENT_EXCERPT_MAX_CHARS);
+  }
+
+  return observation;
+}
+
+async function observeAndSend() {
+  // Hard guard, not just at the call sites: a hidden tab must never write an
+  // observation claiming to be the current tab, no matter which path called
+  // this. Callers check too (see main()), but this is the choke point that
+  // makes the rule impossible to bypass by adding a new caller later.
+  if (document.visibilityState !== 'visible') {
+    console.log('[metaMe Observer] observe skipped — tab is not visible');
+    return;
+  }
+
+  const observation = await buildObservation();
+  console.log('[metaMe Observer] observation built (fields gated by live grant check):', observation);
+
+  // ALWAYS SEND. Deciding that an observation carries no new information is a
+  // judgement about the SHARED server row, and this tab cannot make it — see
+  // the MS-10 note above `buildObservation`. The background worker suppresses
+  // the redundant write; the debounce above still collapses tab-flicking, so
+  // "re-observe whenever the tab is looked at" costs no more than it did.
+  const result = await sendMessage({ type: 'OBSERVATION', observation });
+  console.log('[metaMe Observer] background observation handling result:', result);
+}
+
+/**
+ * Runs `observeAndSend` without ever letting a rejection escape.
+ *
+ * Every call site here is fire-and-forget, so an unhandled rejection would
+ * be invisible AND would leave the observer looking dead with no clue why.
+ * `sendMessage` no longer rejects, but the DOM reads inside `buildObservation`
+ * (`document.body.innerText`, `window.getSelection`) can still throw on an
+ * unusual page — and one such page must not silently end observation.
+ */
+function safeObserve() {
+  return Promise.resolve()
+    .then(() => observeAndSend())
+    .catch((err) => {
+      console.warn('[metaMe Observer] observation failed (continuing):', err?.message ?? err);
+    });
+}
+
+/** Debounced entry point for every event-driven re-observation. */
+function scheduleObserve() {
+  if (observeTimer) clearTimeout(observeTimer);
+  observeTimer = setTimeout(() => {
+    observeTimer = null;
+    void safeObserve();
+  }, OBSERVE_DEBOUNCE_MS);
+}
+
+async function main() {
+  // Message-passing smoke check — a plain ping/pong proving the content
+  // script and background service worker can talk to each other, entirely
+  // independent of any real grant/API state.
+  const pong = await sendMessage({ type: 'PING' });
+  console.log('[metaMe Observer] ping/pong result:', pong);
+
+  // ONLY OBSERVE IF THIS TAB IS ACTUALLY THE ONE BEING LOOKED AT.
+  //
+  // `currentTabDomain` means "the tab the operator is on" — a HIDDEN tab
+  // asserting that is simply false, whatever else is true. The
+  // `visibilitychange` listener below is what observes when this tab
+  // genuinely becomes the visible one; a background tab has nothing
+  // legitimate to say here and stays silent until then.
+  //
+  // THE BUG THIS FIXES (operator-reported 2026-07-25, third round on this
+  // surface: "still seems to be showing previous page and refresh still not
+  // working"). `healObserverInOpenTabs` (background.js) injects this script
+  // into EVERY open tab at once after an extension reload. With an
+  // unconditional observe here, all of those tabs raced to write into
+  // `companion_observation_latest` — one row per persona — and whichever
+  // finished LAST won. The operator was on dev-beta.aigentz.me and the
+  // Overlay showed "REPOSITORY — GITHUB.COM": not a stale row at all, but a
+  // FRESH row written by a background github.com tab microseconds later.
+  // Refresh looked broken for the same reason it did in the two earlier
+  // rounds — it faithfully re-read a row whose content was wrong.
+  //
+  // Page-load observation still happens normally for the foreground tab
+  // (a tab you navigate is visible by definition), so nothing regresses.
+  if (document.visibilityState === 'visible') {
+    await safeObserve();
+  } else {
+    console.log('[metaMe Observer] tab is hidden at injection — not claiming to be the current tab');
+  }
+}
+
+// Never let a failure in the initial pass kill the listeners registered
+// below it — they are what recover the tab on the next visibility change.
+void Promise.resolve()
+  .then(main)
+  .catch((err) => console.warn('[metaMe Observer] initial pass failed (listeners still active):', err?.message ?? err));
+
+// Re-observe whenever this tab regains focus/visibility, not just once at
+// page load. Without this, granting a capability (e.g. "Current tab") while
+// a tab is already open has no effect until the operator reloads that tab —
+// the stored observation stays the stale pre-grant one, gated fields never
+// appear, and the Overlay looks broken even though the grant is correct.
+//
+// Debounced + identical-payload-suppressed (2026-07-25) so that "re-observe
+// whenever the tab is looked at" does not become a network write per tab
+// flick. Switching away and back with nothing changed now costs zero
+// requests; switching to a genuinely different page always sends.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    scheduleObserve();
+  }
+});
+
+// Background-initiated re-observation. Sent by `healObserverInOpenTabs`
+// (background.js) to the ACTIVE tab as the last step of a healing sweep, so
+// the stored observation deterministically describes the tab the operator is
+// looking at rather than whichever injected content script happened to
+// finish last. Still routed through `observeAndSend`, so the visibility
+// guard and every live grant check apply identically — this message cannot
+// make a hidden tab observe, and grants nothing a page load wouldn't.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'RE_OBSERVE') void safeObserve();
+  // No response needed; returning false keeps the channel synchronous.
+  return false;
+});

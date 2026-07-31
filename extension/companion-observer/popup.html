@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>metaMe Companion</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 260px;
+        padding: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      h1 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 8px;
+      }
+      button {
+        display: block;
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #1e293b;
+        background: rgba(15, 23, 42, 0.4);
+        color: #e2e8f0;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      button:hover:not(:disabled) {
+        background: rgba(30, 41, 59, 0.6);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      /* Persona confirmation panel (SPEC-MMC-003 §3.3) — slate house style:
+         translucent slate-900 fill, slate-800 hairline, no white borders. */
+      #personaPanel {
+        border: 1px solid #1e293b;
+        background: rgba(15, 23, 42, 0.4);
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 8px;
+      }
+      .panelLabel {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        margin-bottom: 4px;
+      }
+      #personaValue {
+        font-size: 11px;
+        color: #cbd5e1;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        word-break: break-all;
+      }
+      #personaHint {
+        font-size: 10px;
+        color: #94a3b8;
+        margin-top: 4px;
+      }
+      #recheckBtn {
+        margin: 6px 0 0;
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+      #status {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        font-size: 11px;
+        color: #94a3b8;
+        margin-top: 4px;
+        word-break: break-word;
+      }
+      #statusDot {
+        flex: 0 0 auto;
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        margin-top: 4px;
+        background: #64748b;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>metaMe Companion</h1>
+    <!--
+      SPEC-MMC-003 §3.3 — persona confirmation is sequenced BEFORE Connect is
+      enabled. Connect stays disabled until the probe reports which persona
+      would be paired, so a missing/ambiguous currentPersonaId can never
+      silently pair to getActivePersona's "first owned persona" fallback.
+    -->
+    <div id="personaPanel">
+      <div class="panelLabel">Persona to pair</div>
+      <div id="personaValue">Checking…</div>
+      <div id="personaHint"></div>
+      <button id="recheckBtn">Check again</button>
+    </div>
+    <button id="connectBtn" disabled>Connect to metaMe</button>
+    <button id="verifyBtn">Verify Companion</button>
+    <button id="manageBtn">Open Companion</button>
+    <div id="status"><span id="statusDot"></span><span id="statusText">Not connected.</span></div>
+    <script src="constants.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

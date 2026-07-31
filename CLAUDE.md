@@ -109,7 +109,27 @@ When using `git merge origin/dev` before pushing to dev, **ALWAYS** pass `-m` wi
 git merge origin/dev -m "merge dev: sync before pushing <feature/fix> (<commit>)"
 ```
 
-When using auto-merge via the `claude/**` branch flow, the auto-merge generates the generic message — to override, push the session branch with a final commit message that names the change, then direct-push to dev with a descriptive merge message.
+### The auto-merge workflow is the enforcement point — keep it fixed on `main` AND `dev` (root cause of recurring generic merges)
+
+The `merge-claude-to-dev.yml` workflow is what writes the dev merge commit the operator sees in the Amplify build history. GitHub runs the copy of the workflow that lives **in the pushed `claude/**` branch**, so the merge message is only as good as the workflow version that branch carries. The **correct** step is:
+
+```yaml
+SUBJECT="$(git log -1 --pretty=%s origin/${{ github.ref_name }})"
+git merge --ff-only origin/${{ github.ref_name }} || \
+  git merge origin/${{ github.ref_name }} -m "merge ${{ github.ref_name }}: ${SUBJECT}"
+```
+
+The **broken** version is the old `git merge … --no-edit` fallback — it produces `Merge remote-tracking branch 'origin/claude/<session>' into dev`, the exact boilerplate this rule forbids.
+
+**Why it keeps regressing:** the fix has historically lived only on session branches (and `dev`), while `main` kept the stale `--no-edit` version. Any new session branch seeded from a base that lacks the fix reverts to generic merges. **To fix it once and for all, the corrected workflow must be present on BOTH `dev` and `main`.** An agent that cannot push to `main` (session branches are `claude/**`-only) MUST flag this to the operator with the exact sync command rather than leaving it — e.g.:
+
+```bash
+# operator, from a clone with push rights to main:
+git fetch origin dev main && git checkout main && \
+  git checkout origin/dev -- .github/workflows/merge-claude-to-dev.yml && \
+  git commit -m "sync auto-merge workflow: descriptive dev merge messages" && \
+  git push origin main
+```
 
 This rule **applies to every agent** working on this repo (Claude Code, Codex, Lovable, any future agent). It applies regardless of the kind of change (code, doc, config). It applies to every push. There are no exceptions.
 
@@ -182,6 +202,53 @@ This is the canonical conversion across every surface (wallet, store cart, conte
 
 If you encounter a value labelled `qc` / `qcent` / `q_cent` / `qCents` and aren't sure whether it's a cents count or a USD value, **trace it back to its source before using it** — getting this wrong moves money by 100×.
 
+### QriptoCENT is the class — Q¢ denominations are settled cent-for-cent, never bridged (operator-ratified, 2026-07-29, corrected 2026-07-31)
+
+**Q¢ (QriptoCENT) is a stable-value currency CLASS, not a single asset.** It has no protocol-wide
+aggregate maximum supply — each canonical **denomination** within the class has its own expressly
+governed native ledger, balances, issuance and maximum supply:
+
+```
+QriptoCENT (Q¢) — the class
+├── Base Q¢     — native denomination on Base, governed max supply
+└── Bitcent/B¢  — native denomination on Bitcoin (Runes), governed max supply
+    (further denominations may be added the same way — never an unqualified
+     second issuance of an existing denomination's name)
+```
+
+**Bitcent (title case, ticker `B¢`) is Q¢'s Bitcoin-native denomination** — a real Bitcoin Runes
+issuance (the real testnet etch is documented in
+`codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md`), not a system unrelated
+to Q¢. `BITCENT` (all-caps) is the immutable on-chain Rune protocol name only.
+
+**Cross-denomination settlement is inter-ledger, never wrapped-token bridging.** Each denomination
+keeps its own native ledger; a cross-network payment is a source-side debit, a DVN-verified
+settlement message, and a destination-side credit from native liquidity on the other side — the
+token itself never moves, and no wrapped copy is minted. The settlement rate between denominations is
+**cent-for-cent** (`1 B¢ = 1 Base Q¢ = one cent of reference value`); any fee must be separately
+disclosed, never hidden in a variable exchange rate. Full architecture:
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md` and
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-cross-denomination-settlement.md`.
+
+**Do not confuse QriptoCENT (the currency class) with CryptoSent (a settlement-routing agent/service
+that operates on it) — both are real, both are ratified, and they are not interchangeable spellings
+of each other.** CryptoSent is the Financial Services Runtime surface that routes and classifies each
+component of every transaction it settles (`2026-07-29_constitutional-trading-transparency-and-fee-classification.md`
+§9's reach table lists it as a peer of MoneyPenny, Marketa, DVN receipts and Standing) and rebalances
+denomination liquidity (`2026-07-29_qriptocent-supply-constitution.md`). It is a legitimate, separate
+term used throughout the ratified 2026-07-29 docs and wallet fixtures — do not "fix" it to
+"QriptoCENT" on sight.
+
+**Known drift, corrected 2026-07-31:** PRD-GJR-001's payment-capabilities list named the wallet
+capability itself "CryptoSent settlement orchestration" — wrong in that specific spot, because a
+capabilities list of payment RAILS (x402, Base Q¢, Bitcent/B¢) needed the CURRENCY's own settlement
+capability ("QriptoCENT settlement orchestration"), not a reference to the CryptoSent agent. Fixed
+there only. Every other "CryptoSent" reference in this codebase (the 2026-07-29 docs, the wallet
+fixtures' in-universe title `"CryptoSent: the cent that makes sense"`, test files) is the real agent
+and is correct as written — do not replace it. When you're unsure which one a sentence means: if the
+sentence is naming a currency/denomination/settlement RAIL, it's QriptoCENT/Q¢; if it's naming an
+actor that routes, classifies or rebalances transactions, it's CryptoSent.
+
 ---
 
 ## Operator Instructions — Always Provide Runnable Scripts
@@ -192,6 +259,18 @@ When the operator needs to take any action, always provide the exact command(s) 
 - **SQL**: provide a single copyable block the operator can paste directly into the Supabase SQL editor. Never say "run this migration" without providing the exact SQL inline.
 - **Never say** "add X to Amplify", "configure Y in the dashboard", or "run script Z" without providing the exact value or the exact command.
 - If multiple commands are needed, chain them into one block with `&&` so a single paste runs everything.
+
+### Documents for review — ALWAYS provide the link, unprompted (the operator should never have to ask)
+
+Whenever you produce or update ANY document the operator may want to read or review — a PRD, spec, charter, update/session doc, report, or plan — you MUST surface a way to open it in the same message, without being asked:
+
+1. **A deep link to read it**, in this order of preference:
+   - a **published Artifact link** (render the doc via the Artifact tool — best for a clean, shareable review view), and/or
+   - the **in-app deep link** to where the doc is registered (e.g. AgentiQ cartridge → Updates tab for `agentiq/updates/*`; IRL OS cartridge → Foundation for `codexes/packs/irl/foundation/*`), built with the dev host (`dev-beta.aigentz.me`) — never a guessed URL, and
+   - the **repo file path** as the always-available fallback.
+2. **For anything the operator must run** — a migration or any SQL — paste the **exact SQL inline** in a single copyable block (this is the existing "SQL" rule above; it is not optional and applies every time a schema/data change ships). Never say "run the migration" and point at a filename without the SQL in the message.
+
+The operator has repeatedly had to ask for review links and for the SQL to run. Providing both proactively, every time, is now mandatory — treat a doc-producing or migration-producing turn as incomplete until the link(s) and any SQL are in the reply.
 
 ---
 
@@ -442,6 +521,12 @@ This is a mature, actively evolving codebase. Before writing any new code:
 2. **Reuse and extend** what's there. If something needs a new capability, modify the existing unit rather than creating a parallel one.
 3. **Move logic when refactoring** — don't copy it. The codebase should have one authoritative location for each concern.
 
+### Source-of-truth parity is canary-enforced (operator-ratified 2026-07-22)
+
+`inv.engineering.036` ("one authoritative location per concern") and `inv.engineering.037` ("a parallel implementation of an existing capability is a defect") are canonical — and enforcement, not doctrine, is where they kept failing: three independent same-day defects (EXPERIMENT_REGISTRY hand-copied as `col_experiments`; the pack-corpus local-fs sniff duplicating the `PACK_CORPUS_URL` signal; `ASSIGNABLE_EXPERIMENTS` hand-copied from the registry) were all stale duplicates of a single source of truth.
+
+**The rule:** when a surface needs a copy/projection of a registry, config list, or any single source of truth, **derive it in code** from the authoritative source. Where derivation is genuinely impossible (e.g. a docs-file mirror), **add a parity canary that fails the build on drift.** `tests/source-of-truth-parity.test.ts` is the designated home for such checks and the index of parity canaries living elsewhere — register new ones there (or cross-reference them there), never ship a hand-maintained duplicate without one.
+
 ---
 
 ## File and Component Discipline
@@ -450,6 +535,46 @@ This is a mature, actively evolving codebase. Before writing any new code:
 - **Never create new UI components** without first checking `components/ui/`, `components/composer/`, `components/registry/`, and `components/` root.
 - Canonical shared primitives include: `ConfirmDialog`, `IQubeCard`, `FilterSection`, `ViewModeToggle` — use them.
 - Prefer editing an existing file to creating a new one, even if the change is larger.
+
+---
+
+## Companion Menu System — Invariants (PARAMOUNT, read before touching the Companion or the copilot)
+
+**Full definition with the defect and canary behind each rule:
+`codexes/packs/agentiq/updates/2026-07-27_companion-menu-system-invariants.md`.**
+
+Eleven invariants, every one learned from a live regression. Eight of the eleven failures were the
+SAME shape — **two things owning or describing one thing, and the stale one winning** — which is why
+fixing one kept breaking another.
+
+| # | Invariant |
+|---|---|
+| **MS-1** | **One navigation.** The copilot's menu row is the only navigation; no surface renders a second control for a concept the menu owns. |
+| **MS-2** | **One owner per surface.** A host supplying `bodySlot`/`onWalletLaunch` owns the body; the copilot keeps NO parallel state for the same surface. |
+| **MS-3** | **One state, two views.** Mode (chat/avatar) is one value, synced in both directions; neither view keeps its own idea of the active surface. |
+| **MS-4** | **Measure what is mounted.** Geometry from a conditionally rendered node must re-measure when that node changes; a zero measurement is a teardown artifact, never a layout value. |
+| **MS-5** | **A deliberate act outranks an ambient observation.** Surface selection is a choice; the observed page is context. Context refines the offer, never overrides the choice. |
+| **MS-6** | **Gate, then rank; never subtract.** Ranking runs after gating; it may reorder but never widen, empty, or change the count offered. |
+| **MS-7** | **An inert mechanism is a defect.** A needle/observer that can never fire is a bug even though nothing errors. |
+| **MS-8** | **An overlay is anchored to the box it occupies and does not intercept.** One rect for position AND size; a high-z layer without `pointer-events: none` swallows clicks. |
+| **MS-9** | **A control that cannot act must not render.** |
+| **MS-10** | **One observer, one record.** The observation of the page is ONE shared row; any "nothing changed, skip the write" decision must be made where that record lives, never in a per-observer cache of what that observer last sent. A stale observation must never render as current. |
+| **MS-11** | **A cache may not answer authoritatively before it is hydrated.** A cache mirroring durable state has a third state besides yes/no — *not loaded yet* — and a read that cannot tell it from "no" must WAIT, not answer. Answering "denied" for "not loaded yet" is a lie with the same consequences as wrongly answering "granted"; fail-closed is what makes it invisible. Also: an MV3 worker is evicted after ~30s idle, so the message that WAKES it is dispatched before its own async hydration callback runs — and a fake `chrome.storage` whose callback fires synchronously cannot falsify any of this. |
+
+**Third-party embeds render outside the container you give them.** The D-ID avatar SDK injects at
+`document.body` level and can write `document.body.style` — no host-wrapper styling reaches it.
+Unmount when unused, sweep artifacts on teardown, restore document-level styles.
+
+Before changing the menu system, name the invariant your change relies on. A change that would
+violate one is a discussion, not an implementation. A defect that fits none of the eleven is a
+twelfth invariant — add it, with its canary, in the same change that fixes it.
+
+**When an observation is not landing, the page console cannot tell you.** `{ok: true}` from the
+`OBSERVATION` handler is the LOCAL consent result, sent before the server forward resolves — it is
+compatible with every forward failing. The forward's real outcome is logged only in the service
+worker console: `chrome://extensions` → metaMe Companion → Inspect views → `service worker`. Check
+there first, and check `chrome.storage.local.get(null, console.log)` for the grant state the worker
+actually holds.
 
 ---
 

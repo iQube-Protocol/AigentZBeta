@@ -27,6 +27,7 @@
  */
 
 import { hashToField } from '@worldcoin/idkit-core/hashing';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export type PersonhoodProofType = 'captcha' | 'world_id' | 'agent_declaration' | 'operator_attestation';
 
@@ -132,6 +133,29 @@ export async function verifyWorldIdProof(
       error: e instanceof Error ? e.message : 'World ID request failed',
     };
   }
+}
+
+/**
+ * Whether this persona holds a live (non-revoked, non-expired), World-ID-
+ * verified Polity Passport — the persisted signal the graded proof-of-
+ * humanity gate (CFS-043 §6; PRD-MPY-001 §7) checks before authorizing a
+ * money-moving Constitutional Agreement. Reads the SAME `world_id_verified_at`
+ * column `/api/polity-passport/verify-worldid` stamps on `polity_passport_
+ * records` — no new verification mechanism, no re-derivation, no separate
+ * "is this human verified" store.
+ */
+export async function hasVerifiedWorldIdPassport(personaId: string): Promise<boolean> {
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  const { data, error } = await admin
+    .from('polity_passport_records')
+    .select('world_id_verified_at, revoked, expires_at')
+    .eq('persona_id', personaId)
+    .eq('revoked', false)
+    .not('world_id_verified_at', 'is', null);
+  if (error || !data || data.length === 0) return false;
+  const now = Date.now();
+  return data.some((row) => !row.expires_at || new Date(row.expires_at as string).getTime() > now);
 }
 
 function randomNullifier(): string {

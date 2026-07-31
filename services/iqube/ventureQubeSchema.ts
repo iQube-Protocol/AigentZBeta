@@ -441,6 +441,7 @@ const signalEvidenceItemSchema = z.object({
   signalId: z.string().min(1),
   signalType: z.string().min(1).max(120),
   signalSource: z.string().min(1).max(200),
+  note: z.string().max(2000).optional(),
   confidenceScore: confidenceScore,
   standingScore: confidenceScore,
   proofOfWorkPotential: confidenceScore.optional(),

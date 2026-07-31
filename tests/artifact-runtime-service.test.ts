@@ -264,15 +264,34 @@ describe('Receipt reconciliation map — money events are NON-anchorable', () =>
     }
   });
 
-  it('the ONLY event mapped to the anchorable artifact_published is asset.published', () => {
+  it('no registry event anchors by default, and only asset.published may ever be flipped on', () => {
+    // The posture CHANGED deliberately (receiptEmitter.ts documents it): the
+    // registry double-write projection anchors NOTHING by default, because
+    // turning on DVN anchoring for every registry publication is an on-chain
+    // volume decision and DVN is protected infrastructure. The old assertion
+    // pinned the pre-decision mapping.
+    //
+    // What is worth guarding is the RULE that survived the change: this map is
+    // a non-anchoring projection, and if anything is ever opted in it may only
+    // be the genuine constitutional publication.
     for (const [ev, action] of Object.entries(RECEIPT_EVENT_TO_ACTIVITY_ACTION)) {
       if (shouldAnchorActionType(action)) {
-        expect(ev).toBe('asset.published');
+        expect(ev, `${ev} must not be anchorable`).toBe('asset.published');
         expect(action).toBe('artifact_published');
       }
     }
-    // and asset.published is indeed anchorable
-    expect(shouldAnchorActionType(RECEIPT_EVENT_TO_ACTIVITY_ACTION['asset.published'])).toBe(true);
+  });
+
+  it('MONEY-ADJACENT events are never anchorable, whatever the default posture', () => {
+    // The rule that must hold under every future flip: Qc metering and reward
+    // grants stay off-chain. This is independent of the asset.published
+    // decision above and must not move with it.
+    for (const ev of ['reward.granted', 'participation.metered'] as const) {
+      expect(
+        shouldAnchorActionType(RECEIPT_EVENT_TO_ACTIVITY_ACTION[ev]),
+        `${ev} is money-adjacent and MUST stay off-chain`,
+      ).toBe(false);
+    }
   });
 
   it('every mapped action type is a real member of ActivityActionType surface used here', () => {

@@ -17,12 +17,39 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare } from "lucide-react";
+import { Loader2, Plus, Sparkles, Check, X, FileText, Layers, Star, GitCompare, ClipboardList } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { DEFAULT_DISCOVERY_DOMAIN } from "@/services/invariants/discoveryDomains";
+
+interface DomainOption { key: string; label: string; kind: string }
+type EvidenceProvenanceClass = "direct-horizontal" | "cross-vertical-observation";
+interface EvidenceSupportBreakdown {
+  directHorizontal: boolean; externalSourceCount: number;
+  observedVerticals: string[]; crossVerticalRecurrence: number;
+}
+interface Recurrence {
+  observedDomains: string[]; recurrenceCount: number;
+  tier: "single-domain" | "cross-domain" | "broad-cross-domain";
+  classificationFloor: "specialized" | "supported";
+  maxAbstractionLevel: "L3" | "L4";
+  // Operator ruling 2026-07-28 — a SIBLING field, never an overload of
+  // recurrenceCount/observedDomains (those two keep their pre-existing
+  // meaning exactly). Null for a vertical/unregistered domain.
+  evidenceSupport?: EvidenceSupportBreakdown | null;
+}
 
 interface Evidence {
   id: string; domain: string; subDomain: string | null; title: string;
-  sourceKind: string; content: string; sourceRef: string | null; createdAt: string;
+  // `content` is EMPTY on the list projection — the route sends the length
+  // instead, because full document text blew the Lambda response cap and the
+  // resulting empty body left this panel rendering another domain's evidence
+  // (2026-07-28). Fall back to content.length so any caller still holding a
+  // full row keeps working.
+  sourceKind: string; content: string; contentChars?: number; sourceRef: string | null; createdAt: string;
+  // Derived, never stored (inv.engineering.036) — null when the domain being
+  // viewed isn't a horizontal-capability domain, where the distinction
+  // doesn't exist.
+  provenanceClass?: EvidenceProvenanceClass | null;
 }
 interface Convergence { supportCount: number; frameworks: string[]; tier: "single" | "strong" | "broad" }
 type Classification = "supported" | "specialized" | "split" | "novel" | "equivalent";
@@ -34,15 +61,90 @@ interface Candidate {
   discoveryClass: string; statement: string;
   rationale: string; evidenceIds: string[]; confidence: number;
   status: "candidate" | "promoted" | "rejected"; promotedInvariantId: string | null;
-  createdAt: string; convergence?: Convergence;
+  createdAt: string; convergence?: Convergence; recurrence?: Recurrence;
   stage?: "constitutional" | "compare";
   classification?: Classification | null;
   coverage?: string[] | null;
+  compression?: {
+    role: "root" | "derived";
+    parents: { parentCandidateId: string; relationship: "entails" | "specializes" | "depends_on" | "supports"; claim: string; confidence: number }[];
+    rationale: string;
+    materialized: boolean;
+  } | null;
 }
 interface Preset { value: string; label: string }
 
+/** The classification queue — the downstream of promotion (operator ruling
+ *  2026-07-28: "'safe' should not become 'finished'"). Every field here is
+ *  SERVER-COMPUTED by `buildClassificationQueue` /`canUseInvariantFor`; the
+ *  client renders it and derives nothing, so the six checks and the refusal
+ *  reasons cannot drift from what the gate actually enforces. */
+interface ClassificationCheckState {
+  id: string; label: string; requirement: string;
+  decidedBy: "mechanical" | "steward";
+  satisfied: boolean; detail: string;
+}
+interface QueueEntry {
+  invariantId: string; statement: string; namespace: string; status: string;
+  domain: string | null; checks: ClassificationCheckState[]; outstandingCheckIds: string[];
+}
+interface Prohibition { use: string; reason: string | null }
+
+/** The server-computed pre-population for the classify form (`suggest-
+ *  classification`). Mirrors `ParentSuggestion` in spirit: the SERVER resolves
+ *  it from stored records, this surface only displays it, and the operator
+ *  confirms. Nothing here is composed client-side — a URL this file invented
+ *  would be indistinguishable, to the operator, from one the system actually
+ *  holds. */
+interface ClassificationSuggestionSource {
+  sourceRef: string;
+  evidenceIds: string[];
+  evidenceTitles: string[];
+  candidateTitle: string | null;
+  issuer: string | null;
+  recordedProvenanceClass: string | null;
+  reviewNotes: string | null;
+  seedInstitution: string | null;
+  seedClaim: string | null;
+}
+interface ClassificationSuggestion {
+  invariantId: string;
+  evidenceIdCount: number;
+  resolvedEvidenceCount: number;
+  unresolvedEvidenceIds: string[];
+  evidenceIdsWithoutSourceRef: string[];
+  sources: ClassificationSuggestionSource[];
+  suggestedEvidenceRefs: string[];
+  suggestedRationale: string;
+  complete: boolean;
+  notes: string[];
+}
+
+/**
+ * The five ratified evidence-provenance classes. Assigning one is the ONLY act
+ * that moves an invariant out of `unclassified` and into an experimental
+ * population — and until 2026-07-28 no surface anywhere could perform it, so
+ * the queue below could be read and never cleared (operator: "the same block …
+ * we encountered before with the FS cross refd ones").
+ *
+ * Order matters: the two EXTERNAL classes come first because they are what a
+ * discovery compressed from acquired institutional documents normally is, and
+ * the platform classes are the ones a steward should have to reach for
+ * deliberately.
+ */
+const PROVENANCE_CLASS_OPTIONS: { value: string; label: string; hint: string }[] = [
+  { value: "external-established", label: "External · established", hint: "Independently authored, already-established source (standards bodies, regulators, peer-reviewed literature)." },
+  { value: "external-empirical", label: "External · empirical", hint: "Independently authored empirical findings — data, studies, measured outcomes." },
+  { value: "platform-derived", label: "Platform · derived", hint: "Derived from this platform's own operation or artefacts." },
+  { value: "platform-hypothesized", label: "Platform · hypothesized", hint: "Proposed by the platform, not yet evidenced externally." },
+  { value: "platform-doctrine", label: "Platform · doctrine", hint: "Ratified platform doctrine — governance, method, house rules." },
+];
+
 const CLASSIFICATION_META: Record<Classification, { label: string; cls: string }> = {
-  supported: { label: "Supported", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
+  // "Convergent", not "Supported": a compare output in this class recurs across
+  // multiple independent sub-domains that converged on the same behavioural
+  // constraint — empirical convergence, not mere agreement with a baseline.
+  supported: { label: "Convergent", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" },
   novel: { label: "Novel", cls: "border-amber-500/40 bg-amber-500/10 text-amber-300" },
   specialized: { label: "Specialized", cls: "border-sky-500/40 bg-sky-500/10 text-sky-300" },
   split: { label: "Split", cls: "border-violet-500/40 bg-violet-500/10 text-violet-300" },
@@ -63,7 +165,12 @@ const CONVERGENCE_META: Record<Convergence["tier"], string> = {
 };
 
 export default function InvariantDiscoveryTab() {
-  const [domain] = useState("financial-services");
+  // Domain, its label, and its sub-domain ladder all come from the Discovery
+  // Domain Registry via the route (PRD-IDE-002) — never a literal here.
+  const [domain, setDomain] = useState<string>(DEFAULT_DISCOVERY_DOMAIN);
+  const [domains, setDomains] = useState<DomainOption[]>([]);
+  const [domainKind, setDomainKind] = useState<string | null>(null);
+  const [observedIn, setObservedIn] = useState<string[]>([]);
   const [subDomain, setSubDomain] = useState<string>(""); // "" = domain baseline
   const [presets, setPresets] = useState<Preset[]>([]);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -78,20 +185,68 @@ export default function InvariantDiscoveryTab() {
   const [eContent, setEContent] = useState("");
   const [eSubDomain, setESubDomain] = useState(""); // "" = domain-wide evidence
   const [linkFor, setLinkFor] = useState<{ id: string; mode: "promote" | "relink"; suggestions: ParentSuggestion[]; selected: Set<string> } | null>(null);
+  const [queue, setQueue] = useState<QueueEntry[]>([]);
+  // The open classify form, if any. One at a time — a steward classifies a
+  // specific invariant with specific evidence, never several at once.
+  const [classifyFor, setClassifyFor] = useState<
+    {
+      invariantId: string; to: string; evidenceRefs: string; rationale: string; error: string | null;
+      /** The server's pre-population, once it arrives. `null` while loading or
+       *  when the fetch failed — the form is usable either way, by hand. */
+      suggestion: ClassificationSuggestion | null;
+      suggestionLoading: boolean;
+    } | null
+  >(null);
+  const [prohibitions, setProhibitions] = useState<{ use: string; reason: string }[]>([]);
+  const [permittedUses, setPermittedUses] = useState<string[]>([]);
 
   const scopeLabel = subDomain ? (presets.find((p) => p.value === subDomain)?.label ?? subDomain) : "Domain baseline";
 
   const load = useCallback(async () => {
     setLoading(true);
+    // CLEAR BEFORE FETCHING (2026-07-28 regression: "Commercialisation docs are
+    // now showing FS docs"). `load` runs on every scope change, and it only
+    // ever WROTE state on success — so a failed load (the 413 above returned an
+    // empty body and threw in `res.json()`) left the PREVIOUS domain's evidence
+    // and candidates on screen under the NEW domain's heading.
+    //
+    // Data belonging to a scope the operator is no longer in must never render
+    // as that scope's data. An empty panel plus an error is honest; another
+    // domain's corpus labelled as this one is not. This file already carries
+    // the same rule for the notice line one screen down — it was never applied
+    // to the rows themselves.
+    setEvidence([]);
+    setCandidates([]);
+    setQueue([]);
     try {
       const qs = new URLSearchParams({ domain });
       if (subDomain) qs.set("subDomain", subDomain);
       const res = await personaFetch(`/api/invariants/discovery?${qs.toString()}`, { cache: "no-store" });
-      const data = await res.json();
+      // A response too large for the gateway arrives with an EMPTY body, and
+      // `res.json()` throws on it — read text first so the surface can say what
+      // actually happened instead of surfacing a raw parser error.
+      const raw = await res.text();
+      if (!raw) {
+        setNotice(`⚠ The server returned an empty response (HTTP ${res.status}). Nothing is shown for this scope rather than showing another scope's data.`);
+        return;
+      }
+      const data = JSON.parse(raw);
       if (data?.ok) {
         setEvidence(data.evidence ?? []);
         setCandidates(data.candidates ?? []);
         if (Array.isArray(data.subDomainPresets)) setPresets(data.subDomainPresets);
+        if (Array.isArray(data.domains)) setDomains(data.domains);
+        setDomainKind(typeof data.domainKind === "string" ? data.domainKind : null);
+        setObservedIn(Array.isArray(data.observedIn) ? data.observedIn : []);
+        setQueue(Array.isArray(data.classificationQueue) ? data.classificationQueue : []);
+        // Only prohibitions the gate actually refused. A `reason: null` would
+        // mean the gate ALLOWED the use, and rendering it as a prohibition
+        // would be the surface asserting a rule the gate does not enforce.
+        setProhibitions(
+          (Array.isArray(data.unclassifiedProhibitions) ? (data.unclassifiedProhibitions as Prohibition[]) : [])
+            .filter((p): p is { use: string; reason: string } => typeof p.reason === "string" && p.reason.length > 0),
+        );
+        setPermittedUses(Array.isArray(data.permittedUnclassifiedUses) ? data.permittedUnclassifiedUses : []);
       } else setNotice(`⚠ ${data?.error ?? "Load failed"}`);
     } catch (e) {
       setNotice(`⚠ ${e instanceof Error ? e.message : "Load failed"}`);
@@ -100,18 +255,41 @@ export default function InvariantDiscoveryTab() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const post = useCallback(async (body: Record<string, unknown>, label: string) => {
-    setBusy(label); setNotice(null);
+  // `opts.silent` returns the failure body to the CALLER instead of raising
+  // the page-level notice — used by the classify form, which renders the
+  // server's refusal next to the field that caused it (a refusal about a
+  // specific invariant's evidence does not belong in a banner about the whole
+  // domain). Default behaviour is unchanged for every existing caller.
+  const post = useCallback(async (
+    body: Record<string, unknown>,
+    label: string,
+    opts?: { silent?: boolean },
+  ) => {
+    setBusy(label); if (!opts?.silent) setNotice(null);
     try {
       const res = await personaFetch("/api/invariants/discovery", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ domain, ...body }),
       });
-      const data = await res.json();
-      if (!res.ok || data?.ok === false) { setNotice(`⚠ ${data?.error ?? "Action failed"}`); return null; }
+      // Same empty-body hazard as `load` — a response too large for the gateway
+      // arrives with no body and `res.json()` throws a raw parser error. Read
+      // text first and report the real condition.
+      const raw = await res.text();
+      if (!raw) {
+        const message = `The server returned an empty response (HTTP ${res.status}).`;
+        if (opts?.silent) return { ok: false, error: message };
+        setNotice(`⚠ ${message}`); return null;
+      }
+      const data = JSON.parse(raw);
+      if (!res.ok || data?.ok === false) {
+        if (opts?.silent) return data ?? { ok: false, error: "Action failed" };
+        setNotice(`⚠ ${data?.error ?? "Action failed"}`); return null;
+      }
       return data;
     } catch (e) {
-      setNotice(`⚠ ${e instanceof Error ? e.message : "Action failed"}`); return null;
+      const message = e instanceof Error ? e.message : "Action failed";
+      if (opts?.silent) return { ok: false, error: message };
+      setNotice(`⚠ ${message}`); return null;
     } finally { setBusy(null); }
   }, [domain]);
 
@@ -136,7 +314,49 @@ export default function InvariantDiscoveryTab() {
     setSubDomain(""); // compare outputs land at the domain baseline
     const r = await post({ action: "compare" }, "compare");
     if (r) {
-      setNotice(`✓ Compared ${(r.comparedSubDomains ?? []).length} sub-domains → ${(r.candidates ?? []).length} domain candidate(s) (supported / specialized / split / novel)`);
+      // Compression ratio — the reasoning-compression metric: how many
+      // independently-discovered sub-domain invariants collapsed into how many
+      // earned domain invariants (inv.reasoning.342 recurrence → compression).
+      const input = Number(r.inputInvariantCount ?? 0);
+      const output = (r.candidates ?? []).length;
+      const subs = (r.comparedSubDomains ?? []).length;
+      const ratio = output > 0 && input > 0 ? `${(input / output).toFixed(1)}:1` : "—";
+      setNotice(
+        `✓ Compressed ${input} sub-domain invariant(s) across ${subs} sub-domains → ${output} earned domain invariant(s) · compression ${ratio}`,
+      );
+      await load();
+    }
+  }, [post, load]);
+
+  // Recursive compression — the parent-child keystone: find the derivation
+  // structure among the earned domain invariants (roots vs derived).
+  const compressDomain = useCallback(async () => {
+    setSubDomain(""); // operates on the domain-baseline invariants
+    const r = await post({ action: "compress-domain" }, "compress-domain");
+    if (r) {
+      const roots = Number(r.rootCount ?? 0);
+      const derived = Number(r.derivedCount ?? 0);
+      const total = roots + derived;
+      const ratio = roots > 0 ? `${(total / roots).toFixed(1)}:1` : "—";
+      setNotice(
+        `✓ Recursive compression (proposed): ${total} domain invariant(s) → ${roots} root(s) + ${derived} derived · depth compression ${ratio}. Promote roots + derived, then Confirm edges to insert into the graph.`,
+      );
+      await load();
+    }
+  }, [post, load]);
+
+  // Operator-confirmed materialisation of a derived candidate's proposed typed
+  // edges into the invariant graph (nothing is auto-inserted on promotion).
+  const materializeEdges = useCallback(async (id: string) => {
+    const r = await post({ action: "materialize-edges", candidateId: id }, `materialize-${id}`);
+    if (r) {
+      const linked = Number(r.linked ?? 0);
+      const skipped = Number(r.skipped ?? 0);
+      setNotice(
+        linked > 0
+          ? `✓ Inserted ${linked} derivation edge(s) into the graph${skipped ? ` · ${skipped} skipped (parent not promoted yet)` : ""}`
+          : `No edges inserted${skipped ? ` — ${skipped} parent(s) not promoted yet (promote the root parents first)` : ""}`,
+      );
       await load();
     }
   }, [post, load]);
@@ -145,7 +365,15 @@ export default function InvariantDiscoveryTab() {
     const r = await post({ action: "promote", candidateId: id, parentInvariantIds }, `promote-${id}`);
     if (r) {
       const linked = Number(r.linkedParents ?? 0);
-      setNotice(`✓ Promoted → proposed${linked > 0 ? ` · specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : ""} (validation next)`);
+      // A re-discovery is a RESULT, not a failure, and must not read like one.
+      // The candidate's statement already exists, so nothing was inserted —
+      // but the discovery converged on it a second time, which is a recurrence
+      // signal worth naming rather than a duplicate worth apologising for.
+      setNotice(
+        r.alreadyExisted
+          ? `✓ Already discovered — this candidate resolved to the existing invariant (${String(r.invariantId).slice(0, 8)}…). No duplicate created; the re-discovery is recorded as recurrence evidence.`
+          : `✓ Promoted → proposed${linked > 0 ? ` · specializes ${linked} parent invariant${linked === 1 ? "" : "s"}` : ""} (validation next)`,
+      );
       setLinkFor(null);
       await load();
     }
@@ -185,6 +413,81 @@ export default function InvariantDiscoveryTab() {
     });
   }, []);
 
+  /**
+   * Open the classify form and PRE-POPULATE it from the stored acquisition
+   * record (operator, 2026-07-28: "the URL and rationale for inclusion was
+   * provided with the sources… rather than having the operator have to re-enter
+   * these from scratch"). Same shape as `openLinkPanel`: open, ask the server
+   * for a suggestion, show it, let the operator confirm or change it.
+   *
+   * Two rules this handler keeps:
+   *  · The class (`to`) is NEVER pre-selected. Pre-filling the clerical fields
+   *    removes typing; pre-selecting the class would remove the JUDGEMENT, and
+   *    with all three fields defaulted the whole classification could be
+   *    performed by one click on a form the operator never read. The URL and
+   *    the rationale are transcription; the evidence-provenance class is the
+   *    constitutional act.
+   *  · A late suggestion never overwrites what the operator has already typed.
+   */
+  const openClassifyPanel = useCallback(async (q: QueueEntry) => {
+    setClassifyFor({
+      invariantId: q.invariantId, to: "", evidenceRefs: "", rationale: "",
+      error: null, suggestion: null, suggestionLoading: true,
+    });
+    const r = await post(
+      { action: "suggest-classification", invariantId: q.invariantId },
+      `suggest-classification-${q.invariantId}`,
+      { silent: true },
+    );
+    const suggestion = (r?.ok ? (r.suggestion as ClassificationSuggestion) : null) ?? null;
+    setClassifyFor((f) => {
+      if (!f || f.invariantId !== q.invariantId) return f; // panel moved on
+      return {
+        ...f,
+        suggestion,
+        suggestionLoading: false,
+        evidenceRefs: f.evidenceRefs || (suggestion?.suggestedEvidenceRefs ?? []).join("\n"),
+        rationale: f.rationale || (suggestion?.suggestedRationale ?? ""),
+      };
+    });
+  }, [post]);
+
+  /**
+   * Assign an evidence-provenance class — the act that clears the queue entry.
+   *
+   * Every refusal (unratified class, no evidence refs, blank rationale, no-op
+   * reclass, and the anti-laundering rule that a move into Population A must
+   * cite at least one non-repo-internal source) is enforced SERVER-SIDE by
+   * `applyProvenanceReclassification`. This form deliberately does not
+   * pre-validate any of them: the ruling is the server's to speak, and a
+   * client that mirrored the rules would be a second copy of them that could
+   * drift. The server's exact refusal text is shown to the steward.
+   */
+  const classify = useCallback(async () => {
+    if (!classifyFor) return;
+    const refs = classifyFor.evidenceRefs
+      .split(/[\n,]/)
+      .map((r) => r.trim())
+      .filter(Boolean);
+    const r = await post(
+      {
+        action: "classify",
+        invariantId: classifyFor.invariantId,
+        to: classifyFor.to,
+        evidenceRefs: refs,
+        rationale: classifyFor.rationale,
+      },
+      `classify-${classifyFor.invariantId}`,
+      { silent: true },
+    );
+    if (r?.ok) {
+      setClassifyFor(null);
+      await load(); // the entry leaves the queue — it now carries a provenance
+    } else {
+      setClassifyFor((f) => (f ? { ...f, error: (r?.error as string) ?? "Classification failed." } : f));
+    }
+  }, [classifyFor, post, load]);
+
   const reject = useCallback(async (id: string) => {
     const r = await post({ action: "reject", candidateId: id }, `reject-${id}`);
     if (r) { await load(); }
@@ -196,6 +499,130 @@ export default function InvariantDiscoveryTab() {
     // signal, not validity — Law XII), then confidence.
     .sort((a, b) => (b.convergence?.supportCount ?? 0) - (a.convergence?.supportCount ?? 0) || b.confidence - a.confidence);
   const closed = candidates.filter((c) => c.status !== "candidate");
+
+  /**
+   * The classify control on a queue entry — the door out of `unclassified`.
+   * Collapsed to a single button until the steward opens it, so the queue
+   * still reads as a checklist rather than a wall of forms.
+   */
+  const renderClassifyPanel = (q: QueueEntry) => {
+    const open = classifyFor?.invariantId === q.invariantId;
+    if (!open) {
+      return (
+        <div className="pl-1 pt-0.5">
+          <button
+            onClick={() => void openClassifyPanel(q)}
+            disabled={busy !== null}
+            className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+          >
+            <Check className="h-2.5 w-2.5" /> Assign evidence provenance
+          </button>
+        </div>
+      );
+    }
+    const f = classifyFor;
+    return (
+      <div className="mt-1 space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2">
+        <div className="text-[10px] uppercase tracking-wide text-amber-300/80">
+          Assign evidence provenance — what KIND of evidence this rests on
+        </div>
+        <select
+          value={f.to}
+          onChange={(e) => setClassifyFor({ ...f, to: e.target.value, error: null })}
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200"
+        >
+          {/* NO DEFAULT CLASS. The refs and the rationale below are now
+              pre-filled from the stored record, which is transcription the
+              operator should not have to redo — but if the class were also
+              defaulted, the entire classification could be committed by one
+              click on a form nobody read. The judgement stays theirs. */}
+          <option value="" disabled>Choose the evidence-provenance class…</option>
+          {PROVENANCE_CLASS_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <p className="text-[10px] leading-snug text-slate-500">
+          {PROVENANCE_CLASS_OPTIONS.find((o) => o.value === f.to)?.hint
+            ?? "Not selected — the refs and rationale below are suggested from the record, but the class is yours to decide."}
+        </p>
+
+        {/* The pre-population, and what it could NOT account for. */}
+        {f.suggestionLoading && (
+          <p className="flex items-center gap-1.5 text-[10px] text-slate-500">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" /> Reading the stored acquisition record…
+          </p>
+        )}
+        {f.suggestion && (
+          <div className="rounded border border-slate-700/70 bg-slate-900/60 p-1.5 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400">
+              {f.suggestion.suggestedEvidenceRefs.length > 0
+                ? `Suggested from the record — ${f.suggestion.suggestedEvidenceRefs.length} source URL(s) across ${f.suggestion.resolvedEvidenceCount} evidence row(s)`
+                : "Nothing could be suggested from the record"}
+              {f.suggestion.suggestedEvidenceRefs.length > 0 && !f.suggestion.complete && (
+                <span className="ml-1 rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[9px] text-amber-300">partial</span>
+              )}
+            </div>
+            {f.suggestion.sources.map((s) => (
+              <div key={s.sourceRef} className="text-[10px] leading-snug text-slate-400">
+                <span className="text-slate-300">{s.candidateTitle ?? s.evidenceTitles[0] ?? s.sourceRef}</span>
+                {s.issuer && <span className="text-slate-500"> — {s.issuer}</span>}
+                {s.recordedProvenanceClass && (
+                  <span className="ml-1 rounded border border-slate-700 px-1 text-[9px] text-slate-400">
+                    recorded at acquisition: {s.recordedProvenanceClass}
+                  </span>
+                )}
+                {/* Deliberately NOT a link that opens: this is a citation being
+                    verified, and the value the operator must check is the exact
+                    string that will be recorded. */}
+                <div className="break-all text-slate-500">{s.sourceRef}</div>
+              </div>
+            ))}
+            {f.suggestion.notes.map((n, i) => (
+              <p key={i} className="text-[10px] leading-snug text-amber-300/80">⚠ {n}</p>
+            ))}
+            <p className="text-[10px] leading-snug text-slate-500">
+              Suggested, not asserted — check every URL and edit freely before recording. Nothing is submitted until you do.
+            </p>
+          </div>
+        )}
+
+        <textarea
+          value={f.evidenceRefs}
+          onChange={(e) => setClassifyFor({ ...f, evidenceRefs: e.target.value, error: null })}
+          rows={2}
+          placeholder="Evidence refs — one per line or comma-separated (source URLs, DOIs, discovery_evidence ids). At least one is required."
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+        />
+        <textarea
+          value={f.rationale}
+          onChange={(e) => setClassifyFor({ ...f, rationale: e.target.value, error: null })}
+          rows={f.rationale ? 6 : 2}
+          placeholder="Rationale — why this evidence supports this class. Recorded permanently on the invariant."
+          className="w-full rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+        />
+        {f.error && (
+          <p className="rounded border border-rose-800/60 bg-rose-950/40 px-1.5 py-1 text-[10px] leading-snug text-rose-300">
+            {f.error}
+          </p>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void classify()}
+            disabled={busy !== null || !f.to}
+            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+          >
+            <Check className="h-3 w-3" /> Record classification
+          </button>
+          <button
+            onClick={() => setClassifyFor(null)}
+            className="rounded border border-slate-700 px-2 py-0.5 text-[11px] text-slate-400 hover:text-slate-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Operator-confirmed parent-link panel — reused by promote (open candidates)
   // and retro-link (already-promoted candidates). Branch on linkFor.mode.
@@ -235,7 +662,9 @@ export default function InvariantDiscoveryTab() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
-        <h3 className="text-base font-semibold text-slate-100">Invariant Discovery Engine — Financial Services</h3>
+        <h3 className="text-base font-semibold text-slate-100">
+          Invariant Discovery Engine — {domains.find((d) => d.key === domain)?.label ?? domain}
+        </h3>
         <p className="text-sm text-slate-400 mt-1">
           CFS-048 · constitutional arm. Assemble evidence → discover candidate invariants (compression, not
           summarisation) → promote into the registry as <span className="text-violet-300">proposed</span>. Discovery is
@@ -247,11 +676,28 @@ export default function InvariantDiscoveryTab() {
       {/* Scope bar — domain baseline vs a sub-domain rung */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Layers className="h-3.5 w-3.5 text-slate-400" /> Scope</span>
-        <span className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-300">Financial Services</span>
+        <select
+          value={domain}
+          // Clearing the notice is part of changing scope. A notice describes
+          // an act performed IN a scope; carried across, it renders as a
+          // statement about the scope now on screen. The operator hit exactly
+          // this: a Financial Services duplicate warning displayed under the
+          // Commercialisation heading, which reads as Commercialisation having
+          // a duplicate it does not have. A stale observation must never
+          // render as current (MS-10).
+          onChange={(e) => { setDomain(e.target.value); setSubDomain(""); setNotice(null); }}
+          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
+          title="Discovery domain — vertical (own corpus) or horizontal capability (observed across verticals)"
+        >
+          {(domains.length ? domains : [{ key: domain, label: domain, kind: "" }]).map((d) => (
+            <option key={d.key} value={d.key}>{d.label}</option>
+          ))}
+        </select>
         <span className="text-slate-600">›</span>
         <select
           value={subDomain}
-          onChange={(e) => setSubDomain(e.target.value)}
+          // Same rule as the domain select above: a sub-domain rung is a scope.
+          onChange={(e) => { setSubDomain(e.target.value); setNotice(null); }}
           className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100"
         >
           <option value="">Domain baseline (whole domain)</option>
@@ -260,6 +706,11 @@ export default function InvariantDiscoveryTab() {
         <span className="text-[11px] text-slate-500">
           {subDomain ? "sub-domain invariants refine the baseline" : "the invariants that hold across the whole domain"}
         </span>
+        {domainKind === "horizontal-capability" && observedIn.length > 0 && (
+          <span className="text-[11px] text-amber-300/80" title="A horizontal capability domain has no corpus of its own — its evidence is observed inside these verticals, and recurrence across them is the confidence signal.">
+            horizontal · observed in {observedIn.join(", ")}
+          </span>
+        )}
       </div>
       {notice && <p className="text-xs text-slate-300">{notice}</p>}
 
@@ -276,7 +727,23 @@ export default function InvariantDiscoveryTab() {
                 {busy === "compare" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitCompare className="h-3.5 w-3.5" />} Compare sub-domains
               </button>
             )}
+            {!subDomain && (
+              <button onClick={() => void compressDomain()} disabled={busy !== null}
+                title="Recursive compression: find which domain invariants derive from which — the parent-child hierarchy (roots = constitutional candidates)"
+                className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-50">
+                {busy === "compress-domain" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Layers className="h-3.5 w-3.5" />} Compress (recursive)
+              </button>
+            )}
+            {/* A REFUSAL MUST SAY WHY. Discovery with no evidence in scope is a
+                correct refusal — the engine compresses evidence, so with none
+                there is nothing to compress. But a greyed-out button with no
+                reason is indistinguishable from a broken instrument, and the
+                operator reads it as "the IDE is not ready" rather than "this
+                domain has no corpus yet". Name the reason and the next step. */}
             <button onClick={() => void extract()} disabled={busy !== null || evidence.length === 0}
+              title={evidence.length === 0
+                ? `No evidence in scope for ${scopeLabel}. Discovery compresses evidence — add evidence, or acquire this domain's external corpus, before it can run.`
+                : "Compress the evidence in scope into candidate invariants"}
               className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
               {busy === "extract" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />} Discover {subDomain ? `${scopeLabel} ` : ""}invariants
             </button>
@@ -313,15 +780,34 @@ export default function InvariantDiscoveryTab() {
         {loading ? (
           <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
         ) : evidence.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No evidence in scope. Add regulatory/compliance text to discover candidate invariants.</p>
+          <p className="text-xs text-slate-500 italic">
+            No evidence in scope — <span className="text-slate-400">Discover invariants is disabled until this domain has evidence.</span>{' '}
+            Add regulatory/compliance text above, or acquire this domain&apos;s external corpus via Corpus Scout.
+          </p>
         ) : (
           <div className="space-y-1">
             {evidence.map((e) => (
               <div key={e.id} className="flex items-center gap-2 rounded bg-white/5 px-2 py-1 text-[11px]">
                 <span className="rounded-full border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[9px] text-slate-400">{e.sourceKind}</span>
+                {e.provenanceClass && (
+                  <span
+                    title={
+                      e.provenanceClass === "direct-horizontal"
+                        ? "Direct-horizontal — evidence acquired ABOUT this capability itself (the plain domain corpus)."
+                        : "Cross-vertical observation — this capability observed manifesting inside a vertical."
+                    }
+                    className={`rounded-full border px-1.5 py-0.5 text-[9px] ${
+                      e.provenanceClass === "direct-horizontal"
+                        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                        : "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                    }`}
+                  >
+                    {e.provenanceClass === "direct-horizontal" ? "direct" : "cross-vertical"}
+                  </span>
+                )}
                 <span className="min-w-0 flex-1 truncate text-slate-300">{e.title}</span>
                 {e.subDomain && <span className="rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">{e.subDomain}</span>}
-                <span className="text-slate-500">{e.content.length.toLocaleString()} chars</span>
+                <span className="text-slate-500">{(e.contentChars ?? e.content.length).toLocaleString()} chars</span>
               </div>
             ))}
           </div>
@@ -360,6 +846,54 @@ export default function InvariantDiscoveryTab() {
                       </span>
                     )}
                     {abs && <span className={`rounded-full border px-1.5 py-0.5 text-[9px] ${abs.cls}`}>{abs.label}</span>}
+                    {c.recurrence && c.recurrence.recurrenceCount > 0 && (
+                      <span
+                        title={`Cross-Domain Recurrence — evidence observed in: ${c.recurrence.observedDomains.join(" · ")}. Floor: ${c.recurrence.classificationFloor}; max abstraction ${c.recurrence.maxAbstractionLevel} (Amendment D §D.4a). Derived from the evidence, never stored.`}
+                        className={`rounded-full border px-1.5 py-0.5 text-[9px] ${
+                          c.recurrence.tier === "broad-cross-domain"
+                            ? "border-amber-400/50 bg-amber-400/10 text-amber-200"
+                            : c.recurrence.tier === "cross-domain"
+                              ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+                              : "border-slate-600 bg-slate-800 text-slate-400"
+                        }`}
+                      >
+                        ↻ {c.recurrence.recurrenceCount} domain{c.recurrence.recurrenceCount === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    {c.recurrence?.evidenceSupport?.directHorizontal && (
+                      <span
+                        title={`Direct-horizontal evidence — ${c.recurrence.evidenceSupport.externalSourceCount} external source(s) about the capability itself. Strengthens confidence but never counts toward cross-domain recurrence (operator ruling 2026-07-28).`}
+                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300"
+                      >
+                        ⊕ {c.recurrence.evidenceSupport.externalSourceCount} external
+                      </span>
+                    )}
+                    {c.compression && (
+                      c.compression.role === "root" ? (
+                        <span title="Foundational — proposed as a root (does not derive from another invariant in the set); a constitutional candidate for this domain"
+                          className="rounded-full border border-emerald-400/50 bg-emerald-400/10 px-1.5 py-0.5 text-[9px] text-emerald-200">
+                          ◆ Root
+                        </span>
+                      ) : (
+                        <span
+                          title={c.compression.parents
+                            .map((p) => `${p.relationship} (${Math.round(p.confidence * 100)}%): ${p.claim}`)
+                            .join("\n") || c.compression.rationale}
+                          className="rounded-full border border-slate-500/50 bg-slate-500/10 px-1.5 py-0.5 text-[9px] text-slate-300">
+                          → {[...new Set(c.compression.parents.map((p) => p.relationship))].join("/")} ({c.compression.parents.length})
+                          {c.compression.materialized && <span className="ml-1 text-emerald-400">✓ in graph</span>}
+                        </span>
+                      )
+                    )}
+                    {c.compression?.role === "derived" && c.status === "promoted" && !c.compression.materialized && (
+                      <button
+                        onClick={() => void materializeEdges(c.id)}
+                        disabled={busy !== null}
+                        title="Confirm these proposed derivation edges and insert them into the invariant graph (parents must also be promoted)"
+                        className="inline-flex items-center gap-1 rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-50">
+                        {busy === `materialize-${c.id}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <GitCompare className="h-2.5 w-2.5" />} Confirm edges
+                      </button>
+                    )}
                     {cv && (
                       <span title={cv.frameworks.join(" · ") || "no linked sources"}
                         className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] ${CONVERGENCE_META[cv.tier]}`}>
@@ -406,6 +940,81 @@ export default function InvariantDiscoveryTab() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stage 4 — Classification queue.
+          "The promotion path is fail-closed… But 'safe' should not become
+          'finished.'" Promotion lands every invariant unclassified, in NO
+          experimental population. Correct — and outstanding work, not a
+          resting state. This is where it stays visible. */}
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-3.5 w-3.5 text-amber-300" />
+          <h3 className="text-xs font-semibold text-slate-200">Classification queue</h3>
+          <span className="text-slate-500 text-[11px]">
+            ({queue.length} promoted &amp; unclassified · {scopeLabel})
+          </span>
+        </div>
+
+        {/* The prohibition, in the GATE'S OWN words. These strings come from
+            canUseInvariantFor on the server — prose written here instead would
+            drift from what the gate actually refuses. */}
+        {prohibitions.length > 0 && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-amber-300/90">
+              Permitted while unclassified: {permittedUses.join(" · ") || "—"}
+            </div>
+            {prohibitions.map((p) => (
+              <div key={p.use} className="text-[11px] leading-snug">
+                <span className="text-amber-200">Must not be used as {p.use.replace(/-/g, " ")}</span>
+                <span className="text-slate-400"> — {p.reason}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center gap-2 py-2 text-xs text-slate-400"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…</div>
+        ) : queue.length === 0 ? (
+          <p className="text-xs text-slate-500 italic">
+            Nothing outstanding — every invariant this domain has promoted carries an evidence provenance,
+            so each one sits in a decided experimental population.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {queue.map((q) => (
+              <div key={q.invariantId} className="rounded bg-white/5 px-2 py-1.5 space-y-1">
+                <div className="flex items-start gap-2 text-[11px]">
+                  <span className="flex-shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-300">
+                    unclassified
+                  </span>
+                  <span className="flex-shrink-0 rounded-full border border-slate-700 px-1.5 py-0.5 text-[9px] text-slate-500">
+                    {q.status}
+                  </span>
+                  <span className="min-w-0 flex-1 text-slate-300">{q.statement}</span>
+                  <span className="flex-shrink-0 text-[10px] text-slate-500">
+                    {q.outstandingCheckIds.length}/{q.checks.length} outstanding
+                  </span>
+                </div>
+                <div className="space-y-0.5 pl-1">
+                  {q.checks.map((c) => (
+                    <div key={c.id} className="flex items-start gap-1.5 text-[10px] leading-snug">
+                      {c.satisfied
+                        ? <Check className="mt-0.5 h-2.5 w-2.5 flex-shrink-0 text-emerald-400" />
+                        : <span className="mt-[3px] h-2 w-2 flex-shrink-0 rounded-full border border-amber-500/60" />}
+                      <span className={c.satisfied ? "text-slate-500" : "text-slate-300"}>{c.label}</span>
+                      {c.decidedBy === "steward" && (
+                        <span className="flex-shrink-0 rounded-full border border-slate-700 px-1 text-[8px] text-slate-500">steward</span>
+                      )}
+                      <span className="min-w-0 text-slate-500">— {c.detail}</span>
+                    </div>
+                  ))}
+                </div>
+                {renderClassifyPanel(q)}
+              </div>
+            ))}
           </div>
         )}
       </div>

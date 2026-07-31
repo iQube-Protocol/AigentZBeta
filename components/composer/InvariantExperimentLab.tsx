@@ -24,7 +24,7 @@
  */
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, Scale, ShieldCheck, Sparkles } from "lucide-react";
+import { Beaker, ChevronLeft, ChevronRight, Clapperboard, FileText, FlaskConical, Home, Layers, Lock, MessageSquare, Scale, ShieldCheck, Sparkles } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { EXPERIMENT_REGISTRY } from "@/types/research";
 import InvariantVideoExperimentRunner from "./InvariantVideoExperimentRunner";
@@ -35,6 +35,7 @@ import Exp004SovereigntyRunner from "./Exp004SovereigntyRunner";
 import Exp005ProviderChoiceRunner from "./Exp005ProviderChoiceRunner";
 import Exp006ProjectionRunner from "./Exp006ProjectionRunner";
 import ExpP3CapabilityRunner from "./ExpP3CapabilityRunner";
+import ExpP2UtilityRunner from "./ExpP2UtilityRunner";
 import ExperimentDesignStagePanel from "./ExperimentDesignStagePanel";
 import InstrumentValidationPanel from "./InstrumentValidationPanel";
 import ChrysalisTestTab from "./ChrysalisTestTab";
@@ -43,6 +44,8 @@ import ExperimentResultsTab from "./ExperimentResultsTab";
 import ExperimentReportTab from "./ExperimentReportTab";
 import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
+import QubeTalkInboxTab from "./QubeTalkInboxTab";
+import IndependentReviewPanel from "./IndependentReviewPanel";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -56,8 +59,9 @@ const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
   entropy: "EXP-007",
   propagation: "EXP-008",
   vp1: "EXP-P1",
-  vp2: "EXP-P2",
-  // vp3 (EXP-P3) has a real harness — mounted below, not a design-stage panel.
+  // vp2 (EXP-011) + vp3 (EXP-012) have real harnesses — mounted below, not
+  // design-stage panels. EXP-P2 / EXP-P3 / EXP-P4 have none, so the registry
+  // completeness guard surfaces them from EXPERIMENT_REGISTRY metadata.
 };
 
 interface LabEntry {
@@ -108,11 +112,33 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
     ],
   },
   {
+    // The four RESERVED core designations (operator, 2026-07-27). Only EXP-P1
+    // has a harness; P2/P3 are design-stage and P4 is reserved, so they are
+    // NOT hand-mounted here — the registry completeness guard below surfaces
+    // them with text read straight from EXPERIMENT_REGISTRY. That is why the
+    // Lab now shows the representation experiment for EXP-P3: there is no
+    // hand-authored label left to go stale.
     title: "Validation Programme",
     items: [
       { id: "vp1", label: "EXP-P1 · Representation Gauntlet", icon: FlaskConical, blurb: "Representation & runtime gauntlet — the comparative programme experiment (design stage; runs via the backend harness)." },
-      { id: "vp2", label: "EXP-P2 · Projection Semantics", icon: FlaskConical, blurb: "Projection semantics — the second orthogonal-by-hypothesis-class programme experiment (design stage)." },
-      { id: "vp3", label: "EXP-P3 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set." },
+      // IRL-REVIEW-001 sits IN the experiments navigator rather than as a
+      // separate destination: the review is preparation for the experiment, and
+      // whoever is preparing one should not have to leave it to adjudicate its
+      // inputs. No experiment id — admin-only via the section filter, like the
+      // other cross-cutting lab capabilities.
+      { id: "independent-review", label: "Independent Review", icon: ShieldCheck, blurb: "IRL-REVIEW-001 · submit an experiment asset for independent single or dual adjudication — frozen blinded package, distinct model lineages, contested queue, review receipt. Review is evidence, never ratification." },
+    ],
+  },
+  {
+    // RENUMBERED 2026-07-27. These two harnesses implement the designs that
+    // used to hold the P2 / P3 designations; the designations moved, the
+    // harnesses did not. Binding them to EXP-011 / EXP-012 is what stops the
+    // Lab presenting a legacy runner under a reassigned number — the exact
+    // drift the operator caught ("EXP P3 is still showing the old experiment").
+    title: "Structural & Capability Studies",
+    items: [
+      { id: "vp2", label: "EXP-011 · Structural Invariance", icon: FlaskConical, blurb: "Do discovered invariants have operational utility as a reasoning substrate? Three arms (cold · manual baseline · earned) + root ablation, representation-vs-representation on one corpus — the empirical test of inv.reasoning.323. Formerly EXP-P2." },
+      { id: "vp3", label: "EXP-012 · Capability Validation", icon: FlaskConical, blurb: "Consequence engineering by field projection vs baseline retrieval — real harness; runs against a sealed ≥20-change ground-truth set. Formerly EXP-P3." },
     ],
   },
   {
@@ -128,6 +154,12 @@ const SECTIONS: { title: string; items: LabEntry[] }[] = [
       { id: "results", label: "Results", icon: ShieldCheck, blurb: "Canonical published experiment results — content-hashed, receipted, and DVN-anchorable." },
       { id: "report", label: "Report", icon: FileText, blurb: "Experiment reports through their lifecycle — live drafts, canonical (DVN-minted) records, and published outputs." },
       { id: "plates", label: "Canonical Plates", icon: Layers, blurb: "Canonical plates — composed constitutional artifacts (assets) from the plate pipeline." },
+    ],
+  },
+  {
+    title: "Exchange",
+    items: [
+      { id: "qubetalk", label: "QubeTalk", icon: MessageSquare, blurb: "Personhood-bound peer exchange — message and share artifacts (with a rights envelope) to another principal by their Polity Public Reference. Confidential, principal-to-principal." },
     ],
   },
 ];
@@ -147,8 +179,11 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
   irv: "IRV-001",
   ipv: "IPV-001",
   vp1: "EXP-P1",
-  vp2: "EXP-P2",
-  vp3: "EXP-P3",
+  // The harnesses behind these two implement the RENUMBERED designs (2026-07-27).
+  // A P-slot must never be bound to a legacy harness: the designation moved, the
+  // implementation did not.
+  vp2: "EXP-011",
+  vp3: "EXP-012",
 };
 
 /** Tab id → experiment id, including dynamic `reg:<id>` guard entries. */
@@ -171,7 +206,13 @@ function expIdForTab(id: LabTab): string | undefined {
       title: "Registered — pending surface",
       items: unmounted.map((e) => ({
         id: `reg:${e.id}`,
-        label: `${e.id} · ${e.family}`,
+        // SERIES view — the navigator is a list of experiments in sequence, so
+        // it shows the PROGRAMME FOCUS where one exists (EXP-P1 · Reasoning
+        // Compression) and falls back to the family/hypothesis class otherwise.
+        // The protocol title belongs to the DETAIL panel, not to a list entry
+        // (operator, 2026-07-27: focus and title are different truths and must
+        // not be forced into one label).
+        label: `${e.id} · ${e.programmeFocus ?? e.family}`,
         icon: FlaskConical,
         blurb: e.hypothesis.length > 160 ? `${e.hypothesis.slice(0, 160)}…` : e.hypothesis,
       })),
@@ -390,6 +431,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "sovereignty" && <Exp004SovereigntyRunner canRequestPublish={canRequestPublish} />}
         {tab === "provider-choice" && <Exp005ProviderChoiceRunner canRequestPublish={canRequestPublish} />}
         {tab === "projection" && <Exp006ProjectionRunner canRequestPublish={canRequestPublish} />}
+        {tab === "vp2" && <ExpP2UtilityRunner />}
         {tab === "vp3" && <ExpP3CapabilityRunner canRequestPublish={canRequestPublish} />}
         {(tab === "irv" || tab === "ipv") && (() => {
           const expId = tab === "irv" ? "IRV-001" : "IPV-001";
@@ -400,6 +442,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
               family={reg?.family ?? expId}
               hypothesis={reg?.hypothesis ?? ""}
               protocolRef={reg?.protocolRef}
+              programmeFocus={reg?.programmeFocus}
             />
           );
         })()}
@@ -421,6 +464,8 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "report" && <ExperimentReportTab />}
         {tab === "plates" && <CanonicalPlatesTab isAdmin={Boolean(accessInfo?.isAdmin)} />}
         {tab === "discovery" && <InvariantDiscoveryTab />}
+        {tab === "qubetalk" && <QubeTalkInboxTab researchOnly />}
+        {tab === "independent-review" && <IndependentReviewPanel />}
       </div>
     </div>
   );

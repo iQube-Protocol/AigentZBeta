@@ -30,6 +30,8 @@ import { useSmartTriadContext } from "@/app/hooks/useSmartTriadContext";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
+import { tabPassesAccessGates } from "@/services/passport/participationTabGate";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { AccessionProgressBar } from "./codex/AccessionProgressBar";
@@ -39,6 +41,8 @@ import { getCachedOrFetch } from "./codex/cache";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 import { resolveLegacyTabSlug } from "@/data/codex-configs";
+import { isHorizenTrigger, focusJourneyStage } from "@/services/journey/journeyCompanionTrigger";
+import { JourneyCompanionCarousel } from "@/components/journey/JourneyCompanionCarousel";
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -242,6 +246,9 @@ export default function CodexPanelDynamic({
   // Order group) stay hidden during the brief fetch window for
   // non-admin personas.
   const cartridgeAdminGrants = useCartridgeAdminGrants();
+  // Tier 2 participation grants (Horizen §B.3). Hinted with the resolved
+  // persona so every read on this surface resolves the SAME identity.
+  const participationAccess = useParticipationAccess(resolvedPersonaId ?? null);
 
   // Published personal cartridges — only fetched when rendering metame-codex.
   // Each published cartridge surfaces as a dynamic sub-tab in the mycluster
@@ -305,14 +312,14 @@ export default function CodexPanelDynamic({
 
   const enabledTabs = useMemo(
     () => [
-      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+      ...getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
       // Inject published personal cartridge tabs into the mycluster group.
       // Gated on 'mycanvas' activation to match the group's own activationId.
       ...(activeActivations.has('mycanvas')
         ? publishedCartridgeTabs.filter((t) => !hiddenTabSet.has(t.slug.toLowerCase()))
         : []),
     ],
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet, publishedCartridgeTabs]
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, participationAccess, hiddenTabSet, publishedCartridgeTabs]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -323,7 +330,24 @@ export default function CodexPanelDynamic({
     if (!normalizedInitialTab) return;
     if (lastAppliedInitialTabRef.current === normalizedInitialTab) return;
     if (enabledTabs.length > 0 && !enabledTabs.some((tab) => tab.slug === normalizedInitialTab)) {
-      lastAppliedInitialTabRef.current = normalizedInitialTab;
+      // NOT FOUND *YET* IS NOT NOT FOUND (2026-07-28: a `?tab=my-workspace`
+      // deep link from the Companion landed on the cartridge's default tab).
+      //
+      // `enabledTabs` resolves ASYNCHRONOUSLY — a tab can carry an
+      // `activationId` (my-workspace requires `mycanvas`), an adminOnly gate, or
+      // a persona-dependent condition, so the set grows over several renders.
+      // This branch used to LATCH the ref on a miss, which permanently
+      // abandoned the deep link: when the target tab finally appeared, the
+      // guard above short-circuited and the requested tab was never applied.
+      // The next effect then fell back to `enabledTabs[0]` — the cartridge's
+      // default landing tab, exactly what the operator saw.
+      //
+      // The latch now happens ONLY on success. A miss simply returns and lets
+      // a later `enabledTabs` change re-attempt, which is safe because this
+      // effect's only other dependency is the (stable) requested slug. This is
+      // the MS-4 shape — "a zero measurement is a teardown artifact, never a
+      // layout value" — applied to tab resolution: an absence observed before
+      // the observation completed is not an absence.
       return;
     }
     setActiveTabSlug(normalizedInitialTab);
@@ -462,7 +486,9 @@ export default function CodexPanelDynamic({
   const activeSubTabs = useMemo(
     () => (activeTab?.subTabs ?? []).filter((t) => {
       if (!t.enabled) return false;
-      if (t.adminOnly && !isAdmin) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
       if (t.adminOfCartridge) {
         if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
           return false;
@@ -470,7 +496,7 @@ export default function CodexPanelDynamic({
       }
       return true;
     }),
-    [activeTab, isAdmin, cartridgeAdminGrants]
+    [activeTab, isAdmin, cartridgeAdminGrants, participationAccess]
   );
   const activeSubSubTab = useMemo(() => {
     if (activeSubTabs.length === 0) return null;
@@ -495,7 +521,9 @@ export default function CodexPanelDynamic({
   const activeSubSubTabSubTabs = useMemo(
     () => (activeSubSubTab?.subTabs ?? []).filter((t) => {
       if (!t.enabled) return false;
-      if (t.adminOnly && !isAdmin) return false;
+      // ONE gate implementation for adminOnly + participationDomain — the
+      // same predicate the top-level filter uses (inv.engineering.036).
+      if (!tabPassesAccessGates(t, participationAccess, isAdmin)) return false;
       if (t.adminOfCartridge) {
         if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
           return false;
@@ -503,7 +531,7 @@ export default function CodexPanelDynamic({
       }
       return true;
     }),
-    [activeSubSubTab, isAdmin, cartridgeAdminGrants]
+    [activeSubSubTab, isAdmin, cartridgeAdminGrants, participationAccess]
   );
   const activeSubSubSubTab = useMemo(() => {
     if (activeSubSubTabSubTabs.length === 0) return null;
@@ -730,6 +758,13 @@ export default function CodexPanelDynamic({
           const visibleGroups = groups.filter(g => {
             if (g.adminOnly && !isAdmin) return false;
             if (g.activationId && !activeActivations.has(g.activationId)) return false;
+            // MS-9 (Companion Menu System invariants): a control that cannot
+            // act must not render. A group whose every tab is gated away —
+            // e.g. Partner for a caller with no venture-lab participation
+            // grant — has nothing for handleGroupClick to select, so the chip
+            // would be inert. This is also what lets a group carry a mix of
+            // Tier 0 and Tier 2 tabs without a group-level gate of its own.
+            if (!enabledTabs.some(t => t.group === g.id)) return false;
             return true;
           });
           // Standalone tabs: enabled tabs with no group, sorted by order
@@ -929,6 +964,14 @@ export default function CodexPanelDynamic({
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                           }`}
+                          /* The tab's own description as a tooltip — the SAME
+                             convention the tier-3 and tier-4 rows below already
+                             follow (operator, 2026-07-28: "sub menu info as
+                             tool tip … per other cartridge protocol"). The
+                             tier-2 row was the one row that dropped it, so the
+                             cartridge-menu tooltip appeared to work everywhere
+                             except the sub menu operators actually use most. */
+                          title={tab.metadata?.description}
                         >
                           <Icon className="w-3 h-3 flex-shrink-0" />
                           {tab.label}
@@ -1169,6 +1212,18 @@ export default function CodexPanelDynamic({
             groundContext={smartTriadContext as unknown as Record<string, unknown>}
             deepLinks={smartTriadContext.deepLinks}
             operations={smartTriadContext.operations}
+            // PRD-GJR-001 §11.4 — the canonical `Horizen` Companion trigger for
+            // the Guided Journey Runtime pilot. Recognized here, client-side,
+            // before the message would otherwise reach /api/codex/chat — same
+            // fixed-action convention CodexCopilotLayer's own
+            // shouldBypassInference already uses for "reset runtime" etc.
+            // Works from any cartridge (focusJourneyStage navigates cross-
+            // cartridge into Venture Lab's Partner > Journey tab when needed).
+            onUserPrompt={async (prompt: string) => {
+              if (!isHorizenTrigger(prompt)) return undefined;
+              focusJourneyStage('register', codexId, resolvedPersonaId);
+              return { content: <JourneyCompanionCarousel personaId={resolvedPersonaId} codexId={codexId} /> };
+            }}
           />
         );
       })()}

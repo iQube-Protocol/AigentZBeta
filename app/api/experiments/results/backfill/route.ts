@@ -17,6 +17,10 @@ import { publishExperimentResult, type PublishResultInput } from '@/services/exp
 import exp001Run1 from '@/codexes/packs/irl/foundation/experiments/exp-001-living-knowledgeqube/evaluation-results-2026-07-04.json';
 import exp003Run1 from '@/codexes/packs/irl/foundation/experiments/exp-003-rediscovery-savings/results-2026-07-04.json';
 import exp002Run2 from '@/codexes/packs/irl/foundation/experiments/exp-002-invariant-video/run2-results-2026-07-05.json';
+import {
+  PRE_FIX_CALIBRATION,
+  PRE_FIX_DIAGNOSTIC_LABEL,
+} from '@/services/invariants/projectionBridge';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +93,14 @@ const HISTORICAL: PublishResultInput[] = [
       coverageMean: 0.21,
       coverageDensest: 0.57,
       novelty: 0.75,
+      preFixDiagnostic: false,
+      coordinateScaleAssessment:
+        'ASSESSED AND UNAFFECTED by the IRE-6 coordinate-scale defect (operator ruling 2026-07-27). Every IRV metric is ' +
+        'computed from resolved seed IDS and their statements — stability is a Jaccard over seed sets, and ' +
+        'coverage/compression/novelty come from seed->statement text scored against the Synthetic Expert Baseline. No ' +
+        'coordinate VALUE is read. Slice membership and order come from buildInvariantSlice\'s standing-primary rank, ' +
+        'server-side, BEFORE calibrateStructural runs, so the defect could not perturb which invariants were selected. ' +
+        'Recorded rather than left silent: an unlabelled result should say it was checked, not merely lack a label.',
       note: 'Stability is the gate; coverage is a model-sensitive SEB proxy (swung 0.13→0.57 on byte-identical engine output across judge configs) reported with its exact config, never pass/fail. Instrument validated for EXP-P1.',
     },
     results: {
@@ -125,17 +137,40 @@ const HISTORICAL: PublishResultInput[] = [
       standingReproducibleRate: 1.0,
       coordinateReproducibleRate: 1.0,
       seedSetStability: 1.0,
-      note: '100% reproducible — zero nondeterminism. Reproducibility is necessary, not sufficient (projection semantics are EXP-P2 B4). IPE validated for EXP-P1.',
+      preFixDiagnostic: true,
+      label: PRE_FIX_DIAGNOSTIC_LABEL,
+      affectedMetrics: ['coordinateReproducibleRate'],
+      unaffectedMetrics: ['standingReproducibleRate', 'seedSetStability'],
+      note:
+        'PRE-FIX DIAGNOSTIC (operator ruling 2026-07-27, IRE-6). `coordinateReproducibleRate` was computed under the ' +
+        'clamped coordinate calibration, in which evidenceDensity was 1.0 for every invariant with standing >= 1. The ' +
+        'coordinate weight vector was therefore a PRESENCE indicator, not a magnitude, so its cross-rep stability was ' +
+        'identical by construction to the seedSetStability reported alongside it — the metric could not have failed ' +
+        'independently, and 1.0 is not evidence of projection reproducibility. `standingReproducibleRate` and ' +
+        '`seedSetStability` are unaffected: they read raw standing and resolved seed ids, which the defect never touched. ' +
+        'Reproducibility is in any case necessary, not sufficient (projection semantics are EXP-P2 B4).',
     },
+    calibration: PRE_FIX_CALIBRATION,
     results: {
       experiment: 'IPV-001',
       kind: 'instrument-validation-record-summary',
       date: '2026-07-18',
       framing:
         'IPE reproducibility validation on the frozen substrate — confirms the by-construction determinism holds live (no caching/ordering/race nondeterminism).',
-      config: { band: 'anchored', intents: 10, reps: 5, route: 'POST /api/public/irl/resolve' },
+      config: {
+        band: 'anchored',
+        intents: 10,
+        reps: 5,
+        route: 'POST /api/public/irl/resolve',
+        calibration: PRE_FIX_CALIBRATION,
+      },
       summary: { standingReproducibleRate: 1.0, coordinateReproducibleRate: 1.0, seedSetStability: 1.0 },
-      verdict: 'IPE validated for EXP-P1 — 100% reproducible, zero nondeterminism observed.',
+      label: PRE_FIX_DIAGNOSTIC_LABEL,
+      verdict:
+        'SUPERSEDED BY THE PRE-FIX LABEL. As recorded 2026-07-18 the verdict read "IPE validated for EXP-P1 — 100% ' +
+        'reproducible, zero nondeterminism observed." The coordinate half of that claim does not survive the IRE-6 ' +
+        'correction and the IPE is NOT validated for EXP-P1 on the coordinate path until Stage 0 is rerun from a frozen ' +
+        'configuration. The standing-weight and seed-set halves stand.',
       fullRecordSha256: '8f86238069142fcf',
       provenance:
         'Recorded summary of the 2026-07-18 record run (ipv-001 README ratification record). Raw results JSON retained off-repo; its sha256 above is the original content commitment.',

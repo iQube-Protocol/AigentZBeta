@@ -37,6 +37,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, RefreshCw, Sparkles, ShieldCheck } from "lucide-react";
 import { experimentGet, experimentStep } from "./experimentStepFetch";
 import { composeFindingsReport, type ReportRun } from "@/services/research/findingsReportComposer";
+import { ShareViaQubeTalkButton } from "./QubeTalkInboxTab";
 
 interface PublishedResult {
   id: string;
@@ -272,6 +273,18 @@ export default function ExperimentReportTab() {
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? "Copied" : mode === "briefing" ? "Copy briefing (markdown)" : "Copy report (markdown)"}
           </button>
+          {/* Share the report REFERENCE (identity = canonical contentHash when
+              present) over a personhood-bound QubeTalk channel. Reference-only:
+              no bytes leave, consistent with the copy-based confidentiality. */}
+          <ShareViaQubeTalkButton
+            artifactType="research_report"
+            artifactId={source === "canonical" && canonical ? canonical.contentHash : "live-draft"}
+            title={
+              source === "canonical" && canonical
+                ? `Foundational Validation Series — Findings Report v${canonical.version} (sha256 ${canonical.contentHash.slice(0, 12)}…)`
+                : "Foundational Validation Series — Findings Report (live draft)"
+            }
+          />
           <button
             onClick={load}
             className="inline-flex items-center gap-1.5 rounded-md border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800"

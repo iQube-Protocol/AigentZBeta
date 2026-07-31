@@ -63,6 +63,11 @@ export type ActivityActionType =
   // reports read as PROGRESS from the ingested baseline.
   | 'operator_action_logged'
   | 'standing_document_added'
+  // Partner agent evidence (DVN-anchorable; metaProof × Horizen Labs pilot,
+  // operator ruling 2026-07-28). A correlated EXTERNAL agent identity —
+  // registry record + optional Pulse/validation proof — recorded as a metaMe
+  // constitutional evidence record. See services/horizen/evidence.ts.
+  | 'partner_agent_evidence_recorded'
   // Bounded delegation lifecycle (DVN-anchorable)
   | 'agent_delegated'
   | 'agent_delegation_revoked'
@@ -112,6 +117,12 @@ export type ActivityActionType =
   // production. Both DVN-anchorable.
   | 'capability_registered'
   | 'capability_operationally_validated'
+  // Capability lifecycle — Archive (SPEC-MMC-002 §6.3 Phase 3, 2026-07-24): a
+  // capability's own registrant transitioned its lifecycle_state to
+  // 'deprecated' (a pure status-flag update — no execution, no deployment,
+  // no external side effect). DVN-anchorable, same tamper-evident-memory
+  // rationale as capability_registered/capability_operationally_validated.
+  | 'capability_deprecated'
   | 'research_lifecycle_transition'
   // Foundational Validation Series — canonical result publication (Experiment
   // Lab). Summary carries the sha256 content commitment of the results JSON;
@@ -131,7 +142,148 @@ export type ActivityActionType =
   // constitutional anchor of record; x409/Consenti is the acceptance-proof
   // provider. Both DVN-anchorable.
   | 'agreement_formed'
-  | 'agreement_authorized';
+  | 'agreement_authorized'
+  // QubeTalk Peer Exchange (Phase 1 Increment 3, 2026-07-21) — consequential
+  // acts on a personhood-bound peer channel. shared = a sharer delivered an
+  // artifact reference into a channel; opened = the recipient viewed it;
+  // copied = the recipient materialised it into their own locker. All three
+  // carry ONLY T2-safe references (counterparty Polity Public Reference +
+  // sha256/16 channel & artifact commitments — never raw UUIDs). DVN-anchorable.
+  | 'qubetalk_artifact_shared'
+  | 'qubetalk_artifact_opened'
+  | 'qubetalk_artifact_copied'
+  // MoneyPenny Runtime (PRD-MPY-001 Phase 4, P4-4) — an authoritative run of
+  // the constitutional service pattern completed on Domain 3 (Financial
+  // Intelligence). Real Reach accrual happened (step 11), never a fund
+  // movement (Domain 3 carries no settlement terms). DVN-anchorable so the
+  // financial-services execution trail is tamper-evident.
+  | 'finance_authoritative_execution'
+  // Declared 2026-07-26 — these four were ALREADY being written by live
+  // `createActivityReceipt` call sites while absent from this union. Adding
+  // them here is not new behaviour; it makes the type describe what the code
+  // already does.
+  //
+  // The two that were also missing from the DB CHECK constraint
+  // (`canonical_plate_composed`, `plan_cancelled`) were silently losing every
+  // receipt: `next.config` sets `typescript.ignoreBuildErrors`, so the type
+  // error never failed a build, and both call sites wrap the write in an EMPTY
+  // catch, so the check-violation was discarded with no log. Fixed by
+  // supabase/migrations/20260726120000_receipt_check_drift_fix_compose_and_cancel.sql.
+  //
+  // None of the four is DVN-anchorable, so no chain-of-provenance gap was
+  // involved — the loss was the internal audit receipt only.
+  //
+  // `tests/activity-receipts-action-type-parity.test.ts` now enforces BOTH
+  // directions, so an actionType written at a call site but left out of this
+  // union fails the build instead of failing silently at write time.
+  | 'canonical_plate_composed'   // app/api/constitutional/canonical-plates/route.ts
+  | 'plan_cancelled'             // services/billing/planRenewal.ts
+  | 'venture_blueprint_handoff'  // services/venture/blueprintHandoff.ts
+  | 'standing_accrued'           // services/crm/standingAccrualService.ts
+  // An ATTRIBUTABLE correction to Capability Standing under a superseded
+  // scoring formula. Distinct from `standing_accrued` on purpose: ordinary
+  // accrual is monotone and can only raise; only a correction may lower, and
+  // only by naming the defective formula version it corrects. One shared
+  // action type would make the two indistinguishable in the receipt trail.
+  | 'standing_corrected'         // services/crm/standingAccrualService.ts
+  // Aigent Z's administration of an ExperimentWorkspace — the daily wakeup and
+  // the weekly report (Horizen Phase 3). Anchorable.
+  | 'workspace_report_published'  // services/experiments/workspaceReport.ts
+  // VL-CT-001 venture substrate (charter R-6, 2026-07-29) — the nine
+  // consequential events of the opportunity→liability→settlement chain. The
+  // canonical accounting unit is the OPPORTUNITY, so refused and never-executed
+  // opportunities receipt on exactly the same footing as executed ones:
+  // `venture_refusal_recorded` records a COMPLETED constitutional service with
+  // execution declined, never a failed trade. Compensation-bearing receipts
+  // carry the versioned partner-service compensation extension (R-8) built by
+  // services/venture/trading/compensationExtension.ts. All nine DVN-anchorable;
+  // ordinary cost lines are batch-checkpointed instead of individually
+  // receipted. See services/venture/trading/receipts.ts.
+  | 'venture_opportunity_opened'
+  | 'venture_service_completed'
+  | 'venture_completion_assessed'
+  | 'venture_refusal_recorded'
+  | 'venture_obligation_earned'
+  | 'venture_obligation_approved'
+  | 'venture_settlement_simulated'
+  | 'venture_obligation_reversed'
+  | 'venture_opportunity_closed'
+  // QriptoCENT cross-denomination settlement (2026-07-29) — the DVN-mediated
+  // inter-ledger settlement substrate. Nine SETTLEMENT acts, one LIQUIDITY
+  // ASSURANCE act, and two ISSUANCE acts. The three groups are constitutionally
+  // separate mechanisms and carry separate action types on purpose: this
+  // architecture has NO lock pool, so the receipt chain is the only evidence
+  // that a destination credit was backed by a finalised source debit, and a
+  // mint recorded under a settlement type would let new native supply be read
+  // as a payment. See services/qriptocent/settlement/receipts.ts.
+  | 'qriptocent_payment_instruction_accepted'
+  | 'qriptocent_settlement_authority_verified'
+  | 'qriptocent_source_debit_initiated'
+  | 'qriptocent_source_debit_finalised'
+  | 'qriptocent_settlement_message_verified'
+  | 'qriptocent_destination_liquidity_reserved'
+  | 'qriptocent_destination_credit_completed'
+  | 'qriptocent_settlement_reconciled'
+  | 'qriptocent_settlement_exception_recorded'
+  | 'qriptocent_liquidity_proof_verified'
+  | 'qriptocent_replenishment_authorised'
+  | 'qriptocent_native_issuance_executed'
+  // IRL-REVIEW-001 — an independent review of an experiment asset completed.
+  // The receipt records the review EVENT: reviewer assignments, requested and
+  // resolved model ids, package hash, raw/parsed output commitments and the
+  // agreement/contested tally. It carries explicit `ratifiesAsset: false`,
+  // `grantsStanding: false`, `changesLifecycle: false` and `freezesAsset: false`
+  // in its payload, because a consumer that treats the presence of a review
+  // receipt as approval is behaving reasonably unless the record says otherwise.
+  | 'independent_review_completed'
+  // Bitcent (B¢) treasury etch (2026-07-30, pilot treasury authority gate) — a
+  // real Bitcoin Runes etching transaction was broadcast under an authorised
+  // treasury mandate (operator passcode + Aigent Nakamoto required-signatory
+  // approval + Aigent Kn0w1 observation). The receipt records the mandate
+  // commitment, the transaction hash, and the ratified governed-reserve
+  // tokenomics — never the operator's passcode or the custodian's key.
+  // See services/treasury/bitcentTreasuryReceipts.ts.
+  | 'bitcent_treasury_etch_executed'
+  // PRD-GJR-001 (Guided Journey Runtime) — the Horizen x MoneyPenny constitutional
+  // admission pilot. Reconciled against this union 2026-07-31: six of the PRD's
+  // eighteen proposed types already existed here under different names and are
+  // reused directly (agent_delegated, partner_agent_evidence_recorded,
+  // finance_authoritative_execution, standing_accrued, agreement_authorized) —
+  // see the PRD's §22 for the full mapping. These nine are genuinely new; each
+  // corresponds one-to-one with a step in the journey's ten-step canonical
+  // sequence (§3.5) and its seven-stage bar (§7). See services/journey/.
+  | 'agent_card_discovered'
+  | 'horizen_agent_registered'
+  | 'horizen_pnl_transparency_enabled'
+  | 'agent_card_enriched'
+  | 'agent_control_proven'
+  | 'marketa_eligibility_recommended'
+  | 'operator_passport_validated'
+  | 'agent_sponsorship_recorded'
+  | 'agent_delegate_passport_issued'
+  // aigentMe's activation as the principal's constitutional companion, and the
+  // principal's recorded disposition on the onboarding agent's domain focus for
+  // their ExperienceQube population (§5.10 — the onboarding agent never silently
+  // decides this for the principal).
+  | 'aigentme_activated'
+  | 'experienceqube_focus_disposition_recorded'
+  | 'journey_completed'
+  // GJR-VFY-001 (Horizen Transparency Authorization and Wallet-Signing
+  // Capability), Phase 1, 2026-07-31 — the confirmed Pulse-monitoring
+  // authorization event: locally signed, Horizen accepted, reread confirms
+  // enabled. horizen_pnl_transparency_enabled and agent_card_enriched already
+  // existed (added by the PRD-GJR-001 migration); this is the third and last
+  // canonical GJR-VFY-001 receipt type. See services/horizen/authorizationClient.ts.
+  | 'horizen_pulse_authorized'
+  // GJR-MKT-001 (Marketa External-Agent Constitutional Eligibility Engine),
+  // Phase 4, 2026-07-31 — the three canonical receipt types not already
+  // present (marketa_eligibility_recommended already existed). `assessed`
+  // fires for every assessment; `refused`/`quarantined` fire additionally
+  // when the decision is REFUSED/QUARANTINED. Never issue `recommended` for
+  // a DRAFT assessment. See services/marketa/admissionAssessmentEngine.ts.
+  | 'marketa_eligibility_assessed'
+  | 'marketa_eligibility_refused'
+  | 'marketa_eligibility_quarantined';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
@@ -411,4 +563,47 @@ export async function listActivityReceiptsForPersona(
   }
   if (!data) return [];
   return (data as DbRow[]).map(rowToRecord);
+}
+
+/**
+ * The DVN anchoring state of ONE receipt, by id.
+ *
+ * Added for the Horizen evidence chain (Slice B), which has to say whether the
+ * ingestion receipt is `recorded` / `pending` / `anchor-failed` — a surface
+ * that can only say "a receipt exists" leaves the operator to open a SQL
+ * console to learn whether provenance actually landed (the Terminal Outcome
+ * defect). It lives HERE because this module is the canonical receipt reader;
+ * a route reading `activity_receipts` directly would be the parallel
+ * implementation inv.engineering.037 names.
+ *
+ * THREE-VALUED, deliberately, mirroring the binding model one layer up:
+ *   - a status string  — read successfully
+ *   - `null`           — read successfully, no such receipt (a FACT)
+ *   - `undefined`      — could NOT read (missing table, query error) — an
+ *                        admission of ignorance, never reported as "no receipt"
+ *
+ * It returns the status ONLY. The receipt body is persona-scoped and the caller
+ * here is asking an anchoring question, not a content one; returning the row
+ * would hand a caller receipt content it never established a right to read.
+ */
+export async function readReceiptAnchorStatus(
+  receiptId: string,
+): Promise<ReceiptStatus | null | undefined> {
+  if (!receiptId) return null;
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from('activity_receipts')
+      .select('receipt_status')
+      .eq('id', receiptId)
+      .maybeSingle();
+    if (error) {
+      if (isMissingTable(error)) return undefined;
+      return undefined;
+    }
+    if (!data) return null;
+    return ((data as { receipt_status?: ReceiptStatus }).receipt_status ?? 'local') as ReceiptStatus;
+  } catch {
+    return undefined;
+  }
 }

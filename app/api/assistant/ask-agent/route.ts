@@ -32,7 +32,8 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
-import { groundReasoning } from '@/services/invariants/engine';
+import { resolveConstitutionalField } from '@/services/invariants/resolution';
+import type { InvariantNamespace } from '@/types/invariants';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 /**
@@ -47,17 +48,30 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
  * executions, which the consequence runner (executeApproved) records.
  */
 async function buildSpecialistInvariantSlice(
+  intentText: string,
   domains: string[],
+  namespaces?: InvariantNamespace[],
 ): Promise<{ packetSlice: SpecialistContext['invariantSlice']; invariantIds: string[] }> {
   try {
-    // CFS-035 Phase 1 — grounded through the engine's Reasoning face (groundReasoning)
-    // rather than a hand-rolled slice, so every grounded surface shares one seam.
-    const scoped = domains.length
-      ? (await groundReasoning({ domains, limit: 8 })).slice
+    // IRE → IPE (operator ruling 2026-07-27). A specialist consultation is a
+    // GOVERNED reasoning surface: the packet cites invariants by seed id to an
+    // LLM that answers the operator. So it RESOLVES the field the question
+    // requires rather than issuing a raw substrate query — `intentText` is the
+    // operator's actual prompt, `domains`/`namespaces` are the overlay.
+    // `namespaces` (PRD-MPY-001 Phase 3) scopes a specialist to its own
+    // invariant library (e.g. MoneyPenny -> 'finance') instead of the
+    // platform-wide slice every other specialist still gets by omitting it.
+    // Registered as `ask-agent` in GROUNDING_SURFACES.
+    const overlay = domains.length ? { domains, namespaces, limit: 8 } : namespaces ? { namespaces, limit: 8 } : null;
+    const scoped = overlay
+      ? (await resolveConstitutionalField(intentText, overlay)).snapshot?.slice ?? null
       : null;
-    const slice = scoped && scoped.items.length > 0
-      ? scoped
-      : (await groundReasoning({ limit: 8 })).slice;
+    // A scoped miss falls back to the unscoped field, never to nothing.
+    const slice =
+      scoped && scoped.items.length > 0
+        ? scoped
+        : (await resolveConstitutionalField(intentText, { limit: 8 })).snapshot?.slice ?? null;
+    if (!slice) return { packetSlice: undefined, invariantIds: [] };
     return {
       // Packet slice cites by seedId (UUIDs are stripped by the router's
       // redaction net); the raw ids stay server-side for the receipt's
@@ -298,8 +312,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       activeCartridge,
       ...(qube?.meta.activeCartridges ?? []),
     ].filter((d, i, a): d is string => Boolean(d) && a.indexOf(d) === i);
+    // PRD-MPY-001 Phase 3 — MoneyPenny's Advisor mode grounds in the `finance`
+    // namespace (the FS Invariant Library) rather than the platform-wide
+    // slice every other specialist gets by omitting `namespaces`.
+    const specialistNamespaces: InvariantNamespace[] | undefined =
+      resolvedSpecialistId === 'moneypenny' ? ['finance'] : undefined;
+    // The intent the IRE qualifies: the operator's own words first, the intent
+    // name as the fallback (the same `lookupQuery` the contact-context probe
+    // uses — one statement of what this consultation is about, not two).
     const { packetSlice: invariantSlice, invariantIds: groundingInvariantIds } =
-      await buildSpecialistInvariantSlice(groundingDomains);
+      await buildSpecialistInvariantSlice(lookupQuery, groundingDomains, specialistNamespaces);
 
     const specialistContext: SpecialistContext = {
       activeCartridge,

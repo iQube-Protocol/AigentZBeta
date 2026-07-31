@@ -50,3 +50,38 @@ export function isMintChain(value: string): value is MintChain {
 export function isChainLive(chain: MintChain): boolean {
   return MINT_CHAINS[chain]?.live === true;
 }
+
+/**
+ * Block-explorer base URLs by EVM chainId. Testnets are listed alongside their
+ * mainnets because a tokenQube minted on Base Sepolia still needs a working
+ * link — MINT_CHAINS models mint *targets*, this models where to go and look.
+ */
+const EXPLORER_BASE_BY_CHAIN_ID: Record<number, string> = {
+  1: 'https://etherscan.io',
+  11155111: 'https://sepolia.etherscan.io',
+  8453: 'https://basescan.org',
+  84532: 'https://sepolia.basescan.org',
+  10: 'https://optimistic.etherscan.io',
+  42161: 'https://arbiscan.io',
+  137: 'https://polygonscan.com',
+};
+
+/**
+ * Explorer link for a mint transaction. Single source of truth — the mint route
+ * and every surface that renders a chain anchor must call this rather than
+ * hand-building a basescan URL, or a testnet mint links to mainnet.
+ */
+export function getTxExplorerUrl(chainId: number, txHash: string): string {
+  const base = EXPLORER_BASE_BY_CHAIN_ID[chainId] ?? EXPLORER_BASE_BY_CHAIN_ID[8453];
+  return `${base}/tx/${txHash}`;
+}
+
+/** Explorer link for one token of an ERC-721 collection. */
+export function getTokenExplorerUrl(
+  chainId: number,
+  contractAddress: string,
+  tokenId: number | string,
+): string {
+  const base = EXPLORER_BASE_BY_CHAIN_ID[chainId] ?? EXPLORER_BASE_BY_CHAIN_ID[8453];
+  return `${base}/token/${contractAddress}?a=${tokenId}`;
+}

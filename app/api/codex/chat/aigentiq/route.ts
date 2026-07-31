@@ -17,6 +17,7 @@ import {
   searchCodex,
   getRecentCommits,
   buildCodexExcerptsBlock,
+  ensureCorpusHydrated,
   buildRecentCommitsBlock,
 } from '@/services/knowledge/agentiqPackSearch';
 
@@ -271,6 +272,10 @@ export async function POST(request: NextRequest) {
     }
 
     const enableWrite = Boolean(process.env.GITHUB_TOKEN) && WRITE_INTENT_RE.test(message);
+
+    // Hydrate the pack corpus (no-op in local-FS/dev; fetches the remote blob
+    // once per container in the SSR Lambda) before the synchronous search below.
+    await ensureCorpusHydrated();
 
     // Search codex and fetch recent commits in parallel
     const [searchResults, recentCommits] = await Promise.all([

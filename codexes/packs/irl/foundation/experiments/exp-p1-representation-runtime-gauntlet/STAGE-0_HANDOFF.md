@@ -47,12 +47,30 @@ Stage-0 validated the experimental substrate EXP-P1 depends on: the **Invariant 
 
 ## Results summary
 
-### Determinism — PASS (both engines)
+> ### ⚠ Coordinate-scale correction — partial invalidation of this record (operator ruling, 2026-07-27)
+>
+> A units defect (IRE-6) was found in the coordinate calibration on 2026-07-27 and corrected the
+> same day: `evidenceDensity` was `clamp01(standing)` over a **0–100** column, so every invariant
+> with standing ≥ 1 read exactly 1.0.
+>
+> **The coordinate-weight half of the IPV result below is therefore labelled:**
+> ***Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with
+> post-fix runs.***
+>
+> This is a **partial**, not blanket, invalidation. What is affected and what is not is set out per
+> metric below, with the reason in each case. The code fix does not itself validate anything — IRE-6
+> remains `proposed` until Stage 0 is rerun from a frozen configuration.
 
-- **IRE stability = 1.0** — full anchored record run (10 intents × 3 reps), and every prior configuration. Resolution is reproducible under identical configuration.
-- **IPE reproducibility = 100%** — full anchored IPV run (10 intents × 5 reps): standing-weight and coordinate-weight reproducibility both 1.0, seed-set stability 1.0. The projection is *confirmed* reproducible live, not merely reproducible-by-construction.
+### Determinism — PARTIALLY INVALIDATED (see per-metric labels)
 
-These are the hard validation gates, and both held decisively.
+- **IRE stability = 1.0** — full anchored record run (10 intents × 3 reps), and every prior configuration. Resolution is reproducible under identical configuration. **UNAFFECTED** — stability is a Jaccard over resolved seed IDs, which the calibration passes through untouched.
+- **IPE standing-weight reproducibility = 1.0** — **UNAFFECTED**: the standing path reads raw `standing` off the snapshot and never a coordinate.
+- **IPE seed-set stability = 1.0** — **UNAFFECTED**, same reason as IRE stability.
+- **IPE coordinate-weight reproducibility = 1.0** — ***Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with post-fix runs.*** Pre-fix, the coordinate weight vector was a **presence indicator**, not a magnitude: with `evidenceDensity` pinned at 1.0 for every seeded invariant, mean-normalisation returned a constant. Its cross-rep stability was then *identical by construction* to the seed-set stability reported beside it — the metric could not have failed independently, so 1.0 is not evidence of projection reproducibility. It measured the same property twice and reported it as two.
+
+**The determinism gate therefore holds on the standing path and the seed set, and is unevidenced on
+the coordinate path** until the rerun. The original text read "these are the hard validation gates,
+and both held decisively"; that is preserved here as the claim made on 2026-07-18, and superseded.
 
 ### Domain relevance — PASS (corpus-density sensitivity confirmed)
 
@@ -63,6 +81,13 @@ Full anchored-band record run (10 intents), reported straight — no cherry-pick
 | Finance (corpus desert) | 0.07 | — | 0.88 | 1.0 |
 | Anchored band — **full 10 intents (record)** | **0.21** | 0.65 | 0.75 | 1.0 |
 | Anchored band — densest 3 (delegation/sovereignty/standing) | 0.57 | 1.21 | 0.67 | 1.0 |
+
+**Coordinate-scale assessment: this whole table is UNAFFECTED by IRE-6.** Coverage, compression and
+novelty are scored from resolved seed → statement text against the Synthetic Expert Baseline;
+stability is a Jaccard over seed sets. No coordinate value is read by any of them. The reason is
+structural rather than fortunate: slice membership and order come from `buildInvariantSlice`'s
+standing-primary rank, server-side, **before** `calibrateStructural` runs, so the defect could not
+change which invariants were selected — only what they were labelled with afterwards.
 
 Expected behaviour, confirmed: coverage tracks **corpus density**. It is highest (0.57) on the three regions the corpus most heavily canonises (delegation, sovereignty, standing), lower (0.21 mean) across the wider anchored band as intent domains thin, and collapses (0.07) on a corpus desert — while stability is *unaffected* throughout. Compression < 1 across the full band: the IRE selects fewer invariants than experts name. The variation *within* the anchored band is itself a useful corpus-gap signal (which constitutional sub-domains to canonise next), not an engine defect.
 
@@ -103,26 +128,63 @@ Coverage is **not** treated as an absolute quality threshold, because it depends
 
 ## Stage-0 final status
 
-| Criterion | Status |
-|---|---|
-| Deterministic invariant resolution | ✅ PASS |
-| Repeatability | ✅ PASS |
-| Domain sensitivity | ✅ PASS |
-| Discovery pollution identified & corrected | ✅ PASS |
-| Measurement methodology stabilised | ✅ PASS |
+| Criterion | Status | Coordinate-scale (IRE-6) |
+|---|---|---|
+| Deterministic invariant resolution | ✅ PASS | unaffected — seed-set Jaccard |
+| Repeatability — standing path | ✅ PASS | unaffected — reads raw standing |
+| Repeatability — **coordinate path** | ⛔ **UNEVIDENCED** | **pre-fix diagnostic; rerun required** |
+| Domain sensitivity | ✅ PASS | unaffected — SEB text scoring |
+| Discovery pollution identified & corrected | ✅ PASS | unaffected |
+| Measurement methodology stabilised | ✅ PASS | unaffected |
 
-**IRE Stage-0 validation: COMPLETE. Instrument validated for EXP-P1.**
+**IRE Stage-0 validation: the resolution instrument holds. The PROJECTION instrument's coordinate
+path is not validated for EXP-P1** until Stage 0 is rerun from a frozen configuration on the
+corrected calibration. The 2026-07-18 claim "COMPLETE. Instrument validated for EXP-P1" is preserved
+above as what was asserted then, and is superseded for the coordinate path.
 
 ---
 
 ## EXP-P1 entry conditions
 
-1. ✅ Full anchored-band IRV record run (10 intents × 3 reps) — `irv-results-2026-07-18.json`, sha256 `258b64fda9aa9686…`.
-2. ✅ IPV reproducibility validation (10 intents × 5 reps, 100%) — `ipv-results-2026-07-18.json`, sha256 `8f86238069142fcf…`.
-3. ⏳ Frozen artifact publication — results + manifests committed to the repo (hashes above are the commitment).
+1. ✅ Full anchored-band IRV record run (10 intents × 3 reps) — `irv-results-2026-07-18.json`, sha256 `258b64fda9aa9686…`. **Unaffected by IRE-6.**
+2. ⛔ IPV reproducibility validation (10 intents × 5 reps, 100%) — `ipv-results-2026-07-18.json`, sha256 `8f86238069142fcf…`. ***Pre-fix diagnostic; invalid for confirmatory comparison and not numerically comparable with post-fix runs.*** The coordinate-weight metric must be re-earned; the standing-weight and seed-set halves of this run stand. **Re-run required — see "Rerun requirements" below.**
+3. ⏳ Frozen artifact publication — results + manifests committed to the repo (hashes above are the commitment). *Note: neither raw JSON was ever committed; the repo attests the recorded summaries only.*
 4. ⏳ External countersignature review (this note).
 
 Frozen config for the record run: `provider=openai · persona=gpt-4o-mini · judge=gpt-4o · band=anchored`.
+**Coordinate calibration for that run: `coordinates/v1-clamped` (the defective one).** Post-fix runs
+carry `coordinates/v2-normalised`; the harness refuses to score IPV against any other stamp.
+
+---
+
+## Rerun requirements — what a clean Stage 0 needs (NOT yet run)
+
+The operator sequences this act; it is recorded here so the requirement is unambiguous.
+
+**Must be frozen before the run:**
+
+| Item | Value / where it comes from |
+|---|---|
+| Coordinate calibration | `coordinates/v2-normalised` — the host must serve the IRE-6 fix, or the harness exits 2 |
+| Intent set + band | `services/experiments/instrument-validation-intents.json`, `band=anchored` (10 intents) |
+| Reps | IRV 3 · IPV 5 (as the 2026-07-18 record, so the comparison is like-for-like on everything except the calibration) |
+| Provider / persona / judge | `provider=openai · persona=gpt-4o-mini · judge=gpt-4o` |
+| Substrate | The invariant corpus must not move mid-run; standing changes alter the weights. Freeze the canon version and record it. |
+| Host | A deployment carrying the fix — the calibration stamp is the check, not the date |
+
+**Copyable command** (operator, from a clone with `OPENAI_API_KEY` in `.env.local`):
+
+```bash
+node scripts/run-instrument-validation.mjs \
+  --host=https://dev-beta.aigentz.me \
+  --exp both --band anchored --reps 5 \
+  --provider openai --judge-model gpt-4o
+```
+
+**What the run must record:** the results JSON + `.manifest.json` (sha256), the calibration stamp,
+the frozen config above, and the canon version. Per the ruling, IRE-6 may leave `proposed` only once
+the corrected calculation is tested, the IRE→IPE boundary is exercised through the governed
+surfaces, reproducibility is rerun, and the new result is recorded with hashes and formula version.
 
 ---
 

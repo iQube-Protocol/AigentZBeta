@@ -14,9 +14,11 @@ export async function GET(req: NextRequest) {
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     SUPABASE_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
     
-    // Agent Keys
+    // Agent Keys. SECURITY (2026-07-30): NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET
+    // removed entirely -- confirmed actually set in Amplify with a real
+    // value, meaning it had been inlined into the client bundle. No
+    // reference to this name may remain anywhere in the codebase.
     AGENT_KEY_ENCRYPTION_SECRET: !!process.env.AGENT_KEY_ENCRYPTION_SECRET,
-    NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET: !!process.env.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET,
     
     // Treasury & Signer
     TREASURY_PRIVATE_KEY: !!process.env.TREASURY_PRIVATE_KEY,
@@ -57,7 +59,7 @@ export async function GET(req: NextRequest) {
     criticalMissing.push('TREASURY_PRIVATE_KEY (required for funding)');
   }
   
-  if (!envCheck.AGENT_KEY_ENCRYPTION_SECRET && !envCheck.NEXT_PUBLIC_AGENT_KEY_ENCRYPTION_SECRET) {
+  if (!envCheck.AGENT_KEY_ENCRYPTION_SECRET) {
     criticalMissing.push('AGENT_KEY_ENCRYPTION_SECRET (required for agent keys)');
   }
   
