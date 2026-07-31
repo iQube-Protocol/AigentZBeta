@@ -510,19 +510,24 @@ describe('canary 10 — Partner is invisible to a non-partner venture-lab member
     ]);
     const { renders, slugs } = await partnerGroupRenders(operator, false);
     expect(renders).toBe(true);
-    expect(slugs).toEqual(['partner-collaborate', 'partner-evidence', 'partner-operate']);
+    // 'partner-pilot-journey' added 2026-07-31 (PRD-GJR-001, Guided Journey
+    // Runtime, operator-directed) — a fourth Tier 2 view alongside these three.
+    expect(slugs).toEqual(['partner-collaborate', 'partner-evidence', 'partner-operate', 'partner-pilot-journey']);
   });
 
   it('a metaMe admin sees the whole group, Tier 0 included', async () => {
     // Literal, for the same reason as the block above: deriving "every Partner
     // tab" from the config makes a DELETED tab invisible to the assertion.
     const { slugs } = await partnerGroupRenders(access([]), true);
+    // 'partner-pilot-journey' added 2026-07-31 (PRD-GJR-001, Guided Journey
+    // Runtime, operator-directed).
     expect(slugs).toEqual([
       'partner-administration',
       'partner-collaborate',
       'partner-communicate',
       'partner-evidence',
       'partner-operate',
+      'partner-pilot-journey',
     ]);
   });
 

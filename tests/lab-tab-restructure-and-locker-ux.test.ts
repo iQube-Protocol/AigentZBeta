@@ -424,11 +424,18 @@ describe('F — the public workspace posture cannot open a private area', () => 
     for (const research of ['pipeline', 'review', 'working-materials', 'locker', 'qubetalk', 'participants']) {
       expect(venture, `the venture entrance offers '${research}'`).not.toContain(`"${research}"`);
     }
-    // And the venture list is unchanged, member for member (SPEC acceptance
-    // criterion 3: existing Venture Lab workspaces remain unchanged).
+    // The venture list was pinned member-for-member here for
+    // SPEC-IRL-WORKSPACE-001 acceptance criterion 3 ("existing Venture Lab
+    // workspaces remain unchanged") — that criterion guarded against the
+    // Research Lab's views bleeding into Venture's list during THAT
+    // migration, not against a later, deliberate Venture Lab addition. On
+    // 2026-07-31, operator-directed, PRD-GJR-001 (Guided Journey Runtime)
+    // added ONE new venture-only surface, "journey" — the first change to
+    // this list since the freeze, with the same "no research view crosses
+    // over" clamp verified above still holding.
     expect(
       venture.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean),
-    ).toEqual(['overview', 'collaborate', 'operate', 'evidence', 'communicate', 'administration']);
+    ).toEqual(['overview', 'collaborate', 'journey', 'operate', 'evidence', 'communicate', 'administration']);
   });
 
   it('every mount declares its posture consistently with its group', () => {

@@ -91,6 +91,7 @@ import type { EvidenceChainView, ChainLinkState } from "@/services/horizen/evide
 import { StewardParticipationTab } from "./StewardParticipationTab";
 import dynamic from "next/dynamic";
 import { LockerTab } from "./LockerTab";
+import { PilotJourneyTab } from "./PilotJourneyTab";
 import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
 import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 
@@ -132,6 +133,14 @@ const LAYER_LABELS: Record<(typeof PARTNER_WORKSPACE_LAYERS)[number], string> = 
 const SUB_SURFACES = [
   "overview",
   "collaborate",
+  // PRD-GJR-001 (Guided Journey Runtime, 2026-07-31, operator-directed) — the
+  // Pilot > Journey view. A reusable platform capability (journey bar +
+  // surface orchestration + authoritative state + receipts), composed here
+  // so the tab's config.component stays PartnerProgrammesTab ("ONE
+  // component, N entrances" — tests/partner-workspace.test.ts canary R7 /
+  // tests/research-lab-workspace.test.ts). Its actual rendering lives in
+  // PilotJourneyTab.tsx / services/journey/.
+  "journey",
   "operate",
   "evidence",
   "communicate",
@@ -206,7 +215,14 @@ function surfaceAllowed(
  * and this component cannot offer different sets.
  */
 const KIND_SURFACES: Record<WorkspaceKind, readonly SubSurface[]> = {
-  venture: ["overview", "collaborate", "operate", "evidence", "communicate", "administration"],
+  // "journey" added 2026-07-31, operator-directed (PRD-GJR-001) — the one
+  // addition to this list since SPEC-IRL-WORKSPACE-001 froze the prior six
+  // member-for-member. That acceptance criterion guarded against the
+  // Research Lab's views bleeding into Venture's list during THAT migration;
+  // it was never a permanent bar on a later, deliberate Venture Lab surface.
+  // tests/lab-tab-restructure-and-locker-ux.test.ts's pinned list is updated
+  // to match, with the same reasoning recorded there.
+  venture: ["overview", "collaborate", "journey", "operate", "evidence", "communicate", "administration"],
   research: [
     ...(RESEARCH_WORKSPACE_VIEWS.map((v) => v.id) as SubSurface[]),
     RESEARCH_WORKSPACE_ADMIN_VIEW.id as SubSurface,
@@ -223,6 +239,7 @@ const KIND_SURFACES: Record<WorkspaceKind, readonly SubSurface[]> = {
 const SUB_LABELS: Record<SubSurface, string> = {
   overview: "Overview",
   collaborate: "Collaborate",
+  journey: "Journey",
   operate: "Operate",
   evidence: "Evidence",
   communicate: "Communicate",
@@ -1705,6 +1722,13 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
               <LockerTab />
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Journey (PRD-GJR-001, Guided Journey Runtime) ── */}
+      {surface === "journey" && (
+        <div className={`${PANEL} overflow-hidden`} style={{ minHeight: 520 }}>
+          <PilotJourneyTab personaId={personaId} isAdmin={isAdmin} isPartner />
         </div>
       )}
 

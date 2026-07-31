@@ -243,7 +243,31 @@ export type ActivityActionType =
   // commitment, the transaction hash, and the ratified governed-reserve
   // tokenomics — never the operator's passcode or the custodian's key.
   // See services/treasury/bitcentTreasuryReceipts.ts.
-  | 'bitcent_treasury_etch_executed';
+  | 'bitcent_treasury_etch_executed'
+  // PRD-GJR-001 (Guided Journey Runtime) — the Horizen x MoneyPenny constitutional
+  // admission pilot. Reconciled against this union 2026-07-31: six of the PRD's
+  // eighteen proposed types already existed here under different names and are
+  // reused directly (agent_delegated, partner_agent_evidence_recorded,
+  // finance_authoritative_execution, standing_accrued, agreement_authorized) —
+  // see the PRD's §22 for the full mapping. These nine are genuinely new; each
+  // corresponds one-to-one with a step in the journey's ten-step canonical
+  // sequence (§3.5) and its seven-stage bar (§7). See services/journey/.
+  | 'agent_card_discovered'
+  | 'horizen_agent_registered'
+  | 'horizen_pnl_transparency_enabled'
+  | 'agent_card_enriched'
+  | 'agent_control_proven'
+  | 'marketa_eligibility_recommended'
+  | 'operator_passport_validated'
+  | 'agent_sponsorship_recorded'
+  | 'agent_delegate_passport_issued'
+  // aigentMe's activation as the principal's constitutional companion, and the
+  // principal's recorded disposition on the onboarding agent's domain focus for
+  // their ExperienceQube population (§5.10 — the onboarding agent never silently
+  // decides this for the principal).
+  | 'aigentme_activated'
+  | 'experienceqube_focus_disposition_recorded'
+  | 'journey_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

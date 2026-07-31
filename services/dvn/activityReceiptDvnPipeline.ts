@@ -230,6 +230,24 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // per the permitted action-type-addition rule; no other part of this
   // pipeline is touched.
   'bitcent_treasury_etch_executed',
+  // PRD-GJR-001 (Guided Journey Runtime) — the Horizen x MoneyPenny constitutional
+  // admission pilot. Every stage of the journey's ten-step sequence (§3.5) must
+  // produce a real, anchorable receipt so the closing evidence chain (§15.1,
+  // §17) is tamper-evident, not merely a local database row — this is the exact
+  // property the journey exists to demonstrate. Added per the permitted
+  // action-type-addition rule; no other part of this pipeline is touched.
+  'agent_card_discovered',
+  'horizen_agent_registered',
+  'horizen_pnl_transparency_enabled',
+  'agent_card_enriched',
+  'agent_control_proven',
+  'marketa_eligibility_recommended',
+  'operator_passport_validated',
+  'agent_sponsorship_recorded',
+  'agent_delegate_passport_issued',
+  'aigentme_activated',
+  'experienceqube_focus_disposition_recorded',
+  'journey_completed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
