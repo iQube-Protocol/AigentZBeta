@@ -47,7 +47,7 @@ interface RegistrableAgentOption {
  * side, so a drift here would fail loudly (a 400 UNKNOWN_AGENT from
  * register/prepare), never silently.
  */
-const PILOT_AGENTS: RegistrableAgentOption[] = [
+export const PILOT_AGENTS: RegistrableAgentOption[] = [
   { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
   { slug: 'nakamoto', displayName: 'Aigent Nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json' },
 ];
@@ -77,8 +77,32 @@ type FlowState =
 const MAX_POLL_ATTEMPTS = 20;
 const POLL_INTERVAL_MS = 8000;
 
-export function RegisterAgentPanel(_props: { personaId?: string }) {
-  const [agentSlug, setAgentSlug] = useState<string>(PILOT_AGENTS[0].slug);
+interface RegisterAgentPanelProps {
+  personaId?: string;
+  /** Initial selected agent slug — uncontrolled default only, read once on mount. */
+  agentSlug?: string;
+  /** Notified on every selection change so a parent (e.g. PilotJourneyTab) can
+   * carry "which agent is being sponsored" forward to later journey stages
+   * (Passport, Delegate, ...) — this component still owns the selection
+   * itself; the parent only observes it. */
+  onAgentSlugChange?: (agentSlug: string) => void;
+}
+
+export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugChange }: RegisterAgentPanelProps) {
+  const [agentSlug, setAgentSlugState] = useState<string>(initialAgentSlug ?? PILOT_AGENTS[0].slug);
+  const setAgentSlug = useCallback(
+    (slug: string) => {
+      setAgentSlugState(slug);
+      onAgentSlugChange?.(slug);
+    },
+    [onAgentSlugChange],
+  );
+  // Announce the initial (default) selection too — a parent observing only
+  // future changes would otherwise never learn the starting agent.
+  useEffect(() => {
+    onAgentSlugChange?.(agentSlug);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgent[]>([]);
   const [cardVersion, setCardVersion] = useState(0);
   const [flow, setFlow] = useState<FlowState>({ step: 'idle' });

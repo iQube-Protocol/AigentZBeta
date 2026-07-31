@@ -140,7 +140,28 @@ function cls(...xs: Array<string | false | undefined>) {
   return xs.filter(Boolean).join(' ');
 }
 
-export function PassportBureauApplyTab() {
+interface PassportBureauApplyTabProps {
+  /** The operator's own persona, when known (e.g. the Guided Journey
+   * Runtime's PilotJourneyTab already resolves this) — passed to
+   * personaFetch as personaIdHint so this component's Citizen-Passport
+   * check resolves the SAME persona the caller is scoped to, instead of an
+   * independently-resolved (and possibly disagreeing) fallback persona.
+   * See CLAUDE.md's Identity & Access Spine rule: "a component that reads
+   * X via one transport and Y via another will show a self-contradictory
+   * state" — this was exactly that gap. */
+  personaId?: string;
+  /** Journey-context prefill (Guided Journey Runtime): when the operator
+   * arrives at this stage having already registered/selected a specific
+   * agent (e.g. Nakamoto in the Register stage), her real Agent Card is
+   * already known — defaults the "Paste existing Agent Card URL" tab active
+   * and auto-runs the existing fetch-and-autofill against it, rather than
+   * leaving the operator to notice, copy, and re-paste a URL the platform
+   * already has. */
+  prefillAgentCardUrl?: string;
+  prefillAgentDisplayName?: string;
+}
+
+export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefillAgentDisplayName }: PassportBureauApplyTabProps = {}) {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
   const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
@@ -169,10 +190,10 @@ export function PassportBureauApplyTab() {
   // Participant — agent identity + bounded-delegation binding
   const { sessionPersonas } = useSupabaseSessionPersonas();
   const operatorPersonaId = sessionPersonas[0]?.id ?? '';
-  const [agentName, setAgentName] = useState('');
+  const [agentName, setAgentName] = useState(prefillAgentDisplayName ?? '');
   const [agentType, setAgentType] = useState('general');
   const [agentDescription, setAgentDescription] = useState('');
-  const [agentCardUrl, setAgentCardUrl] = useState('');
+  const [agentCardUrl, setAgentCardUrl] = useState(prefillAgentCardUrl ?? '');
   const [agentCapabilities, setAgentCapabilities] = useState('');
   const [delegationBand, setDelegationBand] = useState('L1_EXPERIMENTAL');
   const [delegationTtl, setDelegationTtl] = useState(4);
@@ -180,8 +201,12 @@ export function PassportBureauApplyTab() {
 
   // Agent Card source: 'genesis' (we create it) or 'url' (user pastes existing).
   // Sprint 3 adds the genesis path — the non-technical user can sponsor a new
-  // agent without hosting their own card.
-  const [agentCardSource, setAgentCardSource] = useState<'genesis' | 'url' | 'quick'>('genesis');
+  // agent without hosting their own card. When the journey already knows
+  // which agent's card to sponsor (prefillAgentCardUrl), default straight to
+  // the 'url' tab — 'genesis' (create a brand-new agent) is the wrong default
+  // when the operator's actual intent is to sponsor an agent that already
+  // exists and already has a published card.
+  const [agentCardSource, setAgentCardSource] = useState<'genesis' | 'url' | 'quick'>(prefillAgentCardUrl ? 'url' : 'genesis');
   const [genesisSlug, setGenesisSlug] = useState('');
   const [genesisSponsorPassportId, setGenesisSponsorPassportId] = useState('');
   const [genesisBusy, setGenesisBusy] = useState(false);
@@ -236,7 +261,7 @@ export function PassportBureauApplyTab() {
     if (step !== 'agent') return;
     let cancelled = false;
     setSponsorEligibility({ status: 'loading', detail: 'Checking sponsorship eligibility…' });
-    personaFetch('/api/polity-passport/wallet', { cache: 'no-store' })
+    personaFetch('/api/polity-passport/wallet', { cache: 'no-store', personaIdHint: personaId })
       .then(async (res) => {
         if (!res.ok || cancelled) return;
         const json = await res.json();
@@ -281,7 +306,7 @@ export function PassportBureauApplyTab() {
       })
       .catch(() => { if (!cancelled) setSponsorEligibility(null); });
     return () => { cancelled = true; };
-  }, [step]);
+  }, [step, personaId]);
 
   // Option A (admin-only) — deploy an autonomous agent. Binds to the current
   // constitution; agent class only (no kybe / citizenship), enforced server-side.
@@ -456,6 +481,19 @@ export function PassportBureauApplyTab() {
       setCardFetchBusy(false);
     }
   }, [agentCardUrl]);
+
+  // Guided Journey Runtime prefill: when the operator arrives already
+  // sponsoring a specific, known agent (prefillAgentCardUrl), auto-run the
+  // same fetch-and-autofill the "Fetch & autofill" button triggers manually
+  // — never leaving a known Agent Card unfilled for the operator to notice
+  // and re-paste by hand. Runs once per distinct prefill URL; does not
+  // re-run if the operator edits the field afterward.
+  const prefillRanForUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prefillAgentCardUrl || prefillRanForUrl.current === prefillAgentCardUrl) return;
+    prefillRanForUrl.current = prefillAgentCardUrl;
+    void handleFetchCardDetails();
+  }, [prefillAgentCardUrl, handleFetchCardDetails]);
 
   // Step 1 — account
   const [username, setUsername] = useState('');
