@@ -735,17 +735,45 @@ set completion.**
 
 ```ts
 const JOURNEY_SURFACES = {
+  // Real route confirmed 2026-07-31 (§22 discovery): app/api/agents/moneypenny/route.ts serves
+  // GET /api/agents/moneypenny/agent-card.json. This is a JSON API route, not a rendered UI
+  // component — the "Agent Card" surface still needs a thin display component over this route,
+  // or reuse of whatever component already renders it if one is found during build.
   'agent-card': AgentCardSurface,
   'ingestion-factory': IngestionFactorySurface,
   'agent-wallet': AgentWalletSurface,
-  'marketa-validation': MarketaValidationSurface,   // real ref TBD — §22, storyboard's was a placeholder
-  'passport-bureau': PassportSurface,               // confirmed real nav item; exact screen TBD — §22
+  // Confirmed 2026-07-31: NO real surface exists for constitutional delegate-admission eligibility.
+  // MarketaActivationEngineTab (app/(shell)/marketa/components/activation/MarketaActivationEngineTab.tsx)
+  // is a domain-mismatched candidate — revenue/marketing-lane recruitment (STRATEGIC_LANES), not
+  // admission eligibility. services/passport/externalAgentAdmission.ts explicitly states no Marketa
+  // vetting workflow is implemented. This needs a genuinely new minimal component (§5.2/§5.9
+  // case-by-case exception, justified) wrapping externalAgentAdmission.ts's real eligibility logic.
+  'marketa-validation': MarketaValidationSurface,
+  // Confirmed 2026-07-31: real nav item, PassportBureauApplyTab.tsx (tab slug `apply`,
+  // polity-passport-bureau-cartridge) — but that's the application wizard, not an "own passport
+  // status" screen. The self-view logic exists (services/passport/participationSelfView.ts,
+  // passportPendingAuth.ts) but no confirmed screen renders it; PassportRegistryTab (slug `registry`,
+  // same cartridge) is the leading candidate, not yet deeply verified.
+  'passport-bureau': PassportSurface,
+  // Confirmed 2026-07-31: real — PartnerProgrammesTab.tsx's "Constitutional Agreements" panel
+  // (Venture Lab α cartridge, tab slug `partner-operate`, header "Pilot Command Center"), plus the
+  // independently-mounted BoundedDelegationTab component at several cartridge slugs.
   'delegation': DelegationSurface,
   'financial-services-runtime': MoneyPennyRuntimeSurface,
   'trust-standing': TrustSurface,
   'evidence-chain': EvidenceSurface,
-  'aigentme': AigentMeSurface,                      // the journey's actual destination (§5.10, §17) — real ref TBD, §22
-  'founder-office': FounderOfficeSurface,           // optional NEXT destination after aigentMe, not the journey terminus; real ref TBD — §22, storyboard's was a placeholder
+  // Confirmed 2026-07-31: real and live — AigentMeWelcomeSplitTab.tsx (metaMe cartridge, tab slug
+  // `aigent-me`), the operator's copilot/dashboard shell (Brief/Move Forward/Venture
+  // Progress/Ask Specialists capsules per the aigentMe Capsule↔Layout Contract). It is NOT a
+  // threshold-crossing/continuity/onboarding-disposition surface — no such surface exists anywhere
+  // in the repo. The journey composes this real shell as the base surface and needs one genuinely
+  // new small component for the onboarding-focus-disposition prompt (§5.10) — the case-by-case
+  // exception §5.2/§5.9 already allow, not a default.
+  'aigentme': AigentMeSurface,
+  // Confirmed 2026-07-31: real and substantial — FounderOfficeTab.tsx (Venture Lab α cartridge, tab
+  // group `operate`, tab slug `founder-office`). NOT a placeholder, correcting the earlier
+  // storyboard-era assumption in §22. Ready to compose as-is if the alpha demonstrates reaching it.
+  'founder-office': FounderOfficeSurface,
 };
 ```
 
@@ -1061,6 +1089,14 @@ into one evidence-chain view; a rehearsal fixture for Nakamoto; a live-demo stat
 against an unverified surface; the surface map table in §22 must be filled in (real route/component
 per stage, or an explicit, case-by-case "minimal new component" decision) before that stage's UI
 work starts. Other stages may proceed once their own row is resolved, even if another stage's isn't.
+**Status, 2026-07-31: the discovery pass is complete for all seven rows.** Four stages (Register,
+Delegate, Activate, Founder Office) compose confirmed real surfaces as-is. Three have an explicit,
+justified build-new decision for a specific missing piece (Verify's transparency toggle; Claim's
+Marketa-eligibility view; aigentMe's onboarding-disposition prompt, layered on a real reused base) —
+never a default, always because no existing surface was found. Passport has one open confirmation
+(`PassportRegistryTab`'s content) before its row is final. Register's Horizen page URL cannot be
+resolved from this repo and must come from Horizen or their partner brief before that half of Stage 1
+is built.
 
 **P0 — required:** Pilot tab in Partner workspace; reusable journey definition type; seven-stage
 Horizen journey; journey bar; stage viewport; authoritative state resolver; existing-surface routing;
@@ -1130,50 +1166,63 @@ research mixed into the build — it is a required P0 output that precedes UI wo
 migration precedes a table write. No stage's viewport is implemented against a surface that hasn't
 been verified real.
 
-**Required output — the surface map, one row per stage:**
+**Required output — the surface map, one row per stage. Completed via Explore-agent research,
+2026-07-31 — this is the actual, verified state of the codebase, not a plan:**
 
 | Stage | Real surface | Route/component | Required props | Current gap | Decision |
 |---|---|---|---|---|---|
-| Register | Horizen registry page + MoneyPenny Agent Card | TBD (Horizen URL) + `agent-card` | `tokenId`/`entityRef` | Horizen URL pattern unconfirmed until a real `tokenId` exists | Compose |
-| Verify | **Unknown** | — | — | Storyboard's placeholder (capability-validation view) is almost certainly the wrong surface | **Discover before build** |
-| Claim | Wallet-control challenge route + Marketa review | TBD | — | Real Marketa assessment surface unconfirmed | Compose or enhance |
-| Passport | Passport Bureau | confirmed real nav item; exact screen TBD | — | Storyboard panel was a generic placeholder | **Locate exact screen** |
-| Delegate | Constitutional Agreements + delegation UI | Venture Lab α → Partner Pilot Command Center (storyboard-confirmed, likely correct) | — | Minor — verify props needed for this journey's delegation object | Compose |
-| Activate | Wallet + mandate + Trust + Standing gateway | `agent-wallet` + Companion | — | — | Compose |
-| aigentMe | aigentMe's own surface (companion/continuity view) + onboarding-focus-disposition prompt | **Unknown** | principal ref, MoneyPenny's declared domain focus, disposition options (§5.10) | This is now the journey's actual terminal surface (renamed from Founder Office) — no confirmed screen yet for the disposition prompt itself | **Locate exact screen; the disposition prompt may be a genuinely new small component per §5.2's case-by-case exception** |
-| Founder Office (optional next destination) | Founder Office FS view | **Unknown** | — | Downgraded from terminal to optional-next-destination (§17) — still needs its own real screen if the alpha demonstrates reaching it | **Locate exact screen, lower priority than aigentMe's row** |
+| Register | MoneyPenny Agent Card (confirmed) + Horizen registry page (unconfirmed) | `app/api/agents/moneypenny/route.ts` (`GET /api/agents/moneypenny/agent-card.json`) + Horizen API base `services/horizen/client.ts`'s `HORIZEN_REGISTRY_API` | `tokenId`/`registryAlias` | Agent Card is a JSON API route, not a rendered component — needs a thin display wrapper. Horizen exposes only API read endpoints (`/agents/{registryAlias}`, `/agents/{registryAlias}/pulse-status`) in this repo; **no confirmed human-browsable Horizen page URL exists in code** — must be obtained from the Horizen partner brief or Horizen directly, not guessed (per CLAUDE.md's no-guessing rule) | Compose (Agent Card display) + confirm Horizen's actual page URL out-of-band before build |
+| Verify | **Confirmed: does not exist** | — | — | Only read-only backend fetchers exist (`services/horizen/client.ts`'s `readPulseStatus` etc.) — no `pnlDisclosure`/`pulseEnabled`/`financialTransparency` UI anywhere. Genuinely new, not a "wrong surface" — no surface at all. | **Build new** (case-by-case exception, justified — no existing toggle surface exists to reuse) |
+| Claim | Wallet-control challenge route (existing) + Marketa eligibility review (**confirmed: does not exist for this domain**) | Wallet-control: TBD exact route. Marketa: `MarketaActivationEngineTab.tsx` exists but is domain-mismatched (revenue/marketing-lane recruitment, not constitutional admission — confirmed via `services/passport/externalAgentAdmission.ts`, which states no Marketa vetting workflow is implemented) | — | Marketa's eligibility-for-admission surface must be built new, wrapping `externalAgentAdmission.ts`'s real logic — not a thin wrapper over the marketing-lane tab | Compose (wallet-control) + **build new** (Marketa eligibility view, case-by-case exception, justified) |
+| Passport | Passport Bureau — Apply wizard confirmed real; "own status" view not confirmed | `PassportBureauApplyTab.tsx` (tab slug `apply`, `polity-passport-bureau-cartridge`); leading candidate for a status view: `PassportRegistryTab` (slug `registry`, same cartridge) — not yet deeply verified | — | The Apply tab is the intake wizard, not a status display; confirm whether `PassportRegistryTab` already shows valid/continuing/sponsor-eligible state before building anything new | Compose, pending confirmation of `PassportRegistryTab`'s actual content |
+| Delegate | Constitutional Agreements panel (confirmed real) + `BoundedDelegationTab` (confirmed real) | `PartnerProgrammesTab.tsx` "Constitutional Agreements" panel, Venture Lab α cartridge, tab slug `partner-operate`, header "Pilot Command Center"; `BoundedDelegationTab` mounted independently at several cartridge slugs | — | Minor — confirm which mount of `BoundedDelegationTab` fits this journey's delegation object | Compose |
+| Activate | Wallet + mandate + Trust + Standing gateway | `agent-wallet` + Companion; `standing_accrued` (existing receipt type, §15) | — | Not separately investigated this round — carried forward unchanged | Compose |
+| aigentMe | `AigentMeWelcomeSplitTab.tsx` confirmed real and live — but it is the operator's copilot/dashboard shell (Brief/Move Forward/Venture Progress/Ask Specialists), **not** a threshold-crossing/onboarding-disposition surface. No such surface exists anywhere in the repo. | metaMe cartridge, tab slug `aigent-me` | principal ref, MoneyPenny's declared domain focus, disposition options (§5.10) | The welcome shell is real and reusable as the base surface; the confirm/decline-focus prompt itself has no existing home | Compose (welcome shell) + **build new** (onboarding-disposition prompt, case-by-case exception, justified — this is genuinely new functionality, not a re-skin) |
+| Founder Office (optional next destination) | **Confirmed real and substantial — corrects the earlier storyboard-era "placeholder" assumption** | `FounderOfficeTab.tsx`, Venture Lab α cartridge, tab group `operate`, tab slug `founder-office` | — | None — this surface is ready to compose as-is | Compose |
 
-Rows marked **Discover before build** / **Locate exact screen** block that stage's implementation —
-not the whole runtime — but none may default to "build a new component" without the case-by-case
-call §5.2/§5.9 already requires. The detailed notes below remain the working detail behind this
-table:
+Two rows now have a **confirmed, justified "build new"** decision (Verify, and the Marketa-eligibility
+half of Claim), plus one **partial** build-new (aigentMe's onboarding-disposition prompt, layered on
+top of a real, reused base surface) — each is the case-by-case exception §5.2/§5.9 already require,
+not a default, and each is justified by a confirmed absence of any existing surface, not by
+convenience. Passport's row still has one open confirmation (`PassportRegistryTab`'s actual content)
+before its decision is final. Register's Horizen-URL half cannot be resolved from this repo's code
+alone — it needs the actual URL from Horizen or their partner brief, never a guessed one.
 
-- **Verify's real surface** — no confirmed screen yet for "activate Pulse / authorize P&L
-  disclosure." The storyboard's placeholder (a License Check/Dependency Inventory/Secret Scan/
-  Sandbox validation view) is a *capability* validation pipeline, not a financial-transparency
-  toggle — almost certainly the wrong surface, not merely an approximate one. Find the real one, or
-  make the case-by-case call (§5.2/§5.9) that a small new toggle component is genuinely needed.
-- **Marketa's real assessment surface** — does a live validation/reviews tab already render the
-  eligibility fields §3.5 step 3 needs, or does it need a thin wrapper? Affects whether
-  `marketa-validation` in §10's adapter registry is a pure reuse or a small new component.
-- **Passport Bureau's real screen** — confirmed as a real nav item (storyboard shows it listed), but
-  the storyboard's actual panel content was a generic placeholder, not the Passport Bureau screen
-  itself. Find and reference the real one.
+- **Verify's real surface** — confirmed absent, 2026-07-31. Not merely "the storyboard's placeholder
+  was wrong" (though it was) — there is no financial-transparency toggle UI at all in this codebase,
+  only backend read-only Pulse/PnL fetchers. Build new (case-by-case exception, justified).
+- **Marketa's real assessment surface** — confirmed absent for this domain, 2026-07-31.
+  `MarketaActivationEngineTab.tsx` is a real, live surface but for a different subject
+  (`STRATEGIC_LANES` revenue/marketing-lane recruitment, statuses like `application_recommended`,
+  `pending_passport`) — not constitutional delegate-admission eligibility.
+  `services/passport/externalAgentAdmission.ts` explicitly states no Marketa vetting workflow is
+  implemented. Build a new minimal component wrapping that service's real eligibility logic — do not
+  reuse or wrap the marketing-lane tab, which would misrepresent what it's actually showing.
+- **Passport Bureau's real screen** — the Apply wizard (`PassportBureauApplyTab.tsx`, slug `apply`)
+  is confirmed real but is the *intake* flow, not a status view. `PassportRegistryTab` (slug
+  `registry`, same cartridge) is the leading candidate for the "valid/continuing/sponsor-eligible"
+  status screen this stage needs — confirm its actual content before deciding compose vs. build-new.
 - **aigentMe's real surface** — the journey's actual terminal stage (renamed from Founder Office,
-  2026-07-31). Needs: aigentMe's own companion/continuity view, and a disposition prompt where the
-  principal confirms/declines whether MoneyPenny's Financial Services focus becomes part of their
-  ExperienceQube population (§5.10). No confirmed screen for either yet — highest-priority discovery
-  item, since it is now what the journey must actually reach.
-- **Founder Office's real screen** — same gap as before, now lower priority since Founder Office is
-  an optional next destination rather than the terminus (§17); the storyboard's panel was the same
-  generic placeholder reused from Passport's slot, not a distinct Founder Office view. Find and
-  reference the real one if the alpha demonstrates reaching it.
-- **Delegation UI** — surface question for `delegation` in §10's adapter registry, though the
-  storyboard's Stage 5 (Venture Lab α → Partner Pilot Command Center → Constitutional Agreements)
-  is a strong, likely-correct real candidate, unlike 2/4/7.
+  2026-07-31). `AigentMeWelcomeSplitTab.tsx` (tab slug `aigent-me`) is confirmed real and live, and
+  is the closest thing to "aigentMe's own surface" in the repo — but it is the operator's existing
+  copilot/dashboard shell (Brief, Move Forward, Venture Progress, Ask Specialists capsules per the
+  aigentMe Capsule↔Layout Contract), not a dedicated continuity/threshold surface. Compose this real
+  shell as the base, and build the one genuinely new piece — the onboarding-focus-disposition prompt
+  (§5.10) — as a small component layered on top, never a fork of the shell itself.
+- **Founder Office's real screen** — **confirmed real and substantial**, 2026-07-31, correcting the
+  earlier storyboard-era placeholder assumption: `FounderOfficeTab.tsx` (Venture Lab α cartridge, tab
+  group `operate`, tab slug `founder-office`) is a live Workspace/Discover/Validate/Architect/
+  Blueprint surface over `/api/venture/*`. Ready to compose as-is if the alpha demonstrates reaching
+  it as the optional next destination (§17).
+- **Delegation UI** — confirmed real, 2026-07-31: "Venture Lab α → Partner Pilot Command Center →
+  Constitutional Agreements" is exactly the storyboard-suspected surface
+  (`PartnerProgrammesTab.tsx`, tab slug `partner-operate`), plus the independently-mounted
+  `BoundedDelegationTab` component.
 - **Horizen's real external agent/registry page URL** — needed for Stage 1's `external-url` surface
-  (§10.1); confirm the exact live URL pattern once MoneyPenny (or Nakamoto, in rehearsal) actually
-  has a `tokenId` to reference.
+  (§10.1). Confirmed 2026-07-31: this repo contains only Horizen's **API** base
+  (`services/horizen/client.ts`'s `HORIZEN_REGISTRY_API`, e.g. `/agents/{registryAlias}`), not a
+  confirmed human-browsable page URL. Per CLAUDE.md's no-guessing rule, this must be obtained from
+  Horizen or their partner brief directly — never constructed or inferred.
 - **Receipt-type reconciliation** (§15) — **completed, 2026-07-31, via Explore agent against
   `services/receipts/activityReceiptService.ts`'s real `ActivityActionType` union.** Of the eighteen
   proposed types, 6 map to existing types (reuse, don't duplicate, per `inv.engineering.037`):
