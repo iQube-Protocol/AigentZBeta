@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-07-31_bitcent-mainnet-readiness-and-indexer-search.md",
         "updates/2026-07-31_pas-001-status-check-and-wiring-backlog.md",
         "updates/2026-07-31_aigentqube-migration-001-backlog.md",
         "updates/2026-07-31_signing-spine-001-deferred-capability.md",
