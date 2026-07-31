@@ -134,13 +134,18 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
 
   const content = (
     <div className="flex h-full flex-col gap-4 p-4 text-slate-100">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-slate-400">Horizen × metaMe</p>
-          <h2 className="text-lg font-semibold text-slate-100">{journey.label}</h2>
-          <p className="text-xs text-slate-400">Destination: aigentMe (Founder Office available as a next destination)</p>
+      {/* Header — single row (operator note 2026-07-31: don't repeat
+          "Horizen × metaMe" across an eyebrow + title, and drop the
+          not-currently-relevant "Founder Office" aside). */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2 text-sm">
+          <span className="shrink-0 font-semibold text-slate-100">Horizen × metaMe</span>
+          <span className="shrink-0 text-slate-600">·</span>
+          <span className="truncate text-slate-300">{journey.label}</span>
+          <span className="shrink-0 text-slate-600">·</span>
+          <span className="shrink-0 text-xs text-slate-500">Destination: aigentMe</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => void refresh()}
             className="flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800/60"
@@ -162,6 +167,28 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
         <div className="rounded-md border border-rose-900/60 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
           {error} — journey state could not be resolved; no stage is assumed complete.
         </div>
+      )}
+
+      {/* Stage description — one condensed line, ABOVE the stepper (operator
+          note 2026-07-31: frees vertical room for the stage content below,
+          which matters most at the Agent/aigentMe stages). */}
+      <div className="flex items-center gap-2 overflow-hidden text-xs">
+        <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
+          {activeIdx + 1}
+        </span>
+        <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
+        <span className="shrink-0 text-slate-600">—</span>
+        <span className="truncate text-slate-400">{activeStage.description}</span>
+      </div>
+      {activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0 && (
+        <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-1.5 text-xs text-slate-400">
+          Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}
+        </div>
+      )}
+      {activeStageRuntime?.refusalReason && (
+        <p className="rounded-md border border-rose-900/60 bg-rose-950/30 p-2 text-xs text-rose-300">
+          Refused: {activeStageRuntime.refusalReason}
+        </p>
       )}
 
       {/* Stage stepper — circles + connecting lines, mirroring AccessionProgressBar.
@@ -222,24 +249,10 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
 
       {/* Stage viewport — composes the stage's real surfaces (§5.9). Full width:
           the Companion is a separate, independently-toggled overlay elsewhere
-          in the shell, never duplicated here. */}
+          in the shell, never duplicated here. Description/Awaiting/Refused
+          now render above the stepper (operator note 2026-07-31) so this
+          viewport keeps the room, especially at the Agent/aigentMe stages. */}
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-        <div>
-          <h3 className="text-sm font-medium text-slate-100">
-            {activeIdx + 1}. {activeStage.label}
-          </h3>
-          <p className="text-xs text-slate-400">{activeStage.description}</p>
-        </div>
-        {activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0 && (
-          <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-2 text-xs text-slate-400">
-            Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}
-          </div>
-        )}
-        {activeStageRuntime?.refusalReason && (
-          <p className="rounded-md border border-rose-900/60 bg-rose-950/30 p-2 text-xs text-rose-300">
-            Refused: {activeStageRuntime.refusalReason}
-          </p>
-        )}
         <div className="flex flex-col gap-2">
           {activeStage.surfaces.map((surfaceRef, i) => {
             const descriptor = JOURNEY_SURFACES[surfaceRef.ref];
@@ -257,7 +270,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
                   key={i}
                   src={src}
                   title={surfaceRef.ref}
-                  className={`w-full rounded-md border border-slate-800 bg-slate-950 ${fullScreen ? 'h-[calc(100vh-260px)]' : 'h-96'}`}
+                  className={`w-full rounded-md border border-slate-800 bg-slate-950 ${fullScreen ? 'h-[calc(100vh-200px)]' : 'h-[36rem]'}`}
                 />
               );
             }

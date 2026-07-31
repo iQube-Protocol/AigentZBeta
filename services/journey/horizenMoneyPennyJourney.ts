@@ -17,7 +17,7 @@ import type { JourneyDefinition } from '@/types/journey';
 export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
   id: 'horizen-moneypenny-admission',
   version: '1.0.0',
-  label: 'Horizen × metaMe: MoneyPenny Constitutional Admission Journey',
+  label: 'Constitutional Admission Journey',
   partner: 'horizen',
   destination: 'aigentme',
   subjectRef: 'moneypenny',
@@ -25,7 +25,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'register',
       label: 'Register',
-      description: 'MoneyPenny enters Horizen as a discoverable, technically controllable external agent.',
+      description: 'The agent enters Horizen as a discoverable, technically controllable external presence.',
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -56,7 +56,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'verify',
       label: 'Verify',
-      description: 'Horizen Pulse and P&L transparency are activated, enriching (never enlarging) her constitutional authority.',
+      description: 'Horizen Pulse and P&L transparency enrich, never enlarge, the agent’s constitutional authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -103,7 +103,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'passport',
       label: 'Passport',
-      description: "The operator's own Polity Citizen Passport resolves, then sponsorship, then MoneyPenny's Polity Delegate Passport issues.",
+      description: "The operator's own Polity Citizen Passport resolves, then sponsorship, then the agent's Polity Delegate Passport issues.",
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -126,7 +126,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'delegate',
       label: 'Delegate',
-      description: 'Bounded delegation and FS Runtime bootstrap activate MoneyPenny’s authority.',
+      description: 'Bounded delegation and FS Runtime bootstrap activate the agent’s authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -174,7 +174,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       id: 'aigentme',
       label: 'aigentMe',
       description:
-        'aigentMe activates as the operator’s constitutional companion; the operator decides whether MoneyPenny’s domain focus shapes their ExperienceQube population (§5.10).',
+        'aigentMe activates as the operator’s constitutional companion. The operator decides whether the agent’s domain focus shapes their ExperienceQube population.',
       actor: 'aigentme',
       subjectRef: 'operator',
       surfaces: [

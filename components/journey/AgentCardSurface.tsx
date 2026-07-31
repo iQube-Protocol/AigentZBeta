@@ -13,7 +13,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, ChevronDown, Copy, Check } from 'lucide-react';
 
 interface AgentCardData {
   name?: string;
@@ -42,6 +42,11 @@ export function AgentCardSurface({ route = '/api/agents/moneypenny/agent-card.js
   const [card, setCard] = useState<AgentCardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Raw card JSON — an expandable drawer (matches the aigentMe Activity
+  // Receipts pattern, components/metame/cards/ActivityReceiptCard.tsx),
+  // never a popup (operator note 2026-07-31).
+  const [showJson, setShowJson] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +84,17 @@ export function AgentCardSurface({ route = '/api/agents/moneypenny/agent-card.js
 
   const horizen = card.metadata?.horizen;
   const registered = !!horizen?.tokenId;
+  const cardJson = JSON.stringify(card, null, 2);
+  const handleCopyJson = async (e: React.MouseEvent | React.KeyboardEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(cardJson);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* ignore — clipboard permission edge case */
+    }
+  };
 
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs">
@@ -141,6 +157,48 @@ export function AgentCardSurface({ route = '/api/agents/moneypenny/agent-card.js
           </div>
         </div>
       )}
+
+      {/* Raw card JSON — an expandable drawer, never a popup (operator note
+          2026-07-31), mirroring the aigentMe Activity Receipts pattern. */}
+      <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/50">
+        <button
+          type="button"
+          onClick={() => setShowJson((v) => !v)}
+          className={`flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left hover:bg-slate-900/40 ${
+            showJson ? 'border-b border-slate-800' : ''
+          }`}
+          aria-expanded={showJson}
+        >
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">
+            <ChevronDown className={`h-3 w-3 transition-transform ${showJson ? 'rotate-180' : ''}`} />
+            {showJson ? 'Hide card JSON' : 'Show card JSON'}
+          </span>
+          {showJson && (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={handleCopyJson}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  void handleCopyJson(e);
+                }
+              }}
+              aria-label={copied ? 'Copied' : 'Copy card JSON'}
+              title={copied ? 'Copied' : 'Copy JSON'}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-slate-300 hover:bg-slate-800/60"
+            >
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {copied ? 'Copied' : 'Copy'}
+            </span>
+          )}
+        </button>
+        {showJson && (
+          <pre className="max-h-72 overflow-auto p-3 font-mono text-[11px] leading-snug text-slate-300">
+            {cardJson}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }
