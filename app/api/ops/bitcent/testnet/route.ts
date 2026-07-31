@@ -28,6 +28,29 @@ import { isBitcoinTxid, btcTxUrl, fetchBtcConfirmationWithFallback } from '@/ser
  * uses is not Ordinals/Runes-aware at all). This route reports the ratified
  * tokenomics and the transaction's confirmation status honestly, and does
  * not fabricate a live on-chain balance.
+ *
+ * 2026-07-31 mainnet-readiness follow-up session: re-attempted this search
+ * with real network calls (not documentation-only) against seven distinct
+ * candidate Runes-aware indexer hosts — the documented testnet Rune-lookup
+ * host named in check-bitcent-name-availability.js (both its documented path
+ * and its bare host), the Esplora testnet host this repo's canonical Bitcoin
+ * helper already uses, Hiro's Runes API host, two UniSat open-API hosts
+ * (mainnet-path and testnet-path), the ordinals.com Rune page, and Best in
+ * Slot's API host (which documents mainnet+testnet+signet Runes coverage —
+ * see codexes/packs/agentiq/updates/ for this session's Bitcent update doc
+ * with the full host list). Every one of the seven failed identically at the
+ * sandbox's egress proxy with a CONNECT-tunnel 403 (organisation policy
+ * denial, per the proxy's own README — indistinguishable from "this indexer
+ * doesn't work" from inside this sandbox, but NOT the same claim). No
+ * provider's actual JSON response for Bitcent's Rune (name `BITCENT`, etch
+ * tx `551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65`) was
+ * ever observed this session, so per CLAUDE.md's "No Guessing" rule none of
+ * them was wired in — that would be integrating an unverified assumption
+ * about a real financial data source. The next session with real network
+ * egress (the operator's own machine, as with every other live Bitcent step)
+ * should re-run these exact calls before concluding any of them "works" or
+ * "doesn't work" — this comment is a record of what was tried, not a verdict
+ * on the providers themselves.
  */
 
 export const dynamic = 'force-dynamic';
