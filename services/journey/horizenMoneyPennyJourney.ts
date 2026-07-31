@@ -96,7 +96,18 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       prerequisites: ['verify'],
       permittedActions: ['prove-wallet-control'],
       completionEvidence: ['controlProofFresh', 'marketaFinalRecommendation'],
-      receiptTypes: ['agent_control_proven', 'marketa_eligibility_recommended'],
+      // GJR-MKT-001 Phase 5 (2026-07-31): marketa_eligibility_assessed fires
+      // on EVERY assessment (including non-RECOMMENDED outcomes); the other
+      // two fire only for their matching decision. All three ride alongside
+      // the two originally-listed types so the evidence chain is complete
+      // regardless of which way the assessment resolved.
+      receiptTypes: [
+        'agent_control_proven',
+        'marketa_eligibility_recommended',
+        'marketa_eligibility_assessed',
+        'marketa_eligibility_refused',
+        'marketa_eligibility_quarantined',
+      ],
       companion: {
         before: 'A wallet-control challenge must be signed before Marketa can issue her final recommendation.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',

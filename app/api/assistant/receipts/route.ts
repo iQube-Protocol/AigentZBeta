@@ -142,6 +142,22 @@ const VALID_ACTION_TYPES = new Set<ActivityActionType>([
   'experience_model_updated',
   'session_started',
   'session_completed',
+  // Guided Journey Runtime evidence drawers (components/journey/
+  // StageReceiptsDrawer.tsx, 2026-07-31) — the Register/Verify/Claim
+  // stages' own receiptTypes (services/journey/horizenMoneyPennyJourney.ts).
+  // This filter is an allowlist of what a caller may FILTER BY, never an
+  // access gate (persona_id scoping above is the real gate) — so adding a
+  // type here is safe and additive, never a security change.
+  'agent_card_discovered',
+  'horizen_agent_registered',
+  'horizen_pulse_authorized',
+  'horizen_pnl_transparency_enabled',
+  'agent_card_enriched',
+  'agent_control_proven',
+  'marketa_eligibility_recommended',
+  'marketa_eligibility_assessed',
+  'marketa_eligibility_refused',
+  'marketa_eligibility_quarantined',
 ]);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
