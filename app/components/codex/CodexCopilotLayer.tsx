@@ -1987,7 +1987,14 @@ export function CodexCopilotLayer({
                                     void sendMessage(prompt);
                                   }}
                                   title={item.label}
-                                  className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] transition ${ACCENT.pillBorder} ${ACCENT.pillBg} ${ACCENT.pillText} ${ACCENT.pillHoverBg}`}
+                                  // Quick-prompt chip styling matches the standard
+                                  // SmartTriadCopilotLayer declares for every copilot's
+                                  // quick-prompts strip (2026-07-23, operator-directed;
+                                  // components/smarttriad/copilot/SmartTriadCopilotLayer.tsx
+                                  // ~line 1174) — deliberately distinct from this row's
+                                  // own ACCENT-themed deep-link/operation chips below,
+                                  // which are a different chip class, not "quick links".
+                                  className="shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white"
                                 >
                                   {item.icon ? (
                                     <span className="inline-flex items-center gap-1">
