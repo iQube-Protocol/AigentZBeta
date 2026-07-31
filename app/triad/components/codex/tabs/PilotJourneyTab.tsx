@@ -43,6 +43,44 @@ interface PilotJourneyTabProps {
 }
 
 /**
+ * One status row above the stepper instead of stacked description/
+ * Awaiting/Refused rows (operator note 2026-07-31: "too busy" — this frees
+ * more room for stage content, especially the Agent/aigentMe stages).
+ * Crossfades between whichever of those apply for the active stage. Parent
+ * remounts this with `key={activeStageId}` so switching stages always
+ * starts fresh at slide 0, fully visible.
+ */
+function RotatingStatusLine({ slides }: { slides: Array<{ key: string; node: React.ReactNode }> }) {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (slides.length <= 1) return;
+    const showMs = 3200;
+    const fadeMs = 300;
+    const fadeTimer = setTimeout(() => setVisible(false), showMs);
+    return () => clearTimeout(fadeTimer);
+  }, [index, slides.length]);
+
+  useEffect(() => {
+    if (visible || slides.length <= 1) return;
+    const advanceTimer = setTimeout(() => {
+      setIndex((i) => (i + 1) % slides.length);
+      setVisible(true);
+    }, 300);
+    return () => clearTimeout(advanceTimer);
+  }, [visible, slides.length]);
+
+  const current = slides[index % Math.max(slides.length, 1)];
+  if (!current) return null;
+  return (
+    <span className={`truncate transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+      {current.node}
+    </span>
+  );
+}
+
+/**
  * Real, built journey-surface components, keyed by
  * journeySurfaceRegistry.ts's `component` name. Only surfaces the registry
  * marks `kind: 'component'` (built) resolve here — `kind: 'component-new'`
@@ -139,7 +177,12 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
           not-currently-relevant "Founder Office" aside). */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2 text-sm">
-          <span className="shrink-0 font-semibold text-slate-100">Horizen × metaMe</span>
+          {/* Canonical metaMe mark (public/metaMe/CONSTITUTIONAL_BRAND_ASSETS.md)
+              leads every partner pairing — metaMe stays constant as the
+              partner name after it changes (Horizen today, others later). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/metaMe/metaMe/metame-32.png" alt="" className="h-4 w-4 shrink-0" />
+          <span className="shrink-0 font-semibold text-slate-100">metaMe × Horizen</span>
           <span className="shrink-0 text-slate-600">·</span>
           <span className="truncate text-slate-300">{journey.label}</span>
           <span className="shrink-0 text-slate-600">·</span>
@@ -169,27 +212,29 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
         </div>
       )}
 
-      {/* Stage description — one condensed line, ABOVE the stepper (operator
-          note 2026-07-31: frees vertical room for the stage content below,
-          which matters most at the Agent/aigentMe stages). */}
+      {/* Stage status — ONE row above the stepper (operator note 2026-07-31),
+          crossfading between description/Awaiting/Refused instead of
+          stacking them. Frees more room for stage content below, which
+          matters most at the Agent/aigentMe stages. */}
       <div className="flex items-center gap-2 overflow-hidden text-xs">
         <span className="shrink-0 rounded bg-purple-500/20 px-1.5 py-0.5 font-semibold text-purple-200">
           {activeIdx + 1}
         </span>
         <span className="shrink-0 font-medium text-slate-100">{activeStage.label}</span>
         <span className="shrink-0 text-slate-600">—</span>
-        <span className="truncate text-slate-400">{activeStage.description}</span>
+        <RotatingStatusLine
+          key={activeStageId}
+          slides={[
+            { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
+            ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
+              ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}</span> }]
+              : []),
+            ...(activeStageRuntime?.refusalReason
+              ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
+              : []),
+          ]}
+        />
       </div>
-      {activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0 && (
-        <div className="rounded-md border border-slate-800 bg-slate-950/40 px-3 py-1.5 text-xs text-slate-400">
-          Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}
-        </div>
-      )}
-      {activeStageRuntime?.refusalReason && (
-        <p className="rounded-md border border-rose-900/60 bg-rose-950/30 p-2 text-xs text-rose-300">
-          Refused: {activeStageRuntime.refusalReason}
-        </p>
-      )}
 
       {/* Stage stepper — circles + connecting lines, mirroring AccessionProgressBar.
           Clicking selects a stage's viewport; it never completes a stage (§5.1). */}

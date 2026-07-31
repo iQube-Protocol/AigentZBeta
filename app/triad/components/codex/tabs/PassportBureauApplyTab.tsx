@@ -439,7 +439,16 @@ export function PassportBureauApplyTab() {
   useEffect(() => {
     void (async () => {
       const { data } = await getSupabaseBrowserClient().auth.getSession();
-      if (data?.session) {
+      // Account–Personhood Separation: a Supabase session from the broader
+      // platform (the operator's normal login) is NOT a Bureau account. If
+      // `signedIn` treated any session as sufficient, an already-logged-in
+      // operator applying as Citizen would silently skip the Account step
+      // and never create the Bureau persona that step exists to create —
+      // the KybeDID bind that follows has nothing to bind. Only a session
+      // whose email is the Bureau's own synthetic-account domain (minted by
+      // handleAccount below) counts.
+      const email = data?.session?.user?.email;
+      if (email && email.endsWith('@passport.metame.internal')) {
         setSignedIn(true);
         void loadStatus();
       }
