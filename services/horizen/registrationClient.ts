@@ -79,6 +79,39 @@ export interface RegistrationDeps {
   fetchRegistryAgent?: (registryAlias: string, network: HorizenNetwork) => Promise<HorizenRead<Record<string, unknown>>>;
   updateRegistryAssetBinding?: (aigentQubeId: string, patch: { tokenId: string; registryAlias: string }) => Promise<void>;
   createRegistrationReceipt?: (input: { actorPersonaId: string; agent: RegistrableAgentConfig; network: HorizenNetwork; txHash: string }) => Promise<string | null>;
+  /** Derives the owner wallet's PUBLIC address from its configured env var —
+   * derivation only, never signs anything. Horizen's real build_registration_tx
+   * schema (confirmed live, 2026-07-31) requires the owning walletAddress
+   * upfront, before any signature exists. Injectable for tests. */
+  resolveOwnerWalletAddress?: (ownerPrivateKeyEnvVar: string) => string | null;
+}
+
+function defaultResolveOwnerWalletAddress(envVar: string): string | null {
+  const pk = process.env[envVar];
+  if (!pk) return null;
+  try {
+    return new ethers.Wallet(pk).address;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Horizen's build_registration_tx (confirmed live via its own Zod validation
+ * error, 2026-07-31) wants a `services` array alongside name/description —
+ * built from the Agent Card's own already-published `skills`, never invented.
+ * If Horizen's deeper (per-item) validation wants a different shape, that
+ * will surface as a fresh UNSIGNED_TX_UNAVAILABLE with the raw error visible
+ * (see below) — never guessed further ahead of that evidence.
+ */
+function buildServicesFromCard(card: Record<string, unknown>): Array<{ name?: string; description?: string }> {
+  const skills = Array.isArray(card.skills) ? card.skills : [];
+  return skills
+    .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
+    .map((s) => ({
+      name: typeof s.name === 'string' ? s.name : undefined,
+      description: typeof s.description === 'string' ? s.description : undefined,
+    }));
 }
 
 function sha256Hex(input: string): string {
@@ -205,13 +238,41 @@ export async function prepareAgentRegistration(
     return { ok: false, refusalCode: 'AGENT_CARD_INVALID', detail: 'card.url (the agentURI to register) is missing' };
   }
 
+  // Horizen's build_registration_tx requires the owning wallet's address
+  // UPFRONT, before any signature exists (confirmed live via its own Zod
+  // validation error, 2026-07-31 — see buildArgs below). Deriving a public
+  // address from the configured private key is NOT signing; refusing here
+  // when unconfigured is more honest than building a tx nobody can complete.
+  const resolveOwnerAddress = deps.resolveOwnerWalletAddress ?? defaultResolveOwnerWalletAddress;
+  const ownerWalletAddress = resolveOwnerAddress(agent.ownerPrivateKeyEnvVar);
+  if (!ownerWalletAddress) {
+    return {
+      ok: false,
+      refusalCode: 'OWNER_KEY_NOT_CONFIGURED',
+      detail: `${agent.ownerPrivateKeyEnvVar} is not configured on this deployment — Horizen's build_registration_tx requires the owner wallet address before a transaction can be built`,
+    };
+  }
+
   const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
   const { byName } = await listRegistrationTools(mcpClient);
   if (!byName.build_registration_tx) {
     return { ok: false, refusalCode: 'REGISTRATION_TOOL_NOT_FOUND', detail: 'Horizen\'s MCP server does not currently declare a "build_registration_tx" tool' };
   }
 
+  // Field names below are CONFIRMED live (2026-07-31), from
+  // build_registration_tx's own Zod validation error against an earlier,
+  // guessed call: walletAddress/name/description/services are required.
+  // `services` is built from the card's own published `skills` — never
+  // invented (see buildServicesFromCard).
+  const cardDescription = typeof card.description === 'string' ? card.description : '';
   const buildArgs = matchSchemaFields(byName.build_registration_tx.inputSchema, {
+    walletAddress: ownerWalletAddress,
+    wallet: ownerWalletAddress,
+    address: ownerWalletAddress,
+    name: agent.displayName,
+    agentName: agent.displayName,
+    description: cardDescription,
+    services: buildServicesFromCard(card),
     agentURI: cardUrl,
     agentUri: cardUrl,
     uri: cardUrl,
