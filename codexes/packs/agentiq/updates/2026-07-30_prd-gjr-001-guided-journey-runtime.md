@@ -1097,14 +1097,102 @@ other route already must (CLAUDE.md's Identity & Access Spine section, PARAMOUNT
 weakening any part of that spine to make this pilot's navigation smoother is exactly what CLAUDE.md's
 "Files you MUST NOT modify without operator approval" list exists to prevent.
 
-### 11.7 Pilot boundary (added 2026-07-31, operator ruling)
+### 11.7 Pilot boundary — split into three constitutionally-sequenced passes (added 2026-07-31, operator ruling)
 
-In scope for this increment: the `Horizen` trigger; the seven-chip carousel; shared journey state
-across the Companion and Journey tab; the floating Copilot's already-existing availability on
-Partner → Journey (confirmed, §11.3, not a gap); a principal/Passport/persona compatibility check
-before any consequential `OPEN_SURFACE` navigation. Deferred: automatic persona switching, cross-domain
-Companion Edge handoff, external partner-site session correlation, the full Claude/MCP Threshold
-Crossing extension (§23), signed portable context envelopes.
+The `Horizen` trigger and synchronized carousel are presentation/orchestration changes — they do not
+themselves create or enlarge authority. Principal/Passport/persona re-resolution governs whether
+navigation may cross into consequential surfaces, so it is deliberately split out into its own
+bounded, separately-reviewed pass rather than built alongside the presentation work:
+
+- **Pass 1-2 (built, this revision):** client-side recognition of the exact prompt `Horizen`; fixed
+  journey introduction copy; the seven synchronized journey chips; `journey:select-stage`
+  synchronization between the Companion and the Partner Journey tab; same-window stage navigation via
+  the existing `navigateDeepLink()` precedent (never `resolveQuickLinks()`, whose `_blank` behavior is
+  the wrong interaction for this flow); shared, non-authoritative journey context through the existing
+  Companion props (`groundContext`, `onUserPrompt`) and event model. Confirmed not a gap: the floating
+  Copilot already mounts unconditionally on Partner → Journey (§11.3).
+- **Pass 3 (separate, reviewed — not yet built):** principal/Passport/persona re-resolution before any
+  consequential `OPEN_SURFACE` navigation. May call the existing `getActivePersona` and `personaFetch`
+  mechanisms; must not alter PARAMOUNT identity-spine files without explicit operator approval
+  (CLAUDE.md's Identity & Access Spine section). Scoped plan: §11.8.
+
+**Temporary invariant, in force until pass 3 lands:**
+
+> Journey synchronization may carry location and context, but not authority.
+
+Concretely, until pass 3 is complete:
+
+- Companion stage selection may navigate to read-only or non-consequential surfaces.
+- Consequential actions continue to rely on their existing native authorization gates — nothing built
+  in pass 1-2 bypasses or substitutes for those gates.
+- No journey context value (`journeyId`, `selectedStageId`, `personaId` carried on a navigation) may be
+  treated as proof of principal, Passport, persona, or authority by any receiving surface.
+- `OPEN_SURFACE` must not create a new bypass around existing route protections — every route it
+  navigates to re-resolves its own access exactly as it would if reached any other way.
+
+**Acceptance test for pass 1-2:**
+
+```
+Type "Horizen"
+→ intro renders
+→ seven chips render
+→ Register selected
+→ left pane navigates in the same window
+→ Partner Journey selection updates
+→ selecting a stage on either side updates the other
+→ no stage completes from selection
+→ no sovereign action is executed
+```
+
+Deferred beyond pass 3 as well: automatic persona switching, cross-domain Companion Edge handoff,
+external partner-site session correlation, the full Claude/MCP Threshold Crossing extension (§23),
+signed portable context envelopes.
+
+### 11.8 Pass 3 scoped plan — principal/Passport/persona re-resolution (added 2026-07-31, not yet built)
+
+**What must be checked, in order, before a Companion-initiated `OPEN_SURFACE` may open a consequential
+surface:**
+
+```
+expected journey principal        (SharedJourneyContext.principalRef, §11.5)
+∩ authenticated application principal   (server-resolved, not Companion-supplied)
+∩ active Polity Citizen Passport        (server-resolved via the identity spine)
+∩ active application persona            (server-resolved via getActivePersona)
+```
+
+**Existing identity-spine functions this pass calls (never modifies):** `getActivePersona(request)`
+(`services/identity/getActivePersona.ts`) to resolve the authenticated principal/persona server-side;
+`personaFetch` (`utils/personaSpine.ts`) as the client-side transport carrying the Bearer token, per
+CLAUDE.md's "client-side spine fetches MUST use personaFetch" rule; `evaluateAccess`
+(`services/access/evaluateAccess.ts`) if the target surface's own gate requires an access decision
+beyond identity resolution alone. None of these files are edited by this pass — they are called
+exactly as every other spine-aware route already calls them.
+
+**Files touched outside the spine (net new or additive):** a small comparison step — likely a
+`resolveJourneyPrincipalMatch()` helper in `services/journey/` — that takes the server-resolved
+principal/passport/persona (from the calls above) and the journey's own `principalRef`/
+`polityCitizenPassportRef` (§11.5) and returns a match/mismatch verdict; the `OPEN_SURFACE` dispatch
+path in `journeyCompanionTrigger.ts`, extended to call this helper before navigating to a stage marked
+consequential in `journeySurfaceRegistry.ts` (a new `consequential: boolean` field on that registry,
+defaulting `false` — additive, not a breaking change to existing entries).
+
+**Consequential surfaces requiring the check (from the ten-step sequence, §3.5):** Proof of Wallet
+Control (step 3), Sponsorship (step 6), Bounded Delegation (step 7), Polity Delegate Passport issuance
+(step 8), FS Runtime Bootstrap (step 9). Register/Verify/the read-only evidence views remain
+non-consequential and unaffected by this pass.
+
+**Mismatch/refusal behavior:** refuse the consequential action; render "Journey principal confirmed /
+Application persona mismatch"; offer exactly three choices — `Continue as <current application
+persona>` / `Switch to <journey-compatible persona>` / `Cancel` — never a silent switch.
+
+**Explicit persona-switch behavior:** an operator-chosen switch is itself a consequential act and must
+be receipted (mirrors every other consequential-action receipt requirement in §15) — it is not exempt
+merely because it originates from a Companion-guided flow.
+
+**Receipt requirements:** the match/mismatch decision itself does not need its own receipt (it is a
+read, not a state transition); an executed persona switch does, per the bullet above; the eventual
+consequential action (sponsorship, delegation, etc.) already has its own required receipt type per §15
+— this pass does not add or change those, it only gates when the surface offering them may open.
 
 ## 12. Demo strategy — rehearse, then perform live
 

@@ -41,6 +41,8 @@ import { getCachedOrFetch } from "./codex/cache";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 import { resolveLegacyTabSlug } from "@/data/codex-configs";
+import { isHorizenTrigger, focusJourneyStage } from "@/services/journey/journeyCompanionTrigger";
+import { JourneyCompanionCarousel } from "@/components/journey/JourneyCompanionCarousel";
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -1210,6 +1212,18 @@ export default function CodexPanelDynamic({
             groundContext={smartTriadContext as unknown as Record<string, unknown>}
             deepLinks={smartTriadContext.deepLinks}
             operations={smartTriadContext.operations}
+            // PRD-GJR-001 §11.4 — the canonical `Horizen` Companion trigger for
+            // the Guided Journey Runtime pilot. Recognized here, client-side,
+            // before the message would otherwise reach /api/codex/chat — same
+            // fixed-action convention CodexCopilotLayer's own
+            // shouldBypassInference already uses for "reset runtime" etc.
+            // Works from any cartridge (focusJourneyStage navigates cross-
+            // cartridge into Venture Lab's Partner > Journey tab when needed).
+            onUserPrompt={async (prompt: string) => {
+              if (!isHorizenTrigger(prompt)) return undefined;
+              focusJourneyStage('register', codexId, resolvedPersonaId);
+              return { content: <JourneyCompanionCarousel personaId={resolvedPersonaId} codexId={codexId} /> };
+            }}
           />
         );
       })()}

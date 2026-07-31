@@ -80,6 +80,32 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
     void refresh();
   }, [refresh]);
 
+  // Companion synchronization (PRD-GJR-001 §11.5, operator ruling 2026-07-31):
+  // one journey state, multiple authorized renderers. Selecting a stage here
+  // or in the Companion's quick-link carousel (JourneyCompanionCarousel.tsx)
+  // dispatches/receives the same `journey:select-stage` event, so both stay
+  // on the same stage without either owning the other's state. Location and
+  // context only — this never completes a stage (§11.7 temporary invariant).
+  useEffect(() => {
+    const onSelect = (e: Event) => {
+      const stageId = (e as CustomEvent<{ stageId?: string }>).detail?.stageId;
+      if (typeof stageId === 'string' && journey.stages.some((s) => s.id === stageId)) {
+        setSelectedStageId(stageId);
+      }
+    };
+    window.addEventListener('journey:select-stage', onSelect);
+    return () => window.removeEventListener('journey:select-stage', onSelect);
+  }, [journey]);
+
+  const selectStage = useCallback((stageId: string) => {
+    setSelectedStageId(stageId);
+    try {
+      window.dispatchEvent(new CustomEvent('journey:select-stage', { detail: { stageId } }));
+    } catch {
+      /* non-fatal */
+    }
+  }, []);
+
   // Escape collapses full screen — matches the old cartridge full-screen convention.
   useEffect(() => {
     if (!fullScreen) return;
@@ -144,7 +170,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
               <React.Fragment key={stage.id}>
                 {i > 0 && <div className={`h-px flex-1 min-w-[16px] ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
                 <button
-                  onClick={() => setSelectedStageId(stage.id)}
+                  onClick={() => selectStage(stage.id)}
                   className="flex shrink-0 items-center gap-1.5 px-1"
                   title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
                 >
