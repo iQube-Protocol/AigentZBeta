@@ -448,11 +448,28 @@ describe('the surface follows the house rules', () => {
     expect(lab).toContain('{tab === "independent-review" && <IndependentReviewPanel />}');
   });
 
-  it('offers exactly the three views SPEC §12 allows', () => {
+  it('offers the three views SPEC §12 allows for the review workflow itself', () => {
     const panel = read(PANEL);
     expect(panel).toContain('"New Review"');
     expect(panel).toContain('"Review Queue"');
     expect(panel).toContain('"Review Result"');
-    expect(panel).toContain('useState<"new" | "queue" | "result">');
+  });
+
+  // CFS-054 — a FOURTH view was added to this same tab (not a fourth view of
+  // the Independent Review workflow itself): Crystal vP1 renders the Crystal
+  // Readiness Report, Crystal Statistics, and Freeze Recommendation, plus a
+  // freeze-ceremony PACKAGE PREVIEW. It reuses this tab's location (the
+  // operator's "review tab") because crystal readiness is preparation for an
+  // experiment's review, exactly like SPEC §12's own placement rationale for
+  // Independent Review — but it is additive infrastructure, not a widening of
+  // the three-view contract above. It must never gain a one-click freeze
+  // action; see the 'no route or store in this surface touches ... a freeze'
+  // canary above, which this view's source must also keep passing.
+  it('adds Crystal vP1 as a fourth, additive view — with no freeze action anywhere in it', () => {
+    const panel = read(PANEL);
+    expect(panel).toContain('"Crystal vP1"');
+    expect(panel).toContain('useState<"new" | "queue" | "result" | "crystal">');
+    expect(panel).toMatch(/never freezes anything/i);
+    expect(panel).not.toMatch(/>\s*Freeze\s*<\/button>/i);
   });
 });

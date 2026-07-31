@@ -39,7 +39,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Eye, FlaskConical, Loader2, Lock, ShieldCheck, User } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Eye, FlaskConical, Gem, Loader2, Lock, RefreshCw, ShieldCheck, User } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 // ── Server-shaped types (mirrors of the route payloads, not a second model) ──
@@ -108,7 +108,7 @@ const FIELD =
   "focus:border-slate-700 focus:outline-none disabled:opacity-50";
 
 export default function IndependentReviewPanel() {
-  const [view, setView] = useState<"new" | "queue" | "result">("new");
+  const [view, setView] = useState<"new" | "queue" | "result" | "crystal">("new");
   const [models, setModels] = useState<SelectableModel[] | null>(null);
   const [defaultPair, setDefaultPair] = useState<DefaultPair | null>(null);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
@@ -302,6 +302,7 @@ export default function IndependentReviewPanel() {
             ["new", "New Review", FlaskConical],
             ["queue", "Review Queue", ClipboardList],
             ["result", "Review Result", ShieldCheck],
+            ["crystal", "Crystal vP1", Gem],
           ] as const
         ).map(([id, label, Icon]) => (
           <button
@@ -625,6 +626,261 @@ export default function IndependentReviewPanel() {
           )}
         </div>
       )}
+
+      {/* ── CRYSTAL vP1 — Readiness / Statistics / Freeze Recommendation ──── */}
+      {view === "crystal" && <CrystalPanel />}
+    </div>
+  );
+}
+
+/**
+ * Crystal vP1 — Readiness Report, Statistics ("birth certificate"), and
+ * Freeze Recommendation (CFS-054). Read-only views plus a way to RUN the
+ * checks (refresh) and PREVIEW a freeze-ceremony package. There is no
+ * one-click freeze control anywhere in this component — ratifying a freeze
+ * is a separate, explicit, operator-issued act outside this UI
+ * (services/research/artifacts.ts::freezeArtifact), matching the
+ * propose → review → explicit-confirm posture used elsewhere in this
+ * session's Register-stage work. The preview button below builds a package
+ * for review; it never calls that freeze function.
+ */
+function CrystalPanel() {
+  const [experimentId] = useState("EXP-P1");
+  const [domain, setDomain] = useState("constitutional-reasoning");
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [operatorRef, setOperatorRef] = useState("");
+  const [reviewerRef, setReviewerRef] = useState("");
+  const [domainBoundary, setDomainBoundary] = useState("");
+  const [rationaleText, setRationaleText] = useState("");
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [previewResult, setPreviewResult] = useState<Record<string, unknown> | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const runChecks = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await personaFetch(
+        `/api/research/crystal/${encodeURIComponent(experimentId)}?domain=${encodeURIComponent(domain)}`,
+        { cache: "no-store" },
+      );
+      const d = await res.json();
+      if (!d?.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      setData(d);
+    } catch (e) {
+      setData(null);
+      setError(e instanceof Error ? e.message : "the crystal report could not be run");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId, domain]);
+
+  useEffect(() => {
+    void runChecks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const runCeremonyPreview = useCallback(async () => {
+    setPreviewBusy(true);
+    setPreviewError(null);
+    setPreviewResult(null);
+    try {
+      const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/freeze-preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          crystalDomain: domain,
+          operatorRef,
+          reviewerRef: reviewerRef || undefined,
+          domainBoundary,
+          freezeRationale: rationaleText,
+          ratifiedAt: new Date().toISOString(),
+        }),
+      });
+      const d = await res.json();
+      if (!d?.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      setPreviewResult(d);
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : "the freeze preview could not be built");
+    } finally {
+      setPreviewBusy(false);
+    }
+  }, [experimentId, domain, operatorRef, reviewerRef, domainBoundary, rationaleText]);
+
+  const readiness = data?.readiness as { ok: boolean; checks: Array<{ name: string; passed: boolean; detail: string }> } | undefined;
+  const statistics = data?.statistics as Record<string, unknown> | undefined;
+  const recommendation = data?.recommendation as
+    | { verdict: string; rationale: Array<{ id: string; label: string; satisfied: boolean; detail: string }>; remainingRisks: string[]; advisoryNote: string }
+    | undefined;
+
+  const pkg = previewResult?.package as
+    | { packageHash: string; contentHash: string; eligibleForRatification: boolean; signatories: string[]; dvnAnchorRef: null }
+    | undefined;
+
+  return (
+    <div className="space-y-4">
+      <div className={PANEL}>
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Gem className="h-4 w-4 text-slate-400" />
+            <h3 className="text-sm font-semibold text-slate-100">Crystal vP1 — Readiness · Statistics · Freeze Recommendation</h3>
+          </div>
+          <button
+            onClick={() => void runChecks()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+            Run checks
+          </button>
+        </div>
+        <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
+          Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
+          operator alone performs, outside this panel. Nothing here writes to the corpus or marks anything frozen.
+        </p>
+        <input
+          className={FIELD}
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="crystal domain (e.g. constitutional-reasoning)"
+        />
+        {error && (
+          <div className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+            <AlertTriangle className="mr-1 inline h-3 w-3" />
+            {error}
+          </div>
+        )}
+      </div>
+
+      {recommendation && (
+        <div className={PANEL}>
+          <div className="mb-2 flex items-center justify-between">
+            <h4 className="text-xs font-semibold text-slate-100">Freeze Recommendation</h4>
+            <span
+              className={`rounded px-2 py-0.5 text-[11px] font-semibold border ${
+                recommendation.verdict === "READY_FOR_FREEZE"
+                  ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+                  : "text-amber-300 border-amber-500/40 bg-amber-500/10"
+              }`}
+            >
+              {recommendation.verdict}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {recommendation.rationale.map((r) => (
+              <div key={r.id} className="flex items-start gap-1.5 text-[11px]">
+                <span className={r.satisfied ? "text-emerald-300" : "text-rose-300"}>{r.satisfied ? "☑" : "☐"}</span>
+                <span className="text-slate-300">{r.label}</span>
+              </div>
+            ))}
+          </div>
+          {recommendation.remainingRisks.length > 0 && (
+            <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-amber-200">Remaining risks</div>
+              <ul className="list-disc space-y-0.5 pl-4 text-[11px] leading-relaxed text-amber-100">
+                {recommendation.remainingRisks.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">{recommendation.advisoryNote}</p>
+        </div>
+      )}
+
+      {readiness && (
+        <div className={PANEL}>
+          <h4 className="mb-2 text-xs font-semibold text-slate-100">Crystal Readiness Report (9 checks)</h4>
+          <div className="space-y-1.5">
+            {readiness.checks.map((c) => (
+              <div key={c.name} className="rounded-lg border border-slate-800 bg-slate-900/40 p-2">
+                <div className="flex items-center gap-1.5 text-[11px]">
+                  <span className={c.passed ? "text-emerald-300" : "text-rose-300"}>{c.passed ? "PASS" : "FAIL"}</span>
+                  <span className="font-mono text-slate-300">{c.name}</span>
+                </div>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-slate-500">{c.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {statistics && (
+        <div className={PANEL}>
+          <h4 className="mb-2 text-xs font-semibold text-slate-100">Crystal Statistics — birth certificate</h4>
+          <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-400 sm:grid-cols-3">
+            {Object.entries(statistics)
+              .filter(([k]) => !["computedAt", "externalSources", "standingDistribution", "coverageEstimate", "substrateError"].includes(k))
+              .map(([k, v]) => (
+                <div key={k}>
+                  <span className="text-slate-500">{k}</span>{" "}
+                  <span className="text-slate-200">{typeof v === "number" ? v.toFixed?.(3) ?? String(v) : String(v)}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      <div className={PANEL}>
+        <h4 className="mb-1 text-xs font-semibold text-slate-100">Preview a freeze ceremony package</h4>
+        <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+          Builds the package an operator would review before ratifying a freeze — identifier, content hash, corpus
+          statistics, limitations, domain boundary, rationale. <span className="text-slate-200">This button never freezes anything.</span> Actual ratification happens outside this UI via the operator's own governed act.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input className={FIELD} value={operatorRef} onChange={(e) => setOperatorRef(e.target.value)} placeholder="operator reference (required)" />
+          <input className={FIELD} value={reviewerRef} onChange={(e) => setReviewerRef(e.target.value)} placeholder="reviewer reference (optional)" />
+        </div>
+        <input
+          className={`${FIELD} mt-2`}
+          value={domainBoundary}
+          onChange={(e) => setDomainBoundary(e.target.value)}
+          placeholder="domain boundary — what this crystal covers, and does not (required)"
+        />
+        <input
+          className={`${FIELD} mt-2`}
+          value={rationaleText}
+          onChange={(e) => setRationaleText(e.target.value)}
+          placeholder="freeze rationale — why now (required)"
+        />
+        <button
+          onClick={() => void runCeremonyPreview()}
+          disabled={previewBusy || !operatorRef.trim() || !domainBoundary.trim() || !rationaleText.trim()}
+          className="mt-3 flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-50"
+        >
+          {previewBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+          Preview package (no freeze)
+        </button>
+
+        {previewError && (
+          <div className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">
+            <AlertTriangle className="mr-1 inline h-3 w-3" />
+            {previewError}
+          </div>
+        )}
+
+        {pkg && (
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-300">
+            <div>
+              content hash <span className="font-mono text-slate-200">{pkg.contentHash?.slice(0, 24)}…</span>
+            </div>
+            <div>signatories: {pkg.signatories?.join(", ") || "—"}</div>
+            <div>
+              eligible for ratification:{" "}
+              <span className={pkg.eligibleForRatification ? "text-emerald-300" : "text-amber-300"}>
+                {String(pkg.eligibleForRatification)}
+              </span>
+            </div>
+            <div>DVN anchor: {String(pkg.dvnAnchorRef)} (populated only once the real freeze executes)</div>
+            <div className="mt-1 text-[10px] text-slate-500">
+              {String((previewResult as Record<string, unknown> | null)?.note ?? "")}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
