@@ -202,6 +202,53 @@ This is the canonical conversion across every surface (wallet, store cart, conte
 
 If you encounter a value labelled `qc` / `qcent` / `q_cent` / `qCents` and aren't sure whether it's a cents count or a USD value, **trace it back to its source before using it** — getting this wrong moves money by 100×.
 
+### QriptoCENT is the class — Q¢ denominations are settled cent-for-cent, never bridged (operator-ratified, 2026-07-29, corrected 2026-07-31)
+
+**Q¢ (QriptoCENT) is a stable-value currency CLASS, not a single asset.** It has no protocol-wide
+aggregate maximum supply — each canonical **denomination** within the class has its own expressly
+governed native ledger, balances, issuance and maximum supply:
+
+```
+QriptoCENT (Q¢) — the class
+├── Base Q¢     — native denomination on Base, governed max supply
+└── Bitcent/B¢  — native denomination on Bitcoin (Runes), governed max supply
+    (further denominations may be added the same way — never an unqualified
+     second issuance of an existing denomination's name)
+```
+
+**Bitcent (title case, ticker `B¢`) is Q¢'s Bitcoin-native denomination** — a real Bitcoin Runes
+issuance (the real testnet etch is documented in
+`codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md`), not a system unrelated
+to Q¢. `BITCENT` (all-caps) is the immutable on-chain Rune protocol name only.
+
+**Cross-denomination settlement is inter-ledger, never wrapped-token bridging.** Each denomination
+keeps its own native ledger; a cross-network payment is a source-side debit, a DVN-verified
+settlement message, and a destination-side credit from native liquidity on the other side — the
+token itself never moves, and no wrapped copy is minted. The settlement rate between denominations is
+**cent-for-cent** (`1 B¢ = 1 Base Q¢ = one cent of reference value`); any fee must be separately
+disclosed, never hidden in a variable exchange rate. Full architecture:
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md` and
+`codexes/packs/agentiq/updates/2026-07-29_qriptocent-cross-denomination-settlement.md`.
+
+**Do not confuse QriptoCENT (the currency class) with CryptoSent (a settlement-routing agent/service
+that operates on it) — both are real, both are ratified, and they are not interchangeable spellings
+of each other.** CryptoSent is the Financial Services Runtime surface that routes and classifies each
+component of every transaction it settles (`2026-07-29_constitutional-trading-transparency-and-fee-classification.md`
+§9's reach table lists it as a peer of MoneyPenny, Marketa, DVN receipts and Standing) and rebalances
+denomination liquidity (`2026-07-29_qriptocent-supply-constitution.md`). It is a legitimate, separate
+term used throughout the ratified 2026-07-29 docs and wallet fixtures — do not "fix" it to
+"QriptoCENT" on sight.
+
+**Known drift, corrected 2026-07-31:** PRD-GJR-001's payment-capabilities list named the wallet
+capability itself "CryptoSent settlement orchestration" — wrong in that specific spot, because a
+capabilities list of payment RAILS (x402, Base Q¢, Bitcent/B¢) needed the CURRENCY's own settlement
+capability ("QriptoCENT settlement orchestration"), not a reference to the CryptoSent agent. Fixed
+there only. Every other "CryptoSent" reference in this codebase (the 2026-07-29 docs, the wallet
+fixtures' in-universe title `"CryptoSent: the cent that makes sense"`, test files) is the real agent
+and is correct as written — do not replace it. When you're unsure which one a sentence means: if the
+sentence is naming a currency/denomination/settlement RAIL, it's QriptoCENT/Q¢; if it's naming an
+actor that routes, classifies or rebalances transactions, it's CryptoSent.
+
 ---
 
 ## Operator Instructions — Always Provide Runnable Scripts

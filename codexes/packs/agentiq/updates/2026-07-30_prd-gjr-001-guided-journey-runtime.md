@@ -138,16 +138,28 @@ MoneyPenny does not enter Horizen with an empty Agent Card and a generic wallet.
 wallet is a **metaMe constitutional wallet**, already capable of:
 
 - x402 payments
-- CryptoSent settlement orchestration
+- QriptoCENT settlement orchestration
 - Base Q¢ activity
 - **Bitcent (B¢) activity on Bitcoin testnet** — the real testnet Rune issuance broadcast the same
-  day (`2026-07-30_bitcent-testnet-etch-broadcast.md`; three confirmations at time of writing,
-  awaiting full indexer visibility — the issuance, not "the contract," and indexer recognition
-  remains the honest completion gate, not the confirmation count alone). **Canonical naming
-  (2026-07-31, operator addendum):** *Bitcent* (title case) is the product name — **Bitcent is a
-  Bitcoin-native micro-stablecoin.** `B¢` is the ticker; `Bc` is the ASCII fallback where `¢` cannot
+  day (`2026-07-30_bitcent-testnet-etch-broadcast.md`; now at 18 confirmations, awaiting full indexer
+  visibility — the issuance, not "the contract," and indexer recognition remains the honest
+  completion gate, not the confirmation count alone). **Canonical naming (2026-07-31, operator
+  addendum, corrected 2026-07-31):** **Q¢ (QriptoCENT) is the stable-value currency CLASS** — no
+  aggregate cap, extensible to further denominations (`2026-07-29_qriptocent-supply-constitution.md`).
+  **Bitcent (title case, B¢) is Q¢'s Bitcoin-native denomination** — the concrete Bitcoin Runes
+  implementation of the `BitCent/B¢` denomination ratified in principle on 2026-07-29, settled
+  cent-for-cent with Base Q¢ via DVN inter-ledger settlement, never wrapped-token bridging
+  (`2026-07-29_qriptocent-cross-denomination-settlement.md`). `Bitcent is a Bitcoin-native
+  micro-stablecoin` remains accurate — it is that, AND it is Q¢'s Bitcoin-native instance, not a
+  parallel or unrelated system. `B¢` is the ticker; `Bc` is the ASCII fallback where `¢` cannot
   render. `BITCENT` (all-caps) is the immutable on-chain Rune protocol name only — a Runes-protocol
-  convention, not a prose choice, and never used in place of "Bitcent" in narrative text.
+  convention, not a prose choice, and never used in place of "Bitcent" in narrative text. (Corrected
+  2026-07-31: this bullet previously named the capability "CryptoSent settlement orchestration" —
+  wrong here specifically, because this is a list of payment RAILS/currencies (x402, Base Q¢,
+  Bitcent/B¢) and needed the currency's own name, QriptoCENT. CryptoSent is a real, separate,
+  ratified Financial Services Runtime agent that routes and classifies transactions on top of
+  QriptoCENT — not a misspelling of it and not interchangeable with it. See CLAUDE.md's QriptoCENT
+  section for the full distinction.)
 - bounded delegation
 - receipts and proof correlation
 
@@ -164,7 +176,7 @@ already "constitutionally delegated" at entry. That contradicts the journey's ow
 Delegate stage actually completes.
 
 ```
-metaMe wallet + x402 + CryptoSent + Base Q¢ + testnet Bitcent/B¢ + bounded authority
+metaMe wallet + x402 + QriptoCENT + Base Q¢ + testnet Bitcent/B¢ + bounded authority
 → MoneyPenny registered in Horizen
 → Pulse/P&L transparency activated
 → Horizen produces verifiable financial proofs
