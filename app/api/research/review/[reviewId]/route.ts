@@ -68,6 +68,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ reviewId: s
         actionReason: record.actionReason,
         actionAt: record.actionAt,
         receiptId: record.receiptId,
+        // Supersession (operator ruling 2026-07-31): a superseded row stays
+        // fully readable for audit history but must never look governable —
+        // the client uses this to show a banner and disable the four
+        // resolution actions. The POST handler below is the authoritative
+        // enforcement; this is what lets the UI agree with it before a click.
+        supersededBy: record.supersededBy ?? null,
+        supersededReason: record.supersededReason ?? null,
       },
       // The SAME sealed object the reviewers received, re-verified on read.
       preview: record.package ? redactedPreview(record.package) : null,
@@ -110,6 +117,23 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ reviewId: 
   try {
     const record = await getReview(gate.caller.admin, reviewId);
     if (!record) return NextResponse.json({ ok: false, error: 'not found' }, { status: 404 });
+
+    // Supersession preserves evidence and removes authority to resolve the
+    // superseded record (operator ruling 2026-07-31). This is the
+    // authoritative enforcement — the client disabling its buttons is UX,
+    // not the guarantee; a request that reaches here anyway is refused.
+    if (record.supersededBy) {
+      return NextResponse.json(
+        {
+          ok: false,
+          refusalCode: 'REVIEW_SUPERSEDED',
+          error: `${reviewId} was superseded by ${record.supersededBy} and can no longer be governed-resolved`,
+          reviewId,
+          supersededBy: record.supersededBy,
+        },
+        { status: 409 },
+      );
+    }
 
     const at = new Date().toISOString();
     await upsertReview(gate.caller.admin, {

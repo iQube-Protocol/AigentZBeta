@@ -282,6 +282,12 @@ export default function IndependentReviewPanel() {
     | null
     | undefined;
 
+  // Supersession preserves evidence and removes authority to resolve the
+  // superseded record (operator ruling 2026-07-31) — this disables the
+  // client-side controls; app/api/research/review/[reviewId]/route.ts's
+  // POST handler is the authoritative enforcement.
+  const isSuperseded = Boolean((detail?.review as Record<string, unknown> | undefined)?.supersededBy);
+
   const previewSubjects = useMemo(() => {
     const subjects = (preview?.package?.subjects ?? []) as Array<Record<string, unknown>>;
     return subjects.slice(0, 5);
@@ -572,14 +578,22 @@ export default function IndependentReviewPanel() {
           {detail && (
             <div className={PANEL}>
               <h3 className="mb-1 text-sm font-semibold text-slate-100">Governed resolution</h3>
-              <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
-                These record a resolution on the <span className="text-slate-200">review</span>. None writes to the
-                corpus, grants Standing, changes an asset&apos;s lifecycle, or freezes anything — accepting a review
-                accepts its findings as evidence. The freeze remains a separate governed act.
-              </p>
+              {isSuperseded ? (
+                <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+                  This review is superseded — its actions are disabled. The row remains here for audit inspection
+                  only.
+                </p>
+              ) : (
+                <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
+                  These record a resolution on the <span className="text-slate-200">review</span>. None writes to the
+                  corpus, grants Standing, changes an asset&apos;s lifecycle, or freezes anything — accepting a review
+                  accepts its findings as evidence. The freeze remains a separate governed act.
+                </p>
+              )}
               <input
                 className={`${FIELD} mb-2`}
                 value={actionReason}
+                disabled={isSuperseded}
                 placeholder="reason (required — an unexplained resolution is a stray click in the audit trail)"
                 onChange={(e) => setActionReason(e.target.value)}
               />
@@ -587,7 +601,7 @@ export default function IndependentReviewPanel() {
                 {ACTIONS.map((a) => (
                   <button
                     key={a}
-                    disabled={!actionReason.trim()}
+                    disabled={isSuperseded || !actionReason.trim()}
                     onClick={() => void recordAction(a)}
                     className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs capitalize text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-40"
                   >
@@ -666,12 +680,23 @@ function ResultPanel({ detail }: { detail: Record<string, unknown> }) {
   const contested = (review.contested ?? []) as Array<Record<string, unknown>>;
   const limitations = (review.limitations ?? []) as string[];
   const reviewers = (review.reviewers ?? []) as Array<Record<string, unknown>>;
+  const supersededBy = review.supersededBy as string | null | undefined;
   return (
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-mono text-xs text-slate-200">{String(review.reviewId ?? "")}</h3>
         <span className="text-[10px] text-slate-500">{String(review.queueState ?? "")}</span>
       </div>
+      {supersededBy && (
+        <div className="mb-3 rounded-lg border border-slate-600 bg-slate-800/60 p-2.5 text-[11px] text-slate-300">
+          <p className="font-semibold uppercase tracking-wide text-slate-200">Superseded</p>
+          <p className="mt-1">
+            This {String(review.queueState ?? "")} review was replaced by{" "}
+            <span className="font-mono text-slate-100">{supersededBy}</span>.
+          </p>
+          <p className="mt-1 text-slate-400">No governed resolution may be recorded against this row.</p>
+        </div>
+      )}
       <div className="mb-3 flex flex-wrap gap-3 text-[11px]">
         <span className="text-emerald-300">{tally.agreed ?? 0} agreed</span>
         <span className="text-amber-300">{tally.contested ?? 0} contested</span>
