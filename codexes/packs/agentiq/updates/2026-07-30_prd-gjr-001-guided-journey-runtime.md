@@ -747,10 +747,9 @@ set completion.**
 
 ```ts
 const JOURNEY_SURFACES = {
-  // Real route confirmed 2026-07-31 (§22 discovery): app/api/agents/moneypenny/route.ts serves
-  // GET /api/agents/moneypenny/agent-card.json. This is a JSON API route, not a rendered UI
-  // component — the "Agent Card" surface still needs a thin display component over this route,
-  // or reuse of whatever component already renders it if one is found during build.
+  // Built 2026-07-31: components/journey/AgentCardSurface.tsx — a faithful display wrapper over
+  // app/api/agents/moneypenny/route.ts's real GET /api/agents/moneypenny/agent-card.json, never
+  // reshaping its fields. Honestly renders tokenId: null as "not yet registered."
   'agent-card': AgentCardSurface,
   'ingestion-factory': IngestionFactorySurface,
   'agent-wallet': AgentWalletSurface,
@@ -1183,7 +1182,7 @@ been verified real.
 
 | Stage | Real surface | Route/component | Required props | Current gap | Decision |
 |---|---|---|---|---|---|
-| Register | MoneyPenny Agent Card (confirmed) + Horizen registry page (unconfirmed) | `app/api/agents/moneypenny/route.ts` (`GET /api/agents/moneypenny/agent-card.json`) + Horizen API base `services/horizen/client.ts`'s `HORIZEN_REGISTRY_API` | `tokenId`/`registryAlias` | Agent Card is a JSON API route, not a rendered component — needs a thin display wrapper. Horizen exposes only API read endpoints (`/agents/{registryAlias}`, `/agents/{registryAlias}/pulse-status`) in this repo; **no confirmed human-browsable Horizen page URL exists in code** — must be obtained from the Horizen partner brief or Horizen directly, not guessed (per CLAUDE.md's no-guessing rule) | Compose (Agent Card display) + confirm Horizen's actual page URL out-of-band before build |
+| Register | MoneyPenny Agent Card (built) + Horizen registry page (unconfirmed) | `AgentCardSurface.tsx` over `app/api/agents/moneypenny/route.ts` (`GET /api/agents/moneypenny/agent-card.json`) + Horizen API base `services/horizen/client.ts`'s `HORIZEN_REGISTRY_API` | `tokenId`/`registryAlias` | Agent Card display: **done** (2026-07-31) — a faithful display wrapper, honestly renders `tokenId: null` as "not yet registered." Horizen exposes only API read endpoints (`/agents/{registryAlias}`, `/agents/{registryAlias}/pulse-status`) in this repo; **no confirmed human-browsable Horizen page URL exists in code** — must be obtained from the Horizen partner brief or Horizen directly, not guessed (per CLAUDE.md's no-guessing rule) | Compose (Agent Card display) — **done**; Horizen's page URL still needs confirming out-of-band |
 | Verify | **Confirmed: does not exist** | — | — | Only read-only backend fetchers exist (`services/horizen/client.ts`'s `readPulseStatus` etc.) — no `pnlDisclosure`/`pulseEnabled`/`financialTransparency` UI anywhere. Genuinely new, not a "wrong surface" — no surface at all. | **Build new** (case-by-case exception, justified — no existing toggle surface exists to reuse) |
 | Claim | Wallet-control challenge route (existing) + Marketa eligibility review (**confirmed: does not exist for this domain**) | Wallet-control: TBD exact route. Marketa: `MarketaActivationEngineTab.tsx` exists but is domain-mismatched (revenue/marketing-lane recruitment, not constitutional admission — confirmed via `services/passport/externalAgentAdmission.ts`, which states no Marketa vetting workflow is implemented) | — | Marketa's eligibility-for-admission surface must be built new, wrapping `externalAgentAdmission.ts`'s real logic — not a thin wrapper over the marketing-lane tab | Compose (wallet-control) + **build new** (Marketa eligibility view, case-by-case exception, justified) |
 | Passport | Passport Bureau — Apply wizard confirmed real; "own status" view not confirmed | `PassportBureauApplyTab.tsx` (tab slug `apply`, `polity-passport-bureau-cartridge`); leading candidate for a status view: `PassportRegistryTab` (slug `registry`, same cartridge) — not yet deeply verified | — | The Apply tab is the intake wizard, not a status display; confirm whether `PassportRegistryTab` already shows valid/continuing/sponsor-eligible state before building anything new | Compose, pending confirmation of `PassportRegistryTab`'s actual content |

@@ -20,6 +20,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_SURFACES } from '@/services/journey/journeySurfaceRegistry';
 import { AigentMeFocusDispositionPrompt } from '@/components/journey/AigentMeFocusDispositionPrompt';
+import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import type { JourneyRuntimeState, JourneyStageState } from '@/types/journey';
 
 interface PilotJourneyTabProps {
@@ -38,6 +39,7 @@ interface PilotJourneyTabProps {
  */
 const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
   AigentMeFocusDispositionPrompt,
+  AgentCardSurface,
 };
 
 const STAGE_ICON: Record<JourneyStageState, React.ReactNode> = {

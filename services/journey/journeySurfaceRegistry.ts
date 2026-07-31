@@ -62,9 +62,13 @@ export type JourneySurfaceDescriptor =
 
 export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   'agent-card': {
-    kind: 'api',
-    route: '/api/agents/moneypenny/agent-card.json',
-    note: "MoneyPenny's real Agent Card — confirmed live route. JSON API, displayed via a thin wrapper.",
+    kind: 'component',
+    component: 'AgentCardSurface',
+    note:
+      "MoneyPenny's real Agent Card (built 2026-07-31, components/journey/AgentCardSurface.tsx) — a " +
+      "faithful display wrapper over the live /api/agents/moneypenny/agent-card.json route, never " +
+      "reshaping its fields. Honestly renders tokenId: null as 'not yet registered' rather than " +
+      "fabricating a value.",
   },
   'horizen-registry-agent-page': {
     kind: 'external-url-unresolved',
