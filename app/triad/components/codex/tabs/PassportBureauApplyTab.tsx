@@ -422,6 +422,41 @@ export function PassportBureauApplyTab() {
     }
   }, [agentName, agentDescription, genesisSlug, genesisSponsorPassportId, makeAigentMe]);
 
+  // Agent Card autofill (Delegate/agent route, "Paste existing Agent Card
+  // URL" path). Without this, name/description/capabilities had to be
+  // re-typed by hand even though the pasted card already publishes them —
+  // a coherence risk (the application could say something the card itself
+  // disagrees with) as well as needless data entry. Never overwrites a
+  // field the card doesn't itself declare; never invents a value the card
+  // doesn't have.
+  const [cardFetchBusy, setCardFetchBusy] = useState(false);
+  const [cardFetchError, setCardFetchError] = useState<string | null>(null);
+  const handleFetchCardDetails = useCallback(async () => {
+    const url = agentCardUrl.trim();
+    if (!url) return;
+    setCardFetchBusy(true);
+    setCardFetchError(null);
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Could not fetch Agent Card (HTTP ${res.status})`);
+      const card = await res.json();
+      if (typeof card?.name === 'string' && card.name.trim()) setAgentName(card.name.trim());
+      if (typeof card?.description === 'string' && card.description.trim()) setAgentDescription(card.description.trim());
+      const skillNames = Array.isArray(card?.skills)
+        ? card.skills
+            .map((s: unknown) => (s && typeof s === 'object' ? (s as Record<string, unknown>).name : undefined))
+            .filter((n: unknown): n is string => typeof n === 'string' && n.trim().length > 0)
+        : [];
+      if (skillNames.length > 0) setAgentCapabilities(skillNames.join(', '));
+      const runtimeAgentId = card?.metadata?.runtime_agent_id;
+      if (typeof runtimeAgentId === 'string' && runtimeAgentId.trim()) setAgentType(runtimeAgentId.trim());
+    } catch (e) {
+      setCardFetchError(e instanceof Error ? e.message : 'Could not fetch Agent Card');
+    } finally {
+      setCardFetchBusy(false);
+    }
+  }, [agentCardUrl]);
+
   // Step 1 — account
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -1115,12 +1150,30 @@ export function PassportBureauApplyTab() {
               )}
             </div>
           ) : (
-            <input
-              value={agentCardUrl}
-              onChange={(e) => setAgentCardUrl(e.target.value)}
-              placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
-            />
+            <div className="space-y-1.5">
+              <div className="flex gap-2">
+                <input
+                  value={agentCardUrl}
+                  onChange={(e) => setAgentCardUrl(e.target.value)}
+                  placeholder="Agent card URL (A2A agent-card.json — the identity anchor)"
+                  className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => void handleFetchCardDetails()}
+                  disabled={cardFetchBusy || !agentCardUrl.trim()}
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {cardFetchBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  Fetch &amp; autofill
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Pastes the name, description, and declared skills from the card itself into the fields
+                below — never re-typed by hand, never drifting from what the card actually says.
+              </p>
+              {cardFetchError && <p className="text-xs text-rose-400">{cardFetchError}</p>}
+            </div>
           )}
           <input
             value={agentType}
