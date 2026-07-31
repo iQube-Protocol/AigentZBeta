@@ -121,9 +121,12 @@ condensed presentation of exactly this sequence — nothing in §7 may contradic
 
 ### 3.1 Why MoneyPenny's current passportless state is the perfect starting point, not a defect
 
-MoneyPenny is **registered but not yet passport-bearing** right now — a real Agent Card with Horizen
-metadata, `tokenId: null`, `status: pending_registration`. The binding/claim/receipt/DVN path is
-built but not executed. This is the exact **before** state the demonstration needs:
+**Correction (2026-07-31, operator review): "registered but not yet passport-bearing" is
+self-contradictory** — a `tokenId: null` agent is not registered. The accurate before-state:
+MoneyPenny has a published Agent Card and a persisted AigentQube (§3.1.1), but **Horizen
+registration remains pending and no token id has yet been issued** — `tokenId: null`, `status:
+pending_registration`. The binding/claim/receipt/DVN path is built but not executed. This is the
+exact **before** state the demonstration needs:
 
 ```
 Discoverable agent → assessed candidate → sponsored agent → delegated constitutional actor
@@ -985,10 +988,123 @@ refusal reason in both. The Companion never renders its own narrative panel insi
 (§14.1) — this carousel is additive to the Companion's own existing surface, not a duplicate mounted
 elsewhere.
 
-Implementation note: this needs the Companion's actual current action-chip/quick-prompt mechanism
-identified before it's wired (which prop/config feeds its chip row today, and whether `OPEN_SURFACE`
-already has a real dispatch path or is type-only so far) — tracked as follow-up work, not yet built as
-of this revision.
+**Implementation research, 2026-07-31 (Explore-agent audit, source-grounded):**
+
+- `CodexCopilotLayer` — the real universal Companion — already mounts **unconditionally on every
+  cartridge tab**, including Venture Lab's Partner → Journey tab (`app/triad/components/CodexPanelDynamic.tsx`
+  lines ~1192-1213: `variant="floating"`, config-driven from `codex.copilot ?? {}`, defaulting to
+  Aigent Z when a cartridge — like `VENTURE_LAB_CODEX` — declares no `copilot` block). **The floating
+  Copilot activation control is not missing from Partner → Journey; it is already there**, and the
+  first UI-review screenshot already shows it. §11.5 below narrows the real remaining gap.
+- It already receives `groundContext={smartTriadContext}` and `contextId={`${codexId}-${activeTabSlug}`}`
+  unconditionally — the "hand the copilot arbitrary JSON so it narrates accurately" seam already
+  exists and reaches every mount, no new plumbing required to inject `JourneyRuntimeState` when
+  `activeTabSlug === 'partner-pilot-journey'`.
+- `resolveQuickLinks()` (`services/companion/quickLinks.ts`) is **not** the right extension point for
+  the stage carousel, despite the surface-level similarity — it is deliberately, documentedly
+  `_blank`-only (`cartridgeLinkTarget()`: "QUICK LINKS DRIVE THE BROWSER, NOT THE COMPANION"). A
+  journey-stage chip must navigate the CURRENT left pane, not spawn a new tab — the correct existing
+  precedent is `SmartTriadDeepLink`/`navigateDeepLink()`'s same-window pattern (`codex:navigate-tab`
+  for same-cartridge, `buildCodexUrl` + same-window navigation for cross-cartridge), extended with a
+  new same-shape event (e.g. `journey:select-stage`) for the sub-tab-level case `codex:navigate-tab`
+  doesn't cover (selecting a stage WITHIN the already-mounted Journey tab, not switching tabs).
+- `types/journey.ts`'s `CompanionJourneyIntent`/`CompanionJourneyContext` (§11.1) are the ratified,
+  no-guessing contract for this feature and remain unconsumed by any component as of this revision —
+  implementing them is filling in a specified gap, not inventing a new mechanism.
+
+### 11.4 The canonical Companion trigger — `Horizen` (added 2026-07-31, operator ruling)
+
+For the initial pilot, the sole invocation is a single word, typed in the Companion's own input, no
+new command syntax:
+
+```
+Horizen
+```
+
+On recognizing it, the Companion must, in order: (1) resolve the configured
+`HORIZEN_MONEYPENNY_JOURNEY`; (2) introduce it conversationally (fixed alpha copy is acceptable — see
+below); (3) render the seven-chip quick-link carousel (§11.3); (4) select `Register` as the active
+stage; (5) begin narrating Register from `stage.companion.before`; (6) emit `OPEN_SURFACE` to focus
+the Partner Journey tab (or Register's first registered surface) in the left pane.
+
+Alpha-acceptable fixed introduction copy:
+
+```
+You're entering the Horizen × metaMe constitutional admission journey for MoneyPenny.
+We'll move through seven stages: Register · Verify · Claim · Passport · Delegate · Activate · aigentMe.
+I'll explain each stage, open the relevant application or partner surface, and keep the journey
+synchronized with the authoritative platform state. You retain all sovereign actions, including
+claiming, sponsorship, delegation and mandate approval. We'll begin with Register.
+```
+
+Recognition should happen **client-side, before the message reaches `/api/codex/chat`** — matching
+the existing `skipInference: true` quick-prompt convention (`resolveQuickLinks()`'s chips already skip
+the LLM for a fixed action) — rather than adding server-side intent parsing to the shared chat route.
+A raw typed "Horizen" (not just a pre-rendered chip click) needs an equality check against the trimmed,
+lower-cased input before the send handler dispatches to the LLM, falling through to normal inference
+for every other input.
+
+### 11.5 One journey instance, multiple authorized renderers (added 2026-07-31, operator ruling)
+
+The Companion Edge application, the in-application floating Copilot, and the Partner Journey tab must
+never keep independent, client-local journey progress. All three consume one authoritative instance:
+
+```ts
+interface SharedJourneyContext {
+  journeyId: string;
+  journeyVersion: string;
+  principalRef: string;
+  polityCitizenPassportRef: string;
+  activePersonaRef: string;
+  subjectRef: string;
+  selectedStageId: string;
+  stageStates: Record<string, JourneyStageState>;
+  receiptRefs: string[];
+  authoritySummary: CompanionJourneyContext['authoritySummary'];
+  lastSync: string;
+}
+```
+
+Canonical invariant: **one journey state, multiple authorized renderers.** Both the Journey tab
+(already reads `/api/journey/moneypenny-horizen/state`) and the Companion carousel read the SAME
+endpoint/state shape — no separate Companion-side journey tracking is ever built.
+
+### 11.6 Context may be transferred; authority must be re-resolved (added 2026-07-31, operator ruling)
+
+The heaviest-lift item, correctly flagged as such by the operator. Several distinct identities must
+never be conflated when the Companion asks an application surface to open on the operator's behalf:
+authenticated account, Polity Citizen Passport, active application persona, Companion persona, agent
+subject, wallet/controller. The rule:
+
+> The Companion may carry a context handle identifying the expected journey and principal. It must
+> never be accepted as proof of authority. The receiving application always re-resolves the
+> authenticated principal, the active Polity Citizen Passport, and the active application persona
+> through the identity spine (`getActivePersona`, per CLAUDE.md's Identity & Access Spine section) —
+> never from Companion-supplied query parameters, local storage, or client state — and compares them
+> against the journey's own principal/passport before opening a consequential surface.
+
+On mismatch: refuse the consequential action, show "Journey principal confirmed / Application persona
+mismatch," and offer an explicit choice (`Continue as <current persona>` / `Switch to
+<journey-compatible persona>` / `Cancel`) — never a silent switch. A persona switch, being
+consequential, is itself receipted. Companion persona and application persona may legitimately be
+different functional roles (e.g. Companion acting as aigentMe's constitutional-companion context,
+application acting as the operator/founder persona) provided both resolve to the same principal.
+
+This is the **existing** identity-spine contract (`personaFetch`, `getActivePersona`,
+`evaluateAccess`) applied to a new caller — the Companion — not a new spine. No new resolver, no new
+gate, no parallel auth path: `OPEN_SURFACE`'s receiving route re-resolves through the same spine every
+other route already must (CLAUDE.md's Identity & Access Spine section, PARAMOUNT). Building or
+weakening any part of that spine to make this pilot's navigation smoother is exactly what CLAUDE.md's
+"Files you MUST NOT modify without operator approval" list exists to prevent.
+
+### 11.7 Pilot boundary (added 2026-07-31, operator ruling)
+
+In scope for this increment: the `Horizen` trigger; the seven-chip carousel; shared journey state
+across the Companion and Journey tab; the floating Copilot's already-existing availability on
+Partner → Journey (confirmed, §11.3, not a gap); a principal/Passport/persona compatibility check
+before any consequential `OPEN_SURFACE` navigation. Deferred: automatic persona switching, cross-domain
+Companion Edge handoff, external partner-site session correlation, the full Claude/MCP Threshold
+Crossing extension (§23), signed portable context envelopes.
 
 ## 12. Demo strategy — rehearse, then perform live
 
