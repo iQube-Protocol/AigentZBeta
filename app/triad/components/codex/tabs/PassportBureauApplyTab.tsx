@@ -54,6 +54,7 @@ import {
   type StepId,
   type PassportClass,
 } from '@/services/passport/passportWizardSteps';
+import { personaFetch } from '@/utils/personaSpine';
 
 // Mirrors BoundedDelegationTab's grant vocabulary (AgentiQ OS cartridge).
 const DELEGATION_TRUST_BANDS = [
@@ -218,6 +219,69 @@ export function PassportBureauApplyTab() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  // Sponsorship/approval-dependency display (Guided Journey Runtime —
+  // Citizen-to-agent continuation). handleQuickAgent/handleDeployAutonomous
+  // already REFUSE server-side without a claimed Citizen Passport, but that
+  // only surfaced reactively, as an error AFTER the operator clicked
+  // "Generate & bind agent" — exactly the pattern the "Continue with my
+  // agent?" flow makes likely to hit immediately (a Citizen application can
+  // be SUBMITTED without being CLAIMED yet). This proactively shows the real
+  // dependency the moment the Agent step is reached, so the button disables
+  // itself instead of failing after the fact.
+  const [sponsorEligibility, setSponsorEligibility] = useState<
+    { status: 'loading' | 'claimed' | 'pending' | 'none'; detail: string } | null
+  >(null);
+  useEffect(() => {
+    if (step !== 'agent') return;
+    let cancelled = false;
+    setSponsorEligibility({ status: 'loading', detail: 'Checking sponsorship eligibility…' });
+    personaFetch('/api/polity-passport/wallet', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        const passportQubes = (json?.passportQubes ?? []) as Array<{
+          passportId: string; passportClass: string; claimedAt: string | null; claimableReason?: string | null;
+        }>;
+        const claimed = passportQubes.find((pq) => pq.claimedAt && pq.passportClass === 'citizen')
+          ?? passportQubes.find((pq) => pq.claimedAt);
+        if (claimed) {
+          if (!cancelled) setSponsorEligibility({ status: 'claimed', detail: `Citizen Passport ${claimed.passportId} is claimed — ready to sponsor.` });
+          return;
+        }
+        const unclaimedCitizen = passportQubes.find((pq) => pq.passportClass === 'citizen');
+        if (unclaimedCitizen) {
+          if (!cancelled) {
+            setSponsorEligibility({
+              status: 'pending',
+              detail: unclaimedCitizen.claimableReason
+                ? `Citizen Passport issued but not yet claimed — ${unclaimedCitizen.claimableReason}.`
+                : 'Citizen Passport issued but not yet claimed.',
+            });
+          }
+          return;
+        }
+        const pendingApplications = (json?.pendingApplications ?? []) as Array<{ passportClass: string; applicationStatus: string }>;
+        const pendingCitizenApp = pendingApplications.find((a) => a.passportClass === 'citizen');
+        if (pendingCitizenApp) {
+          if (!cancelled) {
+            setSponsorEligibility({
+              status: 'pending',
+              detail: `Citizen application ${pendingCitizenApp.applicationStatus.replace(/_/g, ' ')} — not yet claimed.`,
+            });
+          }
+          return;
+        }
+        if (!cancelled) {
+          setSponsorEligibility({
+            status: 'none',
+            detail: 'No Citizen Passport application yet — a Polity Delegate Passport derives its authority from a claimed Citizen Passport.',
+          });
+        }
+      })
+      .catch(() => { if (!cancelled) setSponsorEligibility(null); });
+    return () => { cancelled = true; };
+  }, [step]);
 
   // Option A (admin-only) — deploy an autonomous agent. Binds to the current
   // constitution; agent class only (no kybe / citizenship), enforced server-side.
@@ -851,6 +915,30 @@ export function PassportBureauApplyTab() {
             participant identity on the agent card URL.
           </p>
 
+          {/* Sponsorship/approval-dependency display — proactive, not
+              reactive-on-click. See the sponsorEligibility effect above. */}
+          {sponsorEligibility && (
+            <div
+              className={cls(
+                'flex items-start gap-2 rounded-lg border px-3 py-2 text-xs',
+                sponsorEligibility.status === 'claimed'
+                  ? 'border-emerald-700/50 bg-emerald-900/10 text-emerald-200'
+                  : sponsorEligibility.status === 'loading'
+                    ? 'border-slate-700/50 bg-slate-900/40 text-slate-400'
+                    : 'border-amber-600/50 bg-amber-900/10 text-amber-200',
+              )}
+            >
+              {sponsorEligibility.status === 'loading' ? (
+                <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+              ) : sponsorEligibility.status === 'claimed' ? (
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              ) : (
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              )}
+              <span>{sponsorEligibility.detail}</span>
+            </div>
+          )}
+
           {/* Agent Card source toggle (Sprint 3) */}
           <div className="flex flex-wrap gap-2 text-xs">
             <button
@@ -944,7 +1032,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleDeployAutonomous}
-                disabled={autonomousBusy || !!autonomousDeployed}
+                disabled={autonomousBusy || !!autonomousDeployed || sponsorEligibility?.status !== 'claimed'}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/40 bg-purple-500/10 px-3 py-1.5 text-[11px] font-medium text-purple-200 hover:bg-purple-500/20 disabled:opacity-50 transition-colors"
               >
                 {autonomousBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
@@ -977,7 +1065,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleQuickAgent}
-                disabled={genesisBusy || genesisCompleted}
+                disabled={genesisBusy || genesisCompleted || sponsorEligibility?.status !== 'claimed'}
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
@@ -1016,7 +1104,7 @@ export function PassportBureauApplyTab() {
               <button
                 type="button"
                 onClick={handleGenesisAgent}
-                disabled={genesisBusy || genesisCompleted}
+                disabled={genesisBusy || genesisCompleted || sponsorEligibility?.status !== 'claimed'}
                 className="flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
               >
                 {genesisBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
