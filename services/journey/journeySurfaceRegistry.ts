@@ -93,12 +93,26 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'the selected agent\'s card display — never a second, parallel display.',
   },
   'horizen-registry-agent-page': {
-    kind: 'external-url-unresolved',
+    kind: 'component',
+    component: 'HorizenAgentPageSurface',
     note:
-      "Horizen's own live agent/registry page for a given tokenId. Only Horizen's API base " +
-      '(services/horizen/client.ts HORIZEN_REGISTRY_API) is known in this repo — no confirmed ' +
-      'human-browsable URL pattern exists. Must come from Horizen or their partner brief before ' +
-      'Stage 1 can compose it, per CLAUDE.md’s no-guessing rule.',
+      "Horizen's own live agent registry page — URL pattern confirmed by Horizen directly, 2026-07-31 " +
+      '(`https://agent-registry.horizenlabs.io/agent/{agentIdentifier}?network={network}`, ' +
+      "example `.../agent/0xZkSignalAgent?network=sepolia`). Built server-side from the selected " +
+      "agent's own confirmed Horizen binding (services/horizen/agentPageUrl.ts) — never a fixed " +
+      'MoneyPenny/Nakamoto constant, never arbitrary client input. Identity-focused framing for ' +
+      'Register (mode="register"); the same component reopens with transparency framing for Verify ' +
+      '(mode="verify") via the \'horizen-agent-page-verify\' entry below.',
+  },
+  'horizen-agent-page-verify': {
+    kind: 'component',
+    component: 'HorizenAgentPageSurface',
+    note:
+      "Verify stage's reuse of the same Horizen agent page (operator ruling 2026-07-31: \"Verify can " +
+      'reopen the same page if Pulse and P&L state are represented there. If Horizen later supplies a ' +
+      'dedicated monitoring URL, use that instead.\") — swap this entry\'s component/props if that ' +
+      'happens; the allowlist and embed mechanism (services/horizen/agentPageUrl.ts, IframeTab) stay ' +
+      'the same either way.',
   },
   'pulse-transparency-toggle': {
     kind: 'component',

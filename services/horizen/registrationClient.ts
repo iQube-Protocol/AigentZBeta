@@ -40,6 +40,7 @@ import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
 import { findCompatibleTool, matchSchemaFields, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from './registrableAgents';
+import { buildHorizenAgentPageUrl } from './agentPageUrl';
 
 export type RegistrationRefusalCode =
   | 'UNKNOWN_AGENT'
@@ -77,7 +78,7 @@ export interface RegistrationDeps {
   fetchAgentCard?: (base: string, path: string) => Promise<{ card: Record<string, unknown>; url: string; raw: string }>;
   rpcProvider?: ethers.Provider;
   fetchRegistryAgent?: (registryAlias: string, network: HorizenNetwork) => Promise<HorizenRead<Record<string, unknown>>>;
-  updateRegistryAssetBinding?: (aigentQubeId: string, patch: { tokenId: string; registryAlias: string }) => Promise<void>;
+  updateRegistryAssetBinding?: (aigentQubeId: string, patch: { tokenId: string; registryAlias: string; agentIdentifier: string | null; humanReadableUrl: string | null }) => Promise<void>;
   createRegistrationReceipt?: (input: { actorPersonaId: string; agent: RegistrableAgentConfig; network: HorizenNetwork; txHash: string }) => Promise<string | null>;
   /** Derives the owner wallet's PUBLIC address from its configured env var —
    * derivation only, never signs anything. Horizen's real build_registration_tx
@@ -394,6 +395,14 @@ export interface AgentRegistrationStatus {
   confirmed: boolean;
   tokenId: string | null;
   registryAlias: string | null;
+  /**
+   * Horizen's own human-readable-page path identifier (e.g. `0xZkSignalAgent`)
+   * — resolved from a DISTINCT reread field, never defaulted from tokenId
+   * (operator ruling 2026-07-31; see services/horizen/agentPageUrl.ts).
+   */
+  agentIdentifier: string | null;
+  /** Present only once agentIdentifier resolves — never a guessed URL. */
+  humanReadableUrl: string | null;
   rawStatus: string;
   receiptId: string | null;
 }
@@ -432,7 +441,7 @@ export async function checkAgentRegistrationStatus(
   const confirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('complete');
 
   if (!confirmed) {
-    return { ok: true, value: { confirmed: false, tokenId: null, registryAlias: null, rawStatus, receiptId: null } };
+    return { ok: true, value: { confirmed: false, tokenId: null, registryAlias: null, agentIdentifier: null, humanReadableUrl: null, rawStatus, receiptId: null } };
   }
 
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
@@ -442,18 +451,24 @@ export async function checkAgentRegistrationStatus(
   }
   const tokenId = pickStringField(reread.value, ['tokenId', 'agentId', 'id']);
   const registryAlias = pickStringField(reread.value, ['registryAlias', 'alias']) ?? (tokenId ? `0x${BigInt(tokenId).toString(16)}` : null);
+  // DISTINCT field, deliberately not overlapping tokenId's candidate names —
+  // operator ruling 2026-07-31: never conflate the two without confirmation
+  // from Horizen's real response. Absent means "not yet resolvable", not
+  // "same as tokenId".
+  const agentIdentifier = pickStringField(reread.value, ['agentIdentifier', 'identifier', 'slug']);
+  const humanReadableUrl = agentIdentifier ? buildHorizenAgentPageUrl(agentIdentifier, input.network) : null;
 
   let receiptId: string | null = null;
   if (tokenId && registryAlias) {
     if (deps.updateRegistryAssetBinding) {
-      await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId, registryAlias });
+      await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId, registryAlias, agentIdentifier, humanReadableUrl });
     }
     if (deps.createRegistrationReceipt) {
       receiptId = await deps.createRegistrationReceipt({ actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash });
     }
   }
 
-  return { ok: true, value: { confirmed: true, tokenId, registryAlias, rawStatus, receiptId } };
+  return { ok: true, value: { confirmed: true, tokenId, registryAlias, agentIdentifier, humanReadableUrl, rawStatus, receiptId } };
 }
 
 function pickStringField(obj: Record<string, unknown> | null | undefined, names: string[]): string | null {

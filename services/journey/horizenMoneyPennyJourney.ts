@@ -65,6 +65,11 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           ref: 'pulse-transparency-toggle',
           note: 'Genuinely new component (§22) — no existing Pulse/P&L transparency UI exists in this repo.',
         },
+        {
+          mode: 'component',
+          ref: 'horizen-agent-page-verify',
+          note: "Reopens Horizen's agent page with transparency framing, per operator ruling 2026-07-31 — the direct partner-side depiction of Pulse/P&L state.",
+        },
       ],
       prerequisites: ['register'],
       permittedActions: ['authorize-pnl-disclosure'],
