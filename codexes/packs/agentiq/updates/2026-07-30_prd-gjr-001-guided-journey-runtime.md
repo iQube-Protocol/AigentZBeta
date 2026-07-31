@@ -2,7 +2,13 @@
 
 **Initial implementation: Horizen × MoneyPenny Constitutional Admission Pilot**
 
-- **Status:** Operator-directed implementation specification — DRAFT for review before build begins.
+- **Status:** Operator-directed implementation specification — **APPROVED, subject to the amendments
+  below, all applied 2026-07-30/31.** Revision history: v0.1 initial draft → v0.2 storyboard
+  corrections (Composable Overlay Principle, §5.9) → v0.3 sequencing, naming, schema and gate
+  corrections from the operator's first full review → v0.4 (this revision) canonical passport
+  terminology, aigentMe destination, imported-agent-≠-aigentMe principle, and the
+  aigentMe-oversees-onboarding model, from the operator's addendum review. Build may proceed once
+  §22's Surface Discovery Gate is cleared per stage.
 - **Target:** Demo-ready alpha (rehearsal + live walkthrough).
 - **Class:** A reusable platform capability (journey bar + surface orchestration + authoritative state
   resolver + Companion context + receipts), demonstrated via ONE configured journey. NOT a new
@@ -39,6 +45,34 @@ Journey bar → live existing platform surface → contextual Companion guidance
 → authoritative state transition → receipt → next stage
 ```
 
+### 0.1 One canonical term for the non-human credential (operator ruling, 2026-07-30, superseded and finalized 2026-07-31)
+
+Earlier drafting of this PRD alternated among "delegate passport," "agent delegate credential,"
+"polity-bound delegate agent," and "agent-participant passport." A first round of review settled on
+`Agent Participant Passport` (matching MoneyPenny's shipped `passport_class: 'Agent Participant'`
+field). **The operator's addendum review overrides that choice. The canonical public and
+constitutional-prose term, everywhere in this document and in the UI, is `Polity Delegate Passport`
+for the agent credential and `Polity Citizen Passport` for the human credential:**
+
+```
+Human:  Polity Citizen Passport
+Agent:  Polity Delegate Passport
+```
+
+> **A Polity Citizen Passport records the continuing constitutional personhood of a human principal.
+> A Polity Delegate Passport is a revocable credential through which a non-human agent exercises
+> authority derived from a Polity Citizen Passport under bounded delegation. The delegate passport
+> does not create authority independently. It records and activates authority conveyed by the
+> citizen.**
+
+This supersedes both the original three-way ambiguity and the round-1 choice of `Agent Participant
+Passport`. **Internal implementation type names are unaffected** — `passportClass: "agent-participant"`
+stays exactly as already shipped in MoneyPenny's Agent Card route (§3.4); §5.2 (Surface Reuse
+Principle) still forbids renaming shipped code for a pilot demo. Only user-facing and constitutional
+prose changes: every other prose reference to a passport-like credential for an agent — in this
+document and in any UI built from it — uses **Polity Delegate Passport**, and every reference to the
+human credential uses **Polity Citizen Passport**, never an alternate phrasing.
+
 ---
 
 ## 1. Purpose
@@ -49,15 +83,25 @@ platform surfaces; a context-aware Companion; real platform state and receipts; 
 destination.
 
 The first journey demonstrates MoneyPenny's progression from a payment-capable metaMe agent into a
-Horizen-registered, transparency-enabled, constitutionally delegated Financial Services agent whose
-services ultimately become available through the Founder Office.
+Horizen-registered, transparency-enabled, constitutionally delegated Financial Services agent —
+carrying her principal (the operator) across the constitutional threshold, where **aigentMe** (the
+principal's constitutional companion) assumes oversight and MoneyPenny takes her place as one of the
+principal's delegated agents. Founder Office is a possible, secondary next destination MoneyPenny's
+capabilities may help with — not the journey's own terminus (§5.10, §17).
 
 **This is not a separate demo application. The journey coordinates the platform. It does not
 duplicate it.**
 
 ## 2. Product proposition
 
-> A live journey, guided by an agent, executed on real infrastructure and proven at every step.
+> A live journey that carries a person and their agent across the constitutional threshold,
+> activates aigentMe as the person's companion, and proves every transition through authoritative
+> state and receipts.
+
+**(Superseded, 2026-07-31): the original v0.1 proposition —** *"A live journey, guided by an agent,
+executed on real infrastructure and proven at every step"* **— under-stated the destination. The
+journey does not end at proof of execution; it ends at aigentMe's activation as constitutional
+companion.**
 
 ```
 Journey map + live modular surfaces + contextual Companion + authoritative state + constitutional receipts
@@ -99,15 +143,25 @@ wallet is a **metaMe constitutional wallet**, already capable of:
 - **Bitcent (B¢) activity on Bitcoin testnet** — the real testnet Rune issuance broadcast the same
   day (`2026-07-30_bitcent-testnet-etch-broadcast.md`; three confirmations at time of writing,
   awaiting full indexer visibility — the issuance, not "the contract," and indexer recognition
-  remains the honest completion gate, not the confirmation count alone)
+  remains the honest completion gate, not the confirmation count alone). **Canonical naming
+  (2026-07-31, operator addendum):** *Bitcent* (title case) is the product name — **Bitcent is a
+  Bitcoin-native micro-stablecoin.** `B¢` is the ticker; `Bc` is the ASCII fallback where `¢` cannot
+  render. `BITCENT` (all-caps) is the immutable on-chain Rune protocol name only — a Runes-protocol
+  convention, not a prose choice, and never used in place of "Bitcent" in narrative text.
 - bounded delegation
 - receipts and proof correlation
 
 So the outbound proposition is:
 
-> MoneyPenny enters Horizen as a payment-capable, constitutionally delegated Financial Services
-> agent; Horizen adds verifiable P&L transparency and performance proofs to that existing capability
-> envelope.
+> MoneyPenny enters Horizen with constitutional infrastructure and payment capability already in
+> place, but her bounded authority for this pilot is **not yet activated** — the journey itself is
+> what activates it. Horizen adds verifiable P&L transparency and performance proofs to that existing
+> capability envelope along the way.
+
+**Correction (2026-07-30, operator review):** an earlier draft of this section described her as
+already "constitutionally delegated" at entry. That contradicts the journey's own central claim —
+`registered externally ≠ authorised internally` (§3.1) — and must never be stated as true before the
+Delegate stage actually completes.
 
 ```
 metaMe wallet + x402 + CryptoSent + Base Q¢ + testnet Bitcent/B¢ + bounded authority
@@ -116,8 +170,9 @@ metaMe wallet + x402 + CryptoSent + Base Q¢ + testnet Bitcent/B¢ + bounded aut
 → Horizen produces verifiable financial proofs
 → Agent Card is enriched
 → Marketa assesses eligibility
-→ operator passport and delegation activate authority
+→ operator Polity Citizen Passport and delegation activate authority
 → MoneyPenny enters the Financial Services Runtime
+→ aigentMe activates as the operator's constitutional companion
 ```
 
 This proves capability accumulation across ecosystems, not merely registry interoperability.
@@ -127,15 +182,23 @@ adds a new, independently verifiable financial-state layer.**
 ### 3.3 She declares P&L observability, never fabricated P&L history
 
 MoneyPenny does not need existing trading history before registration. Her card declares that she
-*supports* Pulse monitoring, *consents* to P&L disclosure, *exposes* verification references, and
-*accepts* Horizen-generated performance proofs — evaluable as activity accumulates. **She does not
-claim P&L performance she does not have.** Represent this literally as:
+*supports* Pulse monitoring — but has not yet *consented* to P&L disclosure, which remains an
+explicit operator action taken during the Verify stage, not a default. **She does not claim P&L
+performance she does not have, and she does not claim a consent the operator has not yet given.**
+
+**Correction (2026-07-30, operator review):** `pnlDisclosureAuthorized: true` at entry was wrong —
+setting it before the operator acts weakens the demonstration and could read as consent having been
+pre-granted. The capability/state distinction (§5's Agent Card schema) makes this precise:
 
 ```
-pnlDisclosureAuthorized: true
-pulseEnabled: true | false
-proofRefs: []            ← empty until real proofs exist
+horizenPulseSupported: true      ← capability claim: the card SUPPORTS Pulse
+pulseEnabled: false              ← live state: not yet activated
+pnlDisclosureAuthorized: false   ← live state: operator has not yet authorised disclosure
+proofRefs: []                   ← empty until real proofs exist
 ```
+
+The Verify stage is what flips `pulseEnabled`/`pnlDisclosureAuthorized` to `true` — visibly, as an
+explicit operator action, never a default the card arrives with.
 
 ### 3.4 The Agent Card as a composable interoperability envelope
 
@@ -161,13 +224,30 @@ and lets metaMe consume Horizen proofs without pretending to generate them.
 **Schema (namespaced envelope — extensions must never allow one ecosystem to overwrite another's
 authority fields):**
 
+**Amendment (2026-07-30, operator review): two fields in the original "before" schema were wrong** —
+`pnlDisclosureAuthorized: true` implied consent that hadn't been given (fixed in §3.3 above), and
+`standingStatus: "gateway-enabled"` skipped ahead of the actual progression this journey is supposed
+to demonstrate:
+
+```
+not-enabled → eligible → accruing → established
+```
+
+`not-enabled` is correct at entry (no capability has been activated yet); `eligible` is what the
+Verify stage produces (§3.7); `accruing` follows the first verified disclosure; `established` follows
+a consistent pattern over time. Corrected before-state:
+
 Before the cycle:
 ```json
 {
   "core": { "name": "MoneyPenny", "capabilities": [], "serviceEndpoints": [] },
   "capabilities": {
     "payments": { "x402": true, "cryptoSent": true, "baseQCent": true, "bitCentTestnet": true },
-    "financialTransparency": { "horizenPulseSupported": true, "pnlDisclosureAuthorized": true }
+    "financialTransparency": {
+      "horizenPulseSupported": true,
+      "pulseEnabled": false,
+      "pnlDisclosureAuthorized": false
+    }
   },
   "metame": {
     "passportClass": "agent-participant",
@@ -176,34 +256,35 @@ Before the cycle:
     "standingRef": null,
     "runtimeAuthority": "inactive"
   },
-  "authority": { "delegatePassport": null, "delegationStatus": "not-yet-activated", "runtimeAuthority": "inactive" },
+  "authority": { "polityDelegatePassport": null, "delegationStatus": "not-yet-activated", "runtimeAuthority": "inactive" },
   "horizen": {
     "network": "base-sepolia",
     "registryContract": "...",
     "tokenId": null,
     "registryAlias": null,
     "pulse": { "enabled": false, "authorizationRef": null },
-    "pnl": { "disclosureAuthorized": true, "proofRefs": [] }
+    "pnl": { "disclosureAuthorized": false, "proofRefs": [] }
   },
   "evidence": {
     "bitCentIssuanceRefs": ["<testnet-proof-ref>"],
     "horizenPnlProofRefs": [],
-    "standingStatus": "gateway-enabled"
+    "standingStatus": "not-enabled"
   }
 }
 ```
 
-After the cycle:
+After the cycle (fields renamed to `polityDelegatePassport*`, per §0.1 — supersedes the round-1
+`agentParticipantPassport*` naming):
 ```json
 {
   "metame": {
     "sponsorRef": "<commitment>",
     "delegationRef": "<commitment>",
-    "delegatePassportRef": "<commitment>",
+    "polityDelegatePassportRef": "<commitment>",
     "runtimeAuthority": "active-bounded"
   },
   "authority": {
-    "delegatePassport": "<ref>",
+    "polityDelegatePassport": "<ref>",
     "delegationStatus": "active-bounded",
     "runtimeAuthority": "financial-services-pilot"
   },
@@ -220,61 +301,84 @@ After the cycle:
   }
 }
 ```
+(`standingStatus: "accruing"` is correct here — it's the third of the four states, reached right
+after the first verified disclosure; `established` follows only after a consistent pattern over
+time, and is not expected within the alpha demo's single walkthrough.)
 
 ### 3.5 The refined ten-step canonical sequence
 
 This is the authoritative sequence — §7's seven bar-labels are a **condensed grouping** of these ten,
-never a contradiction of their order:
+never a contradiction of their order.
+
+**Correction (2026-07-30, operator review): proof of wallet control now precedes Marketa's final
+recommendation, not the reverse.** The original draft placed Marketa Eligibility (step 3) ahead of
+Sponsorship and Control Proof (step 5) — but Marketa's own assessment already includes "wallet
+proven" as a criterion, so a *final* recommendation cannot legitimately be issued before that proof
+exists. Marketa may still form an earlier, non-final **draft** assessment before control is proven;
+her **final** recommendation may not precede it. Sponsorship is also decoupled from control proof
+and moved after the operator's own passport resolves — sponsoring an agent is an act the operator
+takes *as* a passport-holder, so the passport should resolve first.
 
 1. **Horizen Registry Presence** — MoneyPenny enters as an active external agent: resolvable Agent
-   Card, Horizen registry identity, controlling wallet, declared capabilities — **no** metaMe
-   delegate passport, **no** operator-to-MoneyPenny delegation yet. Visible and technically
+   Card, Horizen registry identity, controlling wallet, declared capabilities — **no** Agent
+   Participant Passport, **no** operator-to-MoneyPenny delegation yet. Visible and technically
    controllable, not constitutionally authorised.
 2. **Pulse and P&L Transparency** — activation moves the card from "financial-services capabilities
    claimed" to "capabilities + Horizen verification integration + Pulse consent + externally
-   resolvable proof references."
-3. **Marketa Eligibility** — Marketa rediscovers MoneyPenny as she would any external agent: identity
-   resolves, wallet proven, card coherent, capabilities evidenced, Pulse/P&L enabled, sponsorship
-   eligibility, authority boundable/revocable. Output: `RECOMMENDED FOR POLITY-BOUND DELEGATE
-   ADMISSION`. **She is not approving Financial Services jurisdiction — only constitutional
-   eligibility to become a delegated actor.**
-4. **Operator Passport** — the operator's own continuing Polity Passport resolves: valid, continuing,
-   not revoked, sponsor-eligible. **The authority source is not MoneyPenny's wallet — it is the
-   continuing personhood of her operator.**
-5. **Sponsorship and Control Proof** — a one-time wallet-control challenge; the operator signs with
-   the agent wallet; the signer must match the wallet bound to the registered Agent Card; a
-   proof-of-control receipt issues; sponsorship is recorded. **Wallet control proves the operator
-   controls the registered agent — it does not by itself authorize the agent.**
-6. **Bounded Delegation** — the proposed delegation (permitted/prohibited actions, networks, expiry)
+   resolvable proof references." (See §3.3's correction — this is where `pulseEnabled`/
+   `pnlDisclosureAuthorized` actually flip to `true`, not before.)
+3. **Proof of Wallet Control** — a one-time wallet-control challenge; the operator signs with the
+   agent wallet; the signer must match the wallet bound to the registered Agent Card; a
+   proof-of-control receipt issues. **Wallet control proves the operator controls the registered
+   agent — it does not by itself authorize the agent, and it must exist before Marketa's final word.**
+4. **Marketa Eligibility (Final Recommendation)** — Marketa rediscovers MoneyPenny as she would any
+   external agent: identity resolves, wallet **already proven** (step 3), card coherent, capabilities
+   evidenced, Pulse/P&L enabled, sponsorship eligibility, authority boundable/revocable. Output:
+   `RECOMMENDED FOR POLITY-BOUND DELEGATE ADMISSION`. **She is not approving Financial Services
+   jurisdiction — only constitutional eligibility to become a delegated actor.** (An earlier, DRAFT
+   assessment — §12.4 — may have run before step 3; only the *final* recommendation is gated on
+   control proof.)
+5. **Operator Passport** — the operator's own continuing **Polity Citizen Passport** resolves: valid,
+   continuing, not revoked, sponsor-eligible. **The authority source is not MoneyPenny's wallet — it
+   is the continuing personhood of her operator.**
+6. **Sponsorship** — the operator, now confirmed as a valid Polity Citizen Passport-holder, records
+   sponsorship of MoneyPenny. This is the act of a passport-holder, taken after the passport itself
+   is confirmed valid.
+7. **Bounded Delegation** — the proposed delegation (permitted/prohibited actions, networks, expiry)
    is displayed in full and approved with a contextual mandate.
-7. **Delegate Passport** — MoneyPenny moves from *external registered agent* to *polity-bound delegate
-   agent*; the delegate passport visibly links her Horizen identity, the operator's passport, the
-   sponsorship, the delegation, the runtime, expiry/revocation, and Standing eligibility.
-8. **FS Runtime Bootstrap** — because MoneyPenny would otherwise be both candidate and admitting
+8. **Polity Delegate Passport issued** — MoneyPenny moves from *external registered agent* to
+   *polity-bound delegate*; the Polity Delegate Passport visibly links her Horizen identity, the
+   operator's Polity Citizen Passport, the sponsorship, the delegation, the runtime,
+   expiry/revocation, and Standing eligibility.
+9. **FS Runtime Bootstrap** — because MoneyPenny would otherwise be both candidate and admitting
    authority for her own first admission, use the bootstrap rule (§3.6). **MoneyPenny does not
    self-authorize — her authority is activated by her operator following independent eligibility
    review.** After bootstrap, she becomes the FS Runtime's jurisdictional authority for *subsequent*
    agent admissions.
-9. **Standing Gateway** — P&L transparency activation opens Standing eligibility (§3.7); it does not
-   itself grant Standing.
-10. **Evidence Chain** — one consolidated view of every receipt in the chain, plus DVN anchor/pending
-    status.
+10. **Standing Gateway and Evidence Chain** — P&L transparency activation opened Standing eligibility
+    at step 2 (§3.7 — it does not itself grant Standing); this final step is the consolidated
+    read-view of every receipt in the chain, plus DVN anchor/pending status.
 
 ### 3.6 The bootstrap rule (self-admission paradox, resolved)
 
 ```
 Marketa recommendation
-+ valid operator passport
++ valid operator Polity Citizen Passport
 + proof of control
 + bounded delegation
 + explicit operator bootstrap ratification
-+ Aigent Z or Platform Aletheon observation
++ Aigent Z observation (default)
 = initial MoneyPenny FS Runtime activation
 ```
 
-Aigent Z or Platform Aletheon observes and receipts the activation. This is the same
-observer/required-signatory shape already built for Bitcent's pilot treasury authority gate
-(`services/treasury/pilotTreasuryAuthority.js`) — reuse the pattern, do not invent a second one.
+**Default observer: Aigent Z** (2026-07-30, operator review; terminology synced 2026-07-31) — she is already the authoritative
+platform-state reporter and system orchestrator (`platform-state-reporter → aigentz@aigent`, ratified
+the same day), so she is the deterministic default for alpha; no runtime choice between observers
+unless failover is actually required. **Platform Aletheon remains a configured alternative**,
+reserved for a future constitutional-review context needing stronger separation — not a second
+option the alpha demo should pick between live. This is the same observer/required-signatory shape
+already built for Bitcent's pilot treasury authority gate (`services/treasury/
+pilotTreasuryAuthority.js`) — reuse the pattern, do not invent a second one.
 
 ### 3.7 Standing pathway — transparency is a gateway, never a grant
 
@@ -396,6 +500,50 @@ alongside* the partner's live page, never as a substitute for it. This is the sa
 session has already applied to code and to secrets: ground claims in the real, live thing, never in
 a mock or a memory of it.
 
+### 5.10 aigentMe Onboarding Oversight Principle (new, 2026-07-31 addendum)
+> The agent that carries a principal across the constitutional threshold does not thereby become that
+> principal's aigentMe. aigentMe oversees onboarding and makes the incoming agent's domain relevance
+> visible to the principal. The principal decides whether that relevance becomes part of their
+> ExperienceQube population, and whether the agent becomes one of their delegated agents.
+
+The relationship the journey must render is three distinct roles, never collapsed into one:
+
+```
+aigentMe
+= onboarding guide, constitutional companion and continuity layer
+
+Initial onboarding agent (e.g. MoneyPenny)
+= candidate delegated agent carrying a particular domain, venture or experiential focus
+
+Principal
+= decides whether that focus should shape their ExperienceQube population
+```
+
+During onboarding, aigentMe identifies the incoming agent's declared capabilities and asks the
+principal explicitly — e.g. *"This agent appears to represent a focus in [venture/domain area]. Is
+this an important part of the experience you want to build?"* The principal then decides whether that
+focus is: central to their ExperienceQube population; relevant but secondary; temporary for the
+current journey; or not something they wish to carry forward. **The initial agent must never silently
+define the principal's experience merely because it brought them into the system.**
+
+The journey's flow through the threshold is therefore:
+
+```
+initial agent introduces or accompanies the principal
+→ aigentMe assumes oversight of threshold crossing
+→ aigentMe recognizes the initial agent and its likely focus
+→ principal confirms or rejects that focus
+→ ExperienceQube population is shaped accordingly
+→ initial agent may become one of the principal's (up to three) delegated agents
+```
+
+This preserves the distinction the whole principle exists to protect: **the onboarding agent brings
+context. aigentMe brings constitutional continuity. The principal determines relevance and
+authority.** MoneyPenny is one of up to three principal delegated agents this pilot models (§7 stage
+7) — her initial relevance is to the operator's own ExperienceQube population / venture focus (likely
+aligned with her Financial Services domain), and Founder Office is a possible, secondary destination
+her capabilities *may help with* — never the journey's own destination, which is aigentMe (§1, §17).
+
 ---
 
 ## 6. Journey architecture
@@ -434,20 +582,47 @@ the Companion is already provided by the shell, do not duplicate it inside the j
 
 ## 7. The seven-stage journey bar (condensed presentation of §3.5's ten steps)
 
+**Corrected 2026-07-30 (operator review):** Claim's internal order now proves control *before*
+Marketa's final recommendation (§3.5's step 3→4 correction); Sponsorship moved into Passport,
+positioned after the operator's own passport resolves (§3.5 step 6); and completion for the stage
+that carries payment is split into a required baseline and an optional live enhancement (no longer
+an "or" between equally-weighted alternatives).
+
+**Corrected 2026-07-31 (operator addendum):** the canonical passport term is now **Polity Delegate
+Passport** (§0.1, supersedes round-1's "Agent Participant Passport"); stage 6 is renamed
+**Transact → Activate** (regrouped: Polity Delegate Passport activation, bounded delegation
+activation, FS bootstrap, Standing gateway eligibility, payment demonstration as optional evidence);
+stage 7 is renamed **Founder Office → aigentMe** (the journey's actual destination — §5.10, §17), with
+Founder Office repositioned as an optional next destination MoneyPenny's capabilities may help with,
+not the journey's terminus.
+
 | Bar stage | Groups (§3.5 steps) | Completion (authoritative) |
 |---|---|---|
 | **1. Register** | Horizen Registry Presence | tokenId exists ∩ registry reread succeeds ∩ owner wallet matches ∩ Agent Card resolves |
 | **2. Verify** | Pulse and P&L Transparency | Pulse authorization verified ∩ P&L transparency enabled ∩ Agent Card enrichment committed |
-| **3. Claim** | Marketa Eligibility + Sponsorship & Control Proof | Marketa recommendation ∩ fresh proof of wallet control |
-| **4. Passport** | Operator Passport + Delegate Passport | valid operator passport ∩ sponsor binding ∩ agent delegate credential issued |
-| **5. Delegate** | Bounded Delegation + FS Runtime Bootstrap | delegate credential ∩ active bounded delegation ∩ contextual mandate ∩ bootstrap approval ∩ observer receipt ∩ FS Runtime activation |
-| **6. Transact** | Standing Gateway + a bounded payment | Standing gateway enabled ∩ (bounded payment prepared + mandate validated) or (executed + receipt) |
-| **7. Founder Office** | Evidence Chain + Founder Office landing | MoneyPenny active in Founder Office ∩ bounded FS capabilities visible ∩ complete evidence chain readable |
+| **3. Claim** | Proof of Wallet Control → Marketa Eligibility (Final Recommendation) | **fresh proof of wallet control ∩ Marketa final eligibility recommendation** (control first — a final recommendation may never precede it; an earlier Marketa DRAFT assessment may) |
+| **4. Passport** | Operator Passport → Sponsorship → Polity Delegate Passport issued | valid operator Polity Citizen Passport ∩ sponsor binding ∩ Polity Delegate Passport issued |
+| **5. Delegate** | Bounded Delegation + FS Runtime Bootstrap | Polity Delegate Passport ∩ active bounded delegation ∩ contextual mandate ∩ bootstrap approval ∩ Aigent Z observer receipt ∩ FS Runtime activation |
+| **6. Activate** | Standing Gateway + FS bootstrap + optional payment demonstration | **Required:** Polity Delegate Passport active ∩ bounded delegation active ∩ Standing gateway enabled. **Optional live enhancement:** bounded payment mandate prepared and/or executed ∩ receipt. Payment capability strengthens the operational proposition but is never a constitutional prerequisite for reaching aigentMe (§5.7, generalized). |
+| **7. aigentMe** | aigentMe activation + onboarding-focus disposition + Evidence Chain | aigentMe active as the principal's constitutional companion ∩ principal has confirmed/declined MoneyPenny's domain focus for their ExperienceQube population (§5.10) ∩ MoneyPenny recorded as one of the principal's delegated agents ∩ complete evidence chain readable |
 
 **Stage 1 grounds the partner in their own reality, not ours** (added 2026-07-30, §5.9): Register
 composes Horizen's own live registry/agent page (`external-url`) alongside metaMe's complementary
 reflection (Agent Card component) — see §10.1's worked example. The partner should see their own
 environment showing the registration, not only a metaMe description of it.
+
+**Stage 1 has five sub-states, not one binary complete/incomplete** (added 2026-07-30, operator
+review — external registries and chains lag, and the UI must not look frozen while waiting):
+
+```
+SUBMITTED → CONFIRMED → INDEXED → RESOLVED → COMPLETE
+```
+
+`SUBMITTED` (transaction sent) → `CONFIRMED` (on-chain confirmation, per Bitcent's own 3-confirmation
+milestone earlier the same day) → `INDEXED` (Horizen's registry recognises it) → `RESOLVED` (the Agent
+Card resolves the new identity) → `COMPLETE` (stage-level completion condition, above, is met). This
+is precisely the confirmation-vs-indexer-recognition distinction the Bitcent testnet etch just
+demonstrated live — do not let Stage 1's UI collapse that distinction back into a single spinner.
 
 Companion narratives (per stage, templated for alpha):
 
@@ -461,11 +636,19 @@ Companion narratives (per stage, templated for alpha):
   authority may originate."
 - **Delegate:** "Control says can. The Passport and delegation say may. The mandate says what
   MoneyPenny may do now."
-- **Transact:** "MoneyPenny entered Horizen capable of paying. Horizen made her financial activity
+- **Activate:** "MoneyPenny entered Horizen capable of paying. Horizen made her financial activity
   independently observable. Verified transparency now opens her pathway to Standing."
-- **Founder Office (closing):** "MoneyPenny is no longer merely an agent in a registry. She is a
-  discoverable, verified, sponsored and constitutionally authorized Financial Services agent
-  operating through Founder Office."
+- **aigentMe (closing, generic threshold-crossing narrative — operator addendum, 2026-07-31):**
+  "You have crossed the threshold. Your Polity Citizen Passport establishes your continuing
+  constitutional personhood. aigentMe is now active as your constitutional companion. MoneyPenny has
+  joined your agent set through a Polity Delegate Passport and may act only within the authority and
+  mandates you have granted."
+- **aigentMe (closing, MoneyPenny-pilot-specific narrative — operator addendum, 2026-07-31):**
+  "MoneyPenny is no longer merely an agent in a registry. She is a discoverable, verified, sponsored
+  and constitutionally authorized Financial Services agent, now recognized by aigentMe as one of your
+  delegated agents. Her Financial Services focus may become part of your ExperienceQube population if
+  you choose — she does not decide that for you. Founder Office is available to her as a next
+  destination once you do."
 
 Interaction rules: completed stages revisitable; current stage emphasized; ready stages clickable;
 blocked stages inspectable but not executable; future stages show prerequisites; **clicking never
@@ -543,9 +726,10 @@ resolveJourneyState(journeyDefinition, authoritativePlatformState): JourneyRunti
 ```
 
 The resolver derives each stage from: registry state; Agent Card commitments; Marketa
-recommendation; control-proof receipt; Passport state; sponsorship; delegate credential; delegation;
-mandate; runtime membership; Standing gateway; receipts; payment/proof state. **Client navigation may
-select a stage; it cannot set completion.**
+recommendation; control-proof receipt; Passport state; sponsorship; Polity Delegate Passport;
+delegation; mandate; runtime membership; Standing gateway; aigentMe activation state; ExperienceQube
+focus disposition; receipts; payment/proof state. **Client navigation may select a stage; it cannot
+set completion.**
 
 ## 10. Surface adapter
 
@@ -560,7 +744,8 @@ const JOURNEY_SURFACES = {
   'financial-services-runtime': MoneyPennyRuntimeSurface,
   'trust-standing': TrustSurface,
   'evidence-chain': EvidenceSurface,
-  'founder-office': FounderOfficeSurface,           // real ref TBD — §22, storyboard's was a placeholder
+  'aigentme': AigentMeSurface,                      // the journey's actual destination (§5.10, §17) — real ref TBD, §22
+  'founder-office': FounderOfficeSurface,           // optional NEXT destination after aigentMe, not the journey terminus; real ref TBD — §22, storyboard's was a placeholder
 };
 ```
 
@@ -573,6 +758,17 @@ route through an iframe the user could not normally access.**
 A stage is not limited to one entry in `JOURNEY_SURFACES`. Any real drawer, tab, cartridge, modal or
 wallet may be stacked with any other for the same stage — decomposing and recombining existing
 components is explicitly allowed; forking one to make it "fit better" is not (§5.2).
+
+**Alpha focus rule (added 2026-07-30, operator review):** unrestricted composition can turn a stage
+into a dashboard of competing panels. For alpha, cap it:
+
+```
+one primary surface + up to two supporting surfaces + one Companion panel
+```
+
+E.g. for Stage 1: primary = Horizen's registry page; supporting = MoneyPenny's Agent Card (+
+optionally the receipt/evidence drawer); Companion = narrative and next action. This preserves the
+richness the storyboard showed while keeping any single stage legible.
 
 **Worked example — Stage 1 (Register), per the operator's storyboard correction:** the stage
 composes **two** real surfaces simultaneously, not one:
@@ -624,6 +820,35 @@ generated. It should display: what is happening; why it matters; what the user n
 the Companion may prepare; what sovereign action remains with the user; what evidence completes the
 stage.
 
+### 11.1 Bounded Companion intents (added 2026-07-30, operator review)
+
+`CompanionJourneyContext` describes what the Companion *knows*. This type constrains what it may
+*do* — the Guided Sovereignty Principle (§5.4) made enforceable in a type, not merely descriptive:
+
+```ts
+type CompanionJourneyIntent =
+  | 'EXPLAIN_STAGE'
+  | 'OPEN_SURFACE'
+  | 'PREPARE_ACTION'
+  | 'SHOW_EVIDENCE'
+  | 'SHOW_REFUSAL'
+  | 'REQUEST_SOVEREIGN_ACTION';   // surfaces the action TO the operator — never performs it
+```
+
+The Companion may emit any of the six intents above. It has **no code path** to any sovereign act —
+these are not merely forbidden by convention, they are simply absent from the type:
+
+```
+ACCEPT_PASSPORT      — does not exist as a Companion intent
+CLAIM_AGENT           — does not exist as a Companion intent
+GRANT_DELEGATION      — does not exist as a Companion intent
+APPROVE_MANDATE       — does not exist as a Companion intent
+```
+
+`REQUEST_SOVEREIGN_ACTION` is the only bridge from Companion to a sovereign act, and it only ever
+*surfaces* the action for the human operator to perform through the real surface underneath (§5.9) —
+it never performs the act on the operator's behalf.
+
 ## 12. Demo strategy — rehearse, then perform live
 
 ### 12.1 Two separate executions
@@ -644,10 +869,10 @@ authority is not the point; proving the admission machinery works is.
 1. Agent Card resolves
 2. wallet-control challenge verifies
 3. Marketa issues an eligibility recommendation
-4. the existing operator passport resolves
+4. the existing operator Polity Citizen Passport resolves
 5. sponsorship binds to the correct operator
 6. a bounded delegation can be created
-7. the delegate passport can be issued and reread
+7. the Polity Delegate Passport can be issued and reread
 8. no onward delegation is possible
 9. expiry and revocation work
 10. every stage produces a receipt
@@ -673,12 +898,12 @@ transaction construction; wallet balance/chain checks; Pulse authorization-messa
 Marketa assessment in DRAFT state; passport resolution; delegation-object construction; mandate
 validation; receipt previews.
 
-**Do NOT finalize before the live walkthrough:** Marketa's final recommendation; delegate passport
-issuance; bounded delegation activation; FS Runtime bootstrap admission.
+**Do NOT finalize before the live walkthrough:** Marketa's final recommendation; Polity Delegate
+Passport issuance; bounded delegation activation; FS Runtime bootstrap admission.
 
 ### 12.5 Never reset constitutional history
 
-Once an agent has genuinely received a delegate passport, do not erase or rewrite that history to
+Once an agent has genuinely received a Polity Delegate Passport, do not erase or rewrite that history to
 recreate a demo — a revoked test passport still leaves a historical issuance receipt, so the
 demonstration would never truly be "from scratch," and doing so conflicts with the receipt/continuity
 model this entire platform is built on.
@@ -689,8 +914,8 @@ but the primary partner demo is the live MoneyPenny walkthrough, not the recordi
 ### 12.6 Deterministic fallback
 
 Before the live session, capture signed snapshots of every expected state (MoneyPenny registered →
-Pulse activated → Marketa recommendation → passport validated → delegation preview → delegate
-passport issued → runtime activated → evidence chain complete). If an external network fails during
+Pulse activated → Marketa recommendation → passport validated → delegation preview → Polity Delegate
+Passport issued → runtime activated → aigentMe activated → evidence chain complete). If an external network fails during
 the live walkthrough, switch **visibly** to the previously receipted rehearsal replay and **state
 explicitly** that it is recorded evidence, never a silent stand-in for a live transaction (Evidence
 Replay Mode, §13.3 below).
@@ -701,7 +926,8 @@ Replay Mode, §13.3 below).
 backup evidence, avoid consuming MoneyPenny's live moment.
 
 **13.2 Live pilot mode** (MoneyPenny) — real Horizen registration, real transparency activation,
-real constitutional admission, real arrival at Founder Office.
+real constitutional admission, real activation of aigentMe as the operator's constitutional
+companion, with Founder Office available as a next destination.
 
 **13.3 Evidence replay mode** — present a previously receipted run if an external network becomes
 unavailable, clearly labeled as recorded evidence, never a silent live simulation.
@@ -712,7 +938,7 @@ unavailable, clearly labeled as recorded evidence, never a silent live simulatio
 ```
 Horizen × metaMe
 MoneyPenny Constitutional Admission Journey
-Destination: Founder Office
+Destination: aigentMe (Founder Office available as a next destination)
 ```
 Shows: current stage; overall journey state; subject; partner; current actor; last receipt; last
 sync.
@@ -738,22 +964,81 @@ agent.sponsorship.recorded         agent.delegate-passport.issued
 agent.delegation.granted           financial-services-runtime.activated
 standing.gateway.enabled           payment.mandate.approved
 payment.prepared                   payment.executed
+aigentme.activated                 experienceqube.focus.disposition.recorded
 journey.completed
 ```
+
+`agent.delegate-passport.issued` (renamed 2026-07-31, reverting to and finalizing this shape — supersedes
+round-1's `agent.participant-passport.issued`) and the two new types `aigentme.activated` /
+`experienceqube.focus.disposition.recorded` (new, 2026-07-31 — cover aigentMe's activation and the
+principal's confirm/decline decision on MoneyPenny's domain focus, §5.10) still need reconciliation
+against the real `ActivityActionType` union per §22's note below — reuse an existing type if one
+already fits, per `inv.engineering.037`.
+
+### 15.1 Visual grouping for the evidence-chain view (added 2026-07-30, operator review)
+
+Eighteen flat event types are hard to present. **Canonical action types are unchanged above** — this
+is a presentation grouping only, into the five classes the Control–Authority–Mandate doctrine
+already names (Identity added as the class that precedes Control):
+
+```
+Identity                          Control
+- card discovered                 - wallet control proven
+- Horizen registered
+- card enriched
+
+Authority                         Mandate
+- Marketa recommended             - bootstrap approved
+- passport validated              - payment mandate approved
+- sponsorship recorded
+- Polity Delegate Passport issued
+- delegation granted
+
+Consequence
+- runtime activated
+- transparency enabled
+- Standing gateway enabled
+- payment prepared/executed
+- aigentMe activated
+- ExperienceQube focus disposition recorded
+```
+
+This directly reinforces the doctrine the journey exists to teach: *Identity locates the agent.
+Control proves the claimant can operate it. Authority legitimizes the relationship. Mandate
+constrains the consequence. Receipts prove what occurred.*
 
 ## 16. Refusal cases
 
 See §12.3 for the full list — reproduced here as the alpha's required refusal coverage, not merely
 a rehearsal checklist.
 
-## 17. Founder Office destination
+## 17. aigentMe destination (Founder Office as an optional next step) (rewritten 2026-07-31, operator addendum)
 
-The journey must terminate in Founder Office, showing: MoneyPenny active; current bounded authority;
-wallet/settlement capabilities; Horizen transparency status; Standing state; available Financial
-Services actions; authority/mandate boundaries; evidence link.
+**The journey must terminate at aigentMe's activation, not at Founder Office.** Founder Office is
+real, valuable, and MoneyPenny's capabilities may genuinely help with it — but it is a possible
+*next* destination reachable from aigentMe, never the journey's own terminus (§5.10). Collapsing the
+two would let MoneyPenny's onboarding focus silently define the principal's experience, which §5.10
+exists to forbid.
 
-> The pilot does not end at registration or credential issuance. It ends where the capabilities
-> become useful to the founder.
+**Completion condition:** aigentMe is active as the principal's constitutional companion ∩ aigentMe
+has surfaced MoneyPenny's declared domain focus to the principal ∩ the principal has recorded a
+disposition on that focus (central / relevant-but-secondary / temporary / not carried forward) ∩
+MoneyPenny is recorded as one of the principal's delegated agents ∩ the evidence chain is complete
+and readable.
+
+**Final surface, showing:**
+- aigentMe active, presented as the principal's constitutional companion and continuity layer
+- MoneyPenny recognized as one of the principal's delegated agents (one of up to three), with her
+  current bounded authority, wallet/settlement capabilities, Horizen transparency status, and
+  Standing state
+- The principal's recorded disposition on MoneyPenny's Financial Services focus for their
+  ExperienceQube population
+- Founder Office offered as an available next destination, not a landing the journey forced
+- Authority/mandate boundaries and the evidence link
+
+> The pilot does not end at registration or credential issuance. It ends where aigentMe recognizes
+> the agent that carried the principal across the threshold, and the principal — not the agent —
+> decides what that agent's focus means for the experience they are building.
 
 ## 18. Alpha deliverables (runbooks, not just code)
 
@@ -766,16 +1051,22 @@ Services actions; authority/mandate boundaries; evidence link.
 7. deterministic fallback package for network failure
 
 Minimal additional build beyond orchestration: persistence for Marketa's provisional recommendation
-if not yet durable; delegate-passport issuance wiring; operator bootstrap approval for MoneyPenny;
-receipt aggregation into one evidence-chain view; a rehearsal fixture for Nakamoto; a live-demo state
-manifest.
+if not yet durable; Polity Delegate Passport issuance wiring; operator bootstrap approval for
+MoneyPenny; aigentMe activation + onboarding-focus-disposition wiring (§5.10); receipt aggregation
+into one evidence-chain view; a rehearsal fixture for Nakamoto; a live-demo state manifest.
 
 ## 19. Implementation priority
+
+**P0, step zero — the Surface Discovery Gate (§22) completes first.** No stage's viewport is built
+against an unverified surface; the surface map table in §22 must be filled in (real route/component
+per stage, or an explicit, case-by-case "minimal new component" decision) before that stage's UI
+work starts. Other stages may proceed once their own row is resolved, even if another stage's isn't.
 
 **P0 — required:** Pilot tab in Partner workspace; reusable journey definition type; seven-stage
 Horizen journey; journey bar; stage viewport; authoritative state resolver; existing-surface routing;
 Companion stage context; evidence summary; Nakamoto rehearsal configuration; MoneyPenny live
-configuration; Founder Office destination; refusal-safe progression; the six deliverables in §18.
+configuration; aigentMe destination (§5.10, §17), with Founder Office as an optional next
+destination; refusal-safe progression; the seven deliverables in §18.
 
 **P1 — useful for presentation:** stage badges; smooth transitions; stage descriptions; evidence
 drawer; recorded replay mode; stage-specific Companion scripts; compact partner branding.
@@ -795,13 +1086,17 @@ Companion-initiated journey generation; fully generalized smart-menu integration
 7. the evidence panel lists required and present receipts
 8. Nakamoto can be used as a rehearsal subject, with positive AND refusal paths exercised
 9. MoneyPenny can be selected as the live subject
-10. the final stage opens Founder Office
+10. the final stage activates aigentMe as the principal's constitutional companion, surfaces
+    MoneyPenny's declared domain focus, and records the principal's disposition on it (§5.10) —
+    Founder Office is offered only as an available next destination, never opened automatically
 11. all existing core surfaces continue to function normally outside journey mode
 12. no constitutional gate is weakened
 13. blocked and refused stages are visible and recoverable
 14. the implementation produces the capability artifact (§21)
 15. constitutional history is never reset/reissued to stage a demo (§12.5)
 16. all seven deliverables in §18 exist, not only the runtime code
+17. the §22 surface map is complete for every stage before that stage's UI is implemented — no
+    stage's viewport was built against an unverified or placeholder surface
 
 ## 21. Capability artifact requirement (on completion)
 
@@ -828,12 +1123,30 @@ Canaries:
   - consequential action cannot bypass mandate
 ```
 
-## 22. Open questions to confirm during build (not blocking spec approval)
+## 22. P0 Surface Discovery Gate — must complete before any UI implementation begins
 
-**Confirmed 2026-07-30 (operator, reviewing the storyboard): stages 2 (Verify), 4 (Passport), and 7
-(Founder Office)'s storyboard screenshots were placeholders, not confirmed surface references.**
-Locating the real existing surface for each — per §5.9, composing several real components is fully
-allowed, but none may be invented as a default — is now P0 research, not a nice-to-have:
+**Promoted from "open questions" to a hard gate (2026-07-30, operator review).** This is no longer
+research mixed into the build — it is a required P0 output that precedes UI work, exactly like a
+migration precedes a table write. No stage's viewport is implemented against a surface that hasn't
+been verified real.
+
+**Required output — the surface map, one row per stage:**
+
+| Stage | Real surface | Route/component | Required props | Current gap | Decision |
+|---|---|---|---|---|---|
+| Register | Horizen registry page + MoneyPenny Agent Card | TBD (Horizen URL) + `agent-card` | `tokenId`/`entityRef` | Horizen URL pattern unconfirmed until a real `tokenId` exists | Compose |
+| Verify | **Unknown** | — | — | Storyboard's placeholder (capability-validation view) is almost certainly the wrong surface | **Discover before build** |
+| Claim | Wallet-control challenge route + Marketa review | TBD | — | Real Marketa assessment surface unconfirmed | Compose or enhance |
+| Passport | Passport Bureau | confirmed real nav item; exact screen TBD | — | Storyboard panel was a generic placeholder | **Locate exact screen** |
+| Delegate | Constitutional Agreements + delegation UI | Venture Lab α → Partner Pilot Command Center (storyboard-confirmed, likely correct) | — | Minor — verify props needed for this journey's delegation object | Compose |
+| Activate | Wallet + mandate + Trust + Standing gateway | `agent-wallet` + Companion | — | — | Compose |
+| aigentMe | aigentMe's own surface (companion/continuity view) + onboarding-focus-disposition prompt | **Unknown** | principal ref, MoneyPenny's declared domain focus, disposition options (§5.10) | This is now the journey's actual terminal surface (renamed from Founder Office) — no confirmed screen yet for the disposition prompt itself | **Locate exact screen; the disposition prompt may be a genuinely new small component per §5.2's case-by-case exception** |
+| Founder Office (optional next destination) | Founder Office FS view | **Unknown** | — | Downgraded from terminal to optional-next-destination (§17) — still needs its own real screen if the alpha demonstrates reaching it | **Locate exact screen, lower priority than aigentMe's row** |
+
+Rows marked **Discover before build** / **Locate exact screen** block that stage's implementation —
+not the whole runtime — but none may default to "build a new component" without the case-by-case
+call §5.2/§5.9 already requires. The detailed notes below remain the working detail behind this
+table:
 
 - **Verify's real surface** — no confirmed screen yet for "activate Pulse / authorize P&L
   disclosure." The storyboard's placeholder (a License Check/Dependency Inventory/Secret Scan/
@@ -846,16 +1159,22 @@ allowed, but none may be invented as a default — is now P0 research, not a nic
 - **Passport Bureau's real screen** — confirmed as a real nav item (storyboard shows it listed), but
   the storyboard's actual panel content was a generic placeholder, not the Passport Bureau screen
   itself. Find and reference the real one.
-- **Founder Office's real screen** — same gap; the storyboard's panel was the same generic
-  placeholder reused from Passport's slot, not a distinct Founder Office view. Find and reference
-  the real one.
+- **aigentMe's real surface** — the journey's actual terminal stage (renamed from Founder Office,
+  2026-07-31). Needs: aigentMe's own companion/continuity view, and a disposition prompt where the
+  principal confirms/declines whether MoneyPenny's Financial Services focus becomes part of their
+  ExperienceQube population (§5.10). No confirmed screen for either yet — highest-priority discovery
+  item, since it is now what the journey must actually reach.
+- **Founder Office's real screen** — same gap as before, now lower priority since Founder Office is
+  an optional next destination rather than the terminus (§17); the storyboard's panel was the same
+  generic placeholder reused from Passport's slot, not a distinct Founder Office view. Find and
+  reference the real one if the alpha demonstrates reaching it.
 - **Delegation UI** — surface question for `delegation` in §10's adapter registry, though the
   storyboard's Stage 5 (Venture Lab α → Partner Pilot Command Center → Constitutional Agreements)
   is a strong, likely-correct real candidate, unlike 2/4/7.
 - **Horizen's real external agent/registry page URL** — needed for Stage 1's `external-url` surface
   (§10.1); confirm the exact live URL pattern once MoneyPenny (or Nakamoto, in rehearsal) actually
   has a `tokenId` to reference.
-- **Receipt-type reconciliation** (§15) — map each of the sixteen listed types against the real
+- **Receipt-type reconciliation** (§15) — map each of the eighteen listed types against the real
   `ActivityActionType` union before writing any migration; several almost certainly already exist
   under different names and must be reused, not duplicated, per `inv.engineering.037`.
 - **Nakamoto's wallet** — confirm it is a real, already-funded wallet (mirroring the operator's own
