@@ -24,7 +24,7 @@
  * Server-only.
  */
 
-import { listInvariants } from '@/services/invariants/store';
+import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
 import type { InvariantRecord } from '@/types/invariants';
 
 /**
@@ -83,6 +83,22 @@ export interface CrystalReadinessInput {
   /** Max invariants to fetch for the domain (services/invariants/store.ts
    * hard-caps at 500 server-side regardless of what's requested here). */
   fetchLimit?: number;
+  /**
+   * Minimum standard graph density (unique undirected intra-crystal pairs ÷
+   * N(N-1)/2) required to call the collection "related" rather than a bag of
+   * unconnected statements — PRD-EPI-001 §3.1's "relationship density" check.
+   * Illustrative default only, same discipline as the other thresholds here.
+   */
+  minRelationshipDensity?: number;
+  /** Minimum fraction of the collection that must sit in the single largest
+   * connected component (over intra-crystal edges) — a crystal fragmented
+   * into many small unconnected clusters cannot support cross-invariant
+   * derivation chains regardless of its raw edge count. */
+  minConnectivityRatio?: number;
+  /** Above this fraction, too many invariants carry NO intra-crystal
+   * relationship at all (in either direction) — orphan statements do not
+   * benefit from the graph-structured retrieval the crystal exists to test. */
+  maxOrphanFraction?: number;
 }
 
 export interface CrystalReadinessCheck {
@@ -109,6 +125,28 @@ export interface CrystalReadinessReport {
     C: number;
     unclassified: number;
     ablationCount: number;
+  };
+  /** Fraction of the collection classified derivation-eligible by the
+   * heuristic proxy (check #2) — exposed numerically so a consumer (e.g.
+   * crystalStatistics.ts's "derivation headroom" figure) reads the SAME
+   * computed value the check itself gated on, rather than re-deriving it. */
+  derivationEligibleFraction: number;
+  /** Near-duplicate pair count from check #4 (findNearDuplicatePairs),
+   * exposed numerically for the same reason — one authoritative computation,
+   * reused by crystalStatistics.ts's duplicate-ratio figure. */
+  duplicatePairCount: number;
+  /** Structural graph facts computed once and reused across the three
+   * graph-shaped checks (relationship-density, graph-connectivity,
+   * orphan-detection) — reported here too so a caller doesn't have to
+   * re-derive them from the checks' prose details. */
+  graph: {
+    relationshipCount: number;
+    relationshipDensity: number;
+    componentCount: number;
+    largestComponentSize: number;
+    connectivityRatio: number;
+    orphanCount: number;
+    orphanFraction: number;
   };
 }
 
@@ -169,6 +207,66 @@ function looksDerivationEligible(inv: InvariantRecord): boolean {
   return RELATIONAL_SHAPE_PATTERN.test(inv.statement);
 }
 
+/**
+ * Intra-crystal edges only: both endpoints must be members of the domain's
+ * own invariant set. An edge reaching OUTSIDE the crystal says nothing about
+ * whether the crystal is internally related — counting it would let a single
+ * invariant with many cross-domain edges masquerade as a well-connected
+ * collection while every other member sits unconnected to it.
+ */
+async function fetchIntraCrystalEdges(
+  invariants: InvariantRecord[],
+): Promise<{ pairs: Array<[string, string]>; degree: Map<string, number> }> {
+  const ids = invariants.map((inv) => inv.id);
+  const idSet = new Set(ids);
+  const degree = new Map<string, number>(ids.map((id) => [id, 0]));
+  if (ids.length === 0) return { pairs: [], degree };
+
+  const edges = await listEdgesForInvariants(ids, 'both');
+  const seenPairs = new Set<string>();
+  const pairs: Array<[string, string]> = [];
+  for (const edge of edges) {
+    if (!idSet.has(edge.fromInvariantId) || !idSet.has(edge.toInvariantId)) continue;
+    if (edge.fromInvariantId === edge.toInvariantId) continue; // no self-loops in the density/connectivity math
+    const key = [edge.fromInvariantId, edge.toInvariantId].sort().join('~');
+    if (seenPairs.has(key)) continue;
+    seenPairs.add(key);
+    pairs.push([edge.fromInvariantId, edge.toInvariantId]);
+    degree.set(edge.fromInvariantId, (degree.get(edge.fromInvariantId) ?? 0) + 1);
+    degree.set(edge.toInvariantId, (degree.get(edge.toInvariantId) ?? 0) + 1);
+  }
+  return { pairs, degree };
+}
+
+/** Union-find over the intra-crystal undirected pairs — connected-component
+ * sizes are the mechanical basis for the graph-connectivity check. */
+function connectedComponentSizes(ids: readonly string[], pairs: ReadonlyArray<[string, string]>): number[] {
+  const parent = new Map<string, string>(ids.map((id) => [id, id]));
+  function find(x: string): string {
+    let root = x;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    let cur = x;
+    while (parent.get(cur) !== root) {
+      const next = parent.get(cur)!;
+      parent.set(cur, root);
+      cur = next;
+    }
+    return root;
+  }
+  function union(a: string, b: string) {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  }
+  for (const [a, b] of pairs) union(a, b);
+  const sizes = new Map<string, number>();
+  for (const id of ids) {
+    const root = find(id);
+    sizes.set(root, (sizes.get(root) ?? 0) + 1);
+  }
+  return [...sizes.values()];
+}
+
 function groupBySemanticType(invariants: InvariantRecord[]): Map<string, number> {
   const groups = new Map<string, number>();
   for (const inv of invariants) {
@@ -179,10 +277,14 @@ function groupBySemanticType(invariants: InvariantRecord[]): Map<string, number>
 }
 
 /**
- * Run all six PRD-EPI-001 §3.1 checks for one crystal domain. Never throws:
- * a substrate read failure is reported as a single failing check, not a
- * crash, and an empty domain reports `ok: false` with zero/insufficient
- * counts rather than silently passing.
+ * Run all nine PRD-EPI-001 §3.1 checks for one crystal domain — the original
+ * six (selection-space, derivation-headroom, structural-diversity,
+ * duplicate-detection, provenance-eligibility, lifecycle-validation-integrity)
+ * plus three graph-structural checks added for Crystal Expansion Readiness
+ * (relationship-density, graph-connectivity, orphan-detection — CFS-054).
+ * Never throws: a substrate read failure is reported as a single failing
+ * check, not a crash, and an empty domain reports `ok: false` with
+ * zero/insufficient counts rather than silently passing.
  */
 export async function runCrystalReadinessReport(
   input: CrystalReadinessInput,
@@ -207,6 +309,17 @@ export async function runCrystalReadinessReport(
       invariantCount: 0,
       eligibleCount: 0,
       populations: { A: 0, B: 0, C: 0, unclassified: 0, ablationCount: 0 },
+      derivationEligibleFraction: 0,
+      duplicatePairCount: 0,
+      graph: {
+        relationshipCount: 0,
+        relationshipDensity: 0,
+        componentCount: 0,
+        largestComponentSize: 0,
+        connectivityRatio: 0,
+        orphanCount: 0,
+        orphanFraction: 0,
+      },
       checks: [
         {
           name: 'invariant-fetch',
@@ -331,6 +444,85 @@ export async function runCrystalReadinessReport(
           `validation is required, never bulk-authored filler (CRYSTAL-ENLARGEMENT_plan.md §2 condition a)`,
   });
 
+  // 7–9. Relationship density / graph connectivity / orphan detection —
+  // Workstream 2's graph-structural checks (PRD-EPI-001 §3.1). All three
+  // read the SAME intra-crystal edge fetch so they can never disagree about
+  // which edges exist; each fails closed on invariantCount <= 1 (a graph of
+  // zero or one node has no density/connectivity/orphan question to answer,
+  // and reporting "passed" for "nothing to check" is the exact vacuous-pass
+  // defect the duplicate-detection fix above already corrected once).
+  const minRelationshipDensity = input.minRelationshipDensity ?? 0.05;
+  const minConnectivityRatio = input.minConnectivityRatio ?? 0.6;
+  const maxOrphanFraction = input.maxOrphanFraction ?? 0.1;
+
+  let intraPairs: Array<[string, string]> = [];
+  let degree = new Map<string, number>(invariants.map((inv) => [inv.id, 0]));
+  let edgeFetchError: string | null = null;
+  try {
+    const fetched = await fetchIntraCrystalEdges(invariants);
+    intraPairs = fetched.pairs;
+    degree = fetched.degree;
+  } catch (error) {
+    // Fail closed, same discipline as the top-level invariant-fetch guard:
+    // an unreachable edge substrate reports as zero relationships (every
+    // graph check below then honestly fails) rather than throwing out of
+    // the whole report or silently skipping the three graph checks.
+    edgeFetchError = error instanceof Error ? error.message : String(error);
+  }
+  const edgeFetchSuffix = edgeFetchError
+    ? ` (edge substrate unreachable: ${edgeFetchError} — reported as zero relationships, not skipped)`
+    : '';
+  const relationshipCount = intraPairs.length;
+  const maxPossiblePairs = invariantCount > 1 ? (invariantCount * (invariantCount - 1)) / 2 : 0;
+  const relationshipDensity = maxPossiblePairs > 0 ? relationshipCount / maxPossiblePairs : 0;
+
+  checks.push({
+    name: 'relationship-density',
+    passed: invariantCount > 1 && relationshipDensity >= minRelationshipDensity,
+    detail:
+      invariantCount <= 1
+        ? `${invariantCount} invariant(s) in domain '${crystalDomain}' — density over a graph of ≤1 node is undefined, ` +
+          `which is not evidence of relatedness`
+        : `${relationshipCount} intra-crystal relationship(s) over ${invariantCount} invariants — density ` +
+          `${relationshipDensity.toFixed(3)} (${(relationshipDensity * 100).toFixed(1)}% of ${maxPossiblePairs} possible ` +
+          `undirected pairs), need ≥ ${minRelationshipDensity.toFixed(3)}. Counts only edges where BOTH endpoints are ` +
+          `in this crystal — an edge reaching outside it says nothing about whether the crystal is internally related.` +
+          edgeFetchSuffix,
+  });
+
+  const componentSizes = connectedComponentSizes(
+    invariants.map((inv) => inv.id),
+    intraPairs,
+  );
+  const largestComponent = componentSizes.length > 0 ? Math.max(...componentSizes) : 0;
+  const connectivityRatio = invariantCount > 0 ? largestComponent / invariantCount : 0;
+  checks.push({
+    name: 'graph-connectivity',
+    passed: invariantCount > 1 && connectivityRatio >= minConnectivityRatio,
+    detail:
+      invariantCount <= 1
+        ? `${invariantCount} invariant(s) — connectivity is undefined below 2 nodes`
+        : `${componentSizes.length} connected component(s) over ${invariantCount} invariants; the largest holds ` +
+          `${largestComponent} (${(connectivityRatio * 100).toFixed(1)}%), need ≥ ${(minConnectivityRatio * 100).toFixed(0)}% ` +
+          `in one component — a crystal fragmented into many small disjoint clusters cannot support the ` +
+          `cross-invariant derivation chains the graph-structured retrieval is meant to test` +
+          edgeFetchSuffix,
+  });
+
+  const orphans = invariants.filter((inv) => (degree.get(inv.id) ?? 0) === 0);
+  const orphanFraction = invariantCount > 0 ? orphans.length / invariantCount : 1;
+  checks.push({
+    name: 'orphan-detection',
+    passed: invariantCount > 0 && orphanFraction <= maxOrphanFraction,
+    detail:
+      invariantCount === 0
+        ? `no invariants found in domain '${crystalDomain}' — orphan detection has nothing to compare`
+        : `${orphans.length}/${invariantCount} invariant(s) carry ZERO intra-crystal relationships ` +
+          `(${(orphanFraction * 100).toFixed(1)}%), need ≤ ${(maxOrphanFraction * 100).toFixed(0)}%` +
+          (orphans.length > 0 ? ` — e.g. ${orphans[0].id}` : '') +
+          edgeFetchSuffix,
+  });
+
   const ok = checks.every((c) => c.passed);
   return {
     ok,
@@ -343,6 +535,17 @@ export async function runCrystalReadinessReport(
       C: partition.C.length,
       unclassified: partition.unclassified.length,
       ablationCount,
+    },
+    derivationEligibleFraction: derivationFraction,
+    duplicatePairCount: duplicatePairs.length,
+    graph: {
+      relationshipCount,
+      relationshipDensity,
+      componentCount: componentSizes.length,
+      largestComponentSize: largestComponent,
+      connectivityRatio,
+      orphanCount: orphans.length,
+      orphanFraction,
     },
   };
 }
