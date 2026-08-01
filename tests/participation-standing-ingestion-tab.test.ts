@@ -31,13 +31,32 @@ describe('ParticipationStandingTab — Ingestion Factory beside a single Standin
     expect(source).not.toMatch(/'reach'\s*\|\s*'receipts'/);
   });
 
-  it('defaults to the registry (Ingestion Factory) view, not Standing', () => {
-    // The default is now `only ?? 'registry'` — an unpinned mount still lands
-    // on the Ingestion Factory; a pinned one honours its `only` (2026-08-02
-    // Deploy/Standing split).
-    const match = source.match(/const \[view, setView\] = useState<StandingView>\(([^)]*)\)/);
-    expect(match).not.toBeNull();
-    expect(match![1]).toBe("only ?? 'registry'");
+  it('defaults an UNPINNED mount to registry, and lets a PINNED mount override on every render', () => {
+    /*
+     * This canary previously asserted `useState<StandingView>(only ?? 'registry')`
+     * — and in doing so locked in the defect it was meant to prevent.
+     *
+     * Seeding state from `only` binds the view to the FIRST mount. React
+     * reuses a component that keeps its type and position, so the Journey's
+     * Deploy and Standing stages — which mount this same component pinned to
+     * different views — shared one instance: whichever the operator opened
+     * first won, and the other stage rendered its content (operator report,
+     * twice: 2026-08-02).
+     *
+     * The correct property is that `only`, when set, is authoritative on
+     * EVERY render. An unpinned mount still defaults to the Ingestion Factory
+     * and still owns its own choice.
+     */
+    const seeded = source.match(/useState<StandingView>\(([^)]*)\)/);
+    expect(seeded).not.toBeNull();
+    expect(
+      seeded![1],
+      'seeding the view from `only` binds it to the first mount — the exact Deploy/Standing coupling defect',
+    ).not.toContain('only');
+    expect(seeded![1]).toBe("'registry'");
+
+    // …and `only` overrides the remembered choice on every render.
+    expect(source).toMatch(/const view: StandingView = only \?\? \w+/);
   });
 
   it('renders IngestionFactoryPanel full width with no wrapping title/description chrome pushed above it', () => {

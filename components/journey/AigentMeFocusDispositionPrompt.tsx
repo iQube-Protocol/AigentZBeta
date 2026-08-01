@@ -85,8 +85,18 @@ export function AigentMeFocusDispositionPrompt({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ disposition: value, domainFocus: domainFocus.toLowerCase().replace(/\s+/g, '-') }),
         });
-        if (!res.ok) throw new Error(`Request failed (${res.status})`);
-        const json = await res.json();
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) {
+          // The SERVER's explanation, when it gave one. "Request failed (500)"
+          // is true and useless: it names a transport code beside a sovereign
+          // choice the principal just made, and offers nothing to act on. The
+          // route now says which write failed and why (operator report,
+          // 2026-08-02) — relaying that verbatim is the whole point of it
+          // having been said.
+          throw new Error(
+            typeof json?.error === 'string' ? json.error : `Your choice could not be recorded (${res.status}).`,
+          );
+        }
         const recorded = typeof json?.disposition === 'string' ? json.disposition : value;
         setDisposition(recorded);
         // The SERVER's value, not the button's — if the two ever differ, the

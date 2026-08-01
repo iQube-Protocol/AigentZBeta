@@ -117,3 +117,61 @@ describe('the suppression travels end to end, and defaults to off at every hop',
     ).not.toBe(true);
   });
 });
+
+/**
+ * TWO STAGES, TWO SURFACES, TWO INSTANCES (operator report ×2, 2026-08-02).
+ *
+ *   > "the Deploy and Standing tabs are still merged — the same page once one
+ *   > is active … if standing is selected first then the deploy tab renders
+ *   > standing content."
+ *
+ * The Deploy and Standing stages mount the SAME component (ParticipationStandingTab)
+ * pinned to different views. Keyed by array position — `key={i}`, which is "0"
+ * for both, since each stage has one surface — React saw the same component type
+ * at the same key and RECONCILED rather than remounting. The changed `only` prop
+ * arrived; the instance's first-mount state ignored it.
+ *
+ * Identity must come from WHAT is rendered, never from WHERE it sits in a list.
+ * Two fixes, because either alone leaves a live footgun: the runner keys by
+ * surface, and the component treats `only` as authoritative on every render
+ * (tests/participation-standing-ingestion-tab.test.ts).
+ */
+describe('journey surfaces are identified by what they are, not by list position', () => {
+  it('the runner keys each mounted surface by stage + surface ref', () => {
+    const src = stripComments(readSource(RUNNER));
+    expect(src).toMatch(/key=\{`\$\{activeStage\.id\}:\$\{surfaceRef\.ref\}`\}/);
+  });
+
+  it('no component surface is keyed by its array index', () => {
+    const src = stripComments(readSource(RUNNER));
+    const mountAt = src.indexOf('<Component personaId={personaId}');
+    expect(mountAt).toBeGreaterThan(-1);
+    const wrapper = src.slice(Math.max(0, mountAt - 400), mountAt);
+    expect(
+      wrapper,
+      'key={i} makes every stage’s first surface key "0" — two stages sharing a component then share its state',
+    ).not.toMatch(/key=\{i\}/);
+  });
+
+  it('Deploy and Standing really are two distinct surfaces of the same component', async () => {
+    const { HORIZEN_MONEYPENNY_JOURNEY } = await import('@/services/journey/horizenMoneyPennyJourney');
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy');
+    const standing = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'standing');
+    expect(deploy?.surfaces).toHaveLength(1);
+    expect(standing?.surfaces).toHaveLength(1);
+    // Different surface refs — so the new key differs even though both stages
+    // render one surface at index 0.
+    expect(deploy!.surfaces[0].ref).not.toBe(standing!.surfaces[0].ref);
+    // …pinned to different views, which is what made the shared instance visible.
+    expect((deploy!.surfaces[0].props as { only?: string })?.only).toBe('registry');
+    expect((standing!.surfaces[0].props as { only?: string })?.only).toBe('standing');
+    // …and both resolve to the SAME component (never a fork — inv.engineering.037).
+    const d = JOURNEY_SURFACES[deploy!.surfaces[0].ref];
+    const s = JOURNEY_SURFACES[standing!.surfaces[0].ref];
+    expect(d.kind).toBe('component');
+    expect(s.kind).toBe('component');
+    if (d.kind !== 'component' || s.kind !== 'component') throw new Error('unreachable');
+    expect(d.component).toBe('ParticipationStandingTab');
+    expect(s.component).toBe('ParticipationStandingTab');
+  });
+});

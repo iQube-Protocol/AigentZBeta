@@ -77,7 +77,19 @@ export interface ParticipationStandingTabProps {
 export function ParticipationStandingTab({ only }: ParticipationStandingTabProps = {}) {
   // Default 'registry': the operator lands on the Ingestion Factory, full
   // width, exactly as elsewhere — ingest first, monitor standing after.
-  const [view, setView] = useState<StandingView>(only ?? 'registry');
+  //
+  // `only` is NOT the initial value of this state — it OVERRIDES it on every
+  // render (see `view` below). Seeding `useState(only ?? 'registry')` looks
+  // equivalent and is not: a mount that is REUSED with a different `only`
+  // keeps the state from its first mount and silently renders the wrong
+  // surface. That is exactly what happened when the Journey's Deploy and
+  // Standing stages each mounted this component in the same tree position —
+  // whichever the operator opened first won, and the other stage rendered its
+  // content (operator report, 2026-08-02, second occurrence).
+  const [pickedView, setPickedView] = useState<StandingView>('registry');
+  // A pinned mount has no choice to remember; an unpinned one owns its own.
+  const view: StandingView = only ?? pickedView;
+  const setView = setPickedView;
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);

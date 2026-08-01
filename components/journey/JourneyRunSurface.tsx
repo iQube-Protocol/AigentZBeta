@@ -478,7 +478,18 @@ export function JourneyRunSurface({
               }
               const extraProps = resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage }) ?? {};
               return (
-                <div key={i}>
+                /*
+                 * Keyed by the SURFACE, not by array position.
+                 *
+                 * `key={i}` made every stage's first surface key "0". Two
+                 * stages mounting the SAME component there — Deploy and
+                 * Standing both mount ParticipationStandingTab, pinned to
+                 * different views — reconcile into one instance instead of
+                 * remounting, so the second stage inherits the first's state
+                 * and renders the first's content. Identity must come from
+                 * what is being rendered, never from where it sits in a list.
+                 */
+                <div key={`${activeStage.id}:${surfaceRef.ref}`}>
                   <Component personaId={personaId} {...extraProps} {...(surfaceRef.props ?? {})} />
                 </div>
               );

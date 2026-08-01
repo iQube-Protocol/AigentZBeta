@@ -1,5 +1,13 @@
 /**
- * /api/research/review/[reviewId]/resolution — the RECORD-level governed remedy.
+ * /api/research/review/[reviewId]/resolution — the RECORD-level RESOLUTION.
+ *
+ * ── Resolve, do not ratify (operator ruling via Al, 2026-08-02) ────────────
+ *
+ * This route settles a disagreement by ADOPTING one of the assessments the
+ * reviewers submitted. `ratify` names a different act, performed by a
+ * different authority, at a later stage of the ladder in
+ * `services/research/crystalLifecycle.ts` — the constitutional freeze. Nothing
+ * this route does moves a candidate past `review-resolved`.
  *
  * ── Why this is a separate route from the sibling POST ─────────────────────
  *
@@ -22,17 +30,18 @@
  *
  * ── What it does not do ────────────────────────────────────────────────────
  *
- * Ratifying a label does not write to the corpus, grant Standing, change a
- * lifecycle or freeze anything — same as its sibling, and the response says so
- * in data rather than only in prose. It also does not resolve the review: a
- * review with remedied rows is still `completed` until someone records the
- * review-level action.
+ * Adopting an assessment does not write to the corpus, grant Standing, change
+ * a lifecycle or freeze anything — same as its sibling, and the response says
+ * so in data rather than only in prose. Resolving every contested row settles
+ * the REVIEW; readiness for freeze is separate evidence, and the freeze itself
+ * is a separate governed act by a separate authority.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireReviewAccess } from '../../_lib/gate';
 import { deriveQueueState, getReview, upsertReview } from '@/services/research/independentReviewStore';
 import { resolveContestedRecord, ReviewRefusal } from '@/services/research/review';
+import { reviewResolutionComplete } from '@/services/research/crystalLifecycle';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +128,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ reviewId: 
       ok: true,
       resolution: next,
       queueState,
+      // Where this leaves the CANDIDATE on the constitutional ladder. Stated
+      // so no consumer reads a settled review as a frozen crystal: resolution
+      // sits strictly before readiness, and readiness strictly before freeze.
+      lifecycleStage: reviewResolutionComplete(contestedRemaining) ? 'review-resolved' : 'under-review',
+      readyForFreeze: false,
       // How many rows remain in dispute — the client needs this to know
       // whether the review is still contested without a second round trip.
       contestedRemaining,

@@ -1267,11 +1267,24 @@ function DecisionColumn({ slot, decision }: { slot: string; decision: ContestedD
 /**
  * The contested-record modal.
  *
- * READ for everyone who can reach the review; REMEDY only where `canRemedy`.
- * The remedy is deliberately not a free-text label field: the steward chooses
- * between the labels the reviewers actually returned, or defers. A third label
- * would be a new finding with no reviewer behind it, and the route refuses one
- * (`unsupported-operator-label`) whatever this form offers.
+ * READ for everyone who can reach the review; RESOLVE only where `canRemedy`.
+ *
+ * ── Adopt, do not ratify (operator ruling via Al, 2026-08-02) ──────────────
+ *
+ * The steward ADOPTS one of the assessments the reviewers submitted, or
+ * defers. `ratify` is reserved for the constitutional freeze — a later act by
+ * a different authority (services/research/crystalLifecycle.ts) — and using it
+ * here made settling a review queue read like admitting an invariant to the
+ * corpus.
+ *
+ * Each option names WHOSE assessment it adopts, not just a bare label. A
+ * resolution is a choice between two parties' submitted positions, and a
+ * button reading only "independent" hides which reviewer said it. The names
+ * are read off the record, never assumed: this surface does not know, and must
+ * not claim, which reviewer is internal and which is external.
+ *
+ * A third label would be a new finding with no reviewer behind it; the route
+ * refuses one (`unsupported-operator-label`) whatever this form offers.
  */
 function ContestedRecordModal({
   reviewId,
@@ -1291,14 +1304,18 @@ function ContestedRecordModal({
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<{ code?: string; message: string } | null>(null);
 
-  // Only labels a reviewer actually returned, de-duplicated. Derived from the
-  // record — never a hardcoded rubric list, which would drift the moment the
-  // rubric changed and would offer labels nobody in this dispute gave.
-  const labels = useMemo(
+  // One option per SUBMITTED assessment — keyed by which reviewer returned it,
+  // because the steward is choosing between parties, not between strings.
+  // Derived from the record; never a hardcoded rubric list, which would drift
+  // when the rubric changed and would offer labels nobody in this dispute gave.
+  const options = useMemo(
     () =>
-      [record.reviewer1Decision, record.reviewer2Decision].filter(
-        (l, i, arr): l is string => typeof l === "string" && l.length > 0 && arr.indexOf(l) === i,
-      ),
+      (
+        [
+          { slot: "Reviewer 1", label: record.reviewer1Decision },
+          { slot: "Reviewer 2", label: record.reviewer2Decision },
+        ] as const
+      ).filter((o): o is { slot: string; label: string } => typeof o.label === "string" && o.label.length > 0),
     [record.reviewer1Decision, record.reviewer2Decision],
   );
 
@@ -1309,7 +1326,7 @@ function ContestedRecordModal({
         return;
       }
       if (remedy === "adopt" && !choice) {
-        setRefusal({ message: "Choose which reviewer's label stands, or defer." });
+        setRefusal({ message: "Choose whose assessment to adopt, or defer." });
         return;
       }
       setBusy(true);
@@ -1380,25 +1397,28 @@ function ContestedRecordModal({
 
         {canRemedy ? (
           <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-            <h4 className="text-xs font-semibold text-slate-100">Governed remedy</h4>
+            <h4 className="text-xs font-semibold text-slate-100">Resolve this disagreement</h4>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-              Ratify one of the labels above, or defer. A remedy resolves the dispute — it does not create a new
-              finding, so no label the reviewers did not return is offered. It writes nothing to the corpus, grants
-              no Standing, and freezes nothing.
+              Adopt one of the assessments above, or defer. Each reviewer already ratified their own position by
+              submitting it; what you are settling is the difference between them, so no label they did not return
+              is offered. Resolving settles the <span className="text-slate-300">review</span> — it writes nothing to
+              the corpus, grants no Standing, and freezes nothing. Ratification is the separate constitutional act
+              that follows readiness.
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {labels.map((l) => (
+              {options.map((o) => (
                 <button
-                  key={l}
+                  key={o.slot}
                   type="button"
-                  onClick={() => setChoice(l)}
-                  className={`rounded-lg border px-3 py-1.5 text-[11px] transition ${
-                    choice === l
+                  onClick={() => setChoice(o.label)}
+                  className={`rounded-lg border px-3 py-1.5 text-left text-[11px] transition ${
+                    choice === o.label
                       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
                       : "border-slate-800 bg-slate-900/60 text-slate-300 hover:bg-slate-900"
                   }`}
                 >
-                  {l}
+                  <span className="block font-medium">Adopt {o.slot}&apos;s assessment</span>
+                  <span className="block font-mono text-[10px] opacity-70">{o.label}</span>
                 </button>
               ))}
             </div>
@@ -1406,7 +1426,7 @@ function ContestedRecordModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
-              placeholder="Why this label stands (or why this row is deferred)"
+              placeholder="Why this assessment is adopted (or why this row is deferred)"
               className={`${FIELD} mt-2 resize-y`}
             />
             {refusal && (
@@ -1426,7 +1446,7 @@ function ContestedRecordModal({
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                Ratify {choice ?? "a label"}
+                {choice ? `Adopt “${choice}”` : "Adopt an assessment"}
               </button>
               <button
                 type="button"
@@ -1440,7 +1460,8 @@ function ContestedRecordModal({
           </div>
         ) : (
           <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
-            This record is shown for inspection. Resolving a contested row is the Research Steward&apos;s act.
+            This record is shown for inspection. Your submitted assessment is your position on it; resolving a
+            disagreement between assessments is the Research Steward&apos;s act.
           </p>
         )}
       </div>

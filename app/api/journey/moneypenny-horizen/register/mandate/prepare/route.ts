@@ -44,10 +44,50 @@ export async function POST(request: NextRequest) {
   }
 
   const origin = resolveRequestOrigin(request);
-  const result = await prepareRegistrationMandate(
-    { agentSlug: body.agentSlug, principalPersonaId: persona.personaId },
-    { agentCardBase: origin },
-  );
+
+  /*
+   * FAIL FAITHFUL (operator report, 2026-08-02: "register/mandate/prepare
+   * returned an unexpected response (HTTP 500)").
+   *
+   * `prepareRegistrationMandate` returns a typed refusal for every condition it
+   * ANTICIPATES — unknown agent, no principal wallet — and those come back as a
+   * 422 the operator can act on. A condition it does not anticipate THROWS, and
+   * an uncaught throw becomes a bare 500 whose cause exists only in a log the
+   * operator cannot reach. The ceremony then looks broken rather than blocked,
+   * and the two need opposite responses.
+   *
+   * Note what this does NOT do: it does not turn a failure into a success, and
+   * it does not invent a refusal code for something we have not classified. An
+   * unanticipated failure stays a 500 — it reports itself instead of vanishing.
+   */
+  let result: Awaited<ReturnType<typeof prepareRegistrationMandate>>;
+  try {
+    result = await prepareRegistrationMandate(
+      { agentSlug: body.agentSlug, principalPersonaId: persona.personaId },
+      { agentCardBase: origin },
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('[register mandate/prepare] unhandled failure', { agentSlug: body.agentSlug, message });
+    // A missing table or column is a PENDING MIGRATION on this environment,
+    // which the operator fixes by applying it — quite different from a logic
+    // fault, which they escalate. Both carry the store's own words.
+    const schemaShaped = /relation .* does not exist|column .* does not exist|violates check constraint|schema cache/i.test(
+      message,
+    );
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: schemaShaped ? 'SIGNING_STORE_UNAVAILABLE' : 'MANDATE_PREPARE_FAILED',
+        error: schemaShaped
+          ? 'The signing-request store is not available on this environment, so the mandate could not be prepared. ' +
+            'Apply the pending migrations under supabase/migrations/ (the signing-request and receipt-type batch), then try again.'
+          : 'The registration mandate could not be prepared.',
+        detail: message,
+      },
+      { status: 500 },
+    );
+  }
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, refusalCode: result.refusalCode, error: result.detail }, { status: 422 });

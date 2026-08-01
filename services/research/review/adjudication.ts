@@ -291,29 +291,43 @@ export function contestedQueue(resolutions: readonly ReviewResolution[]): Review
   return resolutions.filter((r) => r.status === 'contested');
 }
 
-// ── Record-level governed remedy (operator ruling, 2026-08-02) ───────────────
+// ── Record-level governed RESOLUTION (operator ruling, 2026-08-02) ──────────
 
 /**
- * The steward's remedy for ONE contested row.
+ * The steward's RESOLUTION of ONE contested row.
+ *
+ * ── Resolve, do not ratify (operator ruling via Al, 2026-08-02) ────────────
+ *
+ * The steward RESOLVES a disagreement by ADOPTING one of the submitted
+ * assessments. They do not "ratify" anything: on this platform `ratify` names
+ * the later constitutional act performed by a different authority, and the
+ * generic review layer deliberately does not name that act's subject — this
+ * capability is a template, not one instance of it. Spending the word here
+ * would leave the real constitutional act without one, and make settling a
+ * review queue look like admitting an asset to the corpus.
+ *
+ * Each reviewer already ratified their OWN position by signing and submitting
+ * it. Nobody is asked again; what is resolved is the DIFFERENCE between
+ * assessments that have already been submitted.
  *
  * ── Why this is not free-form ──────────────────────────────────────────────
  *
  * A contested row is a fact about the evidence: two reviewers looked at the
- * same subject and returned different labels. The remedy resolves the DISPUTE;
- * it does not create a new finding. So the steward may only ratify a label a
- * reviewer actually returned — never a third one of their own.
+ * same subject and returned different labels. The resolution settles the
+ * DISPUTE; it does not create a new finding. So the steward may only adopt a
+ * label a reviewer actually returned — never a third one of their own.
  *
  * Allowing an invented label would be strictly worse than averaging, which
  * this module already refuses: an average is at least derived from the
  * evidence, whereas a label no reviewer gave has no evidentiary basis at all,
  * and would be indistinguishable in the artifact from one that did.
  *
- * `defer` is the honest option when neither label can be ratified. It is not a
+ * `defer` is the honest option when neither label can be adopted. It is not a
  * silent no-op — it records who deferred and why, so a deferred row is
  * visibly unresolved rather than quietly forgotten.
  */
 export interface ContestedRemedy {
-  /** `adopt` ratifies one of the reviewers' labels; `defer` ratifies neither. */
+  /** `adopt` takes one of the submitted assessments; `defer` takes neither. */
   remedy: 'adopt' | 'defer';
   /** Required for `adopt`, forbidden for `defer`. Must be a label a reviewer returned. */
   operatorDecision?: string;
@@ -332,10 +346,10 @@ export interface ContestedRemedy {
  * so this rule can be exercised directly by a test with no database.
  *
  * The adopted label's eligibility is read from the SAME `ELIGIBLE_LABELS` set
- * `resolveDecisions` uses for agreed rows. A ratified 'independent' therefore
+ * `resolveDecisions` uses for agreed rows. An adopted 'independent' therefore
  * lands on exactly the status an agreed 'independent' would, and the two can
  * never drift apart into "eligible when both reviewers said it, ineligible
- * when the steward ratified it".
+ * when the steward adopted it".
  */
 export function resolveContestedRecord(
   current: ReviewResolution,
@@ -366,8 +380,8 @@ export function resolveContestedRecord(
     return {
       ...current,
       status: 'deferred',
-      // The dispute is preserved verbatim. Deferring records that no label was
-      // ratified — it must not erase which labels were in contention.
+      // The dispute is preserved verbatim. Deferring records that no
+      // assessment was adopted — it must not erase which were in contention.
       operatorDecision: undefined,
       resolutionReason: `deferred by ${remedy.resolvedByRef}: ${reason}`,
       resolvedAt: remedy.resolvedAt,
@@ -383,7 +397,7 @@ export function resolveContestedRecord(
       'unsupported-operator-label',
       `${JSON.stringify(label)} was not returned by any reviewer for ${current.subjectRef} ` +
         `(they returned ${returned.map((d) => JSON.stringify(d)).join(' and ') || 'nothing'}). ` +
-        `A remedy ratifies one of the labels in dispute; it does not introduce a new finding.`,
+        `A resolution adopts one of the assessments in dispute; it does not introduce a new finding.`,
     );
   }
 
@@ -391,7 +405,9 @@ export function resolveContestedRecord(
     ...current,
     status: ELIGIBLE_LABELS.has(label) ? 'accepted' : 'rejected',
     operatorDecision: label,
-    resolutionReason: `ratified by ${remedy.resolvedByRef}: ${reason}`,
+    // "adopted", never "ratified" — this settles the review, it does not
+    // make anything canonical.
+    resolutionReason: `adopted by ${remedy.resolvedByRef}: ${reason}`,
     resolvedAt: remedy.resolvedAt,
   };
 }

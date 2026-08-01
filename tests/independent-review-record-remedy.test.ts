@@ -1,15 +1,15 @@
 /**
- * The record-level governed remedy (operator ruling, 2026-08-02):
+ * The record-level governed RESOLUTION (operator ruling, 2026-08-02):
  *
  *   > "The contested records need to be clickable to see their detail. This can
  *   > be in a popup modal for review. IN the internal version this modal should
  *   > allow remedy acceptance."
  *
  * Two halves, and the dangerous one is the second. Inspection is additive and
- * fails visibly. A remedy is a governed act that changes what the review says
- * about a subject, so the properties that matter are what it REFUSES:
+ * fails visibly. A resolution is a governed act that changes what the review
+ * says about a subject, so the properties that matter are what it REFUSES:
  *
- *   1. A remedy may only ratify a label a reviewer actually returned. Anything
+ *   1. It may only ADOPT an assessment a reviewer actually submitted. Anything
  *      else is a new finding with no reviewer behind it — strictly worse than
  *      the averaging this capability already forbids, because an average is at
  *      least derived from the evidence.
@@ -17,9 +17,10 @@
  *      settled row overwrites a reviewer's finding with the steward's.
  *   3. It is unavailable to an external reviewer — enforced by the gate, not by
  *      the client hiding a form.
- *   4. A remedied row's status is derived from the SAME eligibility set an
+ *   4. A resolved row's status is derived from the SAME eligibility set an
  *      agreed row uses, so "eligible when both reviewers said it, ineligible
- *      when the steward ratified it" cannot happen.
+ *      when the steward adopted it" cannot happen.
+ *   5. It does NOT ratify. See the vocabulary canary at the foot of this file.
  *
  * The pure rule is exercised directly; the route and client are checked by
  * source authority, matching this repo's convention for `node`-environment
@@ -55,7 +56,7 @@ const remedy = {
   resolvedAt: "2026-08-02T12:00:00.000Z",
 };
 
-describe("resolveContestedRecord — a remedy ratifies, it does not invent", () => {
+describe("resolveContestedRecord — a resolution adopts a submitted assessment, it does not invent one", () => {
   it("refuses a label neither reviewer returned, and names both labels that were", () => {
     expect(() =>
       resolveContestedRecord(contestedRow(), { ...remedy, operatorDecision: "outcome-informed" }),
@@ -94,7 +95,7 @@ describe("resolveContestedRecord — a remedy ratifies, it does not invent", () 
     }
   });
 
-  it("ratifying an eligible label lands on 'accepted'; an ineligible one on 'rejected'", () => {
+  it("adopting an eligible label lands on 'accepted'; an ineligible one on 'rejected'", () => {
     const accepted = resolveContestedRecord(contestedRow(), { ...remedy, operatorDecision: "independent" });
     expect(accepted.status).toBe("accepted");
     expect(accepted.operatorDecision).toBe("independent");
@@ -106,7 +107,9 @@ describe("resolveContestedRecord — a remedy ratifies, it does not invent", () 
 
   it("carries the attribution and the reason into the record, and preserves both reviewers verbatim", () => {
     const out = resolveContestedRecord(contestedRow(), { ...remedy, operatorDecision: "independent" });
-    expect(out.resolutionReason).toContain("ref_abc123");
+    // "adopted", never "ratified" — see the vocabulary canary below.
+    expect(out.resolutionReason).toContain("adopted by ref_abc123");
+    expect(out.resolutionReason).not.toContain("ratified");
     expect(out.resolutionReason).toContain("R2 cited the task construction date");
     expect(out.resolvedAt).toBe("2026-08-02T12:00:00.000Z");
     // The dispute is not erased by resolving it.
@@ -114,7 +117,7 @@ describe("resolveContestedRecord — a remedy ratifies, it does not invent", () 
     expect(out.reviewer2Decision).toBe("target-derived");
   });
 
-  it("defers without ratifying a label, and without erasing which labels were in contention", () => {
+  it("defers without adopting a label, and without erasing which labels were in contention", () => {
     const out = resolveContestedRecord(contestedRow(), {
       ...remedy,
       remedy: "defer",
@@ -127,7 +130,7 @@ describe("resolveContestedRecord — a remedy ratifies, it does not invent", () 
     expect(out.resolutionReason).toContain("deferred by ref_abc123");
   });
 
-  it("a missing second pass leaves only R1's label ratifiable", () => {
+  it("a missing second pass leaves only R1's label adoptable", () => {
     const row = contestedRow({ reviewer2Decision: undefined });
     expect(resolveContestedRecord(row, { ...remedy, operatorDecision: "independent" }).status).toBe("accepted");
     try {
@@ -231,19 +234,27 @@ describe("the panel offers inspection to everyone and remedy only internally", (
     const src = stripComments(readSource(PANEL));
     expect(src).toMatch(/canRemedy=\{!reviewerMode && !isSuperseded\}/);
     // …and the modal renders the read-only notice instead of the form.
-    expect(src).toContain("Resolving a contested row is the Research Steward");
+    // (The copy wraps across lines in the JSX, so match a contiguous fragment.)
+    expect(src).toContain("disagreement between assessments is the Research Steward");
   });
 
-  it("the label choices are derived from the row, never a hardcoded rubric list", () => {
+  it("each option names WHOSE assessment it adopts, derived from the row and never a rubric list", () => {
     const src = stripComments(readSource(PANEL));
-    const labelsAt = src.indexOf("const labels = useMemo(");
-    expect(labelsAt).toBeGreaterThan(-1);
-    const block = src.slice(labelsAt, labelsAt + 500);
+    const optionsAt = src.indexOf("const options = useMemo(");
+    expect(optionsAt).toBeGreaterThan(-1);
+    const block = src.slice(optionsAt, optionsAt + 700);
     expect(block).toContain("record.reviewer1Decision");
     expect(block).toContain("record.reviewer2Decision");
+    // A resolution is a choice between two parties' submitted positions; a
+    // button reading only "independent" hides which reviewer said it.
+    expect(block).toContain("Reviewer 1");
+    expect(block).toContain("Reviewer 2");
     expect(block, "offering a rubric label nobody in this dispute returned invites a refusal").not.toContain(
       "outcome-informed",
     );
+    // The surface must not CLAIM which reviewer is internal and which
+    // external — it does not know, and blinding means it cannot.
+    expect(src.slice(optionsAt, optionsAt + 700)).not.toMatch(/\bIRL\b|\bExternal Review\b/);
   });
 
   it("a missing decision renders as absent, never as a blank agreement", () => {
@@ -261,5 +272,117 @@ describe("the panel offers inspection to everyone and remedy only internally", (
   it("a refused remedy surfaces the server's own words and code, not a generic failure", () => {
     const src = stripComments(readSource(PANEL));
     expect(src).toMatch(/setRefusal\(\{\s*code:\s*d\?\.refusalCode,\s*message:\s*d\?\.error/);
+  });
+});
+
+/**
+ * ── RESOLVE ≠ RATIFY (operator ruling via Al, 2026-08-02) ──────────────────
+ *
+ * The first cut of this feature called the steward's act "ratify". Al caught
+ * it, and the objection is constitutional rather than stylistic:
+ *
+ *   > "'ratify' has a constitutional meaning in your platform … Then the word
+ *   > Ratify is reserved for the constitutional act that happens after review
+ *   > resolution."
+ *
+ * Three acts, three authorities, three verbs:
+ *
+ *     reviewer                  REVIEWS   — submits a signed assessment
+ *     independent-review-steward RESOLVES — adopts one of the submitted ones
+ *     constitutional authority  RATIFIES  — freezes the resulting crystal
+ *
+ * Spending "ratify" on the middle act leaves the third with no word, and makes
+ * settling a review queue read like admitting an invariant to the corpus. The
+ * ladder lives in `services/research/crystalLifecycle.ts`; these canaries stop
+ * the word leaking back into the review layer.
+ *
+ * A NOTE ON WHO THE TWO REVIEWERS ARE: `blinding.ts` strips current
+ * eligibility labels and prior decisions before a package is sealed, so BOTH
+ * reviewers are blinded and neither is "the platform's own position". The
+ * surface therefore names them by SLOT, and must never assert which is
+ * internal and which external — it does not know.
+ */
+describe("resolve ≠ ratify — the constitutional verb is reserved", () => {
+  const LIFECYCLE = "services/research/crystalLifecycle.ts";
+  const ADJUDICATION = "services/research/review/adjudication.ts";
+
+  it("the ladder puts resolution strictly before readiness, and readiness before freeze", async () => {
+    const { CRYSTAL_LIFECYCLE, lifecycleIndex } = await import("@/services/research/crystalLifecycle");
+    expect(lifecycleIndex("review-resolved")).toBeLessThan(lifecycleIndex("ready-for-freeze"));
+    expect(lifecycleIndex("ready-for-freeze")).toBeLessThan(lifecycleIndex("frozen"));
+    expect(lifecycleIndex("frozen")).toBeLessThan(lifecycleIndex("canonical"));
+    // Exactly one step names the constitutional act, and it is the freeze.
+    const ratifying = CRYSTAL_LIFECYCLE.filter((s) => s.act.includes("ratify"));
+    expect(ratifying).toHaveLength(1);
+    expect(ratifying[0].stage).toBe("ready-for-freeze");
+    expect(ratifying[0].authority).toBe("constitutional-authority");
+  });
+
+  it("the steward resolves and the constitutional authority ratifies — never the same role", async () => {
+    const { CRYSTAL_LIFECYCLE } = await import("@/services/research/crystalLifecycle");
+    const resolveStep = CRYSTAL_LIFECYCLE.find((s) => s.act === "resolve");
+    expect(resolveStep?.authority).toBe("independent-review-steward");
+    // …and the review-layer authority table agrees: the steward may resolve
+    // the contested queue and may NOT approve a freeze.
+    const { REVIEW_ROLE_AUTHORITY } = await import("@/services/research/review/types");
+    expect(REVIEW_ROLE_AUTHORITY["independent-review-steward"].mayResolveContested).toBe(true);
+    expect(REVIEW_ROLE_AUTHORITY["independent-review-steward"].mayApproveFreeze).toBe(false);
+    expect(REVIEW_ROLE_AUTHORITY.reviewer.mayResolveContested).toBe(false);
+  });
+
+  it("'ratify' is not in the review layer's own vocabulary", async () => {
+    const { REVIEW_LAYER_VERBS, CONSTITUTIONAL_RATIFICATION_VERB } = await import(
+      "@/services/research/crystalLifecycle"
+    );
+    expect(REVIEW_LAYER_VERBS).not.toContain("ratify");
+    expect(REVIEW_LAYER_VERBS).toContain("resolve");
+    expect(REVIEW_LAYER_VERBS).toContain("adopt");
+    expect(CONSTITUTIONAL_RATIFICATION_VERB).toBe("ratify");
+  });
+
+  it("the RESOLUTION act writes no ratification wording — scoped to that act, not to the file", () => {
+    // Scope matters, and getting it wrong the first time proved the point: a
+    // whole-file grep flagged two CORRECT uses — the operator-ratified default
+    // reviewer pair, and `ratifiedAt` on the freeze call, which is the one act
+    // the word belongs to. The rule is about the resolution ACT, so the check
+    // is too. Comments may DISCUSS the reservation; the act may not enact it.
+    const adjudication = stripComments(readSource(ADJUDICATION));
+    const fnAt = adjudication.indexOf("export function resolveContestedRecord");
+    expect(fnAt).toBeGreaterThan(-1);
+    const fn = adjudication.slice(fnAt);
+    const fnStrings = fn.match(/["'\`][^"'\`]*[Rr]atif[^"'\`]*["'\`]/g) ?? [];
+    expect(fnStrings, `resolveContestedRecord emits: ${fnStrings.join(" | ")}`).toHaveLength(0);
+
+    // The whole resolution route is in scope — it does nothing else.
+    const route = stripComments(readSource(ROUTE));
+    const routeStrings = route.match(/["'\`][^"'\`]*[Rr]atif[^"'\`]*["'\`]/g) ?? [];
+    expect(routeStrings, `the resolution route emits: ${routeStrings.join(" | ")}`).toHaveLength(0);
+
+    // In the panel, only the contested-record modal is in scope.
+    const panel = stripComments(readSource(PANEL));
+    const modalAt = panel.indexOf("function ContestedRecordModal");
+    expect(modalAt).toBeGreaterThan(-1);
+    const modal = panel.slice(modalAt);
+    // The modal MAY say the word while explaining what it is NOT doing; what
+    // it must not do is label its own control with it.
+    expect(modal, "the adopt button must not be labelled a ratification").not.toMatch(/Ratify \{/);
+    expect(modal).toContain("Adopt an assessment");
+    expect(modal).toContain("Resolve this disagreement");
+  });
+
+  it("the lifecycle module states what resolution does NOT do", () => {
+    const src = stripComments(readSource(LIFECYCLE));
+    expect(src).toContain("grants no Standing");
+    expect(src).toContain("makes nothing canonical");
+  });
+
+  it("the resolution route reports where the candidate now sits, and never claims freeze-readiness", () => {
+    const src = stripComments(readSource(ROUTE));
+    expect(src).toContain("lifecycleStage:");
+    expect(src).toContain("reviewResolutionComplete(contestedRemaining)");
+    // A settled review is 'review-resolved' — one rung BELOW ready-for-freeze.
+    expect(src).toContain("'review-resolved'");
+    expect(src).toContain("readyForFreeze: false");
+    expect(src, "the review layer must never assert readiness").not.toContain("ready-for-freeze");
   });
 });
