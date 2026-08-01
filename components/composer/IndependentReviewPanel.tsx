@@ -704,7 +704,20 @@ export default function IndependentReviewPanel({ reviewerMode = false }: { revie
  */
 function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {}) {
   const [experimentId] = useState("EXP-P1");
-  const [domain, setDomain] = useState("constitutional-reasoning");
+  /*
+   * EMPTY means "the server decides" (fixed 2026-08-02).
+   *
+   * This seeded `"constitutional-reasoning"` — the historical name — and a
+   * caller-supplied domain WINS over the server's resolution, so every
+   * readiness report this panel ever requested was about the OLD namespace,
+   * not the ratified `financial-risk-value-systems` declaration for EXP-P1.
+   * The declaration lives server-side (crystalDomainForExperiment) precisely
+   * so no client has to know it; hardcoding a default here re-created the
+   * hand-copied-registry defect (inv.engineering.036) with a governance
+   * boundary inside it. Blank = ratified declaration; typing a domain remains
+   * an explicit ad-hoc override for inspection.
+   */
+  const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -722,7 +735,9 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
     setError(null);
     try {
       const res = await personaFetch(
-        `/api/research/crystal/${encodeURIComponent(experimentId)}?domain=${encodeURIComponent(domain)}`,
+        `/api/research/crystal/${encodeURIComponent(experimentId)}${
+          domain.trim() ? `?domain=${encodeURIComponent(domain.trim())}` : ""
+        }`,
         { cache: "no-store" },
       );
       const d = await res.json().catch(() => null);
@@ -938,7 +953,7 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
           className={FIELD}
           value={domain}
           onChange={(e) => setDomain(e.target.value)}
-          placeholder="crystal domain (e.g. constitutional-reasoning)"
+          placeholder="domain override — blank uses the experiment's ratified declaration"
         />
         {error && (
           <div className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5 text-[11px] text-rose-200">

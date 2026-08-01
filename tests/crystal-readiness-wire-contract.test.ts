@@ -95,3 +95,22 @@ describe('the readiness route and its reader use the same success field', () => 
     expect(fn).toMatch(/no result field/);
   });
 });
+
+describe('the client does not override the ratified domain by default', () => {
+  it('sends no domain param unless the operator typed one', () => {
+    // The panel seeded "constitutional-reasoning" and the caller-supplied
+    // domain WINS server-side — so every readiness report was about the
+    // historical namespace, never the ratified financial-risk-value-systems
+    // declaration. Blank means the server resolves the declaration; typing a
+    // domain remains an explicit ad-hoc override.
+    const reader = stripComments(readSource(READER));
+    expect(reader).toMatch(/useState\(""\)/);
+    expect(reader).toMatch(/domain\.trim\(\) \? `\?domain=/);
+    expect(reader).not.toMatch(/useState\("constitutional-reasoning"\)/);
+  });
+
+  it('the server resolves the declaration when no override is supplied', () => {
+    const route = stripComments(readSource(ROUTE));
+    expect(route).toMatch(/searchParams\.get\('domain'\) \?\? undefined/);
+  });
+});
