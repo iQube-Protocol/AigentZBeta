@@ -23,6 +23,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2 } from 'lucide-react';
+import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
@@ -115,7 +116,13 @@ export function JourneyRunSurface({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(stateUrl, { cache: 'no-store' });
+      // Journey state routes resolve the caller through the identity spine
+      // (getActivePersona) — a raw fetch() carries no Authorization header
+      // and 401s even for a signed-in persona (the exact failure mode
+      // CLAUDE.md's spine rule documents). personaFetch is the one client
+      // transport that attaches it, hinted with this journey's own persona
+      // when known.
+      const res = await personaFetch(stateUrl, { cache: 'no-store', personaIdHint: personaId });
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await res.json();
       setRuntimeState(json.state as JourneyRuntimeState);
@@ -124,7 +131,7 @@ export function JourneyRunSurface({
     } finally {
       setLoading(false);
     }
-  }, [stateUrl]);
+  }, [stateUrl, personaId]);
 
   useEffect(() => {
     void refresh();
