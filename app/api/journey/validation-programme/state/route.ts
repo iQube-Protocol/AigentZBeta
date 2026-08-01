@@ -6,11 +6,13 @@
  * reads, then resolves it via resolveJourneyState() — same shape as
  * /api/journey/moneypenny-horizen/state.
  *
- * Honesty over completeness (CLAUDE.md "No Guessing"): `collaborationAgreementAuthorized`
- * (Submit Review stage) is not yet computed here — no route today attributes
- * a signed agreement to "this reviewer, for this programme" — so that stage
- * correctly resolves NOT_STARTED/READY, never fabricated as complete, until
- * that wiring lands (tracked follow-up, see the journey file's own header).
+ * `collaborationAgreementAuthorized` (Submit Review) is now REAL (operator
+ * ruling, 2026-08-02). It was previously left deliberately absent because no
+ * route attributed a signed agreement to "this reviewer, for this programme";
+ * `services/research/reviewerAgreement.ts` is now that attribution, and this
+ * route derives the stage from its durable authorization row — matching
+ * principal, experiment, agreement id+version, current terms hash and package
+ * scope — never from a visit or a UI boolean.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -22,6 +24,7 @@ import {
   type ExperimentReviewAccessDiagnosis,
 } from '@/services/passport/participationAccess';
 import { listReviews } from '@/services/research/independentReviewStore';
+import { isReviewerAgreementAuthorized } from '@/services/research/reviewerAgreement';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { VALIDATION_PROGRAMME_JOURNEY, VALIDATION_PROGRAMME_EXPERIMENT_ID } from '@/services/journey/validationProgrammeJourney';
 
@@ -81,12 +84,31 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Stage 3 — Submit Review: is the caller's Independent Reviewer Agreement
+  // authorization ACTIVE for EXP-P1, at the current agreement version and
+  // terms hash? Derived from the durable authorization row
+  // (`reviewer_agreement_authorizations`), never from a visit, a button click
+  // or a mutable UI boolean — the ruling's explicit requirement. A historical
+  // authorization for another experiment, or for a materially changed
+  // (re-hashed) version, does not satisfy it.
+  let collaborationAgreementAuthorized = false;
+  if (admin) {
+    try {
+      collaborationAgreementAuthorized = await isReviewerAgreementAuthorized(
+        admin,
+        persona.personaId,
+        VALIDATION_PROGRAMME_EXPERIMENT_ID,
+      );
+    } catch {
+      // Soft-fail — stage stays evidence-incomplete, never fabricated complete.
+    }
+  }
+
   const platformState: AuthoritativePlatformState = {
     stages: {
       overview: { reviewerAccessConfirmed },
       'crystal-review': { reviewDecisionSubmitted },
-      // Deliberately absent: see this route's own header — not yet computed.
-      'submit-review': {},
+      'submit-review': { collaborationAgreementAuthorized },
       'experiment-progress': {},
     },
   };

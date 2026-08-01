@@ -301,11 +301,12 @@ describe('State route — real state resolution, no fabrication', () => {
     expect(graph.records.some((r) => r.names.includes('resolveJourneyState'))).toBe(true);
   });
 
-  it('never writes a value for submit-review evidence — the honest, not-yet-wired gap', () => {
+  it('derives submit-review evidence from the reviewer-agreement authorization record (gap closed 2026-08-02)', () => {
     const src = stripComments(readSource('app/api/journey/validation-programme/state/route.ts'));
     const block = src.match(/'submit-review':\s*\{[^}]*\}/);
     expect(block).not.toBeNull();
-    expect(block![0].replace(/\s/g, '')).toBe("'submit-review':{}");
+    expect(block![0].replace(/\s/g, '')).toBe("'submit-review':{collaborationAgreementAuthorized}");
+    expect(src).toContain('isReviewerAgreementAuthorized(');
   });
 });
 

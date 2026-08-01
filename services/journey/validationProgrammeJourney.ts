@@ -150,12 +150,24 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
       surfaces: [
         {
           mode: 'component',
-          ref: 'validation-programme-locker',
-          props: { visibleSections: ['peerExchange', 'uploadToLocker', 'invitation'] },
+          ref: 'validation-programme-reviewer-agreement',
+          props: { experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID },
           note:
-            'The real LockerTab, limited to Peer Exchange, Upload to Locker, and Invitation — the ' +
-            'section that already carries the x409/access-invitation claim + collaboration/review ' +
-            'agreement acceptance mechanics. Never a second signing UI.',
+            'Panels 1 and 2 — Review mandate, then the canonical experiment-scoped ' +
+            'Independent Reviewer Agreement (agreement.exp-p1.independent-review.v1) with its ' +
+            'explicit acknowledgement + conflict declaration. Rendering it authorizes nothing; ' +
+            'completion is derived server-side from the durable authorization row.',
+        },
+        {
+          mode: 'component',
+          ref: 'validation-programme-locker',
+          props: { visibleSections: ['peerExchange', 'uploadToLocker'] },
+          note:
+            'Panel 3 — Submit review: Peer Exchange (QubeTalk) and Upload to Locker. ' +
+            'INVITATION IS DELIBERATELY ABSENT (operator ruling, 2026-08-02): invitation ' +
+            'acceptance is an ACCESSION act performed before programme entry, on the invitation ' +
+            'page itself — not a panel inside the final stage. Capability visibility here is no ' +
+            'broader than the reviewer mandate: never the whole Locker.',
         },
       ],
       prerequisites: ['crystal-review'],

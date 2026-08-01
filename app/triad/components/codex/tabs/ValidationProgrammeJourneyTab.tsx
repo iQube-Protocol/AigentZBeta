@@ -22,6 +22,7 @@ import { PartnerProgrammesTab } from './PartnerProgrammesTab';
 import { AgentiqCartridgeTab } from './AgentiqCartridgeTab';
 import IndependentReviewPanel from '@/components/composer/IndependentReviewPanel';
 import { LockerTab } from './LockerTab';
+import { ReviewerAgreementPanel } from "@/components/research/ReviewerAgreementPanel";
 
 interface ValidationProgrammeJourneyTabProps {
   personaId?: string;
@@ -33,6 +34,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   AgentiqCartridgeTab,
   IndependentReviewPanel,
   LockerTab,
+  ReviewerAgreementPanel,
 };
 
 function ValidationProgrammeJourneyTabInner({ personaId, isAdmin }: ValidationProgrammeJourneyTabProps) {

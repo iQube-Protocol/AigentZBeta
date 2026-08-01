@@ -209,17 +209,30 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'accept/revise/defer/reject); Review Queue/Result/Crystal vP1 render unchanged, scoped server-' +
       'side to the caller\'s reviewer grant (requireReviewReadAccess).',
   },
+  'validation-programme-reviewer-agreement': {
+    kind: 'component',
+    component: 'ReviewerAgreementPanel',
+    note:
+      'The canonical experiment-scoped Independent Reviewer Agreement surface ' +
+      '(components/research/ReviewerAgreementPanel.tsx), rendering Submit Review panels 1 and 2 — ' +
+      'Review mandate, then agreement.exp-p1.independent-review.v1 with its explicit ' +
+      'acknowledgement and conflict declaration. Operator ruling 2026-08-02: the agreement is a ' +
+      'reusable experiment-scoped artifact, never a per-collaborator console artifact, and ' +
+      'display alone never authorizes it — completion is derived server-side from the durable ' +
+      'reviewer_agreement_authorizations row.',
+  },
   'validation-programme-locker': {
     kind: 'component',
     component: 'LockerTab',
     note:
       "The real LockerTab (app/triad/components/codex/tabs/LockerTab.tsx), rendered directly with " +
-      "visibleSections limited to ['peerExchange', 'uploadToLocker', 'invitation'] — operator " +
-      'instruction 2026-08-01, point 5: "reuse LockerTab, limited to: Peer Exchange / QubeTalk, ' +
-      'Upload to Locker, Invitation and agreement artifacts. Hide credentials, agent channels, ' +
-      'general locker inventory, location tracking." The Invitation section already carries the ' +
-      'x409/access-invitation claim mechanics the reviewer uses to sign the collaboration/review ' +
-      'agreement — no second signing UI.',
+      "visibleSections limited to ['peerExchange', 'uploadToLocker'] — Submit Review panel 3. " +
+      'Operator instruction 2026-08-01, point 5 narrowed the Locker to the reviewer mandate; ' +
+      'operator ruling 2026-08-02 then REMOVED the Invitation section from this stage entirely: ' +
+      'invitation acceptance is an accession act performed before programme entry, on the ' +
+      'invitation page, not a panel inside the final stage. The reviewer agreement moved to its ' +
+      'own surface above (validation-programme-reviewer-agreement), so no capability here ' +
+      'exceeds the reviewer mandate.',
   },
   'validation-programme-pipeline': {
     kind: 'component',

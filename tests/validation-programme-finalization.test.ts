@@ -333,11 +333,22 @@ describe('Journey state route — carries the access diagnosis, fails unknown no
     expect(src).toContain("reason: 'unavailable'");
   });
 
-  it('still never fabricates submit-review evidence — the honest gap is preserved', () => {
+  it('derives submit-review evidence from the durable agreement authorization, never a UI boolean', () => {
+    // This canary previously asserted the field was ABSENT — the honest gap
+    // while no route attributed a signed agreement to "this reviewer, for
+    // this programme". That gap is now genuinely closed
+    // (services/research/reviewerAgreement.ts), so the canary flips from
+    // "must not fabricate" to "must derive from the real record".
     const src = stripComments(readSource(ROUTE));
     const block = src.match(/'submit-review':\s*\{[^}]*\}/);
     expect(block).not.toBeNull();
-    expect(block![0].replace(/\s/g, '')).toBe("'submit-review':{}");
+    expect(block![0].replace(/\s/g, '')).toBe("'submit-review':{collaborationAgreementAuthorized}");
+    expect(src).toContain('isReviewerAgreementAuthorized(');
+    // Never a client-supplied or request-derived value.
+    const start = src.indexOf('let collaborationAgreementAuthorized');
+    const body = src.slice(start, src.indexOf('const platformState', start));
+    expect(body).toContain('persona.personaId');
+    expect(body).not.toMatch(/req\.|body\?|searchParams/);
   });
 });
 
