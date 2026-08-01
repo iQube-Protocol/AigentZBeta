@@ -19,6 +19,7 @@ import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPerson
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
+import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -5747,6 +5748,15 @@ export default function SmartWalletDrawer({
                     Session active · Wallet {isWalletUnlocked ? 'unlocked' : hasAnyPersona ? 'locked' : 'unavailable'}
                   </div>
                 </div>
+                {/* THE MISSING HALF OF THE PASSKEY CEREMONY (2026-08-02).
+                    The enrol routes existed, ratified and working, with NO
+                    client caller anywhere — so no citizen could ever register
+                    a passkey, and every "Continue with passkey" ran against an
+                    authenticator holding nothing. This is the first place a
+                    citizen is both signed in AND looking at their Passport, so
+                    it is where a passkey is offered. Optional by design: the
+                    wallet-password path stays complete without it. */}
+                <PasskeyEnrolmentPanel />
                 <button
                   type="button"
                   onClick={() => {

@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { readSource, stripComments } from "./_lib/sourceAuthority";
+import { readSource, stripComments, importAuthority } from "./_lib/sourceAuthority";
 
 const PANEL = "components/companion/PassportConnectPanel.tsx";
 
@@ -525,5 +525,70 @@ describe("Custody audit is recorded, and the panel points at it", () => {
   it("the audit explicitly forbids the unsafe shape", () => {
     const doc = readSource("codexes/packs/agentiq/updates/2026-08-02_wallet-custody-and-password-identity-audit.md");
     expect(doc).toMatch(/persona \+ password → plaintext private key returned by server/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Passkey ENROLMENT — the missing half (root cause, 2026-08-02)
+// ─────────────────────────────────────────────────────────────────────────
+
+const ENROL_PANEL = "components/passport/PasskeyEnrolmentPanel.tsx";
+
+describe("Passkey enrolment exists and is reachable — the reason the passkey path never worked", () => {
+  it("a client component finally calls the enrol routes, which previously had ZERO callers", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("/api/passport/passkey/enrol-options");
+    expect(src).toContain("/api/passport/passkey/enrol-verify");
+  });
+
+  it("uses the library's startRegistration with the optionsJSON shape the installed version declares", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("startRegistration({ optionsJSON: opt.options })");
+  });
+
+  it("both enrol routes are spine endpoints, so they are reached via personaFetch — never raw fetch", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain('personaFetch("/api/passport/passkey/enrol-options"');
+    expect(src).toContain('personaFetch("/api/passport/passkey/enrol-verify"');
+    expect(src).not.toMatch(/[^a-zA-Z]fetch\("\/api\//);
+  });
+
+  it("classifies enrolment failures via WebAuthnError, never a bare retry message", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("err instanceof WebAuthnError");
+    expect(src).toContain("ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED");
+  });
+
+  it("treats 'already registered' as SUCCESS, not an error — the device already has what was asked for", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    const start = src.indexOf("function classifyEnrolmentError(");
+    const body = src.slice(start, src.indexOf("\n}", start));
+    const prevAt = body.indexOf("ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED");
+    const branch = body.slice(prevAt, body.indexOf("case", prevAt + 10));
+    expect(branch).toContain("alreadyEnrolled: true");
+  });
+
+  it("renders nothing where WebAuthn is unsupported — a control that cannot act must not render", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("if (supported === false) return null;");
+  });
+
+  it("resolves browser support after mount, never during render (no SSR/CSR mismatch)", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("useEffect(() => {\n    setSupported(browserSupportsWebAuthn());");
+  });
+
+  it("is mounted where a signed-in citizen actually reaches it — the connected-Passport wallet surface", () => {
+    const drawer = stripComments(readSource("app/components/content/SmartWalletDrawer.tsx"));
+    expect(drawer).toContain("<PasskeyEnrolmentPanel />");
+    const graph = importAuthority(readSource("app/components/content/SmartWalletDrawer.tsx"));
+    expect(graph.records.some((r) => r.names.includes("PasskeyEnrolmentPanel"))).toBe(true);
+  });
+
+  it("enrolment adds a credential only — it never grants access or changes authority", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    for (const forbidden of ["evaluateAccess", "access_grants", "claimAccessInvitation", "unlockWallet("]) {
+      expect(src, `enrolment must not touch ${forbidden}`).not.toContain(forbidden);
+    }
   });
 });

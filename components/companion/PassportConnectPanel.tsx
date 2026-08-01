@@ -198,13 +198,20 @@
  * plaintext, including on the server); resetting the Supabase password
  * changes nothing about the encrypted wallet blob.
  *
- * PASSKEY FAILURE DIAGNOSIS: `classifyPasskeyStartError` below replaces the
- * old single generic retry message. Root cause of "the passkey path is
- * currently failing": this app has a fully built, ratified server-side
- * enrollment ceremony (`/api/passport/passkey/enrol-{options,verify}`,
- * `services/passport/passkeyService.ts`) with **zero client caller anywhere
- * in the app** — no UI ever invokes it, so no citizen has ever been able to
- * register a passkey credential. Every `auth-options`/`startAuthentication`
+ * PASSKEY FAILURE DIAGNOSIS — ROOT CAUSE FOUND AND FIXED (2026-08-02).
+ * `classifyPasskeyStartError` below replaces the old single generic retry
+ * message. The reason the passkey path failed was never on THIS side: the
+ * server-side enrolment ceremony (`/api/passport/passkey/enrol-{options,verify}`,
+ * `services/passport/passkeyService.ts`, its credential table and migration)
+ * was fully built and ratified with **zero client caller anywhere in the
+ * app** — so no citizen had ever been able to REGISTER a passkey, and every
+ * authentication attempt ran correctly against an authenticator holding no
+ * credential for this relying party.
+ *
+ * `components/passport/PasskeyEnrolmentPanel.tsx` is that missing caller,
+ * mounted on the connected-Passport wallet surface where a citizen is both
+ * signed in and looking at their Passport. Enrol once there, and
+ * "Continue with passkey" works from then on. Every `auth-options`/`startAuthentication`
  * attempt today therefore legitimately finds zero discoverable credentials on
  * the authenticator, which the WebAuthn spec surfaces as `NotAllowedError` —
  * the SAME error a deliberate user cancel produces (browsers deliberately
