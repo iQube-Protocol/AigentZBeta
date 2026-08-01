@@ -201,7 +201,10 @@ type ConnectState =
   | { kind: "working"; step: string }
   | { kind: "error"; message: string };
 
-interface PassportFacts {
+/** Exported (2026-08-02) so a host — e.g. SmartWalletDrawer's PASSPORT_CONNECTED
+ *  surface — can render the real connected facts `onConnected` now carries,
+ *  never a guessed or fabricated summary. */
+export interface PassportFacts {
   passportClass: string | null;
   citizenStatus: string | null;
   participantStatus: string | null;
@@ -231,8 +234,15 @@ function displayOrigin(): string {
 }
 
 export interface PassportConnectPanelProps {
-  /** Called after a session exists, so the host can re-resolve identity. */
-  onConnected?: () => void;
+  /**
+   * Called after a session exists, so the host can re-resolve identity.
+   * Carries the same `PassportFacts` this panel already displays in its own
+   * "Connected" state (2026-08-02 addition) — never a second, independently
+   * fetched summary; a host that wants to show "Citizen Passport" details
+   * (e.g. SmartWalletDrawer's PASSPORT_CONNECTED surface) reads them from
+   * here rather than re-deriving them.
+   */
+  onConnected?: (passport?: PassportFacts) => void;
   /**
    * Which STORAGE WORLD this panel is mounted in (ruling A.7 — the Companion
    * is preferred, never exclusive; a mount outside it must exist or the
@@ -565,13 +575,13 @@ export function PassportConnectPanel({
         }
         if (!handledByBridge && (!popup || popup.closed)) {
           setState({ kind: "connected", passport: grant.passport, handoffUrl });
-          onConnected?.();
+          onConnected?.(grant.passport);
           return;
         }
       }
 
       setState({ kind: "connected", passport: grant.passport }); // E
-      onConnected?.();
+      onConnected?.(grant.passport);
     },
     [onConnected, world],
   );

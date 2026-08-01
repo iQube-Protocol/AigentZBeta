@@ -497,7 +497,11 @@ describe('the Companion session reaches the application', () => {
     // as "connected" with no recourse.
     const panel = stripComments(readSource(CONNECT_PANEL));
     expect(panel).toMatch(/if \(!handledByBridge && \(!popup \|\| popup\.closed\)\)/);
-    expect(panel).toMatch(/handoffUrl \}\);\s*onConnected\?\.\(\);\s*return;/);
+    // `onConnected` now carries the connected PassportFacts (2026-08-02,
+    // added for SmartWalletDrawer's PASSPORT_CONNECTED surface) — the
+    // property under test is unchanged: a call still fires here regardless
+    // of what argument it now passes.
+    expect(panel).toMatch(/handoffUrl \}\);\s*onConnected\?\.\([^)]*\);\s*return;/);
     // The fallback renders a real user-gesture retry, so it is never blocked.
     // It also tries the SAME bridge first (a manual retry from inside the
     // side panel iframe is just as subject to the wrong-window defect), and
@@ -583,8 +587,11 @@ const WALLET_DRAWER = 'app/components/content/SmartWalletDrawer.tsx';
 describe('the wallet itself offers the Passport door, not only a password form', () => {
   it('imports the SAME PassportConnectPanel the Companion and /passport-connect already use — no fork', () => {
     const code = stripComments(readSource(WALLET_DRAWER));
+    // Also imports the `PassportFacts` TYPE (2026-08-02, for the
+    // PASSPORT_CONNECTED surface) — a type-only addition alongside the same
+    // component import, never a second component.
     expect(code).toMatch(
-      /import \{ PassportConnectPanel \} from ["']@\/components\/companion\/PassportConnectPanel["']/,
+      /import \{ PassportConnectPanel(?:, type PassportFacts)? \} from ["']@\/components\/companion\/PassportConnectPanel["']/,
     );
     // One call site of the mechanics, not a hand-rolled second implementation
     // of the challenge/proof/finalize sequence inside the drawer itself.
@@ -608,19 +615,32 @@ describe('the wallet itself offers the Passport door, not only a password form',
   });
 
   it('the passport door is offered unconditionally while signed out — never gated behind the legacy "Sign In" click', () => {
+    // REVISED 2026-08-02 (wallet-surface convergence): the persona dropdown
+    // no longer mounts PassportConnectPanel directly — it may INITIATE
+    // sign-in, never HOST the ceremony (operator ruling). The door here is
+    // now the "Sign in with Passport" entry row, which sets `walletSurface`;
+    // the ceremony itself renders in the drawer's main body via the
+    // `walletSurface !== null` branch, reachable regardless of tab.
     const code = stripComments(readSource(WALLET_DRAWER));
-    const panelAt = code.indexOf('<PassportConnectPanel');
+    const doorAt = code.indexOf("Sign in with Passport");
     const legacyFormAt = code.indexOf('!sessionEmail && signingIn');
-    expect(panelAt).toBeGreaterThan(-1);
+    expect(doorAt, 'the persona-menu entry row is missing').toBeGreaterThan(-1);
     expect(legacyFormAt).toBeGreaterThan(-1);
     // Sequenced ahead of the legacy form, per §3's funnel ordering.
-    expect(panelAt).toBeLessThan(legacyFormAt);
-    // The nearest `!sessionEmail && (` wrapper before the panel must not also
+    expect(doorAt).toBeLessThan(legacyFormAt);
+    // The nearest `!sessionEmail && (` wrapper before the door must not also
     // require `signingIn` — a regression that re-adds that gate would hide
     // the door behind the same click it exists to remove.
-    const wrapperStart = code.lastIndexOf('{!sessionEmail && (', panelAt);
-    expect(wrapperStart, 'no unconditional !sessionEmail wrapper precedes the panel').toBeGreaterThan(-1);
-    expect(code.slice(wrapperStart, panelAt)).not.toContain('signingIn');
+    const wrapperStart = code.lastIndexOf('{!sessionEmail && (', doorAt);
+    expect(wrapperStart, 'no unconditional !sessionEmail wrapper precedes the door').toBeGreaterThan(-1);
+    expect(code.slice(wrapperStart, doorAt)).not.toContain('signingIn');
+    // The row INITIATES — it sets the wallet-level surface and closes the
+    // dropdown — it must never itself mount the ceremony.
+    const doorBlockEnd = code.indexOf('</button>', doorAt);
+    const doorBlock = code.slice(wrapperStart, doorBlockEnd);
+    expect(doorBlock).toContain("setWalletSurface('PASSPORT_SIGN_IN')");
+    expect(doorBlock).toContain('setPersonaMenuOpen(false)');
+    expect(doorBlock, 'the dropdown must not mount the ceremony itself').not.toContain('<PassportConnectPanel');
   });
 
   it('the legacy email/password path still exists — this is additive, not a replacement (§3/§18 invariant 3 is a later, separately-scoped phase)', () => {

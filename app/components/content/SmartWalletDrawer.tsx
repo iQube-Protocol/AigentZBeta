@@ -18,7 +18,7 @@ import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
-import { PassportConnectPanel } from "@/components/companion/PassportConnectPanel";
+import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -166,6 +166,24 @@ const isMotionContent = (ent: any): boolean => {
 };
 
 type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments" | "connections" | "iqube";
+
+/**
+ * The wallet-level surface override (operator ruling, 2026-08-02: "the
+ * persona menu may INITIATE Passport sign-in, it may not HOST it"). When
+ * non-null, this REPLACES the entire tab-nav + tab-content region — not one
+ * more thing stacked inside a tab — so any entry point (the persona menu's
+ * "Sign in with Passport" row, or a future access gate / Companion prompt /
+ * Threshold onboarding / Passport Bureau CTA) reaches the SAME ceremony
+ * regardless of which `DrawerTab` happened to be active when it fired. This
+ * is deliberately narrow: it is NOT a rewrite of the tab system below, and
+ * it does NOT introduce pair-device/cloud-backup/recovery-contact
+ * infrastructure — `RECOVERY_OPTIONS` is reserved for that day but nothing
+ * sets it yet, since `PassportConnectPanel` already owns its own internal
+ * recovery states (see that file's `NoLocalWalletState`) and duplicating
+ * them at this layer would be exactly the parallel-implementation defect
+ * inv.engineering.037 forbids.
+ */
+type WalletSurface = null | "PASSPORT_SIGN_IN" | "PASSPORT_CONNECTED" | "RECOVERY_OPTIONS";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -446,6 +464,18 @@ export default function SmartWalletDrawer({
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  // Wallet-surface override (see the WalletSurface type's own doc comment).
+  // `activeTab` itself is never touched by this state — the overlay renders
+  // ON TOP OF whatever tab was active, so clearing it back to `null` (Back,
+  // or a successful connection's "Return to Wallet Home") naturally reveals
+  // the SAME tab the visitor was already on, with no separate "previous tab"
+  // tracker required.
+  const [walletSurface, setWalletSurface] = useState<WalletSurface>(null);
+  const [connectedPassport, setConnectedPassport] = useState<PassportFacts | null>(null);
+  // Auto-opens PASSPORT_SIGN_IN exactly once per signed-out visit — never
+  // re-fires after an explicit Back, and resets once the visitor is
+  // genuinely signed in so a LATER sign-out prompts again.
+  const autoPromptedPassportSignInRef = useRef(false);
   // showArchivedPersonas + archivedPersonas are declared earlier (above the
   // allAvailablePersonas useMemo) so the deps array doesn't hit TDZ in prod.
   const [signingIn, setSigningIn] = useState(false);
@@ -483,6 +513,28 @@ export default function SmartWalletDrawer({
       setLocalPersonaId(sessionPersonas[0].id);
     }
   }, [personaId, sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
+
+  // Auto-open the wallet-level Passport sign-in surface for a signed-out
+  // visitor, regardless of which tab is active (operator ruling, 2026-08-02:
+  // "an application access gate or account-menu sign-in action must work
+  // regardless of whichever wallet tab was previously active"). Waits for
+  // `useSupabaseSessionPersonas`'s own resolution to finish so an
+  // already-signed-in citizen never sees a flash of the sign-in surface.
+  // Fires at most once per signed-out visit — an explicit Back
+  // (`walletSurface` returning to `null`) is a deliberate dismissal, not a
+  // "try again" signal, so the ref guard prevents this effect from
+  // reopening it on the very next render.
+  useEffect(() => {
+    if (sessionPersonasLoading) return;
+    if (sessionEmail) {
+      autoPromptedPassportSignInRef.current = false;
+      return;
+    }
+    if (autoPromptedPassportSignInRef.current) return;
+    if (walletSurface !== null) return;
+    autoPromptedPassportSignInRef.current = true;
+    setWalletSurface('PASSPORT_SIGN_IN');
+  }, [sessionEmail, sessionPersonasLoading, walletSurface]);
 
   // When the session-resolved active persona has a registered EVM address, upgrade the
   // balance query address so on-chain Q¢ resolves to the persona's FIO-canonical wallet.
@@ -2534,70 +2586,35 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
 
-                {/* Passport-native connect — PAS-001 §20 Phase 2 (2026-07-31): the
-                    passport-first entry door, offered ahead of and alongside the
-                    legacy password path below (never replacing it yet — §3/§18
-                    invariant 3's "password becomes a step within the funnel"
-                    reordering is a later, separately-scoped phase). Always visible
-                    while signed out, not gated behind the "Sign In" click below, so
-                    a citizen with a wallet is never funneled into the password form
-                    first.
-                    Reuses the SAME `/api/passport-connect/*` mechanics
-                    `PassportConnectPanel` already implements for the Companion and
-                    `/passport-connect` — composition, not a fork
-                    (inv.engineering.036/037). `world="application"` on the premise
-                    that this drawer mounts in the top-level application document,
-                    never inside the Companion's cross-origin iframe partition, so
-                    Ruling A.7's handoff-tab dance does not apply here — the session
-                    and persona pin land directly in this document's storage.
-                    CORRECTION (2026-08-01): that premise does not hold for every
-                    mount of this file — `app/(embed)/triad/embed/companion/page.tsx`'s
-                    `activeSurface === "wallet"` branch mounts THIS component
-                    directly inside the Companion's own iframe. It is a live no-op
-                    there today only because that branch wraps the mount in its own
-                    `gated()` check, which never renders this drawer at all until
-                    `identity && personaId` already resolved — meaning a session,
-                    and therefore `sessionEmail`, is already true by the time this
-                    branch could render. Do not rely on that as a guarantee if this
-                    drawer is ever reached from inside the Companion WITHOUT an
-                    outer identity gate (e.g. a future direct
-                    `walletPanelOpen` mount inside a Companion-hosted
-                    `CodexCopilotLayer`) — that path would need `world="companion"`
-                    here, the same as `PassportConnectPanel`'s own Companion
-                    `connectGate` mount, or the session this panel establishes
-                    would land only in the iframe's own partition with no handoff
-                    to the top-level app tab. */}
+                {/* Passport-native connect — PAS-001 §20 Phase 2 (2026-07-31),
+                    REVISED 2026-08-02 (wallet-surface convergence): the
+                    persona menu INITIATES Passport sign-in, it does not HOST
+                    it. Mounting the full `PassportConnectPanel` ceremony
+                    inside this small popover was itself the wrong surface —
+                    an authentication ceremony belongs in the wallet's own
+                    main body, not an account dropdown, independent of
+                    whether any individual step happens to render full-screen
+                    or inline. This row only sets `walletSurface` and closes
+                    the dropdown; the ceremony renders in the drawer body via
+                    the `walletSurface !== null` branch below, which is
+                    reachable from every tab, not just this dropdown.
+                    Always visible while signed out, not gated behind the
+                    "Sign In" click below, so a citizen with a wallet is
+                    never funneled into the legacy password form first. */}
                 {!sessionEmail && (
-                  <div className="border-b border-slate-800">
-                    <PassportConnectPanel
-                      world="application"
-                      // Embedded (2026-08-02): this panel is nested inside the
-                      // persona menu's own small dropdown — its wallet-unlock
-                      // step must render inline, not as a SECOND viewport-
-                      // covering modal stacked on top of the drawer (the
-                      // nested-modal-inside-modal defect the operator flagged).
-                      embedded
-                      onConnected={() => {
-                        // The panel already pinned the chosen persona to
-                        // localStorage directly (ruling A.11.2) — but a same-tab
-                        // localStorage write does not fire the native `storage`
-                        // event PersonaContext's listener needs (only OTHER tabs
-                        // receive that event for a same-document write). Route the
-                        // pinned id through the existing `ctxSetActivePersonaId`
-                        // so the SAME write+dispatch+broadcast path every other
-                        // persona switch in this file already uses fires here too
-                        // — composition, never a parallel pin.
-                        try {
-                          const pinned = window.localStorage.getItem('currentPersonaId');
-                          if (pinned) ctxSetActivePersonaId(pinned);
-                        } catch {
-                          /* ignore */
-                        }
-                        void refreshPersonas();
+                  <div className="border-b border-slate-800 p-3">
+                    <button
+                      type="button"
+                      onClick={() => {
                         setPersonaMenuOpen(false);
+                        setWalletSurface('PASSPORT_SIGN_IN');
                       }}
-                    />
-                    <div className="flex items-center gap-2 px-3 pb-3">
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 px-3 py-2 text-sm text-white transition-colors hover:from-purple-500/30 hover:to-cyan-500/30"
+                    >
+                      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                      Sign in with Passport
+                    </button>
+                    <div className="flex items-center gap-2 pt-3">
                       <div className="h-px flex-1 bg-slate-800" />
                       <span className="text-[10px] uppercase tracking-wider text-white/30">or</span>
                       <div className="h-px flex-1 bg-slate-800" />
@@ -3124,6 +3141,14 @@ export default function SmartWalletDrawer({
           );
         })()}
 
+        {/* Wallet-surface override (operator ruling, 2026-08-02): when a
+            Passport entry point has set `walletSurface`, it REPLACES the
+            entire tab-nav + tab-content region below — not one more tab, and
+            not a second popup — so it is reachable identically regardless of
+            which `DrawerTab` was active. `walletSurface === null` preserves
+            every byte of the existing tab system unchanged. */}
+        {walletSurface === null ? (
+        <>
         {/* Tab Navigation.
             Companion 1.1 (2026-07-29): when `simplifiedTopChrome` hid the top
             row's Copilot toggle, it is re-added here as one more icon and the
@@ -3556,31 +3581,27 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
-              {/* Signed OUT entirely (2026-08-02): the previous "Create your
-                  first persona" copy was WRONG here — it told a visitor with
-                  no session at all to create a persona, when what they
-                  actually need is to sign in. The wallet's own Wallet tab is
-                  now a real Passport sign-in surface for this case — the
-                  header's persona-menu dropdown (above) still offers the
-                  same panel for a citizen who prefers not to switch tabs,
-                  but this is now the primary, always-visible entrance,
-                  matching every other tab a signed-out visitor might land on
-                  first via `initialTab`. */}
+              {/* Signed OUT entirely (2026-08-02, revised): the wallet-level
+                  `walletSurface` override (rendered above the whole tab-nav +
+                  content region — see its own block below) is now the ONE
+                  place Passport sign-in actually runs, auto-opened the
+                  moment this drawer resolves a signed-out visitor,
+                  regardless of which tab they land on. This branch is only
+                  ever visible in the narrow window BEFORE that auto-open
+                  fires, or after the visitor explicitly dismissed it (Back)
+                  — it may only OFFER re-entry, never host a second copy of
+                  the ceremony (the same "menu initiates, wallet hosts" rule
+                  the persona dropdown's own entry row is bound by). */}
               {!sessionEmail ? (
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
-                  <PassportConnectPanel
-                    world="application"
-                    embedded
-                    onConnected={() => {
-                      try {
-                        const pinned = window.localStorage.getItem('currentPersonaId');
-                        if (pinned) ctxSetActivePersonaId(pinned);
-                      } catch {
-                        /* ignore */
-                      }
-                      void refreshPersonas();
-                    }}
-                  />
+                  <div className="text-sm text-white/80 mb-2">Sign in with your Passport to unlock wallet features.</div>
+                  <button
+                    type="button"
+                    onClick={() => setWalletSurface('PASSPORT_SIGN_IN')}
+                    className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 text-white text-sm"
+                  >
+                    Sign in with Passport
+                  </button>
                 </section>
               ) : !hasAnyPersona ? (
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
@@ -5666,6 +5687,91 @@ export default function SmartWalletDrawer({
             </div>
           </div>
         </div>
+        </>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            {walletSurface !== 'PASSPORT_CONNECTED' && (
+              <button
+                type="button"
+                onClick={() => setWalletSurface(null)}
+                className="mb-3 flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-white/70 transition-colors hover:bg-white/10"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                Back
+              </button>
+            )}
+
+            {walletSurface === 'PASSPORT_SIGN_IN' && (
+              <PassportConnectPanel
+                world="application"
+                embedded
+                onConnected={(passport) => {
+                  // Same re-pin as every other persona switch in this file —
+                  // composition, never a parallel write (see the dropdown
+                  // entry row's own comment history for why this matters).
+                  try {
+                    const pinned = window.localStorage.getItem('currentPersonaId');
+                    if (pinned) ctxSetActivePersonaId(pinned);
+                  } catch {
+                    /* ignore */
+                  }
+                  void refreshPersonas();
+                  setConnectedPassport(passport ?? null);
+                  setWalletSurface('PASSPORT_CONNECTED');
+                }}
+              />
+            )}
+
+            {walletSurface === 'PASSPORT_CONNECTED' && (
+              <div className="space-y-4">
+                <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
+                    <ShieldCheck className="h-6 w-6 text-emerald-400" aria-hidden="true" />
+                  </div>
+                  <div className="text-sm font-medium text-emerald-300">Passport connected</div>
+                  {connectedPassport?.passportClass && (
+                    <div className="mt-1 text-xs text-white/60">
+                      Citizen Passport · {connectedPassport.passportClass}
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-white/60">
+                    {activePersona?.displayName || activePersona?.fioHandle || 'Persona resolved'}
+                  </div>
+                  {/* Honest three-state read of ALREADY-tracked local state
+                      (this.isWalletUnlocked) — never fabricated. A passkey
+                      connection never touches local wallet key material at
+                      all (see PassportConnectPanel's own header), so
+                      "unavailable" is the correct, common resting state for
+                      it, not a bug. */}
+                  <div className="mt-1 text-[11px] text-white/40">
+                    Session active · Wallet {isWalletUnlocked ? 'unlocked' : hasAnyPersona ? 'locked' : 'unavailable'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWalletSurface(null);
+                    setConnectedPassport(null);
+                  }}
+                  className="w-full rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 px-3 py-2 text-sm text-white transition-colors hover:from-purple-500/30 hover:to-cyan-500/30"
+                >
+                  Continue to Wallet Home
+                </button>
+              </div>
+            )}
+
+            {/* Reserved, unreached today (see the WalletSurface type's own
+                doc comment) — nothing in this file sets this yet, so this
+                honestly names what is missing rather than fabricating a
+                recovery flow that does not exist. */}
+            {walletSurface === 'RECOVERY_OPTIONS' && (
+              <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4 text-xs text-white/60">
+                Recovery options are not yet available as a standalone wallet surface — use
+                &quot;Using a new device?&quot; inside Passport sign-in.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Unlock Modal */}
