@@ -255,6 +255,14 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'marketa_eligibility_assessed',
   'marketa_eligibility_refused',
   'marketa_eligibility_quarantined',
+  // Wallet Signing Topology (operator ruling 2026-08-01), Register vertical
+  // slice — same permitted addition-only change. Each is a step of the
+  // ceremony's evidence chain and must be independently anchorable.
+  'principal_registration_mandate_signed',
+  'agent_registry_transaction_signed',
+  'horizen_registration_submitted',
+  'horizen_registration_confirmed',
+  'agent_registry_binding_recorded',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

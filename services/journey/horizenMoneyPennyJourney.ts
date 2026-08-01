@@ -43,8 +43,35 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: [],
       permittedActions: ['view-registration'],
-      completionEvidence: ['aigentQubeResolved', 'tokenId', 'registryRereadOk', 'ownerWalletMatches', 'agentCardResolves'],
-      receiptTypes: ['agent_card_discovered', 'horizen_agent_registered'],
+      // Wallet Signing Topology (operator ruling 2026-08-01): Register can
+      // only reach COMPLETE once the full wallet-mediated ceremony has run —
+      // principal mandate signed, agent wallet approved invocation, tx
+      // broadcast, Horizen reread confirmed, binding recorded. The original
+      // five fields remain (aigentQubeResolved/agentCardResolves are still
+      // real prerequisites; tokenId/registryRereadOk/ownerWalletMatches are
+      // superseded in spirit by the five new fields but kept for backward
+      // evidence continuity) — this is an ADDITION, never a relaxation.
+      completionEvidence: [
+        'aigentQubeResolved',
+        'tokenId',
+        'registryRereadOk',
+        'ownerWalletMatches',
+        'agentCardResolves',
+        'principalRegistrationMandateSigned',
+        'agentRegistryTransactionSigned',
+        'horizenRegistrationSubmitted',
+        'horizenRegistrationConfirmed',
+        'agentRegistryBindingRecorded',
+      ],
+      receiptTypes: [
+        'agent_card_discovered',
+        'horizen_agent_registered',
+        'principal_registration_mandate_signed',
+        'agent_registry_transaction_signed',
+        'horizen_registration_submitted',
+        'horizen_registration_confirmed',
+        'agent_registry_binding_recorded',
+      ],
       companion: {
         before:
           'MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',

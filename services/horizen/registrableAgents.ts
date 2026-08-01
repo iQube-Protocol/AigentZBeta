@@ -81,6 +81,12 @@ export function resolveRegistrableAgent(slug: string | null | undefined): Regist
   return REGISTRABLE_AGENTS[slug] ?? null;
 }
 
+/** Looks up by `runtimeAgentId` (e.g. 'aigent-nakamoto') rather than slug (e.g. 'nakamoto') — the two are NOT interchangeable inputs to resolveRegistrableAgent. Needed wherever a caller only has the runtimeAgentId on hand (e.g. a SigningRequest's subjectAgentRef/walletRef, services/horizen/registerCeremony.ts). */
+export function resolveRegistrableAgentByRuntimeId(runtimeAgentId: string | null | undefined): RegistrableAgentConfig | null {
+  if (!runtimeAgentId) return null;
+  return listRegistrableAgents().find((a) => a.runtimeAgentId === runtimeAgentId) ?? null;
+}
+
 export function listRegistrableAgents(): RegistrableAgentConfig[] {
   return Object.values(REGISTRABLE_AGENTS);
 }

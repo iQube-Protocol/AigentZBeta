@@ -96,6 +96,27 @@ export async function POST(request: NextRequest) {
           agentsInvoked: [a.runtimeAgentId],
           actionInput: { aigentQubeId: a.aigentQubeId, network, txHash },
         });
+        // Wallet Signing Topology (operator ruling 2026-08-01) — two of the
+        // ceremony's five INDEPENDENT evidence types are only knowable here,
+        // at the same moment confirmation + reread succeed. Written
+        // alongside horizen_agent_registered, never replacing it — that
+        // receipt remains the pre-ceremony completion evidence.
+        await createActivityReceipt({
+          personaId: actorPersonaId,
+          activeCartridge: 'agentiq',
+          actionType: 'horizen_registration_confirmed',
+          summary: `Horizen confirmed ${a.displayName}'s registration on reread (${network}, tx ${txHash})`,
+          agentsInvoked: [a.runtimeAgentId],
+          actionInput: { aigentQubeId: a.aigentQubeId, network, txHash },
+        });
+        await createActivityReceipt({
+          personaId: actorPersonaId,
+          activeCartridge: 'agentiq',
+          actionType: 'agent_registry_binding_recorded',
+          summary: `${a.displayName}'s Horizen registry binding recorded on her AigentQube (${network})`,
+          agentsInvoked: [a.runtimeAgentId],
+          actionInput: { aigentQubeId: a.aigentQubeId, network, txHash },
+        });
         return receipt?.id ?? null;
       },
     },

@@ -283,7 +283,20 @@ export type ActivityActionType =
   // a DRAFT assessment. See services/marketa/admissionAssessmentEngine.ts.
   | 'marketa_eligibility_assessed'
   | 'marketa_eligibility_refused'
-  | 'marketa_eligibility_quarantined';
+  | 'marketa_eligibility_quarantined'
+  // Wallet Signing Topology (operator ruling 2026-08-01), Register vertical
+  // slice — five INDEPENDENT evidence types, one per ceremony step, so
+  // Register can only reach COMPLETE once every step of the wallet-mediated
+  // ceremony (principal mandate → agent-wallet approval → broadcast →
+  // Horizen reread → binding recorded) has actually happened — never
+  // collapsed into the single horizen_agent_registered receipt, which
+  // remains as the pre-ceremony completion evidence for backward
+  // compatibility. See services/horizen/registerCeremony.ts.
+  | 'principal_registration_mandate_signed'
+  | 'agent_registry_transaction_signed'
+  | 'horizen_registration_submitted'
+  | 'horizen_registration_confirmed'
+  | 'agent_registry_binding_recorded';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

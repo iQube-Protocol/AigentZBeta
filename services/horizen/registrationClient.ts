@@ -146,7 +146,7 @@ async function listRegistrationTools(mcpClient: RegistrationMcpClient) {
   return { tools, byName };
 }
 
-interface UnsignedTx {
+export interface UnsignedTx {
   to?: string;
   data?: string;
   value?: string | number;

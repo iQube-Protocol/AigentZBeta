@@ -32,6 +32,13 @@ export const dynamic = 'force-dynamic';
 const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'agent_card_discovered',
   'horizen_agent_registered',
+  // Wallet Signing Topology (operator ruling 2026-08-01) — the Register
+  // ceremony's five independent evidence types.
+  'principal_registration_mandate_signed',
+  'agent_registry_transaction_signed',
+  'horizen_registration_submitted',
+  'horizen_registration_confirmed',
+  'agent_registry_binding_recorded',
   'horizen_pulse_authorized',
   'horizen_pnl_transparency_enabled',
   'agent_card_enriched',
@@ -107,6 +114,14 @@ export async function GET(req: NextRequest) {
         registryRereadOk: hasReceipt('horizen_agent_registered'),
         ownerWalletMatches: hasReceipt('horizen_agent_registered'),
         agentCardResolves: !!agentCard,
+        // Wallet Signing Topology (operator ruling 2026-08-01) — Register
+        // reaches COMPLETE only once the full wallet-mediated ceremony has
+        // run, not merely on the pre-ceremony horizen_agent_registered receipt.
+        principalRegistrationMandateSigned: hasReceipt('principal_registration_mandate_signed'),
+        agentRegistryTransactionSigned: hasReceipt('agent_registry_transaction_signed'),
+        horizenRegistrationSubmitted: hasReceipt('horizen_registration_submitted'),
+        horizenRegistrationConfirmed: hasReceipt('horizen_registration_confirmed'),
+        agentRegistryBindingRecorded: hasReceipt('agent_registry_binding_recorded'),
       },
       verify: {
         pulseAuthorizationVerified: hasReceipt('horizen_pulse_authorized'),
