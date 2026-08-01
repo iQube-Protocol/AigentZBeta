@@ -84,6 +84,21 @@ export async function GET(
       requestSucceeded: true,
       reviewPackageReady,
       crystalStatus: 'candidate',
+      /*
+       * ASSESSED vs DOMAIN_UNPOPULATED, hoisted to the top of the payload
+       * (operator report, 2026-08-02).
+       *
+       * Nine failing checks over an empty domain read as nine defects in the
+       * crystal. They are not: they are the checks correctly declining to
+       * certify a set with nothing in it. A reader — human or agent — who
+       * meets the failures before the reason draws the wrong conclusion, and
+       * an external reviewer is precisely the reader we cannot afford to
+       * mislead about whether the work is broken or merely not yet done.
+       */
+      assessability: recommendation.assessability,
+      ...(recommendation.unpopulatedProvenance
+        ? { unpopulatedProvenance: recommendation.unpopulatedProvenance }
+        : {}),
       experimentId,
       crystalDomain: recommendation.crystalDomain,
       readiness,

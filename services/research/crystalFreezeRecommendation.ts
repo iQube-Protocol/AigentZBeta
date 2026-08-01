@@ -24,6 +24,56 @@ import { runCrystalStatisticsReport, type CrystalStatisticsReport } from '@/serv
 
 export type FreezeVerdict = 'READY_FOR_FREEZE' | 'NOT_READY';
 
+/**
+ * Was there anything to assess at all?
+ *
+ * ── The defect this closes (operator report, 2026-08-02) ───────────────────
+ *
+ * `NOT_READY` is two-valued, so an empty domain and a genuinely failing
+ * collection produce the SAME verdict and nine near-identical failures. The
+ * operator's own bundle read as nine defects in Crystal vP1; what it actually
+ * showed was a domain with no rows in it, where every check correctly declines
+ * to certify an empty set.
+ *
+ * That distinction matters most to the reader we can least afford to mislead.
+ * An external reviewer opening a package of nine failures concludes the crystal
+ * is broken. The truth is that the workstream which populates it has not run —
+ * a different fact, calling for a different response, from a different party.
+ *
+ * The VERDICT stays mechanically derived from `readiness.ok` (an unpopulated
+ * domain is emphatically not ready). This says whether the verdict was earned
+ * by assessment or reached by default.
+ */
+export type CrystalAssessability =
+  /** Rows existed and the checks ran against them. The verdict is a finding. */
+  | 'ASSESSED'
+  /** The domain holds no invariants. The verdict is a default, not a finding. */
+  | 'DOMAIN_UNPOPULATED';
+
+/**
+ * Why an unpopulated domain is expected right now — stated in the payload, not
+ * left for a reader to infer from nine zeroes.
+ *
+ * `crystalReadiness.ts`'s own header records this: no live `invariant_contexts`
+ * row carries the crystal domain tag, because Track 2 — the crystal
+ * source-material workstream — is separately chartered and PAUSED. Its plan
+ * (CRYSTAL-ENLARGEMENT_plan.md, status PLANNED) is explicit that this is
+ * "genuine lab work, not a quick fix", that the collection must grow through
+ * receipted `proposed → validated` accrual, and that "no invariant is authored
+ * to hit a number".
+ *
+ * So this is not a defect to be fixed in code, and must never be presented as
+ * one — nor worked around by relaxing the readiness filter, which would admit
+ * unvalidated rows to make a count rise.
+ */
+export const DOMAIN_UNPOPULATED_PROVENANCE =
+  'This crystal domain holds no invariants yet. The readiness checks below therefore report zero and fail ' +
+  'closed — that is the checks behaving correctly on an empty set, not a finding about the collection. ' +
+  'Populating the domain is Track 2 (crystal enlargement), a separately chartered workstream: see ' +
+  'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/CRYSTAL-ENLARGEMENT_plan.md. ' +
+  'It proceeds by receipted proposed→validated accrual and never by authoring invariants to reach a number, ' +
+  'so no change to this software can make the domain ready.';
+
 export interface FreezeRationaleItem {
   id: string;
   label: string;
@@ -36,6 +86,10 @@ export interface CrystalFreezeRecommendation {
   experimentId: string;
   crystalDomain: string;
   verdict: FreezeVerdict;
+  /** Whether the verdict was earned by assessment or reached by default. */
+  assessability: CrystalAssessability;
+  /** Present only when `assessability` is 'DOMAIN_UNPOPULATED'. */
+  unpopulatedProvenance?: string;
   rationale: FreezeRationaleItem[];
   remainingRisks: string[];
   readiness: CrystalReadinessReport;
@@ -103,7 +157,14 @@ export function composeCrystalFreezeRecommendation(
         readiness.checks.filter((c) => !c.passed).map((c) => c.name).join(', '),
   });
 
+  // Nothing to assess is a different situation from assessed-and-failing, and
+  // it belongs FIRST — a reader who does not learn it up front reads the nine
+  // zeroes below as nine defects.
+  const assessability: CrystalAssessability =
+    readiness.invariantCount === 0 ? 'DOMAIN_UNPOPULATED' : 'ASSESSED';
+
   const remainingRisks: string[] = [];
+  if (assessability === 'DOMAIN_UNPOPULATED') remainingRisks.push(DOMAIN_UNPOPULATED_PROVENANCE);
   for (const item of rationale) {
     if (!item.satisfied) remainingRisks.push(`${item.label}: ${item.detail}`);
   }
@@ -138,6 +199,8 @@ export function composeCrystalFreezeRecommendation(
     experimentId,
     crystalDomain,
     verdict: readiness.ok ? 'READY_FOR_FREEZE' : 'NOT_READY',
+    assessability,
+    ...(assessability === 'DOMAIN_UNPOPULATED' ? { unpopulatedProvenance: DOMAIN_UNPOPULATED_PROVENANCE } : {}),
     rationale,
     remainingRisks,
     readiness,
