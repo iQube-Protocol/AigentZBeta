@@ -104,6 +104,16 @@ function mapToPersonaState(record: Record<string, unknown>): PersonaState {
 export interface SessionIdentity {
   sessionEmail: string | null;
   sessionPersonas: PersonaState[];
+  /**
+   * `null` when the last persona load succeeded (or has not run yet); the HTTP
+   * status when it failed; `0` when the request threw or was aborted.
+   *
+   * Consumers MUST distinguish this from `sessionPersonas.length === 0`.
+   * An empty list means "this account has no personas". A non-null value here
+   * means "we do not know what this account has" — and must never render as
+   * absence, nor offer to create a persona.
+   */
+  personasLoadFailed: number | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
@@ -124,6 +134,22 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
   const [sessionPersonas, setSessionPersonas] = useState<PersonaState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  /**
+   * Did the last persona load FAIL, as opposed to returning none?
+   *
+   * THE DEFECT THIS CLOSES (operator report, 2026-08-02): on a non-OK
+   * response — 401, 500, or the 12s abort — this hook logged a warning and
+   * returned WITHOUT setting anything, leaving `sessionPersonas` at `[]`.
+   * The drawer renders `[]` as "No personas yet. Create one to get started."
+   *
+   * So a transient failure was indistinguishable from an empty account, and
+   * the remedy it offered was actively harmful: an operator with existing
+   * personas is invited to create a duplicate. Worse, the real cause stayed
+   * invisible — nothing on screen said a request had failed at all.
+   *
+   * `null` = not yet determined. Fail UNKNOWN, never as absence.
+   */
+  const [personasLoadFailed, setPersonasLoadFailed] = useState<number | null>(null);
 
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -199,6 +225,9 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       clearTimeout(personaTimer);
       if (!res.ok) {
         console.warn('[useSupabaseSessionPersonas] /api/wallet/personas returned', res.status);
+        // Record the status so the surface can say "could not load" instead
+        // of "you have none" — and name the code, so the cause is visible.
+        setPersonasLoadFailed(res.status);
         return;
       }
       const data = await res.json();
@@ -215,9 +244,13 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       // callers but is no longer the default path. The hook signals
       // "must complete setup" via the empty list — see SessionIdentity
       // consumers in SmartWalletDrawer.
+      setPersonasLoadFailed(null);
       setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
     } catch {
-      // non-fatal — wallet still works without session personas
+      // non-fatal for the wallet, but the operator must still be told the
+      // list is UNKNOWN rather than empty — 0 stands for "the request threw
+      // or timed out", distinct from any real HTTP status.
+      setPersonasLoadFailed(0);
     } finally {
       setIsLoading(false);
     }
@@ -262,5 +295,5 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return () => subscription.unsubscribe();
   }, [fetchPersonas]);
 
-  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn, signUp, refreshPersonas };
+  return { sessionEmail, sessionPersonas, personasLoadFailed, isLoading, signOut, signIn, signUp, refreshPersonas };
 }

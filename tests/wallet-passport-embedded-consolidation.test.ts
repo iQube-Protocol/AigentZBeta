@@ -276,3 +276,85 @@ describe("SmartWalletDrawer — one ceremony, one mount, everywhere else is an e
     expect(before).toMatch(/!sessionEmail\s*\?/);
   });
 });
+
+/**
+ * A FAILED PERSONA LOAD IS NOT AN EMPTY ACCOUNT (operator report, 2026-08-02).
+ *
+ * The operator, signed in with existing personas, saw "No personas yet.
+ * Create one to get started." `useSupabaseSessionPersonas` returned early on
+ * any non-OK response — 401, 5xx, or the 12s abort — WITHOUT setting state, so
+ * `sessionPersonas` stayed `[]` and rendered identically to a genuinely empty
+ * account. Two harms, not one: the real failure was invisible (nothing on
+ * screen said a request had failed), and the remedy offered was actively
+ * wrong — an operator who already has personas is invited to create a
+ * duplicate.
+ *
+ * This is the same fail-faithful discipline the passkey and review-access
+ * work already applies: unknown must remain unknown. It must never collapse
+ * into absence, and absence must never be presented as fact when the only
+ * thing established is that the question could not be answered.
+ */
+describe("persona load failure is distinguishable from an empty account", () => {
+  const HOOK = "app/hooks/useSupabaseSessionPersonas.ts";
+
+  it("the hook exposes personasLoadFailed on its public contract, not just internally", () => {
+    const src = stripComments(readSource(HOOK));
+    const ifaceAt = src.indexOf("export interface SessionIdentity");
+    expect(ifaceAt).toBeGreaterThan(-1);
+    const iface = src.slice(ifaceAt, src.indexOf("}", ifaceAt));
+    expect(iface, "SessionIdentity must declare personasLoadFailed").toMatch(
+      /personasLoadFailed:\s*number\s*\|\s*null/,
+    );
+    expect(src, "and the hook must actually return it").toMatch(/return\s*\{[^}]*personasLoadFailed[^}]*\}/);
+  });
+
+  it("every non-OK / thrown persona fetch records the failure instead of returning silently", () => {
+    const src = stripComments(readSource(HOOK));
+    // The non-OK branch must set the status before returning — a bare
+    // `return;` here is the exact defect this suite exists to prevent.
+    expect(src).toMatch(/if\s*\(!res\.ok\)\s*\{[\s\S]{0,400}?setPersonasLoadFailed\(res\.status\)/);
+    // And the catch must record it too — an aborted/failed request is
+    // "unknown", not "none".
+    // (`stripComments` blanks comments in place, preserving length — the gap
+    // here is mostly the explanatory comment, not code.)
+    expect(src).toMatch(/catch[\s\S]{0,400}?setPersonasLoadFailed\(0\)/);
+    // A successful load clears it, so the unknown state is never sticky.
+    expect(src).toMatch(/setPersonasLoadFailed\(null\)/);
+  });
+
+  it("the persona dropdown's create-persona prompt is gated on a CONFIRMED empty list", () => {
+    const src = stripComments(readSource(WALLET_DRAWER));
+    const promptAt = src.indexOf("No personas yet. Create one to get started.");
+    expect(promptAt).toBeGreaterThan(-1);
+    // Walk back to the JSX guard that renders it.
+    const guardAt = src.lastIndexOf("sessionEmail &&", promptAt);
+    expect(guardAt).toBeGreaterThan(-1);
+    const guard = src.slice(guardAt, promptAt);
+    expect(
+      guard,
+      "the empty-state prompt must require personasLoadFailed === null — a load we could not complete says nothing about whether personas exist",
+    ).toContain("personasLoadFailed === null");
+  });
+
+  it("the Wallet tab's create-persona fallback is likewise gated, and offers Retry when the load failed", () => {
+    const src = stripComments(readSource(WALLET_DRAWER));
+    const promptAt = src.indexOf("Create your first persona to unlock wallet features");
+    expect(promptAt).toBeGreaterThan(-1);
+    const failedAt = src.lastIndexOf("Your personas could not be loaded.", promptAt);
+    expect(
+      failedAt,
+      "the could-not-load branch must be evaluated BEFORE the create-persona branch, or an unknown list falls through to it",
+    ).toBeGreaterThan(-1);
+    const between = src.slice(failedAt, promptAt);
+    expect(between).toContain("refreshPersonas()");
+    expect(between, "the failure branch must not offer persona creation as the remedy").not.toContain(
+      "setPersonaSetupOpen(true)",
+    );
+  });
+
+  it("no caller passes an argument to refreshPersonas — the hook takes none and forces a refetch itself", () => {
+    const src = stripComments(readSource(WALLET_DRAWER));
+    const bad = src.match(/refreshPersonas\(\s*[^)\s]/g) ?? [];
+    expect(bad, `refreshPersonas takes no parameters; found ${bad.join(", ")}`).toHaveLength(0);
+  });
+});

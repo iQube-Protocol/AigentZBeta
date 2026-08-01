@@ -350,7 +350,7 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
-  const { sessionEmail, sessionPersonas, isLoading: sessionPersonasLoading, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+  const { sessionEmail, sessionPersonas, personasLoadFailed, isLoading: sessionPersonasLoading, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
   const { getCartridgeDefault, setCartridgeDefault, activePersonaId: ctxActivePersonaId, setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
 
   // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
@@ -2924,8 +2924,33 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
 
-                {/* Signed in but no personas yet — prompt to create */}
-                {sessionEmail && allAvailablePersonas.length === 0 && (
+                {/* COULD NOT LOAD ≠ HAS NONE (operator report, 2026-08-02).
+                    A failed persona fetch used to render as "No personas yet.
+                    Create one to get started." — which hid the failure AND
+                    invited an operator with existing personas to create a
+                    duplicate. An unknown list must never offer that remedy. */}
+                {sessionEmail && personasLoadFailed !== null && (
+                  <div className="px-3 py-3 border-b border-white/10">
+                    <p className="text-xs text-amber-300">Your personas could not be loaded.</p>
+                    <p className="mt-1 text-[11px] text-white/40">
+                      This is a loading problem, not a sign that your personas are gone — nothing has been
+                      changed. Don&apos;t create a new one; retry instead.
+                    </p>
+                    <p className="mt-1 text-[10px] font-mono text-white/30">
+                      {personasLoadFailed === 0 ? 'request failed or timed out' : `HTTP ${personasLoadFailed}`}
+                      {personasLoadFailed === 401 ? ' — the session was not accepted; signing out and back in usually clears it' : ''}
+                    </p>
+                    <button
+                      onClick={() => void refreshPersonas()}
+                      className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-slate-900"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {/* Signed in and CONFIRMED to have none — prompt to create */}
+                {sessionEmail && personasLoadFailed === null && allAvailablePersonas.length === 0 && (
                   <div className="px-3 py-3 border-b border-white/10">
                     <p className="text-xs text-white/40 mb-2">No personas yet. Create one to get started.</p>
                     <button
@@ -3602,6 +3627,26 @@ export default function SmartWalletDrawer({
                     className="w-full px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500/20 to-cyan-500/20 border border-purple-500/30 text-white text-sm"
                   >
                     Sign in with Passport
+                  </button>
+                </section>
+              ) : personasLoadFailed !== null && !hasAnyPersona ? (
+                /* COULD NOT LOAD ≠ HAS NONE. Same defect as the persona
+                   dropdown: an unknown list must not be presented as an empty
+                   one, and must never offer "Create Persona" as the remedy —
+                   that invites a duplicate of a persona that already exists. */
+                <section className="rounded-2xl bg-slate-900/40 ring-1 ring-slate-800 p-3">
+                  <div className="text-sm text-amber-300 mb-1">Your personas could not be loaded.</div>
+                  <div className="text-[11px] text-white/40 mb-2">
+                    Nothing has been changed — this is a loading problem. Retry rather than creating a new persona.
+                    <span className="ml-1 font-mono text-white/30">
+                      {personasLoadFailed === 0 ? '(request failed or timed out)' : `(HTTP ${personasLoadFailed})`}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => void refreshPersonas()}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-900/60 text-white text-sm transition-colors hover:bg-slate-900"
+                  >
+                    Retry
                   </button>
                 </section>
               ) : !hasAnyPersona ? (
