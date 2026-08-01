@@ -139,13 +139,105 @@
  * `no-local-wallet` appear, where the raw private-key form is relabeled
  * "Advanced: import recovery key" and carries a security warning — it is no
  * longer reachable as anything resembling a default action.
+ *
+ * ── SIGN-IN HIERARCHY REPAIR + PASSWORD-IDENTITY AUDIT (operator ruling, 2026-08-02) ──
+ *
+ * PRIOR DEFECT: wallet password had no visible field on the ordinary sign-in
+ * surface at all — the only password-based path was the fully separate
+ * `no-local-wallet` → "Advanced: import recovery key" screen, which reads as
+ * recovery. "The current implementation still treats password as though it
+ * belongs to recovery, which is the wrong hierarchy" (operator). The required
+ * ordinary hierarchy, Recovery always last:
+ *
+ *   1. Continue with passkey
+ *   2. Unlock with wallet password   (inline field — no username needed when
+ *                                     exactly one local wallet profile is
+ *                                     known on this device; §"WALLET PROFILE
+ *                                     CHOOSER" above still governs the 2+
+ *                                     profile case)
+ *   3. Sign in with username and password   (`UsernamePasswordForm` below —
+ *                                     the conventional Supabase account
+ *                                     route, for citizens who prefer or
+ *                                     require it)
+ *   4. Recovery                      ("Using a new device?" → `no-local-wallet`)
+ *
+ * PASSWORD-IDENTITY AUDIT (required, not assumed): traced Passport wizard
+ * Account step → persona creation → wallet encryption → Supabase
+ * authentication → `UnlockModal` validation. Finding: **these are two
+ * structurally independent, never-synced credentials today, not one.**
+ *
+ *   - The WALLET-ENCRYPTION password (`PersonaSetupWizard.tsx`'s "Secure Your
+ *     Wallet" step) is collected client-side only, feeds
+ *     `keyService.encryptPrivateKey` (PBKDF2 → AES-256-GCM, entirely local
+ *     WebCrypto), and is verified thereafter ONLY by `keyService.verifyPassword`
+ *     / `sessionService.unlockWallet` (which is what `UnlockModal` and the
+ *     inline field below both call). It never leaves the browser and Supabase
+ *     never sees it.
+ *   - The SUPABASE ACCOUNT password (`useSupabaseSessionPersonas.ts`'s
+ *     `signIn`/`signUp`) is a completely separate credential verified by
+ *     Supabase Auth server-side. Nothing in that path calls `keyService` or
+ *     `sessionService`, and nothing in the wallet path calls Supabase auth.
+ *
+ * They are NOT the same credential, are not required to match, and nothing
+ * today keeps them in sync if a citizen sets them differently (which the
+ * existing separate collection UIs make easy to do by accident). This file
+ * does not attempt to silently unify them — that would require a migration
+ * decision (which password wins? re-encrypt the wallet key under the other
+ * one?) that belongs to the operator, not an inline guess. What it DOES do,
+ * per the governing rule "one persona wallet, one user-established password,
+ * multiple ways to locate and unlock it": treat the WALLET-ENCRYPTION
+ * password as canonical for wallet access (every wallet-unlock surface —
+ * `UnlockModal`, the inline field below, `RestoreWalletForm` — already
+ * converges on `keyService`/`sessionService` and always has), and label the
+ * Supabase path honestly as a separate "account" credential rather than
+ * pretending it is the same secret. `Forgot password?` below therefore
+ * recovers the SUPABASE credential only and is labeled "Recover account
+ * access" — not "Recover wallet" — because Supabase's password reset has no
+ * mechanism that can rewrap or recover `encryptedPrivateKey` (that key is
+ * derived from the wallet password via PBKDF2 and exists nowhere in
+ * plaintext, including on the server); resetting the Supabase password
+ * changes nothing about the encrypted wallet blob.
+ *
+ * PASSKEY FAILURE DIAGNOSIS: `classifyPasskeyStartError` below replaces the
+ * old single generic retry message. Root cause of "the passkey path is
+ * currently failing": this app has a fully built, ratified server-side
+ * enrollment ceremony (`/api/passport/passkey/enrol-{options,verify}`,
+ * `services/passport/passkeyService.ts`) with **zero client caller anywhere
+ * in the app** — no UI ever invokes it, so no citizen has ever been able to
+ * register a passkey credential. Every `auth-options`/`startAuthentication`
+ * attempt today therefore legitimately finds zero discoverable credentials on
+ * the authenticator, which the WebAuthn spec surfaces as `NotAllowedError` —
+ * the SAME error a deliberate user cancel produces (browsers deliberately
+ * conflate the two for anti-enumeration privacy; confirmed by reading
+ * `@simplewebauthn/browser`'s own `identifyAuthenticationError.js`, whose
+ * comment reads "Platforms are overloading this error beyond what the spec
+ * defines and we don't want to overwrite potentially useful error
+ * messages"). This is an honest platform limit, not a bug this file can fix
+ * client-side — `classifyPasskeyStartError` names it accurately
+ * (`no-credential-or-cancelled`) and always offers the wallet-password
+ * fallback rather than a dead end. Building the enrollment UI itself is a
+ * separate, larger feature this repair does not include.
+ *
+ * REMEMBERED ACCESS: `services/wallet/sessionService.ts`'s
+ * `getWalletAccessState` models the five facts
+ * (`sessionAuthenticated`/`walletAvailable`/`walletUnlocked`/
+ * `walletSessionExpiresAt`/`lastStrongAuthenticationAt`) independently.
+ * `recordStrongAuthentication()` is called ONLY at the moment a cryptographic
+ * holder-control proof actually completes — the wallet-password proof
+ * (inside `handleProofResponse`, shared by every path that reaches it) and a
+ * successful passkey ceremony (`connectWithPasskey`) — never from
+ * `UsernamePasswordForm`'s Supabase sign-in, which proves an account
+ * credential, not wallet control. The plaintext wallet password is never
+ * persisted anywhere in this file; only the resulting bounded
+ * `sessionService` session (decrypted key in an in-memory `Map`, metadata in
+ * `sessionStorage`) survives past the unlock call.
  */
 
 "use client";
 
-import { useCallback, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2, KeyRound, Fingerprint } from "lucide-react";
-import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import { startAuthentication, browserSupportsWebAuthn, WebAuthnError } from "@simplewebauthn/browser";
 import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
@@ -160,7 +252,7 @@ import {
   type LocalWalletProfile,
 } from "@/services/wallet/localWalletStore";
 import { UnlockModal } from "@/app/components/wallet/UnlockModal";
-import { getKeyForSigning, isWalletUnlocked } from "@/services/wallet/sessionService";
+import { getKeyForSigning, isWalletUnlocked, unlockWallet, recordStrongAuthentication } from "@/services/wallet/sessionService";
 import { signMessage as signWithLocalKey, importEvmKeyPair, isValidPrivateKey, validatePassword } from "@/services/wallet/keyService";
 import type { PersonaQube } from "@/types/persona";
 
@@ -193,6 +285,7 @@ type ConnectState =
   | { kind: "no-local-wallet" } // A
   | { kind: "restore-wallet" } // A — first-party recovery, never an injected-provider fallback
   | { kind: "no-passport" } // B
+  | { kind: "username-password"; initialMode?: "signin" | "forgot" } // conventional Supabase account fallback
   | { kind: "select-wallet-profile"; profiles: LocalWalletProfile[]; preselectedPersonaId: string | null } // D
   | { kind: "unlock-wallet-profile"; profile: LocalWalletProfile }
   | { kind: "link-passport"; profile: LocalWalletProfile } // NEW — "present Passport" (ruling 1)
@@ -231,6 +324,59 @@ const AUDIENCE = "metame-companion";
 function displayOrigin(): string {
   if (typeof window === "undefined") return AUDIENCE;
   return window.location.origin;
+}
+
+/**
+ * Classifies a `startAuthentication()` failure using `@simplewebauthn/browser`'s
+ * own `WebAuthnError`/`WebAuthnErrorCode` (publicly exported from the
+ * package) rather than hand-matching raw `DOMException.name` strings. See
+ * this file's header (2026-08-02 section) for the full trace: the WebAuthn
+ * spec itself makes "no passkey enrolled" and "user declined the prompt"
+ * genuinely indistinguishable — both collapse into `NotAllowedError` /
+ * `ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY` on purpose, so a page cannot probe
+ * who has a credential enrolled. This function names that ambiguity
+ * honestly (`no-credential-or-cancelled`) instead of pretending to resolve
+ * it, and every branch ends in the same required, specific fallback rather
+ * than a generic "please try again".
+ */
+type PasskeyFailureReason =
+  | "ceremony-aborted"
+  | "rp-id-mismatch"
+  | "authenticator-error"
+  | "no-credential-or-cancelled"
+  | "unclassified";
+
+function classifyPasskeyStartError(err: unknown): { reason: PasskeyFailureReason; message: string } {
+  if (err instanceof WebAuthnError) {
+    switch (err.code) {
+      case "ERROR_CEREMONY_ABORTED":
+        return { reason: "ceremony-aborted", message: "Passkey sign-in was interrupted. Please try again." };
+      case "ERROR_INVALID_DOMAIN":
+      case "ERROR_INVALID_RP_ID":
+        // The site's own RP ID/origin configuration does not match what the
+        // browser expects — a deployment defect, not something retrying
+        // fixes. Never claim this is the citizen's fault.
+        return {
+          reason: "rp-id-mismatch",
+          message: "Passkey sign-in isn't configured correctly for this address. Use your wallet password instead.",
+        };
+      case "ERROR_AUTHENTICATOR_GENERAL_ERROR":
+        return {
+          reason: "authenticator-error",
+          message: "Your device could not complete the passkey prompt. Use your wallet password instead.",
+        };
+      case "ERROR_PASSTHROUGH_SEE_CAUSE_PROPERTY":
+      default:
+        return {
+          reason: "no-credential-or-cancelled",
+          message: "No passkey is available here. Use your wallet password instead.",
+        };
+    }
+  }
+  return {
+    reason: "unclassified",
+    message: "Passkey sign-in was not completed. Use your wallet password instead.",
+  };
 }
 
 export interface PassportConnectPanelProps {
@@ -282,6 +428,22 @@ export function PassportConnectPanel({
   embedded = false,
 }: PassportConnectPanelProps) {
   const [state, setState] = useState<ConnectState>({ kind: "idle" });
+
+  /**
+   * Local wallet profiles known on THIS device, read once on mount, so the
+   * idle screen can decide which shape the wallet-password affordance takes:
+   * an inline field (exactly one profile — no username needed, per the
+   * required hierarchy), the existing multi-profile picker (2+), or nothing
+   * at all (0 — "Using a new device?" is the correct path there).
+   */
+  const [knownProfiles, setKnownProfiles] = useState<LocalWalletProfile[]>([]);
+  useEffect(() => {
+    setKnownProfiles(listLocalWalletProfiles());
+  }, []);
+
+  const [walletPasswordValue, setWalletPasswordValue] = useState("");
+  const [walletPasswordBusy, setWalletPasswordBusy] = useState(false);
+  const [walletPasswordError, setWalletPasswordError] = useState<string | null>(null);
 
   /**
    * One wallet-challenge-and-proof round trip. Shared by the first attempt
@@ -356,6 +518,10 @@ export function PassportConnectPanel({
         return;
       }
       if (pr?.ok && pr?.stepUp) {
+        // A verified wallet signature just proved holder control — record it
+        // independently of the session it grants (sessionService.ts's WALLET
+        // ACCESS STATE section).
+        recordStrongAuthentication();
         // Step-up authorises an action; it never opens a session or chooses a
         // persona. Nothing further to render here today.
         setState({ kind: "connected", passport: pr.passport as PassportFacts });
@@ -371,6 +537,12 @@ export function PassportConnectPanel({
         });
         return;
       }
+
+      // The wallet signature that produced this response just proved holder
+      // control of the metaMe wallet — record it here (the one place every
+      // successful wallet-password proof passes through) independently of
+      // the persona choice/session that follows.
+      recordStrongAuthentication();
 
       // ruling 2 — ALWAYS show the choice, even for exactly one persona. No
       // auto-submit branch belongs here; see this file's own header and
@@ -429,6 +601,36 @@ export function PassportConnectPanel({
         return;
       }
       setState({ kind: "unlock-wallet-profile", profile });
+    },
+    [runProofForProfile],
+  );
+
+  /**
+   * The inline "Wallet password" field on the ordinary sign-in surface
+   * (required hierarchy, this file's header). Same password the citizen
+   * established in `PersonaSetupWizard`'s "Secure Your Wallet" step, verified
+   * by the SAME `sessionService.unlockWallet` every other wallet-unlock
+   * surface (`UnlockModal`, the wallet-profile picker above) already calls —
+   * no second password, no parallel verification path. A wrong password
+   * stays on the idle screen with an inline error; it never falls through to
+   * the panel's generic error state.
+   */
+  const unlockSingleKnownProfile = useCallback(
+    async (profile: LocalWalletProfile, password: string) => {
+      setWalletPasswordError(null);
+      setWalletPasswordBusy(true);
+      try {
+        const result = await unlockWallet(profile.personaId, profile.encryptedPrivateKey, password);
+        if (!result.success) {
+          setWalletPasswordError("That password did not unlock this wallet.");
+          return;
+        }
+        touchLocalWalletProfile(profile.personaId);
+        setWalletPasswordValue("");
+        await runProofForProfile(profile);
+      } finally {
+        setWalletPasswordBusy(false);
+      }
     },
     [runProofForProfile],
   );
@@ -628,7 +830,7 @@ export function PassportConnectPanel({
     if (!browserSupportsWebAuthn()) {
       setState({
         kind: "error",
-        message: "Passkeys aren't available in this browser. Try unlocking with your wallet password instead.",
+        message: "Passkeys aren't supported in this browser. Use your wallet password instead.",
       });
       return;
     }
@@ -641,7 +843,14 @@ export function PassportConnectPanel({
       });
       const opt = await optRes.json().catch(() => null);
       if (!optRes.ok || !opt?.ok) {
-        setState({ kind: "error", message: "Could not start passkey sign-in. Please try again in a moment." });
+        // The server itself could not issue a challenge (infra, not the
+        // citizen's device) — see beginPasskeyAuthentication's own failure
+        // mode ('unavailable'), distinct from every ceremony-side failure
+        // classified below.
+        setState({
+          kind: "error",
+          message: "Passkey sign-in is unavailable right now. Use your wallet password instead.",
+        });
         return;
       }
 
@@ -650,13 +859,7 @@ export function PassportConnectPanel({
       try {
         assertion = await startAuthentication({ optionsJSON: opt.options });
       } catch (err) {
-        // The user dismissed the platform authenticator prompt — a quiet
-        // return to idle, never an error banner for a deliberate cancel.
-        if ((err as Error)?.name === "NotAllowedError") {
-          setState({ kind: "idle" });
-          return;
-        }
-        setState({ kind: "error", message: "Passkey sign-in was not completed. Please try again." });
+        setState({ kind: "error", message: classifyPasskeyStartError(err).message });
         return;
       }
 
@@ -668,22 +871,35 @@ export function PassportConnectPanel({
       });
       const ver = await verRes.json().catch(() => null);
       if (!verRes.ok || !ver?.ok || !ver?.tokenHash) {
+        // Mirrors /api/passport/passkey/auth-verify's own disclosed reasons
+        // exactly (see that route's header): 'challenge_rejected' describes
+        // the caller's own expired/spent request; 'unavailable' is server
+        // infra; everything else (credential_unknown / verification_failed /
+        // no_constitutional_access) is deliberately collapsed server-side so
+        // this file cannot un-collapse it either — see this file's header
+        // note on probing.
         const message =
-          ver?.error === "no_constitutional_access"
-            ? "This passkey did not resolve to an active Passport."
-            : ver?.error === "challenge_rejected"
-              ? "That passkey attempt expired. Please try again."
-              : "Passkey sign-in is unavailable right now. Try unlocking with your wallet password instead.";
+          ver?.error === "challenge_rejected"
+            ? "That passkey attempt expired. Please try again."
+            : ver?.error === "unavailable"
+              ? "Passkey sign-in is unavailable right now. Use your wallet password instead."
+              : "This passkey did not resolve to an active Passport. Use your wallet password instead.";
         setState({ kind: "error", message });
         return;
       }
+
+      // A passkey assertion IS a cryptographic holder-control proof —
+      // record it independently of the session it opens (see
+      // sessionService.ts's WALLET ACCESS STATE section). This never implies
+      // walletUnlocked: no wallet profile was looked up or decrypted here.
+      recordStrongAuthentication();
 
       await completeSessionFromGrant(
         { tokenHash: ver.tokenHash, handoffTokenHash: ver.handoffTokenHash, passport: ver.passport as PassportFacts },
         null,
       );
     } catch {
-      setState({ kind: "error", message: "Passkey sign-in failed. Try unlocking with your wallet password instead." });
+      setState({ kind: "error", message: "Passkey sign-in failed. Use your wallet password instead." });
     }
   }, [audience, completeSessionFromGrant]);
 
@@ -695,10 +911,10 @@ export function PassportConnectPanel({
 
       {state.kind === "idle" ? (
         <>
-          <div className="text-sm font-medium text-slate-100">Connect with your Passport</div>
+          <div className="text-sm font-medium text-slate-100">Sign in with your Passport</div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            Your Passport is held in your metaMe wallet. Unlock it to approve a one-time Passport
-            proof — there is no account to create and no password to remember.
+            Your Passport is held in your metaMe wallet. Continue with a passkey, or unlock with
+            the wallet password you set when you created it.
           </p>
           {/* Consent copy (ruling 4) — names what is about to happen and where
               it is scoped, before the wallet prompt fires. This is DISPLAY
@@ -711,11 +927,11 @@ export function PassportConnectPanel({
             anything, and no Passport credential ever leaves your device — only the outcome
             (a session) does.
           </p>
-          {/* PASSKEY-FIRST (operator ruling, 2026-08-01 — see this file's
-              header): the primary action never asks for a private key. Wallet
-              password is the fallback for browsers/devices without a passkey,
-              not a demotion of it — both unlock the SAME metaMe wallet
-              signing surface for the recognized-device case. */}
+          {/* REQUIRED ORDINARY SIGN-IN HIERARCHY (operator ruling, 2026-08-02
+              — see this file's header): passkey, then wallet password, then
+              the conventional account fallback. Recovery is intentionally
+              NOT in this block — it is the separate, exceptional affordance
+              below. */}
           <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
             <button
               type="button"
@@ -725,24 +941,82 @@ export function PassportConnectPanel({
               <Fingerprint className="h-4 w-4" aria-hidden="true" />
               Continue with passkey
             </button>
+
+            {/* Inline wallet-password field — no username needed — shown only
+                when exactly one local wallet profile is known on this device.
+                Two or more profiles fall back to the existing
+                select-then-unlock flow (`connect()` below); zero profiles
+                hide this affordance entirely, since "Using a new device?" is
+                the correct path there. */}
+            {knownProfiles.length === 1 ? (
+              <form
+                className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/20 p-3 text-left"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void unlockSingleKnownProfile(knownProfiles[0], walletPasswordValue);
+                }}
+              >
+                <label className="text-[11px] uppercase tracking-wide text-slate-500">Wallet password</label>
+                <input
+                  type="password"
+                  value={walletPasswordValue}
+                  onChange={(e) => {
+                    setWalletPasswordValue(e.target.value);
+                    if (walletPasswordError) setWalletPasswordError(null);
+                  }}
+                  placeholder={knownProfiles[0].displayLabel}
+                  autoComplete="current-password"
+                  className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+                />
+                {walletPasswordError ? <p className="text-[11px] text-amber-300">{walletPasswordError}</p> : null}
+                <button
+                  type="submit"
+                  disabled={walletPasswordBusy || !walletPasswordValue}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <WalletIcon className="h-4 w-4" aria-hidden="true" />
+                  {walletPasswordBusy ? "Unlocking…" : "Unlock and continue"}
+                </button>
+              </form>
+            ) : knownProfiles.length > 1 ? (
+              <button
+                type="button"
+                onClick={connect}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-sm text-slate-300 transition-all hover:bg-slate-900/40"
+              >
+                <WalletIcon className="h-4 w-4" aria-hidden="true" />
+                Unlock with wallet password
+              </button>
+            ) : null}
+
             <button
               type="button"
-              onClick={connect}
+              onClick={() => setState({ kind: "username-password" })}
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-sm text-slate-300 transition-all hover:bg-slate-900/40"
             >
-              <WalletIcon className="h-4 w-4" aria-hidden="true" />
-              Unlock with wallet password
+              <UserCircle2 className="h-4 w-4" aria-hidden="true" />
+              Sign in with username and password
+            </button>
+            <button
+              type="button"
+              onClick={() => setState({ kind: "username-password", initialMode: "forgot" })}
+              className="text-[11px] text-slate-500 underline decoration-slate-700 underline-offset-2 transition-colors hover:text-slate-400"
+            >
+              Forgot password?
             </button>
           </div>
-          {/* Recovery is a SEPARATE, exceptional journey — reachable, never
-              defaulted into (see NoLocalWalletState below). */}
-          <button
-            type="button"
-            onClick={() => setState({ kind: "no-local-wallet" })}
-            className="mt-1 text-[11px] text-slate-500 underline decoration-slate-700 underline-offset-2 transition-colors hover:text-slate-400"
-          >
-            Using a new device? Restore or pair your metaMe wallet
-          </button>
+          {/* Recovery is a SEPARATE, exceptional journey — always last,
+              reachable, never defaulted into (see NoLocalWalletState below). */}
+          <div className="mt-1 flex flex-col items-center gap-1">
+            <div className="text-[11px] text-slate-500">Using a new device?</div>
+            <button
+              type="button"
+              onClick={() => setState({ kind: "no-local-wallet" })}
+              className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-1.5 text-[11px] text-slate-400 transition-colors hover:bg-slate-900/60 hover:text-slate-300"
+            >
+              Recovery options
+            </button>
+          </div>
         </>
       ) : null}
 
@@ -812,6 +1086,30 @@ export function PassportConnectPanel({
             Try another wallet
           </button>
         </>
+      ) : null}
+
+      {/* Conventional account fallback (required hierarchy, 2026-08-02):
+          Supabase email/password sign-in, and — via `initialMode: "forgot"`
+          — the honest "Recover account access" flow. This is a genuinely
+          SEPARATE credential from the wallet password (see this file's
+          header password-identity audit); it establishes an application
+          session but never implies `walletUnlocked`. */}
+      {state.kind === "username-password" ? (
+        <UsernamePasswordForm
+          initialMode={state.initialMode}
+          onCancel={() => setState({ kind: "idle" })}
+          onSignedIn={() => {
+            const emptyFacts: PassportFacts = {
+              passportClass: null,
+              citizenStatus: null,
+              participantStatus: null,
+              passportGrade: null,
+              expiresAt: null,
+            };
+            setState({ kind: "connected", passport: emptyFacts });
+            onConnected?.(emptyFacts);
+          }}
+        />
       ) : null}
 
       {/* NEW — "present Passport" (ruling 1). This wallet has never been
@@ -1187,6 +1485,197 @@ function RestoreWalletForm({
           className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
         >
           {busy ? "Restoring…" : "Restore"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * The conventional account route (required hierarchy, 2026-08-02 — see this
+ * file's header). Plain Supabase email/password sign-in via the SAME client
+ * `useSupabaseSessionPersonas.ts` uses (`getSupabaseBrowserClient()`) — no
+ * parallel Supabase wrapper. This form never touches `keyService` or
+ * `sessionService`: signing in here proves an ACCOUNT credential, never
+ * wallet control, so it must never imply `walletUnlocked`.
+ *
+ * `initialMode="forgot"` lets the idle screen's "Forgot password?" shortcut
+ * land directly on the recovery sub-view without first showing the sign-in
+ * fields — this form is where the email address is actually collected, since
+ * the panel itself is pre-session and has no email to offer beforehand.
+ *
+ * The recovery flow is explicitly labeled "Recover account access", never
+ * "Recover wallet" (operator ruling): Supabase's `resetPasswordForEmail` /
+ * `auth.updateUser` can only ever change the Supabase account password. It
+ * has no path to rewrap or recover `encryptedPrivateKey` — that blob is
+ * derived from the wallet password via local PBKDF2 and exists nowhere in
+ * plaintext, including server-side — so resetting this credential changes
+ * nothing about wallet access. See `app/auth/reset-password/page.tsx` for
+ * the completion leg of this flow.
+ */
+function UsernamePasswordForm({
+  initialMode = "signin",
+  onSignedIn,
+  onCancel,
+}: {
+  initialMode?: "signin" | "forgot";
+  onSignedIn: () => void;
+  onCancel: () => void;
+}) {
+  const [mode, setMode] = useState<"signin" | "forgot" | "forgot-sent">(initialMode);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submitSignIn = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setBusy(true);
+      try {
+        const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) {
+          setError("That email and password did not match an account.");
+          return;
+        }
+        onSignedIn();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [email, password, onSignedIn],
+  );
+
+  const submitForgotPassword = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      setBusy(true);
+      try {
+        const { error: resetError } = await getSupabaseBrowserClient().auth.resetPasswordForEmail(email, {
+          redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/reset-password` : undefined,
+        });
+        if (resetError) {
+          setError("Could not send a recovery email for that address.");
+          return;
+        }
+        setMode("forgot-sent");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [email],
+  );
+
+  if (mode === "forgot-sent") {
+    return (
+      <div className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
+        <div className="text-sm font-medium text-slate-100">Check your email</div>
+        <p className="text-xs text-slate-400">
+          If an account exists for {email}, a link to recover account access is on its way.
+        </p>
+        <p className="text-[11px] text-slate-500">
+          This restores sign-in to your account only. It does not recover your metaMe wallet — the
+          wallet password is a separate, locally-held credential this email cannot reset.
+        </p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
+
+  if (mode === "forgot") {
+    return (
+      <form onSubmit={submitForgotPassword} className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
+        <div className="text-sm font-medium text-slate-100">Recover account access</div>
+        <p className="text-xs text-slate-400">
+          We&apos;ll email a link to reset your account sign-in password. This does not recover your
+          metaMe wallet, which is encrypted with a separate, locally-held password.
+        </p>
+        {error ? <p className="text-xs text-amber-300">{error}</p> : null}
+        <label className="text-[11px] uppercase tracking-wide text-slate-500">Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+        />
+        <div className="mt-1 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("signin")}
+            disabled={busy}
+            className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+          >
+            Back
+          </button>
+          <button
+            type="submit"
+            disabled={busy || !email}
+            className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+          >
+            {busy ? "Sending…" : "Send recovery email"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <form onSubmit={submitSignIn} className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
+      <div className="text-sm font-medium text-slate-100">Sign in with username and password</div>
+      <p className="text-xs text-slate-400">
+        This is your account sign-in — a separate credential from your metaMe wallet password.
+      </p>
+      {error ? <p className="text-xs text-amber-300">{error}</p> : null}
+      <label className="text-[11px] uppercase tracking-wide text-slate-500">Email</label>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        autoComplete="email"
+        className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+      />
+      <label className="text-[11px] uppercase tracking-wide text-slate-500">Password</label>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        autoComplete="current-password"
+        className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+      />
+      <button
+        type="button"
+        onClick={() => setMode("forgot")}
+        className="self-start text-[11px] text-slate-500 underline decoration-slate-700 underline-offset-2 transition-colors hover:text-slate-400"
+      >
+        Forgot password?
+      </button>
+      <div className="mt-1 flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={busy || !email || !password}
+          className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+        >
+          {busy ? "Signing in…" : "Sign in"}
         </button>
       </div>
     </form>

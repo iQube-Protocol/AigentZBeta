@@ -1,0 +1,404 @@
+/**
+ * Passport sign-in v2 — hierarchy repair, wallet-password field, passkey
+ * diagnostics, and independent session/wallet state model (operator ruling,
+ * 2026-08-02, see PassportConnectPanel.tsx's own header for the full trace).
+ *
+ * Structural checks follow this repo's established source-authority
+ * convention (tests/_lib/sourceAuthority.ts, mirrored by the sibling
+ * tests/passport-connect-passkey-first.test.ts) — this file's own vitest
+ * environment is `node` with no React rendering harness. Behavioral checks
+ * exercise `services/wallet/sessionService.ts` directly against a fake
+ * `window`/`sessionStorage`, the same pattern
+ * tests/passport-connect-no-injected-provider.test.ts uses for
+ * `localWalletStore.ts`.
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+
+import { readSource, stripComments } from "./_lib/sourceAuthority";
+
+const PANEL = "components/companion/PassportConnectPanel.tsx";
+
+/**
+ * Bracket-balanced body extraction. `signatureStart` must end with the
+ * function body's own opening `{` (as in the sibling
+ * tests/passport-connect-passkey-first.test.ts convention) — that brace is
+ * already "consumed" by the signature text, so counting starts at depth 1
+ * from there rather than re-discovering a `{` by scanning forward, which
+ * would wrongly match an EARLIER brace embedded in the signature itself
+ * (e.g. a return-type annotation like `): { reason: X; message: string } {`).
+ */
+function extractFunctionBody(src: string, signatureStart: string): string {
+  expect(signatureStart.endsWith("{"), "signatureStart must end with the body's opening '{'").toBe(true);
+  const sigAt = src.indexOf(signatureStart);
+  expect(sigAt, `could not find ${signatureStart}`).toBeGreaterThan(-1);
+  const bodyStart = sigAt + signatureStart.length - 1; // index of that opening '{'
+  let depth = 1;
+  for (let i = bodyStart + 1; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") {
+      depth--;
+      if (depth === 0) return src.slice(bodyStart, i + 1);
+    }
+  }
+  throw new Error(`unbalanced braces reading ${signatureStart}`);
+}
+
+function idleBlock(src: string): string {
+  const idleAt = src.indexOf('state.kind === "idle"');
+  expect(idleAt).toBeGreaterThan(-1);
+  const idleBlockEnd = src.indexOf('state.kind === "working"', idleAt);
+  return src.slice(idleAt, idleBlockEnd > -1 ? idleBlockEnd : undefined);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Required ordinary sign-in hierarchy (Recovery always last)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("Passport sign-in hierarchy — passkey, wallet password, username/password, THEN recovery", () => {
+  it("a visible wallet-password field/action appears in the primary (idle) sign-in flow", () => {
+    const block = idleBlock(stripComments(readSource(PANEL)));
+    // Either shape is a legitimate rendering of the SAME affordance —
+    // the inline single-profile field, or the multi-profile entry button —
+    // but at least one must be present in the idle screen's own source.
+    const hasInlineField = block.includes("Wallet password") && block.includes("Unlock and continue");
+    const hasMultiProfileEntry = block.includes("Unlock with wallet password");
+    expect(hasInlineField || hasMultiProfileEntry, "idle screen must offer a wallet-password path").toBe(true);
+  });
+
+  it("orders: passkey, wallet password, username/password, forgot-password, THEN recovery — never any other order", () => {
+    const block = idleBlock(stripComments(readSource(PANEL)));
+    const passkeyAt = block.indexOf("Continue with passkey");
+    const walletPasswordLabelAt = block.indexOf("Wallet password");
+    const multiProfileEntryAt = block.indexOf("Unlock with wallet password");
+    const usernamePasswordAt = block.indexOf("Sign in with username and password");
+    const forgotAt = block.indexOf("Forgot password?");
+    const usingNewDeviceAt = block.indexOf("Using a new device?");
+    const recoveryOptionsAt = block.indexOf("Recovery options");
+
+    for (const [label, pos] of [
+      ["Continue with passkey", passkeyAt],
+      ["Wallet password (either shape)", Math.max(walletPasswordLabelAt, multiProfileEntryAt)],
+      ["Sign in with username and password", usernamePasswordAt],
+      ["Forgot password?", forgotAt],
+      ["Using a new device?", usingNewDeviceAt],
+      ["Recovery options", recoveryOptionsAt],
+    ] as const) {
+      expect(pos, `${label} must be present in the idle block`).toBeGreaterThan(-1);
+    }
+
+    const walletPasswordAt = walletPasswordLabelAt > -1 ? walletPasswordLabelAt : multiProfileEntryAt;
+    expect(passkeyAt).toBeLessThan(walletPasswordAt);
+    expect(walletPasswordAt).toBeLessThan(usernamePasswordAt);
+    expect(usernamePasswordAt).toBeLessThan(forgotAt);
+    expect(forgotAt).toBeLessThan(usingNewDeviceAt);
+    expect(usingNewDeviceAt).toBeLessThan(recoveryOptionsAt);
+  });
+
+  it("recovery ('Using a new device?' / 'Recovery options') is the LAST thing in the idle block, after every ordinary method", () => {
+    const block = idleBlock(stripComments(readSource(PANEL)));
+    const recoveryOptionsAt = block.indexOf("Recovery options");
+    const everythingElse = ["Continue with passkey", "Sign in with username and password", "Forgot password?"];
+    for (const marker of everythingElse) {
+      const at = block.indexOf(marker);
+      expect(at, `${marker} must be present`).toBeGreaterThan(-1);
+      expect(at).toBeLessThan(recoveryOptionsAt);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Username not required when a local wallet profile is known + fallback
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("Wallet-password unlock never requires a username when a local profile is known", () => {
+  it("unlockSingleKnownProfile takes only a profile and a password — no username/email parameter", () => {
+    const src = stripComments(readSource(PANEL));
+    const declAt = src.indexOf("const unlockSingleKnownProfile = useCallback(");
+    expect(declAt).toBeGreaterThan(-1);
+    expect(src.slice(declAt, declAt + 300)).toContain(
+      "async (profile: LocalWalletProfile, password: string)",
+    );
+    const body = extractFunctionBody(src, "async (profile: LocalWalletProfile, password: string) => {");
+    expect(body).not.toMatch(/email|username/i);
+  });
+
+  it("the inline wallet-password form has no email/username input alongside it", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("knownProfiles.length === 1 ? (");
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf(") : knownProfiles.length > 1 ? (", start);
+    const form = src.slice(start, end);
+    expect(form).toContain('type="password"');
+    expect(form).not.toContain('type="email"');
+  });
+});
+
+describe("Username/password fallback remains available", () => {
+  it("the idle screen offers 'Sign in with username and password', routing to the username-password state", () => {
+    const block = idleBlock(stripComments(readSource(PANEL)));
+    expect(block).toContain("Sign in with username and password");
+    expect(block).toContain('setState({ kind: "username-password" })');
+  });
+
+  it("UsernamePasswordForm signs in via the SAME Supabase client used elsewhere in the app — no parallel client", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("function UsernamePasswordForm(");
+    expect(start).toBeGreaterThan(-1);
+    const body = src.slice(start);
+    expect(body).toContain("getSupabaseBrowserClient().auth.signInWithPassword(");
+  });
+
+  it("a successful username/password sign-in never calls unlockWallet, cacheDecryptedKey, or createSession", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("function UsernamePasswordForm(");
+    const body = src.slice(start, src.indexOf("export default PassportConnectPanel"));
+    for (const forbidden of ["unlockWallet(", "cacheDecryptedKey(", "createSession(", "recordStrongAuthentication("]) {
+      expect(body, `UsernamePasswordForm must not call ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Passkey failure diagnostics — classified, never a generic retry message
+// ─────────────────────────────────────────────────────────────────────────
+
+const CLASSIFY_SIGNATURE =
+  'function classifyPasskeyStartError(err: unknown): { reason: PasskeyFailureReason; message: string } {';
+
+describe("Passkey failure diagnostics — classifyPasskeyStartError", () => {
+  it("uses @simplewebauthn/browser's own WebAuthnError, not hand-matched DOMException.name strings", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, CLASSIFY_SIGNATURE);
+    expect(body).toContain("err instanceof WebAuthnError");
+  });
+
+  it("classifies the ambiguous no-credential/cancelled case with the exact required fallback message", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, CLASSIFY_SIGNATURE);
+    expect(body).toContain("No passkey is available here. Use your wallet password instead.");
+  });
+
+  it("every classified branch names the wallet-password fallback — no dead end", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, CLASSIFY_SIGNATURE);
+    const messages = [...body.matchAll(/message:\s*"([^"]+)"/g)].map((m) => m[1]);
+    expect(messages.length).toBeGreaterThan(0);
+    for (const message of messages) {
+      if (message.includes("interrupted")) continue; // ceremony-aborted: a real retry, not a dead end
+      expect(message, `"${message}" should point at the wallet-password fallback`).toMatch(/wallet password/i);
+    }
+  });
+
+  it("connectWithPasskey routes startAuthentication failures through classifyPasskeyStartError, and never a bare generic retry string", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, "const connectWithPasskey = useCallback(async () => {");
+    expect(body).toContain("classifyPasskeyStartError(err)");
+    expect(body).not.toContain("Passkey sign-in was not completed. Please try again.");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Password-identity audit — findings recorded, not silently assumed
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("Password-identity audit is recorded in the panel's own documentation", () => {
+  it("names the wallet-encryption and Supabase account passwords as independent, never-synced credentials", () => {
+    const src = readSource(PANEL); // prose header — do not strip comments
+    expect(src).toMatch(/structurally independent, never-synced credentials/i);
+  });
+
+  it("labels the Supabase recovery path 'Recover account access', never 'Recover wallet'", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("Recover account access");
+    expect(src).not.toMatch(/recover\s+(your\s+)?wallet\b/i);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Independent session/wallet state model
+// ─────────────────────────────────────────────────────────────────────────
+
+class FakeStorage {
+  private store = new Map<string, string>();
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null;
+  }
+  setItem(key: string, value: string): void {
+    this.store.set(key, String(value));
+  }
+  removeItem(key: string): void {
+    this.store.delete(key);
+  }
+  clear(): void {
+    this.store.clear();
+  }
+  keys(): string[] {
+    return [...this.store.keys()];
+  }
+  values(): string[] {
+    return [...this.store.values()];
+  }
+}
+
+describe("sessionService — independent WalletAccessState facts (operator ruling, 2026-08-02)", () => {
+  let fakeSessionStorage: FakeStorage;
+  const originalWindow = (globalThis as { window?: unknown }).window;
+  const originalSessionStorage = (globalThis as { sessionStorage?: unknown }).sessionStorage;
+
+  beforeEach(() => {
+    fakeSessionStorage = new FakeStorage();
+    // `window.crypto` (not bare `global.crypto`) so keyService.ts's
+    // `getRandomBytes` takes its browser-shaped branch (`getRandomValues`)
+    // rather than the legacy Node `crypto.randomBytes` branch, which the
+    // WebCrypto polyfill installed by tests/setup/webcrypto.ts does not
+    // implement.
+    (globalThis as { window?: unknown }).window = { crypto: globalThis.crypto };
+    (globalThis as { sessionStorage?: unknown }).sessionStorage = fakeSessionStorage;
+  });
+
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = originalWindow;
+    (globalThis as { sessionStorage?: unknown }).sessionStorage = originalSessionStorage;
+  });
+
+  it("a successful wallet-password unlock creates a bounded wallet session", async () => {
+    const { encryptPrivateKey } = await import("@/services/wallet/keyService");
+    const { unlockWallet, isWalletUnlocked, getSession } = await import("@/services/wallet/sessionService");
+
+    const encrypted = await encryptPrivateKey("0x".padEnd(66, "1"), "correct horse battery staple 1");
+    const result = await unlockWallet("persona-1", encrypted, "correct horse battery staple 1");
+
+    expect(result.success).toBe(true);
+    expect(isWalletUnlocked("persona-1")).toBe(true);
+    const session = getSession();
+    expect(session?.personaId).toBe("persona-1");
+    expect(session?.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("never persists the plaintext password — only session metadata (personaId/timestamps/flag) is written to sessionStorage", async () => {
+    const { encryptPrivateKey } = await import("@/services/wallet/keyService");
+    const { unlockWallet } = await import("@/services/wallet/sessionService");
+
+    const plaintextPassword = "this-exact-string-must-never-be-stored";
+    const encrypted = await encryptPrivateKey("0x".padEnd(66, "2"), plaintextPassword);
+    await unlockWallet("persona-2", encrypted, plaintextPassword);
+
+    for (const value of fakeSessionStorage.values()) {
+      expect(value).not.toContain(plaintextPassword);
+    }
+  });
+
+  it("a wrong password fails unlockWallet and leaves no session behind", async () => {
+    const { encryptPrivateKey } = await import("@/services/wallet/keyService");
+    const { unlockWallet, isWalletUnlocked } = await import("@/services/wallet/sessionService");
+
+    const encrypted = await encryptPrivateKey("0x".padEnd(66, "3"), "the-real-password-123");
+    const result = await unlockWallet("persona-3", encrypted, "totally-wrong-password");
+
+    expect(result.success).toBe(false);
+    expect(isWalletUnlocked("persona-3")).toBe(false);
+  });
+
+  it("recordStrongAuthentication does NOT imply walletUnlocked — passkey/username-password success must never flip wallet state", async () => {
+    const { recordStrongAuthentication, getLastStrongAuthenticationAt, isWalletUnlocked, getWalletAccessState } =
+      await import("@/services/wallet/sessionService");
+
+    recordStrongAuthentication();
+
+    expect(getLastStrongAuthenticationAt()).not.toBeNull();
+    expect(isWalletUnlocked("persona-passkey-only")).toBe(false);
+
+    const state = getWalletAccessState({
+      personaId: "persona-passkey-only",
+      sessionAuthenticated: true,
+      walletAvailable: true,
+    });
+    expect(state.sessionAuthenticated).toBe(true);
+    expect(state.walletUnlocked).toBe(false);
+    expect(state.walletSessionExpiresAt).toBeNull();
+    expect(state.lastStrongAuthenticationAt).not.toBeNull();
+  });
+
+  it("getWalletAccessState reports all five facts independently — a wallet unlock for one persona never leaks into another's read", async () => {
+    const { encryptPrivateKey } = await import("@/services/wallet/keyService");
+    const { unlockWallet, getWalletAccessState } = await import("@/services/wallet/sessionService");
+
+    const encrypted = await encryptPrivateKey("0x".padEnd(66, "4"), "persona-4-password");
+    await unlockWallet("persona-4", encrypted, "persona-4-password");
+
+    const unlockedRead = getWalletAccessState({
+      personaId: "persona-4",
+      sessionAuthenticated: true,
+      walletAvailable: true,
+    });
+    expect(unlockedRead.walletUnlocked).toBe(true);
+    expect(unlockedRead.walletSessionExpiresAt).not.toBeNull();
+
+    const otherPersonaRead = getWalletAccessState({
+      personaId: "persona-5-never-unlocked",
+      sessionAuthenticated: true,
+      walletAvailable: true,
+    });
+    expect(otherPersonaRead.walletUnlocked).toBe(false);
+    expect(otherPersonaRead.walletSessionExpiresAt).toBeNull();
+  });
+});
+
+describe("connectWithPasskey never calls the wallet-unlock primitives — passkey success must not imply walletUnlocked", () => {
+  it("connectWithPasskey's body never calls unlockWallet, cacheDecryptedKey, or createSession", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, "const connectWithPasskey = useCallback(async () => {");
+    for (const forbidden of ["unlockWallet(", "cacheDecryptedKey(", "createSession("]) {
+      expect(body, `connectWithPasskey must not call ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it("connectWithPasskey DOES call recordStrongAuthentication on a verified assertion — the holder-control proof is still recorded", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(src, "const connectWithPasskey = useCallback(async () => {");
+    expect(body).toContain("recordStrongAuthentication()");
+  });
+});
+
+describe("The wallet-password proof path records strong authentication exactly where the proof is verified", () => {
+  it("handleProofResponse calls recordStrongAuthentication only after pr?.ok, never on a link-required/no-passport branch", () => {
+    const src = stripComments(readSource(PANEL));
+    const body = extractFunctionBody(
+      src,
+      "(status: number, pr: Record<string, unknown> | null, profile?: LocalWalletProfile) => {",
+    );
+    const linkRequiredAt = body.indexOf('kind: "link-passport"');
+    const noPassportAt = body.indexOf('kind: "no-passport"');
+    const firstRecordAt = body.indexOf("recordStrongAuthentication()");
+    expect(firstRecordAt, "handleProofResponse must call recordStrongAuthentication()").toBeGreaterThan(-1);
+    expect(firstRecordAt).toBeGreaterThan(linkRequiredAt);
+    expect(firstRecordAt).toBeGreaterThan(noPassportAt);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Forgot password — honest "account access" labeling
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("Forgot password — recovers account access only, never claims to recover the wallet", () => {
+  it("the reset-password completion page exists and is labeled 'account access'", () => {
+    const src = readSource("app/auth/reset-password/page.tsx");
+    expect(src).toMatch(/recover account access/i);
+    expect(src).not.toMatch(/recover\s+(your\s+)?wallet\b/i);
+  });
+
+  it("the reset-password page calls Supabase's own updateUser — no bespoke password-reset mechanism", () => {
+    const src = stripComments(readSource("app/auth/reset-password/page.tsx"));
+    expect(src).toContain("auth.updateUser({ password })");
+    expect(src).toContain("PASSWORD_RECOVERY");
+  });
+
+  it("UsernamePasswordForm's forgot-password flow uses Supabase's resetPasswordForEmail, redirecting to the completion page", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("function UsernamePasswordForm(");
+    const body = src.slice(start);
+    expect(body).toContain("auth.resetPasswordForEmail(email");
+    expect(body).toContain("/auth/reset-password");
+  });
+});

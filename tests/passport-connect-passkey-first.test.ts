@@ -62,13 +62,13 @@ describe("Passport connect — passkey is the primary idle action", () => {
     expect(passkeyAt).toBeLessThan(walletPasswordAt);
   });
 
-  it("the idle screen never shows a raw private-key label or input", () => {
+  it("the idle screen never shows a raw private-key label or input (a wallet-password field is not a private key, see 2026-08-02 hierarchy repair)", () => {
     const src = stripComments(readSource(PANEL));
     const idleAt = src.indexOf('state.kind === "idle"');
     const idleBlockEnd = src.indexOf('state.kind === "working"', idleAt);
     const idleBlock = src.slice(idleAt, idleBlockEnd);
     expect(idleBlock).not.toMatch(/private key/i);
-    expect(idleBlock).not.toContain('type="password"');
+    expect(idleBlock).not.toContain('placeholder="0x…"');
   });
 
   it("recovery is reachable from idle only via an explicit, clearly-labelled link — never the primary button", () => {
@@ -122,13 +122,11 @@ describe("connectWithPasskey — reuses the real, ratified passkey ceremony", ()
     }
   });
 
-  it("treats a dismissed platform-authenticator prompt (NotAllowedError) as a quiet return to idle, not an error banner", () => {
+  it("classifies a failed startAuthentication() via classifyPasskeyStartError, never a generic retry message (2026-08-02 diagnostics repair)", () => {
     const src = stripComments(readSource(PANEL));
     const body = extractFunctionBody(src, "const connectWithPasskey = useCallback(async () => {");
-    expect(body).toContain('"NotAllowedError"');
-    const notAllowedAt = body.indexOf('"NotAllowedError"');
-    const nextIdleAt = body.indexOf('kind: "idle"', notAllowedAt);
-    expect(nextIdleAt, "NotAllowedError must be followed by a return to idle").toBeGreaterThan(notAllowedAt);
+    expect(body).toContain("classifyPasskeyStartError(err)");
+    expect(body).not.toContain("Passkey sign-in was not completed. Please try again.");
   });
 
   it("calls the shared completeSessionFromGrant tail on success — never a duplicated handoff dance", () => {
