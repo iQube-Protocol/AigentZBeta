@@ -32,7 +32,7 @@ import {
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const ALL: WalletCapability[] = [
-  'SIGNER_READY',
+  'SIGNER_CONFIGURED',
   'ADDRESS_ONLY',
   'LEGACY_EVIDENCE_ONLY',
   'PRESENT_BUT_UNBOUND',
@@ -44,9 +44,9 @@ const ALL: WalletCapability[] = [
 ];
 
 describe('only one capability may produce a signature', () => {
-  it('SIGNER_READY and nothing else', () => {
+  it('SIGNER_CONFIGURED and nothing else', () => {
     for (const c of ALL) {
-      expect(mayProduceSignature(c), `${c} must not be signable`).toBe(c === 'SIGNER_READY');
+      expect(mayProduceSignature(c), `${c} must not be signable`).toBe(c === 'SIGNER_CONFIGURED');
     }
   });
 
@@ -162,7 +162,7 @@ describe('the exception record is a statement, not a mechanism', () => {
  * ── ENFORCEMENT, NOT ONLY RECORD (operator ruling, 2026-08-02) ─────────────
  *
  *   > "Wire the recorded classification into the live resolver and
- *   > signing-request preparation path. Only SIGNER_READY may produce a
+ *   > signing-request preparation path. Only SIGNER_CONFIGURED may produce a
  *   > signing action."
  *
  * An exception that exists only as a document is a document. These canaries
@@ -179,16 +179,16 @@ describe('the classification is enforced in the live resolver', () => {
     // is ADDRESS_ONLY, however well-formed it looks.
     expect(src).toMatch(/encryptedPrivateKey/);
     expect(src).toContain("capability: 'ADDRESS_ONLY'");
-    expect(src).toContain("capability: 'SIGNER_READY'");
+    expect(src).toContain("capability: 'SIGNER_CONFIGURED'");
   });
 
   it('checks LEGACY before key material — a compromised key present is still not ready', () => {
     const src = stripComments(readSource(RESOLVER));
     const legacyAt = src.indexOf("capability: 'LEGACY_EVIDENCE_ONLY'");
-    const readyAt = src.indexOf("capability: 'SIGNER_READY'");
+    const readyAt = src.indexOf("capability: 'SIGNER_CONFIGURED'");
     const addressOnlyAt = src.indexOf("capability: 'ADDRESS_ONLY'");
     expect(legacyAt).toBeGreaterThan(-1);
-    expect(legacyAt, 'legacy must be decided before ADDRESS_ONLY and SIGNER_READY').toBeLessThan(addressOnlyAt);
+    expect(legacyAt, 'legacy must be decided before ADDRESS_ONLY and SIGNER_CONFIGURED').toBeLessThan(addressOnlyAt);
     expect(legacyAt).toBeLessThan(readyAt);
   });
 
@@ -223,10 +223,10 @@ describe('the classification is enforced in the live resolver', () => {
   });
 });
 
-describe('the ceremony refuses every capability but SIGNER_READY', () => {
+describe('the ceremony refuses every capability but SIGNER_CONFIGURED', () => {
   const CEREMONY = 'services/horizen/registerCeremony.ts';
 
-  it('gates the mandate on mayProduceSignature, not on address presence', () => {
+  it('gates the mandate on capability, not on address presence', () => {
     const src = stripComments(readSource(CEREMONY));
     expect(src).toContain('classifyPersonaWalletCapability');
     expect(src).toContain('mayProduceSignature(capability.capability)');
@@ -239,7 +239,7 @@ describe('the ceremony refuses every capability but SIGNER_READY', () => {
 
   it('names the capability in the refusal, so the right remedy is stated', () => {
     const src = stripComments(readSource(CEREMONY));
-    expect(src).toContain("refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_READY'");
+    expect(src).toContain("refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_CONFIGURED'");
     expect(src).toContain('${capability.capability}');
     expect(src).toContain('capability.remediation');
     // Distinct from NO_PRINCIPAL_WALLET — "nothing resolved" and "resolved but
@@ -252,7 +252,7 @@ describe('the ceremony refuses every capability but SIGNER_READY', () => {
     const unionAt = src.indexOf('export type RegisterCeremonyRefusalCode');
     expect(unionAt).toBeGreaterThan(-1);
     const union = src.slice(unionAt, src.indexOf(';', unionAt));
-    expect(union).toContain('PRINCIPAL_WALLET_NOT_SIGNER_READY');
+    expect(union).toContain('PRINCIPAL_WALLET_NOT_SIGNER_CONFIGURED');
   });
 });
 
@@ -287,5 +287,264 @@ describe('the wallet surface never attributes an agent balance to a person', () 
     // And it says whose it is — the substitution the exception forbids is
     // exactly the reader assuming it is theirs.
     expect(src).toContain('belongs to the platform, not to you');
+  });
+});
+
+/**
+ * ── CONTROL ∩ AUTHORITY ∩ MANDATE = CONSEQUENTIAL AUTHORITY ────────────────
+ *
+ * Operator ruling via Al, 2026-08-02:
+ *
+ *   > "The key proves control. The Passport establishes authority. The signed
+ *   > request defines the mandate. Only their intersection permits consequence."
+ *
+ * The first cut folded six conditions into one server-side `SIGNER_READY`.
+ * Three of them — the password unlocking, the key deriving the bound address, a
+ * signature recovering it — a server cannot know. Claiming them is worse than
+ * omitting them: it is a confident wrong answer about whether someone can sign.
+ *
+ * The distinctions a single flag destroys, each of which has its own failure:
+ *
+ *   · a wallet record with a key is not control
+ *   · a valid wallet signature is not authority
+ *   · a Citizen Passport is not a mandate
+ *   · a button click is not a mandate
+ *   · a mandate without current wallet control cannot be executed
+ *   · control of an AGENT wallet does not grant authority to expand delegation
+ */
+describe('four layers, each answering its own question', () => {
+  const PROOF = 'services/wallet/walletControlProof.ts';
+
+  it('names all four and states the canonical formulation', async () => {
+    const { AUTHORITY_LAYER_MEANING, CANONICAL_AUTHORITY_FORMULATION } = await import(
+      '@/services/wallet/walletControlProof'
+    );
+    expect(Object.keys(AUTHORITY_LAYER_MEANING).sort()).toEqual([
+      'AUTHORITY_RESOLVED',
+      'CONSEQUENTIAL_AUTHORITY',
+      'CONTROL_PROVEN',
+      'MANDATE_VALID',
+    ]);
+    expect(CANONICAL_AUTHORITY_FORMULATION).toMatch(/key proves control/i);
+    expect(CANONICAL_AUTHORITY_FORMULATION).toMatch(/Passport establishes authority/i);
+    expect(CANONICAL_AUTHORITY_FORMULATION).toMatch(/signed request defines the mandate/i);
+    expect(CANONICAL_AUTHORITY_FORMULATION).toMatch(/intersection permits consequence/i);
+  });
+
+  it('configuration alone is never control — durable data cannot prove a key was used', async () => {
+    const { isSignerConfigured, isControlProven, checkControlProof } = await import(
+      '@/services/wallet/walletControlProof'
+    );
+    expect(isSignerConfigured('SIGNER_CONFIGURED')).toBe(true);
+    const noProof = checkControlProof({
+      proof: null,
+      principalPersonaId: 'p1',
+      walletRef: 'principal',
+      address: '0x' + 'a'.repeat(40),
+      sessionId: 's1',
+      now: new Date('2026-08-02T12:00:00Z'),
+    });
+    expect(noProof.proven).toBe(false);
+    expect(noProof.failure).toBe('no-proof');
+    // Configured AND unproven ⇒ not control-proven. Both halves are required.
+    expect(isControlProven('SIGNER_CONFIGURED', noProof)).toBe(false);
+  });
+
+  it('a fresh proof against an unconfigured wallet is still not control', async () => {
+    const { isControlProven } = await import('@/services/wallet/walletControlProof');
+    const proven = { proven: true, detail: 'ok' };
+    for (const c of ['ADDRESS_ONLY', 'LEGACY_EVIDENCE_ONLY', 'COMPROMISED', 'ABSENT'] as const) {
+      expect(isControlProven(c, proven), `${c} must not become control-proven by a proof`).toBe(false);
+    }
+    expect(isControlProven('SIGNER_CONFIGURED', proven)).toBe(true);
+  });
+
+  it('the proof is bound on every axis that could be swapped underneath it', async () => {
+    const { checkControlProof } = await import('@/services/wallet/walletControlProof');
+    const addr = '0x' + 'a'.repeat(40);
+    const now = new Date('2026-08-02T12:00:00Z');
+    const base = {
+      principalPersonaId: 'p1',
+      walletRef: 'principal',
+      address: addr,
+      sessionId: 's1',
+      nonce: 'n1',
+      provenAt: '2026-08-02T11:59:00Z',
+      expiresAt: '2026-08-02T12:10:00Z',
+    };
+    const ask = { principalPersonaId: 'p1', walletRef: 'principal', address: addr, sessionId: 's1', now };
+    expect(checkControlProof({ proof: base, ...ask }).proven).toBe(true);
+    // Each swap is refused, and named distinctly — "expired" and "wrong wallet"
+    // call for different actions.
+    expect(checkControlProof({ proof: { ...base, principalPersonaId: 'p2' }, ...ask }).failure).toBe(
+      'principal-mismatch',
+    );
+    expect(checkControlProof({ proof: { ...base, walletRef: 'aigent-nakamoto' }, ...ask }).failure).toBe(
+      'wallet-mismatch',
+    );
+    expect(checkControlProof({ proof: { ...base, address: '0x' + 'b'.repeat(40) }, ...ask }).failure).toBe(
+      'address-mismatch',
+    );
+    expect(checkControlProof({ proof: { ...base, sessionId: 's2' }, ...ask }).failure).toBe('session-mismatch');
+    expect(
+      checkControlProof({ proof: { ...base, expiresAt: '2026-08-02T11:59:30Z' }, ...ask }).failure,
+    ).toBe('expired');
+  });
+
+  it('no permanent "proved once" flag exists — the proof carries an expiry', async () => {
+    const { CONTROL_PROOF_TTL_MS } = await import('@/services/wallet/walletControlProof');
+    expect(CONTROL_PROOF_TTL_MS).toBeGreaterThan(0);
+    const src = stripComments(readSource(PROOF));
+    expect(src).toContain('expiresAt');
+    expect(src).toContain('sessionId');
+    expect(src).toContain('nonce');
+  });
+
+  it('the Passport is kept OUT of the wallet classifier', () => {
+    const resolver = stripComments(readSource('services/identity/personaAddressResolver.ts'));
+    // "Can this wallet sign?" and "may this principal authorize?" are separate
+    // gates. A Passport lapse must not read as a broken wallet.
+    expect(resolver).not.toMatch(/passport/i);
+    const proof = stripComments(readSource(PROOF));
+    // The proof module may NAME the layer; it must not evaluate Passport state.
+    expect(proof).not.toMatch(/getActivePersona|passport_|from\('passports'\)/);
+  });
+
+  it('the three layers are intersected in exactly one place', async () => {
+    const { evaluateConsequentialAuthority } = await import('@/services/wallet/walletControlProof');
+    const all = { controlProven: true, authorityResolved: true, mandateValid: true };
+    expect(evaluateConsequentialAuthority(all).consequentialAuthority).toBe(true);
+    // Every single omission blocks, and reports WHICH layer is missing.
+    for (const k of ['controlProven', 'authorityResolved', 'mandateValid'] as const) {
+      const r = evaluateConsequentialAuthority({ ...all, [k]: false });
+      expect(r.consequentialAuthority).toBe(false);
+      expect(r.missing).toHaveLength(1);
+    }
+    expect(
+      evaluateConsequentialAuthority({ controlProven: false, authorityResolved: false, mandateValid: false }).missing,
+    ).toEqual(['CONTROL_PROVEN', 'AUTHORITY_RESOLVED', 'MANDATE_VALID']);
+  });
+});
+
+/**
+ * VERIFY WHAT EXISTS FIRST. PROVISION ONLY WHEN CUSTODY IS GENUINELY ABSENT.
+ *
+ * Provisioning is the dangerous branch: a second wallet for a persona that
+ * already has one splits its history and leaves two candidate signers with no
+ * rule to choose between them. So it must be the narrowest path, and it must
+ * never be the response to a mismatch — a mismatch is a question to answer,
+ * not a gap to fill.
+ */
+describe('the remediation decision verifies before it provisions', () => {
+  it('envelope + address ⇒ verify the existing wallet, never provision another', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const d = decideWalletRemediation({
+      hasEncryptedEnvelope: true,
+      hasRecordedAddress: true,
+      envelopeDerivesRecordedAddress: true,
+    });
+    expect(d.action).toBe('verify-existing');
+    expect(d.createsNewWallet).toBe(false);
+  });
+
+  it('envelope only ⇒ derive and bind, then verify — real custody is never discarded', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const d = decideWalletRemediation({
+      hasEncryptedEnvelope: true,
+      hasRecordedAddress: false,
+      envelopeDerivesRecordedAddress: null,
+    });
+    expect(d.action).toBe('derive-bind-then-verify');
+    expect(d.createsNewWallet).toBe(false);
+  });
+
+  it('address only ⇒ provision and supersede the placeholder, never fabricate a key', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const d = decideWalletRemediation({
+      hasEncryptedEnvelope: false,
+      hasRecordedAddress: true,
+      envelopeDerivesRecordedAddress: null,
+    });
+    expect(d.action).toBe('provision-and-supersede-placeholder');
+    expect(d.createsNewWallet).toBe(true);
+    expect(d.detail).toMatch(/Never fabricate a key for the existing address/i);
+  });
+
+  it('a derived-address mismatch quarantines — it never triggers provisioning', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const d = decideWalletRemediation({
+      hasEncryptedEnvelope: true,
+      hasRecordedAddress: true,
+      envelopeDerivesRecordedAddress: false,
+    });
+    expect(d.action).toBe('quarantine-do-not-provision');
+    expect(
+      d.createsNewWallet,
+      'a third candidate address does not answer a question that already has two',
+    ).toBe(false);
+  });
+
+  it('only two of the five branches create a wallet, and neither is a mismatch', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const creating = [
+      { hasEncryptedEnvelope: false, hasRecordedAddress: true, envelopeDerivesRecordedAddress: null },
+      { hasEncryptedEnvelope: false, hasRecordedAddress: false, envelopeDerivesRecordedAddress: null },
+    ].map((i) => decideWalletRemediation(i));
+    expect(creating.every((d) => d.createsNewWallet)).toBe(true);
+    const notCreating = [
+      { hasEncryptedEnvelope: true, hasRecordedAddress: true, envelopeDerivesRecordedAddress: true },
+      { hasEncryptedEnvelope: true, hasRecordedAddress: true, envelopeDerivesRecordedAddress: false },
+      { hasEncryptedEnvelope: true, hasRecordedAddress: false, envelopeDerivesRecordedAddress: null },
+    ].map((i) => decideWalletRemediation(i));
+    expect(notCreating.every((d) => !d.createsNewWallet)).toBe(true);
+  });
+});
+
+describe('the proof ceremony makes both comparisons, in order', () => {
+  const ok = {
+    boundAddress: '0x' + 'a'.repeat(40),
+    derivedAddress: '0x' + 'a'.repeat(40),
+    recoveredAddress: '0x' + 'A'.repeat(40), // case-insensitive
+    capability: 'SIGNER_CONFIGURED' as const,
+    nonceIssuedAt: new Date('2026-08-02T12:00:00Z'),
+    nonceAlreadyUsed: false,
+    now: new Date('2026-08-02T12:01:00Z'),
+  };
+
+  it('passes only when the envelope derives the bound address AND a fresh signature recovers it', async () => {
+    const { verifyProofCeremony } = await import('@/services/wallet/walletControlProof');
+    expect(verifyProofCeremony(ok).ok).toBe(true);
+    // Derivation proves the envelope holds the right key; recovery proves the
+    // operator just used it. Neither alone is proof of current control.
+    expect(verifyProofCeremony({ ...ok, derivedAddress: '0x' + 'b'.repeat(40) }).refusal).toBe(
+      'derived-address-mismatch',
+    );
+    expect(verifyProofCeremony({ ...ok, recoveredAddress: '0x' + 'b'.repeat(40) }).refusal).toBe(
+      'recovered-signer-mismatch',
+    );
+  });
+
+  it('refuses replay, expiry, missing custody, compromise and ambiguity by name', async () => {
+    const { verifyProofCeremony } = await import('@/services/wallet/walletControlProof');
+    expect(verifyProofCeremony({ ...ok, nonceAlreadyUsed: true }).refusal).toBe('nonce-replayed');
+    expect(verifyProofCeremony({ ...ok, now: new Date('2026-08-02T12:30:00Z') }).refusal).toBe('nonce-expired');
+    expect(verifyProofCeremony({ ...ok, derivedAddress: null }).refusal).toBe('envelope-missing');
+    expect(verifyProofCeremony({ ...ok, capability: 'COMPROMISED' }).refusal).toBe('wallet-compromised');
+    expect(verifyProofCeremony({ ...ok, capability: 'AMBIGUOUS' }).refusal).toBe('binding-ambiguous');
+  });
+
+  it('a derived mismatch tells the operator NOT to create a second wallet', async () => {
+    const { verifyProofCeremony } = await import('@/services/wallet/walletControlProof');
+    const r = verifyProofCeremony({ ...ok, derivedAddress: '0x' + 'b'.repeat(40) });
+    expect(r.detail).toMatch(/do not create a second wallet/i);
+  });
+
+  it('the module stays pure — it holds no key and opens no store', () => {
+    const src = stripComments(readSource('services/wallet/walletControlProof.ts'));
+    for (const forbidden of ['supabase', 'getSupabaseServer', '.insert(', 'decrypt', 'new Wallet']) {
+      expect(src, `the rule module must not ${forbidden} — its caller owns the I/O and the cryptography`).not.toContain(
+        forbidden,
+      );
+    }
   });
 });

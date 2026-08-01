@@ -59,7 +59,7 @@ export type RegisterCeremonyRefusalCode =
    * resolved at all: the two need different remedies, and collapsing them is
    * what let an unsignable wallet reach the mandate step (trace #121).
    */
-  | 'PRINCIPAL_WALLET_NOT_SIGNER_READY'
+  | 'PRINCIPAL_WALLET_NOT_SIGNER_CONFIGURED'
   | 'NO_PRINCIPAL_WALLET'
   | 'REQUEST_NOT_FOUND'
   | 'WRONG_ACTION_KIND'
@@ -166,8 +166,18 @@ export async function prepareRegistrationMandate(
    * signature — so the mandate would be offered and then fail at recovery,
    * after the operator had been told it was theirs to sign.
    *
-   * Only SIGNER_READY proceeds. Every other capability is refused BY NAME, so
-   * the refusal states which remedy applies rather than one flat message.
+   * Only SIGNER_CONFIGURED proceeds. Every other capability is refused BY NAME,
+   * so the refusal states which remedy applies rather than one flat message.
+   *
+   * PREPARE vs SIGN — two different gates (operator ruling via Al, 2026-08-02).
+   * Preparing a mandate does not sign anything, so it needs only that a signer
+   * is CONFIGURED: offering a mandate for a wallet with no signer behind it is
+   * what the trace found, and that is what this check stops. SIGNING it
+   * additionally requires CONTROL_PROVEN — a fresh unlock whose signature
+   * recovers the bound address — and the consequential act additionally
+   * requires AUTHORITY_RESOLVED and MANDATE_VALID
+   * (services/wallet/walletControlProof.ts). This gate is the first of four,
+   * not a substitute for the rest.
    *
    * Injected deps skip this: a test stub has no store to classify against, and
    * that seam is what keeps this rule unit-testable.
@@ -179,7 +189,7 @@ export async function prepareRegistrationMandate(
     if (!mayProduceSignature(capability.capability)) {
       return {
         ok: false,
-        refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_READY',
+        refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_CONFIGURED',
         detail:
           `The operator's principal wallet is ${capability.capability} — it cannot produce a signature, so no ` +
           `mandate is offered. ${capability.detail}` +

@@ -96,13 +96,22 @@ export const PILOT_WALLET_EXCEPTION: PilotWalletException = Object.freeze({
  * `resolved` for it and lets a ceremony offer a mandate that can never be
  * signed. Naming it is what stops that.
  *
- * Only `SIGNER_READY` may ever produce a signature. Every other value is a
+ * Only `SIGNER_CONFIGURED` may ever produce a signature. Every other value is a
  * reason to refuse, and each names a DIFFERENT remedy — which is the whole
  * point of not collapsing them into `available: false`.
  */
 export type WalletCapability =
-  /** Address present AND key material provably exists. The only signable state. */
-  | 'SIGNER_READY'
+  /**
+   * Address present AND key material provably exists — structurally valid
+   * custody with an explicit binding.
+   *
+   * NOT "ready to sign". The name was `SIGNER_READY` and that was the blur Al
+   * named: durable data can establish that a signer is CONFIGURED and cannot
+   * establish that anyone controls it. Signing additionally requires
+   * CONTROL_PROVEN — a fresh unlock and a signature that recovers this address
+   * (services/wallet/walletControlProof.ts).
+   */
+  | 'SIGNER_CONFIGURED'
   /** Address on file with no key behind it. Looks usable; cannot sign. */
   | 'ADDRESS_ONLY'
   /** Real wallet, real history, no authority — see PILOT-WALLET-EXCEPTION-001. */
@@ -120,9 +129,18 @@ export type WalletCapability =
   /** Could not be determined. NOT the same as absent — never render it as one. */
   | 'UNAVAILABLE';
 
-/** The one capability that may produce a signature. */
+/**
+ * The one capability that may be a CANDIDATE for signing.
+ *
+ * Deliberately not named `maySign`. Configuration is necessary and not
+ * sufficient: `isControlProven` (walletControlProof.ts) additionally requires a
+ * fresh, session-bound, non-replayable proof, and `evaluateConsequentialAuthority`
+ * additionally requires resolved authority and a valid mandate.
+ *
+ * A caller that treats this as permission to sign has skipped two gates.
+ */
 export function mayProduceSignature(c: WalletCapability): boolean {
-  return c === 'SIGNER_READY';
+  return c === 'SIGNER_CONFIGURED';
 }
 
 /**
@@ -132,7 +150,7 @@ export function mayProduceSignature(c: WalletCapability): boolean {
  * same question. The exception exists precisely because the answers differ.
  */
 export function mayDisplayAsEvidence(c: WalletCapability): boolean {
-  return c === 'SIGNER_READY' || c === 'LEGACY_EVIDENCE_ONLY';
+  return c === 'SIGNER_CONFIGURED' || c === 'LEGACY_EVIDENCE_ONLY';
 }
 
 // ── Pilot subjects ──────────────────────────────────────────────────────────

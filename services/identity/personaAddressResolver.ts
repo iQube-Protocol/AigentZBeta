@@ -184,7 +184,7 @@ export async function diagnosePersonaWalletAddress(
  * `verifyMessage` recovery, long after the operator was told they could sign.
  *
  * So the question the ceremony must ask is not "did I get an address" but
- * "may this wallet produce a signature", and only `SIGNER_READY` may.
+ * "may this wallet produce a signature", and only `SIGNER_CONFIGURED` may.
  *
  * ── The legacy exception ───────────────────────────────────────────────────
  *
@@ -207,7 +207,7 @@ export interface PersonaWalletCapability {
   address: string | null;
   /** Why, in the operator's terms. Never a bare status word. */
   detail: string;
-  /** What would move this wallet to SIGNER_READY. Null when it already is. */
+  /** What would move this wallet to SIGNER_CONFIGURED. Null when it already is. */
   remediation: string | null;
 }
 
@@ -348,7 +348,7 @@ export async function classifyPersonaWalletCapability(
   }
 
   return {
-    capability: 'SIGNER_READY',
+    capability: 'SIGNER_CONFIGURED',
     address,
     detail: 'An address is bound to this persona and encrypted key material exists behind it.',
     remediation: null,
