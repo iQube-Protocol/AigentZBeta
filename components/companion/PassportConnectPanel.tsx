@@ -3,7 +3,8 @@
  *
  * PRD-PAG-001 **Amendment A** §A.7 + the operator's Connect state machine
  * (chartered 2026-07-26), extended by the first-connection closure (operator
- * ruling 2026-07-28, rulings 1–4).
+ * ruling 2026-07-28, rulings 1–4), and REPAIRED by the metaMe-wallet-signing
+ * ruling (operator, 2026-08-01) below.
  *
  * ── WHAT CONNECT MEANS HERE ────────────────────────────────────────────────
  *
@@ -11,6 +12,48 @@
  * first. They prove control of the wallet holding their Passport, and a
  * session follows. There is no username, no password, and no account to
  * create — the internal principal is resolved behind the proof (§A.3.2).
+ *
+ * ── THE SIGNING-SURFACE REPAIR (operator ruling, 2026-08-01) ───────────────
+ *
+ * PRIOR REGRESSION: this file signed the wallet-control challenge through
+ * `window.ethereum` (an injected browser-extension provider — MetaMask,
+ * Phantom, etc. depending on what happened to be installed). That is
+ * architecturally wrong. The canonical boundary is:
+ *
+ *   metaMe wallet        = the Passport's principal signing surface
+ *   MetaMask / Phantom /
+ *   WalletConnect        = OPTIONAL externally linked wallets — never the
+ *                          Passport authentication surface
+ *
+ * This file now signs EXCLUSIVELY through the metaMe wallet's own local key
+ * material (`services/wallet/keyService.signMessage`), unlocked via the same
+ * `UnlockModal` + `sessionService` stack every other wallet surface uses.
+ * `window.ethereum` / `window.solana` / WalletConnect are NEVER referenced
+ * here — see `refuseInjectedProviderForPassportAuth` below for the
+ * deterministic backstop, and `tests/passport-connect-no-injected-provider.test.ts`
+ * for the canary that fails the build if either ever reappears.
+ *
+ * THE ANONYMOUS-FIRST ARCHITECTURE IS UNCHANGED: no Supabase session is
+ * required before signing, and the client does not need to know the
+ * authoritative persona before signing either. It only needs to select and
+ * unlock a LOCALLY HELD metaMe wallet profile (`services/wallet/localWalletStore.ts`
+ * — a browser-local, session-independent index of encrypted key material
+ * created/imported on this device). The corrected order is:
+ *
+ *   resolve local wallet candidate → prove control (sign) → server recovers
+ *   the address → server resolves the authenticated Passport/persona
+ *
+ *   NOT: resolve active persona → unlock its key
+ *
+ * `localStorage.currentPersonaId` is used ONLY to preselect/label the
+ * last-used local profile (`getPreselectedLocalWalletProfile`) — it is never
+ * authentication, authority, or a source of truth. Before login, a local
+ * wallet profile is not an authenticated persona; the server's
+ * recovered-address lookup (`/api/passport-connect/proof`) remains the sole
+ * authority for who is signing in. The `/challenge` and `/proof` server
+ * contract is UNCHANGED by this repair — `keyService.signMessage` produces
+ * the same EIP-191 personal-sign signature format an injected provider's
+ * `personal_sign` would have, so the server needs no changes at all.
  *
  * ── THE RULED ORDER (§A.3.4, ruling 1) ─────────────────────────────────────
  *
@@ -28,55 +71,93 @@
  * anywhere in this flow; see /api/passport-connect/finalize's own header for
  * why that specific absence is load-bearing.
  *
- * ── WALLET CHOOSER ≠ PERSONA CHOOSER (ruling 3) ─────────────────────────────
+ * ── WALLET PROFILE CHOOSER ≠ PERSONA CHOOSER ────────────────────────────────
  *
- * `choose-wallet` picks among WALLET ADDRESSES an injected provider exposes
- * (`eth_requestAccounts`) — a wallet may hold one Passport, control several
- * addresses, and relate to several personas over time. `choose-persona` is
- * the SEPARATE, later step where the citizen picks which of THEIR OWN
- * personas becomes active for this session. Never conflate the two states or
- * their copy.
+ * `select-wallet-profile` picks among LOCAL metaMe wallet profiles held on
+ * this device — a device may hold several wallets, each possibly reaching a
+ * different Passport. `choose-persona` is the SEPARATE, later step where the
+ * citizen picks which of THEIR OWN personas becomes active for this session,
+ * decided by the SERVER from the recovered address. Never conflate the two
+ * states or their copy.
  *
  * ── RULING A.7: PREFERRED, NEVER EXCLUSIVE ─────────────────────────────────
  *
  * The Companion is the preferred connector, but the PROTOCOL must not depend
- * on it. Everything here talks to `/api/passport-connect/*` over plain HTTP
- * and uses the injected EIP-1193 provider — no `chrome.*`, no extension
- * bridge, no Companion-only capability. If a future edit makes this
- * component the only thing that can authenticate, that is an infraction of
- * the ruling.
+ * on it. Everything here talks to `/api/passport-connect/*` over plain HTTP.
+ * Signing is pure local WebCrypto (`keyService`) with no `chrome.*`, no
+ * extension bridge, and no injected-provider dependency — which, as a
+ * side effect of this repair, makes the panel reachable from partitioned
+ * mount points (like the extension side panel iframe) that an injected
+ * provider could never reach in the first place. What IS still
+ * partition-sensitive is the LOCAL WALLET PROFILE INDEX itself
+ * (`localStorage`, per-origin/per-partition) — a wallet created in the
+ * top-level app's storage world is not visible from inside a partitioned
+ * iframe. That is a distinct, already-tracked gap ("Pair another metaMe
+ * device", surfaced in the `no-local-wallet` state below), not a regression
+ * this repair introduces.
  *
  * ── HOLDER CONTROL IS NOT OPTIONAL ─────────────────────────────────────────
  *
  * "A Passport is present in the wallet" is never sufficient — a readable
  * credential is not a bearer token. The citizen always performs a local
- * approval ceremony (the wallet's own signing prompt), and the server always
- * verifies a single-use, origin-bound challenge. What is optional is
- * separately enrolled 2FA; the cryptographic proof is not.
+ * approval ceremony (unlocking the metaMe wallet and signing), and the
+ * server always verifies a single-use, origin-bound challenge. What is
+ * optional is separately enrolled 2FA; the cryptographic proof is not.
  */
 
 "use client";
 
-import { useCallback, useState } from "react";
-import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2 } from "lucide-react";
+import { useCallback, useState, type FormEvent } from "react";
+import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2, KeyRound } from "lucide-react";
 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { personaFetch } from "@/utils/personaSpine";
 import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
 import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";
+import {
+  listLocalWalletProfiles,
+  getPreselectedLocalWalletProfile,
+  touchLocalWalletProfile,
+  saveLocalWalletProfile,
+  type LocalWalletProfile,
+} from "@/services/wallet/localWalletStore";
+import { UnlockModal } from "@/app/components/wallet/UnlockModal";
+import { getKeyForSigning, isWalletUnlocked } from "@/services/wallet/sessionService";
+import { signMessage as signWithLocalKey, importEvmKeyPair, isValidPrivateKey, validatePassword } from "@/services/wallet/keyService";
+import type { PersonaQube } from "@/types/persona";
 
 /**
- * The operator's state machine, extended 2026-07-28 (rulings 1–3). `no-wallet`
- * (A) is not an initial state — it is only entered once we have LOOKED and
- * found no provider, so a citizen with a wallet never sees a "connect a
- * wallet" prompt they don't need.
+ * Deterministic refusal for any code path that tries to sign a Passport
+ * challenge through an injected/external wallet provider. Nothing in this
+ * file's normal control flow calls this — Passport auth signs exclusively
+ * through the local metaMe wallet key material. It exists so a future
+ * regression that reintroduces a `window.ethereum` / `window.solana` /
+ * WalletConnect signing branch here fails loudly and immediately instead of
+ * silently substituting an external wallet as the Passport authentication
+ * surface.
+ */
+export const PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED = "PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED";
+
+export function refuseInjectedProviderForPassportAuth(): never {
+  throw new Error(PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED);
+}
+
+/**
+ * The operator's state machine, extended 2026-07-28 (rulings 1–3) and
+ * repaired 2026-08-01 (local metaMe wallet profiles replace the injected
+ * provider chooser). `no-local-wallet` (A) is not an initial state — it is
+ * only entered once we have LOOKED and found no local profile, so a citizen
+ * with a metaMe wallet on this device never sees a "no wallet" prompt they
+ * don't need.
  */
 type ConnectState =
   | { kind: "idle" }
-  | { kind: "no-wallet" } // A
+  | { kind: "no-local-wallet" } // A
+  | { kind: "restore-wallet" } // A — first-party recovery, never an injected-provider fallback
   | { kind: "no-passport" } // B
-  | { kind: "choose-wallet"; addresses: string[] } // D (renamed from `choose` — ruling 3)
-  | { kind: "link-passport"; address: string } // NEW — "present Passport" (ruling 1)
+  | { kind: "select-wallet-profile"; profiles: LocalWalletProfile[]; preselectedPersonaId: string | null } // D
+  | { kind: "unlock-wallet-profile"; profile: LocalWalletProfile }
+  | { kind: "link-passport"; profile: LocalWalletProfile } // NEW — "present Passport" (ruling 1)
   | { kind: "choose-persona"; transactionToken: string; personas: PersonaChoice[]; passport: PassportFacts } // NEW (ruling 2)
   | { kind: "connected"; passport: PassportFacts; handoffUrl?: string } // E
   | { kind: "working"; step: string }
@@ -98,18 +179,8 @@ interface PersonaChoice {
   personaType?: string;
 }
 
-interface Eip1193 {
-  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
-}
-
 /** The audience this surface authenticates for. Bound into the signed message. */
 const AUDIENCE = "metame-companion";
-
-function provider(): Eip1193 | null {
-  if (typeof window === "undefined") return null;
-  const injected = (window as unknown as { ethereum?: Eip1193 }).ethereum;
-  return injected ?? null;
-}
 
 /**
  * Where this citizen will land — for the consent copy only (ruling 4). NEVER
@@ -158,33 +229,38 @@ export function PassportConnectPanel({
    * not the proof that follows succeeds
    * (services/passport/connectionChallenge.ts), so a retry can never reuse
    * the first attempt's signature.
+   *
+   * `sign` is ALWAYS the local metaMe wallet signer
+   * (`keyService.signMessage` over the unlocked profile's decrypted key) —
+   * never an injected provider. See this file's header for the ruling.
    */
   const performProof = useCallback(
-    async (address: string, worldIdProof?: WorldIdProofBundle) => {
+    async (profile: LocalWalletProfile, worldIdProof?: WorldIdProofBundle) => {
       setState({ kind: "working", step: "Requesting a challenge…" });
       const chRes = await fetch("/api/passport-connect/challenge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ audience, walletAddress: address }),
+        body: JSON.stringify({ audience, walletAddress: profile.address }),
       });
       const ch = await chRes.json().catch(() => null);
       if (!chRes.ok || !ch?.ok) {
         return { ok: false as const, message: "Could not start a connection. Please try again in a moment." };
       }
 
-      const eth = provider();
-      if (!eth) return { ok: false as const, message: "No wallet available." };
+      const privateKeyHex = getKeyForSigning(profile.personaId);
+      if (!privateKeyHex) {
+        return { ok: false as const, message: "Your metaMe wallet locked again — please unlock and try once more." };
+      }
 
-      setState({ kind: "working", step: "Approve in your wallet to continue…" });
+      setState({ kind: "working", step: worldIdProof ? "Verifying your Passport…" : "Signing with your metaMe wallet…" });
       let signature: string;
       try {
-        signature = (await eth.request({
-          method: "personal_sign",
-          params: [ch.message, address],
-        })) as string;
+        signature = await signWithLocalKey(ch.message, privateKeyHex);
       } catch {
-        return { ok: "cancelled" as const };
+        return { ok: false as const, message: "Signing failed. Please try again." };
       }
+
+      touchLocalWalletProfile(profile.personaId);
 
       setState({ kind: "working", step: worldIdProof ? "Verifying your Passport…" : "Verifying your wallet…" });
       const prRes = await fetch("/api/passport-connect/proof", {
@@ -209,9 +285,9 @@ export function PassportConnectPanel({
    *  rescue path (a live World ID proof) is offered rather than a dead end.
    */
   const handleProofResponse = useCallback(
-    (status: number, pr: Record<string, unknown> | null, address?: string) => {
-      if (status === 403 && pr?.error === "link_required" && address) {
-        setState({ kind: "link-passport", address });
+    (status: number, pr: Record<string, unknown> | null, profile?: LocalWalletProfile) => {
+      if (status === 403 && pr?.error === "link_required" && profile) {
+        setState({ kind: "link-passport", profile });
         return;
       }
       if (status === 403 && pr?.error === "no_constitutional_access") {
@@ -248,70 +324,52 @@ export function PassportConnectPanel({
     [],
   );
 
-  /** Present a fresh World ID proof for `address` and retry the ceremony with it (ruling 1). */
+  /** Present a fresh World ID proof for `profile` and retry the ceremony with it (ruling 1). */
   const linkWithWorldId = useCallback(
-    async (address: string, worldIdProof: WorldIdProofBundle) => {
-      const result = await performProof(address, worldIdProof);
-      if (result.ok === "cancelled") {
-        setState({ kind: "idle" });
-        return;
-      }
+    async (profile: LocalWalletProfile, worldIdProof: WorldIdProofBundle) => {
+      const result = await performProof(profile, worldIdProof);
       if (!result.ok) {
         setState({ kind: "error", message: result.message });
         return;
       }
-      handleProofResponse(result.status, result.body, address);
+      handleProofResponse(result.status, result.body, profile);
     },
     [performProof, handleProofResponse],
   );
 
-  /**
-   * The whole ceremony, from wallet selection through the pending-auth
-   * transaction (ruling 2 stops session issuance here — persona choice is a
-   * SEPARATE act, see `finalizeWithPersona` below).
-   */
-  const connect = useCallback(
-    async (chosenAddress?: string) => {
-      const eth = provider();
-      if (!eth) {
-        setState({ kind: "no-wallet" }); // A
+  /** Begin the ceremony: look for local metaMe wallet profiles on this device. */
+  const connect = useCallback(() => {
+    const profiles = listLocalWalletProfiles();
+    if (profiles.length === 0) {
+      setState({ kind: "no-local-wallet" }); // A
+      return;
+    }
+    const preselected = getPreselectedLocalWalletProfile();
+    setState({ kind: "select-wallet-profile", profiles, preselectedPersonaId: preselected?.personaId ?? null });
+  }, []);
+
+  const runProofForProfile = useCallback(
+    async (profile: LocalWalletProfile) => {
+      const result = await performProof(profile);
+      if (!result.ok) {
+        setState({ kind: "error", message: result.message });
         return;
       }
-
-      try {
-        setState({ kind: "working", step: "Waiting for your wallet…" });
-        const accounts = (await eth.request({ method: "eth_requestAccounts" })) as string[];
-        if (!Array.isArray(accounts) || accounts.length === 0) {
-          setState({ kind: "no-wallet" }); // A — a wallet that grants nothing is no wallet here
-          return;
-        }
-
-        // D — more than one account and none chosen yet. The Companion must
-        // never silently pick when several constitutional personas could be
-        // behind the choice. (Wallet ADDRESS chooser — ruling 3; the persona
-        // chooser is a distinct, later state.)
-        const address = chosenAddress ?? (accounts.length === 1 ? accounts[0] : null);
-        if (!address) {
-          setState({ kind: "choose-wallet", addresses: accounts });
-          return;
-        }
-
-        const result = await performProof(address);
-        if (result.ok === "cancelled") {
-          // Cancellation is not an error condition — nothing was created.
-          setState({ kind: "idle" });
-          return;
-        }
-        if (!result.ok) {
-          setState({ kind: "error", message: result.message });
-          return;
-        }
-        handleProofResponse(result.status, result.body, address);
-      } catch {
-        setState({ kind: "error", message: "Connection failed. No session was created." });
-      }
+      handleProofResponse(result.status, result.body, profile);
     },
     [performProof, handleProofResponse],
+  );
+
+  /** After choosing a profile: unlock it if needed, else sign immediately. */
+  const selectProfile = useCallback(
+    (profile: LocalWalletProfile) => {
+      if (isWalletUnlocked(profile.personaId)) {
+        void runProofForProfile(profile);
+        return;
+      }
+      setState({ kind: "unlock-wallet-profile", profile });
+    },
+    [runProofForProfile],
   );
 
   /** The citizen's explicit persona choice → /finalize → session. */
@@ -468,8 +526,8 @@ export function PassportConnectPanel({
         <>
           <div className="text-sm font-medium text-slate-100">Connect with your Passport</div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            Your Polity Passport is your access credential. Approve once in your wallet — there is
-            no account to create and no password to remember.
+            Your Polity Passport is your access credential. Approve once in your metaMe wallet —
+            there is no account to create and no password to remember.
           </p>
           {/* Consent copy (ruling 4) — names what is about to happen and where
               it is scoped, before the wallet prompt fires. This is DISPLAY
@@ -477,14 +535,14 @@ export function PassportConnectPanel({
               (request.nextUrl.origin), never from anything the client sends
               or shows. */}
           <p className="max-w-[22rem] text-[11px] text-slate-500">
-            This approves a one-time signature proving you control your wallet, scoped to{" "}
+            This approves a one-time signature proving you control your metaMe wallet, scoped to{" "}
             <span className="text-slate-400">{displayOrigin()}</span>. It does not transfer
             anything, and no Passport credential ever leaves your device — only the outcome
             (a session) does.
           </p>
           <button
             type="button"
-            onClick={() => void connect()}
+            onClick={connect}
             className="mt-1 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 shadow-lg transition-all hover:bg-slate-900/60"
           >
             <WalletIcon className="h-4 w-4" aria-hidden="true" />
@@ -500,21 +558,20 @@ export function PassportConnectPanel({
         </>
       ) : null}
 
-      {/* A — no wallet available */}
-      {state.kind === "no-wallet" ? (
-        <>
-          <div className="text-sm font-medium text-slate-100">Connect or restore your wallet to continue.</div>
-          <p className="max-w-[22rem] text-xs text-slate-400">
-            Your Passport lives in your wallet. Once it is available here, Connect will find it.
-          </p>
-          <button
-            type="button"
-            onClick={() => void connect()}
-            className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
-          >
-            Try again
-          </button>
-        </>
+      {/* A — no local metaMe wallet on this device. First-party recovery
+          ONLY — never a fallback to an injected external wallet. */}
+      {state.kind === "no-local-wallet" ? (
+        <NoLocalWalletState onRestore={() => setState({ kind: "restore-wallet" })} onBack={() => setState({ kind: "idle" })} />
+      ) : null}
+
+      {state.kind === "restore-wallet" ? (
+        <RestoreWalletForm
+          onRestored={(profile) => {
+            saveLocalWalletProfile(profile);
+            selectProfile({ ...profile, createdAt: new Date().toISOString(), lastUsedAt: new Date().toISOString() });
+          }}
+          onCancel={() => setState({ kind: "no-local-wallet" })}
+        />
       ) : null}
 
       {/* B — the proof held, but no constitutional principal resolved.
@@ -544,13 +601,13 @@ export function PassportConnectPanel({
             personhood, or the Passport it reaches is not currently active.
           </p>
           <p className="max-w-[22rem] text-[11px] text-slate-500">
-            If you hold a Passport, link this wallet to it from your wallet&apos;s identity
+            If you hold a Passport, link this wallet to it from your metaMe wallet&apos;s identity
             settings, then connect again. A wallet connection on its own is never constitutional
             access.
           </p>
           <button
             type="button"
-            onClick={() => void connect()}
+            onClick={connect}
             className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
           >
             Try another wallet
@@ -576,35 +633,53 @@ export function PassportConnectPanel({
             without asking you to sign in first.
           </p>
           <WorldIdButton
-            onProof={(bundle) => linkWithWorldId(state.address, bundle)}
+            onProof={(bundle) => linkWithWorldId(state.profile, bundle)}
             label="Verify with World ID"
           />
         </>
       ) : null}
 
-      {/* D — several WALLET ADDRESSES; the citizen chooses. Never chosen for
-          them, and never to be confused with persona selection below (ruling
-          3 — these are two different questions with two different answers). */}
-      {state.kind === "choose-wallet" ? (
+      {/* D — several LOCAL metaMe wallet profiles; the citizen chooses. Never
+          chosen for them, and never to be confused with persona selection
+          below. Sourced from THIS DEVICE's local wallet index — never an
+          injected provider's account list. */}
+      {state.kind === "select-wallet-profile" ? (
         <>
-          <div className="text-sm font-medium text-slate-100">Which wallet address should connect?</div>
+          <div className="text-sm font-medium text-slate-100">Which metaMe wallet should connect?</div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            Your provider exposes more than one address. Choose the one holding the Passport you
-            want to use — you will choose which persona to activate as a separate step next.
+            Choose the metaMe wallet holding the Passport you want to use — you will choose which
+            persona to activate as a separate step next.
           </p>
           <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
-            {state.addresses.map((a) => (
+            {state.profiles.map((p) => (
               <button
-                key={a}
+                key={p.personaId}
                 type="button"
-                onClick={() => void connect(a)}
-                className="truncate rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-200 transition-colors hover:bg-slate-900/60"
+                onClick={() => selectProfile(p)}
+                className="flex items-center justify-between gap-2 truncate rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:bg-slate-900/60"
               >
-                {`${a.slice(0, 10)}…${a.slice(-8)}`}
+                <span className="flex min-w-0 items-center gap-2">
+                  <WalletIcon className="h-4 w-4 flex-shrink-0 text-slate-400" aria-hidden="true" />
+                  <span className="truncate">{p.displayLabel}</span>
+                </span>
+                {state.preselectedPersonaId === p.personaId ? (
+                  <span className="flex-shrink-0 text-[10px] uppercase tracking-wide text-emerald-400">
+                    Last used
+                  </span>
+                ) : null}
               </button>
             ))}
           </div>
         </>
+      ) : null}
+
+      {state.kind === "unlock-wallet-profile" ? (
+        <UnlockModal
+          persona={{ id: state.profile.personaId, evmKey: { encryptedPrivateKey: state.profile.encryptedPrivateKey } } as PersonaQube}
+          personaName={state.profile.displayLabel}
+          onUnlockSuccess={() => void runProofForProfile(state.profile)}
+          onCancel={() => setState({ kind: "idle" })}
+        />
       ) : null}
 
       {/* NEW — persona selection (ruling 2/5). ALWAYS rendered, even for a
@@ -694,6 +769,169 @@ export function PassportConnectPanel({
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * A — no local metaMe wallet on this device. First-party recovery options
+ * ONLY. "Pair another metaMe device" has no implementation yet (it needs its
+ * own cross-device bridge design — tracked separately, not improvised here)
+ * so it is shown as a labeled, disabled affordance rather than a broken
+ * link. "Begin Passport creation" is described rather than linked: the
+ * wallet-creation wizard (`PersonaSetupWizard`) is mounted inside the
+ * SmartWallet drawer, not behind a verified standalone URL reachable from
+ * every context this panel mounts in — CLAUDE.md forbids guessing one.
+ */
+function NoLocalWalletState({ onRestore, onBack }: { onRestore: () => void; onBack: () => void }) {
+  return (
+    <>
+      <div className="text-sm font-medium text-slate-100">No metaMe wallet on this device yet.</div>
+      <p className="max-w-[22rem] text-xs text-slate-400">
+        Your Passport lives in your metaMe wallet. Restore a wallet you already created, or create
+        one from the SmartWallet drawer in the app, then come back here to connect.
+      </p>
+      <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
+        <button
+          type="button"
+          onClick={onRestore}
+          className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:bg-slate-900/60"
+        >
+          <KeyRound className="h-4 w-4 flex-shrink-0 text-slate-400" aria-hidden="true" />
+          Restore metaMe wallet
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Cross-device pairing is not yet available."
+          className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800/60 bg-slate-900/20 px-3 py-2 text-left text-xs text-slate-500"
+        >
+          <WalletIcon className="h-4 w-4 flex-shrink-0 text-slate-600" aria-hidden="true" />
+          Pair another metaMe device — coming soon
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Seed-phrase recovery is not yet available."
+          className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800/60 bg-slate-900/20 px-3 py-2 text-left text-xs text-slate-500"
+        >
+          <WalletIcon className="h-4 w-4 flex-shrink-0 text-slate-600" aria-hidden="true" />
+          Recover wallet — coming soon
+        </button>
+      </div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
+      >
+        Back
+      </button>
+    </>
+  );
+}
+
+/**
+ * First-party wallet restore: import a raw private key you already hold,
+ * encrypted with a NEW local password, and saved as a local wallet profile
+ * on this device (`localWalletStore.ts`). This never touches
+ * `window.ethereum`/`window.solana` — it is pure local WebCrypto
+ * (`keyService.importEvmKeyPair`), the same primitive persona creation uses.
+ */
+function RestoreWalletForm({
+  onRestored,
+  onCancel,
+}: {
+  onRestored: (profile: {
+    personaId: string;
+    address: string;
+    displayLabel: string;
+    encryptedPrivateKey: LocalWalletProfile["encryptedPrivateKey"];
+  }) => void;
+  onCancel: () => void;
+}) {
+  const [privateKey, setPrivateKey] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = useCallback(
+    async (e: FormEvent) => {
+      e.preventDefault();
+      setError(null);
+      if (!isValidPrivateKey(privateKey)) {
+        setError("That does not look like a valid private key (32 bytes, hex).");
+        return;
+      }
+      const strength = validatePassword(password);
+      if (!strength.valid) {
+        setError(strength.errors[0]);
+        return;
+      }
+      setBusy(true);
+      try {
+        const evmKey = await importEvmKeyPair(privateKey, password);
+        onRestored({
+          // Not a server-known persona UUID — this wallet has not yet
+          // resolved to a persona. It is only a local, opaque handle for
+          // sessionService's own key cache; the server's recovered-address
+          // lookup decides the real persona once this wallet signs.
+          personaId: `restored:${evmKey.address}`,
+          address: evmKey.address,
+          displayLabel: `Restored wallet (${evmKey.address.slice(0, 6)}…${evmKey.address.slice(-4)})`,
+          encryptedPrivateKey: evmKey.encryptedPrivateKey,
+        });
+      } catch (err) {
+        setError((err as Error).message || "Could not restore that key.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [privateKey, password, onRestored],
+  );
+
+  return (
+    <form onSubmit={submit} className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
+      <div className="text-sm font-medium text-slate-100">Restore your metaMe wallet</div>
+      <p className="text-xs text-slate-400">
+        Enter the private key for the wallet holding your Passport, and set a password to encrypt
+        it on this device.
+      </p>
+      {error ? <p className="text-xs text-amber-300">{error}</p> : null}
+      <label className="text-[11px] uppercase tracking-wide text-slate-500">Private key</label>
+      <input
+        type="password"
+        value={privateKey}
+        onChange={(e) => setPrivateKey(e.target.value)}
+        placeholder="0x…"
+        className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+        autoComplete="off"
+      />
+      <label className="text-[11px] uppercase tracking-wide text-slate-500">New local password</label>
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password to encrypt this wallet here"
+        className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+        autoComplete="new-password"
+      />
+      <div className="mt-1 flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={busy}
+          className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={busy || !privateKey || !password}
+          className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
+        >
+          {busy ? "Restoring…" : "Restore"}
+        </button>
+      </div>
+    </form>
   );
 }
 

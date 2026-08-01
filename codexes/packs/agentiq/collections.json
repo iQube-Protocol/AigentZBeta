@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-01_passport-connect-metame-wallet-signing-repair.md",
         "updates/2026-08-01_wallet-signing-topology-ruling-and-phase-1.md",
         "updates/2026-07-31_pas-001-phase2-smartwalletdrawer-passport-connect.md",
         "updates/2026-07-31_bitcent-mainnet-readiness-and-indexer-search.md",

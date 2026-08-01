@@ -327,26 +327,42 @@ describe('the Companion is preferred, never exclusive — ruling 6', () => {
   });
 
   it('presence of a credential is never treated as authorisation', () => {
-    // The citizen always performs a local approval ceremony.
+    // The citizen always performs a local approval ceremony. Repaired
+    // 2026-08-01 (operator ruling): the ceremony signs through the metaMe
+    // wallet's own local key material (services/wallet/keyService), not an
+    // injected provider's `personal_sign` — see
+    // tests/passport-connect-no-injected-provider.test.ts for the full
+    // signing-surface canary set. The approval act itself is still local and
+    // explicit: unlocking the wallet (UnlockModal) before any signature is
+    // produced.
     const code = stripComments(readSource(CONNECT_PANEL));
-    expect(code).toContain('personal_sign');
+    expect(code).toContain('signWithLocalKey');
+    expect(code).toContain('getKeyForSigning');
   });
 
   it('it never silently chooses between wallets', () => {
-    // Renamed 'choose' -> 'choose-wallet' 2026-07-28 (ruling 3) so it cannot
-    // be read as the persona chooser — see 'choose-persona' below.
+    // Renamed 'choose' -> 'choose-wallet' 2026-07-28 (ruling 3), then to
+    // 'select-wallet-profile' 2026-08-01 when the chooser was repointed from
+    // an injected provider's account list to this device's local metaMe
+    // wallet profiles (operator ruling) — still never the persona chooser,
+    // see 'choose-persona' below. The auto-pick-when-exactly-one-account
+    // branch is GONE, not relaxed: every local profile, even a lone one,
+    // requires the same explicit selecting click ruling 2 already requires
+    // for persona choice.
     const code = stripComments(readSource(CONNECT_PANEL));
-    expect(code).toContain('kind: "choose-wallet"');
-    expect(code).toContain('accounts.length === 1 ? accounts[0] : null');
+    expect(code).toContain('kind: "select-wallet-profile"');
+    expect(code, 'an auto-pick-when-one-profile branch reappeared').not.toMatch(
+      /profiles\.length === 1 \? profiles\[0\] : null/,
+    );
   });
 
-  it('a wallet-address choice is never conflated with a persona choice — ruling 3', () => {
+  it('a wallet-profile choice is never conflated with a persona choice — ruling 3', () => {
     const code = stripComments(readSource(CONNECT_PANEL));
     expect(code, 'no distinct persona-selection state exists').toContain('kind: "choose-persona"');
-    // The two states carry structurally different data — a list of address
-    // strings vs a list of PersonaChoice objects — so a future edit cannot
-    // silently merge them back into one chooser without this failing.
-    expect(code).toContain('addresses: string[]');
+    // The two states carry structurally different data — a list of local
+    // wallet profiles vs a list of PersonaChoice objects — so a future edit
+    // cannot silently merge them back into one chooser without this failing.
+    expect(code).toContain('profiles: LocalWalletProfile[]');
     expect(code).toContain('personas: PersonaChoice[]');
   });
 
