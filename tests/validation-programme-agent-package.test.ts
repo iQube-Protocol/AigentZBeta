@@ -18,9 +18,32 @@ vi.mock('@/app/api/agents/_lib/requestOrigin', () => ({
 }));
 
 let grantRows: Array<{ role: string; allowed_experiments: string[] | null }> = [];
+/**
+ * Reviewer-agreement rows the package's `agreement` block is built from
+ * (operator ruling, 2026-08-02). Empty by default, so the default assertion is
+ * the honest one: a caller with no stored authorization reports
+ * `not-authorized`, never a silent omission.
+ *
+ * The stub still THROWS on an unexpected table — a route that quietly starts
+ * reading somewhere new should fail this suite loudly rather than pass with a
+ * half-mocked dependency.
+ */
+let agreementRows: Array<Record<string, unknown>> = [];
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => ({
     from: (table: string) => {
+      if (table === 'reviewer_agreement_authorizations') {
+        // Both read shapes the agreement service uses: the gate's
+        // persona+experiment+status query, and the any-status lookup that
+        // distinguishes "revoked" from "never authorized".
+        const result = async () => ({ data: agreementRows, error: null });
+        const chain: Record<string, unknown> = {};
+        chain.eq = () => chain;
+        chain.order = () => chain;
+        chain.limit = result;
+        chain.then = (resolve: (v: unknown) => unknown) => result().then(resolve);
+        return { select: () => chain };
+      }
       if (table !== 'access_grants') throw new Error(`unexpected table ${table}`);
       return {
         select: () => ({
@@ -147,14 +170,53 @@ describe('GET validation-programme/agent-package', () => {
     expect(json.package.crystalReviewEndpoint).toBe('https://dev-beta.aigentz.me/api/research/crystal/EXP-P1');
   });
 
-  it('names the Locker invitation claim as the ONLY agreement/acknowledgement mechanism — no bespoke signing UI', async () => {
+  /**
+   * SUPERSEDED CLAIM CORRECTED (operator ruling, 2026-08-02).
+   *
+   * This canary used to assert the Locker invitation claim was the ONLY
+   * agreement mechanism and that "no bespoke signing UI exists". That was true
+   * when written and is now false: the Independent Reviewer Agreement is a
+   * separate, canonical, experiment-scoped act with its own endpoint and its
+   * own durable record. A canary defending a superseded claim is worse than no
+   * canary — it actively resists the correction.
+   *
+   * The distinction the package must now carry: claiming an invitation ADMITS
+   * you to the programme; authorizing the agreement is what permits a review
+   * SUBMISSION. Two acts, two mechanisms, both named.
+   */
+  it('distinguishes programme ADMISSION (invitation claim) from submission AUTHORIZATION (the agreement)', async () => {
     mockGetActivePersona.mockResolvedValue({ personaId: 'persona-reviewer-4', cartridgeFlags: {} });
     grantRows = [{ role: 'reviewer', allowed_experiments: null }];
     const res = await agentPackageRoute(makeRequest());
     const json = await res.json();
-    expect(json.package.agreementAndAcknowledgement.mechanism).toMatch(/x409|invitation/i);
-    expect(json.package.agreementAndAcknowledgement.claimAccessInvitationEndpoint).toContain('/api/participation/claim');
-    expect(json.package.agreementAndAcknowledgement.claimAgreementEndpoint).toContain('/api/polity-passport/locker/claim-agreement');
+    const block = json.package.agreementAndAcknowledgement;
+    expect(block.mechanism).toMatch(/x409|invitation/i);
+    expect(block.claimAccessInvitationEndpoint).toContain('/api/participation/claim');
+    expect(block.reviewerAgreementEndpoint).toContain('/api/research/reviewer-agreement');
+    expect(
+      block.mechanism,
+      'the package must not tell an agent that no separate agreement act exists',
+    ).not.toMatch(/no separate signing UI/i);
+  });
+
+  it('reports the caller’s own agreement standing, with the hash pair consent binds to', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'persona-reviewer-4b', cartridgeFlags: {} });
+    grantRows = [{ role: 'reviewer', allowed_experiments: null }];
+    agreementRows = [];
+    const res = await agentPackageRoute(makeRequest());
+    const json = await res.json();
+    const a = json.package.agreement;
+    // No stored authorization → 'not-authorized', stated rather than omitted.
+    expect(a.authorizationStatus).toBe('not-authorized');
+    expect(a.requiresReauthorization).toBe(false);
+    // The canonical hash is present BEFORE any authorization exists — it is
+    // what a fresh authorization would pin, and what consent binds to.
+    expect(typeof a.canonicalHash).toBe('string');
+    expect(a.canonicalHash).toHaveLength(64);
+    expect(a.authorizedHash).toBeNull();
+    expect(a.hashMatch).toBeNull();
+    expect(a.consentModel).toMatch(/exact terms/i);
+    expect(a.authorizeEndpoint).toContain('/api/research/reviewer-agreement');
   });
 
   it('states every required prohibition: governance/freeze, corpus mutation, standing changes, experiment execution', async () => {

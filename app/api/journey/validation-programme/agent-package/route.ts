@@ -27,6 +27,7 @@ import { callerMayReadExperimentReview, resolveExperimentReviewGrant } from '@/s
 import { RESEARCH_WORKSPACE_ROLE_AUTHORITY, type ResearchWorkspaceRoleId } from '@/services/research/researchWorkspaceRoles';
 import { getResearchWorkspace, researchWorkspaceParent, researchWorkspaceExperiment, researchWorkspaceLabel } from '@/services/research/researchWorkspace';
 import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
+import { reviewerAgreementStatus, CONSENT_BINDS_EXACT_TERMS } from '@/services/research/reviewerAgreement';
 import {
   VALIDATION_PROGRAMME_JOURNEY,
   VALIDATION_PROGRAMME_WORKSPACE_ID,
@@ -74,6 +75,14 @@ export async function GET(req: NextRequest) {
   }
 
   const grant = admin ? await resolveExperimentReviewGrant(admin, persona.personaId, VALIDATION_PROGRAMME_EXPERIMENT_ID) : null;
+  // The caller's own agreement standing — one projection, shared with the
+  // human panel, so the package and the UI never disagree.
+  const agreementStatus = admin
+    ? await reviewerAgreementStatus(admin, {
+        personaId: persona.personaId,
+        experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID,
+      })
+    : null;
   const authority =
     grant && grant.role in RESEARCH_WORKSPACE_ROLE_AUTHORITY
       ? RESEARCH_WORKSPACE_ROLE_AUTHORITY[grant.role as ResearchWorkspaceRoleId]
@@ -142,10 +151,47 @@ export async function GET(req: NextRequest) {
       documentResources,
       crystalReviewEndpoint: `${origin}/api/research/crystal/${VALIDATION_PROGRAMME_EXPERIMENT_ID}`,
       reviewQueueEndpoint: `${origin}/api/research/review`,
+      /*
+       * The reviewer's OWN agreement standing (operator ruling, 2026-08-02).
+       *
+       * Built from `reviewerAgreementStatus`, the same projection the human
+       * panel renders and the same gate that admits or refuses a submission —
+       * so an agent reading this JSON and a human reading the panel cannot
+       * reach different conclusions about whether the reviewer may submit.
+       *
+       * `canonicalHash` vs `authorizedHash` is the load-bearing pair: consent
+       * authorizes exact terms, so a reviewer whose stored hash no longer
+       * matches the current one has NOT consented to what is in front of them
+       * now, however recently they authorized.
+       */
+      agreement: agreementStatus
+        ? {
+            id: agreementStatus.agreementId,
+            version: agreementStatus.version,
+            canonicalHash: agreementStatus.canonicalHash,
+            authorizationStatus: agreementStatus.authorizationStatus,
+            authorizedHash: agreementStatus.authorizedHash,
+            hashMatch: agreementStatus.hashMatch,
+            requiresReauthorization: agreementStatus.requiresReauthorization,
+            authorizedAt: agreementStatus.authorizedAt,
+            conflictDeclared: agreementStatus.conflictDeclared,
+            message: agreementStatus.message,
+            // The reviewer authorizes a canonical agreement VERSION; the
+            // stored row is the auditable evidence of that act, not its
+            // object. Stated so no agent describes it the other way round.
+            consentModel: CONSENT_BINDS_EXACT_TERMS,
+            authorizeEndpoint: `${origin}/api/research/reviewer-agreement`,
+          }
+        : {
+            authorizationStatus: 'unavailable',
+            message:
+              'Agreement status could not be read on this request. This does not affect any authorization already given.',
+          },
       agreementAndAcknowledgement: {
         mechanism:
-          'The Locker\'s existing x409/access-invitation claim (app/triad/components/codex/tabs/LockerTab.tsx, Invitation section) — no separate signing UI exists or should be built. Claiming the invitation grants programme access; any required collaboration/review agreement or acknowledgement appears as an artifact in the same Locker and is executed with the same claim mechanics.',
+          'Programme ACCESS is claimed through the Locker\'s x409/access-invitation claim (LockerTab, Invitation section). The Independent Reviewer AGREEMENT is a separate, canonical, experiment-scoped act with its own endpoint and its own durable record — see the `agreement` block above. The two are distinct: claiming an invitation admits you to the programme; authorizing the agreement is what permits a review SUBMISSION.',
         claimAccessInvitationEndpoint: `${origin}/api/participation/claim`,
+        reviewerAgreementEndpoint: `${origin}/api/research/reviewer-agreement`,
         claimAgreementEndpoint: `${origin}/api/polity-passport/locker/claim-agreement`,
         lockerReadEndpoint: `${origin}/api/polity-passport/locker`,
       },

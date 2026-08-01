@@ -269,9 +269,39 @@ describe("the panel offers inspection to everyone and remedy only internally", (
     expect(src.slice(Math.max(0, callAt - 300), callAt)).toContain("personaFetch");
   });
 
-  it("a refused remedy surfaces the server's own words and code, not a generic failure", () => {
+  it("a refused resolution surfaces the server's own words and code, not a status code", () => {
     const src = stripComments(readSource(PANEL));
-    expect(src).toMatch(/setRefusal\(\{\s*code:\s*d\?\.refusalCode,\s*message:\s*d\?\.error/);
+    expect(src).toMatch(/setRefusal\(\{\s*code:\s*d\?\.refusalCode,\s*message:\s*explainFailedRequest\(/);
+  });
+
+  /**
+   * A STATUS CODE IS NOT AN EXPLANATION (operator report, 2026-08-02:
+   * "Crystal freezing page is giving HTTP 200 error").
+   *
+   * `d?.error ?? \`HTTP ${res.status}\`` printed the transport code whenever a
+   * body carried no reason — and for a 200 that is not just unhelpful but
+   * FALSE: 200 means the request succeeded, so it cannot be why anything
+   * failed. Worse, it sent the reader hunting a transport fault when the real
+   * situation was "something other than this endpoint answered".
+   */
+  it("no surface in this panel prints a bare HTTP status as the reason for a failure", () => {
+    const src = stripComments(readSource(PANEL));
+    const bad = src.match(/\?\?\s*`HTTP \$\{res\.status\}`/g) ?? [];
+    expect(bad, "a status code is evidence about a failure, never its explanation").toHaveLength(0);
+  });
+
+  it("the explainer separates a server refusal, a transport failure, and an unrecognised body", () => {
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf("function explainFailedRequest");
+    expect(at).toBeGreaterThan(-1);
+    const fn = src.slice(at, at + 900);
+    // 1. the server's own words win outright
+    expect(fn).toMatch(/typeof b\?\.error === "string"[\s\S]{0,60}return b\.error/);
+    // 2. a non-2xx is the one case where the status IS the fact
+    expect(fn).toContain("if (!res.ok)");
+    // 3. a 2xx with no result field is named as such — never as a refusal
+    expect(fn).toContain("did not understand");
+    expect(fn).toContain("This is not a refusal");
   });
 });
 

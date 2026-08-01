@@ -27,6 +27,8 @@ import {
   agreementHash,
   authorizeReviewerAgreement,
   requireReviewerAgreement,
+  reviewerAgreementStatus,
+  CONSENT_BINDS_EXACT_TERMS,
 } from '@/services/research/reviewerAgreement';
 
 export const runtime = 'nodejs';
@@ -69,10 +71,18 @@ export async function GET(req: NextRequest) {
   }
 
   const gate = await requireReviewerAgreement(admin, { personaId: persona.personaId, experimentId });
+  // The SAME projection the agent package serves, so the panel a human reads
+  // and the JSON an agent reads state one thing (operator ruling, 2026-08-02).
+  const status = await reviewerAgreementStatus(admin, { personaId: persona.personaId, experimentId });
 
   return NextResponse.json(
     {
       ok: true,
+      // Five-valued, not a boolean: "not authorized", "revoked", "the terms
+      // changed", and "we could not check" ask the reviewer for four different
+      // things, and `false` asks for the wrong one.
+      status,
+      consentModel: CONSENT_BINDS_EXACT_TERMS,
       agreement: {
         agreementId: def.agreementId,
         version: def.version,

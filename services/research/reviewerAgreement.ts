@@ -411,6 +411,73 @@ export type ReviewerAgreementGateFailure =
   | 'no-agreement-defined'
   | 'unavailable';
 
+/**
+ * CONSENT AUTHORIZES EXACT TERMS, NOT A MUTABLE AGREEMENT IDENTITY.
+ *
+ *   > "Any material change invalidates inherited authorization until the new
+ *   > terms are expressly accepted." — operator ruling, 2026-08-02
+ *
+ * This is why `agreement_hash` is PINNED on the row at authorization time
+ * rather than looked up fresh. A reviewer does not consent to "the EXP-P1
+ * reviewer agreement" as a name that may later mean something else; they
+ * consent to the exact clauses they read. When the canonical terms change, the
+ * recomputed hash stops matching every stored row, and every inherited
+ * authorization lapses until re-accepted — automatically, with no cleanup step
+ * anyone could forget to run.
+ *
+ * The principle generalises beyond EXP-P1: delegation, partner agreements,
+ * agent mandates, data-use permissions and money-moving authority all carry
+ * the same hazard, and the same fix.
+ *
+ * A NOTE ON WORDING: the reviewer is not "signing a row". They authorize a
+ * canonical agreement VERSION; the row is the auditable evidence that they did.
+ * Any surface that describes the row as the object of consent has inverted the
+ * relationship.
+ */
+export const CONSENT_BINDS_EXACT_TERMS =
+  'Consent authorizes exact terms, not a mutable agreement identity. Any material change ' +
+  'invalidates inherited authorization until the new terms are expressly accepted.';
+
+/**
+ * The reviewer-facing status of one agreement, for the human panel AND the
+ * agent package — ONE projection, so the two can never disagree about whether
+ * a reviewer is authorized.
+ *
+ * `authorizationStatus` deliberately has five values, not two. "You have not
+ * authorized this", "your authorization was withdrawn", "the terms changed
+ * since you authorized", and "we could not check" call for four different
+ * things from the reviewer, and collapsing them into `false` tells them to do
+ * the wrong one — or, in the `unavailable` case, tells them something untrue.
+ */
+export type ReviewerAgreementAuthorizationStatus =
+  | 'authorized'
+  | 'not-authorized'
+  | 'revoked'
+  | 'superseded'
+  | 'unavailable';
+
+export interface ReviewerAgreementStatus {
+  agreementId: string | null;
+  version: string | null;
+  /** sha256 of the CURRENT canonical terms — what a fresh authorization pins. */
+  canonicalHash: string | null;
+  authorizationStatus: ReviewerAgreementAuthorizationStatus;
+  /** The hash pinned on the reviewer's own row, when one exists. */
+  authorizedHash: string | null;
+  /** `authorizedHash === canonicalHash`. Null when there is nothing to compare. */
+  hashMatch: boolean | null;
+  /**
+   * True when a stored authorization exists but no longer authorizes — the
+   * terms moved, or it was withdrawn. Distinct from never having authorized:
+   * the reviewer must be told the terms CHANGED, not merely asked again.
+   */
+  requiresReauthorization: boolean;
+  authorizedAt: string | null;
+  conflictDeclared: boolean | null;
+  /** Human-readable, addressed to the reviewer. Never a raw failure code. */
+  message: string;
+}
+
 export interface ReviewerAgreementGateResult {
   ok: boolean;
   /** Present when `ok` is false — why, structurally. */
@@ -492,6 +559,129 @@ export async function requireReviewerAgreement(
   }
 
   return { ok: true, authorization: matchingHash };
+}
+
+/**
+ * The full status of the caller's agreement standing — the ONE projection both
+ * the human panel and the agent JSON render.
+ *
+ * Built from the same `requireReviewerAgreement` gate that admits or refuses a
+ * submission, so the badge a reviewer reads and the decision the server makes
+ * cannot disagree. A second, independently-computed status object is exactly
+ * the drift `inv.engineering.036` names.
+ */
+export async function reviewerAgreementStatus(
+  admin: SupabaseClient,
+  input: { personaId: string; experimentId: string; packageRef?: string | null },
+): Promise<ReviewerAgreementStatus> {
+  const def = currentReviewerAgreement(input.experimentId);
+  const canonicalHash = def ? agreementHash(def) : null;
+  const base = {
+    agreementId: def?.agreementId ?? null,
+    version: def?.version ?? null,
+    canonicalHash,
+  };
+
+  const gate = await requireReviewerAgreement(admin, input);
+  if (gate.ok && gate.authorization) {
+    return {
+      ...base,
+      authorizationStatus: 'authorized',
+      authorizedHash: gate.authorization.agreementHash,
+      hashMatch: gate.authorization.agreementHash === canonicalHash,
+      requiresReauthorization: false,
+      authorizedAt: gate.authorization.authorizedAt,
+      conflictDeclared: gate.authorization.conflictDeclared,
+      message: 'You have authorized the current version of this agreement.',
+    };
+  }
+
+  // Not authorized. WHY matters — see the five-value note on the type.
+  if (gate.failure === 'unavailable') {
+    return {
+      ...base,
+      authorizationStatus: 'unavailable',
+      authorizedHash: null,
+      hashMatch: null,
+      // Unknown is not "no". Telling a reviewer to re-authorize because we
+      // could not read the record would ask them to redo a completed act.
+      requiresReauthorization: false,
+      authorizedAt: null,
+      conflictDeclared: null,
+      message:
+        'Your agreement status could not be checked just now. This does not affect any authorization you have already given.',
+    };
+  }
+
+  // Look for a prior row, INCLUDING inactive ones — that is the difference
+  // between "never authorized" and "authorized, and it no longer holds".
+  const prior = await findLatestAuthorizationAnyStatus(admin, input.personaId, input.experimentId);
+
+  if (gate.failure === 'hash-mismatch' || (prior && prior.status === 'superseded')) {
+    return {
+      ...base,
+      authorizationStatus: 'superseded',
+      authorizedHash: prior?.agreementHash ?? null,
+      hashMatch: false,
+      requiresReauthorization: true,
+      authorizedAt: prior?.authorizedAt ?? null,
+      conflictDeclared: prior?.conflictDeclared ?? null,
+      message:
+        'The terms of this agreement have changed since you authorized it. Your earlier authorization remains on record, ' +
+        'but it does not carry over — please read and authorize the current version.',
+    };
+  }
+
+  if (prior && prior.status === 'revoked') {
+    return {
+      ...base,
+      authorizationStatus: 'revoked',
+      authorizedHash: prior.agreementHash,
+      hashMatch: prior.agreementHash === canonicalHash,
+      requiresReauthorization: true,
+      authorizedAt: prior.authorizedAt,
+      conflictDeclared: prior.conflictDeclared,
+      message: 'Your authorization for this agreement has been withdrawn. Authorize the current version to submit a review.',
+    };
+  }
+
+  return {
+    ...base,
+    authorizationStatus: 'not-authorized',
+    authorizedHash: null,
+    hashMatch: null,
+    requiresReauthorization: false,
+    authorizedAt: null,
+    conflictDeclared: null,
+    message: def
+      ? 'Read and authorize this agreement to submit a review.'
+      : 'No reviewer agreement is defined for this experiment.',
+  };
+}
+
+/**
+ * The most recent authorization of ANY status.
+ *
+ * `requireReviewerAgreement` filters to `status = 'active'`, which is right for
+ * a gate — a revoked row must never admit anyone. But it means the gate cannot
+ * tell "never authorized" from "authorized and revoked", and those need
+ * opposite words to the reviewer. This read exists only to make that
+ * distinction; it never grants anything.
+ */
+async function findLatestAuthorizationAnyStatus(
+  admin: SupabaseClient,
+  personaId: string,
+  experimentId: string,
+): Promise<ReviewerAgreementAuthorization | null> {
+  const { data, error } = await admin
+    .from(TABLE)
+    .select('*')
+    .eq('persona_id', personaId)
+    .eq('experiment_id', experimentId)
+    .order('authorized_at', { ascending: false })
+    .limit(1);
+  if (error || !data || data.length === 0) return null;
+  return rowToAuthorization(data[0] as Record<string, unknown>);
 }
 
 /** The plain boolean the journey's completion evidence consumes. */

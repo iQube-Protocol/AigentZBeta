@@ -418,3 +418,197 @@ describe('The agreement never becomes access, submission, or governed authority'
     }
   });
 });
+
+/**
+ * ── CONSENT AUTHORIZES EXACT TERMS ─────────────────────────────────────────
+ *
+ * Operator ruling, 2026-08-02:
+ *
+ *   > "Consent authorizes exact terms, not a mutable agreement identity. Any
+ *   > material change invalidates inherited authorization until the new terms
+ *   > are expressly accepted."
+ *
+ * …and the wording that follows from it: the reviewer is not "signing the
+ * table row". They authorize a canonical agreement VERSION; the row is the
+ * auditable evidence of that act. A surface describing the row as the object
+ * of consent has the relationship backwards.
+ *
+ * The mechanism is the pinned `agreement_hash`. Because it is stored at
+ * authorization time rather than looked up fresh, a material change to the
+ * canonical terms makes every inherited authorization stop matching —
+ * automatically, with no cleanup anyone could forget to run.
+ *
+ * The principle is not EXP-P1-specific: delegation, partner agreements, agent
+ * mandates, data-use permissions and money-moving authority carry the same
+ * hazard and want the same fix.
+ */
+describe("consent binds exact terms, not an agreement name", () => {
+  const SERVICE = "services/research/reviewerAgreement.ts";
+  const AGENT_PACKAGE = "app/api/journey/validation-programme/agent-package/route.ts";
+  const AGREEMENT_ROUTE = "app/api/research/reviewer-agreement/route.ts";
+  const PANEL = "components/research/ReviewerAgreementPanel.tsx";
+
+  it("states the principle as an exported constant, not only as prose", async () => {
+    const { CONSENT_BINDS_EXACT_TERMS } = await import("@/services/research/reviewerAgreement");
+    expect(CONSENT_BINDS_EXACT_TERMS).toContain("exact terms");
+    expect(CONSENT_BINDS_EXACT_TERMS).toContain("material change");
+  });
+
+  it("a material change to the terms changes the hash — so inherited authorization cannot match", async () => {
+    const { EXP_P1_REVIEWER_AGREEMENT_V1, agreementHash } = await import(
+      "@/services/research/reviewerAgreement"
+    );
+    const before = agreementHash(EXP_P1_REVIEWER_AGREEMENT_V1);
+
+    // Same identity (id + version), materially different clause text. If the
+    // hash covered only the identity, a changed agreement would keep
+    // authorizing — the exact hazard the ruling names.
+    const materiallyChanged = {
+      ...EXP_P1_REVIEWER_AGREEMENT_V1,
+      clauses: EXP_P1_REVIEWER_AGREEMENT_V1.clauses.map((c, i) =>
+        i === 0 ? { ...c, body: `${c.body} The reviewer additionally waives independence.` } : c,
+      ),
+    };
+    expect(agreementHash(materiallyChanged)).not.toBe(before);
+
+    // …and re-hashing the untouched definition is stable, so a matching
+    // authorization is not invalidated by mere recomputation.
+    expect(agreementHash(EXP_P1_REVIEWER_AGREEMENT_V1)).toBe(before);
+  });
+
+  it("the hash covers the substance a reviewer actually reads", async () => {
+    const { EXP_P1_REVIEWER_AGREEMENT_V1, agreementHash } = await import(
+      "@/services/research/reviewerAgreement"
+    );
+    const base = agreementHash(EXP_P1_REVIEWER_AGREEMENT_V1);
+    const variants = [
+      { ...EXP_P1_REVIEWER_AGREEMENT_V1, permittedActs: ["something new"] },
+      { ...EXP_P1_REVIEWER_AGREEMENT_V1, prohibitedActs: [] },
+      { ...EXP_P1_REVIEWER_AGREEMENT_V1, version: "v2" },
+    ];
+    for (const v of variants) {
+      expect(agreementHash(v), "a change to permitted/prohibited acts or version must change the hash").not.toBe(base);
+    }
+  });
+
+  it("the gate enumerates every fail-closed condition the ruling lists", async () => {
+    const src = stripComments(readSource(SERVICE));
+    // no authorization · revoked · superseded · hash mismatch · scope
+    for (const failure of [
+      "'no-authorization'",
+      "'revoked'",
+      "'version-superseded'",
+      "'hash-mismatch'",
+      "'package-scope'",
+    ]) {
+      expect(src, `the gate must be able to report ${failure}`).toContain(failure);
+    }
+    // …and 'unavailable' stays SEPARATE, so a store outage never renders as
+    // "you did not authorize this".
+    expect(src).toContain("'unavailable'");
+  });
+
+  it("only ACTIVE rows can admit — a revoked or superseded row never authorizes", () => {
+    const src = stripComments(readSource(SERVICE));
+    const gateAt = src.indexOf("export async function requireReviewerAgreement");
+    expect(gateAt).toBeGreaterThan(-1);
+    const gate = src.slice(gateAt, src.indexOf("export async function reviewerAgreementStatus"));
+    expect(gate).toContain(".eq('status', 'active')");
+    // The gate compares against the RECOMPUTED canonical hash, never the
+    // row's own — comparing a row to itself would always match.
+    expect(gate).toContain("const expectedHash = agreementHash(def)");
+    expect(gate).toMatch(/r\.agreementHash === expectedHash/);
+  });
+
+  it("the status projection tells 'never authorized' apart from 'revoked' and 'terms changed'", () => {
+    const src = stripComments(readSource(SERVICE));
+    const at = src.indexOf("export async function reviewerAgreementStatus");
+    expect(at).toBeGreaterThan(-1);
+    const fn = src.slice(at);
+    for (const s of ["'authorized'", "'not-authorized'", "'revoked'", "'superseded'", "'unavailable'"]) {
+      expect(fn).toContain(s);
+    }
+    // 'unavailable' must NOT ask the reviewer to re-authorize — that would
+    // demand they redo an act they may well have completed.
+    const unavailableAt = fn.indexOf("authorizationStatus: 'unavailable'");
+    expect(unavailableAt).toBeGreaterThan(-1);
+    const block = fn.slice(unavailableAt, unavailableAt + 400);
+    expect(block).toContain("requiresReauthorization: false");
+  });
+
+  it("the agent JSON carries the exact fields the ruling specifies", () => {
+    const src = stripComments(readSource(AGENT_PACKAGE));
+    for (const field of [
+      "canonicalHash:",
+      "authorizationStatus:",
+      "authorizedHash:",
+      "hashMatch:",
+      "requiresReauthorization:",
+    ]) {
+      expect(src, `the agent package must expose ${field}`).toContain(field);
+    }
+    expect(src).toContain("CONSENT_BINDS_EXACT_TERMS");
+  });
+
+  it("the human panel and the agent JSON read ONE projection, never two computations", () => {
+    for (const file of [AGENT_PACKAGE, AGREEMENT_ROUTE]) {
+      expect(stripComments(readSource(file))).toContain("reviewerAgreementStatus(");
+    }
+    // The panel renders the server's status rather than deriving its own.
+    const panel = stripComments(readSource(PANEL));
+    expect(panel).toContain("body.status as AgreementStatusView");
+    expect(
+      panel,
+      "a second client-side notion of authorization is the drift this projection exists to prevent",
+    ).not.toContain("authorizationFailure");
+  });
+
+  it("the panel shows version, canonical hash, status and authorization time before authorizing", () => {
+    const panel = stripComments(readSource(PANEL));
+    expect(panel).toContain("status.version");
+    expect(panel).toContain("status.canonicalHash");
+    expect(panel).toContain("status.authorizedAt");
+    // Terms-changed and withdrawn read differently in the badge.
+    expect(panel).toContain('"Terms changed"');
+    expect(panel).toContain('"Withdrawn"');
+    // And the changed-terms message is the server's, not a paraphrase.
+    expect(panel).toContain("status.requiresReauthorization");
+    expect(panel).toContain("{status.message}");
+  });
+
+  it("the stale 'no separate signing UI exists' claim is gone from the agent package", () => {
+    const src = stripComments(readSource(AGENT_PACKAGE));
+    expect(
+      src,
+      "that copy predates the reviewer agreement and would tell an agent the wrong mechanism",
+    ).not.toContain("no separate signing UI exists");
+  });
+});
+
+/**
+ * A RESOLVED REVIEW IS AN INPUT TO READINESS, NOT READINESS ITSELF.
+ *
+ *   > "the steward's adopt/defer action must never imply that the crystal is
+ *   > ready for freeze automatically." — operator ruling, 2026-08-02
+ */
+describe("resolution never implies freeze-readiness", () => {
+  it("the resolution route reports review-resolved and explicitly not ready", () => {
+    const src = stripComments(readSource("app/api/research/review/[reviewId]/resolution/route.ts"));
+    expect(src).toContain("readyForFreeze: false");
+    expect(src).toContain("'review-resolved'");
+    expect(src, "the review layer must never assert readiness").not.toContain("ready-for-freeze");
+  });
+
+  it("readiness sits a rung above resolution on the ladder, with its own authority", async () => {
+    const { CRYSTAL_LIFECYCLE, lifecycleIndex, reviewResolutionComplete } = await import(
+      "@/services/research/crystalLifecycle"
+    );
+    expect(lifecycleIndex("review-resolved")).toBeLessThan(lifecycleIndex("ready-for-freeze"));
+    const resolve = CRYSTAL_LIFECYCLE.find((s) => s.act === "resolve")!;
+    expect(resolve.doesNot).toContain("makes nothing canonical");
+    // "every row settled" is a fact about the REVIEW. It is deliberately not
+    // named `readyForFreeze` — readiness has separate evidence of its own.
+    expect(reviewResolutionComplete(0)).toBe(true);
+    expect(reviewResolutionComplete(1)).toBe(false);
+  });
+});

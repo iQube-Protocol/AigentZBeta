@@ -117,6 +117,41 @@ const FIELD =
  * never by hiding UI alone. Default false: the operator's own mount inside
  * InvariantExperimentLab is byte-identical.
  */
+/**
+ * Turn a failed request into something a human can act on.
+ *
+ * ── Why a status code is never an explanation ──────────────────────────────
+ *
+ * The prior fallback was `d?.error ?? \`HTTP ${res.status}\``, which produced
+ * the operator-reported "Crystal freezing page is giving HTTP 200 error"
+ * (2026-08-02). A 200 means the request SUCCEEDED — presenting it as the
+ * reason something failed is not merely unhelpful, it is false, and it sends
+ * whoever reads it looking for a transport fault that does not exist.
+ *
+ * Three genuinely different situations, three different things to say:
+ *
+ *   · the server refused and said why      → its own words, verbatim
+ *   · the transport failed (non-2xx)       → the status, which IS the fact
+ *   · the response arrived but was not the
+ *     shape this route returns             → say exactly that; the status is
+ *                                            evidence ABOUT it, never the reason
+ *
+ * The third is the one that was being mislabelled. A 200 carrying a body with
+ * no `ok` field is not a server refusal at all — it means something other than
+ * this route answered (an auth shell, an edge interception), which is a
+ * different investigation entirely.
+ */
+function explainFailedRequest(res: Response, body: unknown, what: string): string {
+  const b = (body ?? null) as { error?: unknown; refusalCode?: unknown } | null;
+  if (typeof b?.error === "string" && b.error.trim()) return b.error;
+  if (!res.ok) return `${what} failed (HTTP ${res.status}).`;
+  return (
+    `${what} could not be completed: the server returned a response this page did not understand ` +
+    `(HTTP ${res.status}, no result field). This is not a refusal — it usually means something other ` +
+    `than the expected endpoint answered.`
+  );
+}
+
 export default function IndependentReviewPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {}) {
   const [view, setView] = useState<"new" | "queue" | "result" | "crystal">(reviewerMode ? "crystal" : "new");
   const [models, setModels] = useState<SelectableModel[] | null>(null);
@@ -690,8 +725,8 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
         `/api/research/crystal/${encodeURIComponent(experimentId)}?domain=${encodeURIComponent(domain)}`,
         { cache: "no-store" },
       );
-      const d = await res.json();
-      if (!d?.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(explainFailedRequest(res, d, "The readiness report"));
       setData(d);
     } catch (e) {
       setData(null);
@@ -723,8 +758,8 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
           ratifiedAt: new Date().toISOString(),
         }),
       });
-      const d = await res.json();
-      if (!d?.ok) throw new Error(d?.error ?? `HTTP ${res.status}`);
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(explainFailedRequest(res, d, "The freeze ceremony preview"));
       setPreviewResult(d);
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : "the freeze preview could not be built");
@@ -1350,7 +1385,7 @@ function ContestedRecordModal({
           // The server's own words. A refusal explaining WHY the label was not
           // accepted is more useful than a generic failure, and paraphrasing it
           // would be inventing a reason the server did not give.
-          setRefusal({ code: d?.refusalCode, message: d?.error ?? `the remedy was refused (HTTP ${res.status})` });
+          setRefusal({ code: d?.refusalCode, message: explainFailedRequest(res, d, "The resolution") });
           return;
         }
         onRemedied();

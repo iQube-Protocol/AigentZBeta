@@ -63,6 +63,31 @@ interface AuthorizationView {
   reviewerRef: string;
 }
 
+/**
+ * The server's five-valued agreement standing (operator ruling, 2026-08-02).
+ *
+ * The SAME projection `/api/journey/validation-programme/agent-package` serves
+ * to a reviewing agent, so the badge a human reads and the JSON an agent reads
+ * cannot disagree about whether a submission is permitted.
+ *
+ * Why five and not a boolean: "you have not authorized this", "your
+ * authorization was withdrawn", "the terms changed since you authorized", and
+ * "we could not check" ask the reviewer for four different things. A boolean
+ * asks for the wrong one — and in the last case asserts something untrue.
+ */
+interface AgreementStatusView {
+  agreementId: string | null;
+  version: string | null;
+  canonicalHash: string | null;
+  authorizationStatus: "authorized" | "not-authorized" | "revoked" | "superseded" | "unavailable";
+  authorizedHash: string | null;
+  hashMatch: boolean | null;
+  requiresReauthorization: boolean;
+  authorizedAt: string | null;
+  conflictDeclared: boolean | null;
+  message: string;
+}
+
 export interface ReviewerAgreementPanelProps {
   experimentId: string;
   /** Notifies the host so it can re-resolve journey state from the server. */
@@ -73,7 +98,7 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
   const [agreement, setAgreement] = useState<AgreementView | null>(null);
   const [authorized, setAuthorized] = useState(false);
   const [authorization, setAuthorization] = useState<AuthorizationView | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
+  const [status, setStatus] = useState<AgreementStatusView | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -104,7 +129,7 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
       setAgreement(body.agreement as AgreementView);
       setAuthorized(!!body.authorized);
       setAuthorization((body.authorization as AuthorizationView) ?? null);
-      setFailure((body.authorizationFailure as string) ?? null);
+      setStatus((body.status as AgreementStatusView) ?? null);
     } catch {
       setLoadError("The reviewer agreement could not be loaded right now.");
     } finally {
@@ -239,12 +264,57 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
             <ShieldCheck className={`h-4 w-4 ${authorized ? "text-emerald-400" : "text-slate-400"}`} />
             <h3 className="text-sm font-semibold text-slate-100">{agreement.displayLabel}</h3>
           </div>
-          {authorized ? (
-            <span className="shrink-0 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300">
-              Authorized
+          {status ? (
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] ${
+                status.authorizationStatus === "authorized"
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                  : status.authorizationStatus === "unavailable"
+                    ? "border-slate-700 bg-slate-800/40 text-slate-400"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+              }`}
+            >
+              {status.authorizationStatus === "authorized"
+                ? "Authorized"
+                : status.authorizationStatus === "revoked"
+                  ? "Withdrawn"
+                  : status.authorizationStatus === "superseded"
+                    ? "Terms changed"
+                    : status.authorizationStatus === "unavailable"
+                      ? "Status unknown"
+                      : "Not authorized"}
             </span>
           ) : null}
         </div>
+
+        {/*
+          The version and hash a reviewer is being asked to authorize, shown
+          BEFORE they authorize rather than only after.
+          `canonicalHash` is what consent binds to: a reviewer does not consent
+          to "the EXP-P1 agreement" as a name that may later mean something
+          else, they consent to the exact clauses they read. Showing the pair
+          is what makes a divergence legible instead of silent.
+        */}
+        {status ? (
+          <dl className="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-0.5 text-[10px]">
+            <dt className="text-slate-500">Version</dt>
+            <dd className="font-mono text-slate-300">{status.version ?? "—"}</dd>
+            <dt className="text-slate-500">Terms hash</dt>
+            <dd className="break-all font-mono text-slate-300">{status.canonicalHash ?? "—"}</dd>
+            {status.authorizedHash && status.authorizedHash !== status.canonicalHash ? (
+              <>
+                <dt className="text-amber-400/80">You authorized</dt>
+                <dd className="break-all font-mono text-amber-300/80">{status.authorizedHash}</dd>
+              </>
+            ) : null}
+            {status.authorizedAt ? (
+              <>
+                <dt className="text-slate-500">Authorized</dt>
+                <dd className="text-slate-300">{new Date(status.authorizedAt).toLocaleString()}</dd>
+              </>
+            ) : null}
+          </dl>
+        ) : null}
 
         <div className="mt-3 space-y-2.5">
           {agreement.clauses.map((c) => (
@@ -266,11 +336,14 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
           </div>
         ) : (
           <div className="mt-4 space-y-3 border-t border-slate-800 pt-3">
-            {failure === "hash-mismatch" || failure === "version-superseded" ? (
-              <p className="text-[11px] text-amber-300">
-                These terms have changed since you last authorized them. Your earlier authorization stays on the
-                record, but new submissions need this version.
-              </p>
+            {/* The server's own words. It distinguishes withdrawn from
+                changed-terms from never-authorized; paraphrasing here would
+                re-collapse the distinction the projection exists to make. */}
+            {status && status.requiresReauthorization ? (
+              <p className="text-[11px] text-amber-300">{status.message}</p>
+            ) : null}
+            {status?.authorizationStatus === "unavailable" ? (
+              <p className="text-[11px] text-slate-400">{status.message}</p>
             ) : null}
 
             <label className="flex cursor-pointer items-start gap-2">
