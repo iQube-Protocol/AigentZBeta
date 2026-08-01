@@ -102,6 +102,7 @@ import {
   quickLinkTitleNeedle,
   type QuickLinkAccessContext,
 } from "@/services/companion/quickLinks";
+import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";
 import {
   COMPANION_NAV_ITEMS,
   COMPANION_NAV_LABEL,
@@ -487,7 +488,20 @@ function CompanionShell() {
     (prompt: string) => {
       const link = quickLinkByLabel.get(prompt);
       if (!link) return;
-      window.open(quickLinkHref(link, personaId), quickLinkTarget(), "noreferrer");
+      const href = quickLinkHref(link, personaId);
+      // BUG FIX (2026-08-01, operator: quick links "launching a popup in a
+      // new window" that lands in the wrong browser window entirely). This
+      // page runs inside the extension's side panel iframe, and a plain
+      // `window.open` from a nested browsing context there does not reliably
+      // land in the side panel's own host window — see
+      // `services/companion/sidePanelTabBridge.ts` for the full trace. Ask
+      // the side panel (which IS correctly bound to that window) to open the
+      // tab; fall back to the previous `window.open` behaviour only when
+      // there is no bridge to answer (plain web embed, or an older extension
+      // build), so nothing regresses outside the extension.
+      void openInSidePanelHostWindow(href).then((handled) => {
+        if (!handled) window.open(href, quickLinkTarget(), "noreferrer");
+      });
     },
     [quickLinkByLabel, personaId]
   );

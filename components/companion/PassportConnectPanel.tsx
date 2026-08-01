@@ -63,6 +63,7 @@ import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { personaFetch } from "@/utils/personaSpine";
 import { WorldIdButton, type WorldIdProofBundle } from "@/components/passport/WorldIdButton";
+import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";
 
 /**
  * The operator's state machine, extended 2026-07-28 (rulings 1–3). `no-wallet`
@@ -401,32 +402,50 @@ export function PassportConnectPanel({
       if (world === "companion" && typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
         const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`;
 
-        // POPUP-BLOCKED DETECTION (bug fix, 2026-07-31: "Passport sign-in
-        // doesn't connect on non-metaMe sites"). This `window.open` is the
-        // ONLY thing that completes the crossing for a non-metaMe site — the
-        // same-origin pairing in `background.js`'s `isCompanionAppUrl` gate
-        // is deliberately refused there, so THIS panel's handoff is load-
-        // bearing, not a redundant nicety. By the time this line runs, the
-        // original click has passed through `fetch`/`await` at least three
-        // times (finalize → verifyOtp → the resolved-persona read) — long
-        // enough that several browsers (Safari and Firefox reliably; Chrome
-        // on a slow connection) no longer treat the call as tied to the
-        // user's original gesture and silently block the popup. A blocked
-        // popup returns `null` (or an already-closed `Window`) with NO thrown
-        // error, so the citizen saw "Connected" here while the top-level app
-        // tab — the actual site they were trying to sign into — never
-        // received its session. Trusting `connected` unconditionally here
-        // would be exactly the "No Simulated Completion" defect CLAUDE.md
-        // forbids: claiming a crossing that did not happen. Detect it and
-        // offer a manual, one-click fallback (a real user gesture, so it is
-        // never blocked) instead of a silent dead end.
+        // THE CROSSING MUST LAND IN THE RIGHT WINDOW (bug fix, 2026-08-01:
+        // "Pull Across" kept dying with a red ✗ even after this handoff
+        // reported "Connected", and Quick Links opening in a completely
+        // different, non-incognito browser window traced to the exact same
+        // mechanism). `world === "companion"` means this panel is mounted
+        // inside the extension's side panel iframe (see this file's own
+        // header), so a plain `window.open` here is a nested-iframe-under-a-
+        // side-panel `window.open` — it does not reliably open in the SAME
+        // window the side panel is docked to, which is exactly the window
+        // `extension/companion-observer/background.js`'s
+        // `chrome.tabs.query({ active: true, currentWindow: true })` looks
+        // in when pairing (`connectToMetaMe`). A handoff tab that opened
+        // elsewhere is invisible to that query, so pairing kept failing
+        // silently downstream of a handoff that this panel had already
+        // reported as successful. See
+        // `services/companion/sidePanelTabBridge.ts` for the full trace and
+        // the fix shared with Quick Links: ask the side panel (which IS
+        // correctly bound to the right window) to open the tab via
+        // `chrome.tabs.create` instead.
+        //
+        // The PRE-EXISTING popup-blocked detection (2026-07-31) is kept as
+        // the fallback for whenever the bridge cannot answer (no parent, or
+        // an older extension build without the `OPEN_TAB_REQUEST` handler) —
+        // by the time this line runs, the original click has passed through
+        // `fetch`/`await` at least three times (finalize → verifyOtp → the
+        // resolved-persona read), long enough that several browsers no
+        // longer treat a plain `window.open` as tied to the user's original
+        // gesture and silently block it. A blocked popup returns `null` (or
+        // an already-closed `Window`) with NO thrown error, so trusting
+        // `connected` unconditionally here would be exactly the "No
+        // Simulated Completion" defect CLAUDE.md forbids: claiming a
+        // crossing that did not happen. Detect it and offer a manual,
+        // one-click fallback (a real user gesture, so it is never blocked)
+        // instead of a silent dead end.
+        const handledByBridge = await openInSidePanelHostWindow(handoffUrl);
         let popup: Window | null = null;
-        try {
-          popup = window.open(handoffUrl, "_blank", "noreferrer");
-        } catch {
-          popup = null;
+        if (!handledByBridge) {
+          try {
+            popup = window.open(handoffUrl, "_blank", "noreferrer");
+          } catch {
+            popup = null;
+          }
         }
-        if (!popup || popup.closed) {
+        if (!handledByBridge && (!popup || popup.closed)) {
           setState({ kind: "connected", passport: fin.passport as PassportFacts, handoffUrl });
           onConnected?.();
           return;
@@ -638,7 +657,16 @@ export function PassportConnectPanel({
               </p>
               <button
                 type="button"
-                onClick={() => window.open(state.handoffUrl, "_blank", "noreferrer")}
+                onClick={() => {
+                  const url = state.handoffUrl!;
+                  // Same bridge-first, window.open-fallback shape as the
+                  // automatic handoff above — a manual retry from inside the
+                  // extension's side panel iframe is just as subject to the
+                  // wrong-window defect `sidePanelTabBridge.ts` documents.
+                  void openInSidePanelHostWindow(url).then((handled) => {
+                    if (!handled) window.open(url, "_blank", "noreferrer");
+                  });
+                }}
                 className="mt-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60"
               >
                 Finish signing in on this site
