@@ -251,12 +251,25 @@ export interface PassportConnectPanelProps {
   world?: "companion" | "application";
   /** Audience bound into the wallet challenge. Defaults per world. */
   audience?: string;
+  /**
+   * True when this panel is mounted INSIDE a host that already supplies its
+   * own full-viewport chrome (SmartWalletDrawer's persona menu, or a future
+   * drawer-hosted sign-in view) — never for the standalone `/passport-connect`
+   * page or the Companion's own iframe, both of which own the whole viewport
+   * themselves and should keep the full-screen unlock treatment. Threaded
+   * straight through to this panel's own `<UnlockModal>` mount so a wallet
+   * unlock never pops a SECOND, viewport-covering overlay on top of the
+   * host's (operator ruling, 2026-08-01: "nested modal inside modal" is the
+   * anti-pattern this exists to close).
+   */
+  embedded?: boolean;
 }
 
 export function PassportConnectPanel({
   onConnected,
   world = "companion",
   audience = world === "application" ? "metame-application" : AUDIENCE,
+  embedded = false,
 }: PassportConnectPanelProps) {
   const [state, setState] = useState<ConnectState>({ kind: "idle" });
 
@@ -855,6 +868,7 @@ export function PassportConnectPanel({
           personaName={state.profile.displayLabel}
           onUnlockSuccess={() => void runProofForProfile(state.profile)}
           onCancel={() => setState({ kind: "idle" })}
+          embedded={embedded}
         />
       ) : null}
 

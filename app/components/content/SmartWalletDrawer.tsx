@@ -2571,6 +2571,12 @@ export default function SmartWalletDrawer({
                   <div className="border-b border-slate-800">
                     <PassportConnectPanel
                       world="application"
+                      // Embedded (2026-08-02): this panel is nested inside the
+                      // persona menu's own small dropdown — its wallet-unlock
+                      // step must render inline, not as a SECOND viewport-
+                      // covering modal stacked on top of the drawer (the
+                      // nested-modal-inside-modal defect the operator flagged).
+                      embedded
                       onConnected={() => {
                         // The panel already pinned the chosen persona to
                         // localStorage directly (ruling A.11.2) — but a same-tab
@@ -3550,7 +3556,33 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
-              {!hasAnyPersona && (
+              {/* Signed OUT entirely (2026-08-02): the previous "Create your
+                  first persona" copy was WRONG here — it told a visitor with
+                  no session at all to create a persona, when what they
+                  actually need is to sign in. The wallet's own Wallet tab is
+                  now a real Passport sign-in surface for this case — the
+                  header's persona-menu dropdown (above) still offers the
+                  same panel for a citizen who prefers not to switch tabs,
+                  but this is now the primary, always-visible entrance,
+                  matching every other tab a signed-out visitor might land on
+                  first via `initialTab`. */}
+              {!sessionEmail ? (
+                <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <PassportConnectPanel
+                    world="application"
+                    embedded
+                    onConnected={() => {
+                      try {
+                        const pinned = window.localStorage.getItem('currentPersonaId');
+                        if (pinned) ctxSetActivePersonaId(pinned);
+                      } catch {
+                        /* ignore */
+                      }
+                      void refreshPersonas();
+                    }}
+                  />
+                </section>
+              ) : !hasAnyPersona ? (
                 <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-sm text-white/80 mb-2">Create your first persona to unlock wallet features.</div>
                   <button
@@ -3560,7 +3592,7 @@ export default function SmartWalletDrawer({
                     Create Persona
                   </button>
                 </section>
-              )}
+              ) : null}
               {effectivePersonaId && (
                 <section className="rounded-2xl bg-gradient-to-br from-cyan-500/10 to-purple-500/10 ring-1 ring-cyan-500/30 p-3">
                   <div className="flex items-center justify-between">
