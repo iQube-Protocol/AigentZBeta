@@ -151,11 +151,26 @@ export async function prepareRegistrationMandate(
   const resolveWallet = deps.resolvePrincipalWalletAddress ?? defaultResolvePrincipalWalletAddress;
   const principalWallet = await resolveWallet(input.principalPersonaId);
   if (!principalWallet) {
-    return {
-      ok: false,
-      refusalCode: 'NO_PRINCIPAL_WALLET',
-      detail: 'No wallet is on file for the operator — a signing action cannot be offered until one is configured. Never fabricating a mandate signature.',
-    };
+    // The refusal itself is correct and stays — a mandate signature is never
+    // fabricated. What changes is that it now says WHICH of the three address
+    // sources is empty and what fixes it (operator report, 2026-08-02): a
+    // backfill gap, absent key material and a malformed address are three
+    // different problems, and one flat message made the ceremony
+    // unfixable from the error alone. Only injected deps skip this — a test
+    // stub has no store to diagnose against.
+    let detail =
+      'No wallet is on file for the operator — a signing action cannot be offered until one is configured. Never fabricating a mandate signature.';
+    if (!deps.resolvePrincipalWalletAddress) {
+      try {
+        const { diagnosePersonaWalletAddress } = await import('@/services/identity/personaAddressResolver');
+        const diagnosis = await diagnosePersonaWalletAddress(input.principalPersonaId, 'base');
+        if (diagnosis.remediation) detail = `${detail} ${diagnosis.remediation}`;
+      } catch {
+        // Diagnosis is an enrichment — its failure must never change the
+        // refusal itself.
+      }
+    }
+    return { ok: false, refusalCode: 'NO_PRINCIPAL_WALLET', detail };
   }
 
   const create = deps.createSigningRequest ?? createSigningRequest;

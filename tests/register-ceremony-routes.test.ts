@@ -9,6 +9,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { NextRequest } from 'next/server';
 
+import { readSource, stripComments } from './_lib/sourceAuthority';
+
 const mockGetActivePersona = vi.fn();
 vi.mock('@/services/identity/getActivePersona', () => ({
   getActivePersona: (req: unknown) => mockGetActivePersona(req),
@@ -147,5 +149,55 @@ describe('POST register/invocation/approve', () => {
     expect(res.status).toBe(422);
     const json = await res.json();
     expect(json.refusalCode).toBe('BROADCAST_FAILED');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// The NO_PRINCIPAL_WALLET refusal names WHICH lookup is empty
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('NO_PRINCIPAL_WALLET — the refusal stands, but says what to fix', () => {
+  const RESOLVER = 'services/identity/personaAddressResolver.ts';
+  const CEREMONY = 'services/horizen/registerCeremony.ts';
+
+  it('still refuses rather than fabricating a mandate signature', () => {
+    const src = readSource(CEREMONY);
+    expect(src).toContain('Never fabricating a mandate signature');
+    expect(src).toContain("refusalCode: 'NO_PRINCIPAL_WALLET'");
+  });
+
+  it('distinguishes the three genuinely different causes, plus store-unavailable', () => {
+    const src = readSource(RESOLVER);
+    for (const reason of ['needs-backfill', 'no-key-material', 'malformed-address', 'store-unavailable']) {
+      expect(src, `"${reason}" must be a distinguishable outcome`).toContain(reason);
+    }
+  });
+
+  it('a backfill gap points at the sync route, not at creating a wallet that already exists', () => {
+    const src = readSource(RESOLVER);
+    expect(src).toContain('/api/admin/identity/sync-persona-evm-addresses');
+  });
+
+  it('absent key material says a wallet must be CREATED — no backfill can invent one', () => {
+    const src = readSource(RESOLVER);
+    expect(src).toMatch(/no EVM wallet key material at all/);
+    expect(src).toMatch(/Create a metaMe wallet/);
+  });
+
+  it('a store outage is UNKNOWN, never rendered as "you have no wallet"', () => {
+    const src = readSource(RESOLVER);
+    const at = src.indexOf("reason: 'store-unavailable'");
+    expect(at).toBeGreaterThan(-1);
+    expect(src.slice(at, at + 400)).toMatch(/unknown rather than absent/);
+  });
+
+  it('the diagnosis only enriches — it can never change or suppress the refusal', () => {
+    const src = stripComments(readSource(CEREMONY));
+    const at = src.indexOf("refusalCode: 'NO_PRINCIPAL_WALLET'");
+    expect(at).toBeGreaterThan(-1);
+    // The enrichment is wrapped so its failure cannot alter the outcome.
+    const block = src.slice(src.indexOf('let detail ='), at);
+    expect(block).toContain('try {');
+    expect(block).toContain('} catch {');
   });
 });
