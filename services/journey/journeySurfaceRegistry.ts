@@ -161,8 +161,9 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'ParticipationStandingTab',
     note:
-      'Standing — the deliberately lean Participation v1 surface (lanes, reach, receipts, ' +
-      'contribution history). Rendered bare, superseding the embedded SmartWalletDrawer for this stage.',
+      'Standing — the deliberately lean Participation v1 surface (lanes, reach, receipts), now a ' +
+      '4-tab surface (2026-08-01) with the registry Ingestion Factory as its 4th tab per operator ' +
+      'direction. Rendered bare, superseding the embedded SmartWalletDrawer for this stage.',
   },
   'aigentme-welcome': {
     kind: 'embed',

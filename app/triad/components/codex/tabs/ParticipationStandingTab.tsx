@@ -1,11 +1,18 @@
 "use client";
 
 /**
- * ParticipationStandingTab — Participation → Standing (v1, 2026-07-18).
+ * ParticipationStandingTab — Participation → Standing (v1, 2026-07-18;
+ * 4-tab restructure 2026-08-01).
  *
  * The participant's constitutional standing, kept deliberately lean per the
  * ratified Participation v1 IA: Standing lanes, reach, receipts, and
- * contribution history. Nothing more.
+ * contribution history. Now a tabbed surface with a 4th tab — the Ingestion
+ * Factory — per operator direction: the Activate stage's Standing surface
+ * must also expose the registry ingestion panel here, not as a separate
+ * journey surface. Reuses the SAME `IngestionFactoryPanel` component
+ * `IQubeRegistryIntakeTab` mounts (composition, not a fork —
+ * inv.engineering.036/037); the panel is self-contained and reads its own
+ * canonical APIs, so no new props or gating were added here.
  *
  * Composes existing organs — /api/wallet/tasks (standing + reputation lanes,
  * spine Bearer) and /api/assistant/receipts (the persona's receipted
@@ -13,7 +20,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Award, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
+import { Award, Factory, Loader2, ReceiptText, ShieldCheck, TrendingUp } from 'lucide-react';
 // Persona-aware transport. `/api/assistant/*` and `/api/wallet/*` resolve the
 // caller through the spine, and this tab is about to become PARTICIPANT-FACING
 // in the Venture Lab — where a fallback persona would show one participant
@@ -21,6 +28,16 @@ import { Award, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
 // carries no persona selection (CLAUDE.md, 2026-07-20 incident).
 import { personaFetch } from '@/utils/personaSpine';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
+import { IngestionFactoryPanel } from '@/components/registry/IngestionFactoryPanel';
+
+type StandingSubTab = 'standing' | 'reach' | 'receipts' | 'ingestion';
+
+const SUB_TABS: Array<{ id: StandingSubTab; label: string; Icon: typeof Award }> = [
+  { id: 'standing', label: 'Standing', Icon: Award },
+  { id: 'reach', label: 'Reach', Icon: TrendingUp },
+  { id: 'receipts', label: 'Receipts', Icon: ReceiptText },
+  { id: 'ingestion', label: 'Ingestion Factory', Icon: Factory },
+];
 
 interface StandingLanes {
   personal: number;
@@ -45,6 +62,7 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
 ];
 
 export function ParticipationStandingTab() {
+  const [activeTab, setActiveTab] = useState<StandingSubTab>('standing');
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -104,12 +122,36 @@ export function ParticipationStandingTab() {
         <h2 className="text-base font-semibold text-slate-100">Standing</h2>
         <p className="mt-1 text-xs text-slate-400 max-w-2xl">
           Your relationship with the Institute, as the record shows it: standing lanes,
-          reach, and your receipted contribution history.
+          reach, your receipted contribution history, and the registry Ingestion Factory.
         </p>
       </div>
+
+      <div className="flex items-center gap-0.5 border-b border-slate-800 pb-2">
+        {SUB_TABS.map(({ id, label, Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+              activeTab === id
+                ? 'bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25'
+                : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+
       {error && <p className="text-xs text-amber-300">{error}</p>}
 
+      {activeTab === 'ingestion' ? (
+        <IngestionFactoryPanel />
+      ) : (
+        <>
       {/* Standing lanes */}
+      {activeTab === 'standing' && (
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
@@ -143,8 +185,10 @@ export function ParticipationStandingTab() {
           <p className="text-xs text-slate-500 italic">No standing record yet — standing accrues from receipted contributions.</p>
         )}
       </div>
+      )}
 
       {/* Reach */}
+      {activeTab === 'reach' && (
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <h3 className="mb-2 text-sm font-semibold text-slate-200">Reach</h3>
         {reach ? (
@@ -166,8 +210,10 @@ export function ParticipationStandingTab() {
           <p className="text-xs text-slate-500 italic">No reputation record yet.</p>
         )}
       </div>
+      )}
 
       {/* Contribution history — receipted record */}
+      {activeTab === 'receipts' && (
       <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
           <ReceiptText className="h-4 w-4 text-emerald-300" /> Contribution history
@@ -209,6 +255,9 @@ export function ParticipationStandingTab() {
           </div>
         )}
       </div>
+      )}
+        </>
+      )}
     </div>
   );
 }

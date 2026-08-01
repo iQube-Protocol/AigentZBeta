@@ -175,7 +175,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'venture-participate-standing',
-          note: "Rendered bare — Venture Lab α's Participate → Standing module (lanes, reach, receipts, contribution history).",
+          note: "Rendered bare — Venture Lab α's Participate → Standing module (Standing, Reach, Receipts, and the registry Ingestion Factory as its 4th tab).",
         },
       ],
       prerequisites: ['delegate'],
