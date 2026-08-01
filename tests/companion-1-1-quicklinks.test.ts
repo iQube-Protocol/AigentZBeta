@@ -163,9 +163,27 @@ describe('Quick Links are derived and reuse the shipped navigation', () => {
     // launches into the left-hand workspace and leaves the Companion on the
     // right. If it ever navigated the Companion, the assistant would be
     // replacing itself with the thing it was asked to open.
+    //
+    // UPDATED (bug fix, 2026-08-01: Quick Links "launching a popup in a new
+    // window" that landed in the WRONG browser window entirely, tested from
+    // an incognito window). A plain `window.open` from this page — nested
+    // inside the extension's side panel iframe — does not reliably land in
+    // the side panel's own host window (see
+    // `services/companion/sidePanelTabBridge.ts` for the full trace). The
+    // destination is still `quickLinkHref(link, personaId)` opened at
+    // `quickLinkTarget()`, but the FIRST attempt now goes through
+    // `openInSidePanelHostWindow`, which asks the extension's side panel to
+    // open it via `chrome.tabs.create` in the correct window; `window.open`
+    // is only the fallback for when nothing answers (a plain web embed, or an
+    // older extension build).
     expect(quickLinkTarget()).toBe('_blank');
     const code = stripComments(readSource(COMPANION_PAGE));
-    expect(code).toContain('window.open(quickLinkHref(link, personaId), quickLinkTarget()');
+    expect(code).toContain('import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";');
+    const bridgeCallIndex = code.indexOf('void openInSidePanelHostWindow(href).then((handled) => {');
+    const fallbackIndex = code.indexOf('window.open(href, quickLinkTarget(), "noreferrer");');
+    expect(bridgeCallIndex, 'a Quick Link click must try the side-panel bridge first').toBeGreaterThan(-1);
+    expect(fallbackIndex, 'window.open must remain as the fallback when the bridge cannot answer').toBeGreaterThan(-1);
+    expect(bridgeCallIndex, 'the bridge must be tried before the window.open fallback').toBeLessThan(fallbackIndex);
   });
 
   it('the carousel prop is LIVE — declared, destructured and rendered', () => {
