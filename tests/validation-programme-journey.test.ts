@@ -284,7 +284,19 @@ describe('resolveJourneyState over the Validation Programme journey (behavioural
 describe('State route — real state resolution, no fabrication', () => {
   it('imports the real reviewer-reach check and the real review store, never a stub', () => {
     const graph = importAuthority(readSource('app/api/journey/validation-programme/state/route.ts'));
-    expect(graph.records.some((r) => r.names.includes('callerMayReadExperimentReview'))).toBe(true);
+    // `diagnoseExperimentReviewAccess` is the STRUCTURED form of the same
+    // rule `callerMayReadExperimentReview` answers — same module, same query,
+    // same role/scope test, and the boolean function now delegates to it
+    // (participationAccess.ts, 2026-08-02). Either binding satisfies this
+    // canary's intent: the route resolves reviewer reach from the real
+    // access_grants read, never a stub.
+    expect(
+      graph.records.some(
+        (r) =>
+          r.names.includes('callerMayReadExperimentReview') ||
+          r.names.includes('diagnoseExperimentReviewAccess'),
+      ),
+    ).toBe(true);
     expect(graph.records.some((r) => r.names.includes('listReviews'))).toBe(true);
     expect(graph.records.some((r) => r.names.includes('resolveJourneyState'))).toBe(true);
   });

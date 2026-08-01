@@ -133,6 +133,30 @@ export function JourneyRunSurface({
     }
   }, [stateUrl, personaId]);
 
+  /**
+   * FAIL FAITHFUL (operator ruling, 2026-08-02). A transient status-endpoint
+   * failure must never read as a loss of access, and must never be shown to
+   * an external participant as a raw transport error.
+   *
+   * PRIOR DEFECT: a gateway timeout surfaced verbatim — "Journey state
+   * request failed (504)" — in a red banner, to an external reviewer whose
+   * constitutional access was entirely intact. That string is true but it is
+   * not ADDRESSED to them: it names a mechanism they have no relationship
+   * with, offers no next step, and (in red, beside a green "Access granted")
+   * implies their access is in question. It is not: nothing this endpoint
+   * does can revoke a grant.
+   *
+   * So the participant gets what is true AND actionable — status is
+   * temporarily unavailable, confirmed access is unaffected, here is how to
+   * retry — while the exact technical detail stays reachable for whoever can
+   * act on it. Nothing is hidden; it is addressed to the right reader.
+   * `runtimeState` is deliberately NOT cleared on failure: the last resolved
+   * state remains the most truthful thing we know, and blanking it would
+   * present "unknown" as "nothing complete".
+   */
+  const technicalDetail = error;
+  const isStale = !!error && !!runtimeState;
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -201,8 +225,34 @@ export function JourneyRunSurface({
       </div>
 
       {error && (
-        <div className="rounded-md border border-rose-900/60 bg-rose-950/30 px-3 py-2 text-xs text-rose-300">
-          {error} — journey state could not be resolved; no stage is assumed complete.
+        // Amber, not rose: this is "we cannot tell you right now", which is a
+        // different fact from "you are refused". Rose is reserved for a real
+        // refusal so the two never read alike.
+        <div className="rounded-md border border-amber-900/60 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+          <div className="font-medium">Programme status is temporarily unavailable.</div>
+          <div className="mt-1 text-amber-200/80">
+            Your confirmed access remains active — nothing here has changed it.{' '}
+            {isStale
+              ? 'The stages below show the last status we resolved.'
+              : 'No stage is assumed complete while status is unknown.'}
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              className="rounded border border-amber-800/60 bg-amber-950/30 px-2 py-1 text-[11px] text-amber-100 hover:bg-amber-950/50"
+            >
+              Refresh status
+            </button>
+          </div>
+          {/* Operator diagnostics — the exact technical detail, kept out of
+              the participant's way but never removed. */}
+          <details className="mt-2">
+            <summary className="cursor-pointer text-[11px] text-amber-200/60 hover:text-amber-200">
+              Diagnostics
+            </summary>
+            <code className="mt-1 block break-all text-[11px] text-amber-200/70">{technicalDetail}</code>
+          </details>
         </div>
       )}
 

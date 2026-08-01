@@ -31,6 +31,39 @@ export const dynamic = 'force-dynamic';
 const CONSTITUTIONAL_BOUNDARY =
   'The agent may prepare, explain, fetch, and administer. Accepting terms, claiming the invitation, and delegating authority are HUMAN constitutional acts performed by the signed-in principal.';
 
+/**
+ * INVITATION SCOPE → CONTEXTUAL DESTINATION (operator ruling, 2026-08-02).
+ *
+ * PRIOR DEFECT: every claimed invitation resolved to `resources.dashboard` —
+ * the IRL OS cartridge root, which lands on its generic Welcome tab. A
+ * reviewer who had just claimed a scoped EXP-P1 invitation was dropped on a
+ * general landing page and had to find the programme themselves. "Continue
+ * in the Lab" was too broad a promise for an invitation that already knew
+ * exactly which programme it was for.
+ *
+ * The destination is now DERIVED from what the invitation is scoped to, so
+ * this generalises: an invitation scoped to experiments the Validation
+ * Programme covers resolves to the Validation Programme tab; anything else
+ * falls back to the cartridge root, which is honest for an unscoped
+ * invitation because an unscoped grant genuinely has no single destination.
+ * Never hardcode a programme here — add its scope mapping instead.
+ */
+const VALIDATION_PROGRAMME_EXPERIMENTS = ['EXP-P1'];
+
+function contextualDestination(
+  origin: string,
+  scope: { role: string; allowedExperiments: string[] | null },
+): { url: string; label: string } {
+  const experiments = scope.allowedExperiments ?? [];
+  if (experiments.some((e) => VALIDATION_PROGRAMME_EXPERIMENTS.includes(e))) {
+    return {
+      url: `${origin}/triad/embed/codex/irl-os-cartridge?tab=irl-os-validation-programme`,
+      label: 'Continue to Validation Programme',
+    };
+  }
+  return { url: `${origin}/triad/embed/codex/irl-os-cartridge`, label: 'Continue in the Lab' };
+}
+
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code')?.trim();
@@ -65,12 +98,17 @@ export async function GET(req: NextRequest) {
     const codeHash = createHash('sha256').update(code).digest('hex');
     const { data: inv, error } = await admin
       .from('access_invitations')
-      .select('access_domain, role, label, status, uses, max_uses, expires_at, created_at')
+      .select('access_domain, role, label, status, uses, max_uses, expires_at, created_at, allowed_experiments')
       .eq('code_hash', codeHash)
       .maybeSingle();
     if (error || !inv) return NextResponse.json({ ok: false, error: 'Invitation not found' }, { status: 404 });
 
     const claimed = inv.status !== 'active';
+    const allowedExperiments = (inv as { allowed_experiments?: string[] | null }).allowed_experiments ?? null;
+    const destination = contextualDestination(origin, {
+      role: String(inv.role),
+      allowedExperiments,
+    });
     return NextResponse.json(
       {
         ok: true,
@@ -82,6 +120,11 @@ export async function GET(req: NextRequest) {
         status: inv.status,
         onboarded: claimed,
         expiresAt: inv.expires_at,
+        // The invitation's own scope — what makes the destination below
+        // derivable rather than hardcoded, and what an agent needs to know
+        // which experiments its principal may actually reach.
+        allowedExperiments,
+        destination,
         constitutionalBoundary: CONSTITUTIONAL_BOUNDARY,
         workflow: claimed
           ? [
@@ -125,6 +168,10 @@ export async function GET(req: NextRequest) {
         programme: inv.label ?? 'Constitutional Agreement',
         status: inv.status,
         onboarded: claimed,
+        // An agreement invitation carries no experiment scope of its own, so
+        // it resolves to the honest general destination rather than asserting
+        // a programme it does not actually name.
+        destination: contextualDestination(origin, { role: 'reviewer', allowedExperiments: null }),
         constitutionalBoundary: CONSTITUTIONAL_BOUNDARY,
         workflow: claimed
           ? [

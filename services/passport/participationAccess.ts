@@ -330,7 +330,120 @@ export async function getGrantedExperiments(
  * server-side authorization actually reads the access_grants table, per
  * SPEC-IRL-WORKSPACE-001 §16's reuse register.
  */
-const REVIEW_VIEW_READABLE_ROLES = ['reviewer', 'research-steward', 'principal-investigator', 'faculty-lead', 'researcher'];
+export const REVIEW_VIEW_READABLE_ROLES = ['reviewer', 'research-steward', 'principal-investigator', 'faculty-lead', 'researcher'];
+
+/**
+ * The role a REVIEWER invitation must carry (operator ruling, 2026-08-02 —
+ * the reviewer-authorization mismatch). It is the narrowest review-readable
+ * role in the catalogue: `researchWorkspaceRoles.ts` gives it
+ * `maySubmitReviewDecision: true` with `mayAdministerAccess: false`,
+ * `mayEditWorkingMaterials: false`, `mayAwardGrade: false` and the whole
+ * `NEVER` block (no freeze, no canonise, no publish, no Standing grant) —
+ * exactly the "read/recommend authority only" the ruling requires. Scope it
+ * further with `allowedExperiments: ['EXP-P1']` and the grant reaches that
+ * one experiment's review and nothing else.
+ */
+export const REVIEWER_INVITATION_ROLE = 'reviewer';
+
+/**
+ * Why a caller cannot read an experiment's review — the STRUCTURED answer
+ * behind `callerMayReadExperimentReview`'s boolean (operator ruling,
+ * 2026-08-02).
+ *
+ * THE DEFECT THIS CLOSES: an invitation issued with role
+ * `research-participant` claims successfully (green "Access granted:
+ * research-lab · research-participant") and then fails every review gate
+ * (red "Steward or assigned-reviewer access required"). Both surfaces were
+ * behaving exactly as specified — `research-participant` IS a valid
+ * research-lab role to invite and grant, and it is DELIBERATELY excluded
+ * from the review-readable set (`allRolesExcept('research-participant',
+ * 'student-researcher')`, whose capability row is all-`false` including
+ * `maySubmitReviewDecision`). The two surfaces simply never agreed on what a
+ * REVIEWER invitation is. A bare boolean could not tell the citizen which of
+ * the three genuinely different situations they were in, so the UI had to
+ * guess — and guessed the most alarming one.
+ *
+ *   'granted'          — reaches this experiment's review.
+ *   'no-grant'         — no active research-lab grant at all: the invitation
+ *                        was never claimed (or was revoked). The next act is
+ *                        to claim it.
+ *   'role-not-review'  — an active grant EXISTS, but its role cannot read
+ *                        reviews. The claim worked; the INVITATION carried
+ *                        the wrong role. Nothing the citizen does fixes
+ *                        this — it needs a correctly-issued reviewer
+ *                        invitation, and the UI must say so rather than
+ *                        implying the citizen failed a step.
+ *   'experiment-scope' — a review-readable grant exists but is scoped to
+ *                        other experiments. Also an issuance matter.
+ *   'unavailable'      — the store could not be read. UNKNOWN, never
+ *                        "denied": a transient failure must never present as
+ *                        a refusal (see the faithful-status ruling).
+ */
+export type ExperimentReviewAccessReason =
+  | 'granted'
+  | 'no-grant'
+  | 'role-not-review'
+  | 'experiment-scope'
+  | 'unavailable';
+
+export interface ExperimentReviewAccessDiagnosis {
+  mayRead: boolean;
+  reason: ExperimentReviewAccessReason;
+  /** The roles this persona actually holds in research-lab, for display. */
+  heldRoles: string[];
+  /** Experiments the persona's review-readable grants reach, if any. */
+  reachableExperiments: 'all' | string[];
+}
+
+/**
+ * The structured form of `callerMayReadExperimentReview`. Same query, same
+ * rule — this returns WHY, so a surface can render a true, actionable
+ * message instead of one generic refusal. `callerMayReadExperimentReview`
+ * delegates to this so there is exactly one implementation of the rule
+ * (inv.engineering.036); never re-derive the role/scope test elsewhere.
+ */
+export async function diagnoseExperimentReviewAccess(
+  admin: SupabaseClient,
+  personaId: string,
+  experimentId: string,
+): Promise<ExperimentReviewAccessDiagnosis> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+
+  // Fail UNKNOWN, not denied — a store outage is not a refusal.
+  if (error) {
+    return { mayRead: false, reason: 'unavailable', heldRoles: [], reachableExperiments: [] };
+  }
+  const rows = data ?? [];
+  const heldRoles = [...new Set(rows.map((r) => String((r as { role: string }).role)))];
+  if (rows.length === 0) {
+    return { mayRead: false, reason: 'no-grant', heldRoles: [], reachableExperiments: [] };
+  }
+
+  const reviewRows = rows.filter((r) => REVIEW_VIEW_READABLE_ROLES.includes(String((r as { role: string }).role)));
+  if (reviewRows.length === 0) {
+    return { mayRead: false, reason: 'role-not-review', heldRoles, reachableExperiments: [] };
+  }
+
+  const reachable = new Set<string>();
+  let unrestricted = false;
+  for (const r of reviewRows) {
+    const allowed = (r as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowed || allowed.length === 0) unrestricted = true;
+    else for (const e of allowed) reachable.add(e);
+  }
+  const mayRead = unrestricted || reachable.has(experimentId);
+  return {
+    mayRead,
+    reason: mayRead ? 'granted' : 'experiment-scope',
+    heldRoles,
+    reachableExperiments: unrestricted ? 'all' : [...reachable],
+  };
+}
 
 /**
  * Read-only reviewer-reach check (SPEC-IRL-WORKSPACE-001 §8, acceptance
@@ -350,19 +463,9 @@ export async function callerMayReadExperimentReview(
   personaId: string,
   experimentId: string,
 ): Promise<boolean> {
-  const { data, error } = await admin
-    .from('access_grants')
-    .select('role, allowed_experiments')
-    .eq('persona_id', personaId)
-    .eq('access_domain', 'research-lab')
-    .eq('status', 'active');
-  if (error || !data) return false;
-  return data.some((row) => {
-    const role = String((row as { role: string }).role);
-    if (!REVIEW_VIEW_READABLE_ROLES.includes(role)) return false;
-    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
-    return !allowed || allowed.length === 0 || allowed.includes(experimentId);
-  });
+  // ONE implementation of the rule — see diagnoseExperimentReviewAccess.
+  // This wrapper keeps every existing caller's boolean contract unchanged.
+  return (await diagnoseExperimentReviewAccess(admin, personaId, experimentId)).mayRead;
 }
 
 /**
@@ -499,13 +602,40 @@ export async function createAccessInvitation(
   if (!DOMAIN_ROLES[input.domain].includes(input.role)) {
     return { ok: false, error: `Role '${input.role}' is not defined for domain '${input.domain}'` };
   }
+
+  // ISSUANCE COHERENCE GUARD (operator ruling, 2026-08-02 — the
+  // reviewer-authorization mismatch). `allowedExperiments` scopes a grant to
+  // specific experiments' REVIEW evidence; it is meaningless on a role that
+  // can never read a review. Issuing that combination produces an invitation
+  // that claims successfully and then fails every review gate — the exact
+  // green-access-granted / red-unauthorized contradiction the ruling forbids.
+  // Refuse it HERE, where an issuer can still fix it, rather than letting the
+  // invitee discover it after they have already spent the invitation.
+  //
+  // This does NOT narrow who may be invited: an unscoped invitation in any
+  // role is still valid (an Institutional Observer is a real, intended
+  // research-participant grant). It refuses only the specifically incoherent
+  // pairing of experiment scoping with a non-review-readable role.
+  const scoped = (input.allowedExperiments ?? []).map((e) => e.trim()).filter(Boolean);
+  if (
+    input.domain === 'research-lab' &&
+    scoped.length > 0 &&
+    !REVIEW_VIEW_READABLE_ROLES.includes(input.role)
+  ) {
+    return {
+      ok: false,
+      error:
+        `Role '${input.role}' cannot read experiment reviews, so scoping it to ` +
+        `${scoped.join(', ')} would grant access that every review gate refuses. ` +
+        `Issue a reviewer invitation with role '${REVIEWER_INVITATION_ROLE}', or drop the experiment scope.`,
+    };
+  }
+
   const rawCode = `pinv-${randomBytes(16).toString('hex')}`;
   const expiresAt = input.expiresInDays
     ? new Date(Date.now() + input.expiresInDays * 86_400_000).toISOString()
     : null;
-  const allowedExperiments = (input.allowedExperiments ?? [])
-    .map((e) => e.trim())
-    .filter(Boolean);
+  const allowedExperiments = scoped; // normalised once, above, by the coherence guard
   const { data, error } = await admin
     .from('access_invitations')
     .insert({

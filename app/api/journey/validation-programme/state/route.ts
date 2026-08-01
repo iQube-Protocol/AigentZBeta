@@ -17,7 +17,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { personaPublicRef } from '@/services/identity/personaReferences';
-import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
+import {
+  diagnoseExperimentReviewAccess,
+  type ExperimentReviewAccessDiagnosis,
+} from '@/services/passport/participationAccess';
 import { listReviews } from '@/services/research/independentReviewStore';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { VALIDATION_PROGRAMME_JOURNEY, VALIDATION_PROGRAMME_EXPERIMENT_ID } from '@/services/journey/validationProgrammeJourney';
@@ -36,8 +39,28 @@ export async function GET(req: NextRequest) {
   // Stage 1 — Overview: does this caller reach EXP-P1's review at all? An
   // admin previewing the programme also counts (matches the crystal route's
   // own admin-or-scoped-reviewer rule).
-  const reviewerAccessConfirmed =
-    isAdmin || (admin ? await callerMayReadExperimentReview(admin, persona.personaId, VALIDATION_PROGRAMME_EXPERIMENT_ID) : false);
+  //
+  // The DIAGNOSIS (not just the boolean) rides along in the response so the
+  // journey surface can render a true, actionable status — "your grant is
+  // research-participant, which cannot read reviews" is a different situation
+  // from "you have not claimed your invitation yet" and from "we could not
+  // check". Collapsing all three into one red banner is what produced the
+  // simultaneous green "Access granted" / red "unauthorized" contradiction
+  // (operator ruling, 2026-08-02).
+  let accessDiagnosis: ExperimentReviewAccessDiagnosis;
+  if (isAdmin) {
+    accessDiagnosis = { mayRead: true, reason: 'granted', heldRoles: ['platform-admin'], reachableExperiments: 'all' };
+  } else if (admin) {
+    accessDiagnosis = await diagnoseExperimentReviewAccess(
+      admin,
+      persona.personaId,
+      VALIDATION_PROGRAMME_EXPERIMENT_ID,
+    );
+  } else {
+    // No store at all — UNKNOWN, never "denied".
+    accessDiagnosis = { mayRead: false, reason: 'unavailable', heldRoles: [], reachableExperiments: [] };
+  }
+  const reviewerAccessConfirmed = accessDiagnosis.mayRead;
 
   // Stage 2 — Crystal Review: has THIS caller's own review decision already
   // been recorded against an EXP-P1 review? Real read, no fabrication — a
@@ -70,5 +93,5 @@ export async function GET(req: NextRequest) {
 
   const runtimeState = resolveJourneyState(VALIDATION_PROGRAMME_JOURNEY, platformState);
 
-  return NextResponse.json({ ok: true, state: runtimeState });
+  return NextResponse.json({ ok: true, state: runtimeState, access: accessDiagnosis });
 }
