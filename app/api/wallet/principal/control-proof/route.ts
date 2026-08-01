@@ -38,6 +38,7 @@ import {
   screenProvisioningPayload,
   compareRecoveredAddress,
   provisioningCompletion,
+  hasEncryptedEnvelope,
 } from '@/services/wallet/principalWalletProvisioning';
 
 export const runtime = 'nodejs';
@@ -57,7 +58,7 @@ async function boundPrincipalAddress(personaId: string): Promise<{ address: stri
   const env = (data?.evm_key ?? null) as { address?: unknown; encryptedPrivateKey?: unknown } | null;
   return {
     address: typeof env?.address === 'string' ? env.address : null,
-    hasKey: typeof env?.encryptedPrivateKey === 'object' || typeof env?.encryptedPrivateKey === 'string',
+    hasKey: hasEncryptedEnvelope(data?.evm_key),
   };
 }
 

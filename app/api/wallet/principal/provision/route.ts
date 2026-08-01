@@ -33,6 +33,7 @@ import {
   evaluateProvisioningRequest,
   provisioningCompletion,
   supersedePlaceholder,
+  hasEncryptedEnvelope,
 } from '@/services/wallet/principalWalletProvisioning';
 import { migrateAddressToLinkedBinding } from '@/services/wallet/linkedExternalWallet';
 
@@ -108,16 +109,8 @@ export async function POST(req: NextRequest) {
   }
 
   const existingEnvelope = (row?.evm_key ?? null) as { address?: unknown; encryptedPrivateKey?: unknown } | null;
-  /*
-   * An AES-GCM envelope is an OBJECT ({salt, iv, ciphertext, authTag}), not a
-   * string. The original check tested `typeof … === 'string'`, so a real
-   * envelope read as ABSENT — which would have let a second provisioning run
-   * overwrite a wallet the operator may already hold. Accepts either shape:
-   * older rows may carry a serialised string.
-   */
-  const envKey = existingEnvelope?.encryptedPrivateKey;
-  const existingHasKey =
-    (typeof envKey === 'string' && envKey.length > 0) || (typeof envKey === 'object' && envKey !== null);
+  // ONE predicate, shared with the classifier and the control-proof route.
+  const existingHasKey = hasEncryptedEnvelope(row?.evm_key);
   const placeholderAddress = typeof existingEnvelope?.address === 'string' ? existingEnvelope.address : null;
 
   // A prior control proof is what makes an existing signer VERIFIED. Absent

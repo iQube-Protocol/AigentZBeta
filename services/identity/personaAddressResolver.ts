@@ -201,6 +201,7 @@ export async function diagnosePersonaWalletAddress(
  */
 
 import type { WalletCapability } from '@/services/wallet/pilotWalletException';
+import { hasEncryptedEnvelope } from '@/services/wallet/principalWalletProvisioning';
 
 export interface PersonaWalletCapability {
   capability: WalletCapability;
@@ -276,8 +277,28 @@ export async function classifyPersonaWalletCapability(
   const column = typeof row.evm_address === 'string' ? row.evm_address : null;
   const envelope = (row.evm_key ?? null) as { address?: unknown; encryptedPrivateKey?: unknown } | null;
   const envelopeAddress = typeof envelope?.address === 'string' ? envelope.address : null;
-  // The load-bearing check: is there KEY MATERIAL, not merely an address?
-  const hasKeyMaterial = typeof envelope?.encryptedPrivateKey === 'string' && envelope.encryptedPrivateKey.length > 0;
+  /*
+   * The load-bearing check: is there KEY MATERIAL, not merely an address?
+   *
+   * ── THE DEFECT THIS FIXES (operator browser run, 2026-08-02) ─────────────
+   *
+   * This tested `typeof … === 'string'` ONLY. An AES-256-GCM envelope from
+   * `keyService.encryptPrivateKey` is an OBJECT — `{salt, iv, ciphertext,
+   * authTag}` — so a REAL, successfully provisioned principal wallet read as
+   * having no key material at all, and classified as ADDRESS_ONLY.
+   *
+   * The operator saw both halves of that at once and correctly said they
+   * could not both be true: the wallet surface refused with
+   * EXISTING_VERIFIED_SIGNER (the provision route reads the envelope
+   * correctly) while the same surface, and the Register stage, offered to
+   * create a wallet that already existed. One classifier disagreeing with one
+   * route about whether a key exists is exactly the split-source-of-truth
+   * defect inv.engineering.036 names — and it inverted the answer, not merely
+   * blurred it.
+   *
+   * Accepts either shape: older rows may carry a serialised string.
+   */
+  const hasKeyMaterial = hasEncryptedEnvelope(row.evm_key);
   const address = column ?? envelopeAddress;
 
   if (!address) {

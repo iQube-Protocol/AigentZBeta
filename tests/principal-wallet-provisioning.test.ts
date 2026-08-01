@@ -22,6 +22,7 @@
 import { describe, it, expect } from 'vitest';
 
 import {
+  hasEncryptedEnvelope,
   PROVISIONING_SEQUENCE,
   EXTERNAL_PROOF_IS_NOT_A_PRECONDITION,
   screenProvisioningPayload,
@@ -374,9 +375,9 @@ describe('the routes hold the boundary', () => {
   it('passes the existing-envelope guard to the gate, detecting an OBJECT envelope', () => {
     const code = stripComments(provision);
     expect(code).toMatch(/existingEnvelopePresent: existingHasKey/);
-    // An AES-GCM envelope is an object; a string-only check read a real
-    // envelope as absent and would have let a second wallet overwrite it.
-    expect(code).toMatch(/typeof envKey === 'object'/);
+    // Via the SHARED predicate — an inline copy is what drifted and inverted
+    // the answer. See the parity block at the end of this file.
+    expect(code).toMatch(/existingHasKey = hasEncryptedEnvelope\(/);
   });
 
   it('does not use wallet_alias_commitments for this purpose', () => {
@@ -449,5 +450,50 @@ describe('the client ceremony keeps secrets in the browser', () => {
     expect(
       forbiddenImportFindings(client, ['migrateAddressToLinkedBinding'], ['wallet/linkedExternalWallet']),
     ).toEqual([]);
+  });
+});
+
+describe('one predicate for "is there an envelope"', () => {
+  it('accepts the OBJECT shape keyService actually produces', () => {
+    // The defect: a string-only check made a real, successfully provisioned
+    // wallet invisible to the classifier while the routes could see it. The
+    // operator was shown a refusal saying a proven signer existed AND a form
+    // offering to create one, at the same instant.
+    expect(hasEncryptedEnvelope({ encryptedPrivateKey: { salt: 'aa', iv: 'bb', ciphertext: 'cc', authTag: 'dd' } })).toBe(
+      true,
+    );
+  });
+
+  it('accepts a legacy serialised string', () => {
+    expect(hasEncryptedEnvelope({ encryptedPrivateKey: 'legacy-blob' })).toBe(true);
+  });
+
+  it('rejects the keyless placeholder — an address with no envelope', () => {
+    expect(hasEncryptedEnvelope({ address: '0x1111111111111111111111111111111111111111' })).toBe(false);
+  });
+
+  it('rejects empty, null and undefined', () => {
+    expect(hasEncryptedEnvelope({ encryptedPrivateKey: '' })).toBe(false);
+    expect(hasEncryptedEnvelope({ encryptedPrivateKey: null })).toBe(false);
+    expect(hasEncryptedEnvelope(null)).toBe(false);
+    expect(hasEncryptedEnvelope(undefined)).toBe(false);
+  });
+
+  it('every reader uses it — no module re-implements the check inline', () => {
+    // inv.engineering.036. Three inline copies drifted and INVERTED the answer;
+    // a parity canary is what the source-of-truth rule requires when a
+    // predicate has to be consistent across modules.
+    const readers = [
+      'services/identity/personaAddressResolver.ts',
+      'app/api/wallet/principal/provision/route.ts',
+      'app/api/wallet/principal/control-proof/route.ts',
+    ];
+    for (const file of readers) {
+      const code = stripComments(readSource(file));
+      expect(code, file).toMatch(/hasEncryptedEnvelope\(/);
+      // The specific shape that broke: testing the envelope for a string.
+      expect(code, file).not.toMatch(/encryptedPrivateKey\s*===\s*['"]string['"]/);
+      expect(code, file).not.toMatch(/typeof\s+\w*[Ee]nv\w*\??\.encryptedPrivateKey\s*===/);
+    }
   });
 });

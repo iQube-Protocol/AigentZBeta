@@ -44,6 +44,34 @@
  * assumes it is allowed because nothing stopped them.
  */
 
+// ── One test for "is there an envelope" ─────────────────────────────────────
+
+/**
+ * Does this persona's `evm_key` hold real encrypted key material?
+ *
+ * ── Why this is a shared function and not three inline checks ──────────────
+ *
+ * It WAS three inline checks, and on 2026-08-02 they disagreed. The provision
+ * route and the control-proof route accepted an OBJECT envelope
+ * (`{salt, iv, ciphertext, authTag}` — what `keyService.encryptPrivateKey`
+ * actually returns); `classifyPersonaWalletCapability` tested for a STRING
+ * only. So a successfully provisioned wallet was invisible to the classifier
+ * and visible to the routes, and the operator was shown, at the same instant,
+ * a refusal saying a proven signer already existed and a form offering to
+ * create one.
+ *
+ * They could not both be true, and the operator said so. Three copies of one
+ * predicate is three things to drift (inv.engineering.036); the string/object
+ * split did not merely blur the answer, it INVERTED it.
+ *
+ * Accepts either shape: older rows may carry a serialised string.
+ */
+export function hasEncryptedEnvelope(evmKey: unknown): boolean {
+  const key = (evmKey as { encryptedPrivateKey?: unknown } | null)?.encryptedPrivateKey;
+  if (typeof key === 'string') return key.length > 0;
+  return typeof key === 'object' && key !== null;
+}
+
 // ── The sequence, named ─────────────────────────────────────────────────────
 
 /**
