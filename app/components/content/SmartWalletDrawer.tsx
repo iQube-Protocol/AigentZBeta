@@ -2545,13 +2545,30 @@ export default function SmartWalletDrawer({
                     Reuses the SAME `/api/passport-connect/*` mechanics
                     `PassportConnectPanel` already implements for the Companion and
                     `/passport-connect` — composition, not a fork
-                    (inv.engineering.036/037). `world="application"` because this
-                    drawer always mounts in the top-level application document,
+                    (inv.engineering.036/037). `world="application"` on the premise
+                    that this drawer mounts in the top-level application document,
                     never inside the Companion's cross-origin iframe partition, so
                     Ruling A.7's handoff-tab dance does not apply here — the session
-                    and persona pin land directly in this document's storage. */}
+                    and persona pin land directly in this document's storage.
+                    CORRECTION (2026-08-01): that premise does not hold for every
+                    mount of this file — `app/(embed)/triad/embed/companion/page.tsx`'s
+                    `activeSurface === "wallet"` branch mounts THIS component
+                    directly inside the Companion's own iframe. It is a live no-op
+                    there today only because that branch wraps the mount in its own
+                    `gated()` check, which never renders this drawer at all until
+                    `identity && personaId` already resolved — meaning a session,
+                    and therefore `sessionEmail`, is already true by the time this
+                    branch could render. Do not rely on that as a guarantee if this
+                    drawer is ever reached from inside the Companion WITHOUT an
+                    outer identity gate (e.g. a future direct
+                    `walletPanelOpen` mount inside a Companion-hosted
+                    `CodexCopilotLayer`) — that path would need `world="companion"`
+                    here, the same as `PassportConnectPanel`'s own Companion
+                    `connectGate` mount, or the session this panel establishes
+                    would land only in the iframe's own partition with no handoff
+                    to the top-level app tab. */}
                 {!sessionEmail && (
-                  <div className="border-b border-white/10">
+                  <div className="border-b border-slate-800">
                     <PassportConnectPanel
                       world="application"
                       onConnected={() => {
@@ -2575,9 +2592,9 @@ export default function SmartWalletDrawer({
                       }}
                     />
                     <div className="flex items-center gap-2 px-3 pb-3">
-                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="h-px flex-1 bg-slate-800" />
                       <span className="text-[10px] uppercase tracking-wider text-white/30">or</span>
-                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="h-px flex-1 bg-slate-800" />
                     </div>
                   </div>
                 )}
