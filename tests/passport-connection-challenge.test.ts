@@ -469,11 +469,54 @@ describe('the Companion session reaches the application', () => {
     // is blocked, with no thrown error — the ONLY reliable signal. Trusting
     // `connected` unconditionally here would be exactly the class of "No
     // Simulated Completion" defect CLAUDE.md forbids for this reason.
+    //
+    // UPDATED (bug fix, 2026-08-01): the automatic handoff now tries the
+    // `openInSidePanelHostWindow` bridge FIRST (it lands in the correct
+    // browser window from inside the extension's side panel iframe, which a
+    // nested-iframe `window.open` does not reliably do — see
+    // `services/companion/sidePanelTabBridge.ts`), and only falls back to the
+    // popup-blocked-detection path this test originally locked when the
+    // bridge itself could not answer (`!handledByBridge`). The invariant is
+    // unchanged: a crossing that did not verifiably happen must never render
+    // as "connected" with no recourse.
     const panel = stripComments(readSource(CONNECT_PANEL));
-    expect(panel).toMatch(/if \(!popup \|\| popup\.closed\)/);
+    expect(panel).toMatch(/if \(!handledByBridge && \(!popup \|\| popup\.closed\)\)/);
     expect(panel).toMatch(/handoffUrl \}\);\s*onConnected\?\.\(\);\s*return;/);
     // The fallback renders a real user-gesture retry, so it is never blocked.
-    expect(panel).toMatch(/onClick=\{\(\) => window\.open\(state\.handoffUrl,/);
+    // It also tries the SAME bridge first (a manual retry from inside the
+    // side panel iframe is just as subject to the wrong-window defect), and
+    // falls back to the original `window.open(url, ...)` shape only when the
+    // bridge does not answer.
+    expect(panel).toMatch(/onClick=\{\(\) => \{[\s\S]*?const url = state\.handoffUrl!;[\s\S]*?\}\}/);
+    expect(panel).toMatch(/window\.open\(url, "_blank", "noreferrer"\)/);
+  });
+
+  it('the handoff tries the side-panel bridge BEFORE window.open — a nested-iframe window.open does not land in the right browser window', () => {
+    // Regression, 2026-08-01: "Pull Across" kept dying with a red ✗ even
+    // after this panel reported "Connected", because the handoff's
+    // `window.open` — called from inside the extension's side panel iframe —
+    // does not reliably open in the SAME window the side panel is docked to
+    // (background.js's `getCompanionAppTab()` looks for the metaMe tab via
+    // `chrome.tabs.query({ currentWindow: true })`, which never sees a tab
+    // that opened in a DIFFERENT window). The bridge
+    // (`openInSidePanelHostWindow`, backed by `sidepanel.js`'s
+    // `chrome.tabs.create`) must be awaited BEFORE the `window.open` fallback
+    // fires, never after or in parallel with it.
+    const panel = stripComments(readSource(CONNECT_PANEL));
+    expect(panel).toContain('import { openInSidePanelHostWindow } from "@/services/companion/sidePanelTabBridge";');
+    const bridgeCallIndex = panel.indexOf('const handledByBridge = await openInSidePanelHostWindow(handoffUrl);');
+    const fallbackOpenIndex = panel.indexOf('popup = window.open(handoffUrl, "_blank", "noreferrer");');
+    expect(bridgeCallIndex, 'the automatic handoff must call openInSidePanelHostWindow').toBeGreaterThan(-1);
+    expect(fallbackOpenIndex, 'the window.open fallback must still exist for when the bridge cannot answer').toBeGreaterThan(-1);
+    expect(
+      bridgeCallIndex,
+      'the bridge must be tried BEFORE the window.open fallback, never after',
+    ).toBeLessThan(fallbackOpenIndex);
+    // The fallback must be conditioned on the bridge NOT having handled it —
+    // never an unconditional `window.open` alongside the bridge, which would
+    // reintroduce the wrong-window popup for every citizen the bridge does
+    // reach.
+    expect(panel).toMatch(/if \(!handledByBridge\) \{/);
   });
 
   it('the complete page permits no open redirect', async () => {
