@@ -76,7 +76,9 @@
     "services/wallet/**/*.ts",
     "services/identity/personaAddressResolver.ts",
     "tests/linked-external-wallet.test.ts",
-    "tests/pilot-wallet-exception.test.ts"
+    "tests/pilot-wallet-exception.test.ts",
+    "app/api/wallet/principal/**/*.ts",
+    "tests/principal-wallet-provisioning.test.ts"
   ],
   "exclude": [
     "node_modules",
