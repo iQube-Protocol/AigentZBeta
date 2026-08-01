@@ -132,10 +132,26 @@ export type WalletCapability =
    * It may never be the PRINCIPAL signer: the signing topology requires local
    * encrypted custody, and PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED
    * forbids an external wallet standing in for the Passport principal. Its
-   * proper home is `wallet_alias_commitments`, SIWE-proven, as a LINKED
-   * external wallet beside the principal — never inside it.
+   * proper home is a LINKED binding beside the principal — never inside it
+   * (services/wallet/linkedExternalWallet.ts).
+   *
+   * Not `wallet_alias_commitments`, which was the obvious candidate and cannot
+   * do it: that table stores only commitment HASHES by its own migration's
+   * terms, and an address you cannot read back is an address you cannot
+   * compare against a signature recovery.
    */
   | 'EXTERNAL_UNPROVEN'
+  /**
+   * The same external wallet after a fresh nonce was signed and the recovered
+   * address matched (`verifyExternalControlProof`).
+   *
+   * Distinct from EXTERNAL_UNPROVEN because the difference is real: one is the
+   * operator's demonstrated wallet, the other is an unverified claim that a
+   * request body once made on their behalf. Distinct from SIGNER_CONFIGURED
+   * because proving control does NOT confer principal authority — the ceiling
+   * is the custody model, not the strength of the evidence.
+   */
+  | 'EXTERNAL_PROVEN'
   /** Real wallet, real history, no authority — see PILOT-WALLET-EXCEPTION-001. */
   | 'LEGACY_EVIDENCE_ONLY'
   /** Key material exists but the address was never bound to the subject. */
@@ -172,7 +188,12 @@ export function mayProduceSignature(c: WalletCapability): boolean {
  * same question. The exception exists precisely because the answers differ.
  */
 export function mayDisplayAsEvidence(c: WalletCapability): boolean {
-  return c === 'SIGNER_CONFIGURED' || c === 'LEGACY_EVIDENCE_ONLY' || c === 'EXTERNAL_UNPROVEN';
+  return (
+    c === 'SIGNER_CONFIGURED' ||
+    c === 'LEGACY_EVIDENCE_ONLY' ||
+    c === 'EXTERNAL_UNPROVEN' ||
+    c === 'EXTERNAL_PROVEN'
+  );
 }
 
 /**
@@ -183,6 +204,11 @@ export function mayDisplayAsEvidence(c: WalletCapability): boolean {
  * still not be the principal. The principal wallet signs constitutional
  * authority under local custody; an external wallet is a linked account.
  * Conflating them is what the mint route did.
+ *
+ * EXTERNAL_PROVEN fails this for the same reason EXTERNAL_UNPROVEN does. The
+ * operator was explicit that proof does not lift the ceiling — "neither may
+ * satisfy principal mandate authority" — because the ceiling is set by the
+ * custody model, not by the strength of the evidence.
  */
 export function mayServeAsPrincipalSigner(c: WalletCapability): boolean {
   return c === 'SIGNER_CONFIGURED';

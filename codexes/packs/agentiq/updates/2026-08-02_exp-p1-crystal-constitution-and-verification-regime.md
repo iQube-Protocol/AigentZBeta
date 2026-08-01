@@ -105,9 +105,10 @@ npm run type-check:research      # tsc -p tsconfig.research.json --noEmit
 
 `tsconfig.research.json` covers `services/research/**`, `services/invariants/**`, the
 EXP-P1 API routes, the reviewer-agreement services, the crystal lifecycle/readiness
-modules, the reviewer components and their tests.
+modules, the reviewer components and their tests — and, since the wallet-binding
+repair (#121/#122), `services/wallet/**` plus the principal address resolver.
 
-**Baseline: 9 errors, all pre-existing, none in code changed on 2026-08-02.**
+**Baseline: 10 errors, all pre-existing, none in code changed on 2026-08-02.**
 
 ```
 components/composer/InvariantExperimentLab.tsx
@@ -116,7 +117,12 @@ services/devCommandCenter/stageOrchestrator.ts
 services/iqube/experienceQube.ts
 services/iqube/legibility/sources/aigentQubeSource.ts
 services/research/independentReviewPublish.ts
+services/wallet/qctCanonicalService.ts      ← added with the wallet scope, pre-existing
 ```
+
+The baseline rises only when the SCOPE widens, and it must rise by exactly the errors
+the newly-covered files already had. A baseline that grows because new code was written
+is the failure this gate exists to catch.
 
 No new error may be added to this list. Two real defects were found and fixed the moment
 the gate first ran — a bad type predicate in the contested-record modal, and

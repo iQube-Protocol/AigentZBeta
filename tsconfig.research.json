@@ -72,7 +72,11 @@
     "tests/crystal-freeze-recommendation.test.ts",
     "tests/reviewer-agreement.test.ts",
     "tests/independent-review-record-remedy.test.ts",
-    "tests/_lib/**/*.ts"
+    "tests/_lib/**/*.ts",
+    "services/wallet/**/*.ts",
+    "services/identity/personaAddressResolver.ts",
+    "tests/linked-external-wallet.test.ts",
+    "tests/pilot-wallet-exception.test.ts"
   ],
   "exclude": [
     "node_modules",
