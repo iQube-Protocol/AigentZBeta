@@ -314,6 +314,37 @@ export async function classifyPersonaWalletCapability(
     };
   }
 
+  /*
+   * TWO ADDRESSES OUTRANK NO KEY (operator report, 2026-08-02).
+   *
+   * This check used to sit AFTER the key-material branch, so a row holding two
+   * DIFFERENT addresses and no key returned `ADDRESS_ONLY` and never reached
+   * here. That is the operator's own row, and the answer was actively
+   * misleading: `ADDRESS_ONLY` means "one placeholder, supersede it", and with
+   * two candidates it does not say WHICH — while one of them turned out to be
+   * a real MetaMask wallet written into the principal field by the mint route.
+   * Superseding on that advice could have severed a genuine binding.
+   *
+   * A conflict is a bigger fact than an absence, and it has a different
+   * remedy: find out what each address IS before touching either. So it is
+   * decided first, and it declines to nominate an address at all.
+   */
+  if (column && envelopeAddress && column.toLowerCase() !== envelopeAddress.toLowerCase()) {
+    return {
+      capability: 'AMBIGUOUS',
+      address: null,
+      detail: hasKeyMaterial
+        ? 'Two different addresses are on file for this persona and there is no rule that chooses between them.'
+        : 'Two different addresses are on file for this persona and NEITHER has key material behind it — so ' +
+          'neither can sign, and they disagree about which address this persona holds.',
+      remediation: hasKeyMaterial
+        ? 'Determine which address the encrypted key actually derives, then record that one and remove the other.'
+        : 'Establish what each address is before changing either. One may be an external wallet recorded in the ' +
+          'principal field (see the passport-mint write path); the other may be a keyless placeholder. Neither is ' +
+          'a principal wallet, and superseding the wrong one would sever a real binding.',
+    };
+  }
+
   if (!hasKeyMaterial) {
     return {
       capability: 'ADDRESS_ONLY',
@@ -326,15 +357,6 @@ export async function classifyPersonaWalletCapability(
       // reference to that address would silently become a claim about a key.
       remediation:
         'Provision a real principal wallet and rebind this persona to it. Never generate a key for the existing address.',
-    };
-  }
-
-  if (column && envelopeAddress && column.toLowerCase() !== envelopeAddress.toLowerCase()) {
-    return {
-      capability: 'AMBIGUOUS',
-      address: null,
-      detail: 'Two different addresses are on file for this persona and there is no rule that chooses between them.',
-      remediation: 'Determine which address the encrypted key actually derives, then record that one and remove the other.',
     };
   }
 

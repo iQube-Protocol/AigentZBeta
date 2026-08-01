@@ -183,6 +183,46 @@ describe('the classification is enforced in the live resolver', () => {
     expect(src).toContain("capability: 'SIGNER_CONFIGURED'");
   });
 
+  /**
+   * TWO ADDRESSES OUTRANK NO KEY (operator's own row, 2026-08-02).
+   *
+   * `personas.evm_address` held a real MetaMask wallet (written by the
+   * passport-mint route) while `evm_key.address` held a different, keyless
+   * placeholder — two independent faults in one row. The classifier checked
+   * key material FIRST, so it returned `ADDRESS_ONLY`: "one placeholder,
+   * supersede it". With two candidates that does not say which, and one of
+   * them was a genuine binding. Acting on that answer could have severed it.
+   *
+   * A conflict is a bigger fact than an absence and carries a different
+   * remedy — establish what each address IS — so it is decided first, and it
+   * nominates no address at all.
+   */
+  it('reports a two-address conflict rather than swallowing it as a missing key', () => {
+    const src = stripComments(readSource(RESOLVER));
+    const ambiguousAt = src.indexOf("capability: 'AMBIGUOUS'");
+    const addressOnlyAt = src.indexOf("capability: 'ADDRESS_ONLY'");
+    expect(ambiguousAt).toBeGreaterThan(-1);
+    expect(addressOnlyAt).toBeGreaterThan(-1);
+    expect(
+      ambiguousAt,
+      'a row with two conflicting addresses must not be reported as one placeholder to supersede',
+    ).toBeLessThan(addressOnlyAt);
+    // And it declines to nominate an address — naming one would be choosing.
+    const block = src.slice(ambiguousAt, ambiguousAt + 200);
+    expect(block).toContain('address: null');
+  });
+
+  it('the no-key conflict names both possibilities without asserting either', () => {
+    const src = readSource(RESOLVER);
+    const at = src.indexOf("capability: 'AMBIGUOUS'");
+    const block = src.slice(at, at + 1400);
+    expect(block).toMatch(/NEITHER has key material/i);
+    // [\s\S] rather than . — the string wraps across lines in source.
+    expect(block).toMatch(/external wallet recorded in the[\s\S]*principal field/i);
+    expect(block).toMatch(/keyless placeholder/i);
+    expect(block).toMatch(/severing|sever a real binding/i);
+  });
+
   it('checks LEGACY before key material — a compromised key present is still not ready', () => {
     const src = stripComments(readSource(RESOLVER));
     const legacyAt = src.indexOf("capability: 'LEGACY_EVIDENCE_ONLY'");
@@ -403,9 +443,26 @@ describe('four layers, each answering its own question', () => {
 
   it('the Passport is kept OUT of the wallet classifier', () => {
     const resolver = stripComments(readSource('services/identity/personaAddressResolver.ts'));
-    // "Can this wallet sign?" and "may this principal authorize?" are separate
-    // gates. A Passport lapse must not read as a broken wallet.
-    expect(resolver).not.toMatch(/passport/i);
+    /*
+     * The rule is that the classifier must not EVALUATE Passport state — not
+     * that the word may never appear. A bare /passport/i grep flagged a
+     * remediation string that merely named the mint write path, which is
+     * incidental prose, while it would equally have passed a read of
+     * `passport_status` written as `p.status`. Target the evaluation.
+     */
+    for (const evaluation of [
+      "from('passports')",
+      'passport_status',
+      'passportStatus',
+      'getPassport',
+      'requirePassport',
+      'citizenPassport',
+    ]) {
+      expect(
+        resolver,
+        `the wallet classifier must not read ${evaluation} — a Passport lapse must not read as a broken wallet`,
+      ).not.toContain(evaluation);
+    }
     const proof = stripComments(readSource(PROOF));
     // The proof module may NAME the layer; it must not evaluate Passport state.
     expect(proof).not.toMatch(/getActivePersona|passport_|from\('passports'\)/);
