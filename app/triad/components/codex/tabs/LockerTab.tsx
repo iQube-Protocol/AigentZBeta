@@ -159,7 +159,38 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
-export function LockerTab() {
+/**
+ * Which of the Locker's seven sections render. Defaults to all of them, so
+ * every pre-existing mount (the operator's own Locker tab) is byte-identical.
+ * Added 2026-08-01 for the Validation Programme's Submit Review stage, which
+ * shows only Peer Exchange, Upload to Locker, and Invitation (the section
+ * that already carries the x409/access-invitation claim mechanics — no
+ * second signing UI) — never a fork of this component.
+ */
+export type LockerSection =
+  | 'credentials'
+  | 'agentChannels'
+  | 'peerExchange'
+  | 'uploadToLocker'
+  | 'invitation'
+  | 'lockerItems'
+  | 'locationTracking';
+
+export const ALL_LOCKER_SECTIONS: LockerSection[] = [
+  'credentials',
+  'agentChannels',
+  'peerExchange',
+  'uploadToLocker',
+  'invitation',
+  'lockerItems',
+  'locationTracking',
+];
+
+interface LockerTabProps {
+  visibleSections?: LockerSection[];
+}
+
+export function LockerTab({ visibleSections = ALL_LOCKER_SECTIONS }: LockerTabProps = {}) {
   const [items, setItems] = useState<LockerItem[]>([]);
   const [grants, setGrants] = useState<LockerGrant[]>([]);
   const [agents, setAgents] = useState<SponsoredAgent[]>([]);
@@ -694,6 +725,7 @@ export function LockerTab() {
           ruling, 2026-07-28). The holder's own record is what they came for;
           Location Tracking, which used to sit above it, is now the last panel
           on the surface. */}
+      {visibleSections.includes('credentials') && (
       <div className="rounded-xl border border-violet-700/50 bg-violet-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -909,8 +941,10 @@ export function LockerTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* QubeTalk — Citizen ↔ Agent messaging */}
+      {visibleSections.includes('agentChannels') && (
       <div className="rounded-xl border border-sky-700/50 bg-sky-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -1023,8 +1057,10 @@ export function LockerTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* QubeTalk Peer Exchange — principal ↔ principal (distinct from Agent Channels) */}
+      {visibleSections.includes('peerExchange') && (
       <div className="rounded-xl border border-indigo-700/50 bg-indigo-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -1055,8 +1091,10 @@ export function LockerTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* Upload */}
+      {visibleSections.includes('uploadToLocker') && (
       <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
         <button
           type="button"
@@ -1146,10 +1184,12 @@ export function LockerTab() {
         </>
         )}
       </div>
+      )}
 
       {/* x409 invitation claim — the contract-delivery seam (CFS-042/044).
           An invited party pastes (or arrives with ?x409=) their code and the
           agreement lands in this locker as a contract item to execute. */}
+      {visibleSections.includes('invitation') && (
       <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 space-y-2">
         <button
           type="button"
@@ -1193,8 +1233,10 @@ export function LockerTab() {
         </>
         )}
       </div>
+      )}
 
       {/* Items list */}
+      {visibleSections.includes('lockerItems') && (
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-slate-200">Your locker items</h3>
         {loading ? (
@@ -1414,6 +1456,8 @@ export function LockerTab() {
         )}
       </div>
 
+      )}
+
       {/* Location tracking — THE LAST SECTION (operator ruling, 2026-07-28).
           It used to be the first thing the holder saw, above their own
           credentials; it is an occasional act, not the reason anyone opens the
@@ -1421,6 +1465,7 @@ export function LockerTab() {
           Upload and Invitation — force-expanded while its action is in flight,
           so a checkpoint being written can never be hidden behind a collapsed
           header. */}
+      {visibleSections.includes('locationTracking') && (
       <div className="rounded-xl border border-emerald-700/50 bg-emerald-950/20 p-4 space-y-3">
         <button
           type="button"
@@ -1467,6 +1512,7 @@ export function LockerTab() {
           </div>
         )}
       </div>
+      )}
 
       {/* Grant confirm */}
       {grantTarget && (

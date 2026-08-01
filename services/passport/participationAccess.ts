@@ -365,6 +365,39 @@ export async function callerMayReadExperimentReview(
   });
 }
 
+/**
+ * The set of experiments a persona's own review-readable grants reach —
+ * `'all'` when any qualifying grant is unrestricted, otherwise the union of
+ * every qualifying grant's `allowed_experiments` (empty set = no qualifying
+ * grant at all, i.e. reach nothing). Same role/scope rule as
+ * `callerMayReadExperimentReview`, but returning the whole set rather than a
+ * single experiment's yes/no — for filtering a LIST of reviews down to only
+ * what this caller may see (never exposing an unrelated internal review,
+ * SPEC-IRL-WORKSPACE-001 §10: "access to one experiment must not imply
+ * access to sibling experiments").
+ */
+export async function getReviewReadableExperiments(
+  admin: SupabaseClient,
+  personaId: string,
+): Promise<'all' | Set<string>> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+  if (error || !data) return new Set();
+  const union = new Set<string>();
+  for (const row of data) {
+    const role = String((row as { role: string }).role);
+    if (!REVIEW_VIEW_READABLE_ROLES.includes(role)) continue;
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowed || allowed.length === 0) return 'all';
+    for (const e of allowed) union.add(e);
+  }
+  return union;
+}
+
 function hashCode(rawCode: string): string {
   return createHash('sha256').update(rawCode).digest('hex');
 }

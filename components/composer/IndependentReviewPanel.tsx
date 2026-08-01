@@ -39,7 +39,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Eye, FlaskConical, Gem, Loader2, Lock, RefreshCw, ShieldCheck, User } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Download, Eye, FlaskConical, Gem, Loader2, Lock, RefreshCw, ShieldCheck, User } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 // ── Server-shaped types (mirrors of the route payloads, not a second model) ──
@@ -107,8 +107,18 @@ const FIELD =
   "w-full rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-xs text-slate-200 " +
   "focus:border-slate-700 focus:outline-none disabled:opacity-50";
 
-export default function IndependentReviewPanel() {
-  const [view, setView] = useState<"new" | "queue" | "result" | "crystal">("new");
+/**
+ * `reviewerMode` (2026-08-01, Validation Programme's Crystal Review stage):
+ * hides the New Review tab (creating a review is Research Steward territory,
+ * SPEC-IRL-WORKSPACE-001 §8) and the "Governed resolution" / "Preview a
+ * freeze ceremony package" governance blocks in Review Result and Crystal
+ * vP1. Queue/Result/Crystal read paths are unaffected by this flag — their
+ * REACH is enforced server-side (requireReviewAccess/callerMayReadExperimentReview),
+ * never by hiding UI alone. Default false: the operator's own mount inside
+ * InvariantExperimentLab is byte-identical.
+ */
+export default function IndependentReviewPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {}) {
+  const [view, setView] = useState<"new" | "queue" | "result" | "crystal">(reviewerMode ? "crystal" : "new");
   const [models, setModels] = useState<SelectableModel[] | null>(null);
   const [defaultPair, setDefaultPair] = useState<DefaultPair | null>(null);
   const [catalogueError, setCatalogueError] = useState<string | null>(null);
@@ -304,7 +314,9 @@ export default function IndependentReviewPanel() {
             ["result", "Review Result", ShieldCheck],
             ["crystal", "Crystal vP1", Gem],
           ] as const
-        ).map(([id, label, Icon]) => (
+        )
+          .filter(([id]) => !(reviewerMode && id === "new"))
+          .map(([id, label, Icon]) => (
           <button
             key={id}
             onClick={() => setView(id)}
@@ -321,7 +333,7 @@ export default function IndependentReviewPanel() {
       </div>
 
       {/* ── NEW REVIEW ───────────────────────────────────────────────────── */}
-      {view === "new" && (
+      {view === "new" && !reviewerMode && (
         <div className="space-y-4">
           <div className={PANEL}>
             <div className="mb-2 flex items-center gap-2">
@@ -576,7 +588,7 @@ export default function IndependentReviewPanel() {
           {selected && !detail && <div className={`${PANEL} text-xs text-slate-400`}>Loading {selected}…</div>}
           {detail && <ResultPanel detail={detail} />}
 
-          {detail && (
+          {detail && !reviewerMode && (
             <div className={PANEL}>
               <h3 className="mb-1 text-sm font-semibold text-slate-100">Governed resolution</h3>
               {isSuperseded ? (
@@ -628,7 +640,7 @@ export default function IndependentReviewPanel() {
       )}
 
       {/* ── CRYSTAL vP1 — Readiness / Statistics / Freeze Recommendation ──── */}
-      {view === "crystal" && <CrystalPanel />}
+      {view === "crystal" && <CrystalPanel reviewerMode={reviewerMode} />}
     </div>
   );
 }
@@ -644,7 +656,7 @@ export default function IndependentReviewPanel() {
  * session's Register-stage work. The preview button below builds a package
  * for review; it never calls that freeze function.
  */
-function CrystalPanel() {
+function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {}) {
   const [experimentId] = useState("EXP-P1");
   const [domain, setDomain] = useState("constitutional-reasoning");
   const [loading, setLoading] = useState(false);
@@ -710,6 +722,23 @@ function CrystalPanel() {
     }
   }, [experimentId, domain, operatorRef, reviewerRef, domainBoundary, rationaleText]);
 
+  // Download JSON for Agent (2026-08-01) — a client-side download of the
+  // SAME already-fetched crystal report this panel renders (readiness,
+  // statistics, recommendation). No new route: the data an agent needs is
+  // exactly the data a human reviewer is already looking at.
+  const downloadJsonForAgent = useCallback(() => {
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `crystal-${experimentId}-${domain}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [data, experimentId, domain]);
+
   const readiness = data?.readiness as { ok: boolean; checks: Array<{ name: string; passed: boolean; detail: string }> } | undefined;
   const statistics = data?.statistics as Record<string, unknown> | undefined;
   const recommendation = data?.recommendation as
@@ -728,14 +757,25 @@ function CrystalPanel() {
             <Gem className="h-4 w-4 text-slate-400" />
             <h3 className="text-sm font-semibold text-slate-100">Crystal vP1 — Readiness · Statistics · Freeze Recommendation</h3>
           </div>
-          <button
-            onClick={() => void runChecks()}
-            disabled={loading}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-            Run checks
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void runChecks()}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+              Run checks
+            </button>
+            <button
+              onClick={downloadJsonForAgent}
+              disabled={!data}
+              title="Download the readiness, statistics and freeze-recommendation report as JSON for an AI agent to review"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
+            >
+              <Download className="h-3 w-3" />
+              Download JSON for Agent
+            </button>
+          </div>
         </div>
         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
           Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
@@ -824,6 +864,7 @@ function CrystalPanel() {
         </div>
       )}
 
+      {!reviewerMode && (
       <div className={PANEL}>
         <h4 className="mb-1 text-xs font-semibold text-slate-100">Preview a freeze ceremony package</h4>
         <p className="mb-3 text-[11px] leading-relaxed text-slate-400">
@@ -881,6 +922,7 @@ function CrystalPanel() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

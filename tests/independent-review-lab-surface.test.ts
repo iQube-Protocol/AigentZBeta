@@ -384,30 +384,106 @@ describe('the Lab surface is gated by the existing research gate', () => {
     expect(gate).toContain("error: 'forbidden' }, { status: 403 }");
   });
 
-  it('POSITIVE REACHABILITY — every route admits the same caller through the same decision', () => {
-    // Composed Liveness corollary 6: a gate canary that only ever asserts
-    // refusals passes just as happily on a surface nobody can reach. Assert the
-    // exact set of routes, drive the real gate name, and require every one of
-    // them to both AWAIT it and RETURN its refusal — so a caller admitted by
-    // one is admitted by all, and the surface cannot be half-open.
-    const routes = [ROUTE, DETAIL_ROUTE, MODELS_ROUTE];
-    expect(new Set(routes).size).toBe(3);
-    for (const r of routes) {
-      const src = read(r);
-      expect(src, `${r} does not await the shared gate`).toContain('await requireReviewAccess(req)');
-      expect(src, `${r} does not return the gate's refusal`).toContain('if (!gate.ok) return gate.response;');
-      // And it gates FIRST. A gate that runs after the work it protects is a
-      // log line: the catalogue has been fetched, the corpus read, the model
-      // dispatched — and only then is the caller turned away.
-      const gateAt = src.indexOf('await requireReviewAccess(req)');
-      const firstAwait = src.search(/await (?!requireReviewAccess)/);
-      expect(gateAt, `${r} does not gate`).toBeGreaterThan(-1);
-      expect(firstAwait === -1 || gateAt < firstAwait, `${r} does work before it gates`).toBe(true);
+  /**
+   * Isolate one exported function's body by brace-matching from its opening
+   * `{` — good enough for these route files (no template-literal braces
+   * inside a route handler body) and precise where a whole-file grep is not:
+   * GET and POST in the same file must be checked against DIFFERENT gates
+   * since 2026-08-01 (see below), and a whole-file `.indexOf` cannot tell
+   * which verb an occurrence belongs to.
+   */
+  function extractFunctionBody(src: string, signature: string): string {
+    const start = src.indexOf(signature);
+    if (start === -1) return '';
+    // Balance PARENS first — a param destructuring like
+    // `ctx: { params: Promise<{ reviewId: string }> }` contains braces of
+    // its own, so the function body's `{` is the first one AFTER the
+    // parameter list's closing `)`, not the first `{` after the signature.
+    const parenStart = src.indexOf('(', start);
+    let pDepth = 0;
+    let parenEnd = -1;
+    for (let i = parenStart; i < src.length; i++) {
+      if (src[i] === '(') pDepth++;
+      else if (src[i] === ')') {
+        pDepth--;
+        if (pDepth === 0) {
+          parenEnd = i;
+          break;
+        }
+      }
     }
-    // The main route gates BOTH verbs.
-    const main = read(ROUTE);
-    expect((main.match(/await requireReviewAccess\(req\)/g) ?? []).length).toBe(2);
-    expect((read(DETAIL_ROUTE).match(/await requireReviewAccess\(req\)/g) ?? []).length).toBe(2);
+    if (parenEnd === -1) return '';
+    const braceStart = src.indexOf('{', parenEnd);
+    let depth = 0;
+    for (let i = braceStart; i < src.length; i++) {
+      if (src[i] === '{') depth++;
+      else if (src[i] === '}') {
+        depth--;
+        if (depth === 0) return src.slice(braceStart, i + 1);
+      }
+    }
+    return src.slice(braceStart);
+  }
+
+  /** Assert `fnBody` awaits `gateFn` as its very first await and returns its refusal. */
+  function expectGatesFirst(fnBody: string, gateFn: string, label: string) {
+    const gateCall = `await ${gateFn}(req)`;
+    expect(fnBody, `${label} does not await ${gateFn}`).toContain(gateCall);
+    expect(fnBody, `${label} does not return the gate's refusal`).toContain('if (!gate.ok) return gate.response;');
+    const gateAt = fnBody.indexOf(gateCall);
+    const firstAwait = fnBody.search(/await (?!requireReviewAccess\(req\)|requireReviewReadAccess\(req\))/);
+    expect(gateAt, `${label} does not gate`).toBeGreaterThan(-1);
+    expect(firstAwait === -1 || gateAt < firstAwait, `${label} does work before it gates`).toBe(true);
+  }
+
+  it('POSITIVE REACHABILITY — every route admits an authorized caller before doing any work', () => {
+    // Composed Liveness corollary 6: a gate canary that only ever asserts
+    // refusals passes just as happily on a surface nobody can reach.
+    //
+    // TWO gates exist on purpose since 2026-08-01 (SPEC-IRL-WORKSPACE-001 §8,
+    // the Validation Programme's reviewer-facing Crystal Review stage):
+    // `requireReviewAccess` (admin-only — governs New Review's model
+    // catalogue and every WRITE: creating/running a review, and the
+    // accept/revise/defer/reject governed resolution) and
+    // `requireReviewReadAccess` (admin OR a scoped reviewer grant — governs
+    // ONLY the two READ paths: the queue list and one review's detail). This
+    // is the render/authority split `researchWorkspaceRoles.ts`'s own header
+    // describes, not a weakening of the original single-gate surface: no
+    // route gained a WRITE path a reviewer can reach, and every route still
+    // gates before doing any work.
+    expect(new Set([ROUTE, DETAIL_ROUTE, MODELS_ROUTE]).size).toBe(3);
+
+    const modelsSrc = read(MODELS_ROUTE);
+    expectGatesFirst(extractFunctionBody(modelsSrc, 'export async function GET'), 'requireReviewAccess', `${MODELS_ROUTE} GET`);
+
+    const listSrc = read(ROUTE);
+    expectGatesFirst(extractFunctionBody(listSrc, 'export async function GET'), 'requireReviewReadAccess', `${ROUTE} GET`);
+    expectGatesFirst(extractFunctionBody(listSrc, 'export async function POST'), 'requireReviewAccess', `${ROUTE} POST`);
+
+    const detailSrc = read(DETAIL_ROUTE);
+    expectGatesFirst(extractFunctionBody(detailSrc, 'export async function GET'), 'requireReviewReadAccess', `${DETAIL_ROUTE} GET`);
+    expectGatesFirst(extractFunctionBody(detailSrc, 'export async function POST'), 'requireReviewAccess', `${DETAIL_ROUTE} POST`);
+
+    // The governed-resolution POST and the review-creation POST are the
+    // ONLY call sites of the strict admin-only gate on these two routes —
+    // a reviewer-readable path calling it would be the WIDENING this canary
+    // exists to catch (there is none: each route calls it exactly once, on
+    // POST only).
+    expect((listSrc.match(/await requireReviewAccess\(req\)/g) ?? []).length).toBe(1);
+    expect((detailSrc.match(/await requireReviewAccess\(req\)/g) ?? []).length).toBe(1);
+  });
+
+  it('the reviewer-read gate never authorizes a write — it is a distinct, narrower function', () => {
+    const gate = read(GATE);
+    const readFn = extractFunctionBody(gate, 'export async function requireReviewReadAccess');
+    expect(readFn).not.toBe('');
+    // The read gate must never itself call the write-gate's admin-only
+    // early-return pattern reused for a write path, and must never appear
+    // inside a POST handler anywhere in this surface.
+    for (const r of [ROUTE, DETAIL_ROUTE, MODELS_ROUTE]) {
+      const postBody = extractFunctionBody(read(r), 'export async function POST');
+      expect(postBody, `${r} POST must never accept a reviewer-read grant`).not.toContain('requireReviewReadAccess');
+    }
   });
 
   it('attributes the caller by COMMITMENT, never by a raw persona id', () => {

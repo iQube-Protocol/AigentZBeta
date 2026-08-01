@@ -20,7 +20,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { requireReviewAccess } from '../_lib/gate';
+import { requireReviewAccess, requireReviewReadAccess } from '../_lib/gate';
 import {
   getReview,
   upsertReview,
@@ -33,13 +33,23 @@ import { redactedPreview, ReviewRefusal } from '@/services/research/review';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ reviewId: string }> }) {
-  const gate = await requireReviewAccess(req);
+  const gate = await requireReviewReadAccess(req);
   if (!gate.ok) return gate.response;
   const { reviewId } = await ctx.params;
 
   try {
     const record = await getReview(gate.caller.admin, reviewId);
     if (!record) return NextResponse.json({ ok: false, error: 'not found' }, { status: 404 });
+
+    // Reviewer-scoped read (SPEC-IRL-WORKSPACE-001 §10): a non-admin caller
+    // may open ONLY a review whose experimentId is within their granted set.
+    // A review with no experimentId at all is never guessed as theirs.
+    if (gate.caller.allowedExperiments !== 'all') {
+      const expId = record.request?.experimentId;
+      if (!expId || !gate.caller.allowedExperiments.has(expId)) {
+        return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+      }
+    }
 
     const contested = (record.resolutions ?? []).filter((r) => r.status === 'contested');
     const limitations = [...record.r1Decisions, ...record.r2Decisions]

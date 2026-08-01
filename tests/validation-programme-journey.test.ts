@@ -17,7 +17,7 @@ import { describe, it, expect } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { readSource, stripComments, importAuthority } from './_lib/sourceAuthority';
-import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
+import { callerMayReadExperimentReview, getReviewReadableExperiments } from '@/services/passport/participationAccess';
 import {
   VALIDATION_PROGRAMME_JOURNEY,
   VALIDATION_PROGRAMME_WORKSPACE_ID,
@@ -91,6 +91,46 @@ describe('callerMayReadExperimentReview — the reviewer-reach gate this journey
     const fn = src.match(/export async function callerMayReadExperimentReview[\s\S]*?\n\}/);
     expect(fn).not.toBeNull();
     expect(fn![0]).not.toMatch(/freeze|canonize|canonise|publish|ratify/i);
+  });
+});
+
+describe('getReviewReadableExperiments — the set-returning gate behind Review Queue/Result', () => {
+  it('returns the union of a single scoped grant', async () => {
+    const admin = fakeAdminReturning([{ role: 'reviewer', allowed_experiments: ['EXP-P1'] }]);
+    const result = await getReviewReadableExperiments(admin, 'persona-1');
+    expect(result).not.toBe('all');
+    expect([...(result as Set<string>)]).toEqual(['EXP-P1']);
+  });
+
+  it('unions experiment ids across multiple scoped grants', async () => {
+    const admin = fakeAdminReturning([
+      { role: 'reviewer', allowed_experiments: ['EXP-P1'] },
+      { role: 'reviewer', allowed_experiments: ['EXP-P2'] },
+    ]);
+    const result = await getReviewReadableExperiments(admin, 'persona-1');
+    expect(new Set(result as Set<string>)).toEqual(new Set(['EXP-P1', 'EXP-P2']));
+  });
+
+  it('returns "all" the moment any qualifying grant is unrestricted', async () => {
+    const admin = fakeAdminReturning([
+      { role: 'reviewer', allowed_experiments: ['EXP-P1'] },
+      { role: 'research-steward', allowed_experiments: null },
+    ]);
+    expect(await getReviewReadableExperiments(admin, 'persona-1')).toBe('all');
+  });
+
+  it('ignores a research-participant grant — never contributes to the readable set', async () => {
+    const admin = fakeAdminReturning([{ role: 'research-participant', allowed_experiments: null }]);
+    const result = await getReviewReadableExperiments(admin, 'persona-1');
+    expect(result).not.toBe('all');
+    expect((result as Set<string>).size).toBe(0);
+  });
+
+  it('returns an empty set with no grants at all — fails closed, never "all"', async () => {
+    const admin = fakeAdminReturning([]);
+    const result = await getReviewReadableExperiments(admin, 'persona-1');
+    expect(result).not.toBe('all');
+    expect((result as Set<string>).size).toBe(0);
   });
 });
 

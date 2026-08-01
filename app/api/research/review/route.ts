@@ -26,7 +26,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { requireReviewAccess } from './_lib/gate';
+import { requireReviewAccess, requireReviewReadAccess } from './_lib/gate';
 import { resolveReviewerSelection, type ReviewerSlotSelection } from './_lib/resolveSelection';
 import { buildReviewPlan } from '@/services/research/independentReviewPlan';
 import { listReviews, upsertReview } from '@/services/research/independentReviewStore';
@@ -48,10 +48,24 @@ import { EXP_P1_REVIEW_QUESTION } from '@/services/research/review/templates/exp
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const gate = await requireReviewAccess(req);
+  const gate = await requireReviewReadAccess(req);
   if (!gate.ok) return gate.response;
   try {
-    const reviews = await listReviews(gate.caller.admin);
+    const all = await listReviews(gate.caller.admin);
+    // Reviewer-scoped read (SPEC-IRL-WORKSPACE-001 §10 — "access to one
+    // experiment must not imply access to sibling experiments"): a
+    // non-admin caller sees ONLY reviews whose experimentId is within their
+    // granted set. A review with no experimentId at all is excluded for a
+    // scoped caller (fail closed — never guess it's theirs); admins are
+    // unaffected.
+    const { allowedExperiments } = gate.caller;
+    const reviews =
+      allowedExperiments === 'all'
+        ? all
+        : all.filter((r) => {
+            const expId = r.request?.experimentId;
+            return !!expId && allowedExperiments.has(expId);
+          });
     return NextResponse.json({
       ok: true,
       reviews: reviews.map((r) => ({
