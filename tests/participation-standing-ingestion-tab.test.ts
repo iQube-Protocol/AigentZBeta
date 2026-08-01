@@ -32,9 +32,12 @@ describe('ParticipationStandingTab — Ingestion Factory beside a single Standin
   });
 
   it('defaults to the registry (Ingestion Factory) view, not Standing', () => {
-    const match = source.match(/const \[view, setView\] = useState<StandingView>\('([a-z]+)'\)/);
+    // The default is now `only ?? 'registry'` — an unpinned mount still lands
+    // on the Ingestion Factory; a pinned one honours its `only` (2026-08-02
+    // Deploy/Standing split).
+    const match = source.match(/const \[view, setView\] = useState<StandingView>\(([^)]*)\)/);
     expect(match).not.toBeNull();
-    expect(match![1]).toBe('registry');
+    expect(match![1]).toBe("only ?? 'registry'");
   });
 
   it('renders IngestionFactoryPanel full width with no wrapping title/description chrome pushed above it', () => {
@@ -58,7 +61,10 @@ describe('ParticipationStandingTab — Ingestion Factory beside a single Standin
   });
 
   it('the tab strip offers exactly Ingestion Factory and Standing, both togglable from one row', () => {
-    const match = source.match(/const tabStrip = \(([\s\S]*?)\n {2}\);/);
+    // `const tabStrip = only ? null : (...)` — pinned mounts render no strip
+    // at all (a control with one reachable destination cannot act, MS-9).
+    expect(source).toContain('const tabStrip = only ? null : (');
+    const match = source.match(/const tabStrip = only \? null : \(([\s\S]*?)\n {2}\);/);
     expect(match).not.toBeNull();
     expect(match![1]).toContain("setView('registry')");
     expect(match![1]).toContain("setView('standing')");
@@ -67,7 +73,7 @@ describe('ParticipationStandingTab — Ingestion Factory beside a single Standin
   });
 });
 
-describe('Journey wiring — Activate stage documents the Ingestion Factory + Standing pairing', () => {
+describe('Journey wiring — Deploy and Standing are separate stages, not a paired tab strip', () => {
   it('journeySurfaceRegistry notes the pairing without claiming a 4-tab split', () => {
     const source = read('services/journey/journeySurfaceRegistry.ts');
     const match = source.match(/'venture-participate-standing':\s*\{([\s\S]*?)\n {2}\},/);
@@ -75,10 +81,30 @@ describe('Journey wiring — Activate stage documents the Ingestion Factory + St
     expect(match![1]).toContain('Ingestion Factory');
   });
 
-  it('horizenMoneyPennyJourney Activate stage note mentions the Ingestion Factory pairing', () => {
+  it("the Deploy stage (formerly 'activate') carries the Ingestion Factory alone", () => {
     const source = read('services/journey/horizenMoneyPennyJourney.ts');
-    const activateStageMatch = source.match(/id: 'activate',[\s\S]*?nextStageId: 'aigentme',/);
-    expect(activateStageMatch).not.toBeNull();
-    expect(activateStageMatch![0]).toContain('Ingestion Factory');
+    const deploy = source.match(/id: 'deploy',[\s\S]*?nextStageId: 'standing',/);
+    expect(deploy, "the renamed Deploy stage must exist").not.toBeNull();
+    expect(deploy![0]).toContain('Ingestion Factory');
+    // The old id must be gone, not merely relabelled.
+    expect(source).not.toContain("id: 'activate',");
+  });
+
+  it('Standing is its own eighth stage, standalone after Deploy', () => {
+    const source = read('services/journey/horizenMoneyPennyJourney.ts');
+    const standing = source.match(/id: 'standing',[\s\S]*?receiptTypes: \['standing_accrued'\],/);
+    expect(standing).not.toBeNull();
+    expect(standing![0]).toContain("prerequisites: ['deploy']");
+    expect(standing![0]).toContain('venture-participate-standing-only');
+  });
+
+  it('aigentMe now precedes Deploy — the two were swapped', () => {
+    const source = read('services/journey/horizenMoneyPennyJourney.ts');
+    const aigentmeAt = source.indexOf("id: 'aigentme',");
+    const deployAt = source.indexOf("id: 'deploy',");
+    expect(aigentmeAt).toBeGreaterThan(-1);
+    expect(deployAt).toBeGreaterThan(-1);
+    expect(aigentmeAt).toBeLessThan(deployAt);
+    expect(source).toContain("prerequisites: ['aigentme']");
   });
 });

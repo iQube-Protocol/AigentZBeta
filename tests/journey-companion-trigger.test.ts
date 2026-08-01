@@ -46,11 +46,16 @@ describe('journey trigger constants stay consistent with the live registry', () 
     expect(tab, 'partner-pilot-journey tab was renamed/removed — update the trigger target').toBeTruthy();
   });
 
-  it('the intro copy names all seven stages, in order, and nothing else', () => {
+  it('the intro copy names every stage, in order, and states the count from the registry', () => {
     for (const stage of HORIZEN_MONEYPENNY_JOURNEY.stages) {
       expect(JOURNEY_INTRO_TEXT).toContain(stage.label);
     }
-    expect(HORIZEN_MONEYPENNY_JOURNEY.stages).toHaveLength(7);
+    // The count is DERIVED, not written out — a hand-typed "seven" went stale
+    // the moment Standing became the eighth stage (2026-08-02). Assert the
+    // derivation rather than pinning a number that must be edited in two
+    // places forever.
+    expect(JOURNEY_INTRO_TEXT).toContain(`${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages`);
+    expect(HORIZEN_MONEYPENNY_JOURNEY.stages.length).toBeGreaterThanOrEqual(8);
   });
 
   it("names 'Register' as where the journey begins — the trigger auto-selects it", () => {

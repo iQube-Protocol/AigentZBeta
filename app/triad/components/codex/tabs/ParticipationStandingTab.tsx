@@ -62,10 +62,22 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
   { key: 'capability', label: 'Capability', color: 'bg-amber-400', tip: 'Accrues from validated capabilities exercised on the platform' },
 ];
 
-export function ParticipationStandingTab() {
+export interface ParticipationStandingTabProps {
+  /**
+   * Pin this surface to ONE view and hide the tab strip (operator direction,
+   * 2026-08-02). The Ingestion Factory and Standing were paired here as two
+   * tabs; the Horizen journey now separates them into two stages — Deploy
+   * renders the Factory alone, the new Standing stage renders Standing alone,
+   * standalone as it was before the pairing. Unset keeps the two-tab surface
+   * for every other mount, so nothing else changes.
+   */
+  only?: StandingView;
+}
+
+export function ParticipationStandingTab({ only }: ParticipationStandingTabProps = {}) {
   // Default 'registry': the operator lands on the Ingestion Factory, full
   // width, exactly as elsewhere — ingest first, monitor standing after.
-  const [view, setView] = useState<StandingView>('registry');
+  const [view, setView] = useState<StandingView>(only ?? 'registry');
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -111,7 +123,9 @@ export function ParticipationStandingTab() {
     void load();
   }, [load]);
 
-  const tabStrip = (
+  // Pinned to one view -> no switcher: a tab strip with a single reachable
+  // destination is chrome that cannot act (MS-9).
+  const tabStrip = only ? null : (
     <div className="flex items-center gap-0.5 px-1 pt-1">
       <button
         type="button"

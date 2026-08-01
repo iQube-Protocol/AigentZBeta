@@ -25,7 +25,10 @@ export function isHorizenTrigger(message: string): boolean {
 
 export const JOURNEY_INTRO_TEXT = [
   `You're entering the Horizen × metaMe constitutional admission journey for MoneyPenny.`,
-  `We'll move through seven stages: ${HORIZEN_MONEYPENNY_JOURNEY.stages.map((s) => s.label).join(' · ')}.`,
+  // Count DERIVED, never written out: the intro said "seven stages" and went
+  // stale the moment Standing became an eighth (2026-08-02). One source of
+  // truth for what the journey contains — the registry itself.
+  `We'll move through ${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages: ${HORIZEN_MONEYPENNY_JOURNEY.stages.map((s) => s.label).join(' · ')}.`,
   `I'll explain each stage, open the relevant application or partner surface, and keep the journey ` +
     `synchronized with the authoritative platform state. You retain all sovereign actions, including ` +
     `claiming, sponsorship, delegation and mandate approval.`,

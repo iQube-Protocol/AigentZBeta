@@ -288,14 +288,21 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
 
             <div>
               <div className="text-[11px] font-medium text-slate-300">Conflict disclosure</div>
+              {/* Hairline-outline glass, never a solid fill (house style +
+                  operator direction 2026-08-02). Selection reads from the
+                  BORDER and a faint tint, so the two options are legible as a
+                  real choice without either becoming a filled block — and the
+                  unselected pair stays visually equal, so neither answer is
+                  nudged. */}
               <div className="mt-1.5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setConflictDeclared(false)}
-                  className={`rounded-lg border px-3 py-1.5 text-[11px] transition-colors ${
+                  aria-pressed={conflictDeclared === false}
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] backdrop-blur-sm transition-all ${
                     conflictDeclared === false
-                      ? "border-slate-600 bg-slate-800 text-slate-100"
-                      : "border-slate-800 bg-slate-900/40 text-slate-400 hover:bg-slate-900/60"
+                      ? "border-emerald-400/60 bg-emerald-400/[0.06] text-emerald-200 shadow-[0_0_0_1px_rgba(52,211,153,0.15)]"
+                      : "border-slate-700/70 bg-slate-900/30 text-slate-400 hover:border-emerald-400/30 hover:text-slate-200"
                   }`}
                 >
                   I have no conflict to declare
@@ -303,10 +310,11 @@ export function ReviewerAgreementPanel({ experimentId, onAuthorized }: ReviewerA
                 <button
                   type="button"
                   onClick={() => setConflictDeclared(true)}
-                  className={`rounded-lg border px-3 py-1.5 text-[11px] transition-colors ${
+                  aria-pressed={conflictDeclared === true}
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] backdrop-blur-sm transition-all ${
                     conflictDeclared === true
-                      ? "border-amber-700 bg-amber-950/40 text-amber-100"
-                      : "border-slate-800 bg-slate-900/40 text-slate-400 hover:bg-slate-900/60"
+                      ? "border-amber-400/60 bg-amber-400/[0.06] text-amber-200 shadow-[0_0_0_1px_rgba(251,191,36,0.15)]"
+                      : "border-slate-700/70 bg-slate-900/30 text-slate-400 hover:border-amber-400/30 hover:text-slate-200"
                   }`}
                 >
                   I have a conflict to declare

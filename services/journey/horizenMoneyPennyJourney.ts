@@ -172,6 +172,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'delegate',
       label: 'Delegate',
+      receiptsSurfacedNatively: true,
       description: 'Bounded delegation and FS Runtime bootstrap activate the agent’s authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
@@ -189,30 +190,6 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       companion: {
         before: 'A bounded delegation and Aigent Z’s bootstrap observation are required before the FS Runtime can activate.',
         complete: 'Control says can. The Passport and delegation say may. The mandate says what MoneyPenny may do now.',
-      },
-      nextStageId: 'activate',
-    },
-    {
-      id: 'activate',
-      label: 'Activate',
-      description: 'Standing gateway opens; payment demonstration is optional evidence, never a constitutional prerequisite.',
-      actor: 'moneypenny',
-      subjectRef: 'moneypenny',
-      surfaces: [
-        {
-          mode: 'component',
-          ref: 'venture-participate-standing',
-          note: "Rendered bare — Venture Lab α's Participate → Standing module: the registry Ingestion Factory full width (default), with Standing as one tab beside it.",
-        },
-      ],
-      prerequisites: ['delegate'],
-      permittedActions: ['prepare-payment-mandate', 'execute-payment'],
-      completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'standingGatewayEnabled'],
-      receiptTypes: ['standing_accrued'],
-      companion: {
-        before: 'MoneyPenny’s Standing gateway opens once her transparency and delegation are active.',
-        complete:
-          'MoneyPenny entered Horizen capable of paying. Horizen made her financial activity independently observable. Verified transparency now opens her pathway to Standing.',
       },
       nextStageId: 'aigentme',
     },
@@ -233,14 +210,71 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
             'shell as a Welcome Capsule — never a second surface at the journey level (§24.8).',
         },
       ],
-      prerequisites: ['activate'],
+      prerequisites: ['delegate'],
       permittedActions: ['record-focus-disposition'],
       completionEvidence: ['aigentMeActive', 'focusDispositionRecorded', 'moneypennyRecordedAsDelegatedAgent', 'evidenceChainComplete'],
       receiptTypes: ['aigentme_activated', 'experienceqube_focus_disposition_recorded', 'journey_completed'],
+      receiptsSurfacedNatively: true,
+      nextStageId: 'deploy',
       companion: {
         before: 'MoneyPenny is ready to introduce you to aigentMe, your constitutional companion.',
         complete:
           'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. MoneyPenny has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
+      },
+    },
+    {
+      id: 'deploy',
+      label: 'Deploy',
+      description: 'Standing gateway opens; payment demonstration is optional evidence, never a constitutional prerequisite.',
+      actor: 'moneypenny',
+      subjectRef: 'moneypenny',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'venture-participate-standing',
+          note:
+            'Rendered bare — the registry Ingestion Factory ALONE (operator direction 2026-08-02). ' +
+            'Standing was split out of this surface into its own eighth stage below, so Deploy no longer ' +
+            'carries a Standing tab beside the Factory and the two are never conflated again.',
+        },
+      ],
+      prerequisites: ['aigentme'],
+      permittedActions: ['prepare-payment-mandate', 'execute-payment'],
+      completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'standingGatewayEnabled'],
+      receiptTypes: ['standing_accrued'],
+      receiptsSurfacedNatively: true,
+      companion: {
+        before: 'MoneyPenny’s Standing gateway opens once her transparency and delegation are active.',
+        complete:
+          'MoneyPenny entered Horizen capable of paying. Horizen made her financial activity independently observable. Verified transparency now opens her pathway to Standing.',
+      },
+      nextStageId: 'standing',
+    },
+    {
+      id: 'standing',
+      label: 'Standing',
+      description:
+        'Standing is earned, observed and held separately from deployment — its own stage, not a tab beside the Ingestion Factory.',
+      actor: 'moneypenny',
+      subjectRef: 'moneypenny',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'venture-participate-standing-only',
+          note:
+            'The Standing module standalone (operator direction 2026-08-02). It was previously one tab ' +
+            'inside the Activate/Deploy surface beside the Ingestion Factory; separating them restores ' +
+            'Standing to the independent surface it was before, and stops deployment and standing ' +
+            'reading as the same act.',
+        },
+      ],
+      prerequisites: ['deploy'],
+      permittedActions: ['view-standing'],
+      completionEvidence: ['standingGatewayEnabled'],
+      receiptTypes: ['standing_accrued'],
+      companion: {
+        before: 'Standing accrues from observed, receipted conduct — it is never granted by deploying.',
+        complete: 'Standing is active and independently observable.',
       },
     },
   ],

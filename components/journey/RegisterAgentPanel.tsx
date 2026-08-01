@@ -4,11 +4,33 @@
  * RegisterAgentPanel — the Register stage's real surface (agent-selectable
  * Register stage, 2026-07-31). Replaces the bare `AgentCardSurface` (which
  * only ever displayed MoneyPenny's card) with a panel that lets the operator
- * choose WHICH agent to register in Horizen's ERC-8004 registry, then drives
- * the real 3-step server flow (services/horizen/registrationClient.ts):
- * prepare (build the unsigned tx, sign nothing) -> operator review -> an
- * explicit confirm -> broadcast (signs locally + submits) -> status (single
- * check per call; this panel re-polls on an interval until confirmed).
+ * choose WHICH agent to register in Horizen's ERC-8004 registry.
+ *
+ * ── REWIRED TO THE MANDATE CEREMONY (bug fix, 2026-08-02) ──────────────────
+ *
+ * PRIOR DEFECT: the Register button failed with
+ * `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. This panel was
+ * still calling `register/prepare` and `register/broadcast` — two routes the
+ * Wallet Signing Topology ruling (2026-08-01) RETIRED, because together they
+ * fired a real server-custodial signature as the consequence of one
+ * authenticated click. Next.js served its 404 HTML page and `res.json()`
+ * choked on the doctype, so a stale-client problem surfaced as a parser
+ * message that named nothing real.
+ *
+ * The flow is now the ceremony that actually exists:
+ *
+ *   mandate/prepare -> a PRINCIPAL SigningRequest is created (signs NOTHING)
+ *                   -> the operator signs it in their own wallet
+ *                   -> mandate/approve -> broadcast happens server-side as a
+ *                      CONSEQUENCE of that signature
+ *                   -> status (polled until Horizen confirms)
+ *
+ * The client never receives an unsigned transaction to hold or submit, and
+ * there is no administrative fallback — see the mandate/prepare route header.
+ *
+ * The signing surface itself (the wallet's Pending Actions) is Signing Phase 2
+ * and is NOT built yet, so the panel says so plainly at that step rather than
+ * directing the operator somewhere the act cannot be completed.
  *
  * "MoneyPenny is the demo agent; Aigent Nakamoto is the dry-run agent" —
  * operator ruling 2026-07-31. The dropdown lists both
@@ -46,6 +68,41 @@ interface RegistrableAgentOption {
  * here would fail loudly (a 400 UNKNOWN_AGENT from register/prepare), never
  * silently.
  */
+/**
+ * Read a response as JSON, or explain what actually came back.
+ *
+ * THE DEFECT THIS CLOSES (operator report, 2026-08-02): the Register button
+ * failed with `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. That
+ * is a JSON *parser* message leaking to an operator, and it names the wrong
+ * problem entirely — nothing was wrong with the JSON, because there was no
+ * JSON. The panel was calling `register/prepare` and `register/broadcast`,
+ * two routes RETIRED by the Wallet Signing Topology ruling (2026-08-01), so
+ * Next.js served its 404 HTML page and `res.json()` choked on the doctype.
+ *
+ * A blind `res.json()` turns every "route missing / gateway error / auth
+ * redirect" into the same misleading parse error, so the real cause stays
+ * invisible. This reads the body ONCE as text, parses only if it plausibly is
+ * JSON, and otherwise raises a message that says what actually happened.
+ */
+async function readJsonOrExplain(res: Response, label: string): Promise<Record<string, unknown>> {
+  const raw = await res.text();
+  const trimmed = raw.trimStart();
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      throw new Error(`${label} returned malformed JSON (HTTP ${res.status}).`);
+    }
+  }
+  if (trimmed.startsWith('<')) {
+    throw new Error(
+      `${label} returned an HTML page instead of JSON (HTTP ${res.status}). ` +
+        `This usually means the route does not exist at that path, or a proxy/auth layer intercepted the call.`,
+    );
+  }
+  throw new Error(`${label} returned an unexpected response (HTTP ${res.status}).`);
+}
+
 export const PILOT_AGENTS: RegistrableAgentOption[] = [
   { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
   { slug: 'nakamoto', displayName: 'Aigent Nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json' },
@@ -57,18 +114,17 @@ interface SponsoredAgent {
   agentCardUrl: string | null;
 }
 
-interface UnsignedTx {
-  to?: string;
-  data?: string;
-  value?: string | number;
-  chainId?: string | number;
-}
+// `UnsignedTx` lived here. Removed with the retired broadcast path: under the
+// Wallet Signing Topology the client never receives an unsigned transaction to
+// hold, review and submit — the mandate is signed in the operator's wallet and
+// broadcast server-side as a consequence of that signature.
 
 type FlowState =
   | { step: 'idle' }
   | { step: 'preparing' }
-  | { step: 'review'; unsignedTx: UnsignedTx; agentCardUrl: string; network: string }
-  | { step: 'broadcasting'; unsignedTx: UnsignedTx; network: string }
+  /** The PRINCIPAL SigningRequest exists and awaits the operator's own wallet
+   *  signature in Pending Actions. Nothing is signed or broadcast until then. */
+  | { step: 'awaiting-signature'; requestId: string; summary: string | null }
   | { step: 'polling'; txHash: string; ownerWalletAddress: string; network: string; attempts: number }
   | { step: 'confirmed'; tokenId: string }
   | { step: 'error'; message: string };
@@ -141,16 +197,18 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   const prepare = useCallback(async () => {
     setFlow({ step: 'preparing' });
     try {
-      const res = await personaFetch('/api/journey/moneypenny-horizen/register/prepare', {
+      const res = await personaFetch('/api/journey/moneypenny-horizen/register/mandate/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentSlug }),
       });
-      const json = await res.json();
+      const json = await readJsonOrExplain(res, 'register/mandate/prepare');
       if (!res.ok || !json.ok) {
-        throw new Error(json?.error ?? `Register/prepare failed (${res.status})`);
+        throw new Error((json?.error as string) ?? `Register mandate could not be prepared (${res.status})`);
       }
-      setFlow({ step: 'review', unsignedTx: json.unsignedTx, agentCardUrl: json.agentCardUrl, network: json.network });
+      const request = json.request as { id?: string; summary?: string } | undefined;
+      if (!request?.id) throw new Error('The server prepared no signing request to authorize.');
+      setFlow({ step: 'awaiting-signature', requestId: request.id, summary: request.summary ?? null });
     } catch (err) {
       setFlow({ step: 'error', message: err instanceof Error ? err.message : 'Could not prepare registration' });
     }
@@ -164,9 +222,9 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agentSlug, txHash, ownerWalletAddress, network }),
         });
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'register/status');
         if (!res.ok || !json.ok) {
-          throw new Error(json?.error ?? `Register/status failed (${res.status})`);
+          throw new Error((json?.error as string) ?? `Register status check failed (${res.status})`);
         }
         if (json.confirmed) {
           setFlow({ step: 'confirmed', tokenId: json.tokenId });
@@ -187,27 +245,13 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
     [agentSlug],
   );
 
-  const broadcast = useCallback(
-    async (unsignedTx: UnsignedTx, network: string) => {
-      setFlow({ step: 'broadcasting', unsignedTx, network });
-      try {
-        const res = await personaFetch('/api/journey/moneypenny-horizen/register/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentSlug, confirm: true, unsignedTx }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.ok) {
-          throw new Error(json?.error ?? `Register/broadcast failed (${res.status})`);
-        }
-        setFlow({ step: 'polling', txHash: json.txHash, ownerWalletAddress: json.ownerWalletAddress, network: json.network, attempts: 0 });
-        void pollStatus(json.txHash, json.ownerWalletAddress, json.network, 0);
-      } catch (err) {
-        setFlow({ step: 'error', message: err instanceof Error ? err.message : 'Could not broadcast registration' });
-      }
-    },
-    [agentSlug, pollStatus],
-  );
+  // The retired `register/broadcast` call lived here. It is GONE, not
+  // renamed: the Wallet Signing Topology ruling (2026-08-01) removed the
+  // server-custodial "confirm → we sign for you" path entirely, and its route
+  // header states there is no administrative fallback. Broadcasting now
+  // happens only as a consequence of the operator signing the mandate in
+  // their own wallet. Re-adding a client-side broadcast here would restore
+  // exactly the custody violation that ruling closed.
 
   return (
     <div className="flex flex-col gap-3">
@@ -261,39 +305,31 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           </div>
         )}
 
-        {flow.step === 'review' && (
+        {flow.step === 'awaiting-signature' && (
           <div className="text-xs">
             <p className="flex items-center gap-1.5 font-medium text-amber-200">
-              <ShieldAlert className="h-3.5 w-3.5" /> Review before broadcasting
+              <ShieldAlert className="h-3.5 w-3.5" /> Awaiting your wallet signature
             </p>
             <p className="mt-1 text-slate-400">
-              This signs and submits a real, gas-spending, irreversible transaction on {flow.network}. It cannot be
-              undone once broadcast.
+              A registration mandate has been prepared and is waiting for you to sign it with your own wallet. Nothing
+              has been signed or broadcast — and nothing will be until you approve it yourself.
             </p>
-            <div className="mt-2 rounded border border-slate-800 bg-slate-900/60 p-2 font-mono text-[11px] text-slate-300">
-              <p>to: {flow.unsignedTx.to}</p>
-              <p className="truncate">data: {flow.unsignedTx.data}</p>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={() => void broadcast(flow.unsignedTx, flow.network)}
-                className="rounded-md border border-rose-800/60 bg-rose-950/30 px-3 py-1.5 font-medium text-rose-200 hover:bg-rose-900/40"
-              >
-                Confirm &amp; broadcast
-              </button>
-              <button
-                onClick={() => setFlow({ step: 'idle' })}
-                className="rounded-md border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800/60"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {flow.step === 'broadcasting' && (
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Signing and submitting to Horizen…
+            {flow.summary && <p className="mt-1.5 text-slate-300">{flow.summary}</p>}
+            <p className="mt-1 font-mono text-[11px] text-slate-500">request {flow.requestId}</p>
+            {/* HONEST ABOUT THE GAP: the wallet's Pending Actions surface is
+                Signing Phase 2 and is not built yet, so there is currently no
+                place to perform this signature. Saying "open your wallet" would
+                send the operator somewhere that cannot complete the act. */}
+            <p className="mt-2 rounded border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-snug text-amber-200/90">
+              The wallet surface for signing pending actions is not built yet (Signing Phase 2), so this mandate cannot
+              be signed from the app today. The request is recorded and will appear there once that surface ships.
+            </p>
+            <button
+              onClick={() => setFlow({ step: 'idle' })}
+              className="mt-2 rounded-md border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800/60"
+            >
+              Back
+            </button>
           </div>
         )}
 

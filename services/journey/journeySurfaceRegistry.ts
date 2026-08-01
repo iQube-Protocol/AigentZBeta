@@ -161,10 +161,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'component',
     component: 'ParticipationStandingTab',
     note:
-      'Standing — the deliberately lean Participation v1 surface (lanes, reach, receipts). Paired ' +
-      '(2026-08-01) with the registry Ingestion Factory: the Ingestion Factory renders full width and ' +
-      'untouched (default view), with Standing as one additional tab beside it — never a 4-way split ' +
-      'of Standing itself. Rendered bare, superseding the embedded SmartWalletDrawer for this stage.',
+      'The Deploy stage surface: the registry Ingestion Factory ALONE. It was previously paired with ' +
+      'Standing as two tabs here; operator direction 2026-08-02 separated them, so this mount pins ' +
+      "`only: 'registry'` and the tab strip disappears. Standing has its own stage below.",
+  },
+  'venture-participate-standing-only': {
+    kind: 'component',
+    component: 'ParticipationStandingTab',
+    note:
+      'The Standing stage surface: the SAME ParticipationStandingTab pinned to `only: \'standing\'` — ' +
+      'never a second, forked Standing component (inv.engineering.036/037). Standing is standalone ' +
+      'again, as it was before it was paired with the Ingestion Factory.',
   },
   'aigentme-welcome': {
     kind: 'embed',

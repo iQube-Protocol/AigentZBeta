@@ -20,9 +20,9 @@
  * clicking a stage node only selects which stage's surface is shown (§5.1).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2 } from 'lucide-react';
+import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
@@ -157,6 +157,42 @@ export function JourneyRunSurface({
   const technicalDetail = error;
   const isStale = !!error && !!runtimeState;
 
+  /**
+   * STAGE CAROUSEL (operator direction, 2026-08-02). The strip has always been
+   * `overflow-x-auto`, so it scrolled — but with the Horizen journey grown to
+   * eight stages there was no AFFORDANCE: nothing indicated more stages
+   * existed off-screen, so a stage past the fold was effectively invisible.
+   * Arrows appear only when the strip actually overflows (a control that
+   * cannot act must not render — MS-9), and the active stage is scrolled into
+   * view whenever it changes, so selecting a stage from elsewhere (the
+   * companion's `journey:select-stage`) never leaves the operator looking at
+   * the wrong part of the strip.
+   */
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  const [overflow, setOverflow] = useState({ left: false, right: false });
+
+  const measureOverflow = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setOverflow({ left: el.scrollLeft > 4, right: el.scrollLeft < max - 4 });
+  }, []);
+
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    measureOverflow();
+    const ro = new ResizeObserver(measureOverflow);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measureOverflow, journey.stages.length]);
+
+  const scrollStrip = useCallback((direction: -1 | 1) => {
+    const el = stripRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.6, 160), behavior: 'smooth' });
+  }, []);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -196,6 +232,17 @@ export function JourneyRunSurface({
   const activeStageId = selectedStageId ?? runtimeState?.currentStageId ?? journey.stages[0]?.id;
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
+
+  // Keep the active stage visible in the carousel — including when it was
+  // selected from OUTSIDE this strip (the companion's `journey:select-stage`),
+  // which is exactly the case a manual-scroll-only strip leaves stranded.
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el || !activeStageId) return;
+    const node = el.querySelector<HTMLElement>(`[data-stage-id="${activeStageId}"]`);
+    node?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    measureOverflow();
+  }, [activeStageId, measureOverflow]);
   const activeIdx = journey.stages.findIndex((s) => s.id === activeStageId);
 
   const content = (
@@ -276,8 +323,33 @@ export function JourneyRunSurface({
         />
       </div>
 
-      <div className="border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
-        <div className="flex items-center overflow-x-auto">
+      <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
+        {/* Rendered only while there is somewhere to scroll TO. */}
+        {overflow.left && (
+          <button
+            type="button"
+            aria-label="Scroll stages left"
+            onClick={() => scrollStrip(-1)}
+            className="absolute left-0.5 top-1/2 z-10 -translate-y-1/2 rounded-full border border-slate-700/70 bg-slate-900/80 p-1 text-slate-300 backdrop-blur-sm transition-colors hover:text-white"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {overflow.right && (
+          <button
+            type="button"
+            aria-label="Scroll stages right"
+            onClick={() => scrollStrip(1)}
+            className="absolute right-0.5 top-1/2 z-10 -translate-y-1/2 rounded-full border border-slate-700/70 bg-slate-900/80 p-1 text-slate-300 backdrop-blur-sm transition-colors hover:text-white"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        )}
+        <div
+          ref={stripRef}
+          onScroll={measureOverflow}
+          className="flex items-center overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {journey.stages.map((stage, i) => {
             const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
             const isDone = stageState === 'COMPLETE';
@@ -291,6 +363,7 @@ export function JourneyRunSurface({
               <React.Fragment key={stage.id}>
                 {i > 0 && <div className={`h-px flex-1 min-w-[16px] ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
                 <button
+                  data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
                   className="flex shrink-0 items-center gap-1.5 px-1"
                   title={isBlocked ? 'Blocked — prerequisites not yet met' : stage.description}
@@ -409,7 +482,12 @@ export function JourneyRunSurface({
             );
           })}
         </div>
-        <StageReceiptsDrawer receiptTypes={activeStage.receiptTypes} />
+        {/* Suppressed where the stage's own surface already shows its
+            receipts (see JourneyStageDefinition.receiptsSurfacedNatively) —
+            two renderings of the same evidence is not more evidence. */}
+        {!activeStage.receiptsSurfacedNatively && (
+          <StageReceiptsDrawer receiptTypes={activeStage.receiptTypes} />
+        )}
       </div>
     </div>
   );

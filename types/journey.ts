@@ -69,6 +69,18 @@ export interface JourneyStageDefinition {
   permittedActions: string[];
   completionEvidence: string[];
   receiptTypes: string[];
+  /**
+   * Suppress the stage-level Evidence Receipts drawer (operator direction,
+   * 2026-08-02). Set ONLY where the stage's own surface already surfaces its
+   * receipts natively — Delegate, Deploy and aigentMe each render receipts in
+   * their own modals, so the drawer beneath them is a second, redundant
+   * rendering of the same evidence.
+   *
+   * This does NOT blank `receiptTypes`: which receipts a stage emits is a
+   * fact about the stage and stays declared (the journey definition is read
+   * by more than the drawer). Only the duplicate RENDERING is suppressed.
+   */
+  receiptsSurfacedNatively?: boolean;
   companion: { before: string; during?: string; complete: string; refused?: string };
   nextStageId?: string;
 }
