@@ -230,7 +230,9 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
           personaIdHint: personaId,
           body: JSON.stringify(body),
         });
-        const j = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; refusalCode?: string } | null;
+        const j = (await res.json().catch(() => null)) as
+          | { ok?: boolean; error?: string; refusalCode?: string; txHash?: string; ownerWalletAddress?: string; network?: string }
+          | null;
         if (!res.ok || !j?.ok) {
           setRowRefusal({
             id: request.id,
@@ -245,7 +247,20 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
         onCompleted?.(request);
         // Serializable, so a Journey in another realm learns the act is done
         // and re-reads its own state. REFUSED is announced by refuse() below.
-        announceWalletSurfaceCompletion({ surface: 'PENDING_ACTIONS', outcome: 'ACTION_COMPLETED' });
+        announceWalletSurfaceCompletion({
+          surface: 'PENDING_ACTIONS',
+          outcome: 'ACTION_COMPLETED',
+          result: {
+            actionKind: request.actionKind,
+            walletRef: request.walletRef,
+            subjectAgentRef: request.subjectAgentRef,
+            // Present only on the invocation approval — the broadcast's own
+            // facts, which Register needs to drive the Horizen confirmation.
+            txHash: j?.txHash ?? null,
+            ownerWalletAddress: j?.ownerWalletAddress ?? null,
+            network: j?.network ?? null,
+          },
+        });
       } catch (e) {
         setRowRefusal({
           id: request.id,

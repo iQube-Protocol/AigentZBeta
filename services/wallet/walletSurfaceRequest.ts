@@ -84,6 +84,17 @@ export interface WalletSurfaceCompletion {
     | 'REFUSED';
   returnTarget?: string;
   refusal?: string;
+  /**
+   * Serializable facts the completing act produced, for the requester to act
+   * on — e.g. the broadcast txHash the Register stage needs to poll Horizen.
+   *
+   * Without this the txHash existed only in the wallet's approve response,
+   * while the one surface that needs it (Register, to drive the confirmation
+   * poll that writes the binding receipt) never learned it — so the ceremony
+   * completed in the wallet and could never reach COMPLETE in the Journey.
+   * Plain JSON only: this crosses the same postMessage boundary as the rest.
+   */
+  result?: Record<string, string | number | boolean | null>;
 }
 
 type RequestListener = (request: WalletSurfaceRequest) => void;

@@ -313,14 +313,6 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
    * SIGNER_CONFIGURED_AWAITING_PROOF — a partial result must update this card,
    * not leave it showing a state that has since moved on.
    */
-  useEffect(
-    () =>
-      subscribeWalletSurfaceCompletion((completion) => {
-        if (completion.surface !== 'PRINCIPAL_WALLET_PROVISIONING') return;
-        void readWalletGate();
-      }),
-    [readWalletGate],
-  );
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stub: the operator's own sponsored agents, real data from the existing
@@ -407,6 +399,43 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
       pollTimerRef.current = setTimeout(() => void pollStatus(txHash, ownerWalletAddress, network, attempts + 1), POLL_INTERVAL_MS);
     },
     [agentSlug],
+  );
+
+  useEffect(
+    () =>
+      subscribeWalletSurfaceCompletion((completion) => {
+        if (completion.surface === 'PRINCIPAL_WALLET_PROVISIONING') {
+          void readWalletGate();
+          return;
+        }
+        if (completion.surface !== 'PENDING_ACTIONS' || completion.outcome !== 'ACTION_COMPLETED') return;
+        const result = completion.result ?? {};
+        /*
+         * The invocation approval broadcast the transaction, and its facts
+         * arrive HERE because Register is the surface that drives the Horizen
+         * confirmation poll — the poll that writes the binding receipt. The
+         * wallet completed both acts; without this hand-back the ceremony
+         * could never reach COMPLETE, because nobody who knew the txHash was
+         * responsible for confirming it.
+         */
+        if (
+          result.actionKind === 'sign_registry_transaction' &&
+          typeof result.txHash === 'string' &&
+          typeof result.ownerWalletAddress === 'string' &&
+          typeof result.network === 'string' &&
+          result.subjectAgentRef === `aigent-${agentSlug}`
+        ) {
+          setFlow({
+            step: 'polling',
+            txHash: result.txHash,
+            ownerWalletAddress: result.ownerWalletAddress,
+            network: result.network,
+            attempts: 0,
+          });
+          void pollStatus(result.txHash, result.ownerWalletAddress, result.network, 0);
+        }
+      }),
+    [readWalletGate, agentSlug, pollStatus],
   );
 
   // The retired `register/broadcast` call lived here. It is GONE, not
