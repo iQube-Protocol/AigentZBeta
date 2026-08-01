@@ -2,17 +2,25 @@
 
 /**
  * ParticipationStandingTab — Participation → Standing (v1, 2026-07-18;
- * 4-tab restructure 2026-08-01).
+ * Ingestion Factory pairing 2026-08-01).
  *
- * The participant's constitutional standing, kept deliberately lean per the
- * ratified Participation v1 IA: Standing lanes, reach, receipts, and
- * contribution history. Now a tabbed surface with a 4th tab — the Ingestion
- * Factory — per operator direction: the Activate stage's Standing surface
- * must also expose the registry ingestion panel here, not as a separate
- * journey surface. Reuses the SAME `IngestionFactoryPanel` component
- * `IQubeRegistryIntakeTab` mounts (composition, not a fork —
- * inv.engineering.036/037); the panel is self-contained and reads its own
- * canonical APIs, so no new props or gating were added here.
+ * Operator correction 2026-08-01: NOT a 4-way split of Standing into
+ * Standing/Reach/Receipts/Ingestion tabs. The Ingestion Factory renders
+ * FULL WIDTH and UNTOUCHED — exactly as it appears in the iQube Registry
+ * elsewhere (its own 3 internal tabs: Ingest New Asset / Pipeline Status /
+ * Ingested Assets, plus its own Ingest Asset button) — with Standing as ONE
+ * additional tab beside it, not a fork of IngestionFactoryPanel and not a
+ * further split of Standing's own content. The underlying logic: assets are
+ * ingested into the registry, and standing accrues from that — registry and
+ * standing belong in the same place, one tab each, not standing spread
+ * across three.
+ *
+ * Reuses the SAME `IngestionFactoryPanel` component `IQubeRegistryIntakeTab`
+ * mounts (composition, not a fork — inv.engineering.036/037); the panel is
+ * self-contained and reads its own canonical APIs, so no new props or
+ * gating were added here. The ideal home for this pairing is arguably
+ * inside IngestionFactoryPanel itself (a real 4th internal tab) — deferred
+ * per operator direction; this journey-level pairing is the interim.
  *
  * Composes existing organs — /api/wallet/tasks (standing + reputation lanes,
  * spine Bearer) and /api/assistant/receipts (the persona's receipted
@@ -20,7 +28,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Award, Factory, Loader2, ReceiptText, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Award, Factory, Loader2, ReceiptText, ShieldCheck } from 'lucide-react';
 // Persona-aware transport. `/api/assistant/*` and `/api/wallet/*` resolve the
 // caller through the spine, and this tab is about to become PARTICIPANT-FACING
 // in the Venture Lab — where a fallback persona would show one participant
@@ -30,14 +38,7 @@ import { personaFetch } from '@/utils/personaSpine';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
 import { IngestionFactoryPanel } from '@/components/registry/IngestionFactoryPanel';
 
-type StandingSubTab = 'standing' | 'reach' | 'receipts' | 'ingestion';
-
-const SUB_TABS: Array<{ id: StandingSubTab; label: string; Icon: typeof Award }> = [
-  { id: 'standing', label: 'Standing', Icon: Award },
-  { id: 'reach', label: 'Reach', Icon: TrendingUp },
-  { id: 'receipts', label: 'Receipts', Icon: ReceiptText },
-  { id: 'ingestion', label: 'Ingestion Factory', Icon: Factory },
-];
+type StandingView = 'registry' | 'standing';
 
 interface StandingLanes {
   personal: number;
@@ -62,7 +63,9 @@ const LANES: Array<{ key: keyof StandingLanes; label: string; color: string; tip
 ];
 
 export function ParticipationStandingTab() {
-  const [activeTab, setActiveTab] = useState<StandingSubTab>('standing');
+  // Default 'registry': the operator lands on the Ingestion Factory, full
+  // width, exactly as elsewhere — ingest first, monitor standing after.
+  const [view, setView] = useState<StandingView>('registry');
   const [standing, setStanding] = useState<StandingLanes | null>(null);
   const [reach, setReach] = useState<Reach | null>(null);
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -108,156 +111,169 @@ export function ParticipationStandingTab() {
     void load();
   }, [load]);
 
+  const tabStrip = (
+    <div className="flex items-center gap-0.5 px-1 pt-1">
+      <button
+        type="button"
+        onClick={() => setView('registry')}
+        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+          view === 'registry'
+            ? 'bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25'
+            : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
+        }`}
+      >
+        <Factory className="h-3.5 w-3.5" />
+        Ingestion Factory
+      </button>
+      <button
+        type="button"
+        onClick={() => setView('standing')}
+        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
+          view === 'standing'
+            ? 'bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25'
+            : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
+        }`}
+      >
+        <Award className="h-3.5 w-3.5" />
+        Standing
+      </button>
+    </div>
+  );
+
+  if (view === 'registry') {
+    return (
+      <div className="w-full">
+        {tabStrip}
+        <IngestionFactoryPanel />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center gap-2 p-6 text-sm text-slate-400">
-        <Loader2 className="h-4 w-4 animate-spin" /> Loading standing…
+      <div className="w-full">
+        {tabStrip}
+        <div className="flex items-center gap-2 p-6 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading standing…
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4">
-      <div>
-        <h2 className="text-base font-semibold text-slate-100">Standing</h2>
-        <p className="mt-1 text-xs text-slate-400 max-w-2xl">
-          Your relationship with the Institute, as the record shows it: standing lanes,
-          reach, your receipted contribution history, and the registry Ingestion Factory.
-        </p>
-      </div>
+    <div className="w-full">
+      {tabStrip}
+      <div className="mx-auto max-w-3xl space-y-4 p-4">
+        <div>
+          <h2 className="text-base font-semibold text-slate-100">Standing</h2>
+          <p className="mt-1 text-xs text-slate-400 max-w-2xl">
+            Your relationship with the Institute, as the record shows it: standing lanes,
+            reach, and your receipted contribution history.
+          </p>
+        </div>
+        {error && <p className="text-xs text-amber-300">{error}</p>}
 
-      <div className="flex items-center gap-0.5 border-b border-slate-800 pb-2">
-        {SUB_TABS.map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-              activeTab === id
-                ? 'bg-violet-500/[0.12] text-violet-300 ring-1 ring-violet-500/25'
-                : 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-300'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {error && <p className="text-xs text-amber-300">{error}</p>}
-
-      {activeTab === 'ingestion' ? (
-        <IngestionFactoryPanel />
-      ) : (
-        <>
-      {/* Standing lanes */}
-      {activeTab === 'standing' && (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
-            <Award className="h-4 w-4 text-violet-300" /> Standing
-          </h3>
-          {standing && (
-            <span className="text-xs text-slate-400">
-              overall <span className="text-slate-100 font-semibold">{standing.overall.toFixed(1)}</span>
-              <span className="ml-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
-                band {standing.bucket}
+        {/* Standing lanes */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+              <Award className="h-4 w-4 text-violet-300" /> Standing
+            </h3>
+            {standing && (
+              <span className="text-xs text-slate-400">
+                overall <span className="text-slate-100 font-semibold">{standing.overall.toFixed(1)}</span>
+                <span className="ml-2 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300">
+                  band {standing.bucket}
+                </span>
               </span>
-            </span>
+            )}
+          </div>
+          {standing ? (
+            <div className="space-y-2">
+              {LANES.map(({ key, label, color, tip }) => {
+                const value = Number(standing[key]) || 0;
+                return (
+                  <div key={key} className="flex items-center gap-3" title={tip}>
+                    <span className="w-24 text-[11px] text-slate-400">{label}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
+                      <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value * 10)}%` }} />
+                    </div>
+                    <span className="w-8 text-right text-[11px] text-slate-300">{value.toFixed(1)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 italic">No standing record yet — standing accrues from receipted contributions.</p>
           )}
         </div>
-        {standing ? (
-          <div className="space-y-2">
-            {LANES.map(({ key, label, color, tip }) => {
-              const value = Number(standing[key]) || 0;
-              return (
-                <div key={key} className="flex items-center gap-3" title={tip}>
-                  <span className="w-24 text-[11px] text-slate-400">{label}</span>
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
-                    <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value * 10)}%` }} />
-                  </div>
-                  <span className="w-8 text-right text-[11px] text-slate-300">{value.toFixed(1)}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-xs text-slate-500 italic">No standing record yet — standing accrues from receipted contributions.</p>
-        )}
-      </div>
-      )}
 
-      {/* Reach */}
-      {activeTab === 'reach' && (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-slate-200">Reach</h3>
-        {reach ? (
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <div className="text-lg font-semibold text-slate-100">{reach.overall.toFixed(1)}</div>
-              <div className="text-[10px] uppercase tracking-wide text-slate-500">Reputation</div>
+        {/* Reach */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-slate-200">Reach</h3>
+          {reach ? (
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <div className="text-lg font-semibold text-slate-100">{reach.overall.toFixed(1)}</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">Reputation</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-slate-100">{reach.lifetimeCvs}</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">Lifetime CVs</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-slate-100">{reach.totalTasksCompleted}</div>
+                <div className="text-[10px] uppercase tracking-wide text-slate-500">Tasks completed</div>
+              </div>
             </div>
-            <div>
-              <div className="text-lg font-semibold text-slate-100">{reach.lifetimeCvs}</div>
-              <div className="text-[10px] uppercase tracking-wide text-slate-500">Lifetime CVs</div>
-            </div>
-            <div>
-              <div className="text-lg font-semibold text-slate-100">{reach.totalTasksCompleted}</div>
-              <div className="text-[10px] uppercase tracking-wide text-slate-500">Tasks completed</div>
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-slate-500 italic">No reputation record yet.</p>
-        )}
-      </div>
-      )}
+          ) : (
+            <p className="text-xs text-slate-500 italic">No reputation record yet.</p>
+          )}
+        </div>
 
-      {/* Contribution history — receipted record */}
-      {activeTab === 'receipts' && (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
-          <ReceiptText className="h-4 w-4 text-emerald-300" /> Contribution history
-        </h3>
-        {receipts.length === 0 ? (
-          <p className="text-xs text-slate-500 italic">No receipts yet — contributions appear here as they are receipted.</p>
-        ) : (
-          <div className="space-y-1">
-            {receipts.map((r) => {
-              const expanded = expandedReceiptId === r.id;
-              return (
-                <div key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() => setExpandedReceiptId(expanded ? null : r.id)}
-                    className="flex w-full items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] text-left transition-colors hover:bg-white/10"
-                  >
-                    <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
-                      {r.actionType}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-slate-300" title={r.summary}>{r.summary}</span>
-                    {r.dvnReceiptId ? (
-                      <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`DVN-anchored · ${r.dvnReceiptId}`}>
-                        <ShieldCheck className="h-3 w-3" /> anchored
+        {/* Contribution history — receipted record */}
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+          <h3 className="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+            <ReceiptText className="h-4 w-4 text-emerald-300" /> Contribution history
+          </h3>
+          {receipts.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No receipts yet — contributions appear here as they are receipted.</p>
+          ) : (
+            <div className="space-y-1">
+              {receipts.map((r) => {
+                const expanded = expandedReceiptId === r.id;
+                return (
+                  <div key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedReceiptId(expanded ? null : r.id)}
+                      className="flex w-full items-center gap-2 rounded-lg bg-white/5 px-2.5 py-1.5 text-[11px] text-left transition-colors hover:bg-white/10"
+                    >
+                      <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
+                        {r.actionType}
                       </span>
-                    ) : (
-                      <span className="text-slate-500 shrink-0">{r.receiptStatus}</span>
+                      <span className="min-w-0 flex-1 truncate text-slate-300" title={r.summary}>{r.summary}</span>
+                      {r.dvnReceiptId ? (
+                        <span className="flex items-center gap-1 text-emerald-400 shrink-0" title={`DVN-anchored · ${r.dvnReceiptId}`}>
+                          <ShieldCheck className="h-3 w-3" /> anchored
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 shrink-0">{r.receiptStatus}</span>
+                      )}
+                      <span className="text-slate-500 shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
+                    </button>
+                    {expanded && (
+                      <div className="mt-1">
+                        <ActivityReceiptCard data={r} personaDisplayLabel={personaDisplayLabel} theme="dark" />
+                      </div>
                     )}
-                    <span className="text-slate-500 shrink-0">{new Date(r.createdAt).toLocaleDateString()}</span>
-                  </button>
-                  {expanded && (
-                    <div className="mt-1">
-                      <ActivityReceiptCard data={r} personaDisplayLabel={personaDisplayLabel} theme="dark" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
-      )}
-        </>
-      )}
     </div>
   );
 }
