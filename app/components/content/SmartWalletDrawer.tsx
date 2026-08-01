@@ -595,6 +595,50 @@ export default function SmartWalletDrawer({
     target: null,
     label: null,
   });
+
+  /*
+   * The principal wallet's state, as a chip on the entry row.
+   *
+   * The operator asked for a signal that a wallet actually exists — a
+   * successful ceremony left no trace anywhere the wallet is normally looked
+   * at, so "did that work?" could only be answered by opening the surface. A
+   * state worth celebrating that is invisible until you go looking is not a
+   * signal.
+   *
+   * Reads the SAME authoritative route the surface uses; never a second
+   * classification (inv.engineering.037). Null while unknown — an absent chip
+   * says "not checked", never "no wallet".
+   */
+  const [principalChip, setPrincipalChip] = useState<'proven' | 'configured' | 'none' | null>(null);
+  useEffect(() => {
+    if (!sessionEmail || !effectivePersonaId) {
+      setPrincipalChip(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/principal/status', {
+          cache: 'no-store',
+          personaIdHint: effectivePersonaId,
+        });
+        const j = (await res.json()) as { ok?: boolean; capability?: string; controlProven?: boolean };
+        if (cancelled) return;
+        if (!res.ok || !j.ok) {
+          setPrincipalChip(null);
+          return;
+        }
+        setPrincipalChip(
+          j.capability === 'SIGNER_CONFIGURED' ? (j.controlProven ? 'proven' : 'configured') : 'none',
+        );
+      } catch {
+        if (!cancelled) setPrincipalChip(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionEmail, effectivePersonaId, walletSurface]);
   const lastWalletSurfaceTokenRef = useRef<number | undefined>(walletSurfaceRequestToken);
   useEffect(() => {
     if (walletSurfaceRequestToken === undefined) return;
@@ -3821,10 +3865,31 @@ export default function SmartWalletDrawer({
                   onClick={() => setWalletSurface('PRINCIPAL_WALLET_PROVISIONING')}
                   className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:bg-slate-900/70"
                 >
-                  <span>
-                    <span className="block text-xs font-medium text-slate-200">Principal wallet</span>
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-200">Principal wallet</span>
+                      {principalChip === 'proven' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                          <ShieldCheck className="h-2.5 w-2.5" aria-hidden="true" /> Ready
+                        </span>
+                      )}
+                      {principalChip === 'configured' && (
+                        <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-200">
+                          Proof incomplete
+                        </span>
+                      )}
+                      {principalChip === 'none' && (
+                        <span className="inline-flex items-center rounded-full border border-slate-700 bg-slate-800/60 px-1.5 py-0.5 text-[10px] font-medium text-white/50">
+                          Not set up
+                        </span>
+                      )}
+                    </span>
                     <span className="mt-0.5 block text-[11px] text-white/40">
-                      Create, repair or prove the wallet that signs on your behalf
+                      {principalChip === 'proven'
+                        ? 'Created, control proven — view address and key'
+                        : principalChip === 'configured'
+                          ? 'Created — one step left to prove control'
+                          : 'Create, repair or prove the wallet that signs on your behalf'}
                     </span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />

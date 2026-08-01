@@ -35,7 +35,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ShieldCheck, KeyRound, AlertTriangle, Loader2, Ban, ArrowRight } from 'lucide-react';
+import { ShieldCheck, KeyRound, AlertTriangle, Loader2, Ban, ArrowRight, Copy, Check, Eye, EyeOff } from 'lucide-react';
 
 import { personaFetch } from '@/utils/personaSpine';
 import {
@@ -44,7 +44,7 @@ import {
   type ProvisioningPhase,
 } from '@/services/wallet/provisionPrincipalWalletClient';
 import { announceWalletSurfaceCompletion } from '@/services/wallet/walletSurfaceRequest';
-import { validatePassword } from '@/services/wallet/keyService';
+import { validatePassword, decryptPrivateKey } from '@/services/wallet/keyService';
 
 /** The ten states the operator specified, and nothing else. */
 export type PrincipalProvisioningState =
@@ -159,6 +159,68 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
   const [confirm, setConfirm] = useState('');
   const [acknowledged, setAcknowledged] = useState(false);
   const [outcomeRefusal, setOutcomeRefusal] = useState<{ refusal: string; detail: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  // Key reveal — self-custody requires the owner can actually take their key
+  // out. Held in state only while shown, and dropped on hide.
+  const [revealPassword, setRevealPassword] = useState('');
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealBusy, setRevealBusy] = useState(false);
+
+  const copyAddress = useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }, []);
+
+  /**
+   * Reveal the private key, decrypted IN THIS BROWSER.
+   *
+   * The envelope route returns ciphertext; the password never leaves the page;
+   * the server never sees, and never could produce, the plaintext. This is the
+   * shape the operator's own standing rule permits — what it forbids is
+   * "persona + password → plaintext private key returned by server", which is
+   * a different mechanism with a different trust model.
+   *
+   * Self-custody that cannot be exercised is custody by the platform under
+   * another name, so this exists — behind the wallet password, behind an
+   * explicit act, and with the consequence stated before the key appears.
+   */
+  const revealPrivateKey = useCallback(async () => {
+    setRevealBusy(true);
+    setRevealError(null);
+    try {
+      const res = await personaFetch('/api/wallet/principal/envelope', {
+        cache: 'no-store',
+        personaIdHint: personaId,
+      });
+      const j = (await res.json()) as { encryptedEnvelope?: unknown; detail?: string; refusal?: string };
+      if (!res.ok || !j.encryptedEnvelope) {
+        setRevealError(j.detail ?? 'The stored wallet could not be read.');
+        return;
+      }
+      const plain = await decryptPrivateKey(
+        j.encryptedEnvelope as Parameters<typeof decryptPrivateKey>[0],
+        revealPassword,
+      );
+      setRevealed('0x' + plain);
+    } catch {
+      setRevealError('That password did not unlock the wallet. Nothing was changed.');
+    } finally {
+      setRevealBusy(false);
+      setRevealPassword('');
+    }
+  }, [personaId, revealPassword]);
+
+  const hideKey = useCallback(() => {
+    setRevealed(null);
+    setRevealError(null);
+    setRevealPassword('');
+  }, []);
 
   const load = useCallback(async (): Promise<StatusView | null> => {
     setLoading(true);
@@ -588,7 +650,6 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
             <span className="text-xs font-medium">Principal wallet ready</span>
           </div>
           <div className="mt-2 divide-y divide-slate-800">
-            <Row label="Address" value={<span className="break-all font-mono text-[10px]">{status?.address}</span>} />
             <Row label="Custody" value="First-party — encrypted in your browser" />
             <Row label="Control" value={<span className="text-emerald-300">Proven</span>} />
             <Row
@@ -605,6 +666,89 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
                 )
               }
             />
+          </div>
+
+          {/* ── Funding address ────────────────────────────────────────────
+              A wallet nobody can pay into is not usable. This is the PUBLIC
+              address — safe to share, and the only thing needed to send funds
+              to it. Given its own block, copyable, rather than a small mono
+              row an operator has to select by hand. */}
+          <div className="mt-3 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5">
+            <div className="text-[10px] uppercase tracking-wide text-emerald-200">Receiving address · public</div>
+            <div className="mt-1 flex items-start gap-2">
+              <code className="min-w-0 flex-1 break-all font-mono text-[10px] text-white/80">{status?.address}</code>
+              <button
+                type="button"
+                onClick={() => status?.address && void copyAddress(status.address)}
+                className="shrink-0 rounded border border-slate-800 bg-slate-950/60 p-1.5 text-white/60 hover:text-white"
+                aria-label="Copy receiving address"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-white/40">
+              Send Base funds here. Sharing this address is safe — it reveals nothing about your key.
+            </p>
+          </div>
+
+          {/* ── Private key, under the wallet password ─────────────────────
+              Self-custody that cannot be exercised is custody by the platform
+              under another name. The key is decrypted IN THIS BROWSER from
+              ciphertext; the password never leaves the page and the server
+              could not produce the plaintext if asked. */}
+          <div className="mt-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2.5">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-white/50">
+              <KeyRound className="h-3 w-3" aria-hidden="true" />
+              Private key · secure access
+            </div>
+            {revealed ? (
+              <>
+                <p className="mt-1 text-[10px] leading-relaxed text-rose-200">
+                  Anyone holding this string controls this wallet completely and irreversibly. Do not paste it into
+                  any site, form, or message.
+                </p>
+                <code className="mt-1.5 block break-all rounded border border-rose-500/25 bg-rose-500/5 p-2 font-mono text-[10px] text-white/85">
+                  {revealed}
+                </code>
+                <button
+                  type="button"
+                  onClick={hideKey}
+                  className="mt-1.5 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-950/60 px-2.5 py-1 text-[11px] text-white/70 hover:text-white"
+                >
+                  <EyeOff className="h-3.5 w-3.5" aria-hidden="true" /> Hide
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-[10px] leading-relaxed text-white/40">
+                  Your key is yours to hold. Unlock with your wallet password to view it — it is decrypted here in
+                  the browser and never sent anywhere.
+                </p>
+                <div className="mt-1.5 flex gap-1.5">
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={revealPassword}
+                    onChange={(e) => setRevealPassword(e.target.value)}
+                    placeholder="Wallet password"
+                    className="min-w-0 flex-1 rounded border border-slate-800 bg-slate-950/60 px-2 py-1.5 text-[11px] text-white placeholder:text-white/30"
+                  />
+                  <button
+                    type="button"
+                    disabled={revealBusy || revealPassword.length === 0}
+                    onClick={() => void revealPrivateKey()}
+                    className="flex shrink-0 items-center gap-1.5 rounded border border-slate-800 bg-slate-950/60 px-2.5 py-1.5 text-[11px] text-white/70 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Eye className="h-3.5 w-3.5" aria-hidden="true" /> Reveal
+                  </button>
+                </div>
+                {revealError && <p className="mt-1 text-[10px] text-rose-300">{revealError}</p>}
+              </>
+            )}
           </div>
           {status?.supersededPlaceholder && (
             <p className="mt-2 text-[10px] text-white/35">

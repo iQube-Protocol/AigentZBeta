@@ -461,3 +461,60 @@ describe('the surface explains why it will not act', () => {
     expect(refusal).toBeLessThan(form);
   });
 });
+
+describe('a created wallet is visible, usable and exportable', () => {
+  const panel = stripComments(readSource('components/wallet/PrincipalWalletProvisioningPanel.tsx'));
+  const drawer = stripComments(readSource('app/components/content/SmartWalletDrawer.tsx'));
+
+  it('the wallet entry row carries a state chip, not just a link', () => {
+    // A successful ceremony left no trace anywhere the wallet is normally
+    // looked at, so "did that work?" could only be answered by opening the
+    // surface again.
+    expect(drawer).toMatch(/principalChip/);
+    expect(drawer).toMatch(/'proven' \| 'configured' \| 'none' \| null/);
+  });
+
+  it('an unknown state shows NO chip rather than "not set up"', () => {
+    // Absent must read as "not checked", never as "you have no wallet".
+    expect(drawer).toMatch(/setPrincipalChip\(null\)/);
+    expect(drawer).toMatch(/principalChip === 'none'/);
+  });
+
+  it('the chip reads the same authoritative route, not a second classifier', () => {
+    expect(drawer).toMatch(/\/api\/wallet\/principal\/status/);
+    expect(drawer).not.toMatch(/encryptedPrivateKey/);
+  });
+
+  it('the proven state offers a copyable public receiving address', () => {
+    const at = panel.indexOf('Receiving address');
+    expect(at).toBeGreaterThan(-1);
+    expect(panel).toMatch(/copyAddress\(/);
+    expect(panel.slice(at)).toMatch(/Sharing this address is safe/);
+  });
+
+  it('the private key is decrypted in the browser, never fetched as plaintext', () => {
+    // The operator's standing rule forbids "persona + password → plaintext
+    // private key returned by server". This asks for CIPHERTEXT and decrypts
+    // locally, which is a different mechanism.
+    expect(panel).toMatch(/decryptPrivateKey\(/);
+    expect(panel).toMatch(/\/api\/wallet\/principal\/envelope/);
+    const bodies = panel.match(/JSON\.stringify\([\s\S]{0,300}?\)/g) ?? [];
+    for (const b of bodies) expect(b).not.toMatch(/revealPassword/);
+  });
+
+  it('states the consequence before showing the key, and can hide it again', () => {
+    expect(panel).toMatch(/controls this wallet completely and irreversibly/);
+    expect(panel).toMatch(/hideKey/);
+  });
+
+  it('drops the reveal password from state after use', () => {
+    expect(panel).toMatch(/setRevealPassword\(''\)/);
+  });
+
+  it('the envelope route returns ciphertext and nothing else', () => {
+    const route = stripComments(readSource('app/api/wallet/principal/envelope/route.ts'));
+    expect(route).toMatch(/encryptedEnvelope/);
+    // No decryption server-side, and no password ever read from the request.
+    expect(route).not.toMatch(/decryptPrivateKey|password/i);
+  });
+});
