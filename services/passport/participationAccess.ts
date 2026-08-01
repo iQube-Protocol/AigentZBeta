@@ -398,6 +398,43 @@ export async function getReviewReadableExperiments(
   return union;
 }
 
+export interface ExperimentReviewGrant {
+  /** The grant's own role string — one of REVIEW_VIEW_READABLE_ROLES. */
+  role: string;
+  allowedExperiments: 'all' | string[];
+}
+
+/**
+ * The caller's own qualifying research-lab grant for reading `experimentId`'s
+ * review/crystal evidence — same role/scope rule as `callerMayReadExperimentReview`,
+ * but returning the grant's REAL role and scope instead of a plain boolean.
+ * Built for the Validation Programme's JSON Agent Package manifest (operator
+ * instruction 2026-08-01, Phase 2: "assigned reviewer role; permitted
+ * authority") — that manifest must report the caller's actual grant, never a
+ * hardcoded 'reviewer' constant (CLAUDE.md "No Guessing").
+ */
+export async function resolveExperimentReviewGrant(
+  admin: SupabaseClient,
+  personaId: string,
+  experimentId: string,
+): Promise<ExperimentReviewGrant | null> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+  if (error || !data) return null;
+  for (const row of data) {
+    const role = String((row as { role: string }).role);
+    if (!REVIEW_VIEW_READABLE_ROLES.includes(role)) continue;
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    if (!allowed || allowed.length === 0) return { role, allowedExperiments: 'all' };
+    if (allowed.includes(experimentId)) return { role, allowedExperiments: allowed };
+  }
+  return null;
+}
+
 function hashCode(rawCode: string): string {
   return createHash('sha256').update(rawCode).digest('hex');
 }

@@ -56,11 +56,16 @@ export const VALIDATION_PROGRAMME_WORKSPACE_ID = 'autonomi-review-exp-p1';
 /** The experiment this journey's reviewer-scoping checks against. */
 export const VALIDATION_PROGRAMME_EXPERIMENT_ID = 'EXP-P1';
 
-/** The col_experiments path segment every EXP-P1 document lives under. */
-const EXP_P1_PATH_SEGMENT = 'exp-p1-representation-runtime-gauntlet';
+/**
+ * The col_experiments path segment every EXP-P1 document lives under. Exported
+ * so both the Overview stage's pathFilter (below) and the JSON Agent Package
+ * route (app/api/journey/validation-programme/agent-package/route.ts) list
+ * the SAME document set from ONE source, never two hand-maintained filters.
+ */
+export const EXP_P1_PATH_SEGMENT = 'exp-p1-representation-runtime-gauntlet';
 
-/** Overview stage's pathFilter — EXP-P1's own documents only, nothing else in col_experiments. */
-const isExpP1Path = (path: string): boolean => path.includes(EXP_P1_PATH_SEGMENT);
+/** EXP-P1's own documents only, nothing else in col_experiments. */
+export const isExpP1Path = (path: string): boolean => path.includes(EXP_P1_PATH_SEGMENT);
 
 export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
   id: 'validation-programme-exp-p1',
