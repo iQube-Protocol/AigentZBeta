@@ -1000,8 +1000,22 @@ describe('the review path cannot reach the corpus', () => {
     // Call shapes, not the words: the receipt payload's authority note has to
     // be able to SAY that it does not canonize anything.
     const forbidden = [
-      /grantStanding\s*\(/, /canoniz[ea]\w*\s*\(/i, /freeze\w*\s*\(/i,
-      /updateLifecycle\s*\(/, /setStanding\s*\(/, /markCanonical\s*\(/i,
+      /grantStanding\s*\(/,
+      /canoniz[ea]\w*\s*\(/i,
+      /*
+       * `freeze(` NOT preceded by `Object.` (2026-08-02).
+       *
+       * The bare pattern matched `Object.freeze(`, which is the OPPOSITE of
+       * mutating governed state — it makes a literal immutable. A canary that
+       * fires on the safest possible construct teaches people that the way to
+       * pass it is to stop freezing their constants, which is a worse codebase
+       * AND a still-unguarded one. The target is `freezeArtifact(` and its
+       * kin: a call that performs the constitutional freeze.
+       */
+      /(?<!Object\.)\bfreeze[A-Z]\w*\s*\(/,
+      /updateLifecycle\s*\(/,
+      /setStanding\s*\(/,
+      /markCanonical\s*\(/i,
     ];
     for (const { file, src } of reviewSources()) {
       for (const rx of forbidden) {

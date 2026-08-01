@@ -726,7 +726,27 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
         { cache: "no-store" },
       );
       const d = await res.json().catch(() => null);
-      if (!d?.ok) throw new Error(explainFailedRequest(res, d, "The readiness report"));
+      /*
+       * `requestSucceeded`, NOT `ok` (regression fixed 2026-08-02).
+       *
+       * The route's own `ok: true` was renamed to `requestSucceeded` earlier
+       * the same day, precisely so "the HTTP call worked" could not be misread
+       * as "the crystal is okay" — every substantive component underneath
+       * reports its own `ok`, and for an unpopulated domain those are false.
+       * The rename was right. What was missed is that this reader was the
+       * other half of that contract, and it still tested `d.ok`.
+       *
+       * So every successful 200 fell into `explainFailedRequest`'s
+       * unrecognised-shape branch and told the operator "something other than
+       * the expected endpoint answered" — a sentence that sends them looking
+       * for an edge interception that never happened. The message was honest
+       * about what the CLIENT understood; it was wrong about the world.
+       *
+       * `tests/crystal-readiness-wire-contract.test.ts` now checks that the
+       * route's success field and this reader's success field are the same
+       * string, so the next rename cannot land on only one side.
+       */
+      if (!d?.requestSucceeded) throw new Error(explainFailedRequest(res, d, "The readiness report"));
       setData(d);
     } catch (e) {
       setData(null);
