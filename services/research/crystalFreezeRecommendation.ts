@@ -21,6 +21,7 @@
 
 import { runCrystalReadinessReport, type CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runCrystalStatisticsReport, type CrystalStatisticsReport } from '@/services/research/crystalStatistics';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 
 export type FreezeVerdict = 'READY_FOR_FREEZE' | 'NOT_READY';
 
@@ -219,7 +220,11 @@ export interface RunCrystalFreezeRecommendationInput {
 export async function runCrystalFreezeRecommendation(
   input: RunCrystalFreezeRecommendationInput,
 ): Promise<CrystalFreezeRecommendation> {
-  const crystalDomain = input.crystalDomain ?? 'constitutional-reasoning';
+  // The experiment's DECLARED domain (operator ruling, 2026-08-02) — the same
+  // resolution readiness uses, so the two reports can never describe different
+  // collections while claiming to describe one crystal.
+  const crystalDomain =
+    input.crystalDomain ?? crystalDomainForExperiment(input.experimentId)?.domain ?? 'constitutional-reasoning';
   const [readiness, statistics] = await Promise.all([
     runCrystalReadinessReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit }),
     runCrystalStatisticsReport({ experimentId: input.experimentId, crystalDomain, fetchLimit: input.fetchLimit }),

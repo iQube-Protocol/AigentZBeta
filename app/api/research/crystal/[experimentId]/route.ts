@@ -21,6 +21,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import { runCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
+import { crystalReviewStageStatus, crystalDomainForExperiment } from '@/services/research/crystalDomains';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,23 @@ export async function GET(
        * mislead about whether the work is broken or merely not yet done.
        */
       assessability: recommendation.assessability,
+      /*
+       * Which milestone this actually is (operator ruling, 2026-08-02, revised).
+       *
+       *   > "I would declare the current milestone as: Internal Readiness. Not
+       *   > External Review."
+       *
+       * The originating team completes its own work before independent review
+       * begins. So the Crystal Review stage stays PREPARING_CANDIDATE until a
+       * NON-EMPTY candidate has passed intrinsic readiness — and no reviewer is
+       * asked to assess or recommend a freeze before then. `reviewRequestOpen`
+       * is the flag any invitation path must consult; it is derived, never set.
+       */
+      reviewStage: crystalReviewStageStatus({
+        invariantCount: readiness?.invariantCount ?? 0,
+        readinessOk: Boolean(readiness?.ok),
+      }),
+      crystalDomainDeclaration: crystalDomainForExperiment(experimentId),
       ...(recommendation.unpopulatedProvenance
         ? { unpopulatedProvenance: recommendation.unpopulatedProvenance }
         : {}),

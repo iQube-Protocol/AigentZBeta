@@ -206,3 +206,112 @@ describe('an unpopulated domain is reported as such, never as a failing collecti
     expect(src).not.toMatch(/status:\s*\[[^\]]*'proposed'/);
   });
 });
+
+/**
+ * CRYSTAL CONSTITUTION PRECEDES CRYSTAL READINESS (operator ruling, 2026-08-02).
+ *
+ *   > "Do not tag the existing 18 invariants as `constitutional-reasoning`.
+ *   > That would solve the display problem while creating the wrong experiment."
+ *
+ * …and, revised the same day:
+ *
+ *   > "I would declare the current milestone as: Internal Readiness. Not
+ *   > External Review."
+ *
+ * Two distinct guards, from two distinct temptations:
+ *
+ *   1. Relabelling an existing collection to populate a surface. The numbers
+ *      would look right afterwards, which is precisely why the substitution
+ *      would be invisible — one experiment silently replaced by another.
+ *   2. Opening an independent review on a crystal that does not exist yet.
+ *      Assessing an empty set is not a smaller review; it is a different and
+ *      useless act, and it spends a reviewer's independence on nothing.
+ */
+describe('the crystal is constituted before it is assessed, and assessed before it is reviewed', () => {
+  const DOMAINS = 'services/research/crystalDomains.ts';
+
+  it("EXP-P1's declared domain is the new financial one, not the historical collection", async () => {
+    const { crystalDomainForExperiment } = await import('@/services/research/crystalDomains');
+    const d = crystalDomainForExperiment('EXP-P1');
+    expect(d?.domain).toBe('financial-risk-value-systems');
+    expect(d?.boundary).toMatch(/risk formation, valuation, actuarial mechanics, liquidity/);
+    // The historical corpus keeps its own identity and is named as excluded.
+    expect(d?.exclusions.join(' ')).toMatch(/constitutional-reasoning/);
+    expect(d?.exclusions.join(' ')).toMatch(/metaMe \/ Qripto/);
+  });
+
+  it('the domain is DECLARED but not ratified, so nothing may be assigned to it yet', async () => {
+    const { crystalDomainForExperiment, domainAcceptsAssignment } = await import(
+      '@/services/research/crystalDomains'
+    );
+    const d = crystalDomainForExperiment('EXP-P1')!;
+    expect(d.ratification).toBe('awaiting-operator-ratification');
+    expect(
+      domainAcceptsAssignment(d),
+      'the boundary artifact is ratified BEFORE any source or invariant is assigned',
+    ).toBe(false);
+  });
+
+  it('eligibility stays validated|canonical with external provenance — never widened to raise a count', async () => {
+    const { CRYSTAL_ELIGIBLE_STATUSES, CRYSTAL_ELIGIBLE_PROVENANCE } = await import(
+      '@/services/research/crystalDomains'
+    );
+    expect([...CRYSTAL_ELIGIBLE_STATUSES]).toEqual(['validated', 'canonical']);
+    expect([...CRYSTAL_ELIGIBLE_STATUSES]).not.toContain('proposed');
+    expect([...CRYSTAL_ELIGIBLE_PROVENANCE]).toEqual(['external-established', 'external-empirical']);
+  });
+
+  it('another experiment cannot silently inherit EXP-P1’s crystal', async () => {
+    const { crystalDomainForExperiment } = await import('@/services/research/crystalDomains');
+    expect(crystalDomainForExperiment('EXP-P2')).toBeNull();
+    expect(crystalDomainForExperiment('')).toBeNull();
+  });
+
+  it('the review stage stays PREPARING_CANDIDATE until a non-empty candidate passes readiness', async () => {
+    const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
+    // Empty domain — nothing to review, whatever readiness says.
+    expect(crystalReviewStageStatus({ invariantCount: 0, readinessOk: false }).state).toBe('PREPARING_CANDIDATE');
+    expect(crystalReviewStageStatus({ invariantCount: 0, readinessOk: true }).state).toBe('PREPARING_CANDIDATE');
+    // Populated but failing — not ready, so the review request stays shut.
+    expect(crystalReviewStageStatus({ invariantCount: 60, readinessOk: false }).state).toBe('PREPARING_CANDIDATE');
+    // Both conditions — and only then.
+    const open = crystalReviewStageStatus({ invariantCount: 60, readinessOk: true });
+    expect(open.state).toBe('INDEPENDENT_REVIEW_OPEN');
+    expect(open.reviewRequestOpen).toBe(true);
+  });
+
+  it('a closed review stage never asks a reviewer to assess or recommend', async () => {
+    const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
+    const closed = crystalReviewStageStatus({ invariantCount: 0, readinessOk: false });
+    expect(closed.reviewRequestOpen).toBe(false);
+    expect(closed.message).toMatch(/not being asked to assess or recommend/i);
+    expect(closed.message).toMatch(/Track 2/);
+  });
+
+  it('the reviewer-facing route carries the stage state and the declared boundary', () => {
+    const src = stripComments(readSource('app/api/research/crystal/[experimentId]/route.ts'));
+    expect(src).toContain('reviewStage: crystalReviewStageStatus(');
+    expect(src).toContain('crystalDomainDeclaration: crystalDomainForExperiment(experimentId)');
+  });
+
+  it('all three reports resolve the SAME declared domain — never three defaults', () => {
+    for (const f of [
+      'services/research/crystalReadiness.ts',
+      'services/research/crystalStatistics.ts',
+      'services/research/crystalFreezeRecommendation.ts',
+    ]) {
+      const src = stripComments(readSource(f));
+      expect(
+        src,
+        `${f} must resolve the experiment's declared domain, or two reports describe different collections`,
+      ).toContain('crystalDomainForExperiment(input.experimentId)?.domain');
+    }
+  });
+
+  it('the declaration module assigns nothing — it states, it does not write', () => {
+    const src = stripComments(readSource(DOMAINS));
+    for (const writer of ['.insert(', '.update(', '.upsert(', '.delete(', 'supabase']) {
+      expect(src, `crystalDomains.ts must not ${writer} — declaring is not assigning`).not.toContain(writer);
+    }
+  });
+});

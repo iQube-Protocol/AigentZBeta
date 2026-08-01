@@ -22,6 +22,7 @@
  */
 
 import { listInvariants } from '@/services/invariants/store';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runCrystalReadinessReport, type CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
 import { commit } from '@/services/research/review/deterministic';
@@ -160,7 +161,11 @@ function extractSourceRefs(provenance: Record<string, unknown> | null | undefine
 export async function runCrystalStatisticsReport(
   input: CrystalStatisticsInput,
 ): Promise<CrystalStatisticsReport> {
-  const crystalDomain = input.crystalDomain ?? 'constitutional-reasoning';
+  // The experiment's DECLARED domain (operator ruling, 2026-08-02) — the same
+  // resolution readiness uses, so the two reports can never describe different
+  // collections while claiming to describe one crystal.
+  const crystalDomain =
+    input.crystalDomain ?? crystalDomainForExperiment(input.experimentId)?.domain ?? 'constitutional-reasoning';
   const readiness: CrystalReadinessReport = await runCrystalReadinessReport({
     experimentId: input.experimentId,
     crystalDomain,

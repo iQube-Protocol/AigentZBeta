@@ -25,6 +25,7 @@
  */
 
 import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import type { InvariantRecord } from '@/types/invariants';
 
 /**
@@ -289,7 +290,13 @@ function groupBySemanticType(invariants: InvariantRecord[]): Map<string, number>
 export async function runCrystalReadinessReport(
   input: CrystalReadinessInput,
 ): Promise<CrystalReadinessReport> {
-  const crystalDomain = input.crystalDomain ?? 'constitutional-reasoning';
+  // The experiment's DECLARED domain, not a hardcoded default (operator
+  // ruling, 2026-08-02). EXP-P1 draws from `financial-risk-value-systems`; the
+  // historical `constitutional-reasoning` collection keeps its own identity and
+  // is not relabelled to populate this surface. An explicit caller-supplied
+  // domain still wins, so ad-hoc inspection of any domain is unaffected.
+  const crystalDomain =
+    input.crystalDomain ?? crystalDomainForExperiment(input.experimentId)?.domain ?? 'constitutional-reasoning';
   const minMeaningfulSliceSize = input.minMeaningfulSliceSize ?? 5;
   const minDerivationEligibleFraction = input.minDerivationEligibleFraction ?? 0.2;
   const maxDominantShapeFraction = input.maxDominantShapeFraction ?? 0.8;
