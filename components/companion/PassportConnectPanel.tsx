@@ -103,12 +103,50 @@
  * approval ceremony (unlocking the metaMe wallet and signing), and the
  * server always verifies a single-use, origin-bound challenge. What is
  * optional is separately enrolled 2FA; the cryptographic proof is not.
+ *
+ * ── PASSKEY-FIRST, PRIVATE-KEY-IS-RECOVERY-ONLY (operator ruling, 2026-08-01) ──
+ *
+ * PRIOR DEFECT: the only ENABLED action from the idle screen was "Connect",
+ * which — for anyone whose device held no `localWalletStore` entry — routed
+ * straight to a raw private-key import form. Private-key entry is an
+ * emergency recovery mechanism; it must never be the normal sign-in path,
+ * and unlocking an existing wallet must never be conflated with restoring
+ * one from scratch.
+ *
+ * THE FIX REUSES AN ALREADY-BUILT, ALREADY-RATIFIED CAPABILITY rather than
+ * inventing a new one: `services/passport/passkeyService.ts` +
+ * `/api/passport/passkey/{auth,enrol}-{options,verify}` (PRD-PAG-001
+ * Amendment A §A.6, "ratified 2026-07-27 — ratified - build") were fully
+ * built server-side but had ZERO client caller anywhere in the app. That
+ * ceremony resolves a WebAuthn assertion straight to a Passport principal and
+ * mints a session — no wallet profile, no local index, no device-specific
+ * storage lookup at all, since a synced passkey (iCloud Keychain, Google
+ * Password Manager, Windows Hello) makes every device the citizen owns
+ * "recognized" the moment the platform authenticator offers the credential.
+ * This is the SAME two-step holder-control model the wallet path uses
+ * (prove control → server resolves who you are), just with a different proof
+ * primitive — never a second, parallel identity resolver.
+ *
+ * `connectWithPasskey` below is the ONLY new client logic this repair adds;
+ * everything else (wallet-password unlock via `UnlockModal`/`sessionService`,
+ * the local wallet profile index, the recovered-address proof route) is
+ * UNCHANGED. The idle screen now offers, in order:
+ *
+ *   1. "Continue with passkey"       — connectWithPasskey() below
+ *   2. "Unlock with wallet password" — the pre-existing `connect()` flow
+ *
+ * and only under an explicit "Using a new device?" disclosure does
+ * `no-local-wallet` appear, where the raw private-key form is relabeled
+ * "Advanced: import recovery key" and carries a security warning — it is no
+ * longer reachable as anything resembling a default action.
  */
 
 "use client";
 
 import { useCallback, useState, type FormEvent } from "react";
-import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2, KeyRound } from "lucide-react";
+import { ShieldCheck, Wallet as WalletIcon, Loader2, AlertTriangle, UserCircle2, KeyRound, Fingerprint } from "lucide-react";
+import { startAuthentication, browserSupportsWebAuthn } from "@simplewebauthn/browser";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/browser";
 
 import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { personaFetch } from "@/utils/personaSpine";
@@ -372,31 +410,32 @@ export function PassportConnectPanel({
     [runProofForProfile],
   );
 
-  /** The citizen's explicit persona choice → /finalize → session. */
-  const finalizeWithPersona = useCallback(
-    async (transactionToken: string, choice: PersonaChoice) => {
-      setState({ kind: "working", step: "Opening your session…" });
-      const finRes = await fetch("/api/passport-connect/finalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionToken, personaPublicRef: choice.personaPublicRef }),
-      });
-      const fin = await finRes.json().catch(() => null);
-      if (!finRes.ok || !fin?.ok || !fin?.tokenHash) {
-        setState({
-          kind: "error",
-          message:
-            fin?.error === "expired" || fin?.error === "already_consumed" || fin?.error === "cross_principal_ref"
-              ? "That selection could not be completed. Please try connecting again."
-              : "Connection failed. No session was created.",
-        });
-        return;
-      }
-
+  /**
+   * The shared tail of EVERY path that ends in a session: exchange the
+   * single-use grant for this world's own session, best-effort pin the
+   * explicitly-resolved persona (when one exists — the passkey path has none,
+   * see below), then perform the Companion→application handoff. Factored out
+   * of the wallet path's `finalizeWithPersona` (2026-08-01) so the passkey
+   * path (`connectWithPasskey`) reuses it verbatim rather than a second,
+   * parallel copy of the handoff dance — inv.engineering.036/037.
+   *
+   * `transactionToken` is `null` for the passkey ceremony: `/api/passport/
+   * passkey/auth-verify` mints a session straight from the credential's own
+   * resolved principal (see this file's header) with no persona-choice step
+   * to pin — the resolved-persona read and the handoff URL's `persona_tx`
+   * are both skipped, and the top-level app falls back to its own ordinary
+   * active-persona resolution, exactly as `/passport-connect/complete`
+   * already tolerates (`persona_tx` there is optional).
+   */
+  const completeSessionFromGrant = useCallback(
+    async (
+      grant: { tokenHash: string; handoffTokenHash?: string | null; passport: PassportFacts },
+      transactionToken: string | null,
+    ) => {
       // Exchange for the Companion's OWN session (this iframe's storage
       // partition). Supabase owns single-use and expiry; we never hand-roll.
       const { error } = await getSupabaseBrowserClient().auth.verifyOtp({
-        token_hash: fin.tokenHash,
+        token_hash: grant.tokenHash,
         type: "magiclink",
       });
       if (error) {
@@ -413,20 +452,22 @@ export function PassportConnectPanel({
       // connection. Best-effort: a failure here is not fatal — it degrades
       // to the spine's own resolution on the very next sign-in, same as any
       // other account.
-      try {
-        const res = await personaFetch(
-          `/api/passport-connect/resolved-persona?world=${world}&transactionToken=${encodeURIComponent(transactionToken)}`,
-          { cache: "no-store" },
-        );
-        if (res.ok) {
-          const body = await res.json();
-          if (typeof body?.personaId === "string" && body.personaId) {
-            window.localStorage.setItem("currentPersonaId", body.personaId);
-            window.sessionStorage.setItem("currentPersonaId", body.personaId);
+      if (transactionToken) {
+        try {
+          const res = await personaFetch(
+            `/api/passport-connect/resolved-persona?world=${world}&transactionToken=${encodeURIComponent(transactionToken)}`,
+            { cache: "no-store" },
+          );
+          if (res.ok) {
+            const body = await res.json();
+            if (typeof body?.personaId === "string" && body.personaId) {
+              window.localStorage.setItem("currentPersonaId", body.personaId);
+              window.sessionStorage.setItem("currentPersonaId", body.personaId);
+            }
           }
+        } catch {
+          // Non-fatal — see above.
         }
-      } catch {
-        // Non-fatal — see above.
       }
 
       // THE APPLICATION HANDOFF (the partition gap, operator 2026-07-26).
@@ -457,8 +498,14 @@ export function PassportConnectPanel({
       // ALREADY in the application's storage world — the session and pin
       // above landed exactly where the app reads them — so a handoff tab
       // would redeem a second grant for a world that already has one. Skip.
-      if (world === "companion" && typeof fin.handoffTokenHash === "string" && fin.handoffTokenHash) {
-        const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(fin.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken)}&next=${encodeURIComponent("/metame/runtime")}`;
+      if (world === "companion" && typeof grant.handoffTokenHash === "string" && grant.handoffTokenHash) {
+        // `persona_tx` is always present in the URL, but empty for the
+        // passkey path (transactionToken null — no persona-choice step ran).
+        // `/passport-connect/complete` already treats an empty persona_tx as
+        // "nothing to redeem" (`if (personaTx)` is falsy for ""), so this
+        // needs no change there — it degrades to the app's own ordinary
+        // active-persona resolution, exactly as documented above.
+        const handoffUrl = `/passport-connect/complete?token_hash=${encodeURIComponent(grant.handoffTokenHash)}&persona_tx=${encodeURIComponent(transactionToken ?? "")}&next=${encodeURIComponent("/metame/runtime")}`;
 
         // THE CROSSING MUST LAND IN THE RIGHT WINDOW (bug fix, 2026-08-01:
         // "Pull Across" kept dying with a red ✗ even after this handoff
@@ -504,17 +551,118 @@ export function PassportConnectPanel({
           }
         }
         if (!handledByBridge && (!popup || popup.closed)) {
-          setState({ kind: "connected", passport: fin.passport as PassportFacts, handoffUrl });
+          setState({ kind: "connected", passport: grant.passport, handoffUrl });
           onConnected?.();
           return;
         }
       }
 
-      setState({ kind: "connected", passport: fin.passport as PassportFacts }); // E
+      setState({ kind: "connected", passport: grant.passport }); // E
       onConnected?.();
     },
     [onConnected, world],
   );
+
+  /** The citizen's explicit persona choice → /finalize → session. */
+  const finalizeWithPersona = useCallback(
+    async (transactionToken: string, choice: PersonaChoice) => {
+      setState({ kind: "working", step: "Opening your session…" });
+      const finRes = await fetch("/api/passport-connect/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transactionToken, personaPublicRef: choice.personaPublicRef }),
+      });
+      const fin = await finRes.json().catch(() => null);
+      if (!finRes.ok || !fin?.ok || !fin?.tokenHash) {
+        setState({
+          kind: "error",
+          message:
+            fin?.error === "expired" || fin?.error === "already_consumed" || fin?.error === "cross_principal_ref"
+              ? "That selection could not be completed. Please try connecting again."
+              : "Connection failed. No session was created.",
+        });
+        return;
+      }
+      await completeSessionFromGrant(
+        { tokenHash: fin.tokenHash, handoffTokenHash: fin.handoffTokenHash, passport: fin.passport as PassportFacts },
+        transactionToken,
+      );
+    },
+    [completeSessionFromGrant],
+  );
+
+  /**
+   * "Continue with passkey" — the PRIMARY sign-in path (operator ruling,
+   * 2026-08-01; see this file's header). Wires the already-built, already-
+   * ratified `/api/passport/passkey/{auth-options,auth-verify}` ceremony:
+   * request options → the platform authenticator's own native prompt
+   * (Face ID/Touch ID/Windows Hello/security key — never a bespoke popup
+   * this file draws) → verify → session. No wallet profile is looked up,
+   * unlocked, or signed with; a passkey resolves straight to a Passport
+   * principal server-side.
+   */
+  const connectWithPasskey = useCallback(async () => {
+    if (!browserSupportsWebAuthn()) {
+      setState({
+        kind: "error",
+        message: "Passkeys aren't available in this browser. Try unlocking with your wallet password instead.",
+      });
+      return;
+    }
+    setState({ kind: "working", step: "Requesting your passkey…" });
+    try {
+      const optRes = await fetch("/api/passport/passkey/auth-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience }),
+      });
+      const opt = await optRes.json().catch(() => null);
+      if (!optRes.ok || !opt?.ok) {
+        setState({ kind: "error", message: "Could not start passkey sign-in. Please try again in a moment." });
+        return;
+      }
+
+      setState({ kind: "working", step: "Waiting for your passkey…" });
+      let assertion: AuthenticationResponseJSON;
+      try {
+        assertion = await startAuthentication({ optionsJSON: opt.options });
+      } catch (err) {
+        // The user dismissed the platform authenticator prompt — a quiet
+        // return to idle, never an error banner for a deliberate cancel.
+        if ((err as Error)?.name === "NotAllowedError") {
+          setState({ kind: "idle" });
+          return;
+        }
+        setState({ kind: "error", message: "Passkey sign-in was not completed. Please try again." });
+        return;
+      }
+
+      setState({ kind: "working", step: "Verifying your passkey…" });
+      const verRes = await fetch("/api/passport/passkey/auth-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience, response: assertion }),
+      });
+      const ver = await verRes.json().catch(() => null);
+      if (!verRes.ok || !ver?.ok || !ver?.tokenHash) {
+        const message =
+          ver?.error === "no_constitutional_access"
+            ? "This passkey did not resolve to an active Passport."
+            : ver?.error === "challenge_rejected"
+              ? "That passkey attempt expired. Please try again."
+              : "Passkey sign-in is unavailable right now. Try unlocking with your wallet password instead.";
+        setState({ kind: "error", message });
+        return;
+      }
+
+      await completeSessionFromGrant(
+        { tokenHash: ver.tokenHash, handoffTokenHash: ver.handoffTokenHash, passport: ver.passport as PassportFacts },
+        null,
+      );
+    } catch {
+      setState({ kind: "error", message: "Passkey sign-in failed. Try unlocking with your wallet password instead." });
+    }
+  }, [audience, completeSessionFromGrant]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-5 py-6 text-center">
@@ -526,8 +674,8 @@ export function PassportConnectPanel({
         <>
           <div className="text-sm font-medium text-slate-100">Connect with your Passport</div>
           <p className="max-w-[22rem] text-xs text-slate-400">
-            Your Polity Passport is your access credential. Approve once in your metaMe wallet —
-            there is no account to create and no password to remember.
+            Your Passport is held in your metaMe wallet. Unlock it to approve a one-time Passport
+            proof — there is no account to create and no password to remember.
           </p>
           {/* Consent copy (ruling 4) — names what is about to happen and where
               it is scoped, before the wallet prompt fires. This is DISPLAY
@@ -540,13 +688,37 @@ export function PassportConnectPanel({
             anything, and no Passport credential ever leaves your device — only the outcome
             (a session) does.
           </p>
+          {/* PASSKEY-FIRST (operator ruling, 2026-08-01 — see this file's
+              header): the primary action never asks for a private key. Wallet
+              password is the fallback for browsers/devices without a passkey,
+              not a demotion of it — both unlock the SAME metaMe wallet
+              signing surface for the recognized-device case. */}
+          <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => void connectWithPasskey()}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 shadow-lg transition-all hover:bg-slate-900/60"
+            >
+              <Fingerprint className="h-4 w-4" aria-hidden="true" />
+              Continue with passkey
+            </button>
+            <button
+              type="button"
+              onClick={connect}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-sm text-slate-300 transition-all hover:bg-slate-900/40"
+            >
+              <WalletIcon className="h-4 w-4" aria-hidden="true" />
+              Unlock with wallet password
+            </button>
+          </div>
+          {/* Recovery is a SEPARATE, exceptional journey — reachable, never
+              defaulted into (see NoLocalWalletState below). */}
           <button
             type="button"
-            onClick={connect}
-            className="mt-1 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 shadow-lg transition-all hover:bg-slate-900/60"
+            onClick={() => setState({ kind: "no-local-wallet" })}
+            className="mt-1 text-[11px] text-slate-500 underline decoration-slate-700 underline-offset-2 transition-colors hover:text-slate-400"
           >
-            <WalletIcon className="h-4 w-4" aria-hidden="true" />
-            Connect
+            Using a new device? Restore or pair your metaMe wallet
           </button>
         </>
       ) : null}
@@ -561,7 +733,11 @@ export function PassportConnectPanel({
       {/* A — no local metaMe wallet on this device. First-party recovery
           ONLY — never a fallback to an injected external wallet. */}
       {state.kind === "no-local-wallet" ? (
-        <NoLocalWalletState onRestore={() => setState({ kind: "restore-wallet" })} onBack={() => setState({ kind: "idle" })} />
+        <NoLocalWalletState
+          onPasskey={() => void connectWithPasskey()}
+          onRestore={() => setState({ kind: "restore-wallet" })}
+          onBack={() => setState({ kind: "idle" })}
+        />
       ) : null}
 
       {state.kind === "restore-wallet" ? (
@@ -773,31 +949,49 @@ export function PassportConnectPanel({
 }
 
 /**
- * A — no local metaMe wallet on this device. First-party recovery options
- * ONLY. "Pair another metaMe device" has no implementation yet (it needs its
- * own cross-device bridge design — tracked separately, not improvised here)
- * so it is shown as a labeled, disabled affordance rather than a broken
- * link. "Begin Passport creation" is described rather than linked: the
- * wallet-creation wizard (`PersonaSetupWizard`) is mounted inside the
- * SmartWallet drawer, not behind a verified standalone URL reachable from
- * every context this panel mounts in — CLAUDE.md forbids guessing one.
+ * A — this metaMe wallet is not available on this device (renamed from "No
+ * metaMe wallet on this device yet" — 2026-08-01: that phrasing asserted the
+ * wallet does not exist at all, when the true state is narrower and often
+ * wrong outright, since a synced passkey makes ANY device "recognized"
+ * regardless of this browser's local storage — see this file's header).
+ *
+ * Ordering matches the operator's ruling: a passkey retry first (the thing
+ * that actually solves "new device" for anyone who enrolled one), then the
+ * not-yet-built first-party recovery mechanisms as labeled, disabled
+ * affordances (never a broken link — each needs its own design, tracked
+ * separately, not improvised here), and ONLY THEN the raw private-key
+ * import, demoted to "Advanced recovery" with an explicit warning — it must
+ * never read as a normal, equally-weighted option among the others.
+ *
+ * "Create a new Passport" is described rather than linked: the wallet-
+ * creation wizard (`PersonaSetupWizard`) is mounted inside the SmartWallet
+ * drawer, not behind a verified standalone URL reachable from every context
+ * this panel mounts in — CLAUDE.md forbids guessing one.
  */
-function NoLocalWalletState({ onRestore, onBack }: { onRestore: () => void; onBack: () => void }) {
+function NoLocalWalletState({
+  onPasskey,
+  onRestore,
+  onBack,
+}: {
+  onPasskey: () => void;
+  onRestore: () => void;
+  onBack: () => void;
+}) {
   return (
     <>
-      <div className="text-sm font-medium text-slate-100">No metaMe wallet on this device yet.</div>
+      <div className="text-sm font-medium text-slate-100">This metaMe wallet is not available on this device.</div>
       <p className="max-w-[22rem] text-xs text-slate-400">
-        Your Passport lives in your metaMe wallet. Restore a wallet you already created, or create
-        one from the SmartWallet drawer in the app, then come back here to connect.
+        Your Passport lives in your metaMe wallet. If you enrolled a passkey, it may already work
+        here — platform passkeys sync across your devices independently of this browser.
       </p>
       <div className="mt-1 flex w-full max-w-[22rem] flex-col gap-2">
         <button
           type="button"
-          onClick={onRestore}
+          onClick={onPasskey}
           className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-left text-xs text-slate-200 transition-colors hover:bg-slate-900/60"
         >
-          <KeyRound className="h-4 w-4 flex-shrink-0 text-slate-400" aria-hidden="true" />
-          Restore metaMe wallet
+          <Fingerprint className="h-4 w-4 flex-shrink-0 text-slate-400" aria-hidden="true" />
+          Try passkey on this device
         </button>
         <button
           type="button"
@@ -811,13 +1005,37 @@ function NoLocalWalletState({ onRestore, onBack }: { onRestore: () => void; onBa
         <button
           type="button"
           disabled
-          title="Seed-phrase recovery is not yet available."
+          title="Encrypted backup restore is not yet available."
           className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800/60 bg-slate-900/20 px-3 py-2 text-left text-xs text-slate-500"
         >
           <WalletIcon className="h-4 w-4 flex-shrink-0 text-slate-600" aria-hidden="true" />
-          Recover wallet — coming soon
+          Restore encrypted backup — coming soon
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Recovery-contact restore is not yet available."
+          className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-slate-800/60 bg-slate-900/20 px-3 py-2 text-left text-xs text-slate-500"
+        >
+          <WalletIcon className="h-4 w-4 flex-shrink-0 text-slate-600" aria-hidden="true" />
+          Use an approved recovery method — coming soon
+        </button>
+        {/* Advanced recovery — deliberately visually demoted (amber warning
+            treatment, not the neutral slate every other option above uses)
+            so it never reads as an ordinary, equally-weighted choice. */}
+        <button
+          type="button"
+          onClick={onRestore}
+          className="flex items-center gap-2 rounded-lg border border-amber-900/40 bg-amber-950/10 px-3 py-2 text-left text-xs text-amber-200/90 transition-colors hover:bg-amber-950/20"
+        >
+          <KeyRound className="h-4 w-4 flex-shrink-0 text-amber-400/80" aria-hidden="true" />
+          Advanced: import recovery key
         </button>
       </div>
+      <p className="max-w-[22rem] text-[11px] text-slate-500">
+        Don&apos;t have a metaMe wallet yet? Create a new Passport from the SmartWallet drawer in
+        the app, then come back here to connect.
+      </p>
       <button
         type="button"
         onClick={onBack}
@@ -830,11 +1048,19 @@ function NoLocalWalletState({ onRestore, onBack }: { onRestore: () => void; onBa
 }
 
 /**
- * First-party wallet restore: import a raw private key you already hold,
- * encrypted with a NEW local password, and saved as a local wallet profile
- * on this device (`localWalletStore.ts`). This never touches
+ * Advanced recovery: import a raw private key you already hold, encrypted
+ * with a NEW local password, and saved as a local wallet profile on this
+ * device (`localWalletStore.ts`). This never touches
  * `window.ethereum`/`window.solana` — it is pure local WebCrypto
  * (`keyService.importEvmKeyPair`), the same primitive persona creation uses.
+ *
+ * DELIBERATELY THE LAST RESORT (operator ruling, 2026-08-01 — see this
+ * file's header): entering a private key is an emergency recovery mechanism,
+ * never the normal sign-in path. This form is reachable ONLY through
+ * `NoLocalWalletState`'s demoted "Advanced: import recovery key" action —
+ * never from the idle screen directly — and carries an explicit warning
+ * because pasting a private key into any form is inherently higher-risk than
+ * every option above it.
  */
 function RestoreWalletForm({
   onRestored,
@@ -890,7 +1116,15 @@ function RestoreWalletForm({
 
   return (
     <form onSubmit={submit} className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
-      <div className="text-sm font-medium text-slate-100">Restore your metaMe wallet</div>
+      <div className="text-sm font-medium text-slate-100">Advanced recovery</div>
+      <div className="flex items-start gap-2 rounded-lg border border-amber-900/40 bg-amber-950/10 px-3 py-2">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400/80" aria-hidden="true" />
+        <p className="text-xs text-amber-200/90">
+          Only use this if you already hold the private key for the wallet your Passport lives in.
+          Anyone with this key can control that wallet — never paste it anywhere else, and prefer
+          passkey or wallet-password unlock whenever either is available.
+        </p>
+      </div>
       <p className="text-xs text-slate-400">
         Enter the private key for the wallet holding your Passport, and set a password to encrypt
         it on this device.

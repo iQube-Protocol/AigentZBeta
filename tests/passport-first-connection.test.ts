@@ -721,9 +721,14 @@ describe('the chosen persona survives the partition handoff', () => {
   });
 
   it('the panel hands the transaction token to the top-level page', () => {
+    // The interpolated expression may fall back to "" (added 2026-08-01 so
+    // the SAME handoff helper serves the passkey path, which has no
+    // transactionToken at all) — the property under test is only that
+    // `transactionToken` itself still feeds the `persona_tx` param, not the
+    // exact null-coalescing syntax around it.
     const panel = stripComments(readSource(CONNECT_PANEL));
     expect(panel, 'the handoff no longer carries the persona transaction').toMatch(
-      /persona_tx=\$\{encodeURIComponent\(transactionToken\)\}/,
+      /persona_tx=\$\{encodeURIComponent\(transactionToken[^)]*\)\}/,
     );
   });
 
