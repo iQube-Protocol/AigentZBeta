@@ -23,6 +23,14 @@ interface CartridgeTabProps {
   collectionId: string;
   defaultPath?: string;
   editable?: boolean;
+  /**
+   * Show only collection items whose path matches this predicate — the
+   * whole collection otherwise. Added 2026-08-01 for the Validation
+   * Programme's Overview stage, which reuses THIS component (the real
+   * Protocols & Articles surface) filtered to EXP-P1's own documents
+   * instead of forking a second document viewer.
+   */
+  pathFilter?: (path: string) => boolean;
 }
 
 interface FileResponse {
@@ -68,7 +76,7 @@ interface CodexSource {
   github_url: string;
 }
 
-export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editable = false }: CartridgeTabProps) {
+export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editable = false, pathFilter }: CartridgeTabProps) {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [lastSources, setLastSources] = useState<CodexSource[]>([]);
@@ -114,9 +122,9 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const items = useMemo(() => {
-    const raw = collection?.items ?? [];
+    const raw = (collection?.items ?? []).filter((p) => !pathFilter || pathFilter(p));
     return sortDesc ? [...raw] : [...raw].reverse();
-  }, [collection, sortDesc]);
+  }, [collection, sortDesc, pathFilter]);
 
   useEffect(() => {
     let isMounted = true;
@@ -143,7 +151,8 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
         }
         if (isMounted) {
           setCollection(match);
-          setActivePath(defaultPath ?? match.items[0] ?? null);
+          const candidates = pathFilter ? match.items.filter(pathFilter) : match.items;
+          setActivePath(defaultPath ?? candidates[0] ?? null);
         }
       } catch (err) {
         if (isMounted) {
@@ -157,6 +166,7 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
     return () => {
       isMounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packId, collectionId, defaultPath]);
 
   useEffect(() => {

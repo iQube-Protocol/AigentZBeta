@@ -14,7 +14,8 @@
  * path's decision surface; this workspace does not replace it.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { groupAssignableScopesBySeries } from '@/services/research/experimentSeriesGroups';
 import { Award, Check, Copy, Gavel, Loader2, Plus, RefreshCw, ShieldCheck, X } from 'lucide-react';
 // PERSONA-AWARE TRANSPORT (prerequisite fix, 2026-07-27). These routes resolve
 // the caller through `getActivePersona` — they are SPINE endpoints — so the
@@ -181,6 +182,17 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
   const assignableScopes = domain?.assignableScopes ?? [];
   const scopesOffered = assignableScopes.length > 0;
   const scopeNoun = activeDomain === 'venture-lab' ? 'Pilot programmes' : 'Experiments';
+  // Cluster the scope list under the SAME series sections the Laboratory ->
+  // Experiments sidebar uses (operator instruction, 2026-08-01: "grouped
+  // into clusters like they are in the lab so they are easier to find") --
+  // derived, never a hand-duplicated grouping. Driven by the CATALOGUE
+  // itself, never a hardcoded domain id (tests/delegated-invitation-authority.test.ts:
+  // "the surface branches on the catalogue, never on a hardcoded domain
+  // id") -- Venture Lab pilot ids simply never resolve to an experiment
+  // series, so grouping them lands everything in one 'Other' bucket, and
+  // that is exactly the signal used to fall back to a flat list.
+  const scopeGroupsAttempt = useMemo(() => groupAssignableScopesBySeries(assignableScopes), [assignableScopes]);
+  const scopeGroups = scopeGroupsAttempt.some((g) => g.title !== 'Other') ? scopeGroupsAttempt : null;
 
   const issueInvitation = useCallback(async () => {
     if (!domain || !formRole) return;
@@ -493,26 +505,58 @@ export function StewardParticipationTab({ initialDomain }: { initialDomain?: str
                     : 'Select all'}
                 </button>
               </div>
-              <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {assignableScopes.map((exp) => {
-                  const checked = formExperiments.includes(exp.id);
-                  return (
-                    <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() =>
-                          setFormExperiments((prev) =>
-                            checked ? prev.filter((e) => e !== exp.id) : [...prev, exp.id],
-                          )
-                        }
-                        className="h-3 w-3 accent-violet-500"
-                      />
-                      <span className="truncate">{exp.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
+              {scopeGroups ? (
+                <div className="space-y-2.5">
+                  {scopeGroups.map((group) => (
+                    <div key={group.title}>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        {group.title}
+                      </div>
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                        {group.scopes.map((exp) => {
+                          const checked = formExperiments.includes(exp.id);
+                          return (
+                            <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  setFormExperiments((prev) =>
+                                    checked ? prev.filter((e) => e !== exp.id) : [...prev, exp.id],
+                                  )
+                                }
+                                className="h-3 w-3 accent-violet-500"
+                              />
+                              <span className="truncate">{exp.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                  {assignableScopes.map((exp) => {
+                    const checked = formExperiments.includes(exp.id);
+                    return (
+                      <label key={exp.id} className="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setFormExperiments((prev) =>
+                              checked ? prev.filter((e) => e !== exp.id) : [...prev, exp.id],
+                            )
+                          }
+                          className="h-3 w-3 accent-violet-500"
+                        />
+                        <span className="truncate">{exp.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
               <input
                 value={formOtherExperiment}
                 onChange={(e) => setFormOtherExperiment(e.target.value)}

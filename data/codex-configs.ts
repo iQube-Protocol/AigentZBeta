@@ -6188,6 +6188,14 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     // that cartridge's `tabGroups` comment for the full rationale) — this is
     // a registry-level addition, not a second implementation of the surface.
     { id: 'workspace', label: 'Workspace', icon: 'LayoutGrid', order: 5 },
+    // Validation Programme — promoted to its own first-class top-level item
+    // (operator instruction 2026-08-01, point 7: "beside Institution,
+    // Research, Laboratory, Publications, Participation, and Workspace"),
+    // out from under 'laboratory' where it previously nested. Still the same
+    // single tab (irl-os-validation-programme) and the same
+    // ValidationProgrammeJourneyTab — this only changes which nav group it
+    // reads under.
+    { id: 'validation-programme', label: 'Validation Programme', icon: 'ClipboardList', order: 6 },
   ],
   tabs: [
     {
@@ -6279,9 +6287,11 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
     {
       // The single guided entrance for an external reviewer (operator spec,
       // 2026-08-01) — the Validation Programme journey. NOT adminOnly: it
-      // composes existing surfaces (the Research Workspace, the Experiment
-      // Lab, QubeTalk) that are each already reviewer-reachable in their own
-      // right; this tab is presentation, not a new gate. See
+      // composes existing surfaces (IndependentReviewPanel, LockerTab, the
+      // Research Workspace) that are each already reviewer-reachable in their
+      // own right; this tab is presentation, not a new gate. Promoted to its
+      // own first-class top-level nav group (point 7 of the same operator
+      // instruction) — no longer nested under 'laboratory'. See
       // services/journey/validationProgrammeJourney.ts's own header for the
       // full composition and services/passport/participationAccess.ts's
       // `callerMayReadExperimentReview` for the scoped read check.
@@ -6289,8 +6299,8 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       label: 'Validation Programme',
       slug: 'irl-os-validation-programme',
       enabled: true,
-      group: 'laboratory',
-      order: -1,
+      group: 'validation-programme',
+      order: 0,
       type: 'static',
       config: { component: 'ValidationProgrammeJourneyTab', props: {} },
       metadata: {

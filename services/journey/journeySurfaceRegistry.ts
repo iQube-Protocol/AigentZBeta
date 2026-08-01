@@ -190,26 +190,36 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   // each is a REUSE, not a new surface).
   'validation-programme-overview': {
     kind: 'component',
-    component: 'PartnerProgrammesTab',
-    note: "The Research Workspace's Overview view, locked to one workspace and rendered bare.",
+    component: 'AgentiqCartridgeTab',
+    note:
+      "The real IRL OS Laboratory 'Protocols & Articles' surface (data/codex-configs.ts's " +
+      "irl-os-protocols tab: packId 'irl', collectionId 'col_experiments') — never a rebuilt " +
+      "document viewer. Filtered via pathFilter (validationProgrammeJourney.ts) to EXP-P1's own " +
+      'documents only (operator instruction 2026-08-01, point 3: "use the real Protocols & ' +
+      'Articles component, filtered to EXP-P1 materials only. Reuse rather than rebuild").',
   },
   'validation-programme-crystal-review': {
-    kind: 'embed',
-    codexSlug: 'irl-os',
-    tab: 'irl-os-experiment-lab',
+    kind: 'component',
+    component: 'IndependentReviewPanel',
     note:
-      'The real IRL OS Laboratory Experiments surface (not adminOnly — access is enforced server-side ' +
-      'at the run/crystal routes). Houses IndependentReviewPanel and its Crystal vP1 view.',
+      'The real IndependentReviewPanel (components/composer/IndependentReviewPanel.tsx) rendered ' +
+      'directly with reviewerMode=true, not the Laboratory\'s embed shell around it — operator ' +
+      'instruction 2026-08-01, point 4: "the exact same page... only addition: Download JSON for ' +
+      'Agent." reviewerMode hides New Review and every governed-resolution control (freeze preview, ' +
+      'accept/revise/defer/reject); Review Queue/Result/Crystal vP1 render unchanged, scoped server-' +
+      'side to the caller\'s reviewer grant (requireReviewReadAccess).',
   },
   'validation-programme-locker': {
     kind: 'component',
-    component: 'PartnerProgrammesTab',
-    note: "The Research Workspace's Locker view, locked to one workspace and rendered bare.",
-  },
-  'validation-programme-qubetalk': {
-    kind: 'component',
-    component: 'PartnerProgrammesTab',
-    note: "The Research Workspace's QubeTalk view (mounts the real QubeTalkInboxTab), locked and rendered bare.",
+    component: 'LockerTab',
+    note:
+      "The real LockerTab (app/triad/components/codex/tabs/LockerTab.tsx), rendered directly with " +
+      "visibleSections limited to ['peerExchange', 'uploadToLocker', 'invitation'] — operator " +
+      'instruction 2026-08-01, point 5: "reuse LockerTab, limited to: Peer Exchange / QubeTalk, ' +
+      'Upload to Locker, Invitation and agreement artifacts. Hide credentials, agent channels, ' +
+      'general locker inventory, location tracking." The Invitation section already carries the ' +
+      'x409/access-invitation claim mechanics the reviewer uses to sign the collaboration/review ' +
+      'agreement — no second signing UI.',
   },
   'validation-programme-pipeline': {
     kind: 'component',

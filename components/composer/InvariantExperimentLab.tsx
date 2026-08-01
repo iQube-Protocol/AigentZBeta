@@ -64,7 +64,7 @@ const DESIGN_STAGE_TAB_EXP: Partial<Record<LabTab, string>> = {
   // completeness guard surfaces them from EXPERIMENT_REGISTRY metadata.
 };
 
-interface LabEntry {
+export interface LabEntry {
   id: LabTab;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -74,7 +74,13 @@ interface LabEntry {
 
 /** The lab navigator, grouped. Grouping + per-item overviews are authored here —
  *  several entries have no EXPERIMENT_REGISTRY id, so it cannot be derived. */
-const SECTIONS: { title: string; items: LabEntry[] }[] = [
+/**
+ * Exported (2026-08-01) so services/research/experimentSeriesGroups.ts can
+ * derive the SAME series grouping for the steward invitation form's
+ * experiment checkboxes — one authoritative section list, never a
+ * hand-duplicated copy (inv.engineering.036).
+ */
+export const SECTIONS: { title: string; items: LabEntry[] }[] = [
   {
     // The upstream primitive sits FIRST — evidence → candidates feed every
     // series below it. Placed at the top so it's unmissable (operator 2026-07-20:
@@ -187,7 +193,7 @@ const ITEM_EXPERIMENT: Partial<Record<LabTab, string>> = {
 };
 
 /** Tab id → experiment id, including dynamic `reg:<id>` guard entries. */
-function expIdForTab(id: LabTab): string | undefined {
+export function expIdForTab(id: LabTab): string | undefined {
   return ITEM_EXPERIMENT[id] ?? (id.startsWith("reg:") ? id.slice(4) : undefined);
 }
 

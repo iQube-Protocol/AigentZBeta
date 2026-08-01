@@ -325,6 +325,15 @@ interface PartnerProgrammesTabProps {
    * only ever NARROWS what is reachable, never widens it.
    */
   lockedWorkspaceId?: string;
+  /**
+   * Suppress specific workspace-link ids from the Evidence view's link list
+   * for THIS mount only — the workspace's own `links` array (services/
+   * research/researchWorkspace.ts) is untouched, so every other mount of the
+   * same workspace still shows the full list. Added 2026-08-01 for the
+   * Validation Programme's Experiment Progress stage (operator instruction,
+   * point 6: "remove: Records & Findings" from this rendering only).
+   */
+  hiddenLinkIds?: string[];
 }
 
 // ─── The two Labs, as configuration rather than branches ─────────────────────
@@ -692,8 +701,21 @@ function PipelinePanel({ ws }: { ws: WorkspaceView }) {
   );
 }
 
-function AreaLinks({ ws, area, personaId, isAdmin }: { ws: { links: PartnerWorkspaceLink[] }; area: PartnerWorkspaceLink["area"]; personaId?: string; isAdmin?: boolean }) {
-  const links = ws.links.filter((l) => l.area === area);
+function AreaLinks({
+  ws,
+  area,
+  personaId,
+  isAdmin,
+  hiddenLinkIds,
+}: {
+  ws: { links: PartnerWorkspaceLink[] };
+  area: PartnerWorkspaceLink["area"];
+  personaId?: string;
+  isAdmin?: boolean;
+  /** Link ids to omit from THIS mount only — the workspace's own link list is untouched. */
+  hiddenLinkIds?: string[];
+}) {
+  const links = ws.links.filter((l) => l.area === area && !hiddenLinkIds?.includes(l.id));
   if (links.length === 0) return null;
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -1395,7 +1417,7 @@ function EvidenceChainPanel({
   );
 }
 
-export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility, lockedWorkspaceId }: PartnerProgrammesTabProps) {
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility, lockedWorkspaceId, hiddenLinkIds }: PartnerProgrammesTabProps) {
   const kind = asWorkspaceKind(workspaceDomain);
   const visibility = asVisibility(workspaceVisibility);
   const copy = KIND_COPY[kind];
@@ -1821,7 +1843,7 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
             personaId={personaId}
             differentiatorStatement={ws.differentiatorStatement}
           />
-          <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} />
+          <AreaLinks ws={ws} area="evidence" personaId={personaId} isAdmin={isAdmin} hiddenLinkIds={hiddenLinkIds} />
         </div>
       )}
 

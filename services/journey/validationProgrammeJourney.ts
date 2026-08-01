@@ -7,13 +7,12 @@
  * NOTHING NEW UNDERNEATH — every stage composes an EXISTING, ALREADY-REAL
  * surface (Surface Reuse Principle, PRD-GJR-001 §5.2):
  *
- *   Overview        → the Research Workspace's own 'overview' view
- *                     (services/research/researchWorkspaceViews.ts),
- *                     rendered bare via PartnerProgrammesTab, locked to the
- *                     'autonomi-review-exp-p1' workspace
- *                     (services/research/researchWorkspace.ts) — the exact
- *                     workspace SPEC-IRL-WORKSPACE-001 already names for this
- *                     use case.
+ *   Overview        → the real Protocols & Articles surface (the IRL OS
+ *                     Laboratory's own irl-os-protocols tab: AgentiqCartridgeTab
+ *                     over packId 'irl', collectionId 'col_experiments'),
+ *                     rendered bare and filtered via pathFilter to EXP-P1's own
+ *                     documents only (operator instruction 2026-08-01, point 3)
+ *                     — never a rebuilt document viewer or a second summary.
  *   Crystal Review  → the real Independent Review / Crystal capability
  *                     (services/research/crystalReadiness.ts,
  *                     crystalStatistics.ts, crystalFreezeRecommendation.ts,
@@ -25,16 +24,20 @@
  *                     callerMayReadExperimentReview) — governance actions
  *                     (freeze-preview, accept/revise/defer/reject) remain
  *                     admin/steward-only, unchanged.
- *   Submit Review   → the SAME workspace's 'locker' (agreement/receipt
- *                     artefacts) and 'qubetalk' (scoped discussion, already
- *                     mounts the real QubeTalkInboxTab) views, bare.
+ *   Submit Review   → the real LockerTab, rendered directly with visibleSections
+ *                     limited to Peer Exchange, Upload to Locker, and
+ *                     Invitation (operator instruction 2026-08-01, point 5) —
+ *                     never a second signing UI; the Invitation section's
+ *                     existing x409/access-invitation claim mechanics ARE the
+ *                     collaboration/review agreement signing surface.
  *   Experiment      → the SAME workspace's 'pipeline' (lifecycle stage) and
  *   Progress          'evidence' (Activity/DVN receipts) views, bare.
  *
  * The one genuinely new plumbing is `lockedWorkspaceId` on PartnerProgrammesTab
- * (rendering ONE workspace bare instead of the multi-workspace picker) and
- * this journey's own state resolution — everything a reviewer SEES was
- * already built for SPEC-IRL-WORKSPACE-001's "External Reviewer" role.
+ * (rendering ONE workspace bare instead of the multi-workspace picker, still
+ * used by Experiment Progress) and this journey's own state resolution —
+ * everything a reviewer SEES was already built for SPEC-IRL-WORKSPACE-001's
+ * "External Reviewer" role.
  *
  * HONESTY OVER COMPLETENESS (CLAUDE.md "No Guessing"): the Submit Review
  * stage's `collaborationAgreementAuthorized` evidence is declared but not yet
@@ -52,6 +55,12 @@ export const VALIDATION_PROGRAMME_WORKSPACE_ID = 'autonomi-review-exp-p1';
 
 /** The experiment this journey's reviewer-scoping checks against. */
 export const VALIDATION_PROGRAMME_EXPERIMENT_ID = 'EXP-P1';
+
+/** The col_experiments path segment every EXP-P1 document lives under. */
+const EXP_P1_PATH_SEGMENT = 'exp-p1-representation-runtime-gauntlet';
+
+/** Overview stage's pathFilter — EXP-P1's own documents only, nothing else in col_experiments. */
+const isExpP1Path = (path: string): boolean => path.includes(EXP_P1_PATH_SEGMENT);
 
 export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
   id: 'validation-programme-exp-p1',
@@ -72,11 +81,17 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'validation-programme-overview',
-          props: { workspaceDomain: 'research', lockedWorkspaceId: VALIDATION_PROGRAMME_WORKSPACE_ID, initialSurface: 'overview' },
+          props: {
+            packId: 'irl',
+            collectionId: 'col_experiments',
+            defaultPath: `foundation/experiments/${EXP_P1_PATH_SEGMENT}/README.md`,
+            pathFilter: isExpP1Path,
+          },
           note:
-            "The Research Workspace's own Overview view (researchWorkspaceViews.ts) — purpose, phase, " +
-            'institutions, active roles, next action, blockers, decisions, milestones, recent receipts — ' +
-            'locked to the autonomi-review-exp-p1 workspace, never a second summary.',
+            "The real Protocols & Articles surface (irl-os-protocols tab's own AgentiqCartridgeTab " +
+            'instance, packId/collectionId unchanged) filtered to EXP-P1’s own documents — README, ' +
+            'STAGE-0 handoff, Crystal enlargement plan, Crystal canon charter — never a second summary ' +
+            'or a rebuilt viewer.',
         },
       ],
       prerequisites: [],
@@ -100,14 +115,13 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
       subjectRef: 'external-reviewer',
       surfaces: [
         {
-          mode: 'embed',
+          mode: 'component',
           ref: 'validation-programme-crystal-review',
+          props: { reviewerMode: true },
           note:
-            'The real IRL OS Laboratory Experiments surface (InvariantExperimentLab, houses ' +
-            'IndependentReviewPanel and its Crystal vP1 view) — never a second, reviewer-only fork of ' +
-            'the same reports. Freeze/ratify/approve-governance/modify-corpus/change-lifecycle controls ' +
-            'do not exist on this surface at all (no route calls freezeArtifact); what a reviewer sees ' +
-            'here is exactly what an operator sees, minus nothing to remove.',
+            'IndependentReviewPanel rendered directly in reviewerMode — the exact same Review Queue, ' +
+            'Review Result and Crystal vP1 views an operator sees, with New Review and every governed-' +
+            'resolution control hidden. Never a second, reviewer-only fork of the same reports.',
         },
       ],
       prerequisites: ['overview'],
@@ -132,19 +146,11 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'validation-programme-locker',
-          props: { workspaceDomain: 'research', lockedWorkspaceId: VALIDATION_PROGRAMME_WORKSPACE_ID, initialSurface: 'locker' },
+          props: { visibleSections: ['peerExchange', 'uploadToLocker', 'invitation'] },
           note:
-            "The workspace's own Locker view — frozen, signed, ratified or authoritative artefacts, " +
-            'including the collaboration/X409 agreement acceptance already built in LockerTab. Never a ' +
-            'second signing UI.',
-        },
-        {
-          mode: 'component',
-          ref: 'validation-programme-qubetalk',
-          props: { workspaceDomain: 'research', lockedWorkspaceId: VALIDATION_PROGRAMME_WORKSPACE_ID, initialSurface: 'qubetalk' },
-          note:
-            'The workspace’s own QubeTalk view — mounts the real QubeTalkInboxTab, scoped to this ' +
-            'workspace’s channels. Never a rebuilt chat surface.',
+            'The real LockerTab, limited to Peer Exchange, Upload to Locker, and Invitation — the ' +
+            'section that already carries the x409/access-invitation claim + collaboration/review ' +
+            'agreement acceptance mechanics. Never a second signing UI.',
         },
       ],
       prerequisites: ['crystal-review'],
@@ -174,8 +180,16 @@ export const VALIDATION_PROGRAMME_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'validation-programme-activity',
-          props: { workspaceDomain: 'research', lockedWorkspaceId: VALIDATION_PROGRAMME_WORKSPACE_ID, initialSurface: 'evidence' },
-          note: "The workspace's own Activity view — consequential events and DVN receipts.",
+          props: {
+            workspaceDomain: 'research',
+            lockedWorkspaceId: VALIDATION_PROGRAMME_WORKSPACE_ID,
+            initialSurface: 'evidence',
+            hiddenLinkIds: ['irl-records'],
+          },
+          note:
+            "The workspace's own Activity view — consequential events and DVN receipts — with the " +
+            'Records & Findings link hidden for this rendering only (operator instruction 2026-08-01, ' +
+            'point 6). The workspace’s own link list is untouched; every other mount still shows it.',
         },
       ],
       prerequisites: ['submit-review'],

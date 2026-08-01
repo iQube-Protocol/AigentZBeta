@@ -19,6 +19,9 @@ import { useCallback } from 'react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
 import { VALIDATION_PROGRAMME_JOURNEY } from '@/services/journey/validationProgrammeJourney';
 import { PartnerProgrammesTab } from './PartnerProgrammesTab';
+import { AgentiqCartridgeTab } from './AgentiqCartridgeTab';
+import IndependentReviewPanel from '@/components/composer/IndependentReviewPanel';
+import { LockerTab } from './LockerTab';
 
 interface ValidationProgrammeJourneyTabProps {
   personaId?: string;
@@ -27,6 +30,9 @@ interface ValidationProgrammeJourneyTabProps {
 
 const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unknown>>> = {
   PartnerProgrammesTab,
+  AgentiqCartridgeTab,
+  IndependentReviewPanel,
+  LockerTab,
 };
 
 function ValidationProgrammeJourneyTabInner({ personaId, isAdmin }: ValidationProgrammeJourneyTabProps) {

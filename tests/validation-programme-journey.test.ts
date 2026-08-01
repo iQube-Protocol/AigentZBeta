@@ -297,13 +297,23 @@ describe('State route — real state resolution, no fabrication', () => {
   });
 });
 
-describe('IRL OS Laboratory — the Validation Programme tab is registered and reachable', () => {
-  it('a tab exists in the laboratory group pointing at ValidationProgrammeJourneyTab', () => {
+describe('IRL OS — the Validation Programme tab is registered and reachable', () => {
+  it('a tab exists in its own first-class top-level group pointing at ValidationProgrammeJourneyTab', () => {
     const tab = IRL_OS_CARTRIDGE.tabs.find((t) => t.id === 'irl-os-validation-programme');
     expect(tab).toBeTruthy();
-    expect(tab?.group).toBe('laboratory');
+    expect(tab?.group).toBe('validation-programme');
     expect(tab?.enabled).toBe(true);
     expect((tab?.config as { component?: string } | undefined)?.component).toBe('ValidationProgrammeJourneyTab');
+  });
+
+  it('its group is a real top-level tabGroup, beside Institution/Research/Laboratory/Publications/Participation/Workspace', () => {
+    const tab = IRL_OS_CARTRIDGE.tabs.find((t) => t.id === 'irl-os-validation-programme');
+    const group = IRL_OS_CARTRIDGE.tabGroups?.find((g) => g.id === tab?.group);
+    expect(group).toBeTruthy();
+    expect(group?.label).toBe('Validation Programme');
+    const siblingIds = ['institution', 'research', 'laboratory', 'publications', 'participation', 'workspace'];
+    const allGroupIds = IRL_OS_CARTRIDGE.tabGroups?.map((g) => g.id) ?? [];
+    for (const id of siblingIds) expect(allGroupIds).toContain(id);
   });
 
   it('is not adminOnly — an external reviewer, not staff, is the intended audience', () => {
@@ -330,5 +340,40 @@ describe('validationProgrammeJourney.ts constants', () => {
   it('exports the workspace and experiment ids used throughout the journey', () => {
     expect(VALIDATION_PROGRAMME_WORKSPACE_ID).toBe('autonomi-review-exp-p1');
     expect(VALIDATION_PROGRAMME_EXPERIMENT_ID).toBe('EXP-P1');
+  });
+});
+
+describe('experimentSeriesGroups — invitation checkboxes clustered like the Lab sidebar', () => {
+  it('groups EXP-P1 under the same "Validation Programme" section the Lab sidebar uses', async () => {
+    const { deriveExperimentSeriesGroups } = await import('@/services/research/experimentSeriesGroups');
+    const groups = deriveExperimentSeriesGroups();
+    const vp = groups.find((g) => g.experimentIds.includes('EXP-P1'));
+    expect(vp?.title).toBe('Validation Programme');
+  });
+
+  it('is derived from InvariantExperimentLab.SECTIONS, never a hand-duplicated list', () => {
+    const src = stripComments(readSource('services/research/experimentSeriesGroups.ts'));
+    expect(src).toMatch(/import \{ SECTIONS, expIdForTab \} from ['"]@\/components\/composer\/InvariantExperimentLab['"]/);
+  });
+
+  it('groupAssignableScopesBySeries buckets a flat scope list by series and never drops an unmatched scope', async () => {
+    const { groupAssignableScopesBySeries } = await import('@/services/research/experimentSeriesGroups');
+    const scopes = [
+      { id: 'EXP-P1', label: 'EXP-P1 · Representation Gauntlet' },
+      { id: 'EXP-001', label: 'EXP-001 · Bundle Evaluation' },
+      { id: 'not-a-real-experiment', label: 'Not a real experiment' },
+    ];
+    const groups = groupAssignableScopesBySeries(scopes);
+    const totalScopes = groups.flatMap((g) => g.scopes);
+    expect(totalScopes.length).toBe(scopes.length);
+    expect(groups.find((g) => g.title === 'Validation Programme')?.scopes.map((s) => s.id)).toEqual(['EXP-P1']);
+    expect(groups.find((g) => g.title === 'Foundational Series')?.scopes.map((s) => s.id)).toEqual(['EXP-001']);
+    expect(groups.find((g) => g.title === 'Other')?.scopes.map((s) => s.id)).toEqual(['not-a-real-experiment']);
+  });
+
+  it('StewardParticipationTab clusters by the CATALOGUE, never a hardcoded domain id (companion to delegated-invitation-authority.test.ts)', () => {
+    const src = stripComments(readSource('app/triad/components/codex/tabs/StewardParticipationTab.tsx'));
+    expect(src).toContain('groupAssignableScopesBySeries');
+    expect((src.match(/activeDomain === 'research-lab'/g) ?? []).length).toBeLessThanOrEqual(1);
   });
 });
