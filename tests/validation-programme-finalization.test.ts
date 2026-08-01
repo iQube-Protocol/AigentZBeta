@@ -25,7 +25,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { readSource, stripComments, importAuthority } from './_lib/sourceAuthority';
+import { readSource, stripComments, importAuthority, extractJsonResponseBodies } from './_lib/sourceAuthority';
 import {
   resolveNextConstitutionalAct,
   type ConstitutionalActId,
@@ -398,5 +398,64 @@ describe('JourneyRunSurface — a transient status failure never reads as lost a
     const src = stripComments(readSource(SURFACE));
     expect(src).toContain('const isStale = !!error && !!runtimeState;');
     expect(src).toContain('No stage is assumed complete while status is unknown.');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// 6. The agent package is a MANIFEST, not the crystal report
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('Download JSON for Agent — the real manifest, never the raw crystal report', () => {
+  const PANEL = 'components/composer/IndependentReviewPanel.tsx';
+  const CRYSTAL_ROUTE = 'app/api/research/crystal/[experimentId]/route.ts';
+
+  it('calls the agent-package route that already existed, rather than dumping panel state', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain('/api/journey/validation-programme/agent-package');
+    // The old behaviour serialised the fetched crystal report directly.
+    expect(src).not.toContain('JSON.stringify(data, null, 2)');
+  });
+
+  it('the crystal report rides INSIDE the package as one member', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain('crystalReadiness: data ?? null');
+  });
+
+  it('a not-ready crystal is declared at the top of the package, never buried', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain('reviewPackageReady: crystalReady');
+    expect(src).toContain('blockingNotice');
+  });
+
+  it('the panel warns the operator BEFORE they hand over a not-ready package', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain('not review-ready');
+  });
+
+  it("the crystal route no longer says 'ok' for a request while its contents fail", () => {
+    const src = stripComments(readSource(CRYSTAL_ROUTE));
+    expect(src).toContain('requestSucceeded: true');
+    expect(src).toContain('reviewPackageReady');
+    // The ambiguous top-level `ok: true` is gone from the success body.
+    const bodies = extractJsonResponseBodies(src);
+    const successBody = bodies.find((b) => b.includes('requestSucceeded'));
+    expect(successBody).toBeTruthy();
+    expect(successBody!).not.toMatch(/\bok:\s*true\b/);
+  });
+
+  it('frozenHash is not emitted while nothing is frozen — it is a candidate content hash', () => {
+    const src = stripComments(readSource(CRYSTAL_ROUTE));
+    expect(src).toContain('candidateContentHash');
+    const bodies = extractJsonResponseBodies(src);
+    const successBody = bodies.find((b) => b.includes('requestSucceeded'));
+    expect(successBody!).not.toContain('frozenHash');
+  });
+
+  it('readiness and statistics are not duplicated inside recommendation', () => {
+    const src = stripComments(readSource(CRYSTAL_ROUTE));
+    expect(src).toContain('const { readiness, statistics, ...recommendationWithoutCopies } = recommendation;');
+    const bodies = extractJsonResponseBodies(src);
+    const successBody = bodies.find((b) => b.includes('requestSucceeded'));
+    expect(successBody!).toContain('recommendation: recommendationWithoutCopies');
   });
 });

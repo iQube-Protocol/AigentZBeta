@@ -15,7 +15,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 
-import { readSource, stripComments, importAuthority } from "./_lib/sourceAuthority";
+import { readSource, stripComments, importAuthority, extractJsonResponseBodies } from "./_lib/sourceAuthority";
 
 const PANEL = "components/companion/PassportConnectPanel.tsx";
 
@@ -559,23 +559,76 @@ describe("Passkey enrolment exists and is reachable — the reason the passkey p
     expect(src).toContain("ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED");
   });
 
-  it("treats 'already registered' as SUCCESS, not an error — the device already has what was asked for", () => {
+  it("'already registered' is the AUTHENTICATOR's claim, never durable success on its own", () => {
     const src = stripComments(readSource(ENROL_PANEL));
     const start = src.indexOf("function classifyEnrolmentError(");
     const body = src.slice(start, src.indexOf("\n}", start));
     const prevAt = body.indexOf("ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED");
     const branch = body.slice(prevAt, body.indexOf("case", prevAt + 10));
-    expect(branch).toContain("alreadyEnrolled: true");
+    // It flags the CLAIM; it never sets a ready state by itself.
+    expect(branch).toContain("authenticatorClaimsEnrolled: true");
+    expect(branch).not.toContain('setState("ready")');
+  });
+
+  it("confirms the authenticator's claim against the server before showing ready", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    const at = src.indexOf("if (classified.authenticatorClaimsEnrolled)");
+    expect(at, "the claim must be handled explicitly").toBeGreaterThan(-1);
+    const branch = src.slice(at, src.indexOf("return;", at));
+    expect(branch).toContain("await readCredentials()");
+    // Server says none while the authenticator says yes -> repair, not ready.
+    expect(branch).toContain('setState("needs-repair")');
+  });
+
+  it("even a clean registration success is confirmed by a server reread, never asserted", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    const at = src.indexOf("const count = await readCredentials();");
+    expect(at).toBeGreaterThan(-1);
+    expect(src).toContain('if (count !== null && count > 0) {');
+    expect(src).toContain('setState("ready");');
+  });
+
+  it("'could not check' never renders as 'no passkey' — it stays unknown", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    // readCredentials returns null for unavailable, and the mount effect
+    // deliberately leaves the state alone in that case.
+    expect(src).toContain("if (count === null) return;");
+    expect(src).toContain('type PasskeyState = "unknown" | "none" | "ready" | "needs-repair" | "unsupported";');
+  });
+
+  it("distinguishes all four required states in what it renders", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    expect(src).toContain("Passkey ready");
+    expect(src).toContain("Passkey needs repair");
+    expect(src).toContain("Add a passkey");
+    expect(src).toContain("Re-enrol passkey");
+  });
+
+  it("an unconfirmed state still lets the citizen enrol — unknown must never lock them out", () => {
+    const src = stripComments(readSource(ENROL_PANEL));
+    // The button is hidden only when genuinely ready.
+    expect(src).toContain("{!ready ? (");
   });
 
   it("renders nothing where WebAuthn is unsupported — a control that cannot act must not render", () => {
     const src = stripComments(readSource(ENROL_PANEL));
-    expect(src).toContain("if (supported === false) return null;");
+    expect(src).toContain('if (state === "unsupported") return null;');
   });
 
   it("resolves browser support after mount, never during render (no SSR/CSR mismatch)", () => {
     const src = stripComments(readSource(ENROL_PANEL));
-    expect(src).toContain("useEffect(() => {\n    setSupported(browserSupportsWebAuthn());");
+    expect(src).toContain("if (!browserSupportsWebAuthn()) {");
+    expect(src).toContain("useEffect(() => {");
+  });
+
+  it("the credentials route returns metadata only — never credential ids or public keys", () => {
+    const route = stripComments(readSource("app/api/passport/passkey/credentials/route.ts"));
+    for (const body of extractJsonResponseBodies(route)) {
+      expect(body).not.toContain("public_key");
+      expect(body).not.toContain("credentialId");
+    }
+    // And it must distinguish "could not check" from "you have none".
+    expect(route).toContain("status: 503");
   });
 
   it("is mounted where a signed-in citizen actually reaches it — the connected-Passport wallet surface", () => {

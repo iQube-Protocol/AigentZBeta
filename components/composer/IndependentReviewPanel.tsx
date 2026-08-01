@@ -722,21 +722,82 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
     }
   }, [experimentId, domain, operatorRef, reviewerRef, domainBoundary, rationaleText]);
 
-  // Download JSON for Agent (2026-08-01) — a client-side download of the
-  // SAME already-fetched crystal report this panel renders (readiness,
-  // statistics, recommendation). No new route: the data an agent needs is
-  // exactly the data a human reviewer is already looking at.
-  const downloadJsonForAgent = useCallback(() => {
-    if (!data) return;
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `crystal-${experimentId}-${domain}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  /**
+   * Download JSON for Agent — REPOINTED (operator ruling, 2026-08-02).
+   *
+   * PRIOR DEFECT: this dumped `data` — the raw Crystal Readiness API response
+   * — on the reasoning that "the data an agent needs is exactly the data a
+   * human reviewer is already looking at". That assumption is wrong, and the
+   * operator demonstrated why: a human reviewer arrives already knowing who
+   * they are, what they may do, and where to submit. An agent knows none of
+   * that. The crystal report contains no reviewer role, no authority ceiling,
+   * no prohibitions, no programme/protocol/submission URLs, no expected
+   * output schema and no next action — so handing it over told the agent
+   * only that the selected domain was empty.
+   *
+   * The real manifest already existed at
+   * /api/journey/validation-programme/agent-package (VP Phase 2) and this
+   * button simply never called it. It does now; the crystal report rides
+   * INSIDE that package as one member, which is what it always should have
+   * been.
+   */
+  const [agentPackageBusy, setAgentPackageBusy] = useState(false);
+  const [agentPackageError, setAgentPackageError] = useState<string | null>(null);
+
+  const downloadJsonForAgent = useCallback(async () => {
+    setAgentPackageBusy(true);
+    setAgentPackageError(null);
+    try {
+      const res = await personaFetch("/api/journey/validation-programme/agent-package", {
+        cache: "no-store",
+      });
+      const raw = await res.text();
+      if (!res.ok || !raw.trimStart().startsWith("{")) {
+        setAgentPackageError(
+          res.status === 403
+            ? "Your reviewer access for this experiment could not be confirmed, so no agent package was produced."
+            : "The agent package could not be produced right now.",
+        );
+        return;
+      }
+      const pkgJson = JSON.parse(raw) as Record<string, unknown>;
+
+      // REFUSE TO HAND OVER AN EMPTY REVIEW (the defect this ruling caught).
+      // The crystal report is authoritative about whether there is anything
+      // to review; if it says no, the package must say so at the TOP rather
+      // than burying it, so an agent — or an operator about to send this —
+      // cannot mistake a successful download for a reviewable crystal.
+      const crystalReady = Boolean(
+        (data as { reviewPackageReady?: boolean } | null)?.reviewPackageReady,
+      );
+      const enriched = {
+        ...pkgJson,
+        reviewPackageReady: crystalReady,
+        ...(crystalReady
+          ? {}
+          : {
+              blockingNotice:
+                `The crystal candidate for ${experimentId} in domain '${domain}' is not review-ready: ` +
+                `readiness checks do not pass. Do not begin a review against this package — the ` +
+                `crystal/domain selection needs correcting first.`,
+            }),
+        crystalReadiness: data ?? null,
+      };
+
+      const blob = new Blob([JSON.stringify(enriched, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `validation-programme-agent-package-${experimentId}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setAgentPackageError("The agent package could not be produced right now.");
+    } finally {
+      setAgentPackageBusy(false);
+    }
   }, [data, experimentId, domain]);
 
   const readiness = data?.readiness as { ok: boolean; checks: Array<{ name: string; passed: boolean; detail: string }> } | undefined;
@@ -767,16 +828,42 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
               Run checks
             </button>
             <button
-              onClick={downloadJsonForAgent}
-              disabled={!data}
-              title="Download the readiness, statistics and freeze-recommendation report as JSON for an AI agent to review"
+              onClick={() => void downloadJsonForAgent()}
+              disabled={!data || agentPackageBusy}
+              title="Download the Validation Programme agent package — reviewer role and authority, programme state, resource links, submission channel, expected output schema, prohibitions, and the crystal readiness report"
               className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
             >
-              <Download className="h-3 w-3" />
-              Download JSON for Agent
+              {agentPackageBusy ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {agentPackageBusy ? "Building package…" : "Download JSON for Agent"}
             </button>
           </div>
         </div>
+        {agentPackageError ? (
+          <p className="mb-2 flex items-start gap-1.5 text-[11px] text-amber-300">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            {agentPackageError}
+          </p>
+        ) : null}
+        {/* NOT-READY IS SAID OUT LOUD, HERE (operator ruling, 2026-08-02).
+            The selected domain reporting zero invariants is the single most
+            important fact on this panel — an agent package built against it
+            tells a reviewer, accurately, that there is nothing to review. It
+            must never be something an operator has to infer from a check
+            list further down. */}
+        {data && !(data as { reviewPackageReady?: boolean }).reviewPackageReady ? (
+          <p className="mb-2 flex items-start gap-1.5 rounded border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-snug text-amber-200">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              This crystal candidate is <strong>not review-ready</strong> in domain{" "}
+              <span className="font-mono">{domain}</span>. Any agent package built now will say so — check the
+              crystal/domain selection before handing it to a reviewer.
+            </span>
+          </p>
+        ) : null}
         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
           Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
           operator alone performs, outside this panel. Nothing here writes to the corpus or marks anything frozen.

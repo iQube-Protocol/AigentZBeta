@@ -46,14 +46,50 @@ export async function GET(
 
   const recommendation = await runCrystalFreezeRecommendation({ experimentId, crystalDomain });
 
+  // ── RESPONSE SHAPE CORRECTIONS (operator ruling, 2026-08-02) ────────────
+  //
+  // 1. `ok: true` meant "the HTTP request succeeded" and was read as "the
+  //    crystal is okay" — while every substantive component underneath
+  //    reported `ok: false`. A reader (human or agent) cannot be expected to
+  //    resolve that contradiction, so the field is renamed to say only what
+  //    it actually means, and a SEPARATE field answers the question that was
+  //    being mistakenly read off it.
+  //
+  // 2. `readiness` and `statistics` were emitted at the top level AND again
+  //    nested inside `recommendation` — the same failures repeated across
+  //    `checks`, `rationale`, `remainingRisks` and the nested copy. Two
+  //    copies of one fact is two things to diverge, so `recommendation` now
+  //    REFERENCES the canonical objects instead of embedding them.
+  //
+  // 3. `statistics.frozenHash` is a content commitment over the corpus as it
+  //    stands right now — NOT evidence of a constitutional freeze. Emitting
+  //    that word beside "NOT_READY" invited exactly the wrong inference, so
+  //    it is surfaced as `candidateContentHash` until a real freeze receipt
+  //    exists. (The service's own field keeps its name; this is the wire
+  //    contract, where the confusion happened.)
+  const { readiness, statistics, ...recommendationWithoutCopies } = recommendation;
+  const statisticsForWire = statistics
+    ? (() => {
+        const { frozenHash, ...restOfStatistics } = statistics as typeof statistics & { frozenHash?: string };
+        return { ...restOfStatistics, candidateContentHash: frozenHash };
+      })()
+    : statistics;
+
+  // The one question a reviewer actually needs answered: is there something
+  // here worth reviewing? Never inferred from transport success.
+  const reviewPackageReady = Boolean(readiness?.ok && statistics?.ok && recommendation?.ok);
+
   return NextResponse.json(
     {
-      ok: true,
+      requestSucceeded: true,
+      reviewPackageReady,
+      crystalStatus: 'candidate',
       experimentId,
       crystalDomain: recommendation.crystalDomain,
-      readiness: recommendation.readiness,
-      statistics: recommendation.statistics,
-      recommendation,
+      readiness,
+      statistics: statisticsForWire,
+      // No nested readiness/statistics — see note 2 above.
+      recommendation: recommendationWithoutCopies,
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

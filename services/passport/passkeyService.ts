@@ -224,6 +224,58 @@ export async function completePasskeyEnrolment(input: {
   return { ok: true, credentialId: credential.id };
 }
 
+/**
+ * The caller's OWN active passkey credentials — the DURABLE truth behind the
+ * enrolment surface's state (operator ruling, 2026-08-02).
+ *
+ * WHY THIS EXISTS: the browser reporting
+ * `ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED` says only that the
+ * AUTHENTICATOR believes it already holds a credential for this relying
+ * party. It does not say the platform holds a matching active record — the
+ * record may be absent, revoked, bound to a different RP configuration, or
+ * left behind by another environment. Treating that browser-side claim as
+ * durable success would show "Passkey ready" to a citizen whose next sign-in
+ * will fail, which is the same class of lie as fabricating any other state.
+ *
+ * Enrolment is COMPLETE only when: the registration ceremony succeeded ∩
+ * enrol-verify succeeded ∩ this reread confirms an active credential bound
+ * to the current principal.
+ *
+ * Returns metadata only. The stored `public_key` and `credential_id` are
+ * never serialised — a credential id is a stable per-RP handle, and the
+ * count plus timestamps are all a UI needs to render truthfully.
+ */
+export async function listActivePasskeyCredentials(
+  authUserId: string,
+): Promise<
+  | { ok: true; credentials: Array<{ friendlyName: string | null; createdAt: string; lastUsedAt: string | null; backedUp: boolean }> }
+  | { ok: false; reason: 'unavailable' }
+> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return { ok: false, reason: 'unavailable' };
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('friendly_name, created_at, last_used_at, backed_up, revoked_at')
+    .eq('auth_user_id', authUserId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: false });
+
+  // UNKNOWN, never "you have none" — a store failure must not render as an
+  // absent credential and send a citizen to re-enrol needlessly.
+  if (error) return { ok: false, reason: 'unavailable' };
+
+  return {
+    ok: true,
+    credentials: (data ?? []).map((r) => ({
+      friendlyName: (r as { friendly_name: string | null }).friendly_name ?? null,
+      createdAt: String((r as { created_at: string }).created_at),
+      lastUsedAt: (r as { last_used_at: string | null }).last_used_at ?? null,
+      backedUp: Boolean((r as { backed_up: boolean }).backed_up),
+    })),
+  };
+}
+
 // ── Unlock (pre-session, like passport-connect) ────────────────────────────
 
 export async function beginPasskeyAuthentication(input: {
