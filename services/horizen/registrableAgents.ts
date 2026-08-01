@@ -38,17 +38,23 @@ export interface RegistrableAgentConfig {
   agentCardPath: string;
   /** agent_keys.fio_handle — used to resolve the agent's own persona row for journey-state receipt scoping. */
   fioHandle: string;
-  /**
-   * Env var name (never a value — resolved by the caller from process.env)
-   * holding the private key of the wallet that becomes this agent's Horizen
-   * ERC-8004 registration owner. Mirrors MONEYPENNY_OWNER_WALLET_PRIVATE_KEY's
-   * existing .env.example convention (scripts/register-moneypenny-horizen.ts) —
-   * one env var per agent, never a shared key, never stored anywhere but the
-   * environment.
-   */
-  ownerPrivateKeyEnvVar: string;
 }
 
+/**
+ * The registered agent's own custodied wallet IS `runtimeAgentId`'s
+ * `agent_keys` row (AgentKeyService), the SAME wallet Verify's
+ * `verify/authorize/route.ts` and Claim's `claim/prove-control/route.ts`
+ * already sign with as `AGENT_KEY_REF = agent.runtimeAgentId`. Register used
+ * to be the one outlier reading a per-agent env var
+ * (MONEYPENNY_OWNER_WALLET_PRIVATE_KEY / NAKAMOTO_OWNER_WALLET_PRIVATE_KEY)
+ * as an interactive signer — replaced 2026-08-01 (operator ruling: "Replace
+ * NAKAMOTO_OWNER_WALLET_PRIVATE_KEY as the interactive Register dependency.
+ * The Register stage must use Aigent Nakamoto's existing agent wallet
+ * through the wallet signing boundary") so all three Register/Verify/Claim
+ * stages sign through the ONE agent-wallet custody path, never a parallel
+ * one. See services/horizen/registrationClient.ts's `resolveOwnerWalletAddress`
+ * default and app/api/journey/moneypenny-horizen/register/broadcast/route.ts.
+ */
 export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
   moneypenny: {
     slug: 'moneypenny',
@@ -57,7 +63,6 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     aigentQubeId: 'aigentqube-moneypenny',
     agentCardPath: '/api/agents/moneypenny/agent-card.json',
     fioHandle: 'moneypenny@aigent',
-    ownerPrivateKeyEnvVar: 'MONEYPENNY_OWNER_WALLET_PRIVATE_KEY',
   },
   nakamoto: {
     slug: 'nakamoto',
@@ -66,7 +71,6 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     aigentQubeId: 'aigentqube-nakamoto',
     agentCardPath: '/api/agents/nakamoto/agent-card.json',
     fioHandle: 'nakamoto@aigent',
-    ownerPrivateKeyEnvVar: 'NAKAMOTO_OWNER_WALLET_PRIVATE_KEY',
   },
 };
 

@@ -39,13 +39,12 @@ interface RegistrableAgentOption {
 
 /**
  * Mirrors services/horizen/registrableAgents.ts's REGISTRABLE_AGENTS.
- * Duplicated as a small client-safe literal (not imported) because that
- * module also exports server-only env-var-name plumbing
- * (ownerPrivateKeyEnvVar) that has no reason to reach the browser bundle —
- * the slugs/labels/paths themselves are the only part a client needs, and
- * they are covered by tests/horizen-registrable-agents.test.ts on the server
- * side, so a drift here would fail loudly (a 400 UNKNOWN_AGENT from
- * register/prepare), never silently.
+ * Duplicated as a small client-safe literal (not imported) — only the
+ * slug/label/path a client needs, never the server-side agent_keys
+ * resolution registrableAgents.ts's runtimeAgentId feeds into. Covered by
+ * tests/horizen-registrable-agents.test.ts on the server side, so a drift
+ * here would fail loudly (a 400 UNKNOWN_AGENT from register/prepare), never
+ * silently.
  */
 export const PILOT_AGENTS: RegistrableAgentOption[] = [
   { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },

@@ -22,7 +22,6 @@ describe('registrableAgents', () => {
       aigentQubeId: 'aigentqube-moneypenny',
       agentCardPath: '/api/agents/moneypenny/agent-card.json',
       fioHandle: 'moneypenny@aigent',
-      ownerPrivateKeyEnvVar: 'MONEYPENNY_OWNER_WALLET_PRIVATE_KEY',
     });
     expect(resolveRegistrableAgent('nakamoto')).toMatchObject({
       slug: 'nakamoto',
@@ -31,8 +30,13 @@ describe('registrableAgents', () => {
       aigentQubeId: 'aigentqube-nakamoto',
       agentCardPath: '/api/agents/nakamoto/agent-card.json',
       fioHandle: 'nakamoto@aigent',
-      ownerPrivateKeyEnvVar: 'NAKAMOTO_OWNER_WALLET_PRIVATE_KEY',
     });
+  });
+
+  it('never reintroduces a per-agent env-var signing dependency — Register signs through the same agent_keys custody path as Verify/Claim (operator ruling 2026-08-01)', () => {
+    for (const agent of listRegistrableAgents()) {
+      expect(agent).not.toHaveProperty('ownerPrivateKeyEnvVar');
+    }
   });
 
   it('returns null for an unknown slug rather than a guessed default', () => {
@@ -52,7 +56,6 @@ describe('registrableAgents', () => {
     expect(new Set(agents.map((a) => a.runtimeAgentId)).size).toBe(agents.length);
     expect(new Set(agents.map((a) => a.agentCardPath)).size).toBe(agents.length);
     expect(new Set(agents.map((a) => a.fioHandle)).size).toBe(agents.length);
-    expect(new Set(agents.map((a) => a.ownerPrivateKeyEnvVar)).size).toBe(agents.length);
   });
 
   it('every entry in REGISTRABLE_AGENTS is keyed by its own slug', () => {

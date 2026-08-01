@@ -9,11 +9,16 @@
  * submit_registry_tx. Requires `confirm: true` — this route refuses to sign
  * or submit without it, mirroring the CLI script's typed-"yes" gate.
  *
- * The owner private key is read from a PER-AGENT env var
- * (services/horizen/registrableAgents.ts's ownerPrivateKeyEnvVar —
- * MONEYPENNY_OWNER_WALLET_PRIVATE_KEY / NAKAMOTO_OWNER_WALLET_PRIVATE_KEY),
- * never logged, never returned — only the resulting transaction hash leaves
- * this function.
+ * The owner private key is resolved from the agent's OWN custodied wallet
+ * (AgentKeyService, keyed by `agent.runtimeAgentId` — the SAME AGENT_KEY_REF
+ * Verify's authorize route and Claim's prove-control route already sign
+ * with), never a per-agent env var (operator ruling 2026-08-01, replacing
+ * the old MONEYPENNY_OWNER_WALLET_PRIVATE_KEY / NAKAMOTO_OWNER_WALLET_PRIVATE_KEY
+ * dependency — "the Register stage must use Aigent Nakamoto's existing agent
+ * wallet through the wallet signing boundary"). The decrypted key is read
+ * once into this handler's local scope to hand to broadcastAgentRegistration
+ * and is never logged, never returned — only the resulting transaction hash
+ * leaves this function.
  *
  * Does NOT write a completion receipt — broadcasting is not confirmation
  * ("a successful signature without a successful reread is not completion",
@@ -30,6 +35,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
 import { broadcastAgentRegistration } from '@/services/horizen/registrationClient';
+import { AgentKeyService } from '@/services/identity/agentKeyService';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,13 +75,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'unsignedTx (from register/prepare) is required' }, { status: 400 });
   }
 
-  const ownerPrivateKey = process.env[agent.ownerPrivateKeyEnvVar];
+  // The agent's own custodied wallet — the SAME agent_keys row Verify's
+  // authorize route and Claim's prove-control route already sign with
+  // (AGENT_KEY_REF = agent.runtimeAgentId). Never a per-agent env var.
+  const agentKeys = await new AgentKeyService().getAgentKeys(agent.runtimeAgentId);
+  const ownerPrivateKey = agentKeys?.evmPrivateKey;
   if (!ownerPrivateKey) {
     return NextResponse.json(
       {
         ok: false,
         refusalCode: 'OWNER_KEY_NOT_CONFIGURED',
-        error: `${agent.ownerPrivateKeyEnvVar} is not configured on this deployment — the operator must set it before ${agent.displayName} can be registered`,
+        error: `${agent.displayName} has no custodied wallet on record (agent_keys, runtimeAgentId "${agent.runtimeAgentId}") — the operator must provision it before ${agent.displayName} can be registered`,
       },
       { status: 409 },
     );

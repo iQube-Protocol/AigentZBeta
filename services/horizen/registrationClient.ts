@@ -18,9 +18,11 @@
  *      script's own printed-tx-then-typed-"yes" gate, translated to a web
  *      request/response instead of a blocking readline prompt).
  *   2. broadcastAgentRegistration — signs LOCALLY with the owner wallet's
- *      private key (read from an env var, never logged, never returned) and
- *      submits. Requires an explicit `confirm: true` from the caller — this
- *      function will not sign or submit without it.
+ *      private key (the caller resolves it — as of 2026-08-01, from the
+ *      agent's own custodied agent_keys row, never a per-agent env var —
+ *      never logged, never returned by this function) and submits. Requires
+ *      an explicit `confirm: true` from the caller — this function will not
+ *      sign or submit without it.
  *   3. checkAgentRegistrationStatus — ONE status check + (if confirmed) ONE
  *      registry reread + persistence. Never an internal polling loop — a
  *      15-attempt/15s-apart poll (the script's own posture) does not fit a
@@ -80,21 +82,27 @@ export interface RegistrationDeps {
   fetchRegistryAgent?: (registryAlias: string, network: HorizenNetwork) => Promise<HorizenRead<Record<string, unknown>>>;
   updateRegistryAssetBinding?: (aigentQubeId: string, patch: { tokenId: string; registryAlias: string; agentIdentifier: string | null; humanReadableUrl: string | null }) => Promise<void>;
   createRegistrationReceipt?: (input: { actorPersonaId: string; agent: RegistrableAgentConfig; network: HorizenNetwork; txHash: string }) => Promise<string | null>;
-  /** Derives the owner wallet's PUBLIC address from its configured env var —
-   * derivation only, never signs anything. Horizen's real build_registration_tx
-   * schema (confirmed live, 2026-07-31) requires the owning walletAddress
-   * upfront, before any signature exists. Injectable for tests. */
-  resolveOwnerWalletAddress?: (ownerPrivateKeyEnvVar: string) => string | null;
+  /**
+   * Derives the owner wallet's PUBLIC address ONLY — derivation/lookup, never
+   * signs anything. Horizen's real build_registration_tx schema (confirmed
+   * live, 2026-07-31) requires the owning walletAddress upfront, before any
+   * signature exists. Injectable for tests.
+   *
+   * Default (2026-08-01, replacing the old per-agent env var — operator
+   * ruling: "Replace NAKAMOTO_OWNER_WALLET_PRIVATE_KEY as the interactive
+   * Register dependency"): resolves the agent's OWN custodied wallet via
+   * AgentKeyService, keyed by `agent.runtimeAgentId` — the SAME
+   * `AGENT_KEY_REF` Verify's authorize route and Claim's prove-control route
+   * already sign with. Register is no longer the one stage with a separate
+   * signing path.
+   */
+  resolveOwnerWalletAddress?: (agent: RegistrableAgentConfig) => string | null | Promise<string | null>;
 }
 
-function defaultResolveOwnerWalletAddress(envVar: string): string | null {
-  const pk = process.env[envVar];
-  if (!pk) return null;
-  try {
-    return new ethers.Wallet(pk).address;
-  } catch {
-    return null;
-  }
+async function defaultResolveOwnerWalletAddress(agent: RegistrableAgentConfig): Promise<string | null> {
+  const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+  const addresses = await new AgentKeyService().getAgentAddresses(agent.runtimeAgentId);
+  return addresses?.evmAddress ?? null;
 }
 
 /**
@@ -241,16 +249,16 @@ export async function prepareAgentRegistration(
 
   // Horizen's build_registration_tx requires the owning wallet's address
   // UPFRONT, before any signature exists (confirmed live via its own Zod
-  // validation error, 2026-07-31 — see buildArgs below). Deriving a public
-  // address from the configured private key is NOT signing; refusing here
-  // when unconfigured is more honest than building a tx nobody can complete.
+  // validation error, 2026-07-31 — see buildArgs below). Looking up the
+  // agent's own custodied address is NOT signing; refusing here when it has
+  // none is more honest than building a tx nobody can complete.
   const resolveOwnerAddress = deps.resolveOwnerWalletAddress ?? defaultResolveOwnerWalletAddress;
-  const ownerWalletAddress = resolveOwnerAddress(agent.ownerPrivateKeyEnvVar);
+  const ownerWalletAddress = await resolveOwnerAddress(agent);
   if (!ownerWalletAddress) {
     return {
       ok: false,
       refusalCode: 'OWNER_KEY_NOT_CONFIGURED',
-      detail: `${agent.ownerPrivateKeyEnvVar} is not configured on this deployment — Horizen's build_registration_tx requires the owner wallet address before a transaction can be built`,
+      detail: `${agent.displayName} has no custodied wallet on record (agent_keys, runtimeAgentId "${agent.runtimeAgentId}") — Horizen's build_registration_tx requires the owner wallet address before a transaction can be built`,
     };
   }
 

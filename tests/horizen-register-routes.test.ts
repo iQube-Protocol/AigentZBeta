@@ -30,6 +30,16 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
 }));
 
+// broadcast/route.ts resolves the owner private key from the agent's own
+// custodied wallet (AgentKeyService), never a per-agent env var (operator
+// ruling 2026-08-01) — mirrors Verify/Claim's existing AGENT_KEY_REF pattern.
+const mockGetAgentKeys = vi.fn();
+vi.mock('@/services/identity/agentKeyService', () => ({
+  AgentKeyService: vi.fn().mockImplementation(() => ({
+    getAgentKeys: (...args: any[]) => mockGetAgentKeys(...args),
+  })),
+}));
+
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => ({
     from: () => ({
@@ -53,6 +63,7 @@ beforeEach(() => {
   mockBroadcast.mockReset();
   mockCheckStatus.mockReset();
   mockCreateActivityReceipt.mockClear();
+  mockGetAgentKeys.mockReset();
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });
 });
 
@@ -101,29 +112,30 @@ describe('POST register/broadcast', () => {
     expect(mockBroadcast).not.toHaveBeenCalled();
   });
 
-  it('400s for an unknown agentSlug before ever touching the private key env var', async () => {
+  it('400s for an unknown agentSlug before ever resolving the agent\'s custodied wallet', async () => {
     const res = await broadcastRoute(makeRequest({ agentSlug: 'not-a-real-agent', confirm: true, unsignedTx: { to: '0xabc', data: '0x1' } }));
     expect(res.status).toBe(400);
     expect(mockBroadcast).not.toHaveBeenCalled();
+    expect(mockGetAgentKeys).not.toHaveBeenCalled();
   });
 
-  it('409s with OWNER_KEY_NOT_CONFIGURED when the per-agent env var is unset', async () => {
-    delete process.env.MONEYPENNY_OWNER_WALLET_PRIVATE_KEY;
+  it('409s with OWNER_KEY_NOT_CONFIGURED when the agent has no custodied wallet on record', async () => {
+    mockGetAgentKeys.mockResolvedValue(null);
     const res = await broadcastRoute(makeRequest({ agentSlug: 'moneypenny', confirm: true, unsignedTx: { to: '0xabc', data: '0x1' } }));
     const json = await res.json();
     expect(res.status).toBe(409);
     expect(json.refusalCode).toBe('OWNER_KEY_NOT_CONFIGURED');
     expect(mockBroadcast).not.toHaveBeenCalled();
+    expect(mockGetAgentKeys).toHaveBeenCalledWith('aigent-moneypenny');
   });
 
-  it('broadcasts once confirm is true and the owner key is configured', async () => {
-    process.env.MONEYPENNY_OWNER_WALLET_PRIVATE_KEY = '0x' + '11'.repeat(32);
+  it('broadcasts once confirm is true and the agent\'s custodied wallet resolves', async () => {
+    mockGetAgentKeys.mockResolvedValue({ evmPrivateKey: '0x' + '11'.repeat(32), evmAddress: '0xOwner' });
     mockBroadcast.mockResolvedValue({ ok: true, value: { txHash: '0xdeadbeef', ownerWalletAddress: '0xOwner', network: 'base-sepolia' } });
     const res = await broadcastRoute(makeRequest({ agentSlug: 'moneypenny', confirm: true, unsignedTx: { to: '0xabc', data: '0x1' } }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.txHash).toBe('0xdeadbeef');
-    delete process.env.MONEYPENNY_OWNER_WALLET_PRIVATE_KEY;
   });
 });
 

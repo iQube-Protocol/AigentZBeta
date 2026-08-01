@@ -141,6 +141,41 @@ describe('prepareAgentRegistration', () => {
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'NETWORK_OR_CONTRACT_MISMATCH' });
   });
+
+  it('resolveOwnerWalletAddress is passed the full agent config, not a bare env-var name — the default resolves via the agent\'s own custodied wallet (agent_keys), never a per-agent env var (operator ruling 2026-08-01)', async () => {
+    const resolveSpy = vi.fn((agent: any) => {
+      expect(agent).toMatchObject({ slug: 'moneypenny', runtimeAgentId: 'aigent-moneypenny' });
+      expect(agent).not.toHaveProperty('ownerPrivateKeyEnvVar');
+      return OWNER_WALLET.address;
+    });
+    const result = await prepareAgentRegistration(
+      { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
+      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress: resolveSpy },
+    );
+    expect(result.ok).toBe(true);
+    expect(resolveSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('awaits an async resolveOwnerWalletAddress (the real default is async — it queries agent_keys)', async () => {
+    const result = await prepareAgentRegistration(
+      { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
+      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress: async () => OWNER_WALLET.address },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.unsignedTx.to).toBe(IDENTITY_REGISTRY);
+  });
+
+  it('refuses OWNER_KEY_NOT_CONFIGURED when the agent has no custodied wallet, with a message naming agent_keys rather than an env var', async () => {
+    const result = await prepareAgentRegistration(
+      { agentSlug: 'moneypenny', agentCardBase: 'https://dev-beta.aigentz.me' },
+      { mcpClient: fakeMcpClient(), fetchAgentCard: fakeFetchAgentCard(), resolveOwnerWalletAddress: async () => null },
+    );
+    expect(result).toMatchObject({ ok: false, refusalCode: 'OWNER_KEY_NOT_CONFIGURED' });
+    if (result.ok) return;
+    expect(result.detail).toContain('agent_keys');
+    expect(result.detail).not.toMatch(/_ENV_VAR|OWNER_WALLET_PRIVATE_KEY/);
+  });
 });
 
 describe('broadcastAgentRegistration', () => {
