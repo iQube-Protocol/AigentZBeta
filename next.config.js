@@ -208,6 +208,15 @@ const nextConfig = {
       "./docs/platform-ontology.md",
       "./codexes/packs/irl/foundation/constitutional-glossary.md",
     ],
+    // Bitcent ops card: readFileSync(join(process.cwd(), ...)) at request
+    // time is not statically traceable, so without this entry the standalone
+    // Lambda bundle drops both JSON files, the route 500s (ENOENT), and the
+    // ops card renders entirely blank — the same untraced-file failure mode
+    // documented for pdfjs-dist's worker file in CLAUDE.md.
+    "/api/ops/bitcent/testnet": [
+      "./deployments/bitcent-testnet.json",
+      "./scripts/bitcent-issuance-record.json",
+    ],
   },
   experimental: {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.

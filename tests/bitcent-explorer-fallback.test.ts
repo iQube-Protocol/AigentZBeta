@@ -174,3 +174,30 @@ describe('Bitcent wallet — unresolved balance must never render as zero', () =
     expect(source).toMatch(/bcentTestnetPending \? "Awaiting Runes indexer" : formatFixed\(bcentTestnetAmount\)/);
   });
 });
+
+describe('Bitcent ops card — the two JSON files the route readFileSync()s at request time must be traced into the Lambda bundle', () => {
+  // 2026-08-01 incident: /api/ops/bitcent/testnet reads deployments/bitcent-testnet.json
+  // and scripts/bitcent-issuance-record.json via readFileSync(join(process.cwd(), ...)),
+  // a pattern Next's standalone output tracer cannot statically resolve. Without an
+  // outputFileTracingIncludes entry, the Amplify Lambda bundle drops both files, the
+  // route throws ENOENT and 500s, and the ops card's hook (useBitcentTestnet) throws on
+  // !r.ok, leaving `data` permanently null — the entirely-blank card the operator
+  // reported (Status: unknown, Etch TX —, Rune —(—), Premine —, Custodian —, etc.).
+  const nextConfig = readFileSync(join(__dirname, '../next.config.js'), 'utf8');
+
+  it('next.config.js traces both JSON files for the bitcent testnet route', () => {
+    const match = nextConfig.match(/"\/api\/ops\/bitcent\/testnet":\s*\[([\s\S]*?)\]/);
+    expect(match).not.toBeNull();
+    expect(match![1]).toContain('deployments/bitcent-testnet.json');
+    expect(match![1]).toContain('scripts/bitcent-issuance-record.json');
+  });
+
+  it('the route itself still reads both files via readFileSync(join(process.cwd(), ...)) — if this changes, update the trace entry to match', () => {
+    const routeSource = readFileSync(
+      join(__dirname, '../app/api/ops/bitcent/testnet/route.ts'),
+      'utf8',
+    );
+    expect(routeSource).toMatch(/readFileSync\(join\(process\.cwd\(\), 'scripts', 'bitcent-issuance-record\.json'\)/);
+    expect(routeSource).toMatch(/readFileSync\(join\(process\.cwd\(\), 'deployments', 'bitcent-testnet\.json'\)/);
+  });
+});
