@@ -518,3 +518,29 @@ describe('a created wallet is visible, usable and exportable', () => {
     expect(route).not.toMatch(/decryptPrivateKey|password/i);
   });
 });
+
+describe('every host that owns a wallet subscribes for it', () => {
+  it('CodexPanelDynamic opens its standalone drawer on a request', () => {
+    // The browser run that found this: the floating copilot is SUPPRESSED on
+    // the Journey tab (the one place Register fires requests from), and the
+    // drawer only listens while open — so the click delivered to a room with
+    // nobody in it, silently.
+    const host = stripComments(readSource('app/triad/components/CodexPanelDynamic.tsx'));
+    expect(host).toMatch(/subscribeWalletSurfaceRequest\(/);
+    expect(host).toMatch(/setWalletDrawerOpen\(true\)/);
+    expect(host).toMatch(/initialWalletSurface=\{walletSurfaceDeepLink\?\.surface\}/);
+  });
+
+  it('only ONE host honours a request per document (MS-2)', () => {
+    const host = stripComments(readSource('app/triad/components/CodexPanelDynamic.tsx'));
+    // Where the copilot is mounted it owns wallet surfacing; this host steps
+    // in exactly where the copilot cannot.
+    expect(host).toMatch(/copilotHandlesWalletRequests/);
+    expect(host).toMatch(/if \(copilotHandlesWalletRequests\) return undefined;/);
+  });
+
+  it('a dismissed deep link is consumed, not remembered', () => {
+    const host = stripComments(readSource('app/triad/components/CodexPanelDynamic.tsx'));
+    expect(host).toMatch(/setWalletSurfaceDeepLink\(null\)/);
+  });
+});

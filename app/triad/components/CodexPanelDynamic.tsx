@@ -15,6 +15,10 @@ import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRightLeft } from "lucide-react";
 import dynamic from "next/dynamic";
+import {
+  subscribeWalletSurfaceRequest,
+  type WalletSurfaceRequest,
+} from "@/services/wallet/walletSurfaceRequest";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
@@ -151,6 +155,40 @@ export default function CodexPanelDynamic({
   // (mirrors DevPersonaTab's "Open SmartWallet → iQube tab" gem), NOT the
   // copilot-embedded wallet.
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
+  /*
+   * WALLET-SURFACE DEEP LINKS LAND HERE (2026-08-02).
+   *
+   * This component owns the standalone SmartWalletDrawer — the wallet the
+   * operator actually reaches from the persona header badge. It renders only
+   * while open, so the drawer's own request listener cannot hear anything
+   * before it exists; and the floating copilot (the other subscriber) is
+   * SUPPRESSED on the Journey tab, which is precisely where the Register
+   * stage fires its "Sign in your wallet" request. Result in the browser:
+   * the click delivered to a room with nobody in it, silently — the
+   * operator's exact report.
+   *
+   * So the host that mounts the drawer is the subscriber: open the drawer,
+   * hand it the requested surface. This is the same open-a-CLOSED-wallet
+   * duty CodexCopilotLayer performs where IT owns the wallet — each host
+   * subscribes for the wallet it owns, which is why this is not a duplicate
+   * listener: a request is honoured by whichever host is actually mounted.
+   */
+  const [walletSurfaceDeepLink, setWalletSurfaceDeepLink] = useState<WalletSurfaceRequest | null>(null);
+  /*
+   * ONE honouring host per document (MS-2). Where the floating copilot is
+   * mounted, IT owns wallet surfacing and already subscribes; a second
+   * reaction here would open two wallets for one click. This host steps in
+   * exactly where the copilot cannot — suppressed (the Journey tab) or
+   * disabled by the cartridge config.
+   */
+  const copilotHandlesWalletRequests = !suppressFloatingCopilot && !codex?.copilot?.disabled;
+  useEffect(() => {
+    if (copilotHandlesWalletRequests) return undefined;
+    return subscribeWalletSurfaceRequest((request) => {
+      setWalletSurfaceDeepLink(request);
+      setWalletDrawerOpen(true);
+    });
+  }, [copilotHandlesWalletRequests]);
 
   // When SmartWalletDrawer reports a persona switch, update the global context
   const handlePersonaChange = React.useCallback(
@@ -1255,13 +1293,23 @@ export default function CodexPanelDynamic({
       {walletDrawerOpen && (
         <SmartWalletDrawer
           open={walletDrawerOpen}
-          onClose={() => setWalletDrawerOpen(false)}
+          onClose={() => {
+            setWalletDrawerOpen(false);
+            // A dismissed deep link is consumed, not remembered: reopening the
+            // wallet from the header badge must land on Wallet Home, never on
+            // a surface the operator already walked away from (MS-5).
+            setWalletSurfaceDeepLink(null);
+          }}
           variant="overlay"
           initialTab="wallet"
           personaId={resolvedPersonaId}
           onPersonaChange={handlePersonaChange}
           cartridgeSlug={codexId}
           agent={{ id: resolvedPersonaId ?? codexId, name: headerPersonaLabel ?? 'Wallet' }}
+          initialWalletSurface={walletSurfaceDeepLink?.surface}
+          walletSurfaceRequestToken={walletSurfaceDeepLink?.token}
+          walletSurfaceReturnTarget={walletSurfaceDeepLink?.returnTarget ?? null}
+          walletSurfaceReturnLabel={walletSurfaceDeepLink?.returnLabel ?? null}
         />
       )}
      </CopilotHostProvider>
