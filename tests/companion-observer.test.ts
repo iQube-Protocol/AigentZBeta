@@ -954,3 +954,145 @@ describe('POST /api/companion/observer/refresh-session — terminal vs transient
     }
   });
 });
+
+// ─── sidepanel.js — the OPEN-TAB bridge (regression fix, 2026-08-01) ───────
+//
+// THE DEFECT THIS GUARDS: Quick Links and the Passport connect handoff both
+// used to call plain `window.open(url, "_blank", ...)` from inside the
+// Companion embed's iframe — a browsing context nested under the extension's
+// side panel, not a tab. That reliably misses the side panel's own host
+// window (operator-reported 2026-08-01: a Quick Link opened in a completely
+// different, non-incognito browser window while testing from an incognito
+// one), and the same defect explains why "Pull Across" kept dying with a red
+// ✗ even after the Companion reported a successful Passport connect: the
+// handoff tab that is supposed to complete the crossing never lands where
+// `background.js`'s `getCompanionAppTab()` looks for it.
+//
+// The fix relays the open-tab request to `sidepanel.js` (a real extension
+// document, correctly bound to its host window) via `postMessage`, which
+// calls `chrome.tabs.create({ url })` — a real tab in the SAME window,
+// unlike `window.open` from the nested iframe. This runs the REAL shipped
+// `sidepanel.js` in `node:vm`, mirroring the MS-10 harness above.
+describe('extension/companion-observer/sidepanel.js — OPEN_TAB_REQUEST bridge', () => {
+  const EXT_DIR = join(process.cwd(), 'extension', 'companion-observer');
+  const extSource = (file: string) => readFileSync(join(EXT_DIR, file), 'utf8');
+
+  /** Loads constants.js + sidepanel.js into a fresh vm context with a fake
+   *  `companionFrame` iframe and a fake `chrome.tabs.create`, and returns
+   *  hooks to dispatch a `message` event as if it came from that iframe. */
+  function buildSidePanel() {
+    const tabsCreateCalls: Array<{ url?: string }> = [];
+    const postedToFrame: Array<Record<string, unknown>> = [];
+    const messageListeners: Array<(event: unknown) => void> = [];
+
+    const iframeContentWindow = {
+      postMessage: (data: Record<string, unknown>) => postedToFrame.push(data),
+    };
+    const companionFrameEl = {
+      contentWindow: iframeContentWindow,
+      set src(_v: string) {
+        /* no-op — the real navigation, irrelevant to this bridge */
+      },
+    };
+
+    const sandbox: Record<string, unknown> = {
+      console: { log: () => {}, warn: () => {}, info: () => {}, error: () => {} },
+      setTimeout,
+      clearTimeout,
+      URL,
+      document: {
+        getElementById: (id: string) => (id === 'companionFrame' ? companionFrameEl : null),
+      },
+      chrome: {
+        tabs: { create: (opts: { url?: string }) => tabsCreateCalls.push(opts) },
+      },
+    };
+    sandbox.window = sandbox;
+    sandbox.addEventListener = (type: string, fn: (event: unknown) => void) => {
+      if (type === 'message') messageListeners.push(fn);
+    };
+
+    const ctx = vm.createContext(sandbox);
+    vm.runInContext(extSource('constants.js'), ctx, { filename: 'constants.js' });
+    // `const COMPANION_APP_ORIGIN = ...` (constants.js) is a lexical binding,
+    // not a property of the context's global object — unlike a `var` or a
+    // function declaration, it is invisible on `sandbox.COMPANION_APP_ORIGIN`
+    // from outside the vm. Read it the same way the script itself would.
+    const companionAppOrigin = vm.runInContext('COMPANION_APP_ORIGIN', ctx) as string;
+    vm.runInContext(extSource('sidepanel.js'), ctx, { filename: 'sidepanel.js' });
+
+    /** Dispatches a `message` event to every registered listener, exactly as
+     *  `window.addEventListener('message', ...)` would. */
+    const dispatch = (event: { source?: unknown; origin?: string; data?: unknown }) => {
+      for (const fn of messageListeners) fn(event);
+    };
+
+    return {
+      tabsCreateCalls,
+      postedToFrame,
+      iframeContentWindow,
+      companionAppOrigin,
+      dispatch,
+    };
+  }
+
+  it('opens a tab via chrome.tabs.create (never window.open) for a same-origin URL from the companion iframe', () => {
+    const panel = buildSidePanel();
+    const url = `${panel.companionAppOrigin}/triad/embed/codex/knyt-codex?tab=knyt-alpha`;
+
+    panel.dispatch({
+      source: panel.iframeContentWindow,
+      origin: panel.companionAppOrigin,
+      data: { type: 'metame-companion:open-tab', url },
+    });
+
+    expect(
+      panel.tabsCreateCalls,
+      'sidepanel.js must open the requested URL via chrome.tabs.create, the only mechanism that lands in the side panel\'s own host window',
+    ).toEqual([{ url }]);
+    expect(
+      panel.postedToFrame,
+      'the Companion iframe must be told the request succeeded, or its bridge helper falls back to a plain window.open',
+    ).toEqual([{ type: 'metame-companion:open-tab-done', ok: true }]);
+  });
+
+  it('refuses a URL that does not resolve to the Companion app\'s own origin', () => {
+    const panel = buildSidePanel();
+
+    panel.dispatch({
+      source: panel.iframeContentWindow,
+      origin: panel.companionAppOrigin,
+      data: { type: 'metame-companion:open-tab', url: 'https://not-metame.example.com/steal-a-tab' },
+    });
+
+    expect(panel.tabsCreateCalls, 'an off-origin URL must never reach chrome.tabs.create').toEqual([]);
+    expect(panel.postedToFrame).toEqual([{ type: 'metame-companion:open-tab-done', ok: false }]);
+  });
+
+  it('ignores a message whose source is not the companion iframe', () => {
+    const panel = buildSidePanel();
+    const impostor = { postMessage: () => {} };
+
+    panel.dispatch({
+      source: impostor,
+      origin: panel.companionAppOrigin,
+      data: { type: 'metame-companion:open-tab', url: `${panel.companionAppOrigin}/triad/embed/codex/knyt-codex` },
+    });
+
+    expect(panel.tabsCreateCalls, 'a message not sourced from the companion iframe must never open a tab').toEqual([]);
+    expect(panel.postedToFrame).toEqual([]);
+  });
+
+  it('ignores a message whose origin is not the companion app origin', () => {
+    const panel = buildSidePanel();
+
+    panel.dispatch({
+      source: panel.iframeContentWindow,
+      origin: 'https://not-metame.example.com',
+      data: { type: 'metame-companion:open-tab', url: `${panel.companionAppOrigin}/triad/embed/codex/knyt-codex` },
+    });
+
+    expect(panel.tabsCreateCalls, 'a message from the wrong origin must never open a tab').toEqual([]);
+    expect(panel.postedToFrame).toEqual([]);
+  });
+});
