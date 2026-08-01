@@ -98,6 +98,32 @@ describe('Journey wiring — Deploy and Standing are separate stages, not a pair
     expect(standing![0]).toContain('venture-participate-standing-only');
   });
 
+  it('BOTH stages pin the view in their OWN surface props, so the tab strip cannot render', () => {
+    // REGRESSION GUARD (operator report, 2026-08-02): `only` was first wired
+    // through PilotJourneyTab's resolveSurfaceProps and silently never
+    // applied — both stages kept showing the two-tab strip. Surface props
+    // declared on the stage are applied LAST in JourneyRunSurface's merge, so
+    // asserting them here pins the thing that actually reaches the component.
+    const source = read('services/journey/horizenMoneyPennyJourney.ts');
+
+    const deploy = source.match(/id: 'deploy',[\s\S]*?nextStageId: 'standing',/);
+    expect(deploy).not.toBeNull();
+    expect(deploy![0]).toContain("props: { only: 'registry' }");
+
+    const standing = source.match(/id: 'standing',[\s\S]*?receiptTypes: \['standing_accrued'\],/);
+    expect(standing).not.toBeNull();
+    expect(standing![0]).toContain("props: { only: 'standing' }");
+  });
+
+  it('a pinned mount renders no tab strip at all — every view branch uses the same nulled strip', () => {
+    const source = read('app/triad/components/codex/tabs/ParticipationStandingTab.tsx');
+    expect(source).toContain('const tabStrip = only ? null : (');
+    // Every render branch must go through `tabStrip`; a hand-inlined strip in
+    // one branch would survive the pin.
+    const inlineStrips = source.match(/Ingestion Factory\s*<\/button>/g) ?? [];
+    expect(inlineStrips.length, 'exactly one place builds the strip').toBeLessThanOrEqual(1);
+  });
+
   it('aigentMe now precedes Deploy — the two were swapped', () => {
     const source = read('services/journey/horizenMoneyPennyJourney.ts');
     const aigentmeAt = source.indexOf("id: 'aigentme',");

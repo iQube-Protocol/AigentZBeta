@@ -232,6 +232,14 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'venture-participate-standing',
+          // `only` lives HERE, in the stage definition, not in the tab's
+          // resolveSurfaceProps: surface props are applied LAST in
+          // JourneyRunSurface's merge, so a stage's own declaration always
+          // wins, and what a stage renders stays readable from the stage
+          // itself. (It was briefly wired through resolveSurfaceProps and
+          // silently never applied — the two-tab strip stayed on both
+          // stages, operator report 2026-08-02.)
+          props: { only: 'registry' },
           note:
             'Rendered bare — the registry Ingestion Factory ALONE (operator direction 2026-08-02). ' +
             'Standing was split out of this surface into its own eighth stage below, so Deploy no longer ' +
@@ -261,6 +269,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'component',
           ref: 'venture-participate-standing-only',
+          props: { only: 'standing' },
           note:
             'The Standing module standalone (operator direction 2026-08-02). It was previously one tab ' +
             'inside the Activate/Deploy surface beside the Ingestion Factory; separating them restores ' +
