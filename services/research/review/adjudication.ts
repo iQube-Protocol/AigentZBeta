@@ -290,3 +290,108 @@ export function tallyResolutions(resolutions: readonly ReviewResolution[]): Reso
 export function contestedQueue(resolutions: readonly ReviewResolution[]): ReviewResolution[] {
   return resolutions.filter((r) => r.status === 'contested');
 }
+
+// ── Record-level governed remedy (operator ruling, 2026-08-02) ───────────────
+
+/**
+ * The steward's remedy for ONE contested row.
+ *
+ * ── Why this is not free-form ──────────────────────────────────────────────
+ *
+ * A contested row is a fact about the evidence: two reviewers looked at the
+ * same subject and returned different labels. The remedy resolves the DISPUTE;
+ * it does not create a new finding. So the steward may only ratify a label a
+ * reviewer actually returned — never a third one of their own.
+ *
+ * Allowing an invented label would be strictly worse than averaging, which
+ * this module already refuses: an average is at least derived from the
+ * evidence, whereas a label no reviewer gave has no evidentiary basis at all,
+ * and would be indistinguishable in the artifact from one that did.
+ *
+ * `defer` is the honest option when neither label can be ratified. It is not a
+ * silent no-op — it records who deferred and why, so a deferred row is
+ * visibly unresolved rather than quietly forgotten.
+ */
+export interface ContestedRemedy {
+  /** `adopt` ratifies one of the reviewers' labels; `defer` ratifies neither. */
+  remedy: 'adopt' | 'defer';
+  /** Required for `adopt`, forbidden for `defer`. Must be a label a reviewer returned. */
+  operatorDecision?: string;
+  /** Free text. Required — an unreasoned remedy is a stray click in the artifact. */
+  reason: string;
+  /** Attribution commitment (`personaPublicRef`), never a raw persona id. */
+  resolvedByRef: string;
+  resolvedAt: string;
+}
+
+/**
+ * Apply a remedy to a contested resolution, returning the NEW resolution.
+ *
+ * Pure: takes the current row, returns the next one. It never mutates, never
+ * reads the store, and never writes a receipt — the caller owns persistence,
+ * so this rule can be exercised directly by a test with no database.
+ *
+ * The adopted label's eligibility is read from the SAME `ELIGIBLE_LABELS` set
+ * `resolveDecisions` uses for agreed rows. A ratified 'independent' therefore
+ * lands on exactly the status an agreed 'independent' would, and the two can
+ * never drift apart into "eligible when both reviewers said it, ineligible
+ * when the steward ratified it".
+ */
+export function resolveContestedRecord(
+  current: ReviewResolution,
+  remedy: ContestedRemedy,
+): ReviewResolution {
+  if (current.status !== 'contested') {
+    throw new ReviewRefusal(
+      'record-not-contested',
+      `${current.subjectRef} is '${current.status}', not 'contested'. Only a row in dispute has a dispute to remedy; ` +
+        `re-deciding a settled row would overwrite a reviewer's finding with the steward's.`,
+    );
+  }
+  const reason = (remedy.reason ?? '').trim();
+  if (!reason) {
+    throw new ReviewRefusal(
+      'unreasoned-record-resolution',
+      `a governed remedy for ${current.subjectRef} requires a stated reason`,
+    );
+  }
+  if (!remedy.resolvedByRef) {
+    throw new ReviewRefusal(
+      'unattributed-record-resolution',
+      `a governed remedy for ${current.subjectRef} requires an attributable steward reference`,
+    );
+  }
+
+  if (remedy.remedy === 'defer') {
+    return {
+      ...current,
+      status: 'deferred',
+      // The dispute is preserved verbatim. Deferring records that no label was
+      // ratified — it must not erase which labels were in contention.
+      operatorDecision: undefined,
+      resolutionReason: `deferred by ${remedy.resolvedByRef}: ${reason}`,
+      resolvedAt: remedy.resolvedAt,
+    };
+  }
+
+  const label = (remedy.operatorDecision ?? '').trim();
+  const returned = [current.reviewer1Decision, current.reviewer2Decision].filter(
+    (d): d is string => typeof d === 'string' && d.length > 0,
+  );
+  if (!label || !returned.includes(label)) {
+    throw new ReviewRefusal(
+      'unsupported-operator-label',
+      `${JSON.stringify(label)} was not returned by any reviewer for ${current.subjectRef} ` +
+        `(they returned ${returned.map((d) => JSON.stringify(d)).join(' and ') || 'nothing'}). ` +
+        `A remedy ratifies one of the labels in dispute; it does not introduce a new finding.`,
+    );
+  }
+
+  return {
+    ...current,
+    status: ELIGIBLE_LABELS.has(label) ? 'accepted' : 'rejected',
+    operatorDecision: label,
+    resolutionReason: `ratified by ${remedy.resolvedByRef}: ${reason}`,
+    resolvedAt: remedy.resolvedAt,
+  };
+}

@@ -49,6 +49,7 @@ import type {
 import type { ResolutionTally } from '@/services/research/review/adjudication';
 import { EXP_P1_REVIEW_QUESTION } from '@/services/research/review/templates/expP1Admissibility';
 import { INDEPENDENCE_RUBRIC_ID } from '@/services/research/review/rubric';
+import { deriveQueueState } from '@/services/research/independentReviewStore';
 import type { ReviewRecord, ReviewQueueState } from '@/services/research/independentReviewStore';
 
 export interface ReviewReceiptArtifact {
@@ -253,7 +254,7 @@ export function validateAndBuildPublishedReview(
     requestedByRef: receipt.payload.stewardRef,
   };
 
-  const queueState: ReviewQueueState = computedTally.contested > 0 ? 'contested' : 'completed';
+  const queueState: ReviewQueueState = deriveQueueState(computedTally.contested);
 
   return {
     ok: true,

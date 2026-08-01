@@ -29,7 +29,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireReviewAccess, requireReviewReadAccess } from './_lib/gate';
 import { resolveReviewerSelection, type ReviewerSlotSelection } from './_lib/resolveSelection';
 import { buildReviewPlan } from '@/services/research/independentReviewPlan';
-import { listReviews, upsertReview } from '@/services/research/independentReviewStore';
+import { deriveQueueState, listReviews, upsertReview } from '@/services/research/independentReviewStore';
 import {
   buildReviewRequest,
   createFileBackedProvider,
@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
 
     await upsertReview(gate.caller.admin, {
       reviewId: plan.reviewId,
-      queueState: artifacts.tally.contested > 0 ? 'contested' : 'completed',
+      queueState: deriveQueueState(artifacts.tally.contested),
       request,
       package: plan.pkg,
       assignments: [...assignments],

@@ -586,7 +586,18 @@ export default function IndependentReviewPanel({ reviewerMode = false }: { revie
         <div className="space-y-4">
           {!selected && <div className={`${PANEL} text-xs text-slate-400`}>Pick a review from the queue.</div>}
           {selected && !detail && <div className={`${PANEL} text-xs text-slate-400`}>Loading {selected}…</div>}
-          {detail && <ResultPanel detail={detail} />}
+          {detail && (
+            <ResultPanel
+              detail={detail}
+              reviewId={selected}
+              /* Remedy acceptance is the INTERNAL affordance (operator ruling,
+                 2026-08-02). A reviewer opens the same modal and reads the same
+                 evidence; only the form is withheld — and the route refuses a
+                 reviewer grant outright, so this is presentation, not the gate. */
+              canRemedy={!reviewerMode && !isSuperseded}
+              onRemedied={() => selected && void openResult(selected)}
+            />
+          )}
 
           {detail && !reviewerMode && (
             <div className={PANEL}>
@@ -1059,10 +1070,21 @@ function SummaryPanel({ result }: { result: Record<string, unknown> }) {
   );
 }
 
-function ResultPanel({ detail }: { detail: Record<string, unknown> }) {
+function ResultPanel({
+  detail,
+  reviewId,
+  canRemedy,
+  onRemedied,
+}: {
+  detail: Record<string, unknown>;
+  reviewId: string | null;
+  canRemedy: boolean;
+  onRemedied: () => void;
+}) {
   const review = (detail.review ?? {}) as Record<string, unknown>;
   const tally = (review.tally ?? {}) as Record<string, number>;
-  const contested = (review.contested ?? []) as Array<Record<string, unknown>>;
+  const contested = (review.contested ?? []) as ContestedRow[];
+  const [openRecord, setOpenRecord] = useState<ContestedRow | null>(null);
   const limitations = (review.limitations ?? []) as string[];
   const reviewers = (review.reviewers ?? []) as Array<Record<string, unknown>>;
   const supersededBy = review.supersededBy as string | null | undefined;
@@ -1113,15 +1135,24 @@ function ResultPanel({ detail }: { detail: Record<string, unknown> }) {
           </div>
           <div className="max-h-48 space-y-1 overflow-y-auto">
             {contested.map((c) => (
-              <div key={String(c.subjectRef)} className="text-[11px] text-amber-100">
-                <span className="font-mono">{String(c.subjectRef)}</span> — R1{" "}
-                <span className="font-semibold">{String(c.reviewer1Decision ?? "—")}</span> vs R2{" "}
-                <span className="font-semibold">{String(c.reviewer2Decision ?? "—")}</span>
-              </div>
+              <button
+                key={String(c.subjectRef)}
+                type="button"
+                onClick={() => setOpenRecord(c)}
+                className="flex w-full items-center justify-between gap-2 rounded border border-transparent px-1 py-0.5 text-left text-[11px] text-amber-100 transition hover:border-amber-500/30 hover:bg-amber-500/10"
+              >
+                <span>
+                  <span className="font-mono">{String(c.subjectRef)}</span> — R1{" "}
+                  <span className="font-semibold">{String(c.reviewer1Decision ?? "—")}</span> vs R2{" "}
+                  <span className="font-semibold">{String(c.reviewer2Decision ?? "—")}</span>
+                </span>
+                <Eye className="h-3 w-3 shrink-0 text-amber-300/60" aria-hidden="true" />
+              </button>
             ))}
           </div>
           <p className="mt-1 text-[10px] text-amber-200/70">
             Both labels are carried verbatim. Nothing is averaged — a contested row is a fact about the evidence.
+            Open a row to read both reviewers in full.
           </p>
         </div>
       )}
@@ -1136,6 +1167,283 @@ function ResultPanel({ detail }: { detail: Record<string, unknown> }) {
           </ul>
         </div>
       )}
+
+      {openRecord && reviewId && (
+        <ContestedRecordModal
+          reviewId={reviewId}
+          record={openRecord}
+          canRemedy={canRemedy}
+          onClose={() => setOpenRecord(null)}
+          onRemedied={() => {
+            setOpenRecord(null);
+            onRemedied();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Record-level inspection and remedy (operator ruling, 2026-08-02) ─────────
+
+/** A contested row as the detail route returns it, with both decisions attached. */
+interface ContestedDecision {
+  decision: string;
+  reason: string;
+  evidenceRefs?: string[];
+  limitations?: string[];
+  reviewedAt?: string;
+  rawOutputRef?: string;
+  outputHash?: string;
+  reviewerRef?: string;
+  confidence?: number;
+}
+
+interface ContestedRow {
+  subjectRef: string;
+  reviewer1Decision?: string;
+  reviewer2Decision?: string;
+  resolutionReason?: string;
+  r1?: ContestedDecision | null;
+  r2?: ContestedDecision | null;
+}
+
+/** One reviewer's side of the dispute, verbatim. */
+function DecisionColumn({ slot, decision }: { slot: string; decision: ContestedDecision | null | undefined }) {
+  if (!decision) {
+    return (
+      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+        <div className="text-[10px] uppercase tracking-wide text-slate-500">{slot}</div>
+        {/* Absent, not empty. A missing second pass is not a passing second
+            pass — rendering it as a blank decision would read as agreement. */}
+        <p className="mt-1 text-[11px] text-amber-300">No decision was returned for this subject.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] uppercase tracking-wide text-slate-500">{slot}</span>
+        <span className="font-mono text-[11px] font-semibold text-slate-100">{decision.decision}</span>
+      </div>
+      <p className="mt-2 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-300">{decision.reason}</p>
+      {(decision.evidenceRefs ?? []).length > 0 && (
+        <div className="mt-2">
+          <div className="text-[10px] uppercase tracking-wide text-slate-500">Evidence cited</div>
+          <ul className="mt-0.5 list-disc pl-4 text-[10px] text-slate-400">
+            {(decision.evidenceRefs ?? []).map((e, i) => (
+              <li key={i} className="font-mono break-all">{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(decision.limitations ?? []).length > 0 && (
+        <div className="mt-2">
+          <div className="text-[10px] uppercase tracking-wide text-slate-500">Stated limitations</div>
+          <ul className="mt-0.5 list-disc pl-4 text-[10px] text-slate-400">
+            {(decision.limitations ?? []).map((l, i) => (
+              <li key={i}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="mt-2 space-y-0.5 text-[10px] text-slate-500">
+        {decision.reviewerRef && <div>by <span className="font-mono">{decision.reviewerRef}</span></div>}
+        {decision.reviewedAt && <div>{decision.reviewedAt}</div>}
+        {/* The commitment over the reviewer's raw output. This is what makes
+            the decision above checkable rather than merely reported. */}
+        {decision.outputHash && <div className="break-all">output {decision.outputHash}</div>}
+        {decision.rawOutputRef && <div className="break-all">raw {decision.rawOutputRef}</div>}
+        {typeof decision.confidence === "number" && (
+          <div>
+            self-reported confidence {decision.confidence} — carried, never combined
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The contested-record modal.
+ *
+ * READ for everyone who can reach the review; REMEDY only where `canRemedy`.
+ * The remedy is deliberately not a free-text label field: the steward chooses
+ * between the labels the reviewers actually returned, or defers. A third label
+ * would be a new finding with no reviewer behind it, and the route refuses one
+ * (`unsupported-operator-label`) whatever this form offers.
+ */
+function ContestedRecordModal({
+  reviewId,
+  record,
+  canRemedy,
+  onClose,
+  onRemedied,
+}: {
+  reviewId: string;
+  record: ContestedRow;
+  canRemedy: boolean;
+  onClose: () => void;
+  onRemedied: () => void;
+}) {
+  const [choice, setChoice] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [refusal, setRefusal] = useState<{ code?: string; message: string } | null>(null);
+
+  // Only labels a reviewer actually returned, de-duplicated. Derived from the
+  // record — never a hardcoded rubric list, which would drift the moment the
+  // rubric changed and would offer labels nobody in this dispute gave.
+  const labels = useMemo(
+    () =>
+      [record.reviewer1Decision, record.reviewer2Decision].filter(
+        (l, i, arr): l is string => typeof l === "string" && l.length > 0 && arr.indexOf(l) === i,
+      ),
+    [record.reviewer1Decision, record.reviewer2Decision],
+  );
+
+  const submit = useCallback(
+    async (remedy: "adopt" | "defer") => {
+      if (!reason.trim()) {
+        setRefusal({ message: "State a reason — an unreasoned remedy is a stray click in the artifact." });
+        return;
+      }
+      if (remedy === "adopt" && !choice) {
+        setRefusal({ message: "Choose which reviewer's label stands, or defer." });
+        return;
+      }
+      setBusy(true);
+      setRefusal(null);
+      try {
+        const res = await personaFetch(
+          `/api/research/review/${encodeURIComponent(reviewId)}/resolution`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subjectRef: record.subjectRef,
+              remedy,
+              ...(remedy === "adopt" ? { operatorDecision: choice } : {}),
+              reason,
+            }),
+          },
+        );
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) {
+          // The server's own words. A refusal explaining WHY the label was not
+          // accepted is more useful than a generic failure, and paraphrasing it
+          // would be inventing a reason the server did not give.
+          setRefusal({ code: d?.refusalCode, message: d?.error ?? `the remedy was refused (HTTP ${res.status})` });
+          return;
+        }
+        onRemedied();
+      } catch (e) {
+        setRefusal({ message: e instanceof Error ? e.message : "request failed" });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [reviewId, record.subjectRef, choice, reason, onRemedied],
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Contested record ${record.subjectRef}`}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/95 p-5 shadow-lg shadow-black/30"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase tracking-wide text-amber-300">Contested record</div>
+            <h3 className="mt-0.5 break-all font-mono text-sm text-slate-100">{record.subjectRef}</h3>
+            <p className="mt-1 text-[11px] text-slate-400">{record.resolutionReason ?? ""}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="shrink-0 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-900"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <DecisionColumn slot="Reviewer 1" decision={record.r1} />
+          <DecisionColumn slot="Reviewer 2" decision={record.r2} />
+        </div>
+
+        {canRemedy ? (
+          <div className="mt-4 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+            <h4 className="text-xs font-semibold text-slate-100">Governed remedy</h4>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
+              Ratify one of the labels above, or defer. A remedy resolves the dispute — it does not create a new
+              finding, so no label the reviewers did not return is offered. It writes nothing to the corpus, grants
+              no Standing, and freezes nothing.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {labels.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setChoice(l)}
+                  className={`rounded-lg border px-3 py-1.5 text-[11px] transition ${
+                    choice === l
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                      : "border-slate-800 bg-slate-900/60 text-slate-300 hover:bg-slate-900"
+                  }`}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Why this label stands (or why this row is deferred)"
+              className={`${FIELD} mt-2 resize-y`}
+            />
+            {refusal && (
+              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-300">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span>
+                  {refusal.code && <span className="font-mono">{refusal.code}: </span>}
+                  {refusal.message}
+                </span>
+              </p>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !choice || !reason.trim()}
+                onClick={() => void submit("adopt")}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Ratify {choice ?? "a label"}
+              </button>
+              <button
+                type="button"
+                disabled={busy || !reason.trim()}
+                onClick={() => void submit("defer")}
+                className="rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Defer this row
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+            This record is shown for inspection. Resolving a contested row is the Research Steward&apos;s act.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

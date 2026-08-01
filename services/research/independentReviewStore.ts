@@ -58,6 +58,22 @@ export const REVIEW_RESULT_ACTIONS: readonly ReviewResultAction[] = ['accept', '
  * write, so it is spelled out: accepting a review means the review's findings
  * are accepted as evidence. The freeze remains a separate governed act.
  */
+/**
+ * A review's queue state is DERIVED from how many of its rows are still in
+ * dispute — never asserted independently.
+ *
+ * Three call sites computed `contested > 0 ? 'contested' : 'completed'` by
+ * hand: the web writer, the CLI publish path, and (as of the record-level
+ * remedy, 2026-08-02) the row-resolution route. Three hand-copies of one rule
+ * is exactly the drift `inv.engineering.036` names — and the remedy route is
+ * where it would have bitten first, since remedying the last contested row
+ * must move the review out of `contested` or the header contradicts the list
+ * beneath it.
+ */
+export function deriveQueueState(contestedCount: number): 'contested' | 'completed' {
+  return contestedCount > 0 ? 'contested' : 'completed';
+}
+
 export const REVIEW_ACTION_EFFECT: Record<ReviewResultAction, string> = {
   accept:
     'The review is accepted as evidence. This does NOT ratify, freeze or admit the reviewed asset — ' +

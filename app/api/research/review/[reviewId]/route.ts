@@ -28,7 +28,7 @@ import {
   REVIEW_RESULT_ACTIONS,
   type ReviewResultAction,
 } from '@/services/research/independentReviewStore';
-import { redactedPreview, ReviewRefusal } from '@/services/research/review';
+import { redactedPreview, ReviewRefusal, tallyResolutions } from '@/services/research/review';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +51,30 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ reviewId: s
       }
     }
 
-    const contested = (record.resolutions ?? []).filter((r) => r.status === 'contested');
+    // RECORD-LEVEL DETAIL (operator ruling, 2026-08-02: "the contested records
+    // need to be clickable to see their detail").
+    //
+    // Each contested row carries only the two LABELS. That is enough to show a
+    // disagreement exists and nothing like enough to adjudicate it — the
+    // reasons, the evidence the reviewers cited, the limitations they stated
+    // and the commitment over their raw output all live on the decisions.
+    //
+    // Attached to the contested rows themselves rather than returned as a
+    // parallel array: one object per contested subject, so a client cannot
+    // pair the wrong reason with the wrong row, and there is no second
+    // projection to drift.
+    const r1By = new Map(record.r1Decisions.map((d) => [d.subjectRef, d]));
+    const r2By = new Map(record.r2Decisions.map((d) => [d.subjectRef, d]));
+    const contested = (record.resolutions ?? [])
+      .filter((r) => r.status === 'contested')
+      .map((r) => ({
+        ...r,
+        // `null` where a reviewer returned nothing for this subject — that is
+        // the "a missing second pass is not a passing second pass" case, and
+        // it must read as absent rather than as an empty decision.
+        r1: r1By.get(r.subjectRef) ?? null,
+        r2: r2By.get(r.subjectRef) ?? null,
+      }));
     const limitations = [...record.r1Decisions, ...record.r2Decisions]
       .flatMap((d) => d.limitations)
       .filter((l, i, arr) => arr.indexOf(l) === i)
@@ -66,12 +89,12 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ reviewId: s
         reviewers: record.assignments,
         steward: record.steward,
         blockDecisions: record.blockDecisions,
-        tally: {
-          agreed: record.resolutions.filter((r) => r.status === 'agreed').length,
-          contested: contested.length,
-          rejected: record.resolutions.filter((r) => r.status === 'rejected').length,
-          unknown: record.resolutions.filter((r) => r.status === 'unknown').length,
-        },
+        // Derived by the adjudication service, not hand-counted here. The
+        // hand-counted version omitted 'accepted' and 'deferred' — harmless
+        // while nothing could produce them, and silently lossy the moment the
+        // record-level remedy could: a remedied row would vanish from every
+        // count and the totals would no longer sum to the subject count.
+        tally: tallyResolutions(record.resolutions ?? []),
         contested,
         limitations,
         action: record.action,
