@@ -41,6 +41,10 @@ import {
   Pause,
   Play,
 } from "lucide-react";
+import {
+  subscribeWalletSurfaceRequest,
+  type WalletSurfaceRequest,
+} from "@/services/wallet/walletSurfaceRequest";
 
 interface CodexCopilotLayerProps {
   isOpen: boolean;
@@ -1235,6 +1239,27 @@ export function CodexCopilotLayer({
    */
   const hostOwnsWalletSurface = typeof onWalletLaunch === "function";
 
+  /**
+   * A Journey stage asking the wallet to open on a surface (the Register stage
+   * blocking on a missing principal wallet). The stage REQUESTS; this layer,
+   * which already owns wallet surfacing, DECIDES — so no second wallet is
+   * mounted and no second navigation appears (MS-1/MS-2).
+   */
+  const [walletSurfaceRequest, setWalletSurfaceRequest] = useState<WalletSurfaceRequest | null>(null);
+  useEffect(
+    () =>
+      subscribeWalletSurfaceRequest((request) => {
+        setWalletSurfaceRequest(request);
+        // Route through the SAME launcher every other wallet entry point uses,
+        // so a host that owns the surface still gets handed it.
+        launchWalletRef.current?.("wallet");
+      }),
+    [],
+  );
+  // A ref because `launchWallet` is defined just below and the subscription
+  // must not re-bind on every render of that callback.
+  const launchWalletRef = useRef<((tab: WalletTab) => void) | null>(null);
+
   const launchWallet = useCallback(
     (tab: WalletTab = "wallet") => {
       if (hostOwnsWalletSurface) {
@@ -1248,6 +1273,7 @@ export function CodexCopilotLayer({
     },
     [hostOwnsWalletSurface, onWalletLaunch],
   );
+  launchWalletRef.current = launchWallet;
 
   const handlePromptSuggestion = (prompt: string, _meta?: PromptSuggestionMeta) => {
     const matchedTab = resolveWalletPromptTab(prompt);
@@ -1566,6 +1592,9 @@ export function CodexCopilotLayer({
       agent={agent || { id: "default", name: "Demo Agent" }}
       codexMode={true}
       personaId={personaId}
+      initialWalletSurface={walletSurfaceRequest?.surface}
+      walletSurfaceRequestToken={walletSurfaceRequest?.token}
+      walletSurfaceReturn={walletSurfaceRequest?.returnTo ?? null}
     />
   );
   const currentWalletLayout: "narrow" | "wide" =

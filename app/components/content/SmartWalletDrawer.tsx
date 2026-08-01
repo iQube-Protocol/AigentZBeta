@@ -20,6 +20,7 @@ import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
+import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -184,7 +185,25 @@ type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "pa
  * them at this layer would be exactly the parallel-implementation defect
  * inv.engineering.037 forbids.
  */
-type WalletSurface = null | "PASSPORT_SIGN_IN" | "PASSPORT_CONNECTED" | "RECOVERY_OPTIONS";
+type WalletSurface =
+  | null
+  | "PASSPORT_SIGN_IN"
+  | "PASSPORT_CONNECTED"
+  | "RECOVERY_OPTIONS"
+  /**
+   * Creating and proving a first-party principal wallet (operator ruling,
+   * 2026-08-02). A wallet surface rather than a modal or a Register-stage
+   * component, because the boundary is:
+   *
+   *   Journey detects and explains the prerequisite
+   *   → SmartWallet provisions and proves the wallet
+   *   → Journey resumes the consequential act
+   *
+   * Register deep-links here when the principal wallet is not configured or
+   * its control has not been proven — the operator never has to discover
+   * wallet setup on their own.
+   */
+  | "PRINCIPAL_WALLET_PROVISIONING";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -264,6 +283,29 @@ interface SmartWalletDrawerProps {
    * elsewhere in this file.
    */
   simplifiedTopChrome?: boolean;
+  /**
+   * Open directly onto a wallet surface (operator ruling, 2026-08-02).
+   *
+   * The Journey DETECTS and EXPLAINS a missing prerequisite; the wallet
+   * PROVISIONS and PROVES. Register passes
+   * `initialWalletSurface="PRINCIPAL_WALLET_PROVISIONING"` when the principal
+   * wallet is not configured or its control has not been proven, so the
+   * operator lands on the ceremony instead of being told to go and find it.
+   */
+  initialWalletSurface?: WalletSurface;
+  /**
+   * Bumped by the host on each NEW surface request. An effect keyed on the
+   * surface name alone would either re-fire on every render — overriding a
+   * deliberate Back, which MS-5 forbids — or never re-fire, silently dropping
+   * a second request after a dismissal. The token distinguishes the two.
+   */
+  walletSurfaceRequestToken?: number;
+  /**
+   * Where to send the operator once the surface's work is done. Rendered as
+   * the "Continue to …" button. Absent when nobody sent them here — the
+   * wallet never invents a destination it was not given.
+   */
+  walletSurfaceReturn?: { label: string; onReturn: () => void } | null;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -307,6 +349,9 @@ export default function SmartWalletDrawer({
   recipientAddress,
   initialTab = "wallet",
   initialAuthMode,
+  initialWalletSurface,
+  walletSurfaceRequestToken,
+  walletSurfaceReturn,
   initialPersonaFlow,
   onPersonaChange,
   onCreatePersona,
@@ -505,8 +550,22 @@ export default function SmartWalletDrawer({
   // or a successful connection's "Return to Wallet Home") naturally reveals
   // the SAME tab the visitor was already on, with no separate "previous tab"
   // tracker required.
-  const [walletSurface, setWalletSurface] = useState<WalletSurface>(null);
+  // Seeded from `initialWalletSurface` so a Journey deep-link lands ON the
+  // ceremony. The auto-open sign-in effect below still wins for a signed-out
+  // visitor — provisioning a wallet for nobody is not a coherent surface.
+  const [walletSurface, setWalletSurface] = useState<WalletSurface>(initialWalletSurface ?? null);
   const [connectedPassport, setConnectedPassport] = useState<PassportFacts | null>(null);
+  // A deep-link request from an already-mounted drawer (the Journey blocking on
+  // a missing principal wallet). Keyed on the TOKEN, never on the surface name:
+  // re-running on the name would fight the operator's own Back, and a
+  // deliberate act outranks an ambient one (MS-5).
+  const lastWalletSurfaceTokenRef = useRef<number | undefined>(walletSurfaceRequestToken);
+  useEffect(() => {
+    if (walletSurfaceRequestToken === undefined) return;
+    if (walletSurfaceRequestToken === lastWalletSurfaceTokenRef.current) return;
+    lastWalletSurfaceTokenRef.current = walletSurfaceRequestToken;
+    if (initialWalletSurface) setWalletSurface(initialWalletSurface);
+  }, [walletSurfaceRequestToken, initialWalletSurface]);
   // Auto-opens PASSPORT_SIGN_IN exactly once per signed-out visit — never
   // re-fires after an explicit Back, and resets once the visitor is
   // genuinely signed in so a LATER sign-out prompts again.
@@ -3688,8 +3747,54 @@ export default function SmartWalletDrawer({
                       <li>Rotation deferred — AIGENT-Z-WALLET-ROTATION-001</li>
                     </ul>
                   </div>
+                  {/* The remedy lives WITH the diagnosis. Naming a missing
+                      principal wallet and then leaving the operator to find
+                      the ceremony elsewhere is what "do not require the user
+                      to discover the wallet setup manually" forbids. */}
+                  <button
+                    type="button"
+                    onClick={() => setWalletSurface('PRINCIPAL_WALLET_PROVISIONING')}
+                    className="mt-2.5 w-full rounded-lg border border-violet-500/30 bg-gradient-to-r from-violet-500/20 to-cyan-500/20 px-3 py-2 text-xs text-white transition-colors hover:from-violet-500/30 hover:to-cyan-500/30"
+                  >
+                    Set up your principal wallet
+                  </button>
                 </section>
               )}
+              {/*
+                PRINCIPAL WALLET ENTRY — always present for a signed-in
+                persona, in every capability state.
+
+                The legacy-evidence block above renders only when the
+                principal is UNRESOLVED (`!personaEvmOverride`), and the
+                operator's own row is not that case: it holds a real MetaMask
+                address written into the principal field by the passport-mint
+                route, so `personaEvmOverride` is set and that block never
+                appears. A remedy reachable only from a diagnosis that does
+                not fire is not reachable.
+
+                It deliberately asserts NOTHING about the wallet's state —
+                the surface itself classifies, server-side, via
+                `/api/wallet/principal/status`. A second classification here
+                would be the parallel implementation inv.engineering.037
+                forbids, and would disagree with the first one the moment
+                either changed.
+              */}
+              {sessionEmail && effectivePersonaId && (
+                <button
+                  type="button"
+                  onClick={() => setWalletSurface('PRINCIPAL_WALLET_PROVISIONING')}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:bg-slate-900/70"
+                >
+                  <span>
+                    <span className="block text-xs font-medium text-slate-200">Principal wallet</span>
+                    <span className="mt-0.5 block text-[11px] text-white/40">
+                      Create, repair or prove the wallet that signs on your behalf
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
+                </button>
+              )}
+
               {/* Signed OUT entirely (2026-08-02, revised): the wallet-level
                   `walletSurface` override (rendered above the whole tab-nav +
                   content region — see its own block below) is now the ONE
@@ -5848,6 +5953,13 @@ export default function SmartWalletDrawer({
                   setConnectedPassport(passport ?? null);
                   setWalletSurface('PASSPORT_CONNECTED');
                 }}
+              />
+            )}
+
+            {walletSurface === 'PRINCIPAL_WALLET_PROVISIONING' && (
+              <PrincipalWalletProvisioningPanel
+                personaId={effectivePersonaId ?? ''}
+                returnTo={walletSurfaceReturn ?? null}
               />
             )}
 

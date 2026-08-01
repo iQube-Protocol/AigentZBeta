@@ -51,6 +51,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { requestWalletSurface } from '@/services/wallet/walletSurfaceRequest';
 import { AgentCardSurface } from './AgentCardSurface';
 
 interface RegistrableAgentOption {
@@ -119,6 +120,26 @@ interface SponsoredAgent {
 // hold, review and submit — the mandate is signed in the operator's wallet and
 // broadcast server-side as a consequence of that signature.
 
+/**
+ * The principal wallet is a PREREQUISITE of the Register mandate, not a
+ * failure mode of it.
+ *
+ *   Journey detects and explains the prerequisite
+ *   → SmartWallet provisions and proves the wallet
+ *   → Journey resumes the consequential act
+ *
+ * So this panel checks BEFORE offering the button, and hands the operator to
+ * the wallet's own ceremony rather than describing one — "do not require the
+ * user to discover the wallet setup manually". It never provisions anything
+ * itself: wallet creation and proof belong to the wallet.
+ */
+interface PrincipalWalletGate {
+  ready: boolean;
+  capability: string;
+  controlProven: boolean;
+  detail: string;
+}
+
 type FlowState =
   | { step: 'idle' }
   | { step: 'preparing' }
@@ -161,6 +182,46 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   const [sponsoredAgents, setSponsoredAgents] = useState<SponsoredAgent[]>([]);
   const [cardVersion, setCardVersion] = useState(0);
   const [flow, setFlow] = useState<FlowState>({ step: 'idle' });
+  const [walletGate, setWalletGate] = useState<PrincipalWalletGate | null>(null);
+
+  const readWalletGate = useCallback(async () => {
+    try {
+      const res = await personaFetch('/api/wallet/principal/status', { cache: 'no-store' });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        capability?: string;
+        controlProven?: boolean;
+        detail?: string;
+      };
+      if (!res.ok || !json.ok) {
+        // Unknown is not ready, and it is also not "you have no wallet".
+        setWalletGate({
+          ready: false,
+          capability: 'UNKNOWN',
+          controlProven: false,
+          detail: 'Your principal wallet state could not be read, so a signing mandate cannot be offered yet.',
+        });
+        return;
+      }
+      setWalletGate({
+        ready: json.capability === 'SIGNER_CONFIGURED' && Boolean(json.controlProven),
+        capability: String(json.capability),
+        controlProven: Boolean(json.controlProven),
+        detail: String(json.detail ?? ''),
+      });
+    } catch {
+      setWalletGate({
+        ready: false,
+        capability: 'UNKNOWN',
+        controlProven: false,
+        detail: 'Your principal wallet state could not be read, so a signing mandate cannot be offered yet.',
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    void readWalletGate();
+  }, [readWalletGate]);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stub: the operator's own sponsored agents, real data from the existing
@@ -227,7 +288,11 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           throw new Error((json?.error as string) ?? `Register status check failed (${res.status})`);
         }
         if (json.confirmed) {
-          setFlow({ step: 'confirmed', tokenId: json.tokenId });
+          // `readJsonOrExplain` returns unknown-valued fields — a tokenId that
+          // arrived as something other than a string must not be rendered as
+          // one. Reported honestly rather than coerced.
+          const tokenId = typeof json.tokenId === 'string' ? json.tokenId : '';
+          setFlow({ step: 'confirmed', tokenId });
           setCardVersion((v) => v + 1);
           return;
         }
@@ -290,13 +355,52 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
       <AgentCardSurface key={`${agentSlug}-${cardVersion}`} route={selectedAgent.agentCardPath} />
 
       <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3">
-        {flow.step === 'idle' && (
+        {flow.step === 'idle' && walletGate && !walletGate.ready && (
+          <div className="text-xs">
+            <div className="font-medium text-amber-200">
+              {walletGate.controlProven
+                ? 'Your principal wallet is not ready'
+                : walletGate.capability === 'SIGNER_CONFIGURED'
+                  ? 'Your principal wallet has not proven control'
+                  : 'You do not yet have a principal wallet'}
+            </div>
+            <p className="mt-1 leading-relaxed text-slate-400">
+              Registering {selectedAgent.displayName} requires you to sign a mandate with your own wallet. That
+              wallet must be under first-party custody and must have freshly proven it holds its key — an external
+              wallet cannot carry a principal mandate.
+            </p>
+            {walletGate.detail && <p className="mt-1 text-[11px] text-slate-500">{walletGate.detail}</p>}
+            <button
+              onClick={() => {
+                requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING', {
+                  label: `Continue to ${selectedAgent.displayName} registration`,
+                  onReturn: () => {
+                    // The wallet finished; re-read the gate so this stage
+                    // reflects the new state rather than its stale one.
+                    void readWalletGate();
+                  },
+                });
+              }}
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
+            >
+              Set up your principal wallet <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
+
+        {flow.step === 'idle' && walletGate?.ready && (
           <button
             onClick={() => void prepare()}
             className="flex items-center gap-1.5 rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40"
           >
             Register {selectedAgent.displayName} in Horizen <ChevronRight className="h-3.5 w-3.5" />
           </button>
+        )}
+
+        {flow.step === 'idle' && !walletGate && (
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking your principal wallet…
+          </div>
         )}
 
         {flow.step === 'preparing' && (

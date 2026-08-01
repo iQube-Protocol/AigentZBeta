@@ -89,16 +89,33 @@ describe("PassportConnectPanel — threads embedded through to its own UnlockMod
 });
 
 describe("SmartWalletDrawer — WalletSurface type and state", () => {
-  it("declares the exact WalletSurface literal union the operator specified", () => {
+  /*
+   * These two used to assert the union's exact TEXT and the exact `useState`
+   * call. Both were protecting real properties — the four original members
+   * exist, and no surface is active by default — but they asserted the
+   * SPELLING of the code that provided them, so a legitimate extension
+   * (PRINCIPAL_WALLET_PROVISIONING, 2026-08-02) failed them while breaking
+   * nothing they were guarding. A canary that fails on correct work is one
+   * people learn to edit past, which is worse than not having it.
+   */
+  it("declares WalletSurface with null and the four Passport-era members", () => {
     const src = stripComments(readSource(WALLET_DRAWER));
-    expect(src).toMatch(
-      /type WalletSurface = null \| "PASSPORT_SIGN_IN" \| "PASSPORT_CONNECTED" \| "RECOVERY_OPTIONS";/,
-    );
+    const at = src.indexOf("type WalletSurface =");
+    expect(at).toBeGreaterThan(-1);
+    const decl = src.slice(at, src.indexOf(";", at));
+    for (const member of ["null", '"PASSPORT_SIGN_IN"', '"PASSPORT_CONNECTED"', '"RECOVERY_OPTIONS"']) {
+      expect(decl, member).toContain(member);
+    }
   });
 
-  it("initializes walletSurface to null — every existing tab renders unchanged by default", () => {
+  it("defaults to no surface — every existing tab renders unchanged unless one is requested", () => {
     const src = stripComments(readSource(WALLET_DRAWER));
-    expect(src).toMatch(/const \[walletSurface, setWalletSurface\] = useState<WalletSurface>\(null\);/);
+    const at = src.indexOf("const [walletSurface, setWalletSurface] = useState<WalletSurface>(");
+    expect(at).toBeGreaterThan(-1);
+    const seed = src.slice(at, src.indexOf(";", at));
+    // A deep-link seed is permitted; anything OTHER than null in its absence
+    // would open a surface nobody asked for.
+    expect(seed).toMatch(/\(null\)|\?\?\s*null/);
   });
 });
 

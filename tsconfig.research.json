@@ -78,7 +78,9 @@
     "tests/linked-external-wallet.test.ts",
     "tests/pilot-wallet-exception.test.ts",
     "app/api/wallet/principal/**/*.ts",
-    "tests/principal-wallet-provisioning.test.ts"
+    "tests/principal-wallet-provisioning.test.ts",
+    "components/wallet/**/*.tsx",
+    "components/journey/RegisterAgentPanel.tsx"
   ],
   "exclude": [
     "node_modules",

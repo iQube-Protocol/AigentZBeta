@@ -32,6 +32,16 @@ import { personaFetch } from '@/utils/personaSpine';
 import { generateEvmKeyPair, decryptPrivateKey, validatePassword } from '@/services/wallet/keyService';
 import { PROVISIONING_SEQUENCE } from '@/services/wallet/principalWalletProvisioning';
 
+/**
+ * The phases a surface can render, in order.
+ *
+ * Deliberately coarser than PROVISIONING_SEQUENCE: the sequence records what
+ * must HAPPEN and in what order, this records what is worth SHOWING. Merging
+ * them would either flash eleven states past the operator or hide the two long
+ * ones (persisting, awaiting proof) behind a single spinner.
+ */
+export type ProvisioningPhase = 'GENERATING' | 'ENCRYPTING' | 'PERSISTING' | 'AWAITING_CONTROL_PROOF';
+
 export interface ProvisioningOutcome {
   ok: boolean;
   stage: 'NOT_STARTED' | 'SIGNER_CONFIGURED' | 'CONTROL_PROVEN';
@@ -116,7 +126,19 @@ export async function provisionPrincipalWallet(input: {
   password: string;
   /** Idempotency key for the provisioning POST. */
   requestId: string;
+  /**
+   * Phase reporting for the wallet surface.
+   *
+   * The surface has to show GENERATING / ENCRYPTING / PERSISTING /
+   * AWAITING_CONTROL_PROOF as distinct states, and the only place that knows
+   * which one is running is here. A second copy of this sequence living in the
+   * component would be the parallel implementation inv.engineering.037
+   * forbids — and would drift the moment either changed.
+   */
+  onPhase?: (phase: ProvisioningPhase) => void;
 }): Promise<ProvisioningOutcome> {
+  const phase = (p: ProvisioningPhase) => input.onPhase?.(p);
+
   const strength = validatePassword(input.password);
   if (!strength.valid) {
     return stopped(
@@ -127,6 +149,7 @@ export async function provisionPrincipalWallet(input: {
   }
 
   // ── generate + derive + encrypt, all client-side ────────────────────────
+  phase('GENERATING');
   let pair: Awaited<ReturnType<typeof generateEvmKeyPair>>;
   try {
     pair = await generateEvmKeyPair(input.password);
@@ -143,6 +166,7 @@ export async function provisionPrincipalWallet(input: {
     return stopped('encrypt-private-key-client-side', 'ENVELOPE_UNREADABLE', (e as Error).message);
   }
 
+  phase('ENCRYPTING');
   const derivationFault = await assertRealDerivation(plaintextKey, pair.address);
   if (derivationFault) {
     return stopped('derive-address-client-side', 'FALLBACK_DERIVATION_REFUSED', derivationFault);
@@ -150,6 +174,7 @@ export async function provisionPrincipalWallet(input: {
 
   // ── persist ciphertext + address (and, server-side, preserve the external
   //    binding and supersede the placeholder) ──────────────────────────────
+  phase('PERSISTING');
   const provisionRes = await personaFetch('/api/wallet/principal/provision', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -168,6 +193,7 @@ export async function provisionPrincipalWallet(input: {
   }
 
   // ── issue a fresh nonce ─────────────────────────────────────────────────
+  phase('AWAITING_CONTROL_PROOF');
   const nonceRes = await personaFetch('/api/wallet/principal/control-proof', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
