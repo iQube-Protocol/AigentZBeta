@@ -191,6 +191,38 @@ export async function listPendingSigningRequestsForAgent(
   return (data as DbRow[]).map(rowToRecord);
 }
 
+/**
+ * Everything waiting on ONE operator, across every wallet they control.
+ *
+ * Deliberately a third question, not a widening of the two above it.
+ * `listPendingSigningRequestsForPrincipal` answers "what is waiting in my
+ * principal wallet" and `…ForAgent` answers "what is waiting in this agent's
+ * wallet". Neither answers "what is waiting on ME", and the Pending Actions
+ * surface needs exactly that — an operator who must sign a principal mandate
+ * and then approve an agent invocation has two acts in two wallets and one
+ * queue.
+ *
+ * Scoped by `principal_persona_id`, which the ceremony sets on the agent-role
+ * request too: an agent request created under this operator's mandate belongs
+ * in their queue, and one created under someone else's does not. The grouping
+ * by `wallet_ref` happens in the surface, where the distinction between
+ * signing domains is rendered — never here, which would flatten it.
+ */
+export async function listPendingSigningRequestsForOperator(
+  principalPersonaId: string,
+  admin?: SupabaseClient,
+): Promise<SigningRequest[]> {
+  const client = adminOrDefault(admin);
+  const { data, error } = await client
+    .from(TABLE)
+    .select('*')
+    .eq('principal_persona_id', principalPersonaId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(`listPendingSigningRequestsForOperator failed: ${error.message}`);
+  return (data as DbRow[]).map(rowToRecord);
+}
+
 export interface SigningRequestStateUpdate {
   status: SigningRequestStatus;
   signature?: string;

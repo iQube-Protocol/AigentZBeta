@@ -28,9 +28,10 @@
  * The client never receives an unsigned transaction to hold or submit, and
  * there is no administrative fallback — see the mandate/prepare route header.
  *
- * The signing surface itself (the wallet's Pending Actions) is Signing Phase 2
- * and is NOT built yet, so the panel says so plainly at that step rather than
- * directing the operator somewhere the act cannot be completed.
+ * The signing surface (the wallet's Pending Actions) SHIPPED with Signing
+ * Phase 2 (2026-08-02): the awaiting-signature step hands the operator to it
+ * via the serializable wallet-surface request, and the completion event
+ * triggers a fresh status read here.
  *
  * "MoneyPenny is the demo agent; Aigent Nakamoto is the dry-run agent" —
  * operator ruling 2026-07-31. The dropdown lists both
@@ -512,20 +513,32 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
             </p>
             {flow.summary && <p className="mt-1.5 text-slate-300">{flow.summary}</p>}
             <p className="mt-1 font-mono text-[11px] text-slate-500">request {flow.requestId}</p>
-            {/* HONEST ABOUT THE GAP: the wallet's Pending Actions surface is
-                Signing Phase 2 and is not built yet, so there is currently no
-                place to perform this signature. Saying "open your wallet" would
-                send the operator somewhere that cannot complete the act. */}
-            <p className="mt-2 rounded border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-snug text-amber-200/90">
-              The wallet surface for signing pending actions is not built yet (Signing Phase 2), so this mandate cannot
-              be signed from the app today. The request is recorded and will appear there once that surface ships.
-            </p>
-            <button
-              onClick={() => setFlow({ step: 'idle' })}
-              className="mt-2 rounded-md border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800/60"
-            >
-              Back
-            </button>
+            {/* Signing Phase 2 shipped (2026-08-02): the wallet's Pending
+                Actions surface is where this signature happens. The Journey
+                DETECTS and hands over; the wallet signs — same boundary as
+                provisioning, same request bus. */}
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={() => {
+                  requestWalletSurface({
+                    surface: 'PENDING_ACTIONS',
+                    origin: 'HORIZEN_REGISTER',
+                    subjectAgentId: `aigent-${selectedAgent.slug}`,
+                    returnTarget: `journey:horizen:register:aigent-${selectedAgent.slug}`,
+                    returnLabel: `Continue to ${selectedAgent.displayName} registration`,
+                  });
+                }}
+                className="flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
+              >
+                Sign in your wallet <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={() => setFlow({ step: 'idle' })}
+                className="rounded-md border border-slate-700 px-3 py-1.5 text-slate-300 hover:bg-slate-800/60"
+              >
+                Back
+              </button>
+            </div>
           </div>
         )}
 

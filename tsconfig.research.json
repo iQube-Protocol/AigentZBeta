@@ -80,7 +80,9 @@
     "app/api/wallet/principal/**/*.ts",
     "tests/principal-wallet-provisioning.test.ts",
     "components/wallet/**/*.tsx",
-    "components/journey/RegisterAgentPanel.tsx"
+    "components/journey/RegisterAgentPanel.tsx",
+    "services/signing/**/*.ts",
+    "app/api/wallet/signing-requests/**/*.ts"
   ],
   "exclude": [
     "node_modules",

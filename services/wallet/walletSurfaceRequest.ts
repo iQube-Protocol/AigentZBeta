@@ -38,7 +38,7 @@
  * either side.
  */
 
-export type RequestableWalletSurface = 'PRINCIPAL_WALLET_PROVISIONING';
+export type RequestableWalletSurface = 'PRINCIPAL_WALLET_PROVISIONING' | 'PENDING_ACTIONS';
 
 export const WALLET_SURFACE_REQUEST_TYPE = 'metame:wallet-surface-request:v1';
 export const WALLET_SURFACE_COMPLETION_TYPE = 'metame:wallet-surface-completion:v1';
@@ -66,11 +66,22 @@ export interface WalletSurfaceCompletion {
   type: typeof WALLET_SURFACE_COMPLETION_TYPE;
   surface: RequestableWalletSurface;
   /**
-   * What actually happened. `CONTROL_PROVEN` is the only completion that means
-   * the consequential act may resume — see the governing rule: "a provisioning
-   * write is not completion; authoritative control proof is completion."
+   * What actually happened, in the vocabulary of the surface that happened it.
+   *
+   * Provisioning outcomes: `CONTROL_PROVEN` is the only one that lets the
+   * consequential act resume — "a provisioning write is not completion;
+   * authoritative control proof is completion". Signing outcomes:
+   * `ACTION_COMPLETED` / `ACTION_REFUSED`. Kept distinct rather than collapsed
+   * into "done": a listener that treated a signed mandate as a proven wallet
+   * would be reasoning from the wrong fact.
    */
-  outcome: 'CONTROL_PROVEN' | 'SIGNER_CONFIGURED_AWAITING_PROOF' | 'DISMISSED' | 'REFUSED';
+  outcome:
+    | 'CONTROL_PROVEN'
+    | 'SIGNER_CONFIGURED_AWAITING_PROOF'
+    | 'ACTION_COMPLETED'
+    | 'ACTION_REFUSED'
+    | 'DISMISSED'
+    | 'REFUSED';
   returnTarget?: string;
   refusal?: string;
 }

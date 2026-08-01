@@ -22,6 +22,7 @@ import { PassportConnectPanel, type PassportFacts } from "@/components/companion
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
 import { subscribeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
+import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -204,7 +205,13 @@ type WalletSurface =
    * its control has not been proven — the operator never has to discover
    * wallet setup on their own.
    */
-  | "PRINCIPAL_WALLET_PROVISIONING";
+  | "PRINCIPAL_WALLET_PROVISIONING"
+  /**
+   * Acts waiting on the operator's own key (Signing Phase 2). Register has
+   * been preparing real principal mandates and then saying, honestly, that
+   * the surface to sign them did not exist. This is that surface.
+   */
+  | "PENDING_ACTIONS";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -585,8 +592,10 @@ export default function SmartWalletDrawer({
   useEffect(
     () =>
       subscribeWalletSurfaceRequest((request) => {
-        if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING') return;
-        setWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
+        // Honour any surface this drawer can render — a listener that only
+        // knew one surface would silently drop the second one added.
+        if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' && request.surface !== 'PENDING_ACTIONS') return;
+        setWalletSurface(request.surface);
         setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
       }),
     [],
@@ -610,6 +619,13 @@ export default function SmartWalletDrawer({
    * says "not checked", never "no wallet".
    */
   const [principalChip, setPrincipalChip] = useState<'proven' | 'configured' | 'none' | null>(null);
+  /*
+   * How many acts are waiting. Null while unknown — an absent count says
+   * "not checked", never "nothing pending", for the same reason the wallet
+   * chip does: a mandate the operator cannot see is a mandate they will not
+   * complete.
+   */
+  const [pendingActionCount, setPendingActionCount] = useState<number | null>(null);
   useEffect(() => {
     if (!sessionEmail || !effectivePersonaId) {
       setPrincipalChip(null);
@@ -633,6 +649,30 @@ export default function SmartWalletDrawer({
         );
       } catch {
         if (!cancelled) setPrincipalChip(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionEmail, effectivePersonaId, walletSurface]);
+
+  useEffect(() => {
+    if (!sessionEmail || !effectivePersonaId) {
+      setPendingActionCount(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch('/api/wallet/signing-requests', {
+          cache: 'no-store',
+          personaIdHint: effectivePersonaId,
+        });
+        const j = (await res.json()) as { ok?: boolean; requests?: unknown[] };
+        if (cancelled) return;
+        setPendingActionCount(res.ok && j.ok && Array.isArray(j.requests) ? j.requests.length : null);
+      } catch {
+        if (!cancelled) setPendingActionCount(null);
       }
     })();
     return () => {
@@ -3841,6 +3881,33 @@ export default function SmartWalletDrawer({
                 </section>
               )}
               {/*
+                PENDING ACTIONS ENTRY — shown only when something is actually
+                waiting. A permanently visible row reading "0 pending" trains
+                the operator to ignore it, and the count is the whole signal.
+                Absent while unknown, never rendered as zero.
+              */}
+              {sessionEmail && effectivePersonaId && (pendingActionCount ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWalletSurface('PENDING_ACTIONS')}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3 text-left transition-colors hover:bg-violet-500/10"
+                >
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-violet-100">Pending actions</span>
+                      <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">
+                        {pendingActionCount}
+                      </span>
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-white/40">
+                      Waiting on your signature or approval
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
+                </button>
+              )}
+
+              {/*
                 PRINCIPAL WALLET ENTRY — always present for a signed-in
                 persona, in every capability state.
 
@@ -6066,6 +6133,10 @@ export default function SmartWalletDrawer({
                   return label ? { label, onReturn: () => setWalletSurface(null) } : null;
                 })()}
               />
+            )}
+
+            {walletSurface === 'PENDING_ACTIONS' && (
+              <PendingActionsPanel personaId={effectivePersonaId ?? ''} />
             )}
 
             {walletSurface === 'PASSPORT_CONNECTED' && (
