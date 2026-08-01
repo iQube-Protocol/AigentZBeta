@@ -1,83 +1,216 @@
 /**
- * Asking the wallet to open on a particular surface.
+ * Asking the wallet to open on a surface — across hosts, not across a module.
  *
- * ── Why a request rather than a second control ─────────────────────────────
+ * ── Why this was rewritten (operator browser run, 2026-08-02) ──────────────
  *
- * The boundary the operator set (2026-08-02):
+ * The first version was a module-level `Set` of listeners. It passed every
+ * canary and was dead in the browser, because the two ends do not share a
+ * module instance:
  *
- *   Journey detects and explains the prerequisite
- *   → SmartWallet provisions and proves the wallet
- *   → Journey resumes the consequential act
+ *   Multi-Cartridge Viewer (parent document)
+ *     └── <iframe src="/triad/embed/codex/…">      ← RegisterAgentPanel lives here
+ *   SmartWalletDrawer / copilot                     ← lives in the PARENT
  *
- * A Journey stage that blocks on a missing principal wallet has to be able to
- * SEND the operator to the ceremony — "do not require the user to discover the
- * wallet setup manually". But it must not mount a wallet of its own, and it
- * must not become a second navigation (MS-1). Those two requirements are only
- * compatible if the stage REQUESTS and the wallet's existing owner DECIDES.
+ * A publisher inside the iframe and a subscriber in the parent are two
+ * separate JavaScript realms. The `Set` in the iframe's copy of the module has
+ * no subscriber, so `requestWalletSurface` did exactly what it was documented
+ * to do — deliver to nobody, silently — and the button looked broken.
  *
- * MS-2 is the reason this is a request bus and not a shared state atom: a host
- * that supplies `onWalletLaunch` owns wallet surfacing, and the copilot keeps
- * no parallel wallet when it does. A publisher that set wallet state directly
- * would create exactly the two-owners-of-one-surface defect that invariant
- * records — where the hidden owner wins and a stale wallet reappears later.
- * Here the publisher only says what it needs; the owner still routes it.
+ * The operator named the fix precisely:
  *
- * ── The token ─────────────────────────────────────────────────────────────
+ *   > "Do not depend on an in-memory module bus or function callback crossing
+ *   >  cartridge/iframe boundaries. Use a shell-owned, serializable request."
  *
- * Each request carries a monotonic token so a REPEAT of the same request
- * re-opens the surface, while a re-render of the subscriber does not. Without
- * it, an effect keyed on the surface name alone would either re-fire on every
- * render (fighting a deliberate Back) or never re-fire at all (a second
- * request after a dismissal would be silently dropped).
+ * So the request is a plain serializable object, delivered by `postMessage` to
+ * every ancestor window AND dispatched on the local document. Two channels
+ * because there are two real arrangements: an embedded Journey (needs the
+ * parent) and a same-document one (needs the local dispatch). Neither is a
+ * fallback for the other — both are the normal case for some host.
+ *
+ * ── Why no function callback survives ──────────────────────────────────────
+ *
+ * The old shape carried `returnTo: { label, onReturn }`. A function cannot be
+ * structured-cloned, so `postMessage` would throw on it. That is not a
+ * limitation to work around — a callback is the wrong model here: it binds the
+ * requester's closure to the wallet's lifetime across a boundary either side
+ * may reload independently. `returnTarget` is an identifier the requester can
+ * recognise when the COMPLETION event comes back, which survives a reload of
+ * either side.
  */
 
 export type RequestableWalletSurface = 'PRINCIPAL_WALLET_PROVISIONING';
 
+export const WALLET_SURFACE_REQUEST_TYPE = 'metame:wallet-surface-request:v1';
+export const WALLET_SURFACE_COMPLETION_TYPE = 'metame:wallet-surface-completion:v1';
+
+/** Fully serializable. No functions, no class instances, no DOM nodes. */
 export interface WalletSurfaceRequest {
-  /** Monotonic; distinguishes a new request from a re-render. */
+  type: typeof WALLET_SURFACE_REQUEST_TYPE;
+  /** Monotonic within a realm; distinguishes a new request from a re-render. */
   token: number;
   surface: RequestableWalletSurface;
+  /** Which surface asked. Lets a host present "returning to …" honestly. */
+  origin: string;
+  /** The agent the originating act concerns, when there is one. */
+  subjectAgentId?: string;
   /**
-   * Where to send the operator when the surface's work is done. Optional —
-   * the wallet never invents a destination it was not given, and a surface
-   * opened from the wallet's own entry row genuinely has nowhere to return to.
+   * An identifier the requester will recognise on completion — NOT a callback.
+   * e.g. `journey:horizen:register:aigent-nakamoto`.
    */
-  returnTo?: { label: string; onReturn: () => void };
+  returnTarget?: string;
+  /** Human-readable label for the wallet's "Continue to …" button. */
+  returnLabel?: string;
 }
 
-type Listener = (request: WalletSurfaceRequest) => void;
+export interface WalletSurfaceCompletion {
+  type: typeof WALLET_SURFACE_COMPLETION_TYPE;
+  surface: RequestableWalletSurface;
+  /**
+   * What actually happened. `CONTROL_PROVEN` is the only completion that means
+   * the consequential act may resume — see the governing rule: "a provisioning
+   * write is not completion; authoritative control proof is completion."
+   */
+  outcome: 'CONTROL_PROVEN' | 'SIGNER_CONFIGURED_AWAITING_PROOF' | 'DISMISSED' | 'REFUSED';
+  returnTarget?: string;
+  refusal?: string;
+}
 
-const listeners = new Set<Listener>();
+type RequestListener = (request: WalletSurfaceRequest) => void;
+type CompletionListener = (completion: WalletSurfaceCompletion) => void;
+
 let nextToken = 1;
+
+/** Same-document channel, for hosts where requester and wallet share a realm. */
+const LOCAL_EVENT = 'metame-wallet-surface';
+const LOCAL_COMPLETION_EVENT = 'metame-wallet-surface-completion';
+
+function isRequest(v: unknown): v is WalletSurfaceRequest {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { type?: unknown }).type === WALLET_SURFACE_REQUEST_TYPE &&
+    typeof (v as { surface?: unknown }).surface === 'string'
+  );
+}
+
+function isCompletion(v: unknown): v is WalletSurfaceCompletion {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { type?: unknown }).type === WALLET_SURFACE_COMPLETION_TYPE &&
+    typeof (v as { outcome?: unknown }).outcome === 'string'
+  );
+}
+
+/**
+ * Post to every ancestor window, and to this one.
+ *
+ * Every ancestor rather than just `parent`: the Multi-Cartridge Viewer can nest
+ * an embed inside an embed, and a request that only climbs one level dies in
+ * the middle frame. Climbing to `top` costs nothing — a window with no listener
+ * ignores it — and a request that reaches nobody is the exact failure being
+ * fixed.
+ *
+ * `targetOrigin` is '*' deliberately and safely: the payload carries no secret
+ * (a surface name and a return identifier), and pinning an origin would break
+ * the legitimate cross-origin embed hosts this exists to serve. The RECEIVER
+ * validates shape, and acts only on surfaces it recognises.
+ */
+function broadcast(message: WalletSurfaceRequest | WalletSurfaceCompletion): void {
+  if (typeof window === 'undefined') return;
+
+  const localName = message.type === WALLET_SURFACE_REQUEST_TYPE ? LOCAL_EVENT : LOCAL_COMPLETION_EVENT;
+  try {
+    window.dispatchEvent(new CustomEvent(localName, { detail: message }));
+  } catch {
+    /* a realm without CustomEvent still gets the postMessage path */
+  }
+
+  const seen = new Set<Window>();
+  let w: Window | null = window;
+  for (let hops = 0; w && hops < 10; hops += 1) {
+    if (!seen.has(w)) {
+      seen.add(w);
+      try {
+        w.postMessage(message, '*');
+      } catch {
+        /* a cross-origin ancestor that refuses is not a reason to stop climbing */
+      }
+    }
+    const next: Window | null = w.parent === w ? null : w.parent;
+    w = next;
+  }
+}
 
 /**
  * Ask whoever owns the wallet to open `surface`.
  *
- * Returns the request's token. A caller with no subscriber gets a token and no
- * effect — deliberately silent rather than throwing: a Journey rendered
- * outside a wallet host is a legitimate arrangement, and a stage should not
- * crash because the operator is looking at it somewhere the wallet does not
- * live. The stage's own explanation of the prerequisite still renders.
+ * Returns the token. Delivery is best-effort by design: a Journey rendered in
+ * a host with no wallet is a legitimate arrangement, and the stage's own
+ * explanation of the prerequisite still stands.
  */
-export function requestWalletSurface(
-  surface: RequestableWalletSurface,
-  returnTo?: { label: string; onReturn: () => void },
-): number {
-  const request: WalletSurfaceRequest = { token: nextToken++, surface, returnTo };
-  listeners.forEach((l) => l(request));
+export function requestWalletSurface(input: {
+  surface: RequestableWalletSurface;
+  origin: string;
+  subjectAgentId?: string;
+  returnTarget?: string;
+  returnLabel?: string;
+}): number {
+  const request: WalletSurfaceRequest = {
+    type: WALLET_SURFACE_REQUEST_TYPE,
+    token: nextToken++,
+    surface: input.surface,
+    origin: input.origin,
+    ...(input.subjectAgentId ? { subjectAgentId: input.subjectAgentId } : {}),
+    ...(input.returnTarget ? { returnTarget: input.returnTarget } : {}),
+    ...(input.returnLabel ? { returnLabel: input.returnLabel } : {}),
+  };
+  broadcast(request);
   return request.token;
 }
 
-/** Subscribe. Returns the unsubscribe function. */
-export function subscribeWalletSurfaceRequest(listener: Listener): () => void {
-  listeners.add(listener);
+/** The wallet says what happened. Serializable, so it crosses the same boundaries. */
+export function announceWalletSurfaceCompletion(completion: Omit<WalletSurfaceCompletion, 'type'>): void {
+  broadcast({ type: WALLET_SURFACE_COMPLETION_TYPE, ...completion });
+}
+
+/** Subscribe to requests (the shell). Returns the unsubscribe function. */
+export function subscribeWalletSurfaceRequest(listener: RequestListener): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const onMessage = (e: MessageEvent) => {
+    if (isRequest(e.data)) listener(e.data);
+  };
+  const onLocal = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (isRequest(detail)) listener(detail);
+  };
+  window.addEventListener('message', onMessage);
+  window.addEventListener(LOCAL_EVENT, onLocal as EventListener);
   return () => {
-    listeners.delete(listener);
+    window.removeEventListener('message', onMessage);
+    window.removeEventListener(LOCAL_EVENT, onLocal as EventListener);
   };
 }
 
-/** Test seam — resets both the listener set and the token counter. */
+/** Subscribe to completions (the requester, e.g. Register). */
+export function subscribeWalletSurfaceCompletion(listener: CompletionListener): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const onMessage = (e: MessageEvent) => {
+    if (isCompletion(e.data)) listener(e.data);
+  };
+  const onLocal = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (isCompletion(detail)) listener(detail);
+  };
+  window.addEventListener('message', onMessage);
+  window.addEventListener(LOCAL_COMPLETION_EVENT, onLocal as EventListener);
+  return () => {
+    window.removeEventListener('message', onMessage);
+    window.removeEventListener(LOCAL_COMPLETION_EVENT, onLocal as EventListener);
+  };
+}
+
+/** Test seam — resets the token counter. Listeners are per-window, not held here. */
 export function __resetWalletSurfaceRequests(): void {
-  listeners.clear();
   nextToken = 1;
 }

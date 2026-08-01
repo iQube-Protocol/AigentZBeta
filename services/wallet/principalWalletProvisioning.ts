@@ -92,6 +92,19 @@ export type ProvisioningRefusal =
   | 'NON_ACTIVE_PERSONA'
   /** A principal signer is already configured AND freshly proven. Never silently replace one. */
   | 'EXISTING_VERIFIED_SIGNER'
+  /**
+   * An encrypted principal envelope already exists for this persona.
+   *
+   *   > "Do not create another keypair if an encrypted principal-wallet
+   *   >  envelope already exists." (operator, 2026-08-02)
+   *
+   * Distinct from EXISTING_VERIFIED_SIGNER, and the distinction is the whole
+   * recovery path: a wallet whose control was never proven is NOT finished,
+   * but it is also not absent. Generating a second keypair would abandon a key
+   * the operator may already hold — and would do so at the exact moment the UI
+   * is trying to help them finish. The remedy is to prove the existing one.
+   */
+  | 'PRINCIPAL_ENVELOPE_ALREADY_EXISTS'
   /** A 32-byte private key appeared in the payload. */
   | 'PLAINTEXT_KEY_IN_PAYLOAD'
   /** A password field appeared in the payload. */
@@ -293,6 +306,13 @@ export interface ProvisioningRequest {
   disallowedAddresses: ReadonlySet<string>;
   /** True only when a principal signer is BOTH configured and freshly control-proven. */
   existingSignerVerified: boolean;
+  /**
+   * True when `personas.evm_key.encryptedPrivateKey` is present — i.e. real key
+   * material exists, proven or not. Deliberately NOT the same as "an address is
+   * on file": the keyless placeholder has an address and no envelope, and that
+   * is precisely the case provisioning is FOR.
+   */
+  existingEnvelopePresent: boolean;
 }
 
 const WELL_FORMED = /^0x[0-9a-fA-F]{40}$/;
@@ -323,6 +343,14 @@ export function evaluateProvisioningRequest(req: ProvisioningRequest): Provision
       'EXISTING_VERIFIED_SIGNER',
       'This persona already has a configured principal signer whose control has been proven. Replacing it ' +
         'would orphan every signature it has produced, so it is never done implicitly.',
+    );
+  }
+  if (req.existingEnvelopePresent) {
+    return refuse(
+      'PRINCIPAL_ENVELOPE_ALREADY_EXISTS',
+      'An encrypted principal wallet already exists for this persona. Provisioning a second one would ' +
+        'abandon a key you may already hold. If its control has not been proven, prove the existing wallet ' +
+        'instead — that is the remaining step, not a new wallet.',
     );
   }
   if (req.consumedRequestIds.includes(req.requestId)) {

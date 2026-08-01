@@ -1250,6 +1250,8 @@ export function CodexCopilotLayer({
     () =>
       subscribeWalletSurfaceRequest((request) => {
         setWalletSurfaceRequest(request);
+        // Opening the drawer is not enough on its own — a host that owns the
+        // surface has to be told too, which is what launchWallet routes.
         // Route through the SAME launcher every other wallet entry point uses,
         // so a host that owns the surface still gets handed it.
         launchWalletRef.current?.("wallet");
@@ -1594,7 +1596,8 @@ export function CodexCopilotLayer({
       personaId={personaId}
       initialWalletSurface={walletSurfaceRequest?.surface}
       walletSurfaceRequestToken={walletSurfaceRequest?.token}
-      walletSurfaceReturn={walletSurfaceRequest?.returnTo ?? null}
+      walletSurfaceReturnTarget={walletSurfaceRequest?.returnTarget ?? null}
+      walletSurfaceReturnLabel={walletSurfaceRequest?.returnLabel ?? null}
     />
   );
   const currentWalletLayout: "narrow" | "wide" =

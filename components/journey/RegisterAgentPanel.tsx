@@ -51,7 +51,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
-import { requestWalletSurface } from '@/services/wallet/walletSurfaceRequest';
+import {
+  requestWalletSurface,
+  subscribeWalletSurfaceCompletion,
+} from '@/services/wallet/walletSurfaceRequest';
 import { AgentCardSurface } from './AgentCardSurface';
 
 interface RegistrableAgentOption {
@@ -140,6 +143,83 @@ interface PrincipalWalletGate {
   detail: string;
 }
 
+/**
+ * Six states, six things to say (operator, 2026-08-02).
+ *
+ *   > "Do not collapse every non-ready result into 'You do not yet have a
+ *   >  principal wallet'."
+ *
+ * The browser run showed why that collapse is not merely imprecise: after a
+ * provisioning attempt the operator's wallet may hold a real encrypted
+ * envelope, and being told they have NO wallet invites them to make a second
+ * one — abandoning the first. Each state names what is actually true and what
+ * the remaining step is.
+ */
+function describeWalletGate(gate: PrincipalWalletGate): { title: string; body: string; action: string } {
+  const RESUME = 'Registering requires you to sign a mandate with your own wallet. That wallet must be under ' +
+    'first-party custody and must have freshly proven it holds its key — an external wallet cannot carry a ' +
+    'principal mandate.';
+  switch (gate.capability) {
+    case 'ABSENT':
+      return {
+        title: 'You do not yet have a principal wallet',
+        body: RESUME,
+        action: 'Set up your principal wallet',
+      };
+    case 'AMBIGUOUS':
+      return {
+        title: 'Two addresses are on file and neither can sign',
+        body:
+          'This persona holds two different addresses with no key material behind either. One may be a real ' +
+          'external wallet; the other a keyless placeholder. The wallet will show what happens to each before ' +
+          'anything changes.',
+        action: 'Review and repair in your wallet',
+      };
+    case 'ADDRESS_ONLY':
+      return {
+        title: 'An address is on file with no key behind it',
+        body:
+          'The recorded address was never derived from a key, so it can never produce a signature. It will be ' +
+          'kept in audit history as non-signing and superseded by a real wallet.',
+        action: 'Set up your principal wallet',
+      };
+    case 'EXTERNAL_UNPROVEN':
+    case 'EXTERNAL_PROVEN':
+      return {
+        title: 'Your principal field holds an external wallet',
+        body:
+          'A connected external wallet is an execution instrument and may never carry a principal mandate. It ' +
+          'will be preserved as a linked wallet, and a first-party principal wallet created beside it.',
+        action: 'Set up your principal wallet',
+      };
+    case 'SIGNER_CONFIGURED':
+      // The state the browser run produced. NEVER offer "create" here.
+      return {
+        title: 'Principal wallet configured · control proof incomplete',
+        body:
+          'An encrypted principal wallet already exists for this persona, but its control has not been proven. ' +
+          'Nothing needs to be created — the remaining step is to unlock it and sign a fresh nonce.',
+        action: 'Retry control proof in your wallet',
+      };
+    case 'LEGACY_EVIDENCE_ONLY':
+    case 'COMPROMISED':
+      return {
+        title: 'This wallet is quarantined and cannot become your principal',
+        body: gate.detail || 'A legacy or compromised address cannot serve as a principal signer.',
+        action: 'Open your wallet',
+      };
+    default:
+      // UNAVAILABLE / UNKNOWN — could not check is not "you have none".
+      return {
+        title: 'Your principal wallet state could not be read',
+        body:
+          'This is not a refusal and does not mean you have no wallet. Until the check succeeds, a mandate ' +
+          'cannot be offered — because offering one on an unknown answer is how a second wallet gets created.',
+        action: 'Open your wallet',
+      };
+  }
+}
+
 type FlowState =
   | { step: 'idle' }
   | { step: 'preparing' }
@@ -222,6 +302,24 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   useEffect(() => {
     void readWalletGate();
   }, [readWalletGate]);
+
+  /*
+   * Reread on the wallet's completion event — serializable, so it crosses the
+   * iframe boundary the Multi-Cartridge Viewer puts between this panel and the
+   * wallet. The read is authoritative and uncached: the event says what the
+   * wallet believes, and this stage acts only on what the status route
+   * actually reports. Any outcome triggers a reread, including
+   * SIGNER_CONFIGURED_AWAITING_PROOF — a partial result must update this card,
+   * not leave it showing a state that has since moved on.
+   */
+  useEffect(
+    () =>
+      subscribeWalletSurfaceCompletion((completion) => {
+        if (completion.surface !== 'PRINCIPAL_WALLET_PROVISIONING') return;
+        void readWalletGate();
+      }),
+    [readWalletGate],
+  );
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stub: the operator's own sponsored agents, real data from the existing
@@ -355,38 +453,32 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
       <AgentCardSurface key={`${agentSlug}-${cardVersion}`} route={selectedAgent.agentCardPath} />
 
       <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3">
-        {flow.step === 'idle' && walletGate && !walletGate.ready && (
-          <div className="text-xs">
-            <div className="font-medium text-amber-200">
-              {walletGate.controlProven
-                ? 'Your principal wallet is not ready'
-                : walletGate.capability === 'SIGNER_CONFIGURED'
-                  ? 'Your principal wallet has not proven control'
-                  : 'You do not yet have a principal wallet'}
+        {flow.step === 'idle' && walletGate && !walletGate.ready && (() => {
+          const shown = describeWalletGate(walletGate);
+          return (
+            <div className="text-xs">
+              <div className="font-medium text-amber-200">{shown.title}</div>
+              <p className="mt-1 leading-relaxed text-slate-400">{shown.body}</p>
+              {walletGate.detail && walletGate.capability !== 'LEGACY_EVIDENCE_ONLY' && (
+                <p className="mt-1 text-[11px] text-slate-500">{walletGate.detail}</p>
+              )}
+              <button
+                onClick={() => {
+                  requestWalletSurface({
+                    surface: 'PRINCIPAL_WALLET_PROVISIONING',
+                    origin: 'HORIZEN_REGISTER',
+                    subjectAgentId: `aigent-${selectedAgent.slug}`,
+                    returnTarget: `journey:horizen:register:aigent-${selectedAgent.slug}`,
+                    returnLabel: `Continue to ${selectedAgent.displayName} registration`,
+                  });
+                }}
+                className="mt-2 flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
+              >
+                {shown.action} <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <p className="mt-1 leading-relaxed text-slate-400">
-              Registering {selectedAgent.displayName} requires you to sign a mandate with your own wallet. That
-              wallet must be under first-party custody and must have freshly proven it holds its key — an external
-              wallet cannot carry a principal mandate.
-            </p>
-            {walletGate.detail && <p className="mt-1 text-[11px] text-slate-500">{walletGate.detail}</p>}
-            <button
-              onClick={() => {
-                requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING', {
-                  label: `Continue to ${selectedAgent.displayName} registration`,
-                  onReturn: () => {
-                    // The wallet finished; re-read the gate so this stage
-                    // reflects the new state rather than its stale one.
-                    void readWalletGate();
-                  },
-                });
-              }}
-              className="mt-2 flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
-            >
-              Set up your principal wallet <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {flow.step === 'idle' && walletGate?.ready && (
           <button

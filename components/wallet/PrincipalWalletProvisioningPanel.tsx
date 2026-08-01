@@ -40,8 +40,10 @@ import { ShieldCheck, KeyRound, AlertTriangle, Loader2, Ban, ArrowRight } from '
 import { personaFetch } from '@/utils/personaSpine';
 import {
   provisionPrincipalWallet,
+  proveExistingPrincipalWallet,
   type ProvisioningPhase,
 } from '@/services/wallet/provisionPrincipalWalletClient';
+import { announceWalletSurfaceCompletion } from '@/services/wallet/walletSurfaceRequest';
 
 /** The ten states the operator specified, and nothing else. */
 export type PrincipalProvisioningState =
@@ -131,6 +133,8 @@ const Row: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value
 
 export interface PrincipalWalletProvisioningPanelProps {
   personaId: string;
+  /** Serializable identifier of whoever asked for this surface. Never a callback. */
+  returnTarget?: string | null;
   /**
    * Where the Journey left off, if a Journey sent the operator here. Present
    * only when a consequential act was blocked — the wallet never invents a
@@ -141,6 +145,7 @@ export interface PrincipalWalletProvisioningPanelProps {
 
 export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvisioningPanelProps> = ({
   personaId,
+  returnTarget,
   returnTo,
 }) => {
   const [status, setStatus] = useState<StatusView | null>(null);
@@ -153,7 +158,7 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
   const [acknowledged, setAcknowledged] = useState(false);
   const [outcomeRefusal, setOutcomeRefusal] = useState<{ refusal: string; detail: string } | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<StatusView | null> => {
     setLoading(true);
     setLoadRefusal(null);
     try {
@@ -167,7 +172,7 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
         });
         setStatus(null);
       } else {
-        setStatus({
+        const next: StatusView = {
           capability: String(j.capability),
           address: (j.address as string | null) ?? null,
           detail: String(j.detail ?? ''),
@@ -175,7 +180,9 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
           controlProven: Boolean(j.controlProven),
           supersededPlaceholder: (j.supersededPlaceholder as Record<string, unknown> | null) ?? null,
           linkedExternalWallets: (j.linkedExternalWallets as LinkedWalletView[]) ?? [],
-        });
+        };
+        setStatus(next);
+        return next;
       }
     } catch (e) {
       setLoadRefusal({ refusal: 'UNREACHABLE', detail: `The wallet status could not be read (${(e as Error).message}).` });
@@ -183,6 +190,7 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
     } finally {
       setLoading(false);
     }
+    return null;
   }, [personaId]);
 
   useEffect(() => {
@@ -201,20 +209,36 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
     (!needsAcknowledgement || acknowledged) &&
     ['NOT_CONFIGURED', 'AMBIGUOUS_DATA_DETECTED', 'READY_TO_PROVISION'].includes(baseState);
 
-  const run = useCallback(async () => {
-    setRunning(true);
-    setOutcomeRefusal(null);
-    try {
-      const outcome = await provisionPrincipalWallet({
-        personaId,
-        password,
-        requestId: `prov_${personaId}_${Date.now()}`,
-        onPhase: setPhase,
+  /**
+   * Announce what happened, serializably.
+   *
+   * `CONTROL_PROVEN` is the ONLY outcome that lets the originating act resume
+   * — the governing rule is that a provisioning write is not completion. A
+   * configured-but-unproven wallet announces itself as exactly that, so
+   * Register can re-render its prerequisite honestly instead of being told the
+   * work is done.
+   */
+  const announce = useCallback(
+    (outcome: 'CONTROL_PROVEN' | 'SIGNER_CONFIGURED_AWAITING_PROOF' | 'REFUSED', refusal?: string) => {
+      announceWalletSurfaceCompletion({
+        surface: 'PRINCIPAL_WALLET_PROVISIONING',
+        outcome,
+        ...(returnTarget ? { returnTarget } : {}),
+        ...(refusal ? { refusal } : {}),
       });
+    },
+    [returnTarget],
+  );
+
+  const finish = useCallback(
+    async (outcome: Awaited<ReturnType<typeof provisionPrincipalWallet>>) => {
       if (!outcome.ok) {
         setOutcomeRefusal({ refusal: outcome.refusal ?? 'REFUSED', detail: outcome.detail });
+        announce(
+          outcome.stage === 'SIGNER_CONFIGURED' ? 'SIGNER_CONFIGURED_AWAITING_PROOF' : 'REFUSED',
+          outcome.refusal ?? undefined,
+        );
       }
-    } finally {
       setRunning(false);
       setPhase(null);
       // Clear the password from component state the moment the ceremony ends —
@@ -222,9 +246,50 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
       // call that used it.
       setPassword('');
       setConfirm('');
-      await load();
-    }
-  }, [personaId, password, load]);
+      // Reread AUTHORITATIVELY before announcing success: the ceremony's own
+      // return value is a report of what it did, and the status route is what
+      // the rest of the platform will actually see. Announcing CONTROL_PROVEN
+      // on the strength of the former would let a write that did not land read
+      // as a completed one.
+      const confirmed = await load();
+      if (outcome.ok && confirmed?.capability === 'SIGNER_CONFIGURED' && confirmed.controlProven) {
+        announce('CONTROL_PROVEN');
+      } else if (outcome.ok) {
+        setOutcomeRefusal({
+          refusal: 'PROOF_NOT_CONFIRMED_BY_STATUS',
+          detail:
+            'The ceremony reported success but a fresh read of the wallet status does not show a proven ' +
+            'principal wallet. Nothing was regenerated. Retry the control proof.',
+        });
+        announce('SIGNER_CONFIGURED_AWAITING_PROOF');
+      }
+    },
+    [announce, load],
+  );
+
+  const run = useCallback(async () => {
+    setRunning(true);
+    setOutcomeRefusal(null);
+    await finish(
+      await provisionPrincipalWallet({
+        personaId,
+        password,
+        requestId: `prov_${personaId}_${Date.now()}`,
+        onPhase: setPhase,
+      }),
+    );
+  }, [personaId, password, finish]);
+
+  /**
+   * Prove the wallet that already exists. Creates nothing.
+   *
+   *   > "Never regenerate the wallet in this state."
+   */
+  const retryProof = useCallback(async () => {
+    setRunning(true);
+    setOutcomeRefusal(null);
+    await finish(await proveExistingPrincipalWallet({ personaId, password, onPhase: setPhase }));
+  }, [personaId, password, finish]);
 
   if (loading) {
     return (
@@ -390,12 +455,15 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
         </Section>
       )}
 
-      {/* ── Configured but unproven — the state that looks finished ──────── */}
+      {/* ── Configured but unproven — the state that looks finished ────────
+          This is the state the browser run landed in. The recovery offered
+          here is RETRY, never CREATE: a second keypair would abandon a key
+          the operator may already hold. */}
       {state === 'AWAITING_CONTROL_PROOF' && !phase && (
         <Section>
           <div className="flex items-center gap-2 text-amber-200">
             <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-            <span className="text-xs font-medium">Configured — control not yet proven</span>
+            <span className="text-xs font-medium">Principal wallet configured · Control proof incomplete</span>
           </div>
           <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">
             An encrypted envelope and its address are stored for this persona, which establishes SIGNER_CONFIGURED
@@ -403,6 +471,26 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
             that a usable key sits behind it.
           </p>
           <div className="mt-2 break-all font-mono text-[10px] text-white/40">{status?.address}</div>
+          <p className="mt-2.5 text-[11px] text-white/45">
+            Your wallet is intact. Enter the password you set when it was created — this proves the existing
+            wallet and creates nothing.
+          </p>
+          <input
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Wallet password"
+            className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-white placeholder:text-white/30"
+          />
+          <button
+            type="button"
+            disabled={running || password.length === 0}
+            onClick={() => void retryProof()}
+            className="mt-2 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Retry control proof
+          </button>
         </Section>
       )}
 

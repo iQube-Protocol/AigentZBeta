@@ -21,6 +21,7 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
+import { subscribeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -305,7 +306,15 @@ interface SmartWalletDrawerProps {
    * the "Continue to …" button. Absent when nobody sent them here — the
    * wallet never invents a destination it was not given.
    */
-  walletSurfaceReturn?: { label: string; onReturn: () => void } | null;
+  /**
+   * Serializable identifier of whoever asked for the surface, and the label for
+   * the wallet's "Continue to …" button. NOT a callback: a function cannot be
+   * structured-cloned across the iframe boundary the Multi-Cartridge Viewer
+   * puts between an embedded Journey and this wallet, and a closure bound to
+   * the requester's lifetime does not survive either side reloading.
+   */
+  walletSurfaceReturnTarget?: string | null;
+  walletSurfaceReturnLabel?: string | null;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -351,7 +360,8 @@ export default function SmartWalletDrawer({
   initialAuthMode,
   initialWalletSurface,
   walletSurfaceRequestToken,
-  walletSurfaceReturn,
+  walletSurfaceReturnTarget,
+  walletSurfaceReturnLabel,
   initialPersonaFlow,
   onPersonaChange,
   onCreatePersona,
@@ -559,6 +569,32 @@ export default function SmartWalletDrawer({
   // a missing principal wallet). Keyed on the TOKEN, never on the surface name:
   // re-running on the name would fight the operator's own Back, and a
   // deliberate act outranks an ambient one (MS-5).
+  /*
+   * The wallet also listens for itself.
+   *
+   * There are several wallet mounts in this codebase (the copilot layer, the
+   * SmartTriad surfaces, KnytTab, DevPersonaTab) and only one of them was
+   * wired to forward a surface request. A request that reaches a host with no
+   * forwarder would open nothing — which is the class of failure the browser
+   * run hit, one layer up. Listening here means an OPEN wallet always honours
+   * a request, whatever mounted it.
+   *
+   * The host-level subscription is still required and is not redundant: only
+   * the host can OPEN a closed wallet. This covers the other half.
+   */
+  useEffect(
+    () =>
+      subscribeWalletSurfaceRequest((request) => {
+        if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING') return;
+        setWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
+        setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
+      }),
+    [],
+  );
+  const [deepLinkReturn, setDeepLinkReturn] = useState<{ target: string | null; label: string | null }>({
+    target: null,
+    label: null,
+  });
   const lastWalletSurfaceTokenRef = useRef<number | undefined>(walletSurfaceRequestToken);
   useEffect(() => {
     if (walletSurfaceRequestToken === undefined) return;
@@ -5959,7 +5995,11 @@ export default function SmartWalletDrawer({
             {walletSurface === 'PRINCIPAL_WALLET_PROVISIONING' && (
               <PrincipalWalletProvisioningPanel
                 personaId={effectivePersonaId ?? ''}
-                returnTo={walletSurfaceReturn ?? null}
+                returnTarget={deepLinkReturn.target ?? walletSurfaceReturnTarget ?? null}
+                returnTo={(() => {
+                  const label = deepLinkReturn.label ?? walletSurfaceReturnLabel;
+                  return label ? { label, onReturn: () => setWalletSurface(null) } : null;
+                })()}
               />
             )}
 

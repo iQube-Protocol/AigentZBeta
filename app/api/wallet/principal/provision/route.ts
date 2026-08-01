@@ -108,8 +108,16 @@ export async function POST(req: NextRequest) {
   }
 
   const existingEnvelope = (row?.evm_key ?? null) as { address?: unknown; encryptedPrivateKey?: unknown } | null;
+  /*
+   * An AES-GCM envelope is an OBJECT ({salt, iv, ciphertext, authTag}), not a
+   * string. The original check tested `typeof … === 'string'`, so a real
+   * envelope read as ABSENT — which would have let a second provisioning run
+   * overwrite a wallet the operator may already hold. Accepts either shape:
+   * older rows may carry a serialised string.
+   */
+  const envKey = existingEnvelope?.encryptedPrivateKey;
   const existingHasKey =
-    typeof existingEnvelope?.encryptedPrivateKey === 'string' && existingEnvelope.encryptedPrivateKey.length > 0;
+    (typeof envKey === 'string' && envKey.length > 0) || (typeof envKey === 'object' && envKey !== null);
   const placeholderAddress = typeof existingEnvelope?.address === 'string' ? existingEnvelope.address : null;
 
   // A prior control proof is what makes an existing signer VERIFIED. Absent
@@ -143,6 +151,10 @@ export async function POST(req: NextRequest) {
     consumedRequestIds: (consumed ?? []).map((r) => String((r as { nonce: unknown }).nonce)),
     disallowedAddresses: await disallowedAddresses(),
     existingSignerVerified: existingHasKey && (proofRow?.length ?? 0) > 0,
+    // The load-bearing recovery guard (operator, 2026-08-02): an envelope that
+    // exists but was never proven must NOT be replaced by a second keypair.
+    // The remaining step is a proof, not a new wallet.
+    existingEnvelopePresent: existingHasKey,
   });
 
   if (!decision.permitted) {

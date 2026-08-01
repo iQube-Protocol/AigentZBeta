@@ -14,7 +14,7 @@
  * operator being told a wallet is missing with no way to reach the remedy.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll } from 'vitest';
 
 import {
   surfaceStateFor,
@@ -23,6 +23,8 @@ import {
 import {
   requestWalletSurface,
   subscribeWalletSurfaceRequest,
+  subscribeWalletSurfaceCompletion,
+  announceWalletSurfaceCompletion,
   __resetWalletSurfaceRequests,
 } from '@/services/wallet/walletSurfaceRequest';
 import { readSource, stripComments, forbiddenImportFindings } from './_lib/sourceAuthority';
@@ -80,49 +82,123 @@ describe('capability maps to exactly the ten states', () => {
   });
 });
 
-describe('the surface request bus routes, it does not navigate', () => {
+/*
+ * A minimal `window` for the SAME-DOCUMENT channel.
+ *
+ * The suite runs on `environment: "node"` (vitest.config.mjs), so there is no
+ * window at all and `subscribeWalletSurfaceRequest` correctly returns a no-op.
+ * An `EventTarget` exercises the real code path: `dispatchEvent` is synchronous
+ * in browsers too, so the fake is faithful for this channel.
+ *
+ * WHAT THIS CANNOT COVER, said plainly rather than implied: the `postMessage`
+ * climb to ancestor windows — the half that carries a request out of an iframe
+ * — needs real frames. That is exactly the gap the module bus fell through, so
+ * it is named here rather than left to look tested. The browser acceptance run
+ * is what closes it.
+ */
+class FakeWindow extends EventTarget {
+  parent: FakeWindow = this;
+  postMessage(): void {
+    /* the cross-realm half; unexercised in node, see above */
+  }
+}
+const hadWindow = typeof (globalThis as { window?: unknown }).window !== 'undefined';
+if (!hadWindow) {
+  (globalThis as unknown as { window: FakeWindow }).window = new FakeWindow();
+}
+afterAll(() => {
+  if (!hadWindow) delete (globalThis as { window?: unknown }).window;
+});
+
+describe('the request is serializable and crosses realms', () => {
   beforeEach(() => __resetWalletSurfaceRequests());
 
-  it('delivers the request to the owner', () => {
+  it('survives structured cloning — the iframe test the module bus failed', () => {
+    // The first version was a module-level Set. It passed every canary and was
+    // dead in the browser, because the Multi-Cartridge Viewer puts an iframe
+    // between the Journey and the wallet and they never shared a module.
+    let captured: unknown = null;
+    const off = subscribeWalletSurfaceRequest((r) => { captured = r; });
+    requestWalletSurface({
+      surface: 'PRINCIPAL_WALLET_PROVISIONING',
+      origin: 'HORIZEN_REGISTER',
+      subjectAgentId: 'aigent-nakamoto',
+      returnTarget: 'journey:horizen:register:aigent-nakamoto',
+      returnLabel: 'Continue to Aigent Nakamoto registration',
+    });
+    off();
+    expect(captured).toBeTruthy();
+    // structuredClone throws on a function; passing proves nothing unclonable
+    // rode along.
+    expect(() => structuredClone(captured)).not.toThrow();
+    expect(JSON.parse(JSON.stringify(captured))).toMatchObject({
+      surface: 'PRINCIPAL_WALLET_PROVISIONING',
+      origin: 'HORIZEN_REGISTER',
+      subjectAgentId: 'aigent-nakamoto',
+      returnTarget: 'journey:horizen:register:aigent-nakamoto',
+    });
+  });
+
+  it('carries no function anywhere in the payload', () => {
+    let captured: Record<string, unknown> | null = null;
+    const off = subscribeWalletSurfaceRequest((r) => { captured = r as unknown as Record<string, unknown>; });
+    requestWalletSurface({ surface: 'PRINCIPAL_WALLET_PROVISIONING', origin: 'HORIZEN_REGISTER' });
+    off();
+    for (const v of Object.values(captured ?? {})) expect(typeof v).not.toBe('function');
+  });
+
+  it('delivers to a listener registered on window, not a module Set', () => {
     const seen: string[] = [];
-    subscribeWalletSurfaceRequest((r) => seen.push(r.surface));
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
+    const off = subscribeWalletSurfaceRequest((r) => seen.push(r.surface));
+    requestWalletSurface({ surface: 'PRINCIPAL_WALLET_PROVISIONING', origin: 'WALLET_ENTRY' });
+    off();
     expect(seen).toEqual(['PRINCIPAL_WALLET_PROVISIONING']);
   });
 
   it('gives each request a new token, so a repeat re-opens the surface', () => {
     const tokens: number[] = [];
-    subscribeWalletSurfaceRequest((r) => tokens.push(r.token));
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
+    const off = subscribeWalletSurfaceRequest((r) => tokens.push(r.token));
+    requestWalletSurface({ surface: 'PRINCIPAL_WALLET_PROVISIONING', origin: 'a' });
+    requestWalletSurface({ surface: 'PRINCIPAL_WALLET_PROVISIONING', origin: 'b' });
+    off();
     expect(tokens[1]).toBeGreaterThan(tokens[0]);
   });
 
-  it('carries the return destination when one was given, and none when not', () => {
-    let withReturn: unknown;
-    let without: unknown;
-    subscribeWalletSurfaceRequest((r) => {
-      if (r.returnTo) withReturn = r.returnTo;
-      else without = r;
-    });
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING', { label: 'Continue', onReturn: () => {} });
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
-    expect(withReturn).toBeTruthy();
-    expect(without).toBeTruthy();
-  });
-
   it('is silent with no subscriber rather than throwing', () => {
-    // A Journey rendered outside a wallet host is legitimate; the stage's own
-    // explanation still renders and must not be taken down by the request.
-    expect(() => requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING')).not.toThrow();
+    expect(() => requestWalletSurface({ surface: 'PRINCIPAL_WALLET_PROVISIONING', origin: 'x' })).not.toThrow();
   });
 
   it('unsubscribes cleanly', () => {
     const seen: number[] = [];
-    const off = subscribeWalletSurfaceRequest((r) => seen.push(r.token));
+    const off = subscribeWalletSurfaceCompletion((c) => seen.push(1));
     off();
-    requestWalletSurface('PRINCIPAL_WALLET_PROVISIONING');
+    announceWalletSurfaceCompletion({ surface: 'PRINCIPAL_WALLET_PROVISIONING', outcome: 'CONTROL_PROVEN' });
     expect(seen).toEqual([]);
+  });
+
+  it('the completion event is serializable too, and names the outcome', () => {
+    let captured: unknown = null;
+    const off = subscribeWalletSurfaceCompletion((c) => { captured = c; });
+    announceWalletSurfaceCompletion({
+      surface: 'PRINCIPAL_WALLET_PROVISIONING',
+      outcome: 'SIGNER_CONFIGURED_AWAITING_PROOF',
+      returnTarget: 'journey:horizen:register:aigent-nakamoto',
+    });
+    off();
+    expect(() => structuredClone(captured)).not.toThrow();
+    expect(captured).toMatchObject({ outcome: 'SIGNER_CONFIGURED_AWAITING_PROOF' });
+  });
+
+  it('distinguishes a proven completion from a partial one', () => {
+    // "A provisioning write is not completion; authoritative control proof is
+    // completion." A single 'done' outcome would erase that distinction at the
+    // exact boundary it has to survive.
+    const outcomes: string[] = [];
+    const off = subscribeWalletSurfaceCompletion((c) => outcomes.push(c.outcome));
+    announceWalletSurfaceCompletion({ surface: 'PRINCIPAL_WALLET_PROVISIONING', outcome: 'CONTROL_PROVEN' });
+    announceWalletSurfaceCompletion({ surface: 'PRINCIPAL_WALLET_PROVISIONING', outcome: 'SIGNER_CONFIGURED_AWAITING_PROOF' });
+    off();
+    expect(outcomes).toEqual(['CONTROL_PROVEN', 'SIGNER_CONFIGURED_AWAITING_PROOF']);
   });
 });
 
@@ -196,18 +272,14 @@ describe('Register detects and explains before it offers', () => {
   });
 
   it('offers the wallet ceremony rather than describing it', () => {
-    expect(register).toMatch(/Set up your principal wallet/);
-    expect(register).toMatch(/requestWalletSurface\('PRINCIPAL_WALLET_PROVISIONING'/);
+    expect(register).toMatch(/requestWalletSurface\(\{/);
+    expect(register).toMatch(/shown\.action/);
   });
 
-  it('passes a return destination so the Journey resumes', () => {
-    expect(register).toMatch(/label: `Continue to \$\{selectedAgent\.displayName\} registration`/);
-    expect(register).toMatch(/onReturn/);
-  });
-
-  it('re-reads the gate on return rather than trusting its stale state', () => {
-    const returnBlock = register.slice(register.indexOf('onReturn'), register.indexOf('onReturn') + 300);
-    expect(returnBlock).toMatch(/readWalletGate\(\)/);
+  it('passes a serializable return label, not a callback', () => {
+    expect(register).toMatch(/returnLabel: `Continue to \$\{selectedAgent\.displayName\} registration`/);
+    // The old `onReturn` closure could not cross the iframe boundary at all.
+    expect(register).not.toMatch(/onReturn:/);
   });
 
   it('shows a checking state rather than an unlocked button before the gate resolves', () => {
@@ -256,5 +328,102 @@ describe('the panel keeps the password local', () => {
     // either changed (inv.engineering.037).
     expect(code).not.toMatch(/from\(['"]personas['"]\)/);
     expect(code).not.toMatch(/encryptedPrivateKey/);
+  });
+});
+
+describe('the deep link works in every host, not only where the copilot mounts', () => {
+  const drawer = stripComments(readSource('app/components/content/SmartWalletDrawer.tsx'));
+  const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+
+  it('the wallet itself listens, so an open drawer honours a request in any host', () => {
+    // Four mounts exist (copilot layer, SmartTriad surfaces, KnytTab,
+    // DevPersonaTab) and only one was wired to forward. A request reaching a
+    // host with no forwarder opened nothing — the browser-run failure, one
+    // layer up.
+    expect(drawer).toMatch(/subscribeWalletSurfaceRequest\(/);
+    expect(drawer).toMatch(/setWalletSurface\('PRINCIPAL_WALLET_PROVISIONING'\)/);
+  });
+
+  it('the host still subscribes — only a host can open a CLOSED wallet', () => {
+    expect(copilot).toMatch(/subscribeWalletSurfaceRequest\(/);
+    expect(copilot).toMatch(/launchWalletRef\.current/);
+  });
+
+  it('no callback crosses the boundary — returnTarget is an identifier', () => {
+    expect(drawer).toMatch(/walletSurfaceReturnTarget/);
+    expect(drawer).not.toMatch(/walletSurfaceReturn\?:\s*\{\s*label[^}]*onReturn/);
+  });
+});
+
+describe('the acceptance conditions the operator specified', () => {
+  const register = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+  const panel = stripComments(readSource('components/wallet/PrincipalWalletProvisioningPanel.tsx'));
+
+  it('Register opens the wallet on PRINCIPAL_WALLET_PROVISIONING with a serializable request', () => {
+    expect(register).toMatch(/requestWalletSurface\(\{/);
+    expect(register).toMatch(/surface: 'PRINCIPAL_WALLET_PROVISIONING'/);
+    expect(register).toMatch(/origin: 'HORIZEN_REGISTER'/);
+    expect(register).toMatch(/subjectAgentId: `aigent-\$\{selectedAgent\.slug\}`/);
+    expect(register).toMatch(/returnTarget: `journey:horizen:register:aigent-\$\{selectedAgent\.slug\}`/);
+  });
+
+  it('successful provisioning does not announce completion before CONTROL_PROVEN', () => {
+    // The announcement is gated on a FRESH status read, not on the ceremony's
+    // own report of itself.
+    expect(panel).toMatch(/confirmed\?\.capability === 'SIGNER_CONFIGURED' && confirmed\.controlProven/);
+    expect(panel).toMatch(/announce\('CONTROL_PROVEN'\)/);
+    expect(panel).toMatch(/PROOF_NOT_CONFIRMED_BY_STATUS/);
+  });
+
+  it('a configured-but-unproven wallet offers Retry proof, never Create', () => {
+    const at = panel.indexOf("state === 'AWAITING_CONTROL_PROOF'");
+    expect(at).toBeGreaterThan(-1);
+    const block = panel.slice(at, panel.indexOf('</Section>', at));
+    expect(block).toMatch(/Retry control proof/);
+    expect(block).toMatch(/retryProof\(\)/);
+    expect(block).not.toMatch(/Create and prove principal wallet/);
+  });
+
+  it('the create form is not reachable from a configured state', () => {
+    // baseState drives the form; AWAITING_CONTROL_PROOF is not in its list.
+    const at = panel.indexOf("['NOT_CONFIGURED', 'AMBIGUOUS_DATA_DETECTED', 'READY_TO_PROVISION'].includes(baseState)");
+    expect(at).toBeGreaterThan(-1);
+    expect(panel.slice(at, at + 200)).not.toMatch(/AWAITING_CONTROL_PROOF/);
+  });
+
+  it('returning to Register triggers a fresh authoritative status read', () => {
+    expect(register).toMatch(/subscribeWalletSurfaceCompletion\(/);
+    const at = register.indexOf('subscribeWalletSurfaceCompletion(');
+    expect(register.slice(at, at + 400)).toMatch(/readWalletGate\(\)/);
+    expect(register).toMatch(/cache: 'no-store'/);
+  });
+
+  it('CONTROL_PROVEN removes the prerequisite card', () => {
+    // ready === SIGNER_CONFIGURED && controlProven; the prerequisite renders
+    // only when !ready.
+    expect(register).toMatch(/capability === 'SIGNER_CONFIGURED' && Boolean\(json\.controlProven\)/);
+    expect(register).toMatch(/walletGate && !walletGate\.ready &&/);
+    expect(register).toMatch(/walletGate\?\.ready &&/);
+  });
+
+  it('renders each non-ready capability separately, not one collapsed message', () => {
+    for (const c of ['ABSENT', 'AMBIGUOUS', 'ADDRESS_ONLY', 'EXTERNAL_UNPROVEN', 'SIGNER_CONFIGURED', 'LEGACY_EVIDENCE_ONLY']) {
+      expect(register, c).toContain(`case '${c}'`);
+    }
+    // The collapsed sentence survives for exactly one state.
+    const occurrences = register.split('You do not yet have a principal wallet').length - 1;
+    expect(occurrences).toBe(1);
+  });
+
+  it('a configured wallet is offered a retry in Register too, never a create', () => {
+    const at = register.indexOf("case 'SIGNER_CONFIGURED':");
+    const block = register.slice(at, at + 700);
+    expect(block).toMatch(/Retry control proof/);
+    expect(block).toMatch(/Nothing needs to be created/);
+  });
+
+  it('an unreadable status is not reported as an absent wallet', () => {
+    expect(register).toMatch(/could not be read/);
+    expect(register).toMatch(/does not mean you have no wallet/);
   });
 });

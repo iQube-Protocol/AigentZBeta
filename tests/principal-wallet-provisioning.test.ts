@@ -47,6 +47,7 @@ function baseRequest(over: Partial<ProvisioningRequest> = {}): ProvisioningReque
     consumedRequestIds: [],
     disallowedAddresses: new Set([LEGACY]),
     existingSignerVerified: false,
+    existingEnvelopePresent: false,
     ...over,
   };
 }
@@ -188,8 +189,32 @@ describe('the eight refusal guards', () => {
     );
   });
 
-  it('does NOT block on a configured-but-unproven signer — that is what it replaces', () => {
-    expect(evaluateProvisioningRequest(baseRequest({ existingSignerVerified: false })).permitted).toBe(true);
+  it('REFUSES when an encrypted envelope already exists, proven or not', () => {
+    // The browser run's state. Generating a second keypair here would abandon
+    // a key the operator may already hold, at the exact moment the UI is
+    // trying to help them finish.
+    const d = evaluateProvisioningRequest(baseRequest({ existingEnvelopePresent: true }));
+    expect(d.refusal).toBe('PRINCIPAL_ENVELOPE_ALREADY_EXISTS');
+    expect(d.detail).toMatch(/prove the existing wallet instead/i);
+  });
+
+  it('distinguishes an existing envelope from a proven signer', () => {
+    // Different refusals because they have different remedies: one says
+    // "prove it", the other says "you already have a working wallet".
+    expect(evaluateProvisioningRequest(baseRequest({ existingEnvelopePresent: true })).refusal).toBe(
+      'PRINCIPAL_ENVELOPE_ALREADY_EXISTS',
+    );
+    expect(
+      evaluateProvisioningRequest(baseRequest({ existingSignerVerified: true, existingEnvelopePresent: true }))
+        .refusal,
+    ).toBe('EXISTING_VERIFIED_SIGNER');
+  });
+
+  it('permits provisioning over a KEYLESS placeholder — that is the case it is for', () => {
+    expect(
+      evaluateProvisioningRequest(baseRequest({ existingEnvelopePresent: false, existingSignerVerified: false }))
+        .permitted,
+    ).toBe(true);
   });
 
   it('refuses a replayed provisioning request', () => {
@@ -346,6 +371,14 @@ describe('the routes hold the boundary', () => {
     expect(stripComments(provision)).toMatch(/EXTERNAL_BINDING_NOT_PRESERVED/);
   });
 
+  it('passes the existing-envelope guard to the gate, detecting an OBJECT envelope', () => {
+    const code = stripComments(provision);
+    expect(code).toMatch(/existingEnvelopePresent: existingHasKey/);
+    // An AES-GCM envelope is an object; a string-only check read a real
+    // envelope as absent and would have let a second wallet overwrite it.
+    expect(code).toMatch(/typeof envKey === 'object'/);
+  });
+
   it('does not use wallet_alias_commitments for this purpose', () => {
     for (const [name, src] of [['provision', provision], ['control-proof', proof]] as const) {
       expect(stripComments(src), name).not.toMatch(/wallet_alias_commitments/);
@@ -393,6 +426,23 @@ describe('the client ceremony keeps secrets in the browser', () => {
   it('reports SIGNER_CONFIGURED — not success — when the proof step fails', () => {
     const tail = code.slice(code.indexOf('recover-and-compare-server-side'));
     expect(tail).toMatch(/'SIGNER_CONFIGURED'/);
+  });
+
+  it('never calls the provisioning route from the retry path', () => {
+    // "Never regenerate the wallet in this state." Retry proves; it creates
+    // nothing, so it must not reach /provision or generateEvmKeyPair.
+    const at = code.indexOf('export async function proveExistingPrincipalWallet');
+    expect(at).toBeGreaterThan(-1);
+    const retry = code.slice(at);
+    expect(retry).not.toMatch(/\/api\/wallet\/principal\/provision/);
+    expect(retry).not.toMatch(/generateEvmKeyPair/);
+  });
+
+  it('the retry path signs the stored envelope locally', () => {
+    const at = code.indexOf('export async function proveExistingPrincipalWallet');
+    const retry = code.slice(at);
+    expect(retry).toMatch(/decryptPrivateKey/);
+    expect(retry).toMatch(/signMessage\(issued\.nonce\)/);
   });
 
   it('does not import the linked-wallet migration helper — that is the server\'s act', () => {

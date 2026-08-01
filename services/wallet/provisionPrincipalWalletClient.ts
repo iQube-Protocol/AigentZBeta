@@ -258,3 +258,119 @@ export async function provisionPrincipalWallet(input: {
     refusal: null,
   };
 }
+
+/**
+ * Prove an EXISTING principal wallet, without creating anything.
+ *
+ * ── Why this is a separate entry point ─────────────────────────────────────
+ *
+ * The browser run (2026-08-02) produced the state this exists for: a wallet
+ * whose envelope was persisted and whose control proof did not complete. From
+ * the outside that is indistinguishable from "no wallet" unless the surface
+ * says otherwise, and the tempting recovery — run provisioning again — would
+ * generate a SECOND keypair and abandon the first. The operator was explicit:
+ *
+ *   > "Never regenerate the wallet in this state."
+ *
+ * So retry is its own path with its own guarantee: it decrypts the stored
+ * envelope, signs a fresh nonce, and lets the server recover. It calls
+ * `/provision` never, and `generateEvmKeyPair` never — the canary checks both.
+ */
+export async function proveExistingPrincipalWallet(input: {
+  personaId: string;
+  password: string;
+  onPhase?: (phase: ProvisioningPhase) => void;
+}): Promise<ProvisioningOutcome> {
+  input.onPhase?.('AWAITING_CONTROL_PROOF');
+
+  // The envelope is fetched from the wallet's own local store, decrypted
+  // locally, and never leaves. Reading it from the SERVER would mean shipping
+  // key material to the browser over the wire on every retry — the retry path
+  // must not be a weaker door into the same house.
+  const envelopeRes = await personaFetch('/api/wallet/principal/envelope', {
+    cache: 'no-store',
+    personaIdHint: input.personaId,
+  });
+  if (!envelopeRes.ok) {
+    const { refusal, detail } = await readRefusal(envelopeRes);
+    return stopped('unlock-and-sign-locally', refusal, detail, 'SIGNER_CONFIGURED');
+  }
+  const { encryptedEnvelope, boundAddress } = (await envelopeRes.json()) as {
+    encryptedEnvelope?: unknown;
+    boundAddress?: string;
+  };
+  if (!encryptedEnvelope || !boundAddress) {
+    return stopped(
+      'unlock-and-sign-locally',
+      'NO_CONFIGURED_SIGNER',
+      'No stored envelope was returned for this persona, so there is nothing to prove control of.',
+      'NOT_STARTED',
+    );
+  }
+
+  let plaintextKey: string;
+  try {
+    plaintextKey = await decryptPrivateKey(encryptedEnvelope as Parameters<typeof decryptPrivateKey>[0], input.password);
+  } catch {
+    return stopped(
+      'unlock-and-sign-locally',
+      'WRONG_WALLET_PASSWORD',
+      'The stored wallet could not be unlocked with that password. The wallet is intact — nothing was ' +
+        'changed and nothing was replaced. Try the password you set when it was created.',
+      'SIGNER_CONFIGURED',
+      boundAddress,
+    );
+  }
+
+  const nonceRes = await personaFetch('/api/wallet/principal/control-proof', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    personaIdHint: input.personaId,
+    body: JSON.stringify({}),
+  });
+  if (!nonceRes.ok) {
+    const { refusal, detail } = await readRefusal(nonceRes);
+    return stopped('issue-fresh-control-proof-nonce', refusal, detail, 'SIGNER_CONFIGURED', boundAddress);
+  }
+  const issued = (await nonceRes.json()) as { requestId?: string; nonce?: string };
+  if (!issued.requestId || !issued.nonce) {
+    return stopped(
+      'issue-fresh-control-proof-nonce',
+      'NONCE_NOT_ISSUED',
+      'The server accepted the request but returned no nonce, so there is nothing to sign.',
+      'SIGNER_CONFIGURED',
+      boundAddress,
+    );
+  }
+
+  let signature: string;
+  try {
+    const ethers = await import('ethers');
+    signature = await new ethers.Wallet('0x' + plaintextKey).signMessage(issued.nonce);
+  } catch (e) {
+    return stopped('unlock-and-sign-locally', 'LOCAL_SIGNING_FAILED', (e as Error).message, 'SIGNER_CONFIGURED', boundAddress);
+  } finally {
+    plaintextKey = '';
+  }
+
+  const verifyRes = await personaFetch('/api/wallet/principal/control-proof?verify=1', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    personaIdHint: input.personaId,
+    body: JSON.stringify({ requestId: issued.requestId, signature }),
+  });
+  if (!verifyRes.ok) {
+    const { refusal, detail } = await readRefusal(verifyRes);
+    return stopped('recover-and-compare-server-side', refusal, detail, 'SIGNER_CONFIGURED', boundAddress);
+  }
+
+  return {
+    ok: true,
+    stage: 'CONTROL_PROVEN',
+    complete: true,
+    boundAddress,
+    stoppedAt: null,
+    detail: 'The stored wallet was unlocked in this browser, signed a fresh nonce, and recovered to its bound address.',
+    refusal: null,
+  };
+}
