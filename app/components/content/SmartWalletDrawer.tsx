@@ -332,8 +332,42 @@ export default function SmartWalletDrawer({
   const [personaEvmOverride, setPersonaEvmOverride] = useState<`0x${string}` | undefined>(walletNodePersonaEvmAddress);
   // External wallet address connected via ExternalWalletConnect (MetaMask etc.)
   const [externalEvmAddress, setExternalEvmAddress] = useState<string | undefined>(undefined);
-  const sanitizedEvmSepolia = personaEvmOverride || (isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined);
-  const sanitizedEvmArb = personaEvmOverride || (isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined);
+  /*
+   * NO AGENT-ADDRESS FALLTHROUGH FOR THE PRINCIPAL (operator ruling,
+   * 2026-08-02; wallet-binding trace #121).
+   *
+   * These two lines previously read `personaEvmOverride || agent.evm*`. When
+   * the active persona had no address, `personaEvmOverride` was undefined and
+   * both Base Q¢ rows fell through to the AGENT's address — and three hosts
+   * (ContentHubView, SmartTriadSurfaces, ComposerStudio) pass Aigent Z's
+   * hardcoded literal, which the trace identified as the platform DEPLOYER
+   * EOA holding QCT's premine and recorded as compromised.
+   *
+   * So an unbound human operator saw the deployer's 4,000,000 Base Q¢
+   * rendered in their persona wallet, undistinguished from their own. That is
+   * precisely what PILOT-WALLET-EXCEPTION-001's prohibit list names: "the
+   * legacy wallet substituting for the human principal wallet".
+   *
+   * An unresolved principal now stays UNRESOLVED. The agent's address is
+   * still available to the surfaces that legitimately show an AGENT wallet —
+   * it simply may no longer stand in for a person. A balance shown under
+   * someone's own persona is a claim about their holdings, and a fallback is
+   * not a weaker version of that claim; it is a false one.
+   */
+  const sanitizedEvmSepolia = personaEvmOverride;
+  const sanitizedEvmArb = personaEvmOverride;
+  /** The agent address, kept for surfaces that render an AGENT wallet as such. */
+  const agentEvidenceEvmAddress = isValidEvmAddress(agent.evmArb)
+    ? agent.evmArb
+    : isValidEvmAddress(agent.evmSepolia)
+      ? agent.evmSepolia
+      : undefined;
+  /**
+   * A principal wallet that did not resolve. Rendered as "Not configured" —
+   * never as a zero balance, which would assert the account is empty rather
+   * than unknown.
+   */
+  const principalWalletUnresolved = !personaEvmOverride;
 
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab);
   const [dismissed, setDismissed] = useState(false);
@@ -1604,11 +1638,21 @@ export default function SmartWalletDrawer({
     {
       key: "base-qc-mainnet",
       label: "Base Q¢",
-      value: qctMainnetLoading ? "…" : formatFixed(baseQcMainnetAmount),
-      unit: "Q¢",
+      /*
+       * An unresolved principal wallet has an UNKNOWN balance, not a zero one
+       * (operator ruling, 2026-08-02). Rendering 0 would assert the account is
+       * empty; rendering the agent's balance — the prior behaviour — asserted
+       * someone else's holdings were theirs. Both are claims we cannot make.
+       */
+      value: principalWalletUnresolved
+        ? "Not configured"
+        : qctMainnetLoading
+          ? "…"
+          : formatFixed(baseQcMainnetAmount),
+      unit: principalWalletUnresolved ? "" : "Q¢",
       fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
       group: "mainnet",
-      pending: !qctMainnetConfigured,
+      pending: principalWalletUnresolved || !qctMainnetConfigured,
     },
     // ─── Testnet ───────────────────────────────────────────────────────────
     {
@@ -1625,8 +1669,9 @@ export default function SmartWalletDrawer({
     {
       key: "base-qc-testnet",
       label: "Base Q¢",
-      value: formatQcent(bals.qctBase, bals.qctBaseDecimals),
-      unit: "Q¢",
+      // Same rule as the mainnet row above — unknown is not zero.
+      value: principalWalletUnresolved ? "Not configured" : formatQcent(bals.qctBase, bals.qctBaseDecimals),
+      unit: principalWalletUnresolved ? "" : "Q¢",
       fallbackIcon: <TrendingUp className="w-4 h-4 text-blue-300" />,
       group: "testnet",
     },
@@ -3607,6 +3652,44 @@ export default function SmartWalletDrawer({
           {/* Wallet Tab */}
           {activeTab === "wallet" && (
             <div className="space-y-4">
+              {/*
+                LEGACY PLATFORM WALLET EVIDENCE — separate, labelled, inert.
+                PILOT-WALLET-EXCEPTION-001 (services/wallet/pilotWalletException.ts).
+
+                The exception permits this address to remain VISIBLE for pilot
+                continuity. It does not permit it to sign, and it does not permit
+                it to stand in for the principal. Rendering it as its own block
+                with its own heading is what keeps "evidence" from quietly
+                reading as "authority" — the same address, undistinguished
+                inside the persona's own balances, is what the trace found and
+                what the exception's prohibit list forbids.
+
+                Shown only when the principal is unresolved: once a real
+                principal wallet exists, this is no longer the interesting fact
+                about the surface.
+              */}
+              {principalWalletUnresolved && agentEvidenceEvmAddress && (
+                <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3">
+                  <div className="text-xs font-medium text-slate-200">Principal wallet — Not configured</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+                    No principal wallet is bound to this persona, so no balance is shown and no signing action can
+                    be offered. The address below belongs to the platform, not to you.
+                  </p>
+                  <div className="mt-2.5 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
+                    <div className="text-[10px] uppercase tracking-wide text-amber-200">
+                      Legacy platform wallet evidence
+                    </div>
+                    <div className="mt-1 break-all font-mono text-[10px] text-white/50">
+                      {agentEvidenceEvmAddress}
+                    </div>
+                    <ul className="mt-1.5 space-y-0.5 text-[10px] text-amber-200/70">
+                      <li>Pilot exception active — PILOT-WALLET-EXCEPTION-001</li>
+                      <li>Signing unavailable</li>
+                      <li>Rotation deferred — AIGENT-Z-WALLET-ROTATION-001</li>
+                    </ul>
+                  </div>
+                </section>
+              )}
               {/* Signed OUT entirely (2026-08-02, revised): the wallet-level
                   `walletSurface` override (rendered above the whole tab-nav +
                   content region — see its own block below) is now the ONE

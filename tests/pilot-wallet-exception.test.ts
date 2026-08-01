@@ -157,3 +157,135 @@ describe('the exception record is a statement, not a mechanism', () => {
     ).not.toMatch(/0x[0-9a-fA-F]{40}/);
   });
 });
+
+/**
+ * ── ENFORCEMENT, NOT ONLY RECORD (operator ruling, 2026-08-02) ─────────────
+ *
+ *   > "Wire the recorded classification into the live resolver and
+ *   > signing-request preparation path. Only SIGNER_READY may produce a
+ *   > signing action."
+ *
+ * An exception that exists only as a document is a document. These canaries
+ * check the three places the rule actually has to hold: the classifier that
+ * decides capability, the ceremony that offers a mandate, and the wallet
+ * surface that attributes a balance to a person.
+ */
+describe('the classification is enforced in the live resolver', () => {
+  const RESOLVER = 'services/identity/personaAddressResolver.ts';
+
+  it('classifies on KEY MATERIAL, not on address presence', () => {
+    const src = stripComments(readSource(RESOLVER));
+    // The load-bearing predicate: an address with no encrypted key behind it
+    // is ADDRESS_ONLY, however well-formed it looks.
+    expect(src).toMatch(/encryptedPrivateKey/);
+    expect(src).toContain("capability: 'ADDRESS_ONLY'");
+    expect(src).toContain("capability: 'SIGNER_READY'");
+  });
+
+  it('checks LEGACY before key material — a compromised key present is still not ready', () => {
+    const src = stripComments(readSource(RESOLVER));
+    const legacyAt = src.indexOf("capability: 'LEGACY_EVIDENCE_ONLY'");
+    const readyAt = src.indexOf("capability: 'SIGNER_READY'");
+    const addressOnlyAt = src.indexOf("capability: 'ADDRESS_ONLY'");
+    expect(legacyAt).toBeGreaterThan(-1);
+    expect(legacyAt, 'legacy must be decided before ADDRESS_ONLY and SIGNER_READY').toBeLessThan(addressOnlyAt);
+    expect(legacyAt).toBeLessThan(readyAt);
+  });
+
+  it('reads the legacy set from agentConfig rather than copying the address', () => {
+    const src = readSource(RESOLVER);
+    expect(src).toContain("@/app/data/agentConfig");
+    expect(
+      src,
+      'copying the deployer literal here would spread what AIGENT-Z-WALLET-ROTATION-001 exists to remove',
+    ).not.toMatch(/0x[0-9a-fA-F]{40}/);
+  });
+
+  it('never offers provisioning when the store was merely unreachable', () => {
+    const src = stripComments(readSource(RESOLVER));
+    // BOTH unreachable branches — the missing-client one and the query-error
+    // one. UNAVAILABLE is not ABSENT: proposing a new wallet for a persona
+    // that may already have one is how duplicates get created.
+    const branches = [...src.matchAll(/capability: 'UNAVAILABLE'/g)].map((m) => m.index ?? -1);
+    expect(branches.length, 'expected both an unreachable-store and a query-error branch').toBeGreaterThanOrEqual(2);
+    for (const at of branches) {
+      // `stripComments` blanks comments in place, so the window must be wide
+      // enough to clear an explanatory block between the two fields.
+      expect(src.slice(at, at + 700)).toContain('remediation: null');
+    }
+  });
+
+  it('never fabricates a key for an existing random address', () => {
+    const src = stripComments(readSource(RESOLVER));
+    const at = src.indexOf("capability: 'ADDRESS_ONLY'");
+    const block = src.slice(at, at + 700);
+    expect(block).toMatch(/Never generate a key for the existing address/i);
+  });
+});
+
+describe('the ceremony refuses every capability but SIGNER_READY', () => {
+  const CEREMONY = 'services/horizen/registerCeremony.ts';
+
+  it('gates the mandate on mayProduceSignature, not on address presence', () => {
+    const src = stripComments(readSource(CEREMONY));
+    expect(src).toContain('classifyPersonaWalletCapability');
+    expect(src).toContain('mayProduceSignature(capability.capability)');
+    const gateAt = src.indexOf('mayProduceSignature(capability.capability)');
+    const resolveAt = src.indexOf('const principalWallet = await resolveWallet(');
+    expect(gateAt).toBeGreaterThan(-1);
+    expect(resolveAt).toBeGreaterThan(-1);
+    expect(gateAt, 'the capability gate must precede the address resolution it guards').toBeLessThan(resolveAt);
+  });
+
+  it('names the capability in the refusal, so the right remedy is stated', () => {
+    const src = stripComments(readSource(CEREMONY));
+    expect(src).toContain("refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_READY'");
+    expect(src).toContain('${capability.capability}');
+    expect(src).toContain('capability.remediation');
+    // Distinct from NO_PRINCIPAL_WALLET — "nothing resolved" and "resolved but
+    // cannot sign" need different remedies.
+    expect(src).toContain("'NO_PRINCIPAL_WALLET'");
+  });
+
+  it('the refusal code is part of the typed union, not a loose string', () => {
+    const src = stripComments(readSource(CEREMONY));
+    const unionAt = src.indexOf('export type RegisterCeremonyRefusalCode');
+    expect(unionAt).toBeGreaterThan(-1);
+    const union = src.slice(unionAt, src.indexOf(';', unionAt));
+    expect(union).toContain('PRINCIPAL_WALLET_NOT_SIGNER_READY');
+  });
+});
+
+describe('the wallet surface never attributes an agent balance to a person', () => {
+  const DRAWER = 'app/components/content/SmartWalletDrawer.tsx';
+
+  it('the principal→agent address fallthrough is gone', () => {
+    const src = stripComments(readSource(DRAWER));
+    expect(
+      src,
+      'personaEvmOverride || agent.evm* is how the deployer balance rendered as the operator’s own',
+    ).not.toMatch(/personaEvmOverride \|\| \(isValidEvmAddress\(agent\./);
+    expect(src).toContain('const sanitizedEvmArb = personaEvmOverride;');
+    expect(src).toContain('const sanitizedEvmSepolia = personaEvmOverride;');
+  });
+
+  it('an unresolved principal reads "Not configured" — never a zero balance', () => {
+    const src = stripComments(readSource(DRAWER));
+    expect(src).toContain('const principalWalletUnresolved = !personaEvmOverride;');
+    // Both Base Q¢ rows, mainnet and testnet.
+    const occurrences = (src.match(/principalWalletUnresolved\s*\?\s*"Not configured"/g) ?? []).length;
+    expect(occurrences, 'both Base Q¢ rows must decline to assert a balance').toBeGreaterThanOrEqual(2);
+  });
+
+  it('legacy evidence is rendered separately, labelled, and marked unsignable', () => {
+    const src = readSource(DRAWER);
+    expect(src).toContain('Principal wallet — Not configured');
+    expect(src).toContain('Legacy platform wallet evidence');
+    expect(src).toContain('PILOT-WALLET-EXCEPTION-001');
+    expect(src).toContain('Signing unavailable');
+    expect(src).toContain('AIGENT-Z-WALLET-ROTATION-001');
+    // And it says whose it is — the substitution the exception forbids is
+    // exactly the reader assuming it is theirs.
+    expect(src).toContain('belongs to the platform, not to you');
+  });
+});

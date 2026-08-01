@@ -52,6 +52,14 @@ import type { SigningRequest } from '@/types/signingRequest';
 
 export type RegisterCeremonyRefusalCode =
   | 'UNKNOWN_AGENT'
+  /**
+   * A wallet resolves for the principal but cannot sign — twenty random bytes
+   * with no key behind them, a legacy address held as evidence only, an
+   * unbound envelope. Distinct from NO_PRINCIPAL_WALLET, which means nothing
+   * resolved at all: the two need different remedies, and collapsing them is
+   * what let an unsignable wallet reach the mandate step (trace #121).
+   */
+  | 'PRINCIPAL_WALLET_NOT_SIGNER_READY'
   | 'NO_PRINCIPAL_WALLET'
   | 'REQUEST_NOT_FOUND'
   | 'WRONG_ACTION_KIND'
@@ -146,6 +154,39 @@ export async function prepareRegistrationMandate(
   const agent = resolveRegistrableAgent(input.agentSlug);
   if (!agent) {
     return { ok: false, refusalCode: 'UNKNOWN_AGENT', detail: `"${input.agentSlug}" is not a registrable agent` };
+  }
+
+  /*
+   * CAPABILITY, NOT PRESENCE (operator ruling, 2026-08-02; trace #121).
+   *
+   * "Is an address on file" is not "may this wallet sign". Three provisioning
+   * paths write twenty random bytes with no key behind them; a legacy deployer
+   * address sits under PILOT-WALLET-EXCEPTION-001 as evidence only. Both look
+   * like a resolved address to the old check, and neither can produce a
+   * signature — so the mandate would be offered and then fail at recovery,
+   * after the operator had been told it was theirs to sign.
+   *
+   * Only SIGNER_READY proceeds. Every other capability is refused BY NAME, so
+   * the refusal states which remedy applies rather than one flat message.
+   *
+   * Injected deps skip this: a test stub has no store to classify against, and
+   * that seam is what keeps this rule unit-testable.
+   */
+  if (!deps.resolvePrincipalWalletAddress) {
+    const { classifyPersonaWalletCapability } = await import('@/services/identity/personaAddressResolver');
+    const { mayProduceSignature } = await import('@/services/wallet/pilotWalletException');
+    const capability = await classifyPersonaWalletCapability(input.principalPersonaId, 'base');
+    if (!mayProduceSignature(capability.capability)) {
+      return {
+        ok: false,
+        refusalCode: 'PRINCIPAL_WALLET_NOT_SIGNER_READY',
+        detail:
+          `The operator's principal wallet is ${capability.capability} — it cannot produce a signature, so no ` +
+          `mandate is offered. ${capability.detail}` +
+          (capability.remediation ? ` ${capability.remediation}` : '') +
+          ' Never fabricating a mandate signature.',
+      };
+    }
   }
 
   const resolveWallet = deps.resolvePrincipalWalletAddress ?? defaultResolvePrincipalWalletAddress;
