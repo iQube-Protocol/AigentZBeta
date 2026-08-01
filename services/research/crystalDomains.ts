@@ -241,3 +241,86 @@ export function crystalReviewStageStatus(input: {
     internalDiagnosticAvailable: false,
   };
 }
+
+// ── The milestone, as a derived statement ───────────────────────────────────
+
+/**
+ * Where EXP-P1 actually stands (operator, 2026-08-02).
+ *
+ *   > "Internal Readiness / Domain ratified / Infrastructure ready /
+ *   >  Candidate crystal constitution pending — Track 2"
+ *
+ * ── Why this is stated rather than inferred from the counts ────────────────
+ *
+ * A readiness report over an unpopulated domain reads, to anyone who meets
+ * the numbers first, as a broken crystal: zero invariants, zero sources,
+ * failing checks. It is not. Three of the four things needed are DONE — the
+ * boundary is ratified, the infrastructure runs, the package builds
+ * deterministically — and the fourth has not been attempted yet.
+ *
+ * The distinction the operator drew, and the reason this milestone earns a
+ * name of its own:
+ *
+ *   The domain declaration creates the governed BOUNDARY.
+ *   Track 2 creates the OBJECT inside that boundary.
+ *   Readiness assesses that object.
+ *   Freeze ratifies it.
+ *
+ * Nothing in this software can advance the third line while the second has
+ * not run. Saying so plainly is what stops the next reader — human or agent —
+ * from debugging an absence.
+ */
+export interface CrystalMilestone {
+  label: string;
+  domainRatified: boolean;
+  infrastructureReady: boolean;
+  candidateConstituted: boolean;
+  /** The single sentence a surface should show instead of a count. */
+  statement: string;
+  /** What actually moves this forward. Never a code change. */
+  advancedBy: string;
+}
+
+export function crystalMilestone(input: { invariantCount: number }): CrystalMilestone {
+  const constituted = input.invariantCount > 0;
+  return {
+    label: constituted ? 'Candidate Crystal constituted' : 'Internal Readiness',
+    domainRatified: EXP_P1_CRYSTAL_DOMAIN.ratification === 'ratified',
+    infrastructureReady: true,
+    candidateConstituted: constituted,
+    statement: constituted
+      ? `Candidate Crystal vP1 holds ${input.invariantCount} invariant(s) in ` +
+        `'${EXP_P1_CRYSTAL_DOMAIN.domain}'. Readiness now assesses a real object.`
+      : `Domain ratified, infrastructure ready, candidate crystal constitution pending — Track 2. The ` +
+        `governed boundary '${EXP_P1_CRYSTAL_DOMAIN.domain}' exists and is empty: no invariant has been ` +
+        `acquired, validated and assigned to it yet. The zero counts describe an unstarted acquisition, not ` +
+        `a defective crystal.`,
+    advancedBy: constituted
+      ? 'Readiness checks over the populated crystal, then the freeze ceremony.'
+      : 'Track 2 corpus acquisition — admit external financial-risk sources, extract candidate invariants, ' +
+        'validate them through the receipted lifecycle, and assign eligible validated/canonical invariants to ' +
+        'the ratified domain. No change to this software moves it.',
+  };
+}
+
+/**
+ * Whether this readiness package is a reviewable scientific object.
+ *
+ *   > "I would not include the current empty readiness package in the material
+ *   >  sent to Austin except as historical provenance … It is honest, but it
+ *   >  is not yet a reviewable scientific object."
+ *
+ * Honest and reviewable are different properties, and an external reviewer
+ * asked to assess an empty set has been given work that cannot produce a
+ * finding. Exposed so any packaging path can refuse to ship it as the subject
+ * of a review while still carrying it as provenance.
+ */
+export function isReviewableScientificObject(input: { invariantCount: number }): boolean {
+  return input.invariantCount > 0;
+}
+
+export const EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT =
+  'A readiness package over an unpopulated domain is a truthful pre-Track-2 baseline and belongs in the ' +
+  'eventual research bundle as historical provenance. It is not a reviewable scientific object: an external ' +
+  'reviewer asked to assess an empty set cannot produce a finding, and asking them to spends their attention ' +
+  'on our unfinished work.';

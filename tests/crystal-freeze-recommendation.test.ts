@@ -10,6 +10,11 @@
  * regardless of verdict; (4) this module never mutates or writes anything.
  */
 
+import {
+  crystalMilestone,
+  isReviewableScientificObject,
+  EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT,
+} from '@/services/research/crystalDomains';
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 import { composeCrystalFreezeRecommendation } from '../services/research/crystalFreezeRecommendation';
@@ -368,5 +373,61 @@ describe('the crystal is constituted before it is assessed, and assessed before 
     for (const writer of ['.insert(', '.update(', '.upsert(', '.delete(', 'supabase']) {
       expect(src, `crystalDomains.ts must not ${writer} — declaring is not assigning`).not.toContain(writer);
     }
+  });
+});
+
+describe('the milestone names what is done and what has not been attempted', () => {
+  it('an unpopulated domain is Internal Readiness, not a broken crystal', () => {
+    const m = crystalMilestone({ invariantCount: 0 });
+    expect(m.label).toBe('Internal Readiness');
+    expect(m.domainRatified).toBe(true);
+    expect(m.infrastructureReady).toBe(true);
+    expect(m.candidateConstituted).toBe(false);
+    expect(m.statement).toMatch(/constitution pending — Track 2/);
+    // The sentence that stops the next reader debugging an absence.
+    expect(m.statement).toMatch(/not\s+a defective crystal/i);
+  });
+
+  it('says what advances it, and that it is not a code change', () => {
+    const m = crystalMilestone({ invariantCount: 0 });
+    expect(m.advancedBy).toMatch(/Track 2 corpus acquisition/);
+    expect(m.advancedBy).toMatch(/No change to this software moves it/);
+  });
+
+  it('flips on its own once the domain holds invariants', () => {
+    const m = crystalMilestone({ invariantCount: 18 });
+    expect(m.candidateConstituted).toBe(true);
+    expect(m.label).toBe('Candidate Crystal constituted');
+    expect(m.statement).toMatch(/18 invariant/);
+  });
+});
+
+describe('honest and reviewable are different properties', () => {
+  it('an empty package is not a reviewable scientific object', () => {
+    expect(isReviewableScientificObject({ invariantCount: 0 })).toBe(false);
+    expect(isReviewableScientificObject({ invariantCount: 1 })).toBe(true);
+  });
+
+  it('names the empty package as provenance, not a subject', () => {
+    expect(EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT).toMatch(/historical provenance/i);
+    expect(EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT).toMatch(/cannot produce a finding/i);
+  });
+});
+
+describe('the agent package tells a reviewer whether there is anything to review', () => {
+  it('carries crystalSubject beside the endpoint', () => {
+    const src = stripComments(readSource('app/api/journey/validation-programme/agent-package/route.ts'));
+    expect(src).toMatch(/crystalSubject/);
+    expect(src).toMatch(/isReviewableScientificObject/);
+  });
+
+  it('an unreadable crystal is unknown, never reviewable', () => {
+    // Fabricating reviewability on a failed read would send an agent to work
+    // on a set nobody had confirmed exists.
+    const src = stripComments(readSource('app/api/journey/validation-programme/agent-package/route.ts'));
+    const at = src.indexOf('} catch (e) {', src.indexOf('crystalSubject'));
+    const block = src.slice(at, at + 700);
+    expect(block).toMatch(/reviewable: false/);
+    expect(block).toMatch(/not permission to proceed/i);
   });
 });

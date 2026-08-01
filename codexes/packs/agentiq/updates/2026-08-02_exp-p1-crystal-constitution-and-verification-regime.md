@@ -138,6 +138,66 @@ Until the global config is repaired, do **not** write "typecheck clean". Write:
 
 and distinguish **syntax** validation from **semantic** type validation.
 
+## 6b. Milestone — Internal Readiness (2026-08-02, end of session)
+
+```
+Internal Readiness
+Domain ratified
+Infrastructure ready
+Candidate crystal constitution pending — Track 2
+```
+
+Three of the four things EXP-P1 needs are done. The governed boundary
+`financial-risk-value-systems` is ratified, the infrastructure runs, and the
+freeze package builds deterministically with a stable content hash and complete
+signatories. The fourth — constituting the candidate crystal — has not been
+attempted.
+
+**The zero counts are not a defect.** `invariantCount: 0`, `sourceCount: 0`,
+`documentCount: 0` and `eligibleForRatification: false` describe an unstarted
+acquisition, not a broken crystal. The governance layer is correctly refusing to
+issue a birth certificate for an empty set.
+
+### The four-question diagnosis, and what it found
+
+An external reading (Al, relayed 2026-08-02) proposed four candidate causes.
+Answered from code:
+
+| Question | Answer |
+|---|---|
+| Wrong namespace? | **Yes — a real defect.** The server resolved the ratified declaration correctly, but a caller-supplied domain WINS, and `IndependentReviewPanel` seeded its domain field to `constitutional-reasoning`. Every readiness report that panel requested was about the historical namespace. Fixed: blank means the server's ratified declaration governs. |
+| Provenance rulings excluded everything? | No. The corpus query filters on domain + `validated`/`canonical` only; no provenance filter exists in that path. |
+| Contested resolutions not written back? | Moot. The seven records are constitutional-reasoning materials, which the ratification text expressly excludes from the EXP-P1 crystal. |
+| Orphan detection running before assembly? | No. It runs over the fetched set and reports "nothing to compare" at zero. Symptom, not cause. |
+
+The namespace bug was real **and** was masking the programme state. Fixing it
+does not move the counts.
+
+### The sequence, and where the boundary lies
+
+```
+The domain declaration creates the governed BOUNDARY.   ← done
+Track 2 creates the OBJECT inside that boundary.        ← not started
+Readiness assesses that object.                         ← blocked on the above
+Freeze ratifies it.                                     ← blocked on the above
+```
+
+`crystalMilestone()` and `isReviewableScientificObject()` in
+`services/research/crystalDomains.ts` state this as derived data, surfaced on the
+readiness response as `milestone` and `reviewableScientificObject`. Both flip on
+their own the moment the domain holds invariants; neither needs a code change.
+
+### What goes to the external reviewer
+
+**Not the current package as a review subject.** It is honest and it is a
+truthful pre-Track-2 baseline, so it belongs in the eventual research bundle as
+historical provenance — but an external reviewer asked to assess an empty set
+cannot produce a finding, and asking them to spends their attention on our
+unfinished work. The agent package now carries `crystalSubject.reviewable` so an
+agent reading the JSON learns this before starting.
+
+Austin is invited once intrinsic readiness passes over a populated crystal.
+
 ## 7. Files
 
 | File | Role |

@@ -101,6 +101,45 @@ export async function GET(req: NextRequest) {
   // delegated agent — the T0 "never serialise personaId to JSON" boundary
   // this route otherwise honours (personaRef below) applies to it too. The
   // reviewer's own session resolves their identity when they open this link.
+  /*
+   * Read the crystal's own readiness to decide whether it is a review SUBJECT.
+   * Failure here must not fabricate reviewability — an unreadable crystal is
+   * reported as unknown, and unknown is not "ready to review".
+   */
+  let crystalSubject: {
+    reviewable: boolean;
+    milestone: string;
+    statement: string;
+    guidance: string;
+  };
+  try {
+    const { runCrystalFreezeRecommendation } = await import('@/services/research/crystalFreezeRecommendation');
+    const { crystalMilestone, isReviewableScientificObject, EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT } = await import(
+      '@/services/research/crystalDomains'
+    );
+    const rec = await runCrystalFreezeRecommendation({ experimentId: VALIDATION_PROGRAMME_EXPERIMENT_ID });
+    const invariantCount = rec.readiness?.invariantCount ?? 0;
+    const milestone = crystalMilestone({ invariantCount });
+    const reviewable = isReviewableScientificObject({ invariantCount });
+    crystalSubject = {
+      reviewable,
+      milestone: milestone.label,
+      statement: milestone.statement,
+      guidance: reviewable
+        ? 'The crystal holds invariants and is a reviewable scientific object. Assess it.'
+        : EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT,
+    };
+  } catch (e) {
+    crystalSubject = {
+      reviewable: false,
+      milestone: 'Unknown',
+      statement: `The crystal's readiness could not be read (${e instanceof Error ? e.message : String(e)}).`,
+      guidance:
+        'Could not determine whether there is anything to review. This is not a statement that the crystal is ' +
+        'empty, and it is not permission to proceed as though it were populated. Re-read before assessing.',
+    };
+  }
+
   const journeyUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-validation-programme`;
 
   return NextResponse.json({
@@ -150,6 +189,23 @@ export async function GET(req: NextRequest) {
       journeyUrl,
       documentResources,
       crystalReviewEndpoint: `${origin}/api/research/crystal/${VALIDATION_PROGRAMME_EXPERIMENT_ID}`,
+      /*
+       * IS THERE ANYTHING TO REVIEW? (operator ruling, 2026-08-02)
+       *
+       *   > "I would not include the current empty readiness package in the
+       *   >  material sent to Austin except as historical provenance … It is
+       *   >  honest, but it is not yet a reviewable scientific object."
+       *
+       * The endpoint above is real and will answer. What it currently answers
+       * ABOUT is an unpopulated domain — a truthful pre-Track-2 baseline, and
+       * not something an external reviewer can produce a finding on. An agent
+       * that fetched it without this field would set to work assessing an
+       * empty set, which is our unfinished work spending their attention.
+       *
+       * Derived, never asserted: the moment Track 2 populates the domain this
+       * flips on its own, with nothing here to update.
+       */
+      crystalSubject,
       reviewQueueEndpoint: `${origin}/api/research/review`,
       /*
        * The reviewer's OWN agreement standing (operator ruling, 2026-08-02).

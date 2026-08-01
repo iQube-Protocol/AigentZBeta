@@ -21,7 +21,12 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import { runCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
-import { crystalReviewStageStatus, crystalDomainForExperiment } from '@/services/research/crystalDomains';
+import {
+  crystalReviewStageStatus,
+  crystalDomainForExperiment,
+  crystalMilestone,
+  isReviewableScientificObject,
+} from '@/services/research/crystalDomains';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +102,23 @@ export async function GET(
        * mislead about whether the work is broken or merely not yet done.
        */
       assessability: recommendation.assessability,
+      /*
+       * The milestone, hoisted beside assessability (operator, 2026-08-02).
+       *
+       * Zero counts over a ratified-but-unpopulated boundary read as a broken
+       * crystal to anyone who meets the numbers before the reason. Three of
+       * four things are done; the fourth has not been attempted. The statement
+       * says which, and `advancedBy` says what moves it — never a code change.
+       */
+      milestone: crystalMilestone({ invariantCount: readiness?.invariantCount ?? 0 }),
+      /*
+       * Honest and reviewable are different properties. An empty package is a
+       * truthful baseline and belongs in the research bundle as provenance; it
+       * is not something an external reviewer can produce a finding about.
+       */
+      reviewableScientificObject: isReviewableScientificObject({
+        invariantCount: readiness?.invariantCount ?? 0,
+      }),
       /*
        * Which milestone this actually is (operator ruling, 2026-08-02, revised).
        *
