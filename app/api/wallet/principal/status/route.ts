@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
 
   // The placeholder that a prior repair superseded, if one did. Read from the
   // envelope's audit field — preserved deliberately, never deleted.
-  const { data: row } = await sb.from('personas').select('evm_key').eq('id', persona.personaId).maybeSingle();
+  const { data: row } = await sb
+    .from('personas')
+    .select('evm_key, display_name, fio_handle')
+    .eq('id', persona.personaId)
+    .maybeSingle();
   const env = (row?.evm_key ?? null) as { supersededPlaceholder?: unknown } | null;
   const supersededPlaceholder = (env?.supersededPlaceholder ?? null) as Record<string, unknown> | null;
 
@@ -70,8 +74,49 @@ export async function GET(req: NextRequest) {
     .select('address, provider, control_status, authority_role, may_sign_principal_mandate')
     .eq('subject_persona_id', persona.personaId);
 
+  /*
+   * DID THE SERVER RESOLVE THE PERSONA THE CALLER MEANT? (2026-08-02)
+   *
+   * A console call with no hint and a panel call with one can resolve DIFFERENT
+   * personas — `getActivePersona` falls back to "first owned" when nothing
+   * pins it. That produced two contradictory readings of the same operator's
+   * wallet within minutes: AMBIGUOUS in the panel, ABSENT from the console.
+   *
+   * Neither read was wrong about the row it looked at. Both were silent about
+   * WHICH row, which is what made them look like a contradiction instead of a
+   * question. So the answer now says whether it is about the persona the
+   * caller asked for.
+   *
+   * The raw id is never echoed — T0. A boolean is enough to know whether to
+   * trust the answer, and a mismatch is reported rather than resolved here:
+   * quietly switching to the hinted persona would hide a real ambiguity about
+   * which persona is active.
+   */
+  const requestedPersonaId = req.nextUrl.searchParams.get('personaId');
+  const personaHintHonoured = requestedPersonaId ? requestedPersonaId === persona.personaId : null;
+
   return NextResponse.json({
     ok: true,
+    personaHintHonoured,
+    /*
+     * WHO this answer is about (2026-08-02).
+     *
+     * The wallet selects a persona by default when nothing pins one, and the
+     * surface never said WHICH persona its answer was about. Two reads minutes
+     * apart reported AMBIGUOUS and ABSENT and looked like a contradiction;
+     * they were about different personas, and nothing on screen could have
+     * told the operator that.
+     *
+     * A T1 display label only — never the persona id (T0), and never a
+     * delegate flag inferred from this table: `is_aigent_me` lives on
+     * `agent_root_identity`, and selecting it here would error the whole route
+     * into REFUSED, breaking the surface to add a hint.
+     */
+    personaLabel:
+      (row as { display_name?: string; fio_handle?: string } | null)?.display_name ??
+      (row as { fio_handle?: string } | null)?.fio_handle ??
+      null,
+
     capability: capability.capability,
     address: capability.address,
     detail: capability.detail,

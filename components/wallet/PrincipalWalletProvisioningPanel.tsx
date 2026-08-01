@@ -44,6 +44,7 @@ import {
   type ProvisioningPhase,
 } from '@/services/wallet/provisionPrincipalWalletClient';
 import { announceWalletSurfaceCompletion } from '@/services/wallet/walletSurfaceRequest';
+import { validatePassword } from '@/services/wallet/keyService';
 
 /** The ten states the operator specified, and nothing else. */
 export type PrincipalProvisioningState =
@@ -67,6 +68,7 @@ interface LinkedWalletView {
 }
 
 interface StatusView {
+  personaLabel: string | null;
   capability: string;
   address: string | null;
   detail: string;
@@ -173,6 +175,7 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
         setStatus(null);
       } else {
         const next: StatusView = {
+          personaLabel: (j as { personaLabel?: string | null }).personaLabel ?? null,
           capability: String(j.capability),
           address: (j.address as string | null) ?? null,
           detail: String(j.detail ?? ''),
@@ -203,11 +206,36 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
 
   const needsAcknowledgement = baseState === 'AMBIGUOUS_DATA_DETECTED';
   const passwordsAgree = password.length > 0 && password === confirm;
+  const strength = useMemo(() => validatePassword(password), [password]);
   const canRun =
     !running &&
     passwordsAgree &&
+    strength.valid &&
     (!needsAcknowledgement || acknowledged) &&
     ['NOT_CONFIGURED', 'AMBIGUOUS_DATA_DETECTED', 'READY_TO_PROVISION'].includes(baseState);
+
+  /**
+   * Why the button will not act.
+   *
+   * A disabled control that says nothing is the defect the operator hit: the
+   * form looked complete, the button was grey, and the reason (a password
+   * rule, or a refusal rendered below the fold) was invisible. MS-9's spirit —
+   * a control that cannot act must not silently pretend it might.
+   *
+   * The strength rules were being enforced INSIDE the ceremony, so a short
+   * password produced a post-hoc refusal instead of feedback while typing.
+   */
+  const blockedBecause: string | null = running
+    ? null
+    : password.length === 0
+      ? 'Enter a wallet password to continue.'
+      : !strength.valid
+        ? strength.errors.join('; ')
+        : !passwordsAgree
+          ? 'The two passwords do not match.'
+          : needsAcknowledgement && !acknowledged
+            ? 'Tick the acknowledgement above to proceed with the repair.'
+            : null;
 
   /**
    * Announce what happened, serializably.
@@ -267,29 +295,55 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
     [announce, load],
   );
 
-  const run = useCallback(async () => {
-    setRunning(true);
-    setOutcomeRefusal(null);
-    await finish(
-      await provisionPrincipalWallet({
-        personaId,
-        password,
-        requestId: `prov_${personaId}_${Date.now()}`,
-        onPhase: setPhase,
-      }),
-    );
-  }, [personaId, password, finish]);
+  /*
+   * An unhandled rejection here left the surface frozen: `running` stayed
+   * true, no phase rendered, no refusal appeared, and the button was disabled
+   * forever. From the operator's side that is indistinguishable from a click
+   * that did nothing — which is exactly what was reported. A thrown error is
+   * now a visible refusal.
+   */
+  const guard = useCallback(
+    async (work: () => Promise<Awaited<ReturnType<typeof provisionPrincipalWallet>>>) => {
+      setRunning(true);
+      setOutcomeRefusal(null);
+      try {
+        await finish(await work());
+      } catch (e) {
+        setOutcomeRefusal({
+          refusal: 'CEREMONY_THREW',
+          detail: `The ceremony stopped with an unexpected error: ${(e as Error).message}. Nothing was ` +
+            'regenerated — check your wallet state before retrying.',
+        });
+        setRunning(false);
+        setPhase(null);
+        await load();
+      }
+    },
+    [finish, load],
+  );
+
+  const run = useCallback(
+    () =>
+      guard(() =>
+        provisionPrincipalWallet({
+          personaId,
+          password,
+          requestId: `prov_${personaId}_${Date.now()}`,
+          onPhase: setPhase,
+        }),
+      ),
+    [personaId, password, guard],
+  );
 
   /**
    * Prove the wallet that already exists. Creates nothing.
    *
    *   > "Never regenerate the wallet in this state."
    */
-  const retryProof = useCallback(async () => {
-    setRunning(true);
-    setOutcomeRefusal(null);
-    await finish(await proveExistingPrincipalWallet({ personaId, password, onPhase: setPhase }));
-  }, [personaId, password, finish]);
+  const retryProof = useCallback(
+    () => guard(() => proveExistingPrincipalWallet({ personaId, password, onPhase: setPhase })),
+    [personaId, password, guard],
+  );
 
   if (loading) {
     return (
@@ -309,12 +363,35 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
           <KeyRound className="h-4 w-4 text-violet-300" aria-hidden="true" />
           <h3 className="text-sm font-medium text-white">Principal wallet</h3>
         </div>
+        {status?.personaLabel && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span className="text-white/40">For persona</span>
+            <span className="rounded border border-slate-800 bg-slate-950/60 px-1.5 py-0.5 font-medium text-white/80">
+              {status.personaLabel}
+            </span>
+          </div>
+        )}
         <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
           Your principal wallet is held under first-party custody: the key is generated and encrypted in this
           browser, and the platform stores only ciphertext. It is the wallet that signs constitutional authority —
           a connected external wallet never can.
         </p>
       </Section>
+
+      {/* ── A refusal from the ceremony itself ────────────────────────────
+          FIRST, not last. It used to render at the bottom of the panel, which
+          in a narrow wallet column is below the fold — so a refused ceremony
+          looked to the operator like a button that did nothing at all. The
+          explanation has to be where the action was. */}
+      {outcomeRefusal && (
+        <Section>
+          <div className="flex items-center gap-2 text-rose-200">
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+            <span className="text-xs font-medium">{outcomeRefusal.refusal}</span>
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">{outcomeRefusal.detail}</p>
+        </Section>
+      )}
 
       {/* ── QUARANTINED ─────────────────────────────────────────────────── */}
       {state === 'QUARANTINED' && (
@@ -409,6 +486,13 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
             Your wallet password encrypts the key in this browser. It is never sent to the server, and neither is
             the key it protects. If you lose it, the wallet cannot be recovered.
           </p>
+          {/* Stated BEFORE the fields. These rules were enforced only inside
+              the ceremony, so a password that broke one produced a grey button
+              and no explanation — the operator could not tell a rule from a
+              broken control. */}
+          <p className="mt-1.5 text-[11px] text-white/35">
+            At least 8 characters, with an uppercase letter, a lowercase letter and a number.
+          </p>
           <div className="mt-3 space-y-2">
             <input
               type="password"
@@ -426,9 +510,6 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
               placeholder="Confirm wallet password"
               className="w-full rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-white placeholder:text-white/30"
             />
-            {confirm.length > 0 && !passwordsAgree && (
-              <p className="text-[11px] text-rose-300">The two passwords do not match.</p>
-            )}
           </div>
           <button
             type="button"
@@ -438,6 +519,11 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
           >
             Create and prove principal wallet
           </button>
+          {blockedBecause && (
+            <p className="mt-1.5 text-[11px] text-amber-200/80" role="status">
+              {blockedBecause}
+            </p>
+          )}
         </Section>
       )}
 
@@ -538,16 +624,6 @@ export const PrincipalWalletProvisioningPanel: React.FC<PrincipalWalletProvision
         </Section>
       )}
 
-      {/* ── A refusal from the ceremony itself ──────────────────────────── */}
-      {outcomeRefusal && (
-        <Section>
-          <div className="flex items-center gap-2 text-rose-200">
-            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-            <span className="text-xs font-medium">{outcomeRefusal.refusal}</span>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">{outcomeRefusal.detail}</p>
-        </Section>
-      )}
     </div>
   );
 };

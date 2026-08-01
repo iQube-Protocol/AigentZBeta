@@ -427,3 +427,37 @@ describe('the acceptance conditions the operator specified', () => {
     expect(register).toMatch(/does not mean you have no wallet/);
   });
 });
+
+describe('the surface explains why it will not act', () => {
+  const panel = stripComments(readSource('components/wallet/PrincipalWalletProvisioningPanel.tsx'));
+
+  it('names the reason the button is disabled', () => {
+    // A grey button with no explanation is indistinguishable from a broken
+    // one. The operator hit exactly that: the form looked complete and the
+    // control did nothing.
+    expect(panel).toMatch(/blockedBecause/);
+    expect(panel).toMatch(/Enter a wallet password to continue/);
+    expect(panel).toMatch(/do not match/);
+  });
+
+  it('validates password strength while typing, not only inside the ceremony', () => {
+    expect(panel).toMatch(/validatePassword\(password\)/);
+    expect(panel).toMatch(/strength\.valid/);
+  });
+
+  it('states the password rules before the fields', () => {
+    const rules = panel.indexOf('At least 8 characters');
+    const field = panel.indexOf("placeholder=\"Wallet password\"");
+    expect(rules).toBeGreaterThan(-1);
+    expect(rules).toBeLessThan(field);
+  });
+
+  it('renders a refusal ABOVE the form, not below the fold', () => {
+    // In a narrow wallet column a refusal at the bottom is off-screen, so a
+    // refused ceremony reads as a button that did nothing.
+    const refusal = panel.indexOf('outcomeRefusal && (');
+    const form = panel.indexOf('Create and prove principal wallet');
+    expect(refusal).toBeGreaterThan(-1);
+    expect(refusal).toBeLessThan(form);
+  });
+});

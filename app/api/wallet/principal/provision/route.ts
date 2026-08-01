@@ -139,6 +139,13 @@ export async function POST(req: NextRequest) {
     .eq('wallet_ref', 'principal')
     .eq('action_kind', 'prove_wallet_control');
 
+  /*
+   * The body NAMES the persona the surface believes it is repairing. If the
+   * spine resolved a different one, provisioning here would write a wallet
+   * onto a persona the operator was not looking at — and report success.
+   * `subjectPersonaId || persona.personaId` would have masked exactly that by
+   * substituting the server's answer for the client's question.
+   */
   const decision = evaluateProvisioningRequest({
     subjectPersonaId: subjectPersonaId || persona.personaId,
     callerPersonaId: persona.personaId,
