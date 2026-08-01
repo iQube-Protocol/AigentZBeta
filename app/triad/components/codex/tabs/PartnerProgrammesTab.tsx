@@ -310,6 +310,21 @@ interface PartnerProgrammesTabProps {
    * the data, which is scope-filtered per caller either way.
    */
   workspaceVisibility?: string;
+  /**
+   * Lock this mount to exactly ONE workspace and drop the picker/Command
+   * Center chrome — the same "rendered bare" convention the Guided Journey
+   * Runtime already uses for PassportBureauApplyTab/BoundedDelegationTab/
+   * ParticipationStandingTab (services/journey/journeySurfaceRegistry.ts).
+   * Added for the Validation Programme journey (services/journey/
+   * validationProgrammeJourney.ts), which composes THIS component's real
+   * Overview/Review/Locker/Pipeline/Activity views for one specific research
+   * workspace (`autonomi-review-exp-p1`) rather than forking a second
+   * presentation of them. Security-neutral: the existing grant-scope filter
+   * on `workspaces` still runs first, so locking to a workspace the caller
+   * cannot open still resolves to the honest empty state below — this prop
+   * only ever NARROWS what is reachable, never widens it.
+   */
+  lockedWorkspaceId?: string;
 }
 
 // ─── The two Labs, as configuration rather than branches ─────────────────────
@@ -1380,7 +1395,7 @@ function EvidenceChainPanel({
   );
 }
 
-export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility }: PartnerProgrammesTabProps) {
+export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, workspaceDomain, workspaceVisibility, lockedWorkspaceId }: PartnerProgrammesTabProps) {
   const kind = asWorkspaceKind(workspaceDomain);
   const visibility = asVisibility(workspaceVisibility);
   const copy = KIND_COPY[kind];
@@ -1400,16 +1415,19 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
     [kind],
   );
   const grantedScopes = scopesGrantedIn(access, accessDomain, Boolean(isAdmin));
-  const workspaces = useMemo(
-    () =>
+  const workspaces = useMemo(() => {
+    const scoped =
       grantedScopes === "all"
         ? allWorkspaces
-        : allWorkspaces.filter((w) => grantedScopes.includes(w.id)),
+        : allWorkspaces.filter((w) => grantedScopes.includes(w.id));
+    // Locking NARROWS further — a caller whose grant does not reach
+    // `lockedWorkspaceId` still lands on the honest empty state below, never
+    // on an unscoped workspace this prop tried to force open.
+    return lockedWorkspaceId ? scoped.filter((w) => w.id === lockedWorkspaceId) : scoped;
     // `grantedScopes` is a fresh array each render when scoped; key off its
     // content so the memo does not thrash and `activeId` stays stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [allWorkspaces, grantedScopes === "all" ? "all" : grantedScopes.join("|")],
-  );
+  }, [allWorkspaces, grantedScopes === "all" ? "all" : grantedScopes.join("|"), lockedWorkspaceId]);
   const [activeId, setActiveId] = useState<string | null>(null);
   // activeId tracks the SCOPED list, not the full registry — a caller must
   // never land on a workspace they cannot open just because it's first in
@@ -1502,15 +1520,19 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
           restructure); VENTURE kind is unaffected and keeps its horizontal
           selector inline below (rendered inside the flex-1 column so its
           existing `space-y-4` sibling spacing is unchanged). */}
-      {kind === "research" && (
+      {kind === "research" && !lockedWorkspaceId && (
         <ResearchProgrammeNav workspaces={workspaces} activeId={ws.id} onSelect={setActiveId} />
       )}
       <div className={kind === "research" ? "min-w-0 flex-1 space-y-4 overflow-y-auto p-4" : "min-w-0 flex-1 space-y-4"}>
       {/* Workspace selector + Command Center — omitted for the Journey surface
           (operator UI review, 2026-07-31): the Guided Journey Runtime is its
           own lightweight capability, not a workspace panel, and does not
-          need the Pilot/Programme Command Center chrome above it. */}
-      {surface !== "journey" && (
+          need the Pilot/Programme Command Center chrome above it. Also
+          omitted whenever `lockedWorkspaceId` is set (2026-08-01) — a locked
+          mount is ITSELF a bare Guided Journey Runtime surface for the
+          Validation Programme journey, composing one of the eight research
+          views directly rather than a workspace panel with its own picker. */}
+      {surface !== "journey" && !lockedWorkspaceId && (
       <>
       {/* Workspace selector — derived from the registry (single source).
           VENTURE ONLY: research's programme picker is the left nav above. */}

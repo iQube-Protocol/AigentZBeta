@@ -1,17 +1,25 @@
 /**
  * GET /api/research/crystal/[experimentId] — Crystal Readiness Report +
  * Crystal Statistics Report + Freeze Recommendation for one crystal domain
- * (CFS-054 / PRD-EPI-001 §3.1 Workstreams 2–4). Admin-gated, read-only.
+ * (CFS-054 / PRD-EPI-001 §3.1 Workstreams 2–4). Read-only.
  *
- * Mirrors app/api/research/readiness/[experimentId]/route.ts's auth pattern
- * exactly. This route NEVER writes anything and NEVER freezes anything — it
- * is three read-only reports composed into one payload so the front end can
- * render all three sections from a single fetch (the "run the checks"
- * refresh action the review-tab surface exposes).
+ * Admits a platform admin (unchanged), OR (added for the Validation
+ * Programme's reviewer-facing Crystal Review stage, SPEC-IRL-WORKSPACE-001
+ * §8/§12) a persona holding an active research-lab grant, in a role the
+ * Review workspace view admits, scoped to THIS experimentId
+ * (`callerMayReadExperimentReview` — services/passport/participationAccess.ts,
+ * the one place that check lives). This route still NEVER writes anything and
+ * NEVER freezes anything — three read-only reports composed into one payload.
+ * `freeze-preview` (the sibling route) is deliberately NOT extended the same
+ * way: previewing a freeze ceremony package is governance rehearsal, which
+ * the reviewer role's authority table (researchWorkspaceRoles.ts) withholds
+ * (`mayFreeze: false`) even though reading readiness evidence is permitted.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
 import { runCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +32,16 @@ export async function GET(
   if (!persona?.personaId) {
     return NextResponse.json({ ok: false, error: 'Not authenticated' }, { status: 401 });
   }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return NextResponse.json({ ok: false, error: 'Steward access required' }, { status: 403 });
-  }
 
   const { experimentId } = await params;
+
+  if (!persona.cartridgeFlags?.isAdmin) {
+    const admin = getSupabaseServer();
+    const scoped = admin ? await callerMayReadExperimentReview(admin, persona.personaId, experimentId) : false;
+    if (!scoped) {
+      return NextResponse.json({ ok: false, error: 'Steward or assigned-reviewer access required' }, { status: 403 });
+    }
+  }
   const crystalDomain = req.nextUrl.searchParams.get('domain') ?? undefined;
 
   const recommendation = await runCrystalFreezeRecommendation({ experimentId, crystalDomain });

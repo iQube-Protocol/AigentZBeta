@@ -322,6 +322,49 @@ export async function getGrantedExperiments(
   return { hasGrant: true, allowed: anyUnrestricted ? 'all' : union };
 }
 
+/**
+ * Roles the 'review' workspace view admits (services/research/researchWorkspaceViews.ts:
+ * `allRolesExcept('research-participant', 'student-researcher')`). Kept here,
+ * not re-derived from that module, because that module is deliberately
+ * server-import-free (pure, bundled for the browser) — this is the one place
+ * server-side authorization actually reads the access_grants table, per
+ * SPEC-IRL-WORKSPACE-001 §16's reuse register.
+ */
+const REVIEW_VIEW_READABLE_ROLES = ['reviewer', 'research-steward', 'principal-investigator', 'faculty-lead', 'researcher'];
+
+/**
+ * Read-only reviewer-reach check (SPEC-IRL-WORKSPACE-001 §8, acceptance
+ * criterion 4: "Autonomi reviewers reach only assigned experiments"). Does a
+ * persona hold an active research-lab grant, in one of the roles the Review
+ * workspace view admits, scoped (via allowed_experiments) to this experiment?
+ *
+ * READ-ONLY BOUNDARY: this answers "may this caller SEE this experiment's
+ * review/crystal evidence", never "may they resolve/freeze/canonise it". The
+ * governed-resolution routes (accept/revise/defer/reject, freeze-preview)
+ * stay gated on `cartridgeFlags.isAdmin` exactly as before — extending THIS
+ * check to cover those would be exactly the authority the reviewer role's
+ * `false`s (researchWorkspaceRoles.ts) exist to withhold.
+ */
+export async function callerMayReadExperimentReview(
+  admin: SupabaseClient,
+  personaId: string,
+  experimentId: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from('access_grants')
+    .select('role, allowed_experiments')
+    .eq('persona_id', personaId)
+    .eq('access_domain', 'research-lab')
+    .eq('status', 'active');
+  if (error || !data) return false;
+  return data.some((row) => {
+    const role = String((row as { role: string }).role);
+    if (!REVIEW_VIEW_READABLE_ROLES.includes(role)) return false;
+    const allowed = (row as { allowed_experiments?: string[] | null }).allowed_experiments;
+    return !allowed || allowed.length === 0 || allowed.includes(experimentId);
+  });
+}
+
 function hashCode(rawCode: string): string {
   return createHash('sha256').update(rawCode).digest('hex');
 }

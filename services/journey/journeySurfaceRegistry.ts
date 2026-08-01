@@ -183,4 +183,42 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'Confirmed real and substantial 2026-07-31 (corrects the earlier storyboard-era "placeholder" ' +
       'assumption) — FounderOfficeTab, a live Workspace/Discover/Validate/Architect/Blueprint surface.',
   },
+
+  // ── Validation Programme journey (2026-08-01) — every entry below composes
+  // PartnerProgrammesTab bare, locked to the autonomi-review-exp-p1 workspace
+  // (services/journey/validationProgrammeJourney.ts's own header explains why
+  // each is a REUSE, not a new surface).
+  'validation-programme-overview': {
+    kind: 'component',
+    component: 'PartnerProgrammesTab',
+    note: "The Research Workspace's Overview view, locked to one workspace and rendered bare.",
+  },
+  'validation-programme-crystal-review': {
+    kind: 'embed',
+    codexSlug: 'irl-os',
+    tab: 'irl-os-experiment-lab',
+    note:
+      'The real IRL OS Laboratory Experiments surface (not adminOnly — access is enforced server-side ' +
+      'at the run/crystal routes). Houses IndependentReviewPanel and its Crystal vP1 view.',
+  },
+  'validation-programme-locker': {
+    kind: 'component',
+    component: 'PartnerProgrammesTab',
+    note: "The Research Workspace's Locker view, locked to one workspace and rendered bare.",
+  },
+  'validation-programme-qubetalk': {
+    kind: 'component',
+    component: 'PartnerProgrammesTab',
+    note: "The Research Workspace's QubeTalk view (mounts the real QubeTalkInboxTab), locked and rendered bare.",
+  },
+  'validation-programme-pipeline': {
+    kind: 'component',
+    component: 'PartnerProgrammesTab',
+    note: "The Research Workspace's Pipeline view, locked to one workspace and rendered bare.",
+  },
+  'validation-programme-activity': {
+    kind: 'component',
+    component: 'PartnerProgrammesTab',
+    note: "The Research Workspace's Activity view, locked to one workspace and rendered bare.",
+  },
 };

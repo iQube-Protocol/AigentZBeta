@@ -6277,6 +6277,30 @@ export const IRL_OS_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'RefreshCw', description: 'Constitutional evolution — feedback, adaptation, multi-agent governance (the frontier)' },
     },
     {
+      // The single guided entrance for an external reviewer (operator spec,
+      // 2026-08-01) — the Validation Programme journey. NOT adminOnly: it
+      // composes existing surfaces (the Research Workspace, the Experiment
+      // Lab, QubeTalk) that are each already reviewer-reachable in their own
+      // right; this tab is presentation, not a new gate. See
+      // services/journey/validationProgrammeJourney.ts's own header for the
+      // full composition and services/passport/participationAccess.ts's
+      // `callerMayReadExperimentReview` for the scoped read check.
+      id: 'irl-os-validation-programme',
+      label: 'Validation Programme',
+      slug: 'irl-os-validation-programme',
+      enabled: true,
+      group: 'laboratory',
+      order: -1,
+      type: 'static',
+      config: { component: 'ValidationProgrammeJourneyTab', props: {} },
+      metadata: {
+        icon: 'ClipboardList',
+        description:
+          'The guided path for an invited external reviewer: Overview, Crystal Review, Submit Review, and Experiment Progress for EXP-P1.',
+        color: 'violet',
+      },
+    },
+    {
       // The runnable Experiments surface for reviewers/researchers (2026-07-19).
       // NOT adminOnly — access is enforced server-side at the run routes
       // (admin OR research-entitled OR an active research-lab access grant).
