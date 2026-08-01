@@ -80,6 +80,11 @@ function DynamicCodexContent() {
   // the persona; the URL param is only for optimistic gating like isAdmin/isPartner.
   const queryIsInvestor = searchParams?.get("isInvestor") === "true" || searchParams?.get("investor") === "1";
   const queryPartnerId = readFirst(searchParams, ["partnerId", "partner_id"]);
+  // `?copilot=off` — a HOST that already provides the operator's conversational
+  // partner (today: the Guided Journey viewport) suppresses the cartridge's own
+  // floating copilot, so only one is on screen (MS-1: one navigation). Absent
+  // or any other value keeps it, so every existing embed URL is unaffected.
+  const querySuppressCopilot = searchParams?.get("copilot") === "off";
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
@@ -99,6 +104,7 @@ function DynamicCodexContent() {
       isPartner={queryIsPartner || undefined}
       isInvestor={queryIsInvestor || undefined}
       partnerId={queryPartnerId || undefined}
+      suppressFloatingCopilot={querySuppressCopilot || undefined}
       useDefaults={true}
     />
   );

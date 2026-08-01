@@ -63,6 +63,21 @@ interface CodexPanelDynamicProps {
    *  "embed" (default): standalone thin-client embed, no platform chrome.
    *  "viewer": inside AgentiQ platform shell (multi-cartridge viewer). */
   shell?: 'embed' | 'viewer';
+  /**
+   * Suppress this cartridge's own floating copilot.
+   *
+   * For a HOST that already provides the operator's conversational partner —
+   * the Guided Journey viewport, which composes cartridges by iframe and runs
+   * its own companion above them. Two copilots on one screen, each with its own
+   * agent and its own idea of what the operator is doing, is MS-1's "one
+   * navigation" broken.
+   *
+   * Deliberately a per-MOUNT prop, not a cartridge config flag: the same
+   * cartridge opened on its own still needs its copilot, where it is the only
+   * one and entirely correct. Undefined everywhere else, so no existing mount
+   * changes.
+   */
+  suppressFloatingCopilot?: boolean;
 }
 
 type IssueOption = {
@@ -119,6 +134,7 @@ export default function CodexPanelDynamic({
   previewDevice,
   onClose,
   shell = 'embed',
+  suppressFloatingCopilot = false,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1194,6 +1210,10 @@ export default function CodexPanelDynamic({
       {(() => {
         const cfg = codex.copilot ?? {};
         if (cfg.disabled) return null;
+        // A control that cannot act must not render (MS-9) — and a second
+        // copilot beside the host's own cannot act coherently. The host says
+        // it already owns the conversation; believe it.
+        if (suppressFloatingCopilot) return null;
         return (
           <CodexCopilotLayer
             isOpen={copilotOpen}

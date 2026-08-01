@@ -43,6 +43,23 @@ export type JourneySurfaceDescriptor =
       codexSlug: string;
       /** Tab slug within that cartridge. */
       tab: string;
+      /**
+       * Suppress the embedded cartridge's OWN floating copilot for this
+       * surface (operator direction, 2026-08-02).
+       *
+       * MS-1 — one navigation: inside the journey viewport the journey's
+       * companion is the operator's single conversational partner. A cartridge
+       * that mounts its own floating copilot puts a second one on screen with
+       * a different agent, a different context and a different idea of what
+       * the operator is doing.
+       *
+       * Declared per SURFACE rather than in the renderer, because the conflict
+       * is a property of what is being composed — a cartridge without its own
+       * copilot needs no suppression — and because suppressing it globally
+       * would take the copilot away from the cartridge's ordinary standalone
+       * use, where it is the only one and entirely correct.
+       */
+      suppressFloatingCopilot?: true;
       note: string;
     }
   | {
@@ -177,6 +194,10 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     kind: 'embed',
     codexSlug: 'metame-codex',
     tab: 'aigent-me',
+    // metame-codex mounts its own floating copilot on every tab. Inside the
+    // journey that is the second one on screen, arguing with the journey's
+    // companion over the same operator.
+    suppressFloatingCopilot: true,
     note:
       'Confirmed real and live — AigentMeWelcomeSplitTab, the operator’s existing copilot/dashboard ' +
       'shell. The focus-disposition ceremony is a Welcome Capsule inside this shell itself (§24.8 ' +

@@ -415,7 +415,15 @@ export function JourneyRunSurface({
               );
             }
             if (descriptor.kind === 'embed') {
-              const src = buildCodexUrl(descriptor.codexSlug, { tab: descriptor.tab, personaId, shell: 'embed' });
+              const src = buildCodexUrl(descriptor.codexSlug, {
+                tab: descriptor.tab,
+                personaId,
+                shell: 'embed',
+                // Declared on the surface, not decided here: only a cartridge
+                // that mounts its own floating copilot needs suppressing, and
+                // the registry is where what-is-being-composed is recorded.
+                suppressCopilot: descriptor.suppressFloatingCopilot,
+              });
               return (
                 <iframe
                   key={i}

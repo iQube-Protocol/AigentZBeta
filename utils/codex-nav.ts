@@ -56,6 +56,16 @@ export interface CodexNavOptions {
    *   "viewer"           — /codex/viewer?id=[slug]-codex — inside AgentiQ platform shell
    */
   shell?: CodexShell;
+  /**
+   * Suppress the destination cartridge's own floating copilot (`?copilot=off`).
+   *
+   * For hosts that already provide the operator's conversational partner — the
+   * Guided Journey viewport being the first — where the cartridge's copilot
+   * would be a SECOND one on screen (MS-1: one navigation). Off by default:
+   * a cartridge reached any other way keeps its copilot, which is the only one
+   * there and entirely correct.
+   */
+  suppressCopilot?: boolean;
 }
 
 /**
@@ -78,6 +88,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     from,
     fromTab,
     shell = "embed",
+    suppressCopilot,
   } = opts;
 
   const params = new URLSearchParams();
@@ -96,6 +107,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   if (isInvestor) params.set("isInvestor", "true");
   if (from)       params.set("from",       from);
   if (fromTab)    params.set("fromTab",    fromTab);
+  if (suppressCopilot) params.set("copilot", "off");
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug
