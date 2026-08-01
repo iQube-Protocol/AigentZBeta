@@ -114,6 +114,28 @@ export type WalletCapability =
   | 'SIGNER_CONFIGURED'
   /** Address on file with no key behind it. Looks usable; cannot sign. */
   | 'ADDRESS_ONLY'
+  /**
+   * An EXTERNAL wallet (MetaMask and the like) recorded in the principal
+   * address field, with no platform custody and no proof of control.
+   *
+   * Confirmed live on 2026-08-02: `app/api/iqube/persona/passport/mint`
+   * persisted `body.ownerAddress` — validated as well-FORMED, never as
+   * CONTROLLED — into `personas.evm_address`. One operator minting passports
+   * with one wallet connected wrote that wallet onto 21 personas.
+   *
+   * Distinct from ADDRESS_ONLY, and the distinction matters practically:
+   * ADDRESS_ONLY says "twenty random bytes, supersede the placeholder", and
+   * doing that to a real external wallet would sever a genuine binding. Both
+   * present identically in the row — address present, no key material — so the
+   * capability cannot be inferred from the row alone.
+   *
+   * It may never be the PRINCIPAL signer: the signing topology requires local
+   * encrypted custody, and PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED
+   * forbids an external wallet standing in for the Passport principal. Its
+   * proper home is `wallet_alias_commitments`, SIWE-proven, as a LINKED
+   * external wallet beside the principal — never inside it.
+   */
+  | 'EXTERNAL_UNPROVEN'
   /** Real wallet, real history, no authority — see PILOT-WALLET-EXCEPTION-001. */
   | 'LEGACY_EVIDENCE_ONLY'
   /** Key material exists but the address was never bound to the subject. */
@@ -150,7 +172,20 @@ export function mayProduceSignature(c: WalletCapability): boolean {
  * same question. The exception exists precisely because the answers differ.
  */
 export function mayDisplayAsEvidence(c: WalletCapability): boolean {
-  return c === 'SIGNER_CONFIGURED' || c === 'LEGACY_EVIDENCE_ONLY';
+  return c === 'SIGNER_CONFIGURED' || c === 'LEGACY_EVIDENCE_ONLY' || c === 'EXTERNAL_UNPROVEN';
+}
+
+/**
+ * May this capability serve as the PRINCIPAL signer?
+ *
+ * Narrower than `mayProduceSignature` by exactly one case, and the case is the
+ * point: an external wallet may be genuinely controlled by the operator and
+ * still not be the principal. The principal wallet signs constitutional
+ * authority under local custody; an external wallet is a linked account.
+ * Conflating them is what the mint route did.
+ */
+export function mayServeAsPrincipalSigner(c: WalletCapability): boolean {
+  return c === 'SIGNER_CONFIGURED';
 }
 
 // ── Pilot subjects ──────────────────────────────────────────────────────────

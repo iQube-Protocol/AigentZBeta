@@ -34,6 +34,7 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 const ALL: WalletCapability[] = [
   'SIGNER_CONFIGURED',
   'ADDRESS_ONLY',
+  'EXTERNAL_UNPROVEN',
   'LEGACY_EVIDENCE_ONLY',
   'PRESENT_BUT_UNBOUND',
   'ABSENT',
@@ -546,5 +547,87 @@ describe('the proof ceremony makes both comparisons, in order', () => {
         forbidden,
       );
     }
+  });
+});
+
+/**
+ * AN EXTERNAL WALLET IS NOT A PLACEHOLDER, AND NOT THE PRINCIPAL.
+ *
+ * Confirmed live, 2026-08-02. `app/api/iqube/persona/passport/mint` persisted
+ * `body.ownerAddress` — validated as well-FORMED, never as CONTROLLED — into
+ * `personas.evm_address`. One operator minting passports with one MetaMask
+ * wallet connected wrote that wallet onto TWENTY-ONE personas.
+ *
+ * Three distinct failures, and the middle one is the subtle one:
+ *
+ *   1. A CLAIM persisted as a FACT. The browser said "this is the owner" and
+ *      the row recorded it as though proven.
+ *   2. An EXTERNAL wallet in the PRINCIPAL field. Both appear as
+ *      address-present-without-key, so a classifier reading only the row would
+ *      call a genuinely-controlled MetaMask wallet a placeholder — and the
+ *      remedy for a placeholder is to supersede it, which would sever a real
+ *      binding. The capability cannot be inferred from the row.
+ *   3. ONE address, TWENTY-ONE principals. Anything keyed on address — balance,
+ *      ownership, `wallet_ref = 'principal'` — cannot distinguish them.
+ */
+describe('an external wallet is preserved, never superseded, and never the principal', () => {
+  it('EXTERNAL_UNPROVEN may be displayed and may never sign', async () => {
+    const { mayProduceSignature, mayDisplayAsEvidence, mayServeAsPrincipalSigner } = await import(
+      '@/services/wallet/pilotWalletException'
+    );
+    expect(mayDisplayAsEvidence('EXTERNAL_UNPROVEN')).toBe(true);
+    expect(mayProduceSignature('EXTERNAL_UNPROVEN')).toBe(false);
+    expect(
+      mayServeAsPrincipalSigner('EXTERNAL_UNPROVEN'),
+      'the signing topology requires local custody; an external wallet is a linked account',
+    ).toBe(false);
+  });
+
+  it('only SIGNER_CONFIGURED may serve as the principal signer', async () => {
+    const { mayServeAsPrincipalSigner } = await import('@/services/wallet/pilotWalletException');
+    for (const c of ALL) {
+      expect(mayServeAsPrincipalSigner(c)).toBe(c === 'SIGNER_CONFIGURED');
+    }
+  });
+
+  it('a known-external address migrates and provisions — it is never superseded as a placeholder', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    const d = decideWalletRemediation({
+      hasEncryptedEnvelope: false,
+      hasRecordedAddress: true,
+      envelopeDerivesRecordedAddress: null,
+      recordedAddressIsExternal: true,
+    });
+    expect(d.action).toBe('migrate-external-binding-then-provision');
+    expect(d.detail).toMatch(/Preserve it as a .*external binding/i);
+    // A principal wallet is still provisioned — beside it, not instead of it.
+    expect(d.createsNewWallet).toBe(true);
+  });
+
+  it('an UNKNOWN provenance still supersedes — the external branch requires a positive fact', async () => {
+    const { decideWalletRemediation } = await import('@/services/wallet/walletControlProof');
+    for (const external of [null, undefined, false] as const) {
+      const d = decideWalletRemediation({
+        hasEncryptedEnvelope: false,
+        hasRecordedAddress: true,
+        envelopeDerivesRecordedAddress: null,
+        recordedAddressIsExternal: external,
+      });
+      expect(
+        d.action,
+        'the external branch must not fire on absence of evidence — it needs a positive fact',
+      ).toBe('provision-and-supersede-placeholder');
+    }
+  });
+
+  it('the mint route no longer writes an unproven client address as the principal wallet', () => {
+    const src = stripComments(readSource('app/api/iqube/persona/passport/mint/route.ts'));
+    expect(
+      src,
+      'persisting body.ownerAddress into personas.evm_address is what put one wallet on 21 personas',
+    ).not.toMatch(/update\(\{\s*evm_address:\s*clientOwner\s*\}\)/);
+    // The mint itself still uses the supplied owner — only the silent
+    // persistence is gone.
+    expect(src).toContain('const ownerAddress = storedOwner || clientOwner;');
   });
 });

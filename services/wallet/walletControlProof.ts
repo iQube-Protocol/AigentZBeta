@@ -372,7 +372,14 @@ export type WalletRemediationAction =
   | 'derive-bind-then-verify'
   | 'provision-and-supersede-placeholder'
   | 'provision-new'
-  | 'quarantine-do-not-provision';
+  | 'quarantine-do-not-provision'
+  /**
+   * An EXTERNAL wallet occupies the principal address field. Move it to the
+   * external-binding table (SIWE-proven) and provision a real principal wallet
+   * beside it. The external binding is PRESERVED — it is a real wallet the
+   * operator controls, merely recorded in the wrong place.
+   */
+  | 'migrate-external-binding-then-provision';
 
 export interface WalletRemediationDecision {
   action: WalletRemediationAction;
@@ -385,8 +392,32 @@ export function decideWalletRemediation(input: {
   hasEncryptedEnvelope: boolean;
   hasRecordedAddress: boolean;
   envelopeDerivesRecordedAddress: boolean | null;
+  /**
+   * Is the recorded address known to be an EXTERNAL wallet?
+   *
+   * Cannot be inferred from the row: an external wallet and a random
+   * placeholder both appear as address-present-without-key. It takes an
+   * out-of-band fact — the operator recognising it, or an existing external
+   * binding — and until that fact exists the safe answer is `null`, which
+   * declines to supersede rather than guessing.
+   */
+  recordedAddressIsExternal?: boolean | null;
 }): WalletRemediationDecision {
   const { hasEncryptedEnvelope, hasRecordedAddress, envelopeDerivesRecordedAddress } = input;
+
+  // An external wallet in the principal field is NOT a placeholder. Checked
+  // before the address-only branch, which would otherwise tell the operator to
+  // supersede a wallet they genuinely control.
+  if (!hasEncryptedEnvelope && hasRecordedAddress && input.recordedAddressIsExternal === true) {
+    return {
+      action: 'migrate-external-binding-then-provision',
+      detail:
+        'The principal address field holds an EXTERNAL wallet with no platform custody. Preserve it as a ' +
+        'SIWE-proven external binding, then provision a real principal wallet beside it. An external wallet ' +
+        'may be genuinely controlled and still cannot be the principal signer.',
+      createsNewWallet: true,
+    };
+  }
 
   if (hasEncryptedEnvelope && hasRecordedAddress) {
     if (envelopeDerivesRecordedAddress === false) {

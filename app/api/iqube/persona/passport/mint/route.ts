@@ -122,15 +122,33 @@ export async function POST(req: NextRequest) {
         : '';
     const ownerAddress = storedOwner || clientOwner;
 
-    // Persist the wallet-provided owner when the persona has none stored, so
-    // future mints + the deferred batch processor (which skips owner-less
-    // rows) can resolve the same address without re-sending it.
-    if (!storedOwner && clientOwner) {
-      await admin
-        .from('personas')
-        .update({ evm_address: clientOwner })
-        .eq('id', persona.personaId);
-    }
+    /*
+     * DO NOT PERSIST AN UNPROVEN CLIENT ADDRESS AS THE PRINCIPAL WALLET.
+     *
+     * This block used to write `body.ownerAddress` — validated as well-FORMED,
+     * never as CONTROLLED — straight into `personas.evm_address`. Confirmed
+     * live 2026-08-02: one operator minting passports with one wallet
+     * connected put that external wallet onto TWENTY-ONE personas, so
+     * `resolvePersonaWalletAddress` returned the same address for 21 distinct
+     * principals and nothing keyed on address could tell them apart.
+     *
+     * Two separate faults, both closed by not writing here:
+     *
+     *   1. `personas.evm_address` means the PRINCIPAL wallet — local encrypted
+     *      custody, platform-signable. An external wallet is a LINKED account;
+     *      its home is `wallet_alias_commitments`, SIWE-proven. Writing one
+     *      into the other made an external wallet look like the principal, and
+     *      PASSPORT_AUTH_EXTERNAL_WALLET_NOT_PERMITTED forbids exactly that.
+     *
+     *   2. A client-supplied address is a CLAIM. Persisting a claim as a fact
+     *      is the defect class the wallet-capability work exists to close —
+     *      the same shape as an address with no key reading as a usable
+     *      wallet.
+     *
+     * The mint itself is unaffected: `ownerAddress` is still used for THIS
+     * mint (the caller supplied it and owns the consequence). What no longer
+     * happens is it silently becoming the persona's wallet of record.
+     */
 
     // The Base ERC-721 tokenQube is the canonical bearer token — minted on
     // EVERY persona mint (not a fallback). Sui/Walrus, when present, is the
