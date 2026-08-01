@@ -218,6 +218,61 @@
  * fallback rather than a dead end. Building the enrollment UI itself is a
  * separate, larger feature this repair does not include.
  *
+ * ── ANONYMOUS-FIRST: NO EMAIL IN THE WALLET PATH (operator ruling, 2026-08-02) ──
+ *
+ * PRIOR DEFECT: the conventional fallback's identifier field was labelled and
+ * typed as `EMAIL`, which excluded the citizens this platform exists for — a
+ * Passport holder who deliberately created a persona and wallet without ever
+ * supplying one. The governing rule:
+ *
+ *   the local wallet profile IDENTIFIES the wallet;
+ *   the wallet password UNLOCKS it;
+ *   an email is OPTIONAL recovery metadata and nothing else.
+ *
+ * So the recognized-device path below contains NO email field at all, and must
+ * never acquire one. It is: select the local wallet (a selector appears only
+ * when the device holds more than one — a password cannot say WHICH envelope
+ * to decrypt) → wallet password → decrypt locally → sign the Passport
+ * challenge → resolve the principal → session. Every label in it is
+ * device-local: persona label and a shortened address, never an email.
+ *
+ * The conventional route's identifier is now "Persona or recovery email".
+ *
+ * ── WHAT THE CUSTODY AUDIT FOUND (and why persona sign-in is not offered) ──
+ *
+ * Full trace: `codexes/packs/agentiq/updates/2026-08-02_wallet-custody-and-password-identity-audit.md`.
+ *
+ * Classification **B — remote package exists, restoration incomplete**. The
+ * encrypted envelope genuinely IS persisted beyond the device (Supabase
+ * `personas.evm_key`, written by `POST /api/wallet/persona`; AES-256-GCM under
+ * a PBKDF2-100k password-derived key; the password never reaches any server,
+ * so the platform holds ciphertext it cannot decrypt). But NO route serialises
+ * it back — every persona read uses an explicit column list that excludes
+ * `evm_key`, and `GET /api/wallet/personas` selects it server-side yet emits
+ * only `evmAddress`. There is no persona-handle lookup route of any kind. From
+ * the client, the envelope is write-only.
+ *
+ * That gap is not merely unwired plumbing. An envelope fetch keyed on a
+ * persona would be an offline brute-force oracle — the persona is a LOCATOR,
+ * not a secret (it reaches local storage, logs, screenshots, support requests)
+ * — which is the problem an augmented PAKE exists to solve, and an operator
+ * custody decision rather than an inline one.
+ *
+ * Therefore a persona handle entered below gets an explicit "not built yet"
+ * notice naming the paths that DO work — never the generic credential-mismatch
+ * message. Generic is right for a real mismatch (it prevents enumeration);
+ * using it here would disguise an unbuilt capability as the citizen's mistake
+ * and loop them through something that cannot succeed.
+ *
+ * The password-identity finding is unchanged and now explained: the
+ * wallet-encryption password and the Supabase account password are two
+ * independent credentials, and that separation is load-bearing — the wallet
+ * password's security property IS that no server receives it, which is exactly
+ * what makes remote envelope storage safe. "One user-established password" is
+ * reachable by DERIVING both from one typed secret client-side, never by
+ * making them equal; that migration is scoped, not performed. Until it is, the
+ * UI keeps saying they are separate, because they are.
+ *
  * REMEMBERED ACCESS: `services/wallet/sessionService.ts`'s
  * `getWalletAccessState` models the five facts
  * (`sessionAuthenticated`/`walletAvailable`/`walletUnlocked`/
@@ -444,6 +499,16 @@ export function PassportConnectPanel({
   const [walletPasswordValue, setWalletPasswordValue] = useState("");
   const [walletPasswordBusy, setWalletPasswordBusy] = useState(false);
   const [walletPasswordError, setWalletPasswordError] = useState<string | null>(null);
+  /**
+   * Which local wallet the password will be tried against. A password alone
+   * cannot tell the application WHICH encrypted envelope to decrypt, so when
+   * a device holds several the citizen picks one first — by persona label or
+   * shortened address. That selector is anonymous by construction: it names
+   * only device-local labels, never an email (operator ruling, 2026-08-02).
+   */
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const selectedProfile =
+    knownProfiles.find((p) => p.personaId === selectedProfileId) ?? knownProfiles[0] ?? null;
 
   /**
    * One wallet-challenge-and-proof round trip. Shared by the first attempt
@@ -942,29 +1007,64 @@ export function PassportConnectPanel({
               Continue with passkey
             </button>
 
-            {/* Inline wallet-password field — no username needed — shown only
-                when exactly one local wallet profile is known on this device.
-                Two or more profiles fall back to the existing
-                select-then-unlock flow (`connect()` below); zero profiles
-                hide this affordance entirely, since "Using a new device?" is
-                the correct path there. */}
-            {knownProfiles.length === 1 ? (
+            {/* RECOGNIZED DEVICE — wallet selector (only when there is a
+                choice to make) + wallet password. THERE IS NO EMAIL FIELD
+                ANYWHERE IN THIS BLOCK, and there must never be one: the local
+                wallet profile identifies the wallet, the password unlocks it.
+                An anonymous citizen who never supplied an email signs in
+                entirely through this path (operator ruling, 2026-08-02).
+                Zero local profiles hides the block — a password cannot locate
+                a wallet that is not on this device; "Using a new device?" is
+                the honest path there. */}
+            {selectedProfile ? (
               <form
                 className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/20 p-3 text-left"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void unlockSingleKnownProfile(knownProfiles[0], walletPasswordValue);
+                  void unlockSingleKnownProfile(selectedProfile, walletPasswordValue);
                 }}
               >
-                <label className="text-[11px] uppercase tracking-wide text-slate-500">Wallet password</label>
+                {knownProfiles.length > 1 ? (
+                  <>
+                    <label htmlFor="metame-wallet-select" className="text-[11px] uppercase tracking-wide text-slate-500">
+                      Wallet
+                    </label>
+                    <select
+                      id="metame-wallet-select"
+                      value={selectedProfile.personaId}
+                      onChange={(e) => {
+                        setSelectedProfileId(e.target.value);
+                        setWalletPasswordError(null);
+                      }}
+                      className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
+                    >
+                      {knownProfiles.map((p) => (
+                        <option key={p.personaId} value={p.personaId}>
+                          {p.displayLabel} — {p.address.slice(0, 6)}…{p.address.slice(-4)}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <WalletIcon className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
+                    <span className="truncate text-slate-400">
+                      {selectedProfile.displayLabel} — {selectedProfile.address.slice(0, 6)}…
+                      {selectedProfile.address.slice(-4)}
+                    </span>
+                  </div>
+                )}
+                <label htmlFor="metame-wallet-password" className="text-[11px] uppercase tracking-wide text-slate-500">
+                  Wallet password
+                </label>
                 <input
+                  id="metame-wallet-password"
                   type="password"
                   value={walletPasswordValue}
                   onChange={(e) => {
                     setWalletPasswordValue(e.target.value);
                     if (walletPasswordError) setWalletPasswordError(null);
                   }}
-                  placeholder={knownProfiles[0].displayLabel}
                   autoComplete="current-password"
                   className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
                 />
@@ -978,15 +1078,6 @@ export function PassportConnectPanel({
                   {walletPasswordBusy ? "Unlocking…" : "Unlock and continue"}
                 </button>
               </form>
-            ) : knownProfiles.length > 1 ? (
-              <button
-                type="button"
-                onClick={connect}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-sm text-slate-300 transition-all hover:bg-slate-900/40"
-              >
-                <WalletIcon className="h-4 w-4" aria-hidden="true" />
-                Unlock with wallet password
-              </button>
             ) : null}
 
             <button
@@ -995,14 +1086,14 @@ export function PassportConnectPanel({
               className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-900/20 px-4 py-2 text-sm text-slate-300 transition-all hover:bg-slate-900/40"
             >
               <UserCircle2 className="h-4 w-4" aria-hidden="true" />
-              Sign in with username and password
+              Use username and password
             </button>
             <button
               type="button"
               onClick={() => setState({ kind: "username-password", initialMode: "forgot" })}
               className="text-[11px] text-slate-500 underline decoration-slate-700 underline-offset-2 transition-colors hover:text-slate-400"
             >
-              Forgot password?
+              Forgot wallet password?
             </button>
           </div>
           {/* Recovery is a SEPARATE, exceptional journey — always last,
@@ -1523,23 +1614,52 @@ function UsernamePasswordForm({
   onCancel: () => void;
 }) {
   const [mode, setMode] = useState<"signin" | "forgot" | "forgot-sent">(initialMode);
-  const [email, setEmail] = useState("");
+  /** "Persona or recovery email" — NEVER labelled just "email" (ruling). */
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [personaRouteUnavailable, setPersonaRouteUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const looksLikeEmail = identifier.includes("@");
 
   const submitSignIn = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       setError(null);
+      setPersonaRouteUnavailable(false);
+
+      // PERSONA-HANDLE SIGN-IN IS NOT BUILT (custody audit, 2026-08-02 —
+      // codexes/packs/agentiq/updates/2026-08-02_wallet-custody-and-password-identity-audit.md).
+      // Its whole purpose is pseudonymous CROSS-DEVICE restoration, and the
+      // audit found classification B: the encrypted envelope really is stored
+      // server-side (personas.evm_key), but NO route serialises it back to a
+      // client and no persona-handle lookup exists at all. Restoration is
+      // therefore not merely unwired — the retrieval half needs a custody
+      // design (an unauthenticated envelope fetch keyed on a guessable
+      // persona would be an offline brute-force oracle), which is an operator
+      // decision, not an inline one.
+      //
+      // So this says so plainly rather than returning the generic
+      // "could not complete sign-in". That generic message is correct for a
+      // real credential mismatch — where it prevents enumeration — but using
+      // it HERE would disguise an unbuilt capability as the citizen's error
+      // and send them round a loop that cannot succeed. That is exactly the
+      // faked flow the ruling forbids.
+      if (!looksLikeEmail) {
+        setPersonaRouteUnavailable(true);
+        return;
+      }
+
       setBusy(true);
       try {
         const { error: signInError } = await getSupabaseBrowserClient().auth.signInWithPassword({
-          email,
+          email: identifier,
           password,
         });
         if (signInError) {
-          setError("That email and password did not match an account.");
+          // Generic by design — never disclose whether the account exists.
+          setError("We could not complete sign-in with those details.");
           return;
         }
         onSignedIn();
@@ -1547,20 +1667,30 @@ function UsernamePasswordForm({
         setBusy(false);
       }
     },
-    [email, password, onSignedIn],
+    [identifier, looksLikeEmail, password, onSignedIn],
   );
 
   const submitForgotPassword = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
       setError(null);
+      if (!looksLikeEmail) {
+        // Recovery is an EMAIL channel. A persona handle cannot receive one,
+        // and a wallet with no recovery email has no email recovery at all —
+        // say that instead of implying a message is on its way.
+        setError(
+          "Password recovery needs a recovery email that was previously added to this persona. " +
+            "Without one, use your passkey or unlock the wallet on a device that already holds it.",
+        );
+        return;
+      }
       setBusy(true);
       try {
-        const { error: resetError } = await getSupabaseBrowserClient().auth.resetPasswordForEmail(email, {
+        const { error: resetError } = await getSupabaseBrowserClient().auth.resetPasswordForEmail(identifier, {
           redirectTo: typeof window !== "undefined" ? `${window.location.origin}/auth/reset-password` : undefined,
         });
         if (resetError) {
-          setError("Could not send a recovery email for that address.");
+          setError("We could not start recovery with those details.");
           return;
         }
         setMode("forgot-sent");
@@ -1568,15 +1698,17 @@ function UsernamePasswordForm({
         setBusy(false);
       }
     },
-    [email],
+    [identifier, looksLikeEmail],
   );
 
   if (mode === "forgot-sent") {
     return (
       <div className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
         <div className="text-sm font-medium text-slate-100">Check your email</div>
+        {/* Deliberately conditional-free and non-committal: saying "if an
+            account exists" discloses nothing either way (no enumeration). */}
         <p className="text-xs text-slate-400">
-          If an account exists for {email}, a link to recover account access is on its way.
+          If an account exists for {identifier}, a link to recover account access is on its way.
         </p>
         <p className="text-[11px] text-slate-500">
           This restores sign-in to your account only. It does not recover your metaMe wallet — the
@@ -1601,12 +1733,25 @@ function UsernamePasswordForm({
           We&apos;ll email a link to reset your account sign-in password. This does not recover your
           metaMe wallet, which is encrypted with a separate, locally-held password.
         </p>
+        {/* CONDITIONAL BY CONSTRUCTION (operator ruling, 2026-08-02): email
+            recovery is only ever available where a recovery email was added.
+            A wallet created anonymously has none, and the interface must not
+            imply every citizen has one — so this states the precondition up
+            front rather than letting someone submit into a dead end. */}
+        <p className="text-[11px] text-slate-500">
+          Password recovery requires a recovery email previously added to this persona. Without one,
+          use your passkey or unlock the wallet on a device that already holds it.
+        </p>
         {error ? <p className="text-xs text-amber-300">{error}</p> : null}
-        <label className="text-[11px] uppercase tracking-wide text-slate-500">Email</label>
+        <label htmlFor="metame-recovery-identifier" className="text-[11px] uppercase tracking-wide text-slate-500">
+          Recovery email
+        </label>
         <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          id="metame-recovery-identifier"
+          type="text"
+          inputMode="email"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           autoComplete="email"
           className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
         />
@@ -1621,7 +1766,7 @@ function UsernamePasswordForm({
           </button>
           <button
             type="submit"
-            disabled={busy || !email}
+            disabled={busy || !identifier}
             className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
           >
             {busy ? "Sending…" : "Send recovery email"}
@@ -1633,21 +1778,59 @@ function UsernamePasswordForm({
 
   return (
     <form onSubmit={submitSignIn} className="flex w-full max-w-[22rem] flex-col gap-2 text-left">
-      <div className="text-sm font-medium text-slate-100">Sign in with username and password</div>
+      <div className="text-sm font-medium text-slate-100">Use username and password</div>
+      {/* THIS COPY IS AUDITED, NOT ASSUMED (2026-08-02 custody + password
+          audit). The wallet-encryption password and the Supabase account
+          password really ARE two independent credentials today, and the
+          separation is load-bearing rather than accidental: the wallet
+          password's whole security property is that no server ever receives
+          it, which is what makes storing `personas.evm_key` safe. The desired
+          "one user-established password" model is reachable by DERIVING both
+          from one typed secret client-side — not by making them equal — and
+          that migration is scoped, not done. Until it is, saying they are the
+          same would be false. See the audit doc for the full trace. */}
       <p className="text-xs text-slate-400">
-        This is your account sign-in — a separate credential from your metaMe wallet password.
+        This is your account sign-in — today a separate credential from your metaMe wallet password.
       </p>
       {error ? <p className="text-xs text-amber-300">{error}</p> : null}
-      <label className="text-[11px] uppercase tracking-wide text-slate-500">Email</label>
+      {/* The persona route exists in the product model but NOT in the
+          implementation — the encrypted wallet envelope is stored server-side
+          yet no retrieval path exists (custody audit classification B). Say
+          that plainly; never disguise it as a wrong password. */}
+      {personaRouteUnavailable ? (
+        <div className="rounded-lg border border-amber-900/40 bg-amber-950/10 px-3 py-2">
+          <p className="text-xs text-amber-200/90">
+            Signing in with a persona name isn&apos;t available yet — restoring a wallet onto a new
+            device is a capability we haven&apos;t built.
+          </p>
+          <p className="mt-1 text-[11px] text-amber-200/70">
+            You can still get in with your passkey, or with your wallet password on a device that
+            already holds this wallet. If you added a recovery email, enter that here instead.
+          </p>
+        </div>
+      ) : null}
+      <label htmlFor="metame-account-identifier" className="text-[11px] uppercase tracking-wide text-slate-500">
+        Persona or recovery email
+      </label>
       <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        autoComplete="email"
+        id="metame-account-identifier"
+        // Deliberately `text`, not `email` — an email-typed input would let
+        // the browser reject a persona handle before this form can explain
+        // itself, and would signal that only an email is acceptable.
+        type="text"
+        value={identifier}
+        onChange={(e) => {
+          setIdentifier(e.target.value);
+          if (personaRouteUnavailable) setPersonaRouteUnavailable(false);
+        }}
+        autoComplete="username"
         className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2 text-xs text-slate-100"
       />
-      <label className="text-[11px] uppercase tracking-wide text-slate-500">Password</label>
+      <label htmlFor="metame-account-password" className="text-[11px] uppercase tracking-wide text-slate-500">
+        Password
+      </label>
       <input
+        id="metame-account-password"
         type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
@@ -1661,6 +1844,9 @@ function UsernamePasswordForm({
       >
         Forgot password?
       </button>
+      <p className="text-[11px] text-slate-500">
+        You must have added a recovery email to this persona to reset your password.
+      </p>
       <div className="mt-1 flex gap-2">
         <button
           type="button"
@@ -1672,7 +1858,7 @@ function UsernamePasswordForm({
         </button>
         <button
           type="submit"
-          disabled={busy || !email || !password}
+          disabled={busy || !identifier || !password}
           className="flex-1 rounded-lg border border-slate-800 bg-slate-900/40 px-4 py-2 text-sm text-slate-100 transition-all hover:bg-slate-900/60 disabled:opacity-50"
         >
           {busy ? "Signing in…" : "Sign in"}

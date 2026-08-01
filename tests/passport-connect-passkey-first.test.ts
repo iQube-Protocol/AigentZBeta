@@ -56,9 +56,14 @@ describe("Passport connect — passkey is the primary idle action", () => {
     const idleBlockEnd = src.indexOf('state.kind === "working"', idleAt);
     const idleBlock = src.slice(idleAt, idleBlockEnd > -1 ? idleBlockEnd : undefined);
     const passkeyAt = idleBlock.indexOf("Continue with passkey");
-    const walletPasswordAt = idleBlock.indexOf("Unlock with wallet password");
+    // The wallet-password affordance is now an inline field labelled "Wallet
+    // password" with an "Unlock and continue" submit (2026-08-02
+    // anonymous-first ruling) rather than a button reading "Unlock with
+    // wallet password". The ORDERING property this canary guards is
+    // unchanged.
+    const walletPasswordAt = idleBlock.indexOf("Wallet password");
     expect(passkeyAt, "'Continue with passkey' must exist in the idle block").toBeGreaterThan(-1);
-    expect(walletPasswordAt, "'Unlock with wallet password' must exist in the idle block").toBeGreaterThan(-1);
+    expect(walletPasswordAt, "the wallet-password field must exist in the idle block").toBeGreaterThan(-1);
     expect(passkeyAt).toBeLessThan(walletPasswordAt);
   });
 

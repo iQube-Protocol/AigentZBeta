@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-02_wallet-custody-and-password-identity-audit.md",
         "updates/2026-08-01_validation-programme-external-reviewer-journey-phase1.md",
         "updates/2026-08-01_passport-connect-metame-wallet-signing-repair.md",
         "updates/2026-08-01_wallet-signing-topology-ruling-and-phase-1.md",

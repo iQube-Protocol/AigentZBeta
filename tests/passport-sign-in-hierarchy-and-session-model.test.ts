@@ -70,17 +70,17 @@ describe("Passport sign-in hierarchy — passkey, wallet password, username/pass
     const block = idleBlock(stripComments(readSource(PANEL)));
     const passkeyAt = block.indexOf("Continue with passkey");
     const walletPasswordLabelAt = block.indexOf("Wallet password");
-    const multiProfileEntryAt = block.indexOf("Unlock with wallet password");
-    const usernamePasswordAt = block.indexOf("Sign in with username and password");
-    const forgotAt = block.indexOf("Forgot password?");
+    const multiProfileEntryAt = block.indexOf("Unlock and continue");
+    const usernamePasswordAt = block.indexOf("Use username and password");
+    const forgotAt = block.indexOf("Forgot wallet password?");
     const usingNewDeviceAt = block.indexOf("Using a new device?");
     const recoveryOptionsAt = block.indexOf("Recovery options");
 
     for (const [label, pos] of [
       ["Continue with passkey", passkeyAt],
       ["Wallet password (either shape)", Math.max(walletPasswordLabelAt, multiProfileEntryAt)],
-      ["Sign in with username and password", usernamePasswordAt],
-      ["Forgot password?", forgotAt],
+      ["Use username and password", usernamePasswordAt],
+      ["Forgot wallet password?", forgotAt],
       ["Using a new device?", usingNewDeviceAt],
       ["Recovery options", recoveryOptionsAt],
     ] as const) {
@@ -98,7 +98,7 @@ describe("Passport sign-in hierarchy — passkey, wallet password, username/pass
   it("recovery ('Using a new device?' / 'Recovery options') is the LAST thing in the idle block, after every ordinary method", () => {
     const block = idleBlock(stripComments(readSource(PANEL)));
     const recoveryOptionsAt = block.indexOf("Recovery options");
-    const everythingElse = ["Continue with passkey", "Sign in with username and password", "Forgot password?"];
+    const everythingElse = ["Continue with passkey", "Use username and password", "Forgot wallet password?"];
     for (const marker of everythingElse) {
       const at = block.indexOf(marker);
       expect(at, `${marker} must be present`).toBeGreaterThan(-1);
@@ -125,9 +125,9 @@ describe("Wallet-password unlock never requires a username when a local profile 
 
   it("the inline wallet-password form has no email/username input alongside it", () => {
     const src = stripComments(readSource(PANEL));
-    const start = src.indexOf("knownProfiles.length === 1 ? (");
+    const start = src.indexOf("{selectedProfile ? (");
     expect(start).toBeGreaterThan(-1);
-    const end = src.indexOf(") : knownProfiles.length > 1 ? (", start);
+    const end = src.indexOf("</form>", start);
     const form = src.slice(start, end);
     expect(form).toContain('type="password"');
     expect(form).not.toContain('type="email"');
@@ -137,7 +137,7 @@ describe("Wallet-password unlock never requires a username when a local profile 
 describe("Username/password fallback remains available", () => {
   it("the idle screen offers 'Sign in with username and password', routing to the username-password state", () => {
     const block = idleBlock(stripComments(readSource(PANEL)));
-    expect(block).toContain("Sign in with username and password");
+    expect(block).toContain("Use username and password");
     expect(block).toContain('setState({ kind: "username-password" })');
   });
 
@@ -394,11 +394,136 @@ describe("Forgot password — recovers account access only, never claims to reco
     expect(src).toContain("PASSWORD_RECOVERY");
   });
 
+  it("states the recovery-email precondition up front rather than letting someone submit into a dead end", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("Password recovery requires a recovery email previously added to this persona");
+  });
+
+  it("a non-email identifier in the recovery form is told email recovery is unavailable — never 'a link is on its way'", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("const submitForgotPassword = useCallback(");
+    const body = src.slice(start, src.indexOf("[identifier, looksLikeEmail]", start));
+    expect(body).toContain("if (!looksLikeEmail)");
+    expect(body).toMatch(/Password recovery needs a recovery email/);
+  });
+
   it("UsernamePasswordForm's forgot-password flow uses Supabase's resetPasswordForEmail, redirecting to the completion page", () => {
     const src = stripComments(readSource(PANEL));
     const start = src.indexOf("function UsernamePasswordForm(");
     const body = src.slice(start);
-    expect(body).toContain("auth.resetPasswordForEmail(email");
+    expect(body).toContain("auth.resetPasswordForEmail(identifier");
     expect(body).toContain("/auth/reset-password");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Anonymous-first: no email anywhere in the wallet path (ruling, 2026-08-02)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("Anonymous-first — a citizen with no email can possess, unlock and use a Passport wallet", () => {
+  /** The recognized-device wallet-unlock block, bounded to its own form. */
+  function walletUnlockBlock(src: string): string {
+    const start = src.indexOf("{selectedProfile ? (");
+    expect(start, "the wallet-unlock block must exist").toBeGreaterThan(-1);
+    return src.slice(start, src.indexOf("</form>", start));
+  }
+
+  it("the wallet-unlock block contains NO email field, input type, autocomplete or label", () => {
+    const block = walletUnlockBlock(stripComments(readSource(PANEL)));
+    expect(block).not.toMatch(/email/i);
+  });
+
+  it("the wallet-unlock block identifies the wallet by device-local label and address only", () => {
+    const block = walletUnlockBlock(stripComments(readSource(PANEL)));
+    expect(block).toContain("displayLabel");
+    expect(block).toContain("address.slice(");
+  });
+
+  it("a device holding several wallets gets a selector — a password cannot say which envelope to decrypt", () => {
+    const block = walletUnlockBlock(stripComments(readSource(PANEL)));
+    expect(block).toContain("knownProfiles.length > 1");
+    expect(block).toContain("<select");
+    expect(block).toContain("metame-wallet-select");
+  });
+
+  it("a device holding exactly one wallet shows no selector — nothing to choose", () => {
+    const block = walletUnlockBlock(stripComments(readSource(PANEL)));
+    // The single-profile branch renders a plain label, not a <select>.
+    const selectAt = block.indexOf("<select");
+    const elseAt = block.indexOf(") : (", selectAt);
+    expect(elseAt, "a single-profile else-branch must exist").toBeGreaterThan(selectAt);
+  });
+
+  it("zero local wallets hides the block entirely — a password cannot locate an absent wallet", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("knownProfiles.find((p) => p.personaId === selectedProfileId) ?? knownProfiles[0] ?? null");
+    expect(src).toContain("{selectedProfile ? (");
+  });
+
+  it("the conventional route's identifier is labelled 'Persona or recovery email', never plain 'Email'", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("Persona or recovery email");
+    // No bare uppercase EMAIL label survives on the sign-in identifier.
+    const start = src.indexOf("metame-account-identifier");
+    const around = src.slice(start - 400, start + 400);
+    expect(around).not.toMatch(/>\s*Email\s*</);
+  });
+
+  it("the identifier input is type=text so a persona handle is not rejected by the browser before the form can explain", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf('id="metame-account-identifier"');
+    const input = src.slice(start, start + 300);
+    expect(input).toContain('type="text"');
+    expect(input).not.toContain('type="email"');
+  });
+});
+
+describe("Persona sign-in is honestly reported as unbuilt, never disguised as a wrong password", () => {
+  it("a non-email identifier short-circuits before any auth call and sets the unavailable notice", () => {
+    const src = stripComments(readSource(PANEL));
+    const start = src.indexOf("const submitSignIn = useCallback(");
+    const body = src.slice(start, src.indexOf("[identifier, looksLikeEmail, password, onSignedIn]", start));
+    const guardAt = body.indexOf("if (!looksLikeEmail)");
+    const authAt = body.indexOf("signInWithPassword(");
+    expect(guardAt, "the persona guard must exist").toBeGreaterThan(-1);
+    expect(authAt).toBeGreaterThan(-1);
+    // The guard must come BEFORE the auth call, and return.
+    expect(guardAt).toBeLessThan(authAt);
+    expect(body.slice(guardAt, authAt)).toContain("setPersonaRouteUnavailable(true)");
+    expect(body.slice(guardAt, authAt)).toContain("return;");
+  });
+
+  it("the notice names the paths that DO work rather than dead-ending", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain('Signing in with a persona name isn');
+    expect(src).toContain('t available yet');
+    expect(src).toMatch(/passkey/i);
+  });
+
+  it("a REAL credential mismatch still gets the generic, non-enumerating message", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("We could not complete sign-in with those details.");
+    // The old enumerating message must be gone.
+    expect(src).not.toContain("That email and password did not match an account.");
+  });
+
+  it("the panel does not claim the wallet and account passwords have converged (the audit says they have not)", () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toContain("today a separate credential from your metaMe wallet password");
+  });
+});
+
+describe("Custody audit is recorded, and the panel points at it", () => {
+  it("the audit document exists and classifies the custody state", () => {
+    const doc = readSource("codexes/packs/agentiq/updates/2026-08-02_wallet-custody-and-password-identity-audit.md");
+    expect(doc).toMatch(/B — REMOTE PACKAGE EXISTS BUT RESTORATION IS INCOMPLETE/);
+    // The ten questions must all be answered, not skipped.
+    expect(doc).toMatch(/personas\.evm_key/);
+    expect(doc).toMatch(/write-only/);
+  });
+
+  it("the audit explicitly forbids the unsafe shape", () => {
+    const doc = readSource("codexes/packs/agentiq/updates/2026-08-02_wallet-custody-and-password-identity-audit.md");
+    expect(doc).toMatch(/persona \+ password → plaintext private key returned by server/);
   });
 });
