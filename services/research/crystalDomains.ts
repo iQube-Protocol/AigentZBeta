@@ -66,6 +66,18 @@ export interface CrystalDomainDeclaration {
   /** What is deliberately OUT, and why. Absence of a reason is how scope creeps. */
   exclusions: readonly string[];
   ratification: DomainRatificationStatus;
+  /** Who ratified, when, and in what words. Absent until ratification. */
+  ratifiedBy?: string;
+  ratifiedAt?: string;
+  /**
+   * The operator's ratifying words, verbatim.
+   *
+   * Carried rather than summarised: what was ratified is the TEXT, and a
+   * paraphrase of a constitutional act is a different act. It is also what a
+   * later reader checks the boundary against when asking whether an assignment
+   * was in scope.
+   */
+  ratificationText?: string;
   /** The chartered workstream that populates it. */
   constitutedBy: string;
 }
@@ -93,11 +105,19 @@ export const EXP_P1_CRYSTAL_DOMAIN: CrystalDomainDeclaration = Object.freeze({
     'The historical constitutional-reasoning collection — it remains the foundational corpus of the ' +
       'earlier experiments and is not relabelled into this domain.',
   ]),
-  ratification: 'awaiting-operator-ratification',
+  ratification: 'ratified',
+  ratifiedBy: 'operator',
+  ratifiedAt: '2026-08-02',
+  ratificationText:
+    'I ratify `financial-risk-value-systems` as the governed domain boundary for EXP-P1 Candidate Crystal ' +
+    'vP1. Eligible assignments are limited to externally established or externally empirical invariants in ' +
+    '`validated` or `canonical` lifecycle states. Historical constitutional-reasoning materials and ' +
+    'internal/platform-derived financial-risk materials remain excluded from the EXP-P1 experimental crystal.',
   constitutedBy:
-    'Track 2 (crystal enlargement): corpus acquisition → invariant discovery → validation through the ' +
-    'normal proposed→validated lifecycle → assignment to this domain. Size is justified mechanically by ' +
-    'the frozen task requirements and the ⊆40% Arm C guard — never by a quota.',
+    'Track 2 (crystal enlargement), UNPAUSED 2026-08-02 and now on the critical path: corpus acquisition → ' +
+    'invariant discovery → validation through the normal proposed→validated lifecycle → assignment to this ' +
+    'domain. Size is justified mechanically by the frozen task requirements and the ⊆40% Arm C guard — ' +
+    'never by a quota.',
 });
 
 export const CRYSTAL_DOMAINS: readonly CrystalDomainDeclaration[] = Object.freeze([EXP_P1_CRYSTAL_DOMAIN]);
@@ -119,68 +139,105 @@ export function domainAcceptsAssignment(d: CrystalDomainDeclaration): boolean {
   return d.ratification === 'ratified';
 }
 
-// ── Crystal Review stage state (operator ruling, 2026-08-02, point 5) ───────
+// ── Crystal Review stage state (operator ruling, 2026-08-02, as corrected) ──
 
 /**
- * What the Crystal Review stage is actually offering right now.
+ * TWO ACTIVITIES, NOT ONE WORD (operator correction, 2026-08-02).
  *
- *   > "The Crystal Review stage remains visibly 'Preparing Candidate Crystal'
- *   > until a non-empty candidate has passed intrinsic readiness. Then
- *   > transition it to 'Independent Review Open' and notify the assigned
- *   > reviewers."
+ * The first cut of this had two states and said a populated-but-failing crystal
+ * "is still worth reviewing but isn't ready for the request" — which is
+ * self-contradictory if "review" means one thing. The operator caught it:
  *
- * ── Why this is a separate concept from readiness ──────────────────────────
+ *   > "If the review stage requires readiness to pass, then a populated-but-
+ *   > failing crystal is not yet worth sending for the independent
+ *   > freeze-readiness review. It may be worth internal diagnosis, but not the
+ *   > review Austin is being invited to perform."
  *
- * Readiness answers "may this crystal be frozen". This answers "is there a
- * review to do". They come apart in exactly the situation we are in: a domain
- * with no rows is not ready AND has nothing to review, but a populated domain
- * that fails a check is not ready and has a great deal to review.
+ * So they are named separately, because they are different acts by different
+ * parties with different consequences:
  *
- * Collapsing them is how an external reviewer gets invited to assess an empty
- * set — which is not a smaller version of reviewing, it is a different and
- * useless act. The operator's ruling separates the two invitations for this
- * reason: onboarding may proceed now; the review request may not.
+ *   INTERNAL DIAGNOSTIC REVIEW — the originating team inspecting its own
+ *     collection to find out why a check fails. Available as soon as there is
+ *     anything to inspect. Produces no independent finding and no freeze input.
+ *
+ *   INDEPENDENT PRE-FREEZE REVIEW — an external reviewer assessing whether a
+ *     crystal that has ALREADY passed intrinsic readiness should be frozen.
+ *     Opens only when non-empty AND readiness passes.
+ *
+ * The originating team completes its own work before independent review begins.
+ * Sending a failing crystal to an external reviewer would spend their
+ * independence diagnosing our checks — work we can do ourselves, and which is
+ * not what independence is for.
  */
-export type CrystalReviewStageState = 'PREPARING_CANDIDATE' | 'INDEPENDENT_REVIEW_OPEN';
+export type CrystalReviewStageState =
+  /** Nothing to inspect: the domain holds no invariants. */
+  | 'PREPARING_CANDIDATE'
+  /** Populated but not passing. The originating team diagnoses; no external ask. */
+  | 'INTERNAL_DIAGNOSTIC_REVIEW'
+  /** Non-empty AND readiness passed. The independent pre-freeze review may open. */
+  | 'INDEPENDENT_REVIEW_OPEN';
 
 export interface CrystalReviewStageStatus {
   state: CrystalReviewStageState;
   label: string;
-  /** Addressed to the reviewer. Says what they can do now, and what they cannot yet. */
+  /** Addressed to the reader. Says what may be done now, and what may not yet. */
   message: string;
-  /** May a reviewer be ASKED to assess and recommend? Never true on an empty domain. */
-  reviewRequestOpen: boolean;
+  /**
+   * May the INDEPENDENT PRE-FREEZE review be opened — i.e. may an external
+   * reviewer be ASKED to assess and recommend?
+   *
+   * Deliberately not called `reviewOpen`: internal diagnosis is also a review,
+   * and a flag that answered for both is how the two collapsed in the first
+   * place. Any invitation path consults THIS field and no other.
+   */
+  independentReviewRequestOpen: boolean;
+  /** May the originating team inspect the collection? True as soon as it exists. */
+  internalDiagnosticAvailable: boolean;
 }
 
 /**
  * Derived — never set by hand, and never from the presence of a reviewer.
- *
- * Both conditions are required: a NON-EMPTY candidate (there is something to
- * review) that has PASSED intrinsic readiness (it is worth reviewing). Either
- * alone would open the stage on evidence that is not there.
  */
 export function crystalReviewStageStatus(input: {
   invariantCount: number;
   readinessOk: boolean;
 }): CrystalReviewStageStatus {
-  const open = input.invariantCount > 0 && input.readinessOk;
-  if (open) {
+  const populated = input.invariantCount > 0;
+
+  if (populated && input.readinessOk) {
     return {
       state: 'INDEPENDENT_REVIEW_OPEN',
       label: 'Independent Review Open',
       message:
-        'Candidate Crystal vP1 is constituted and has passed intrinsic readiness. Your independent review is open: ' +
-        'inspect the readiness report, statistics, freeze recommendation and records, and record your assessment.',
-      reviewRequestOpen: true,
+        'Candidate Crystal vP1 is constituted and has passed intrinsic readiness. The independent pre-freeze ' +
+        'review is open: inspect the readiness report, statistics, freeze recommendation and records, and ' +
+        'record your assessment.',
+      independentReviewRequestOpen: true,
+      internalDiagnosticAvailable: true,
     };
   }
+
+  if (populated) {
+    return {
+      state: 'INTERNAL_DIAGNOSTIC_REVIEW',
+      label: 'Internal Diagnostic Review',
+      message:
+        'Candidate Crystal vP1 is constituted but has not yet passed intrinsic readiness. The originating team ' +
+        'is diagnosing the failing checks. This is internal work — the independent pre-freeze review has not ' +
+        'opened, and no external reviewer is being asked to assess or recommend a freeze.',
+      independentReviewRequestOpen: false,
+      internalDiagnosticAvailable: true,
+    };
+  }
+
   return {
     state: 'PREPARING_CANDIDATE',
     label: 'Preparing Candidate Crystal',
     message:
-      'Candidate Crystal vP1 is currently being constituted under Track 2. The readiness surface is available to ' +
-      'inspect, but the independent crystal review has not yet opened — you are not being asked to assess or ' +
-      'recommend a freeze on a crystal that does not yet exist. You will be notified when it opens.',
-    reviewRequestOpen: false,
+      'Candidate Crystal vP1 is currently being constituted under Track 2. The readiness surface is available ' +
+      'to inspect, but there is nothing yet to diagnose or review — you are not being asked to assess or ' +
+      'recommend a freeze on a crystal that does not yet exist.',
+    independentReviewRequestOpen: false,
+    internalDiagnosticAvailable: false,
   };
 }

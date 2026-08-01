@@ -23,6 +23,11 @@
  */
 
 import type { ResearchWorkspaceRoleId } from './researchWorkspaceViews';
+// Re-exported: consumers that use RESEARCH_WORKSPACE_ROLE_AUTHORITY need the
+// key type to index it, and were importing it from here — which type-errored
+// (TS2459), invisibly, because the repo's global typecheck aborts before
+// semantic checking. Surfaced by tsconfig.research.json, 2026-08-02.
+export type { ResearchWorkspaceRoleId };
 
 /**
  * The four powers SPEC §9 withholds from workspace membership entirely, plus

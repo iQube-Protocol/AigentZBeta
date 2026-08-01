@@ -240,7 +240,10 @@ describe("the panel offers inspection to everyone and remedy only internally", (
 
   it("each option names WHOSE assessment it adopts, derived from the row and never a rubric list", () => {
     const src = stripComments(readSource(PANEL));
-    const optionsAt = src.indexOf("const options = useMemo(");
+    // Anchor on the declaration, not on the call punctuation — an explicit type
+    // argument (`useMemo<Array<…>>(`) is a correctness improvement and must not
+    // break the canary that guards WHAT the options contain.
+    const optionsAt = src.indexOf("const options = useMemo");
     expect(optionsAt).toBeGreaterThan(-1);
     const block = src.slice(optionsAt, optionsAt + 700);
     expect(block).toContain("record.reviewer1Decision");

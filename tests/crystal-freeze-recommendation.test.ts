@@ -240,16 +240,30 @@ describe('the crystal is constituted before it is assessed, and assessed before 
     expect(d?.exclusions.join(' ')).toMatch(/metaMe \/ Qripto/);
   });
 
-  it('the domain is DECLARED but not ratified, so nothing may be assigned to it yet', async () => {
+  it('the boundary is RATIFIED, and carries the ratifying words verbatim', async () => {
+    // Ratified by the operator 2026-08-02, which is what unblocks Track 2
+    // assignment. The gate itself is unchanged — it reads the status; it does
+    // not assume one.
     const { crystalDomainForExperiment, domainAcceptsAssignment } = await import(
       '@/services/research/crystalDomains'
     );
     const d = crystalDomainForExperiment('EXP-P1')!;
-    expect(d.ratification).toBe('awaiting-operator-ratification');
-    expect(
-      domainAcceptsAssignment(d),
-      'the boundary artifact is ratified BEFORE any source or invariant is assigned',
-    ).toBe(false);
+    expect(d.ratification).toBe('ratified');
+    expect(domainAcceptsAssignment(d)).toBe(true);
+    // The TEXT is what was ratified — a paraphrase would be a different act.
+    expect(d.ratificationText).toContain('financial-risk-value-systems');
+    expect(d.ratificationText).toMatch(/externally established or externally empirical/);
+    expect(d.ratificationText).toMatch(/remain excluded/);
+    expect(d.ratifiedBy).toBe('operator');
+    expect(d.ratifiedAt).toBe('2026-08-02');
+  });
+
+  it('an UNRATIFIED boundary still refuses assignment — the gate reads status, it does not assume', async () => {
+    const { domainAcceptsAssignment, crystalDomainForExperiment } = await import(
+      '@/services/research/crystalDomains'
+    );
+    const d = crystalDomainForExperiment('EXP-P1')!;
+    expect(domainAcceptsAssignment({ ...d, ratification: 'awaiting-operator-ratification' })).toBe(false);
   });
 
   it('eligibility stays validated|canonical with external provenance — never widened to raise a count', async () => {
@@ -267,25 +281,66 @@ describe('the crystal is constituted before it is assessed, and assessed before 
     expect(crystalDomainForExperiment('')).toBeNull();
   });
 
-  it('the review stage stays PREPARING_CANDIDATE until a non-empty candidate passes readiness', async () => {
+  /**
+   * Internal diagnosis and independent pre-freeze review are DIFFERENT ACTS.
+   * The operator corrected an earlier formulation that let one word mean both:
+   * a populated-but-failing crystal is worth the originating team's diagnosis
+   * and is NOT worth an external reviewer's independence.
+   */
+  it('three states: nothing to inspect, internal diagnosis, independent review', async () => {
     const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
-    // Empty domain — nothing to review, whatever readiness says.
-    expect(crystalReviewStageStatus({ invariantCount: 0, readinessOk: false }).state).toBe('PREPARING_CANDIDATE');
-    expect(crystalReviewStageStatus({ invariantCount: 0, readinessOk: true }).state).toBe('PREPARING_CANDIDATE');
-    // Populated but failing — not ready, so the review request stays shut.
-    expect(crystalReviewStageStatus({ invariantCount: 60, readinessOk: false }).state).toBe('PREPARING_CANDIDATE');
+    // Empty — nothing to diagnose either, whatever readiness claims.
+    for (const readinessOk of [false, true]) {
+      const s0 = crystalReviewStageStatus({ invariantCount: 0, readinessOk });
+      expect(s0.state).toBe('PREPARING_CANDIDATE');
+      expect(s0.internalDiagnosticAvailable).toBe(false);
+      expect(s0.independentReviewRequestOpen).toBe(false);
+    }
+    // Populated but failing — OURS to diagnose, not theirs to review.
+    const diag = crystalReviewStageStatus({ invariantCount: 60, readinessOk: false });
+    expect(diag.state).toBe('INTERNAL_DIAGNOSTIC_REVIEW');
+    expect(diag.internalDiagnosticAvailable).toBe(true);
+    expect(diag.independentReviewRequestOpen).toBe(false);
     // Both conditions — and only then.
     const open = crystalReviewStageStatus({ invariantCount: 60, readinessOk: true });
     expect(open.state).toBe('INDEPENDENT_REVIEW_OPEN');
-    expect(open.reviewRequestOpen).toBe(true);
+    expect(open.independentReviewRequestOpen).toBe(true);
   });
 
-  it('a closed review stage never asks a reviewer to assess or recommend', async () => {
+  it('the independent-review flag is never true without BOTH conditions', async () => {
     const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
-    const closed = crystalReviewStageStatus({ invariantCount: 0, readinessOk: false });
-    expect(closed.reviewRequestOpen).toBe(false);
-    expect(closed.message).toMatch(/not being asked to assess or recommend/i);
-    expect(closed.message).toMatch(/Track 2/);
+    const cases = [
+      { invariantCount: 0, readinessOk: false },
+      { invariantCount: 0, readinessOk: true },
+      { invariantCount: 1, readinessOk: false },
+      { invariantCount: 999, readinessOk: false },
+    ];
+    for (const c of cases) {
+      expect(
+        crystalReviewStageStatus(c).independentReviewRequestOpen,
+        `${JSON.stringify(c)} must not open an external reviewer's assessment`,
+      ).toBe(false);
+    }
+  });
+
+  it('the flag is named for the act it authorises, so it cannot answer for the other one', async () => {
+    const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
+    const s0 = crystalReviewStageStatus({ invariantCount: 60, readinessOk: false });
+    // A bare `reviewOpen` would have to answer for internal diagnosis too —
+    // which is exactly how the two activities collapsed into one word.
+    expect(Object.keys(s0)).not.toContain('reviewRequestOpen');
+    expect(Object.keys(s0)).toContain('independentReviewRequestOpen');
+    expect(Object.keys(s0)).toContain('internalDiagnosticAvailable');
+  });
+
+  it('each state says plainly what is NOT being asked', async () => {
+    const { crystalReviewStageStatus } = await import('@/services/research/crystalDomains');
+    expect(crystalReviewStageStatus({ invariantCount: 0, readinessOk: false }).message).toMatch(
+      /not being asked to assess or recommend/i,
+    );
+    expect(crystalReviewStageStatus({ invariantCount: 60, readinessOk: false }).message).toMatch(
+      /no external reviewer is being asked/i,
+    );
   });
 
   it('the reviewer-facing route carries the stage state and the declared boundary', () => {

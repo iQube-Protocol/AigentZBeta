@@ -1343,14 +1343,12 @@ function ContestedRecordModal({
   // because the steward is choosing between parties, not between strings.
   // Derived from the record; never a hardcoded rubric list, which would drift
   // when the rubric changed and would offer labels nobody in this dispute gave.
-  const options = useMemo(
+  const options = useMemo<Array<{ slot: string; label: string }>>(
     () =>
-      (
-        [
-          { slot: "Reviewer 1", label: record.reviewer1Decision },
-          { slot: "Reviewer 2", label: record.reviewer2Decision },
-        ] as const
-      ).filter((o): o is { slot: string; label: string } => typeof o.label === "string" && o.label.length > 0),
+      [
+        { slot: "Reviewer 1", label: record.reviewer1Decision },
+        { slot: "Reviewer 2", label: record.reviewer2Decision },
+      ].flatMap((o) => (typeof o.label === "string" && o.label.length > 0 ? [{ slot: o.slot, label: o.label }] : [])),
     [record.reviewer1Decision, record.reviewer2Decision],
   );
 

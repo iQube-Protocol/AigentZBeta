@@ -1,0 +1,82 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "ignoreDeprecations": "5.0",
+    "baseUrl": ".",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": false,
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@metame/contracts": [
+        "./packages/metame-contracts/src/index.ts"
+      ],
+      "@metame/contracts/*": [
+        "./packages/metame-contracts/src/*"
+      ],
+      "@metame/aa-client": [
+        "./packages/aa-client/src/index.ts"
+      ],
+      "@metame/aa-client/*": [
+        "./packages/aa-client/src/*"
+      ],
+      "@metame/browser-contracts": [
+        "./packages/browser-contracts/src/index.ts"
+      ],
+      "@metame/browser-contracts/*": [
+        "./packages/browser-contracts/src/*"
+      ],
+      "@metame/iframe-bridge": [
+        "./packages/iframe-bridge/src/index.ts"
+      ],
+      "@metame/iframe-bridge/*": [
+        "./packages/iframe-bridge/src/*"
+      ],
+      "@metame/qubetalk-client": [
+        "./packages/qubetalk-client/src/index.ts"
+      ],
+      "@metame/qubetalk-client/*": [
+        "./packages/qubetalk-client/src/*"
+      ],
+      "@metame/qubetalk-client/react": [
+        "./packages/qubetalk-client/src/react.tsx"
+      ]
+    }
+  },
+  "include": [
+    "services/research/**/*.ts",
+    "services/invariants/**/*.ts",
+    "app/api/research/**/*.ts",
+    "app/api/journey/validation-programme/**/*.ts",
+    "services/journey/validationProgrammeJourney.ts",
+    "services/journey/journeySurfaceRegistry.ts",
+    "components/research/**/*.tsx",
+    "components/composer/IndependentReviewPanel.tsx",
+    "types/**/*.ts",
+    "tests/crystal-freeze-recommendation.test.ts",
+    "tests/reviewer-agreement.test.ts",
+    "tests/independent-review-record-remedy.test.ts",
+    "tests/_lib/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    ".claude"
+  ]
+}
