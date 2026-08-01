@@ -21,11 +21,28 @@ import { LayoutShell } from "./LayoutShell";
 import type { RightPaneLayoutDefinition, RightPaneLayoutProps } from "./types";
 
 function MoneyPennyFocusLayoutComponent(props: RightPaneLayoutProps) {
-  const { theme = "dark", onRequestLayout } = props;
+  const { theme = "dark", onRequestLayout, onFocusDispositionRecorded } = props;
 
   const handleDismiss = useCallback(() => {
     onRequestLayout?.("stack");
   }, [onRequestLayout]);
+
+  /**
+   * A recorded choice is not the same act as a dismissal, and conflating them
+   * is what left the ceremony half-finished: the capsule closed and nothing
+   * else happened. Closing is what both share; telling the host WHAT was
+   * chosen is what only this path does.
+   *
+   * Order matters — the host is told first, then the layout unmounts. Closing
+   * first would tear this component down before the notification ran.
+   */
+  const handleResolved = useCallback(
+    (disposition: string) => {
+      onFocusDispositionRecorded?.(disposition);
+      handleDismiss();
+    },
+    [onFocusDispositionRecorded, handleDismiss],
+  );
 
   return (
     <LayoutShell
@@ -37,7 +54,7 @@ function MoneyPennyFocusLayoutComponent(props: RightPaneLayoutProps) {
       headerTitle="Focus check-in"
       onDismiss={handleDismiss}
       dismissLabel="Close"
-      body={<AigentMeFocusDispositionPrompt onResolved={handleDismiss} />}
+      body={<AigentMeFocusDispositionPrompt onResolved={handleResolved} />}
     />
   );
 }

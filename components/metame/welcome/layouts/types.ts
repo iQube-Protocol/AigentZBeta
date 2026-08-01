@@ -180,6 +180,18 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    * as composerInitialPrompt so the inline form auto-drafts on mount.
    */
   onUseSuggestedArtifact?: (artifactType: string, response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData) => void;
+  /**
+   * Fired by MoneyPennyFocusLayout when the principal records their focus
+   * disposition, carrying WHICH one they chose.
+   *
+   * The capsule closing is not the whole of the closing ceremony. The
+   * principal made a sovereign decision, and a companion that says nothing
+   * about it leaves them wondering whether it registered at all. The value
+   * travels because "they answered" and "they answered 'not part of my
+   * experience'" call for different responses, and the copilot cannot say the
+   * second thing if only the first reaches it.
+   */
+  onFocusDispositionRecorded?: (disposition: string) => void;
 };
 
 export interface RightPaneLayoutDefinition {

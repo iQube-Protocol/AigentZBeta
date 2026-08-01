@@ -35,8 +35,13 @@ interface AigentMeFocusDispositionPromptProps {
    * Runtime §24.9 Ephemeral Interface, Durable Consequence) — lets a
    * hosting capsule close itself immediately ("the closing ceremony").
    * Never fired for the read-only "already answered" state on load.
+   *
+   * Carries WHICH disposition was recorded: the host closes the capsule
+   * either way, but a companion responding to the decision needs to know
+   * what was decided. Passing nothing would force the host to re-read the
+   * value it was just told, and re-reading is where the two can disagree.
    */
-  onResolved?: () => void;
+  onResolved?: (disposition: string) => void;
 }
 
 export function AigentMeFocusDispositionPrompt({
@@ -82,8 +87,11 @@ export function AigentMeFocusDispositionPrompt({
         });
         if (!res.ok) throw new Error(`Request failed (${res.status})`);
         const json = await res.json();
-        setDisposition(json.disposition ?? value);
-        onResolved?.();
+        const recorded = typeof json?.disposition === 'string' ? json.disposition : value;
+        setDisposition(recorded);
+        // The SERVER's value, not the button's — if the two ever differ, the
+        // durable record is what the companion must speak about.
+        onResolved?.(recorded);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not record your choice');
       } finally {

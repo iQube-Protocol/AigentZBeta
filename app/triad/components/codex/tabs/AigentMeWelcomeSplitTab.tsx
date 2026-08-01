@@ -913,6 +913,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return () => { cancelled = true; };
   }, [spine.status, personaId]);
 
+  /**
+   * Answered THIS session — the observer's note that the question is settled.
+   *
+   * The server-persisted disposition is the source of truth (§5.3), and the
+   * effect below already refuses to re-open once it reads one. But the read
+   * and the write are two round trips: a re-run triggered before the POST has
+   * landed (a spine refresh, a re-mount) reads `null` and re-opens a capsule
+   * the principal has just answered. Asking a settled question again reads as
+   * the answer not having registered.
+   *
+   * A ref, not state — this must not itself cause a render, and it is only
+   * ever consulted, never displayed.
+   */
+  const focusDispositionAnsweredRef = useRef(false);
+
   // ── MoneyPenny focus disposition check (Guided Journey Runtime §24.7-
   // §24.9 aigentMe Closing Ceremony) ─────────────────────────────────
   // On arrival, if the principal hasn't yet answered whether MoneyPenny's
@@ -924,6 +939,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // never fires again. §24.10: no further screen activity once resolved.
   useEffect(() => {
     if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
+    // Already answered here — never ask again, whatever a slower read says.
+    if (focusDispositionAnsweredRef.current) return;
     let cancelled = false;
 
     personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition', {
@@ -933,7 +950,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       .then(async (res) => {
         if (!res.ok || cancelled) return;
         const json = await res.json();
-        if (cancelled || json?.disposition != null) return;
+        if (cancelled || json?.disposition != null) {
+          // A prior answer is just as settled as one made this session.
+          if (json?.disposition != null) focusDispositionAnsweredRef.current = true;
+          return;
+        }
         engageCapsuleAndMount('moneypenny-focus');
         setAutoPrompt({
           id: 'auto-moneypenny-focus-disposition',
@@ -949,6 +970,36 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spine.status, personaId]);
+
+  /**
+   * The principal answered the focus check-in.
+   *
+   * Two things follow, and the capsule closing is only the first. The second
+   * is that aigentMe should SAY something — a sovereign decision met with
+   * silence reads as a decision that did not register. The prompt is
+   * `[observed]`, the same convention every other auto-turn here uses: the
+   * companion is told what happened and answers in its own words, rather than
+   * being handed a canned line to recite.
+   *
+   * The disposition travels into the prompt because the four answers deserve
+   * four different responses — "central to my ExperienceQube" and "not part of
+   * my experience" are opposite instructions, and an acknowledgement that fits
+   * both fits neither.
+   */
+  const handleFocusDispositionRecorded = useCallback((disposition: string) => {
+    // Settled — the effect above must not ask again this session.
+    focusDispositionAnsweredRef.current = true;
+    setAutoPrompt({
+      // Keyed by the answer so a changed answer is a NEW turn rather than a
+      // duplicate the copilot de-duplicates away.
+      id: `auto-moneypenny-focus-recorded-${disposition}`,
+      text:
+        '[observed] I have just recorded my disposition on MoneyPenny’s Financial Services focus as ' +
+        `“${disposition}”. Acknowledge my decision in your own words, say plainly what it means for how ` +
+        'my ExperienceQube gets populated from here, and tell me I can change it later. Do not re-ask ' +
+        'the question and do not reopen the capsule.',
+    });
+  }, []);
 
   // ── Fetchers ────────────────────────────────────────────────────────
   const fetchBrief = useCallback(async (briefType: 'daily' | 'project' | 'cartridge' = 'daily') => {
@@ -3095,6 +3146,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // to foreground and overlay.
               const layoutProps = {
                 onRequestLayout: requestLayout,
+                onFocusDispositionRecorded: handleFocusDispositionRecorded,
                 theme,
                 personaId,
                 displayLabel: spine.displayLabel ?? data.displayLabel,
