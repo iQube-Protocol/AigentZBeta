@@ -82,6 +82,18 @@ const nextConfig = {
       "codexes/packs/aigency/items/memory/retrieval-index.md",
       "codexes/packs/agentiq/items/venture-iqube/operation-metawill-v0.2.json",
       "codexes/packs/irl/foundation/experiments/**/*results*.json",
+      // The Constitutional Internet book's SOURCE-AND-EVIDENCE MATRIX (125 KB
+      // and growing with the manuscript). Same class as the record artifacts
+      // above: verified 2026-08-02 against polity-core/collections.json — the
+      // eleven browsable book entries are all .md; this JSON is listed in NONE
+      // of them, and no services/app readFileSync touches it. It is traced
+      // only because the pack-file route globs ./codexes/packs/**/*.json.
+      //
+      // Note the asymmetry that makes this the ONLY safe book exclusion: the
+      // glob is JSON-ONLY, so the manuscript .md files are not traced at all
+      // and cost the artifact nothing. Excluding any of them would break the
+      // Codex reader for no benefit.
+      "codexes/packs/polity-core/items/commentary/constitutional-internet/02-source-and-evidence-matrix.json",
       // Build-time-only deps Next conservatively traces but the runtime never
       // executes: the TypeScript compiler (no runtime import in this app) and
       // browserslist's caniuse-lite data. ~11 MB more headroom under the limit.
