@@ -265,7 +265,7 @@
     {
       "id": "col_commentary_constitutional_internet",
       "title": "Commentary · The Constitutional Internet",
-      "description": "Constitutional commentary — CI-CC-001, the Book Constitution for 'The Constitutional Internet: The Last Human Frontier' (Dele Atanda). Governing book invariants for the trilogy arc; continuity with The Digitterian Tsunami.",
+      "description": "Constitutional commentary — The Constitutional Internet book project (Dele Atanda): CI-CC-001 Book Constitution, Editorial Master, correction register, working manuscript, Source & Evidence Matrix, and the repo reconciliation audit outputs.",
       "type": "static",
       "order": 10,
       "enabled": true,
@@ -278,7 +278,11 @@
         "items/commentary/constitutional-internet/00-editorial-master.md",
         "items/commentary/constitutional-internet/00-editorial-register.md",
         "items/commentary/constitutional-internet/01-working-manuscript.md",
-        "items/commentary/constitutional-internet/ci-cc-001-book-constitution.md"
+        "items/commentary/constitutional-internet/ci-cc-001-book-constitution.md",
+        "items/commentary/constitutional-internet/BOOK_IMPLEMENTATION_RECONCILIATION.md",
+        "items/commentary/constitutional-internet/BOOK_DOCTRINE_LINEAGE.md",
+        "items/commentary/constitutional-internet/BOOK_DISCREPANCY_REGISTER.md",
+        "items/commentary/constitutional-internet/BOOK_PLATE_EVIDENCE_MAP.md"
       ]
     }
   ]
