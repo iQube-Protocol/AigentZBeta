@@ -10,7 +10,7 @@
  * POST /api/journey/moneypenny-horizen/verify/authorize — which runs the
  * full prepare->sign->submit->verify pipeline
  * (services/horizen/authorizationClient.ts) server-side. Never fabricates
- * completion: if MoneyPenny has no Horizen tokenId yet (Register stage
+ * completion: if the SELECTED agent has no Horizen tokenId yet (Register stage
  * incomplete), this renders that honest blocked state instead of a toggle.
  *
  * Spine-gated route (resolves getActivePersona) — MUST use personaFetch,
@@ -32,9 +32,24 @@ interface AgentCardHorizen {
 
 interface PulseTransparencyToggleProps {
   personaId?: string;
+  /*
+   * WHICH AGENT THIS STAGE IS ABOUT (operator, 2026-08-02).
+   *
+   *   > "It still says awaiting agent MoneyPenny registration … it should be
+   *   >  saying awaiting Nakamoto because that is the one that we actually
+   *   >  just registered."
+   *
+   * The props interface existed and was IGNORED (`_props`), while the card
+   * fetch and every sentence hardcoded MoneyPenny. So Verify narrated a
+   * different agent than Register had just acted on, and read as broken when
+   * it was merely talking about someone else. Required, not defaulted: a
+   * default would silently restore exactly this.
+   */
+  agentSlug: string;
+  agentDisplayName: string;
 }
 
-export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
+export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTransparencyToggleProps) {
   const [loading, setLoading] = useState(true);
   const [horizen, setHorizen] = useState<AgentCardHorizen | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
@@ -43,7 +58,7 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/agents/moneypenny/agent-card.json', { cache: 'no-store' });
+      const res = await fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
         setHorizen((json?.metadata?.horizen as AgentCardHorizen) ?? null);
@@ -53,7 +68,7 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentSlug]);
 
   useEffect(() => {
     void refresh();
@@ -66,7 +81,9 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
       const res = await personaFetch('/api/journey/moneypenny-horizen/verify/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scope: DISCLOSURE_SCOPE }),
+        // The route already accepted an agentSlug and defaulted to MoneyPenny;
+        // sending it is what makes the default stop mattering.
+        body: JSON.stringify({ scope: DISCLOSURE_SCOPE, agentSlug }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
@@ -95,7 +112,7 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
         <div>
           <p className="font-medium text-slate-300">Awaiting Horizen registration</p>
           <p className="mt-1">
-            MoneyPenny does not have a Horizen tokenId yet. The Register stage must complete before Pulse
+            {agentDisplayName} does not have a Horizen tokenId yet. The Register stage must complete before Pulse
             monitoring and P&amp;L disclosure can be authorized.
           </p>
         </div>
@@ -111,7 +128,7 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
           <p className="font-medium">Pulse monitoring and P&amp;L disclosure authorized</p>
           <p className="mt-1 text-emerald-200/80">
             Horizen has confirmed activation. This establishes Standing eligibility only — it does not
-            accrue Standing and does not enlarge MoneyPenny&apos;s constitutional authority.
+            accrue Standing and does not enlarge {agentDisplayName}&apos;s constitutional authority.
           </p>
         </div>
       </div>
@@ -121,7 +138,7 @@ export function PulseTransparencyToggle(_props: PulseTransparencyToggleProps) {
   return (
     <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3">
       <p className="text-xs text-slate-300">
-        Authorizing enables Horizen to monitor MoneyPenny&apos;s Pulse status and disclose P&amp;L
+        Authorizing enables Horizen to monitor {agentDisplayName}&apos;s Pulse status and disclose P&amp;L
         transparency proofs. This does not create or enlarge her constitutional authority.
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">

@@ -1,5 +1,7 @@
 "use client";
 
+import { createPortal } from "react-dom";
+import { overlayZClass } from "@/components/ui/overlayLayers";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 
@@ -2792,8 +2794,25 @@ export default function SmartWalletDrawer({
     return codexMode ? `${baseClasses} ring-indigo-500/30 border-l-indigo-500/30` : baseClasses;
   };
 
-  return (
-    <div className={variant === "overlay" ? "fixed inset-0 z-50" : "h-full min-h-0"}>
+  /*
+   * OVERLAY STACKING — named layer, and portalled out of the cartridge tree
+   * (operator, 2026-08-02: the wallet was unreachable in fullscreen).
+   *
+   * `z-50` lost to the Journey's fullscreen portal at `z-[70]`, so the one
+   * surface an operator must reach mid-demo could not be opened in exactly the
+   * mode demos are given in. The number now comes from
+   * components/ui/overlayLayers.ts, where the ORDERING lives — a number held
+   * locally can only ever be right by luck.
+   *
+   * The portal is the other half and is not belt-and-braces: `z-index` orders
+   * siblings within a stacking context, and any cartridge ancestor with a
+   * transform, filter or opacity creates one — which would trap this
+   * `fixed inset-0` below an unrelated body-level portal at ANY z-index.
+   * Rendering at `document.body` is what makes the layer number mean what it
+   * says.
+   */
+  const overlayTree = (
+    <div className={variant === "overlay" ? `fixed inset-0 ${overlayZClass('WALLET_OVERLAY')}` : "h-full min-h-0"}>
       {variant === 'overlay' && (
         <div className="absolute inset-0 drawer-backdrop bg-black/60 backdrop-blur-sm" onClick={onClose} />
       )}
@@ -6422,4 +6441,10 @@ export default function SmartWalletDrawer({
       )}
     </div>
   );
+
+  // Portalled ONLY in overlay mode. Embedded mode belongs inside its host's
+  // layout (the copilot's flex column) and must not escape it.
+  return variant === 'overlay' && typeof document !== 'undefined'
+    ? createPortal(overlayTree, document.body)
+    : overlayTree;
 }

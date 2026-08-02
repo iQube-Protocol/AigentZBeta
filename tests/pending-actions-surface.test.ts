@@ -283,7 +283,10 @@ describe('a signer mismatch names its sources, not just two hex strings', () => 
     // about the wrong persona read as an answer about the right one — the
     // same ambiguity this route exists to expose.
     expect(route).toMatch(/answeredForPersona/);
-    expect(route).toMatch(/displayLabel/);
+    // The persona's own display_name — T1, owner self-view. NOT `displayLabel`,
+    // which lives on the T1 surface type and not on the server-side context the
+    // spine hands a route; the scoped typecheck caught that guess.
+    expect(route).toMatch(/display_name/);
     // T1 only: the label names the persona; the raw id never crosses.
     expect(route).not.toMatch(/personaId: persona\.personaId/);
     // It must never decrypt, and never accept a password. It DOES name the

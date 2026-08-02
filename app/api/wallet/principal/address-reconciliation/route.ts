@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
   const { data: row, error } = await sb
     .from('personas')
-    .select('evm_address, evm_key')
+    .select('evm_address, evm_key, display_name')
     .eq('id', persona.personaId)
     .maybeSingle();
   if (error) {
@@ -130,10 +130,19 @@ export async function GET(req: NextRequest) {
        * that does not say WHOSE records it reconciled has the same defect it
        * exists to expose.
        *
-       * `displayLabel` is T1 (browser-safe). The raw personaId is T0 and is
-       * NOT returned: naming the persona is enough to catch the mistake.
+       * The persona's own `display_name` is T1 (browser-safe) and this is an
+       * owner self-view, so naming it is the same exposure class as
+       * /api/wallet/persona. The raw personaId is T0 and is NOT returned —
+       * naming the persona is enough to catch the mistake.
+       *
+       * `displayLabel` lives on the T1 SURFACE type, not on the server-side
+       * `ActivePersonaContext` the spine hands a route; reading the column is
+       * the correct source here, and the scoped typecheck caught the guess.
        */
-      answeredForPersona: persona.displayLabel ?? '(persona has no display label)',
+      answeredForPersona:
+        typeof row?.display_name === 'string' && row.display_name
+          ? row.display_name
+          : '(this persona has no display name)',
       answeredForPersonaNote:
         'If this is not the persona you meant, the caller sent no persona selection and the spine ' +
         'resolved a fallback. Client code must use personaFetch (which forwards x-persona-id); a ' +

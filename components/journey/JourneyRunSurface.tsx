@@ -28,6 +28,7 @@ import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
+import { overlayZClass } from '@/components/ui/overlayLayers';
 
 /**
  * One status row above the stepper, crossfading between whichever of
@@ -513,7 +514,13 @@ export function JourneyRunSurface({
 
   if (!fullScreen) return content;
 
-  return createPortal(<div className="fixed inset-0 z-[70] bg-slate-950">{content}</div>, document.body);
+  /* Named layer, not a local number — the wallet overlay must sit ABOVE this
+     (components/ui/overlayLayers.ts). Fullscreen is the stage; the wallet is
+     the act performed on it. */
+  return createPortal(
+    <div className={`fixed inset-0 ${overlayZClass('CARTRIDGE_FULLSCREEN')} bg-slate-950`}>{content}</div>,
+    document.body,
+  );
 }
 
 export default JourneyRunSurface;

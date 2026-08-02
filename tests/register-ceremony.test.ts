@@ -447,3 +447,48 @@ describe('the Register panel renders the ladder', () => {
     expect(panel.slice(at - 200, at)).toMatch(/personaFetch\(/);
   });
 });
+
+describe('the Verify stage speaks about the agent that was actually registered', () => {
+  /*
+   * Operator, 2026-08-02: "It still says awaiting agent MoneyPenny
+   * registration … it should be saying awaiting Nakamoto because that is the
+   * one that we actually just registered."
+   *
+   * The props interface existed and was IGNORED (`_props`) while the card
+   * fetch and every sentence hardcoded MoneyPenny. The tab already tracked the
+   * selection and the authorize route already accepted an agentSlug — only
+   * this surface was never handed it, so Verify narrated a different agent
+   * than Register had just acted on and read as broken when it was merely
+   * talking about someone else.
+   */
+  const toggle = stripComments(readSource('components/journey/PulseTransparencyToggle.tsx'));
+  const tab = stripComments(readSource('app/triad/components/codex/tabs/PilotJourneyTab.tsx'));
+
+  it('takes the agent as a required prop — never a default that restores the bug', () => {
+    expect(toggle).toMatch(/agentSlug: string;/);
+    expect(toggle).toMatch(/agentDisplayName: string;/);
+    expect(toggle).not.toMatch(/agentSlug\?: string/);
+    // Props consumed, not ignored.
+    expect(toggle).not.toMatch(/\(_props: PulseTransparencyToggleProps\)/);
+  });
+
+  it('fetches the selected agent card and names the selected agent in its copy', () => {
+    expect(toggle).toMatch(/\/api\/agents\/\$\{agentSlug\}\/agent-card\.json/);
+    expect(toggle).toMatch(/\{agentDisplayName\} does not have a Horizen tokenId/);
+    // No sentence still asserts MoneyPenny.
+    expect(toggle).not.toMatch(/MoneyPenny(&apos;s)? (does not|constitutional|Pulse)/);
+  });
+
+  it('sends the agent to the authorize route so its default stops mattering', () => {
+    expect(toggle).toMatch(/scope: DISCLOSURE_SCOPE, agentSlug/);
+  });
+
+  it('the tab hands the selection to the Verify surface', () => {
+    expect(tab).toMatch(/descriptor\.component === 'PulseTransparencyToggle'/);
+    expect(tab).toMatch(/agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent\.displayName/);
+  });
+
+  it('refetching is scoped to the agent — switching agents re-reads the card', () => {
+    expect(toggle).toMatch(/\}, \[agentSlug\]\);/);
+  });
+});

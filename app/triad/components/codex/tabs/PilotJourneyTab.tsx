@@ -70,6 +70,13 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
       const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
       return descriptor.component === 'RegisterAgentPanel'
         ? { agentSlug: selectedAgentSlug, onAgentSlugChange: setSelectedAgentSlug }
+        /* The Verify stage must speak about the agent the operator SELECTED,
+           not a hardcoded MoneyPenny (operator, 2026-08-02). The tab already
+           tracked the selection and the authorize route already accepted an
+           agentSlug — only this surface was never handed it, so Verify
+           narrated a different agent than Register had just acted on. */
+        : descriptor.component === 'PulseTransparencyToggle'
+          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
               prefillAgentCardUrl: selectedAgent.agentCardPath,
