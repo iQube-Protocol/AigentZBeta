@@ -121,3 +121,22 @@ interactive masters, confirm:
 **Plate-use rule (Editorial Master §6) reaffirmed:** the printed Plate compresses · the digital Plate
 expands · aigentMe contextualizes · **source lineage proves**. The fourth clause is the binding one —
 a Plate whose source lineage resolves to an unbuilt capability should not ship.
+
+---
+
+## Plate 10 — ruled 2026-08-02 (CR-10)
+
+**Plate 10 — Standing Carries Consequence describes PERSON standing only.**
+
+> Action → Proof → Validation → Standing → Authority → Consequential Benefit → Further Action
+
+Any visual treatment of **invariant standing** must be a **separate** plate or inset:
+
+> Candidate invariant → Evidence → Recurrence → Validation → Contradiction or support → Confidence → Canonical status
+
+**The two loops must not share an unlabeled "standing" field.** That shared label is the defect CR-10
+corrects; reproducing it visually would reintroduce the ontology conflict the ruling resolves.
+
+**Caption discipline.** Plate 10's caption must not use the words *decay* or *contradiction* — both
+belong to the invariant loop. Person standing changes through **proven action, penalty, repair,
+challenge and constitutional consequence**, never through elapsed time.

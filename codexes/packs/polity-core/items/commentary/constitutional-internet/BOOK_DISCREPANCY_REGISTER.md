@@ -64,7 +64,32 @@ external QRNG source exists outside this repo → then *Needs external verificat
 
 </details>
 
-### A-2 · Ch18 — "standing decays" is **contradicted by ratified doctrine**
+### A-2 · Ch18 — person standing vs invariant standing
+### ✅ RESOLVED 2026-08-02 by operator ruling **CR-10** — ontology correction, not a contradiction
+
+**The finding is withdrawn in its absolute form.** The decay / contradiction-penalty / challenge
+language applies to **invariant standing**, not to the standing of a person. Code and ratified
+doctrine support **both** concepts; the manuscript had allowed their labels to blur.
+
+| | Person standing | Invariant standing |
+|---|---|---|
+| Attaches to | a **person** | a **proposition / candidate / discovered rule** |
+| Records | proven **conduct** | evidentiary **support** |
+| Changes on | contribution, validation, proven harm, penalty, repair, successful challenge, correction, reversal | recurrence, validation, contradiction, new evidence, narrowing, supersession |
+| Time alone | **does not reduce it** | — |
+| Contradiction | — | **may reduce it** (`lifecycle.ts:291`, Law XII) |
+
+> **Person standing is event-driven, never time-driven. A person does not lose standing through
+> inactivity alone.** What looks like decay is **consequence carried forward through proof**.
+
+**Required action:** separate the two throughout the manuscript, matrix, Plates and glossary. Ch18
+must not imply a person's standing naturally decays; any decay/penalty/confidence passage must
+**explicitly name** invariant standing. **CI-18: Doctrine Supported after ontology correction;
+Implementation Supported; Impact Correct ontology.**
+
+<details><summary>Original A-2 finding (superseded in its absolute form)</summary>
+
+**A-2 · Ch18 — "standing decays" is contradicted by ratified doctrine**
 **Type:** Ontology conflict · **Support:** Conflicting · **Impact:** Correct ontology
 
 `STANDING_FRAMEWORK.md:24` (ratified): Standing is *"event-driven, **never** time-driven."* The
@@ -86,6 +111,8 @@ contest or revocation path exists for persona Standing.** (`standing_corrected` 
 **Supported and citable:** *"proven action, not reputation/popularity"* — outcome claims accrue
 **nothing** until `verificationStatus === 'verified'`; consequence lanes carry 70%; the capability
 signal is ceilinged at 40 so "signal noise cannot overwhelm verified outcomes."
+
+</details>
 
 ### A-3 · Ch13/Ch20 — anchoring is claimed unscoped; governance receipts are at **zero**
 **Type:** Overclaim · **Support:** Conflicting · **Impact:** Qualify wording

@@ -260,6 +260,75 @@ authorised. Discrepancy **A-1** is reclassified accordingly.
 **Note.** The manuscript's narrower quantum position was **already correct** and is unaffected by
 this ruling. Only the "currently uses quantum entropy" clause was overclaimed.
 
+### CR-10 — Person standing and invariant standing (operator-ratified 2026-08-02)
+
+**Status:** **Ratified ontology correction.**
+
+The manuscript's references to **decay, contradiction penalty, challenge, and loss of confidence**
+apply to **invariant standing / invariant confidence**, *not* to the standing of a person. This
+resolves discrepancy **A-2** without removing the underlying argument: the code and ratified doctrine
+support **both** concepts; the manuscript had allowed their labels to blur.
+
+#### Person standing
+
+Person standing is bound to personhood · derived from proven action · **event-driven** · responsive to
+contribution, validation, penalty, repair and consequential conduct · and **never reduced merely
+because time has passed.**
+
+> **Person standing is event-driven, never time-driven.**
+> **A person does not lose standing through inactivity alone.**
+
+It may change when a constitutionally relevant **event** occurs: proven contribution · validation ·
+proven harm · penalty · repair · successful challenge · correction of evidence · reversal of an
+earlier finding.
+
+**This is not temporal decay. It is consequence carried forward through proof.**
+
+#### Invariant standing
+
+Invariant standing attaches to a **proposition, invariant candidate or discovered rule** — not to a
+person. It may gain support through recurrence and validation · lose confidence through contradiction ·
+be challenged by new evidence · be narrowed in scope · be superseded · or be removed from canonical
+status. **The contradiction-penalty logic in the invariant lifecycle applies to this class**
+(`services/invariants/lifecycle.ts:291`, Law XII).
+
+#### Canonical distinction
+
+| | |
+|---|---|
+| **Person standing** | records **proven conduct** |
+| **Invariant standing** | records **evidentiary support** |
+| **Time alone** | does **not** reduce person standing |
+| **Contradiction** | **may** reduce invariant standing |
+
+#### Manuscript effect
+
+Chapter 18 **must not state or imply that a person's standing naturally decays over time.** Any
+passage describing decay, contradiction penalty or declining confidence **must explicitly name**
+invariant standing, invariant confidence, or the standing of a proposition. Where Chapter 18
+discusses **persons**, describe standing as changing through **proven action, penalty, repair,
+challenge and constitutional consequence**.
+
+#### Glossary requirement (Appendix III)
+
+The glossary must carry **two separate entries** — *person standing* and *invariant standing* — each
+stating what it attaches to, what changes it, and what does **not**. A single "standing" entry is
+forbidden: the collapse of the two into one label is precisely the defect this ruling corrects.
+
+#### Plate effect
+
+**Plate 10 — Standing Carries Consequence** describes **person standing only**:
+
+> Action → Proof → Validation → Standing → Authority → Consequential Benefit → Further Action
+
+Any visual treatment of invariant standing must be **separate**:
+
+> Candidate invariant → Evidence → Recurrence → Validation → Contradiction or support → Confidence → Canonical status
+
+**The two loops must not share an unlabeled "standing" field.**
+
+---
+
 ---
 
 ## Additions to integrate (author-directed)
@@ -356,3 +425,29 @@ Internet → 00 Project Governance → Editorial Master). It is the controlling 
 consolidation and evidentiary pass; this register operationalises its correction/integration rules.
 The author-referenced DOCX/Markdown export was not delivered as a binary file, but the master's
 complete textual content is captured in `00-editorial-master.md`.
+
+---
+
+## Deploy-artifact compliance — book corpus placement (2026-08-02)
+
+**`codexes/packs/**` is traced into the Amplify deploy artifact.** `next.config.js`
+`outputFileTracingIncludes` maps `/api/codex/packs/[packId]/file` → `./codexes/packs/**/*.json`, and
+with `output: 'standalone'` a file included on **any** route lands in the single shared Lambda
+bundle. So **every `.json` under `codexes/packs/` costs deploy-artifact bytes whether or not anything
+reads it.**
+
+**Rule for this project:** never add a `.json` data artifact under `codexes/packs/`. Record metadata
+in Markdown front-matter instead — `.md` is **not** traced (the corpus store serves bodies via
+`corpusReadPackFile`), so it costs the artifact nothing.
+
+**Applied 2026-08-02:** the `SRC-IF-IAPP-2017-001.json` sidecar was removed and its metadata folded
+into the front-matter of `SRC-IF-IAPP-2017-001.md`. Nothing referenced the sidecar —
+`collections.json` lists only `.md` entries.
+
+**Outstanding.** `02-source-and-evidence-matrix.json` (131 KB) is excluded from the trace by
+`next.config.js`, so it no longer costs artifact bytes — but per the operator's standing instruction
+the book's **working corpus** (manuscript, evidence matrix, editorial registers, discrepancy logs)
+**should not live under `codexes/packs/` at all**. It belongs in Supabase Storage, with the pack
+carrying a pointer record and, at most, the ratified volume registered in `collections.json`.
+Relocation is a separate deliberate change; `docs/` is **not** glob-traced (only three specific files
+are), so it is a viable interim home if Supabase upload is not yet available.

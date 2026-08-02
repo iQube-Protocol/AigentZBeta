@@ -12,6 +12,27 @@ canonicalLocation: Polity Core/Constitutional Internet/03 Source Lineage/Interne
 rulingApplied: CR-8
 supportsChapters: [CI-05, CI-10, CI-21]
 autoDriveCid: null   # PENDING — publish via scripts/publish-polity-core.mjs
+autoDriveStatus: pending-upload
+primaryExternalSource: https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use
+durableEvidenceRecord: SRC-IF-IAPP-2017-001.md
+establishes:
+  - Internet Foundation existed as an NGO by at least 2013
+  - it was seeking the creation of a universal declaration of digital rights
+  - IAPP had covered that effort as far back as 2013
+  - Atanda and the Foundation proposed ethical-data-use standards work to BSI before 2017
+  - that work covered privacy, ownership, consent, fair use, data transfer, correction, erasure, arbitration, notification
+  - it connected to standards work beyond baseline legal compliance, including GDPR
+doesNotEstablish:
+  - the Foundation's present constitutional mandate
+  - its current legal or operational status
+  - its present relationship to the polity
+  - its governance structure
+  - its current relationship to metaProof
+tags: [Internet Foundation, Universal Declaration of Digital Rights, UDDR, digital rights, human rights, ethical data use, BSI, privacy, consent, data ownership, standards history]
+# NOTE: metadata lives in this front-matter, not a sidecar .json. next.config.js
+# globs ./codexes/packs/**/*.json into the shared standalone Lambda bundle, so a
+# .json data artifact here costs deploy-artifact bytes whether or not anything
+# reads it. See CLAUDE.md > Dense Materials.
 ---
 
 # Source Archive — IAPP: "BSI Group eyeing ethical data use"

@@ -697,7 +697,7 @@
       "discrepancyRequiredRevision": "Do not infer from documentation alone. Record code, test, receipt, and current-state evidence separately.",
       "auditRule": null,
       "claudeAudit": {
-        "canonicalDoctrineId": "STANDING_CHARTER.md v1.0.0 (ratified 2026-06-17); STANDING_FRAMEWORK.md v1.0.1",
+        "canonicalDoctrineId": "STANDING_CHARTER.md v1.0.0 (ratified 2026-06-17); STANDING_FRAMEWORK.md v1.0.1 | CR-10 Person standing vs invariant standing (operator-ratified 2026-08-02)",
         "doctrineSection": "§Purpose L11-17 ('Standing is not reputation / popularity / status / social ranking'); §Standing dimensions (operational) L24 ('event-driven, never time-driven'); machine form services/polity/frameworks/standing-charter.v1.json",
         "repoPath": "services/crm/standingAccrualService.ts:296; services/crm/taskService.ts:620; services/standing/standingScore.ts; services/homecoming/delegateStanding.ts:129; services/venture/ventureOutcomeAccrual.ts:167,207; services/standing/standingCanister.ts; supabase/migrations/20260616100000_standing_keystone.sql + 20260623100000_capability_standing.sql + 20260621200000_standing_tier.sql + 20260830000000_standing_corrected_receipt_type.sql",
         "symbolComponent": "accrueStanding() keystone; writeStanding blend overall = consequence×0.70 + min(40, capability)×0.75; computeStandingScore()",
@@ -706,10 +706,10 @@
         "receiptEvidence": "standing_accrued and standing_corrected — DB-constrained (20260830000000) and DVN-anchorable (pipeline:78,93). Emitted at standingAccrualService.ts:389,654,732.",
         "environment": "Needs external verification",
         "lastVerifiedCommit": "23b012473",
-        "supportFinding": "Conflicting",
+        "supportFinding": "Supported",
         "manuscriptImpact": "Correct ontology",
-        "recommendedAction": "KEEP 'proven action, not reputation/popularity' in present tense — charter states it and code enforces it (outcome claims accrue nothing until verificationStatus==='verified'; consequence lanes carry 70%; capability ceilinged at 40). CORRECT 'standing decays' — contradicted by ratified framework and monotone code. CORRECT 'contextual and challengeable' — no challenge path exists for persona Standing.",
-        "notes": "Discrepancy: Ontology conflict (primary) + Overclaim. THREE sub-claims split: (1) proven-action = Supported; (2) decay = CONTRADICTED (STANDING_FRAMEWORK.md:24 'event-driven, never time-driven'; capability lane monotone Math.max; rationale at standingAccrualService.ts:20-21 'a bad agent at 12 months must not outrank a good agent at 2 weeks'); (3) contextual/challengeable = Unsupported (standingScore.ts:34-37 says score is NOT split per archetype; no challenge/dispute/contest/revocation path). CRITICAL ONTOLOGY HAZARD: contradiction-penalty logic DOES exist but for INVARIANTS not personas (services/invariants/lifecycle.ts:291 penalty = min(0.8, timesContradicted × 0.15); law_xii_truth_standing_reach.sql:35) — two different standing fields on two different tables. standing_corrected corrects a defective FORMULA, not conduct."
+        "recommendedAction": "Per CR-10: RESOLVED as an ONTOLOGY CORRECTION, not a contradiction. Doctrine SUPPORTED after correction; implementation SUPPORTED. Separate PERSON standing from INVARIANT standing throughout the manuscript, matrix, Plates and glossary. Ch18 must not state or imply a person's standing naturally decays over time. Any passage describing decay, contradiction penalty or declining confidence must EXPLICITLY NAME invariant standing / invariant confidence / the standing of a proposition. Where Ch18 discusses persons, describe standing as changing through proven action, penalty, repair, challenge and constitutional consequence. Glossary (Appendix III) must carry TWO separate entries; a single 'standing' entry is forbidden.",
+        "notes": "Discrepancy: Ontology conflict (primary) + Overclaim. THREE sub-claims split: (1) proven-action = Supported; (2) decay = CONTRADICTED (STANDING_FRAMEWORK.md:24 'event-driven, never time-driven'; capability lane monotone Math.max; rationale at standingAccrualService.ts:20-21 'a bad agent at 12 months must not outrank a good agent at 2 weeks'); (3) contextual/challengeable = Unsupported (standingScore.ts:34-37 says score is NOT split per archetype; no challenge/dispute/contest/revocation path). CRITICAL ONTOLOGY HAZARD: contradiction-penalty logic DOES exist but for INVARIANTS not personas (services/invariants/lifecycle.ts:291 penalty = min(0.8, timesContradicted × 0.15); law_xii_truth_standing_reach.sql:35) — two different standing fields on two different tables. standing_corrected corrects a defective FORMULA, not conduct. | RULED 2026-08-02 (CR-10): the decay/contradiction-penalty/challenge language applies to INVARIANT standing, not person standing. The earlier A-2 finding of 'contradicted by ratified doctrine' is RESOLVED: code and ratified doctrine support BOTH concepts; the manuscript had blurred their labels. PERSON standing = bound to personhood, derived from proven action, EVENT-DRIVEN, never reduced merely by elapsed time ('event-driven, never time-driven'; a person does not lose standing through inactivity alone). It changes on constitutionally relevant EVENTS: contribution, validation, proven harm, penalty, repair, successful challenge, correction of evidence, reversal. That is consequence carried forward through proof, NOT temporal decay. INVARIANT standing = attaches to a proposition/candidate/discovered rule; gains support through recurrence and validation, loses confidence through contradiction, may be challenged, narrowed, superseded or removed from canonical status. services/invariants/lifecycle.ts:291 + Law XII apply to THIS class. CANONICAL DISTINCTION: person standing records proven CONDUCT; invariant standing records evidentiary SUPPORT. Time alone does not reduce person standing; contradiction may reduce invariant standing."
       }
     },
     {
@@ -1121,6 +1121,16 @@
           "Operational": "uses"
         },
         "wordingCorrection": "2026-08-02: 'is integrating' withdrawn from the Projected stage as inconsistent with execution-not-authorised."
+      },
+      {
+        "id": "CR-10",
+        "date": "2026-08-02",
+        "title": "Person standing and invariant standing",
+        "status": "Ratified ontology correction",
+        "effect": "Resolves A-2. CI-18 -> Doctrine Supported after ontology correction; Implementation Supported; Discrepancy Ontology conflict; Impact Correct ontology.",
+        "personStanding": "event-driven, never time-driven; changes on constitutionally relevant events; not temporal decay",
+        "invariantStanding": "attaches to a proposition; contradiction-penalty logic applies to this class",
+        "requiredAction": "Separate the two throughout manuscript, matrix, Plates and glossary"
       }
     ],
     "registeredSources": [

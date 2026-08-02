@@ -260,3 +260,22 @@ a **separate canonical founding and mandate instrument**.
 
 > **Historical existence and UDDR lineage — externally verified.**
 > **Current constitutional mandate — pending canonical documentation.**
+
+---
+
+## CR-10 · Person standing and invariant standing → **Ch18** (2026-08-02)
+
+**Ratified ontology correction.** Ch18's doctrine is **Supported after correction** — the chapter's
+argument stands; only its labels needed separating.
+
+| Concept | Doctrine source | Implementation |
+|---|---|---|
+| **Person standing** | `STANDING_CHARTER.md` v1.0.0 §Purpose (*"Standing is not reputation / popularity / status / social ranking"*); `STANDING_FRAMEWORK.md` v1.0.1 L24 (*"event-driven, never time-driven"*) | `services/crm/standingAccrualService.ts:296 accrueStanding()`; monotone capability lane; verification-gated accrual |
+| **Invariant standing** | CFS-009 **Law XII**; invariant lifecycle doctrine | `services/invariants/lifecycle.ts:291` — `penalty = min(0.8, timesContradicted × 0.15)`; `law_xii_truth_standing_reach.sql` |
+
+**These are two different `standing` fields on two different tables.** The doctrine lineage for Ch18
+must cite the **person** sources for person passages and the **Law XII / invariant lifecycle** sources
+for decay, contradiction-penalty and confidence passages — never interchangeably.
+
+**Glossary (Appendix III) requirement:** two separate entries, each stating what it attaches to, what
+changes it, and what does not. **A single "standing" entry is forbidden.**
