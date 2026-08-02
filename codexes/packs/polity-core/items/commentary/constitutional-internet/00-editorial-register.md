@@ -86,6 +86,22 @@ not conflate them.
 **Rule (author's step-3 + lock list):** Integrate the plutocracy and state-alignment/jurisdiction
 framing addenda into the relevant chapters.
 
+### CR-7 — Chapter-title reconciliation (author-ratified 2026-08-02)
+
+The Editorial Master's earlier outline layers carried two draft chapter titles that diverge from the
+final manuscript. The author has ratified the following canonical forms:
+
+- **Chapter Seventeen — "Privacy Through Different Assumptions"** (author decision, 2026-08-02):
+  keep this title. The earlier Master outline variant *"Privacy Through a Different Kind of
+  Randomness"* is superseded; do not restore it. The manuscript heading and the Master's "Final
+  Architecture" already match the ratified form.
+- **Chapter Sixteen = "The Passport of the Person"** and **Chapter Seventeen = "Privacy Through
+  Different Assumptions"** — this ordering (from the manuscript + Final Architecture) is canonical;
+  the earlier "Locked Book Architecture" layer that placed privacy/randomness at Ch 16 is superseded.
+- **Chapter Five — "Human Rights, Digital Rights, and Personhood Rights"** is the canonical title
+  (manuscript heading + Master §"Locked Book Architecture"); the earlier variant *"Human Rights
+  Become Personhood Rights"* is superseded.
+
 ---
 
 ## Additions to integrate (author-directed)
