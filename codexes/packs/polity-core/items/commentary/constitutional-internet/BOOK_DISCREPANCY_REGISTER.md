@@ -279,6 +279,26 @@ and canary-enforced.
 </details>
 
 ### B-1 · Ch15/Epilogue — the **embodied delegate** has no code, test, or receipt
+### 📋 **PRD STAGED 2026-08-02** — `PRD-AGM-011` canonised for review; finding remains OPEN
+
+`PRD-AGM-011 — Agent Me Digital Twin (Tavus Pilot)` is canonised at
+`codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md`. It establishes
+**delegated embodiment** as a constitutional primitive — *the Citizen is never embodied; delegated
+personas may be embodied* — with a provider-independent adapter, memory retained inside Agent Me, and
+receipts unchanged.
+
+**The finding stays open.** Execution is not authorised, and one gap is material to *this
+discrepancy specifically*: the PRD governs the constitutional chain but **does not yet specify the
+third-party disclosure surface** the manuscript's doctrine requires — that an observer can know it is
+an agent, whom it represents, under what authority, and where that authority ends. Step 5 discloses
+the chain to the **Citizen provisioning** the twin; the doctrine concerns the **counterparty meeting**
+it. Flagged in the PRD for operator ruling.
+
+**CI-07 / CI-15 remain Projected** until implementation, tests and receipts exist.
+
+<details><summary>Original B-1 finding (unchanged — still the current code state)</summary>
+
+**B-1 · Ch15/Epilogue — the embodied delegate has no code, test, or receipt**
 **Type:** Overclaim · **Impact:** Move to future tense
 
 The manuscript states an embodied delegate *"must make its status legible"* — that observers can know
@@ -290,6 +310,8 @@ with zero disclosure surface** — `AvatarHostProps` / `AgentConfig` / `AvatarCo
 delegate-status, principal-identity, mandate, or non-human fields. The package README marks it
 *"🚧 In Development — Phase 5."* Nearest real evidence: `agent-charter.v1.json`
 `agentsMustBeIdentifiedAsNonHuman: true` — a **ratified doctrine flag, not rendering code**.
+
+</details>
 
 ### B-2 · Ch24 — **exit rights are unimplemented while entry rights are fully instrumented**
 **Type:** Overclaim · **Impact:** Qualify wording
