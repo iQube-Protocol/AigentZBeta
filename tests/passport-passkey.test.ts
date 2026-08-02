@@ -163,10 +163,42 @@ describe('T0 discipline on everything client-bound', () => {
   });
 
   it('the origin is server-determined on every route, never body-supplied', () => {
+    /*
+     * The INTENT here is unchanged and is the security property: a caller must
+     * never nominate the relying party its own credential is bound to.
+     *
+     * The MECHANISM changed (operator, 2026-08-02). This canary previously
+     * required `request.nextUrl.origin` — and thereby froze a real defect in
+     * place. Behind Amplify's CloudFront that expression yields the LAMBDA's
+     * host, not the domain the user is on, so `rpIdFromOrigin()` minted every
+     * challenge for a relying party the browser has never visited and WebAuthn
+     * refused, correctly, every time. The operator saw "Passkeys aren't
+     * configured correctly for this address".
+     *
+     * `resolveRequestOrigin` honours `x-forwarded-host`/`x-forwarded-proto`,
+     * which is what makes the rpID the user's actual domain. It is still
+     * entirely server-side: the value comes from proxy headers, never from the
+     * request body.
+     */
     for (const file of [ENROL_OPTIONS, ENROL_VERIFY, AUTH_OPTIONS, AUTH_VERIFY]) {
       const code = stripComments(readSource(file));
-      expect(code).toContain('origin: request.nextUrl.origin');
+      expect(code).toContain('origin: resolveRequestOrigin(request)');
       expect(code, `${file} lets the caller nominate its own origin`).not.toMatch(/body\?\.origin/);
+      // The expression that could never match the user's domain must not return.
+      expect(code, `${file} is back on the Lambda's own origin`).not.toContain('origin: request.nextUrl.origin');
+    }
+  });
+
+  it('options and verify resolve the origin the SAME way', () => {
+    // The challenge is minted with one rpID and verified against another. If
+    // the two ever resolve differently, every passkey stops working at once
+    // and the failure looks like a broken authenticator.
+    for (const [options, verify] of [
+      [ENROL_OPTIONS, ENROL_VERIFY],
+      [AUTH_OPTIONS, AUTH_VERIFY],
+    ]) {
+      expect(stripComments(readSource(options))).toContain('resolveRequestOrigin(request)');
+      expect(stripComments(readSource(verify))).toContain('resolveRequestOrigin(request)');
     }
   });
 });

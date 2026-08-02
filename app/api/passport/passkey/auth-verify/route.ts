@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 import { completePasskeyAuthentication } from '@/services/passport/passkeyService';
+import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const result = await completePasskeyAuthentication({
     response,
     audience,
-    origin: request.nextUrl.origin,
+    /*
+     * THE PUBLIC ORIGIN, NOT THE LAMBDA'S (operator, 2026-08-02).
+     *
+     * The panel reported "Passkeys aren't configured correctly for this
+     * address, so one can't be created here." That classification was CORRECT:
+     * the browser raised ERROR_INVALID_RP_ID / ERROR_INVALID_DOMAIN because
+     * the RP ID the server put in the challenge did not match the page's own
+     * domain.
+     *
+     * `request.nextUrl.origin` is the origin the LAMBDA saw. Behind Amplify's
+     * CloudFront distribution that is the internal host, not
+     * `dev-beta.aigentz.me` — and `rpIdFromOrigin()` takes its hostname
+     * verbatim. So the challenge was minted for a relying party the browser
+     * has never been on, and WebAuthn refused, correctly, every time.
+     *
+     * `resolveRequestOrigin` honours `x-forwarded-host`/`x-forwarded-proto`,
+     * which is the same reason it already exists for agent-card URLs. A
+     * relying-party id must be the domain the USER is on; nothing the server
+     * sees internally can stand in for it.
+     */
+    origin: resolveRequestOrigin(request),
   });
 
   if (!result.ok) {

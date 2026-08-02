@@ -99,6 +99,7 @@ import { getRuntimeContextPreference, setRuntimeContextPreference, RUNTIME_CONTE
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
+import { OWN_SURFACE_IFRAME_ALLOW } from '@/components/ui/overlayLayers';
 
 function getAccessTokenFromStorage(): string | null {
   if (typeof window === "undefined") return null;
@@ -3108,7 +3109,7 @@ export default function MetaMeRuntimeClient() {
               className="w-full border-0"
               style={{ height: frameHeight }}
               loading="lazy"
-              allow="microphone; clipboard-read; clipboard-write"
+              allow={OWN_SURFACE_IFRAME_ALLOW}
             />
           </div>
           <p className="text-[11px] text-slate-400">
@@ -6314,7 +6315,7 @@ export default function MetaMeRuntimeClient() {
             src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}${activeCartridgeOverlay.autoActivate ? `&autoActivate=${encodeURIComponent(activeCartridgeOverlay.autoActivate)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
             className="h-full w-full border-0"
-            allow="microphone; clipboard-read; clipboard-write"
+            allow={OWN_SURFACE_IFRAME_ALLOW}
           />
         </div>
       )}

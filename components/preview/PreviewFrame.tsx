@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { cn } from "@/utils/cn";
+import { OWN_SURFACE_IFRAME_ALLOW } from '@/components/ui/overlayLayers';
 import {
   DevicePreviewSwitcher,
   DeviceType,
@@ -153,7 +154,7 @@ export function PreviewFrame({
                 src={resolvedSrc}
                 className="w-full h-full min-h-[600px] border-0"
                 title="Preview"
-                allow="microphone; clipboard-read; clipboard-write"
+                allow={OWN_SURFACE_IFRAME_ALLOW}
                 onLoad={() => setIframeLoaded(true)}
                 onError={(e) => {
                   console.error("Preview iframe load error", e);

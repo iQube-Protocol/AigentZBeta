@@ -71,3 +71,32 @@ export function overlayZClass(layer: OverlayLayerName): string {
 export function outranksFullscreen(layer: OverlayLayerName): boolean {
   return OVERLAY_LAYER[layer] > OVERLAY_LAYER.CARTRIDGE_FULLSCREEN;
 }
+
+/**
+ * Permissions an iframe hosting OUR OWN cartridge/wallet surfaces must carry.
+ *
+ * ── The defect this closes (operator, 2026-08-02) ──────────────────────────
+ *
+ *   > "Passkey is not configured for this address, so can't add passkey. That
+ *   >  needs to be fixed as well."
+ *
+ * The panel's classification was correct — the browser really did raise
+ * `ERROR_INVALID_RP_ID` / `ERROR_INVALID_DOMAIN`. One cause was the server
+ * minting the challenge from the Lambda's own origin (fixed in the passkey
+ * routes). The other is here: **WebAuthn is gated by Permissions Policy inside
+ * an iframe.** `publickey-credentials-create` is refused in ANY iframe that
+ * does not explicitly allow it — including a same-origin one — and
+ * `publickey-credentials-get` is refused cross-origin.
+ *
+ * Our cartridge iframes carried `microphone; clipboard-read; clipboard-write`
+ * and nothing else, so enrolment could never succeed inside the viewer no
+ * matter how the server was configured. The failure surfaces as a
+ * relying-party error, which points at DNS or config rather than at the frame
+ * — which is why it survived this long.
+ *
+ * ONLY for frames rendering our own origin. An iframe pointing at a third
+ * party (e.g. the Horizen registry page) must NOT be handed credential
+ * permissions — that would delegate our users' authenticator to someone else.
+ */
+export const OWN_SURFACE_IFRAME_ALLOW =
+  'microphone; clipboard-read; clipboard-write; publickey-credentials-create; publickey-credentials-get';
