@@ -261,9 +261,47 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           onDone={() => void load()}
                         />
                       )}
-                      {s.id === "assign-to-crystal" && (
-                        <AssignmentControl experimentId={experimentId} onDone={() => void load()} />
-                      )}
+                      {/* STAGE 8 IS LOCKED UNTIL ITS PREREQUISITES ARE REAL
+                          (Al, 2026-08-02).
+
+                            68 promoted invariants with no recorded evidence
+                            provenance + validation not started + relationships
+                            not started = Stage 8 is not the next act.
+
+                          Collapsing the stage was not enough: a steward who
+                          expands "show all stages" still met an invariant-ID
+                          textarea, and pasting IDs there would BYPASS
+                          provenance classification, validation and
+                          relationship review entirely. A control that can
+                          circumvent the stages before it is not a convenience,
+                          it is a hole in the ladder.
+
+                          The control now renders only when every earlier stage
+                          is complete. Otherwise the card names the stage that
+                          IS the next act, so the surface routes the operator
+                          to Stage 5 instead of inviting them into Stage 8. */}
+                      {s.id === "assign-to-crystal" &&
+                        (() => {
+                          const blockers = programme.stages.filter(
+                            (x) => x.ordinal < s.ordinal && x.status !== "complete",
+                          );
+                          if (blockers.length === 0) {
+                            return <AssignmentControl experimentId={experimentId} onDone={() => void load()} />;
+                          }
+                          const next = blockers[0];
+                          return (
+                            <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] text-amber-100">
+                              <strong className="font-medium">Assignment is not the next act.</strong>{" "}
+                              {blockers.length === 1 ? "One earlier stage is" : `${blockers.length} earlier stages are`}{" "}
+                              incomplete, starting with <strong>{next.ordinal}. {next.label}</strong> — {next.detail}.
+                              <div className="mt-1 text-amber-200/80">
+                                No control is offered here because assigning now would admit invariants that have not
+                                been through provenance classification, validation and relationship review. This is a
+                                closed gate, not a missing feature.
+                              </div>
+                            </div>
+                          );
+                        })()}
                       {s.id === "freeze" && (
                         <FreezeControl experimentId={experimentId} onDone={() => void load()} />
                       )}

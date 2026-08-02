@@ -703,13 +703,47 @@ export async function checkAgentRegistrationStatus(
    * is substituted.
    */
   const declaresAgentId = /agentId/.test(JSON.stringify(byName.get_onboarding_status.inputSchema ?? {}));
-  const agentIdToSend = input.horizenAgentId?.trim() || null;
+
+  /*
+   * RECOVERY HOP 3 — ASK HORIZEN'S OWN REGISTRY (operator direction via Al).
+   *
+   *   prepared identifier -> receipt -> REGISTRY RECORD -> transaction event -> stop
+   *
+   * Hops 1 and 2 only help registrations prepared AFTER the identifier began
+   * being persisted. The pilot's transaction predates that, so it has nothing
+   * to recover from and the refusal fires — correctly, but with no way
+   * forward.
+   *
+   * This is hop 3: read the registry record Horizen itself keeps and take the
+   * identifier IF the response explicitly contains one. That is not the wallet
+   * substitution Al struck out — the wallet is the LOOKUP KEY for a read whose
+   * ANSWER carries Horizen's own identifier. Nothing is inferred: absent means
+   * absent, and the refusal still fires.
+   */
+  let recoveredAgentId: string | null = null;
+  if (declaresAgentId && !input.horizenAgentId?.trim()) {
+    try {
+      const lookup = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
+      const record = await lookup(input.ownerWalletAddress, input.network);
+      if (record.ok) {
+        recoveredAgentId = pickStringField(record.value, ['agentId', 'agentIdentifier', 'identifier', 'tokenId']);
+      }
+    } catch {
+      // A failed lookup is not an answer about the registration. Left null so
+      // the refusal below reports honestly rather than this becoming a
+      // silent second failure mode.
+    }
+  }
+
+  const agentIdToSend = input.horizenAgentId?.trim() || recoveredAgentId || null;
   if (declaresAgentId && !agentIdToSend) {
     return {
       ok: false,
       refusalCode: 'STATUS_UNAVAILABLE',
       detail:
-        'Horizen status could not be checked because the registration\'s agent identifier was unavailable. ' +
+        'Horizen status could not be checked because the registration\'s agent identifier was unavailable — ' +
+        'it was not returned when the registration was built, is not on the submission receipt, and Horizen\'s ' +
+        `registry holds no identifier for ${input.ownerWalletAddress} on ${input.network}. ` +
         `The on-chain transaction (${input.txHash}) remains valid. Do not re-register.`,
     };
   }
