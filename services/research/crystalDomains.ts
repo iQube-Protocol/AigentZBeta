@@ -139,6 +139,110 @@ export function domainAcceptsAssignment(d: CrystalDomainDeclaration): boolean {
   return d.ratification === 'ratified';
 }
 
+// ── Assignment eligibility, evaluated (Track 2 step 4) ──────────────────────
+
+/**
+ * Why a candidate was refused entry to a crystal. Every refusal is named, so a
+ * caller reports WHICH rule refused rather than "not eligible".
+ */
+export type CrystalAssignmentRefusal =
+  /** The boundary has not been ratified — nothing may be assigned to it yet. */
+  | 'domain-not-ratified'
+  /** Lifecycle status outside `eligibleStatuses` (e.g. still `proposed`). */
+  | 'lifecycle-status-ineligible'
+  /** Evidence provenance recorded, but outside `eligibleProvenance`. */
+  | 'evidence-provenance-ineligible'
+  /** No evidence provenance recorded at all. Fail closed — never assumed. */
+  | 'evidence-provenance-unrecorded';
+
+export interface CrystalAssignmentVerdict {
+  admitted: boolean;
+  /** Empty iff `admitted`. Ordered as evaluated, never deduplicated away. */
+  refusals: CrystalAssignmentRefusal[];
+  /** Human-readable, naming the rule and the value that failed it. */
+  detail: string;
+}
+
+/**
+ * MAY THIS RECORD ENTER THIS CRYSTAL? — pure, and the only place the ratified
+ * admission rule is evaluated.
+ *
+ * ── Why this exists (audit finding, 2026-08-02) ────────────────────────────
+ *
+ * `domainAcceptsAssignment` was written as the gate for the ruling's sixth
+ * point and then had NO production caller — the eligibility rule
+ * (`eligibleStatuses` × `eligibleProvenance`) was enforced only at READ time,
+ * by `crystalReadiness`'s `provenance-eligibility` check, which reports an
+ * ineligible member as a FAILING CRYSTAL rather than refusing the assignment
+ * that created it. A rule enforced only after the fact lets an ineligible row
+ * into the governed boundary and then blames the crystal for holding it.
+ *
+ * So the rule is evaluated HERE, at the point of entry, against the
+ * declaration's own ratified fields — never a second copy of them.
+ *
+ * ── Provenance is supplied, not read ───────────────────────────────────────
+ *
+ * The caller passes the already-read evidence-provenance value
+ * (`readEvidenceProvenance` in `experimentalPopulations.ts` is the single
+ * authority on how a provenance bag is read — inv.engineering.036). This
+ * module stays a pure declaration module with no knowledge of record shapes,
+ * and cannot drift from that reader.
+ *
+ * A `null` provenance is REFUSED, never defaulted: assuming eligibility is how
+ * an unclassified record enters the primary population it was never admitted
+ * to.
+ */
+export function evaluateCrystalAssignment(input: {
+  declaration: CrystalDomainDeclaration;
+  /** The record's `status` — compared against `declaration.eligibleStatuses`. */
+  status: string;
+  /** From `readEvidenceProvenance(record.provenance)`. `null` ⇒ unrecorded. */
+  evidenceProvenance: string | null;
+}): CrystalAssignmentVerdict {
+  const { declaration: d } = input;
+  const refusals: CrystalAssignmentRefusal[] = [];
+  const detail: string[] = [];
+
+  if (!domainAcceptsAssignment(d)) {
+    refusals.push('domain-not-ratified');
+    detail.push(
+      `domain '${d.domain}' is '${d.ratification}' — the question of what this crystal contains has not been ` +
+        'settled, and assigning against it would decide by accretion what must be decided deliberately',
+    );
+  }
+
+  if (!d.eligibleStatuses.includes(input.status)) {
+    refusals.push('lifecycle-status-ineligible');
+    detail.push(
+      `lifecycle status '${input.status}' is not in {${d.eligibleStatuses.join(', ')}} — admitting it would ` +
+        'raise the crystal count without any new validated evidence existing',
+    );
+  }
+
+  if (input.evidenceProvenance === null) {
+    refusals.push('evidence-provenance-unrecorded');
+    detail.push(
+      'no evidence provenance recorded — an untagged record is not assumed eligible (fail closed; ' +
+        'assuming the other way would launder platform evidence as external)',
+    );
+  } else if (!d.eligibleProvenance.includes(input.evidenceProvenance)) {
+    refusals.push('evidence-provenance-ineligible');
+    detail.push(
+      `evidence provenance '${input.evidenceProvenance}' is not in {${d.eligibleProvenance.join(', ')}} — ` +
+        'this crystal tests structure the platform did not author',
+    );
+  }
+
+  return {
+    admitted: refusals.length === 0,
+    refusals,
+    detail: refusals.length === 0
+      ? `admitted to '${d.domain}': status '${input.status}' and evidence provenance ` +
+        `'${input.evidenceProvenance}' both satisfy the ratified boundary`
+      : detail.join('; '),
+  };
+}
+
 // ── Crystal Review stage state (operator ruling, 2026-08-02, as corrected) ──
 
 /**

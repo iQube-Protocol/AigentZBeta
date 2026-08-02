@@ -485,12 +485,39 @@ describe('the wallet never says "nothing waiting" from a cached read', () => {
     // Focus: returning from the Journey tab. Interval: mandates expire on a
     // clock, so the list goes stale with no event at all.
     expect(panel).toMatch(/addEventListener\('focus', onFocus\)/);
-    expect(panel).toMatch(/setInterval\(\(\) => void load\(\), 20_000\)/);
+    expect(panel).toMatch(/setInterval\(refreshIfIdle, 20_000\)/);
   });
 
   it('offers a manual refresh, so nothing depends on a timer', () => {
     expect(panel).toMatch(/onClick=\{\(\) => void load\(\)\}/);
     expect(panel).toMatch(/'Checking…' : 'Refresh'/);
+  });
+
+  it('a background refresh never replaces the surface with a spinner', () => {
+    /*
+     * MY OWN REGRESSION, one turn after adding the refresh (operator: "there
+     * is no approval that is appearing").
+     *
+     * `load()` sets loading=true and the early return replaced the ENTIRE
+     * panel with a spinner. Harmless when the only load was on mount; the
+     * moment an interval/focus/deep-link refresh existed, each one tore the
+     * password field and the Sign button off the screen mid-act. The operator
+     * reaches for the control and it is not there.
+     *
+     * The spinner belongs to the FIRST read only. After that, `requests` holds
+     * the last good list — replacing it with a spinner discards known truth to
+     * display the absence of a fetch.
+     */
+    expect(panel).toMatch(/if \(loading && requests === null && !loadRefusal\)/);
+    expect(panel).not.toMatch(/^\s*if \(loading\) \{$/m);
+  });
+
+  it('never refreshes while the operator is mid-act', () => {
+    // Password open, signature in flight, or a refusal being confirmed — a
+    // re-render under their hands can discard a half-typed password.
+    expect(panel).toMatch(/midActRef\.current = openId !== null \|\| busyId !== null \|\| refusingId !== null/);
+    expect(panel).toMatch(/if \(midActRef\.current\) return;/);
+    expect(panel).toMatch(/setInterval\(refreshIfIdle, 20_000\)/);
   });
 
   it('every listener is torn down — a leaked interval outlives the wallet', () => {

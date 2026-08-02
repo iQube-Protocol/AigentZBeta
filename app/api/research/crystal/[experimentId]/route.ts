@@ -20,6 +20,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { callerMayReadExperimentReview } from '@/services/passport/participationAccess';
+import { getArtifact } from '@/services/research/artifacts';
 import { runCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
 import {
   crystalReviewStageStatus,
@@ -52,6 +53,29 @@ export async function GET(
   const crystalDomain = req.nextUrl.searchParams.get('domain') ?? undefined;
 
   const recommendation = await runCrystalFreezeRecommendation({ experimentId, crystalDomain });
+
+  /*
+   * THE LADDER'S TOP TWO RUNGS WERE UNREACHABLE (audit, 2026-08-02).
+   *
+   * `crystalLifecycleStage` accepts `frozen`/`canonical` and documents that
+   * they "default false until a real freeze receipt is threaded through". No
+   * caller ever threaded one, so FROZEN and CANONICAL could not be rendered by
+   * any code path — a crystal frozen by a genuine governed act would still have
+   * displayed READY_FOR_FREEZE, inviting a second freeze of an immutable
+   * object. An affordance that can never fire is a defect even though nothing
+   * errors.
+   *
+   * The signal is the PERSISTED artifact lifecycle, which is what a freeze
+   * actually writes (`freezeArtifact` → research_objects, lifecycle 'frozen').
+   * It is emphatically NOT derived from readiness: passing checks is not a
+   * freeze, and the canary in tests/crystal-freeze-recommendation.test.ts pins
+   * that `frozen` is never read off the readiness report.
+   *
+   * An unreadable substrate reports null ⇒ `frozen: false` ⇒ the ladder shows
+   * the pre-freeze stage. Fail closed: claiming a freeze that cannot be
+   * confirmed is the worse error of the two.
+   */
+  const crystalArtifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
 
   // ── RESPONSE SHAPE CORRECTIONS (operator ruling, 2026-08-02) ────────────
   //
@@ -128,13 +152,16 @@ export async function GET(
        *
        * `frozen`/`canonical` are not inferred from readiness: passing checks
        * is not a freeze, and treating it as one is the exact conflation the
-       * lifecycle separation exists to prevent. They default false until a
-       * real freeze receipt is threaded through.
+       * lifecycle separation exists to prevent. `frozen` reads the PERSISTED
+       * crystal-version artifact — the thing a real freeze writes — and
+       * nothing else. `canonical` has no producer yet (no artifact lifecycle
+       * state means "published"), so it stays false rather than being guessed.
        */
       lifecycle: crystalLifecycleStage({
         domainRatified: crystalDomainForExperiment(experimentId)?.ratification === 'ratified',
         invariantCount: readiness?.invariantCount ?? 0,
         readinessOk: Boolean(readiness?.ok),
+        frozen: crystalArtifact?.lifecycle === 'frozen',
       }),
       /*
        * Honest and reviewable are different properties. An empty package is a

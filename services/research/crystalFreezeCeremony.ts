@@ -13,6 +13,12 @@
  * same discipline as `independentReviewPublish.ts`'s "pure logic, no I/O"
  * split, so every refusal path is directly unit-testable.
  *
+ * It DOES read `getArtifactById` (added 2026-08-02) so the preview can report
+ * whether the freeze would actually execute — see
+ * `evaluateFreezeExecutionPreconditions` below. That is a read of persisted
+ * artifact state; `freezeArtifact` itself is still never imported, which the
+ * canary in tests/crystal-freeze-ceremony.test.ts greps for directly.
+ *
  * ── The actual freeze act (NOT performed here, NOT performed by this
  *    session) ─────────────────────────────────────────────────────────────
  *
@@ -43,6 +49,7 @@
  * call.
  */
 
+import { getArtifactById } from '@/services/research/artifacts';
 import { commit } from '@/services/research/review/deterministic';
 import {
   composeCrystalFreezeRecommendation,
@@ -214,24 +221,166 @@ export function buildFreezeCeremonyPackage(
   return { ok: true, package: { ...base, packageHash: commit(base) } };
 }
 
+// ── Would the freeze actually EXECUTE? (audit finding, 2026-08-02) ──────────
+
+/**
+ * `eligibleForRatification` answers ONE question — does the EVIDENCE support a
+ * freeze. It does not, and cannot, answer whether the freeze would execute.
+ *
+ * ── The gap this closes ────────────────────────────────────────────────────
+ *
+ * `freezeArtifact` (services/research/artifacts.ts) refuses unless a
+ * `crystal-version` artifact ALREADY EXISTS at lifecycle `validated`, carries a
+ * contentHash, and has at least one signatory. Nothing in this repository calls
+ * `upsertArtifact`, so no such row is ever created — which means a package
+ * could truthfully read `eligibleForRatification: true` while the operator's
+ * very next act failed with `unknown artifact 'EXP-P1/crystal-vP1'`.
+ *
+ * Discovering that at the moment of a constitutional act is the opposite of a
+ * rehearsed freeze. So the preconditions are evaluated ALONGSIDE the package —
+ * separately, because they are a different kind of fact (substrate state, not
+ * evidence) and must never be folded into the verdict about the corpus.
+ *
+ * Pure. Reported, never enforced here: this module performs no act to refuse.
+ */
+export interface FreezeExecutionPrecondition {
+  name: string;
+  satisfied: boolean;
+  detail: string;
+  /** What the operator does about it. Never "fix the code". */
+  remedy: string | null;
+}
+
+export interface FreezeExecutionReadiness {
+  /** True only when EVERY precondition below is satisfied AND the evidence
+   * supports a freeze. A caller must not offer a ratify action otherwise. */
+  wouldFreezeSucceed: boolean;
+  preconditions: FreezeExecutionPrecondition[];
+  /** The single next act, in the operator's register. */
+  nextAct: string;
+}
+
+export function evaluateFreezeExecutionPreconditions(input: {
+  /** = package.eligibleForRatification — the EVIDENCE question. */
+  packageEligible: boolean;
+  /** = package.contentHash. Blank is itself a refusal in `freezeArtifact`. */
+  packageContentHash: string;
+  /** Signatory count the package carries. `freezeArtifact` requires ≥ 1. */
+  signatoryCount: number;
+  /** The persisted crystal-version artifact, or null when none exists. */
+  artifact: { id: string; lifecycle: string } | null;
+  /** The artifact id the package names, for the not-found message. */
+  crystalId: string;
+}): FreezeExecutionReadiness {
+  const preconditions: FreezeExecutionPrecondition[] = [
+    {
+      name: 'evidence-supports-freeze',
+      satisfied: input.packageEligible,
+      detail: input.packageEligible
+        ? 'the freeze recommendation embedded in this package reads READY_FOR_FREEZE'
+        : 'the freeze recommendation embedded in this package does not read READY_FOR_FREEZE',
+      remedy: input.packageEligible
+        ? null
+        : 'this is scientific work, not a governance step — see the readiness report for which checks are outstanding',
+    },
+    {
+      name: 'artifact-exists',
+      satisfied: input.artifact !== null,
+      detail:
+        input.artifact !== null
+          ? `crystal-version artifact '${input.artifact.id}' is persisted`
+          : `no crystal-version artifact '${input.crystalId}' exists — freezeArtifact would refuse with ` +
+            `"unknown artifact '${input.crystalId}'"`,
+      remedy:
+        input.artifact !== null
+          ? null
+          : `provision it first: POST /api/research/crystal/<experimentId>/freeze { "action": "provision" }`,
+    },
+    {
+      name: 'artifact-at-validated',
+      satisfied: input.artifact?.lifecycle === 'validated',
+      detail:
+        input.artifact === null
+          ? 'no artifact to check — a freeze runs only from lifecycle `validated`'
+          : input.artifact.lifecycle === 'frozen'
+            ? 'the artifact is ALREADY frozen — freeze is immutable (IRL-016 §4) and a re-freeze is refused'
+            : `the artifact is at '${input.artifact.lifecycle}' — freezeArtifact runs only from 'validated'`,
+      remedy:
+        input.artifact?.lifecycle === 'validated'
+          ? null
+          : input.artifact?.lifecycle === 'frozen'
+            ? 'nothing — this crystal has already been frozen; its content is fixed'
+            : 'provision the artifact at `validated` before ratifying',
+    },
+    {
+      name: 'content-hash-present',
+      satisfied: Boolean(input.packageContentHash?.trim()),
+      detail: input.packageContentHash?.trim()
+        ? `content commitment ${input.packageContentHash.slice(0, 16)}… will be written as commitmentHash`
+        : 'this package carries no content hash — freezeArtifact refuses without one (PRD-EPI-001 §2.1)',
+      remedy: input.packageContentHash?.trim() ? null : 'recompute the statistics report and rebuild the package',
+    },
+    {
+      name: 'signatory-present',
+      satisfied: input.signatoryCount > 0,
+      detail:
+        input.signatoryCount > 0
+          ? `${input.signatoryCount} signatory reference(s) on the package`
+          : 'no signatories — at least one is required (IRL-016 §2); an unattributed freeze is a stray click',
+      remedy: input.signatoryCount > 0 ? null : 'supply operatorRef (and reviewerRef, when one was engaged)',
+    },
+  ];
+
+  const firstUnsatisfied = preconditions.find((p) => !p.satisfied);
+  return {
+    wouldFreezeSucceed: !firstUnsatisfied,
+    preconditions,
+    nextAct: firstUnsatisfied
+      ? (firstUnsatisfied.remedy ?? `resolve: ${firstUnsatisfied.detail}`)
+      : 'every precondition is satisfied — the freeze is the operator’s own explicit act, performed by ' +
+        'POST /api/research/crystal/<experimentId>/freeze with action "freeze".',
+  };
+}
+
 export interface RunFreezeCeremonyPreviewInput extends FreezeCeremonyRatificationInput {
   fetchLimit?: number;
 }
 
-/** I/O wrapper — runs a fresh readiness + statistics pair, then builds the
- * package. Convenience for callers (e.g. the API route) that don't already
- * hold both reports; still performs no write of any kind. */
+export type RunFreezeCeremonyPreviewResult =
+  | { ok: true; package: FreezeCeremonyPackage; execution: FreezeExecutionReadiness }
+  | { ok: false; error: string };
+
+/** I/O wrapper — runs a fresh readiness + statistics pair, builds the package,
+ * and reads (never writes) the persisted artifact so the execution
+ * preconditions can be reported. Still performs no write of any kind. */
 export async function runFreezeCeremonyPreview(
   input: RunFreezeCeremonyPreviewInput,
-): Promise<BuildFreezeCeremonyResult> {
+): Promise<RunFreezeCeremonyPreviewResult> {
   const recommendation = await runCrystalFreezeRecommendation({
     experimentId: input.experimentId,
     crystalDomain: input.crystalDomain,
     fetchLimit: input.fetchLimit,
   });
-  return buildFreezeCeremonyPackage({
+  const built = buildFreezeCeremonyPackage({
     ...input,
     readiness: recommendation.readiness,
     statistics: recommendation.statistics,
   });
+  if (!built.ok) return built;
+
+  // A read. An unreachable substrate reports as "no artifact" — which fails
+  // the precondition closed rather than claiming a freeze would succeed.
+  const artifact = await getArtifactById(built.package.crystalId).catch(() => null);
+
+  return {
+    ok: true,
+    package: built.package,
+    execution: evaluateFreezeExecutionPreconditions({
+      packageEligible: built.package.eligibleForRatification,
+      packageContentHash: built.package.contentHash,
+      signatoryCount: built.package.signatories.length,
+      artifact: artifact ? { id: artifact.id, lifecycle: artifact.lifecycle } : null,
+      crystalId: built.package.crystalId,
+    }),
+  };
 }

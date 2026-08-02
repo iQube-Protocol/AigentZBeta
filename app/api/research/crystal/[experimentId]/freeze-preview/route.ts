@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runFreezeCeremonyPreview } from '@/services/research/crystalFreezeCeremony';
 
 export const dynamic = 'force-dynamic';
@@ -65,10 +66,41 @@ export async function POST(
     ? body.knownLimitations.filter((v): v is string => typeof v === 'string')
     : [];
 
+  /*
+   * THE SAME NAMESPACE BUG, IN THE SIBLING ROUTE (found by audit, 2026-08-02).
+   *
+   * `IndependentReviewPanel`'s domain field was fixed that morning because a
+   * caller-supplied `constitutional-reasoning` WON over the ratified
+   * declaration, so every readiness report described the historical namespace.
+   * This route carried the identical defect one layer down — a hardcoded
+   * `|| 'constitutional-reasoning'` fallback — which meant a freeze ceremony
+   * package requested without an explicit domain would have been built over the
+   * historical collection and named it as the crystal being frozen. That is the
+   * substitution `crystalDomains.ts` exists to prevent, arriving at the one act
+   * where it would have been hardest to undo.
+   *
+   * Blank now means the experiment's RATIFIED declaration governs, exactly as
+   * readiness/statistics/recommendation already resolve it. An explicit
+   * caller-supplied domain still wins, so ad-hoc inspection is unaffected.
+   */
+  const declaredDomain = crystalDomainForExperiment(experimentId)?.domain;
+  const crystalDomain = asString(body.crystalDomain) || declaredDomain;
+  if (!crystalDomain) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          `no crystal domain is declared for experiment '${experimentId}' and none was supplied — refusing ` +
+          'to build a freeze package over a guessed domain',
+      },
+      { status: 400 },
+    );
+  }
+
   const result = await runFreezeCeremonyPreview({
     crystalId: asString(body.crystalId) || `${experimentId}/crystal-vP1`,
     experimentId,
-    crystalDomain: asString(body.crystalDomain) || 'constitutional-reasoning',
+    crystalDomain,
     operatorRef: asString(body.operatorRef),
     reviewerRef: asString(body.reviewerRef) || null,
     domainBoundary: asString(body.domainBoundary),
@@ -82,7 +114,21 @@ export async function POST(
   }
 
   return NextResponse.json(
-    { ok: true, package: result.package, note: 'PREVIEW ONLY — no freeze was performed. See package.eligibleForRatification.' },
+    {
+      ok: true,
+      package: result.package,
+      /*
+       * TWO DIFFERENT QUESTIONS, ANSWERED SEPARATELY (audit, 2026-08-02).
+       *
+       * `package.eligibleForRatification` is about the EVIDENCE. `execution` is
+       * about the SUBSTRATE — whether `freezeArtifact` would actually run. They
+       * were collapsing into one, so a package could read eligible while the
+       * operator's next act failed on a `crystal-version` artifact that has
+       * never existed (nothing in this repository calls `upsertArtifact`).
+       */
+      execution: result.execution,
+      note: 'PREVIEW ONLY — no freeze was performed. See package.eligibleForRatification (evidence) and execution.wouldFreezeSucceed (substrate).',
+    },
     { headers: { 'Cache-Control': 'no-store' } },
   );
 }

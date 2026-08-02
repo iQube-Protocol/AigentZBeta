@@ -199,6 +199,17 @@
  *  - SPEC-CDR-001 execution taxonomy (D-1): EXECUTION_DOMAINS ↔
  *    FINANCIAL_DOMAINS ↔ the SPEC §3 docs mirror, plus the §4.2
  *    non-executability rule for governance domains
+ *  - EXP-P1 CRYSTAL ADMISSION (2026-08-02): the ratified
+ *    `CRYSTAL_ELIGIBLE_PROVENANCE` ↔ Population A as `inPrimaryPopulation`
+ *    computes it, and `CRYSTAL_ELIGIBLE_STATUSES` ↔ the `listInvariants` status
+ *    filter in BOTH crystal reports. Neither pair is derivable from the other —
+ *    one is a ratified constitutional boundary, the other an experimental-
+ *    population partition — and drift would change which records enter a
+ *    governed scientific corpus without erroring. Also pins that the assignment
+ *    route EVALUATES the rule rather than restating it, that a write to the
+ *    crystal domain is opt-in, that both freeze routes resolve the DECLARED
+ *    domain (no `constitutional-reasoning` fallback), and that the freeze act
+ *    recomputes and refuses a stale content commitment
  */
 
 import { describe, it, expect } from 'vitest';
@@ -1682,5 +1693,92 @@ describe('cartridge display naming (docs/platform-ontology.md is the source of t
     // inert mechanism is a defect even though nothing errors).
     const list = stripComments(readSource('app/api/codex/registry/_lib/packRegistry.ts'));
     expect(list, 'codexToListItem drops shortName').toMatch(/shortName/);
+  });
+});
+
+/**
+ * EXP-P1 CRYSTAL ADMISSION — one rule, three places it could drift.
+ *
+ * The ratified declaration (`crystalDomains.ts`) states the admission rule
+ * twice over — `eligibleStatuses` and `eligibleProvenance` — and two other
+ * modules act on the same rule from their own copies of it:
+ *
+ *   `crystalReadiness.ts`   filters `listInvariants` by status at READ time.
+ *   `experimentalPopulations.ts` decides Population A membership by evidence
+ *                           provenance, from `POPULATION_BY_EVIDENCE_PROVENANCE`.
+ *
+ * Neither can be derived from the other — one is a ratified constitutional
+ * boundary, the other an experimental-population partition — so the identity
+ * between them is canaried rather than trusted. Drift here is the worst class
+ * available: it would not error, it would change WHICH RECORDS ENTER a governed
+ * scientific corpus, and the counts would still look right afterwards.
+ */
+describe('EXP-P1 crystal admission rule parity (2026-08-02)', () => {
+  it('the ratified eligible-provenance list IS Population A, exactly', async () => {
+    const { CRYSTAL_ELIGIBLE_PROVENANCE } = await import('../services/research/crystalDomains');
+    const { inPrimaryPopulation } = await import('../services/research/experimentalPopulations');
+    const { PROVENANCE_CLASSES } = await import('../services/corpusScout/types');
+
+    const populationA = PROVENANCE_CLASSES.filter((c) => inPrimaryPopulation({ provenanceClass: c }));
+    expect(
+      [...CRYSTAL_ELIGIBLE_PROVENANCE].sort(),
+      'the crystal boundary and the primary population must admit the same evidence classes',
+    ).toEqual([...populationA].sort());
+  });
+
+  it('the readiness read-filter matches the ratified eligible statuses', () => {
+    const src = stripComments(readSource('services/research/crystalReadiness.ts'));
+    // Both fetch sites (readiness and the statistics re-fetch) must use the
+    // same pair; `proposed` must appear at neither.
+    expect(src).toMatch(/status:\s*\['validated',\s*'canonical'\]/);
+    expect(src).not.toMatch(/status:\s*\[[^\]]*'proposed'/);
+    const stats = stripComments(readSource('services/research/crystalStatistics.ts'));
+    expect(stats).toMatch(/status:\s*\['validated',\s*'canonical'\]/);
+  });
+
+  it('the assignment route evaluates the rule, it does not restate it', () => {
+    // The route must reach the verdict through evaluateCrystalAssignment. A
+    // literal status/provenance comparison in the route would be a fourth copy
+    // of the rule, in the one place that WRITES.
+    const route = stripComments(readSource('app/api/research/crystal/[experimentId]/assign/route.ts'));
+    expect(route).toContain('evaluateCrystalAssignment(');
+    expect(route).toContain('domainAcceptsAssignment(');
+    expect(route).not.toMatch(/'external-established'|'external-empirical'/);
+    expect(route).not.toMatch(/status\s*===\s*'validated'/);
+  });
+
+  it('a write to the crystal domain is opt-in, never the default', () => {
+    // `dryRun` defaulting to false would mean a caller that forgot the flag
+    // writes to a governed boundary. It defaults to true.
+    const route = stripComments(readSource('app/api/research/crystal/[experimentId]/assign/route.ts'));
+    expect(route).toMatch(/const dryRun = body\.dryRun !== false/);
+  });
+
+  it('the freeze routes resolve the DECLARED domain — no hardcoded fallback', () => {
+    // The 2026-08-02 namespace defect, closed at every remaining site: a
+    // `|| 'constitutional-reasoning'` fallback would build or ratify a package
+    // over the historical collection while naming it as the EXP-P1 crystal.
+    for (const path of [
+      'app/api/research/crystal/[experimentId]/freeze-preview/route.ts',
+      'app/api/research/crystal/[experimentId]/freeze/route.ts',
+    ]) {
+      const src = stripComments(readSource(path));
+      expect(src, `${path} must resolve the declaration`).toContain('crystalDomainForExperiment(experimentId)');
+      expect(src, `${path} must not fall back to the historical namespace`).not.toMatch(
+        /\|\|\s*'constitutional-reasoning'/,
+      );
+    }
+  });
+
+  it('the freeze act refuses a stale content commitment', () => {
+    // freezeArtifact writes whatever hash it is handed as the immutable
+    // commitmentHash and never recomputes one — so the recomputation and the
+    // mismatch refusal live in the route, and must stay there.
+    const src = stripComments(readSource('app/api/research/crystal/[experimentId]/freeze/route.ts'));
+    expect(src).toContain('runCrystalStatisticsReport(');
+    expect(src).toMatch(/statistics\.frozenHash !== suppliedHash/);
+    // And it must never substitute the fresh hash for the operator's.
+    expect(src).not.toMatch(/contentHash:\s*statistics\.frozenHash/);
+    expect(src).toMatch(/contentHash:\s*suppliedHash/);
   });
 });

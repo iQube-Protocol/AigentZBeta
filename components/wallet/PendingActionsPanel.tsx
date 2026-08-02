@@ -33,7 +33,7 @@
  * steps.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, Loader2, PenLine, ShieldCheck } from 'lucide-react';
 
 import { personaFetch } from '@/utils/personaSpine';
@@ -206,20 +206,34 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
     void load();
   }, [load]);
 
+  /*
+   * MID-ACT IS OFF LIMITS. A refresh while the operator has the password field
+   * open, or while a signature is in flight, re-renders the controls under
+   * their hands — and in the worst case discards a half-typed password. The
+   * list can wait; the act cannot be interrupted.
+   */
+  const midActRef = useRef(false);
+  midActRef.current = openId !== null || busyId !== null || refusingId !== null;
+
+  const refreshIfIdle = useCallback(() => {
+    if (midActRef.current) return;
+    void load();
+  }, [load]);
+
   useEffect(() => {
     const unsubscribe = subscribeWalletSurfaceRequest((request) => {
       if (request.surface !== 'PENDING_ACTIONS') return;
-      void load();
+      refreshIfIdle();
     });
-    const onFocus = () => void load();
+    const onFocus = () => refreshIfIdle();
     window.addEventListener('focus', onFocus);
-    const interval = setInterval(() => void load(), 20_000);
+    const interval = setInterval(refreshIfIdle, 20_000);
     return () => {
       unsubscribe();
       window.removeEventListener('focus', onFocus);
       clearInterval(interval);
     };
-  }, [load]);
+  }, [refreshIfIdle]);
 
   /**
    * Complete one request.
@@ -361,7 +375,25 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
     [personaId, load, refuseReason],
   );
 
-  if (loading) {
+  /*
+   * ── A BACKGROUND REFRESH MUST NOT REPLACE THE SURFACE ────────────────────
+   *
+   * MY OWN REGRESSION, one turn old (operator: "there is no approval that is
+   * appearing").
+   *
+   * `load()` sets `loading = true`, and this early return replaced the ENTIRE
+   * panel with a spinner whenever it was true. That was harmless while the
+   * only load was on mount. The moment I added an interval + focus + deep-link
+   * refresh, every one of those tore the list — including the password field
+   * and the Sign button — off the screen mid-act and rebuilt it. The operator
+   * reaches for the control and it is not there.
+   *
+   * The spinner belongs to the FIRST read, when there is genuinely nothing to
+   * show. After that a refresh updates in place: `requests` holds the last
+   * good list, and replacing it with a spinner would be discarding known
+   * truth to display the absence of a fetch.
+   */
+  if (loading && requests === null && !loadRefusal) {
     return (
       <Section>
         <div className="flex items-center gap-2 text-xs text-white/60">

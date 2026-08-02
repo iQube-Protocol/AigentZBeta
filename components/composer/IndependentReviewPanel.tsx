@@ -930,6 +930,24 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
     | { packageHash: string; contentHash: string; eligibleForRatification: boolean; signatories: string[]; dvnAnchorRef: null }
     | undefined;
 
+  /*
+   * TWO QUESTIONS, TWO ANSWERS (2026-08-02).
+   *
+   * `eligibleForRatification` is about the EVIDENCE — does the readiness report
+   * support a freeze. `execution` is about the SUBSTRATE — would the freeze
+   * actually run. They can disagree: no `crystal-version` artifact has ever
+   * been provisioned, so an eligible package could sit above an act that would
+   * fail with "unknown artifact". Rendering only the first would leave the
+   * operator to discover the second mid-ceremony.
+   */
+  const execution = previewResult?.execution as
+    | {
+        wouldFreezeSucceed: boolean;
+        nextAct: string;
+        preconditions: { name: string; satisfied: boolean; detail: string; remedy: string | null }[];
+      }
+    | undefined;
+
   return (
     <div className="space-y-4">
       <div className={PANEL}>
@@ -1261,6 +1279,25 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
             <div className="mt-1 text-[10px] text-slate-500">
               {String((previewResult as Record<string, unknown> | null)?.note ?? "")}
             </div>
+          </div>
+        )}
+
+        {execution && (
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-300">
+            <div className="mb-1 font-medium text-slate-200">
+              would the freeze execute:{" "}
+              <span className={execution.wouldFreezeSucceed ? "text-emerald-300" : "text-amber-300"}>
+                {String(execution.wouldFreezeSucceed)}
+              </span>
+            </div>
+            <ul className="space-y-0.5">
+              {execution.preconditions.map((p) => (
+                <li key={p.name} className={p.satisfied ? "text-slate-400" : "text-amber-200"}>
+                  <span className="font-mono text-[10px]">{p.satisfied ? "✓" : "○"}</span> {p.name} — {p.detail}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-1.5 text-[10px] text-slate-500">next act: {execution.nextAct}</div>
           </div>
         )}
       </div>

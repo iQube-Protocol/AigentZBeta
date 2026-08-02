@@ -70,6 +70,7 @@
     "components/composer/IndependentReviewPanel.tsx",
     "types/**/*.ts",
     "tests/crystal-freeze-recommendation.test.ts",
+    "tests/crystal-freeze-rehearsal.test.ts",
     "tests/reviewer-agreement.test.ts",
     "tests/independent-review-record-remedy.test.ts",
     "tests/_lib/**/*.ts",

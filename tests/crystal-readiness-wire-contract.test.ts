@@ -135,6 +135,27 @@ describe('every field hoisted to explain the zeros has a reader', () => {
     expect(reader).toMatch(/milestone\.advancedBy/);
   });
 
+  it('the freeze preview’s execution preconditions have a reader too', () => {
+    /*
+     * Same rule, applied to the field added 2026-08-02.
+     *
+     * `package.eligibleForRatification` answers whether the EVIDENCE supports a
+     * freeze. `execution.wouldFreezeSucceed` answers whether the freeze would
+     * actually run — and they can disagree, because no `crystal-version`
+     * artifact has ever been provisioned in this repository. A payload that
+     * carried the second and rendered only the first would let the operator
+     * discover the difference mid-ceremony.
+     */
+    const route = stripComments(readSource(PREVIEW_ROUTE));
+    const reader = stripComments(readSource(READER));
+    expect(route, 'the preview route emits execution').toMatch(/execution:\s*result\.execution/);
+    expect(reader, 'the panel reads previewResult?.execution').toMatch(/previewResult\?\.execution/);
+    expect(reader, 'and renders the preconditions, not just the boolean').toMatch(
+      /execution\.preconditions\.map/,
+    );
+    expect(reader).toMatch(/execution\.nextAct/);
+  });
+
   it('the statistics grid does not render a bare `ok`', () => {
     // crystalStatistics.ts copies `readiness.ok` into `ok`, so the grid led
     // with the least informative label on the panel — a third copy of the

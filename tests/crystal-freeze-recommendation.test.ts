@@ -534,10 +534,46 @@ describe('the readiness surface leads with the stage', () => {
   });
 
   it('frozen is never inferred from readiness on the wire', () => {
+    /*
+     * TIGHTENED 2026-08-02, to the rule this always meant.
+     *
+     * The original form forbade the LITERAL `frozen:` anywhere in the call.
+     * That did stop `frozen` being derived from readiness — and it also made
+     * the FROZEN and CANONICAL rungs unreachable by any code path, so a
+     * crystal frozen by a genuine governed act still rendered
+     * READY_FOR_FREEZE. Forbidding the argument outright forbade the truth
+     * along with the lie.
+     *
+     * What must never happen is `frozen` being read off the readiness report
+     * (or the recommendation, or `ok`). What must be allowed is `frozen` being
+     * read off the PERSISTED artifact, which is the only thing a real freeze
+     * writes. So the rule is stated as itself.
+     */
     const at = route.indexOf('crystalLifecycleStage({');
-    const call = route.slice(at, at + 400);
-    expect(call).not.toMatch(/frozen:/);
+    const call = route.slice(at, at + 500);
+
+    const frozenArg = call.match(/frozen:\s*([^,\n}]*)/)?.[1] ?? '';
+    if (frozenArg) {
+      expect(frozenArg, 'frozen must not be derived from readiness/recommendation/ok').not.toMatch(
+        /readiness|recommendation|\bok\b|reviewPackageReady/,
+      );
+      expect(frozenArg, 'frozen must be read off the persisted artifact lifecycle').toMatch(
+        /Artifact\??\.?.*lifecycle|lifecycle\s*===\s*['"]frozen['"]/,
+      );
+    }
+
+    // `canonical` still has no producer anywhere — no artifact lifecycle state
+    // means "published" — so it must not be passed at all rather than guessed.
     expect(call).not.toMatch(/canonical:/);
+  });
+
+  it('the persisted artifact is read, never written, by the readiness route', () => {
+    // A read-only report must not acquire a write path as a side effect of
+    // gaining access to artifact state.
+    for (const forbidden of ['upsertArtifact', 'freezeArtifact', 'upsertResearchObject']) {
+      expect(route, `the readiness route must not ${forbidden}`).not.toContain(forbidden);
+    }
+    expect(route).toContain("getArtifact(experimentId, 'crystal-version')");
   });
 
   it('nothing user-facing says "not review-ready" — including the agent package', () => {
