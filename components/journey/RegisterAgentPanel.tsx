@@ -113,6 +113,22 @@ async function readJsonOrExplain(res: Response, label: string): Promise<Record<s
         `This usually means the route does not exist at that path, or a proxy/auth layer intercepted the call.`,
     );
   }
+  /*
+   * A GATEWAY TIMEOUT IS NOT AN "UNEXPECTED RESPONSE" (operator, 2026-08-02:
+   * `register/status returned an unexpected response (HTTP 504)`).
+   *
+   * 504/502/408 with an empty body means nothing answered in time — the
+   * server was still working, or something upstream stopped waiting. Reported
+   * as what it is, and explicitly NOT as a statement about the work the route
+   * was doing: on this ceremony that distinction is the difference between
+   * "the check was slow" and "the registration failed".
+   */
+  if (res.status === 504 || res.status === 502 || res.status === 408) {
+    throw new Error(
+      `${label} did not answer in time (HTTP ${res.status}). Nothing was reported back, so this says nothing ` +
+        'about the work itself — no act has failed and nothing needs repeating beyond the check. Try again.',
+    );
+  }
   throw new Error(`${label} returned an unexpected response (HTTP ${res.status}).`);
 }
 

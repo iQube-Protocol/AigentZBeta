@@ -32,6 +32,27 @@ import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 import type { HorizenNetwork } from '@/services/horizen/identity';
 
 export const dynamic = 'force-dynamic';
+/*
+ * This route talks to Horizen's MCP server over the network — connect, list
+ * tools, call get_onboarding_status, then reread the registry. Every sibling
+ * route that does comparable network work sets a budget (the corpus-scout
+ * routes all use 60); this one set none and inherited the platform default,
+ * so a slow Horizen became a gateway 504 with no body. A 504 tells the
+ * operator nothing, and on THIS route it reads as the registration having
+ * failed when the transaction is untouched.
+ */
+export const maxDuration = 60;
+
+/**
+ * How long we will wait for Horizen before answering anyway.
+ *
+ * Deliberately inside the route's own budget: an answer we produce says
+ * something true ("the check did not complete"), and an answer the gateway
+ * produces says nothing at all. The check is cheap to repeat and the
+ * transaction is unaffected either way, so failing fast and saying so beats
+ * hanging until something upstream gives up on us.
+ */
+const HORIZEN_STATUS_DEADLINE_MS = 25_000;
 
 interface StatusBody {
   agentSlug?: string;
@@ -114,7 +135,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await checkAgentRegistrationStatus(
+  /*
+   * UNKNOWN IS NOT UNCONFIRMED (2026-08-02).
+   *
+   * A check that never came back must NOT be reported as `confirmed: false` —
+   * that would state a fact about the chain on the strength of our own
+   * timeout, which is the exact class of lie this ceremony has been fixing
+   * all session. It is refused by name instead, and the refusal says the
+   * transaction is unaffected.
+   */
+  const timedOut = Symbol('horizen-status-deadline');
+  const result = await Promise.race([
+    checkAgentRegistrationStatus(
     {
       agentSlug: agent.slug,
       txHash: body.txHash,
@@ -157,7 +189,25 @@ export async function POST(request: NextRequest) {
         return receipt?.id ?? null;
       },
     },
-  );
+    ),
+    new Promise<typeof timedOut>((resolve) =>
+      setTimeout(() => resolve(timedOut), HORIZEN_STATUS_DEADLINE_MS),
+    ),
+  ]);
+
+  if (result === timedOut) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'STATUS_UNAVAILABLE',
+        error:
+          `Horizen did not answer the status check within ${Math.round(HORIZEN_STATUS_DEADLINE_MS / 1000)}s. ` +
+          'This says nothing about the transaction — it is broadcast and unaffected, and nothing needs ' +
+          're-registering. The check is safe to repeat.',
+      },
+      { status: 504 },
+    );
+  }
 
   if (!result.ok) {
     return NextResponse.json({ ok: false, refusalCode: result.refusalCode, error: result.detail }, { status: 422 });
