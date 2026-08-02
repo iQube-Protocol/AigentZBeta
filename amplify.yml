@@ -230,8 +230,41 @@ frontend:
         # separate line so the doc prune Al specified stays legible as its own
         # act. LICENSE / COPYING / NOTICE remain unmatched throughout.
         - find .next/standalone/node_modules -type f \( -iname 'CHANGES.md' -o -iname 'HISTORY' -o -iname 'CHANGELOG.txt' -o -iname 'CONTRIBUTING.md' -o -iname 'SECURITY.md' -o -iname 'CODE_OF_CONDUCT.md' -o -iname 'AUTHORS' -o -iname 'AUTHORS.md' \) -delete 2>/dev/null || true
+        # pdf-parse VENDORS FOUR COMPLETE pdf.js BUILDS (2026-08-02) — this is
+        # the actual dead weight, and the reason the two prunes above reclaimed
+        # nothing measurable (standalone moved 188,345,601 -> 188,350,253
+        # across the build that added them: +4.6 KB, i.e. noise).
+        #
+        # WHY THOSE PRUNES WERE ~ZERO. Next's file tracer copies only the files
+        # the runtime actually resolves. README/CHANGELOG/.d.ts/.map were never
+        # in .next/standalone/node_modules to begin with, so deleting them
+        # removed nothing. They are kept below as a cheap guard, not as a fix.
+        #
+        # WHAT IS ACTUALLY THERE. pdf-parse ships lib/pdf.js/{v1.9.426,
+        # v1.10.88, v1.10.100, v2.0.550} — four full pdf.js distributions, 32 MB
+        # on disk locally and the bulk of the 9 MB traced here. It picks one at
+        # runtime with a TEMPLATE-LITERAL require:
+        #
+        #     require(`./pdf.js/${options.version}/build/pdf.js`)
+        #
+        # which the tracer cannot resolve statically, so it conservatively
+        # copies ALL FOUR.
+        #
+        # Only v1.10.100 is ever loaded: pdf-parse's DEFAULT_OPTIONS.version is
+        # 'v1.10.100' (lib/pdf-parse.js:42) and all three call sites in this
+        # repo — pdfExtractionService.ts:98, uploadIndexer.ts:244, and the VSP
+        # evidence upload route:74 — call pdfParse(buffer) with NO options.
+        # Verified 2026-08-02: no caller anywhere passes a `version`.
+        #
+        # If a future caller needs a different pdf.js build, it will fail with
+        # "Cannot find module ./pdf.js/<v>/build/pdf.js" — that is the signal to
+        # widen this keep-list, not to silently restore all four.
+        - echo "Removing unused vendored pdf.js builds from pdf-parse (keeping v1.10.100, the only one loaded)..."
+        - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -mindepth 1 -maxdepth 1 -type d ! -name 'v1.10.100' -exec rm -rf {} + 2>/dev/null || true
         - echo "=== standalone node_modules AFTER dependency-doc prune (bytes) ==="
         - du -sb .next/standalone/node_modules 2>/dev/null || true
+        - echo "=== pdf-parse AFTER vendored-build prune (bytes) ==="
+        - du -sb .next/standalone/node_modules/pdf-parse 2>/dev/null || true
         # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
         # include stops NEW tracing, but Next still copies the pack .md that land
         # in .next/standalone/codexes/packs (include/exclude carry cross-route
