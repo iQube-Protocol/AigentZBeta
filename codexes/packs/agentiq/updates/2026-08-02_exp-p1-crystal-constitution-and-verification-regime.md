@@ -198,6 +198,53 @@ agent reading the JSON learns this before starting.
 
 Austin is invited once intrinsic readiness passes over a populated crystal.
 
+## 6c. The wording was the bug — the lifecycle ladder (operator, 2026-08-02)
+
+> "The UI currently says: **Not Ready**. What it should really say is: **Candidate Crystal not
+> yet constituted**. Those are very different messages. The current wording makes you think
+> you've done something wrong. The second tells you exactly what is missing."
+
+`NOT_READY` is a verdict about an object that **exists** — it says the thing was assessed and fell
+short. Over an empty domain it answers a question nobody asked, in the register of failure. That
+single word is what sent a whole session into debugging nine checks that were correctly declining to
+certify an empty set.
+
+Underneath the wording sat the real error: **the surface offered a FREEZE — a governance act — while
+the outstanding work was corpus construction, which is scientific.** Different work, different
+people, different time. A UI that conflates them sends the operator to perform a ratification when
+what is missing is evidence.
+
+```
+✓  Domain Declared
+⚪ Candidate Crystal Not Yet Constituted     ← EXP-P1 is here
+🟡 Candidate Crystal Ready For Review
+🟢 Ready For Freeze
+🔒 Frozen
+📜 Canonical
+```
+
+`crystalLifecycleStage()` in `services/research/crystalDomains.ts` derives this from the same facts
+the milestone and readiness engine already read — a **projection**, never a parallel state machine
+(`inv.engineering.037`); a canary proves stage and milestone cannot disagree. Every stage carries
+`remainingWorkKind: 'scientific' | 'governance' | 'none'`, and `mayOfferFreezeAffordance()` is true at
+exactly one stage. Passing readiness is never treated as a freeze, and `frozen`/`canonical` are never
+inferred from readiness on the wire.
+
+What changed on the surface:
+
+| Was | Now |
+|---|---|
+| `NOT_READY` chip | `NOT YET CONSTITUTED` when the crystal does not exist |
+| "This crystal candidate is **not review-ready**" | the ladder, the stage meaning, and what is missing |
+| freeze-preview offered as the next step | "A freeze is not the next act at this stage" while the work is scientific |
+| agent package: "readiness checks do not pass — the crystal/domain selection needs correcting" | the stage, what is missing, and who acts |
+
+That last row mattered most: an **agent** reads the package JSON, and the old notice would have sent
+it to correct a domain selection that was already correct.
+
+Canaries: `tests/crystal-freeze-recommendation.test.ts` — the words that made an absence read as a
+defect may not appear in anything a surface renders for `CANDIDATE_NOT_CONSTITUTED`.
+
 ## 7. Files
 
 | File | Role |
@@ -207,4 +254,5 @@ Austin is invited once intrinsic readiness passes over a populated crystal.
 | `services/research/crystalFreezeRecommendation.ts` | `assessability` + `DOMAIN_UNPOPULATED_PROVENANCE` |
 | `app/api/research/crystal/[experimentId]/route.ts` | hoists assessability, review stage and the declared boundary |
 | `tsconfig.research.json` | the scoped semantic gate |
-| `tests/crystal-freeze-recommendation.test.ts` | constitution, ratification and review-state canaries |
+| `tests/crystal-freeze-recommendation.test.ts` | constitution, ratification, review-state and lifecycle-ladder canaries |
+| `crystalLifecycleStage()` / `mayOfferFreezeAffordance()` | the six-stage ladder and the scientific-vs-governance distinction |

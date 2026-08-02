@@ -14,6 +14,8 @@ import {
   crystalMilestone,
   isReviewableScientificObject,
   EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT,
+  crystalLifecycleStage,
+  mayOfferFreezeAffordance,
 } from '@/services/research/crystalDomains';
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
@@ -429,5 +431,127 @@ describe('the agent package tells a reviewer whether there is anything to review
     const block = src.slice(at, at + 700);
     expect(block).toMatch(/reviewable: false/);
     expect(block).toMatch(/not permission to proceed/i);
+  });
+});
+
+
+// ── The lifecycle ladder ────────────────────────────────────────────────────
+
+describe('the ladder names what is missing instead of declaring failure', () => {
+  /*
+   * Operator, 2026-08-02:
+   *
+   *   > "The UI currently says: Not Ready. What it should really say is:
+   *   >  Candidate Crystal not yet constituted. Those are very different
+   *   >  messages. The current wording makes you think you've done something
+   *   >  wrong. The second tells you exactly what is missing."
+   *
+   * And the error underneath the wording: the surface offered a FREEZE — a
+   * governance act — while the outstanding work was corpus construction, which
+   * is scientific. A whole session went into debugging an absence.
+   */
+  const unconstituted = { domainRatified: true, invariantCount: 0, readinessOk: false };
+
+  it('an empty ratified domain is NOT YET CONSTITUTED, never a failure', () => {
+    const l = crystalLifecycleStage(unconstituted);
+    expect(l.stageId).toBe('CANDIDATE_NOT_CONSTITUTED');
+    expect(l.label).toBe('Candidate Crystal Not Yet Constituted');
+    // The words that made it read as a defect must not appear anywhere in
+    // what a surface renders for this stage.
+    const rendered = [l.label, l.meaning, l.whatIsMissing, l.whoActs].join(' ');
+    expect(rendered).not.toMatch(/not ready/i);
+    // The ONE permitted use of the word is the denial itself.
+    expect(rendered).toMatch(/nothing here has failed/i);
+    expect(rendered.replace(/nothing here has failed/i, '')).not.toMatch(/\bfail(ed|ing|ure|s)?\b/i);
+  });
+
+  it('says the remaining work is SCIENTIFIC, so no freeze is offered', () => {
+    const l = crystalLifecycleStage(unconstituted);
+    expect(l.remainingWorkKind).toBe('scientific');
+    expect(mayOfferFreezeAffordance(l)).toBe(false);
+    expect(l.whatIsMissing).toMatch(/Track 2/);
+    // Not a code change, and not a signature.
+    expect(l.whoActs).toMatch(/no governance act and no code change/i);
+  });
+
+  it('a freeze is offered at exactly one stage', () => {
+    const stages = [
+      { domainRatified: false, invariantCount: 0, readinessOk: false },
+      unconstituted,
+      { domainRatified: true, invariantCount: 12, readinessOk: false },
+      { domainRatified: true, invariantCount: 12, readinessOk: true },
+      { domainRatified: true, invariantCount: 12, readinessOk: true, frozen: true },
+      { domainRatified: true, invariantCount: 12, readinessOk: true, frozen: true, canonical: true },
+    ].map(crystalLifecycleStage);
+    expect(stages.map((l) => l.stageId)).toEqual([
+      'DOMAIN_DECLARED',
+      'CANDIDATE_NOT_CONSTITUTED',
+      'CANDIDATE_READY_FOR_REVIEW',
+      'READY_FOR_FREEZE',
+      'FROZEN',
+      'CANONICAL',
+    ]);
+    expect(stages.filter(mayOfferFreezeAffordance)).toHaveLength(1);
+  });
+
+  it('passing readiness is never treated as a freeze', () => {
+    // Conflating "assessed and sound" with "ratified" is the collapse the
+    // readiness/freeze separation exists to prevent.
+    const l = crystalLifecycleStage({ domainRatified: true, invariantCount: 12, readinessOk: true });
+    expect(l.stageId).toBe('READY_FOR_FREEZE');
+    expect(l.stageId).not.toBe('FROZEN');
+    expect(l.remainingWorkKind).toBe('governance');
+  });
+
+  it('the ladder marks exactly one current stage, with everything before it done', () => {
+    const l = crystalLifecycleStage(unconstituted);
+    expect(l.ladder.filter((s) => s.state === 'current')).toHaveLength(1);
+    const at = l.ladder.findIndex((s) => s.state === 'current');
+    expect(l.ladder.slice(0, at).every((s) => s.state === 'done')).toBe(true);
+    expect(l.ladder.slice(at + 1).every((s) => s.state === 'pending')).toBe(true);
+  });
+
+  it('the stage agrees with the milestone — one fact, not two state machines', () => {
+    // A stage that could disagree with crystalMilestone would be a parallel
+    // source of truth (inv.engineering.037), which is the defect class that
+    // produced the original confusion.
+    for (const invariantCount of [0, 1, 40]) {
+      const l = crystalLifecycleStage({ domainRatified: true, invariantCount, readinessOk: false });
+      const m = crystalMilestone({ invariantCount });
+      expect(m.candidateConstituted).toBe(l.stageId !== 'CANDIDATE_NOT_CONSTITUTED');
+    }
+  });
+});
+
+describe('the readiness surface leads with the stage', () => {
+  const route = stripComments(readSource('app/api/research/crystal/[experimentId]/route.ts'));
+  const panel = stripComments(readSource('components/composer/IndependentReviewPanel.tsx'));
+
+  it('the route emits the lifecycle and the panel reads it', () => {
+    expect(route).toMatch(/crystalLifecycleStage\(/);
+    expect(panel).toMatch(/data\?\.lifecycle/);
+    expect(panel).toMatch(/lifecycle\.ladder\.map/);
+  });
+
+  it('frozen is never inferred from readiness on the wire', () => {
+    const at = route.indexOf('crystalLifecycleStage({');
+    const call = route.slice(at, at + 400);
+    expect(call).not.toMatch(/frozen:/);
+    expect(call).not.toMatch(/canonical:/);
+  });
+
+  it('nothing user-facing says "not review-ready" — including the agent package', () => {
+    // The agent package's blocking notice told a READER to correct the
+    // crystal/domain selection. Over an unconstituted crystal the selection is
+    // correct; it would send them to fix something that is not broken.
+    expect(panel).not.toMatch(/is not review-ready/i);
+    expect(panel).not.toMatch(/selection needs correcting/i);
+    expect(panel).toMatch(/NOT YET CONSTITUTED/);
+    expect(panel).toMatch(/lifecycleForPackage/);
+  });
+
+  it('the panel says a freeze is not the next act while the work is scientific', () => {
+    expect(panel).toMatch(/remainingWorkKind === "scientific"/);
+    expect(panel).toMatch(/A freeze is not the next act at this stage/);
   });
 });

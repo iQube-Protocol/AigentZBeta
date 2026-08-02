@@ -324,3 +324,181 @@ export const EMPTY_PACKAGE_IS_PROVENANCE_NOT_SUBJECT =
   'eventual research bundle as historical provenance. It is not a reviewable scientific object: an external ' +
   'reviewer asked to assess an empty set cannot produce a finding, and asking them to spends their attention ' +
   'on our unfinished work.';
+
+// ── The lifecycle ladder ────────────────────────────────────────────────────
+
+/**
+ * Where a crystal is on its way from a declared boundary to canonical law.
+ *
+ * ── The UX defect this closes (operator, 2026-08-02) ───────────────────────
+ *
+ *   > "The UI currently says: Not Ready. What it should really say is:
+ *   >  Candidate Crystal not yet constituted. Those are very different
+ *   >  messages. The current wording makes you think you've done something
+ *   >  wrong. The second tells you exactly what is missing."
+ *
+ * `NOT_READY` is a verdict about a thing that EXISTS — it says the object was
+ * assessed and fell short. When no object has been constituted, that verdict
+ * is answering a question nobody asked, and it answers it in the register of
+ * failure. A whole session went into debugging nine "failing" checks that were
+ * correctly declining to certify an empty set.
+ *
+ * The deeper error underneath the wording: the surface was offering a FREEZE —
+ * a governance act — while the outstanding work was corpus construction, which
+ * is SCIENTIFIC. Those are different kinds of work done by different people at
+ * different times, and a UI that conflates them sends the operator to perform
+ * a ratification when what is missing is evidence. So every stage carries
+ * `remainingWorkKind`, and the surface reads it rather than assuming the next
+ * step is always a signature.
+ *
+ * ── Derived, never stored ──────────────────────────────────────────────────
+ *
+ * Each stage is computed from the same facts `crystalMilestone`,
+ * `crystalReviewStageStatus` and the readiness engine already read. This is a
+ * PROJECTION of those signals, not a parallel state machine
+ * (`inv.engineering.037`) — a stage that could disagree with the milestone
+ * would be a second source of truth for one fact, which is the defect class
+ * that produced the original confusion.
+ */
+export type CrystalLifecycleStageId =
+  | 'DOMAIN_DECLARED'
+  | 'CANDIDATE_NOT_CONSTITUTED'
+  | 'CANDIDATE_READY_FOR_REVIEW'
+  | 'READY_FOR_FREEZE'
+  | 'FROZEN'
+  | 'CANONICAL';
+
+/** Which kind of work moves a stage forward. The distinction the UI was missing. */
+export type RemainingWorkKind = 'scientific' | 'governance' | 'none';
+
+export interface CrystalLifecycleStage {
+  id: CrystalLifecycleStageId;
+  /** What to render. Never a verdict about an object that does not exist. */
+  label: string;
+  marker: string;
+  /** Reached, currently here, or still ahead. */
+  state: 'done' | 'current' | 'pending';
+}
+
+export interface CrystalLifecycle {
+  stageId: CrystalLifecycleStageId;
+  label: string;
+  marker: string;
+  /** One sentence: what this stage means, in the operator's own register. */
+  meaning: string;
+  /** What is missing — the thing "NOT_READY" never said. */
+  whatIsMissing: string | null;
+  /**
+   * Scientific or governance. A surface must not offer a ratification button
+   * when the outstanding work is corpus construction.
+   */
+  remainingWorkKind: RemainingWorkKind;
+  /** Who performs the next act. */
+  whoActs: string;
+  ladder: CrystalLifecycleStage[];
+}
+
+const LADDER: { id: CrystalLifecycleStageId; label: string; marker: string }[] = [
+  { id: 'DOMAIN_DECLARED', label: 'Domain Declared', marker: '✓' },
+  { id: 'CANDIDATE_NOT_CONSTITUTED', label: 'Candidate Crystal Not Yet Constituted', marker: '⚪' },
+  { id: 'CANDIDATE_READY_FOR_REVIEW', label: 'Candidate Crystal Ready For Review', marker: '🟡' },
+  { id: 'READY_FOR_FREEZE', label: 'Ready For Freeze', marker: '🟢' },
+  { id: 'FROZEN', label: 'Frozen', marker: '🔒' },
+  { id: 'CANONICAL', label: 'Canonical', marker: '📜' },
+];
+
+export const CRYSTAL_LIFECYCLE_LADDER = LADDER;
+
+export function crystalLifecycleStage(input: {
+  domainRatified: boolean;
+  invariantCount: number;
+  readinessOk: boolean;
+  /** A real freeze receipt exists. Defaults false — never inferred from readiness. */
+  frozen?: boolean;
+  /** Published as canonical law. Defaults false. */
+  canonical?: boolean;
+}): CrystalLifecycle {
+  const stageId: CrystalLifecycleStageId = input.canonical
+    ? 'CANONICAL'
+    : input.frozen
+      ? 'FROZEN'
+      : !input.domainRatified
+        ? 'DOMAIN_DECLARED'
+        : input.invariantCount === 0
+          ? 'CANDIDATE_NOT_CONSTITUTED'
+          : input.readinessOk
+            ? 'READY_FOR_FREEZE'
+            : 'CANDIDATE_READY_FOR_REVIEW';
+
+  const at = LADDER.findIndex((s) => s.id === stageId);
+  const stage = LADDER[at];
+
+  const detail: Record<CrystalLifecycleStageId, Pick<CrystalLifecycle, 'meaning' | 'whatIsMissing' | 'remainingWorkKind' | 'whoActs'>> = {
+    DOMAIN_DECLARED: {
+      meaning: 'The governed boundary has not been ratified, so nothing may be assigned to it yet.',
+      whatIsMissing: 'Operator ratification of the domain declaration.',
+      remainingWorkKind: 'governance',
+      whoActs: 'The operator, by ratifying the domain boundary.',
+    },
+    CANDIDATE_NOT_CONSTITUTED: {
+      meaning:
+        'The boundary exists and is empty. No invariant has been acquired, validated and assigned to it — ' +
+        'so there is no crystal to assess, and nothing here has failed.',
+      whatIsMissing:
+        'The crystal itself. Track 2 corpus acquisition: admit external sources, extract candidate ' +
+        'invariants, validate them through the receipted lifecycle, and assign the eligible ones to the ' +
+        'ratified domain.',
+      remainingWorkKind: 'scientific',
+      whoActs: 'The research team, through Track 2. No governance act and no code change moves this.',
+    },
+    CANDIDATE_READY_FOR_REVIEW: {
+      meaning:
+        'A candidate crystal exists and is being assessed. Failing checks here are findings about a real ' +
+        'object — the originating team diagnoses them before any independent review opens.',
+      whatIsMissing: 'Intrinsic readiness over the constituted crystal.',
+      remainingWorkKind: 'scientific',
+      whoActs: 'The originating team, diagnosing its own readiness checks.',
+    },
+    READY_FOR_FREEZE: {
+      meaning:
+        'The candidate crystal is constituted and has passed intrinsic readiness. Independent pre-freeze ' +
+        'review may open, and a freeze becomes a decision rather than a premature act.',
+      whatIsMissing: 'Independent review, then the operator’s freeze.',
+      remainingWorkKind: 'governance',
+      whoActs: 'An independent reviewer, then the operator — outside this UI, by their own governed act.',
+    },
+    FROZEN: {
+      meaning: 'The crystal has been frozen by a governed act. Its content is fixed and receipted.',
+      whatIsMissing: 'Publication as canonical.',
+      remainingWorkKind: 'governance',
+      whoActs: 'The operator, by publishing.',
+    },
+    CANONICAL: {
+      meaning: 'The crystal is published and canonical.',
+      whatIsMissing: null,
+      remainingWorkKind: 'none',
+      whoActs: 'Nobody — this stage is terminal.',
+    },
+  };
+
+  return {
+    stageId,
+    label: stage.label,
+    marker: stage.marker,
+    ...detail[stageId],
+    ladder: LADDER.map((s, i) => ({
+      ...s,
+      state: i < at ? 'done' : i === at ? 'current' : 'pending',
+    })),
+  };
+}
+
+/**
+ * A freeze is a governance act and must never be offered while the missing
+ * work is scientific. Exported so a surface asks rather than assumes — the
+ * original defect was a "Ready for freeze?" affordance sitting above an
+ * unconstituted crystal.
+ */
+export function mayOfferFreezeAffordance(lifecycle: CrystalLifecycle): boolean {
+  return lifecycle.stageId === 'READY_FOR_FREEZE';
+}

@@ -851,16 +851,34 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
       const crystalReady = Boolean(
         (data as { reviewPackageReady?: boolean } | null)?.reviewPackageReady,
       );
+      const lifecycleForPackage = (data as { lifecycle?: {
+        label: string;
+        meaning: string;
+        whatIsMissing: string | null;
+        remainingWorkKind: string;
+        whoActs: string;
+      } } | null)?.lifecycle;
       const enriched = {
         ...pkgJson,
         reviewPackageReady: crystalReady,
         ...(crystalReady
           ? {}
           : {
-              blockingNotice:
-                `The crystal candidate for ${experimentId} in domain '${domain}' is not review-ready: ` +
-                `readiness checks do not pass. Do not begin a review against this package — the ` +
-                `crystal/domain selection needs correcting first.`,
+              /* An AGENT reads this. "Readiness checks do not pass … the
+                 crystal/domain selection needs correcting" is actively
+                 misleading over an unconstituted crystal: the selection is
+                 correct and there is simply nothing in the domain yet. It
+                 would send the reader to fix something that is not broken —
+                 which is exactly what it did to a human. The stage says what
+                 is actually missing and who acts. */
+              blockingNotice: lifecycleForPackage
+                ? `Do not begin a review against this package. Stage: ` +
+                  `${lifecycleForPackage.label}. ${lifecycleForPackage.meaning}` +
+                  (lifecycleForPackage.whatIsMissing ? ` Missing: ${lifecycleForPackage.whatIsMissing}` : '') +
+                  ` Next act is ${lifecycleForPackage.remainingWorkKind} work — ${lifecycleForPackage.whoActs}`
+                : `Do not begin a review against this package: its readiness could not be established for ` +
+                  `${experimentId} in domain '${domain}'. That is not the same as a failed review.`,
+              lifecycle: lifecycleForPackage ?? null,
             }),
         crystalReadiness: data ?? null,
       };
@@ -893,6 +911,18 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
     | { label: string; domainRatified: boolean; infrastructureReady: boolean; candidateConstituted: boolean; statement: string; advancedBy: string }
     | undefined;
   const assessability = data?.assessability as string | undefined;
+  const lifecycle = data?.lifecycle as
+    | {
+        stageId: string;
+        label: string;
+        marker: string;
+        meaning: string;
+        whatIsMissing: string | null;
+        remainingWorkKind: 'scientific' | 'governance' | 'none';
+        whoActs: string;
+        ladder: { id: string; label: string; marker: string; state: 'done' | 'current' | 'pending' }[];
+      }
+    | undefined;
   const unpopulatedProvenance = data?.unpopulatedProvenance as string | undefined;
   const reviewableScientificObject = Boolean(data?.reviewableScientificObject);
 
@@ -944,15 +974,59 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
             tells a reviewer, accurately, that there is nothing to review. It
             must never be something an operator has to infer from a check
             list further down. */}
-        {data && !(data as { reviewPackageReady?: boolean }).reviewPackageReady ? (
-          <p className="mb-2 flex items-start gap-1.5 rounded border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-snug text-amber-200">
-            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-            <span>
-              This crystal candidate is <strong>not review-ready</strong> in domain{" "}
-              <span className="font-mono">{domain}</span>. Any agent package built now will say so — check the
-              crystal/domain selection before handing it to a reviewer.
-            </span>
-          </p>
+        {/* THE STAGE, NOT A FAILURE VERDICT (operator, 2026-08-02).
+            "not review-ready" and "NOT_READY" are verdicts about an object
+            that exists — over an empty domain they read as "you did something
+            wrong" when the truthful message is "the crystal has not been
+            constituted yet". The stage says which, and `remainingWorkKind`
+            says whether the next act is scientific or governance, so nobody is
+            sent to perform a ratification when what is missing is evidence. */}
+        {lifecycle ? (
+          <div className="mb-2 rounded border border-slate-800 bg-slate-900/40 p-2.5">
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true">{lifecycle.marker}</span>
+              <span className="text-xs font-semibold text-slate-100">{lifecycle.label}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                  lifecycle.remainingWorkKind === "scientific"
+                    ? "border-sky-500/40 bg-sky-500/10 text-sky-200"
+                    : lifecycle.remainingWorkKind === "governance"
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                }`}
+              >
+                {lifecycle.remainingWorkKind === "scientific"
+                  ? "next: scientific work"
+                  : lifecycle.remainingWorkKind === "governance"
+                    ? "next: governance act"
+                    : "complete"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">{lifecycle.meaning}</p>
+            {lifecycle.whatIsMissing && (
+              <p className="mt-1.5 text-[11px] leading-relaxed text-slate-300">
+                <span className="text-slate-500">Missing:</span> {lifecycle.whatIsMissing}
+              </p>
+            )}
+            <p className="mt-1 text-[10px] leading-relaxed text-slate-500">{lifecycle.whoActs}</p>
+            <ol className="mt-2.5 space-y-1">
+              {lifecycle.ladder.map((st) => (
+                <li
+                  key={st.id}
+                  className={`flex items-center gap-2 text-[11px] ${
+                    st.state === "current"
+                      ? "text-slate-100"
+                      : st.state === "done"
+                        ? "text-slate-400"
+                        : "text-slate-600"
+                  }`}
+                >
+                  <span aria-hidden="true">{st.state === "done" ? "✓" : st.marker}</span>
+                  <span className={st.state === "current" ? "font-medium" : undefined}>{st.label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
         ) : null}
         <p className="mb-2 text-[11px] leading-relaxed text-slate-400">
           Preparing a crystal for freeze is engineering; freezing a crystal is a separate constitutional act the
@@ -1038,14 +1112,23 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
         <div className={PANEL}>
           <div className="mb-2 flex items-center justify-between">
             <h4 className="text-xs font-semibold text-slate-100">Freeze Recommendation</h4>
+            {/* NOT_READY is a verdict about an object that EXISTS. Over an
+                unconstituted crystal it reads as "you did something wrong"
+                when the true statement is "there is nothing here yet". The
+                stage label replaces it; the raw verdict is still shown below
+                for anyone reading the engine's own output. */}
             <span
               className={`rounded px-2 py-0.5 text-[11px] font-semibold border ${
                 recommendation.verdict === "READY_FOR_FREEZE"
                   ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
-                  : "text-amber-300 border-amber-500/40 bg-amber-500/10"
+                  : lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
+                    ? "text-slate-300 border-slate-700 bg-slate-900/40"
+                    : "text-amber-300 border-amber-500/40 bg-amber-500/10"
               }`}
             >
-              {recommendation.verdict}
+              {lifecycle?.stageId === "CANDIDATE_NOT_CONSTITUTED"
+                ? "NOT YET CONSTITUTED"
+                : recommendation.verdict}
             </span>
           </div>
           <div className="space-y-1">
@@ -1117,6 +1200,19 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
           Builds the package an operator would review before ratifying a freeze — identifier, content hash, corpus
           statistics, limitations, domain boundary, rationale. <span className="text-slate-200">This button never freezes anything.</span> Actual ratification happens outside this UI via the operator's own governed act.
         </p>
+        {/* A freeze is a GOVERNANCE act. Offering it while the outstanding work
+            is corpus construction sends the operator to perform a ratification
+            when what is missing is evidence — the conflation behind the whole
+            "not ready" confusion. The rehearsal stays available (it is how the
+            infrastructure was verified), but it no longer reads as the next
+            step. */}
+        {lifecycle && lifecycle.remainingWorkKind === "scientific" && (
+          <p className="mb-3 rounded border border-sky-900/40 bg-sky-950/20 p-2 text-[11px] leading-relaxed text-sky-200">
+            A freeze is not the next act at this stage. {lifecycle.whatIsMissing} Previewing the package here is a
+            rehearsal of the ceremony against the current corpus — useful for checking the infrastructure, not a step
+            toward ratification.
+          </p>
+        )}
         <div className="grid gap-2 sm:grid-cols-2">
           <input className={FIELD} value={operatorRef} onChange={(e) => setOperatorRef(e.target.value)} placeholder="operator reference (required)" />
           <input className={FIELD} value={reviewerRef} onChange={(e) => setReviewerRef(e.target.value)} placeholder="reviewer reference (optional)" />

@@ -26,6 +26,7 @@ import {
   crystalDomainForExperiment,
   crystalMilestone,
   isReviewableScientificObject,
+  crystalLifecycleStage,
 } from '@/services/research/crystalDomains';
 
 export const dynamic = 'force-dynamic';
@@ -111,6 +112,30 @@ export async function GET(
        * says which, and `advancedBy` says what moves it — never a code change.
        */
       milestone: crystalMilestone({ invariantCount: readiness?.invariantCount ?? 0 }),
+      /*
+       * THE LIFECYCLE STAGE, not a readiness verdict (operator, 2026-08-02).
+       *
+       *   > "The UI currently says: Not Ready. What it should really say is:
+       *   >  Candidate Crystal not yet constituted … The current wording makes
+       *   >  you think you've done something wrong."
+       *
+       * NOT_READY is a verdict about an object that exists. Over an empty
+       * domain it answers a question nobody asked, in the register of failure —
+       * and it hid that the outstanding work is SCIENTIFIC (corpus
+       * construction) while the surface was offering a GOVERNANCE act (freeze).
+       * `remainingWorkKind` is what a surface reads before offering a
+       * ratification affordance.
+       *
+       * `frozen`/`canonical` are not inferred from readiness: passing checks
+       * is not a freeze, and treating it as one is the exact conflation the
+       * lifecycle separation exists to prevent. They default false until a
+       * real freeze receipt is threaded through.
+       */
+      lifecycle: crystalLifecycleStage({
+        domainRatified: crystalDomainForExperiment(experimentId)?.ratification === 'ratified',
+        invariantCount: readiness?.invariantCount ?? 0,
+        readinessOk: Boolean(readiness?.ok),
+      }),
       /*
        * Honest and reviewable are different properties. An empty package is a
        * truthful baseline and belongs in the research bundle as provenance; it
