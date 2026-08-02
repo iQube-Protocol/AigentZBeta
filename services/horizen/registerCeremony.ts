@@ -49,6 +49,10 @@ import {
   generateSigningNonce,
 } from '@/services/signing/signingRequestStore';
 import type { SigningRequest } from '@/types/signingRequest';
+import {
+  PRINCIPAL_MANDATE_TTL_SECONDS,
+  AGENT_INVOCATION_TTL_SECONDS,
+} from '@/services/signing/mandatePolicy';
 
 export type RegisterCeremonyRefusalCode =
   | 'UNKNOWN_AGENT'
@@ -243,21 +247,11 @@ export async function prepareRegistrationMandate(
     network: 'base-sepolia',
     payload,
     consequence,
-    /*
-     * 900s, aligned with the agent-invocation leg below (operator, 2026-08-02).
-     *
-     * The principal mandate is the FIRST step of a two-step ceremony and had a
-     * SHORTER window (600s) than the invocation that follows it (900s) — the
-     * operator has to find the wallet, unlock it and read the payload inside
-     * the first, tighter window, then the machine gets a longer one. Five
-     * consecutive mandates expired unsigned before this was noticed.
-     *
-     * This is a mandate window, so it is stated rather than quietly tuned:
-     * it authorises a registry entry and grants no spending or execution
-     * authority, and 900s is the window this ceremony's own second leg
-     * already uses — not a new number chosen to make a test pass.
-     */
-    expiresInSeconds: 900,
+    // Operator-approved governance parameter, stated once in
+    // services/signing/mandatePolicy.ts — never a literal here. Was 600s,
+    // which was SHORTER than the machine leg below; five consecutive mandates
+    // expired unsigned before that was noticed.
+    expiresInSeconds: PRINCIPAL_MANDATE_TTL_SECONDS,
     receiptDestination: receiptDestination(agent.slug),
     nonce,
   });
@@ -317,7 +311,26 @@ export async function approvePrincipalRegistrationMandate(
     return {
       ok: false,
       refusalCode: 'SIGNER_MISMATCH',
-      detail: `signature recovers to ${recovered ?? 'nothing'}, expected the operator's on-file wallet ${onFileAddress}`,
+      /*
+       * NAME THE SOURCES, NOT JUST THE VALUES (operator, 2026-08-02).
+       *
+       * The signature is produced from `evm_key.encryptedPrivateKey` and
+       * validated against whatever `resolvePersonaWalletAddress` returns —
+       * which prefers the flat `personas.evm_address` column. Those are two
+       * records of one fact, and while they agree nothing is wrong; the
+       * moment one is written without the other, every signature the operator
+       * makes is correct and every verification refuses it.
+       *
+       * The old message named two hex strings and no sources, so a SPLIT
+       * RECORD read as a broken signer. Pointing at the reconciliation route
+       * turns "which of these is wrong" into one request.
+       */
+      detail:
+        `signature recovers to ${recovered ?? 'nothing'}, expected ${onFileAddress} — the address ` +
+        `resolvePersonaWalletAddress returns (personas.evm_address first, then evm_key.address). ` +
+        `If your wallet was re-provisioned, those two may disagree: GET ` +
+        `/api/wallet/principal/address-reconciliation reports every source and says which diverges. ` +
+        `Nothing was signed on Horizen and nothing was changed.`,
     };
   }
 
@@ -360,7 +373,7 @@ export async function approvePrincipalRegistrationMandate(
     network: prepared.value.network,
     payload: JSON.stringify({ unsignedTx: prepared.value.unsignedTx, mandateRequestId: request.id }),
     consequence: agentConsequence,
-    expiresInSeconds: 900,
+    expiresInSeconds: AGENT_INVOCATION_TTL_SECONDS,
     receiptDestination: receiptDestination(agent.slug),
     nonce: agentNonce,
   });

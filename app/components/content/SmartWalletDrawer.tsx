@@ -627,6 +627,8 @@ export default function SmartWalletDrawer({
    * complete.
    */
   const [pendingActionCount, setPendingActionCount] = useState<number | null>(null);
+  /** Residue, counted apart — never folded into "waiting on you". */
+  const [expiredActionCount, setExpiredActionCount] = useState<number | null>(null);
   useEffect(() => {
     if (!sessionEmail || !effectivePersonaId) {
       setPrincipalChip(null);
@@ -671,18 +673,36 @@ export default function SmartWalletDrawer({
         });
         const j = (await res.json()) as { ok?: boolean; requests?: { expired?: boolean }[] };
         if (cancelled) return;
-        // EXPIRED ROWS ARE NOT WAITING ON ANYONE (operator, 2026-08-02).
-        // They stay `pending` in the store until something tries to act on
-        // them, and they are never reaped — so five dead mandates counted as
-        // "5 waiting on your signature" while nothing was actually actionable.
-        // A count that overstates is the same defect as one that understates.
-        setPendingActionCount(
-          res.ok && j.ok && Array.isArray(j.requests)
-            ? j.requests.filter((r) => !r?.expired).length
-            : null,
-        );
+        /*
+         * ACTIONABLE AND EXPIRED ARE COUNTED SEPARATELY (operator, 2026-08-02).
+         *
+         *   > "Expired requests may remain visible under history, but they
+         *   >  must not contribute to 'waiting on you'. A useful split would
+         *   >  be: 2 pending / 5 expired."
+         *
+         * Expired rows stay `status = pending` in the store until something
+         * acts on them, and nothing reaps them — so an unfiltered length read
+         * five dead mandates as five acts waiting on a signature. Overstating
+         * is the same defect as understating.
+         *
+         * The route's caller-scoping supplies the rest of the predicate: the
+         * store returns `status = pending` only, and the route resolves the
+         * persona through the spine, so "eligible signer" and "not superseded
+         * or revoked" are already true of every row that arrives here. What
+         * was missing was `expires_at > now()`.
+         */
+        if (res.ok && j.ok && Array.isArray(j.requests)) {
+          setPendingActionCount(j.requests.filter((r) => !r?.expired).length);
+          setExpiredActionCount(j.requests.filter((r) => r?.expired).length);
+        } else {
+          setPendingActionCount(null);
+          setExpiredActionCount(null);
+        }
       } catch {
-        if (!cancelled) setPendingActionCount(null);
+        if (!cancelled) {
+          setPendingActionCount(null);
+          setExpiredActionCount(null);
+        }
       }
     })();
     return () => {
@@ -3948,8 +3968,13 @@ export default function SmartWalletDrawer({
                           // what lets the operator try rather than give up.
                           'Could not be read just now — this is not the same as having none'
                         : pendingActionCount > 0
-                          ? 'Waiting on your signature or approval'
-                          : 'Nothing waiting on your signature'}
+                          ? `Waiting on your signature or approval${
+                              expiredActionCount ? ` · ${expiredActionCount} expired` : ''
+                            }`
+                          : expiredActionCount
+                            ? // Nothing to do, and where the attempts went.
+                              `Nothing waiting · ${expiredActionCount} expired before completion`
+                            : 'Nothing waiting on your signature'}
                     </span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />

@@ -105,6 +105,21 @@ describe('the issuance record keeps its frozen parameters separate from observat
     expect(RECORD.etchBroadcast.source).toBeTruthy();
   });
 
+  it('the valid-etch verification is persisted as an observational receipt', () => {
+    // Operator, 2026-08-02: "I would preserve the verification output and
+    // transaction evidence as a receipt in the BITCENT record." It is primary
+    // evidence — decoded from the transaction itself — so it outranks any
+    // indexer, and it must be readable without re-running the script.
+    const v = RECORD.etchBroadcast.verification;
+    expect(v.verdict).toBe('VALID_ETCH');
+    expect(v.isCenotaph).toBe(false);
+    expect(v.confirmedInBlock).toBe(5084224);
+    expect(v.$comment).toMatch(/OBSERVATIONAL/);
+    expect(v.method).toMatch(/verify-bitcent-etch/);
+    // The receipt must not read as authorising anything on mainnet.
+    expect(v.consequence).toMatch(/mainnet/i);
+  });
+
   it('no ratified field acquired a ratification flag from the append', () => {
     // The ten frozen fields each carry `ratified`; the observation must not.
     expect(RECORD.etchBroadcast.ratified).toBeUndefined();

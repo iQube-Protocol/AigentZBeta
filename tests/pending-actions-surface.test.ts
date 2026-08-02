@@ -22,6 +22,11 @@ import {
   mayProducePrincipalSignature,
   NO_COMPLETION_ROUTE_YET,
 } from '@/services/signing/pendingActionRouting';
+import {
+  PRINCIPAL_MANDATE_TTL_SECONDS,
+  MANDATE_TTL_POLICY,
+  humanLegIsNotTighterThanMachineLeg,
+} from '@/services/signing/mandatePolicy';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
 describe('the two completions are different acts', () => {
@@ -213,21 +218,93 @@ describe('the panel keeps the domains separate', () => {
   });
 });
 
-describe('the ceremony gives the human at least as long as the machine', () => {
+describe('the mandate window is a stated policy, not a literal in a service call', () => {
+  /*
+   * Operator, 2026-08-02: "I would widen it, but explicitly as an
+   * operator-approved governance change … Record the TTL as a mandate-policy
+   * parameter rather than burying it in UI code."
+   *
+   * A validity window bounds how long an authorisation may be exercised. That
+   * is a governance decision, and it was a bare `600` sitting beside a bare
+   * `900` with nothing saying either was deliberate — which is how the leg a
+   * HUMAN performs ended up with the tighter window.
+   */
   const ceremony = stripComments(readSource('services/horizen/registerCeremony.ts'));
 
-  it('the principal mandate window is not shorter than the agent invocation it precedes', () => {
-    const windows = [...ceremony.matchAll(/expiresInSeconds:\s*(\d+)/g)].map((m) => Number(m[1]));
-    expect(windows.length).toBeGreaterThanOrEqual(2);
-    const [principal, agent] = windows;
-    // The principal leg is the one a HUMAN must find a wallet, unlock it and
-    // read a payload inside. Giving it the tighter window is backwards.
-    expect(principal).toBeGreaterThanOrEqual(agent);
+  it('the ceremony carries no hardcoded window', () => {
+    expect(ceremony).not.toMatch(/expiresInSeconds:\s*\d+/);
+    expect(ceremony).toMatch(/expiresInSeconds: PRINCIPAL_MANDATE_TTL_SECONDS/);
+    expect(ceremony).toMatch(/expiresInSeconds: AGENT_INVOCATION_TTL_SECONDS/);
+  });
+
+  it('the human leg is never given less time than the machine leg it precedes', () => {
+    expect(humanLegIsNotTighterThanMachineLeg()).toBe(true);
+    expect(PRINCIPAL_MANDATE_TTL_SECONDS).toBe(1800);
+  });
+
+  it('the policy records who approved it and why', () => {
+    // A window nobody is named for is a window nobody can revisit.
+    expect(MANDATE_TTL_POLICY.ratifiedBy).toBe('operator');
+    expect(MANDATE_TTL_POLICY.ratifiedAt).toBe('2026-08-02');
+    expect(MANDATE_TTL_POLICY.rationale).toMatch(/governance parameter/i);
+    expect(MANDATE_TTL_POLICY.principalSeconds).toBe(PRINCIPAL_MANDATE_TTL_SECONDS);
+  });
+});
+
+describe('a signer mismatch names its sources, not just two hex strings', () => {
+  const ceremony = stripComments(readSource('services/horizen/registerCeremony.ts'));
+
+  it('says which record the expected address came from, and where to reconcile', () => {
+    // The signature is produced from evm_key.encryptedPrivateKey and validated
+    // against personas.evm_address. Two records of one fact: while they agree
+    // nothing is wrong, and when they diverge every correct signature is
+    // refused. Naming only the values made a split record read as a broken
+    // signer.
+    // Anchored on the ADDRESS mismatch specifically — there is an earlier
+    // SIGNER_MISMATCH for "this request is not yours", which is a different
+    // refusal with a different remedy.
+    const at = ceremony.indexOf('signature recovers to');
+    expect(at).toBeGreaterThan(-1);
+    const block = ceremony.slice(at - 200, at + 1200);
+    expect(block).toMatch(/personas\.evm_address/);
+    expect(block).toMatch(/address-reconciliation/);
+    // And that nothing happened downstream — a refusal is not a partial act.
+    expect(block).toMatch(/nothing was changed/i);
+  });
+
+  it('the reconciliation route reports sources, and admits the check it cannot make', () => {
+    const route = stripComments(readSource('app/api/wallet/principal/address-reconciliation/route.ts'));
+    for (const field of ['resolverAnswer', 'personasEvmAddress', 'evmKeyAddress']) {
+      expect(route, field).toMatch(new RegExp(field));
+    }
+    expect(route).toMatch(/notCheckedHere/);
+    // It must never decrypt, and never accept a password. It DOES name the
+    // password when explaining the comparison it cannot make — omitting that
+    // would let a three-of-four reconciliation read as complete.
+    // Forbid the ACT, not the word: the route names both the password and the
+    // encrypted key when describing where a signature comes from and which
+    // comparison it cannot make. Naming them is the honesty; calling them
+    // would be the breach.
+    expect(route).not.toMatch(/decryptPrivateKey\s*\(/);
+    expect(route).not.toMatch(/crypto\.subtle|deriveKey\s*\(/);
+    expect(route).not.toMatch(/body\.password|password\s*[:=]\s*[a-z]/i);
+    expect(route).toMatch(/notCheckedHere/);
+    // Owner self-view — never a personaId from the query string.
+    expect(route).toMatch(/getActivePersona/);
+    expect(route).not.toMatch(/searchParams\.get\('personaId'\)/);
   });
 });
 
 describe('the wallet badge counts acts that are actually waiting', () => {
   const drawer = stripComments(readSource('app/components/content/SmartWalletDrawer.tsx'));
+
+  it('pending and expired are counted separately, never merged', () => {
+    // Operator: "A useful split would be: 2 pending / 5 expired — rather than
+    // presenting seven equivalent requests."
+    expect(drawer).toMatch(/setExpiredActionCount/);
+    expect(drawer).toMatch(/expiredActionCount/);
+    expect(drawer).toMatch(/expired before completion|expired`/);
+  });
 
   it('expired rows are excluded from the count', () => {
     // They stay `pending` in the store until something acts on them, so an

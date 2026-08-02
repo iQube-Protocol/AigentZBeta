@@ -1,6 +1,6 @@
 # Bitcent Testnet Etch — Broadcast (2026-07-30)
 
-**Status: BROADCAST, awaiting confirmation + indexer recognition.** The operator ran
+**Status: CONFIRMED AND VERIFIED AS A VALID ETCH (2026-08-02) — see §Verification below.** The operator ran
 `npm run deploy:bitcent -- --execute` end-to-end for real, on their own machine, against Bitcoin
 testnet. This is the first live execution of the ratified governed-reserve issuance record and the
 pilot treasury authority gate — not a dry run.
@@ -65,6 +65,10 @@ live run.
   for confirmation status, then `https://mempool.space/testnet/api/v1/runes/BITCENT` (the same
   endpoint `check-bitcent-name-availability.js` queries) for indexer recognition — expect this to flip
   from 404 to a real Rune record once confirmed and indexed.
+
+  **This prediction did not hold, and the reason matters — see §Verification (2026-08-02).** The 404
+  persisted through 16,038 confirmations because mempool.space does not index Runes on testnet at
+  all. Waiting was never going to resolve it, and the etch is nonetheless valid.
 - **DVN receipt / mandate / signer / observer receipts, persisted** — the mandate was authorised and
   the transaction matched against it (`assertMandateMatchesTransaction`), but no receipt has been
   written to any datastore. This session's sandbox cannot reach the live Supabase host to persist one.
@@ -91,3 +95,49 @@ expiry check should run again immediately before broadcast, not only at authoriz
 - `scripts/check-bitcent-name-availability.js` — used for the R-12 testnet check.
 - No new files committed for the funding transaction (`send-btc-temp.js` was a deliberate scratch
   script, deleted by the operator after use, not part of the repo).
+
+
+---
+
+## Verification — VALID ETCH, confirmed from the chain (appended 2026-08-02)
+
+The 404 never flipped. At 16,038 confirmations it was still 404, which is consistent with two very
+different worlds: mempool.space does not index Runes on testnet, **or** our Runestone was malformed —
+a **cenotaph**, which under the Runes protocol etches nothing at all. No amount of waiting separates
+those, and the difference decides whether B¢ exists.
+
+`scripts/verify-bitcent-etch.js` settles it from primary evidence: it fetches the raw transaction and
+decodes its OP_RETURN with the **same `runelib` encoder that built it**. No indexer is consulted.
+
+```
+Rune name:  BITCENT
+Etch tx:    551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65
+Network:    testnet3
+
+CONFIRMED in block 5084224 (00000000002905ad4184102c9eeacbf016e3d1845827980c53b70dd7c388b090)
+
+VERDICT: VALID ETCH — the Runestone is well-formed and the transaction is on chain.
+```
+
+**What this establishes:**
+
+- The Runestone is well-formed. It is **not** a cenotaph.
+- The etch **does not need to be repeated**; the original governed act stands.
+- The 404 was an indexer limitation, not a protocol failure.
+- `scripts/verify-bitcent-etch.js` is the canonical local verification path whenever indexers
+  disagree or lag. Run it with `npm run verify:bitcent-etch`.
+
+The receipt is persisted in `scripts/bitcent-issuance-record.json` under
+`etchBroadcast.verification` — namespaced as observational, with no ratified issuance parameter
+altered.
+
+**Mainnet is untouched by this.** A valid testnet etch authorises nothing on mainnet; that remains a
+separate ratification with its own record.
+
+### The defect this exposed in the availability checker
+
+`npm run check:bitcent-name` mapped that same 404 to **"LIKELY AVAILABLE"** — about a name we had
+ourselves already etched, and in the one direction that could cause a second, irreversible etch. It
+now reads the issuance record first (our own etch outranks every indexer, network-scoped), uses our
+etched name as a **control probe** so a non-answering endpoint yields INCONCLUSIVE, and **cannot
+return an "available" verdict in any branch**. Canaries: `tests/bitcent-name-check.test.ts`.
