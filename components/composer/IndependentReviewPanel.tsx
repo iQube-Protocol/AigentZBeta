@@ -887,6 +887,15 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
     | { verdict: string; rationale: Array<{ id: string; label: string; satisfied: boolean; detail: string }>; remainingRisks: string[]; advisoryNote: string }
     | undefined;
 
+  // Hoisted explanation fields — see the Milestone panel below for why these
+  // must be rendered ABOVE the checks and the statistics grid.
+  const milestone = data?.milestone as
+    | { label: string; domainRatified: boolean; infrastructureReady: boolean; candidateConstituted: boolean; statement: string; advancedBy: string }
+    | undefined;
+  const assessability = data?.assessability as string | undefined;
+  const unpopulatedProvenance = data?.unpopulatedProvenance as string | undefined;
+  const reviewableScientificObject = Boolean(data?.reviewableScientificObject);
+
   const pkg = previewResult?.package as
     | { packageHash: string; contentHash: string; eligibleForRatification: boolean; signatories: string[]; dvnAnchorRef: null }
     | undefined;
@@ -963,6 +972,68 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
         )}
       </div>
 
+      {/* MILESTONE + ASSESSABILITY — the reason, ABOVE the numbers.
+          (operator report, 2026-08-02: "crystal still not showing correct
+          preview data")
+
+          The route hoists `milestone`, `assessability`, `unpopulatedProvenance`
+          and `reviewableScientificObject` to the top of the payload precisely
+          so a reader meets the explanation before nine failing checks and a
+          grid of zeros. No reader consumed them, so the panel still opened
+          with `ok false` and 0.000 — the same two-ends-of-one-contract shape
+          as the `ok` → `requestSucceeded` defect, which is why it carries a
+          canary (tests/crystal-readiness-wire-contract.test.ts) rather than a
+          promise to remember.
+
+          Zero counts here are an unstarted acquisition, not a broken crystal;
+          this block is where that distinction is said. */}
+      {milestone && (
+        <div className={PANEL}>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-xs font-semibold text-slate-100">Milestone — {milestone.label}</h4>
+            <span
+              className={`rounded px-2 py-0.5 text-[10px] font-semibold border ${
+                assessability === "ASSESSED"
+                  ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10"
+                  : "text-slate-300 border-slate-700 bg-slate-900/40"
+              }`}
+            >
+              {assessability === "ASSESSED" ? "ASSESSED" : "DOMAIN UNPOPULATED"}
+            </span>
+          </div>
+          <div className="mb-2 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-3">
+            {[
+              ["Domain ratified", milestone.domainRatified],
+              ["Infrastructure ready", milestone.infrastructureReady],
+              ["Candidate constituted", milestone.candidateConstituted],
+            ].map(([label, done]) => (
+              <div key={String(label)} className="flex items-start gap-1.5">
+                <span className={done ? "text-emerald-300" : "text-slate-500"}>{done ? "☑" : "☐"}</span>
+                <span className={done ? "text-slate-300" : "text-slate-500"}>{label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">{milestone.statement}</p>
+          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+            <span className="text-slate-400">Advanced by:</span> {milestone.advancedBy}
+          </p>
+          {unpopulatedProvenance && (
+            <p className="mt-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2 text-[10px] leading-relaxed text-slate-400">
+              {unpopulatedProvenance}
+            </p>
+          )}
+          {/* Honest and reviewable are different properties — an external
+              reviewer asked to assess an empty set cannot produce a finding.
+              Said here so nobody sends this package as a review SUBJECT. */}
+          {!reviewableScientificObject && (
+            <p className="mt-2 text-[10px] leading-relaxed text-amber-200/80">
+              Not yet a reviewable scientific object. This package is a truthful pre-Track-2 baseline and belongs in
+              the research bundle as historical provenance — not as the subject of an independent review.
+            </p>
+          )}
+        </div>
+      )}
+
       {recommendation && (
         <div className={PANEL}>
           <div className="mb-2 flex items-center justify-between">
@@ -1021,7 +1092,14 @@ function CrystalPanel({ reviewerMode = false }: { reviewerMode?: boolean } = {})
           <h4 className="mb-2 text-xs font-semibold text-slate-100">Crystal Statistics — birth certificate</h4>
           <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-400 sm:grid-cols-3">
             {Object.entries(statistics)
-              .filter(([k]) => !["computedAt", "externalSources", "standingDistribution", "coverageEstimate", "substrateError"].includes(k))
+              // `ok` is not a statistic. crystalStatistics.ts sets it to
+              // `readiness.ok` verbatim, so the grid opened with a bare
+              // `ok false` — the least informative label on the panel, saying
+              // a third time what the Readiness Report and the Milestone chip
+              // already say, and reading as "the crystal is broken" when it
+              // means "the domain is empty". Readiness owns that verdict;
+              // this grid is counts.
+              .filter(([k]) => !["ok", "computedAt", "externalSources", "standingDistribution", "coverageEstimate", "substrateError"].includes(k))
               .map(([k, v]) => (
                 <div key={k}>
                   <span className="text-slate-500">{k}</span>{" "}

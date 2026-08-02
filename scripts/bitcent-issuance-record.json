@@ -1,18 +1,31 @@
 {
-  "$comment": "The BitCent (B¢) frozen issuance record. scripts/deploy-qct-bitcoin.js loads THIS file -- it never hardcodes tokenomics. A Rune's name, divisibility, cap and premine are immutable at etch, so this record is the single place those values may be set, and 'ratified: false' on any field is a hard refusal to broadcast, not a warning. See codexes/packs/agentiq/updates/2026-07-30_bitcent-frozen-issuance-record.md for the original history and codexes/packs/agentiq/updates/2026-07-30_bitcent-governed-reserve-ratification.md for the 2026-07-30 governed-reserve amendment that ratified the three fields below. codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md is the ten-item freeze list this implements.",
+  "$comment": "The BitCent (B\u00a2) frozen issuance record. scripts/deploy-qct-bitcoin.js loads THIS file -- it never hardcodes tokenomics. A Rune's name, divisibility, cap and premine are immutable at etch, so this record is the single place those values may be set, and 'ratified: false' on any field is a hard refusal to broadcast, not a warning. See codexes/packs/agentiq/updates/2026-07-30_bitcent-frozen-issuance-record.md for the original history and codexes/packs/agentiq/updates/2026-07-30_bitcent-governed-reserve-ratification.md for the 2026-07-30 governed-reserve amendment that ratified the three fields below. codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md is the ten-item freeze list this implements.",
   "recordVersion": 2,
   "lastUpdated": "2026-07-30",
-
-  "runeName": { "value": "BITCENT", "ratified": true },
-  "symbol": { "value": "B¢", "asciiFallback": "Bc", "ratified": true },
-  "divisibility": { "value": 2, "ratified": true, "note": "Operator ruling 2026-07-30: 2, not 18 -- B¢ is already a cent-denominated unit; 0.01 B¢ = one ten-thousandth of the reference dollar. Supersedes the 8 previously coded here and the 18 raised for discussion." },
-  "maxSupply": { "value": 1000000000, "ratified": true, "note": "Ratified 2026-07-29, qriptocent-supply-constitution.md. Independent of Base Q¢'s own 1,000,000,000 -- per-denomination, not per-chain." },
+  "runeName": {
+    "value": "BITCENT",
+    "ratified": true
+  },
+  "symbol": {
+    "value": "B\u00a2",
+    "asciiFallback": "Bc",
+    "ratified": true
+  },
+  "divisibility": {
+    "value": 2,
+    "ratified": true,
+    "note": "Operator ruling 2026-07-30: 2, not 18 -- B\u00a2 is already a cent-denominated unit; 0.01 B\u00a2 = one ten-thousandth of the reference dollar. Supersedes the 8 previously coded here and the 18 raised for discussion."
+  },
+  "maxSupply": {
+    "value": 1000000000,
+    "ratified": true,
+    "note": "Ratified 2026-07-29, qriptocent-supply-constitution.md. Independent of Base Q\u00a2's own 1,000,000,000 -- per-denomination, not per-chain."
+  },
   "premine": {
     "value": 1000000000,
     "ratified": true,
-    "note": "AMENDED 2026-07-30 (governed-reserve model, operator ruling). Supersedes the 2026-07-29 ratification of 100,000,000, which conflated the ON-CHAIN premine (the single custodial output the Rune protocol actually etches) with the INITIALLY-ACTIVE operational amount. The full 1,000,000,000 B¢ -- the entire maxSupply -- is premined in one output to the ratified premineCustodian address; nothing further can ever be minted (openMint: none, see mintTerms below). Only 100,000,000 of that premine is authorised for initial operational use; the remaining 900,000,000 sits in the SAME custodial output under a governance constraint (see mintTerms.governedReserve) rather than a separate on-chain split -- Bitcoin Runes has no protocol-level mechanism to partition a premine into 'active' vs 'reserved' tranches at the UTXO level. The record must be candid about that: this is a 1B on-chain premine with a 100M/900M GOVERNANCE distinction, not a 100M on-chain premine."
+    "note": "AMENDED 2026-07-30 (governed-reserve model, operator ruling). Supersedes the 2026-07-29 ratification of 100,000,000, which conflated the ON-CHAIN premine (the single custodial output the Rune protocol actually etches) with the INITIALLY-ACTIVE operational amount. The full 1,000,000,000 B\u00a2 -- the entire maxSupply -- is premined in one output to the ratified premineCustodian address; nothing further can ever be minted (openMint: none, see mintTerms below). Only 100,000,000 of that premine is authorised for initial operational use; the remaining 900,000,000 sits in the SAME custodial output under a governance constraint (see mintTerms.governedReserve) rather than a separate on-chain split -- Bitcoin Runes has no protocol-level mechanism to partition a premine into 'active' vs 'reserved' tranches at the UTXO level. The record must be candid about that: this is a 1B on-chain premine with a 100M/900M GOVERNANCE distinction, not a 100M on-chain premine."
   },
-
   "mintTerms": {
     "value": {
       "initiallyActiveIssuance": 100000000,
@@ -39,14 +52,23 @@
     "ratified": true,
     "note": "RATIFIED 2026-07-30 (operator ruling) -- pilot custody model: 'Aigent Z BitCent Treasury'. A fresh testnet keypair generated for this role (never reused from any prior exposed key). Aigent Z is the operational treasury custodian -- not MoneyPenny (orchestrates the Financial Services Runtime but must not control the issuance reserve), not Aigent Nakamoto (oversees Bitcoin issuance integrity/governance with approval-or-veto authority over issuance-sensitive acts, but does not hold custody). PILOT-AUTHORISED -- PROVISIONAL SECURITY PROFILE: this is a SINGLE-KEY testnet wallet, not the threshold/multisig control this field originally required before ratifying -- the operator explicitly accepted this trade-off for pilot speed, substituting the pilot treasury authority gate's multi-party chain (operator mandate + passcode + Aigent Z execution + Aigent Nakamoto approval + Aigent Kn0w1 observation) for on-chain multisig. See codexes/packs/agentiq/updates/2026-07-30_pilot-treasury-authority.md for the full gate and codexes/packs/agentiq/updates/2026-07-30_bitcent-governed-reserve-ratification.md's post-pilot review trigger (signer topology, Platform Aletheon participation, passkey replacement, key rotation, custody separation) for what supersedes this before any non-pilot use. The private key (BITCENT_TREASURY_CUSTODIAN_WIF) is held by the operator server-side only -- never committed, never logged."
   },
-
   "relationshipToBaseQc": {
     "value": "independent native ledgers; cent-for-cent protocol settlement via DVN-mediated debit-and-credit; no wrapped-token bridging; no lock-and-mint",
     "ratified": true,
     "source": "codexes/packs/agentiq/updates/2026-07-29_qriptocent-supply-constitution.md"
   },
   "independenceDeclaration": {
-    "value": "BitCent (B¢) and Base Q¢ are separate canonical denominations of one stable-value class (QriptoCENT), each with its own native ledger and independently governed maximum supply. Neither is a wrapped or bridged representation of the other.",
+    "value": "BitCent (B\u00a2) and Base Q\u00a2 are separate canonical denominations of one stable-value class (QriptoCENT), each with its own native ledger and independently governed maximum supply. Neither is a wrapped or bridged representation of the other.",
     "ratified": true
+  },
+  "etchBroadcast": {
+    "$comment": "OBSERVATIONAL, appended 2026-08-02 \u2014 a record of what HAPPENED, not a frozen issuance parameter. Nothing above this key is altered. It exists because the record had no way to say the etch had been broadcast, so every downstream reader had to treat an already-etched name as an open question \u2014 and scripts/check-bitcent-name-availability.js answered \"LIKELY AVAILABLE\" about a name we ourselves had already etched, which is the one direction that could cause a second, irreversible etch.",
+    "txid": "551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65",
+    "network": "testnet3",
+    "broadcastAt": "2026-07-30T18:08:05Z",
+    "source": "codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md",
+    "explorer": "https://mempool.space/testnet/tx/551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65",
+    "operatorConfirmedConfirmations": 16038,
+    "confirmationsObservedAt": "2026-08-02"
   }
 }

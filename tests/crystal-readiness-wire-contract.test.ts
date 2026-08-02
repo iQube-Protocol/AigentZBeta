@@ -96,6 +96,58 @@ describe('the readiness route and its reader use the same success field', () => 
   });
 });
 
+describe('every field hoisted to explain the zeros has a reader', () => {
+  /*
+   * The second half of the same defect (operator, 2026-08-02: "crystal still
+   * not showing correct preview data").
+   *
+   * `assessability`, `milestone`, `unpopulatedProvenance` and
+   * `reviewableScientificObject` were added to the TOP of the payload for one
+   * reason: so a reader meets the explanation before nine failing checks and
+   * a grid of zeros. The panel consumed none of them, so it still opened with
+   * `ok false` and 0.000 and read as a broken crystal.
+   *
+   * Adding a field to a payload is not the same as surfacing it. A wire field
+   * has two ends — same shape as the `ok` → `requestSucceeded` rename above.
+   */
+  const HOISTED_FOR_THE_READER = [
+    'assessability',
+    'milestone',
+    'unpopulatedProvenance',
+    'reviewableScientificObject',
+  ];
+
+  it('the route emits them and the panel reads every one', () => {
+    const route = stripComments(readSource(ROUTE));
+    const reader = stripComments(readSource(READER));
+    for (const field of HOISTED_FOR_THE_READER) {
+      expect(route, `route emits ${field}`).toMatch(new RegExp(`\\b${field}\\b`));
+      expect(reader, `panel reads data?.${field}`).toMatch(new RegExp(`data\\?\\.${field}\\b`));
+    }
+  });
+
+  it('the milestone statement and what advances it are both rendered', () => {
+    // The statement says the zeros are an unstarted acquisition; `advancedBy`
+    // says Track 2 corpus acquisition moves it and no code change does.
+    // Rendering the label alone would leave the operator where they started.
+    const reader = stripComments(readSource(READER));
+    expect(reader).toMatch(/milestone\.statement/);
+    expect(reader).toMatch(/milestone\.advancedBy/);
+  });
+
+  it('the statistics grid does not render a bare `ok`', () => {
+    // crystalStatistics.ts copies `readiness.ok` into `ok`, so the grid led
+    // with the least informative label on the panel — a third copy of the
+    // readiness verdict, mis-read as "the crystal is broken".
+    const reader = stripComments(readSource(READER));
+    const at = reader.indexOf('Crystal Statistics');
+    expect(at).toBeGreaterThan(-1);
+    const block = reader.slice(at, at + 800);
+    expect(block).toMatch(/\.filter\(\[k\]\)?[^)]*|filter\(\(\[k\]\)/);
+    expect(block, 'the grid filters out `ok`').toMatch(/\["ok",|'ok',/);
+  });
+});
+
 describe('the client does not override the ratified domain by default', () => {
   it('sends no domain param unless the operator typed one', () => {
     // The panel seeded "constitutional-reasoning" and the caller-supplied
