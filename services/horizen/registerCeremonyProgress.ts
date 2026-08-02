@@ -102,6 +102,12 @@ export function registerCeremonyProgress(input: {
   tokenId: string | null;
   /** Mandates that expired before being completed. */
   expiredAttempts: number;
+  /**
+   * Agent invocations that lapsed unapproved. A ceremony that reaches this and
+   * stops is NOT the same as one never started: the mandate was signed and
+   * spent, and only the second approval is missing.
+   */
+  expiredInvocations?: number;
 }): RegisterCeremonyProgress {
   const stageId: RegisterCeremonyStageId = input.tokenId
     ? 'REGISTERED'
@@ -116,6 +122,8 @@ export function registerCeremonyProgress(input: {
             : 'NOT_STARTED';
 
   const at = LADDER.findIndex((s) => s.id === stageId);
+  // Reached the agent-key approval and stopped there, rather than never begun.
+  const lapsedAfterSigning = stageId === 'NOT_STARTED' && (input.expiredInvocations ?? 0) > 0;
 
   const detail: Record<
     RegisterCeremonyStageId,
@@ -127,14 +135,34 @@ export function registerCeremonyProgress(input: {
       nextAct: 'Set up or prove control of your principal wallet in the wallet’s Principal Wallet section.',
       nextActor: 'you',
     },
-    NOT_STARTED: {
-      headline: 'Not started',
-      meaning:
-        'No mandate is currently waiting. Nothing is in flight — this agent has not been registered, and ' +
-        'no act is part-completed.',
-      nextAct: 'Press “Register … in Horizen” to prepare a mandate. It is valid for 30 minutes.',
-      nextActor: 'you',
-    },
+    NOT_STARTED: lapsedAfterSigning
+      ? {
+          /*
+           * A CEREMONY THAT LAPSED IS NOT ONE NEVER STARTED (operator,
+           * 2026-08-02: "the page has the flow at mandate signed … otherwise
+           * we'll remain stuck here").
+           *
+           * The mandate was signed and spent; the agent-key approval lapsed
+           * behind it. Both are gone, so the stage is correctly NOT_STARTED —
+           * but telling the operator "nothing is in flight, no act is
+           * part-completed" would deny work they actually did, and leave them
+           * looking for a state that no longer exists.
+           */
+          headline: 'The last attempt lapsed — start again',
+          meaning:
+            'Your mandate was signed, and the agent-key approval that followed it ran out before being ' +
+            'given. Nothing was broadcast and nothing reached Horizen. Neither request can be revived.',
+          nextAct: 'Press “Register … in Horizen” to begin again. Both steps are valid for 30 minutes each.',
+          nextActor: 'you',
+        }
+      : {
+          headline: 'Not started',
+          meaning:
+            'No mandate is currently waiting. Nothing is in flight — this agent has not been registered, ' +
+            'and no act is part-completed.',
+          nextAct: 'Press “Register … in Horizen” to prepare a mandate. It is valid for 30 minutes.',
+          nextActor: 'you',
+        },
     MANDATE_AWAITING_SIGNATURE: {
       headline: 'Awaiting your signature',
       meaning:

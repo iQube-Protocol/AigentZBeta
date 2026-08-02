@@ -394,6 +394,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           walletReady: Boolean(walletGate?.ready),
           liveMandate: Boolean(liveMandateRow),
           liveInvocation: mine.some((r) => r.actionKind === 'sign_registry_transaction' && !r.expired),
+          expiredInvocations: mine.filter((r) => r.actionKind === 'sign_registry_transaction' && r.expired).length,
           // The broadcast leg is knowable only from this panel's own poll —
           // the tx facts live in the completion event, not in any store row.
           broadcastPending: flowStepRef.current === 'polling',
@@ -778,6 +779,29 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
               <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
                 {expiredAttemptsNote(progress.expiredAttempts)}
               </p>
+            )}
+            {/* START OVER (operator, 2026-08-02: "probably needs a start over
+                button to clear and restart otherwise we'll remain stuck
+                here").
+
+                It clears THIS PAGE'S view of the ceremony and re-reads the
+                store — it does not refuse or delete anything. Nothing server
+                side is cancelled: a live mandate stays live and stays
+                signable, because abandoning an authorisation on the operator's
+                behalf is not a side effect a "clear the screen" control may
+                have. To retire a request deliberately, Refuse it in the
+                wallet, where the consequence is stated. */}
+            {progress.stageId !== 'REGISTERED' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFlow({ step: 'idle' });
+                  void readProgress();
+                }}
+                className="mt-2.5 rounded-md border border-slate-700 px-2.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+              >
+                Start over
+              </button>
             )}
             {/* HORIZONTAL, completed rungs in green (operator, 2026-08-02).
                 Read at a glance during a walkthrough: how far along, and how

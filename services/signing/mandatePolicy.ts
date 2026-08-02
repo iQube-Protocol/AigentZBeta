@@ -42,12 +42,24 @@ export const PRINCIPAL_MANDATE_TTL_SECONDS = 1800;
  * An agent invocation: a bounded-custody key released under a mandate the
  * operator has ALREADY signed.
  *
- * Kept shorter than the principal window on purpose. The authority question is
- * settled by the time this exists, so its window only has to cover the
- * operator noticing and approving a step whose consequence they already
- * accepted — no discovery, no unlocking, no first reading.
+ * ── Corrected 2026-08-02, from evidence ────────────────────────────────────
+ *
+ * This was 900s on my reasoning that "the authority question is settled by the
+ * time this exists, so its window only has to cover the operator noticing and
+ * approving a step whose consequence they already accepted — no discovery, no
+ * unlocking, no first reading."
+ *
+ * That was wrong, and the first run through the ceremony proved it. The
+ * operator signed the mandate, the invocation was created, and it LAPSED
+ * before they approved it — because the second leg is performed by the same
+ * human, in the same wallet, needing the same navigation. Nothing about it is
+ * faster than the first; it is simply second.
+ *
+ * A window that assumes the operator is already looking at the surface is a
+ * window that only works when nothing else happens. Matched to the principal
+ * leg: both are human acts, both get the same time.
  */
-export const AGENT_INVOCATION_TTL_SECONDS = 900;
+export const AGENT_INVOCATION_TTL_SECONDS = 1800;
 
 /**
  * The record of who set these and why, carried as data so a receipt or an
@@ -62,8 +74,9 @@ export const MANDATE_TTL_POLICY = {
     'A mandate window bounds how long an authorisation may be exercised, so it is a governance ' +
     'parameter rather than a tuning constant. The principal leg is performed by a person and must ' +
     'cover notification delay, wallet unlocking, review of the mandate, one failed attempt and a ' +
-    'retry, and ordinary network latency — 30 minutes. The agent leg follows an authority question ' +
-    'already settled by a signature, so it stays shorter at 15 minutes.',
+    'retry, and ordinary network latency — 30 minutes. The agent leg was 15 minutes on the assumption ' +
+    'that it is approved immediately; the first real run showed it is the same human doing the same ' +
+    'navigation a second time, and it lapsed. Both human legs now get the same window.',
 } as const;
 
 /**

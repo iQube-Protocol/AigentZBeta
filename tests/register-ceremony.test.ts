@@ -21,6 +21,11 @@ import {
 } from '@/services/horizen/registerCeremonyProgress';
 import { extractUnsignedTx } from '@/services/horizen/registrationClient';
 import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
+import {
+  PRINCIPAL_MANDATE_TTL_SECONDS,
+  AGENT_INVOCATION_TTL_SECONDS,
+  humanLegIsNotTighterThanMachineLeg,
+} from '@/services/signing/mandatePolicy';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const PRINCIPAL_WALLET = ethers.Wallet.createRandom();
@@ -879,5 +884,77 @@ describe('a transaction Horizen built is a transaction we can find', () => {
   it('genuinely absent stays absent', () => {
     expect(extractUnsignedTx({ content: [{ type: 'text', text: 'no json at all' }] } as never)).toBeNull();
     expect(extractUnsignedTx(null)).toBeNull();
+  });
+});
+
+describe('a lapsed ceremony says so, and can be restarted', () => {
+  /*
+   * ── The run this closes (operator, 2026-08-02) ───────────────────────────
+   *
+   * The ladder reached three green rungs — wallet ready, mandate prepared,
+   * MANDATE SIGNED — and the agent-key invocation lapsed unapproved behind it.
+   *
+   *   > "The issue is the page has the flow at mandate signed. Probably needs
+   *   >  a start over button to clear and restart otherwise we'll remain stuck
+   *   >  here."
+   *
+   * With both requests gone the stage is correctly NOT_STARTED. But telling
+   * the operator "nothing is in flight, no act is part-completed" denies work
+   * they actually did and sends them looking for a state that no longer
+   * exists.
+   */
+  const base = {
+    walletReady: true,
+    liveMandate: false,
+    liveInvocation: false,
+    broadcastPending: false,
+    tokenId: null as string | null,
+    expiredAttempts: 0,
+  };
+
+  it('distinguishes "never begun" from "reached the agent key and lapsed"', () => {
+    const fresh = registerCeremonyProgress(base);
+    const lapsed = registerCeremonyProgress({ ...base, expiredInvocations: 1 });
+    expect(fresh.stageId).toBe('NOT_STARTED');
+    expect(lapsed.stageId).toBe('NOT_STARTED');
+    expect(fresh.headline).toBe('Not started');
+    expect(lapsed.headline).toMatch(/lapsed/i);
+    expect(lapsed.headline).not.toBe(fresh.headline);
+  });
+
+  it('the lapsed message does not deny the work that was done', () => {
+    const lapsed = registerCeremonyProgress({ ...base, expiredInvocations: 1 });
+    expect(lapsed.meaning).toMatch(/mandate was signed/i);
+    expect(lapsed.meaning).not.toMatch(/no act is part-completed/i);
+    // And is unambiguous that nothing reached the chain.
+    expect(lapsed.meaning).toMatch(/[Nn]othing was broadcast/);
+    expect(lapsed.meaning).toMatch(/nothing reached Horizen/i);
+  });
+
+  it('both human legs get the same window — the machine leg is not tighter', () => {
+    // 900s assumed the second approval is immediate. The first real run showed
+    // it is the same human doing the same navigation a second time, and it
+    // lapsed.
+    expect(AGENT_INVOCATION_TTL_SECONDS).toBe(PRINCIPAL_MANDATE_TTL_SECONDS);
+    expect(humanLegIsNotTighterThanMachineLeg()).toBe(true);
+  });
+
+  it('Start over clears the view without cancelling anything', () => {
+    // Abandoning an authorisation on the operator's behalf is not a side
+    // effect a "clear the screen" control may have. A live mandate stays live
+    // and stays signable; refusing one is a separate, stated act in the wallet.
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toMatch(/>\s*Start over\s*</);
+    const at = panel.indexOf('Start over');
+    const block = panel.slice(Math.max(0, at - 900), at);
+    expect(block).toMatch(/setFlow\(\{ step: 'idle' \}\)/);
+    expect(block).toMatch(/void readProgress\(\)/);
+    // It must not call refuse, nor any completion route.
+    expect(block).not.toMatch(/refuse|\/approve|announceWalletSurfaceCompletion/i);
+  });
+
+  it('Start over is not offered once registration is complete', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toMatch(/progress\.stageId !== 'REGISTERED' &&/);
   });
 });
