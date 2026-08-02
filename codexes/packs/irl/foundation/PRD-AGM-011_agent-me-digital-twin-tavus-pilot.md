@@ -22,13 +22,19 @@ Canonised as a **specification of record**, not an authorisation to build — th
 | **Architectural direction** | Operator-authored, 2026-08-02 |
 | **Implementation specification** | Provided, pending review |
 | **Execution authority** | **NOT granted.** An execution plan must be written and approved first. |
-| **Current code state** | A **D-ID** iframe host exists (`packages/avatar-host/`, `app/components/metaVatar/MetaAvatar.tsx`). It carries **no** delegate-status, principal, mandate or limits fields. No embodiment adapter exists. No Tavus integration exists. |
+| **Current code state (CR-13 corrected)** | Embodied constitutional agents are **functional** (D-ID + constitutional KB grounding); Avaturn personal digital twins are **fully integrated** in the metaKnyts stack — both hosted outside this repository. Within this repo: a D-ID iframe host exists (`packages/avatar-host/`, `app/components/metaVatar/MetaAvatar.tsx`). It carries **no** delegate-status, principal, mandate or limits fields. No embodiment adapter exists. No Tavus integration exists. |
+| **Controlling ruling** | **CR-13** — this PRD is an *enhancement roadmap*, not a first implementation |
 | **Related ratified doctrine** | `services/polity/frameworks/agent-charter.v1.json` → `agentsMustBeIdentifiedAsNonHuman: true` |
 
-**Cross-references to the Constitutional Internet audit.** This PRD is the artifact that would close
-discrepancy **B-1** (*the embodied delegate has no code, test or receipt*) and supply the
-implementation evidence sought by matrix rows **CI-07** and **CI-15**. Until it is built, tested and
-receipted, the manuscript's embodied-delegate passages remain **Projected**.
+**Cross-references to the Constitutional Internet audit (updated per CR-13).** Discrepancy **B-1**
+(*"the embodied delegate has no code, test or receipt"*) is **superseded** — it overstated repository
+scope as absence. Matrix rows **CI-07 / CI-08 / CI-15** now read **Supported · Strengthen present
+tense**: D-ID embodiment and constitutional KB grounding are **implemented and functional**, and
+Avaturn personal digital twins are **fully integrated** in the metaKnyts stack.
+
+**What this PRD governs is the enhancement layer** — dynamic personal knowledge, higher fidelity,
+continuity, and interface-level constitutional disclosure. Only that layer remains
+**Projected / entering deployment**.
 
 ---
 
@@ -38,8 +44,15 @@ Introduce **Digital Twin** as a capability of **delegated Agent Me personas**. T
 **Tavus** as the first embodiment provider while preserving a **provider-independent constitutional
 embodiment architecture**.
 
-> **This is not an avatar feature. It is the first implementation of constitutional digital
-> embodiment.**
+> **This is not an avatar feature.**
+
+> ⚠ **SUPERSEDED FRAMING (CR-13, 2026-08-02).** This PRD's original wording called it *"the first
+> implementation of constitutional digital embodiment."* **That is corrected.** Embodied
+> constitutional agents are **already functional** through D-ID with constitutional knowledge
+> grounding, and **personal digital twins are already fully integrated** through **Avaturn** in the
+> metaKnyts stack. **PRD-AGM-011 is an ENHANCEMENT ROADMAP** governing the next stage — higher
+> fidelity, more dynamic personal knowledge, stronger continuity, and more legible constitutional
+> disclosure. It does **not** create the capability for the first time.
 
 The significance is architectural, not cosmetic. It establishes a new constitutional primitive —
 **delegated embodiment**. Just as bounded delegation governs *what* an agent may do, embodied
@@ -274,9 +287,14 @@ which is precisely the harm the doctrine names: *"the closer the representation 
 the clearer the delegation must become."*
 
 **Recommendation:** add a **disclosure profile** to the `EmbodimentProvider` interface and to the
-Digital Twin Record — carried per session, surfaced to counterparties, and receipted. Until it
-exists, the manuscript's embodied-delegate passages must remain **Projected** (discrepancy **B-1**
-stays open) even if the twin ships.
+Digital Twin Record — carried per session, surfaced to counterparties, and receipted.
+
+**Reframed by CR-13.** This is **not** a claim that constitutional operation is absent. Non-human
+status, principal, mandate, authority limits, provenance, receipt status, refusal, revocation,
+challenge and remedy **exist in the underlying architecture**. The gap is **interface-level
+disclosure completeness** — how visibly and consistently the embodiment *surfaces* them. That is the
+fifth layer of CR-13's stack, and it is the one thing this PRD should make it impossible to ship
+without.
 
 ---
 
@@ -290,5 +308,7 @@ stays open) even if the twin ships.
 5. Tavus technical discovery and contractual terms (memory boundary, retention, deletion).
 6. Only then begin the pilot.
 
-Until implementation, tests and receipts exist, **CI-07 / CI-15 embodied-delegate claims remain
-Projected** and discrepancy **B-1** remains open.
+Per **CR-13**, CI-07 / CI-08 / CI-15 are **Supported** for the implemented layers. Only the
+**enhancement layer** governed by this PRD — dynamic personal knowledge, higher fidelity, continuity
+and fully surfaced disclosure — remains **Projected / entering deployment**, against the ten-point
+maturity gate in CR-13.

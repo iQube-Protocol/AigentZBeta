@@ -278,8 +278,47 @@ and canary-enforced.
 
 </details>
 
-### B-1 · Ch15/Epilogue — the **embodied delegate** has no code, test, or receipt
-### 📋 **PRD STAGED 2026-08-02** — `PRD-AGM-011` canonised for review; finding remains OPEN
+### B-1 · Ch15/Epilogue — embodied constitutional agents and personal digital twins
+### ❌ **SUPERSEDED 2026-08-02 by operator ruling CR-13** — the finding was wrong in scope
+
+**The original finding is withdrawn.** Embodied constitutional agents are **functional** through D-ID
+and constitutional knowledge grounding. **Personal digital twins are fully integrated** through
+Avaturn in the metaKnyts stack. The remaining work concerns **dynamic personal knowledge, higher
+fidelity, continuity and interface-level constitutional disclosure** — not first implementation.
+
+**Where the audit went wrong.** Two errors, both of scope rather than method:
+
+1. **Generalising from the host wrapper.** *"Zero disclosure surface"* was verified against
+   `AvatarHostProps` / `AgentConfig` / `AvatarContext` — the **wrapper**. `packages/avatar-host/`
+   renders an **external iframe** (`https://metavatar.agentiq.ai/metaVatar.html`); what runs inside
+   was never visible. The accurate claim is *no disclosure fields cross the host boundary in this
+   repository* — not that disclosure is absent.
+2. **Treating repository scope as existence.** Avaturn has **0 occurrences** here; the integration
+   lives in the **metaKnyts stack**, outside the audited repo. *"Not found in the audited
+   repository"* is a scope statement.
+
+**Reclassified per CR-13:** D-ID embodiment **Implemented and functional** · constitutional KB
+grounding **Implemented and functional** · Avaturn personal digital twins **Fully integrated** ·
+dynamic personal KBs **Under development** · Tavus/Tavurn enhancement **Roadmap** ·
+disclosure-interface completeness **Partial**. **CI-07 / CI-08 / CI-15: Supported · Strengthen
+present tense.**
+
+**What remains, precisely:** *interface-level disclosure completeness* — how visibly and consistently
+the embodiment surfaces non-human status, principal, mandate, authority limits, provenance, receipt
+status, refusal, revocation, challenge and remedy. **Where these exist in the architecture but are
+not surfaced at the interface, that is a surfacing gap, not absent constitutional operation.**
+
+**`PRD-AGM-011` is an enhancement roadmap**, not a first implementation — its own "first
+implementation" framing is superseded and corrected in the PRD.
+
+**To make CR-13 citable in the book's evidence chain**, deposit into `03 Source Lineage`: the
+metaVatar/D-ID integration reference, the Avaturn/metaKnyts integration reference, one demonstration
+receipt per layer, and deployed-environment evidence. Until then **operator-attested** — the footing
+CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and resolvable the same way.
+
+<details><summary>Original B-1 finding (withdrawn — overstated repository scope as absence)</summary>
+
+**B-1 · Ch15/Epilogue — the embodied delegate has no code, test, or receipt**
 
 `PRD-AGM-011 — Agent Me Digital Twin (Tavus Pilot)` is canonised at
 `codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md`. It establishes

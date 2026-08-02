@@ -359,3 +359,45 @@ freely.
 
 **Governing rule:** *The Commons is constitutionally real before it is technically complete. The
 manuscript may state its mandate now; it may state its operation only when the machinery exists.*
+
+---
+
+## CR-13 · Embodied constitutional agents and personal digital twins → **Ch7, Ch8, Ch15, Epilogue** (2026-08-02)
+
+**CONTROLLING — supersedes the two earlier partial classifications.**
+
+> **A machine may represent a person. It must never impersonate the person.**
+
+### Implementation layering to cite in Ch15
+
+| Layer | State |
+|---|---|
+| Constitutional agent — principal, delegation, mandate, limits, refusal, receipts, standing | **Implemented** |
+| Constitutional knowledge grounding | **Implemented and functional** |
+| **D-ID embodiment** — visible form, voice, speaking presence | **Implemented and functional** |
+| **Avaturn personal digital twin** — metaKnyts stack | **Fully integrated and functional** |
+| Dynamic personal knowledge & fidelity | **Under development** |
+
+### Chapter lineage effects
+
+- **Ch7** — **strengthen**: embodied constitutional agents already operate in functional form.
+- **Ch8** — **retain**: personal digital twins extend representation but do not acquire the
+  constitutional status of the person.
+- **Ch15** — cite the **five-layer stack** above, with Tavus/Tavurn as the enhancement roadmap.
+- **Epilogue** — may depict embodied agents and personal twins as **present capabilities**;
+  qualify only dynamic personal knowledge, fidelity, continuity and fully surfaced disclosure.
+
+### The remaining gap, named precisely
+
+**Interface-level disclosure completeness** — not absent constitutional operation. This is the same
+distinction CR-11 and CR-12 draw: *the capability exists; the question is which surface exposes it.*
+CR-11 separated receipt-exists from receipt-anchored; CR-12 separated institution-constituted from
+machinery-operating; **CR-13 separates constitutionally-operating from interface-surfaced.**
+
+### Evidence footing
+
+Verified at HEAD, the implementations are hosted **outside this repository** — behind
+`metavatar.agentiq.ai` and in the metaKnyts stack. The audit's scope was
+`iQube-Protocol/AigentZBeta`, so its findings were scope statements, not existence claims. For the
+book's evidence chain these remain **operator-attested** until integration references, per-layer
+demonstration receipts and deployed evidence are deposited into `03 Source Lineage`.

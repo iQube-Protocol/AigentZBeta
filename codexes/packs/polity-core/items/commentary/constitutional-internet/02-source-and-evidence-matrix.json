@@ -301,7 +301,7 @@
       "discrepancyRequiredRevision": "Do not infer from documentation alone. Record code, test, receipt, and current-state evidence separately.",
       "auditRule": null,
       "claudeAudit": {
-        "canonicalDoctrineId": "agent-charter v1.0.0 (ratified 2026-06-17); DELEGATION_FRAMEWORK.md v1.0.0",
+        "canonicalDoctrineId": "agent-charter v1.0.0 (ratified 2026-06-17); DELEGATION_FRAMEWORK.md v1.0.0 | CR-13 Embodied constitutional agents and personal digital twins (operator-ratified 2026-08-02, CONTROLLING)",
         "doctrineSection": "services/polity/frameworks/agent-charter.v1.json; codexes/packs/polity-core/items/DELEGATION_FRAMEWORK.md; editorial register ADD-1",
         "repoPath": "app/api/codex/chat/agentiq-os/delegation/route.ts; services/access/evaluateAccess.ts; types/orchestration.ts:31; types/constitutional.ts:79; app/components/metaVatar/MetaAvatar.tsx; packages/avatar-host/",
         "symbolComponent": "delegation route (POST/GET/DELETE), PolicyEnvelope, denyDecision, AgentDisposition (deny/escalate)",
@@ -310,10 +310,19 @@
         "receiptEvidence": "agent_delegated / agent_delegation_revoked created and DVN-enqueued (route.ts:495-504,573-581; pipeline:95-96). No captured receipt/anchor artifact in repo.",
         "environment": "Active delegation state in-memory (cleared on restart); durable ledger Supabase delegation_grants + orchestration_events; DVN anchor enqueued to IC. No deployed-run evidence.",
         "lastVerifiedCommit": "23b012473",
-        "supportFinding": "Partially supported",
-        "manuscriptImpact": "Qualify wording",
-        "recommendedAction": "Cite delegation route + agent-charter + evaluateAccess for authority/mandate/refusal. Flag the embodied/avatar disclosure adapter as NOT implemented before any present-tense claim ships.",
-        "notes": "Discrepancy: Overclaim (embodied/avatar disclosure). Five properties (authority, mandate, proof, refusal, accountability) have real code; embodied disclosure has none. metame-guardian is a .claude/agents dev-time sub-agent definition, NOT runtime code — runtime refusal is evaluateAccess.denyDecision + the x409 constitutional-agreement gate. | 2026-08-02: PRD-AGM-011 'Agent Me Digital Twin (Tavus Pilot)' canonised for review at codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md. It establishes DELEGATED EMBODIMENT as a constitutional primitive: the Citizen is never embodied; delegated personas may be embodied; a Digital Twin is a capability attached to a delegated persona through bounded delegation. Chain: Citizen -> Polity Passport -> Delegation -> Persona -> Digital Twin -> Avatar Provider. Memory stays in Agent Me (provider is rendering only). Receipts unchanged. Provider-independent EmbodimentProvider adapter; D-ID becomes DIDProvider (already in place). EXECUTION NOT AUTHORISED. OPEN GAP flagged: the PRD specifies the constitutional chain but NOT the third-party disclosure surface the ratified embodied-delegate doctrine requires (agentsMustBeIdentifiedAsNonHuman is ratified; no rendering surface implements it). CI-07/CI-15 embodied-delegate claims REMAIN PROJECTED until implementation, tests and receipts exist."
+        "supportFinding": "Supported",
+        "manuscriptImpact": "Strengthen present tense",
+        "recommendedAction": "Per CR-13 (CONTROLLING - supersedes the two earlier partial classifications): STRENGTHEN current capability; QUALIFY ONLY the remaining enhancement layer. Embodied constitutional agents are functional through D-ID and constitutional knowledge grounding. Personal digital twins are fully integrated through Avaturn in the metaKnyts stack. Remaining work concerns dynamic personal knowledge, higher fidelity, continuity, and interface-level constitutional disclosure. Ch7: strengthen to state embodied constitutional agents already operate in functional form. Ch8: retain the rule that personal digital twins extend representation but do NOT acquire the constitutional status of the person. Ch15: state the implementation layering - constitutional agent -> constitutional knowledge grounding -> D-ID embodiment -> Avaturn personal digital twin -> Tavus/Tavurn enhancement roadmap. Epilogue: may depict embodied constitutional agents and personal digital twins as PRESENT capabilities; qualify only dynamic personal knowledge, higher fidelity, deeper continuity and fully surfaced disclosure. MUST NOT state 'personal digital twins are only partially implemented', nor imply the Tavus/Tavurn work creates the capability for the first time.",
+        "notes": "Discrepancy: Overclaim (embodied/avatar disclosure). Five properties (authority, mandate, proof, refusal, accountability) have real code; embodied disclosure has none. metame-guardian is a .claude/agents dev-time sub-agent definition, NOT runtime code — runtime refusal is evaluateAccess.denyDecision + the x409 constitutional-agreement gate. | 2026-08-02: PRD-AGM-011 'Agent Me Digital Twin (Tavus Pilot)' canonised for review at codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md. It establishes DELEGATED EMBODIMENT as a constitutional primitive: the Citizen is never embodied; delegated personas may be embodied; a Digital Twin is a capability attached to a delegated persona through bounded delegation. Chain: Citizen -> Polity Passport -> Delegation -> Persona -> Digital Twin -> Avatar Provider. Memory stays in Agent Me (provider is rendering only). Receipts unchanged. Provider-independent EmbodimentProvider adapter; D-ID becomes DIDProvider (already in place). EXECUTION NOT AUTHORISED. OPEN GAP flagged: the PRD specifies the constitutional chain but NOT the third-party disclosure surface the ratified embodied-delegate doctrine requires (agentsMustBeIdentifiedAsNonHuman is ratified; no rendering surface implements it). CI-07/CI-15 embodied-delegate claims REMAIN PROJECTED until implementation, tests and receipts exist. | SUPERSEDED 2026-08-02 by CR-13. Governing doctrine: 'A machine may represent a person. It must never impersonate the person.' The remaining gap is INTERFACE-LEVEL DISCLOSURE COMPLETENESS, not absence of constitutional operation: where non-human status, principal, mandate, authority limits, provenance, receipt status, refusal, revocation, challenge and remedy exist in the architecture but are not fully surfaced at the embodiment interface, that is a surfacing gap. AUDIT-SCOPE NOTE: verified at HEAD, Avaturn has 0 occurrences in this repository and D-ID appears only as a type comment (types/aigentQube.ts:104); packages/avatar-host/ renders an EXTERNAL iframe at https://metavatar.agentiq.ai/metaVatar.html. The implementations are hosted OUTSIDE this repository (metaVatar service + metaKnyts stack). 'Not found in the audited repository' is a statement about SCOPE, not existence. CORRECTION TO THE AUDIT'S OWN CLAIM: 'the avatar layer has zero disclosure surface' was verified against the HOST WRAPPER (AvatarHostProps/AgentConfig/AvatarContext) only; disclosure implemented INSIDE the hosted metaVatar app was not visible and was wrongly treated as absent. Accurate statement: no disclosure fields cross the host boundary in this repository. To make CR-13's claims citable in the book's evidence chain, deposit into 03 Source Lineage: metaVatar/D-ID integration reference, Avaturn/metaKnyts integration reference, one demonstration receipt per layer, and deployed-environment evidence. Until then operator-attested - the CR-8 footing, resolvable the same way.",
+        "embodimentLayers": {
+          "didEmbodiment": "Implemented and functional",
+          "constitutionalKbGrounding": "Implemented and functional",
+          "avaturnPersonalDigitalTwins": "Fully integrated in the metaKnyts stack",
+          "personalDigitalTwinCapability": "Implemented and functional",
+          "dynamicPersonalKbs": "Under development",
+          "tavusTavurnEnhancement": "Roadmap / Projected or entering deployment",
+          "disclosureInterfaceCompleteness": "Partial"
+        }
       }
     },
     {
@@ -337,7 +346,7 @@
       "discrepancyRequiredRevision": "Do not infer from documentation alone. Record code, test, receipt, and current-state evidence separately.",
       "auditRule": null,
       "claudeAudit": {
-        "canonicalDoctrineId": "agent-charter v1.0.0",
+        "canonicalDoctrineId": "agent-charter v1.0.0 | CR-13 Embodied constitutional agents and personal digital twins (operator-ratified 2026-08-02, CONTROLLING)",
         "doctrineSection": "phase1.agentsMustNotPossess; identityClass.ADID (isHuman:false, mayNot vote/possess_citizenship/hold_constitutional_rights); sponsorship.required / noOrphanedAgents; economicControls.assetsRemainOwnedBySponsor",
         "repoPath": "services/polity/frameworks/agent-charter.v1.json; services/access/evaluateAccess.ts; app/api/codex/chat/agentiq-os/delegation/route.ts:345-350; types/constitutional.ts",
         "symbolComponent": "agent-charter JSON doctrine object; disposition proceed|ask|escalate|deny; L5_CORE_SOVEREIGN rejection",
@@ -346,10 +355,19 @@
         "receiptEvidence": "None specific; delegation receipts indirectly attribute agent actions to a sponsoring persona",
         "environment": "N/A for the charter (static doctrine); evaluateAccess runs server-side in API routes",
         "lastVerifiedCommit": "23b012473",
-        "supportFinding": "Partially supported",
-        "manuscriptImpact": "Citation only",
-        "recommendedAction": "Cite agent-charter.v1.json as ratified doctrine. Do NOT claim automated embodied-agent conformance testing exists.",
-        "notes": "Discrepancy: Underclaim risk (doctrine is strong and ratified) + Missing proof (no canary binds the charter's prohibitions to enforced code, unlike the T0-leak canaries elsewhere)."
+        "supportFinding": "Supported",
+        "manuscriptImpact": "Strengthen present tense",
+        "recommendedAction": "Per CR-13 (CONTROLLING - supersedes the two earlier partial classifications): STRENGTHEN current capability; QUALIFY ONLY the remaining enhancement layer. Embodied constitutional agents are functional through D-ID and constitutional knowledge grounding. Personal digital twins are fully integrated through Avaturn in the metaKnyts stack. Remaining work concerns dynamic personal knowledge, higher fidelity, continuity, and interface-level constitutional disclosure. Ch7: strengthen to state embodied constitutional agents already operate in functional form. Ch8: retain the rule that personal digital twins extend representation but do NOT acquire the constitutional status of the person. Ch15: state the implementation layering - constitutional agent -> constitutional knowledge grounding -> D-ID embodiment -> Avaturn personal digital twin -> Tavus/Tavurn enhancement roadmap. Epilogue: may depict embodied constitutional agents and personal digital twins as PRESENT capabilities; qualify only dynamic personal knowledge, higher fidelity, deeper continuity and fully surfaced disclosure. MUST NOT state 'personal digital twins are only partially implemented', nor imply the Tavus/Tavurn work creates the capability for the first time.",
+        "notes": "Discrepancy: Underclaim risk (doctrine is strong and ratified) + Missing proof (no canary binds the charter's prohibitions to enforced code, unlike the T0-leak canaries elsewhere). | SUPERSEDED 2026-08-02 by CR-13. Governing doctrine: 'A machine may represent a person. It must never impersonate the person.' The remaining gap is INTERFACE-LEVEL DISCLOSURE COMPLETENESS, not absence of constitutional operation: where non-human status, principal, mandate, authority limits, provenance, receipt status, refusal, revocation, challenge and remedy exist in the architecture but are not fully surfaced at the embodiment interface, that is a surfacing gap. AUDIT-SCOPE NOTE: verified at HEAD, Avaturn has 0 occurrences in this repository and D-ID appears only as a type comment (types/aigentQube.ts:104); packages/avatar-host/ renders an EXTERNAL iframe at https://metavatar.agentiq.ai/metaVatar.html. The implementations are hosted OUTSIDE this repository (metaVatar service + metaKnyts stack). 'Not found in the audited repository' is a statement about SCOPE, not existence. CORRECTION TO THE AUDIT'S OWN CLAIM: 'the avatar layer has zero disclosure surface' was verified against the HOST WRAPPER (AvatarHostProps/AgentConfig/AvatarContext) only; disclosure implemented INSIDE the hosted metaVatar app was not visible and was wrongly treated as absent. Accurate statement: no disclosure fields cross the host boundary in this repository. To make CR-13's claims citable in the book's evidence chain, deposit into 03 Source Lineage: metaVatar/D-ID integration reference, Avaturn/metaKnyts integration reference, one demonstration receipt per layer, and deployed-environment evidence. Until then operator-attested - the CR-8 footing, resolvable the same way.",
+        "embodimentLayers": {
+          "didEmbodiment": "Implemented and functional",
+          "constitutionalKbGrounding": "Implemented and functional",
+          "avaturnPersonalDigitalTwins": "Fully integrated in the metaKnyts stack",
+          "personalDigitalTwinCapability": "Implemented and functional",
+          "dynamicPersonalKbs": "Under development",
+          "tavusTavurnEnhancement": "Roadmap / Projected or entering deployment",
+          "disclosureInterfaceCompleteness": "Partial"
+        }
       }
     },
     {
@@ -595,7 +613,7 @@
       "discrepancyRequiredRevision": "Do not infer from documentation alone. Record code, test, receipt, and current-state evidence separately.",
       "auditRule": null,
       "claudeAudit": {
-        "canonicalDoctrineId": "DELEGATION_FRAMEWORK.md v1.0.0; agent-charter v1.0.0",
+        "canonicalDoctrineId": "DELEGATION_FRAMEWORK.md v1.0.0; agent-charter v1.0.0 | CR-13 Embodied constitutional agents and personal digital twins (operator-ratified 2026-08-02, CONTROLLING)",
         "doctrineSection": "'Bounded on every dimension' (scope/duration/spend/info-access/domains); Prohibitions; Immutability; revocation.states/effect:'immediate'; receipts.everyAutonomousActionMustGenerate",
         "repoPath": "app/api/codex/chat/agentiq-os/delegation/route.ts; services/delegation/delegationGrantStore.ts; services/homecoming/delegateStanding.ts; app/triad/components/codex/tabs/BoundedDelegationTab.tsx; types/orchestration.ts; services/iqube/intentQube.ts",
         "symbolComponent": "HandoffPayload/PolicyEnvelope (mandate schema); persistDelegationGrant/readActiveGrant/revokeActiveGrant/markGrantExpired; disposition:'ask' + awaiting_approval",
@@ -606,8 +624,17 @@
         "lastVerifiedCommit": "23b012473",
         "supportFinding": "Supported",
         "manuscriptImpact": "Strengthen present tense",
-        "recommendedAction": "Cite the delegation route + DELEGATION_FRAMEWORK.md + delegate-standing-gate.test.ts. Qualify one-degree delegation as an architectural property (no agent-initiated grant path exists), NOT an active guard. Recommend adding a route-lifecycle test and an explicit no-redelegation guard + canary if the manuscript asserts active enforcement.",
-        "notes": "Discrepancy: Overclaim on ONE-DEGREE delegation only — enforcement is structural (absence of an agent-initiated grant path) plus 'no-redelegation' constraint STRINGS on threshold routes (app/api/threshold/service/complete/route.ts:89, oauth/complete/route.ts:75); no code rejects a re-delegation attempt. Bounded/attributable/inspectable/revocable/accountable are all real. Active delegation state is in-memory keyed by persona_id (route.ts:47) with Supabase rehydration — single-instance/cold-start caveat. | 2026-08-02: PRD-AGM-011 'Agent Me Digital Twin (Tavus Pilot)' canonised for review at codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md. It establishes DELEGATED EMBODIMENT as a constitutional primitive: the Citizen is never embodied; delegated personas may be embodied; a Digital Twin is a capability attached to a delegated persona through bounded delegation. Chain: Citizen -> Polity Passport -> Delegation -> Persona -> Digital Twin -> Avatar Provider. Memory stays in Agent Me (provider is rendering only). Receipts unchanged. Provider-independent EmbodimentProvider adapter; D-ID becomes DIDProvider (already in place). EXECUTION NOT AUTHORISED. OPEN GAP flagged: the PRD specifies the constitutional chain but NOT the third-party disclosure surface the ratified embodied-delegate doctrine requires (agentsMustBeIdentifiedAsNonHuman is ratified; no rendering surface implements it). CI-07/CI-15 embodied-delegate claims REMAIN PROJECTED until implementation, tests and receipts exist."
+        "recommendedAction": "Per CR-13 (CONTROLLING - supersedes the two earlier partial classifications): STRENGTHEN current capability; QUALIFY ONLY the remaining enhancement layer. Embodied constitutional agents are functional through D-ID and constitutional knowledge grounding. Personal digital twins are fully integrated through Avaturn in the metaKnyts stack. Remaining work concerns dynamic personal knowledge, higher fidelity, continuity, and interface-level constitutional disclosure. Ch7: strengthen to state embodied constitutional agents already operate in functional form. Ch8: retain the rule that personal digital twins extend representation but do NOT acquire the constitutional status of the person. Ch15: state the implementation layering - constitutional agent -> constitutional knowledge grounding -> D-ID embodiment -> Avaturn personal digital twin -> Tavus/Tavurn enhancement roadmap. Epilogue: may depict embodied constitutional agents and personal digital twins as PRESENT capabilities; qualify only dynamic personal knowledge, higher fidelity, deeper continuity and fully surfaced disclosure. MUST NOT state 'personal digital twins are only partially implemented', nor imply the Tavus/Tavurn work creates the capability for the first time.",
+        "notes": "Discrepancy: Overclaim on ONE-DEGREE delegation only — enforcement is structural (absence of an agent-initiated grant path) plus 'no-redelegation' constraint STRINGS on threshold routes (app/api/threshold/service/complete/route.ts:89, oauth/complete/route.ts:75); no code rejects a re-delegation attempt. Bounded/attributable/inspectable/revocable/accountable are all real. Active delegation state is in-memory keyed by persona_id (route.ts:47) with Supabase rehydration — single-instance/cold-start caveat. | 2026-08-02: PRD-AGM-011 'Agent Me Digital Twin (Tavus Pilot)' canonised for review at codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md. It establishes DELEGATED EMBODIMENT as a constitutional primitive: the Citizen is never embodied; delegated personas may be embodied; a Digital Twin is a capability attached to a delegated persona through bounded delegation. Chain: Citizen -> Polity Passport -> Delegation -> Persona -> Digital Twin -> Avatar Provider. Memory stays in Agent Me (provider is rendering only). Receipts unchanged. Provider-independent EmbodimentProvider adapter; D-ID becomes DIDProvider (already in place). EXECUTION NOT AUTHORISED. OPEN GAP flagged: the PRD specifies the constitutional chain but NOT the third-party disclosure surface the ratified embodied-delegate doctrine requires (agentsMustBeIdentifiedAsNonHuman is ratified; no rendering surface implements it). CI-07/CI-15 embodied-delegate claims REMAIN PROJECTED until implementation, tests and receipts exist. | SUPERSEDED 2026-08-02 by CR-13. Governing doctrine: 'A machine may represent a person. It must never impersonate the person.' The remaining gap is INTERFACE-LEVEL DISCLOSURE COMPLETENESS, not absence of constitutional operation: where non-human status, principal, mandate, authority limits, provenance, receipt status, refusal, revocation, challenge and remedy exist in the architecture but are not fully surfaced at the embodiment interface, that is a surfacing gap. AUDIT-SCOPE NOTE: verified at HEAD, Avaturn has 0 occurrences in this repository and D-ID appears only as a type comment (types/aigentQube.ts:104); packages/avatar-host/ renders an EXTERNAL iframe at https://metavatar.agentiq.ai/metaVatar.html. The implementations are hosted OUTSIDE this repository (metaVatar service + metaKnyts stack). 'Not found in the audited repository' is a statement about SCOPE, not existence. CORRECTION TO THE AUDIT'S OWN CLAIM: 'the avatar layer has zero disclosure surface' was verified against the HOST WRAPPER (AvatarHostProps/AgentConfig/AvatarContext) only; disclosure implemented INSIDE the hosted metaVatar app was not visible and was wrongly treated as absent. Accurate statement: no disclosure fields cross the host boundary in this repository. To make CR-13's claims citable in the book's evidence chain, deposit into 03 Source Lineage: metaVatar/D-ID integration reference, Avaturn/metaKnyts integration reference, one demonstration receipt per layer, and deployed-environment evidence. Until then operator-attested - the CR-8 footing, resolvable the same way.",
+        "embodimentLayers": {
+          "didEmbodiment": "Implemented and functional",
+          "constitutionalKbGrounding": "Implemented and functional",
+          "avaturnPersonalDigitalTwins": "Fully integrated in the metaKnyts stack",
+          "personalDigitalTwinCapability": "Implemented and functional",
+          "dynamicPersonalKbs": "Under development",
+          "tavusTavurnEnhancement": "Roadmap / Projected or entering deployment",
+          "disclosureInterfaceCompleteness": "Partial"
+        }
       }
     },
     {
@@ -1198,6 +1225,25 @@
           "operational evidence from the deployed environment"
         ],
         "epiloguePassageRequiringDecision": "01-working-manuscript.md:6238-6254 'The Commons and the Registry' - depicts the Commons operating in the present indicative inside the day-in-the-life sequence"
+      },
+      {
+        "id": "CR-13",
+        "date": "2026-08-02",
+        "title": "Embodied constitutional agents and personal digital twins",
+        "status": "CONTROLLING - supersedes the two earlier partial classifications",
+        "embodimentLayers": {
+          "didEmbodiment": "Implemented and functional",
+          "constitutionalKbGrounding": "Implemented and functional",
+          "avaturnPersonalDigitalTwins": "Fully integrated in the metaKnyts stack",
+          "personalDigitalTwinCapability": "Implemented and functional",
+          "dynamicPersonalKbs": "Under development",
+          "tavusTavurnEnhancement": "Roadmap / Projected or entering deployment",
+          "disclosureInterfaceCompleteness": "Partial"
+        },
+        "replacesFinding": "Embodied constitutional agents are functional through D-ID and constitutional knowledge grounding. Personal digital twins are fully integrated through Avaturn in the metaKnyts stack. Remaining work concerns dynamic personal knowledge, higher fidelity, continuity, and interface-level constitutional disclosure.",
+        "governingDoctrine": "A machine may represent a person. It must never impersonate the person.",
+        "namingVariance": "PRD-AGM-011 says 'Tavus'; CR-13 says 'Tavurn'. Recorded as delivered; canonical spelling should be ratified into docs/platform-ontology.md.",
+        "auditScopeNote": "Avaturn 0 occurrences in this repo; D-ID one type comment; avatar-host renders external iframe metavatar.agentiq.ai. Implementations hosted outside the audited repository."
       }
     ],
     "registeredSources": [

@@ -527,6 +527,149 @@ The Commons may be upgraded to *implemented* or *operational* only when **all te
 
 ---
 
+### CR-13 — Embodied constitutional agents and personal digital twins (operator-ratified 2026-08-02)
+
+**Status:** **Embodied constitutional agents implemented and functional; personal digital twins fully
+integrated in the metaKnyts stack; dynamic personal knowledge and higher-fidelity continuity under
+further development.**
+
+**This is the controlling version. It SUPERSEDES the two earlier partial classifications** — the
+audit's *"the embodied delegate has no code, test or receipt"* (B-1) and the *"implemented in part"*
+reading of personal digital twins.
+
+The Constitutional Internet **already supports embodied constitutional agents.** D-ID provides the
+current visible and speaking avatar layer, grounded in constitutional knowledge bases and operating
+within the bounded-authority, mandate, refusal and constitutional-agent framework. **Personal digital
+twins are also already fully integrated through Avaturn within the metaKnyts stack.**
+
+> **A machine may represent a person. It must never impersonate the person.**
+
+#### Canonical implementation layers
+
+| Layer | Supplies | State |
+|---|---|---|
+| **1. Constitutional agent** | principal relationship · bounded delegation · mandate · authority limits · refusal · receipts · standing · constitutional rules | **Implemented** |
+| **2. Constitutional knowledge** | constitutional doctrine · role-specific knowledge · invariants · operating constraints · governed reasoning context | **Implemented and functional** |
+| **3. D-ID embodiment** | visible form · voice · speaking presence · current avatar interaction | **Implemented and functional** |
+| **4. Avaturn personal digital twin** | personalized embodiment · digital-twin representation · person-linked character continuity · metaKnyts integration | **Fully integrated and functional** |
+| **5. Dynamic personal-knowledge & fidelity** | dynamically updated personal knowledge · richer persistent memory · higher-fidelity likeness and behaviour · stronger context continuity · precise person-agent alignment · deeper constitutional disclosure at the interface | **Under development** |
+
+#### Tavus / Tavurn roadmap — enhancement, not first implementation
+
+**`PRD-AGM-011` does not introduce personal digital twins for the first time.** It governs the **next
+stage**: higher visual and behavioural fidelity · more dynamic personal knowledge · stronger
+continuity across contexts and sessions · deeper person/agent/form alignment · richer memory and
+personalization · more legible constitutional disclosure.
+
+- PRD: **Canonized**
+- Current role: **Enhancement roadmap**
+- Implementation: **Projected or entering deployment**, depending on active work
+- Operational claim: **not yet warranted for the enhancement layer**
+
+> ⚠ **Naming variance for the ontology.** `PRD-AGM-011` says **Tavus**; CR-13 says **Tavurn**
+> throughout. Recorded as delivered, not silently normalised. A canonical spelling should be ratified
+> into `docs/platform-ontology.md` — the same unresolved-name problem as the four Venture Lab forms
+> (CR-3).
+
+#### Canonical distinction
+
+> **Embodied constitutional agents already exist.**
+> **Personal digital twins already exist and are fully integrated in the metaKnyts stack.**
+> **What remains is not first implementation, but greater dynamism, fidelity, continuity and
+> constitutional legibility.**
+
+#### Constitutional disclosure — the actual remaining gap
+
+The constitutional grounding and digital-twin integrations are **already functional**. The remaining
+question is **how visibly and consistently the interface surfaces**: non-human status · principal ·
+mandate · authority limits · provenance · receipt status · refusal · revocation · challenge · remedy.
+
+**Where these exist in the underlying architecture but are not fully surfaced in the embodiment
+interface, the gap is one of interface-level disclosure completeness — not absence of constitutional
+operation.**
+
+#### Manuscript wording
+
+**May state:**
+
+> The Constitutional Internet **already supports embodied constitutional agents grounded in
+> constitutional knowledge bases.**
+
+> **Personal digital twins are fully integrated** within the metaKnyts stack through Avaturn.
+
+**For the roadmap:**
+
+> The next stage **increases the fidelity, dynamism, continuity and constitutional legibility** of
+> personal digital twins.
+
+**Must NOT state:**
+
+> ~~Personal digital twins are only partially implemented.~~
+
+Nor imply that the Tavus/Tavurn work **creates the capability for the first time**.
+
+#### Chapter effects
+
+- **Ch7 — The Machine Enters the World.** **Strengthen** — state that embodied constitutional agents
+  already operate in functional form.
+- **Ch8 — The Last Human Frontier.** **Retain** the rule that personal digital twins extend
+  representation but do **not** acquire the constitutional status of the person.
+- **Ch15 — When Something Acts in Your Name.** State the **implementation layering** clearly:
+  constitutional agent → constitutional knowledge grounding → D-ID embodiment → Avaturn personal
+  digital twin → Tavus/Tavurn enhancement roadmap.
+- **Epilogue.** The day-in-the-life sequence **may depict embodied constitutional agents and personal
+  digital twins as present capabilities.** Qualify **only** what is still under development: dynamic
+  personal knowledge, higher fidelity, deeper continuity, fully surfaced disclosure.
+
+#### Evidence gate for the next maturity stage
+
+The enhancement layer may be described as **fully mature** when: (1) personal knowledge updates
+dynamically; (2) continuity persists across sessions and contexts; (3) memory and context remain
+person-controlled; (4) the twin distinguishes constitutional canon from personal knowledge;
+(5) likeness and voice provenance are preserved; (6) mandate and revocation remain inspectable;
+(7) authority boundaries are enforced at action time; (8) receipts preserve consequential acts;
+(9) disclosure is visible and persistent; (10) deployed evidence demonstrates the complete flow.
+
+#### Governing rule
+
+> The constitutional agent supplies **authority**.
+> The constitutional knowledge base supplies **governed understanding**.
+> D-ID supplies **present embodiment**.
+> Avaturn supplies the **integrated personal digital twin**.
+> Tavus/Tavurn advances **fidelity, dynamism, continuity and legibility**.
+>
+> **The representation may become more faithful. The person remains the constitutional subject.**
+
+#### Audit-scope note — where the evidence lives
+
+Recorded for precision, **not** as a challenge to the ruling. The reconciliation audit's invariant is
+that only code, tests, receipts and deployment evidence establish implementation state **within its
+declared scope**, which was the `iQube-Protocol/AigentZBeta` repository. Verified at HEAD:
+
+- **Avaturn** — **0 occurrences** anywhere in this repository.
+- **Tavus / Tavurn** — appears only in artifacts created during this session.
+- **D-ID** — one type comment (`types/aigentQube.ts:104`). `packages/avatar-host/` renders an
+  **external iframe** at `https://metavatar.agentiq.ai/metaVatar.html`.
+
+**The implementations are therefore hosted outside this repository** — behind the metaVatar service
+and in the metaKnyts stack. That is entirely consistent with CR-13: *"not found in the audited
+repository"* is a statement about **scope**, not about existence, and the earlier B-1 finding
+overstated it by generalising from the host wrapper to the whole embodiment layer.
+
+**Correction to the audit's own claim.** The finding *"the avatar layer has zero disclosure surface"*
+was verified against `AvatarHostProps` / `AgentConfig` / `AvatarContext` — the **host wrapper**.
+Disclosure implemented **inside** the hosted metaVatar application was **not visible to the audit**
+and was wrongly treated as absent. The accurate statement is: *no disclosure fields cross the host
+boundary in this repository.*
+
+**To make CR-13's capability claims citable in the book's evidence chain**, deposit into
+`03 Source Lineage`: the metaVatar/D-ID integration reference · the Avaturn/metaKnyts integration
+reference · one demonstration receipt per layer · deployed-environment evidence. Until then these are
+**operator-attested** — the same footing CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and
+resolvable the same way.
+
+---
+
 ---
 
 ## Additions to integrate (author-directed)
