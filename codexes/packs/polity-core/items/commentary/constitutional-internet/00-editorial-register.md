@@ -62,11 +62,25 @@ appearance, consistent with the definition already carried in Chapter Twenty-Fou
 > This is also excellent. The ne correction: MVL is the metaMe Venture Lab not the metaMe Venture
 > Lab. Let's proceed to part 6.
 
-**Rule:** **MVL = metaMe Venture Lab.** The repeated phrase is a dictation artifact; the intent is
-that every expansion of *MVL* must read *metaMe Venture Lab* (not any other expansion). The
-editorial-master lock list confirms "metaMe Venture Lab naming." Ensure consistency at every
-occurrence (manuscript currently uses "metaMe Venture Lab" at the Ch22 and Ch24/epilogue
-references — verify none drift to alternatives).
+**RESOLVED (2026-08-02) — Editorial Master §4.3 is authoritative:**
+
+> Every instance of "Meta Venture Lab" must be replaced with: **metaMe Venture Lab**.
+> The abbreviation remains MVL.
+
+**Rule:** **MVL = metaMe Venture Lab.** The self-cancelling phrase in the manuscript body
+(`01-working-manuscript.md:4414`, "MVL is the metaMe Venture Lab not the metaMe Venture Lab") is a
+dictation/transcription artifact; per §4.3 the intended text is *"MVL is the metaMe Venture Lab not
+the **Meta** Venture Lab."* Replace every "Meta Venture Lab" occurrence with "metaMe Venture Lab",
+and **remove the stray editorial note itself** during the consolidation pass (it also carries a
+duplicated `PART VI` header). Verify no occurrence drifts to any other form.
+
+**Open ontology question for the ruling session (repo evidence, 2026-08-02):** the repo carries
+**four competing forms** — `metaMe Venture Lab` (manuscript/master), `Venture Lab` (ratified Horizen
+Amendments C/D/F/G), `Venture Lab α` (shipped `alpha-knyt-codex` cartridge, slug `venture-lab`), and
+the cartridge-id tokens `mvl` / `venture-lab` (`types/ventureQube.ts:35-36`). There is **no
+`docs/platform-ontology.md` entry** for the Venture Lab despite that file governing canonical
+spelling, and `VENTUREQUBE_SPEC.md` is registered `draft_wip — NOT ratified`. The book's form should
+be ratified into the ontology so code and prose converge.
 
 ### CR-4 — Present-tense consistency
 
