@@ -200,6 +200,16 @@ interface PrincipalWalletGate {
   capability: string;
   controlProven: boolean;
   detail: string;
+  /**
+   * WHO this verdict is about — the persona's T1 display label, never its id.
+   *
+   * The route has always returned it (`personaLabel`) precisely so a reader
+   * can tell a contradiction from a question, and this panel dropped it. When
+   * the Journey said "quarantined" and the wallet said "ready" there was
+   * nothing on either surface to reveal that they were describing different
+   * personas. Shown on every refusal so the next divergence names itself.
+   */
+  personaLabel: string | null;
 }
 
 /**
@@ -303,7 +313,42 @@ interface RegisterAgentPanelProps {
   onAgentSlugChange?: (agentSlug: string) => void;
 }
 
-export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugChange }: RegisterAgentPanelProps) {
+export function RegisterAgentPanel({
+  /*
+   * WHICH PERSONA THIS PANEL IS ABOUT (operator, 2026-08-02, 12:34).
+   *
+   *   > "The second card isn't rendering, the status bar isn't progressing and
+   *   >  there's no way to advance it in the wallet or journey picker."
+   *
+   * At that moment this panel said "This wallet is quarantined and cannot
+   * become your principal · Principal wallet not ready", while the wallet
+   * beside it said "Principal wallet ready · Control Proven ·
+   * 0xa85e4662…". Neither was lying about the row it read — they were reading
+   * DIFFERENT PERSONAS.
+   *
+   * `JourneyRunSurface` passes `personaId` to every surface it mounts
+   * (JourneyRunSurface.tsx:494) and this panel declared it and then dropped
+   * it. Without a hint `personaFetch` falls back to
+   * localStorage['currentPersonaId'], and when that is unset the server
+   * resolves "first persona owned, created_at ASC" — the devagent row named in
+   * personaSpine.tsx's own comment. The wallet's Principal Wallet section and
+   * Pending Actions BOTH pass `personaIdHint`, so they read the operator's
+   * real persona. One surface hinted, its neighbour not, is the exact
+   * inconsistency the spine exists to abolish (CLAUDE.md, 2026-07-20).
+   *
+   * The consequence was not cosmetic: the gate read a legacy address
+   * (LEGACY_EVIDENCE_ONLY → "quarantined"), so the Register button was
+   * withdrawn, and the ladder counted a stranger's signing requests — which is
+   * why the agent-key card never appeared and nothing could be advanced from
+   * either side.
+   *
+   * Every spine read below carries this hint. All of them, or none: a panel
+   * that mixes hinted and unhinted reads contradicts itself between renders.
+   */
+  personaId,
+  agentSlug: initialAgentSlug,
+  onAgentSlugChange,
+}: RegisterAgentPanelProps) {
   const [agentSlug, setAgentSlugState] = useState<string>(initialAgentSlug ?? PILOT_AGENTS[0].slug);
   const setAgentSlug = useCallback(
     (slug: string) => {
@@ -364,7 +409,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
        * PulseTransparencyToggle already does.
        */
       const [reqRes, cardRes] = await Promise.all([
-        personaFetch('/api/wallet/signing-requests', { cache: 'no-store' }),
+        personaFetch('/api/wallet/signing-requests', { cache: 'no-store', personaIdHint: personaId }),
         fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' }),
       ]);
       const reqJson = (await reqRes.json().catch(() => null)) as {
@@ -407,7 +452,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
       // "nothing has happened" — the same rule the wallet count follows.
       setProgress(null);
     }
-  }, [agentSlug, walletGate?.ready]);
+  }, [agentSlug, walletGate?.ready, personaId]);
 
   // The flow step, readable inside readProgress without re-creating the
   // callback (and its polling interval) on every step change.
@@ -505,12 +550,13 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
 
   const readWalletGate = useCallback(async () => {
     try {
-      const res = await personaFetch('/api/wallet/principal/status', { cache: 'no-store' });
+      const res = await personaFetch('/api/wallet/principal/status', { cache: 'no-store', personaIdHint: personaId });
       const json = (await res.json()) as {
         ok?: boolean;
         capability?: string;
         controlProven?: boolean;
         detail?: string;
+        personaLabel?: string | null;
       };
       if (!res.ok || !json.ok) {
         // Unknown is not ready, and it is also not "you have no wallet".
@@ -519,6 +565,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           capability: 'UNKNOWN',
           controlProven: false,
           detail: 'Your principal wallet state could not be read, so a signing mandate cannot be offered yet.',
+          personaLabel: null,
         });
         return;
       }
@@ -527,6 +574,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
         capability: String(json.capability),
         controlProven: Boolean(json.controlProven),
         detail: String(json.detail ?? ''),
+        personaLabel: typeof json.personaLabel === 'string' ? json.personaLabel : null,
       });
     } catch {
       setWalletGate({
@@ -534,9 +582,10 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
         capability: 'UNKNOWN',
         controlProven: false,
         detail: 'Your principal wallet state could not be read, so a signing mandate cannot be offered yet.',
+        personaLabel: null,
       });
     }
-  }, []);
+  }, [personaId]);
 
   useEffect(() => {
     void readWalletGate();
@@ -560,7 +609,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   useEffect(() => {
     (async () => {
       try {
-        const res = await personaFetch('/api/persona/sponsored-agents', { cache: 'no-store' });
+        const res = await personaFetch('/api/persona/sponsored-agents', { cache: 'no-store', personaIdHint: personaId });
         if (!res.ok) return;
         const json = await res.json();
         if (Array.isArray(json?.agents)) {
@@ -576,7 +625,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
         // Soft-fail — the pilot-agent dropdown still works without this.
       }
     })();
-  }, []);
+  }, [personaId]);
 
   useEffect(() => () => {
     if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
@@ -587,10 +636,17 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   const prepare = useCallback(async () => {
     setFlow({ step: 'preparing' });
     try {
+      /*
+       * The mandate is CREATED for whichever persona the server resolves. If
+       * that is not the persona the wallet lists Pending Actions for, the
+       * request exists and is invisible — which is what "the second card isn't
+       * rendering" was. Prepared under the same persona this panel reads.
+       */
       const res = await personaFetch('/api/journey/moneypenny-horizen/register/mandate/prepare', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentSlug }),
+        personaIdHint: personaId,
       });
       const json = await readJsonOrExplain(res, 'register/mandate/prepare');
       if (!res.ok || !json.ok) {
@@ -602,7 +658,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
     } catch (err) {
       setFlow({ step: 'error', message: err instanceof Error ? err.message : 'Could not prepare registration' });
     }
-  }, [agentSlug]);
+  }, [agentSlug, personaId]);
 
   const pollStatus = useCallback(
     async (txHash: string, ownerWalletAddress: string, network: string, attempts: number) => {
@@ -611,6 +667,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ agentSlug, txHash, ownerWalletAddress, network }),
+          personaIdHint: personaId,
         });
         const json = await readJsonOrExplain(res, 'register/status');
         if (!res.ok || !json.ok) {
@@ -636,7 +693,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
       setFlow({ step: 'polling', txHash, ownerWalletAddress, network, attempts: attempts + 1 });
       pollTimerRef.current = setTimeout(() => void pollStatus(txHash, ownerWalletAddress, network, attempts + 1), POLL_INTERVAL_MS);
     },
-    [agentSlug],
+    [agentSlug, personaId],
   );
 
   useEffect(
@@ -729,6 +786,15 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
               <p className="mt-1 leading-relaxed text-slate-400">{shown.body}</p>
               {walletGate.detail && walletGate.capability !== 'LEGACY_EVIDENCE_ONLY' && (
                 <p className="mt-1 text-[11px] text-slate-500">{walletGate.detail}</p>
+              )}
+              {/* Which persona this refusal is about. A refusal that does not
+                  say whose wallet it read is indistinguishable from a
+                  contradiction when the wallet beside it says otherwise. */}
+              {walletGate.personaLabel && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Read for persona <span className="text-slate-400">{walletGate.personaLabel}</span>. If your wallet
+                  shows a different persona, switch to that one and this refusal will re-read.
+                </p>
               )}
               <button
                 onClick={() => {

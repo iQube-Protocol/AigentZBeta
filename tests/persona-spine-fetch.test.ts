@@ -298,6 +298,70 @@ describe('spine endpoints are reached only through personaFetch', () => {
     expect(src).toMatch(/currentPersonaId/);
   });
 
+  /*
+   * THE THIRD FAILURE MODE (operator, 2026-08-02, 12:34).
+   *
+   * The two above are about TRANSPORT. This one is about a surface that uses
+   * the right transport and still reads the wrong persona: `personaFetch`
+   * WITHOUT `personaIdHint` on a component that was handed a `personaId`.
+   * Unhinted, the hint falls back to localStorage['currentPersonaId'], and
+   * when that is unset the server resolves "first persona owned" — a
+   * different row from the one its hinted neighbour reads.
+   *
+   * What it looked like live: the Journey's Register stage said "This wallet
+   * is quarantined and cannot become your principal · Principal wallet not
+   * ready" while the wallet open beside it said "Principal wallet ready ·
+   * Control Proven · 0xa85e4662…". Same route, same transport, same operator,
+   * two personas. The Register button was withdrawn on a stranger's wallet
+   * state and the ceremony could not be advanced from either side.
+   *
+   * ALL OR NONE is the testable form: a surface holding a personaId must pass
+   * it on every spine read, because a surface that hints on some reads and not
+   * others contradicts ITSELF between renders — the worse half of the defect.
+   */
+  it('a surface handed a personaId hints on every spine read — all of them, or none', () => {
+    const SURFACES = [
+      // The live offender. Journey mounts it with personaId
+      // (JourneyRunSurface.tsx) and it read four spine routes unhinted.
+      'components/journey/RegisterAgentPanel.tsx',
+      // Its counterpart across the seam: the wallet leg of the same ceremony.
+      // If these two disagree about the persona, the mandate is created for
+      // one and listed for the other, and the operator sees no card at all.
+      'components/wallet/PendingActionsPanel.tsx',
+      'components/wallet/PrincipalWalletProvisioningPanel.tsx',
+    ];
+
+    const offenders: string[] = [];
+    for (const file of SURFACES) {
+      const src = stripComments(readSource(file));
+      expect(src, `${file} no longer takes a personaId — remove it from this list`).toMatch(
+        /personaId/,
+      );
+
+      // Each `personaFetch(` call, sliced to its own argument list. Comments
+      // are blanked (not removed) by stripComments, so offsets still hold.
+      let from = 0;
+      for (;;) {
+        const at = src.indexOf('personaFetch(', from);
+        if (at === -1) break;
+        from = at + 'personaFetch('.length;
+        // The call ends at the next `);` that closes it — enough of a window
+        // to see whether the options object carries the hint.
+        const end = src.indexOf(');', at);
+        const call = src.slice(at, end === -1 ? at + 400 : end);
+        if (!/personaIdHint/.test(call)) {
+          const line = src.slice(0, at).split('\n').length;
+          offenders.push(`${file}:${line} — personaFetch without personaIdHint`);
+        }
+      }
+    }
+
+    expect(
+      offenders,
+      `these reads resolve a fallback persona while their neighbours resolve the real one:\n${offenders.join('\n')}`,
+    ).toEqual([]);
+  });
+
   it('the participation surfaces specifically are persona-aware', () => {
     // Named explicitly because these are the surfaces the Venture Lab
     // Participation work is about to build on, and because the steward tab was
