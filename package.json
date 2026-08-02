@@ -44,6 +44,7 @@
     "wallet:start": "DOTENV_CONFIG_PATH=../../.env.local npm --prefix services/agentiq-wallet run start",
     "deploy:bitcent": "node scripts/deploy-qct-bitcoin.js",
     "check:bitcent-name": "node scripts/check-bitcent-name-availability.js",
+    "verify:bitcent-etch": "node scripts/verify-bitcent-etch.js",
     "register:moneypenny-horizen": "tsx scripts/register-moneypenny-horizen.ts",
     "record:bitcent-etch-receipt": "tsx scripts/record-bitcent-etch-receipt.ts",
     "deploy:qct-erc20": "hardhat run scripts/deploy-qct-erc20.js",
