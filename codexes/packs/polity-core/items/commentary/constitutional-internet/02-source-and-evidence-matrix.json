@@ -85,19 +85,19 @@
       "discrepancyRequiredRevision": "Do not infer from documentation alone. Record code, test, receipt, and current-state evidence separately.",
       "auditRule": null,
       "claudeAudit": {
-        "canonicalDoctrineId": "inv.polity.163 Time Sovereignty (canonical); inv.polity.212 The time dividend; inv.polity.213; inv.polity.192; inv.polity.189",
+        "canonicalDoctrineId": "The Digitterian Tsunami (Volume I, Atanda, Ark Agent Publishing 2009; retitled ed. Jan 2013) — DEPOSITED 2026-08-02; inv.polity.163 Time Sovereignty (canonical); inv.polity.212; inv.polity.213; inv.polity.192; inv.polity.189",
         "doctrineSection": "codexes/packs/polity-core/items/commentary/coyn-thesis/02-time-sovereignty.md; 01-the-fallacy-of-free-information.md; ci-cc-001 Rule 0",
-        "repoPath": "codexes/packs/irl/foundation/appendix-a_canonical-invariants.md (163,189,192,212,213); canonical-invariants.seed.json; 00-editorial-master.md 'Volume I Continuity'",
+        "repoPath": "codexes/packs/polity-core/items/commentary/constitutional-internet/03-volume-i-digitterian-tsunami.md (primary source); 03-volume-i-verification-notes.md; codexes/packs/irl/foundation/appendix-a_canonical-invariants.md",
         "symbolComponent": "n/a (doctrine)",
         "implementationState": "Ratified",
         "testPath": "n/a",
         "receiptEvidence": "n/a",
         "environment": "n/a",
         "lastVerifiedCommit": "23b012473",
-        "supportFinding": "Partially supported",
+        "supportFinding": "Supported",
         "manuscriptImpact": "Citation only",
-        "recommendedAction": "Deposit a dated Volume I source record into polity-core before the citation pass; otherwise Ch1's lineage rests ENTIRELY on external/archival evidence. The Ch1 TIME argument is fully covered by ratified doctrine (163/212/213) and can be cited now.",
-        "notes": "LOAD-BEARING GAP: The Digitterian Tsunami (Volume I) exists NOWHERE in this repo as text, extract, archived manuscript or registered pack item. All 25 'Digitterian' hits are inside the Volume II manuscript, its master/register, the matrix, 00-project-structure.md and one collections.json string. Same for 'NEO-citizen' and the 'twenty-one principles' (never enumerated internally). Ch1's continuity claims (2009 dating, blog-post origin, 21 principles, NEO-citizen coinage, anticipation of later volumes) have NO internal corroborating record - only the author's restatement in the manuscript being audited. External: Operator external pass."
+        "recommendedAction": "Cite 03-volume-i-digitterian-tsunami.md as the primary internal source. Per ruling R-18, attribute the 'future volumes' anticipation to the 2013 Preface rather than the 2009 original.",
+        "notes": "G-1 CLOSED 2026-08-02: Volume I deposited. Now corroborated internally: 2009 dating (copyright page + preface); blog-post origin as 'The Aquarian Tsunami' at aquariantsunami.com; the twenty-one principles FULLY ENUMERATED (7 Information: Granularity/Ever-Presence/Interconnectedness/Living Data/Convergence/Codependence/Continuity; 7 Social: Consumerization/Multipolarity/Borderlessness/NEO-Tribalism/Planetarianism/Global Citizenship/Social Activism; 7 Ethical: Me-centricity/Co-ownership/Transparency/Privacy/Duality/Zeroing/Imagination); the NEO-citizen coinage (NEO = new earth order); and the anticipation of later volumes NEAR-VERBATIM ('Future volumes will show how technology underpinned by these principles will reshape our societies, values and lives'). Ch1's selective list and the Editorial Master's Volume I Continuity list both check out against the source. CAVEAT (V-4): the 'future volumes' sentence is in the JANUARY 2013 Preface, not the 2009 original - see ruling R-18. External archival verification of the 2009 publication remains the operator's pass."
       }
     },
     {
@@ -240,8 +240,8 @@
         "lastVerifiedCommit": "23b012473",
         "supportFinding": "Partially supported",
         "manuscriptImpact": "Citation only",
-        "recommendedAction": "Cite inv.polity.177/179 and Art II/III as the ratified spine. The four-tier hierarchy (179) is flagged in its own provenance as 'the #1 deferred item from pass 1', now closed - cite as canonical. The historical lineage requires the operator's archival evidence.",
-        "notes": "Ratified doctrine covers the chapter's spine; the SPECIFIC HISTORICAL LINEAGE DOES NOT EXIST INTERNALLY. NO UDHR text, NO 1998 UN Human Rights Defenders Declaration, NO archived Internet Foundation 'Universal Declaration of Digital Rights' material anywhere in the repo. Manuscript line 728 ('the Internet Foundation and I called for a Universal Declaration of Digital Rights') has ZERO internal corroboration - authorial assertion pending archival evidence. External: Operator external pass."
+        "recommendedAction": "Cite inv.polity.177/179 and Art II/III as the ratified spine. The four-tier hierarchy (179) is flagged in its own provenance as 'the #1 deferred item from pass 1', now closed - cite as canonical. The historical lineage requires the operator's archival evidence. Cite Volume I Appendix 1 for the digital-rights draft. Amend the Internet Foundation attribution (R-16) and settle Bill-vs-Declaration (R-17).",
+        "notes": "Ratified doctrine covers the chapter's spine; the SPECIFIC HISTORICAL LINEAGE DOES NOT EXIST INTERNALLY. NO UDHR text, NO 1998 UN Human Rights Defenders Declaration, NO archived Internet Foundation 'Universal Declaration of Digital Rights' material anywhere in the repo. Manuscript line 728 ('the Internet Foundation and I called for a Universal Declaration of Digital Rights') has ZERO internal corroboration - authorial assertion pending archival evidence. External: Operator external pass. | UPDATE 2026-08-02: Volume I deposited, supplying Appendix 1 'Draft Universal Bill of Digital Rights' (18 articles mapped to UDHR arts 6,12,13,14,15,17,18,19,20,26,27,28) as an internal dated source - G-2 PARTIALLY CLOSED. BUT NEW CONTRADICTION (V-1): 'Internet Foundation' appears ZERO times in Volume I; Volume I attributes the call to the AUTHOR and to NEO-CITIZENS ('I believe NEO-citizens will call for a Universal Bill of Digital Rights'). Ch5's 'the Internet Foundation and I called for...' is therefore NOT corroborated - ruling R-16. ALSO (V-2): Volume I says 'Universal BILL of Digital Rights' throughout; Ch5 says 'DECLARATION' - ruling R-17. ALSO (V-3): Volume I's body text miscalls the UDHR the 'Universal Bill of Human Rights'; its own Appendix 1 preamble gets it right. Do NOT propagate the error."
       }
     },
     {
@@ -421,7 +421,7 @@
         "supportFinding": "Partially supported",
         "manuscriptImpact": "Citation only",
         "recommendedAction": "Three of four authority claims map cleanly (permissionless->Art I §2 + inv.175; participatory->Art IV §1-14 + inv.180; universal scope->Art I §7, Art IX §1 + inv.177; bounded jurisdiction->Art IX §§1-2,§7). PROPOSE the five-line formulation as a polity invariant so the book cites canon rather than coining it. RULE on the plutocracy addendum.",
-        "notes": "TWO GAPS: (1) The manuscript's disciplined five-line formulation ('The rights are universal / The invitation is global / Entry is permissionless / Constitutional authority is participatory / Coercive jurisdiction remains bounded by law') has NO single canonical doctrine home - it is a NEW compression not present as an invariant. (2) PLUTOCRACY/OLIGARCHY ESSENTIALLY UNSOURCED INTERNALLY: 1 occurrence in the invariant corpus, 1 in seed JSON, 1 in Experience Sovereignty.txt, 1 in Threshold Articles.txt, 3 in editorial master, 4 in register (CR-6, an INSTRUCTION not a source) vs 14 in the manuscript. The plutocracy/state-alignment addendum is author-original prose with no ratified doctrine behind it. External: Operator external pass."
+        "notes": "TWO GAPS: (1) The manuscript's disciplined five-line formulation ('The rights are universal / The invitation is global / Entry is permissionless / Constitutional authority is participatory / Coercive jurisdiction remains bounded by law') has NO single canonical doctrine home - it is a NEW compression not present as an invariant. (2) PLUTOCRACY/OLIGARCHY ESSENTIALLY UNSOURCED INTERNALLY: 1 occurrence in the invariant corpus, 1 in seed JSON, 1 in Experience Sovereignty.txt, 1 in Threshold Articles.txt, 3 in editorial master, 4 in register (CR-6, an INSTRUCTION not a source) vs 14 in the manuscript. The plutocracy/state-alignment addendum is author-original prose with no ratified doctrine behind it. External: Operator external pass. | UPDATE 2026-08-02: Volume I deposited. Its Ch2 'The Rise of the Virtual State' supplies an internal source for the POPULAR SOVEREIGNTY argument underpinning permissionless/participatory authority, citing ICCPR Art.1(2) and UNCLOS. The PLUTOCRACY gap (G-4) is UNAFFECTED - Volume I does not discuss plutocracy."
       }
     },
     {
@@ -925,7 +925,7 @@
         "supportFinding": "Partially supported",
         "manuscriptImpact": "Qualify wording",
         "recommendedAction": "STEPS 1-7: STRENGTHEN, don't hedge - each has code, most have passing tests, the crossing has a named PRD with canonical welcome copy. EXIT: rewrite to the four verbs that are real (revoke agent, end mandate, rotate identity, hold your own data with a self-custody qualifier) and move the rest into the obligation register the chapter already uses. Keep 'must permit movement in both directions' as a NORMATIVE must tied to Art X §7, but do not let surrounding prose imply it is satisfied.",
-        "notes": "Discrepancy: Overclaim ON EXIT SPECIFICALLY. Sequence claim (1-7) is Supported and unusually well-evidenced - a 25-test crossing suite asserting constitutional BOUNDARIES not merely the happy path. Exit is NOT: 3 of 8 verbs Implemented, 3 Partial, 2 NOT FOUND. Movement INWARD is a first-class tested receipted multi-protocol subsystem; movement OUTWARD is a soft-delete flag, two domain-scoped exports and three revocation primitives. MODAL MISMATCH: manuscript writes 'must permit' while its doctrine (Art X §6) says 'shall retain, WHERE FEASIBLE'. The manuscript is STRONGER THAN ITS OWN CONSTITUTION. Structurally this is the asymmetry Ch2 indicts platforms for. BEST UNUSED CITATION: services/threshold/welcome.ts already tells the crossing person verbatim what citizenship does NOT give them."
+        "notes": "Discrepancy: Overclaim ON EXIT SPECIFICALLY. Sequence claim (1-7) is Supported and unusually well-evidenced - a 25-test crossing suite asserting constitutional BOUNDARIES not merely the happy path. Exit is NOT: 3 of 8 verbs Implemented, 3 Partial, 2 NOT FOUND. Movement INWARD is a first-class tested receipted multi-protocol subsystem; movement OUTWARD is a soft-delete flag, two domain-scoped exports and three revocation primitives. MODAL MISMATCH: manuscript writes 'must permit' while its doctrine (Art X §6) says 'shall retain, WHERE FEASIBLE'. The manuscript is STRONGER THAN ITS OWN CONSTITUTION. Structurally this is the asymmetry Ch2 indicts platforms for. BEST UNUSED CITATION: services/threshold/welcome.ts already tells the crossing person verbatim what citizenship does NOT give them. | UPDATE 2026-08-02: Volume I Appendix 1 Article 16 ('the right to freely move one's personal and identity data from the person's home territory to another, and to have personal identity data held in asylum...') is the STRONGEST internal doctrinal warrant for the exit/portability claim - which makes the 3-of-8 implementation gap a doctrine-conformance gap, not merely an unbuilt feature."
       }
     }
   ],
@@ -1081,6 +1081,20 @@
       "BOOK_DOCTRINE_LINEAGE.md",
       "BOOK_DISCREPANCY_REGISTER.md",
       "BOOK_PLATE_EVIDENCE_MAP.md"
+    ],
+    "sourceDeposits": [
+      {
+        "date": "2026-08-02",
+        "artifact": "The Digitterian Tsunami (Volume I)",
+        "path": "codexes/packs/polity-core/items/commentary/constitutional-internet/03-volume-i-digitterian-tsunami.md",
+        "closes": "G-1",
+        "partiallyCloses": "G-2",
+        "newRulings": [
+          "R-16 Internet Foundation attribution",
+          "R-17 Bill vs Declaration",
+          "R-18 2009 vs 2013 Preface dating"
+        ]
+      }
     ]
   }
 }

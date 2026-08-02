@@ -55,7 +55,22 @@ file declares itself *bootstrap material*; the database is authoritative, frozen
 These are the passages where the manuscript asserts something the repo's ratified corpus does not
 carry. Each needs either a deposited source, a proposed invariant, or a prose requalification.
 
-### G-1 — *The Digitterian Tsunami* (Volume I) is absent from the repo entirely
+### ~~G-1~~ — **CLOSED 2026-08-02** · *The Digitterian Tsunami* (Volume I) deposited
+
+Volume I was deposited at `03-volume-i-digitterian-tsunami.md` (with verification notes at
+`03-volume-i-verification-notes.md`). Chapter 1's continuity claims — the 2009 dating, the
+blog-post origin as *The Aquarian Tsunami*, the twenty-one principles (now **fully enumerated**
+internally), the NEO-citizen coinage, and the anticipation of later volumes (**near-verbatim**) —
+are now corroborated by a primary internal source. **CI-01 moves Partially supported → Supported.**
+
+Three caveats carried forward as rulings **R-16/R-17/R-18** (see the verification notes): the
+Internet Foundation appears **nowhere** in Volume I; Volume I says *"Bill"* where Volume II says
+*"Declaration"*; and the "future volumes" sentence sits in the **2013** Preface, not the 2009
+original. External archival verification of the 2009 publication remains the operator's pass.
+
+<details><summary>Original G-1 finding (superseded)</summary>
+
+**G-1 — *The Digitterian Tsunami* (Volume I) is absent from the repo entirely**
 **Chapter 1.** No text, extract, archived manuscript, or registered pack item exists. All 25
 occurrences of "Digitterian" are inside the Volume II manuscript, its editorial master/register, the
 evidence matrix, `00-project-structure.md` and one `collections.json` description string. The same
@@ -67,13 +82,34 @@ restatement in the manuscript being audited**.
 *Note:* the Ch1 **time** argument is fully covered by ratified doctrine (`inv.polity.163`/`212`/`213`)
 and is citable today.
 
-### G-2 — No UDHR / 1998 Declaration / Universal Declaration of Digital Rights material
+</details>
+
+### G-2 — **PARTIALLY CLOSED 2026-08-02** · UDHR / 1998 Declaration / Internet Foundation material
+
+Volume I's **Appendix 1 — Draft Universal Bill of Digital Rights** (18 articles, each mapped to UDHR
+articles 6, 12, 13, 14, 15, 17, 18, 19, 20, 26, 27, 28) is now an internal dated source for the
+digital-rights lineage in Chapters 5 and 10, and its Article 16 (data portability + identity asylum)
+is the strongest internal warrant for Chapter 24's exit claim.
+
+**Still outstanding:** the UDHR text, the 1998 UN Human Rights Defenders Declaration (A/RES/53/144),
+and — critically — any **dated Internet Foundation** publication. Volume I supplies the *author's*
+draft; it does **not** supply the *institutional* call.
+
+<details><summary>Original G-2 finding (partially superseded)</summary>
+
+**G-2 — No UDHR / 1998 Declaration / Universal Declaration of Digital Rights material**
 **Chapter 5, Chapter 10.** Grep for `UDHR|Universal Declaration` returns only the two citations of
 UDHR Art. 15 in `commentary/polity/03-citizenship-in-the-agentic-internet.md`, the manuscript's own
 prose, the editorial master's restatement, the matrix's "required" field, and `inv.polity.177`.
 The manuscript's claim that *"the Internet Foundation and I called for a Universal Declaration of
 Digital Rights"* has **zero internal corroboration** — an authorial assertion pending archival
 evidence.
+
+**2026-08-02 update — now actively contradicted, not merely uncorroborated.** `grep -c "Internet
+Foundation"` over Volume I returns **0**. Volume I attributes the call to the author and to
+NEO-citizens: *"I believe **NEO-citizens will call for** a Universal Bill of Digital Rights."*
+
+</details>
 
 ### G-3 — The five-line authority formulation is a new coinage, not canon
 **Chapter 10.** *"The rights are universal / The invitation is global / Entry is permissionless /

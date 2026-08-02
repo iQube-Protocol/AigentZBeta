@@ -92,6 +92,7 @@ including refusals — are submitted to the DVN canister on a fifteen-minute cyc
 any unqualified claim that governance/ratification acts are immutably anchored today.
 
 ### A-4 · Ch21 — the **Internet Foundation** has zero repo existence
+### 🔺 ESCALATED 2026-08-02 — and zero existence in **Volume I** either
 **Type:** Overclaim · **Support:** Partially supported · **Impact:** Qualify wording
 
 `grep -ril "internet foundation"` returns **only manuscript and commentary files**. Absent from every
@@ -104,6 +105,14 @@ against**.
 **Ruling options:** (a) supply the founding/sponsorship instrument (not in this repo) and cite it;
 (b) move every Internet Foundation passage to explicit forward-looking framing.
 **Recommended:** treat as a publication blocker for Ch21 until (a) or (b).
+
+**Escalation (2026-08-02).** The deposit of Volume I made this worse, not better. `grep -c "Internet
+Foundation"` over the 2009/2013 source returns **0** — the Foundation is absent from the author's own
+prior volume, which attributes the digital-rights call to *"NEO-citizens"* and to the author
+personally. The Foundation is therefore unattested in: the codebase, every ratified charter, the
+ratification ledger, `docs/platform-ontology.md`, **and Volume I**. It now underwrites two separate
+present-tense claims (Ch5's authorship of the digital-rights call, and Ch21's sponsor/guardian role)
+with no instrument behind either. See also ruling **R-16**.
 
 ### A-5 · Ch21/Ch22 — the **Commons is ratified but not built**, and canaries forbid claiming otherwise
 **Type:** Overclaim · **Impact:** Move to future tense
@@ -304,7 +313,10 @@ Surfaced by the audit; **no protected file was modified**. Each needs operator s
 | R-8 | 19 | Is "a refusal produces a receipt" universal or a pattern? (Fixing MoneyPenny is small but money-adjacent.) |
 | R-9 | 12/20 | Ratify CI-CC-001, or accept that the two most dependent chapters cite a *proposed* document? |
 | R-10 | 10 | Propose the five-line authority formulation as an invariant? Ratify a plutocracy source? |
-| R-11 | 1/5 | Deposit a dated Volume I record and the Universal Declaration of Digital Rights archive? |
+| ~~R-11~~ | 1/5 | ~~Deposit a dated Volume I record~~ — **Volume I DEPOSITED 2026-08-02** (G-1 closed). Outstanding: UDHR text, A/RES/53/144, and dated **Internet Foundation** material. |
+| **R-16** | 5 | **Volume I attributes the digital-rights call to the author and NEO-citizens — the Internet Foundation appears ZERO times in it.** Amend Ch5's "the Internet Foundation and I called for…", or supply dated Internet Foundation material? |
+| **R-17** | 5 | Volume I says **"Universal Bill of Digital Rights"**; Ch5 says **"Declaration"**. Adopt Volume I's wording for the historical claim, or keep "Declaration" and explain the renaming? |
+| **R-18** | 1 | Volume I's *"future volumes"* sentence is in the **January 2013 Preface**, not the 2009 original. Attribute the anticipation to 2013, or claim it for 2009? (Precise-dating risk.) |
 | R-12 | 21 | Canonical Venture Lab name + `platform-ontology.md` entry? |
 | R-13 | 22 | Fix README license / `package.json` / copyright / governance files before publication? |
 | R-14 | 9/12 | May remedy be described in present tense given appeal is deferred in code? |
