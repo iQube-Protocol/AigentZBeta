@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-02_amplify-cap-resolved-trace-types.md",
         "updates/2026-08-02_ci-corpus-externalization-001.md",
         "updates/2026-08-02_track2-stage-gated-development-cadence.md",
         "updates/2026-08-02_track2-freeze-path-readiness.md",
