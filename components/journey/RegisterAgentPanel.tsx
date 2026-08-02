@@ -55,6 +55,7 @@ import { personaFetch } from '@/utils/personaSpine';
 import {
   requestWalletSurface,
   subscribeWalletSurfaceCompletion,
+  subscribeWalletSurfaceAck,
 } from '@/services/wallet/walletSurfaceRequest';
 import { AgentCardSurface } from './AgentCardSurface';
 
@@ -264,6 +265,61 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   const [cardVersion, setCardVersion] = useState(0);
   const [flow, setFlow] = useState<FlowState>({ step: 'idle' });
   const [walletGate, setWalletGate] = useState<PrincipalWalletGate | null>(null);
+  /*
+   * WHETHER ANY WALLET ANSWERED (operator, 2026-08-02, fourth round).
+   *
+   * Three fixes were aimed at which component hears a wallet-surface request,
+   * and each time the operator reported the same thing: the button does
+   * nothing and the console says nothing. That report was true and useless,
+   * because a request delivered to nobody was indistinguishable from one
+   * delivered and mishandled.
+   *
+   * Now a host ACKs when it actually opens the wallet. No ACK inside the
+   * window below means no wallet in this host answered — a fact, which this
+   * panel states along with the manual route, instead of leaving a dead
+   * button. Handing over is still best-effort; being SILENT about a failed
+   * hand-over is what stops here.
+   */
+  const [handoffUnanswered, setHandoffUnanswered] = useState(false);
+  const ackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const awaitingAckTokenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeWalletSurfaceAck((ack) => {
+      if (awaitingAckTokenRef.current !== ack.token) return;
+      awaitingAckTokenRef.current = null;
+      if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
+      setHandoffUnanswered(false);
+    });
+    return () => {
+      unsubscribe();
+      if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
+    };
+  }, []);
+
+  /** Ask for a wallet surface and notice if nothing answers. */
+  const handOverToWallet = useCallback(
+    (surface: 'PRINCIPAL_WALLET_PROVISIONING' | 'PENDING_ACTIONS', agentSlugForReturn: string, agentName: string) => {
+      setHandoffUnanswered(false);
+      const token = requestWalletSurface({
+        surface,
+        origin: 'HORIZEN_REGISTER',
+        subjectAgentId: `aigent-${agentSlugForReturn}`,
+        returnTarget: `journey:horizen:register:aigent-${agentSlugForReturn}`,
+        returnLabel: `Continue to ${agentName} registration`,
+      });
+      awaitingAckTokenRef.current = token;
+      if (ackTimerRef.current) clearTimeout(ackTimerRef.current);
+      // Generous enough that a host doing real work is not called silent;
+      // short enough that the operator is not left staring at a dead button.
+      ackTimerRef.current = setTimeout(() => {
+        if (awaitingAckTokenRef.current !== token) return;
+        awaitingAckTokenRef.current = null;
+        setHandoffUnanswered(true);
+      }, 1500);
+    },
+    [],
+  );
 
   const readWalletGate = useCallback(async () => {
     try {
@@ -494,13 +550,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
               )}
               <button
                 onClick={() => {
-                  requestWalletSurface({
-                    surface: 'PRINCIPAL_WALLET_PROVISIONING',
-                    origin: 'HORIZEN_REGISTER',
-                    subjectAgentId: `aigent-${selectedAgent.slug}`,
-                    returnTarget: `journey:horizen:register:aigent-${selectedAgent.slug}`,
-                    returnLabel: `Continue to ${selectedAgent.displayName} registration`,
-                  });
+                  handOverToWallet('PRINCIPAL_WALLET_PROVISIONING', selectedAgent.slug, selectedAgent.displayName);
                 }}
                 className="mt-2 flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
               >
@@ -549,13 +599,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
             <div className="mt-2 flex gap-2">
               <button
                 onClick={() => {
-                  requestWalletSurface({
-                    surface: 'PENDING_ACTIONS',
-                    origin: 'HORIZEN_REGISTER',
-                    subjectAgentId: `aigent-${selectedAgent.slug}`,
-                    returnTarget: `journey:horizen:register:aigent-${selectedAgent.slug}`,
-                    returnLabel: `Continue to ${selectedAgent.displayName} registration`,
-                  });
+                  handOverToWallet('PENDING_ACTIONS', selectedAgent.slug, selectedAgent.displayName);
                 }}
                 className="flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
               >
@@ -568,6 +612,19 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
                 Back
               </button>
             </div>
+            {/* A hand-over that reached nobody is reported, never left blank.
+                The mandate is safe either way — it is a row in the signing
+                store, not something held in this page — so the manual route
+                genuinely works and is worth naming precisely. */}
+            {handoffUnanswered && (
+              <p className="mt-2 rounded-md border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-relaxed text-amber-200">
+                No wallet surface in this page answered the hand-over, so nothing opened. Your mandate is
+                unaffected — it is stored and still waiting. Open your wallet from the{' '}
+                <span className="text-amber-100">Welcome, &lt;persona&gt;</span> badge at the top of the cartridge and
+                choose <span className="text-amber-100">Pending actions</span> to sign request{' '}
+                <span className="font-mono">{flow.step === 'awaiting-signature' ? flow.requestId : ''}</span> there.
+              </p>
+            )}
           </div>
         )}
 

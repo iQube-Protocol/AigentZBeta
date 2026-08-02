@@ -219,12 +219,98 @@ describe('the surface is mounted in the wallet shell', () => {
     expect(drawer).toMatch(/<PendingActionsPanel/);
   });
 
-  it('the entry row appears only when something is actually waiting', () => {
-    // A permanent "0 pending" row trains the operator to ignore it.
-    expect(drawer).toMatch(/\(pendingActionCount \?\? 0\) > 0/);
+  /*
+   * ── Why the "only when waiting" rule was reversed (operator, 2026-08-02) ──
+   *
+   *   > "even if it doesn't open I dont see anywhere to sign it manually if I
+   *   >  open the wallet my self manually."
+   *
+   * The row rendered only for `count > 0`, so an unreadable count (null) was
+   * pixel-identical to none — the unknown/absent collapse this codebase
+   * forbids — and, worse, the signing surface was reachable only through a
+   * successful count query. The manual route exists precisely for when the
+   * deep link fails; a manual route that can itself vanish is not a route.
+   */
+  it('the entry row is present for a signed-in persona in every count state', () => {
+    // Anchored on CODE, not on the comment — stripComments removes the
+    // comment, which is how the first version of this canary passed on ''.
+    const at = drawer.indexOf("setWalletSurface('PENDING_ACTIONS')");
+    expect(at).toBeGreaterThan(-1);
+    const block = drawer.slice(at - 400, at + 2600);
+    // Gated on identity only — never on the count.
+    expect(block).toMatch(/sessionEmail && effectivePersonaId && \(\s*<button/);
+    expect(block, 'the count must not gate the row').not.toMatch(
+      /effectivePersonaId && \(pendingActionCount \?\? 0\) > 0 &&/,
+    );
+  });
+
+  it('the three count states say three different things', () => {
+    const at = drawer.indexOf("setWalletSurface('PENDING_ACTIONS')");
+    const block = drawer.slice(at - 400, at + 2600);
+    // unknown: explicitly not the same claim as none
+    expect(block).toMatch(/pendingActionCount === null/);
+    expect(block).toMatch(/not the same as having none/i);
+    // none, and waiting — distinct copy, so the operator reads a state
+    expect(block).toMatch(/Nothing waiting on your signature/);
+    expect(block).toMatch(/Waiting on your signature or approval/);
+  });
+
+  it('the count badge renders only for a KNOWN non-zero count', () => {
+    // A badge over an unreadable count would assert a number nobody read.
+    const at = drawer.indexOf("setWalletSurface('PENDING_ACTIONS')");
+    const block = drawer.slice(at - 400, at + 2600);
+    expect(block).toMatch(/pendingActionCount !== null && pendingActionCount > 0 &&/);
   });
 
   it('an unknown count is not rendered as zero', () => {
     expect(drawer).toMatch(/setPendingActionCount\(null\)/);
+  });
+});
+
+describe('a wallet hand-over that reaches nobody is reported, not silent', () => {
+  /*
+   * Three rounds were spent guessing which component hears a wallet-surface
+   * request, and every round ended with the same operator report: the button
+   * does nothing, the console says nothing. Delivery was unobservable by
+   * construction, so "no listener" and "listener that rendered nothing" were
+   * the same observation. The ACK makes them different.
+   */
+  const bus = stripComments(readSource('services/wallet/walletSurfaceRequest.ts'));
+  const register = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+
+  it('the channel carries an acknowledgement', () => {
+    expect(bus).toMatch(/WALLET_SURFACE_ACK_TYPE/);
+    expect(bus).toMatch(/export function acknowledgeWalletSurfaceRequest/);
+    expect(bus).toMatch(/export function subscribeWalletSurfaceAck/);
+  });
+
+  it('every host that can open a wallet acknowledges when it acts', () => {
+    for (const host of [
+      'app/triad/components/CodexPanelDynamic.tsx',
+      'app/components/codex/CodexCopilotLayer.tsx',
+      'app/components/content/SmartWalletDrawer.tsx',
+    ]) {
+      const src = stripComments(readSource(host));
+      expect(src, `${host} subscribes`).toMatch(/subscribeWalletSurfaceRequest/);
+      expect(src, `${host} acknowledges`).toMatch(/acknowledgeWalletSurfaceRequest\(/);
+    }
+  });
+
+  it('publish and acknowledge are both traced, with the token', () => {
+    // "Nothing in console" must become evidence: publish-without-ack localises
+    // the fault to the receiver, neither localises it to the click.
+    expect(bus).toMatch(/trace\('published'/);
+    expect(bus).toMatch(/trace\('acknowledged'/);
+    expect(bus).toMatch(/\[wallet-surface\]/);
+  });
+
+  it('the Register stage states an unanswered hand-over and names the manual route', () => {
+    expect(register).toMatch(/subscribeWalletSurfaceAck/);
+    expect(register).toMatch(/handoffUnanswered/);
+    expect(register).toMatch(/No wallet surface in this page answered/);
+    // The mandate survives the failed hand-over; saying so is why the manual
+    // route is worth following rather than starting over.
+    expect(register).toMatch(/stored and still waiting/);
+    expect(register).toMatch(/Pending actions/);
   });
 });

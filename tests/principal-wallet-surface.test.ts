@@ -277,7 +277,9 @@ describe('Register detects and explains before it offers', () => {
   });
 
   it('passes a serializable return label, not a callback', () => {
-    expect(register).toMatch(/returnLabel: `Continue to \$\{selectedAgent\.displayName\} registration`/);
+    // Both call sites now go through `handOverToWallet`, which builds the
+    // request once — so the fields are asserted where they are constructed.
+    expect(register).toMatch(/returnLabel: `Continue to \$\{agentName\} registration`/);
     // The old `onReturn` closure could not cross the iframe boundary at all.
     expect(register).not.toMatch(/onReturn:/);
   });
@@ -361,10 +363,12 @@ describe('the acceptance conditions the operator specified', () => {
 
   it('Register opens the wallet on PRINCIPAL_WALLET_PROVISIONING with a serializable request', () => {
     expect(register).toMatch(/requestWalletSurface\(\{/);
-    expect(register).toMatch(/surface: 'PRINCIPAL_WALLET_PROVISIONING'/);
+    // The surface is chosen by the caller and passed through the one helper
+    // that builds the request; the identity fields live in the helper.
+    expect(register).toMatch(/handOverToWallet\('PRINCIPAL_WALLET_PROVISIONING'/);
     expect(register).toMatch(/origin: 'HORIZEN_REGISTER'/);
-    expect(register).toMatch(/subjectAgentId: `aigent-\$\{selectedAgent\.slug\}`/);
-    expect(register).toMatch(/returnTarget: `journey:horizen:register:aigent-\$\{selectedAgent\.slug\}`/);
+    expect(register).toMatch(/subjectAgentId: `aigent-\$\{agentSlugForReturn\}`/);
+    expect(register).toMatch(/returnTarget: `journey:horizen:register:aigent-\$\{agentSlugForReturn\}`/);
   });
 
   it('successful provisioning does not announce completion before CONTROL_PROVEN', () => {

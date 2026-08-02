@@ -17,6 +17,7 @@ import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRight
 import dynamic from "next/dynamic";
 import {
   subscribeWalletSurfaceRequest,
+  acknowledgeWalletSurfaceRequest,
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
 import { WalletSurfaceHostProvider } from "@/services/wallet/walletSurfaceHost";
@@ -199,6 +200,9 @@ export default function CodexPanelDynamic({
       subscribeWalletSurfaceRequest((request) => {
         setWalletSurfaceDeepLink(request);
         setWalletDrawerOpen(true);
+        // ACK at the moment of acting, not on receipt — see
+        // WALLET_SURFACE_ACK_TYPE. A requester with no ACK can say so.
+        acknowledgeWalletSurfaceRequest(request.token, 'CodexPanelDynamic');
       }),
     [],
   );

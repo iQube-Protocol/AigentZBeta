@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import {
   subscribeWalletSurfaceRequest,
+  acknowledgeWalletSurfaceRequest,
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
 import { useIsWalletSurfaceHostClaimed } from "@/services/wallet/walletSurfaceHost";
@@ -1270,6 +1271,7 @@ export function CodexCopilotLayer({
       // Route through the SAME launcher every other wallet entry point uses,
       // so a host that owns the surface still gets handed it.
       launchWalletRef.current?.("wallet");
+      acknowledgeWalletSurfaceRequest(request.token, "CodexCopilotLayer");
     });
   }, [walletSurfaceHostClaimed]);
   // A ref because `launchWallet` is defined just below and the subscription

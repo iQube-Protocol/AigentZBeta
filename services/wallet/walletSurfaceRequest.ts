@@ -42,6 +42,27 @@ export type RequestableWalletSurface = 'PRINCIPAL_WALLET_PROVISIONING' | 'PENDIN
 
 export const WALLET_SURFACE_REQUEST_TYPE = 'metame:wallet-surface-request:v1';
 export const WALLET_SURFACE_COMPLETION_TYPE = 'metame:wallet-surface-completion:v1';
+/**
+ * A host saying "I heard that, and I am opening the wallet."
+ *
+ * ── Why an acknowledgement exists (operator, 2026-08-02, fourth round) ─────
+ *
+ * Three rounds were spent guessing WHICH component hears a request — module
+ * bus, then an unmounted drawer, then a mounted-but-closed copilot — and every
+ * round produced the same operator report: "nothing in console either when
+ * clicked". That report was accurate and carried no information, because
+ * delivery was unobservable by construction: `requestWalletSurface` returns a
+ * token and is documented as best-effort, so a request reaching nobody looks
+ * exactly like a request reaching somebody who then failed to render.
+ *
+ * Guessing again would be the fourth guess. Instead the channel now reports
+ * itself: a host that honours a request ACKs it, and a requester that gets no
+ * ACK knows — and can SAY — that no wallet in this host answered. That is the
+ * difference between a dead button and a stated refusal, and it is the same
+ * discipline every other surface here follows: "could not reach" is a fact to
+ * report, never a blank.
+ */
+export const WALLET_SURFACE_ACK_TYPE = 'metame:wallet-surface-ack:v1';
 
 /** Fully serializable. No functions, no class instances, no DOM nodes. */
 export interface WalletSurfaceRequest {
@@ -97,14 +118,36 @@ export interface WalletSurfaceCompletion {
   result?: Record<string, string | number | boolean | null>;
 }
 
+/** Sent back by whichever host is actually going to open the wallet. */
+export interface WalletSurfaceAck {
+  type: typeof WALLET_SURFACE_ACK_TYPE;
+  /** The token of the request being acknowledged. */
+  token: number;
+  /** Which host answered — named so a duplicate ACK is diagnosable, not anonymous. */
+  host: string;
+}
+
 type RequestListener = (request: WalletSurfaceRequest) => void;
 type CompletionListener = (completion: WalletSurfaceCompletion) => void;
+type AckListener = (ack: WalletSurfaceAck) => void;
 
 let nextToken = 1;
 
 /** Same-document channel, for hosts where requester and wallet share a realm. */
 const LOCAL_EVENT = 'metame-wallet-surface';
 const LOCAL_COMPLETION_EVENT = 'metame-wallet-surface-completion';
+const LOCAL_ACK_EVENT = 'metame-wallet-surface-ack';
+
+/**
+ * One line per hop, so "nothing in console" becomes evidence instead of a
+ * dead end. Publish and ACK are logged with the same token: seeing the publish
+ * without an ACK localises the fault to the receiving side in one glance, and
+ * seeing neither localises it to the click.
+ */
+function trace(stage: string, detail: Record<string, unknown>): void {
+  if (typeof console === 'undefined') return;
+  console.info(`[wallet-surface] ${stage}`, detail);
+}
 
 function isRequest(v: unknown): v is WalletSurfaceRequest {
   return (
@@ -138,10 +181,15 @@ function isCompletion(v: unknown): v is WalletSurfaceCompletion {
  * the legitimate cross-origin embed hosts this exists to serve. The RECEIVER
  * validates shape, and acts only on surfaces it recognises.
  */
-function broadcast(message: WalletSurfaceRequest | WalletSurfaceCompletion): void {
+function broadcast(message: WalletSurfaceRequest | WalletSurfaceCompletion | WalletSurfaceAck): void {
   if (typeof window === 'undefined') return;
 
-  const localName = message.type === WALLET_SURFACE_REQUEST_TYPE ? LOCAL_EVENT : LOCAL_COMPLETION_EVENT;
+  const localName =
+    message.type === WALLET_SURFACE_REQUEST_TYPE
+      ? LOCAL_EVENT
+      : message.type === WALLET_SURFACE_ACK_TYPE
+        ? LOCAL_ACK_EVENT
+        : LOCAL_COMPLETION_EVENT;
   try {
     window.dispatchEvent(new CustomEvent(localName, { detail: message }));
   } catch {
@@ -187,8 +235,44 @@ export function requestWalletSurface(input: {
     ...(input.returnTarget ? { returnTarget: input.returnTarget } : {}),
     ...(input.returnLabel ? { returnLabel: input.returnLabel } : {}),
   };
+  trace('published', { token: request.token, surface: request.surface, origin: request.origin });
   broadcast(request);
   return request.token;
+}
+
+/**
+ * A host declaring it heard a request and is opening the wallet for it.
+ *
+ * Called by the host at the moment it acts, never on mere receipt — an ACK
+ * from a listener that then renders nothing would restore exactly the
+ * ambiguity this removes.
+ */
+export function acknowledgeWalletSurfaceRequest(token: number, host: string): void {
+  trace('acknowledged', { token, host });
+  broadcast({ type: WALLET_SURFACE_ACK_TYPE, token, host });
+}
+
+/** Subscribe to acknowledgements (the requester). Returns the unsubscribe function. */
+export function subscribeWalletSurfaceAck(listener: AckListener): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const isAck = (v: unknown): v is WalletSurfaceAck =>
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { type?: unknown }).type === WALLET_SURFACE_ACK_TYPE &&
+    typeof (v as { token?: unknown }).token === 'number';
+  const onMessage = (e: MessageEvent) => {
+    if (isAck(e.data)) listener(e.data);
+  };
+  const onLocal = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    if (isAck(detail)) listener(detail);
+  };
+  window.addEventListener('message', onMessage);
+  window.addEventListener(LOCAL_ACK_EVENT, onLocal as EventListener);
+  return () => {
+    window.removeEventListener('message', onMessage);
+    window.removeEventListener(LOCAL_ACK_EVENT, onLocal as EventListener);
+  };
 }
 
 /** The wallet says what happened. Serializable, so it crosses the same boundaries. */

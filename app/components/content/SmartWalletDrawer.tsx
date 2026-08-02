@@ -21,7 +21,7 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
-import { subscribeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
+import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
 import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
@@ -597,6 +597,7 @@ export default function SmartWalletDrawer({
         if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' && request.surface !== 'PENDING_ACTIONS') return;
         setWalletSurface(request.surface);
         setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
+        acknowledgeWalletSurfaceRequest(request.token, "SmartWalletDrawer");
       }),
     [],
   );
@@ -3881,26 +3882,65 @@ export default function SmartWalletDrawer({
                 </section>
               )}
               {/*
-                PENDING ACTIONS ENTRY — shown only when something is actually
-                waiting. A permanently visible row reading "0 pending" trains
-                the operator to ignore it, and the count is the whole signal.
-                Absent while unknown, never rendered as zero.
+                PENDING ACTIONS ENTRY — always present for a signed-in persona.
+
+                It used to render only when `pendingActionCount > 0`, on the
+                reasoning that a permanent "0 pending" row trains the operator
+                to ignore it. That reasoning cost more than it saved:
+
+                  · A count that could not be READ (null) rendered exactly like
+                    a count of zero — absent. So "could not check" and "you have
+                    none" were the same pixels, which is the collapse this
+                    codebase forbids everywhere else. The old comment claimed
+                    "absent while unknown, never rendered as zero"; absent IS
+                    how zero rendered, so the two were indistinguishable.
+
+                  · It made the signing surface reachable ONLY through a
+                    successful count query. When the deep link from Journey did
+                    not open the wallet, the operator opened the wallet
+                    themselves and found — in their words — nowhere to sign.
+                    A wallet whose signing surface can vanish is not a wallet
+                    the operator can fall back to, and falling back to it is the
+                    entire point of the manual route.
+
+                The row now states which of the three things is true, and opens
+                the surface in all of them (MS-9 holds: it can always act — the
+                surface itself reports emptiness or an unreadable list in its
+                own words).
               */}
-              {sessionEmail && effectivePersonaId && (pendingActionCount ?? 0) > 0 && (
+              {sessionEmail && effectivePersonaId && (
                 <button
                   type="button"
                   onClick={() => setWalletSurface('PENDING_ACTIONS')}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-violet-500/30 bg-violet-500/5 p-3 text-left transition-colors hover:bg-violet-500/10"
+                  className={`flex w-full items-center justify-between gap-3 rounded-2xl border p-3 text-left transition-colors ${
+                    (pendingActionCount ?? 0) > 0
+                      ? 'border-violet-500/30 bg-violet-500/5 hover:bg-violet-500/10'
+                      : 'border-slate-800 bg-slate-900/40 hover:bg-slate-900/70'
+                  }`}
                 >
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-violet-100">Pending actions</span>
-                      <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">
-                        {pendingActionCount}
+                      <span
+                        className={`text-xs font-medium ${
+                          (pendingActionCount ?? 0) > 0 ? 'text-violet-100' : 'text-slate-200'
+                        }`}
+                      >
+                        Pending actions
                       </span>
+                      {pendingActionCount !== null && pendingActionCount > 0 && (
+                        <span className="inline-flex items-center rounded-full border border-violet-500/40 bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-200">
+                          {pendingActionCount}
+                        </span>
+                      )}
                     </span>
                     <span className="mt-0.5 block text-[11px] text-white/40">
-                      Waiting on your signature or approval
+                      {pendingActionCount === null
+                        ? // Not the same statement as "none" — and saying so is
+                          // what lets the operator try rather than give up.
+                          'Could not be read just now — this is not the same as having none'
+                        : pendingActionCount > 0
+                          ? 'Waiting on your signature or approval'
+                          : 'Nothing waiting on your signature'}
                     </span>
                   </span>
                   <ChevronRight className="h-4 w-4 shrink-0 text-white/30" aria-hidden="true" />
