@@ -28,10 +28,16 @@ It is **not** *Entering deployment*: implementation has **not begun** and execut
 not authorised** (PRD §32 — an execution plan must be written and approved first). The audited code
 remains classical (`node:crypto` `randomBytes` for all IVs, keys and identifiers).
 
-**Permitted manuscript wording now** (CR-9): *"The Constitutional Internet **is integrating** quantum
-entropy to strengthen the randomness upon which keys, identifiers, privacy, and constitutional
-randomization processes depend."* Upgradeable to *"uses"* only after implementation, tests, receipts
-and deployment evidence exist. **Publication target: implement before final publication.**
+**Permitted manuscript wording — CR-9 three-stage rule** (corrected 2026-08-02; the earlier draft
+permitted *"is integrating"* at Projected, which was inconsistent with execution-not-authorised):
+
+| State | Permitted wording |
+|---|---|
+| **Projected** ← *current* | *"is **specified to integrate**"* / *"the **roadmap integrates**"* |
+| Entering deployment | *"is integrating"* |
+| Operational | *"uses"* |
+
+**Publication target: implement before final publication.**
 
 **The manuscript's narrower quantum position was already correct and is unaffected** — *"We have not
 attempted to defeat quantum cryptography. We use quantum mechanics to strengthen randomness and,
@@ -132,9 +138,12 @@ operators, governance and continuity, or current institutional status. **Ch21's 
 sponsor/guardian role therefore remains unsupported.** The question to close is no longer *"did this
 organisation exist"* (it did) but *"what is its constitutional mandate today."*
 
-*Verification caveat:* the IAPP citation is **operator-attested**; the agent could not independently
-retrieve it (`iapp.org` → HTTP 403; `web.archive.org` blocked). Recommend archiving a copy into
-`03 Source Lineage` — the predecessor link is already broken.
+*Verification: **EXTERNALLY VERIFIED** (upgraded 2026-08-02).* The article has been independently
+retrieved from the live IAPP page and archived as registered source **`SRC-IF-IAPP-2017-001`**
+(`03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md`, sha256 `de36753f…dd6a`). The earlier
+*operator-attested* qualification recorded a limitation of the **agent's retrieval**, not of the
+evidence, and no longer applies. The live IAPP URL remains the primary external source; the archived
+Markdown is the durable Polity Core evidence record.
 
 <details><summary>Original A-4 finding (superseded in its absolute form)</summary>
 

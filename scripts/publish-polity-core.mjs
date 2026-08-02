@@ -14,7 +14,8 @@
  *
  * On success it writes services/polity/frameworks/autodrive-cids.json with the
  * { asset, version, cid, publishedAt } records. Paste the CIDs into
- * codexes/packs/polity-core/items/AMENDMENT_RECORDS.md.
+ * codexes/packs/polity-core/items/AMENDMENT_RECORDS.md, and for source-lineage
+ * records into the matching SRC-*.json under autoDrive.cid.
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
@@ -41,6 +42,11 @@ const ASSETS = [
   { label: 'delegation-framework-doc', version: '1.0.0', path: 'codexes/packs/polity-core/items/DELEGATION_FRAMEWORK.md' },
   { label: 'standing-framework-doc', version: '1.0.0', path: 'codexes/packs/polity-core/items/STANDING_FRAMEWORK.md' },
   { label: 'governance-framework-doc', version: '1.0.0', path: 'codexes/packs/polity-core/items/GOVERNANCE_FRAMEWORK.md' },
+
+  // Constitutional Internet — canonical source-lineage records (CR-8, 2026-08-02).
+  // Canonical, frozen, provenance-bearing → Auto Drive. The repo keeps the pointer;
+  // paste the resulting CID into the record's .json under autoDrive.cid.
+  { label: 'src-if-iapp-2017-001', version: '1.0.0', path: 'codexes/packs/polity-core/items/commentary/constitutional-internet/03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md' },
 ];
 
 async function main() {

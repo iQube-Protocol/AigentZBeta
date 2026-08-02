@@ -205,6 +205,58 @@ root/persona separation, metaNet/blakNet separation, and the two product invaria
 > **No party that supplies entropy may thereby acquire the capacity to reconstruct, correlate or
 > control the identifier, key, person or action derived from it.**
 
-**Manuscript rule:** *"is integrating"* now; *"uses"* only after implementation, tests, receipts and
-deployment evidence. The *"we have not attempted to defeat quantum cryptography"* formulation is
-retained verbatim — it was always correct.
+**Manuscript rule — CR-9 three-stage language rule** (corrected 2026-08-02):
+
+| State | Permitted wording |
+|---|---|
+| **Projected** ← *current* | *"is **specified to integrate**"* / *"the **roadmap integrates**"* |
+| Entering deployment | *"is integrating"* |
+| Operational | *"uses"* |
+
+*"is integrating"* was initially drafted as the permitted-now wording; it was withdrawn from the
+Projected stage because it implies active implementation while execution is not authorised. The
+*"we have not attempted to defeat quantum cryptography"* formulation is retained verbatim — it was
+always correct.
+
+---
+
+## Registered external source — SRC-IF-IAPP-2017-001 (2026-08-02)
+
+**IAPP, *"BSI Group eyeing ethical data use,"* Sam Pfeifle, 1 June 2017.**
+`https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use` ·
+archived at `03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md` ·
+sha256 `de36753f…dd6a` · **verificationStatus: independently-retrieved-live-source**
+
+**Source hierarchy:** the live IAPP URL is the **primary external source**; the archived Markdown is
+the **durable Polity Core evidence record**. The archive exists because the older linked
+representation of the initiative is already broken.
+
+### What it establishes
+
+1. The Internet Foundation existed as an NGO by at least **2013**.
+2. It was seeking the creation of a universal declaration of digital rights.
+3. IAPP had covered that effort **as far back as 2013**.
+4. Dele Atanda and the Foundation had proposed ethical-data-use standards work to BSI before 2017.
+5. That work concerned privacy, ownership, consent, fair use, data transfer, correction, erasure,
+   arbitration and notification.
+6. It connected to standards work beyond baseline legal compliance, including GDPR and the changing
+   UK data-protection environment.
+
+### What it does NOT establish
+
+The Foundation's **present constitutional mandate**, current legal or operational status, present
+relationship to the polity, governance structure, or current relationship to metaProof. Those require
+a **separate canonical founding and mandate instrument**.
+
+### Chapter effect
+
+| Chapter | Lineage effect |
+|---|---|
+| **Ch5 — Human Rights, Digital Rights, and Personhood Rights** | *Doctrine lineage.* The *"the Internet Foundation and I called for a Universal Declaration of Digital Rights"* attribution is **externally verified**. Supersedes **R-16**. |
+| **Ch10 — By What Authority?** | *Authority lineage.* The permissionless/participatory authority argument gains an externally evidenced institutional actor with a dated public record. **G-4 (plutocracy) unaffected.** |
+| **Ch21 — The Polity as Constitutional Institute** | *Institutional lineage.* **Historical existence supported; present mandate still uncodified.** The present-tense sponsor/guardian passages remain unsupported. |
+
+**The governing distinction, to be carried consistently through all three chapters:**
+
+> **Historical existence and UDDR lineage — externally verified.**
+> **Current constitutional mandate — pending canonical documentation.**

@@ -1,0 +1,39 @@
+{
+  "sourceId": "SRC-IF-IAPP-2017-001",
+  "title": "IAPP — BSI Group eyeing ethical data use (2017)",
+  "publisher": "International Association of Privacy Professionals",
+  "author": "Sam Pfeifle",
+  "publicationDate": "2017-06-01",
+  "retrievedDate": "2026-08-02",
+  "url": "https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use",
+  "sha256": "de36753f0093502e4b857a4690bc055eec1064016aa2d1face5b08a8c613dd6a",
+  "verificationStatus": "independently-retrieved-live-source",
+  "canonicalLocation": "Polity Core/Constitutional Internet/03 Source Lineage/Internet Foundation and UDDR",
+  "repoPath": "codexes/packs/polity-core/items/commentary/constitutional-internet/03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md",
+  "primaryExternalSource": "https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use",
+  "durableEvidenceRecord": "SRC-IF-IAPP-2017-001.md",
+  "autoDrive": {
+    "status": "pending-upload",
+    "cid": null,
+    "note": "Canonical record — publish via scripts/publish-polity-core.mjs (operator runs locally; outbound HTTPS is blocked in the agent sandbox). Do not fabricate this CID."
+  },
+  "checksumNote": "sha256 is the checksum of the archive record as delivered by the operator on 2026-08-02. It covers the evidence record, not the copyrighted IAPP article.",
+  "establishes": [
+    "The Internet Foundation existed as a non-governmental organization by at least 2013.",
+    "The Internet Foundation was seeking the creation of a universal declaration of digital rights.",
+    "IAPP had covered that effort as far back as 2013.",
+    "Dele Atanda and the Internet Foundation had proposed ethical-data-use standards work to BSI before the 2017 article.",
+    "That work concerned ethical definitions and standards for privacy, ownership, consent, fair use, data transfer, correction, erasure, arbitration, and notification.",
+    "The initiative was connected to standards work beyond baseline legal compliance, including GDPR and the changing UK data-protection environment."
+  ],
+  "doesNotEstablish": [
+    "the Internet Foundation's present constitutional mandate",
+    "its current legal or operational status",
+    "its present relationship to the polity",
+    "its governance structure",
+    "its current relationship to metaProof"
+  ],
+  "supportsChapters": ["CI-05", "CI-10", "CI-21"],
+  "rulingApplied": "CR-8",
+  "tags": ["Internet Foundation","Universal Declaration of Digital Rights","UDDR","digital rights","human rights","ethical data use","BSI","privacy","consent","data ownership","standards history"]
+}
