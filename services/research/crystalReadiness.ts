@@ -106,6 +106,25 @@ export interface CrystalReadinessCheck {
   name: string;
   passed: boolean;
   detail: string;
+  /**
+   * WHAT FIXES THIS, in the lifecycle ladder's register (operator ruling,
+   * 2026-08-02).
+   *
+   * ── The defect this closes ────────────────────────────────────────────────
+   *
+   * `detail` states a measurement — "3/14 invariants carry zero intra-crystal
+   * relationships (21.4%), need ≤ 10%". A reader who does not already know the
+   * substrate cannot get from that to an action, and the actions differ per
+   * check by KIND: some need more corpus, some need relationships recorded, one
+   * needs a provenance classification, one cannot be fixed at all because the
+   * domain is empty. A failing check that does not say what fixes it sends the
+   * operator to debug the engine, which is exactly what happened on 2026-08-02.
+   *
+   * `null` when the check passed — a remedy for a satisfied condition is noise.
+   * Computed HERE, beside the measurement that produced it, so the two can
+   * never describe different situations (inv.engineering.036).
+   */
+  remedy: string | null;
 }
 
 export interface CrystalReadinessReport {
@@ -335,6 +354,9 @@ export async function runCrystalReadinessReport(
             `could not read domain '${crystalDomain}' for experiment '${input.experimentId}' from the invariant ` +
             `substrate: ${error instanceof Error ? error.message : String(error)} — reported as not-ready, ` +
             `never crashed and never silently passed`,
+          remedy:
+            'This is an infrastructure fault, not a finding about the collection. Nothing about the crystal can ' +
+            'be concluded from it. Restore the invariant substrate and re-run.',
         },
       ],
     };
@@ -342,6 +364,20 @@ export async function runCrystalReadinessReport(
 
   const invariantCount = invariants.length;
   const checks: CrystalReadinessCheck[] = [];
+
+  /**
+   * The one remedy that is NOT a remedy — stated once, shared by every check
+   * that can only fail because the domain is empty.
+   *
+   * An empty domain is not a defective crystal, and telling the operator to
+   * "fix" one of these checks would send them to correct something that is not
+   * broken. The work is corpus construction, which is scientific.
+   */
+  const EMPTY_DOMAIN_REMEDY =
+    `Nothing here has failed. Domain '${crystalDomain}' holds no invariants, so this check has nothing to ` +
+    `assess. The missing thing is the crystal itself: Track 2 corpus acquisition — admit external sources, ` +
+    `extract candidates, validate them through the receipted lifecycle, and assign the eligible ones to the ` +
+    `ratified domain. Scientific work; no governance act and no code change moves it.`;
 
   // 1. Selection space — Arm C's fixed slice must remain a genuine ⊆40%
   // proper subset at meaningful size (EXP-P1 README §3).
@@ -356,14 +392,31 @@ export async function runCrystalReadinessReport(
         ? `no invariants found in domain '${crystalDomain}' — no ⊆40% subset choice is possible`
         : `⌊0.4 × ${invariantCount}⌋ = ${sliceCap} available for a fixed Arm C slice ` +
           `(need ≥ ${minMeaningfulSliceSize} to be meaningful, and < ${invariantCount} to remain a proper subset)`,
+    remedy: selectionSpaceOk
+      ? null
+      : invariantCount === 0
+        ? EMPTY_DOMAIN_REMEDY
+        : `Grow the collection. At ${invariantCount} invariants the ⊆40% guard caps the Arm C slice at ` +
+          `${sliceCap}, below the ${minMeaningfulSliceSize} a meaningful subset needs. Continue Track 2 accrual — ` +
+          `the size falls out of the frozen task set and this guard, never from a chosen number, and no invariant ` +
+          `is authored to reach one. Scientific work.`,
   });
 
   // 2. Derivation headroom (heuristic — see looksDerivationEligible's docs).
   const derivationEligible = invariants.filter(looksDerivationEligible);
   const derivationFraction = invariantCount > 0 ? derivationEligible.length / invariantCount : 0;
+  const derivationOk = invariantCount > 0 && derivationFraction >= minDerivationEligibleFraction;
   checks.push({
     name: 'derivation-headroom',
-    passed: invariantCount > 0 && derivationFraction >= minDerivationEligibleFraction,
+    passed: derivationOk,
+    remedy: derivationOk
+      ? null
+      : invariantCount === 0
+        ? EMPTY_DOMAIN_REMEDY
+        : `Acquire relational and conditional structure, not more facts. The 12 derivation tasks need invariants ` +
+          `whose CONJUNCTIONS entail unstated conclusions; a collection of isolated atomic assertions gives the ` +
+          `generative-sufficiency probe nothing to measure. Target sources accordingly in Track 2 — this is not ` +
+          `fixed by re-tagging existing rows. Scientific work.`,
     detail:
       `${derivationEligible.length}/${invariantCount} invariants show relational/conditional/compositional ` +
       `shape by a HEURISTIC proxy (semanticType ∈ {constraint, law}, or a logical-connective statement pattern) ` +
@@ -382,6 +435,17 @@ export async function runCrystalReadinessReport(
   checks.push({
     name: 'structural-diversity',
     passed: diversityOk,
+    remedy: diversityOk
+      ? null
+      : invariantCount === 0
+        ? EMPTY_DOMAIN_REMEDY
+        : distinctShapes < 2
+          ? `Every member carries one semantic_type shape. Acquire material of other shapes (constraint, law, ` +
+            `definition, principle, heuristic, epistemic) — a crystal of N repetitions of one shape tests one ` +
+            `thing N times. Scientific work.`
+          : `One shape covers ${(dominantShapeFraction * 100).toFixed(1)}% of the collection. Broaden acquisition ` +
+            `toward the under-represented shapes rather than re-labelling existing rows — semantic_type is a ` +
+            `claim about the statement, not a quota to balance. Scientific work.`,
     detail:
       `${distinctShapes} distinct semantic_type shape(s) present; the largest shape covers ` +
       `${(dominantShapeFraction * 100).toFixed(1)}% of the collection (need ≥ 2 shapes and no single shape ` +
@@ -408,6 +472,16 @@ export async function runCrystalReadinessReport(
           ? 'no near-duplicate statements found at the configured similarity threshold (lexical heuristic only)'
           : `${duplicatePairs.length} near-duplicate statement pair(s) found (e.g. ${duplicatePairs[0][0]} ~ ` +
             `${duplicatePairs[0][1]}) — unresolved duplicates fail this check`,
+    remedy:
+      invariantCount > 0 && duplicatePairs.length === 0
+        ? null
+        : invariantCount === 0
+          ? EMPTY_DOMAIN_REMEDY
+          : `Resolve each of the ${duplicatePairs.length} pair(s): merge the duplicate into a survivor ` +
+            `(mergeInvariants unions their contexts and marks the merged row 'superseded'), or record a ` +
+            `'supersedes' relationship if one genuinely replaces the other. Do NOT raise the similarity ` +
+            `threshold — this is a lexical heuristic, so a flagged pair a steward judges distinct is a finding ` +
+            `to record, not a setting to change. Steward work.`,
   });
 
   // 5. Provenance eligibility — Population A only (§2a as refined 2026-07-27).
@@ -419,9 +493,24 @@ export async function runCrystalReadinessReport(
   const eligibleInvariants = invariants.filter((inv) => inPrimaryPopulation(inv.provenance));
   const eligibleCount = eligibleInvariants.length;
   const ablationCount = partition.A.length + partition.B.length;
+  const ineligibleForCrystal = invariantCount - eligibleCount;
   checks.push({
     name: 'provenance-eligibility',
     passed: invariantCount > 0 && eligibleCount === invariantCount,
+    remedy:
+      invariantCount > 0 && eligibleCount === invariantCount
+        ? null
+        : invariantCount === 0
+          ? EMPTY_DOMAIN_REMEDY
+          : `${ineligibleForCrystal} member(s) are not Population A — ` +
+            `${partition.unclassified.length} carry no recorded evidence provenance, ` +
+            `${partition.B.length} are platform-derived and ${partition.C.length} are platform doctrine. ` +
+            `For the unclassified, record the real evidence basis: POST /api/invariants/discovery ` +
+            `{ action: 'classify', invariantId, to, evidenceRefs, rationale } — which refuses a move into ` +
+            `Population A citing only repo-internal sources. For the platform-derived and doctrine members, ` +
+            `remove them from this crystal domain; they remain available to the application. NEVER widen ` +
+            `eligibility to clear this check — that admits rows the pre-registered policy excludes and makes the ` +
+            `substitution invisible. Steward work.`,
     // The A/B/C/unclassified split rides in THIS check's detail rather than in
     // a row of its own. The ablation is a reporting obligation, not a gate, and
     // a non-gating row in a list where every entry must fail closed on an empty
@@ -449,6 +538,17 @@ export async function runCrystalReadinessReport(
         ? `all ${invariantCount} invariants carry real (> 0) validation counts`
         : `${zeroValidated.length}/${invariantCount} invariant(s) carry zero validations — real receipted ` +
           `validation is required, never bulk-authored filler (CRYSTAL-ENLARGEMENT_plan.md §2 condition a)`,
+    remedy:
+      invariantCount > 0 && zeroValidated.length === 0
+        ? null
+        : invariantCount === 0
+          ? EMPTY_DOMAIN_REMEDY
+          : `Run the validation gate on each of the ${zeroValidated.length} member(s): ` +
+            `POST /api/invariants/<id>/advance { "action": "validate" }` +
+            (zeroValidated.length > 0 ? ` (e.g. ${zeroValidated[0].id})` : '') +
+            `. The gate runs the consistency, groundedness and canonical-form checks and writes a receipt — ` +
+            `it is not a counter to increment. A member that cannot pass it does not belong in the crystal. ` +
+            `Steward work.`,
   });
 
   // 7–9. Relationship density / graph connectivity / orphan detection —
@@ -483,9 +583,20 @@ export async function runCrystalReadinessReport(
   const maxPossiblePairs = invariantCount > 1 ? (invariantCount * (invariantCount - 1)) / 2 : 0;
   const relationshipDensity = maxPossiblePairs > 0 ? relationshipCount / maxPossiblePairs : 0;
 
+  const densityOk = invariantCount > 1 && relationshipDensity >= minRelationshipDensity;
+  const edgesShortOf = Math.max(0, Math.ceil(minRelationshipDensity * maxPossiblePairs) - relationshipCount);
+  const EDGE_ROUTE = 'POST /api/invariants/<id>/edges { toInvariantId, relation, rationale, evidenceRefs }';
   checks.push({
     name: 'relationship-density',
-    passed: invariantCount > 1 && relationshipDensity >= minRelationshipDensity,
+    passed: densityOk,
+    remedy: densityOk
+      ? null
+      : invariantCount <= 1
+        ? EMPTY_DOMAIN_REMEDY
+        : `Record the relationships that already hold between these statements: ${EDGE_ROUTE}. About ` +
+          `${edgesShortOf} more intra-crystal edge(s) would reach the threshold — but record only relationships ` +
+          `that are genuinely there. This check under-reports a corpus with real-but-unannotated structure; it ` +
+          `does not over-report, so the fix is annotation, never invention. Steward work.`,
     detail:
       invariantCount <= 1
         ? `${invariantCount} invariant(s) in domain '${crystalDomain}' — density over a graph of ≤1 node is undefined, ` +
@@ -503,9 +614,18 @@ export async function runCrystalReadinessReport(
   );
   const largestComponent = componentSizes.length > 0 ? Math.max(...componentSizes) : 0;
   const connectivityRatio = invariantCount > 0 ? largestComponent / invariantCount : 0;
+  const connectivityOk = invariantCount > 1 && connectivityRatio >= minConnectivityRatio;
   checks.push({
     name: 'graph-connectivity',
-    passed: invariantCount > 1 && connectivityRatio >= minConnectivityRatio,
+    passed: connectivityOk,
+    remedy: connectivityOk
+      ? null
+      : invariantCount <= 1
+        ? EMPTY_DOMAIN_REMEDY
+        : `The collection is in ${componentSizes.length} disjoint cluster(s); the largest holds ` +
+          `${largestComponent}/${invariantCount}. Relate the smaller clusters to the main one where a real ` +
+          `relationship exists: ${EDGE_ROUTE}. If no genuine relationship links a cluster, that is a finding ` +
+          `about the domain's coherence — report it; do not bridge it with an invented edge. Steward work.`,
     detail:
       invariantCount <= 1
         ? `${invariantCount} invariant(s) — connectivity is undefined below 2 nodes`
@@ -518,9 +638,19 @@ export async function runCrystalReadinessReport(
 
   const orphans = invariants.filter((inv) => (degree.get(inv.id) ?? 0) === 0);
   const orphanFraction = invariantCount > 0 ? orphans.length / invariantCount : 1;
+  const orphansOk = invariantCount > 0 && orphanFraction <= maxOrphanFraction;
   checks.push({
     name: 'orphan-detection',
-    passed: invariantCount > 0 && orphanFraction <= maxOrphanFraction,
+    passed: orphansOk,
+    remedy: orphansOk
+      ? null
+      : invariantCount === 0
+        ? EMPTY_DOMAIN_REMEDY
+        : `${orphans.length} member(s) carry no intra-crystal relationship at all` +
+          (orphans.length > 0 ? ` (e.g. ${orphans[0].id})` : '') +
+          `. Record at least one real relationship for each: ${EDGE_ROUTE}. Independently discovered invariants ` +
+          `arrive as orphans by default — nothing in acquisition creates edges — so this is expected work, not a ` +
+          `defect. Steward work.`,
     detail:
       invariantCount === 0
         ? `no invariants found in domain '${crystalDomain}' — orphan detection has nothing to compare`

@@ -84,7 +84,9 @@
     "components/journey/RegisterAgentPanel.tsx",
     "services/signing/**/*.ts",
     "app/api/wallet/signing-requests/**/*.ts",
-    "services/wallet/**/*.tsx"
+    "services/wallet/**/*.tsx",
+    "app/api/invariants/**/*.ts",
+    "app/triad/components/codex/tabs/InvariantDetailModal.tsx"
   ],
   "exclude": [
     "node_modules",

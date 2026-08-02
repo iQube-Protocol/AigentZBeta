@@ -31,6 +31,8 @@
  * what has been declared and whether it has been ratified.
  */
 
+import { commit } from '@/services/research/review/deterministic';
+
 export type DomainRatificationStatus = 'awaiting-operator-ratification' | 'ratified';
 
 /**
@@ -137,6 +139,32 @@ export function crystalDomainForExperiment(experimentId: string): CrystalDomainD
  */
 export function domainAcceptsAssignment(d: CrystalDomainDeclaration): boolean {
   return d.ratification === 'ratified';
+}
+
+/**
+ * A content commitment over the DECLARATION ITSELF — boundary, eligibility
+ * rules, exclusions, ratification record and ratifying text.
+ *
+ * Recorded on every governed act performed under this declaration (assignment,
+ * freeze) so a later reader can prove WHICH version of the boundary the act was
+ * performed under. A boundary amended after the fact would otherwise leave every
+ * prior admission looking as though it had been judged against the new rule.
+ *
+ * Deterministic: same declaration, same hash, on any machine, at any time.
+ * Reads nothing and writes nothing — this module still only states.
+ */
+export function crystalDeclarationHash(d: CrystalDomainDeclaration): string {
+  return commit({
+    domain: d.domain,
+    boundary: d.boundary,
+    eligibleStatuses: [...d.eligibleStatuses],
+    eligibleProvenance: [...d.eligibleProvenance],
+    exclusions: [...d.exclusions],
+    ratification: d.ratification,
+    ratifiedBy: d.ratifiedBy ?? null,
+    ratifiedAt: d.ratifiedAt ?? null,
+    ratificationText: d.ratificationText ?? null,
+  });
 }
 
 // ── Assignment eligibility, evaluated (Track 2 step 4) ──────────────────────

@@ -106,21 +106,82 @@ async function defaultResolveOwnerWalletAddress(agent: RegistrableAgentConfig): 
 }
 
 /**
- * Horizen's build_registration_tx (confirmed live via its own Zod validation
- * error, 2026-07-31) wants a `services` array alongside name/description —
- * built from the Agent Card's own already-published `skills`, never invented.
- * If Horizen's deeper (per-item) validation wants a different shape, that
- * will surface as a fresh UNSIGNED_TX_UNAVAILABLE with the raw error visible
- * (see below) — never guessed further ahead of that evidence.
+ * The `services` array Horizen's `build_registration_tx` requires.
+ *
+ * ── The defect this closes (operator, 2026-08-02, live MCP error) ──────────
+ *
+ *   MCP error -32602: Invalid arguments for tool build_registration_tx:
+ *     services[0].endpoint  Required (received undefined)
+ *     services[1].endpoint  Required (received undefined)
+ *     services[2].endpoint  Required (received undefined)
+ *
+ * Horizen requires an `endpoint` on EVERY service. We sent name + description
+ * only, so every registration attempt was rejected at the first contact with
+ * Horizen — which is why the invocation step was never once reached, across
+ * six signed mandates.
+ *
+ * ── Where the endpoint comes from, and why it is not a guess ───────────────
+ *
+ * Our Agent Cards publish no per-skill endpoint: an A2A `skill` carries
+ * id/name/description/tags, and nothing addressable. The card DOES publish
+ * one real, reachable URL for the agent itself — `card.url`, the same value
+ * already sent as `agentURI`. Every skill listed on a card is served by that
+ * one agent at that one address, so the agent's own published URL is the
+ * truthful endpoint for each of them.
+ *
+ * It is taken from the card, never constructed here. `prepareAgentRegistration`
+ * already refuses with AGENT_CARD_INVALID when `card.url` is missing, so this
+ * cannot silently emit an empty endpoint. If per-skill endpoints are ever
+ * published, read them here in preference — but do not synthesise one by
+ * appending a skill id to a URL that would not resolve.
  */
-function buildServicesFromCard(card: Record<string, unknown>): Array<{ name?: string; description?: string }> {
+function buildServicesFromCard(
+  card: Record<string, unknown>,
+): Array<{ name?: string; description?: string; endpoint?: string }> {
   const skills = Array.isArray(card.skills) ? card.skills : [];
+  const agentEndpoint = typeof card.url === 'string' ? card.url : undefined;
   return skills
     .filter((s): s is Record<string, unknown> => !!s && typeof s === 'object')
     .map((s) => ({
       name: typeof s.name === 'string' ? s.name : undefined,
       description: typeof s.description === 'string' ? s.description : undefined,
+      // A skill's own endpoint if one is ever published; otherwise the agent's.
+      endpoint: typeof s.endpoint === 'string' ? s.endpoint : agentEndpoint,
     }));
+}
+
+/**
+ * Horizen's own words about WHICH arguments it refused, or null when the
+ * failure was not an argument-validation one.
+ *
+ * Reads the Zod issues it returns and names the paths, so a missing required
+ * field is reported as a missing required field rather than as an absent
+ * transaction. Never invents a cause: if the shape is unrecognised, this
+ * returns null and the caller falls back to describing the symptom.
+ */
+function describeRejectedArguments(result: McpToolResult): string | null {
+  const raw = JSON.stringify(result ?? {});
+  if (!/Input validation error|invalid_type|invalid_literal|unrecognized_keys/.test(raw)) return null;
+  const paths = [...raw.matchAll(/\\"path\\":\s*\[([^\]]*)\]/g)]
+    // The paths arrive inside a JSON string, so newlines are literal \n escape
+    // sequences rather than whitespace — strip both, or the names come back
+    // with the escapes still in them.
+    .map((m) =>
+      m[1]
+        .replace(/\\[nrt]/g, '')
+        .replace(/\\"/g, '')
+        .replace(/["\s]/g, '')
+        .split(',')
+        .filter(Boolean)
+        .join('.'),
+    )
+    .filter(Boolean);
+  const unique = [...new Set(paths)];
+  if (unique.length === 0) return 'Horizen rejected the arguments sent to build_registration_tx';
+  return (
+    `Horizen rejected the arguments sent to build_registration_tx — it requires ` +
+    `${unique.join(', ')}`
+  );
 }
 
 function sha256Hex(input: string): string {
@@ -300,8 +361,22 @@ export async function prepareAgentRegistration(
       // than get a bare "not found" (mirrors scripts/register-moneypenny-
       // horizen.ts's own propose-and-confirm transparency: print what was
       // sent and what came back, never assume).
+      /*
+       * LEAD WITH THE REJECTED ARGUMENTS, NOT THE RAW DUMP (2026-08-02).
+       *
+       * Horizen answers a bad call with a Zod validation error naming the
+       * exact paths it refused — `services[0].endpoint  Required`. That is a
+       * precise, actionable fact, and it was buried mid-way through a 4000-
+       * character JSON dump behind the words "could not locate an unsigned
+       * transaction", which describe a symptom and name nothing. The operator
+       * found it by reading the dump; nobody should have to.
+       *
+       * The full arguments and raw result still follow — they are what let the
+       * cause be found at all, and truncating them would trade one blindness
+       * for another.
+       */
       detail:
-        'could not locate an unsigned transaction in build_registration_tx\'s result. ' +
+        `${describeRejectedArguments(buildResult) ?? 'could not locate an unsigned transaction in build_registration_tx\'s result'}. ` +
         `Arguments sent: ${JSON.stringify(buildArgs)}. ` +
         `Raw result: ${JSON.stringify(buildResult).slice(0, 4000)}`,
     };

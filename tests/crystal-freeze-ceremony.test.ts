@@ -34,7 +34,7 @@ function passingReadiness(): CrystalReadinessReport {
   ];
   return {
     ok: true,
-    checks: names.map((name) => ({ name, passed: true, detail: `${name} ok` })),
+    checks: names.map((name) => ({ name, passed: true, detail: `${name} ok`, remedy: null })),
     invariantCount: 12,
     eligibleCount: 12,
     populations: { A: 12, B: 0, C: 0, unclassified: 0, ablationCount: 12 },

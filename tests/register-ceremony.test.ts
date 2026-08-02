@@ -697,3 +697,72 @@ describe('a mandate is never spent on a failure that is not the operator\'s', ()
     expect(fn).toMatch(/unrelated to your signature/);
   });
 });
+
+describe('Horizen gets the arguments it actually requires', () => {
+  /*
+   * ── The defect this closes (operator, 2026-08-02, live MCP error) ────────
+   *
+   *   MCP error -32602: Invalid arguments for tool build_registration_tx:
+   *     services[0].endpoint  Required (received undefined)
+   *     services[1].endpoint  Required (received undefined)
+   *     services[2].endpoint  Required (received undefined)
+   *
+   * This was THE blocker. Horizen requires an `endpoint` on every service; we
+   * sent name + description only, so the very first contact with Horizen was
+   * rejected on every attempt. Six signed mandates never reached the
+   * invocation step for want of one field.
+   *
+   * The endpoint is taken from the Agent Card's own published `url` — the same
+   * value already sent as agentURI. Our cards publish no per-skill endpoint
+   * (an A2A skill carries id/name/description/tags and nothing addressable),
+   * and every skill on a card is served by that one agent at that one address.
+   * It is READ, never constructed: synthesising one by appending a skill id to
+   * a URL that would not resolve is the guess this codebase forbids.
+   */
+  const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+
+  it('every service carries an endpoint', () => {
+    const at = client.indexOf('function buildServicesFromCard');
+    expect(at).toBeGreaterThan(-1);
+    const fn = client.slice(at, client.indexOf('\n}', at));
+    expect(fn).toMatch(/endpoint:/);
+  });
+
+  it('the endpoint is read from the card, never constructed', () => {
+    const at = client.indexOf('function buildServicesFromCard');
+    const fn = client.slice(at, client.indexOf('\n}', at));
+    // The agent's own published url, or a per-skill one if ever published.
+    expect(fn).toMatch(/typeof card\.url === 'string'/);
+    expect(fn).toMatch(/typeof s\.endpoint === 'string' \? s\.endpoint : agentEndpoint/);
+    // No URL assembly: no template literal, no concatenation onto a base.
+    expect(fn).not.toMatch(/`\$\{/);
+    expect(fn).not.toMatch(/\+\s*['"]\//);
+  });
+
+  it('a missing card.url is already refused before this point', () => {
+    // So an empty endpoint can never be emitted silently.
+    expect(client).toMatch(/card\.url \(the agentURI to register\) is missing/);
+  });
+
+  it('a rejected-argument failure names the arguments, not just the symptom', () => {
+    // Horizen answers a bad call with the exact paths it refused. That fact
+    // was buried mid-way through a 4000-character dump behind "could not
+    // locate an unsigned transaction", which describes a symptom and names
+    // nothing. The operator found it by reading the dump; nobody should have
+    // to.
+    expect(client).toMatch(/function describeRejectedArguments/);
+    expect(client).toMatch(/describeRejectedArguments\(buildResult\) \?\?/);
+    expect(client).toMatch(/Horizen rejected the arguments sent to build_registration_tx/);
+    // The full arguments and raw result still follow — removing them would
+    // trade one blindness for another.
+    expect(client).toMatch(/Arguments sent: \$\{JSON\.stringify\(buildArgs\)\}/);
+    expect(client).toMatch(/Raw result: \$\{JSON\.stringify\(buildResult\)/);
+  });
+
+  it('a non-validation failure is not described as one', () => {
+    // Never invent a cause: an unrecognised shape falls back to the symptom.
+    const at = client.indexOf('function describeRejectedArguments');
+    const fn = client.slice(at, client.indexOf('\n}\n', at));
+    expect(fn).toMatch(/return null/);
+  });
+});

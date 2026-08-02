@@ -10,10 +10,11 @@
  * neighbor summaries) in one call.
  */
 
-import React, { useEffect, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { AlertTriangle, Loader2, Plus, Search, X } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { Dots } from "@/components/iqube/scoreUtils";
+import { INVARIANT_EDGE_TYPES } from "@/types/invariants";
 
 interface InvariantContextRow {
   id: string;
@@ -76,32 +77,29 @@ export function InvariantDetailModal({
   const [edges, setEdges] = useState<InvariantEdgeRow[]>([]);
   const [neighbors, setNeighbors] = useState<NeighborRow[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await personaFetch(`/api/invariants/${encodeURIComponent(invariantId)}`, {
-          cache: "no-store",
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load invariant");
-        if (cancelled) return;
-        setInvariant(data.invariant as InvariantDetail);
-        setContexts((data.contexts as InvariantContextRow[]) ?? []);
-        setEdges((data.edges as InvariantEdgeRow[]) ?? []);
-        setNeighbors((data.neighbors as NeighborRow[]) ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load invariant");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await personaFetch(`/api/invariants/${encodeURIComponent(invariantId)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load invariant");
+      setInvariant(data.invariant as InvariantDetail);
+      setContexts((data.contexts as InvariantContextRow[]) ?? []);
+      setEdges((data.edges as InvariantEdgeRow[]) ?? []);
+      setNeighbors((data.neighbors as NeighborRow[]) ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load invariant");
+    } finally {
+      setLoading(false);
+    }
   }, [invariantId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const neighborById = new Map(neighbors.map((n) => [n.id, n]));
 
@@ -219,10 +217,22 @@ export function InvariantDetailModal({
               </div>
             )}
 
+            {edges.length === 0 && (
+              <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-2.5 text-[11px] text-slate-400">
+                <span className="text-slate-300">No relationships recorded.</span> An invariant with no
+                intra-crystal relationship is an <span className="text-amber-200">orphan</span>, and three Crystal
+                Readiness checks — relationship density, graph connectivity and orphan detection — read this graph.
+                Independently discovered invariants arrive as orphans by default; nothing in acquisition creates
+                edges.
+              </div>
+            )}
+
+            <AddRelationship invariantId={invariant.id} onRecorded={() => void load()} />
+
             {edges.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-slate-400 mb-1.5">
-                  Graph edges <span className="text-slate-600">(CFS-003)</span>
+                  Related invariants <span className="text-slate-600">(CFS-003 graph edges)</span>
                 </h4>
                 <ul className="space-y-1.5">
                   {edges.map((e) => {
@@ -248,6 +258,280 @@ export function InvariantDetailModal({
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Add relationship — the front end for `POST /api/invariants/[id]/edges`.
+ *
+ * ── Why this control exists (operator ruling, 2026-08-02) ───────────────────
+ *
+ * Three of the nine Crystal Intrinsic Readiness checks read `invariant_edges`,
+ * and until 2026-08-02 the platform had no way to record one: `addEdge` had no
+ * caller, and the discovery pipeline's side-effect edges wrote `specializes`
+ * only, keyed by a candidate id. A crystal assembled from independently
+ * discovered invariants would have been all orphans, and the operator would
+ * have had no action available except to debug the readiness engine.
+ *
+ * ── Preview then confirm, and why the preview is not the check ─────────────
+ *
+ * Preview asks the SERVER (not this component) whether the edge would create a
+ * cycle and whether it would trigger the CFS-003a §2.6 contradiction
+ * quarantine. It is advisory: the service re-runs every rule at write time, so
+ * a corpus that changed between preview and confirm cannot slip an edge
+ * through. Nothing about the rules is decided here.
+ *
+ * A relationship is a CLAIM about the corpus, so rationale is required and
+ * evidence references are recorded. The form never invents a relationship to
+ * make a check pass — the readiness remedies say so in the same words.
+ */
+function AddRelationship({
+  invariantId,
+  onRecorded,
+}: {
+  invariantId: string;
+  onRecorded: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [relation, setRelation] = useState<string>("supports");
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<NeighborRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [target, setTarget] = useState<NeighborRow | null>(null);
+  const [rationale, setRationale] = useState("");
+  const [evidenceText, setEvidenceText] = useState("");
+  const [preview, setPreview] = useState<{
+    wouldSucceed: boolean;
+    wouldCreateCycle: boolean;
+    quarantineWarning: string | null;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const evidenceRefs = evidenceText
+    .split(/[\n,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const search = useCallback(async () => {
+    if (!query.trim()) return;
+    setSearching(true);
+    setFormError(null);
+    try {
+      const res = await personaFetch(
+        `/api/invariants?q=${encodeURIComponent(query.trim())}&limit=20`,
+        { cache: "no-store" },
+      );
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || "search failed");
+      setResults(
+        ((data.invariants as NeighborRow[]) ?? []).filter((r) => r.id !== invariantId),
+      );
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "search failed");
+    } finally {
+      setSearching(false);
+    }
+  }, [query, invariantId]);
+
+  const submit = useCallback(
+    async (previewOnly: boolean) => {
+      if (!target) {
+        setFormError("choose a target invariant");
+        return;
+      }
+      setBusy(true);
+      setFormError(null);
+      try {
+        const res = await personaFetch(
+          `/api/invariants/${encodeURIComponent(invariantId)}/edges`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              toInvariantId: target.id,
+              relation,
+              rationale,
+              evidenceRefs,
+              ...(previewOnly ? { preview: true } : {}),
+            }),
+          },
+        );
+        const data = await res.json();
+        // The server's own words win — a refusal here is a rule speaking.
+        if (!res.ok || !data.ok) throw new Error(data.error || `request failed (HTTP ${res.status})`);
+        if (previewOnly) {
+          setPreview({
+            wouldSucceed: Boolean(data.wouldSucceed),
+            wouldCreateCycle: Boolean(data.wouldCreateCycle),
+            quarantineWarning: (data.quarantineWarning as string | null) ?? null,
+          });
+        } else {
+          setOpen(false);
+          setTarget(null);
+          setQuery("");
+          setResults([]);
+          setRationale("");
+          setEvidenceText("");
+          setPreview(null);
+          onRecorded();
+        }
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : "the relationship could not be recorded");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [invariantId, target, relation, rationale, evidenceRefs, onRecorded],
+  );
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60"
+      >
+        <Plus className="h-3 w-3" /> Add relationship
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold text-slate-200">Add relationship</h4>
+        <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300" aria-label="Cancel">
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div>
+        <label className="text-[10px] text-slate-500">Relation</label>
+        <select
+          value={relation}
+          onChange={(e) => {
+            setRelation(e.target.value);
+            setPreview(null);
+          }}
+          className="mt-0.5 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+        >
+          {INVARIANT_EDGE_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="text-[10px] text-slate-500">Target invariant</label>
+        <div className="mt-0.5 flex gap-1.5">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void search();
+            }}
+            placeholder="search statements…"
+            className="flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+          />
+          <button
+            onClick={() => void search()}
+            disabled={searching || !query.trim()}
+            className="rounded border border-slate-800 bg-slate-900/60 px-2 text-[11px] text-slate-300 disabled:opacity-50"
+          >
+            {searching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+          </button>
+        </div>
+        {target && (
+          <div className="mt-1.5 rounded border border-slate-700 bg-slate-950 p-1.5 text-[11px] text-slate-300">
+            <span className="text-slate-500">selected · {target.namespace} · {target.status}</span>
+            <div>{target.statement}</div>
+          </div>
+        )}
+        {!target && results.length > 0 && (
+          <ul className="mt-1.5 max-h-32 space-y-1 overflow-y-auto">
+            {results.map((r) => (
+              <li key={r.id}>
+                <button
+                  onClick={() => {
+                    setTarget(r);
+                    setPreview(null);
+                  }}
+                  className="w-full rounded border border-slate-800 bg-slate-950 p-1.5 text-left text-[11px] text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                >
+                  <span className="text-slate-600">{r.namespace} · {r.status}</span>
+                  <div>{r.statement}</div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <label className="text-[10px] text-slate-500">
+          Rationale <span className="text-slate-600">(required — three readiness checks read this graph)</span>
+        </label>
+        <textarea
+          value={rationale}
+          onChange={(e) => setRationale(e.target.value)}
+          rows={2}
+          className="mt-0.5 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+          placeholder="why this relationship holds"
+        />
+      </div>
+
+      <div>
+        <label className="text-[10px] text-slate-500">Evidence references <span className="text-slate-600">(one per line)</span></label>
+        <textarea
+          value={evidenceText}
+          onChange={(e) => setEvidenceText(e.target.value)}
+          rows={2}
+          className="mt-0.5 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+          placeholder="URL, DOI, or evidence id"
+        />
+      </div>
+
+      {formError && (
+        <div className="rounded border border-rose-500/30 bg-rose-500/10 p-2 text-[11px] text-rose-200">
+          <AlertTriangle className="mr-1 inline h-3 w-3" />
+          {formError}
+        </div>
+      )}
+
+      {preview && (
+        <div className="rounded border border-slate-700 bg-slate-950 p-2 text-[11px]">
+          <div className={preview.wouldSucceed ? "text-emerald-300" : "text-amber-200"}>
+            would succeed: {String(preview.wouldSucceed)}
+            {preview.wouldCreateCycle && " — this edge would create a cycle in an acyclic relation type (CFS-003 §3)"}
+          </div>
+          {preview.quarantineWarning && (
+            <div className="mt-1 text-amber-200">{preview.quarantineWarning}</div>
+          )}
+          <div className="mt-1 text-[10px] text-slate-500">
+            Advisory. The service re-checks every rule at write time.
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => void submit(true)}
+          disabled={busy || !target || !rationale.trim()}
+          className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-300 disabled:opacity-50"
+        >
+          Preview
+        </button>
+        <button
+          onClick={() => void submit(false)}
+          disabled={busy || !target || !rationale.trim() || preview?.wouldSucceed === false}
+          className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-[11px] text-emerald-200 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Record relationship"}
+        </button>
       </div>
     </div>
   );

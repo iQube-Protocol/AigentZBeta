@@ -41,14 +41,17 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { getInvariantsByIds, upsertContext } from '@/services/invariants/store';
-import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
+import { personaPublicRef } from '@/services/identity/personaReferences';
+import { getInvariantsByIds, listContexts, upsertContext } from '@/services/invariants/store';
 import {
+  crystalDeclarationHash,
   crystalDomainForExperiment,
   domainAcceptsAssignment,
   evaluateCrystalAssignment,
   type CrystalAssignmentRefusal,
 } from '@/services/research/crystalDomains';
+import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
+import { writeLifecycleReceipt } from '@/services/research/lifecycle';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -59,6 +62,12 @@ interface AssignBody {
   dryRun?: unknown;
   /** Optional context interpretation, stored verbatim on the context row. */
   interpretation?: unknown;
+  /**
+   * Why these invariants are being admitted. Required for a real write —
+   * inclusion in a governed corpus is an act, and an unexplained one is a
+   * stray click in the record that decides what the experiment tested.
+   */
+  rationale?: unknown;
 }
 
 interface AssignmentOutcome {
@@ -67,6 +76,8 @@ interface AssignmentOutcome {
   written: boolean;
   refusals: CrystalAssignmentRefusal[];
   detail: string;
+  /** Domains this invariant already belonged to, BEFORE this act. */
+  priorDomains: string[];
 }
 
 export async function POST(
@@ -119,6 +130,18 @@ export async function POST(
   // write to a governed boundary.
   const dryRun = body.dryRun !== false;
   const interpretation = typeof body.interpretation === 'string' ? body.interpretation : null;
+  const rationale = typeof body.rationale === 'string' ? body.rationale.trim() : '';
+  if (!dryRun && !rationale) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error:
+          'rationale is required for a real assignment — inclusion in a governed corpus is an act, and the ' +
+          'record of what this experiment tested must say why each member is in it. A dry run needs none.',
+      },
+      { status: 400 },
+    );
+  }
 
   // Refuse the whole request on an unratified boundary — evaluating per-record
   // would report N identical refusals for one fact about the domain.
@@ -161,6 +184,12 @@ export async function POST(
       evidenceProvenance: readEvidenceProvenance(record.provenance),
     });
 
+    // Read BEFORE the write — "which domains did this belong to before this
+    // act" is unanswerable afterwards, because the context row is an upsert.
+    const priorDomains = (await listContexts(record.id).catch(() => []))
+      .map((c) => c.domain)
+      .sort();
+
     let written = false;
     if (verdict.admitted && !dryRun) {
       try {
@@ -182,10 +211,71 @@ export async function POST(
       written,
       refusals: verdict.refusals,
       detail: verdict.detail,
+      priorDomains,
     });
   }
 
   const admitted = outcomes.filter((o) => o.admitted).length;
+  const declarationHash = crystalDeclarationHash(declaration);
+
+  /*
+   * THE ASSIGNMENT RECEIPT (operator ruling, 2026-08-02).
+   *
+   *   > "Assignment is a governed inclusion act, not a database write."
+   *
+   * The context row records THAT an invariant is in the domain. It cannot
+   * record who admitted it, under which version of the boundary, on what
+   * eligibility decision, or why — and those are exactly the questions asked of
+   * a frozen crystal later. So a real assignment writes a receipt carrying all
+   * eight required facts.
+   *
+   * ── Which mechanism this relies on, stated plainly ─────────────────────────
+   *
+   * It rides the EXISTING `research_lifecycle_transition` receipt
+   * (`writeLifecycleReceipt`), which is already in ANCHORABLE_ACTION_TYPES and
+   * already passes the SQL CHECK constraint. **No new ActivityActionType and no
+   * schema change.** Inventing `crystal_assignment_recorded` would need a
+   * migration to the action-type constraint — a schema change the operator has
+   * not ruled on, and one this session must not make unilaterally.
+   *
+   * The trade-off, named rather than hidden: the facts live in the receipt's
+   * `summary` text, not in typed columns, so they are auditable by reading and
+   * not queryable by field. If the operator later wants a typed assignment
+   * receipt, that is a migration plus one action-type addition — the facts
+   * recorded here are already the right ones.
+   *
+   * A receipt failure NEVER rolls back an admission that already succeeded, and
+   * is never swallowed: `receiptWritten: false` is reported on the response so
+   * the operator sees an assignment that landed without its record.
+   */
+  let receiptWritten = false;
+  let receiptId: string | null = null;
+  const writtenOutcomes = outcomes.filter((o) => o.written);
+  if (!dryRun && writtenOutcomes.length > 0) {
+    const summary =
+      `${experimentId} crystal assignment — ${writtenOutcomes.length} invariant(s) admitted to ` +
+      `'${declaration.domain}' under declaration ${declarationHash.slice(0, 16)}… ` +
+      `by ${personaPublicRef(persona.personaId)} at ${new Date().toISOString()}. ` +
+      `Eligibility: status ∈ {${declaration.eligibleStatuses.join('|')}} and evidence provenance ∈ ` +
+      `{${declaration.eligibleProvenance.join('|')}}, evaluated per record. Members: ` +
+      writtenOutcomes
+        .map((o) => `${o.invariantId} (prior domains: ${o.priorDomains.join(', ') || 'none'})`)
+        .join('; ') +
+      `. Rationale: ${rationale}`;
+    const receipt = await writeLifecycleReceipt({
+      personaId: persona.personaId,
+      summary,
+      invariantSeedIds: [],
+    }).catch(() => ({ ok: false, receiptId: null }));
+    receiptWritten = receipt.ok;
+    receiptId = receipt.receiptId;
+    if (!receiptWritten) {
+      console.error(
+        `[CRYSTAL ASSIGNMENT] ${writtenOutcomes.length} invariant(s) were admitted to '${declaration.domain}' ` +
+          `but the governed-inclusion receipt could not be written — the corpus changed without its record.`,
+      );
+    }
+  }
   return NextResponse.json(
     {
       requestSucceeded: true,
@@ -199,6 +289,19 @@ export async function POST(
       notFound,
       writeErrors,
       outcomes,
+      declarationHash,
+      steward: personaPublicRef(persona.personaId),
+      rationale: rationale || null,
+      receiptWritten,
+      receiptId,
+      ...(!dryRun && writtenOutcomes.length > 0 && !receiptWritten
+        ? {
+            receiptWarning:
+              'The invariants were admitted but the governed-inclusion receipt failed to write. The context ' +
+              'rows are the only record of this act. Re-running the same assignment is idempotent (the context ' +
+              'upsert conflicts on invariant_id+domain) and will re-attempt the receipt.',
+          }
+        : {}),
       // Stated on the response, not only in this file's header: an admission is
       // not a freeze, and a populated domain is not a ratified crystal.
       note:

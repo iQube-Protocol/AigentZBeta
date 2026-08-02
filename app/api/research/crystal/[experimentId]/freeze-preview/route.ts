@@ -22,7 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { crystalDomainForExperiment } from '@/services/research/crystalDomains';
+import { crystalDeclarationHash, crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runFreezeCeremonyPreview } from '@/services/research/crystalFreezeCeremony';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +32,11 @@ interface FreezePreviewBody {
   crystalDomain?: unknown;
   operatorRef?: unknown;
   reviewerRef?: unknown;
+  /**
+   * REMOVED as an input (operator ruling, 2026-08-02). Declared here only so a
+   * caller that still sends it is REFUSED rather than silently ignored — see
+   * the boundary block in the handler.
+   */
   domainBoundary?: unknown;
   knownLimitations?: unknown;
   freezeRationale?: unknown;
@@ -83,7 +88,8 @@ export async function POST(
    * readiness/statistics/recommendation already resolve it. An explicit
    * caller-supplied domain still wins, so ad-hoc inspection is unaffected.
    */
-  const declaredDomain = crystalDomainForExperiment(experimentId)?.domain;
+  const declaration = crystalDomainForExperiment(experimentId);
+  const declaredDomain = declaration?.domain;
   const crystalDomain = asString(body.crystalDomain) || declaredDomain;
   if (!crystalDomain) {
     return NextResponse.json(
@@ -97,13 +103,63 @@ export async function POST(
     );
   }
 
+  /*
+   * THE BOUNDARY IS READ, NEVER RETYPED (operator ruling, 2026-08-02).
+   *
+   *   > "That is unnecessary and dangerous."
+   *
+   * `domainBoundary` was a free-text field the operator filled in at the least
+   * reversible act on the platform. Whatever they typed became the boundary
+   * statement inside the freeze ceremony package — the artefact that records
+   * WHAT WAS FROZEN. A paraphrase, a truncation, or last week's wording would
+   * have been committed as the constitutional boundary, and the package would
+   * have looked entirely correct afterwards.
+   *
+   * This is the same defect class as the `constitutional-reasoning` default
+   * this route already carried: a writable field standing where a ratified
+   * value belongs.
+   *
+   * So the boundary is now taken verbatim from the ratified declaration, and a
+   * caller-supplied one is REFUSED rather than ignored — silently discarding it
+   * would let an operator believe they had amended the boundary. A different
+   * boundary is reachable only by amending the domain declaration itself, which
+   * is a separate constitutional act with its own record.
+   */
+  if (body.domainBoundary !== undefined) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          'domainBoundary is not an input. The freeze package carries the RATIFIED boundary verbatim, read ' +
+          'server-side from the domain declaration. Confirm it (boundaryAcknowledged) — do not reproduce it. ' +
+          'A different boundary requires a formal amendment to the domain declaration, never a freeze-preview ' +
+          'field.',
+        ratifiedBoundary: declaration?.boundary ?? null,
+      },
+      { status: 400 },
+    );
+  }
+  if (!declaration?.boundary) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          `no ratified boundary exists for experiment '${experimentId}' — refusing to build a freeze package ` +
+          'whose boundary statement would have to be invented',
+      },
+      { status: 400 },
+    );
+  }
+
   const result = await runFreezeCeremonyPreview({
     crystalId: asString(body.crystalId) || `${experimentId}/crystal-vP1`,
     experimentId,
     crystalDomain,
     operatorRef: asString(body.operatorRef),
     reviewerRef: asString(body.reviewerRef) || null,
-    domainBoundary: asString(body.domainBoundary),
+    // Verbatim from the declaration. `buildFreezeCeremonyPackage` still requires
+    // it non-empty — that refusal is unchanged; what changed is who supplies it.
+    domainBoundary: declaration.boundary,
     knownLimitations,
     freezeRationale: asString(body.freezeRationale),
     ratifiedAt: asString(body.ratifiedAt) || new Date().toISOString(),
@@ -127,6 +183,26 @@ export async function POST(
        * never existed (nothing in this repository calls `upsertArtifact`).
        */
       execution: result.execution,
+      /*
+       * Emitted for RENDERING AS IMMUTABLE TEXT. The operator reads this and
+       * confirms "I ratify this exact boundary"; they never reproduce it. The
+       * declaration hash lets a later reader prove which version of the boundary
+       * the package was built under.
+       */
+      ratifiedBoundary: {
+        domain: declaration.domain,
+        label: declaration.label,
+        boundary: declaration.boundary,
+        exclusions: declaration.exclusions,
+        ratificationText: declaration.ratificationText ?? null,
+        ratifiedBy: declaration.ratifiedBy ?? null,
+        ratifiedAt: declaration.ratifiedAt ?? null,
+        declarationHash: crystalDeclarationHash(declaration),
+        immutable: true,
+        amendedBy:
+          'A formal amendment to the domain declaration (services/research/crystalDomains.ts), ratified by the ' +
+          'operator. Never a field on this form.',
+      },
       note: 'PREVIEW ONLY — no freeze was performed. See package.eligibleForRatification (evidence) and execution.wouldFreezeSucceed (substrate).',
     },
     { headers: { 'Cache-Control': 'no-store' } },
