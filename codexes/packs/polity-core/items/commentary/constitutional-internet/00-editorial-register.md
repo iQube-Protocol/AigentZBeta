@@ -329,6 +329,99 @@ Any visual treatment of invariant standing must be **separate**:
 
 ---
 
+### CR-11 — Receipt-class anchoring and proof-state precision (operator-ratified 2026-08-02)
+
+**Status:** **Ratified implementation-status correction.**
+
+The manuscript must distinguish among **receipt classes, proof classes and deployment states**. A
+receipt is **not** "immutably anchored" merely because the architecture permits anchoring, or because
+another receipt class is operational.
+
+#### Canonical distinction
+
+> A **receipt** records a consequential act.
+> A **proof** establishes a claim about that act or state.
+> **Anchoring** preserves the proof against later alteration.
+
+These are related but **not identical conditions**:
+
+- The existence of a receipt does **not** prove that it has been anchored.
+- The existence of an anchoring capability does **not** prove that every receipt class uses it.
+- The successful operation of one receipt class does **not** establish the operational state of another.
+
+#### Current audited state, by class
+
+| Class | Permitted status |
+|---|---|
+| **Access-decision receipts** (incl. refusals in supported paths) | **Implemented · Demonstrated · Operational** for the audited access-receipt path — supported by live batcher evidence of successful submissions |
+| **Governance / ratification receipts** | **Implemented in part · NOT operationally anchored.** *Entering remediation* only after the scheduler and finalization defects are corrected |
+| **Proof of State** | **Implemented · Demonstrated** where corresponding tests/receipts exist · **Operational only** for the specific deployed paths evidenced by the audit |
+| **Proof of Risk / Proof of Price** | **Ratified or proposed doctrine** where a canonical source exists · **Projected implementation · Not operational** |
+
+Governance evidence of record: repeated readiness runs showed **zero anchored governance receipts**,
+unresolved pending/failed receipt state, and **no automated finalizer invocation**.
+
+**The manuscript must not describe governance or ratification receipts as presently immutably anchored.**
+
+#### Permitted manuscript wording
+
+**May state:**
+
+> Constitutional actions generate inspectable receipts, and supported receipt classes can be
+> submitted for tamper-resistant anchoring.
+
+**May state for the operational access path:**
+
+> Access-decision receipts, including supported refusals, are submitted to the DVN anchoring service
+> on a scheduled cycle.
+
+**Must NOT state unqualified:**
+
+> ~~All constitutional receipts are immutably anchored.~~
+
+**Where governance/ratification receipts are discussed:**
+
+> Governance-receipt anchoring is implemented in part and remains pending operational completion.
+
+#### Chapter effects
+
+- **Ch13 — Proof Before Trust.** Retain the proof chain, but **distinguish its stages**: receipt
+  generation · verification · submission · anchoring · operational confirmation. **The chapter must
+  not compress these into a single assertion of immutability.**
+- **Ch19 — Constitutional Information and Computing.** Retain the claim that constitutional machinery
+  must produce receipts and enforce authority at action time. **Add the limitation** that refusal
+  receipts are **not yet produced consistently in every runtime path**, including the audited
+  MoneyPenny execution path.
+- **Ch20 — The Constitutional Internet Is Here.** Use receipt anchoring as an **exemplar of the
+  book's own implementation-state discipline**: access-receipt anchoring operational in the audited
+  path; governance-receipt anchoring incomplete; Proof of State implemented and demonstrated in
+  specific paths; Proof of Risk and Proof of Price projected.
+
+#### Required remediation before publication
+
+**To upgrade governance anchoring to operational:**
+
+1. unify the readiness canary and production identity parser;
+2. schedule the finalizer;
+3. clear or adjudicate stuck governance receipts;
+4. add end-to-end tests from receipt generation through anchoring confirmation;
+5. produce deployment evidence showing **non-zero** anchored governance receipts;
+6. ensure failures generate visible escalation and durable evidence.
+
+**To make the refusal-receipt claim universal:**
+
+1. write a durable receipt for blocked MoneyPenny runtime executions;
+2. include the refusal invariant, mandate boundary and failed step;
+3. test the receipt path;
+4. verify its persistence after the client session ends.
+
+#### Governing rule
+
+> **Do not describe an architectural possibility as an operational receipt state.**
+> **Immutability must be claimed by receipt class, proof class, and demonstrated path.**
+
+---
+
 ---
 
 ## Additions to integrate (author-directed)

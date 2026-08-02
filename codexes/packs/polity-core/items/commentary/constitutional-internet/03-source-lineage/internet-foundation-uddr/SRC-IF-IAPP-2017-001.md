@@ -11,8 +11,10 @@ verificationStatus: independently-retrieved-live-source
 canonicalLocation: Polity Core/Constitutional Internet/03 Source Lineage/Internet Foundation and UDDR
 rulingApplied: CR-8
 supportsChapters: [CI-05, CI-10, CI-21]
-autoDriveCid: null   # PENDING — publish via scripts/publish-polity-core.mjs
-autoDriveStatus: pending-upload
+autoDriveCid: bafkr6igp5rhkahrf6iq7qestbz7edr67yj7g4bnhjotafszmnninbzx3uq
+autoDriveStatus: published
+autoDriveNetwork: mainnet
+autoDrivePublishedAt: 2026-08-02
 primaryExternalSource: https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use
 durableEvidenceRecord: SRC-IF-IAPP-2017-001.md
 establishes:
@@ -167,9 +169,20 @@ For legal and editorial review, the live publisher page remains the primary exte
 *The checksum is that of the archive record as delivered by the operator on 2026-08-02. It covers
 this evidence record, not the copyrighted IAPP article.*
 
-## Auto Drive
+## Auto Drive — published
 
-Canonical, frozen, provenance-bearing → **Autonomys Auto Drive**. CID is **pending**; publish via
-`scripts/publish-polity-core.mjs` (the operator runs it locally — outbound HTTPS is blocked in the
-agent sandbox). The CID is recorded in `SRC-IF-IAPP-2017-001.json` under `autoDrive.cid` once
-published. **Do not fabricate this value.**
+Canonical, frozen, provenance-bearing → **Autonomys Auto Drive**. **Published 2026-08-02** to
+Autonomys **mainnet** via `scripts/publish-polity-core.mjs`:
+
+```
+bafkr6igp5rhkahrf6iq7qestbz7edr67yj7g4bnhjotafszmnninbzx3uq
+```
+
+The evidence record is now **content-addressed and immutable**. This matters for exactly the reason
+the archive exists: the canon no longer depends on a third-party URL remaining reachable, and the
+record cannot be silently altered after the fact. Also recorded in `AMENDMENT_RECORDS.md` and
+`services/polity/frameworks/autodrive-cids.json`.
+
+*Anchoring note (CR-11): this is Auto Drive content-addressing — distinct from DVN receipt anchoring.
+A CID proves the record's bytes are what they were at publication; it is not a governance-receipt
+anchor and must not be described as one.*

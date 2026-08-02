@@ -125,7 +125,9 @@ async function main() {
     console.log('Re-run the script once resolved — published assets are skipped automatically.');
   }
   console.log('Paste framework/doc CIDs into codexes/packs/polity-core/items/AMENDMENT_RECORDS.md');
-  console.log('and source-lineage CIDs into the matching SRC-*.json under autoDrive.cid, then commit.');
+  console.log('and source-lineage CIDs into the matching SRC-*.md FRONT-MATTER (autoDriveCid).');
+  console.log('Do not create a sidecar .json — next.config.js globs codexes/packs/**/*.json into');
+  console.log('the standalone Lambda bundle, so it would cost deploy-artifact bytes. Then commit.');
   if (failures.length) process.exit(1);
 }
 
