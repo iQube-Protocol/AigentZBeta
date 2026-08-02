@@ -474,7 +474,26 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
           (acc[r.walletRef] ??= []).push(r);
           return acc;
         }, {}),
-      ).map(([walletRef, groupRows]) => {
+      )
+        /*
+         * THE SAME RULE, ACROSS GROUPS (operator, 2026-08-02, 13:10).
+         *
+         * Actionable-before-expired was applied WITHIN each wallet group and
+         * not BETWEEN them, so a Principal Wallet group holding six dead
+         * mandates still led the panel and the one live act — the agent-key
+         * invocation, in the agent's own group — sat below all six. The
+         * heading the operator saw first was "6 EXPIRED — NO LONGER
+         * ACTIONABLE", which reads as "there is nothing to do here".
+         *
+         * A group with something waiting on you outranks a group that is
+         * entirely residue. Order only: no group is hidden, and the wallets
+         * stay as separate as they were.
+         */
+        .sort(([, a], [, b]) => {
+          const live = (rows: PendingRequestView[]) => (rows.some((r) => !r.expired) ? 0 : 1);
+          return live(a) - live(b);
+        })
+        .map(([walletRef, groupRows]) => {
         const group = walletGroupLabel(walletRef);
         /*
          * ACTIONABLE FIRST, EXPIRED BELOW A DIVIDER (operator, 2026-08-02).

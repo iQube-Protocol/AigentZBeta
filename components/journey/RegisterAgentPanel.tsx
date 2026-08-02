@@ -61,6 +61,7 @@ import {
   registerCeremonyProgress,
   expiredAttemptsNote,
   horizenContact,
+  REGISTER_CEREMONY_LADDER,
   type RegisterCeremonyProgress,
 } from '@/services/horizen/registerCeremonyProgress';
 import { AgentCardSurface } from './AgentCardSurface';
@@ -633,6 +634,31 @@ export function RegisterAgentPanel({
 
   const selectedAgent = PILOT_AGENTS.find((a) => a.slug === agentSlug) ?? PILOT_AGENTS[0];
 
+  /*
+   * Has the ceremony moved PAST the mandate rung? Compared by position on the
+   * ladder rather than by naming the later stages, so a rung inserted after
+   * this one is covered without anyone remembering to come back here.
+   */
+  const ladderMovedPastMandate = (() => {
+    if (!progress) return false;
+    const mandateAt = REGISTER_CEREMONY_LADDER.findIndex((s) => s.id === 'MANDATE_AWAITING_SIGNATURE');
+    const nowAt = REGISTER_CEREMONY_LADDER.findIndex((s) => s.id === progress.stageId);
+    return nowAt > mandateAt;
+  })();
+
+  /*
+   * The wallet act the CURRENT rung requires, if any. Both live in Pending
+   * actions; they are different acts and are labelled as such. Every other
+   * rung is either the wallet gate (its own card, its own hand-over), the
+   * network's turn, or done — none of them has a wallet act to offer.
+   */
+  const walletActLabel =
+    progress?.stageId === 'MANDATE_AWAITING_SIGNATURE'
+      ? 'Sign in your wallet'
+      : progress?.stageId === 'INVOCATION_AWAITING_APPROVAL'
+        ? 'Approve the agent key in your wallet'
+        : null;
+
   const prepare = useCallback(async () => {
     setFlow({ step: 'preparing' });
     try {
@@ -857,17 +883,56 @@ export function RegisterAgentPanel({
                 behalf is not a side effect a "clear the screen" control may
                 have. To retire a request deliberately, Refuse it in the
                 wallet, where the consequence is stated. */}
-            {progress.stageId !== 'REGISTERED' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFlow({ step: 'idle' });
-                  void readProgress();
-                }}
-                className="mt-2.5 rounded-md border border-slate-700 px-2.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
-              >
-                Start over
-              </button>
+            {/* THE LADDER NAMES AN ACT — SO IT OFFERS IT (operator,
+                2026-08-02, 13:10: "It's stuck again").
+
+                At rung 4 the card said "Next: Open Pending actions and approve
+                the agent's key invocation" and gave no way to do it. The only
+                wallet button on the page belonged to the stale
+                awaiting-signature card below, and it was labelled "Sign in
+                your wallet" for a mandate that was already signed. So the one
+                control the operator could see performed the wrong step, and
+                the right step had no control at all.
+
+                Both acts happen in Pending actions — the same hand-over, the
+                same bus, the same flow. Only the label changes with the rung,
+                because "sign" and "approve" are not the same act and must not
+                be worded as if they were. */}
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              {walletActLabel && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handOverToWallet('PENDING_ACTIONS', selectedAgent.slug, selectedAgent.displayName);
+                  }}
+                  className="flex items-center gap-1.5 rounded-md border border-violet-800/60 bg-violet-950/30 px-3 py-1.5 text-xs font-medium text-violet-200 transition-colors hover:bg-violet-900/40"
+                >
+                  {walletActLabel} <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {progress.stageId !== 'REGISTERED' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFlow({ step: 'idle' });
+                    void readProgress();
+                  }}
+                  className="rounded-md border border-slate-700 px-2.5 py-1 text-[11px] text-slate-400 transition-colors hover:bg-slate-800/60 hover:text-slate-200"
+                >
+                  Start over
+                </button>
+              )}
+            </div>
+            {/* A hand-over that reached nobody is reported here too — this is
+                now the primary wallet control, so its failure must be as
+                visible as the one below it always was. */}
+            {handoffUnanswered && walletActLabel && (
+              <p className="mt-2 rounded-md border border-amber-900/40 bg-amber-950/20 p-2 text-[11px] leading-relaxed text-amber-200">
+                No wallet surface in this page answered the hand-over, so nothing opened. Nothing has been lost — the
+                request is stored and still waiting. Open your wallet from the{' '}
+                <span className="text-amber-100">Welcome, &lt;persona&gt;</span> badge at the top of the cartridge and
+                choose <span className="text-amber-100">Pending actions</span>.
+              </p>
             )}
             {/* HORIZONTAL, completed rungs in green (operator, 2026-08-02).
                 Read at a glance during a walkthrough: how far along, and how
@@ -959,7 +1024,19 @@ export function RegisterAgentPanel({
           </div>
         )}
 
-        {flow.step === 'awaiting-signature' && (
+        {/* THE LADDER OUTRANKS THIS CARD.
+
+            `flow` is what THIS PAGE last did; the ladder is what the signing
+            store says IS. They agreed until the mandate was signed in the
+            wallet — after that this card went on asking for a signature the
+            operator had already given, directly beneath a ladder reporting the
+            mandate signed and the agent key awaiting approval. One panel,
+            two answers, and the wrong one carried the only button.
+
+            Rendered only while the ladder has NOT moved past the mandate rung.
+            NOT_STARTED still shows it, so the moment between preparing a
+            mandate and the ladder catching up does not flash empty. */}
+        {flow.step === 'awaiting-signature' && !ladderMovedPastMandate && (
           <div className="text-xs">
             <p className="flex items-center gap-1.5 font-medium text-amber-200">
               <ShieldAlert className="h-3.5 w-3.5" /> Awaiting your wallet signature

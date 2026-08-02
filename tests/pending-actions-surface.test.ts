@@ -525,4 +525,27 @@ describe('the wallet never says "nothing waiting" from a cached read', () => {
     expect(panel).toMatch(/removeEventListener\('focus', onFocus\)/);
     expect(panel).toMatch(/clearInterval\(interval\)/);
   });
+
+  /*
+   * ACTIONABLE FIRST — BETWEEN GROUPS, NOT ONLY WITHIN THEM (operator,
+   * 2026-08-02, 13:10).
+   *
+   * The within-group rule already put live rows above expired ones. It said
+   * nothing about the ORDER OF THE GROUPS, so a Principal Wallet group holding
+   * six dead mandates still led the panel and the one live act — the agent-key
+   * invocation, in the agent's own group — sat below all six. The first thing
+   * on screen was "6 EXPIRED — NO LONGER ACTIONABLE", which reads as "there is
+   * nothing here to do" on a panel whose whole job is to show what is.
+   */
+  it('a wallet group with something waiting on you outranks one that is all residue', () => {
+    const panel = stripComments(readSource('components/wallet/PendingActionsPanel.tsx'));
+    const at = panel.indexOf('.sort(([, a], [, b]) =>');
+    expect(at, 'wallet groups are not ordered by whether they hold a live act').toBeGreaterThan(-1);
+    const block = panel.slice(at, panel.indexOf('.map(([walletRef', at));
+    expect(block).toMatch(/rows\.some\(\(r\) => !r\.expired\)/);
+
+    // Order only — no group may be dropped for being entirely expired. The
+    // expired rows ARE the record of what was attempted.
+    expect(block).not.toMatch(/filter|slice/);
+  });
 });

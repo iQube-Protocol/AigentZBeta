@@ -957,4 +957,53 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
     expect(panel).toMatch(/progress\.stageId !== 'REGISTERED' &&/);
   });
+
+  /*
+   * STUCK AT RUNG 4 (operator, 2026-08-02, 13:10: "It's stuck again").
+   *
+   * The panel showed BOTH of these at once: a ladder reading "Awaiting your
+   * approval of the agent key / Mandate signed by you ✓", and beneath it a
+   * card reading "Awaiting your wallet signature ... request sr_fde7c6d5 ...
+   * Sign in your wallet". The card was this page's stale memory of what it
+   * last did; the ladder was the signing store's account of what IS. The
+   * wrong one carried the only wallet button on the page, and the act the
+   * ladder actually named had no control at all.
+   */
+  it('the stale signature card yields to the ladder once the mandate rung has passed', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    // The card is gated on the ladder, not on local flow state alone.
+    expect(panel).toMatch(/flow\.step === 'awaiting-signature' && !ladderMovedPastMandate &&/);
+    // And "past" is compared by POSITION, so a rung inserted later is covered
+    // without anyone remembering to come back here.
+    expect(panel).toMatch(/REGISTER_CEREMONY_LADDER\.findIndex/);
+    expect(panel).toMatch(/return nowAt > mandateAt;/);
+  });
+
+  it('every rung that names a wallet act offers that act', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    // Both human legs happen in Pending actions, and they are DIFFERENT acts —
+    // labelling the approval "Sign in your wallet" is what made the stale card
+    // look like the right control.
+    expect(panel).toMatch(/stageId === 'MANDATE_AWAITING_SIGNATURE'\s*\?\s*'Sign in your wallet'/);
+    expect(panel).toMatch(/stageId === 'INVOCATION_AWAITING_APPROVAL'\s*\?\s*'Approve the agent key in your wallet'/);
+    // The label is wired to a real hand-over, not just rendered as text.
+    const at = panel.indexOf('{walletActLabel && (');
+    expect(at, 'the ladder renders no wallet button').toBeGreaterThan(-1);
+    const block = panel.slice(at, panel.indexOf('</button>', at));
+    expect(block).toMatch(/handOverToWallet\('PENDING_ACTIONS'/);
+
+    // Every stage that says "waiting on you" and is not the wallet gate must
+    // have a label — otherwise the ladder can name an act it cannot offer.
+    const acting = (['MANDATE_AWAITING_SIGNATURE', 'INVOCATION_AWAITING_APPROVAL'] as const).map((id) =>
+      registerCeremonyProgress({
+        ...base,
+        liveMandate: id === 'MANDATE_AWAITING_SIGNATURE',
+        liveInvocation: id === 'INVOCATION_AWAITING_APPROVAL',
+      }),
+    );
+    for (const p of acting) {
+      expect(p.nextActor).toBe('you');
+      expect(p.nextAct).toMatch(/Pending actions/);
+    }
+  });
 });
