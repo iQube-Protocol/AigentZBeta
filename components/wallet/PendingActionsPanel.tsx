@@ -39,7 +39,10 @@ import { AlertTriangle, CheckCircle2, Clock, Loader2, PenLine, ShieldCheck } fro
 import { personaFetch } from '@/utils/personaSpine';
 import { decryptPrivateKey } from '@/services/wallet/keyService';
 import { NO_COMPLETION_ROUTE_YET, routeForAction } from '@/services/signing/pendingActionRouting';
-import { announceWalletSurfaceCompletion } from '@/services/wallet/walletSurfaceRequest';
+import {
+  announceWalletSurfaceCompletion,
+  subscribeWalletSurfaceRequest,
+} from '@/services/wallet/walletSurfaceRequest';
 
 interface PendingRequestView {
   id: string;
@@ -169,8 +172,53 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
     }
   }, [personaId]);
 
+  /*
+   * ── THE DEFECT THIS CLOSES (operator, 2026-08-02 01:29) ──────────────────
+   *
+   * Two screenshots, the same minute: the Journey held a live mandate
+   * (sr_fd35e233…, 29:25 remaining) and THIS PANEL said "Nothing is waiting on
+   * you · 5 earlier requests expired". The wallet was not showing the mandate
+   * that existed — so the operator could not sign it, and six consecutive
+   * mandates died unsigned for want of a re-read.
+   *
+   * The cause: this panel loaded ONCE, on mount. `load` only changes when
+   * `personaId` changes, so the effect never re-fired. The panel mounts when
+   * the wallet switches TO the Pending-actions surface — but if the operator
+   * was ALREADY on that surface (the normal path: check the wallet, go back to
+   * the Journey, prepare a mandate, click "Sign in your wallet"), the drawer
+   * never unmounted it. No remount, no read, and the deep link delivered the
+   * operator to a stale list.
+   *
+   * "Nothing is waiting on you" is the single most consequential sentence this
+   * surface can say. It must never be said from a cached read.
+   *
+   * Four triggers, because there are four ways the truth changes underneath a
+   * mounted panel:
+   *   - mount                     (unchanged)
+   *   - a wallet-surface request  — a deep link ARRIVING is the strongest
+   *                                 possible signal that something new exists;
+   *                                 this is the exact path that failed
+   *   - window focus              — returning from the Journey tab
+   *   - a 20s interval            — mandates expire on a clock, so the list
+   *                                 goes stale with no event at all
+   */
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeWalletSurfaceRequest((request) => {
+      if (request.surface !== 'PENDING_ACTIONS') return;
+      void load();
+    });
+    const onFocus = () => void load();
+    window.addEventListener('focus', onFocus);
+    const interval = setInterval(() => void load(), 20_000);
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
   }, [load]);
 
   /**
@@ -330,6 +378,18 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
         <div className="flex items-center gap-2">
           <PenLine className="h-4 w-4 text-violet-300" aria-hidden="true" />
           <h3 className="text-sm font-medium text-white">Pending actions</h3>
+          {/* Never leave the operator dependent on a timer to see an act that
+              already exists. This list said "nothing waiting" while a live
+              mandate sat in the store; a control that re-reads on demand is
+              the floor. */}
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="ml-auto rounded-lg border border-slate-800 bg-slate-900/60 px-2 py-1 text-[10px] text-white/60 transition-colors hover:bg-slate-900 disabled:opacity-50"
+          >
+            {loading ? 'Checking…' : 'Refresh'}
+          </button>
         </div>
         <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
           Acts waiting on you. Each one shows the exact text your key would cover and the exact consequence of

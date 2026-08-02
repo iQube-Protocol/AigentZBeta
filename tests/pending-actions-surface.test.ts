@@ -450,3 +450,52 @@ describe('a wallet hand-over that reaches nobody is reported, not silent', () =>
     expect(register).toMatch(/Pending actions/);
   });
 });
+
+describe('the wallet never says "nothing waiting" from a cached read', () => {
+  /*
+   * ── The defect this exists to prevent, which already happened ────────────
+   *
+   * Operator, 2026-08-02 01:29. Two screenshots, the SAME minute:
+   *
+   *   Journey:  live mandate sr_fd35e233…, 29:25 remaining
+   *   Wallet:   "Nothing is waiting on you · 5 earlier requests expired"
+   *
+   * The wallet was not showing the mandate that existed — so it could not be
+   * signed, and six consecutive mandates died unsigned. Every other fix that
+   * night was upstream of a surface that would not re-read.
+   *
+   * The cause: this panel loaded ONCE on mount, and `load` only changes with
+   * `personaId`. It mounts when the wallet switches TO this surface — but on
+   * the normal path (check the wallet, go back to the Journey, prepare a
+   * mandate, click "Sign in your wallet") the operator was ALREADY here, so
+   * the drawer never unmounted it. The deep link delivered them to a stale
+   * list, and the most consequential sentence this surface can say — "nothing
+   * is waiting on you" — was said from cache.
+   */
+  const panel = stripComments(readSource('components/wallet/PendingActionsPanel.tsx'));
+
+  it('re-reads when a wallet-surface request arrives — the path that failed', () => {
+    // A deep link ARRIVING is the strongest possible signal that something new
+    // exists. It must never land on a cached list.
+    expect(panel).toMatch(/subscribeWalletSurfaceRequest\(\(request\) => \{/);
+    expect(panel).toMatch(/request\.surface !== 'PENDING_ACTIONS'/);
+  });
+
+  it('re-reads on window focus and on an interval', () => {
+    // Focus: returning from the Journey tab. Interval: mandates expire on a
+    // clock, so the list goes stale with no event at all.
+    expect(panel).toMatch(/addEventListener\('focus', onFocus\)/);
+    expect(panel).toMatch(/setInterval\(\(\) => void load\(\), 20_000\)/);
+  });
+
+  it('offers a manual refresh, so nothing depends on a timer', () => {
+    expect(panel).toMatch(/onClick=\{\(\) => void load\(\)\}/);
+    expect(panel).toMatch(/'Checking…' : 'Refresh'/);
+  });
+
+  it('every listener is torn down — a leaked interval outlives the wallet', () => {
+    expect(panel).toMatch(/unsubscribe\(\);/);
+    expect(panel).toMatch(/removeEventListener\('focus', onFocus\)/);
+    expect(panel).toMatch(/clearInterval\(interval\)/);
+  });
+});
