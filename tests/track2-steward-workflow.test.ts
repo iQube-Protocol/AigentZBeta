@@ -333,4 +333,49 @@ describe('Track 2 programme surface — the guided view', () => {
     expect(src).toMatch(/does not yet capture regulation or programme, document type, jurisdiction/);
     expect(src).toMatch(/absent from every row, not just this one/);
   });
+
+  /*
+   * STAGE 8 MUST NOT BE A BYPASS (Al, 2026-08-02).
+   *
+   *   > "68 promoted invariants have no recorded evidence provenance, and
+   *   >  validation and relationships have not started. So the UI should
+   *   >  currently take you into Stage 5, not invite you to type IDs into
+   *   >  Stage 8."
+   *
+   * Collapsing the stage was not enough. A steward who expands "show all
+   * stages" still met an invariant-ID textarea, and pasting IDs there would
+   * skip provenance classification, validation and relationship review
+   * entirely. A control that can circumvent the stages before it is a hole in
+   * the ladder, not a convenience.
+   */
+  it('the assignment control renders only when every earlier stage is complete', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/const blockers = programme\.stages\.filter\(/);
+    expect(src).toMatch(/x\.ordinal < s\.ordinal && x\.status !== "complete"/);
+    expect(src).toMatch(/if \(blockers\.length === 0\) \{/);
+    // The control is INSIDE that branch — never rendered unconditionally.
+    const at = src.indexOf('if (blockers.length === 0) {');
+    const guarded = src.slice(at, at + 300);
+    expect(guarded).toMatch(/<AssignmentControl/);
+    // And it is not also rendered somewhere unguarded.
+    expect((src.match(/<AssignmentControl/g) ?? []).length).toBe(1);
+  });
+
+  it('a locked Stage 8 names the stage that IS the next act', () => {
+    // Routing the operator to Stage 5 is the point — a bare refusal would
+    // leave them where the ladder does not want them.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/Assignment is not the next act\./);
+    expect(src).toMatch(/\{next\.ordinal\}\. \{next\.label\}/);
+    expect(src).toMatch(/This is a\s+closed gate, not a missing feature/);
+  });
+
+  it('the assignment lock is derived from the programme, not a second rule', () => {
+    // Eligibility and stage state are the server's; re-deciding them here
+    // would be the parallel implementation inv.engineering.037 forbids.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const blockers = programme.stages.filter(');
+    const block = src.slice(at, at + 400);
+    expect(block).not.toMatch(/provenance|validated|relationship/i);
+  });
 });
