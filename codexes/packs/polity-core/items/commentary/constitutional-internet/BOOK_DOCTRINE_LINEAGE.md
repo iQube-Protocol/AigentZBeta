@@ -279,3 +279,41 @@ for decay, contradiction-penalty and confidence passages — never interchangeab
 
 **Glossary (Appendix III) requirement:** two separate entries, each stating what it attaches to, what
 changes it, and what does not. **A single "standing" entry is forbidden.**
+
+---
+
+## CR-11 · Receipt-class anchoring and proof-state precision → **Ch13, Ch19, Ch20** (2026-08-02)
+
+**Ratified implementation-status correction.** The lineage for these three chapters must be recorded
+**per receipt class and per proof class**, never as one universal anchoring state.
+
+### The three conditions, kept distinct
+
+> A **receipt** records a consequential act.
+> A **proof** establishes a claim about that act or state.
+> **Anchoring** preserves the proof against later alteration.
+
+A receipt's existence does not prove anchoring. An anchoring capability's existence does not prove
+every class uses it. One class operating does not establish another's state.
+
+### Class-by-class lineage
+
+| Class | Status | Evidence basis |
+|---|---|---|
+| **Access-decision receipts** | Operational (audited path) | live batcher evidence of successful submissions |
+| **Governance / ratification** | Implemented in part; not operationally anchored | zero anchored; unresolved pending/failed state; no automated finalizer invocation |
+| **Proof of State** | Implemented · Demonstrated · Operational for deployed paths only | canister interface + tests/receipts where they exist |
+| **Proof of Risk / Price** | Doctrine where canonical; Projected implementation | no authoritative implementation, route, schema, IDL or receipt pipeline found |
+
+### Chapter lineage effects
+
+- **Ch13** — cite the proof chain **stage by stage** (generation → verification → submission →
+  anchoring → operational confirmation). The doctrine supports the chain; the deployment evidence
+  supports only some stages for some classes.
+- **Ch19** — cite the access-spine denial receipt for the refusal claim. **Do not** cite the
+  MoneyPenny runtime path or the venture substrate as evidence of operational refusal provenance.
+- **Ch20** — the class split is itself the citation: it demonstrates the evidentiary discipline the
+  chapter argues for.
+
+**Governing rule for this lineage:** *Do not describe an architectural possibility as an operational
+receipt state. Immutability must be claimed by receipt class, proof class, and demonstrated path.*

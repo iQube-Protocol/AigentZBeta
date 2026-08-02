@@ -114,7 +114,33 @@ signal is ceilinged at 40 so "signal noise cannot overwhelm verified outcomes."
 
 </details>
 
-### A-3 · Ch13/Ch20 — anchoring is claimed unscoped; governance receipts are at **zero**
+### A-3 · Ch13/Ch20 — receipt-class anchoring
+### ✅ RULED 2026-08-02 by operator ruling **CR-11** — qualify by class, do not weaken the argument
+
+**Resolved as an implementation-status correction.** The claim is not withdrawn; it is **scoped by
+receipt class**. The evidence stands as found — the ruling changes what may be *said* about it.
+
+| Class | Permitted status |
+|---|---|
+| **Access-decision receipts** (incl. supported refusals) | **Operational** in the audited path |
+| **Governance / ratification receipts** | **Implemented in part · NOT operationally anchored** |
+| **Proof of State** | Implemented · Demonstrated · Operational **only** for deployed paths evidenced |
+| **Proof of Risk / Proof of Price** | Doctrine where canonical · **Projected · Not operational** |
+
+**Canonical distinction:** a *receipt* records an act; a *proof* establishes a claim about it;
+*anchoring* preserves the proof against alteration. **The successful operation of one receipt class
+does not establish the operational state of another.**
+
+**Ch13** must distinguish the stages — generation · verification · submission · anchoring ·
+operational confirmation — and **must not compress them into a single assertion of immutability**.
+**Ch20** should use the split as an **exemplar of its own implementation-state discipline**.
+
+**CI-13 Partially supported / qualify wording · CI-20 Supported after implementation-state separation.**
+Six remediation steps are recorded in CR-11 before governance anchoring may be called operational.
+
+<details><summary>Original A-3 finding (evidence unchanged; framing superseded)</summary>
+
+**A-3 · Ch13/Ch20 — anchoring is claimed unscoped; governance receipts are at zero**
 **Type:** Overclaim · **Support:** Conflicting · **Impact:** Qualify wording
 
 Live GitHub Actions evidence, canonical repo:
@@ -148,6 +174,8 @@ anchored. Any screenshot used as evidence must be accompanied by proof mock mode
 **Ruling options:** split the claim by receipt class. *Supportable today:* "access-decision receipts —
 including refusals — are submitted to the DVN canister on a fifteen-minute cycle." *Not supportable:*
 any unqualified claim that governance/ratification acts are immutably anchored today.
+
+</details>
 
 ### A-4 · Ch21 — the **Internet Foundation** has no *current* mandate instrument
 ### ✅ NARROWED 2026-08-02 by operator ruling **CR-8** — historical existence now externally evidenced
@@ -245,7 +273,24 @@ doctrine (Art. X §6) says *"shall retain, **where feasible**, rights of portabi
 is stronger than its own constitution here.** Structurally, an order whose exit rights are unbuilt
 while entry is fully instrumented is the asymmetry Ch2 indicts platforms for.
 
-### B-3 · Ch19 — "a refusal produces a receipt" is false in the flagship path
+### B-3 · Ch19 — "a refusal produces a receipt" is not yet universal
+### ✅ RULED 2026-08-02 by operator ruling **CR-11** — add implementation evidence
+
+**The core claim is retained.** Constitutional machinery must produce receipts and enforce authority
+at action time — and bounded-authority-at-action-time remains the **strongest-supported claim in
+scope**. What must be added is the **limitation**: refusal receipts are **not yet produced
+consistently in every runtime path**, including the audited MoneyPenny execution path.
+
+**Scope the claim to the access-spine path** (live, evidenced, durable, carries `allow:false` plus
+reason) until the four remediation steps in CR-11 are complete: write a durable receipt for blocked
+MoneyPenny runtime executions · include the refusal invariant, mandate boundary and failed step ·
+test the receipt path · verify persistence after the client session ends.
+
+**CI-19 Partially supported / add implementation evidence.**
+
+<details><summary>Original B-3 finding (evidence unchanged; framing superseded)</summary>
+
+**B-3 · Ch19 — "a refusal produces a receipt" is false in the flagship path**
 **Type:** Overclaim · **Impact:** Qualify wording
 
 True in four places (access-spine denials, `approval_rejected`, Marketa refusals). **False in
@@ -259,6 +304,8 @@ response body, discarded when the caller closes the tab.
 *"receipt persisted — NO; receipt DVN-anchored — NO"* — adding that *"a report that says 'the receipts
 exist' when it means 'receipt objects were generated' claims provenance that does not exist."*
 Enforced by `assertVentureJournalCanLeaveMemory`, which **throws**.
+
+</details>
 
 ### B-4 · Ch6/Ch14/Ch23 — time sovereignty and repair are **not measured**
 **Type:** Overclaim + Missing proof · **Impact:** Qualify wording
