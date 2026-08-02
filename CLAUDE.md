@@ -181,7 +181,7 @@ in `codexes/packs/agentiq/updates/` — is fine. A book is not.
 ### Enforcement
 
 `tests/repo-weight.test.ts` fails the build on: any tracked build-output path, any NEW tracked file
-over 1 MB, and total tracked bytes over budget. The 47 files already over the limit are
+over 1 MB, and total tracked bytes over budget. The files already over the limit are
 grandfathered in a FROZEN list — **an entry may be removed (move it out and delete it), never
 added**. Do not raise the budget or extend the list to make a violation pass; that is the defect,
 not the fix.
