@@ -271,96 +271,54 @@ frontend:
         - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -maxdepth 2 -type d 2>/dev/null | sort || true
         - echo "=== final artifact composition (bytes) ==="
         - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/node_modules/pdf-parse 2>/dev/null || true
-        # WHAT IS ACTUALLY BEING MEASURED (2026-08-02).
-        #
-        # The pdf-parse specialization removed 6,249,974 bytes from
-        # .next/standalone (188,345,601 -> 182,095,627). Amplify's reported
-        # build output moved 1,954 bytes (230,842,832 -> 230,840,878). Static
-        # was unchanged. So the measured artifact is INSENSITIVE to
-        # .next/standalone's size, and every prune aimed there — docs, .d.ts,
-        # .map, the three pdf.js builds — has been reclaiming bytes that the
-        # cap does not count.
-        #
-        # `artifacts.baseDirectory` is `.next` with `**/*`, so the cap covers
-        # the WHOLE .next tree, not the standalone subtree we have been
-        # trimming. The obvious untrimmed resident is `.next/cache`: it is
-        # deleted BEFORE `next build` (cache-busting, above) and therefore
-        # regenerated DURING the build, landing inside the artifact. It is
-        # build cache — Next regenerates it and Amplify caches it separately;
-        # nothing at runtime reads it.
-        #
-        # Measured first, then removed, so the log proves the size rather than
-        # this comment asserting it.
-        - echo "=== WHOLE .next tree, by component (bytes) ==="
-        - du -sb .next .next/cache .next/server .next/standalone .next/static 2>/dev/null || true
-        - echo "Removing .next/cache — build cache, regenerated next build, never read at runtime..."
-        - rm -rf .next/cache 2>/dev/null || true
-        - echo "=== .next AFTER cache removal (bytes) ==="
-        - du -sb .next 2>/dev/null || true
-        # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
-        # include stops NEW tracing, but Next still copies the pack .md that land
-        # in .next/standalone/codexes/packs (include/exclude carry cross-route
-        # dedupe semantics; a postBuild delete does not — bytes removed here are
-        # gone from the artifact, full stop). We serve these .md from the remote
-        # corpus store at runtime (services/knowledge/packCorpusStore.ts), so
-        # deleting the ~5 MB of bundled bodies is what actually drops the artifact
-        # under the 230686720-byte cap. GATED on PACK_CORPUS_URL being pinned in
-        # .env.production — the exporter writes it ONLY after a successful,
-        # verified public upload — so we never strip the bundle unless the blob
-        # is confirmed live. The pack .json (registry metadata) is preserved.
-        # EXCLUDES: the two sync-context .md readers kept bundled on purpose
-        # (services/experiments/exp001.ts artifacts + the constitutional glossary
-        # read by ontologyResolver) have NO remote fallback, so preserve them.
-        # Also strips NON-MANIFEST pack .json (index.json, data blobs) — those are
-        # served from the corpus blob too; only collections.json + meta.json stay
-        # (packRegistry reads them via fs to build the picker + lists pack dirs).
-        - >
-          if grep -q "^PACK_CORPUS_URL=" .env.production 2>/dev/null; then
-            echo "Corpus blob live — removing bundled pack .md + non-manifest .json from standalone (served remotely)...";
-            find .next/standalone/codexes/packs -type f -name "*.md" \
-              ! -path "*/exp-001-living-knowledgeqube/*" \
-              ! -name "constitutional-glossary.md" \
-              -delete 2>/dev/null || true;
-            find .next/standalone/codexes/packs -type f -name "*.json" \
-              ! -name "collections.json" \
-              ! -name "meta.json" \
-              -delete 2>/dev/null || true;
-          else
-            echo "PACK_CORPUS_URL not pinned — keeping bundled pack corpus (corpus store falls back to FS)";
-          fi
-        - echo "=== .next/standalone size AFTER native-binary + dev-artifact cleanup ==="
-        - du -sh .next/standalone 2>/dev/null || true
-        - echo "=== .next total size AFTER cleanup ==="
-        - du -sh .next 2>/dev/null || true
-        # COMPUTE COMPOSITION (bytes) — the Amplify SSR 'build output' cap measures
-        # .next/standalone + .next/static. Log each component + the biggest traced
-        # node_modules packages so we trim the ACTUAL weight, not the wrong tree.
-        - echo "=== COMPUTE COMPOSITION (bytes) ==="
-        - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/.next .next/standalone/codexes 2>/dev/null || true
         - echo "=== biggest .next/standalone/node_modules packages (MB) ==="
         - du -sm .next/standalone/node_modules/* .next/standalone/node_modules/@*/* 2>/dev/null | sort -rn | head -30 || true
         - echo "=== biggest .next/static subtrees (MB) ==="
         - du -sm .next/static/* 2>/dev/null | sort -rn | head -15 || true
         # ── ARTIFACT LEDGER — LAST THING PRINTED, DELIBERATELY ───────────────
         #
-        # Every measurement added today landed ABOVE the compute-composition
-        # block, which is where the tail of the log starts and therefore the
-        # only part anyone reads. So the numbers that would have ended this
-        # went unseen for three builds. This block is last on purpose.
+        # Every measurement added earlier today printed ABOVE the
+        # compute-composition block, which is where the readable tail of the
+        # log begins. The numbers that would have ended this sat unread for
+        # three builds. This block is last on purpose, and it enumerates EVERY
+        # child of .next rather than a list chosen in advance.
         #
-        # And it enumerates EVERY child of .next rather than a hand-picked
-        # list. Three rounds of pruning aimed at paths I chose to name, and the
-        # cap ignored all of them: -6,249,974 from .next/standalone moved the
-        # reported total by -1,954. `artifacts.baseDirectory` is `.next` with
-        # `**/*`, standalone+static accounts for 218,593,755 of 230,839,372,
-        # and the remaining ~12.2 MB has never been itemised. A path I did not
-        # think to name cannot hide from `du -sb .next/*`.
-        - echo "=== ARTIFACT LEDGER: every child of .next, bytes, largest first ==="
-        - du -sb .next/* 2>/dev/null | sort -rn || true
-        - echo "=== ARTIFACT LEDGER: .next total vs the 230686720 cap ==="
+        # WHY MEASUREMENT AND NOT ANOTHER CUT. Three rounds of pruning aimed at
+        # named paths, and the cap ignored all of them: -6,249,974 bytes from
+        # .next/standalone moved the reported total by -1,954, and removing
+        # .next/cache moved it by -1,506. standalone+static accounts for
+        # 218,593,755 of 230,839,372; the remaining 12,245,617 has never been
+        # itemised. No further corpus, dependency, standalone, PDF or book cuts
+        # until this composition is visible.
+        #
+        # CACHE REMOVAL TIMING (operator direction via Al). The pre-existing
+        # `rm -rf .next/cache` runs BEFORE `next build`, so the build simply
+        # regenerates it into the artifact. The removal that can matter has to
+        # happen AFTER the build and BEFORE packaging — which is here.
+        - echo "=== WHOLE .next TREE BEFORE CACHE REMOVAL (bytes) ==="
         - du -sb .next 2>/dev/null || true
-        - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 · measured %s · delta %+d bytes\n", $1, 230686720 - $1}' || true
-
+        - du -sb .next/* 2>/dev/null | sort -rn || true
+        - echo "=== .next/cache COMPOSITION ==="
+        - du -sb .next/cache 2>/dev/null || true
+        - du -sb .next/cache/* 2>/dev/null | sort -rn || true
+        - find .next/cache -type f -printf '%s %p\n' 2>/dev/null | sort -nr | head -30 || true
+        - echo "=== FILE COUNTS BY TOP-LEVEL .next COMPONENT ==="
+        - for p in .next/*; do [ -e "$p" ] || continue; echo "$p $(find "$p" -type f 2>/dev/null | wc -l) files"; done || true
+        - echo "=== REMOVE RUNTIME-IRRELEVANT NEXT BUILD CACHE ==="
+        - rm -rf .next/cache 2>/dev/null || true
+        - echo "=== WHOLE .next TREE AFTER CACHE REMOVAL (bytes) ==="
+        - du -sb .next 2>/dev/null || true
+        - du -sb .next/* 2>/dev/null | sort -rn || true
+        # The artifact is unusable without these three. Checked AFTER the
+        # removal so a cache delete that took something with it fails the build
+        # here, loudly, rather than at first request in production.
+        - echo "=== ARTIFACT INTEGRITY AFTER CACHE REMOVAL ==="
+        - test ! -e .next/cache && echo "cache absent - ok" || echo "cache STILL PRESENT"
+        - test -f .next/BUILD_ID && echo "BUILD_ID ok"
+        - test -d .next/server && echo "server dir ok"
+        - test -d .next/static && echo "static dir ok"
+        - echo "=== ARTIFACT LEDGER - .next total vs the 230686720 cap ==="
+        - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 | measured %s | delta %+d bytes\n", $1, 230686720 - $1}' || true
   artifacts:
     baseDirectory: .next
     files:
