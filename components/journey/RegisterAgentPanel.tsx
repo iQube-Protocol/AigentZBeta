@@ -115,6 +115,44 @@ async function readJsonOrExplain(res: Response, label: string): Promise<Record<s
   throw new Error(`${label} returned an unexpected response (HTTP ${res.status}).`);
 }
 
+/**
+ * How long the live mandate has left, ticking, and an auto-reread on expiry.
+ *
+ * Five mandates expired invisibly: the TTL existed only as a death the
+ * operator discovered afterwards. A visible countdown converts it into a
+ * deadline they can beat — and when it does lapse, the ladder re-reads
+ * immediately instead of asserting "awaiting your signature" about a corpse
+ * (the exact stale disagreement in the 00:18 screenshots).
+ */
+function MandateCountdown({ expiresAt, onExpired }: { expiresAt: string; onExpired: () => void }) {
+  const [remainingMs, setRemainingMs] = useState(() => new Date(expiresAt).getTime() - Date.now());
+  const firedRef = useRef(false);
+  useEffect(() => {
+    firedRef.current = false;
+    const tick = () => {
+      const ms = new Date(expiresAt).getTime() - Date.now();
+      setRemainingMs(ms);
+      if (ms <= 0 && !firedRef.current) {
+        firedRef.current = true;
+        onExpired();
+      }
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [expiresAt, onExpired]);
+  if (remainingMs <= 0) return null;
+  const mins = Math.floor(remainingMs / 60_000);
+  const secs = Math.floor((remainingMs % 60_000) / 1000);
+  const urgent = remainingMs < 5 * 60_000;
+  return (
+    <p className={`mt-1 text-[11px] ${urgent ? 'text-amber-300' : 'text-slate-500'}`}>
+      This mandate expires in {mins}:{String(secs).padStart(2, '0')}
+      {urgent ? ' — sign it now or prepare a fresh one after it lapses.' : '.'}
+    </p>
+  );
+}
+
 export const PILOT_AGENTS: RegistrableAgentOption[] = [
   { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
   { slug: 'nakamoto', displayName: 'Aigent Nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json' },
@@ -296,9 +334,25 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
 
   const readProgress = useCallback(async () => {
     try {
-      const [reqRes, statusRes] = await Promise.all([
+      /*
+       * TWO SOURCES, EACH THE RIGHT ONE (fix, 2026-08-02 late).
+       *
+       * The first version read `register/status` with a bare GET. That route
+       * is a POST requiring {agentSlug, txHash, ownerWalletAddress, network} —
+       * it answers "has THIS broadcast confirmed", not "is this agent
+       * registered". The bare call 400'd on every render, so `tokenId` was
+       * always null, the REGISTERED rung could never light, and the network
+       * was never known. The one break in an otherwise intact chain.
+       *
+       * "Is this agent registered" is answered by the agent card:
+       * `metadata.horizen` is a projection of the SAME registry_assets binding
+       * the status route writes on confirmation (never a second source of
+       * truth), and the card is a public GET — the same read
+       * PulseTransparencyToggle already does.
+       */
+      const [reqRes, cardRes] = await Promise.all([
         personaFetch('/api/wallet/signing-requests', { cache: 'no-store' }),
-        personaFetch('/api/journey/moneypenny-horizen/register/status', { cache: 'no-store' }),
+        fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' }),
       ]);
       const reqJson = (await reqRes.json().catch(() => null)) as {
         ok?: boolean;
@@ -307,23 +361,29 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           signerRole: string;
           subjectAgentRef: string | null;
           expired: boolean;
+          expiresAt?: string;
         }[];
       } | null;
-      const statusJson = (await statusRes.json().catch(() => null)) as
-        | { tokenId?: unknown; network?: unknown }
-        | null;
-      const tokenId = typeof statusJson?.tokenId === 'string' && statusJson.tokenId ? statusJson.tokenId : null;
+      const cardJson = (await cardRes.json().catch(() => null)) as {
+        metadata?: { horizen?: { tokenId?: unknown; network?: unknown } };
+      } | null;
+      const horizen = cardJson?.metadata?.horizen;
+      const tokenId = typeof horizen?.tokenId === 'string' && horizen.tokenId ? horizen.tokenId : null;
       setHorizenFacts({
-        network: typeof statusJson?.network === 'string' && statusJson.network ? statusJson.network : null,
+        network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
         tokenId,
       });
       const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === `aigent-${agentSlug}`);
+      const liveMandateRow = mine.find((r) => r.actionKind === 'authorize_registration' && !r.expired);
+      setLiveMandateExpiresAt(liveMandateRow?.expiresAt ?? null);
       setProgress(
         registerCeremonyProgress({
           walletReady: Boolean(walletGate?.ready),
-          liveMandate: mine.some((r) => r.actionKind === 'authorize_registration' && !r.expired),
+          liveMandate: Boolean(liveMandateRow),
           liveInvocation: mine.some((r) => r.actionKind === 'sign_registry_transaction' && !r.expired),
-          broadcastPending: false,
+          // The broadcast leg is knowable only from this panel's own poll —
+          // the tx facts live in the completion event, not in any store row.
+          broadcastPending: flowStepRef.current === 'polling',
           tokenId,
           expiredAttempts: mine.filter((r) => r.expired).length,
         }),
@@ -335,9 +395,43 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
     }
   }, [agentSlug, walletGate?.ready]);
 
+  // The flow step, readable inside readProgress without re-creating the
+  // callback (and its polling interval) on every step change.
+  const flowStepRef = useRef<string>('idle');
+  useEffect(() => {
+    flowStepRef.current = flow.step;
+  }, [flow.step]);
+
+  /** When the live mandate runs out — the countdown, and the auto-flip. */
+  const [liveMandateExpiresAt, setLiveMandateExpiresAt] = useState<string | null>(null);
+
   useEffect(() => {
     void readProgress();
   }, [readProgress, flow.step]);
+
+  /*
+   * THE LADDER REFRESHES ITSELF (operator screenshots, 2026-08-02 00:18).
+   *
+   * The wallet said "nothing waiting · 5 expired" while this ladder said
+   * "awaiting your signature" — both truthful AT THE MOMENT EACH LAST READ.
+   * The ladder read once and froze; the mandate expired underneath it; the
+   * wallet, opened later, saw the truth. A surface that reports a state with
+   * a 30-minute fuse cannot read once: it must re-read, or it becomes the
+   * stale half of every disagreement.
+   *
+   * 30s cadence (a 30-minute TTL loses a minute of accuracy at most), plus a
+   * read on window focus — the operator returning from the wallet is exactly
+   * when the state has most likely changed.
+   */
+  useEffect(() => {
+    const interval = setInterval(() => void readProgress(), 30_000);
+    const onFocus = () => void readProgress();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [readProgress]);
 
   /*
    * WHETHER ANY WALLET ANSWERED (operator, 2026-08-02, fourth round).
@@ -662,6 +756,11 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
             <p className="mt-1.5 text-[11px] leading-relaxed text-slate-200">
               <span className="text-slate-500">Next:</span> {progress.nextAct}
             </p>
+            {/* The fuse, visible while it burns. Five mandates died invisibly;
+                a deadline the operator can see is one they can beat. */}
+            {progress.stageId === 'MANDATE_AWAITING_SIGNATURE' && liveMandateExpiresAt && (
+              <MandateCountdown expiresAt={liveMandateExpiresAt} onExpired={() => void readProgress()} />
+            )}
             {expiredAttemptsNote(progress.expiredAttempts) && (
               <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
                 {expiredAttemptsNote(progress.expiredAttempts)}

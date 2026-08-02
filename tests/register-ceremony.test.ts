@@ -591,3 +591,48 @@ describe('the ladder reads horizontally, with completed rungs in green', () => {
     expect(panel).toMatch(/network: horizenFacts\.network/);
   });
 });
+
+describe('the ladder reads live sources and keeps itself current', () => {
+  /*
+   * The 00:18 screenshots: the wallet said "nothing waiting · 5 expired"
+   * while the Journey said "awaiting your signature". Both were truthful AT
+   * THE MOMENT EACH LAST READ — the ladder read once and froze, the mandate
+   * expired underneath it, the wallet opened later and saw the truth. And the
+   * ladder's registered-rung source was a bare GET against a POST route that
+   * requires {agentSlug, txHash, ownerWalletAddress, network} — a 400 on
+   * every render, so REGISTERED could never light and the network was never
+   * known.
+   */
+  const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+
+  it('reads "is this agent registered" from the agent card, not the status POST', () => {
+    // metadata.horizen projects the SAME registry_assets binding the status
+    // route writes on confirmation — one source of truth, public GET.
+    expect(panel).toMatch(/fetch\(`\/api\/agents\/\$\{agentSlug\}\/agent-card\.json`/);
+    // The bare misuse of the status route must not return. The status route
+    // itself is still used — correctly, as a POST with the full body — by
+    // pollStatus.
+    expect(panel).not.toMatch(/personaFetch\('\/api\/journey\/moneypenny-horizen\/register\/status',\s*\{\s*cache/);
+  });
+
+  it('re-reads on an interval and on window focus', () => {
+    // A surface reporting a state with a 30-minute fuse cannot read once.
+    expect(panel).toMatch(/setInterval\(\(\) => void readProgress\(\), 30_000\)/);
+    expect(panel).toMatch(/addEventListener\('focus', onFocus\)/);
+  });
+
+  it('shows the mandate countdown and re-reads the moment it lapses', () => {
+    // Five mandates died invisibly; a deadline the operator can see is one
+    // they can beat, and an expiry flips the ladder instead of freezing it.
+    expect(panel).toMatch(/function MandateCountdown/);
+    expect(panel).toMatch(/This mandate expires in/);
+    expect(panel).toMatch(/onExpired=\{\(\) => void readProgress\(\)\}/);
+    expect(panel).toMatch(/liveMandateRow\?\.expiresAt/);
+  });
+
+  it('the broadcast rung lights from this panel\'s own poll state', () => {
+    // The tx facts live in the completion event, not in any store row — the
+    // panel's polling step is the only witness of an in-flight broadcast.
+    expect(panel).toMatch(/broadcastPending: flowStepRef\.current === 'polling'/);
+  });
+});
