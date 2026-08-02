@@ -111,6 +111,26 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [programme, setProgramme] = useState<Programme | null>(null);
+  /*
+   * The acquisition domain is a DIFFERENT namespace from the crystal domain
+   * (the route says so explicitly and refuses to guess one from the other).
+   * The review queue below reads candidate sources in the acquisition domain,
+   * so it must come from the server's answer — never be inferred here.
+   */
+  const [acquisitionDomain, setAcquisitionDomain] = useState<string | null>(null);
+  /*
+   * FUTURE STAGES ARE COLLAPSED (Al + EXP agent, 2026-08-02).
+   *
+   *   > "several later steps display warnings like 'Nothing here has
+   *   >  failed...'. Technically correct, but they make the screen noisy.
+   *   >  I'd collapse Steps 5-11 until their prerequisites are met."
+   *
+   * Not hidden — collapsed, with the count and a toggle. A stage the operator
+   * cannot act on yet is context; a stage they can act on is the work. Any
+   * stage that is COMPLETE stays visible whatever its ordinal, because
+   * concealing finished work would misreport progress in the other direction.
+   */
+  const [showAllStages, setShowAllStages] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -124,6 +144,7 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
         throw new Error(d?.error || `the Track 2 programme could not be read (HTTP ${res.status})`);
       }
       setProgramme(d.programme as Programme);
+      setAcquisitionDomain(typeof d.acquisitionDomain === "string" ? d.acquisitionDomain : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "the Track 2 programme could not be read");
     } finally {
@@ -175,7 +196,13 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
             </div>
 
             <ol className="space-y-2">
-              {programme.stages.map((s) => (
+              {programme.stages.map((s) => {
+                const current = programme.stages.find((x) => x.id === programme.currentStageId);
+                // Locked = later than where the work is, and not itself done.
+                // A completed stage is never concealed, whatever its ordinal.
+                const locked = !!current && s.ordinal > current.ordinal && s.status !== "complete";
+                if (locked && !showAllStages) return null;
+                return (
                 <li
                   key={s.id}
                   className={`rounded-lg border p-2.5 text-[11px] ${
@@ -219,6 +246,21 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                       </div>
                       <div className="text-[10px] font-mono text-slate-700">{s.capability}</div>
 
+                      {/* STAGE 2 IS WHERE THE WORK IS (EXP agent, 2026-08-02:
+                          "What happens when you click Review & Admit?").
+
+                          It reported "41 sources await a human decision" and
+                          offered nothing to decide with — orchestration built,
+                          operator workflow missing. The queue below calls the
+                          EXISTING review route; no admission rule, no
+                          ingestion trigger and no status mapping is
+                          reimplemented here. */}
+                      {s.id === "review-and-admit" && (
+                        <CorpusReviewQueue
+                          acquisitionDomain={acquisitionDomain}
+                          onDone={() => void load()}
+                        />
+                      )}
                       {s.id === "assign-to-crystal" && (
                         <AssignmentControl experimentId={experimentId} onDone={() => void load()} />
                       )}
@@ -228,11 +270,395 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                     </div>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ol>
+
+            {(() => {
+              const current = programme.stages.find((x) => x.id === programme.currentStageId);
+              const lockedCount = current
+                ? programme.stages.filter((x) => x.ordinal > current.ordinal && x.status !== "complete").length
+                : 0;
+              if (lockedCount === 0) return null;
+              return (
+                <button
+                  onClick={() => setShowAllStages((v) => !v)}
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 text-[11px] text-slate-400 transition hover:bg-slate-800/60"
+                >
+                  <Lock className="h-3 w-3" />
+                  {showAllStages
+                    ? `Hide the ${lockedCount} stage(s) that unlock later`
+                    : `${lockedCount} remaining stage(s) unlock automatically — show them`}
+                </button>
+              );
+            })()}
 
             <div className="mt-2 text-[10px] text-slate-600">{programme.derivationNote}</div>
           </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * STAGE 2 — the steward review queue (EXP agent + Al, 2026-08-02).
+ *
+ * ── The gap this closes ────────────────────────────────────────────────────
+ *
+ *   > "Step 2 currently reports '41 awaiting review' but provides no steward
+ *   >  review surface. The Track 2 programme must open the pending Corpus
+ *   >  Scout queue so I can review, admit, reject or defer each candidate."
+ *
+ * Everything downstream of this stage is downstream of these decisions, so an
+ * unactionable Stage 2 made the whole programme unactionable.
+ *
+ * ── What is NOT here ───────────────────────────────────────────────────────
+ *
+ * No decision logic. The decision vocabulary, the status mapping and the
+ * hand-off to the Ingestion Broker all live in
+ * `POST /api/corpus-scout/candidates/[sourceId]/review`, which already
+ * implements PRD-ICA-001 §6/§8/§9 — approval and ingestion are ONE reviewer
+ * action there, and a second copy of that rule here would be the stale one.
+ * This component collects a decision and a rationale and posts them.
+ *
+ * ── Defer is not in the ratified vocabulary ────────────────────────────────
+ *
+ * Al asked for Admit / Reject / Defer. §8's eleven statuses contain no
+ * `deferred`: a source either carries a decision or remains `pending_review`.
+ * Leaving it pending IS defer’s effect, and that is what "Leave pending" does —
+ * it records nothing and changes nothing, which is exactly why it is not
+ * dressed up as a governance act. A real deferral (with its own status,
+ * rationale and receipt) is an amendment to PRD-ICA-001 §8 and to the column’s
+ * enum, not a button a UI may invent. Reported, not fabricated.
+ */
+function CorpusReviewQueue({
+  acquisitionDomain,
+  onDone,
+}: {
+  acquisitionDomain: string | null;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<CandidateSource[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!acquisitionDomain) return;
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(
+        `/api/corpus-scout/candidates?campaignDomain=${encodeURIComponent(acquisitionDomain)}` +
+          `&reviewWorkflowStatus=pending_review`,
+        { cache: "no-store" },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `the review queue could not be read (HTTP ${res.status})`);
+      setRows((d.candidates ?? []) as CandidateSource[]);
+    } catch (e) {
+      // Unreadable is not empty. An empty list here would read as "nothing to
+      // review" on the one surface whose job is to show what is.
+      setRows(null);
+      setErr(e instanceof Error ? e.message : "the review queue could not be read");
+    } finally {
+      setLoading(false);
+    }
+  }, [acquisitionDomain]);
+
+  useEffect(() => {
+    if (open) void load();
+  }, [open, load]);
+
+  if (!acquisitionDomain) {
+    return (
+      <div className="mt-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-400">
+        The acquisition domain was not returned by the programme read, so the review queue cannot be opened
+        against a domain this surface is sure of. Refresh; if it persists, the Track 2 route is not answering.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded border border-slate-800 bg-slate-900/40 p-2">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 text-[11px] font-medium text-slate-200"
+      >
+        <span>{open ? "Hide the review queue" : "Open the review queue"}</span>
+        <span className="font-mono text-[10px] text-slate-500">{acquisitionDomain}</span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {loading && (
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <Loader2 className="h-3 w-3 animate-spin" /> reading the queue…
+            </div>
+          )}
+          {err && (
+            <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-[11px] text-rose-200">
+              {err}
+            </div>
+          )}
+          {rows !== null && rows.length === 0 && !loading && (
+            <div className="text-[11px] text-slate-400">
+              No source is awaiting a decision in this domain. This is a read of the queue, not an assumption —
+              sources already decided are not shown here.
+            </div>
+          )}
+          {rows?.map((r) => (
+            <CandidateReviewCard
+              key={r.sourceId}
+              row={r}
+              onDecided={() => {
+                void load();
+                onDone();
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The fields the list projection returns. `normalizedText` is truncated by the
+ *  server (Lambda response cap) — `normalizedTextChars` carries the true
+ *  length, so a preview is never mistaken for the whole document. */
+interface CandidateSource {
+  sourceId: string;
+  title: string;
+  issuer: string | null;
+  authors: string[];
+  publicationDate: string | null;
+  canonicalUrl: string;
+  campaignDomain: string;
+  campaignSubDomain: string | null;
+  acquisitionMethod: string;
+  licenseStatus: string;
+  provenanceClass: string | null;
+  extractionStatus: string;
+  extractionWarnings: string[];
+  structuralTags: string[];
+  pageCount: number | null;
+  fileSizeBytes: number | null;
+  artifactHash: string | null;
+  normalizedText: string;
+  normalizedTextChars?: number;
+  duplicateOfSourceId: string | null;
+  retrievedAt: string | null;
+}
+
+/** §9's decisions, with what each one ACTUALLY does — the two that hand the
+ *  source to the Ingestion Broker are marked, because "approve" and "approve
+ *  and ingest" are not the same act and the operator is choosing between
+ *  them. Taken from APPROVED_FOR_INGESTION, not restated from memory. */
+const DECISIONS: {
+  value: string;
+  label: string;
+  kind: "admit" | "reject";
+  consequence: string;
+}[] = [
+  {
+    value: "approve_exp_p1",
+    label: "Admit — EXP-P1",
+    kind: "admit",
+    consequence: "Hands the source to the Ingestion Broker as EXP-P1 evidence. This is the admission that feeds the crystal.",
+  },
+  {
+    value: "approve_general_finance",
+    label: "Admit — general finance",
+    kind: "admit",
+    consequence: "Hands the source to the Ingestion Broker as general financial evidence, outside the EXP-P1 lane.",
+  },
+  {
+    value: "approve_reference_only",
+    label: "Admit — reference only",
+    kind: "admit",
+    consequence: "Recorded as admitted for reference. NOT ingested — it will not become evidence.",
+  },
+  {
+    value: "reject_out_of_domain",
+    label: "Reject — out of domain",
+    kind: "reject",
+    consequence: "Outside the ratified acquisition domain.",
+  },
+  {
+    value: "reject_low_substance",
+    label: "Reject — low substance",
+    kind: "reject",
+    consequence: "Too little substantive content to ground an invariant.",
+  },
+  {
+    value: "reject_provenance",
+    label: "Reject — provenance",
+    kind: "reject",
+    consequence: "The source’s provenance cannot be established to the standard the corpus requires.",
+  },
+  {
+    value: "reject_access_or_license",
+    label: "Reject — access or licence",
+    kind: "reject",
+    consequence: "Access or licensing forbids using this source as corpus evidence.",
+  },
+];
+
+function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecided: () => void }) {
+  const [decision, setDecision] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const chosen = DECISIONS.find((d) => d.value === decision) ?? null;
+
+  const submit = useCallback(async () => {
+    if (!chosen || !notes.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(
+        `/api/corpus-scout/candidates/${encodeURIComponent(row.sourceId)}/review`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ decision: chosen.value, notes: notes.trim() }),
+        },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `the decision was not recorded (HTTP ${res.status})`);
+      setDone(chosen.label);
+      onDecided();
+    } catch (e) {
+      // A failed decision leaves the source PENDING and says so — the operator
+      // must never be left thinking they decided something they did not.
+      setErr(e instanceof Error ? e.message : "the decision was not recorded — this source is still pending");
+    } finally {
+      setBusy(false);
+    }
+  }, [chosen, notes, row.sourceId, onDecided]);
+
+  if (done) {
+    return (
+      <div className="rounded border border-emerald-800/50 bg-emerald-950/20 p-2 text-[11px] text-emerald-200">
+        <CheckCircle2 className="mr-1 inline h-3 w-3" />
+        {row.title} — {done}. Recorded with your rationale.
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+      <div className="font-medium text-slate-100">{row.title}</div>
+      <div className="mt-0.5 text-slate-400">
+        {row.issuer || "issuer not recorded"}
+        {row.publicationDate ? ` · ${row.publicationDate}` : ""}
+        {row.authors.length > 0 ? ` · ${row.authors.join(", ")}` : ""}
+      </div>
+      <div className="mt-0.5 text-[10px] text-slate-500">
+        {row.campaignDomain}
+        {row.campaignSubDomain ? ` / ${row.campaignSubDomain}` : ""} · acquired via {row.acquisitionMethod} ·
+        licence {row.licenseStatus} · extraction {row.extractionStatus}
+        {row.pageCount !== null ? ` · ${row.pageCount}pp` : ""}
+      </div>
+      <a
+        href={row.canonicalUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="mt-0.5 block truncate font-mono text-[10px] text-cyan-300 hover:underline"
+      >
+        {row.canonicalUrl}
+      </a>
+
+      {/* Warnings the retrieval and inspection steps already produced. Shown
+          on the decision surface because they are what a reviewer is meant to
+          weigh, and they were previously only visible to a curl caller. */}
+      {row.extractionWarnings.length > 0 && (
+        <ul className="mt-1 space-y-0.5">
+          {row.extractionWarnings.map((w, i) => (
+            <li key={i} className="rounded border border-amber-500/20 bg-amber-500/5 p-1 text-amber-100">
+              {w}
+            </li>
+          ))}
+        </ul>
+      )}
+      {row.duplicateOfSourceId && (
+        <div className="mt-1 rounded border border-amber-500/20 bg-amber-500/5 p-1 text-amber-100">
+          Already flagged as a duplicate of <span className="font-mono">{row.duplicateOfSourceId}</span>.
+        </div>
+      )}
+      {row.structuralTags.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {row.structuralTags.map((t) => (
+            <span key={t} className="rounded border border-slate-800 px-1 py-0.5 text-[10px] text-slate-400">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="mt-1.5 text-[10px] text-slate-400 underline-offset-2 hover:underline"
+      >
+        {expanded ? "Hide extracted text" : "Preview extracted text"}
+      </button>
+      {expanded && (
+        <div className="mt-1 max-h-48 overflow-y-auto whitespace-pre-wrap rounded border border-slate-800 bg-slate-950 p-1.5 text-[10px] leading-relaxed text-slate-400">
+          {row.normalizedText || "(no text was extracted)"}
+          {typeof row.normalizedTextChars === "number" &&
+            row.normalizedTextChars > row.normalizedText.length && (
+              <div className="mt-1 text-slate-600">
+                Preview only — {row.normalizedText.length} of {row.normalizedTextChars} characters. The full text
+                is held server-side; this list is truncated to stay under the response cap.
+              </div>
+            )}
+        </div>
+      )}
+
+      <div className="mt-2 space-y-1.5">
+        <select
+          value={decision}
+          onChange={(e) => setDecision(e.target.value)}
+          className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+        >
+          <option value="">— choose a decision —</option>
+          {DECISIONS.map((d) => (
+            <option key={d.value} value={d.value}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+        {chosen && <div className="text-[10px] text-slate-400">{chosen.consequence}</div>}
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          placeholder="rationale (required — recorded on the source as the reviewer's note)"
+          className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+        />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            onClick={() => void submit()}
+            disabled={busy || !chosen || !notes.trim()}
+            className={`rounded border px-2.5 py-1 text-[11px] disabled:opacity-50 ${
+              chosen?.kind === "reject"
+                ? "border-rose-800 bg-rose-900/30 text-rose-200"
+                : "border-emerald-800 bg-emerald-900/30 text-emerald-200"
+            }`}
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Record decision"}
+          </button>
+          <span className="text-[10px] text-slate-500">
+            Leave pending — take no action. There is no ratified `deferred` status; a source with no decision
+            stays in this queue, which is what deferring means here.
+          </span>
+        </div>
+        {err && (
+          <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>
         )}
       </div>
     </div>
