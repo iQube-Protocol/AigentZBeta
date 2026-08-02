@@ -140,3 +140,25 @@ corrects; reproducing it visually would reintroduce the ontology conflict the ru
 **Caption discipline.** Plate 10's caption must not use the words *decay* or *contradiction* — both
 belong to the invariant loop. Person standing changes through **proven action, penalty, repair,
 challenge and constitutional consequence**, never through elapsed time.
+
+---
+
+## Plates 11 and 12 — ruled 2026-08-02 (CR-12)
+
+**Plate 11 — The Polity as Constitutional Institute** **may show the Commons as a ratified
+institution.** Its place in the institutional field is constitutionally supported.
+
+**Plate 12 — Many Bridges, One Polity** **must not imply that a complete operational Commons already
+mediates interoperability.** The plate may show the *requirement* for reusable shared proof; it may
+not depict the Commons as the mechanism currently delivering it.
+
+**Visual status language must distinguish three states:**
+
+| State | Meaning |
+|---|---|
+| **Ratified institution** | constitutionally constituted |
+| **Implementation in progress** | machinery being built |
+| **Operational capability** | demonstrated in the deployed environment |
+
+A plate that renders all three identically reproduces the exact conflation CR-12 corrects — the same
+failure Plate 10 avoids by refusing a shared unlabeled "standing" field.

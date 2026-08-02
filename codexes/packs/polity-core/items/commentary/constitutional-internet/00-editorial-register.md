@@ -422,6 +422,111 @@ unresolved pending/failed receipt state, and **no automated finalizer invocation
 
 ---
 
+### CR-12 — The Commons: constitutional institution and implementation state (operator-ratified 2026-08-02)
+
+**Status:** **Ratified constitutional status; technical implementation incomplete.**
+
+The Commons **is a constitutionally ratified institution of the polity.** It is constituted to
+preserve and make reusable: proven capabilities · constitutional invariants · structural invariants ·
+canaries · provenance · implementation evidence · failures · repairs · reproduction knowledge · and
+the conditions under which a capability may legitimately be reused.
+
+**The Commons/Registry distinction remains valid AND PRESENT:**
+
+> The **Commons** preserves shared proof and reusable capability.
+> The **Registry** preserves ordered memory, attribution, state, and constitutional lineage.
+
+#### Current implementation state
+
+The audited repository does **not** yet contain a complete Commons resource model or operational
+promotion engine. Absent or incomplete: a canonical Commons resource schema · a production
+`MetaCommonsResource` model · an operational `promoteToCommons` pathway · complete admission and
+removal procedures · reusable capability packaging · evidence-complete reproduction workflows ·
+demonstrated end-to-end Commons use. **Existing code and tests explicitly identify this limitation.**
+
+| Dimension | State |
+|---|---|
+| **Constitutional status** | **Ratified** |
+| **Institutional doctrine** | **Supported** |
+| **Technical implementation** | **Projected / partially scaffolded** |
+| **Operational state** | **Not operational** |
+
+#### Canonical distinction
+
+> **Constitutional existence does not imply technical operation.**
+> An institution may be constitutionally constituted **before** the machinery required to operate it
+> is complete.
+
+The manuscript may describe **what the Commons is**, **what it is constituted to preserve**, **why
+constitutional society requires it**, and **how it differs from the Registry**. It must **not** imply
+that the complete Commons machinery is presently functioning.
+
+#### Permitted manuscript wording
+
+**May state:**
+
+> The Commons is **constituted to preserve** the proofs, capabilities, invariants, failures, repairs,
+> and reproduction knowledge through which constitutional capability can be shared.
+
+> The Commons **provides the constitutional model through which** proven capabilities become reusable
+> without losing provenance, limits, or evidence.
+
+**Must NOT state unqualified:**
+
+> ~~The Commons currently stores and distributes reusable constitutional capabilities.~~
+
+**Where present technical status is relevant:**
+
+> The Commons is **ratified as a constitutional institution**. Its complete resource and promotion
+> machinery **remains under implementation**.
+
+#### Chapter effects
+
+- **Ch21 — The Polity as Constitutional Institute.** Retain the Commons as a **constituting
+  institution**. Describe its mandate in **present constitutional terms**, while **qualifying
+  technical operation**.
+- **Ch22 — Many Bridges, One Polity.** Retain the argument that shared proof and capability must be
+  reusable across implementations. **Do not** present current Commons infrastructure as the
+  operational mechanism already accomplishing this.
+- **Epilogue — The Constitutional Society.** The Commons may appear as a **functioning** institution
+  **only if the passage is clearly identified as the forward horizon** of constitutional society. If
+  the epilogue is intended to depict capability **available at publication**, the passage must be
+  qualified **or implementation completed before publication**.
+
+> **⚠ Specific passage requiring the epilogue decision — `01-working-manuscript.md:6238-6254`,
+> "The Commons and the Registry".** It sits inside the *day in the life* sequence and depicts the
+> Commons operating in the present indicative: *"The result **enters the Commons** with its proof,
+> methods, limits, and reproduction guidance"* and *"It **preserves** what the polity can prove."*
+> Because the surrounding sequence is written as a lived present day, a reader takes this as
+> **capability available now**. Under CR-12 it must be either (a) explicitly framed as the forward
+> horizon, (b) qualified in place, or (c) backed by completed implementation before publication.
+> Note the same passage also carries *"The Internet Foundation continues to sponsor…"* (line 6255) —
+> parked under the deferred Foundation-mandate ruling, but the two land in the same paragraph and
+> should be resolved together.
+
+#### Implementation gate
+
+The Commons may be upgraded to *implemented* or *operational* only when **all ten** exist:
+
+1. a canonical Commons resource model;
+2. constitutional admission criteria;
+3. an operational promotion pathway;
+4. provenance and rights preservation;
+5. capability packaging and retrieval;
+6. removal, supersession, and repair procedures;
+7. reproduction guidance;
+8. tests proving constitutional invariants survive promotion and reuse;
+9. at least one demonstrated end-to-end Commons artifact;
+10. operational evidence from the deployed environment.
+
+#### Governing rule
+
+> **The Commons is constitutionally real before it is technically complete.**
+> **The manuscript may state its mandate now. It may state its operation only when the machinery
+> exists.**
+
+---
+
 ---
 
 ## Additions to integrate (author-directed)

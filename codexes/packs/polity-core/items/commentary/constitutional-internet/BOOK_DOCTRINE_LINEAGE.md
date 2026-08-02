@@ -317,3 +317,45 @@ every class uses it. One class operating does not establish another's state.
 
 **Governing rule for this lineage:** *Do not describe an architectural possibility as an operational
 receipt state. Immutability must be claimed by receipt class, proof class, and demonstrated path.*
+
+---
+
+## CR-12 · The Commons → **Ch21, Ch22, Epilogue** (2026-08-02)
+
+**Ratified constitutional status; technical implementation incomplete.**
+
+The Commons is a **constitutionally ratified institution of the polity**, constituted to preserve
+proven capabilities · constitutional and structural invariants · canaries · provenance ·
+implementation evidence · failures · repairs · reproduction knowledge · and the conditions under
+which a capability may legitimately be reused.
+
+| Dimension | State | Lineage basis |
+|---|---|---|
+| Constitutional status | **Ratified** | `METACOMMONS_CHARTER.md` v1.0.0 (2026-06-17); Amendment E; Amendment G four-layer separation; Law XVI |
+| Institutional doctrine | **Supported** | charter + ontology + ratification ledger |
+| Technical implementation | **Projected / partially scaffolded** | no canonical resource model, no `MetaCommonsResource`, no `promoteToCommons` pathway |
+| Operational state | **Not operational** | code and tests explicitly identify the limitation |
+
+### The distinction that governs the lineage
+
+> **Constitutional existence does not imply technical operation.**
+
+This is the doctrinal counterpart to CR-11's receipt-class discipline: in both cases the failure mode
+is a **single label spanning two different conditions**. CR-11 separated *receipt exists* from
+*receipt anchored*; CR-12 separates *institution constituted* from *machinery operating*.
+
+**Commons ≠ Registry, and both remain present-tense:** the Commons preserves shared proof and
+reusable capability; the Registry preserves ordered memory, attribution, state and constitutional
+lineage. This distinction **is** ratified (Law XVI + Amendment G) and canary-enforced — cite it
+freely.
+
+### Chapter lineage effects
+
+- **Ch21** — cite the charter and Amendment E/G for the **mandate**; qualify **operation**.
+- **Ch22** — cite the *necessity* of reusable shared proof; **do not** cite the Commons as the
+  operational mechanism delivering it.
+- **Epilogue** — `6238-6254` depicts Commons operation in the present indicative and requires the
+  forward-horizon / qualification / implementation decision recorded in CR-12.
+
+**Governing rule:** *The Commons is constitutionally real before it is technically complete. The
+manuscript may state its mandate now; it may state its operation only when the machinery exists.*

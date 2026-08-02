@@ -179,6 +179,7 @@ any unqualified claim that governance/ratification acts are immutably anchored t
 
 ### A-4 · Ch21 — the **Internet Foundation** has no *current* mandate instrument
 ### ✅ NARROWED 2026-08-02 by operator ruling **CR-8** — historical existence now externally evidenced
+### ⏸ **PARKED 2026-08-02** — mandate ruling deferred pending source materials from the operator
 
 **The earlier absolute finding ("zero evidentiary existence") is WITHDRAWN.** External published
 evidence — IAPP, *"BSI Group eyeing ethical data use,"* 1 June 2017, recording that the Foundation's
@@ -226,7 +227,39 @@ with no instrument behind either. See also ruling **R-16**.
 
 </details>
 
-### A-5 · Ch21/Ch22 — the **Commons is ratified but not built**, and canaries forbid claiming otherwise
+### A-5 · Ch21/Ch22 — the Commons: constitutional status vs implementation state
+### ✅ RULED 2026-08-02 by operator ruling **CR-12** — status split, institution retained
+
+**Resolved into a four-part status rather than a contradiction.** The canaries forbid claiming
+**operation**, not claiming the **institution** — and the ruling makes that distinction load-bearing.
+
+| Dimension | State |
+|---|---|
+| **Constitutional status** | **Ratified** |
+| **Institutional doctrine** | **Supported** |
+| **Technical implementation** | **Projected / partially scaffolded** |
+| **Operational state** | **Not operational** |
+
+> **Constitutional existence does not imply technical operation.** An institution may be
+> constitutionally constituted **before** the machinery required to operate it is complete.
+
+**Retained in present tense:** what the Commons *is*, what it is *constituted to preserve*, why
+constitutional society requires it, and **how it differs from the Registry** — that distinction is
+valid and present. **Not permitted:** any implication that the complete machinery is functioning.
+
+**⚠ Epilogue passage requiring a decision — `01-working-manuscript.md:6238-6254`.** *"The result
+enters the Commons with its proof, methods, limits, and reproduction guidance"* sits inside the
+day-in-the-life sequence, in the present indicative, so a reader takes it as capability available
+now. Under CR-12 it must be (a) framed explicitly as the forward horizon, (b) qualified in place, or
+(c) backed by completed implementation before publication. The same paragraph carries *"The Internet
+Foundation continues to sponsor…"* (line 6255) — parked under the deferred mandate ruling; the two
+should be resolved together.
+
+**CI-21 and CI-22: Partially supported / qualify wording.** Ten-item implementation gate recorded in CR-12.
+
+<details><summary>Original A-5 finding (evidence unchanged; framing superseded)</summary>
+
+**A-5 · Ch21/Ch22 — the Commons is ratified but not built, and canaries forbid claiming otherwise**
 **Type:** Overclaim · **Impact:** Move to future tense
 
 Three independent in-repo statements: `services/venture/metacommonsSignals.ts` (*"deterministic stub…
@@ -242,6 +275,8 @@ and canary-enforced.
 ---
 
 ## Severity B — material qualifications
+
+</details>
 
 ### B-1 · Ch15/Epilogue — the **embodied delegate** has no code, test, or receipt
 **Type:** Overclaim · **Impact:** Move to future tense
