@@ -19,6 +19,8 @@ import {
   expiredAttemptsNote,
   horizenContact,
 } from '@/services/horizen/registerCeremonyProgress';
+import { extractUnsignedTx } from '@/services/horizen/registrationClient';
+import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const PRINCIPAL_WALLET = ethers.Wallet.createRandom();
@@ -798,5 +800,84 @@ describe('the dry-run agent is the one selected on arrival', () => {
     const at = panel.indexOf('export const PILOT_AGENTS');
     const first = panel.slice(at, panel.indexOf('];', at)).match(/slug: '([a-z]+)'/)?.[1];
     expect(tab).toMatch(new RegExp(`useState<string>\\('${first}'\\)`));
+  });
+});
+
+describe('a transaction Horizen built is a transaction we can find', () => {
+  /*
+   * ── The defect this closes (operator, 2026-08-02) ────────────────────────
+   *
+   * Horizen BUILT it — "Unsigned registration transaction built for 0x24BB…
+   * on Base Sepolia" — and `extractUnsignedTx` reported it could not find one.
+   * Two reasons, both ours:
+   *
+   *   1. `JSON.parse` was called on the WHOLE text block. Horizen replies with
+   *      prose, a `--- structured ---` marker, then the object. The parse threw
+   *      on every SUCCESSFUL response and the catch swallowed it as "not JSON
+   *      — keep looking".
+   *   2. Horizen nests the transaction under `tx`. The recognised shapes were
+   *      root `to`/`data`, `transaction`, `unsignedTransaction` — three, none
+   *      of them the one returned.
+   *
+   * A successful build was therefore indistinguishable from a failed one, and
+   * the refusal said "could not locate an unsigned transaction" — true of the
+   * function, false of the world.
+   */
+  const realHorizenReply = {
+    content: [
+      {
+        type: 'text',
+        text:
+          'Unsigned registration transaction built for 0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9 on Base Sepolia.\n\n' +
+          'Next steps:\n1. Sign this transaction with the wallet\'s own key.\n\n' +
+          '--- structured ---\n' +
+          '{\n "chain": "base-sepolia",\n "network": "sepolia",\n "tx": {\n  "type": "eip1559",\n' +
+          '  "to": "0x8004A818BFB912233c491871b3d84c89A494BD9e",\n  "chainId": 84532,\n  "data": "0xf2c298be00"\n }\n}',
+      },
+    ],
+  };
+
+  it('finds the transaction in Horizen\'s actual reply', () => {
+    const tx = extractUnsignedTx(realHorizenReply as never);
+    expect(tx, 'the transaction Horizen built must be found').toBeTruthy();
+    expect(tx?.to).toBe('0x8004A818BFB912233c491871b3d84c89A494BD9e');
+    expect(Number(tx?.chainId)).toBe(84532);
+  });
+
+  it('the recovered `to` is this repo\'s recorded IdentityRegistry for base-sepolia', () => {
+    // If these disagreed the ceremony would refuse with
+    // NETWORK_OR_CONTRACT_MISMATCH — correctly, but it is worth knowing that
+    // they agree before the operator spends a signature finding out.
+    const tx = extractUnsignedTx(realHorizenReply as never);
+    expect(tx?.to?.toLowerCase()).toBe(
+      HORIZEN_NETWORK_FACTS['base-sepolia'].identityRegistry.toLowerCase(),
+    );
+  });
+
+  it('a brace in the prose does not swallow the object', () => {
+    // Taking only the FIRST `{` is fragile: Horizen's prose is free text, and
+    // one stray brace would consume the extraction and report "no transaction"
+    // about a response containing one. Caught by a test before production.
+    const tx = extractUnsignedTx({
+      content: [{ type: 'text', text: 'note {aside} then {"tx":{"to":"0xA","data":"0xB"}}' }],
+    } as never);
+    expect(tx?.to).toBe('0xA');
+  });
+
+  it('every previously recognised shape still works — the target did not move', () => {
+    const shapes = [
+      { to: '0xA', data: '0xB' },
+      { transaction: { to: '0xA', data: '0xB' } },
+      { unsignedTransaction: { to: '0xA', data: '0xB' } },
+    ];
+    for (const shape of shapes) {
+      const tx = extractUnsignedTx({ content: [{ type: 'text', text: JSON.stringify(shape) }] } as never);
+      expect(tx?.to, JSON.stringify(shape)).toBe('0xA');
+    }
+  });
+
+  it('genuinely absent stays absent', () => {
+    expect(extractUnsignedTx({ content: [{ type: 'text', text: 'no json at all' }] } as never)).toBeNull();
+    expect(extractUnsignedTx(null)).toBeNull();
   });
 });

@@ -215,19 +215,98 @@ export interface UnsignedTx {
 }
 
 /** Mirrors scripts/register-moneypenny-horizen.ts's extractUnsignedTx — moved here so the script and this service share one implementation (never a second copy, inv.engineering.036/037). */
+/**
+ * The first balanced JSON object embedded anywhere in `text`, or null.
+ *
+ * Horizen does not return bare JSON. It returns human prose, a `--- structured
+ * ---` marker, and then the object — so `JSON.parse(text)` throws on the very
+ * response that contains the transaction. Brace-balanced rather than a regex,
+ * and string-aware, so a `{` or `}` inside a description field cannot truncate
+ * the object early (Nakamoto's own description contains braces-adjacent
+ * punctuation and several escaped quotes).
+ */
+function firstEmbeddedJsonObject(text: string): unknown | null {
+  // Horizen marks the machine-readable part; prefer it when present so a brace
+  // in the prose above can never be mistaken for the start of the object.
+  const marker = text.indexOf('--- structured ---');
+  const from = marker === -1 ? 0 : marker;
+
+  // Otherwise try EVERY `{` in turn. Taking only the first one is fragile:
+  // Horizen's prose is free text, and a single stray brace in it would consume
+  // the whole extraction and report "no transaction" about a response that
+  // contains one. Found by a test case before it was found in production.
+  for (let start = text.indexOf('{', from); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(text.slice(start, i + 1));
+          } catch {
+            break; // not the object — try the next candidate `{`
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+
+/**
+ * The unsigned transaction inside a `build_registration_tx` result.
+ *
+ * ── The defect this closes (operator, 2026-08-02) ──────────────────────────
+ *
+ * Horizen BUILT the transaction — "Unsigned registration transaction built for
+ * 0x24BB… on Base Sepolia" — and this function reported it could not find one.
+ * Two reasons, both here:
+ *
+ *   1. It called `JSON.parse` on the WHOLE text block. Horizen's reply is
+ *      prose, then a `--- structured ---` marker, then the object. The parse
+ *      threw on every successful response, and the `catch` swallowed it as
+ *      "not JSON — keep looking".
+ *   2. Horizen nests the transaction under `tx`. The recognised keys were
+ *      `to`/`data` at the root, `transaction`, and `unsignedTransaction` —
+ *      three shapes, none of them the one actually returned.
+ *
+ * So a successful build was indistinguishable from a failed one. The refusal
+ * that followed said "could not locate an unsigned transaction", which was
+ * true of this function and false of the world.
+ *
+ * Every previously recognised shape is still accepted: the fix widens what can
+ * be read, it does not move the target.
+ */
 export function extractUnsignedTx(toolResult: McpToolResult | null | undefined): UnsignedTx | null {
   const content = toolResult?.content;
   if (!Array.isArray(content)) return null;
   for (const item of content) {
     if (item?.type === 'text' && typeof item.text === 'string') {
+      // Whole-text JSON first; then the object embedded after Horizen's prose.
+      let parsed: any = null;
       try {
-        const parsed = JSON.parse(item.text);
-        if (parsed?.to && parsed?.data) return parsed;
-        if (parsed?.transaction?.to && parsed?.transaction?.data) return parsed.transaction;
-        if (parsed?.unsignedTransaction) return parsed.unsignedTransaction;
+        parsed = JSON.parse(item.text);
       } catch {
-        // not JSON — keep looking
+        parsed = firstEmbeddedJsonObject(item.text);
       }
+      if (!parsed) continue;
+      if (parsed?.to && parsed?.data) return parsed;
+      // Horizen's own shape, confirmed live 2026-08-02.
+      if (parsed?.tx?.to && parsed?.tx?.data) return parsed.tx;
+      if (parsed?.transaction?.to && parsed?.transaction?.data) return parsed.transaction;
+      if (parsed?.unsignedTransaction) return parsed.unsignedTransaction;
     }
   }
   return null;
