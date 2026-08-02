@@ -153,9 +153,22 @@ function MandateCountdown({ expiresAt, onExpired }: { expiresAt: string; onExpir
   );
 }
 
+/*
+ * NAKAMOTO FIRST (operator, 2026-08-02).
+ *
+ * "MoneyPenny is the demo agent; Aigent Nakamoto is the dry-run agent"
+ * (ruling 2026-07-31). The dry run is what is being exercised, so it is what
+ * should be selected on arrival — MoneyPenny led only because it was written
+ * first, and a mandate was prepared against it by accident.
+ *
+ * Order matters twice: this is the dropdown order AND `PILOT_AGENTS[0]` is the
+ * fallback `resolveSurfaceProps` uses when a slug does not resolve. Both must
+ * be the dry-run agent, or the fallback silently reintroduces the default this
+ * change removes.
+ */
 export const PILOT_AGENTS: RegistrableAgentOption[] = [
-  { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
   { slug: 'nakamoto', displayName: 'Aigent Nakamoto', agentCardPath: '/api/agents/nakamoto/agent-card.json' },
+  { slug: 'moneypenny', displayName: 'Aigent MoneyPenny', agentCardPath: '/api/agents/moneypenny/agent-card.json' },
 ];
 
 interface SponsoredAgent {

@@ -63,7 +63,9 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
 function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
-  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('moneypenny');
+  // The dry-run agent is the one being exercised, so it is the one selected on
+  // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
+  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('nakamoto');
 
   const resolveSurfaceProps = useCallback(
     ({ surfaceRef, descriptor }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {

@@ -766,3 +766,37 @@ describe('Horizen gets the arguments it actually requires', () => {
     expect(fn).toMatch(/return null/);
   });
 });
+
+describe('the dry-run agent is the one selected on arrival', () => {
+  /*
+   * Operator, 2026-08-02: "I forgot to change it to Nakamoto before running."
+   *
+   * "MoneyPenny is the demo agent; Aigent Nakamoto is the dry-run agent"
+   * (ruling 2026-07-31). Nakamoto is what is being exercised; MoneyPenny led
+   * only because it was written first, and a mandate was prepared against it
+   * by accident.
+   */
+  const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+  const tab = stripComments(readSource('app/triad/components/codex/tabs/PilotJourneyTab.tsx'));
+
+  it('Nakamoto is first in PILOT_AGENTS', () => {
+    const at = panel.indexOf('export const PILOT_AGENTS');
+    const list = panel.slice(at, panel.indexOf('];', at));
+    expect(list.indexOf("slug: 'nakamoto'")).toBeGreaterThan(-1);
+    expect(list.indexOf("slug: 'nakamoto'")).toBeLessThan(list.indexOf("slug: 'moneypenny'"));
+  });
+
+  it('and is the initial selection', () => {
+    expect(tab).toMatch(/useState<string>\('nakamoto'\)/);
+    expect(tab).not.toMatch(/useState<string>\('moneypenny'\)/);
+  });
+
+  it('the list order and the initial selection agree', () => {
+    // PILOT_AGENTS[0] is also the fallback resolveSurfaceProps uses when a
+    // slug does not resolve. If the two disagreed, the fallback would silently
+    // reintroduce the default this change removes.
+    const at = panel.indexOf('export const PILOT_AGENTS');
+    const first = panel.slice(at, panel.indexOf('];', at)).match(/slug: '([a-z]+)'/)?.[1];
+    expect(tab).toMatch(new RegExp(`useState<string>\\('${first}'\\)`));
+  });
+});
