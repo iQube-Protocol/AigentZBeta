@@ -306,6 +306,16 @@ frontend:
         - for p in .next/*; do [ -e "$p" ] || continue; echo "$p $(find "$p" -type f 2>/dev/null | wc -l) files"; done || true
         - echo "=== REMOVE RUNTIME-IRRELEVANT NEXT BUILD CACHE ==="
         - rm -rf .next/cache 2>/dev/null || true
+        # THE LEDGER NAMED TWO MORE BUILD-ONLY RESIDENTS (23:12 build).
+        #   .next/trace  12,416,650 bytes — Next's build trace/diagnostics log.
+        #   .next/types  10,174,100 bytes — generated route TYPE declarations,
+        #                consumed by tsc during the build; Node resolves none
+        #                of it at runtime.
+        # 22.6 MB of build metadata against a ~195 KB overage. Same class as
+        # the cache: produced by the build, read by nothing the artifact
+        # serves. required-server-files.json is NOT touched — Amplify reads it.
+        - echo "=== REMOVE BUILD-ONLY trace + types ==="
+        - rm -rf .next/trace .next/types 2>/dev/null || true
         - echo "=== WHOLE .next TREE AFTER CACHE REMOVAL (bytes) ==="
         - du -sb .next 2>/dev/null || true
         - du -sb .next/* 2>/dev/null | sort -rn || true
