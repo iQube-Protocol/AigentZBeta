@@ -688,13 +688,22 @@ export async function checkAgentRegistrationStatus(
    * call, in terms that separate the two facts: the check is misconfigured;
    * the transaction is not.
    *
-   * The owner wallet address is used ONLY as a fallback, and only because
-   * Horizen's own registry read in this same function is keyed by it
-   * (`fetchAgent(input.ownerWalletAddress, …)`). It is evidence, not a guess —
-   * but a returned identifier always wins.
+   * ── The wallet fallback is REMOVED (operator direction via Al, 2026-08-02) ─
+   *
+   *   > "fetchAgent(ownerWalletAddress, network) being wallet-keyed does not
+   *   >  prove that get_onboarding_status.agentId accepts a wallet address.
+   *   >  Those are different tool contracts. Passing the wallet as agentId
+   *   >  could produce a misleading negative rather than an explicit
+   *   >  configuration error."
+   *
+   * Correct, and it is the more dangerous of the two failure modes: a refusal
+   * says "we could not ask"; a wallet Horizen does not recognise as an agentId
+   * may come back as a clean, confident "not registered" about a registration
+   * that exists. Only an identifier Horizen itself produced is sent. Nothing
+   * is substituted.
    */
   const declaresAgentId = /agentId/.test(JSON.stringify(byName.get_onboarding_status.inputSchema ?? {}));
-  const agentIdToSend = input.horizenAgentId?.trim() || input.ownerWalletAddress?.trim() || null;
+  const agentIdToSend = input.horizenAgentId?.trim() || null;
   if (declaresAgentId && !agentIdToSend) {
     return {
       ok: false,
@@ -707,7 +716,8 @@ export async function checkAgentRegistrationStatus(
 
   const statusArgs = matchSchemaFields(byName.get_onboarding_status.inputSchema, {
     agentId: agentIdToSend,
-    agentAddress: agentIdToSend,
+    // The wallet address is still offered under WALLET-named fields, where it
+    // is unambiguously a wallet. It is never offered as an agent identifier.
     ownerAddress: input.ownerWalletAddress,
     walletAddress: input.ownerWalletAddress,
     agentSlug: agent.slug,
