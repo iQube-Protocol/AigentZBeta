@@ -189,6 +189,14 @@ not the fix.
 If you find dense material already committed that should not be, **say so** rather than leaving it
 — untracking it is a separate, deliberate change.
 
+**Deleting or relocating a grandfathered file needs no permission and no bookkeeping.** The
+exemption is keyed on a path that must both exist and still be oversize, so removing the file
+retires its entry automatically; tidying the list afterwards is welcome, not required. Two things
+DO fail the canary, both deliberately: leaving an entry for a file that shrank below the limit (it
+would silently exempt the file if it grew back), and leaving the total budget high after a large
+removal (reclaimed room must not become permission to refill it — lower
+`MAX_TRACKED_TOTAL_BYTES` to roughly the new size plus ~10%).
+
 ---
 
 ## No Guessing or Hallucinating — Zero Tolerance

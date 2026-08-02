@@ -179,19 +179,64 @@ describe('repo weight — dense material does not live in git', () => {
     ).toEqual([]);
   });
 
-  it('the grandfathered list only shrinks', () => {
-    // An entry that no longer exists, or is no longer oversize, must be
-    // REMOVED — otherwise the list stops describing real debt and starts
-    // being a place to hide new debt.
-    const stale: string[] = [];
+  it('a grandfathered entry cannot outlive the debt it describes', () => {
+    /*
+     * WHAT THIS IS FOR, PRECISELY.
+     *
+     * The risk is an entry that exempts something it should not: a file
+     * shrinks below the limit, the entry stays, and later the file grows back
+     * — silently exempt, because the list still names it. That is the list
+     * becoming a hiding place, and it fails here.
+     *
+     * A DELETED file is the opposite: the debt is gone, the entry now exempts
+     * nothing (the exemption is keyed on a path that must both exist AND be
+     * oversize), and the work this canary exists to encourage has happened.
+     * Failing on that would punish the fix.
+     *
+     * ── Why this distinction is drawn explicitly (2026-08-02) ─────────────
+     *
+     * The first version failed on BOTH cases. The operator has authorised
+     * deleting the KNYTDesignQube screenshots and moving
+     * data/investors/consolidated_investors.json to Supabase, and handed that
+     * work to other agents. Under the first version, doing exactly what was
+     * asked would have turned this canary red on their branch for a reason
+     * that has nothing to do with them — and the likeliest response to a
+     * canary that reddens when you do the right thing is to weaken it.
+     *
+     * So: delete freely. Tidying the list afterwards is welcome and is not
+     * required.
+     */
+    const maskedRegrowth: string[] = [];
     for (const f of GRANDFATHERED_OVERSIZE) {
       const row = sized.find((s) => s.file === f);
-      if (!row || row.size <= MAX_TRACKED_FILE_BYTES) stale.push(f);
+      if (row && row.size <= MAX_TRACKED_FILE_BYTES) maskedRegrowth.push(f);
     }
     expect(
-      stale,
-      `these are grandfathered but no longer oversize (or no longer exist) — delete them from the list:\n${stale.join('\n')}`,
+      maskedRegrowth,
+      'these are grandfathered but are no longer over the limit. The entry now exempts a file that does ' +
+        'not need exempting, and would silently exempt it again if it grew back — remove them from ' +
+        `GRANDFATHERED_OVERSIZE:\n${maskedRegrowth.join('\n')}`,
     ).toEqual([]);
+  });
+
+  it('the budget is re-frozen after a cleanup, not left as slack', () => {
+    /*
+     * A budget that stays high after a large removal is the same can-kick as
+     * no budget at all: it silently licenses regrowth back up to the old
+     * ceiling. So the budget must stay CLOSE to reality — if the repo drops
+     * well below it, the number comes down with it.
+     *
+     * 40% slack is generous for ordinary source growth and far too tight to
+     * absorb a corpus or a design-asset set, which is the point.
+     */
+    const total = sized.reduce((a, s) => a + s.size, 0);
+    expect(
+      MAX_TRACKED_TOTAL_BYTES,
+      `the repo now carries ${(total / 1048576).toFixed(1)} MB but the budget is still ` +
+        `${(MAX_TRACKED_TOTAL_BYTES / 1048576).toFixed(0)} MB. After a cleanup, lower ` +
+        'MAX_TRACKED_TOTAL_BYTES to roughly the new size plus ~10%, so the reclaimed room does not ' +
+        'quietly become permission to refill it.',
+    ).toBeLessThan(total * 1.4);
   });
 
   it('total tracked bytes stay inside the budget', () => {
