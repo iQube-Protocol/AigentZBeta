@@ -134,11 +134,19 @@ Foundation's Universal Declaration of Digital Rights work had been covered by IA
 to BSI before 2017; Atanda subsequently led a BSI committee exploring ethical definitions of privacy,
 ownership, consent, fair use, data transfer, correction, erasure, arbitration and notification.
 
-> **Verification status.** The citation is **operator-attested**. The agent could **not**
-> independently retrieve the article from this sandbox — `iapp.org` returns **HTTP 403** to the fetch
-> tool and `web.archive.org` is blocked. **Recommended:** archive a copy (PDF or Markdown) into
-> `03 Source Lineage` so the citation is self-contained and does not depend on a live third-party URL
-> that already has one broken predecessor.
+> **Verification status: EXTERNALLY VERIFIED HISTORICAL CANON** (upgraded 2026-08-02).
+> The article has been **independently retrieved from the live IAPP page** and archived as a durable
+> Polity Core evidence record with a checksum. The earlier *operator-attested* qualification — raised
+> because the agent sandbox could not reach `iapp.org` (HTTP 403) or `web.archive.org` — **no longer
+> applies to the claim**; it recorded a limitation of the agent's retrieval, not of the evidence.
+>
+> **Registered source:** `SRC-IF-IAPP-2017-001` ·
+> `03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md`
+> · sha256 `de36753f0093502e4b857a4690bc055eec1064016aa2d1face5b08a8c613dd6a`
+>
+> **Source hierarchy:** the live IAPP URL remains the **primary external source** for legal and
+> editorial review; the archived Markdown is the **durable Polity Core evidence record**. The archive
+> stands because the older linked representation of the initiative is already broken.
 
 #### Canonical manuscript effect
 
@@ -201,12 +209,31 @@ processes.
 Until implementation and verification are complete, the manuscript **must not** state without
 qualification that the Constitutional Internet currently uses quantum entropy.
 
-**Permitted now:**
+**Three-stage language rule** (corrected 2026-08-02 — the earlier draft permitted *"is integrating"*
+at the Projected stage, which was inconsistent: *"is integrating"* implies active implementation,
+and execution is not authorised):
 
-> The Constitutional Internet **is integrating** quantum entropy to strengthen the randomness upon
-> which keys, identifiers, privacy, and constitutional randomization processes depend.
+| Implementation state | Permitted wording |
+|---|---|
+| **Projected** ← *current* | *"is **specified to integrate**"* / *"the **roadmap integrates**"* |
+| **Entering deployment** | *"**is integrating**"* |
+| **Operational** | *"**uses**"* |
 
-**Permitted only after implementation, tests, receipts and deployment evidence exist:**
+**Permitted now (Projected):**
+
+> The Constitutional Internet **is specified to integrate** quantum entropy to strengthen the
+> randomness upon which keys, identifiers, privacy, and constitutional randomization processes depend.
+
+or, more naturally in the manuscript:
+
+> The Constitutional Internet's **roadmap integrates** quantum entropy to strengthen the randomness
+> upon which keys, identifiers, privacy, and constitutional randomization processes depend.
+
+**Permitted once execution begins (Entering deployment):**
+
+> The Constitutional Internet **is integrating** quantum entropy…
+
+**Permitted only after implementation, tests, receipts and deployment evidence exist (Operational):**
 
 > The Constitutional Internet **uses** quantum entropy to strengthen the randomness upon which keys,
 > identifiers, privacy, and constitutional randomization processes depend.
