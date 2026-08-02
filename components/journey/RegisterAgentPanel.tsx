@@ -409,9 +409,29 @@ export function RegisterAgentPanel({
        * truth), and the card is a public GET — the same read
        * PulseTransparencyToggle already does.
        */
-      const [reqRes, cardRes] = await Promise.all([
+      /*
+       * A BROADCAST OUTLIVES THE PAGE THAT MADE IT (operator, 2026-08-02, 13:43).
+       *
+       *   > "We advanced to approve and then it hung ... And then interface is
+       *   >  back to start over."
+       *
+       * The approval succeeded: `approveAgentRegistryInvocation` broadcast a
+       * real transaction and wrote two receipts for it. The confirmation poll
+       * then ran out, and the txHash — held ONLY in this component's `flow`
+       * state — was lost on the next render. A live on-chain transaction with
+       * no way left to ask about it, and "Register again" as the only visible
+       * move, is how a duplicate registration gets made.
+       *
+       * The fact was never lost, only the page's memory of it. Read back from
+       * the receipts, which are the durable record of exactly this.
+       */
+      const [reqRes, cardRes, receiptRes] = await Promise.all([
         personaFetch('/api/wallet/signing-requests', { cache: 'no-store', personaIdHint: personaId }),
         fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' }),
+        personaFetch(
+          '/api/assistant/receipts?limit=100&actionTypes=horizen_registration_submitted,horizen_agent_registered',
+          { cache: 'no-store', personaIdHint: personaId },
+        ),
       ]);
       const reqJson = (await reqRes.json().catch(() => null)) as {
         ok?: boolean;
@@ -432,6 +452,41 @@ export function RegisterAgentPanel({
         network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
         tokenId,
       });
+      const receiptJson = (await receiptRes.json().catch(() => null)) as {
+        receipts?: {
+          actionType: string;
+          agentsInvoked?: string[] | null;
+          actionInput?: { txHash?: unknown; network?: unknown } | null;
+        }[];
+      } | null;
+      const forThisAgent = (receiptJson?.receipts ?? []).filter((r) =>
+        (r.agentsInvoked ?? []).includes(`aigent-${agentSlug}`),
+      );
+      const confirmedHashes = new Set(
+        forThisAgent
+          .filter((r) => r.actionType === 'horizen_agent_registered')
+          .map((r) => (typeof r.actionInput?.txHash === 'string' ? r.actionInput.txHash : ''))
+          .filter(Boolean),
+      );
+      // The most recent broadcast with no confirmation receipt behind it.
+      const unconfirmed = forThisAgent.find(
+        (r) =>
+          r.actionType === 'horizen_registration_submitted' &&
+          typeof r.actionInput?.txHash === 'string' &&
+          !confirmedHashes.has(r.actionInput.txHash),
+      );
+      setPendingBroadcast(
+        unconfirmed && typeof unconfirmed.actionInput?.txHash === 'string'
+          ? {
+              txHash: unconfirmed.actionInput.txHash,
+              network:
+                typeof unconfirmed.actionInput?.network === 'string'
+                  ? unconfirmed.actionInput.network
+                  : null,
+            }
+          : null,
+      );
+
       const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === `aigent-${agentSlug}`);
       const liveMandateRow = mine.find((r) => r.actionKind === 'authorize_registration' && !r.expired);
       setLiveMandateExpiresAt(liveMandateRow?.expiresAt ?? null);
@@ -443,7 +498,7 @@ export function RegisterAgentPanel({
           expiredInvocations: mine.filter((r) => r.actionKind === 'sign_registry_transaction' && r.expired).length,
           // The broadcast leg is knowable only from this panel's own poll —
           // the tx facts live in the completion event, not in any store row.
-          broadcastPending: flowStepRef.current === 'polling',
+          broadcastPending: flowStepRef.current === 'polling' || (!tokenId && unconfirmed !== undefined),
           tokenId,
           expiredAttempts: mine.filter((r) => r.expired).length,
         }),
@@ -464,6 +519,12 @@ export function RegisterAgentPanel({
 
   /** When the live mandate runs out — the countdown, and the auto-flip. */
   const [liveMandateExpiresAt, setLiveMandateExpiresAt] = useState<string | null>(null);
+  /**
+   * A transaction that was broadcast and has not been confirmed, recovered
+   * from the receipts rather than remembered. Null means none — never "we
+   * forgot": the read either finds one or the receipts say there is none.
+   */
+  const [pendingBroadcast, setPendingBroadcast] = useState<{ txHash: string; network: string | null } | null>(null);
 
   useEffect(() => {
     void readProgress();
@@ -652,6 +713,78 @@ export function RegisterAgentPanel({
    * rung is either the wallet gate (its own card, its own hand-over), the
    * network's turn, or done — none of them has a wallet act to offer.
    */
+  /*
+   * ONE PRIMARY CONTROL, AND IT FOLLOWS THE RUNG (operator, 2026-08-02, 13:43).
+   *
+   *   > "The main button should be state aware and direct the user to the next
+   *   >  state ... if action is not available it can be inactive."
+   *
+   * "Register X in Horizen" was rendered on `flow.step === 'idle'` alone, so it
+   * offered the FIRST act of the ceremony whatever rung the ceremony was on.
+   * At rung 5 — a transaction broadcast and unconfirmed — that is not merely
+   * unhelpful: pressing it builds and broadcasts a SECOND registration, and the
+   * only guard against a duplicate (`ALREADY_REGISTERED`) reads the Agent
+   * Card's tokenId, which is not written until a confirmation this ceremony has
+   * not had. So the button is derived from the rung, and at rung 5 it asks
+   * Horizen rather than starting again.
+   */
+  const primaryAction: { label: string; run: () => void; enabled: boolean; note: string | null } | null =
+    !progress
+      ? null
+      : progress.stageId === 'REGISTERED'
+        ? null
+        : progress.stageId === 'WALLET_NOT_READY'
+          ? {
+              label: 'Set up your principal wallet',
+              run: () => handOverToWallet('PRINCIPAL_WALLET_PROVISIONING', selectedAgent.slug, selectedAgent.displayName),
+              enabled: true,
+              note: null,
+            }
+          : progress.stageId === 'MANDATE_AWAITING_SIGNATURE'
+            ? {
+                label: 'Sign in your wallet',
+                run: () => handOverToWallet('PENDING_ACTIONS', selectedAgent.slug, selectedAgent.displayName),
+                enabled: true,
+                note: null,
+              }
+            : progress.stageId === 'INVOCATION_AWAITING_APPROVAL'
+              ? {
+                  label: 'Approve the agent key in your wallet',
+                  run: () => handOverToWallet('PENDING_ACTIONS', selectedAgent.slug, selectedAgent.displayName),
+                  enabled: true,
+                  note: null,
+                }
+              : progress.stageId === 'BROADCAST_AWAITING_CONFIRMATION'
+                ? {
+                    label: 'Check status with Horizen',
+                    run: () => {
+                      if (!pendingBroadcast) return;
+                      setFlow({
+                        step: 'polling',
+                        txHash: pendingBroadcast.txHash,
+                        ownerWalletAddress: '',
+                        network: pendingBroadcast.network ?? 'base-sepolia',
+                        attempts: 0,
+                      });
+                      void pollStatus(
+                        pendingBroadcast.txHash,
+                        '',
+                        pendingBroadcast.network ?? 'base-sepolia',
+                        0,
+                      );
+                    },
+                    enabled: pendingBroadcast !== null,
+                    note:
+                      'A registration transaction is already on the network for this agent. Registering again ' +
+                      'would broadcast a second one — ask Horizen about this one first.',
+                  }
+                : {
+                    label: `Register ${selectedAgent.displayName} in Horizen`,
+                    run: () => void prepare(),
+                    enabled: Boolean(walletGate?.ready),
+                    note: walletGate?.ready ? null : 'Your principal wallet must be ready before a mandate can be prepared.',
+                  };
+
   const walletActLabel =
     progress?.stageId === 'MANDATE_AWAITING_SIGNATURE'
       ? 'Sign in your wallet'
@@ -1003,13 +1136,19 @@ export function RegisterAgentPanel({
           </div>
         )}
 
-        {flow.step === 'idle' && walletGate?.ready && (
-          <button
-            onClick={() => void prepare()}
-            className="flex items-center gap-1.5 rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40"
-          >
-            Register {selectedAgent.displayName} in Horizen <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+        {flow.step === 'idle' && primaryAction && (
+          <div>
+            <button
+              onClick={primaryAction.run}
+              disabled={!primaryAction.enabled}
+              className="flex items-center gap-1.5 rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {primaryAction.label} <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+            {primaryAction.note && (
+              <p className="mt-1.5 text-[11px] leading-relaxed text-amber-200">{primaryAction.note}</p>
+            )}
+          </div>
         )}
 
         {flow.step === 'idle' && !walletGate && (

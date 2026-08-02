@@ -106,6 +106,22 @@ async function defaultResolveOwnerWalletAddress(agent: RegistrableAgentConfig): 
 }
 
 /**
+ * The agent's own custodied wallet ADDRESS — public derivation, never a key.
+ *
+ * Exported (2026-08-02) so a status check can recover it instead of requiring
+ * the caller to have carried it. A broadcast whose confirmation poll timed out
+ * left the operator holding a transaction they could not ask about: the txHash
+ * survives in the receipt, but the owner address lived only in the page's
+ * memory and vanished on reload. The address is a property OF THE AGENT and
+ * was always derivable here — asking a browser to remember it was the mistake.
+ */
+export async function resolveAgentOwnerWalletAddress(
+  agent: RegistrableAgentConfig,
+): Promise<string | null> {
+  return defaultResolveOwnerWalletAddress(agent);
+}
+
+/**
  * The `services` array Horizen's `build_registration_tx` requires.
  *
  * ── The defect this closes (operator, 2026-08-02, live MCP error) ──────────

@@ -1006,4 +1006,97 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
       expect(p.nextAct).toMatch(/Pending actions/);
     }
   });
+
+  /*
+   * A BROADCAST THAT WAS NOT CONFIRMED IS STILL A BROADCAST (operator,
+   * 2026-08-02, 13:43).
+   *
+   *   > "We advanced to approve and then it hung and gave this error: Horizen
+   *   >  has not confirmed registration yet ... And then interface is back to
+   *   >  start over ... is it back to 1 register again or will that create a
+   *   >  duplicate registration?"
+   *
+   * The approval succeeded — `approveAgentRegistryInvocation` broadcast a real
+   * transaction and receipted it twice. The confirmation poll then ran out and
+   * the txHash, held only in the component's `flow` state, was lost on the next
+   * render. What remained on screen was the first act of the ceremony.
+   *
+   * That is the dangerous case, not merely the confusing one: the guard against
+   * a duplicate registration is `ALREADY_REGISTERED`, which fires on the Agent
+   * Card carrying a tokenId — and the tokenId is written only by a confirmation
+   * that has not happened. So an unconfirmed broadcast is exactly the state in
+   * which "Register again" is NOT protected, and exactly the state the surface
+   * was offering it in.
+   */
+  it('an unconfirmed broadcast is recovered from the receipts, not from page memory', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    // Read back from the durable record of the broadcast.
+    expect(panel).toMatch(/actionTypes=horizen_registration_submitted,horizen_agent_registered/);
+    // A submitted receipt with no confirmation behind it IS the pending one.
+    expect(panel).toMatch(/confirmedHashes/);
+    expect(panel).toMatch(/r\.actionType === 'horizen_registration_submitted' &&/);
+    // And it drives the ladder, so rung 5 survives a reload.
+    expect(panel).toMatch(/broadcastPending: flowStepRef\.current === 'polling' \|\| \(!tokenId && unconfirmed !== undefined\)/);
+  });
+
+  it('the primary control never offers "Register" over an unconfirmed broadcast', () => {
+    /*
+     * The whole point. At BROADCAST_AWAITING_CONFIRMATION the offer is to ASK
+     * HORIZEN, and the reason is stated — pressing Register there would build
+     * and broadcast a second registration with no guard standing in the way.
+     */
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    const at = panel.indexOf("progress.stageId === 'BROADCAST_AWAITING_CONFIRMATION'");
+    expect(at, 'the primary action does not branch on the broadcast rung').toBeGreaterThan(-1);
+    // Bounded to THIS branch: it ends where the Register fallback begins.
+    // A fixed-width window would overrun into that branch and read its
+    // legitimate `prepare()` as a violation.
+    const end = panel.indexOf('label: `Register ', at);
+    expect(end, 'the Register fallback no longer follows this branch').toBeGreaterThan(at);
+    const block = panel.slice(at, end);
+    expect(block).toMatch(/Check status with Horizen/);
+    expect(block).not.toMatch(/void prepare\(\)/);
+    expect(block).toMatch(/would broadcast a second one/);
+  });
+
+  it('the primary control is derived from the rung, not from idle-ness', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    // The old shape: "Register ..." rendered on flow.step === 'idle' + a ready
+    // wallet, whatever rung the ceremony had reached.
+    expect(panel).not.toMatch(/flow\.step === 'idle' && walletGate\?\.ready && \(/);
+    expect(panel).toMatch(/flow\.step === 'idle' && primaryAction && \(/);
+    // An unavailable act renders inactive rather than absent — the operator
+    // asked for this explicitly ("if action is not available it can be
+    // inactive"), and a missing control reads as a broken page.
+    expect(panel).toMatch(/disabled=\{!primaryAction\.enabled\}/);
+  });
+
+  it('a status check needs only the txHash — the owner address is derived server-side', () => {
+    /*
+     * Requiring `ownerWalletAddress` from the caller is what made the check
+     * unaskable after a reload. It is a property OF THE AGENT (its own
+     * custodied wallet) and was always derivable where the agent resolves.
+     */
+    const route = stripComments(
+      readSource('app/api/journey/moneypenny-horizen/register/status/route.ts'),
+    );
+    expect(route).toMatch(/if \(!body\.agentSlug \|\| !body\.txHash \|\| !body\.network\)/);
+    expect(route).toMatch(/body\.ownerWalletAddress\?\.trim\(\) \|\| \(await resolveAgentOwnerWalletAddress\(agent\)\)/);
+    // A failure to look it up must not be reported as the transaction failing.
+    expect(route).toMatch(/not a statement that the transaction failed/);
+  });
+
+  it('the duplicate guard reads the Agent Card tokenId — so it cannot protect an unconfirmed broadcast', () => {
+    /*
+     * Stated as a test because it is the REASON the surface must not offer
+     * Register at rung 5. If this guard ever becomes able to see an
+     * unconfirmed broadcast, that is a deliberate change and this test should
+     * be revisited with it — not silently outgrown.
+     */
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    expect(client).toMatch(/refusalCode: 'ALREADY_REGISTERED'/);
+    const at = client.indexOf("refusalCode: 'ALREADY_REGISTERED'");
+    const before = client.slice(Math.max(0, at - 300), at);
+    expect(before).toMatch(/horizen\.tokenId != null/);
+  });
 });
