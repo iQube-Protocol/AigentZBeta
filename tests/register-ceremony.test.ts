@@ -1200,6 +1200,12 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     expect(block).toMatch(/refusalCode: 'STATUS_UNAVAILABLE'/);
     expect(block).toMatch(/agent identifier was unavailable/);
     expect(block).toMatch(/remains valid\. Do not re-register\./);
+    // The wallet address is NEVER substituted for an agent identifier. A
+    // refusal says "we could not ask"; a wallet Horizen does not recognise as
+    // an agentId may come back as a clean, confident "not registered" about a
+    // registration that exists (operator direction via Al, 2026-08-02).
+    expect(client).toMatch(/const agentIdToSend = input\.horizenAgentId\?\.trim\(\) \|\| null;/);
+    expect(client).not.toMatch(/agentId: input\.ownerWalletAddress/);
     expect(block).not.toMatch(/confirmed/);
     // The refusal must come BEFORE the tool call.
     expect(at).toBeLessThan(client.indexOf("callTool({ name: 'get_onboarding_status'"));

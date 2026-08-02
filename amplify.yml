@@ -271,6 +271,32 @@ frontend:
         - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -maxdepth 2 -type d 2>/dev/null | sort || true
         - echo "=== final artifact composition (bytes) ==="
         - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/node_modules/pdf-parse 2>/dev/null || true
+        # WHAT IS ACTUALLY BEING MEASURED (2026-08-02).
+        #
+        # The pdf-parse specialization removed 6,249,974 bytes from
+        # .next/standalone (188,345,601 -> 182,095,627). Amplify's reported
+        # build output moved 1,954 bytes (230,842,832 -> 230,840,878). Static
+        # was unchanged. So the measured artifact is INSENSITIVE to
+        # .next/standalone's size, and every prune aimed there — docs, .d.ts,
+        # .map, the three pdf.js builds — has been reclaiming bytes that the
+        # cap does not count.
+        #
+        # `artifacts.baseDirectory` is `.next` with `**/*`, so the cap covers
+        # the WHOLE .next tree, not the standalone subtree we have been
+        # trimming. The obvious untrimmed resident is `.next/cache`: it is
+        # deleted BEFORE `next build` (cache-busting, above) and therefore
+        # regenerated DURING the build, landing inside the artifact. It is
+        # build cache — Next regenerates it and Amplify caches it separately;
+        # nothing at runtime reads it.
+        #
+        # Measured first, then removed, so the log proves the size rather than
+        # this comment asserting it.
+        - echo "=== WHOLE .next tree, by component (bytes) ==="
+        - du -sb .next .next/cache .next/server .next/standalone .next/static 2>/dev/null || true
+        - echo "Removing .next/cache — build cache, regenerated next build, never read at runtime..."
+        - rm -rf .next/cache 2>/dev/null || true
+        - echo "=== .next AFTER cache removal (bytes) ==="
+        - du -sb .next 2>/dev/null || true
         # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
         # include stops NEW tracing, but Next still copies the pack .md that land
         # in .next/standalone/codexes/packs (include/exclude carry cross-route
