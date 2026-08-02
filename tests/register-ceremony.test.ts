@@ -17,6 +17,7 @@ import type { SigningRequest, CreateSigningRequestInput } from '@/types/signingR
 import {
   registerCeremonyProgress,
   expiredAttemptsNote,
+  horizenContact,
 } from '@/services/horizen/registerCeremonyProgress';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 
@@ -490,5 +491,103 @@ describe('the Verify stage speaks about the agent that was actually registered',
 
   it('refetching is scoped to the agent — switching agents re-reads the card', () => {
     expect(toggle).toMatch(/\}, \[agentSlug\]\);/);
+  });
+});
+
+
+describe('the headline states the SITUATION, never an achievement not yet made', () => {
+  /*
+   * Operator screenshot, 2026-08-02: the panel read
+   *
+   *   "Mandate signed by you  ·  waiting on you"
+   *
+   * directly above "A mandate is prepared and waiting for your signature."
+   * The first version headlined the CURRENT RUNG'S LABEL — but a rung label
+   * names the thing that happens AT that rung, and the current rung is the one
+   * that has NOT happened. The header therefore claimed the opposite of the
+   * state it was reporting, which is worse than saying nothing.
+   */
+  const base = {
+    walletReady: true,
+    liveMandate: false,
+    liveInvocation: false,
+    broadcastPending: false,
+    tokenId: null as string | null,
+    expiredAttempts: 0,
+  };
+
+  it('an unsigned mandate is headlined as awaiting a signature, not as signed', () => {
+    const p = registerCeremonyProgress({ ...base, liveMandate: true });
+    expect(p.headline).toBe('Awaiting your signature');
+    expect(p.label).toBe('Mandate signed by you');
+    // The headline must never assert the rung's achievement.
+    expect(p.headline).not.toBe(p.label);
+    expect(p.headline).not.toMatch(/signed by you/i);
+  });
+
+  it('no waiting stage headlines itself as complete', () => {
+    for (const input of [
+      { ...base },
+      { ...base, liveMandate: true },
+      { ...base, liveInvocation: true },
+      { ...base, broadcastPending: true },
+      { ...base, walletReady: false },
+    ]) {
+      const p = registerCeremonyProgress(input);
+      expect(p.headline, p.stageId).not.toMatch(/\b(approved|broadcast to|issued|registered in)\b/i);
+    }
+    // Only the terminal stage may.
+    expect(registerCeremonyProgress({ ...base, tokenId: '9' }).headline).toMatch(/Registered in Horizen/);
+  });
+});
+
+describe('what contact with Horizen has actually occurred', () => {
+  /*
+   * Operator: "Nothing indicates at the moment that we're talking to the
+   * Horizen system at all." That was TRUE — nothing is sent until the operator
+   * signs the mandate and approves the key invocation. The surface says so;
+   * inventing a "connecting…" state would be theatre.
+   */
+  it('says plainly that nothing has been sent, and why', () => {
+    const c = horizenContact({ network: 'base-sepolia', broadcastPending: false, tokenId: null });
+    expect(c.contacted).toBe(false);
+    expect(c.statement).toMatch(/No transaction has been sent/i);
+    expect(c.statement).toMatch(/base-sepolia/);
+    expect(c.statement).toMatch(/after you sign the mandate and approve/i);
+  });
+
+  it('never names a network it did not read', () => {
+    const c = horizenContact({ network: null, broadcastPending: false, tokenId: null });
+    expect(c.statement).toMatch(/the configured network/);
+    expect(c.statement).not.toMatch(/base-sepolia|mainnet/);
+  });
+
+  it('a broadcast is contact; a confirmation is contact with a tokenId', () => {
+    expect(horizenContact({ network: 'base-sepolia', broadcastPending: true, tokenId: null }).contacted).toBe(true);
+    const done = horizenContact({ network: 'base-sepolia', broadcastPending: false, tokenId: '42' });
+    expect(done.contacted).toBe(true);
+    expect(done.statement).toMatch(/tokenId 42/);
+  });
+});
+
+describe('the ladder reads horizontally, with completed rungs in green', () => {
+  const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+
+  it('renders the headline, not the rung label, as the header', () => {
+    expect(panel).toMatch(/\{progress\.headline\}/);
+  });
+
+  it('lays the rungs out in a row and colours the done ones emerald', () => {
+    expect(panel).toMatch(/flex items-start gap-1 overflow-x-auto/);
+    expect(panel).toMatch(/border-emerald-500\/50 bg-emerald-500\/20 text-emerald-300/);
+    // The connector between a completed rung and the next is green too.
+    expect(panel).toMatch(/st\.state === 'done' \? 'bg-emerald-500\/40'/);
+  });
+
+  it('surfaces the Horizen contact statement', () => {
+    expect(panel).toMatch(/horizenContact\(\{/);
+    expect(panel).toMatch(/contact\.statement/);
+    // Read from the status route, never assumed.
+    expect(panel).toMatch(/network: horizenFacts\.network/);
   });
 });

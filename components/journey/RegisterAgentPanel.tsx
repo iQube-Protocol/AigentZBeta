@@ -60,6 +60,7 @@ import {
 import {
   registerCeremonyProgress,
   expiredAttemptsNote,
+  horizenContact,
   type RegisterCeremonyProgress,
 } from '@/services/horizen/registerCeremonyProgress';
 import { AgentCardSurface } from './AgentCardSurface';
@@ -283,6 +284,15 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
    * surface states the stage instead of resetting to a button.
    */
   const [progress, setProgress] = useState<RegisterCeremonyProgress | null>(null);
+  /*
+   * Facts about Horizen itself, read from the status route rather than
+   * assumed. Null means "not known from here" — `horizenContact` renders that
+   * as "the configured network" rather than naming one we did not read.
+   */
+  const [horizenFacts, setHorizenFacts] = useState<{ network: string | null; tokenId: string | null }>({
+    network: null,
+    tokenId: null,
+  });
 
   const readProgress = useCallback(async () => {
     try {
@@ -299,7 +309,14 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           expired: boolean;
         }[];
       } | null;
-      const statusJson = (await statusRes.json().catch(() => null)) as { tokenId?: unknown } | null;
+      const statusJson = (await statusRes.json().catch(() => null)) as
+        | { tokenId?: unknown; network?: unknown }
+        | null;
+      const tokenId = typeof statusJson?.tokenId === 'string' && statusJson.tokenId ? statusJson.tokenId : null;
+      setHorizenFacts({
+        network: typeof statusJson?.network === 'string' && statusJson.network ? statusJson.network : null,
+        tokenId,
+      });
       const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === `aigent-${agentSlug}`);
       setProgress(
         registerCeremonyProgress({
@@ -307,7 +324,7 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
           liveMandate: mine.some((r) => r.actionKind === 'authorize_registration' && !r.expired),
           liveInvocation: mine.some((r) => r.actionKind === 'sign_registry_transaction' && !r.expired),
           broadcastPending: false,
-          tokenId: typeof statusJson?.tokenId === 'string' && statusJson.tokenId ? statusJson.tokenId : null,
+          tokenId,
           expiredAttempts: mine.filter((r) => r.expired).length,
         }),
       );
@@ -624,7 +641,11 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
         {progress && (
           <div className="mb-1 rounded-md border border-slate-800 bg-slate-950/40 p-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-100">{progress.label}</span>
+              {/* The HEADLINE, not the rung's achievement label. This read
+                  "Mandate signed by you · waiting on you" directly above "A
+                  mandate is prepared and waiting for your signature" — the
+                  current rung is the one that has NOT happened. */}
+              <span className="text-xs font-semibold text-slate-100">{progress.headline}</span>
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${
                   progress.nextActor === 'you'
@@ -646,23 +667,72 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
                 {expiredAttemptsNote(progress.expiredAttempts)}
               </p>
             )}
-            <ol className="mt-2.5 space-y-1">
-              {progress.ladder.map((st) => (
-                <li
-                  key={st.id}
-                  className={`flex items-center gap-2 text-[11px] ${
-                    st.state === 'current'
-                      ? 'text-slate-100'
-                      : st.state === 'done'
-                        ? 'text-slate-400'
-                        : 'text-slate-600'
-                  }`}
-                >
-                  <span aria-hidden="true">{st.state === 'done' ? '✓' : st.state === 'current' ? '◉' : '○'}</span>
-                  <span className={st.state === 'current' ? 'font-medium' : undefined}>{st.label}</span>
+            {/* HORIZONTAL, completed rungs in green (operator, 2026-08-02).
+                Read at a glance during a walkthrough: how far along, and how
+                much is left. Scrolls on narrow viewports rather than wrapping
+                into an unreadable stack. */}
+            <ol className="mt-3 flex items-start gap-1 overflow-x-auto pb-1">
+              {progress.ladder.map((st, i) => (
+                <li key={st.id} className="flex min-w-[7.5rem] flex-1 items-start gap-1">
+                  <div className="flex min-w-0 flex-col items-start gap-1">
+                    <div className="flex w-full items-center gap-1">
+                      <span
+                        aria-hidden="true"
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                          st.state === 'done'
+                            ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300'
+                            : st.state === 'current'
+                              ? 'border-violet-400/60 bg-violet-500/20 text-violet-200'
+                              : 'border-slate-700 text-slate-600'
+                        }`}
+                      >
+                        {st.state === 'done' ? '✓' : st.state === 'current' ? '●' : i + 1}
+                      </span>
+                      {i < progress.ladder.length - 1 && (
+                        <span
+                          aria-hidden="true"
+                          className={`h-px flex-1 ${st.state === 'done' ? 'bg-emerald-500/40' : 'bg-slate-800'}`}
+                        />
+                      )}
+                    </div>
+                    <span
+                      className={`text-[10px] leading-tight ${
+                        st.state === 'done'
+                          ? 'text-emerald-300'
+                          : st.state === 'current'
+                            ? 'font-medium text-slate-100'
+                            : 'text-slate-600'
+                      }`}
+                    >
+                      {st.label}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ol>
+            {/* WHAT CONTACT WITH HORIZEN HAS ACTUALLY OCCURRED.
+                "Nothing indicates that we're talking to the Horizen system at
+                all" was TRUE — nothing is sent until the operator signs and
+                approves. Saying so beats a "connecting…" that would be
+                theatre. */}
+            {(() => {
+              const contact = horizenContact({
+                network: horizenFacts.network,
+                broadcastPending: progress.stageId === 'BROADCAST_AWAITING_CONFIRMATION',
+                tokenId: progress.stageId === 'REGISTERED' ? horizenFacts.tokenId : null,
+              });
+              return (
+                <p
+                  className={`mt-2.5 rounded border p-2 text-[10px] leading-relaxed ${
+                    contact.contacted
+                      ? 'border-emerald-900/40 bg-emerald-950/20 text-emerald-200'
+                      : 'border-slate-800 bg-slate-950/50 text-slate-400'
+                  }`}
+                >
+                  <span className="text-slate-500">Horizen:</span> {contact.statement}
+                </p>
+              );
+            })()}
           </div>
         )}
 

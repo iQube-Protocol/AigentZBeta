@@ -48,7 +48,22 @@ export interface RegisterCeremonyStage {
 
 export interface RegisterCeremonyProgress {
   stageId: RegisterCeremonyStageId;
+  /**
+   * The rung's ACHIEVEMENT label — "Mandate signed by you". Correct in a
+   * checklist, wrong as a headline.
+   */
   label: string;
+  /**
+   * WHAT IS TRUE RIGHT NOW — "Awaiting your signature".
+   *
+   * The first version headlined the current rung's achievement label, so the
+   * panel read "Mandate signed by you · waiting on you" directly above "A
+   * mandate is prepared and waiting for your signature". A rung label states
+   * the thing that HAPPENS AT that rung; the current rung is the one that has
+   * NOT happened yet. Rendering the two as one sentence claimed the opposite
+   * of the state it was reporting.
+   */
+  headline: string;
   /** What is true right now, in one sentence. */
   meaning: string;
   /** The next act, named as an act — never "please wait". */
@@ -102,13 +117,18 @@ export function registerCeremonyProgress(input: {
 
   const at = LADDER.findIndex((s) => s.id === stageId);
 
-  const detail: Record<RegisterCeremonyStageId, Pick<RegisterCeremonyProgress, 'meaning' | 'nextAct' | 'nextActor'>> = {
+  const detail: Record<
+    RegisterCeremonyStageId,
+    Pick<RegisterCeremonyProgress, 'headline' | 'meaning' | 'nextAct' | 'nextActor'>
+  > = {
     WALLET_NOT_READY: {
+      headline: 'Principal wallet not ready',
       meaning: 'Your principal wallet cannot produce a signature yet, so no mandate can be authorised.',
       nextAct: 'Set up or prove control of your principal wallet in the wallet’s Principal Wallet section.',
       nextActor: 'you',
     },
     NOT_STARTED: {
+      headline: 'Not started',
       meaning:
         'No mandate is currently waiting. Nothing is in flight — this agent has not been registered, and ' +
         'no act is part-completed.',
@@ -116,6 +136,7 @@ export function registerCeremonyProgress(input: {
       nextActor: 'you',
     },
     MANDATE_AWAITING_SIGNATURE: {
+      headline: 'Awaiting your signature',
       meaning:
         'A mandate is prepared and waiting for your signature. Nothing has been signed or broadcast, and ' +
         'nothing will be until you sign it.',
@@ -123,6 +144,7 @@ export function registerCeremonyProgress(input: {
       nextActor: 'you',
     },
     INVOCATION_AWAITING_APPROVAL: {
+      headline: 'Awaiting your approval of the agent key',
       meaning:
         'You have signed the mandate. The agent’s own custodied key now needs your explicit approval to be ' +
         'invoked — the key never reaches you, and this approval only authorises its use.',
@@ -130,11 +152,13 @@ export function registerCeremonyProgress(input: {
       nextActor: 'you',
     },
     BROADCAST_AWAITING_CONFIRMATION: {
+      headline: 'Awaiting confirmation from Horizen',
       meaning: 'The registration transaction has been broadcast. Horizen has not confirmed it yet.',
       nextAct: 'Nothing to do — the network decides this one. The stage advances when Horizen confirms.',
       nextActor: 'the network',
     },
     REGISTERED: {
+      headline: 'Registered in Horizen',
       meaning: 'Horizen has issued a tokenId. The agent is registered in the ERC-8004 registry.',
       nextAct: 'Nothing — this stage is complete.',
       nextActor: 'nobody',
@@ -150,6 +174,45 @@ export function registerCeremonyProgress(input: {
       ...s,
       state: i < at ? 'done' : i === at ? 'current' : 'pending',
     })),
+  };
+}
+
+/**
+ * What contact with Horizen has ACTUALLY occurred (operator, 2026-08-02).
+ *
+ *   > "Nothing indicates at the moment that we're talking to the Horizen
+ *   >  system at all."
+ *
+ * True, and the surface should say so rather than imply otherwise. Nothing in
+ * this ceremony touches Horizen until the operator signs the mandate and
+ * approves the key invocation — the transaction is built and broadcast only as
+ * a consequence of those two acts. Before then there is no call to report, and
+ * inventing a "connecting…" state would be theatre.
+ */
+export function horizenContact(input: {
+  network: string | null;
+  broadcastPending: boolean;
+  tokenId: string | null;
+}): { contacted: boolean; statement: string } {
+  const net = input.network ?? 'the configured network';
+  if (input.tokenId) {
+    return {
+      contacted: true,
+      statement: `Horizen confirmed this registration on ${net} and issued tokenId ${input.tokenId}.`,
+    };
+  }
+  if (input.broadcastPending) {
+    return {
+      contacted: true,
+      statement: `A transaction has been broadcast to ${net}. Horizen has not confirmed it yet.`,
+    };
+  }
+  return {
+    contacted: false,
+    statement:
+      `No transaction has been sent to Horizen yet, so there is nothing on ${net} to show. ` +
+      'The registry is only touched after you sign the mandate and approve the agent key — ' +
+      'building or broadcasting anything earlier would act without your authority.',
   };
 }
 
