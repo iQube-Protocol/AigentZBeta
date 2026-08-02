@@ -1118,4 +1118,50 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     expect(panel).toMatch(/this is a report about the CHECK, not a failure of the/);
     expect(panel).toMatch(/nothing needs re-registering/);
   });
+
+  it('the status check answers within its own budget rather than becoming a gateway 504', () => {
+    /*
+     * Operator, 2026-08-02: `register/status returned an unexpected response
+     * (HTTP 504)`.
+     *
+     * The route talks to Horizen's MCP server over the network and set no
+     * budget at all, while every sibling doing comparable work sets one. A
+     * slow Horizen therefore became a gateway timeout with an empty body —
+     * and on THIS route an empty 504 reads as the registration having failed
+     * when the transaction is untouched.
+     */
+    const route = stripComments(
+      readSource('app/api/journey/moneypenny-horizen/register/status/route.ts'),
+    );
+    expect(route, 'the route sets no duration budget').toMatch(/export const maxDuration = \d+;/);
+    // It bounds the outbound call itself, so IT produces the answer.
+    expect(route).toMatch(/HORIZEN_STATUS_DEADLINE_MS/);
+    expect(route).toMatch(/Promise\.race/);
+  });
+
+  it('a check that never answered is refused by name, never reported as unconfirmed', () => {
+    /*
+     * The whole discipline in one assertion. Reporting `confirmed: false`
+     * because OUR timeout fired would state a fact about the chain on the
+     * strength of our own impatience.
+     */
+    const route = stripComments(
+      readSource('app/api/journey/moneypenny-horizen/register/status/route.ts'),
+    );
+    const at = route.indexOf('if (result === timedOut)');
+    expect(at, 'the deadline has no distinct branch').toBeGreaterThan(-1);
+    const block = route.slice(at, at + 900);
+    expect(block).toMatch(/refusalCode: 'STATUS_UNAVAILABLE'/);
+    expect(block).not.toMatch(/confirmed/);
+    expect(block).toMatch(/it is broadcast and unaffected/);
+    expect(block).toMatch(/nothing needs\s+\/?\s*re-registering|nothing needs .*re-registering/s);
+  });
+
+  it('the client names a gateway timeout as a timeout', () => {
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toMatch(/res\.status === 504 \|\| res\.status === 502 \|\| res\.status === 408/);
+    expect(panel).toMatch(/did not answer in time/);
+    // And must not let a transport failure read as the act having failed.
+    expect(panel).toMatch(/no act has failed/);
+  });
 });
