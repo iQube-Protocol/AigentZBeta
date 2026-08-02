@@ -23,7 +23,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
-import { checkAgentRegistrationStatus } from '@/services/horizen/registrationClient';
+import {
+  checkAgentRegistrationStatus,
+  resolveAgentOwnerWalletAddress,
+} from '@/services/horizen/registrationClient';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 import type { HorizenNetwork } from '@/services/horizen/identity';
@@ -69,19 +72,53 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid-json' }, { status: 400 });
   }
-  if (!body.agentSlug || !body.txHash || !body.ownerWalletAddress || !body.network) {
-    return NextResponse.json({ ok: false, error: 'agentSlug, txHash, ownerWalletAddress and network are all required' }, { status: 400 });
+  if (!body.agentSlug || !body.txHash || !body.network) {
+    return NextResponse.json({ ok: false, error: 'agentSlug, txHash and network are all required' }, { status: 400 });
   }
   const agent = resolveRegistrableAgent(body.agentSlug);
   if (!agent) {
     return NextResponse.json({ ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${body.agentSlug}" is not a registrable agent` }, { status: 400 });
   }
 
+  /*
+   * A BROADCAST MUST STAY ASKABLE-ABOUT (operator, 2026-08-02, 13:43).
+   *
+   *   > "We advanced to approve and then it hung and gave this error: Horizen
+   *   >  has not confirmed registration yet ... And then interface is back to
+   *   >  start over."
+   *
+   * A transaction WAS broadcast and receipted. The confirmation poll then ran
+   * out, and because `ownerWalletAddress` was a REQUIRED input held only in
+   * the page's memory, the check became unaskable the moment the page
+   * re-rendered — leaving a real on-chain transaction with no way to learn its
+   * outcome, and "register again" as the only visible move. That is the worst
+   * possible affordance in front of an unconfirmed registration.
+   *
+   * The owner address is a property OF THE AGENT (its own custodied wallet)
+   * and was always derivable server-side. Requiring the browser to remember it
+   * was the defect. A caller may still supply one — but not supplying it is no
+   * longer a refusal.
+   */
+  const ownerWalletAddress =
+    body.ownerWalletAddress?.trim() || (await resolveAgentOwnerWalletAddress(agent));
+  if (!ownerWalletAddress) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'OWNER_KEY_NOT_CONFIGURED',
+        error:
+          `${agent.displayName} has no custodied wallet on record, so the registry cannot be reread for her. ` +
+          'This is a lookup failure, not a statement that the transaction failed — the broadcast stands.',
+      },
+      { status: 400 },
+    );
+  }
+
   const result = await checkAgentRegistrationStatus(
     {
       agentSlug: agent.slug,
       txHash: body.txHash,
-      ownerWalletAddress: body.ownerWalletAddress,
+      ownerWalletAddress,
       network: body.network as HorizenNetwork,
       actorPersonaId: persona.personaId,
     },
