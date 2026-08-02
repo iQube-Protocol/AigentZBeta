@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { PolicyEnvelope, HandoffPayload, OrchestrationEvent } from '@/types/orchestration';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   persistDelegationGrant,
   readActiveGrant,
@@ -303,6 +304,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    /*
+     * SPINE AUTH — THIS ROUTE MINTS AUTHORITY (2026-08-02).
+     *
+     * ── The defect ────────────────────────────────────────────────────────
+     *
+     * There was none. `persona_id` came from the request BODY and nothing
+     * checked who was asking, so anyone holding a persona UUID could grant or
+     * revoke that persona's delegation at any band below L5_CORE_SOVEREIGN.
+     * A delegation is a grant of authority to act; issuing one for a persona
+     * you are not is the whole of the harm.
+     *
+     * The identity spine is the single authority on "who is asking"
+     * (CLAUDE.md — Identity & Access Spine). A body-supplied persona_id is a
+     * CLAIM, never a credential, and is now only accepted when it agrees with
+     * the persona the spine resolved.
+     */
+    const caller = await getActivePersona(request);
+    if (!caller?.personaId) {
+      return NextResponse.json(
+        {
+          error:
+            'Not authenticated. A delegation grants authority to act on a persona\'s behalf, so it can only ' +
+            'be issued by that persona.',
+        },
+        { status: 401 },
+      );
+    }
+
     const body = await request.json();
     const {
       persona_id,
@@ -342,6 +371,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'persona_id is required' }, { status: 400 });
     }
 
+    // A body-supplied persona is a claim, not a credential. Accepted only when
+    // it agrees with the caller the spine resolved; a mismatch is reported
+    // rather than silently rewritten, because quietly retargeting a grant of
+    // authority hides exactly the act that needs to be visible.
+    if (persona_id !== caller.personaId) {
+      return NextResponse.json(
+        {
+          error:
+            'The delegation names a persona other than the authenticated caller. A delegation may only be ' +
+            'issued for your own persona.',
+        },
+        { status: 403 },
+      );
+    }
+
     if (trust_band === 'L5_CORE_SOVEREIGN') {
       return NextResponse.json(
         { error: 'L5_CORE_SOVEREIGN delegation requires metaMe guardian approval. Not available in Phase 1.' },
@@ -349,8 +393,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Trust band gating: if the client provides a reputation_score, enforce the minimum.
+    /*
+     * THE BAND GATE WAS OPT-IN (2026-08-02).
+     *
+     * `if (typeof reputation_score === 'number' && …)` — omit the field and
+     * the check never runs. The comment said "if the client provides a
+     * reputation_score", which is an accurate description of a gate that
+     * cannot hold: the party being gated chooses whether it applies.
+     *
+     * Note the inconsistency INSIDE THIS FILE: the DELEGATE side below
+     * resolves its ceiling server-side and says so in its own comment —
+     * "server-resolved — never client-asserted". The grantor side did the
+     * opposite. One route, two postures, and the weaker one guarding the
+     * higher-privilege direction.
+     *
+     * Now fail-closed: a band with a minimum requires a score to evaluate, and
+     * an absent score is a refusal rather than a pass. No score is invented —
+     * refusing names what is missing. Resolving the grantor's score
+     * server-side (personaAssetGraph reads it from CRM) is the follow-up that
+     * removes the client's involvement entirely; until then the gate at least
+     * cannot be skipped by omission.
+     */
     const minScore = BAND_MIN_SCORE[trust_band] ?? 0;
+    if (minScore > 0 && typeof reputation_score !== 'number') {
+      return NextResponse.json(
+        {
+          error:
+            `${trust_band} requires a reputation of at least ${minScore}, and no reputation score was ` +
+            'supplied to evaluate. This is a refusal to skip the check, not a statement that you fall short.',
+          required_score: minScore,
+          trust_band,
+        },
+        { status: 403 },
+      );
+    }
     if (typeof reputation_score === 'number' && reputation_score < minScore) {
       return NextResponse.json(
         {
