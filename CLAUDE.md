@@ -135,6 +135,62 @@ This rule **applies to every agent** working on this repo (Claude Code, Codex, L
 
 ---
 
+## Dense Materials — Supabase and Auto Drive, NEVER the Repo (PARAMOUNT)
+
+**Manuscripts, corpora, media and build output do not belong in git. The repo carries the
+POINTER — a CID, a storage path, a hash, a provenance record — never the bytes.**
+
+This rule exists because the Amplify build failed on 2026-08-02 with
+`The size of the build output (230813813) exceeds the max allowed size of 230686720 bytes` —
+over by ~124 KB. The cause was not the change that tipped it: `target/`, the Rust/ICP canister
+**build output**, had 879 files and **183.5 MB** tracked in git, more than half the repo, and was
+never in `.gitignore`. Deleting it buys headroom and changes no incentive; the next agent to commit
+a book, a research corpus or a screenshot set puts it straight back, and nobody finds out until a
+deploy breaks for everyone. **Deploy-time is the worst possible moment to discover this**: the
+failure is remote, the message names a byte count rather than a file, and whoever caused it is
+rarely whoever is debugging it.
+
+### Never commit
+
+- **Build output of any kind** — `target/`, `.next/`, `dist/`, `out/`, `node_modules/`,
+  `coverage/`, `.turbo/`, compiler artifacts (`.rlib`, `.rmeta`, `.dylib`, `.wasm` produced by a
+  build).
+- **Manuscripts and long-form work** — chapter drafts, book builds, exports.
+- **Research corpora and source documents** — PDFs, EPUBs, scraped or acquired evidence.
+- **Media** — cover art, illustrations, screenshots, design exports, audio, video.
+- **Bulk data dumps** — consolidated exports, scrape results, generated bundles.
+
+### Where they go instead
+
+| Material | Home | What the repo carries |
+|---|---|---|
+| Working drafts, images, anything the app serves or the team edits | **Supabase Storage** | the storage path, or a signed-redirect route for gated content |
+| Canonical, frozen, provenance-bearing artifacts — ratified manuscripts, published editions, corpus artifacts needing a content-addressed identity | **Autonomys Auto Drive** | the **CID** + metadata |
+
+Gated content additionally follows the Gated Content rules below: never a raw storage URL in the
+browser, always an authenticated proxy or signed-redirect route.
+
+### What may be committed
+
+The pointer, not the payload: a JSON or Markdown record with the CID or storage path, title, hash,
+provenance and ratification status. Prose that is genuinely source — specs, decisions, session docs
+in `codexes/packs/agentiq/updates/` — is fine. A book is not.
+
+**Hard limit: no tracked file over 1 MB.** Above that it is an asset, not source.
+
+### Enforcement
+
+`tests/repo-weight.test.ts` fails the build on: any tracked build-output path, any NEW tracked file
+over 1 MB, and total tracked bytes over budget. The 47 files already over the limit are
+grandfathered in a FROZEN list — **an entry may be removed (move it out and delete it), never
+added**. Do not raise the budget or extend the list to make a violation pass; that is the defect,
+not the fix.
+
+If you find dense material already committed that should not be, **say so** rather than leaving it
+— untracking it is a separate, deliberate change.
+
+---
+
 ## No Guessing or Hallucinating — Zero Tolerance
 
 **Never guess, invent, or assume any value that cannot be verified from the codebase or a source provided by the operator.**
