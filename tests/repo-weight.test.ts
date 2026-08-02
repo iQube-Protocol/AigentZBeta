@@ -46,6 +46,7 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'child_process';
 import { statSync } from 'fs';
 import { join } from 'path';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const ROOT = join(__dirname, '..');
 
@@ -221,5 +222,54 @@ describe('repo weight — dense material does not live in git', () => {
         'find what grew (`git ls-files -z | xargs -0 stat -c "%s %n" | sort -rn | head`) and move it to ' +
         'Supabase or Auto Drive.',
     ).toBeLessThan(MAX_TRACKED_TOTAL_BYTES);
+  });
+});
+
+/**
+ * pdf-parse runtime specialization — the postBuild step keeps ONE vendored
+ * pdf.js distribution and deletes three. That is safe only while the package's
+ * default is the one being kept, and the deletion depends on the package's
+ * internal directory layout. Both facts belong to `pdf-parse`, not to us, so a
+ * version bump can invalidate either silently.
+ *
+ * These canaries make that failure loud at test time rather than at the first
+ * `pdfParse(buffer)` call in production.
+ */
+describe('pdf-parse specialization — the retained build must be the reachable one', () => {
+  const KEPT = 'v1.10.100';
+
+  it("the package's default version is still the one the build keeps", () => {
+    // If an upgrade moves the default, the postBuild step would delete the
+    // build that is actually loaded and every PDF path would fail with a
+    // missing module — after deploy, not before.
+    const lib = readSource('node_modules/pdf-parse/lib/pdf-parse.js');
+    // Literal regex: building it from KEPT through a template string mangles
+    // the escapes, and a canary that cannot fail is worse than none.
+    expect(lib).toMatch(/version:\s*['"]v1\.10\.100['"]/);
+    expect(KEPT).toBe('v1.10.100');
+  });
+
+  it('the retained distribution resolves', () => {
+    expect(() => require(`pdf-parse/lib/pdf.js/${KEPT}/build/pdf.js`)).not.toThrow();
+  });
+
+  it('the postBuild step keeps exactly that version and deletes the rest', () => {
+    const yml = readSource('amplify.yml');
+    expect(yml).toContain(`! -name '${KEPT}'`);
+    expect(yml).toMatch(/pdf-parse\/lib\/pdf\.js -mindepth 1 -maxdepth 1 -type d/);
+    // Scoped to the BUILT artifact, never the source tree.
+    expect(yml).not.toMatch(/find node_modules\/pdf-parse/);
+  });
+
+  it('no caller overrides the version', () => {
+    // The specialization is only valid while every call site takes the default.
+    for (const f of [
+      'services/content/pdfExtractionService.ts',
+      'services/uploads/uploadIndexer.ts',
+      'app/api/vsp/profiles/[profileId]/evidence/upload/route.ts',
+    ]) {
+      const src = stripComments(readSource(f));
+      expect(src, `${f} passes a pdf-parse version`).not.toMatch(/pdfParse\([^)]*version/);
+    }
   });
 });

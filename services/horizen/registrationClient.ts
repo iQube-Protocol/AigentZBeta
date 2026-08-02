@@ -606,7 +606,41 @@ export async function checkAgentRegistrationStatus(
   if (!byName.get_onboarding_status) {
     return { ok: false, refusalCode: 'REGISTRATION_TOOL_NOT_FOUND', detail: 'Horizen\'s MCP server does not currently declare a "get_onboarding_status" tool' };
   }
+  /*
+   * `agentId` IS REQUIRED, AND WE WERE NEVER SENDING IT (2026-08-02).
+   *
+   * The operator surfaced the raw answer after twenty "not confirmed" checks:
+   *
+   *   MCP error -32602: Invalid arguments for tool get_onboarding_status:
+   *     path: ["agentId"]  expected: "string"  received: "undefined"  Required
+   *
+   * So not one of those twenty calls ever asked Horizen anything. Every reply
+   * was a schema rejection, and the code below read it as an ANSWER — the
+   * error text simply did not contain 'active' | 'confirmed' | 'complete', so
+   * `confirmed` came out false and the surface reported "Horizen has not
+   * confirmed this registration". A tool that refused to run was rendered as a
+   * chain that had not confirmed. Those are not the same fact, and the second
+   * one is about the operator's transaction.
+   *
+   * WHICH VALUE. Horizen addresses a registered agent by its OWNER WALLET
+   * ADDRESS — the registry reread below is literally
+   * `fetchAgent(input.ownerWalletAddress, input.network)`. That is the best
+   * evidence available for what `agentId` means here, so it leads. The agent's
+   * runtime id is offered under the other synonyms; `matchSchemaFields` only
+   * emits keys the declared schema actually has, so offering more candidates
+   * cannot send a field Horizen did not ask for.
+   *
+   * If this is still the wrong value, the refusal below now NAMES the rejected
+   * argument and prints what was sent — the next failure diagnoses itself
+   * instead of costing another twenty checks.
+   */
   const statusArgs = matchSchemaFields(byName.get_onboarding_status.inputSchema, {
+    agentId: input.ownerWalletAddress,
+    agentAddress: input.ownerWalletAddress,
+    ownerAddress: input.ownerWalletAddress,
+    walletAddress: input.ownerWalletAddress,
+    agentSlug: agent.slug,
+    runtimeAgentId: agent.runtimeAgentId,
     transactionHash: input.txHash,
     txHash: input.txHash,
     hash: input.txHash,
@@ -616,6 +650,27 @@ export async function checkAgentRegistrationStatus(
   const statusResult = await mcpClient.callTool({ name: 'get_onboarding_status', arguments: statusArgs });
   const statusText = flattenToolResultText(statusResult);
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
+
+  /*
+   * A TOOL THAT REFUSED TO RUN IS NOT A NEGATIVE ANSWER.
+   *
+   * Checked BEFORE the confirmation heuristic, because the heuristic cannot
+   * tell them apart: a validation error contains none of the success words and
+   * so silently becomes `confirmed: false`. Reported as a refusal that names
+   * the argument Horizen rejected and the arguments we sent.
+   */
+  const rejected = describeRejectedArguments(statusResult);
+  if (rejected) {
+    return {
+      ok: false,
+      refusalCode: 'STATUS_UNAVAILABLE',
+      detail:
+        `Horizen refused the status check itself — ${rejected}. This says NOTHING about the transaction: ` +
+        'it was broadcast and stands, and nothing needs re-registering. ' +
+        `Arguments sent: ${JSON.stringify(statusArgs)}. Raw result: ${rawStatus}`,
+    };
+  }
+
   const confirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('complete');
 
   if (!confirmed) {

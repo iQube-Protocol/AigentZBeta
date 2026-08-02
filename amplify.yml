@@ -265,6 +265,12 @@ frontend:
         - du -sb .next/standalone/node_modules 2>/dev/null || true
         - echo "=== pdf-parse AFTER vendored-build prune (bytes) ==="
         - du -sb .next/standalone/node_modules/pdf-parse 2>/dev/null || true
+        # Prove exactly which pdf.js distribution survived — a size alone cannot
+        # show that the RETAINED one is the retained one.
+        - echo "=== surviving pdf.js distributions ==="
+        - find .next/standalone/node_modules/pdf-parse/lib/pdf.js -maxdepth 2 -type d 2>/dev/null | sort || true
+        - echo "=== final artifact composition (bytes) ==="
+        - du -sb .next/standalone .next/static .next/standalone/node_modules .next/standalone/node_modules/pdf-parse 2>/dev/null || true
         # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
         # include stops NEW tracing, but Next still copies the pack .md that land
         # in .next/standalone/codexes/packs (include/exclude carry cross-route
