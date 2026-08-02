@@ -483,12 +483,28 @@ function CorpusReviewQueue({
           )}
           {rows !== null && (
             <div className="flex flex-wrap items-center gap-2">
+              {/* `type="search"` gives the browser's own clear affordance, and
+                  autoComplete/spellCheck off keeps the browser from putting a
+                  remembered value into a box whose only job is to HIDE rows —
+                  a filter nobody typed is indistinguishable from an empty
+                  queue. */}
               <input
+                type="search"
+                autoComplete="off"
+                spellCheck={false}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="search title, issuer, author, URL, sub-domain"
                 className="min-w-[12rem] flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
               />
+              {q !== "" && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60"
+                >
+                  Clear search
+                </button>
+              )}
               <button
                 onClick={() => void exportCanon()}
                 disabled={exporting}
@@ -510,12 +526,46 @@ function CorpusReviewQueue({
               only — the download is always the whole canon, every status included.
             </div>
           )}
+          {/*
+            A SEARCH THAT MATCHES NOTHING MUST SAY SO (operator, 2026-08-02,
+            14:33: "After I admit the first entry I can't scroll through or
+            access the rest ... I need to exit the modal and return").
+
+            With a filter active and no matches, the list rendered NOTHING —
+            no rows, no explanation, no way back except unmounting the surface.
+            An empty result and an empty queue looked identical, and the
+            control that caused it was a text box the operator may not have
+            put text into.
+          */}
+          {rows !== null && visible !== null && visible.length === 0 && rows.length > 0 && (
+            <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] text-amber-100">
+              No source matches “{query}”. {rows.length} source(s) are still awaiting a decision — the search is
+              hiding them, nothing has been removed. A source you have just decided will not appear here: it has
+              left the queue.
+              <button
+                onClick={() => setQuery("")}
+                className="ml-2 rounded border border-amber-500/30 px-2 py-0.5 text-amber-100 hover:bg-amber-500/10"
+              >
+                Show all {rows.length}
+              </button>
+            </div>
+          )}
           {rows !== null && rows.length === 0 && !loading && (
             <div className="text-[11px] text-slate-400">
               No source is awaiting a decision in this domain. This is a read of the queue, not an assumption —
               sources already decided are not shown here. The canon download still returns every source.
             </div>
           )}
+          {/*
+            THE QUEUE SCROLLS ITSELF.
+
+            Forty cards rendered inline are only reachable if every ancestor
+            happens to let the page grow — inside the cartridge embed that is
+            not something this surface can assume, and the operator could not
+            reach past the first entries without unmounting and remounting the
+            stage. A bounded, self-scrolling region depends on nothing above it.
+          */}
+          <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
           {visible?.map((r) => (
             <CandidateReviewCard
               key={r.sourceId}
@@ -526,6 +576,7 @@ function CorpusReviewQueue({
               }}
             />
           ))}
+          </div>
         </div>
       )}
     </div>

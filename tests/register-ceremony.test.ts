@@ -1099,4 +1099,23 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     const before = client.slice(Math.max(0, at - 300), at);
     expect(before).toMatch(/horizen\.tokenId != null/);
   });
+
+  it('an unconfirmed status check shows what Horizen actually answered', () => {
+    /*
+     * `confirmed` is a substring match over the flattened tool result —
+     * 'active' | 'confirmed' | 'complete'. If Horizen answers in any other
+     * words this reports "not confirmed" forever, and "not confirmed" is
+     * indistinguishable from "answered something this code does not
+     * recognise" — only one of which is about the chain.
+     *
+     * The raw answer is SHOWN rather than the match being widened on a guess:
+     * widening blind risks declaring a registration confirmed that is not.
+     */
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toMatch(/setLastHorizenAnswer\(json\.rawStatus\)/);
+    expect(panel).toMatch(/What Horizen answered/);
+    // The timeout message must not read as the TRANSACTION having failed.
+    expect(panel).toMatch(/this is a report about the CHECK, not a failure of the/);
+    expect(panel).toMatch(/nothing needs re-registering/);
+  });
 });
