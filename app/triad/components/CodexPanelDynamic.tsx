@@ -19,6 +19,7 @@ import {
   subscribeWalletSurfaceRequest,
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
+import { WalletSurfaceHostProvider } from "@/services/wallet/walletSurfaceHost";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
   { ssr: false }
@@ -175,20 +176,32 @@ export default function CodexPanelDynamic({
    */
   const [walletSurfaceDeepLink, setWalletSurfaceDeepLink] = useState<WalletSurfaceRequest | null>(null);
   /*
-   * ONE honouring host per document (MS-2). Where the floating copilot is
-   * mounted, IT owns wallet surfacing and already subscribes; a second
-   * reaction here would open two wallets for one click. This host steps in
-   * exactly where the copilot cannot — suppressed (the Journey tab) or
-   * disabled by the cartridge config.
+   * THIS component honours wallet-surface requests, always.
+   *
+   * It owns the overlay SmartWalletDrawer — the one the "Welcome, <persona>"
+   * badge opens, and the path the operator established after the earlier
+   * wallet-in-cartridge failures. It renders the wallet ON TOP of the
+   * cartridge and demonstrably works.
+   *
+   * The previous guard deferred to the floating copilot unless the copilot was
+   * suppressed. On the Journey tab the copilot is not suppressed — it is
+   * merely CLOSED — so it claimed every request, flipped its own internal
+   * `walletPanelOpen`, and rendered nothing. A listener that cannot show a
+   * wallet must not be the one that wins.
+   *
+   * `WalletSurfaceHostProvider` below declares the claim so the copilot stands
+   * down inside this subtree (MS-2). Outside it — the standalone Companion
+   * embed, where the copilot IS the only wallet — the copilot still subscribes
+   * and is still correct.
    */
-  const copilotHandlesWalletRequests = !suppressFloatingCopilot && !codex?.copilot?.disabled;
-  useEffect(() => {
-    if (copilotHandlesWalletRequests) return undefined;
-    return subscribeWalletSurfaceRequest((request) => {
-      setWalletSurfaceDeepLink(request);
-      setWalletDrawerOpen(true);
-    });
-  }, [copilotHandlesWalletRequests]);
+  useEffect(
+    () =>
+      subscribeWalletSurfaceRequest((request) => {
+        setWalletSurfaceDeepLink(request);
+        setWalletDrawerOpen(true);
+      }),
+    [],
+  );
 
   // When SmartWalletDrawer reports a persona switch, update the global context
   const handlePersonaChange = React.useCallback(
@@ -801,6 +814,7 @@ export default function CodexPanelDynamic({
 
   return (
     <SmartTriadProvider personaId={resolvedPersonaId}>
+     <WalletSurfaceHostProvider>
      <CopilotHostProvider>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         {!singleTabMode && (() => {
@@ -1313,6 +1327,7 @@ export default function CodexPanelDynamic({
         />
       )}
      </CopilotHostProvider>
+     </WalletSurfaceHostProvider>
     </SmartTriadProvider>
   );
 }

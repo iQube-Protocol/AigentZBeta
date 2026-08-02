@@ -45,6 +45,7 @@ import {
   subscribeWalletSurfaceRequest,
   type WalletSurfaceRequest,
 } from "@/services/wallet/walletSurfaceRequest";
+import { useIsWalletSurfaceHostClaimed } from "@/services/wallet/walletSurfaceHost";
 
 interface CodexCopilotLayerProps {
   isOpen: boolean;
@@ -1246,18 +1247,31 @@ export function CodexCopilotLayer({
    * mounted and no second navigation appears (MS-1/MS-2).
    */
   const [walletSurfaceRequest, setWalletSurfaceRequest] = useState<WalletSurfaceRequest | null>(null);
-  useEffect(
-    () =>
-      subscribeWalletSurfaceRequest((request) => {
-        setWalletSurfaceRequest(request);
-        // Opening the drawer is not enough on its own — a host that owns the
-        // surface has to be told too, which is what launchWallet routes.
-        // Route through the SAME launcher every other wallet entry point uses,
-        // so a host that owns the surface still gets handed it.
-        launchWalletRef.current?.("wallet");
-      }),
-    [],
-  );
+  /*
+   * Stand down where an ancestor already honours these (MS-2).
+   *
+   * This layer's wallet is EMBEDDED in its own panel, which is usually CLOSED
+   * — so claiming a request here flips `walletPanelOpen` on a panel nobody can
+   * see, and the operator's click does nothing at all. That is precisely what
+   * happened on the Journey tab: the copilot was mounted-but-closed, the old
+   * guard read "not suppressed" as "can handle it", and every request went to
+   * the one listener that could not render.
+   *
+   * Inside a cartridge shell, CodexPanelDynamic's OVERLAY drawer — the one the
+   * persona badge opens — is what actually renders on top of the cartridge. It
+   * claims; this defers. Outside a claim (the standalone Companion embed,
+   * where this layer IS the only wallet) it subscribes and remains correct.
+   */
+  const walletSurfaceHostClaimed = useIsWalletSurfaceHostClaimed();
+  useEffect(() => {
+    if (walletSurfaceHostClaimed) return undefined;
+    return subscribeWalletSurfaceRequest((request) => {
+      setWalletSurfaceRequest(request);
+      // Route through the SAME launcher every other wallet entry point uses,
+      // so a host that owns the surface still gets handed it.
+      launchWalletRef.current?.("wallet");
+    });
+  }, [walletSurfaceHostClaimed]);
   // A ref because `launchWallet` is defined just below and the subscription
   // must not re-bind on every render of that callback.
   const launchWalletRef = useRef<((tab: WalletTab) => void) | null>(null);

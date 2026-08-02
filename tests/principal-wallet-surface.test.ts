@@ -531,12 +531,35 @@ describe('every host that owns a wallet subscribes for it', () => {
     expect(host).toMatch(/initialWalletSurface=\{walletSurfaceDeepLink\?\.surface\}/);
   });
 
-  it('only ONE host honours a request per document (MS-2)', () => {
+  it('the cartridge shell honours ALWAYS — it owns the drawer that renders', () => {
+    /*
+     * The guard this replaces deferred to the floating copilot unless the
+     * copilot was suppressed. On the Journey tab the copilot is not
+     * suppressed, only CLOSED — so it claimed every request, flipped its own
+     * hidden `walletPanelOpen`, and rendered nothing. A listener that cannot
+     * show a wallet must not be the one that wins.
+     */
     const host = stripComments(readSource('app/triad/components/CodexPanelDynamic.tsx'));
-    // Where the copilot is mounted it owns wallet surfacing; this host steps
-    // in exactly where the copilot cannot.
-    expect(host).toMatch(/copilotHandlesWalletRequests/);
-    expect(host).toMatch(/if \(copilotHandlesWalletRequests\) return undefined;/);
+    expect(host).not.toMatch(/copilotHandlesWalletRequests/);
+    const at = host.indexOf('subscribeWalletSurfaceRequest(');
+    const block = host.slice(Math.max(0, at - 400), at);
+    // No early return guarding the subscription.
+    expect(block).not.toMatch(/return undefined;/);
+  });
+
+  it('the claim is declared by mounting, and the copilot defers to it', () => {
+    const host = stripComments(readSource('app/triad/components/CodexPanelDynamic.tsx'));
+    expect(host).toMatch(/<WalletSurfaceHostProvider>/);
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/useIsWalletSurfaceHostClaimed\(\)/);
+    expect(copilot).toMatch(/if \(walletSurfaceHostClaimed\) return undefined;/);
+  });
+
+  it('the copilot still subscribes where it IS the only wallet', () => {
+    // The standalone Companion embed mounts the copilot with no cartridge
+    // shell around it; removing its subscription outright would break that.
+    const copilot = stripComments(readSource('app/components/codex/CodexCopilotLayer.tsx'));
+    expect(copilot).toMatch(/subscribeWalletSurfaceRequest\(/);
   });
 
   it('a dismissed deep link is consumed, not remembered', () => {

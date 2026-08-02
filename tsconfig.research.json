@@ -82,7 +82,8 @@
     "components/wallet/**/*.tsx",
     "components/journey/RegisterAgentPanel.tsx",
     "services/signing/**/*.ts",
-    "app/api/wallet/signing-requests/**/*.ts"
+    "app/api/wallet/signing-requests/**/*.ts",
+    "services/wallet/**/*.tsx"
   ],
   "exclude": [
     "node_modules",
