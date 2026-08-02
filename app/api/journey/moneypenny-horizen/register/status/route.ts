@@ -59,6 +59,9 @@ interface StatusBody {
   txHash?: string;
   ownerWalletAddress?: string;
   network?: string;
+  /** Horizen's own agent identifier, recovered with the txHash from the
+   *  broadcast receipt. Absent is honest and the client says so. */
+  horizenAgentId?: string | null;
 }
 
 async function updateRegistryAssetBinding(
@@ -151,6 +154,7 @@ export async function POST(request: NextRequest) {
       agentSlug: agent.slug,
       txHash: body.txHash,
       ownerWalletAddress,
+      horizenAgentId: body.horizenAgentId ?? null,
       network: body.network as HorizenNetwork,
       actorPersonaId: persona.personaId,
     },

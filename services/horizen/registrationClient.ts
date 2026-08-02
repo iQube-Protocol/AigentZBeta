@@ -361,6 +361,24 @@ export interface PreparedAgentRegistration {
   agentCardHash: string;
   network: HorizenNetwork;
   unsignedTx: UnsignedTx;
+  /**
+   * HORIZEN'S OWN IDENTIFIER FOR THIS AGENT, if the build response carried
+   * one — the value `get_onboarding_status` requires as `agentId`.
+   *
+   * ── Why this exists (operator, 2026-08-02) ─────────────────────────────
+   *
+   * `build_registration_tx` returns a whole object and this function used to
+   * keep FOUR fields plus the unsigned transaction, discarding the rest. The
+   * status check then had no agentId to send, every call was rejected as a
+   * schema error, and the surface reported twenty "not confirmed" answers
+   * that were never answers at all.
+   *
+   * Null means Horizen did not return one in a shape we recognise — an
+   * honest absence, not a default. The caller decides what to do about it and
+   * must NOT invent a substitute: a wrong agentId produces a confident
+   * negative about someone's registration, which is worse than no answer.
+   */
+  horizenAgentId: string | null;
 }
 
 export async function prepareAgentRegistration(
@@ -484,9 +502,30 @@ export async function prepareAgentRegistration(
     return { ok: false, refusalCode: 'NETWORK_OR_CONTRACT_MISMATCH', detail: `unsigned tx chainId (${unsignedTx.chainId}) does not match ${network} (${facts.chainId})` };
   }
 
+  /*
+   * Read the identifier out of the SAME response the transaction came from —
+   * one parse, one source. `firstEmbeddedJsonObject` already handles Horizen
+   * returning its payload as text inside a content block.
+   */
+  const buildPayload = firstEmbeddedJsonObject(JSON.stringify(buildResult)) as Record<string, unknown> | null;
+  const horizenAgentId = pickStringField(buildPayload, [
+    'agentId',
+    'agentID',
+    'agent_id',
+    'agentIdentifier',
+    'identifier',
+  ]);
+
   return {
     ok: true,
-    value: { agentSlug: agent.slug, agentCardUrl: cardUrl, agentCardHash: sha256Hex(cardRaw), network, unsignedTx },
+    value: {
+      agentSlug: agent.slug,
+      agentCardUrl: cardUrl,
+      agentCardHash: sha256Hex(cardRaw),
+      network,
+      unsignedTx,
+      horizenAgentId,
+    },
   };
 }
 
@@ -562,6 +601,12 @@ export async function broadcastAgentRegistration(
 // ── Step 3: check status (single attempt — caller re-invokes on an interval) ──
 
 export interface CheckAgentRegistrationStatusInput {
+  /**
+   * Horizen's REQUIRED `agentId` for `get_onboarding_status`. Carried forward
+   * from the registration that produced the transaction. Absent means the
+   * check cannot be made — see the refusal in the function body.
+   */
+  horizenAgentId?: string | null;
   agentSlug: string;
   txHash: string;
   ownerWalletAddress: string;
@@ -634,9 +679,35 @@ export async function checkAgentRegistrationStatus(
    * argument and prints what was sent — the next failure diagnoses itself
    * instead of costing another twenty checks.
    */
+  /*
+   * NO IDENTIFIER, NO CALL (operator direction via Al, 2026-08-02).
+   *
+   * If the tool declares `agentId` and we have nothing real to put in it, the
+   * check CANNOT be made — and making it anyway is what produced twenty
+   * rejections rendered as twenty negative answers. Refused here, before the
+   * call, in terms that separate the two facts: the check is misconfigured;
+   * the transaction is not.
+   *
+   * The owner wallet address is used ONLY as a fallback, and only because
+   * Horizen's own registry read in this same function is keyed by it
+   * (`fetchAgent(input.ownerWalletAddress, …)`). It is evidence, not a guess —
+   * but a returned identifier always wins.
+   */
+  const declaresAgentId = /agentId/.test(JSON.stringify(byName.get_onboarding_status.inputSchema ?? {}));
+  const agentIdToSend = input.horizenAgentId?.trim() || input.ownerWalletAddress?.trim() || null;
+  if (declaresAgentId && !agentIdToSend) {
+    return {
+      ok: false,
+      refusalCode: 'STATUS_UNAVAILABLE',
+      detail:
+        'Horizen status could not be checked because the registration\'s agent identifier was unavailable. ' +
+        `The on-chain transaction (${input.txHash}) remains valid. Do not re-register.`,
+    };
+  }
+
   const statusArgs = matchSchemaFields(byName.get_onboarding_status.inputSchema, {
-    agentId: input.ownerWalletAddress,
-    agentAddress: input.ownerWalletAddress,
+    agentId: agentIdToSend,
+    agentAddress: agentIdToSend,
     ownerAddress: input.ownerWalletAddress,
     walletAddress: input.ownerWalletAddress,
     agentSlug: agent.slug,

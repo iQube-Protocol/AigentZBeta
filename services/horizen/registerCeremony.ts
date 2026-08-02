@@ -411,7 +411,17 @@ export async function approvePrincipalRegistrationMandate(
     authorityCredential: null,
     walletRef: agent.runtimeAgentId,
     network: prepared.value.network,
-    payload: JSON.stringify({ unsignedTx: prepared.value.unsignedTx, mandateRequestId: request.id }),
+    /*
+     * `horizenAgentId` rides with the transaction it belongs to. The status
+     * check needs it and had no way to obtain it — twenty checks were rejected
+     * for a missing argument nobody had persisted (operator, 2026-08-02).
+     * Null is stored as null: an absent identifier must stay visibly absent.
+     */
+    payload: JSON.stringify({
+      unsignedTx: prepared.value.unsignedTx,
+      mandateRequestId: request.id,
+      horizenAgentId: prepared.value.horizenAgentId ?? null,
+    }),
     consequence: agentConsequence,
     expiresInSeconds: AGENT_INVOCATION_TTL_SECONDS,
     receiptDestination: receiptDestination(agent.slug),
@@ -467,8 +477,11 @@ export async function approveAgentRegistryInvocation(
   }
 
   let unsignedTx: UnsignedTx;
+  let storedAgentId: string | null = null;
   try {
-    unsignedTx = (JSON.parse(request.payload) as { unsignedTx: UnsignedTx }).unsignedTx;
+    const parsed = JSON.parse(request.payload) as { unsignedTx: UnsignedTx; horizenAgentId?: string | null };
+    unsignedTx = parsed.unsignedTx;
+    storedAgentId = typeof parsed.horizenAgentId === 'string' ? parsed.horizenAgentId : null;
   } catch {
     return { ok: false, refusalCode: 'PREPARE_FAILED', detail: 'stored request payload did not contain a parseable unsigned transaction' };
   }
@@ -504,7 +517,13 @@ export async function approveAgentRegistryInvocation(
     actionType: 'horizen_registration_submitted',
     summary: `${agent.displayName}'s Horizen registration transaction broadcast (${broadcast.value.network}, tx ${broadcast.value.txHash})`,
     agentsInvoked: [agent.runtimeAgentId],
-    actionInput: { requestId: request.id, txHash: broadcast.value.txHash, network: broadcast.value.network },
+    actionInput: {
+      requestId: request.id,
+      txHash: broadcast.value.txHash,
+      network: broadcast.value.network,
+      // Recovered with the txHash when a confirmation poll has to resume.
+      horizenAgentId: storedAgentId,
+    },
   });
 
   const resolved = await getRequest(request.id);
