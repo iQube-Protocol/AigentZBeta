@@ -223,4 +223,52 @@ describe('Track 2 programme surface — the guided view', () => {
     expect(src).toMatch(/of \{rows\.length\} awaiting-decision source\(s\) match/);
     expect(src).toMatch(/the download is always the whole canon/);
   });
+
+  /*
+   * THE QUEUE MUST STAY REACHABLE AFTER A DECISION (operator, 2026-08-02,
+   * 14:33).
+   *
+   *   > "After I admit the first entry I can't scroll through or access the
+   *   >  rest of the modal. I need to exit the modal and return to the stage
+   *   >  for it to open and scroll."
+   *
+   * Two mechanisms could each produce that, and both are closed:
+   *   1. forty cards rendered inline are only reachable if every ancestor
+   *      lets the page grow — not something a surface inside the cartridge
+   *      embed may assume;
+   *   2. a search filter matching nothing rendered NOTHING — no rows, no
+   *      explanation, no way back except unmounting the stage.
+   */
+  it('the queue scrolls itself rather than depending on an ancestor', () => {
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('{visible?.map((r) => (');
+    expect(at).toBeGreaterThan(-1);
+    const before = src.slice(Math.max(0, at - 260), at);
+    expect(before, 'the card list has no bounded scroll region').toMatch(/overflow-y-auto/);
+    expect(before).toMatch(/max-h-\[\d+vh\]/);
+  });
+
+  it('a filter that hides everything says so and offers a way back', () => {
+    const src = stripComments(readSource(PANEL));
+    // The state that used to render nothing at all.
+    expect(src).toMatch(/visible !== null && visible\.length === 0 && rows\.length > 0/);
+    expect(src).toMatch(/the search is\s+hiding them, nothing has been removed/);
+    // A decided source leaving the queue is named, because that is the most
+    // likely reason a search for one comes back empty.
+    expect(src).toMatch(/it has\s+left the queue/);
+    // And there is a control out of the dead end.
+    expect(src).toMatch(/Show all \{rows\.length\}/);
+    expect(src).toMatch(/Clear search/);
+  });
+
+  it('the search box cannot be filled by the browser', () => {
+    // A filter nobody typed is indistinguishable from an empty queue, on a
+    // surface whose entire job is to show what is waiting.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('placeholder="search title, issuer, author, URL, sub-domain"');
+    expect(at).toBeGreaterThan(-1);
+    const block = src.slice(Math.max(0, at - 400), at);
+    expect(block).toMatch(/autoComplete="off"/);
+    expect(block).toMatch(/type="search"/);
+  });
 });

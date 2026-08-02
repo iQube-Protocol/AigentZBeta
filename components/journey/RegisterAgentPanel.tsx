@@ -525,6 +525,12 @@ export function RegisterAgentPanel({
    * forgot": the read either finds one or the receipts say there is none.
    */
   const [pendingBroadcast, setPendingBroadcast] = useState<{ txHash: string; network: string | null } | null>(null);
+  /**
+   * Horizen's own words from the last status check, verbatim. Shown because
+   * "not confirmed" and "answered something this code does not recognise" look
+   * identical from the outside, and only one of them is about the chain.
+   */
+  const [lastHorizenAnswer, setLastHorizenAnswer] = useState<string | null>(null);
 
   useEffect(() => {
     void readProgress();
@@ -832,6 +838,25 @@ export function RegisterAgentPanel({
         if (!res.ok || !json.ok) {
           throw new Error((json?.error as string) ?? `Register status check failed (${res.status})`);
         }
+        /*
+         * WHAT HORIZEN ACTUALLY SAID (operator, 2026-08-02: "It's stuck here
+         * and not confirming the broadcast").
+         *
+         * `confirmed` is decided by a substring match over the flattened tool
+         * result — 'active' | 'confirmed' | 'complete'. If Horizen answers in
+         * any other words, this reports "not confirmed" forever and the
+         * surface says only that. The service already returns `rawStatus`;
+         * nothing was showing it, so an unconfirmed answer was
+         * indistinguishable from an unrecognised one.
+         *
+         * Widening the match on a guess would risk the opposite error —
+         * declaring a registration confirmed that is not. So the raw answer is
+         * SHOWN and the match is left alone until there is evidence of what to
+         * widen it to.
+         */
+        if (typeof json.rawStatus === 'string' && json.rawStatus) {
+          setLastHorizenAnswer(json.rawStatus);
+        }
         if (json.confirmed) {
           // `readJsonOrExplain` returns unknown-valued fields — a tokenId that
           // arrived as something other than a string must not be rendered as
@@ -846,7 +871,14 @@ export function RegisterAgentPanel({
         return;
       }
       if (attempts + 1 >= MAX_POLL_ATTEMPTS) {
-        setFlow({ step: 'error', message: 'Horizen has not confirmed registration yet — check back later, or try "Check status" again.' });
+        setFlow({
+          step: 'error',
+          message:
+            `Horizen has not confirmed this registration after ${MAX_POLL_ATTEMPTS} checks. The transaction ` +
+            `(${txHash}) is broadcast on ${network} and this is a report about the CHECK, not a failure of the ` +
+            'transaction — nothing has been lost and nothing needs re-registering. Press “Check status with ' +
+            'Horizen” again, or read the transaction on the network directly.',
+        });
         return;
       }
       setFlow({ step: 'polling', txHash, ownerWalletAddress, network, attempts: attempts + 1 });
@@ -1239,6 +1271,19 @@ export function RegisterAgentPanel({
           </div>
         )}
 
+        {flow.step === 'error' && lastHorizenAnswer && (
+          <details className="mb-2 rounded-md border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+            <summary className="cursor-pointer text-slate-300">What Horizen answered</summary>
+            <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-relaxed text-slate-400">
+              {lastHorizenAnswer}
+            </pre>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+              A registration is treated as confirmed when this answer contains “active”, “confirmed” or
+              “complete”. If it plainly says the registration succeeded in other words, that is a match this code
+              does not yet make — report it rather than assuming either way.
+            </p>
+          </details>
+        )}
         {flow.step === 'error' && (
           <div className="flex items-start gap-2 text-xs text-rose-300">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
