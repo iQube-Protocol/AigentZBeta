@@ -274,6 +274,10 @@
         "category": "commentary"
       },
       "items": [
+        "items/commentary/constitutional-internet/00-project-structure.md",
+        "items/commentary/constitutional-internet/00-editorial-master.md",
+        "items/commentary/constitutional-internet/00-editorial-register.md",
+        "items/commentary/constitutional-internet/01-working-manuscript.md",
         "items/commentary/constitutional-internet/ci-cc-001-book-constitution.md"
       ]
     }
