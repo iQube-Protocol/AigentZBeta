@@ -14,6 +14,11 @@ import {
   type RegisterCeremonyDeps,
 } from '@/services/horizen/registerCeremony';
 import type { SigningRequest, CreateSigningRequestInput } from '@/types/signingRequest';
+import {
+  registerCeremonyProgress,
+  expiredAttemptsNote,
+} from '@/services/horizen/registerCeremonyProgress';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 
 const PRINCIPAL_WALLET = ethers.Wallet.createRandom();
 const AGENT_WALLET = ethers.Wallet.createRandom();
@@ -338,5 +343,107 @@ describe('approveAgentRegistryInvocation', () => {
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'BROADCAST_FAILED' });
     expect((await store.get(agentRequest.id))?.status).toBe('pending');
+  });
+});
+
+// ── The ceremony ladder ─────────────────────────────────────────────────────
+
+describe('the Register stage says where it actually is', () => {
+  /*
+   * Operator, 2026-08-02:
+   *
+   *   > "The journey period is not progressing … Nothing has progressed. It's
+   *   >  not clear what is happening at all … It's kind of completely in the
+   *   >  dark as to what's going on."
+   *
+   * The panel fell back to `idle` between clicks — visually identical whether
+   * the operator had never started, had five mandates expire, or had signed
+   * one. Every attempt left the surface looking exactly as it had before, so
+   * "nothing is happening" was the only honest reading available.
+   */
+  const base = {
+    walletReady: true,
+    liveMandate: false,
+    liveInvocation: false,
+    broadcastPending: false,
+    tokenId: null as string | null,
+    expiredAttempts: 0,
+  };
+
+  it('walks the ladder in order as each fact becomes true', () => {
+    const ids = [
+      { ...base, walletReady: false },
+      base,
+      { ...base, liveMandate: true },
+      { ...base, liveInvocation: true },
+      { ...base, broadcastPending: true },
+      { ...base, tokenId: '42' },
+    ].map((i) => registerCeremonyProgress(i).stageId);
+    expect(ids).toEqual([
+      'WALLET_NOT_READY',
+      'NOT_STARTED',
+      'MANDATE_AWAITING_SIGNATURE',
+      'INVOCATION_AWAITING_APPROVAL',
+      'BROADCAST_AWAITING_CONFIRMATION',
+      'REGISTERED',
+    ]);
+  });
+
+  it('every stage names WHO acts next — the question behind "why is nothing happening"', () => {
+    for (const input of [base, { ...base, liveMandate: true }, { ...base, broadcastPending: true }]) {
+      const p = registerCeremonyProgress(input);
+      expect(['you', 'the network', 'nobody']).toContain(p.nextActor);
+      expect(p.nextAct.length).toBeGreaterThan(20);
+    }
+    // The one stage nobody can hurry says so, instead of implying inaction.
+    expect(registerCeremonyProgress({ ...base, broadcastPending: true }).nextActor).toBe('the network');
+    expect(registerCeremonyProgress({ ...base, tokenId: '7' }).nextActor).toBe('nobody');
+  });
+
+  it('expired attempts are accounted for, not silently dropped', () => {
+    // Five expired mandates are WHY the operator concluded nothing was
+    // happening. Hiding them leaves the state unexplainable.
+    const p = registerCeremonyProgress({ ...base, expiredAttempts: 5 });
+    expect(p.expiredAttempts).toBe(5);
+    const note = expiredAttemptsNote(5)!;
+    expect(note).toMatch(/never revived/);
+    expect(note).toMatch(/nothing was signed or broadcast/);
+    // Not framed as five failures.
+    expect(note).not.toMatch(/\berror|\bfail/i);
+    expect(expiredAttemptsNote(0)).toBeNull();
+  });
+
+  it('an unstarted ceremony says nothing is in flight, rather than nothing at all', () => {
+    const p = registerCeremonyProgress(base);
+    expect(p.meaning).toMatch(/no act is part-completed/i);
+    expect(p.nextAct).toMatch(/30 minutes/);
+  });
+
+  it('exactly one rung is current, with everything before it done', () => {
+    const p = registerCeremonyProgress({ ...base, liveInvocation: true });
+    expect(p.ladder.filter((s) => s.state === 'current')).toHaveLength(1);
+    const at = p.ladder.findIndex((s) => s.state === 'current');
+    expect(p.ladder.slice(0, at).every((s) => s.state === 'done')).toBe(true);
+    expect(p.ladder.slice(at + 1).every((s) => s.state === 'pending')).toBe(true);
+  });
+});
+
+describe('the Register panel renders the ladder', () => {
+  const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+
+  it('reads real state rather than inferring from its own flow', () => {
+    expect(panel).toMatch(/registerCeremonyProgress\(/);
+    expect(panel).toMatch(/\/api\/wallet\/signing-requests/);
+    expect(panel).toMatch(/register\/status/);
+    expect(panel).toMatch(/progress\.ladder\.map/);
+  });
+
+  it('an unreadable ladder is absent, never rendered as "nothing has happened"', () => {
+    expect(panel).toMatch(/setProgress\(null\)/);
+  });
+
+  it('reads through personaFetch — a spine endpoint, one resolved persona', () => {
+    const at = panel.indexOf('/api/wallet/signing-requests');
+    expect(panel.slice(at - 200, at)).toMatch(/personaFetch\(/);
   });
 });

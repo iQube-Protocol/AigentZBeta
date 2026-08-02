@@ -278,6 +278,14 @@ describe('a signer mismatch names its sources, not just two hex strings', () => 
       expect(route, field).toMatch(new RegExp(field));
     }
     expect(route).toMatch(/notCheckedHere/);
+    // It must say WHOSE records it reconciled. Its first caller sent no
+    // persona selection, the spine resolved a fallback, and a truthful answer
+    // about the wrong persona read as an answer about the right one — the
+    // same ambiguity this route exists to expose.
+    expect(route).toMatch(/answeredForPersona/);
+    expect(route).toMatch(/displayLabel/);
+    // T1 only: the label names the persona; the raw id never crosses.
+    expect(route).not.toMatch(/personaId: persona\.personaId/);
     // It must never decrypt, and never accept a password. It DOES name the
     // password when explaining the comparison it cannot make — omitting that
     // would let a three-of-four reconciliation read as complete.

@@ -57,6 +57,11 @@ import {
   subscribeWalletSurfaceCompletion,
   subscribeWalletSurfaceAck,
 } from '@/services/wallet/walletSurfaceRequest';
+import {
+  registerCeremonyProgress,
+  expiredAttemptsNote,
+  type RegisterCeremonyProgress,
+} from '@/services/horizen/registerCeremonyProgress';
 import { AgentCardSurface } from './AgentCardSurface';
 
 interface RegistrableAgentOption {
@@ -265,6 +270,58 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
   const [cardVersion, setCardVersion] = useState(0);
   const [flow, setFlow] = useState<FlowState>({ step: 'idle' });
   const [walletGate, setWalletGate] = useState<PrincipalWalletGate | null>(null);
+  /*
+   * WHAT HAS ACTUALLY HAPPENED (operator, 2026-08-02).
+   *
+   *   > "The journey period is not progressing … It's kind of completely in
+   *   >  the dark as to what's going on."
+   *
+   * Between clicks this panel fell back to `idle`, which looked identical
+   * whether the operator had never started, had five mandates expire, or had
+   * signed one. The only conclusion available was "nothing is happening".
+   * The ladder is read from the signing store and the Horizen status, so the
+   * surface states the stage instead of resetting to a button.
+   */
+  const [progress, setProgress] = useState<RegisterCeremonyProgress | null>(null);
+
+  const readProgress = useCallback(async () => {
+    try {
+      const [reqRes, statusRes] = await Promise.all([
+        personaFetch('/api/wallet/signing-requests', { cache: 'no-store' }),
+        personaFetch('/api/journey/moneypenny-horizen/register/status', { cache: 'no-store' }),
+      ]);
+      const reqJson = (await reqRes.json().catch(() => null)) as {
+        ok?: boolean;
+        requests?: {
+          actionKind: string;
+          signerRole: string;
+          subjectAgentRef: string | null;
+          expired: boolean;
+        }[];
+      } | null;
+      const statusJson = (await statusRes.json().catch(() => null)) as { tokenId?: unknown } | null;
+      const mine = (reqJson?.requests ?? []).filter((r) => r.subjectAgentRef === `aigent-${agentSlug}`);
+      setProgress(
+        registerCeremonyProgress({
+          walletReady: Boolean(walletGate?.ready),
+          liveMandate: mine.some((r) => r.actionKind === 'authorize_registration' && !r.expired),
+          liveInvocation: mine.some((r) => r.actionKind === 'sign_registry_transaction' && !r.expired),
+          broadcastPending: false,
+          tokenId: typeof statusJson?.tokenId === 'string' && statusJson.tokenId ? statusJson.tokenId : null,
+          expiredAttempts: mine.filter((r) => r.expired).length,
+        }),
+      );
+    } catch {
+      // An unreadable ladder is left absent rather than rendered as
+      // "nothing has happened" — the same rule the wallet count follows.
+      setProgress(null);
+    }
+  }, [agentSlug, walletGate?.ready]);
+
+  useEffect(() => {
+    void readProgress();
+  }, [readProgress, flow.step]);
+
   /*
    * WHETHER ANY WALLET ANSWERED (operator, 2026-08-02, fourth round).
    *
@@ -559,6 +616,55 @@ export function RegisterAgentPanel({ agentSlug: initialAgentSlug, onAgentSlugCha
             </div>
           );
         })()}
+
+        {/* THE LADDER — what has happened, and who acts next.
+            The panel used to fall back to a bare button between clicks, which
+            looked the same whether nothing had been tried or five mandates had
+            expired. "Nothing is progressing" was the only reading available. */}
+        {progress && (
+          <div className="mb-1 rounded-md border border-slate-800 bg-slate-950/40 p-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-slate-100">{progress.label}</span>
+              <span
+                className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                  progress.nextActor === 'you'
+                    ? 'border-violet-500/40 bg-violet-500/10 text-violet-200'
+                    : progress.nextActor === 'the network'
+                      ? 'border-sky-500/40 bg-sky-500/10 text-sky-200'
+                      : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                }`}
+              >
+                {progress.nextActor === 'nobody' ? 'complete' : `waiting on ${progress.nextActor}`}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">{progress.meaning}</p>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-slate-200">
+              <span className="text-slate-500">Next:</span> {progress.nextAct}
+            </p>
+            {expiredAttemptsNote(progress.expiredAttempts) && (
+              <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+                {expiredAttemptsNote(progress.expiredAttempts)}
+              </p>
+            )}
+            <ol className="mt-2.5 space-y-1">
+              {progress.ladder.map((st) => (
+                <li
+                  key={st.id}
+                  className={`flex items-center gap-2 text-[11px] ${
+                    st.state === 'current'
+                      ? 'text-slate-100'
+                      : st.state === 'done'
+                        ? 'text-slate-400'
+                        : 'text-slate-600'
+                  }`}
+                >
+                  <span aria-hidden="true">{st.state === 'done' ? '✓' : st.state === 'current' ? '◉' : '○'}</span>
+                  <span className={st.state === 'current' ? 'font-medium' : undefined}>{st.label}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         {flow.step === 'idle' && walletGate?.ready && (
           <button

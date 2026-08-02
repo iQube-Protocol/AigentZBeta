@@ -118,6 +118,26 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     {
       ok: true,
+      /*
+       * WHOSE ADDRESSES THESE ARE (2026-08-02, immediately after this route
+       * misled its first caller).
+       *
+       * A DevTools fetch carrying only the Bearer token sent no persona
+       * selection, so `getActivePersona` fell back to "first owned by
+       * created_at ASC" — a different persona from the operator's active one.
+       * The route answered truthfully about that persona (no address on file)
+       * and the reader took it as an answer about theirs. A reconciliation
+       * that does not say WHOSE records it reconciled has the same defect it
+       * exists to expose.
+       *
+       * `displayLabel` is T1 (browser-safe). The raw personaId is T0 and is
+       * NOT returned: naming the persona is enough to catch the mistake.
+       */
+      answeredForPersona: persona.displayLabel ?? '(persona has no display label)',
+      answeredForPersonaNote:
+        'If this is not the persona you meant, the caller sent no persona selection and the spine ' +
+        'resolved a fallback. Client code must use personaFetch (which forwards x-persona-id); a ' +
+        'DevTools fetch must set that header itself.',
       agree,
       /*
        * The verdict in words, because a caller reading three matching hex
