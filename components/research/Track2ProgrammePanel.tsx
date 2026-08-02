@@ -343,6 +343,9 @@ function CorpusReviewQueue({
   const [rows, setRows] = useState<CandidateSource[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportErr, setExportErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!acquisitionDomain) return;
@@ -370,6 +373,82 @@ function CorpusReviewQueue({
   useEffect(() => {
     if (open) void load();
   }, [open, load]);
+
+  /*
+   * THE WHOLE CANON, AS A FILE (operator, 2026-08-02).
+   *
+   *   > "a link to download the json for all the sources in the canon so I can
+   *   >  provide the list to Al to assist in filtering"
+   *
+   * DELIBERATELY NOT the review queue. The queue is the sources awaiting a
+   * decision; the canon is every source discovery has produced, whatever its
+   * status — filtering advice about a corpus cannot be given from a view that
+   * has already dropped the rejected and the admitted.
+   *
+   * The list projection truncates `normalizedText` to stay under the response
+   * cap, so the export SAYS SO in its own envelope. A file that looks complete
+   * and is not is worse than one that declares its edges — whoever reads this
+   * downstream is entitled to know which fields are whole.
+   */
+  const exportCanon = useCallback(async () => {
+    if (!acquisitionDomain) return;
+    setExporting(true);
+    setExportErr(null);
+    try {
+      const res = await personaFetch(
+        `/api/corpus-scout/candidates?campaignDomain=${encodeURIComponent(acquisitionDomain)}`,
+        { cache: "no-store" },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `the source canon could not be read (HTTP ${res.status})`);
+      const candidates = (d.candidates ?? []) as CandidateSource[];
+      const envelope = {
+        acquisitionDomain,
+        exportedAt: new Date().toISOString(),
+        sourceCount: candidates.length,
+        byReviewStatus: candidates.reduce<Record<string, number>>((acc, c) => {
+          const k = (c as unknown as { reviewWorkflowStatus?: string }).reviewWorkflowStatus ?? "unknown";
+          acc[k] = (acc[k] ?? 0) + 1;
+          return acc;
+        }, {}),
+        completeness:
+          "normalizedText is TRUNCATED in this export — the list projection caps it to keep the response " +
+          "under the serverless payload limit. normalizedTextChars carries each source's true length. Every " +
+          "other field is whole. Nothing has been filtered out: this is every candidate source in the domain, " +
+          "at every review status.",
+        candidates,
+      };
+      const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `corpus-canon-${acquisitionDomain}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setExportErr(e instanceof Error ? e.message : "the source canon could not be exported");
+    } finally {
+      setExporting(false);
+    }
+  }, [acquisitionDomain]);
+
+  /*
+   * Search over what has been READ, never a second query. A server-side filter
+   * would be a parallel implementation of a list this component already holds,
+   * and the two would answer differently the moment either changed. Matches
+   * across the fields a reviewer actually recognises a source by.
+   */
+  const q = query.trim().toLowerCase();
+  const visible = !rows
+    ? null
+    : q === ""
+      ? rows
+      : rows.filter((r) =>
+          [r.title, r.issuer ?? "", r.canonicalUrl, r.campaignSubDomain ?? "", r.authors.join(" ")]
+            .join(" ")
+            .toLowerCase()
+            .includes(q),
+        );
 
   if (!acquisitionDomain) {
     return (
@@ -402,13 +481,42 @@ function CorpusReviewQueue({
               {err}
             </div>
           )}
+          {rows !== null && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="search title, issuer, author, URL, sub-domain"
+                className="min-w-[12rem] flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+              />
+              <button
+                onClick={() => void exportCanon()}
+                disabled={exporting}
+                className="flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
+              >
+                {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Download the whole canon (JSON)
+              </button>
+            </div>
+          )}
+          {exportErr && (
+            <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-[11px] text-rose-200">
+              {exportErr}
+            </div>
+          )}
+          {rows !== null && visible !== null && q !== "" && (
+            <div className="text-[10px] text-slate-500">
+              {visible.length} of {rows.length} awaiting-decision source(s) match. The search filters this queue
+              only — the download is always the whole canon, every status included.
+            </div>
+          )}
           {rows !== null && rows.length === 0 && !loading && (
             <div className="text-[11px] text-slate-400">
               No source is awaiting a decision in this domain. This is a read of the queue, not an assumption —
-              sources already decided are not shown here.
+              sources already decided are not shown here. The canon download still returns every source.
             </div>
           )}
-          {rows?.map((r) => (
+          {visible?.map((r) => (
             <CandidateReviewCard
               key={r.sourceId}
               row={r}

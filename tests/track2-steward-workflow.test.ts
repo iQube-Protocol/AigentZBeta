@@ -168,4 +168,59 @@ describe('Track 2 programme surface — the guided view', () => {
     expect(programme.currentStageId).toBe('review-and-admit');
     expect(programme.nextActions.join(' ')).toMatch(/41 source\(s\) await a human decision/);
   });
+
+  /*
+   * SEARCH FILTERS THE QUEUE; THE EXPORT IS THE WHOLE CANON (operator,
+   * 2026-08-02).
+   *
+   *   > "add a search feature to the Discover sources and a link to download
+   *   >  the json for all the sources in the canon so I can provide the list
+   *   >  to Al to assist in filtering"
+   *
+   * These are two different populations and conflating them would be the
+   * quiet defect: filtering advice about a corpus cannot be given from a view
+   * that has already dropped the rejected and the admitted. The queue shows
+   * what awaits a decision; the export is every source at every status.
+   */
+  it('the canon export is not the review queue', () => {
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const exportCanon = useCallback');
+    expect(at, 'no canon export').toBeGreaterThan(-1);
+    const block = src.slice(at, src.indexOf('}, [acquisitionDomain]);', at));
+    // Reads the domain WITHOUT a status FILTER — every source, every status.
+    // (It still READS each row's status to count them, which is the opposite
+    // concern: the envelope reports the shape of what the file contains.)
+    expect(block).toMatch(/\/api\/corpus-scout\/candidates\?campaignDomain=/);
+    expect(block).not.toMatch(/reviewWorkflowStatus=/);
+    // And it does not export the already-filtered in-memory queue.
+    expect(block).not.toMatch(/\brows\b|\bvisible\b/);
+  });
+
+  it('the export declares its own truncation rather than looking complete', () => {
+    // The list projection caps normalizedText to stay under the payload limit.
+    // A file that looks whole and is not is worse than one that states its
+    // edges — whoever reads it downstream is entitled to know which fields
+    // survived intact.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/normalizedText is TRUNCATED in this export/);
+    expect(src).toMatch(/normalizedTextChars carries each source's true length/);
+    expect(src).toMatch(/Nothing has been filtered out/);
+    // Counted by status, so the reader can see the shape of what they hold.
+    expect(src).toMatch(/byReviewStatus/);
+  });
+
+  it('search filters what was read — it never issues a second query', () => {
+    /*
+     * A server-side search would be a parallel implementation of a list this
+     * component already holds, and the two would answer differently the moment
+     * either changed (inv.engineering.037).
+     */
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/const visible = !rows/);
+    expect(src).toMatch(/rows\.filter\(\(r\) =>/);
+    // The count says which population it is talking about, so a filtered view
+    // is never mistaken for the queue being smaller than it is.
+    expect(src).toMatch(/of \{rows\.length\} awaiting-decision source\(s\) match/);
+    expect(src).toMatch(/the download is always the whole canon/);
+  });
 });
