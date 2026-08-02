@@ -116,6 +116,123 @@ final manuscript. The author has ratified the following canonical forms:
   (manuscript heading + Master §"Locked Book Architecture"); the earlier variant *"Human Rights
   Become Personhood Rights"* is superseded.
 
+### CR-8 — Internet Foundation and Universal Declaration of Digital Rights lineage (operator-ratified 2026-08-02)
+
+**Status:** **Ratified historical canon; institutional mandate documentation pending.**
+
+The Internet Foundation existed as a non-governmental organisation advancing the creation of a
+Universal Declaration of Digital Rights by at least **2013**. Its work treated digital rights as an
+extension of universal human rights and sought to establish principles governing the ethical use of
+data, including privacy, ownership, consent, fair use, portability, correction, erasure, arbitration
+and notification.
+
+**Evidence of record.** International Association of Privacy Professionals, *"BSI Group eyeing
+ethical data use,"* published **1 June 2017** —
+`https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use`. The article records that the Internet
+Foundation's Universal Declaration of Digital Rights work had been covered by IAPP **as far back as
+2013**, and that Dele Atanda and the Internet Foundation had proposed ethical-data-use standards work
+to BSI before 2017; Atanda subsequently led a BSI committee exploring ethical definitions of privacy,
+ownership, consent, fair use, data transfer, correction, erasure, arbitration and notification.
+
+> **Verification status.** The citation is **operator-attested**. The agent could **not**
+> independently retrieve the article from this sandbox — `iapp.org` returns **HTTP 403** to the fetch
+> tool and `web.archive.org` is blocked. **Recommended:** archive a copy (PDF or Markdown) into
+> `03 Source Lineage` so the citation is self-contained and does not depend on a live third-party URL
+> that already has one broken predecessor.
+
+#### Canonical manuscript effect
+
+The manuscript **may** state, in present or historical tense, that:
+
+- Dele Atanda and the Internet Foundation called for a Universal Declaration of Digital Rights;
+- the initiative was established and publicly represented by at least 2013;
+- it framed digital rights as a natural extension of human rights;
+- and it contributed to later ethical-data-use and standards activity.
+
+#### Effect on prior findings
+
+This **removes** the finding that the Internet Foundation has zero external evidentiary existence.
+It **does not** resolve the separate repo-governance gap. Discrepancy **A-4** is therefore *narrowed,
+not closed*: the historical institution and its digital-rights lineage are supported; the **current
+constitutional mandate** remains uncodified.
+
+**Remaining evidence requirement.** A canonical Internet Foundation founding and mandate artifact
+must still be added to Polity Core defining institutional purpose · relationship to the polity ·
+constitutional authority and limits · relationship to metaProof and other operators · governance and
+continuity · current institutional status. Until that instrument is ratified, Ch21's **present-tense
+sponsor/guardian role** remains unsupported even though Ch5's **historical authorship claim** is now
+supported.
+
+**Supersedes ruling R-16.** Volume I's silence on the Internet Foundation (verification note **V-1**)
+is explained: Volume I is a 2009/2013 authored work, not an institutional record. The IAPP evidence
+is contemporaneous with the same period and is the better source for the institutional claim.
+
+---
+
+### CR-9 — Quantum entropy implementation status (operator-ratified 2026-08-02)
+
+**Status:** **Ratified architectural direction; roadmap implementation pending before publication.**
+
+The Constitutional Internet uses **cryptographically secure classical randomness** in its current
+audited implementation. **Quantum entropy is an approved architectural enhancement**, not a shipped
+capability.
+
+**Controlling implementation specification:** `PRD-DIDQ-QBIT-001` v0.2 — *DIDQube Quantum Entropy
+Integration with Qubit* (`codexes/packs/irl/foundation/PRD-DIDQ-QBIT-001_didqube-quantum-entropy-integration.md`),
+canonised 2026-08-02 **for review, not for execution**.
+
+Intended scope: key generation · identifier generation and rotation · cohort randomization ·
+credential and nonce generation · privacy-preserving operations · other DIDQube randomization
+processes.
+
+#### Canonical status classification
+
+| Dimension | Status |
+|---|---|
+| Architectural direction | **Ratified** |
+| Implementation specification | **Provided** (PRD-DIDQ-QBIT-001 v0.2), pending review |
+| Execution authority | **Not granted** — execution plan required first |
+| Current code state | **Not implemented** in the audited repository |
+| Publication target | Implement **before** final publication |
+| Current manuscript status | **Pending implementation** |
+
+#### Canonical manuscript rule
+
+Until implementation and verification are complete, the manuscript **must not** state without
+qualification that the Constitutional Internet currently uses quantum entropy.
+
+**Permitted now:**
+
+> The Constitutional Internet **is integrating** quantum entropy to strengthen the randomness upon
+> which keys, identifiers, privacy, and constitutional randomization processes depend.
+
+**Permitted only after implementation, tests, receipts and deployment evidence exist:**
+
+> The Constitutional Internet **uses** quantum entropy to strengthen the randomness upon which keys,
+> identifiers, privacy, and constitutional randomization processes depend.
+
+**Must be retained in either case (unchanged — this formulation is exact and code-consistent):**
+
+> We have not attempted to defeat quantum cryptography. We use quantum mechanics to strengthen
+> randomness and, through randomness, privacy.
+
+#### Completion evidence required before upgrade
+
+Before the claim may be upgraded to *Implemented* or *Operational*, the audit must locate: the Qubit
+entropy adapter or service · integration points for the relevant randomness operations · fallback and
+failure behaviour · provenance or receipt evidence identifying the entropy source · tests
+demonstrating correct use **and degradation behaviour** · security review · deployment evidence.
+
+#### Effect on prior findings
+
+Matrix row **CI-17** moves from *Not found / Unsupported / Overclaim* to **Projected** — a governed
+roadmap item with a controlling specification, rather than an unsupported assertion. It is **not**
+*Entering deployment*, because implementation has not begun and execution is explicitly not
+authorised. Discrepancy **A-1** is reclassified accordingly.
+
+**Note.** The manuscript's narrower quantum position was **already correct** and is unaffected by
+this ruling. Only the "currently uses quantum entropy" clause was overclaimed.
+
 ---
 
 ## Additions to integrate (author-directed)

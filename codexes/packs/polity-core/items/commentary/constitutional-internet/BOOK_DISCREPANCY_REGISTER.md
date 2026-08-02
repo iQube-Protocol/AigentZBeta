@@ -16,7 +16,30 @@ commission missing code, tests, or receipts.
 
 These assert present-tense reality that the repo contradicts or cannot corroborate.
 
-### A-1 · Ch17 — "uses quantum entropy" has **zero** code backing
+### A-1 · Ch17 — **quantum entropy** is a governed roadmap item
+### ✅ RECLASSIFIED 2026-08-02 by operator ruling **CR-9** — Unsupported → **Projected**
+
+**No longer an unsupported assertion.** `PRD-DIDQ-QBIT-001` v0.2 (*DIDQube Quantum Entropy
+Integration with Qubit*) was canonised 2026-08-02 as the controlling implementation specification,
+establishing a governed implementation path. CI-17 moves from *Not found / Unsupported / Overclaim*
+to **Projected**.
+
+It is **not** *Entering deployment*: implementation has **not begun** and execution is **explicitly
+not authorised** (PRD §32 — an execution plan must be written and approved first). The audited code
+remains classical (`node:crypto` `randomBytes` for all IVs, keys and identifiers).
+
+**Permitted manuscript wording now** (CR-9): *"The Constitutional Internet **is integrating** quantum
+entropy to strengthen the randomness upon which keys, identifiers, privacy, and constitutional
+randomization processes depend."* Upgradeable to *"uses"* only after implementation, tests, receipts
+and deployment evidence exist. **Publication target: implement before final publication.**
+
+**The manuscript's narrower quantum position was already correct and is unaffected** — *"We have not
+attempted to defeat quantum cryptography. We use quantum mechanics to strengthen randomness and,
+through randomness, privacy."* Only the *"currently uses quantum entropy"* clause was overclaimed.
+
+<details><summary>Original A-1 finding (superseded in its absolute form)</summary>
+
+**A-1 · Ch17 — "uses quantum entropy" has zero code backing**
 **Type:** Overclaim · **Support:** Conflicting · **Impact:** Move to future tense
 
 Manuscript (~line 3118): *"The Constitutional Internet uses quantum entropy to strengthen the
@@ -32,6 +55,8 @@ exact and code-consistent, and should be **kept verbatim**.
 "uses quantum entropy" clause, retaining the accurate framing; (c) keep present tense **only** if an
 external QRNG source exists outside this repo → then *Needs external verification*.
 **Recommended:** (a) or (b).
+
+</details>
 
 ### A-2 · Ch18 — "standing decays" is **contradicted by ratified doctrine**
 **Type:** Ontology conflict · **Support:** Conflicting · **Impact:** Correct ontology
@@ -91,8 +116,29 @@ anchored. Any screenshot used as evidence must be accompanied by proof mock mode
 including refusals — are submitted to the DVN canister on a fifteen-minute cycle." *Not supportable:*
 any unqualified claim that governance/ratification acts are immutably anchored today.
 
-### A-4 · Ch21 — the **Internet Foundation** has zero repo existence
-### 🔺 ESCALATED 2026-08-02 — and zero existence in **Volume I** either
+### A-4 · Ch21 — the **Internet Foundation** has no *current* mandate instrument
+### ✅ NARROWED 2026-08-02 by operator ruling **CR-8** — historical existence now externally evidenced
+
+**The earlier absolute finding ("zero evidentiary existence") is WITHDRAWN.** External published
+evidence — IAPP, *"BSI Group eyeing ethical data use,"* 1 June 2017, recording that the Foundation's
+Universal Declaration of Digital Rights work had been covered **as far back as 2013** — establishes
+the historical institution and its digital-rights lineage. **Ch5's historical authorship claim is now
+supported.**
+
+**What remains open is narrower and different in kind:** there is still **no canonical Internet
+Foundation charter or mandate instrument in Polity Core** defining institutional purpose,
+relationship to the polity, constitutional authority and limits, relationship to metaProof and other
+operators, governance and continuity, or current institutional status. **Ch21's present-tense
+sponsor/guardian role therefore remains unsupported.** The question to close is no longer *"did this
+organisation exist"* (it did) but *"what is its constitutional mandate today."*
+
+*Verification caveat:* the IAPP citation is **operator-attested**; the agent could not independently
+retrieve it (`iapp.org` → HTTP 403; `web.archive.org` blocked). Recommend archiving a copy into
+`03 Source Lineage` — the predecessor link is already broken.
+
+<details><summary>Original A-4 finding (superseded in its absolute form)</summary>
+
+**A-4 · Ch21 — the Internet Foundation has zero repo existence**
 **Type:** Overclaim · **Support:** Partially supported · **Impact:** Qualify wording
 
 `grep -ril "internet foundation"` returns **only manuscript and commentary files**. Absent from every
@@ -113,6 +159,8 @@ personally. The Foundation is therefore unattested in: the codebase, every ratif
 ratification ledger, `docs/platform-ontology.md`, **and Volume I**. It now underwrites two separate
 present-tense claims (Ch5's authorship of the digital-rights call, and Ch21's sponsor/guardian role)
 with no instrument behind either. See also ruling **R-16**.
+
+</details>
 
 ### A-5 · Ch21/Ch22 — the **Commons is ratified but not built**, and canaries forbid claiming otherwise
 **Type:** Overclaim · **Impact:** Move to future tense

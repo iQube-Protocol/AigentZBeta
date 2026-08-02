@@ -161,3 +161,50 @@ classes. **The charter and the ontology are themselves out of step**; the book f
 - **Chapter 9.** The closing chain *constitution → commentary → invariants → architecture → execution →
   receipts → proof → remedy* is doctrinally exact **and** demonstrated by the codebase's own machinery
   — except the **remedy** terminus, which is deferred in code.
+
+---
+
+## Operator rulings applied — 2026-08-02
+
+### CR-8 · Internet Foundation and UDDR lineage → **Ch5, Ch10, Ch21**
+
+**G-2 further closed on the institutional limb.** External published evidence (IAPP, *"BSI Group
+eyeing ethical data use,"* 1 June 2017, referencing coverage **as far back as 2013**) establishes the
+Internet Foundation as an NGO advancing a Universal Declaration of Digital Rights, framing digital
+rights as an extension of human rights, and proposing ethical-data-use standards work to BSI.
+
+| Chapter | Effect |
+|---|---|
+| **Ch5** | The *"the Internet Foundation and I called for a Universal Declaration of Digital Rights"* attribution is **now supported**. **Supersedes ruling R-16** — Volume I's silence is explained: it is a 2009/2013 *authored work*, not an institutional record. Rulings **R-17** (Bill vs Declaration) and **V-3** (do not propagate Volume I's "Universal Bill of Human Rights" miscall of the UDHR) remain open. |
+| **Ch10** | The digital-rights lineage underpinning the permissionless/participatory authority argument gains an externally evidenced institutional actor. **G-4 (plutocracy) is unaffected.** |
+| **Ch21** | **Historical** existence supported; **current constitutional mandate still uncodified.** Ch21's present-tense sponsor/guardian passages remain unsupported until a founding/mandate artifact is ratified into Polity Core. |
+
+**Still required:** a canonical Internet Foundation founding and mandate artifact defining
+institutional purpose · relationship to the polity · constitutional authority and limits ·
+relationship to metaProof and other operators · governance and continuity · current institutional
+status.
+
+*Verification caveat:* operator-attested; agent retrieval blocked (`iapp.org` → 403;
+`web.archive.org` blocked). Archive a copy into `03 Source Lineage`.
+
+### CR-9 · Quantum entropy implementation status → **Ch17**
+
+**A new doctrine source now exists for Ch17.** `PRD-DIDQ-QBIT-001` v0.2 — *DIDQube Quantum Entropy
+Integration with Qubit* (`codexes/packs/irl/foundation/PRD-DIDQ-QBIT-001_didqube-quantum-entropy-integration.md`)
+— is canonised as the **controlling implementation specification**, for review and **not for
+execution**.
+
+Ch17 previously had **no** doctrine source for its quantum claim. It now has a governed one, moving
+the claim from *unsupported assertion* to **Projected roadmap item**. The PRD also supplies doctrine
+Ch17 can cite for the *architecture* of privacy: the hybrid entropy model, domain separation,
+root/persona separation, metaNet/blakNet separation, and the two product invariants —
+
+> **Quantum entropy may strengthen the unpredictability of a constitutional operation, but it may
+> never supply the authority for that operation.**
+
+> **No party that supplies entropy may thereby acquire the capacity to reconstruct, correlate or
+> control the identifier, key, person or action derived from it.**
+
+**Manuscript rule:** *"is integrating"* now; *"uses"* only after implementation, tests, receipts and
+deployment evidence. The *"we have not attempted to defeat quantum cryptography"* formulation is
+retained verbatim — it was always correct.
