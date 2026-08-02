@@ -144,7 +144,16 @@ async function main() {
 
   const etching = value.etching ?? (typeof value.etching === 'function' ? value.etching() : undefined);
   console.log('\nVERDICT: VALID ETCH — the Runestone is well-formed and the transaction is on chain.');
-  console.log(JSON.stringify({ etching, edicts: value.edicts, mint: value.mint, pointer: value.pointer }, null, 2));
+  // Rune amounts are u128 — they arrive as BigInt and JSON.stringify throws on
+  // them. Printed as decimal strings: a supply is exact or it is wrong, so
+  // Number() would be the one conversion that must never happen here.
+  console.log(
+    JSON.stringify(
+      { etching, edicts: value.edicts, mint: value.mint, pointer: value.pointer },
+      (_k, v) => (typeof v === 'bigint' ? v.toString() : v),
+      2,
+    ),
+  );
   console.log(
     '\nIf an indexer still shows nothing for this name, the indexer is not answering Rune\n' +
       'queries on this network — the etch itself is verified here from the raw transaction.',

@@ -669,9 +669,18 @@ export default function SmartWalletDrawer({
           cache: 'no-store',
           personaIdHint: effectivePersonaId,
         });
-        const j = (await res.json()) as { ok?: boolean; requests?: unknown[] };
+        const j = (await res.json()) as { ok?: boolean; requests?: { expired?: boolean }[] };
         if (cancelled) return;
-        setPendingActionCount(res.ok && j.ok && Array.isArray(j.requests) ? j.requests.length : null);
+        // EXPIRED ROWS ARE NOT WAITING ON ANYONE (operator, 2026-08-02).
+        // They stay `pending` in the store until something tries to act on
+        // them, and they are never reaped — so five dead mandates counted as
+        // "5 waiting on your signature" while nothing was actually actionable.
+        // A count that overstates is the same defect as one that understates.
+        setPendingActionCount(
+          res.ok && j.ok && Array.isArray(j.requests)
+            ? j.requests.filter((r) => !r?.expired).length
+            : null,
+        );
       } catch {
         if (!cancelled) setPendingActionCount(null);
       }

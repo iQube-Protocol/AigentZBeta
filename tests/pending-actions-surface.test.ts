@@ -187,6 +187,54 @@ describe('the panel keeps the domains separate', () => {
   it('an expired request is never revived', () => {
     expect(panel).toMatch(/expired request is never revived/i);
   });
+
+  /*
+   * ── Why expired rows are demoted (operator, 2026-08-02) ──────────────────
+   *
+   * Five consecutive mandates expired unsigned. The store orders by
+   * created_at ASC and expired rows are never reaped, so the OLDEST dead ones
+   * led and the list grew with every retry — the one request the operator
+   * could actually sign was the sixth card down, under five identical
+   * expired ones. Each attempt made the live one harder to find, which is how
+   * a short TTL presented itself as "signing failed".
+   */
+  it('actionable rows lead; expired rows follow, under a divider that counts them', () => {
+    expect(panel).toMatch(/const rows = groupRows\.filter\(\(r\) => !r\.expired\)/);
+    expect(panel).toMatch(/const expiredRows = groupRows\.filter\(\(r\) => r\.expired\)/);
+    expect(panel).toMatch(/\[\.\.\.rows, \.\.\.expiredRows\]/);
+    expect(panel).toMatch(/expired — no longer actionable/);
+  });
+
+  it('a list of nothing but expired rows reads as "nothing waiting", and says why', () => {
+    // "Nothing is waiting on you" alone would leave the operator wondering
+    // where five attempts went; the count of expired ones is the answer.
+    expect(panel).toMatch(/requests\.filter\(\(r\) => !r\.expired\)\.length === 0/);
+    expect(panel).toMatch(/expired before being/);
+  });
+});
+
+describe('the ceremony gives the human at least as long as the machine', () => {
+  const ceremony = stripComments(readSource('services/horizen/registerCeremony.ts'));
+
+  it('the principal mandate window is not shorter than the agent invocation it precedes', () => {
+    const windows = [...ceremony.matchAll(/expiresInSeconds:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(windows.length).toBeGreaterThanOrEqual(2);
+    const [principal, agent] = windows;
+    // The principal leg is the one a HUMAN must find a wallet, unlock it and
+    // read a payload inside. Giving it the tighter window is backwards.
+    expect(principal).toBeGreaterThanOrEqual(agent);
+  });
+});
+
+describe('the wallet badge counts acts that are actually waiting', () => {
+  const drawer = stripComments(readSource('app/components/content/SmartWalletDrawer.tsx'));
+
+  it('expired rows are excluded from the count', () => {
+    // They stay `pending` in the store until something acts on them, so an
+    // unfiltered length reported five dead mandates as five waiting acts.
+    // Overstating is the same defect as understating.
+    expect(drawer).toMatch(/filter\(\(r\) => !r\?\.expired\)\.length/);
+  });
 });
 
 describe('refusal is a real outcome', () => {

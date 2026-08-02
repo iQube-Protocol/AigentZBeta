@@ -355,12 +355,21 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
         </Section>
       )}
 
-      {requests && requests.length === 0 && (
+      {requests && requests.filter((r) => !r.expired).length === 0 && (
         <Section>
           <div className="flex items-center gap-2 text-[11px] text-white/50">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400/70" aria-hidden="true" />
             Nothing is waiting on you.
           </div>
+          {/* An expired request is not an act waiting on you — but saying
+              nothing about five of them would leave the operator wondering
+              where their attempts went. Named, and named as residue. */}
+          {requests.length > 0 && (
+            <p className="mt-1.5 text-[11px] leading-relaxed text-white/40">
+              {requests.length} earlier {requests.length === 1 ? 'request' : 'requests'} expired before being
+              completed. Start the act again from the Journey to prepare a fresh one.
+            </p>
+          )}
         </Section>
       )}
 
@@ -373,8 +382,23 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
           (acc[r.walletRef] ??= []).push(r);
           return acc;
         }, {}),
-      ).map(([walletRef, rows]) => {
+      ).map(([walletRef, groupRows]) => {
         const group = walletGroupLabel(walletRef);
+        /*
+         * ACTIONABLE FIRST, EXPIRED BELOW A DIVIDER (operator, 2026-08-02).
+         *
+         * The store orders by created_at ASC and expired mandates are never
+         * reaped, so the OLDEST dead rows led and the list grew monotonically.
+         * After five attempts the one request the operator could actually sign
+         * was the sixth card down, under five identical expired ones — every
+         * retry made the live one harder to find. That is the mechanism that
+         * turned a short TTL into "signing failed".
+         *
+         * Expired rows are kept — they are the record of what was attempted —
+         * but they are not peers of a live act and they never lead.
+         */
+        const rows = groupRows.filter((r) => !r.expired);
+        const expiredRows = groupRows.filter((r) => r.expired);
         return (
           <div key={walletRef} className="space-y-2">
             <div className="px-1">
@@ -382,14 +406,24 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
               <div className="text-[10px] text-white/35">{group.role}</div>
             </div>
 
-            {rows.map((r) => {
+            {[...rows, ...expiredRows].map((r, rowIndex) => {
+              const startsExpiredBlock = rowIndex === rows.length && expiredRows.length > 0;
               const isOpen = openId === r.id;
               const isExpanded = expandedId === r.id;
               const isDone = completed.includes(r.id);
               const busy = busyId === r.id;
               const refusalRow = rowRefusal?.id === r.id ? rowRefusal : null;
               return (
-                <Section key={r.id}>
+                <React.Fragment key={r.id}>
+                {startsExpiredBlock && (
+                  <div className="flex items-center gap-2 px-1 pt-1">
+                    <span className="text-[10px] uppercase tracking-wide text-white/30">
+                      {expiredRows.length} expired — no longer actionable
+                    </span>
+                    <span className="h-px flex-1 bg-slate-800" aria-hidden="true" />
+                  </div>
+                )}
+                <Section>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 text-xs font-medium text-slate-100">
                       {r.actionKind.replace(/_/g, ' ')}
@@ -564,6 +598,7 @@ export const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({ person
                     </div>
                   )}
                 </Section>
+                </React.Fragment>
               );
             })}
           </div>

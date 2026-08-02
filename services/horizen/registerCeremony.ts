@@ -243,7 +243,21 @@ export async function prepareRegistrationMandate(
     network: 'base-sepolia',
     payload,
     consequence,
-    expiresInSeconds: 600,
+    /*
+     * 900s, aligned with the agent-invocation leg below (operator, 2026-08-02).
+     *
+     * The principal mandate is the FIRST step of a two-step ceremony and had a
+     * SHORTER window (600s) than the invocation that follows it (900s) — the
+     * operator has to find the wallet, unlock it and read the payload inside
+     * the first, tighter window, then the machine gets a longer one. Five
+     * consecutive mandates expired unsigned before this was noticed.
+     *
+     * This is a mandate window, so it is stated rather than quietly tuned:
+     * it authorises a registry entry and grants no spending or execution
+     * authority, and 900s is the window this ceremony's own second leg
+     * already uses — not a new number chosen to make a test pass.
+     */
+    expiresInSeconds: 900,
     receiptDestination: receiptDestination(agent.slug),
     nonce,
   });
