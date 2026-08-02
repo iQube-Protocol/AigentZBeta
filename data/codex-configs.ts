@@ -5538,6 +5538,24 @@ export const POLITY_CORE_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'BookOpen', description: 'Constitutional commentary — the Polity paper series', color: 'violet' },
     },
     {
+      id: 'polity-core-commentary-constitutional-internet',
+      label: 'The Constitutional Internet',
+      slug: 'commentary-constitutional-internet',
+      enabled: true,
+      group: 'commentary',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'polity-core',
+          collectionId: 'col_commentary_constitutional_internet',
+          defaultPath: 'items/commentary/constitutional-internet/00-project-structure.md',
+        },
+      },
+      metadata: { icon: 'BookOpen', description: 'The Constitutional Internet book project — manuscript, editorial master, register, and source & evidence matrix', color: 'violet' },
+    },
+    {
       id: 'polity-core-agent-charter',
       label: 'Agent Charter',
       slug: 'agent-charter',
