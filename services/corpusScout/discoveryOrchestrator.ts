@@ -102,6 +102,9 @@ export async function runDiscoveryForInstitution(
       campaignDomain: domain,
       campaignSubDomain: pillarKey,
       title: seed.claim || seed.url,
+      // The ratified institution this run is acquiring from. Held here and
+      // previously dropped, leaving every row's issuer null (Al, 2026-08-02).
+      issuer: institutionName,
       acquisitionMethod: 'operator-curated-seed',
       discoveryUrl: seed.url,
     });
@@ -139,6 +142,7 @@ export async function runDiscoveryForInstitution(
       campaignDomain: domain,
       campaignSubDomain: pillarKey,
       title: candidate.title,
+      issuer: institutionName,
       acquisitionMethod: 'institutional-registry',
       discoveryUrl: candidate.discoveryUrl,
     });

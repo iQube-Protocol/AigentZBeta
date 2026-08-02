@@ -664,6 +664,68 @@ const DECISIONS: {
   },
 ];
 
+/**
+ * IS THIS A TITLE, OR IS IT WHAT THE CRAWLER FOUND WHERE A TITLE SHOULD BE?
+ *
+ * ── The finding (Al, 2026-08-02, reviewing the canon export) ───────────────
+ *
+ *   > "BIS titles are duplicated as 'survey of the users of BIS research'
+ *   >  CFTC titles appear only as 'PDF' ... I would not admit any CFTC
+ *   >  document until the title is resolved."
+ *
+ * Titles come from the discovery crawler's LINK TEXT, falling back to the URL
+ * basename (`deriveTitleFromUrl`). Both are frequently not the document's
+ * name — a link labelled "PDF" yields the title "PDF". Rendered plainly, that
+ * looks like bibliographic metadata and invites an admission decision made on
+ * nothing.
+ *
+ * This does not repair the title — it cannot, and guessing one would be worse.
+ * It marks the ones that are visibly not titles so the steward inspects
+ * before deciding, which is the judgement Al actually made by hand.
+ */
+function titleLooksUnresolved(row: CandidateSource): string | null {
+  const t = (row.title ?? "").trim();
+  if (!t) return "No title was captured at all.";
+  if (/^(pdf|document|download|file|link|here|view)$/i.test(t)) {
+    return `“${t}” is link text, not a document title.`;
+  }
+  // The URL basename fallback — the crawler had no link text to use.
+  try {
+    const base = decodeURIComponent(new URL(row.canonicalUrl).pathname.split("/").filter(Boolean).pop() ?? "");
+    if (base && base.toLowerCase() === t.toLowerCase()) {
+      return "This title is the URL filename — no document title was found.";
+    }
+  } catch {
+    // An unparseable URL tells us nothing either way; say nothing.
+  }
+  if (t.length < 12) return `“${t}” is too short to be a document title.`;
+  return null;
+}
+
+/**
+ * A governance-relevant field and whether it was actually captured.
+ *
+ * Al's point is that a steward should not have to INFER: a blank row and a row
+ * whose publication date genuinely was never extracted look identical, and
+ * only one of them is a reason to hesitate. So absence is rendered, not
+ * omitted.
+ *
+ * Fields Corpus Scout does not capture at all today — regulation/programme,
+ * document type, jurisdiction, and Corpus Scout's own relevance rationale —
+ * are deliberately NOT listed here. Rendering a permanently-empty row for each
+ * would be noise pretending to be rigour; they are named once, below the
+ * captured fields, as what the pipeline does not yet produce.
+ */
+function bibliographicFields(row: CandidateSource): { label: string; value: string | null }[] {
+  return [
+    { label: "Institution", value: row.issuer },
+    { label: "Published", value: row.publicationDate },
+    { label: "Authors", value: row.authors.length > 0 ? row.authors.join(", ") : null },
+    { label: "Pages", value: row.pageCount !== null ? String(row.pageCount) : null },
+    { label: "Licence", value: row.licenseStatus && row.licenseStatus !== "unknown" ? row.licenseStatus : null },
+  ];
+}
+
 function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecided: () => void }) {
   const [decision, setDecision] = useState<string>("");
   const [notes, setNotes] = useState("");
@@ -712,11 +774,29 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
   return (
     <div className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
       <div className="font-medium text-slate-100">{row.title}</div>
-      <div className="mt-0.5 text-slate-400">
-        {row.issuer || "issuer not recorded"}
-        {row.publicationDate ? ` · ${row.publicationDate}` : ""}
-        {row.authors.length > 0 ? ` · ${row.authors.join(", ")}` : ""}
-      </div>
+      {(() => {
+        const unresolved = titleLooksUnresolved(row);
+        return unresolved ? (
+          <div className="mt-1 rounded border border-amber-500/30 bg-amber-500/10 p-1.5 text-[11px] text-amber-100">
+            <strong className="font-medium">The title is unresolved.</strong> {unresolved} Corpus Scout takes
+            titles from the link text it followed, or from the URL when there was none — neither is the
+            document&rsquo;s own name. Open the source and confirm what this document is before admitting it.
+          </div>
+        ) : null;
+      })()}
+      {/* Every governance-relevant field, INCLUDING the ones with no value.
+          A blank row and a row whose date was never extracted look identical
+          otherwise, and only one of them is a reason to hesitate. */}
+      <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[11px]">
+        {bibliographicFields(row).map((f) => (
+          <React.Fragment key={f.label}>
+            <dt className="text-slate-500">{f.label}</dt>
+            <dd className={f.value ? "text-slate-300" : "text-slate-600 italic"}>
+              {f.value ?? "not captured"}
+            </dd>
+          </React.Fragment>
+        ))}
+      </dl>
       <div className="mt-0.5 text-[10px] text-slate-500">
         {row.campaignDomain}
         {row.campaignSubDomain ? ` / ${row.campaignSubDomain}` : ""} · acquired via {row.acquisitionMethod} ·
@@ -779,6 +859,14 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
       )}
 
       <div className="mt-2 space-y-1.5">
+        {/* Said once, plainly, rather than rendered as five empty rows.
+            A steward is entitled to know the difference between "this document
+            has no jurisdiction" and "we never extract jurisdiction". */}
+        <p className="text-[10px] leading-relaxed text-slate-600">
+          Corpus Scout does not yet capture regulation or programme, document type, jurisdiction, or its own
+          reason for believing this source is relevant. Those are absent from every row, not just this one —
+          judge from the title, the issuer and the extracted text.
+        </p>
         <select
           value={decision}
           onChange={(e) => setDecision(e.target.value)}

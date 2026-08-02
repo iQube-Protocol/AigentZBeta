@@ -271,4 +271,66 @@ describe('Track 2 programme surface — the guided view', () => {
     expect(block).toMatch(/autoComplete="off"/);
     expect(block).toMatch(/type="search"/);
   });
+
+  /*
+   * METADATA A STEWARD CAN DECIDE ON (Al, 2026-08-02, reviewing the canon
+   * export).
+   *
+   *   > "issuer = null · publicationDate = null · BIS titles are duplicated as
+   *   >  'survey of the users of BIS research' · CFTC titles appear only as
+   *   >  'PDF' ... the crawler is preserving the document content but not
+   *   >  enough bibliographic metadata for a steward to make an informed
+   *   >  constitutional admission."
+   *
+   * Two separate defects. `issuer` was hardcoded null while the orchestrator
+   * held the institution name — a fact thrown away. Titles come from crawler
+   * link text, so "PDF" is what a link labelled "PDF" yields — a fact that is
+   * not a title, and must not be dressed as one.
+   */
+  it('the institution is carried through to the row, not discarded', () => {
+    const prov = stripComments(readSource('services/corpusScout/provenance.ts'));
+    // No longer a hardcoded null.
+    expect(prov).not.toMatch(/^\s*issuer: null,\s*$/m);
+    expect(prov).toMatch(/issuer: input\.issuer\?\.trim\(\) \|\| null/);
+    // And both discovery call sites supply it.
+    const orch = stripComments(readSource('services/corpusScout/discoveryOrchestrator.ts'));
+    const supplied = orch.match(/issuer: institutionName,/g) ?? [];
+    expect(supplied.length, 'a discovery path still drops the institution').toBe(2);
+  });
+
+  it('a title that is not a title is flagged, never repaired', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/function titleLooksUnresolved\(/);
+    // The literal cases Al found.
+    expect(src).toMatch(/\^\(pdf\|document\|download\|file\|link\|here\|view\)\$/);
+    // The URL-basename fallback case.
+    expect(src).toMatch(/This title is the URL filename/);
+    // It must NOT invent a replacement — guessing a title is worse than
+    // naming the absence.
+    const at = src.indexOf('function titleLooksUnresolved(');
+    const body = src.slice(at, src.indexOf('\n}', at));
+    expect(body).not.toMatch(/setTitle|row\.title =/);
+    expect(src).toMatch(/The title is unresolved\./);
+  });
+
+  it('absence is rendered, not omitted', () => {
+    /*
+     * A blank row and a row whose publication date was never extracted look
+     * identical, and only one of them is a reason to hesitate.
+     */
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/function bibliographicFields\(/);
+    expect(src).toMatch(/\{f\.value \?\? "not captured"\}/);
+    for (const label of ['Institution', 'Published', 'Authors', 'Licence']) {
+      expect(src, `${label} is not shown`).toContain(`label: "${label}"`);
+    }
+  });
+
+  it('fields the pipeline does not capture are named as such, not faked', () => {
+    // Rendering permanently-empty rows for jurisdiction/document type would be
+    // noise pretending to be rigour; inventing values would be worse.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/does not yet capture regulation or programme, document type, jurisdiction/);
+    expect(src).toMatch(/absent from every row, not just this one/);
+  });
 });

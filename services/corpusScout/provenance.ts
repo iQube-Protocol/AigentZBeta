@@ -29,6 +29,27 @@ export interface CreateCandidateSourceInput {
   campaignDomain: string;
   campaignSubDomain?: string | null;
   title?: string;
+  /**
+   * The RATIFIED INSTITUTION this candidate was acquired from.
+   *
+   * ── The gap this closes (Al, 2026-08-02, reviewing the canon export) ─────
+   *
+   *   > "issuer = null ... That means the crawler is preserving the document
+   *   >  content but not enough bibliographic metadata for a steward to make
+   *   >  an informed constitutional admission."
+   *
+   * `issuer` was hardcoded `null` on every row and nothing ever set it — while
+   * `runDiscoveryForDomain` had the institution name in hand at BOTH call
+   * sites and passed it nowhere. A steward reviewing 47 sources could not see
+   * that 39 came from ESMA, 4 from BIS and 4 from the CFTC without opening
+   * each URL.
+   *
+   * This is NOT inference from the document: discovery runs per ratified
+   * institution, so the issuer is a fact the pipeline already holds. Nothing
+   * here reads it out of the artifact — that is separate work, and inventing
+   * it would be worse than the null.
+   */
+  issuer?: string | null;
   /** §7's already-named tagging field. Defaults to `'direct-url'` (Level 4,
    *  manual submission) — the institution navigator (`institutionNavigator.ts`,
    *  Agent B/C) passes `'institutional-registry'` so the review workspace and
@@ -138,7 +159,10 @@ export async function createCandidateSource(
     campaign_domain: campaignDomain,
     campaign_sub_domain: input.campaignSubDomain?.trim() || null,
     title: input.title?.trim() || deriveTitleFromUrl(url),
-    issuer: null,
+    // Known at acquisition time, not read out of the artifact — see the input
+    // type. Absent for manual `direct-url` submissions, which genuinely have
+    // no institution behind them.
+    issuer: input.issuer?.trim() || null,
     authors: [] as string[],
     publication_date: null,
     retrieved_at: now,
