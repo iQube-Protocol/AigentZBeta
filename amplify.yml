@@ -341,6 +341,25 @@ frontend:
         - du -sm .next/standalone/node_modules/* .next/standalone/node_modules/@*/* 2>/dev/null | sort -rn | head -30 || true
         - echo "=== biggest .next/static subtrees (MB) ==="
         - du -sm .next/static/* 2>/dev/null | sort -rn | head -15 || true
+        # ── ARTIFACT LEDGER — LAST THING PRINTED, DELIBERATELY ───────────────
+        #
+        # Every measurement added today landed ABOVE the compute-composition
+        # block, which is where the tail of the log starts and therefore the
+        # only part anyone reads. So the numbers that would have ended this
+        # went unseen for three builds. This block is last on purpose.
+        #
+        # And it enumerates EVERY child of .next rather than a hand-picked
+        # list. Three rounds of pruning aimed at paths I chose to name, and the
+        # cap ignored all of them: -6,249,974 from .next/standalone moved the
+        # reported total by -1,954. `artifacts.baseDirectory` is `.next` with
+        # `**/*`, standalone+static accounts for 218,593,755 of 230,839,372,
+        # and the remaining ~12.2 MB has never been itemised. A path I did not
+        # think to name cannot hide from `du -sb .next/*`.
+        - echo "=== ARTIFACT LEDGER: every child of .next, bytes, largest first ==="
+        - du -sb .next/* 2>/dev/null | sort -rn || true
+        - echo "=== ARTIFACT LEDGER: .next total vs the 230686720 cap ==="
+        - du -sb .next 2>/dev/null || true
+        - du -sb .next 2>/dev/null | awk '{printf "cap 230686720 · measured %s · delta %+d bytes\n", $1, 230686720 - $1}' || true
 
   artifacts:
     baseDirectory: .next
