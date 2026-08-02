@@ -472,7 +472,7 @@ export function RegisterAgentPanel({
         receipts?: {
           actionType: string;
           agentsInvoked?: string[] | null;
-          actionInput?: { txHash?: unknown; network?: unknown } | null;
+          actionInput?: { txHash?: unknown; network?: unknown; horizenAgentId?: unknown } | null;
         }[];
       } | null;
       const forThisAgent = (receiptJson?.receipts ?? []).filter((r) =>
@@ -498,6 +498,10 @@ export function RegisterAgentPanel({
               network:
                 typeof unconfirmed.actionInput?.network === 'string'
                   ? unconfirmed.actionInput.network
+                  : null,
+              horizenAgentId:
+                typeof unconfirmed.actionInput?.horizenAgentId === 'string'
+                  ? unconfirmed.actionInput.horizenAgentId
                   : null,
             }
           : null,
@@ -540,7 +544,11 @@ export function RegisterAgentPanel({
    * from the receipts rather than remembered. Null means none — never "we
    * forgot": the read either finds one or the receipts say there is none.
    */
-  const [pendingBroadcast, setPendingBroadcast] = useState<{ txHash: string; network: string | null } | null>(null);
+  const [pendingBroadcast, setPendingBroadcast] = useState<{
+    txHash: string;
+    network: string | null;
+    horizenAgentId: string | null;
+  } | null>(null);
   /**
    * Horizen's own words from the last status check, verbatim. Shown because
    * "not confirmed" and "answered something this code does not recognise" look
@@ -793,6 +801,7 @@ export function RegisterAgentPanel({
                         '',
                         pendingBroadcast.network ?? 'base-sepolia',
                         0,
+                        pendingBroadcast.horizenAgentId,
                       );
                     },
                     enabled: pendingBroadcast !== null,
@@ -842,12 +851,18 @@ export function RegisterAgentPanel({
   }, [agentSlug, personaId]);
 
   const pollStatus = useCallback(
-    async (txHash: string, ownerWalletAddress: string, network: string, attempts: number) => {
+    async (
+      txHash: string,
+      ownerWalletAddress: string,
+      network: string,
+      attempts: number,
+      horizenAgentId?: string | null,
+    ) => {
       try {
         const res = await personaFetch('/api/journey/moneypenny-horizen/register/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentSlug, txHash, ownerWalletAddress, network }),
+          body: JSON.stringify({ agentSlug, txHash, ownerWalletAddress, network, horizenAgentId }),
           personaIdHint: personaId,
         });
         const json = await readJsonOrExplain(res, 'register/status');
@@ -898,7 +913,10 @@ export function RegisterAgentPanel({
         return;
       }
       setFlow({ step: 'polling', txHash, ownerWalletAddress, network, attempts: attempts + 1 });
-      pollTimerRef.current = setTimeout(() => void pollStatus(txHash, ownerWalletAddress, network, attempts + 1), POLL_INTERVAL_MS);
+      pollTimerRef.current = setTimeout(
+        () => void pollStatus(txHash, ownerWalletAddress, network, attempts + 1, horizenAgentId),
+        POLL_INTERVAL_MS,
+      );
     },
     [agentSlug, personaId],
   );

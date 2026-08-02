@@ -1164,4 +1164,44 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     // And must not let a transport failure read as the act having failed.
     expect(panel).toMatch(/no act has failed/);
   });
+
+  it("Horizen's agent identifier is kept, not discarded with the rest of the build response", () => {
+    /*
+     * The raw answer after twenty "not confirmed" checks:
+     *   Invalid arguments for tool get_onboarding_status
+     *   agentId: Required, received: undefined
+     *
+     * prepareAgentRegistration kept four fields plus the unsigned transaction
+     * and threw the rest of Horizen's build response away — including the
+     * identifier the status check requires. So the check was never made, and
+     * every rejection was rendered as a negative answer about the chain.
+     */
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    expect(client).toMatch(/horizenAgentId: string \| null;/);
+    expect(client).toMatch(/pickStringField\(buildPayload, \[/);
+    // It travels with the transaction it belongs to.
+    const ceremony = stripComments(readSource('services/horizen/registerCeremony.ts'));
+    expect(ceremony).toMatch(/horizenAgentId: prepared\.value\.horizenAgentId \?\? null/);
+    // And is recoverable with the txHash after a poll times out.
+    expect(ceremony).toMatch(/horizenAgentId: storedAgentId/);
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toMatch(/actionInput\?\.horizenAgentId === 'string'/);
+  });
+
+  it('a check with no identifier is refused before the call, never answered', () => {
+    /*
+     * Calling anyway is what produced twenty rejections rendered as twenty
+     * negatives. The refusal separates the two facts explicitly.
+     */
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    const at = client.indexOf('if (declaresAgentId && !agentIdToSend)');
+    expect(at, 'the checker still calls MCP without an identifier').toBeGreaterThan(-1);
+    const block = client.slice(at, at + 700);
+    expect(block).toMatch(/refusalCode: 'STATUS_UNAVAILABLE'/);
+    expect(block).toMatch(/agent identifier was unavailable/);
+    expect(block).toMatch(/remains valid\. Do not re-register\./);
+    expect(block).not.toMatch(/confirmed/);
+    // The refusal must come BEFORE the tool call.
+    expect(at).toBeLessThan(client.indexOf("callTool({ name: 'get_onboarding_status'"));
+  });
 });
