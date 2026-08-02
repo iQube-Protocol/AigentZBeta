@@ -210,6 +210,17 @@
  *    crystal domain is opt-in, that both freeze routes resolve the DECLARED
  *    domain (no `constitutional-reasoning` fallback), and that the freeze act
  *    recomputes and refuses a stale content commitment
+ *  - TRACK 2 OPERATOR SEAMS (2026-08-02): the edges route calls `addEdge` and
+ *    restates neither the cycle guard nor the contradiction quarantine;
+ *    INVARIANT_EDGE_TYPES is derived in both the route and the form rather than
+ *    hand-copied; the freeze preview REFUSES a caller-supplied domainBoundary
+ *    and reads the ratified one server-side (a free-text boundary at the least
+ *    reversible act would commit a paraphrase as the constitutional boundary);
+ *    the freeze surface renders that boundary and posts the hash it was shown;
+ *    the assignment receipt carries all eight governed-inclusion facts on the
+ *    EXISTING anchorable action type (no invented ActivityActionType, therefore
+ *    no CHECK-constraint migration); and the Track 2 programme is a pure
+ *    projection that stores no progress and owns no stage
  */
 
 import { describe, it, expect } from 'vitest';
@@ -1780,5 +1791,121 @@ describe('EXP-P1 crystal admission rule parity (2026-08-02)', () => {
     // And it must never substitute the fresh hash for the operator's.
     expect(src).not.toMatch(/contentHash:\s*statistics\.frozenHash/);
     expect(src).toMatch(/contentHash:\s*suppliedHash/);
+  });
+});
+
+/**
+ * TRACK 2 OPERATOR SEAMS (operator ruling, 2026-08-02) — the front-end
+ * workflow that must exist before corpus acquisition begins.
+ *
+ * Each seam below is a place where a rule already lives in a service and a new
+ * surface could restate it. Every one of the three parallel-implementation
+ * defects found on 2026-07-22 had exactly this shape, so the seams are canaried
+ * at the point of introduction rather than after the first drift.
+ */
+describe('Track 2 operator seams (2026-08-02)', () => {
+  const EDGES_ROUTE = 'app/api/invariants/[id]/edges/route.ts';
+  const FREEZE_PREVIEW = 'app/api/research/crystal/[experimentId]/freeze-preview/route.ts';
+  const ASSIGN_ROUTE = 'app/api/research/crystal/[experimentId]/assign/route.ts';
+  const PROGRAMME = 'services/research/track2Programme.ts';
+  const PROGRAMME_ROUTE = 'app/api/research/track2/[experimentId]/route.ts';
+
+  it('the edges route calls addEdge and restates none of its rules', () => {
+    // addEdge owns the CFS-003 §3 cycle guard and the CFS-003a §2.6
+    // contradiction quarantine. A route that re-derived either would be a
+    // second, divergent copy of a constitutional rule at the write path.
+    const src = stripComments(readSource(EDGES_ROUTE));
+    expect(src).toContain('addEdge(');
+    expect(src, 'the quarantine rule belongs to the service').not.toMatch(/status:\s*'proposed'/);
+    expect(src, 'the acyclic set belongs to types/invariants').not.toContain('ACYCLIC_EDGE_TYPES');
+    // The preview consults the SAME exported guard rather than re-deriving it.
+    expect(src).toContain('wouldCreateCycle(');
+  });
+
+  it('the edge type list is derived, never hand-copied into the route or the form', () => {
+    for (const path of [EDGES_ROUTE, 'app/triad/components/codex/tabs/InvariantDetailModal.tsx']) {
+      const src = stripComments(readSource(path));
+      expect(src, `${path} must read INVARIANT_EDGE_TYPES`).toContain('INVARIANT_EDGE_TYPES');
+      // A hand-written literal list would go stale the moment a type is added.
+      expect(src, `${path} must not hand-copy the edge types`).not.toMatch(
+        /'derives_from'\s*,\s*'enables'/,
+      );
+    }
+  });
+
+  it('the freeze preview REFUSES a caller-supplied boundary — it never silently ignores one', () => {
+    /*
+     * Operator: "That is unnecessary and dangerous." A free-text boundary at
+     * the least reversible act would commit a paraphrase as the constitutional
+     * boundary, and the package would look correct afterwards.
+     *
+     * Silently ignoring the field would be its own defect: an operator who
+     * typed an amendment would believe they had made one.
+     */
+    const src = stripComments(readSource(FREEZE_PREVIEW));
+    expect(src).toMatch(/body\.domainBoundary !== undefined/);
+    expect(src).toMatch(/domainBoundary:\s*declaration\.boundary/);
+    expect(src, 'the boundary must be emitted for immutable rendering').toMatch(/ratifiedBoundary/);
+    expect(src).toContain('crystalDeclarationHash(');
+  });
+
+  it('the freeze surface renders the boundary and never offers a field for it', () => {
+    const panel = stripComments(readSource('components/research/Track2ProgrammePanel.tsx'));
+    expect(panel, 'the boundary is read from the server, not typed').toMatch(/boundary\.boundary/);
+    expect(panel).toMatch(/I ratify this exact boundary/);
+    expect(panel, 'no domainBoundary is ever posted').not.toMatch(/domainBoundary:/);
+    // The hash submitted for a freeze is the one the operator was shown.
+    expect(panel).toMatch(/contentHash,/);
+  });
+
+  it('assignment records the eight facts a governed inclusion act must carry', () => {
+    const src = stripComments(readSource(ASSIGN_ROUTE));
+    for (const fact of [
+      'declarationHash',      // which version of the boundary
+      'priorDomains',         // what it belonged to before
+      'personaPublicRef(',    // the steward, T2-safe
+      'rationale',            // why
+      'writeLifecycleReceipt(', // the receipt itself
+    ]) {
+      expect(src, `the assignment receipt must carry ${fact}`).toContain(fact);
+    }
+    // The receipt rides the EXISTING anchorable action type — no new
+    // ActivityActionType, therefore no SQL CHECK-constraint migration.
+    expect(src, 'no new action type may be invented here').not.toMatch(/actionType:\s*'crystal/);
+    // A receipt failure never rolls back an admission, and is never silent.
+    expect(src).toMatch(/receiptWritten/);
+    expect(src).toMatch(/\[CRYSTAL ASSIGNMENT\]/);
+  });
+
+  it('the Track 2 programme is a projection — it stores no progress and owns no stage', () => {
+    const src = stripComments(readSource(PROGRAMME));
+    for (const writer of ['supabase', '.insert(', '.update(', '.upsert(', '.delete(']) {
+      expect(src, `track2Programme.ts must not ${writer}`).not.toContain(writer);
+    }
+    // Status is derived from signals passed in, never fetched here and never
+    // persisted — a stored currentStage would go stale the moment anyone acted
+    // through an underlying surface directly (inv.engineering.037).
+    expect(src).toMatch(/export function buildTrack2Programme/);
+    expect(src).not.toMatch(/export async function buildTrack2Programme/);
+  });
+
+  it('the programme route reads the same lifecycle and readiness the crystal route does', () => {
+    // Two surfaces describing one programme must not compute it two ways.
+    const src = stripComments(readSource(PROGRAMME_ROUTE));
+    expect(src).toContain('runCrystalReadinessReport(');
+    expect(src).toContain('crystalLifecycleStage(');
+    expect(src).toContain('crystalReviewStageStatus(');
+    // And `frozen` still comes off the artifact, never off readiness.
+    const at = src.indexOf('crystalLifecycleStage({');
+    const call = src.slice(at, at + 400);
+    expect(call).toMatch(/frozen:\s*artifact\?\.lifecycle === 'frozen'/);
+  });
+
+  it('every readiness check that can fail carries a remedy field', () => {
+    // The contract is on the TYPE, so a new check cannot ship without one.
+    const types = stripComments(readSource('services/research/crystalReadiness.ts'));
+    expect(types).toMatch(/remedy:\s*string \| null;/);
+    // And the empty-domain remedy is stated once, not per check.
+    expect(types).toContain('EMPTY_DOMAIN_REMEDY');
   });
 });

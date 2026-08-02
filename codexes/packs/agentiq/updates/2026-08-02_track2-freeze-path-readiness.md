@@ -38,12 +38,12 @@ moment of the constitutional act itself.
 | 3 | Landed as `proposed` | `promoteCandidate` → `discoverInvariant(status: 'proposed')`; `{ action: 'promote' }` | **works**, with a caveat — see §2.1 |
 | 4 | Evidence provenance recorded | `applyProvenanceReclassification`; `{ action: 'classify' }` | **works** — refuses a move into Population A citing only repo-internal sources |
 | 5 | Validated through the receipted lifecycle | `validateInvariant`; `POST /api/invariants/[id]/advance { action: 'validate' }` | **works** — increments `times_validated`, writes a receipt |
-| 6 | Intra-crystal relationships recorded | `addEdge` (`services/invariants/lifecycle.ts`) | **GAP — no caller anywhere.** §2.4 |
-| 7 | **Assigned to the crystal domain** | — | **GAP — no path existed at all.** §2.1 |
+| 6 | Intra-crystal relationships recorded | `addEdge` (`services/invariants/lifecycle.ts`) | **GAP — no caller anywhere.** §2.4 · CLOSED §9.1 |
+| 7 | **Assigned to the crystal domain** | — | **GAP — no path existed at all.** §2.1 · CLOSED |
 | 8 | Readiness assesses | `runCrystalReadinessReport`; `GET /api/research/crystal/[experimentId]` | **works** |
 | 9 | Freeze package built | `runFreezeCeremonyPreview`; `POST …/freeze-preview` | **worked, over the WRONG DOMAIN.** §2.2 |
 | 10 | Operator freeze | `freezeArtifact` | **GAP — no caller, and no artifact to freeze.** §2.3 |
-| 11 | Published as canonical | — | **GAP — no mechanism exists.** §2.5 |
+| 11 | Published as canonical | — | **GAP — no mechanism exists.** §2.5 · OUT OF SCOPE by ruling |
 
 Steps 1–5 are real, substantial, and have simply not been run. The honest headline is
 narrower than "the pipeline is missing": **acquisition is built; admission and ratification
@@ -145,21 +145,20 @@ frozen crystal would still have displayed READY_FOR_FREEZE and offered a second 
 immutable object. The readiness route now reads the persisted artifact lifecycle (and
 nothing else) for `frozen`.
 
-### 2.4 No way to record a relationship — NOT BUILT (step 6)
+### 2.4 No way to record a relationship — NOW BUILT (step 6); see §9
 
 Three of the nine readiness checks (relationship-density, graph-connectivity,
 orphan-detection) read `invariant_edges`. `addEdge()` — the cycle-guarded writer, exported
-from `services/invariants/index.ts` — has **zero callers**. The only edges ever created come
-as side effects of `promoteCandidate`'s parent linking and `materializeCompressionEdges`.
+from `services/invariants/index.ts` — had **zero callers**.
 
-A crystal assembled from independently discovered invariants would therefore be **all
-orphans**, and three checks would fail with no operator path to fix them.
+**Precision, corrected in §9.1:** edges were not *uncreatable*. `promoteCandidate`'s parent
+linking and `linkPromotedParents` do reach `addEdge` — but write `specializes` ONLY, keyed
+by a discovery-**candidate** id, with no relation type, rationale or evidence. For a crystal
+assembled across independently discovered invariants that path is unusable, so the practical
+conclusion stands: the crystal would have been all orphans.
 
-**Deliberately not built here:** the remedy belongs in `app/api/invariants/**`, which is
-outside this session's declared file scope. The change is small — expose `addEdge` as an
-action on the existing invariant routes, with the cycle guard and the `contradicts`
-quarantine it already carries. It should be done before Track 2 acquisition begins, not
-after.
+Built under the 2026-08-02 ruling — `POST /api/invariants/[id]/edges` plus the relationship
+editor on the invariant detail surface. §9.1.
 
 ### 2.5 No publication act — NOT BUILT (step 11)
 
@@ -219,6 +218,11 @@ reachability — which is where they were always going to be.
 
 ## 4. Operator runbook — Track 2, in order
 
+**Use the UI first.** Experiments → **Track 2 Programme** renders these eleven stages with
+live status, the remedy for every failing check, and inline controls for assignment,
+provisioning and the freeze. The commands below are the same acts, for scripting or
+diagnosis — they are no longer the only way to perform them.
+
 Nothing below has been run. Every call is steward-gated and needs a Bearer token.
 
 **SQL required: none.** `invariant_contexts` already carries `UNIQUE (invariant_id, domain)`
@@ -277,10 +281,17 @@ curl -s -X POST "$HOST/api/invariants/discovery" -H "Authorization: Bearer $TOKE
 curl -s -X POST "$HOST/api/invariants/<INVARIANT_ID>/advance" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"action":"validate"}' | jq '{ok,verdict}'
 ```
 
-### Step 9 — relationships (BLOCKED — see §2.4)
+### Step 9 — relationships
 
-No route exposes `addEdge`. Until one does, three readiness checks cannot be satisfied for
-independently discovered invariants. **Do this before starting acquisition in earnest.**
+**Use the UI**: Experiments → Invariant Registry → open an invariant → **Add relationship**
+(relation type, target search, rationale, evidence, preview, confirm). The API, if needed:
+
+```bash
+curl -s -X POST "$HOST/api/invariants/<FROM_ID>/edges" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"toInvariantId":"<TO_ID>","relation":"supports","rationale":"<why this holds>","evidenceRefs":["<url or doi>"],"preview":true}' | jq .
+```
+
+Drop `"preview": true` to record it. Record only relationships that are genuinely there —
+the readiness remedies say the fix is annotation, never invention.
 
 ### Step 10 — assign to the ratified crystal domain (NEW)
 
@@ -290,8 +301,8 @@ curl -s -X POST "$HOST/api/research/crystal/EXP-P1/assign" -H "Authorization: Be
 ```
 
 ```bash
-# then, only if every outcome reads admitted:true
-curl -s -X POST "$HOST/api/research/crystal/EXP-P1/assign" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"invariantIds":["<ID1>","<ID2>"],"dryRun":false}' | jq '{admitted,written,outcomes}'
+# then, only if every outcome reads admitted:true — rationale is REQUIRED to write
+curl -s -X POST "$HOST/api/research/crystal/EXP-P1/assign" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"invariantIds":["<ID1>","<ID2>"],"dryRun":false,"rationale":"<why these are admitted>"}' | jq '{admitted,written,receiptWritten,declarationHash,outcomes}'
 ```
 
 ### Step 11 — readiness over the now-populated crystal
@@ -303,7 +314,8 @@ curl -s "$HOST/api/research/crystal/EXP-P1" -H "Authorization: Bearer $TOKEN" | 
 ### Step 12 — freeze preview (evidence AND substrate)
 
 ```bash
-curl -s -X POST "$HOST/api/research/crystal/EXP-P1/freeze-preview" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"operatorRef":"<T2-safe operator ref>","reviewerRef":null,"domainBoundary":"<paste the RATIFIED boundary verbatim>","freezeRationale":"<why now>","ratifiedAt":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' | jq '{eligible:.package.eligibleForRatification,hash:.package.contentHash,execution}'
+# domainBoundary is NOT sent — the route refuses it and returns the ratified one
+curl -s -X POST "$HOST/api/research/crystal/EXP-P1/freeze-preview" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"operatorRef":"<T2-safe operator ref>","reviewerRef":null,"freezeRationale":"<why now>","ratifiedAt":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' | jq '{eligible:.package.eligibleForRatification,hash:.package.contentHash,ratifiedBoundary,execution}'
 ```
 
 ### Step 13 — provision the crystal-version artifact (NEW)
@@ -337,9 +349,16 @@ server offers.
   `crystal-freeze-rehearsal` (25), `crystal-freeze-recommendation` (41),
   `crystal-freeze-ceremony` (9), `crystal-readiness-wire-contract` (11),
   `crystal-statistics` (5), `prd-epi-001-crystal-readiness` (14),
-  `source-of-truth-parity` (72), `independent-review-capability` (86),
+  `source-of-truth-parity` (80), `independent-review-capability` (86),
   `independent-review-record-remedy` (30), `evidence-provenance-populations` (75),
-  `prd-epi-001-artifact-model` (4), `prd-epi-001-readiness-dashboard` (4).
+  `prd-epi-001-artifact-model` (4), `prd-epi-001-readiness-dashboard` (4),
+  `invariant-substrate`, `invariant-discovery`, `constitutional-contracts` — 473 tests
+  across 15 files, all passing.
+- **Scope widened twice, baseline unmoved.** `tsconfig.research.json` now also covers
+  `tests/crystal-freeze-rehearsal.test.ts`, `app/api/invariants/**` and
+  `app/triad/components/codex/tabs/InvariantDetailModal.tsx`. Those newly covered files
+  carried **zero** pre-existing errors, so the baseline is still exactly 10 in the same
+  seven files.
 - Authoritative build pending.
 
 **One existing canary was tightened, not weakened.** `frozen is never inferred from
@@ -373,19 +392,170 @@ declared domain; the freeze act recomputes and refuses a stale commitment.
 | `tests/crystal-freeze-recommendation.test.ts` | canary tightened to its actual rule; read-only guard added |
 | `tests/crystal-readiness-wire-contract.test.ts` | `execution` must have a reader |
 | `tests/source-of-truth-parity.test.ts` | crystal admission-rule parity canaries |
-| `tsconfig.research.json` | rehearsal suite added to the scoped gate |
+| `tsconfig.research.json` | rehearsal suite, `app/api/invariants/**` and the invariant detail modal added to the scoped gate |
+| **— the 2026-08-02 operator ruling —** | |
+| `app/api/invariants/[id]/edges/route.ts` | NEW — the relationship API; calls `addEdge`, restates none of its rules |
+| `app/triad/components/codex/tabs/InvariantDetailModal.tsx` | Related invariants + Add relationship (preview, confirm) |
+| `services/research/track2Programme.ts` | NEW — the eleven stages, as a pure projection |
+| `app/api/research/track2/[experimentId]/route.ts` | NEW — composes the live signals |
+| `components/research/Track2ProgrammePanel.tsx` | NEW — the guided workflow; assignment, provisioning, freeze |
+| `components/composer/InvariantExperimentLab.tsx` | mounts the programme beside Independent Review |
+| `services/research/crystalReadiness.ts` | `remedy` on every check |
+| `services/research/crystalDomains.ts` | `crystalDeclarationHash()` |
 
 ---
 
-## 7. Open, and owned by the operator
+## 7. Open at first audit — and what the ruling did with each
 
-1. **`addEdge` has no route** (§2.4) — blocks three readiness checks. Small change, outside
-   this session's file scope.
-2. **No publication act** (§2.5) — the CANONICAL rung has no producer.
-3. **The freeze package's `domainBoundary` is retyped by the caller.** The ratified boundary
-   is available server-side on the declaration; requiring the operator to retype it invites a
-   paraphrase of a constitutional act into the package that commemorates it. Left as-is
-   because defaulting it is a ruling, not a fix.
-4. **Assignment writes no receipt.** The `invariant_contexts` row is the record. A dedicated
-   receipt would need a new `ActivityActionType` and the matching SQL CHECK constraint, which
-   is a schema change and an operator decision.
+1. **`addEdge` has no route** → **CLOSED**, §9.1. It was the right call and the ruling made
+   it top priority.
+2. **No publication act** (§2.5) → **STAYS OPEN, by ruling.** Candidate → Reviewed → Ready
+   for Freeze → Frozen is the required sequence for EXP-P1; canonicalisation is a separate
+   operator ruling and must not delay Track 2. The CANONICAL rung remains unreachable, and
+   `canonical:` is still never passed on the wire.
+3. **The freeze package's `domainBoundary` is retyped by the caller** → **CLOSED**, §9.3.
+   The operator's verdict: *"That is unnecessary and dangerous."*
+4. **Assignment writes no receipt** → **CLOSED**, §9.4, without a schema change.
+
+---
+
+## 8. Operator verdict on the rehearsal
+
+> "…proved the scientific pipeline was not blocked by the readiness engine, but by missing
+> operational seams."
+
+Both flagged gaps were accepted as correct calls. The governing instruction: complete the
+minimum front-end Track 2 workflow **before** corpus acquisition begins; the operator must
+not need to run curl commands; preserve every fail-closed policy.
+
+---
+
+## 9. The operator seams, built
+
+### 9.1 The relationship editor — the blocker, with one correction
+
+`POST /api/invariants/[id]/edges` (GET lists; POST creates, or previews with
+`{ preview: true }`) and an **Add relationship** control on `InvariantDetailModal` —
+relation type, target-invariant search, rationale, evidence references, preview, confirm.
+An invariant with no edges now says so, and says why that is expected rather than defective.
+
+**The route holds no rule of its own.** The cycle guard (CFS-003 §3) and the contradiction
+quarantine (CFS-003a §2.6) live in `addEdge`; the route validates shape only — ids present
+and distinct, a declared relation type, a stated rationale — and calls the service. The
+preview consults the **same exported `wouldCreateCycle`** rather than re-deriving an answer,
+and is explicitly advisory: `addEdge` re-checks at write time, so a corpus that changed
+between preview and confirm cannot slip an edge through. Attribution is `personaPublicRef`,
+never a raw personaId — `invariant_edges.provenance` is durable and widely read.
+
+**Where I disagree, slightly, with my own earlier report.** I wrote that `addEdge` had zero
+callers and let that imply no edge could be created. The first half is true; the implication
+is too strong. `promoteCandidate` → `createSpecializesEdges` and `linkPromotedParents` do
+reach `addEdge`, so an operator *could* have produced edges — but only `specializes`, only
+via a discovery-**candidate** id (not an invariant id), with no relation type, no rationale
+and no evidence. For a crystal drawn from independently discovered invariants that path is
+unusable, and using it anyway would have recorded a specialisation claim wherever a support
+or constraint relationship actually held. **So the ruling's conclusion is right and the
+priority is right; my statement of the reason was imprecise, and the correction makes the
+gap narrower but not smaller in consequence.**
+
+### 9.2 The guided Track 2 programme
+
+`services/research/track2Programme.ts` (pure) + `GET /api/research/track2/[experimentId]` +
+`components/research/Track2ProgrammePanel.tsx`, mounted in the Experiments navigator beside
+Independent Review — a panel nobody can reach is an inert mechanism.
+
+Eleven stages: Discover Sources · Review & Admit · Extract Candidates · Review & Promote ·
+Classify Provenance · Validate · Add Relationships · Assign to Crystal · Run Readiness ·
+Prepare Independent Review · Freeze.
+
+**It is a projection, not a workflow engine.** Every status is derived at request time from
+signals the platform already computes — candidate-source rows, discovery candidates, the
+readiness report's own checks, the crystal lifecycle ladder, the persisted artifact. Nothing
+stores progress. A stored `currentStage` would be a second source of truth for a fact the
+substrate already answers and would go stale the moment anyone acted through an underlying
+surface directly.
+
+**Each stage ROUTES.** Only the five pieces with no front end are controls here: guided
+crystal assignment (dry run, then admit with a rationale), artifact provisioning, the freeze
+act, and readiness remedies. Relationship creation deliberately lives on the invariant detail
+surface, where the invariant is. Re-implementing Corpus Scout review or candidate promotion
+inside a workflow panel would be the parallel-implementation defect this programme exists to
+avoid — and the second copy would be the stale one.
+
+**`unknown` is a first-class status.** An unreadable upstream signal reports `unknown`, never
+`complete` and never `blocked`. Guessing "done" would advance an operator past work that has
+not happened; guessing "blocked" would send them to fix something that is not broken. Both
+errors have already been made on this programme.
+
+### 9.3 Readiness remedies
+
+`CrystalReadinessCheck` now carries `remedy: string | null` — **null when the check passed**
+(a remedy for a satisfied condition is noise), computed beside the measurement that produced
+it so the two can never describe different situations.
+
+Each remedy says what fixes it, names the real route, and states the kind of work. The
+empty-domain case shares one remedy, in the ladder's register: *"Nothing here has failed…"* —
+and a canary asserts the words that made an absence read as a defect do not appear in it.
+
+Two remedies exist specifically to close a shortcut: `provenance-eligibility` says **never
+widen eligibility**; `relationship-density` says the fix is *"annotation, never invention"*
+and `graph-connectivity` says *"do not bridge it with an invented edge."* A remedy that could
+be satisfied by fabricating structure would be worse than no remedy.
+
+### 9.4 The domain boundary is read, never retyped
+
+`domainBoundary` is **no longer an input**. The freeze-preview route reads the ratified
+boundary from the declaration and returns it as `ratifiedBoundary` — with exclusions, the
+ratifying text, who ratified it and when, and a `declarationHash` — for rendering as
+**immutable text**. The panel shows it and the operator ticks *"I ratify this exact
+boundary."* There is no field that can change it.
+
+A caller that still sends `domainBoundary` is **refused, not ignored**: silently discarding
+it would let an operator believe they had amended the boundary. A different boundary is
+reachable only by amending the domain declaration — a separate constitutional act with its
+own record.
+
+### 9.5 The assignment receipt
+
+A real assignment now writes a receipt carrying all eight facts: invariant, crystal domain,
+**prior domains** (read *before* the upsert — unanswerable afterwards), the eligibility
+decision, the steward as `personaPublicRef`, the timestamp, the rationale (now **required**
+for a write; a dry run needs none), and the `declarationHash`.
+
+**Which mechanism this relies on, stated plainly** — as the ruling asked. It rides the
+**existing `research_lifecycle_transition` receipt** via `writeLifecycleReceipt`, already in
+`ANCHORABLE_ACTION_TYPES` and already passing the SQL CHECK constraint. **No new
+`ActivityActionType`, no migration.** The trade-off, named rather than hidden: the eight
+facts live in the receipt's `summary` text, so they are auditable by reading and not
+queryable by field. If a typed assignment receipt is wanted later, that is one action-type
+addition plus a CHECK-constraint migration — the facts recorded now are already the right
+ones.
+
+A receipt failure **never rolls back an admission** and is never silent: `receiptWritten:
+false` plus a `[CRYSTAL ASSIGNMENT]` error log plus a warning on the response. Re-running the
+same assignment is idempotent (the context upsert conflicts on `invariant_id, domain`) and
+re-attempts the receipt.
+
+### 9.6 Every fail-closed policy preserved
+
+| Policy | Still in force |
+|---|---|
+| `dryRun` defaults **true** | yes — and the panel's Admit button is disabled until a dry run has been seen |
+| `confirm: true` on freeze | yes |
+| UUID-shaped signatory refused | yes |
+| Staleness guard names both hashes, substitutes neither | yes — and the panel posts the hash it was shown |
+| Freeze never self-executes | yes — provision and freeze are separate explicit acts |
+| Eligibility never widened | yes — plus a remedy that says so in words |
+
+---
+
+## 10. Still open
+
+1. **Publication / canonicalisation** — out of scope by ruling (§7.2).
+2. **`unclassifiedPromoted` is scoped to the acquisition domain**, not to a global
+   classification queue. It is a convenience signal and fails soft to `unknown`; it is not
+   the authority for any gate.
+3. **Corpus Scout and Discovery keep their own surfaces.** The programme names and links them
+   rather than embedding them. If the operator wants those two stages inline, that is a
+   deliberate second decision — embedding them would put a second copy of a review workflow
+   in a panel whose job is to route.

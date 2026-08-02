@@ -46,6 +46,7 @@ import CanonicalPlatesTab from "./CanonicalPlatesTab";
 import InvariantDiscoveryTab from "./InvariantDiscoveryTab";
 import QubeTalkInboxTab from "./QubeTalkInboxTab";
 import IndependentReviewPanel from "./IndependentReviewPanel";
+import { Track2ProgrammePanel } from "@/components/research/Track2ProgrammePanel";
 
 /** Known tab ids plus dynamic `reg:<EXPERIMENT_ID>` entries from the registry
  *  completeness guard (any registered experiment not hand-mounted below is
@@ -133,6 +134,13 @@ export const SECTIONS: { title: string; items: LabEntry[] }[] = [
       // inputs. No experiment id — admin-only via the section filter, like the
       // other cross-cutting lab capabilities.
       { id: "independent-review", label: "Independent Review", icon: ShieldCheck, blurb: "IRL-REVIEW-001 · submit an experiment asset for independent single or dual adjudication — frozen blinded package, distinct model lineages, contested queue, review receipt. Review is evidence, never ratification." },
+      // The guided Track 2 workflow sits beside the experiment it constitutes,
+      // for the same reason Independent Review does: whoever is preparing
+      // EXP-P1 should not have to leave it to run the acquisition programme.
+      // The panel ROUTES to the existing capabilities — it re-implements none
+      // of them — and is mounted here rather than existing unreachably, which
+      // would make the whole workflow an inert mechanism.
+      { id: "track2", label: "Track 2 Programme", icon: ShieldCheck, blurb: "Corpus acquisition → frozen crystal, in eleven stages. Each stage routes to the capability that already implements it; the guided controls here are the ones that had no front end — crystal assignment, artifact provisioning and the freeze act. Readiness remedies say what fixes each failing check." },
     ],
   },
   {
@@ -472,6 +480,7 @@ export default function InvariantExperimentLab({ density }: { density?: "narrow"
         {tab === "discovery" && <InvariantDiscoveryTab />}
         {tab === "qubetalk" && <QubeTalkInboxTab researchOnly />}
         {tab === "independent-review" && <IndependentReviewPanel />}
+        {tab === "track2" && <Track2ProgrammePanel experimentId="EXP-P1" />}
       </div>
     </div>
   );

@@ -49,6 +49,7 @@ import {
   evaluateFreezeExecutionPreconditions,
 } from '@/services/research/crystalFreezeCeremony';
 import { composeCrystalFreezeRecommendation } from '@/services/research/crystalFreezeRecommendation';
+import { buildTrack2Programme } from '@/services/research/track2Programme';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
 import { runCrystalStatisticsReport } from '@/services/research/crystalStatistics';
 import type { InvariantEdgeRecord, InvariantRecord, InvariantSemanticType } from '@/types/invariants';
@@ -515,5 +516,209 @@ describe('the rehearsal never touches the governed domain', () => {
     const src = readFileSync(join(__dirname, 'crystal-freeze-rehearsal.test.ts'), 'utf8');
     expect(src).toMatch(/They are NOT invariants/);
     expect(src).toMatch(/fabricate scientific evidence/i);
+  });
+});
+
+// ── 7. Readiness remedies — a failing check must say what fixes it ──────────
+
+describe('rehearsal — every failing check says what fixes it', () => {
+  /*
+   * Operator ruling, 2026-08-02: "CLEAR READINESS REMEDIES — a failing check
+   * should say what fixes it, in the same register as the lifecycle ladders."
+   *
+   * `detail` states a MEASUREMENT. A reader who does not already know the
+   * substrate cannot get from "3/14 carry zero intra-crystal relationships" to
+   * an action — and the actions differ per check BY KIND. A whole session went
+   * into debugging an absence for exactly this reason.
+   */
+  it('a passing check carries no remedy; a failing one always does', async () => {
+    mountCrystal();
+    const green = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    for (const c of green.checks) {
+      expect(c.passed, c.name).toBe(true);
+      expect(c.remedy, `${c.name} passed — a remedy for a satisfied condition is noise`).toBeNull();
+    }
+
+    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0, provenance: { source: 'sandbox' } })]);
+    const red = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const failing = red.checks.filter((c) => !c.passed);
+    expect(failing.length).toBeGreaterThan(0);
+    for (const c of failing) {
+      expect(c.remedy, `${c.name} failed with no remedy`).toBeTruthy();
+      expect(c.remedy!.length, `${c.name}'s remedy must be an instruction, not a word`).toBeGreaterThan(40);
+    }
+  });
+
+  it('the remedies name the real routes, so the operator is never left to guess one', async () => {
+    mountCrystal(CRYSTAL, []);
+    const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const orphan = report.checks.find((c) => c.name === 'orphan-detection')!;
+    expect(orphan.passed).toBe(false);
+    expect(orphan.remedy).toContain('/api/invariants/<id>/edges');
+    // And it says why the orphans are there, so this does not read as a defect.
+    expect(orphan.remedy).toMatch(/expected work, not a\s+defect/i);
+
+    mountCrystal([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    const zeroVal = (await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN }))
+      .checks.find((c) => c.name === 'lifecycle-validation-integrity')!;
+    expect(zeroVal.remedy).toContain('/api/invariants/<id>/advance');
+  });
+
+  it('no remedy ever tells the operator to widen eligibility or invent structure', async () => {
+    mountCrystal([...CRYSTAL.slice(0, 12), row(12, { provenance: { source: 's' } }), row(13, { provenance: { provenanceClass: 'platform-derived' } })]);
+    const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const provenance = report.checks.find((c) => c.name === 'provenance-eligibility')!;
+    expect(provenance.passed).toBe(false);
+    expect(provenance.remedy).toMatch(/NEVER widen\s+eligibility/i);
+
+    mountCrystal(CRYSTAL, []);
+    const sparse = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    expect(sparse.checks.find((c) => c.name === 'relationship-density')!.remedy).toMatch(
+      /annotation, never invention/i,
+    );
+    expect(sparse.checks.find((c) => c.name === 'graph-connectivity')!.remedy).toMatch(
+      /do not bridge it with an invented edge/i,
+    );
+  });
+
+  it('an EMPTY domain is told nothing has failed — the ladder’s register, not a verdict', async () => {
+    mountCrystal([], []);
+    const report = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const remedies = report.checks.map((c) => c.remedy).filter((r): r is string => Boolean(r));
+    expect(remedies.length).toBe(report.checks.length);
+    for (const r of remedies) {
+      expect(r).toMatch(/Nothing here has failed|Track 2/);
+      // The words that made an absence read as a defect must not appear.
+      expect(r.replace(/Nothing here has failed/g, '')).not.toMatch(/\bnot ready\b/i);
+    }
+  });
+});
+
+// ── 8. The guided Track 2 programme is a projection, never a state machine ──
+
+describe('rehearsal — the Track 2 programme reads the substrate, it does not own it', () => {
+  async function programmeOver(
+    invariants = CRYSTAL,
+    edges = EDGES,
+    overrides: Partial<Parameters<typeof buildTrack2Programme>[0]['signals']> = {},
+  ) {
+    mountCrystal(invariants, edges);
+    const readiness = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const lifecycle = crystalLifecycleStage({
+      domainRatified: true,
+      invariantCount: readiness.invariantCount,
+      readinessOk: readiness.ok,
+    });
+    return buildTrack2Programme({
+      experimentId: 'SANDBOX',
+      crystalDomain: SANDBOX_DOMAIN,
+      signals: {
+        candidateSources: { total: 4, pendingReview: 0, admitted: 4 },
+        discoveryCandidates: { total: 20, awaitingReview: 0, promoted: 14 },
+        unclassifiedPromoted: 0,
+        readiness,
+        lifecycle,
+        artifact: null,
+        independentReviewRequestOpen: readiness.ok,
+        ...overrides,
+      },
+    });
+  }
+
+  it('has all eleven stages, in order, each naming an existing capability', async () => {
+    const p = await programmeOver();
+    expect(p.stages.map((s) => s.id)).toEqual([
+      'discover-sources',
+      'review-and-admit',
+      'extract-candidates',
+      'review-and-promote',
+      'classify-provenance',
+      'validate',
+      'add-relationships',
+      'assign-to-crystal',
+      'run-readiness',
+      'prepare-independent-review',
+      'freeze',
+    ]);
+    expect(p.stages.map((s) => s.ordinal)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    for (const s of p.stages) {
+      expect(s.capability, `${s.id} must route to something that exists`).toMatch(
+        /\/api\/|crystalReviewStageStatus|addEdge|freezeArtifact/,
+      );
+    }
+  });
+
+  it('carries the readiness engine’s own remedies verbatim — never a second wording', async () => {
+    const p = await programmeOver(CRYSTAL, []);
+    mountCrystal(CRYSTAL, []);
+    const readiness = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
+    const orphanRemedy = readiness.checks.find((c) => c.name === 'orphan-detection')!.remedy!;
+    const stage = p.stages.find((s) => s.id === 'add-relationships')!;
+    expect(stage.status).toBe('in-progress');
+    expect(stage.remedies.join(' ')).toContain(orphanRemedy);
+  });
+
+  it('an UNREADABLE upstream signal is `unknown` — never complete, never blocked', async () => {
+    const p = await programmeOver(CRYSTAL, EDGES, {
+      candidateSources: null,
+      discoveryCandidates: null,
+      unclassifiedPromoted: null,
+    });
+    for (const id of ['discover-sources', 'review-and-admit', 'extract-candidates', 'review-and-promote']) {
+      const s = p.stages.find((x) => x.id === id)!;
+      expect(s.status, `${id} must not be guessed`).toBe('unknown');
+      expect(s.detail).toMatch(/unread|unknown/i);
+    }
+  });
+
+  it('a freeze is never offered before the crystal is ready for one', async () => {
+    const notReady = await programmeOver([...CRYSTAL.slice(0, 13), row(13, { timesValidated: 0 })]);
+    const freeze = notReady.stages.find((s) => s.id === 'freeze')!;
+    expect(freeze.status).toBe('not-started');
+    expect(freeze.remedies.join(' ')).toMatch(/not the next act at this stage/i);
+    // And the independent review is not opened over a failing crystal.
+    expect(notReady.stages.find((s) => s.id === 'prepare-independent-review')!.status).toBe('blocked');
+  });
+
+  it('a ready crystal with no artifact blocks at freeze, and says to provision', async () => {
+    const p = await programmeOver();
+    const freeze = p.stages.find((s) => s.id === 'freeze')!;
+    expect(freeze.status).toBe('blocked');
+    expect(freeze.remedies.join(' ')).toMatch(/provision/i);
+    // The independent review opens BEFORE the freeze — so a ready crystal sits
+    // at stage 10, not 11. Getting this wrong in the test was the same class of
+    // error as offering a freeze while review work is outstanding.
+    expect(p.currentStageId).toBe('prepare-independent-review');
+  });
+
+  it('a frozen artifact completes the programme', async () => {
+    const p = await programmeOver(CRYSTAL, EDGES, {
+      artifact: { id: 'SANDBOX/crystal-rehearsal', lifecycle: 'frozen' },
+    });
+    expect(p.stages.find((s) => s.id === 'freeze')!.status).toBe('complete');
+  });
+
+  it('an empty crystal puts the programme at assignment, not at freeze', async () => {
+    const p = await programmeOver([], []);
+    expect(p.stages.find((s) => s.id === 'assign-to-crystal')!.status).toBe('not-started');
+    expect(['classify-provenance', 'validate', 'add-relationships', 'assign-to-crystal']).toContain(
+      p.currentStageId,
+    );
+  });
+
+  it('stores nothing — the module holds no writer and says so', () => {
+    const src = readFileSync(
+      join(__dirname, '..', 'services', 'research', 'track2Programme.ts'),
+      'utf8',
+    );
+    for (const writer of ['supabase', '.insert(', '.update(', '.upsert(', '.delete(']) {
+      expect(src, `track2Programme.ts must be pure — found ${writer}`).not.toContain(writer);
+    }
+    // Pure means no I/O at all: no async, so no signal can be fetched here
+    // instead of being passed in by the composing route.
+    expect(src, 'the builder must not be async — signals are supplied, never fetched').not.toMatch(
+      /export\s+async\s+function\s+buildTrack2Programme/,
+    );
+    expect(src).toMatch(/PROJECTION/);
   });
 });
