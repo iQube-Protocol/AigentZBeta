@@ -176,7 +176,9 @@ The author reported the constitutional editorial master as "complete and verifie
 > contain the complete verbatim 24-chapter prose assembled into one continuous file; that is the
 > next production artifact, using this master as its controlling specification.
 
-**Note on the Editorial Master file:** the author referenced downloadable "Editorial Master DOCX"
-and "Editorial Master Markdown" artifacts. Those files were **not** delivered into this session —
-only the lock-list summary above was. The DOCX/Markdown editorial master should be ingested into
-`00 Project Governance → Editorial Master` when provided.
+**Editorial Master — delivered and ingested (2026-08-02):** the full Editorial Master v0.1 text
+was delivered and is now captured at `00-editorial-master.md` (Polity Core → Constitutional
+Internet → 00 Project Governance → Editorial Master). It is the controlling specification for the
+consolidation and evidentiary pass; this register operationalises its correction/integration rules.
+The author-referenced DOCX/Markdown export was not delivered as a binary file, but the master's
+complete textual content is captured in `00-editorial-master.md`.
