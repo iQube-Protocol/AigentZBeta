@@ -203,6 +203,33 @@ frontend:
         - du -sb .next/standalone/node_modules 2>/dev/null || true
         - echo "Pruning non-runtime dependency documentation from standalone artifact..."
         - find .next/standalone/node_modules -type f \( -iname 'README' -o -iname 'README.md' -o -iname 'README.txt' -o -iname 'CHANGELOG' -o -iname 'CHANGELOG.md' -o -iname 'HISTORY.md' \) -delete 2>/dev/null || true
+        # TYPE DECLARATIONS AND SOURCE MAPS — the same modclean-safe class, and
+        # the one that is actually large (2026-08-02).
+        #
+        # WHY THIS ESCALATED FROM THE DOC PRUNE ALONE. The build at c2c8b3b2d
+        # PASSED. The very next build, 38106e519, FAILED at 230,839,420 — and
+        # the entire diff between them was `.amplify-deploy` (a timestamp) and
+        # `amplify.yml` (a change that only DELETES files). No application code,
+        # no dependency change, artifact ~153 KB LARGER.
+        #
+        # The artifact size is therefore NOT deterministic between builds. The
+        # failures alone span 230,784,106 → 230,869,128 (~85 KB), with at least
+        # one pass below the cap — over 180 KB of run-to-run variance at
+        # identical source. Sitting 97 KB under the ceiling is not "nearly
+        # fixed", it is a coin flip. Chasing the last 97 KB is chasing noise.
+        #
+        # `.d.ts` / `.d.mts` / `.d.cts` are TypeScript declarations: consumed by
+        # the compiler at BUILD time, never resolved by Node at runtime.
+        # `.map` files are debugger sidecars, loaded only when a devtools
+        # session asks for them. Neither is application code, a package
+        # manifest, a licence, or a native binary — and both are large across a
+        # ~89 MB node_modules. This is the headroom, not another 97 KB.
+        - echo "Pruning type declarations + source maps (build-time only, never require()d)..."
+        - find .next/standalone/node_modules -type f \( -name "*.d.ts" -o -name "*.d.mts" -o -name "*.d.cts" -o -name "*.map" \) -delete 2>/dev/null || true
+        # Remaining documentation of the same class as the six above. Kept as a
+        # separate line so the doc prune Al specified stays legible as its own
+        # act. LICENSE / COPYING / NOTICE remain unmatched throughout.
+        - find .next/standalone/node_modules -type f \( -iname 'CHANGES.md' -o -iname 'HISTORY' -o -iname 'CHANGELOG.txt' -o -iname 'CONTRIBUTING.md' -o -iname 'SECURITY.md' -o -iname 'CODE_OF_CONDUCT.md' -o -iname 'AUTHORS' -o -iname 'AUTHORS.md' \) -delete 2>/dev/null || true
         - echo "=== standalone node_modules AFTER dependency-doc prune (bytes) ==="
         - du -sb .next/standalone/node_modules 2>/dev/null || true
         # Pack MARKDOWN bodies: the reliable removal. Dropping the next.config
