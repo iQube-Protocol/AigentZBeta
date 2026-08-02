@@ -636,3 +636,64 @@ describe('the ladder reads live sources and keeps itself current', () => {
     expect(panel).toMatch(/broadcastPending: flowStepRef\.current === 'polling'/);
   });
 });
+
+describe('a mandate is never spent on a failure that is not the operator\'s', () => {
+  /*
+   * ── The defect this closes (operator, 2026-08-02) ────────────────────────
+   *
+   *   > "Approve invocation of custodied key has NEVER shown and it has never
+   *   >  gotten to this stage … after signing it just gives [a refusal] and
+   *   >  then when the wallet is closed it goes back to Principal wallet ready
+   *   >  to sign being the only green stage."
+   *
+   * `approvePrincipalRegistrationMandate` marked the mandate `approved` FIRST
+   * and called `prepareAgentRegistration` — which fetches the Agent Card,
+   * resolves the agent's custodied wallet, and calls Horizen's MCP
+   * `build_registration_tx` — AFTER. Any failure there left the operator's
+   * signed mandate CONSUMED and no invocation request created. Every attempt
+   * destroyed a mandate and produced nothing; the ladder fell back to "no
+   * mandate waiting", and the only remedy on offer was to prepare a fresh one
+   * and lose it the same way.
+   *
+   * The signature is verified before any of this and is not in doubt. What
+   * follows can fail for reasons that have nothing to do with the operator's
+   * authority — an unreachable MCP server, an unconfigured agent key, a card
+   * mismatch. A mandate must not be spent on someone else's outage.
+   */
+  const src = stripComments(readSource('services/horizen/registerCeremony.ts'));
+  const fn = src.slice(
+    src.indexOf('export async function approvePrincipalRegistrationMandate'),
+    src.indexOf('export async function approveAgentRegistryInvocation'),
+  );
+
+  it('builds the transaction BEFORE the mandate is marked approved', () => {
+    const prepareAt = fn.indexOf('prepareAgentRegistration(');
+    const consumeAt = fn.indexOf("status: 'approved'");
+    expect(prepareAt, 'prepareAgentRegistration is called').toBeGreaterThan(-1);
+    expect(consumeAt, 'the mandate is marked approved').toBeGreaterThan(-1);
+    expect(prepareAt, 'the mandate is consumed before the step that can fail').toBeLessThan(consumeAt);
+  });
+
+  it('resolves the agent before consuming too', () => {
+    const resolveAt = fn.indexOf('resolveRegistrableAgentByRuntimeId(');
+    const consumeAt = fn.indexOf("status: 'approved'");
+    expect(resolveAt).toBeGreaterThan(-1);
+    expect(resolveAt).toBeLessThan(consumeAt);
+  });
+
+  it('every pre-consumption refusal says the mandate survives and is retryable', () => {
+    // Without this the operator cannot tell a spent mandate from a live one,
+    // and re-prepares needlessly — which is what burned six of them.
+    const upToConsume = fn.slice(0, fn.indexOf("status: 'approved'"));
+    const refusals = [...upToConsume.matchAll(/refusalCode: '(UNKNOWN_AGENT|PREPARE_FAILED)'/g)];
+    expect(refusals.length, 'both post-signature refusals are present').toBe(2);
+    expect(upToConsume.match(/UNCHANGED and still signable/g)?.length).toBe(2);
+  });
+
+  it('PREPARE_FAILED names where the failure actually is', () => {
+    // It is the first contact with Horizen. Saying so stops it reading as a
+    // problem with the operator's signature.
+    expect(fn).toMatch(/first contacts Horizen/);
+    expect(fn).toMatch(/unrelated to your signature/);
+  });
+});

@@ -334,6 +334,58 @@ export async function approvePrincipalRegistrationMandate(
     };
   }
 
+  /*
+   * ── ORDER: EVERY FALLIBLE STEP BEFORE THE MANDATE IS CONSUMED ────────────
+   *
+   * THE DEFECT THIS CLOSES (operator, 2026-08-02): "Approve invocation of
+   * custodied key has NEVER shown and it has never gotten to this stage …
+   * after signing it just gives [a refusal] and then when the wallet is closed
+   * it goes back to Principal wallet ready to sign being the only green
+   * stage."
+   *
+   * The mandate was marked `approved` FIRST, and `prepareAgentRegistration` —
+   * which fetches the Agent Card, resolves the agent's custodied wallet, and
+   * calls Horizen's MCP `build_registration_tx` — ran AFTER. So any failure in
+   * that call left the operator's signed mandate CONSUMED and no invocation
+   * request created. Every attempt destroyed a mandate and produced nothing,
+   * and the only remedy was to prepare a fresh one and lose it the same way.
+   *
+   * The signature is verified above and is not in doubt. What follows can fail
+   * for reasons that have nothing to do with the operator's authority — an
+   * unreachable MCP server, an unconfigured agent key, a card mismatch. A
+   * mandate must not be spent on someone else's outage.
+   *
+   * So: resolve the agent and build the transaction FIRST. Only when the
+   * invocation is actually creatable does the mandate flip to `approved`. A
+   * refusal here leaves it PENDING and re-signable — the operator retries
+   * without re-preparing, and their signature was not wasted.
+   */
+  const agent = resolveRegistrableAgentByRuntimeId(request.subjectAgentRef);
+  if (!agent) {
+    return {
+      ok: false,
+      refusalCode: 'UNKNOWN_AGENT',
+      detail:
+        `subject agent "${request.subjectAgentRef}" no longer resolves. ` +
+        'Your mandate is UNCHANGED and still signable — nothing was consumed.',
+    };
+  }
+  // The unsigned tx is built HERE, only once the principal has authorized
+  // the act — never earlier. Horizen's own MCP tools/network are consulted
+  // now, not at prepareRegistrationMandate time.
+  const prepared = await prepareAgentRegistration({ agentSlug: agent.slug, agentCardBase: deps.agentCardBase }, deps);
+  if (!prepared.ok) {
+    return {
+      ok: false,
+      refusalCode: 'PREPARE_FAILED',
+      detail:
+        `${prepared.detail} — this is the step that first contacts Horizen, and it failed for a reason ` +
+        'unrelated to your signature. Your mandate is UNCHANGED and still signable: retry without ' +
+        'preparing a fresh one.',
+    };
+  }
+
+  // Past every fallible step. NOW the mandate is spent.
   await update(request.id, { status: 'approved', signature: input.signature, signerAddress: recovered });
 
   const record = deps.recordReceipt ?? defaultRecordReceipt;
@@ -344,18 +396,6 @@ export async function approvePrincipalRegistrationMandate(
     agentsInvoked: request.subjectAgentRef ? [request.subjectAgentRef] : [],
     actionInput: { requestId: request.id, signerAddress: recovered },
   });
-
-  // The unsigned tx is built HERE, only once the principal has authorized
-  // the act — never earlier. Horizen's own MCP tools/network are consulted
-  // now, not at prepareRegistrationMandate time.
-  const agent = resolveRegistrableAgentByRuntimeId(request.subjectAgentRef);
-  if (!agent) {
-    return { ok: false, refusalCode: 'UNKNOWN_AGENT', detail: `subject agent "${request.subjectAgentRef}" no longer resolves` };
-  }
-  const prepared = await prepareAgentRegistration({ agentSlug: agent.slug, agentCardBase: deps.agentCardBase }, deps);
-  if (!prepared.ok) {
-    return { ok: false, refusalCode: 'PREPARE_FAILED', detail: prepared.detail };
-  }
 
   const agentNonce = generateSigningNonce(agent.runtimeAgentId, 'sign_registry_transaction');
   const agentConsequence =
