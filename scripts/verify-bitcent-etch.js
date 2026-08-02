@@ -58,7 +58,18 @@ function flawNames(mask) {
 async function main() {
   const etch = record.etchBroadcast;
   if (!etch?.txid) {
-    console.error('Refusing: the issuance record carries no etchBroadcast.txid — nothing to verify.');
+    // A missing txid is far more often a STALE LOCAL RECORD than a genuine
+    // "we never broadcast": the operator's clone tracks Kn0w-1, not the
+    // canonical repo, so a partial `git checkout iqp/dev -- <script>` brings
+    // the script without the record it reads. Naming the fix beats naming the
+    // symptom — this refusal cost a round trip the first time it fired.
+    console.error('Refusing: scripts/bitcent-issuance-record.json carries no etchBroadcast.txid.');
+    console.error(
+      '\nIf your copy of the record is older than the etch, refresh it from the canonical repo:\n' +
+        '  git fetch iqp dev && git checkout iqp/dev -- scripts/bitcent-issuance-record.json\n' +
+        '\nIf the record is current, then no etch has been broadcast for this name and there is\n' +
+        'nothing on chain to verify — which is a different fact, and not a defect.',
+    );
     process.exitCode = 1;
     return;
   }
