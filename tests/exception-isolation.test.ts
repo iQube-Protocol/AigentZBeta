@@ -234,8 +234,8 @@ describe('blocksFreeze is computed from the remaining crystal, never asserted pe
 
 describe('partial progress produces a durable, auditable authorization record', () => {
   const population = {
-    discovered: 47, admitted: 32, excludedWithWarnings: 4,
-    manualExceptions: 7, refused: 4, assignedToCrystal: 26,
+    discovered: 47, admitted: 32, candidatesExtracted: 68, validated: 54,
+    assignedToCrystal: 26, excludedWithWarnings: 4, exceptions: 7, refused: 4,
   };
 
   it('the cohort hash commits to the SET, independent of order', () => {
@@ -287,7 +287,8 @@ describe('partial progress produces a durable, auditable authorization record', 
 
   it('renderPopulationDisclosure states every line the operator specified', () => {
     expect(renderPopulationDisclosure(population)).toBe(
-      'Discovered: 47 / Admitted: 32 / Excluded with warnings: 4 / Manual exceptions: 7 / Refused: 4 / Assigned to crystal: 26',
+      'Discovered: 47 / Admitted: 32 / Candidates extracted: 68 / Validated: 54 / ' +
+        'Assigned to crystal: 26 / Excluded with warnings: 4 / Exceptions: 7 / Refused: 4',
     );
   });
 });
@@ -444,8 +445,8 @@ describe('END-TO-END — one bad source, one invalid candidate, one unresolved e
       exceptions: computed,
       acceptedWarnings: [{ recordId: good.sourceId, warnings: good.warnings }],
       population: {
-        discovered: 47, admitted: 32, excludedWithWarnings: 4,
-        manualExceptions: 7, refused: 4, assignedToCrystal: 26,
+        discovered: 47, admitted: 32, candidatesExtracted: 68, validated: 54,
+        assignedToCrystal: 26, excludedWithWarnings: 4, exceptions: 7, refused: 4,
       },
       personaId: 'steward-persona',
       rationale: 'Eligible cohort advanced; three anomalies quarantined and disclosed.',
