@@ -83,7 +83,7 @@ function nakamotoPlatformState(overrides: Partial<AuthoritativePlatformState['st
         agentRegistryBindingRecorded: false,
       },
       verify: { pulseAuthorizationVerified: false, pnlTransparencyEnabled: false, agentCardEnrichmentCommitted: false },
-      claim: { controlProofFresh: false, marketaFinalRecommendation: false },
+      claim: { controlProofFresh: false },
       passport: { operatorPolityCitizenPassportValid: false, sponsorBinding: false, delegatePassportIssued: false },
       delegate: {},
       activate: {},

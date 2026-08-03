@@ -112,28 +112,48 @@ beforeEach(() => {
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });
 });
 
-describe('GET — current assessment lookup', () => {
+describe('GET — observed control state (never a Marketa assessment)', () => {
   it('401s when unauthenticated', async () => {
     mockGetActivePersona.mockResolvedValue(null);
     const res = await GET(makeRequest());
     expect(res.status).toBe(401);
   });
 
-  it('returns null when no assessment exists yet', async () => {
-    mockGetCurrentAssessment.mockResolvedValue(null);
+  it('reports controlProven false when no proof exists for this agent', async () => {
+    mockListActivityReceiptsForPersona.mockResolvedValue([]);
     const res = await GET(makeRequest());
     const json = await res.json();
-    expect(json).toEqual({ ok: true, assessment: null });
+    expect(json).toMatchObject({ ok: true, controlProven: false, controlProofReceiptId: null });
   });
 
-  it('returns the current assessment, trimmed to the view shape', async () => {
-    mockGetCurrentAssessment.mockResolvedValue({
-      assessmentId: 'a1', decision: 'RECOMMENDED', mode: 'FINAL', rationale: 'all satisfied',
-      satisfiedRules: ['MKT-ADM-001'], missingRules: [], failedRules: [],
-    });
+  /*
+   * THE OBSERVATION THAT ENDS THE ACT (operator, 2026-08-03: "The 'Prove
+   * wallet control' button must disappear once the existing proof is
+   * observed"). This route previously returned Marketa's assessment, so the
+   * surface had no way to learn control was already proven and offered the
+   * signing act forever.
+   */
+  it('reports an existing fresh proof, so the surface can stop offering the act', async () => {
+    mockListActivityReceiptsForPersona.mockResolvedValue([
+      {
+        id: 'receipt-existing-control',
+        createdAt: new Date(Date.now() - 60_000).toISOString(),
+        actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xController' },
+      },
+    ]);
     const res = await GET(makeRequest());
     const json = await res.json();
-    expect(json.assessment.decision).toBe('RECOMMENDED');
+    expect(json.controlProven).toBe(true);
+    expect(json.controlProofFresh).toBe(true);
+    expect(json.controlProofReceiptId).toBe('receipt-existing-control');
+    expect(json.signerWallet).toBe('0xController');
+  });
+
+  it('never returns a Marketa assessment — Claim has no Marketa dependency', async () => {
+    mockListActivityReceiptsForPersona.mockResolvedValue([]);
+    const res = await GET(makeRequest());
+    const json = await res.json();
+    expect(json).not.toHaveProperty('assessment');
   });
 });
 
@@ -209,45 +229,33 @@ describe('POST — refusals', () => {
 });
 
 describe('POST — success', () => {
-  it('proves control, records the receipt, then runs the FINAL Marketa assessment', async () => {
+  it('proves control and records the receipt — and runs no Marketa assessment', async () => {
     registryAssetsRow = VERIFIED_BOUND_ROW;
     mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
     mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xController', payloadHash: 'hash', signedAt: '2026-07-31T12:00:00.000Z' } });
-    mockRunMarketaAssessment.mockResolvedValue({
-      ok: true,
-      record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'all satisfied', satisfiedRules: ['MKT-ADM-001'], missingRules: [], failedRules: [] },
-    });
 
     const res = await POST(makeRequest());
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(json.assessment.decision).toBe('RECOMMENDED');
+    expect(json.controlProven).toBe(true);
+    expect(json.resumedFromExistingProof).toBe(false);
 
     const receiptCall = mockCreateActivityReceipt.mock.calls[0][0];
     expect(receiptCall.actionType).toBe('agent_control_proven');
     expect(receiptCall.personaId).toBe('persona-operator-1');
     expect(receiptCall.actionInput.signerWallet).toBe('0xController');
 
-    const assessArgs = mockRunMarketaAssessment.mock.calls[0][0];
-    expect(assessArgs.mode).toBe('FINAL');
-    expect(assessArgs.actorPersonaId).toBe('persona-operator-1');
-    expect(assessArgs.agentCardUrl).toBe('https://dev-beta.aigentz.me/api/agents/moneypenny/agent-card.json');
-  });
-
-  it('reports control proven even if the Marketa assessment itself fails to run', async () => {
-    registryAssetsRow = VERIFIED_BOUND_ROW;
-    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
-    mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xController', payloadHash: 'hash', signedAt: '2026-07-31T12:00:00.000Z' } });
-    mockRunMarketaAssessment.mockResolvedValue({ ok: false, refusalCode: 'AIGENTQUBE_NOT_FOUND', detail: 'gone' });
-
-    const res = await POST(makeRequest());
-    const json = await res.json();
-    expect(res.status).toBe(200);
-    expect(json.ok).toBe(true);
-    expect(json.assessmentRefusalCode).toBe('AIGENTQUBE_NOT_FOUND');
-    expect(json.controlProofReceiptId).toBe('receipt-agent_control_proven');
+    /*
+     * CLAIM = REGISTRATION + CONTROL PROOF, AND NOTHING ELSE (operator ruling
+     * 2026-08-03). Marketa is a post-aigentMe financial-services enrichment;
+     * running it here made an optional enrichment part of a constitutional
+     * act, so a missing assessments table read as a Claim failure.
+     */
+    expect(mockRunMarketaAssessment, 'Claim must not run a Marketa assessment').not.toHaveBeenCalled();
+    expect(json).not.toHaveProperty('assessment');
+    expect(json).not.toHaveProperty('assessmentRefusalCode');
   });
 });
 
@@ -269,10 +277,6 @@ describe('POST — resume from settled state, never re-sign (2026-08-03)', () =>
         actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xController' },
       },
     ]);
-    mockRunMarketaAssessment.mockResolvedValue({
-      ok: true,
-      record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
-    });
 
     const res = await POST(makeRequest());
     const json = await res.json();
@@ -280,12 +284,10 @@ describe('POST — resume from settled state, never re-sign (2026-08-03)', () =>
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(json.controlProofReceiptId).toBe('receipt-existing-control');
+    expect(json.resumedFromExistingProof).toBe(true);
     expect(mockGetAgentAddresses, 'no need to resolve a signer wallet when reusing an existing proof').not.toHaveBeenCalled();
     expect(mockSignPartnerAuthorization).not.toHaveBeenCalled();
     expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
-
-    const assessArgs = mockRunMarketaAssessment.mock.calls[0][0];
-    expect(assessArgs.runtimeAgentId).toBe('aigent-moneypenny');
   });
 
   it('signs a fresh proof when the existing receipt is stale (older than the freshness window)', async () => {
@@ -299,7 +301,6 @@ describe('POST — resume from settled state, never re-sign (2026-08-03)', () =>
         actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xController' },
       },
     ]);
-    mockRunMarketaAssessment.mockResolvedValue({ ok: true, record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] } });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
@@ -318,7 +319,6 @@ describe('POST — resume from settled state, never re-sign (2026-08-03)', () =>
         actionInput: { aigentQubeId: 'aigentqube-someone-else', signerWallet: '0xController' },
       },
     ]);
-    mockRunMarketaAssessment.mockResolvedValue({ ok: true, record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] } });
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);
@@ -345,18 +345,12 @@ describe('POST — the agent is honored, and a stuck registry_assets write does 
     };
     mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xNakamotoWallet' });
     mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xNakamotoWallet', payloadHash: 'hash', signedAt: '2026-08-03T00:00:00.000Z' } });
-    mockRunMarketaAssessment.mockResolvedValue({
-      ok: true,
-      record: { assessmentId: 'a2', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
-    });
 
     const res = await POST(makeRequestWithBody({ agentSlug: 'nakamoto' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
     expect(mockGetAgentAddresses).toHaveBeenCalledWith('aigent-nakamoto');
-    const assessArgs = mockRunMarketaAssessment.mock.calls[0][0];
-    expect(assessArgs.agentCardUrl).toBe('https://dev-beta.aigentz.me/api/agents/nakamoto/agent-card.json');
   });
 
   it('falls back to the confirmation receipt when the registry_assets binding write never landed', async () => {
@@ -389,16 +383,12 @@ describe('POST — the agent is honored, and a stuck registry_assets write does 
 
     mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xNakamotoWallet' });
     mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xNakamotoWallet', payloadHash: 'hash', signedAt: '2026-08-03T00:00:00.000Z' } });
-    mockRunMarketaAssessment.mockResolvedValue({
-      ok: true,
-      record: { assessmentId: 'a3', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
-    });
 
     const res = await POST(makeRequestWithBody({ agentSlug: 'nakamoto' }));
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
-    expect(json.assessment.decision).toBe('RECOMMENDED');
+    expect(json.controlProven).toBe(true);
     // The control-proof receipt itself must carry the RECOVERED tokenId, not a blank.
     const receiptCall = mockCreateActivityReceipt.mock.calls[0][0];
     expect(receiptCall.actionInput.tokenId).toBe('8798');

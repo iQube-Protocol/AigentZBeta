@@ -265,12 +265,31 @@ describe('an optional partner enrichment never immobilises personhood (2026-08-0
     for (const code of ['NO_PERSISTED_AIGENTQUBE', 'MISSING_TOKEN_ID', 'NO_CONTROLLER_WALLET']) {
       expect(claimSource, `${code} must still refuse`).toContain(code);
     }
-    // Control Before Recommendation: the assessment call is still downstream
-    // of a signature that recovered to the registered controller.
-    const signAt = claimSource.indexOf('signPartnerAuthorization');
-    const assessAt = claimSource.indexOf('runMarketaAdmissionAssessment');
-    expect(signAt).toBeGreaterThan(-1);
-    expect(assessAt).toBeGreaterThan(signAt);
+    expect(claimSource.indexOf('signPartnerAuthorization')).toBeGreaterThan(-1);
+  });
+
+  /*
+   * RE-POINTED, NOT DELETED (2026-08-03; CANARY-REPRODUCES-DEFECT).
+   *
+   * This assertion used to encode "Control Before Recommendation" as an
+   * ORDERING — `runMarketaAdmissionAssessment` must appear after
+   * `signPartnerAuthorization`. That was the right guarantee while Marketa ran
+   * inside Claim. The operator has since ruled Marketa off the admission
+   * spine entirely:
+   *
+   *   > "Claim complete = registration established + wallet control proven"
+   *   > "Remove the Marketa call from the Claim execution path entirely."
+   *
+   * An ordering canary over a call that no longer exists cannot pass, and
+   * deleting it would drop the requirement. The surviving requirement is
+   * STRICTER than the one it replaces — not "assessment comes second" but
+   * "there is no assessment here at all" — so it is asserted as such.
+   */
+  it('Claim runs no Marketa assessment at all — stricter than ordering it correctly', () => {
+    expect(claimSource, 'Claim still calls Marketa').not.toMatch(/runMarketaAdmissionAssessment\s*\(/);
+    expect(claimSource, 'Claim still reads a Marketa assessment').not.toMatch(
+      /getCurrentMarketaAdmissionAssessment\s*\(/,
+    );
   });
 
   it('Pulse/P&L absence is reported as a non-blocking exception, never silently passed', () => {

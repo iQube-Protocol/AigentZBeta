@@ -85,7 +85,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       id: 'claim',
       label: 'Claim',
       milestone: 'CLAIMED',
-      description: 'Proof of wallet control precedes Marketa’s final eligibility recommendation — never the reverse.',
+      description: 'The controller wallet proves it holds the key, without revealing it.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -97,21 +97,33 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: ['register'],
       permittedActions: ['prove-wallet-control'],
-      completionEvidence: ['controlProofFresh', 'marketaFinalRecommendation'],
-      // GJR-MKT-001 Phase 5 (2026-07-31): marketa_eligibility_assessed fires
-      // on EVERY assessment (including non-RECOMMENDED outcomes); the other
-      // two fire only for their matching decision. All three ride alongside
-      // the two originally-listed types so the evidence chain is complete
-      // regardless of which way the assessment resolved.
-      receiptTypes: [
-        'agent_control_proven',
-        'marketa_eligibility_recommended',
-        'marketa_eligibility_assessed',
-        'marketa_eligibility_refused',
-        'marketa_eligibility_quarantined',
-      ],
+      /*
+       * ── CLAIM = REGISTRATION ESTABLISHED + WALLET CONTROL PROVEN ─────────
+       *
+       * Nothing else (operator ruling, 2026-08-03):
+       *
+       *   > "Claim is incorrectly still gated on Marketa. Remove that
+       *   >  requirement immediately... Financial-services enrichment,
+       *   >  including Marketa, Pulse and P&L, is non-blocking and occurs
+       *   >  after aigentMe."
+       *
+       * `marketaFinalRecommendation` was the second required signal here,
+       * so Claim rendered "1 of 2 recorded" against a real, observed control
+       * proof and Passport never unlocked. That is the SAME defect already
+       * corrected once on this stage — the prove-control route's
+       * `VERIFY_NOT_COMPLETE` gate — surviving in the stage CONTRACT after
+       * being removed from the route. Removing an unconstitutional
+       * prerequisite from the executor but leaving it in the definition
+       * leaves the requirement fully in force, because the definition is
+       * what the observer reads.
+       *
+       * Marketa now belongs to the `verify` branch (financial-services
+       * enrichments, after aigentMe) where its receipt types live.
+       */
+      completionEvidence: ['controlProofFresh'],
+      receiptTypes: ['agent_control_proven'],
       companion: {
-        before: 'A wallet-control challenge must be signed before Marketa can issue her final recommendation.',
+        before: 'A wallet-control challenge must be signed to prove the agent’s controller wallet.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',
       },
       nextStageId: 'passport',
@@ -234,7 +246,21 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       // GJR-VFY-001 Phase 2 (2026-07-31): horizen_pulse_authorized is the
       // authorizationClient's own confirmation receipt (Phase 1); the other
       // two are written by the Phase 2 enrichment step immediately after.
-      receiptTypes: ['horizen_pulse_authorized', 'horizen_pnl_transparency_enabled', 'agent_card_enriched'],
+      //
+      // The four Marketa types moved HERE from Claim (operator, 2026-08-03):
+      // eligibility assessment is a financial-services enrichment, so its
+      // evidence belongs on the enrichment branch. They are listed as
+      // surfaced evidence only — deliberately NOT in `completionEvidence`,
+      // so Marketa gates nothing on this branch either.
+      receiptTypes: [
+        'horizen_pulse_authorized',
+        'horizen_pnl_transparency_enabled',
+        'agent_card_enriched',
+        'marketa_eligibility_assessed',
+        'marketa_eligibility_recommended',
+        'marketa_eligibility_refused',
+        'marketa_eligibility_quarantined',
+      ],
       companion: {
         before: 'Horizen can enrich MoneyPenny’s verifiable operational state once you authorize disclosure.',
         complete:
