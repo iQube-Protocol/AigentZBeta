@@ -79,6 +79,14 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
            narrated a different agent than Register had just acted on. */
         : descriptor.component === 'PulseTransparencyToggle'
           ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
+        /* Claim must speak about the agent Register/Verify just acted on, not
+           a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
+           wallet control" resolved MoneyPenny's registry_assets row).
+           MarketaEligibilityView's agentSlug is now REQUIRED for the same
+           reason PulseTransparencyToggle's is: a default would silently
+           restore exactly this. */
+        : descriptor.component === 'MarketaEligibilityView'
+          ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
               prefillAgentCardUrl: selectedAgent.agentCardPath,

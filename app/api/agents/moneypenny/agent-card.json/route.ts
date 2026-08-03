@@ -52,24 +52,25 @@ export async function OPTIONS() {
  * PRD-GJR-001, operator ruling 2026-07-31: this card's `metadata.horizen`
  * block is now a PROJECTION of MoneyPenny's canonical AigentQube record
  * (registry_assets asset_id 'aigentqube-moneypenny'), not a second,
- * hand-typed source of truth. Reads her `external_registry_bindings[0]`
- * (types/registry-canonical.ts) via the same adapter path the iQube Registry
- * itself uses. Soft-fails to the honest pending-registration defaults below
- * if the registry is unreachable — this is a live, external-facing A2A
+ * hand-typed source of truth. Reads via `resolveHorizenRegistrationBinding`
+ * (services/horizen/agentRegistrationBinding.ts) — the ONE resilient reader,
+ * shared with Nakamoto's card route and Claim's own gate, that falls back to
+ * the confirmation receipt when the registry_assets write hasn't landed
+ * (Aigent Nakamoto's live registration, 2026-08-03 — the two writes are not
+ * atomic). Soft-fails to the honest pending-registration defaults below if
+ * the registry is unreachable — this is a live, external-facing A2A
  * discovery endpoint and must never 500 or block on a registry read.
  */
 async function resolveHorizenBinding(): Promise<ExternalAgentRegistryBinding | null> {
   try {
     const { getSupabaseServer } = await import('@/app/api/_lib/supabaseServer');
+    const { resolveHorizenRegistrationBinding } = await import('@/services/horizen/agentRegistrationBinding');
+    const { resolveRegistrableAgent } = await import('@/services/horizen/registrableAgents');
     const supabase = getSupabaseServer();
-    const { data } = await supabase
-      .from('registry_assets')
-      .select('metadata')
-      .eq('asset_id', 'aigentqube-moneypenny')
-      .maybeSingle();
-    const bindings = (data?.metadata as { external_registry_bindings?: ExternalAgentRegistryBinding[] } | null)
-      ?.external_registry_bindings;
-    return Array.isArray(bindings) && bindings.length > 0 ? bindings[0] : null;
+    const agent = resolveRegistrableAgent('moneypenny');
+    if (!supabase || !agent) return null;
+    const { binding } = await resolveHorizenRegistrationBinding(supabase, agent);
+    return binding;
   } catch {
     return null;
   }

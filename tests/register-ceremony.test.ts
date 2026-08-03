@@ -427,6 +427,23 @@ describe('the Register stage says where it actually is', () => {
     expect(p.nextAct).toMatch(/30 minutes/);
   });
 
+  /*
+   * THE TERMINAL RUNG IS DONE, NOT CURRENT (pilot, 2026-08-03 — "all 5 [rungs]
+   * should be green"). `at === LADDER.length - 1` for REGISTERED, and the old
+   * `i === at ? 'current' : ...` rule rendered even a confirmed registration's
+   * own last rung as still in flight (violet ●) forever — the one rung that
+   * can never legitimately be "current" once reached, because reaching it IS
+   * the completion.
+   */
+  it('a confirmed registration renders every rung done — none current', () => {
+    const p = registerCeremonyProgress({ ...base, tokenId: '8798' });
+    expect(p.stageId).toBe('REGISTERED');
+    expect(p.ladder.filter((s) => s.state === 'current')).toHaveLength(0);
+    expect(p.ladder.every((s) => s.state === 'done')).toBe(true);
+    expect(p.ladder.at(-1)?.id).toBe('REGISTERED');
+    expect(p.ladder.at(-1)?.state).toBe('done');
+  });
+
   it('exactly one rung is current, with everything before it done', () => {
     const p = registerCeremonyProgress({ ...base, liveInvocation: true });
     expect(p.ladder.filter((s) => s.state === 'current')).toHaveLength(1);
@@ -1290,7 +1307,7 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     const client = stripComments(readSource('services/horizen/registrationClient.ts'));
     const at = client.indexOf('if (!reread.ok)');
     expect(at).toBeGreaterThan(-1);
-    const block = client.slice(at, at + 2000);
+    const block = client.slice(at, at + 2600);
     // The refusal now only fires when the chain did NOT verify.
     expect(block).toMatch(/if \(!onChain\.verified \|\| !onChain\.agentId\)/);
     expect(block).toMatch(/refusalCode: 'REGISTRY_REREAD_FAILED'/);

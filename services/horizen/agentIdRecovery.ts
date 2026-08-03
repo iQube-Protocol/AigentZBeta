@@ -52,7 +52,16 @@ export interface AgentIdRecoveryInput {
 export type AgentIdRecoverySource = 'Registered' | 'Transfer';
 
 export type AgentIdRecoveryResult =
-  | { ok: true; agentId: string; registry: string; agentURI: string | null; source: AgentIdRecoverySource }
+  | {
+      ok: true;
+      agentId: string;
+      registry: string;
+      agentURI: string | null;
+      source: AgentIdRecoverySource;
+      /** Where the minting event sits in the chain — for the receipt, not the recovery decision. */
+      blockNumber: number;
+      logIndex: number;
+    }
   | { ok: false; reason: string };
 
 interface Candidate {
@@ -60,6 +69,8 @@ interface Candidate {
   registry: string;
   agentURI: string | null;
   source: AgentIdRecoverySource;
+  blockNumber: number;
+  logIndex: number;
 }
 
 export async function decodeAgentIdFromReceipt(input: AgentIdRecoveryInput): Promise<AgentIdRecoveryResult> {
@@ -82,6 +93,8 @@ export async function decodeAgentIdFromReceipt(input: AgentIdRecoveryInput): Pro
           registry: log.address,
           agentURI: typeof parsed.args.agentURI === 'string' ? parsed.args.agentURI : null,
           source: 'Registered',
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
         });
         continue;
       }
@@ -97,6 +110,8 @@ export async function decodeAgentIdFromReceipt(input: AgentIdRecoveryInput): Pro
           registry: log.address,
           agentURI: null,
           source: 'Transfer',
+          blockNumber: log.blockNumber,
+          logIndex: log.index,
         });
       }
     } catch {
@@ -155,5 +170,13 @@ export async function decodeAgentIdFromReceipt(input: AgentIdRecoveryInput): Pro
     }
   }
 
-  return { ok: true, agentId: chosen.agentId.toString(), registry: chosen.registry, agentURI: agentURI ?? null, source: chosen.source };
+  return {
+    ok: true,
+    agentId: chosen.agentId.toString(),
+    registry: chosen.registry,
+    agentURI: agentURI ?? null,
+    source: chosen.source,
+    blockNumber: chosen.blockNumber,
+    logIndex: chosen.logIndex,
+  };
 }

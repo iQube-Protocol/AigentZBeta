@@ -66,21 +66,25 @@ export async function OPTIONS() {
 /**
  * This card's `metadata.horizen` block is a PROJECTION of Nakamoto's
  * canonical AigentQube record (registry_assets asset_id 'aigentqube-
- * nakamoto'), not a second, hand-typed source of truth — mirrors
- * MoneyPenny's route's resolveHorizenBinding() exactly.
+ * nakamoto'), not a second, hand-typed source of truth. Reads via
+ * `resolveHorizenRegistrationBinding` (services/horizen/
+ * agentRegistrationBinding.ts) — the ONE resilient reader, shared with
+ * MoneyPenny's card route and Claim's own gate, that falls back to the
+ * confirmation receipt when the registry_assets write hasn't landed.
+ * Confirmed necessary, not theoretical: Nakamoto's own live registration
+ * (tx 0xedda5f73…, tokenId 8798, 2026-08-03) wrote the receipt and did not
+ * persist this projection — see the fix in register/status/route.ts.
  */
 async function resolveHorizenBinding(): Promise<ExternalAgentRegistryBinding | null> {
   try {
     const { getSupabaseServer } = await import('@/app/api/_lib/supabaseServer');
+    const { resolveHorizenRegistrationBinding } = await import('@/services/horizen/agentRegistrationBinding');
+    const { resolveRegistrableAgent } = await import('@/services/horizen/registrableAgents');
     const supabase = getSupabaseServer();
-    const { data } = await supabase
-      .from('registry_assets')
-      .select('metadata')
-      .eq('asset_id', 'aigentqube-nakamoto')
-      .maybeSingle();
-    const bindings = (data?.metadata as { external_registry_bindings?: ExternalAgentRegistryBinding[] } | null)
-      ?.external_registry_bindings;
-    return Array.isArray(bindings) && bindings.length > 0 ? bindings[0] : null;
+    const agent = resolveRegistrableAgent('nakamoto');
+    if (!supabase || !agent) return null;
+    const { binding } = await resolveHorizenRegistrationBinding(supabase, agent);
+    return binding;
   } catch {
     return null;
   }

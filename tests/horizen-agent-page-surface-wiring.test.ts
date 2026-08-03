@@ -91,6 +91,41 @@ describe('HorizenAgentPageSurface — allowlist gate + no side-effecting complet
   });
 });
 
+describe('PilotJourneyTab — the selected agent, never MoneyPenny, reaches Claim (2026-08-03)', () => {
+  /*
+   * Aigent Nakamoto's live registration hit this directly: "Prove wallet
+   * control" answered `no registry_assets row for "aigentqube-moneypenny"`
+   * while the operator was claiming Nakamoto. MarketaEligibilityView's props
+   * were declared and never read (`_props`), and both its requests to
+   * claim/prove-control omitted agentSlug — the same shape of bug
+   * PulseTransparencyToggle had before the 2026-08-02 fix above.
+   */
+  const tabSource = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
+  const viewSource = read('components/journey/MarketaEligibilityView.tsx');
+
+  it('PilotJourneyTab passes agentSlug: selectedAgentSlug into MarketaEligibilityView', () => {
+    const match = tabSource.match(/descriptor\.component === 'MarketaEligibilityView'\s*\?\s*\{([^}]*)\}/);
+    expect(match, 'MarketaEligibilityView never receives a props override').not.toBeNull();
+    expect(match![1]).toContain('agentSlug: selectedAgentSlug');
+    expect(match![1]).not.toMatch(/agentSlug:\s*'(moneypenny|nakamoto)'/);
+  });
+
+  it('MarketaEligibilityView requires agentSlug — props are read, not discarded', () => {
+    expect(viewSource).not.toMatch(/function MarketaEligibilityView\(_props/);
+    expect(viewSource).toMatch(/function MarketaEligibilityView\(\{\s*agentSlug\s*\}/);
+  });
+
+  it('both the GET refresh and the POST prove-control call send agentSlug — neither can fall back to the server default', () => {
+    const getCallAt = viewSource.indexOf('personaFetch(\n        `/api/journey/moneypenny-horizen/claim/prove-control');
+    expect(getCallAt, 'GET refresh call not found').toBeGreaterThan(-1);
+    expect(viewSource.slice(getCallAt, getCallAt + 200)).toMatch(/agentSlug=\$\{encodeURIComponent\(agentSlug\)\}/);
+
+    const postCallAt = viewSource.indexOf('const proveControl');
+    const postBlock = viewSource.slice(postCallAt, postCallAt + 600);
+    expect(postBlock).toMatch(/JSON\.stringify\(\{\s*agentSlug\s*\}\)/);
+  });
+});
+
 describe('services/horizen/agentPageUrl.ts is the ONE place that builds this URL', () => {
   it('no other file in services/horizen hand-builds an agent-registry.horizenlabs.io URL', () => {
     const dir = path.join(__dirname, '..', 'services', 'horizen');
