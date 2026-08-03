@@ -25,12 +25,23 @@ jobs:
         # CLAUDE.md merge-message rule: a merge to dev must NAME what it
         # carries — never git's default "Merge remote-tracking branch …"
         # (--no-edit). The fast-forward path keeps the original descriptive
-        # commits; the merge-commit fallback now titles itself with the
-        # session branch + its head commit subject, so the Amplify deploy
-        # history reads as "what shipped", not boilerplate.
+        # commits; the merge-commit fallback titles itself with the head
+        # commit subject.
+        #
+        # THE SUBJECT COMES FIRST, AND THAT IS THE WHOLE POINT (2026-08-03).
+        # This used to read "merge ${branch}: ${SUBJECT}". Amplify's deploy
+        # list truncates the commit column at roughly 30 characters, and the
+        # branch name alone is 43 — so EVERY deployment rendered as the
+        # identical string "merge claude/tokenqube-minting…" and the operator
+        # could not tell one deploy from another. The messages were
+        # descriptive and the description was never visible.
+        #
+        # Putting ${SUBJECT} first spends the visible budget on what shipped.
+        # The branch is retained in a trailing bracket for correlation, where
+        # truncation costs nothing.
         run: |
           git checkout dev
           SUBJECT="$(git log -1 --pretty=%s origin/${{ github.ref_name }})"
           git merge --ff-only origin/${{ github.ref_name }} || \
-            git merge origin/${{ github.ref_name }} -m "merge ${{ github.ref_name }}: ${SUBJECT}"
+            git merge origin/${{ github.ref_name }} -m "${SUBJECT} [merge ${{ github.ref_name }}]"
           git push origin dev

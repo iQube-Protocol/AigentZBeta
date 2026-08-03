@@ -109,6 +109,37 @@ When using `git merge origin/dev` before pushing to dev, **ALWAYS** pass `-m` wi
 git merge origin/dev -m "merge dev: sync before pushing <feature/fix> (<commit>)"
 ```
 
+### THE SUBJECT COMES FIRST — the operator reads a TRUNCATED column (2026-08-03, PARAMOUNT)
+
+**The merge message must begin with WHAT SHIPPED, never with the branch name.**
+
+Amplify's deploy list truncates the commit column at roughly 30 characters. The session branch name
+alone is 43. So the old format — `merge <branch>: <subject>` — rendered **every single deployment**
+as the identical string:
+
+```
+merge claude/tokenqube-minting…
+merge claude/tokenqube-minting…
+merge claude/tokenqube-minting…
+```
+
+Every message was descriptive. None of the description was ever **visible**. The operator had a
+deploy history in which no row could be told from any other — the exact failure this whole rule
+exists to prevent, reached by a route that passed every check we had.
+
+Correct format (workflow + any manual merge to dev):
+
+```bash
+git merge origin/<branch> -m "<what actually changed> [merge <branch>]"
+```
+
+The branch is retained in a trailing bracket for correlation, where truncation costs nothing.
+
+**Why the earlier canary missed it:** it compared FULL commit subjects and found them all distinct.
+It was testing what git stored rather than what the operator sees. `tests/dev-merge-message-discipline.test.ts`
+now simulates the 30-character truncation and fails if recent dev merges are not distinguishable
+*as rendered*.
+
 ### NEVER leave a bare deploy-trigger commit as the branch tip (2026-08-03)
 
 The workflow takes the merge subject from the session branch's **last commit**

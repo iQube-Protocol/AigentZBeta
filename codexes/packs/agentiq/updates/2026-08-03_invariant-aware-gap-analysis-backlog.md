@@ -43,6 +43,31 @@ Inspect current state
 → feed them back into the registry
 ```
 
+## Extended 2026-08-03 — TWO preflights, not one
+
+The operator extended this item after formalising **Operator Experience (UX) invariants** as a class
+distinct from engineering resolution invariants (see `RESOLUTION_RECORDS.md`). DevOn today asks what
+code exists and what is missing. It must also ask:
+
+- **Engineering preflight** — what implementation lessons already exist that apply to this work?
+- **Operator preflight** — what interaction principles already exist that apply to this operator flow?
+
+> "Those two together become part of the constitutional development process."
+
+So the gap-analysis artifact carries `applicableInvariants` from **both** classes, and a change that
+touches an operator-facing surface is not preflighted until both have been stated. The UX class has
+its own standard to evaluate against:
+
+> A constitutional system must always reduce operator cognitive load while preserving constitutional
+> guarantees. Constitutional safeguards constrain unsafe acts; they must never create unnecessary
+> work for safe acts.
+
+**Why this matters for gap analysis specifically:** the Track 2 exception surface passed every
+engineering check — it isolated exceptions correctly, receipted them, and blocked nothing it
+shouldn't. It still failed the operator, because it stopped at diagnosis and sent the steward to find
+a record the system already held. No engineering invariant would have caught that. An operator
+preflight would have.
+
 ## The gap-analysis artifact gains
 
 ```json

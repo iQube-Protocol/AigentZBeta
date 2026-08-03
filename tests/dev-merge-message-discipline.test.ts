@@ -51,12 +51,62 @@ describe('the auto-merge workflow writes a descriptive dev merge message', () =>
   it('derives the merge subject from the session branch tip, never --no-edit', () => {
     const yml = fs.readFileSync(WORKFLOW, 'utf8');
     expect(yml).toMatch(/SUBJECT="\$\(git log -1 --pretty=%s origin\//);
-    expect(yml).toMatch(/git merge origin\/\$\{\{ github\.ref_name \}\} -m "merge/);
     // The old fallback is what emits "Merge remote-tracking branch ... into dev".
     const mergeLines = yml.split('\n').filter((l) => l.includes('git merge'));
     for (const line of mergeLines) {
       expect(line, `--no-edit reintroduced: ${line.trim()}`).not.toContain('--no-edit');
     }
+  });
+
+  /*
+   * THE SUBJECT MUST COME FIRST — because the operator reads a TRUNCATED
+   * column, not the full commit (2026-08-03).
+   *
+   * The message was "merge ${branch}: ${SUBJECT}". Every message was
+   * descriptive; none of the description was ever VISIBLE. Amplify truncates
+   * the deploy list's commit column at roughly 30 characters and the branch
+   * name alone is 43, so every deployment rendered as the same string:
+   * "merge claude/tokenqube-minting…".
+   *
+   * The earlier canary checked git history and passed, because it compared
+   * FULL subjects. It was testing what git stored rather than what the
+   * operator sees — the same instrument failure CANARY-REPRODUCES-DEFECT
+   * names, one level up.
+   */
+  it('puts the subject FIRST, so a truncated column shows what shipped', () => {
+    const yml = fs.readFileSync(WORKFLOW, 'utf8');
+    expect(yml, 'the branch prefix consumed the entire visible column').not.toMatch(
+      /-m "merge \$\{\{ github\.ref_name \}\}:/,
+    );
+    expect(yml).toMatch(/-m "\$\{SUBJECT\}/);
+  });
+
+  it('the first 30 visible characters of recent dev merges are distinguishable', () => {
+    // The actual operator-facing test: simulate the truncation and require
+    // variety. Identical prefixes mean the history cannot differentiate
+    // one deploy from another, which is the entire purpose of the rule.
+    const VISIBLE = 30;
+    let subjects: string[] = [];
+    try {
+      subjects = execSync('git log origin/dev --merges -8 --format=%s', { cwd: REPO, encoding: 'utf8' })
+        .split('\n')
+        .filter(Boolean);
+    } catch {
+      return; // No origin/dev in this checkout — unjudgeable, not failed.
+    }
+    if (subjects.length < 4) return;
+
+    // Merges produced BEFORE the fix are grandfathered: this asserts the rule
+    // holds going forward, not that history is retroactively rewritten.
+    const postFix = subjects.filter((s) => !/^merge (claude|worktree)\//.test(s));
+    if (postFix.length < 2) return;
+
+    const prefixes = new Set(postFix.map((s) => s.slice(0, VISIBLE)));
+    expect(
+      prefixes.size,
+      `only ${prefixes.size} distinct prefixes across ${postFix.length} merges — the operator cannot ` +
+        `tell these deploys apart: ${[...prefixes].join(' | ')}`,
+    ).toBe(postFix.length);
   });
 });
 

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "candidateId": "CI-2026-08-03-UX-NEVER-MAKE-OPERATOR-SEARCH-001",
+  "statement": "If the system knows which record needs attention, it must present it. Never 'Go to…', never 'Find…', never 'Locate…'.",
+  "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [],
+  "occurrences": [
+    {
+      "site": "components/research/Track2ProgrammePanel.tsx",
+      "defect": "The Track 2 exception surface isolated exceptions correctly and then stopped at diagnosis — the exact-duplicate card read \"Decide this source individually in the review queue\", sending the operator to find a record the system already held.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "operator screenshot of the live Laboratory > Experiments exception board, 2026-08-03"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "ratifiedSource": null,
+  "notes": [
+    "UX Invariant III, operator-worded verbatim 2026-08-03.",
+    "The system already knows. Bring the problem to the operator.",
+    "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
+    "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
+    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`."
+  ]
+}
