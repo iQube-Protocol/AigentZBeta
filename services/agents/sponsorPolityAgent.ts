@@ -21,6 +21,18 @@ import { getPersonaPlan } from '@/services/billing/personaPlan';
 
 export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
 
+/**
+ * A governed exception to the ordinary sponsorship cap. Recorded so the act is
+ * auditable AS an override rather than appearing as ordinary capacity.
+ */
+export interface SponsorshipCapacityOverride {
+  authority: 'administrator';
+  /** The constitutional basis relied upon — stated, never inferred. */
+  basis: string;
+  /** What ordinary capacity actually was at the moment of override. */
+  ordinaryCapacityAtOverride: { base: number; earned: number; used: number; remaining: number };
+}
+
 export interface SponsorAgentInput {
   admin: SupabaseClient;
   /** Active persona id (T0) — sponsor + capacity owner. */
@@ -67,6 +79,8 @@ export interface SponsorAgentOutcome {
   error?: string;
   code?: string;
   capacity?: { base: number; earned: number; used: number; remaining: number };
+  /** Present only when a canonical admin proceeded past an exhausted cap. */
+  capacityOverride?: SponsorshipCapacityOverride | null;
 }
 
 /**
@@ -173,6 +187,14 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
   ) {
     return { ok: false, status: 500, error: capacityErr.message };
   }
+  /**
+   * Set ONLY when a canonical administrator proceeded past an exhausted
+   * ordinary capacity. Null on every ordinary sponsorship, so a consumer can
+   * tell an exercised exception from ordinary headroom without inspecting
+   * numbers.
+   */
+  let capacityOverride: SponsorshipCapacityOverride | null = null;
+
   const storedBase = Number(capacityRow?.sponsorship_capacity_base ?? 0);
   const earned = Number(capacityRow?.sponsorship_capacity_earned ?? 0);
   const base = Math.max(sponsorPlan.boundedDelegateLimit, storedBase);
@@ -184,14 +206,45 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     const used = usedCount ?? 0;
     const remaining = base + earned - used;
     if (remaining <= 0) {
-      return {
-        ok: false,
-        status: 409,
-        code: 'sponsorship_capacity_exhausted',
-        error:
-          `Bounded delegate capacity reached for your plan (${base}). Upgrade your tier, ` +
-          'or earn additional capacity when a sponsored participant reaches Standing.',
-        capacity: { base, earned, used, remaining: 0 },
+      /*
+       * ── ADMINISTRATOR CAPACITY OVERRIDE (operator-authorised, 2026-08-03) ──
+       *
+       *   > "Administrative authority may override ordinary sponsorship
+       *   >  capacity, but it does not bypass Passport ownership,
+       *   >  authentication, agent-control, or personhood requirements."
+       *
+       * DELIBERATELY NARROW, and placed HERE rather than earlier: every gate
+       * above this point has already run and must still pass. A canonical
+       * admin arriving here has a valid sponsoring Passport, an authenticated
+       * persona, and a proven agent binding — the override relieves ONE
+       * constraint, the numeric cap, and nothing else.
+       *
+       * `callerIsAdmin` is resolved server-side by the spine
+       * (getActivePersona: `isAdmin || adminGrants.isGlobalAdmin`), never from
+       * a client hint or an account label.
+       *
+       * THE ORDINARY CAPACITY IS NOT REWRITTEN. `capacity` still reports
+       * `remaining: 0` — honestly, because it IS zero — and the override is
+       * carried as its own field. Inflating the number would make an exercised
+       * exception indistinguishable from ordinary headroom, which is exactly
+       * what the operator ruled against: "do not rewrite the displayed
+       * ordinary capacity as positive."
+       */
+      if (!callerIsAdmin) {
+        return {
+          ok: false,
+          status: 409,
+          code: 'sponsorship_capacity_exhausted',
+          error:
+            `Bounded delegate capacity reached for your plan (${base}). Upgrade your tier, ` +
+            'or earn additional capacity when a sponsored participant reaches Standing.',
+          capacity: { base, earned, used, remaining: 0 },
+        };
+      }
+      capacityOverride = {
+        authority: 'administrator',
+        basis: 'canonical admin authority (persona.cartridgeFlags.isAdmin) — capacity limit only',
+        ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
       };
     }
   }
@@ -308,5 +361,12 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
       sponsorPassportId,
       createdAt: rootRow.created_at,
     },
+    /*
+     * Carried on the SUCCESS outcome so the caller can receipt the act AS an
+     * override and label the surface "Sponsorship permitted by administrator
+     * override". Null on every ordinary sponsorship — its presence, not a
+     * number, is what distinguishes an exercised exception.
+     */
+    capacityOverride,
   };
 }
