@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+  "statement": "Independent state axes must not be collapsed into one blocking sequence. A capability, participation or enrichment state may condition only its own axis; it may never gate, and may never regress, a constitutional state on another axis.",
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": ["RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001"],
+  "occurrences": [
+    {
+      "site": "services/journey/horizenMoneyPennyJourney.ts + app/api/journey/moneypenny-horizen/claim/prove-control/route.ts",
+      "defect": "Verify (Horizen Pulse / P&L transparency — an OPTIONAL partner enrichment) sat at position 2 of the admission spine, so it was a prerequisite of Claim and therefore of Passport, delegation and activation. When `partner_authorization_requests` proved absent from the deployed schema, one unapplied local migration blocked an agent's entire constitutional progression. Three unrelated questions — may this agent act? may it participate? may it do financial-services work? — had been strung onto one line, so answering 'not yet' to the third changed the answer to the first.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": [
+        "54f95c32a",
+        "tests/journey-monotonic-admission.test.ts",
+        "services/journey/agentStateAxes.ts"
+      ]
+    },
+    {
+      "site": "services/journey/stageResolution.ts resolveNextExecutableAct",
+      "defect": "After the spine completed, the 'one next act' resolver walked the stage array in order and named whichever post-activation BRANCH sat earlier in it — re-imposing an order on two branches ruled independent, through nothing but array position. Caught by its own canary during implementation.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": ["tests/journey-monotonic-admission.test.ts", "services/journey/stageResolution.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-monotonic-admission.test.ts",
+      "assertion": "Admission is byte-identical whether verification is complete, absent or in exception; a Verify failure does not block Factory ingestion; a financial-services exception costs only FS eligibility; neither post-activation branch's availability reads the other's completion; no branch (or branch descendant) is ever named as the one next act. Mutation-verified: making `admission.delegated` read `input.pulse`, making a branch offer's `available` depend on its sibling, and removing the off-spine guard each turn the suite red.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "Operator ruling, verbatim (2026-08-03): \"Constitutional admission establishes the agent and its bounded authority. Factory ingestion establishes participation and Standing eligibility. Verification establishes eligibility for specialist capabilities. These are distinct state axes and must not be collapsed into one blocking sequence.\"",
+    "The structural expression is that `resolveAgentStateAxes` contains no expression in which a verification value appears on the right-hand side of an admission assignment. The axes cannot contaminate each other because no code path connects them — which is stronger than a guard that could be forgotten.",
+    "SCOPE, recorded honestly: `cross-capability` is a claim about where the rule APPLIES (any pipeline that strings optional enrichment onto a constitutional line), not a claim of demonstrated recurrence across capabilities. Two occurrences, both in the Guided Journey Runtime. It must stay `candidate` until a genuinely independent capability exhibits the shape.",
+    "Sibling of CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001's parent ruling: 'Constitutional control constrains the unsafe act; it does not immobilize the safe remainder.' This is that rule applied to state SHAPE rather than to batch processing — exception isolation prevents one record stopping a batch; axis separation prevents one axis stopping another."
+  ],
+  "projections": {
+    "targets": ["constitutional-computing", "devon"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

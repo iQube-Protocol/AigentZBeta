@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { findAgentReceiptRefs, type ActivityActionType } from '@/services/receipts/activityReceiptService';
-import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
+import type { AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
@@ -37,6 +37,16 @@ import {
   type BlockingReason,
 } from '@/services/journey/stageResolution';
 import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+import { resolvePassportPrincipalForAuthUser, isPassportUsable } from '@/services/identity/passportPrincipal';
+import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
+import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
+import {
+  resolveAgentStateAxes,
+  resolveBranchOffers,
+  admissionMilestones,
+  type VerificationStepState,
+} from '@/services/journey/agentStateAxes';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +71,9 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'agent_delegated',
   'finance_authoritative_execution',
   'standing_accrued',
+  // Ingestion's OWN receipt. Deliberately distinct from standing_accrued:
+  // becoming an eligible participant is not an accrual (operator, 2026-08-03).
+  'capability_registered',
   'aigentme_activated',
   'experienceqube_focus_disposition_recorded',
   'journey_completed',
@@ -94,6 +107,21 @@ export async function GET(req: NextRequest) {
   let registration: Awaited<ReturnType<typeof resolveAgentRegistrationState>> | null = null;
   let authorizationStore: Awaited<ReturnType<typeof checkAuthorizationStoreAvailable>> | null = null;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
+  /*
+   * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
+   *
+   * `known: false` means the canonical state could not be READ. It is an
+   * evidence gap, not a finding that no Passport exists — the same distinction
+   * `resolveAgentRegistrationState` draws between `unresolved` and
+   * `registered: false`, and the reason this is a three-state value rather
+   * than a boolean.
+   */
+  let registrationStandingSeeded = false;
+  let operatorPassport: { known: boolean; valid: boolean; personhood: boolean; detail?: string } = {
+    known: false,
+    valid: false,
+    personhood: false,
+  };
   try {
     const supabase = getSupabaseServer();
     /*
@@ -127,6 +155,57 @@ export async function GET(req: NextRequest) {
     aigentQubeResolved = !!aigentQube;
 
     registration = await resolveAgentRegistrationState(supabase, agent);
+
+    /*
+     * ORDER MATTERS, and it is the settled-fact order: RETRIEVE, then read,
+     * then corroborate. A Passport already settled is never re-derived.
+     */
+    registrationStandingSeeded = isSettled(
+      await readSettledFact(supabase, agent.aigentQubeId, agent.runtimeAgentId, 'registry_standing_seeded'),
+    );
+
+    const settledPassport = await readSettledFact(supabase, agent.aigentQubeId, 'operator', 'passport_is_issued');
+    if (isSettled(settledPassport)) {
+      operatorPassport = { known: true, valid: true, personhood: true };
+    } else {
+      const caller = await getCallerIdentityContext(req);
+      const authUserId = caller?.authUserId ?? null;
+      if (!authUserId) {
+        operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
+      } else {
+        const principal = await resolvePassportPrincipalForAuthUser(authUserId);
+        if (principal.ok) {
+          const usable = isPassportUsable(principal.principal.passport);
+          operatorPassport = { known: true, valid: usable, personhood: true };
+          if (usable) {
+            // Settle it: this is exactly the kind of fact that should be
+            // resolved once and retrieved thereafter. Idempotent by contract.
+            await settleFact(supabase, agent.aigentQubeId, {
+              subject: 'operator',
+              predicate: 'passport_is_issued',
+              object: {
+                passportClass: principal.principal.passport.passportClass,
+                citizenStatus: principal.principal.passport.citizenStatus,
+                participantStatus: principal.principal.passport.participantStatus,
+              },
+              // T0 DISCIPLINE: kybeId / authUserId / rootIdentityId are
+              // server-internal and never leave this function. The evidence
+              // ref names the SOURCE of the resolution, never the identifiers.
+              evidenceRefs: ['canonical:polity_passport_records', 'resolver:resolvePassportPrincipalForAuthUser'],
+              resolutionAuthority: 'app/api/journey/moneypenny-horizen/state:canonical-passport-read',
+            });
+          }
+        } else if (principal.reason === 'no_passport' || principal.reason === 'passport_inactive') {
+          // READ, and genuinely absent/inactive — a real negative finding.
+          // Personhood still resolved: the lineage walk reached the kybe.
+          operatorPassport = { known: true, valid: false, personhood: true, detail: principal.reason };
+        } else {
+          // wallet_unknown | lineage_incomplete | principal_unprovisioned |
+          // unavailable — could not read. NOT a negative finding.
+          operatorPassport = { known: false, valid: false, personhood: false, detail: principal.reason };
+        }
+      }
+    }
     authorizationStore = await checkAuthorizationStoreAvailable(supabase);
     priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
   } catch {
@@ -166,7 +245,22 @@ export async function GET(req: NextRequest) {
         marketaFinalRecommendation: hasReceipt('marketa_eligibility_recommended'),
       },
       passport: {
-        operatorPolityCitizenPassportValid: hasReceipt('operator_passport_validated'),
+        /*
+         * ONE FACT, ONE SOURCE — inside one file (2026-08-03).
+         *
+         * The canonical Passport read below (`operatorPassport`) was wired
+         * into the eligibility gate but NOT into this evidence checklist,
+         * which kept deriving the same fact from `hasReceipt` alone. So an
+         * operator holding a Passport issued through the Bureau would pass
+         * the gate and still see "operator Passport not validated" on the
+         * stage's evidence line.
+         *
+         * That is the exact defect this session has chased all day — one fact
+         * with two observers reaching two answers — reintroduced a few
+         * hundred lines apart in a single route. Canonical first, receipt as
+         * corroboration, identical to lines below.
+         */
+        operatorPolityCitizenPassportValid: operatorPassport.valid || hasReceipt('operator_passport_validated'),
         sponsorBinding: hasReceipt('agent_sponsorship_recorded'),
         delegatePassportIssued: hasReceipt('agent_delegate_passport_issued'),
       },
@@ -218,9 +312,20 @@ export async function GET(req: NextRequest) {
         }
       : null,
     principal: {
-      // Receipt-derived, exactly as every other stage signal on this route.
-      personhoodEstablished: hasReceipt('operator_passport_validated'),
-      citizenPassportValid: hasReceipt('operator_passport_validated'),
+      /*
+       * CANONICAL FIRST, receipt as CORROBORATION ONLY.
+       *
+       * This previously read `hasReceipt('operator_passport_validated')` for
+       * both flags — so an operator holding a valid Passport issued through
+       * the Passport Bureau, outside this journey, resolved as having none and
+       * would have been shown a Passport APPLICATION. The receipt may confirm;
+       * its ABSENCE must never mean "no Passport".
+       */
+      personhoodEstablished: operatorPassport.personhood || hasReceipt('operator_passport_validated'),
+      citizenPassportValid: operatorPassport.valid || hasReceipt('operator_passport_validated'),
+      // An unreadable Passport yields a RE-CHECK, never a new application —
+      // unless a journey-local receipt already corroborates it.
+      passportReadable: operatorPassport.known || hasReceipt('operator_passport_validated'),
     },
     claim: {
       controlProven: hasReceipt('agent_control_proven'),
@@ -263,6 +368,64 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  /*
+   * ══ THE THREE AXES ═══════════════════════════════════════════════════════
+   *
+   * Resolved BEFORE the journey stages, and from their own inputs, so that
+   * "may this agent act?" is answered without ever consulting "has Pulse been
+   * authorized?". Verify now sits on the capability branch after activation;
+   * the axes are what keep it there even if a future stage list drifts.
+   */
+  const pulseState: VerificationStepState = hasReceipt('horizen_pulse_authorized')
+    ? 'complete'
+    : storeUnavailable
+      ? 'exception'
+      : 'not-started';
+  const pnlState: VerificationStepState = hasReceipt('horizen_pnl_transparency_enabled')
+    ? 'complete'
+    : storeUnavailable
+      ? 'exception'
+      : 'not-started';
+
+  const canonicalStages: Record<string, boolean | undefined> = {
+    register: registration?.registered === true,
+    claim: hasReceipt('agent_control_proven') && hasReceipt('marketa_eligibility_recommended'),
+    passport: hasReceipt('agent_delegate_passport_issued'),
+    delegate: hasReceipt('agent_delegated'),
+    aigentme: hasReceipt('aigentme_activated'),
+  };
+  for (const stageId of priorResolution?.canonicalStages ?? []) {
+    if (canonicalStages[stageId] !== true) canonicalStages[stageId] = canonicalStages[stageId] || true;
+  }
+
+  const axes = resolveAgentStateAxes({
+    canonicalStages,
+    /*
+     * INGESTION IS READ FROM ITS OWN RECEIPT, never from the accrual receipt.
+     * Reading `standing_accrued` here would have made "ingested" and "has
+     * earned Standing" the same observation — the precise collapse the ruling
+     * forbids, arriving through the back door of a shared receipt type.
+     */
+    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    pulse: pulseState,
+    pnl: pnlState,
+    /*
+     * STANDING IS EARNED, NEVER GRANTED BY INGESTION. Only receipts for
+     * qualifying, validated action count — the ingestion act itself is
+     * deliberately absent from this list.
+     */
+    standingReceipts: receiptRefs['standing_accrued'] ?? [],
+    /*
+     * The nominal admission seed, reported separately from earned Standing
+     * (operator correction, 2026-08-03: "Admission Standing must be
+     * distinguishable from earned performance Standing"). It is awarded once,
+     * gated on the `registry_standing_seeded` settled fact — so it is READ
+     * here, never re-derived, and a refresh cannot re-award it.
+     */
+    initialStandingAwarded: registrationStandingSeeded ? REGISTRATION_SEED_STANDING : 0,
+  });
+  const branchOffers = resolveBranchOffers(axes);
+
   const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, platformState, {
     canonicalOutcomes: { register: registration?.registered === true },
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
@@ -301,6 +464,10 @@ export async function GET(req: NextRequest) {
     // outcomes and gating relief, so the stepper and this route cannot
     // disagree (One-State Principle §5.3).
     state: resolution.runtimeState,
+    // THREE AXES, reported separately so no consumer can collapse them.
+    axes,
+    branchOffers,
+    admissionMilestones: admissionMilestones(axes.admission),
     resolution: {
       stages: resolution.stages,
       milestones: resolution.milestones,

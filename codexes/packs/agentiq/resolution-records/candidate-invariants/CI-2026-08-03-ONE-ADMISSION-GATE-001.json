@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-ONE-ADMISSION-GATE-001",
+  "statement": "An admission decision has exactly one implementation, and its blocking set is closed. A condition may block admission only where a ratified rule says it must; every other condition is recorded as a disclosed, non-blocking exception carrying the authority for that classification.",
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": ["RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001"],
+  "occurrences": [
+    {
+      "site": "app/api/journey/moneypenny-horizen/claim/prove-control/route.ts",
+      "defect": "The Claim route refused VERIFY_NOT_COMPLETE unless Pulse monitoring AND P&L disclosure were both authorized — a prerequisite the constitution does not have. Marketa's own ratified engine sets REFUSAL_RULE_IDS = {MKT-ADM-003,004,005,006}; Pulse is MKT-ADM-007 and P&L is MKT-ADM-008, both deliberately OUTSIDE it, so their absence evaluates 'missing' and yields NOT_RECOMMENDED, never REFUSED. A panel had invented a gate, and when the authorization table proved absent that self-imposed gate escalated a deploy step into a total block on Claim, Passport and delegation.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": ["54f95c32a", "services/journey/passportEligibility.ts", "tests/journey-monotonic-admission.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-monotonic-admission.test.ts",
+      "assertion": "No file outside the gate constructs `blockingReasons` or decides `eligible` from a blocking code; the blocking and non-blocking vocabularies are disjoint; every non-blocking code carries a cited ratified authority; and with EVERY ancillary signal off (Pulse, P&L, authorization store, partner metadata, diagnostic inconsistencies) Passport is still eligible. Mutation-verified: promoting Pulse to a blocker, and adding a second file that computes `eligible` from a blocking code, each turn the suite red.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "Operator instruction, verbatim (2026-08-03): \"ONE explicit admission-gate function — do not let every panel invent its own prerequisites. Only genuine constitutional prerequisites may block Passport. Pulse monitoring, P&L disclosure, optional partner metadata, missing ancillary receipts and diagnostic inconsistencies must NOT block Passport unless an existing ratified rule explicitly says they must.\"",
+    "EVIDENCE SEARCH, as instructed and recorded either way: the repo was searched across codexes/packs/agentiq/updates/, docs/, services/ and components/ for a ratified rule making Pulse/P&L a hard admission gate. NONE EXISTS. Four ratified sources say the opposite — Marketa's REFUSAL_RULE_IDS; PRD-GJR-001 §3.7 'transparency is a gateway, never a grant'; §5.8 routing transparency to STANDING eligibility rather than admission; and GJR-VFY-001 §2, that a transparency authorization 'does not prove or create: constitutional authority generally; sponsorship; bounded delegation; payment authority; FS Runtime admission; Standing.'",
+    "The non-blocking classifications are carried as DATA (`NON_BLOCKING_EVIDENCE`), not comments, so a surface can show the operator why a red-looking condition is not stopping them, and so a future agent proposing to promote one to a blocker must first contradict a named source.",
+    "A canary in this set was CORRECTED during implementation with its reason recorded: the first version flagged any file containing a blocking-code string and caught Marketa's evidence layer, which pushes 'control-proof-stale' onto an `unresolvedClaims` list. That is an OBSERVATION, not a decision. Detecting the decision signature instead preserved the canary rather than weakening it to pass."
+  ],
+  "projections": {
+    "targets": ["constitutional-computing", "devon"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

@@ -465,11 +465,43 @@ export function resolveMonotonicJourneyState(
  * Returns null only when the journey is complete, which is the one honest
  * reason to offer nothing.
  */
+/**
+ * Every stage that is NOT on the admission spine — the branch stages
+ * themselves plus everything downstream of one.
+ *
+ * DERIVED, never listed. `standing` carries no `branch` marker of its own; it
+ * is off-spine purely because it descends from `deploy`, which is. A
+ * hand-maintained list would have to be updated every time a branch grew a
+ * second step, and the first person to forget would silently put a Standing
+ * stage back on the constitutional line (inv.engineering.036/037).
+ */
+export function offSpineStageIds(journey: JourneyDefinition): Set<string> {
+  const offSpine = new Set<string>();
+  // Stage order is topological in every journey definition, so one forward
+  // pass reaches every descendant.
+  for (const stage of journey.stages) {
+    if (stage.branch || stage.prerequisites.some((p) => offSpine.has(p))) offSpine.add(stage.id);
+  }
+  return offSpine;
+}
+
 export function resolveNextExecutableAct(
   journey: JourneyDefinition,
   stages: readonly StageResolution[],
 ): JourneyAct | null {
+  const offSpine = offSpineStageIds(journey);
   for (const stage of journey.stages) {
+    /*
+     * BRANCH STAGES ARE NEVER "THE ONE NEXT ACT".
+     *
+     * A branch runs after the admission spine, in parallel with its sibling,
+     * and the operator ruled that neither gates the other. Naming one of them
+     * here would silently privilege whichever happens to sit earlier in the
+     * stage array — re-imposing an order the reconstitution exists to remove,
+     * through nothing more than array position. The pair is offered together
+     * by `resolveBranchOffers` (services/journey/agentStateAxes.ts) instead.
+     */
+    if (offSpine.has(stage.id)) continue;
     const resolution = stages.find((s) => s.stageId === stage.id);
     if (!resolution || resolution.canonicalOutcome) continue;
 
