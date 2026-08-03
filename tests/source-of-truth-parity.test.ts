@@ -1909,3 +1909,43 @@ describe('Track 2 operator seams (2026-08-02)', () => {
     expect(types).toContain('EMPTY_DOMAIN_REMEDY');
   });
 });
+
+describe('Corpus Scout review decision — ONE applier, two routes (2026-08-03)', () => {
+  const SERVICE = 'services/corpusScout/reviewDecision.ts';
+  const SINGLE = 'app/api/corpus-scout/candidates/[sourceId]/review/route.ts';
+  const BULK = 'app/api/corpus-scout/candidates/bulk-review/route.ts';
+
+  it('the decision → status map is declared once and read by both routes', () => {
+    // A bulk route with its own copy of §9's vocabulary would be the stale one
+    // the first time the vocabulary changes — and it would be the copy that
+    // admits sources in batches (inv.engineering.036/037).
+    const svc = stripComments(readSource(SERVICE));
+    expect(svc).toMatch(/export const DECISION_TO_STATUS/);
+    for (const route of [SINGLE, BULK]) {
+      const src = stripComments(readSource(route));
+      expect(src, `${route} must import the shared map`).toMatch(/from '@\/services\/corpusScout\/reviewDecision'/);
+      expect(src, `${route} must not restate the map`).not.toMatch(/approve_exp_p1:\s*'approved_exp_p1'/);
+    }
+  });
+
+  it('the ingesting-decision set is derived from the map, not a second list', () => {
+    const svc = stripComments(readSource(SERVICE));
+    expect(svc).toMatch(/export const INGESTING_DECISIONS/);
+    // And APPROVED_FOR_INGESTION (types.ts) remains the ingestion broker's own
+    // authority — the two agree because both name the same two decisions.
+    const types = stripComments(readSource('services/corpusScout/types.ts'));
+    expect(types).toMatch(/APPROVED_FOR_INGESTION/);
+    for (const status of ['approved_exp_p1', 'approved_general_finance']) {
+      expect(svc, `INGESTING_DECISIONS must cover ${status}`).toContain(status.replace(/^approved_/, 'approve_'));
+    }
+  });
+
+  it('only the service calls the ingestion broker — neither route does', () => {
+    const svc = stripComments(readSource(SERVICE));
+    expect(svc).toMatch(/ingestApprovedSource\(/);
+    for (const route of [SINGLE, BULK]) {
+      const src = stripComments(readSource(route));
+      expect(src, `${route} must not call the broker directly`).not.toMatch(/ingestApprovedSource\(/);
+    }
+  });
+});

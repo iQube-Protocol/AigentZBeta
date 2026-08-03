@@ -32,9 +32,12 @@
  * operator was shown — never one this component recomputed.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
+import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusScout/intelligence";
+import { findRegistryEntry, type SourceTier } from "@/services/corpusScout/institutionalRegistry";
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 p-4";
 
@@ -384,6 +387,7 @@ function CorpusReviewQueue({
   const [query, setQuery] = useState("");
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     if (!acquisitionDomain) return;
@@ -398,6 +402,11 @@ function CorpusReviewQueue({
       const d = await res.json().catch(() => null);
       if (!d?.ok) throw new Error(d?.error || `the review queue could not be read (HTTP ${res.status})`);
       setRows((d.candidates ?? []) as CandidateSource[]);
+      // A selection is over rows that were in the queue when it was made. After
+      // a reload the decided ones have LEFT, so carrying the set forward would
+      // hold ids that are no longer selectable and silently understate what a
+      // subsequent batch would touch.
+      setSelected(new Set());
     } catch (e) {
       // Unreadable is not empty. An empty list here would read as "nothing to
       // review" on the one surface whose job is to show what is.
@@ -487,6 +496,75 @@ function CorpusReviewQueue({
             .toLowerCase()
             .includes(q),
         );
+
+  /*
+   * EXACT-DUPLICATE GROUPS, ON THE SURFACE THAT DECIDES (2026-08-03).
+   *
+   * `findDuplicateCandidates` has existed since Phase 3 and CorpusScoutTab
+   * renders it — but the Track 2 review queue, which is where the operator
+   * actually decides these forty sources, did not. Admitting both members of a
+   * byte-identical pair ingests the same document twice as two evidence rows,
+   * and nothing downstream would tell them apart. The SAME function is called
+   * here; the grouping is not re-derived (inv.engineering.037).
+   */
+  const duplicateGroups: DuplicateGroup[] = useMemo(
+    () =>
+      findDuplicateCandidates(
+        (rows ?? []).map((r) => ({
+          sourceId: r.sourceId,
+          artifactHash: r.artifactHash,
+          // The list projection does not carry normalizedTextHash, so this
+          // axis genuinely cannot be checked here. Passing null is the honest
+          // input — never the artifact hash standing in for it.
+          normalizedTextHash: null,
+          canonicalUrl: r.canonicalUrl,
+        })),
+      ),
+    [rows],
+  );
+  const duplicateSourceIds = useMemo(
+    () => new Set(duplicateGroups.flatMap((g) => g.sourceIds)),
+    [duplicateGroups],
+  );
+
+  /*
+   * ISSUER GROUPS — the shape a batch actually has.
+   *
+   * The case for bulk is a run of sources from ONE institution where the
+   * constitutional judgment is the same for all of them. Grouping by issuer is
+   * that case made selectable, and the tier is read from the ratified
+   * Institutional Registry (`findRegistryEntry`, keyed by domain + pillar +
+   * institution — never institution alone, which would return one pillar's
+   * tradition when the source belongs to another). An issuer with no registry
+   * entry gets `null`, reported as undeclared rather than assumed
+   * authoritative — the same fail-closed posture `assessRegistryDiversity`
+   * takes.
+   */
+  const issuerGroups = useMemo(() => {
+    const groups = new Map<string, { issuer: string; tier: SourceTier | null; sourceIds: string[] }>();
+    for (const r of visible ?? []) {
+      const issuer = r.issuer?.trim();
+      if (!issuer) continue;
+      const entry = r.campaignSubDomain
+        ? findRegistryEntry(r.campaignDomain, r.campaignSubDomain, issuer)
+        : null;
+      const g = groups.get(issuer) ?? { issuer, tier: entry?.tier ?? null, sourceIds: [] };
+      g.sourceIds.push(r.sourceId);
+      groups.set(issuer, g);
+    }
+    return [...groups.values()]
+      .filter((g) => g.sourceIds.length > 1)
+      .sort((a, b) => b.sourceIds.length - a.sourceIds.length || a.issuer.localeCompare(b.issuer));
+  }, [visible]);
+
+  const selectedRows = (rows ?? []).filter((r) => selected.has(r.sourceId));
+  const toggle = (sourceId: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(sourceId)) next.delete(sourceId);
+      else next.add(sourceId);
+      return next;
+    });
 
   if (!acquisitionDomain) {
     return (
@@ -603,11 +681,48 @@ function CorpusReviewQueue({
             reach past the first entries without unmounting and remounting the
             stage. A bounded, self-scrolling region depends on nothing above it.
           */}
+          {duplicateGroups.length > 0 && (
+            <div className="rounded border border-amber-500/20 bg-amber-500/5 p-2 text-[11px] text-amber-100">
+              <strong className="font-medium">
+                {duplicateGroups.length} exact-duplicate group(s) in this queue.
+              </strong>{" "}
+              Byte- or URL-identical only — paraphrases and revised editions are NOT detected, and that judgment
+              stays yours. Admitting more than one member of a group ingests the same document twice.
+              <ul className="mt-1 space-y-0.5">
+                {duplicateGroups.map((g) => (
+                  <li key={`${g.matchType}:${g.key}`} className="font-mono text-[10px] text-amber-200/80">
+                    {g.matchType}: {g.sourceIds.join(" · ")}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {rows !== null && visible !== null && visible.length > 0 && (
+            <BulkAdmissionControl
+              visible={visible}
+              selected={selected}
+              selectedRows={selectedRows}
+              duplicateSourceIds={duplicateSourceIds}
+              issuerGroups={issuerGroups}
+              onSelectAllVisible={() => setSelected(new Set(visible.map((r) => r.sourceId)))}
+              onSelectIssuer={(ids) => setSelected(new Set(ids))}
+              onClearSelection={() => setSelected(new Set())}
+              onDone={() => {
+                void load();
+                onDone();
+              }}
+            />
+          )}
+
           <div className="max-h-[65vh] space-y-2 overflow-y-auto pr-1">
           {visible?.map((r) => (
             <CandidateReviewCard
               key={r.sourceId}
               row={r}
+              selected={selected.has(r.sourceId)}
+              onToggleSelected={() => toggle(r.sourceId)}
+              isDuplicate={duplicateSourceIds.has(r.sourceId)}
               onDecided={() => {
                 void load();
                 onDone();
@@ -764,18 +879,318 @@ function bibliographicFields(row: CandidateSource): { label: string; value: stri
   ];
 }
 
-function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecided: () => void }) {
-  const [decision, setDecision] = useState<string>("");
+/**
+ * A GOVERNED batch admission (Track 2 Stage 2, 2026-08-03).
+ *
+ *   > Stage 2 holds tens of sources and offered only a per-source form.
+ *
+ * Deciding forty sources one at a time is not more rigorous than deciding them
+ * together — past a certain count it is less, because the reviewer stops
+ * reading. This control makes the batch an EXPLICIT act with one stated
+ * rationale and one receipt, rather than forty unreceipted repetitions.
+ *
+ * It relaxes nothing. The route it posts to loops the SAME
+ * `applyCandidateReviewDecision` the single-source route calls, so every
+ * refusal is identical. What this component adds is the two-step posture the
+ * crystal-assignment control already uses:
+ *
+ *   1. INSPECT (`dryRun: true`, the server's own default) — reports what each
+ *      source's status is now and what the batch WOULD do to it, writing
+ *      nothing.
+ *   2. RECORD — enabled only after an inspection has been seen and a rationale
+ *      entered. Never the first thing a click can do.
+ *
+ * Per-source outcomes are rendered individually, including ingestion failures,
+ * so a batch is never summarised as "succeeded" when a member did not.
+ */
+function BulkAdmissionControl({
+  visible,
+  selected,
+  selectedRows,
+  duplicateSourceIds,
+  issuerGroups,
+  onSelectAllVisible,
+  onSelectIssuer,
+  onClearSelection,
+  onDone,
+}: {
+  visible: CandidateSource[];
+  selected: Set<string>;
+  selectedRows: CandidateSource[];
+  duplicateSourceIds: Set<string>;
+  issuerGroups: { issuer: string; tier: SourceTier | null; sourceIds: string[] }[];
+  onSelectAllVisible: () => void;
+  onSelectIssuer: (sourceIds: string[]) => void;
+  onClearSelection: () => void;
+  onDone: () => void;
+}) {
+  const [decision, setDecision] = useState("");
+  const [provenanceClass, setProvenanceClass] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [result, setResult] = useState<BulkResult | null>(null);
+
+  const chosen = DECISIONS.find((d) => d.value === decision) ?? null;
+  const requiresProvenanceClass = chosen?.consequence.includes("Ingestion Broker") ?? false;
+  // An inspection is only an inspection OF the current selection and decision.
+  // Changing either invalidates it, so the record button re-locks rather than
+  // letting a stale dry run authorise a different act.
+  const inspection =
+    result && result.dryRun && result.decision === decision && result.requested === selected.size ? result : null;
+
+  const selectedDuplicates = selectedRows.filter((r) => duplicateSourceIds.has(r.sourceId));
+
+  const post = useCallback(
+    async (dryRun: boolean) => {
+      if (selected.size === 0 || !chosen) return;
+      setBusy(true);
+      setErr(null);
+      try {
+        const res = await personaFetch("/api/corpus-scout/candidates/bulk-review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceIds: [...selected],
+            decision: chosen.value,
+            notes: notes.trim(),
+            provenanceClass: provenanceClass || undefined,
+            dryRun,
+          }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `the batch was not processed (HTTP ${res.status})`);
+        setResult(d as BulkResult);
+        if (!dryRun) onDone();
+      } catch (e) {
+        setErr(
+          e instanceof Error
+            ? e.message
+            : "the batch was not processed — every source in it is still at whatever status it already had",
+        );
+      } finally {
+        setBusy(false);
+      }
+    },
+    [selected, chosen, notes, provenanceClass, onDone],
+  );
+
+  return (
+    <div className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-slate-200">
+          {selected.size} selected of {visible.length} shown
+        </span>
+        <button
+          onClick={onSelectAllVisible}
+          className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-slate-300 hover:bg-slate-800/60"
+        >
+          Select all shown
+        </button>
+        {selected.size > 0 && (
+          <button
+            onClick={onClearSelection}
+            className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-slate-300 hover:bg-slate-800/60"
+          >
+            Clear selection
+          </button>
+        )}
+      </div>
+
+      {issuerGroups.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-slate-500">by institution:</span>
+          {issuerGroups.map((g) => (
+            <button
+              key={g.issuer}
+              onClick={() => onSelectIssuer(g.sourceIds)}
+              title={
+                g.tier
+                  ? `${g.issuer} — ${g.tier} in the ratified Institutional Registry`
+                  : `${g.issuer} — no tier declared in the ratified Institutional Registry for this pillar. Undeclared is never counted as an authority.`
+              }
+              className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800/60"
+            >
+              {g.issuer} ({g.sourceIds.length})
+              <span className={g.tier === "institutional-authority" ? " text-emerald-300" : " text-slate-500"}>
+                {" "}
+                {g.tier ?? "tier undeclared"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {selected.size === 0 ? (
+        <p className="mt-1 text-[10px] text-slate-500">
+          Tick sources to decide them together under one rationale and one receipt. Each is still recorded
+          individually, through the same route and the same refusals as a single decision.
+        </p>
+      ) : (
+        <div className="mt-2 space-y-1.5">
+          {selectedDuplicates.length > 0 && (
+            <div className="rounded border border-amber-500/30 bg-amber-500/10 p-1.5 text-amber-100">
+              {selectedDuplicates.length} selected source(s) belong to an exact-duplicate group. Admitting more than
+              one member ingests the same document twice — this is not blocked, because only you can say which copy
+              is canonical.
+            </div>
+          )}
+          <select
+            value={decision}
+            onChange={(e) => {
+              setDecision(e.target.value);
+              setResult(null);
+            }}
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+          >
+            <option value="">— one decision, applied to every selected source —</option>
+            {DECISIONS.filter((d) => d.value !== "mark_duplicate").map((d) => (
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
+            ))}
+          </select>
+          {chosen && <div className="text-[10px] text-slate-400">{chosen.consequence}</div>}
+          {requiresProvenanceClass && (
+            <select
+              value={provenanceClass}
+              onChange={(e) => {
+                setProvenanceClass(e.target.value);
+                setResult(null);
+              }}
+              className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+            >
+              <option value="">
+                — provenance class (required; every source in the batch is admitted under this one class) —
+              </option>
+              {PROVENANCE_CLASSES.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          )}
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="rationale (required to record — written onto every source in the batch and carried on the receipt)"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => void post(true)}
+              disabled={busy || !chosen || (requiresProvenanceClass && !provenanceClass)}
+              className="rounded border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-slate-200 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Inspect (writes nothing)"}
+            </button>
+            <button
+              onClick={() => void post(false)}
+              disabled={busy || !inspection || !notes.trim()}
+              title={
+                !inspection
+                  ? "Inspect the batch first — the record button only unlocks against an inspection of this exact selection and decision"
+                  : !notes.trim()
+                    ? "A rationale is required to record"
+                    : undefined
+              }
+              className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-emerald-200 disabled:opacity-50"
+            >
+              Record {selected.size} decision(s)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <div className="mt-1.5 rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+
+      {result && (
+        <div className="mt-2 space-y-1 rounded border border-slate-800 bg-slate-950 p-2">
+          <div className={result.dryRun ? "text-slate-300" : "text-emerald-200"}>
+            {result.dryRun
+              ? `Inspection — ${result.requested} source(s) would be recorded as this decision. Nothing has been written.`
+              : `${result.written} of ${result.requested} recorded.`}
+            {!result.dryRun && result.ingestionFailures > 0 && (
+              <span className="text-amber-200">
+                {" "}
+                {result.ingestionFailures} admitted WITHOUT becoming evidence — the Ingestion Broker hand-off failed.
+              </span>
+            )}
+            {!result.dryRun && (
+              <span className={result.receiptWritten ? " text-slate-400" : " text-amber-200"}>
+                {" "}
+                {result.receiptWritten ? "Batch receipt written." : (result.receiptWarning ?? "No batch receipt.")}
+              </span>
+            )}
+          </div>
+          <ul className="max-h-40 space-y-0.5 overflow-y-auto">
+            {result.outcomes.map((o) => (
+              <li
+                key={o.sourceId}
+                className={o.ingested === false || (!o.decided && !result.dryRun) ? "text-amber-200" : "text-slate-400"}
+              >
+                <span className="font-mono text-[10px]">{o.sourceId}</span> — {o.detail}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface BulkResult {
+  dryRun: boolean;
+  decision: string;
+  requested: number;
+  decided: number;
+  written: number;
+  ingestionFailures: number;
+  receiptWritten: boolean;
+  receiptWarning: string | null;
+  outcomes: {
+    sourceId: string;
+    priorStatus: string | null;
+    decided: boolean;
+    written: boolean;
+    ingested: boolean | null;
+    detail: string;
+  }[];
+}
+
+function CandidateReviewCard({
+  row,
+  selected,
+  onToggleSelected,
+  isDuplicate,
+  onDecided,
+}: {
+  row: CandidateSource;
+  selected: boolean;
+  onToggleSelected: () => void;
+  isDuplicate: boolean;
+  onDecided: () => void;
+}) {
+  const [decision, setDecision] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [provenanceClass, setProvenanceClass] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<{ label: string; ingestionFailed: boolean; ingestionError?: string } | null>(null);
   const [expanded, setExpanded] = useState(false);
 
   const chosen = DECISIONS.find((d) => d.value === decision) ?? null;
+  // The two decisions PRD-ICA-001 §6/§11 hand to the Ingestion Broker are the
+  // ones whose consequence text says so — read from the same copy the
+  // reviewer sees rather than restating the vocabulary
+  // (services/corpusScout/reviewDecision.ts::INGESTING_DECISIONS is the
+  // server-side authority; this is UI-only, not a second rule).
+  const requiresProvenanceClass = chosen?.consequence.includes("Ingestion Broker") ?? false;
 
   const submit = useCallback(async () => {
     if (!chosen || !notes.trim()) return;
+    if (requiresProvenanceClass && !provenanceClass) return;
     setBusy(true);
     setErr(null);
     try {
@@ -784,12 +1199,25 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ decision: chosen.value, notes: notes.trim() }),
+          body: JSON.stringify({
+            decision: chosen.value,
+            notes: notes.trim(),
+            provenanceClass: provenanceClass || undefined,
+          }),
         },
       );
       const d = await res.json().catch(() => null);
       if (!d?.ok) throw new Error(d?.error || `the decision was not recorded (HTTP ${res.status})`);
-      setDone(chosen.label);
+      // `ok: true` reports the DECISION was recorded — it says nothing about
+      // whether ingestion (the actual evidence hand-off) succeeded. Checking
+      // only the outer `ok` here previously let an ingestion failure pass as
+      // a plain success (2026-08-03 fix — see reviewDecision.ts's module doc).
+      const ingestion = d.ingestion as { ok: boolean; error?: string } | undefined;
+      setDone({
+        label: chosen.label,
+        ingestionFailed: Boolean(ingestion && !ingestion.ok),
+        ingestionError: ingestion && !ingestion.ok ? ingestion.error : undefined,
+      });
       onDecided();
     } catch (e) {
       // A failed decision leaves the source PENDING and says so — the operator
@@ -798,20 +1226,50 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
     } finally {
       setBusy(false);
     }
-  }, [chosen, notes, row.sourceId, onDecided]);
+  }, [chosen, notes, provenanceClass, requiresProvenanceClass, row.sourceId, onDecided]);
 
   if (done) {
+    if (done.ingestionFailed) {
+      return (
+        <div className="rounded border border-amber-600/50 bg-amber-950/20 p-2 text-[11px] text-amber-100">
+          <AlertTriangle className="mr-1 inline h-3 w-3" />
+          {row.title} — recorded as {done.label}, but the Ingestion Broker hand-off FAILED: {done.ingestionError}.
+          This source is no longer pending review, and it is not yet evidence — it left the queue without becoming
+          the thing its own decision label claims.
+        </div>
+      );
+    }
     return (
       <div className="rounded border border-emerald-800/50 bg-emerald-950/20 p-2 text-[11px] text-emerald-200">
         <CheckCircle2 className="mr-1 inline h-3 w-3" />
-        {row.title} — {done}. Recorded with your rationale.
+        {row.title} — {done.label}. Recorded with your rationale.
       </div>
     );
   }
 
   return (
-    <div className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
-      <div className="font-medium text-slate-100">{row.title}</div>
+    <div
+      className={`rounded border bg-slate-950/60 p-2 text-[11px] ${
+        selected ? "border-emerald-800/60" : "border-slate-800"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          aria-label={`select ${row.title} for a batch decision`}
+          className="mt-0.5 shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="font-medium text-slate-100">{row.title}</div>
+          {isDuplicate && (
+            <div className="mt-0.5 text-[10px] text-amber-200">
+              In an exact-duplicate group — another source in this queue is byte- or URL-identical.
+            </div>
+          )}
+        </div>
+      </div>
       {(() => {
         const unresolved = titleLooksUnresolved(row);
         return unresolved ? (
@@ -918,6 +1376,18 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
           ))}
         </select>
         {chosen && <div className="text-[10px] text-slate-400">{chosen.consequence}</div>}
+        {requiresProvenanceClass && (
+          <select
+            value={provenanceClass}
+            onChange={(e) => setProvenanceClass(e.target.value)}
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200"
+          >
+            <option value="">— provenance class (required — the Ingestion Broker refuses without one) —</option>
+            {PROVENANCE_CLASSES.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        )}
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
@@ -928,7 +1398,7 @@ function CandidateReviewCard({ row, onDecided }: { row: CandidateSource; onDecid
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => void submit()}
-            disabled={busy || !chosen || !notes.trim()}
+            disabled={busy || !chosen || !notes.trim() || (requiresProvenanceClass && !provenanceClass)}
             className={`rounded border px-2.5 py-1 text-[11px] disabled:opacity-50 ${
               chosen?.kind === "reject"
                 ? "border-rose-800 bg-rose-900/30 text-rose-200"
