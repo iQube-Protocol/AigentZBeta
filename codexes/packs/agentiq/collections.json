@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-03_track2-stage2-governed-bulk-admission.md",
         "updates/2026-08-03_horizen-agentid-receipt-decode-recovery.md",
         "updates/2026-08-02_amplify-cap-resolved-trace-types.md",
         "updates/2026-08-02_ci-corpus-externalization-001.md",

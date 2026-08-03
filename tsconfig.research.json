@@ -86,7 +86,9 @@
     "app/api/wallet/signing-requests/**/*.ts",
     "services/wallet/**/*.tsx",
     "app/api/invariants/**/*.ts",
-    "app/triad/components/codex/tabs/InvariantDetailModal.tsx"
+    "app/triad/components/codex/tabs/InvariantDetailModal.tsx",
+    "services/corpusScout/**/*.ts",
+    "app/api/corpus-scout/**/*.ts"
   ],
   "exclude": [
     "node_modules",

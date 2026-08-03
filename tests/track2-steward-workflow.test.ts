@@ -64,11 +64,188 @@ describe('Track 2 steward workflow — Stage 2 is actionable', () => {
     expect(src).toMatch(/if \(!chosen \|\| !notes\.trim\(\)\) return;/);
     // And the control is disabled until both exist, so the refusal is visible
     // before it is needed rather than only enforced after a click.
-    expect(src).toMatch(/disabled=\{busy \|\| !chosen \|\| !notes\.trim\(\)\}/);
+    expect(src).toMatch(/disabled=\{busy \|\| !chosen \|\| !notes\.trim\(\)/);
     // No effect may submit a decision — an admission must be an act.
     const submitAt = src.indexOf('const submit = useCallback');
     expect(submitAt).toBeGreaterThan(-1);
     expect(src).not.toMatch(/useEffect\([\s\S]{0,160}void submit\(\)/);
+  });
+
+  /*
+   * AN ADMISSION THAT DOES NOT INGEST IS NOT AN ADMISSION (2026-08-03).
+   *
+   * The queue posted `{ decision, notes }` and never a provenanceClass.
+   * `ingestApprovedSource` requires one and refuses without it — so the route
+   * answered `{ ok: true, ingestion: { ok: false } }`, the client checked only
+   * the outer `ok`, and every EXP-P1 admission through this queue moved the
+   * source to `approved_*` (Stage 2's own signals then read it as admitted)
+   * while producing NO evidence row. "Safe read as finished", one stage
+   * earlier than where Al found it, and invisible because nothing inspected
+   * `ingestion.ok`.
+   */
+  it('an ingesting admission cannot be submitted without a provenance class', () => {
+    const src = stripComments(readSource(PANEL));
+    // The client asks for it and sends it.
+    expect(src).toMatch(/PROVENANCE_CLASSES\.map/);
+    expect(src).toMatch(/provenanceClass: provenanceClass \|\| undefined/);
+    // And refuses to submit without one where it is required.
+    expect(src).toMatch(/if \(requiresProvenanceClass && !provenanceClass\) return;/);
+    expect(src).toMatch(/requiresProvenanceClass && !provenanceClass\)\}/);
+  });
+
+  it('the server refuses the same thing, so the client gate is not the only one', () => {
+    const svc = stripComments(readSource('services/corpusScout/reviewDecision.ts'));
+    const at = svc.indexOf('if (willIngest && !input.provenanceClass)');
+    expect(at, 'the server accepts an ingesting admission with no provenance class').toBeGreaterThan(-1);
+    expect(svc.slice(at, at + 400)).toMatch(/ok: false/);
+    // The refusal must be BEFORE any write.
+    expect(at).toBeLessThan(svc.indexOf('updateCandidateReview('));
+  });
+
+  it('a failed ingestion is never reported as a plain success', () => {
+    const src = stripComments(readSource(PANEL));
+    // The outer `ok` reports the DECISION; ingestion has its own outcome.
+    expect(src).toMatch(/const ingestion = d\.ingestion as/);
+    expect(src).toMatch(/ingestionFailed: Boolean\(ingestion && !ingestion\.ok\)/);
+    expect(src).toMatch(/the Ingestion Broker hand-off FAILED/);
+  });
+});
+
+describe('Track 2 Stage 2 — governed bulk admission', () => {
+  const ROUTE = 'app/api/corpus-scout/candidates/bulk-review/route.ts';
+
+  it('the bulk route loops the SAME decision function the single-source route calls', () => {
+    // A second admission path is the parallel implementation
+    // inv.engineering.037 forbids, and it would be the one with the relaxed
+    // rules — a bulk-only door into the corpus.
+    const bulk = stripComments(readSource(ROUTE));
+    const single = stripComments(readSource('app/api/corpus-scout/candidates/[sourceId]/review/route.ts'));
+    expect(bulk).toMatch(/applyCandidateReviewDecision\(/);
+    expect(single).toMatch(/applyCandidateReviewDecision\(/);
+    // Neither route restates the decision vocabulary.
+    for (const route of [bulk, single]) {
+      expect(route).not.toMatch(/approved_exp_p1:\s*'approved_exp_p1'/);
+      expect(route).not.toMatch(/ingestApprovedSource\(/);
+    }
+  });
+
+  it('dryRun defaults TRUE — a forgotten flag inspects, never admits', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    expect(bulk).toMatch(/const dryRun = body\.dryRun !== false;/);
+    // And the write path is gated on it.
+    expect(bulk).toMatch(/if \(dryRun\) \{/);
+  });
+
+  it('a write requires a rationale; an inspection does not', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    expect(bulk).toMatch(/if \(!dryRun && !notes\)/);
+  });
+
+  it('every source in a batch shares ONE provenance class, and it is required to ingest', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    const at = bulk.indexOf('INGESTING_DECISIONS.has(body.decision) && !body.provenanceClass');
+    expect(at).toBeGreaterThan(-1);
+    expect(bulk.slice(at, at + 500)).toMatch(/must be split, not guessed/);
+  });
+
+  it('mark_duplicate is refused in bulk — it is a per-source fact', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    const at = bulk.indexOf("body.decision === 'mark_duplicate'");
+    expect(at).toBeGreaterThan(-1);
+    expect(bulk.slice(at, at + 500)).toMatch(/cannot be applied in bulk/);
+    // The client does not offer it either.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/DECISIONS\.filter\(\(d\) => d\.value !== "mark_duplicate"\)/);
+  });
+
+  it('an oversized batch is refused by name, never silently truncated', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    expect(bulk).toMatch(/sourceIds\.length > MAX_BATCH/);
+    const at = bulk.indexOf('sourceIds.length > MAX_BATCH');
+    expect(bulk.slice(at, at + 600).replace(/`\s*\+\s*\n?\s*'/g, '')).toMatch(/refused rather than truncated/);
+    // No slice() that would quietly drop the tail.
+    expect(bulk).not.toMatch(/sourceIds\.slice\(0, MAX_BATCH\)/);
+  });
+
+  it('the prior status is read BEFORE the write, so a re-run is visible', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    const readAt = bulk.indexOf('const existing = await getCandidateSource(admin, sourceId);');
+    const writeAt = bulk.indexOf('await applyCandidateReviewDecision(');
+    expect(readAt).toBeGreaterThan(-1);
+    expect(writeAt).toBeGreaterThan(-1);
+    expect(readAt).toBeLessThan(writeAt);
+    // And an already-decided source is named as an OVERWRITE in the dry run.
+    expect(bulk).toMatch(/would OVERWRITE that decision/);
+  });
+
+  it('one receipt per batch, on the shared research-lifecycle constructor', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    expect(bulk).toMatch(/writeLifecycleReceipt\(\{/);
+    // Never a second receipt constructor, and never a new action type.
+    expect(bulk).not.toMatch(/createActivityReceipt\(/);
+    expect(bulk).not.toMatch(/actionType:/);
+    // Attribution is the T2-safe reference, never the raw personaId.
+    expect(bulk).toMatch(/personaPublicRef\(persona\.personaId\)/);
+    // Exactly one receipt call for the whole batch, outside the per-source loop.
+    expect((bulk.match(/writeLifecycleReceipt\(/g) ?? []).length).toBe(1);
+  });
+
+  it('a receipt failure never rolls back an admission and is never silent', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    const at = bulk.indexOf('if (!receipt.ok)');
+    expect(at).toBeGreaterThan(-1);
+    const block = bulk.slice(at, at + 500);
+    expect(block).toMatch(/console\.error\('\[CORPUS BULK REVIEW\]/);
+    expect(block).toMatch(/receiptWarning =/);
+    expect(block).not.toMatch(/rollback|revert|undo/i);
+  });
+
+  it('per-source outcomes are reported individually, ingestion failures included', () => {
+    const bulk = stripComments(readSource(ROUTE));
+    expect(bulk).toMatch(/ingestionFailures: ingestionFailures\.length/);
+    expect(bulk).toMatch(/outcomes,/);
+    const src = stripComments(readSource(PANEL));
+    // And the surface renders them rather than a bare count.
+    expect(src).toMatch(/result\.outcomes\.map\(\(o\) =>/);
+    expect(src).toMatch(/admitted WITHOUT becoming evidence/);
+  });
+
+  it('the record button unlocks only against an inspection of THIS selection', () => {
+    // A dry run of a different selection or decision must not authorise a
+    // write — the same staleness discipline the freeze act uses on its hash.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(
+      /result\.dryRun && result\.decision === decision && result\.requested === selected\.size/,
+    );
+    expect(src).toMatch(/disabled=\{busy \|\| !inspection \|\| !notes\.trim\(\)\}/);
+  });
+
+  it('duplicate groups are shown from the EXISTING detector, not a second one', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/findDuplicateCandidates\(/);
+    // The list projection has no normalizedTextHash — passing null is honest;
+    // substituting the artifact hash would fabricate a match on an axis that
+    // was never checked.
+    expect(src).toMatch(/normalizedTextHash: null/);
+    // Selecting duplicates is WARNED, never silently blocked — only the
+    // steward can say which copy is canonical.
+    expect(src).toMatch(/belong to an exact-duplicate group/);
+    expect(src).toMatch(/this is not blocked/);
+  });
+
+  it('the institution tier is read from the ratified registry, never assumed', () => {
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/findRegistryEntry\(r\.campaignDomain, r\.campaignSubDomain, issuer\)/);
+    // An undeclared tier is reported as undeclared — never counted as an authority.
+    expect(src).toMatch(/tier: entry\?\.tier \?\? null/);
+    expect(src).toMatch(/tier undeclared/);
+  });
+
+  it('a selection does not survive a reload that changed the queue', () => {
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const load = useCallback');
+    const block = src.slice(at, src.indexOf('}, [acquisitionDomain]);', at));
+    expect(block).toMatch(/setSelected\(new Set\(\)\)/);
   });
 
   it('the two admissions that ingest are distinguished from the one that does not', () => {
