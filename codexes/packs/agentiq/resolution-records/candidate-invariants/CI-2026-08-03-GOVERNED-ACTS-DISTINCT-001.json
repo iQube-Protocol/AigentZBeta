@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "The sequence, from the source doc: the domain declaration creates the BOUNDARY; Track 2 creates the OBJECT inside it; readiness ASSESSES that object; freeze RATIFIES it.",
+    "`assessability` (ASSESSED | DOMAIN_UNPOPULATED) is the mechanism that keeps \"nothing to assess\" distinguishable from \"assessed and failing\".",
+    "`verifiedFailingBeforeFix` recorded as false: the source docs do not record a fail-before/pass-after run for this canary. Not assumed."
+  ],
+  "canaries": [
+    {
+      "path": "tests/independent-review-capability.test.ts",
+      "assertion": "`domainAcceptsAssignment()` reads ratification status rather than assuming one and still refuses when unratified; eligibility is locked to `validated|canonical` and rejects `proposed`; the vP1 namespace boundary and its ruled exclusions are pinned against their duplicate in scripts/export-crystal-snapshot.mjs.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001",
+  "statement": "Declaring a domain boundary, constituting the object inside it, assessing that object and freezing it are four distinct governed acts and may not be collapsed into one.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalReadiness.ts + IndependentReviewPanel",
+      "defect": "Readiness was run before crystal constitution had occurred, so nine checks correctly declining to certify an empty set read as nine defects in Crystal vP1. Separately, a caller-supplied domain won over the ratified declaration, so every readiness report the panel requested was about the historical namespace.",
+      "resolutionId": "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001",
+      "evidence": [
+        "c737b9e65",
+        "ddf557f9b",
+        "tests/independent-review-capability.test.ts"
+      ]
+    }
+  ]
+}

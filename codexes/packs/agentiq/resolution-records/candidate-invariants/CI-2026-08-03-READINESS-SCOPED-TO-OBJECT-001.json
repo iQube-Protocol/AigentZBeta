@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "The counterweight is CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001. Neither is safe without the other, and they must be read as a pair."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "`computeFreezeBlocking` derives every exception’s `blocksFreeze` from the crystal that remains; the source-scope-never-blocks-freeze canary fails if it ignores crystal scope. Mutation-verified.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-READINESS-SCOPED-TO-OBJECT-001",
+  "statement": "Readiness evaluates the object actually assigned, not total corpus perfection; unrelated exclusions remain disclosed limitations rather than blockers.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalReadiness.ts",
+      "defect": "Upstream stages hardcoded `blocksFreeze: true` per record, so an exception over a source that never entered the corpus could make a passing crystal unfreezable.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}

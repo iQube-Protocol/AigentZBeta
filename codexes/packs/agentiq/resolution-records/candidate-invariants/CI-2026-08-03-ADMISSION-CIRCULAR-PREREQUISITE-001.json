@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-named 2026-08-03. The operator judged this \"a genuine circular-prerequisite class of defect [that] generalises well beyond Corpus Scout\" — hence `cross-capability` scope on the operator's own reading, with only one recorded site so far.",
+    "The split that resolves it: `domainConfidence` (sub-domain placement, provisional) governs disclosure; `confidence` (admission quality) governs disposition. `ingestApprovedSource` writes the source’s own recorded `campaignSubDomain` to the evidence row, never the lineage-derived placement, which is what makes the split sound rather than convenient."
+  ],
+  "canaries": [
+    {
+      "path": "tests/corpus-scout-admission-recommendation.test.ts",
+      "assertion": "A source with no invariant lineage keeps its admission-quality `confidence` while its `domainConfidence` stays capped and labelled PROVISIONAL — the two numbers are decoupled. The prior assertion requiring the coupled behaviour was replaced with its reason recorded.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+  "statement": "Admission confidence must not depend on evidence produced only after admission.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/corpusScout/admissionRecommendation.ts",
+      "defect": "The Stage 2 recommendation engine capped a source's OVERALL confidence at PROVISIONAL_CONFIDENCE_CAP when no invariant lineage traced to it — and a source cannot have lineage until it has been admitted and extracted. On the first real Track 2 batch every source was provisional, every source was quarantined, and the executable cohort was ZERO. The feature intended to prepare the operator's decision had made the decision impossible.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/corpus-scout-admission-recommendation.test.ts"
+      ]
+    }
+  ]
+}

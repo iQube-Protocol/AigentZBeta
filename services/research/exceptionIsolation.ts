@@ -257,13 +257,25 @@ export interface IsolationException {
  * materially narrow crystal that appears complete. Every dashboard shows these
  * totals and **the freeze package must preserve them**.
  */
+/**
+ * The EIGHT fields, in the operator's own shape (2026-08-03 freeze-schema
+ * authorization). This is the schema the frozen artifact carries, so it is
+ * declared once here and consumed by every surface, receipt and freeze package
+ * — never restated with a different field set.
+ *
+ * A stage that genuinely cannot observe a count reports the honest value it
+ * CAN observe rather than guessing one; the freeze package, which sees the
+ * whole pipeline, is where all eight are real.
+ */
 export interface PopulationDisclosure {
   discovered: number;
   admitted: number;
-  excludedWithWarnings: number;
-  manualExceptions: number;
-  refused: number;
+  candidatesExtracted: number;
+  validated: number;
   assignedToCrystal: number;
+  excludedWithWarnings: number;
+  exceptions: number;
+  refused: number;
 }
 
 /** The operator's own rendering, so every surface states the population the
@@ -271,8 +283,9 @@ export interface PopulationDisclosure {
 export function renderPopulationDisclosure(p: PopulationDisclosure): string {
   return (
     `Discovered: ${p.discovered} / Admitted: ${p.admitted} / ` +
-    `Excluded with warnings: ${p.excludedWithWarnings} / Manual exceptions: ${p.manualExceptions} / ` +
-    `Refused: ${p.refused} / Assigned to crystal: ${p.assignedToCrystal}`
+    `Candidates extracted: ${p.candidatesExtracted} / Validated: ${p.validated} / ` +
+    `Assigned to crystal: ${p.assignedToCrystal} / Excluded with warnings: ${p.excludedWithWarnings} / ` +
+    `Exceptions: ${p.exceptions} / Refused: ${p.refused}`
   );
 }
 

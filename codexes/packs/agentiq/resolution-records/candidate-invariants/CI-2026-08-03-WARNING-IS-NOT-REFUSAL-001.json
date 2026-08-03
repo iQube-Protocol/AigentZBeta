@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Sits alongside the four separate `blocks*` booleans: an exception must be able to block NOTHING, and the system must be able to tell that apart from blocking a freeze."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "Dropping `ready-with-warning` from EXECUTABLE_DISPOSITIONS fails three tests, including the executable-count and amber-is-not-refusal canaries. Mutation-verified.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-WARNING-IS-NOT-REFUSAL-001",
+  "statement": "A warning is not a refusal: a record carrying an accepted, disclosed warning remains executable.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/exceptionIsolation.ts",
+      "defect": "A single `blocking: boolean` collapsed the distinction between an exception that blocks nothing at all and one that blocks a freeze, so all amber notices were treated alike and every warned record was excluded from the executable cohort.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}

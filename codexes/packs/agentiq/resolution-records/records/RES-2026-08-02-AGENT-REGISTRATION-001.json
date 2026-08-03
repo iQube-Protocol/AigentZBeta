@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-02-AGENT-REGISTRATION-001",
+  "capability": "horizen-agent-registration",
+  "milestone": "Horizen Pilot — Aigent Nakamoto live registration",
+  "problem": "Nakamoto was registered on base-sepolia (tx 0xedda5f73…, tokenId 8798) and the platform could not see it. The registration-binding resolver reported 'not registered' every time, so the Register ladder, the Agent Card and the Verify stage each answered differently about one fact. Repair spanned 2026-08-02 to 2026-08-03 and took several cycles because each fix exposed the next observer reading a different source.",
+  "observedFailure": [
+    "The legacy receipt lacked a structured registration.tokenId block, so the receipt fallback skipped it as malformed — the exact receipt the fallback existed to rescue.",
+    "Receipt lookup used the agent handle (personas.fio_handle = 'nakamoto@aigent') although the receipt belonged to the OPERATOR persona that acted; the query searched a structurally empty set every time.",
+    "A test explicitly asserted legacy receipts should be ignored — titled 'ignores a receipt with no structured registration block' and fed exactly the shape of Nakamoto's real receipt. The defect was specified, asserted and defended by a green test."
+  ],
+  "rootCauses": [
+    "A receipt is written with personaId = the ACTING operator, and the subject of the receipt is a different reference (the registered agent). The lookup keyed on the wrong one of the two.",
+    "A schema enrichment (the structured `registration` block) was introduced in the same change as the fallback that read it, so the fallback could only read data that did not yet exist in production.",
+    "The binding-resolver test file mocked the author's beliefs rather than the system's data — six tests passed while the resolver could never work."
+  ],
+  "resolution": [
+    "Added `findAgentRegistrationReceipts` to the canonical receipt service — subject-keyed on `agents_invoked`, returning only the narrow facts asked for, never the persona-scoped receipt body.",
+    "Where a legacy record carries less, recover the rest from a source that can still be interrogated: decode the registration transaction the receipt names, bounded by an owner check, refusing rather than guessing when the chain does not confirm it.",
+    "Rewrote tests/horizen-agent-registration-binding.test.ts against real evidence — Nakamoto's actual tx hash, tokenId, registry address and wallet are fixture constants at the top of the file.",
+    "Gave the ladder a single precedence order so one screen gives one answer (OS-1/OS-2/OS-3)."
+  ],
+  "rejectedApproaches": [
+    "Treat the operator wallet as the agent identifier — a wallet is the OWNER reference, not the agent reference; ERC-721 gives no reverse (wallet → tokenId) enumeration guarantee, so this could answer confidently and wrongly.",
+    "Query the database directly outside the canonical receipt service — a second reader of one fact is a second observer that will eventually disagree.",
+    "Ignore pre-enrichment receipts — that is the failure, restated as a policy."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+    "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+    "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001"
+  ],
+  "canaries": [
+    "tests/horizen-agent-registration-binding.test.ts",
+    "tests/horizen-agent-page-surface-wiring.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [
+      "4c5859882",
+      "feeee0194"
+    ],
+    "tests": [
+      "tests/horizen-agent-registration-binding.test.ts",
+      "tests/horizen-agent-page-surface-wiring.test.ts"
+    ],
+    "receipts": [
+      "horizen_agent_registered"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md",
+    "codexes/packs/agentiq/updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md"
+  ]
+}

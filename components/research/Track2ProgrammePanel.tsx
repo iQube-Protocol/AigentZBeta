@@ -322,8 +322,34 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           to Stage 5 instead of inviting them into Stage 8. */}
                       {s.id === "assign-to-crystal" &&
                         (() => {
+                          /*
+                           * THE GATE MOVED FROM THE STAGE TO THE RECORD
+                           * (exception-isolation ruling, 2026-08-03).
+                           *
+                           * The original gate required every earlier stage to be
+                           * COMPLETE, because the control was a textarea and
+                           * pasting ids there would bypass provenance,
+                           * validation and relationship review — "a hole in the
+                           * ladder".
+                           *
+                           * The derived surface cannot do that. Every row it
+                           * offers has been through `evaluateCrystalAssignment`
+                           * against the ratified declaration, so an invariant
+                           * lacking validation or evidence provenance is
+                           * rendered as an exception with its remedy and cannot
+                           * be selected. The safety is now per-record, which is
+                           * strictly stronger than a stage-level lock.
+                           *
+                           * So a PARTIALLY-COMPLETE earlier stage no longer
+                           * withholds assignment of the cohort that IS eligible
+                           * — which is the whole ruling. Only a stage with
+                           * nothing usable at all still blocks.
+                           */
                           const blockers = programme.stages.filter(
-                            (x) => x.ordinal < s.ordinal && x.status !== "complete",
+                            (x) =>
+                              x.ordinal < s.ordinal &&
+                              x.status !== "complete" &&
+                              x.status !== "partially-complete",
                           );
                           if (blockers.length === 0) {
                             return <AssignmentControl experimentId={experimentId} onDone={() => void load()} />;
@@ -335,9 +361,9 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                               {blockers.length === 1 ? "One earlier stage is" : `${blockers.length} earlier stages are`}{" "}
                               incomplete, starting with <strong>{next.ordinal}. {next.label}</strong> — {next.detail}.
                               <div className="mt-1 text-amber-200/80">
-                                No control is offered here because assigning now would admit invariants that have not
-                                been through provenance classification, validation and relationship review. This is a
-                                closed gate, not a missing feature.
+                                No control is offered here because no eligible invariant can exist yet — not because
+                                earlier stages hold unresolved exceptions. A stage that has produced SOME eligible
+                                work does not withhold this one.
                               </div>
                             </div>
                           );
@@ -1341,9 +1367,10 @@ function ExecutableBatchSummary({
       {population && (
         <div className="mt-1.5 rounded border border-slate-800 bg-slate-900/40 p-1.5 text-[10px] text-slate-400">
           <span className="text-slate-500">Full population — </span>
-          Discovered: {population.discovered} / Admitted: {population.admitted} / Excluded with warnings:{" "}
-          {population.excludedWithWarnings} / Manual exceptions: {population.manualExceptions} / Refused:{" "}
-          {population.refused} / Assigned to crystal: {population.assignedToCrystal}
+          Discovered: {population.discovered} / Admitted: {population.admitted} / Candidates extracted:{" "}
+          {population.candidatesExtracted} / Validated: {population.validated} / Assigned to crystal:{" "}
+          {population.assignedToCrystal} / Excluded with warnings: {population.excludedWithWarnings} / Exceptions:{" "}
+          {population.exceptions} / Refused: {population.refused}
           <div className="mt-0.5 text-slate-600">
             Shown on every act so exception isolation can never quietly narrow the corpus until readiness passes.
           </div>
@@ -2008,10 +2035,14 @@ function CandidateReviewCard({
  * run has been seen and a rationale entered.
  */
 function AssignmentControl({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
-  const [idsText, setIdsText] = useState("");
+  const [derived, setDerived] = useState<DerivedAssignment | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [rationale, setRationale] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [showPaste, setShowPaste] = useState(false);
+  const [idsText, setIdsText] = useState("");
   const [result, setResult] = useState<{
     dryRun: boolean;
     admitted: number;
@@ -2023,10 +2054,49 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
     receiptWarning?: string;
   } | null>(null);
 
-  const invariantIds = idsText
-    .split(/[\s,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  /*
+   * THE DERIVED LIST IS THE PRIMARY PATH (operator ruling, 2026-08-03).
+   *
+   *   > "Do not accept pasted invariant IDs as the primary path."
+   *
+   * The server derives every candidate from the substrate, evaluates each one
+   * through the SAME `evaluateCrystalAssignment` the write path uses, and
+   * returns the cohort plus its hash. This component never decides
+   * eligibility — it renders the server's answer and collects one
+   * confirmation.
+   */
+  const loadDerived = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(
+        `/api/research/crystal/${encodeURIComponent(experimentId)}/assign`,
+        { cache: "no-store" },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.requestSucceeded) throw new Error(d?.error || `the assignment view could not be read (HTTP ${res.status})`);
+      const payload = d as DerivedAssignment;
+      setDerived(payload);
+      // Preselect exactly the executable cohort — the operator does not hunt
+      // for the eligible ones, and does not deselect the ineligible ones.
+      setSelected(new Set(payload.summary.executableRecordIds));
+      setRationale((prev) => prev || payload.suggestedRationale);
+      setResult(null);
+    } catch (e) {
+      setDerived(null);
+      setErr(e instanceof Error ? e.message : "the assignment view could not be read");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId]);
+
+  useEffect(() => {
+    void loadDerived();
+  }, [loadDerived]);
+
+  // The paste box remains available as an explicit FALLBACK only.
+  const pastedIds = idsText.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
+  const invariantIds = showPaste && pastedIds.length > 0 ? pastedIds : [...selected];
 
   const run = useCallback(
     async (dryRun: boolean) => {
@@ -2044,60 +2114,196 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
         const d = await res.json().catch(() => null);
         if (!d?.requestSucceeded) throw new Error(d?.error || `assignment failed (HTTP ${res.status})`);
         setResult(d);
-        if (!dryRun) onDone();
+        if (!dryRun) {
+          onDone();
+          void loadDerived();
+        }
       } catch (e) {
         setErr(e instanceof Error ? e.message : "the assignment could not be evaluated");
       } finally {
         setBusy(false);
       }
     },
-    [experimentId, invariantIds, rationale, onDone],
+    [experimentId, invariantIds, rationale, onDone, loadDerived],
   );
 
   const dryRunSeen = result?.dryRun === true;
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      setResult(null);
+      return next;
+    });
 
   return (
-    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2">
-      <textarea
-        value={idsText}
-        onChange={(e) => {
-          setIdsText(e.target.value);
-          setResult(null);
-        }}
-        rows={2}
-        placeholder="invariant ids, whitespace or comma separated"
-        className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
-      />
-      <textarea
-        value={rationale}
-        onChange={(e) => setRationale(e.target.value)}
-        rows={2}
-        placeholder="why these invariants are admitted (required to write — recorded on the assignment receipt)"
-        className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
-      />
-      <div className="flex gap-1.5">
+    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium text-slate-200">Eligible invariants — derived, not entered</span>
         <button
-          onClick={() => void run(true)}
-          disabled={busy || invariantIds.length === 0}
-          className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-300 disabled:opacity-50"
+          onClick={() => void loadDerived()}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-300 hover:bg-slate-800/60 disabled:opacity-50"
         >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Dry run"}
-        </button>
-        <button
-          onClick={() => void run(false)}
-          disabled={busy || !dryRunSeen || !rationale.trim() || (result?.admitted ?? 0) === 0}
-          className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-[11px] text-emerald-200 disabled:opacity-50"
-        >
-          Admit to crystal
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          Refresh
         </button>
       </div>
 
       {err && (
-        <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-[11px] text-rose-200">{err}</div>
+        <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>
+      )}
+
+      {derived && (
+        <>
+          <ExecutableBatchSummary
+            isolation={derived.summary}
+            population={derived.population}
+            criticalPath={derived.criticalPath}
+          />
+
+          <div className="text-[10px] text-slate-500">
+            Cohort <span className="font-mono text-slate-400">{derived.cohortHash}</span> · crystal{" "}
+            <span className="font-mono text-slate-400">{derived.crystalDomain}</span> · from{" "}
+            <span className="font-mono text-slate-400">{derived.acquisitionDomain}</span>
+          </div>
+
+          <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            {derived.rows.map((r) => (
+              <li
+                key={r.invariantId}
+                className={`rounded border p-1.5 ${
+                  r.disposition === "ready"
+                    ? "border-emerald-800/50 bg-emerald-950/10"
+                    : r.disposition === "ready-with-warning"
+                      ? "border-amber-600/40 bg-amber-950/10"
+                      : "border-slate-800 bg-slate-950"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(r.invariantId)}
+                    disabled={!r.admitted}
+                    onChange={() => toggle(r.invariantId)}
+                    aria-label={`select ${r.invariantId}`}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-slate-200">{r.statement}</div>
+                    {/* Provenance, validation and relationship status per
+                        invariant — the three facts the steward is deciding on. */}
+                    <div className="mt-0.5 text-[10px] text-slate-500">
+                      status <span className="text-slate-400">{r.status}</span> · validated{" "}
+                      <span className={r.timesValidated > 0 ? "text-slate-400" : "text-amber-300"}>
+                        {r.timesValidated}×
+                      </span>{" "}
+                      · provenance{" "}
+                      <span className={r.evidenceProvenance ? "text-slate-400" : "text-amber-300"}>
+                        {r.evidenceProvenance ?? "unrecorded"}
+                      </span>{" "}
+                      · relationships{" "}
+                      <span className={r.relationshipCount > 0 ? "text-slate-400" : "text-amber-300"}>
+                        {r.relationshipCount}
+                      </span>
+                      {r.alreadyAssigned ? " · already in crystal" : ""}
+                    </div>
+                    {r.warnings.map((w, i) => (
+                      <div key={i} className="text-[10px] text-amber-200">{w}</div>
+                    ))}
+                    {!r.admitted && (
+                      <div className="mt-0.5 text-[10px]">
+                        <div className="text-rose-200">{r.detail}</div>
+                        {r.exception && (
+                          <div className="text-cyan-300/80">{r.exception.recommendedAction}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {derived.rows.length === 0 && (
+            <div className="text-slate-400">
+              No invariant carries the <span className="font-mono">{derived.acquisitionDomain}</span> context yet.
+              Nothing has failed — Stage 4 promotion is what produces these.
+            </div>
+          )}
+        </>
+      )}
+
+      <textarea
+        value={rationale}
+        onChange={(e) => setRationale(e.target.value)}
+        rows={3}
+        placeholder="why these invariants are admitted (required to write — recorded on the assignment receipt)"
+        className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+      />
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          onClick={() => void run(true)}
+          disabled={busy || invariantIds.length === 0}
+          className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : `Dry run (${invariantIds.length})`}
+        </button>
+        <button
+          onClick={() => void run(false)}
+          disabled={
+            busy ||
+            !dryRunSeen ||
+            !rationale.trim() ||
+            (result?.admitted ?? 0) === 0 ||
+            derived?.summary.primaryActionEnabled === false
+          }
+          title={
+            derived?.summary.globalStop
+              ? derived.summary.globalStop.detail
+              : !dryRunSeen
+                ? "Dry run first — the confirm unlocks against an inspection of this exact cohort"
+                : undefined
+          }
+          className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-emerald-200 disabled:opacity-50"
+        >
+          Assign {invariantIds.length} invariant(s) to the crystal
+        </button>
+      </div>
+
+      {/*
+        THE PASTE PATH IS A FALLBACK, NOT THE PRIMARY (ruling, 2026-08-03).
+        Collapsed by default and labelled as such, so the derived cohort is
+        what an operator acts on unless they deliberately choose otherwise.
+      */}
+      <button
+        onClick={() => setShowPaste((v) => !v)}
+        className="text-[10px] text-slate-500 underline-offset-2 hover:underline"
+      >
+        {showPaste ? "Hide the manual fallback" : "Manual fallback — paste invariant ids"}
+      </button>
+      {showPaste && (
+        <div className="space-y-1">
+          <textarea
+            value={idsText}
+            onChange={(e) => {
+              setIdsText(e.target.value);
+              setResult(null);
+            }}
+            rows={2}
+            placeholder="invariant ids, whitespace or comma separated"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+          />
+          <div className="text-[10px] text-slate-500">
+            Overrides the derived cohort while non-empty. Every id still goes through the same eligibility
+            evaluation — pasting cannot admit something the derived view refused.
+          </div>
+        </div>
       )}
 
       {result && (
-        <div className="space-y-1 text-[11px]">
+        <div className="space-y-1">
           <div className="text-slate-300">
             {result.dryRun ? "DRY RUN — nothing written. " : "Written. "}
             {result.admitted} admitted · {result.refused} refused
@@ -2116,7 +2322,7 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
           {result.notFound.length > 0 && (
             <div className="text-amber-200">not found: {result.notFound.join(", ")}</div>
           )}
-          <ul className="space-y-1">
+          <ul className="max-h-40 space-y-1 overflow-y-auto">
             {result.outcomes.map((o) => (
               <li
                 key={o.invariantId}
@@ -2139,6 +2345,33 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
       )}
     </div>
   );
+}
+
+/** The derived Stage 8 view, as `GET .../assign` returns it. */
+interface DerivedAssignment {
+  crystalDomain: string;
+  acquisitionDomain: string;
+  cohortHash: string;
+  cohortInvariantIds: string[];
+  suggestedRationale: string;
+  summary: IsolationSummary;
+  population: PopulationDisclosure;
+  criticalPath: { nextSafeAct: string; deferred: string; milestoneImpact: string };
+  rows: {
+    invariantId: string;
+    statement: string;
+    status: string;
+    timesValidated: number;
+    evidenceProvenance: string | null;
+    relationshipCount: number;
+    alreadyAssigned: boolean;
+    admitted: boolean;
+    refusals: string[];
+    detail: string;
+    disposition: RecordDisposition;
+    warnings: string[];
+    exception?: IsolationException;
+  }[];
 }
 
 /**

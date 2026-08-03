@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+  "capability": "exp-p1-track2-corpus-admission",
+  "milestone": "EXP-P1 / Crystal prep — Stage 2 Review & Admit",
+  "problem": "Stage 2 confused constitutional refusal with programme paralysis. A handful of anomalous sources made the entire admissible batch unactionable, and the operator had to find and deselect each problem record by hand before anything could proceed. The worst instance was introduced the same day: the first recommendation engine capped a source's OVERALL confidence when no invariant lineage traced to it — and a source cannot have lineage until it has been admitted and extracted. On the first real batch every source was provisional, every source was quarantined, and the executable cohort was ZERO.",
+  "observedFailure": [
+    "Three anomalous sources disabled admission of thirty eligible ones.",
+    "The executable cohort was zero on the first Track 2 batch — the feature intended to prepare the operator's decision had made the decision impossible.",
+    "Amber notices were all treated alike: a single `blocking: boolean` collapsed the distinction between an exception that blocks nothing and one that blocks a freeze.",
+    "A stage holding unresolved exceptions reported `in-progress` or `blocked` even when every ready record had been processed."
+  ],
+  "rootCauses": [
+    "Record disposition and programme progression were modelled as one enum, which produces \"the batch is blocked because a record is\".",
+    "A circular prerequisite: admission-quality confidence was made to depend on lineage evidence that only exists AFTER admission.",
+    "`blocksFreeze` was asserted per record by upstream stages rather than derived from whether the crystal that actually remains fails a pre-registered readiness criterion."
+  ],
+  "resolution": [
+    "One shared model (`services/research/exceptionIsolation.ts`) with two axes deliberately never conflated: record disposition (ready / ready-with-warning / exception / refused) and programme progression (not-started / in-progress / partially-complete / complete / blocked).",
+    "A typed, consequential exception with four separate `blocks*` booleans, so an exception can block nothing at all or block a freeze only, and the system can tell those apart.",
+    "`computeFreezeBlocking` recomputes every exception's `blocksFreeze` from the crystal that remains; a source-scope exception is never even a candidate, because a source that never entered the corpus is not a member of the crystal.",
+    "Split `domainConfidence` (sub-domain placement, still capped and still labelled PROVISIONAL) from `confidence` (admission quality, which governs disposition and is not reduced by a provisional placement).",
+    "Population disclosure rides every surface and every partial-progress receipt: Discovered / Admitted / Excluded with warnings / Manual exceptions / Refused / Assigned to crystal.",
+    "`buildCohortAuthorization` receipts the executable subset as an authorized act with an order-independent cohort hash and the authorising steward as a `personaPublicRef` commitment."
+  ],
+  "rejectedApproaches": [
+    "Require `counts.exceptions === 0` before enabling the primary action — that is the batch-blocking being replaced.",
+    "Drop `ready-with-warning` from the executable dispositions — a warning is not a refusal.",
+    "Let exception isolation quietly reduce the corpus until readiness passes — isolation WITHOUT population disclosure is a worse failure than the batch-blocking it replaces.",
+    "Fake the two signals the ruling names that have no machine source (\"content relevant\", \"issuer/source host credible\") — neither was invented."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+    "CI-2026-08-03-WARNING-IS-NOT-REFUSAL-001",
+    "CI-2026-08-03-READINESS-SCOPED-TO-OBJECT-001",
+    "CI-2026-08-03-ADMISSION-CIRCULAR-PREREQUISITE-001",
+    "CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001",
+    "CI-2026-08-03-PARTIAL-PROGRESS-RECEIPTED-001",
+    "CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001"
+  ],
+  "canaries": [
+    "tests/exception-isolation.test.ts",
+    "tests/track2-steward-workflow.test.ts",
+    "tests/corpus-scout-admission-recommendation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "local-anomaly-blocked-batch",
+  "evidence": {
+    "commits": [
+      "9d86b3a1c",
+      "c0eb635ec"
+    ],
+    "tests": [
+      "tests/exception-isolation.test.ts",
+      "tests/track2-steward-workflow.test.ts",
+      "tests/corpus-scout-admission-recommendation.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001",
+  "capability": "exp-p1-crystal-governance",
+  "milestone": "EXP-P1 — Internal Readiness",
+  "problem": "EXP-P1's Crystal Readiness surface reported NOT_READY with 9/9 checks failing over `constitutional-reasoning`, every failure saying '0 invariants'. Read cold that is nine defects in Crystal vP1. It was not: no live `invariant_contexts` row carried that domain tag because Track 2 — the crystal source-material workstream — was PAUSED. The checks were correctly declining to certify an empty set.",
+  "observedFailure": [
+    "Nine readiness checks failing, all reporting zero, presented as nine defects rather than as an unstarted acquisition.",
+    "`IndependentReviewPanel` seeded its domain field to `constitutional-reasoning` and a caller-supplied domain WON over the ratified declaration, so every readiness report that panel requested was about the historical namespace.",
+    "A single word \"review\" was covering two different activities — internal diagnosis of our own failing checks, and independent external review — so a populated-but-failing crystal was described as \"worth reviewing but not ready\"."
+  ],
+  "rootCauses": [
+    "Readiness assessment was being run before crystal constitution had occurred. The readiness engine evaluates a governed object; it does not create one.",
+    "Four distinct governed acts — declaring the boundary, constituting the object inside it, assessing that object, and freezing it — were not separated in either the code or the language.",
+    "A reviewer-facing surface named for a state (`reviewOpen`) rather than for the act it authorises could answer for both diagnosis and independent review."
+  ],
+  "resolution": [
+    "Ratified `financial-risk-value-systems` as the governed domain boundary, carrying the operator's verbatim ratification text in `services/research/crystalDomains.ts` (a paraphrase of a constitutional act is a different act).",
+    "`domainAcceptsAssignment()` reads ratification status rather than assuming one; a canary proves it still refuses when unratified.",
+    "Split the states: PREPARING_CANDIDATE / INTERNAL_DIAGNOSTIC_REVIEW / INDEPENDENT_REVIEW_OPEN, and named `independentReviewRequestOpen` for the act it authorises so it cannot answer for internal diagnosis.",
+    "Hoisted `assessability` (ASSESSED | DOMAIN_UNPOPULATED) above the failing checks, with provenance stating that no change to this software can make an unpopulated domain ready.",
+    "The Reviewer Agreement states explicitly that findings are EVIDENCE, NOT RATIFICATION, and that the reviewer may not freeze, canonise, publish or alter materials; `reviewerAgreement.ts` binds nothing from any freeze, publish or canonisation surface."
+  ],
+  "rejectedApproaches": [
+    "Relabel the historical 18-invariant `constitutional-reasoning` collection as the EXP-P1 domain — that solves a display problem by creating a different experiment, and the substitution would have been invisible afterwards because the numbers would have looked right.",
+    "Widen eligibility to raise the invariant count — a canary locks `validated|canonical` and rejects `proposed`.",
+    "Send the current, honest, pre-Track-2 package to the external reviewer — an external reviewer asked to assess an empty set cannot produce a finding, and asking them spends their independence on our unfinished work."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-GOVERNED-ACTS-DISTINCT-001",
+    "CI-2026-08-03-REVIEW-EVIDENCE-NOT-RATIFICATION-001",
+    "CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001"
+  ],
+  "canaries": [
+    "tests/independent-review-capability.test.ts",
+    "tests/reviewer-agreement.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "governance-boundary-confused",
+  "evidence": {
+    "commits": [
+      "87258ea0a",
+      "27d2b8906",
+      "c737b9e65",
+      "ddf557f9b"
+    ],
+    "tests": [
+      "tests/independent-review-capability.test.ts",
+      "tests/reviewer-agreement.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-02_exp-p1-crystal-constitution-and-verification-regime.md",
+      "codexes/packs/agentiq/updates/2026-08-02_exp-p1-reviewer-agreement-and-invitation-reissue.md",
+      "codexes/packs/agentiq/updates/2026-08-02_track2-freeze-path-readiness.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-02_exp-p1-crystal-constitution-and-verification-regime.md",
+    "codexes/packs/agentiq/updates/2026-08-02_exp-p1-reviewer-agreement-and-invitation-reissue.md",
+    "codexes/packs/agentiq/updates/2026-08-02_track2-freeze-path-readiness.md"
+  ]
+}

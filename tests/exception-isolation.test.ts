@@ -24,6 +24,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 import {
   EXECUTABLE_DISPOSITIONS,
   RECORD_DISPOSITIONS,
@@ -42,6 +43,7 @@ import {
   type RecordDisposition,
 } from '@/services/research/exceptionIsolation';
 import { buildCohortAuthorization, computeCohortHash } from '@/services/research/cohortAuthorization';
+import { buildFreezeCeremonyPackage } from '@/services/research/crystalFreezeCeremony';
 import {
   composeAdmissionRecommendation,
   type SourceQualitySignals,
@@ -234,8 +236,8 @@ describe('blocksFreeze is computed from the remaining crystal, never asserted pe
 
 describe('partial progress produces a durable, auditable authorization record', () => {
   const population = {
-    discovered: 47, admitted: 32, excludedWithWarnings: 4,
-    manualExceptions: 7, refused: 4, assignedToCrystal: 26,
+    discovered: 47, admitted: 32, candidatesExtracted: 68, validated: 54,
+    assignedToCrystal: 26, excludedWithWarnings: 4, exceptions: 7, refused: 4,
   };
 
   it('the cohort hash commits to the SET, independent of order', () => {
@@ -287,7 +289,8 @@ describe('partial progress produces a durable, auditable authorization record', 
 
   it('renderPopulationDisclosure states every line the operator specified', () => {
     expect(renderPopulationDisclosure(population)).toBe(
-      'Discovered: 47 / Admitted: 32 / Excluded with warnings: 4 / Manual exceptions: 7 / Refused: 4 / Assigned to crystal: 26',
+      'Discovered: 47 / Admitted: 32 / Candidates extracted: 68 / Validated: 54 / ' +
+        'Assigned to crystal: 26 / Excluded with warnings: 4 / Exceptions: 7 / Refused: 4',
     );
   });
 });
@@ -344,8 +347,8 @@ describe('the single Exceptions surface and the critical path', () => {
  * property under test is that anomalies at DIFFERENT stages each isolate
  * locally and none of them stops the cohort reaching readiness.
  */
-describe('END-TO-END — one bad source, one invalid candidate, one unresolved edge, one eligible cohort', () => {
-  it('the eligible cohort reaches readiness while every anomaly stays visible, receipted and outside the crystal', () => {
+describe('END-TO-END — one valid source, one FAILED EXTRACTION, one invalid candidate, one unresolved edge, one valid cohort', () => {
+  it('the valid cohort reaches assignment and readiness while every excluded item stays visible and receipted', () => {
     // ── Stage 2: one bad source (unreadable bytes) among a real cohort ──────
     const badSource: SourceQualitySignals = {
       sourceId: 'SRC-bad-0000000001',
@@ -383,6 +386,21 @@ describe('END-TO-END — one bad source, one invalid candidate, one unresolved e
     expect(bad.exception).toBeDefined();
     expect(isExecutable(good.disposition)).toBe(true);
 
+    // ── Stage 3: one FAILED EXTRACTION (operator's superseding spec) ───────
+    //
+    // Distinct from the bad SOURCE above: this source was admitted — it is in
+    // the corpus — and extraction over it failed afterwards. The record that
+    // quarantines is the extraction attempt, and its failure must not stop
+    // extraction of the sources beside it.
+    const failedExtraction = exception({
+      scope: 'source',
+      recordId: 'SRC-admitted-extraction-failed',
+      recordLabel: 'An admitted source whose extraction failed',
+      cause: 'extraction produced no candidate invariants',
+      causeGroup: 'unreadable-content',
+      stage: 'extract-candidates',
+    });
+
     // ── Stages 4 and 7: one invalid candidate, one unresolved edge ─────────
     const invalidCandidate = exception({
       scope: 'invariant',
@@ -405,6 +423,7 @@ describe('END-TO-END — one bad source, one invalid candidate, one unresolved e
     const all: DispositionAssignment[] = [
       { recordId: good.sourceId, disposition: good.disposition, warnings: good.warnings },
       { recordId: bad.sourceId, disposition: bad.disposition, exception: bad.exception },
+      { recordId: failedExtraction.recordId, disposition: 'exception', exception: failedExtraction },
       { recordId: invalidCandidate.recordId, disposition: 'exception', exception: invalidCandidate },
       { recordId: unresolvedEdge.recordId, disposition: 'exception', exception: unresolvedEdge },
     ];
@@ -427,12 +446,15 @@ describe('END-TO-END — one bad source, one invalid candidate, one unresolved e
     expect(freezeBlockingExceptions(computed)).toHaveLength(0);
 
     // …every anomaly stays VISIBLE on the one Exceptions surface…
-    expect(summary.exceptions).toHaveLength(3);
+    expect(summary.exceptions).toHaveLength(4);
     const grouped = groupExceptionsByCause(computed);
     const shown = grouped.flatMap((g) => g.exceptions.map((e) => e.recordId));
     expect(shown).toContain('SRC-bad-0000000001');
+    expect(shown).toContain('SRC-admitted-extraction-failed');
     expect(shown).toContain('inv-invalid-1');
     expect(shown).toContain('edge-disputed-1');
+    // A failed extraction quarantines ITSELF and nothing else (ruling §7).
+    expect(failedExtraction.blocksCurrentStage).toBe(false);
 
     // …and every one is RECEIPTED, with the full population disclosed, so the
     // crystal cannot look complete while the corpus was quietly narrowed.
@@ -444,16 +466,216 @@ describe('END-TO-END — one bad source, one invalid candidate, one unresolved e
       exceptions: computed,
       acceptedWarnings: [{ recordId: good.sourceId, warnings: good.warnings }],
       population: {
-        discovered: 47, admitted: 32, excludedWithWarnings: 4,
-        manualExceptions: 7, refused: 4, assignedToCrystal: 26,
+        discovered: 47, admitted: 32, candidatesExtracted: 68, validated: 54,
+        assignedToCrystal: 26, excludedWithWarnings: 4, exceptions: 7, refused: 4,
       },
       personaId: 'steward-persona',
       rationale: 'Eligible cohort advanced; three anomalies quarantined and disclosed.',
     });
-    for (const id of ['SRC-bad-0000000001', 'inv-invalid-1', 'edge-disputed-1']) {
+    for (const id of ['SRC-bad-0000000001', 'SRC-admitted-extraction-failed', 'inv-invalid-1', 'edge-disputed-1']) {
       expect(receipt.summary, `${id} must be named in the authorization receipt`).toContain(id);
     }
     expect(receipt.summary).toContain('Discovered: 47');
-    expect(receipt.exclusions).toHaveLength(3);
+    expect(receipt.exclusions).toHaveLength(4);
+
+    // …and NO unresolved local record caused a global stop, because a valid
+    // subset remained throughout.
+    expect(summary.globalStop).toBeNull();
+    expect(summary.primaryActionEnabled).toBe(true);
+  });
+});
+
+
+// ── 7 · THE GOVERNED FREEZE-PACKAGE SCHEMA (operator-authorized 2026-08-03) ─
+
+/**
+ *   > "Without this, an independently verifiable crystal hash could still
+ *   >  conceal how much of the original population disappeared before freeze."
+ *
+ * These canaries defend the amendment itself: the four disclosure fields exist,
+ * they are inside the tamper-evident packageHash, and — critically — they do
+ * NOT gate. Readiness assesses the assigned crystal; the freeze package
+ * preserves the whole acquisition and exclusion history. Folding one into the
+ * other is the failure mode both halves exist to prevent.
+ */
+describe('the freeze package preserves the acquisition and exclusion history', () => {
+  const readiness = {
+    ok: true,
+    checks: PRE_REGISTERED_READINESS_CHECKS.map((name) => ({ name, passed: true, detail: 'ok', remedy: null })),
+    excludedFromCrystal: null,
+    invariantCount: 26,
+    eligibleCount: 26,
+    populations: { A: 26, B: 0, C: 0, unclassified: 0, ablationCount: 26 },
+    derivationEligibleFraction: 0.5,
+    duplicatePairCount: 0,
+    graph: {
+      relationshipCount: 40, relationshipDensity: 0.12, componentCount: 1,
+      largestComponentSize: 26, connectivityRatio: 1, orphanCount: 0, orphanFraction: 0,
+    },
+  } as never;
+  // The REAL CrystalStatisticsReport shape (OS-9: fixture from the type the
+  // production code actually consumes, not a convenient stub — a thin stub
+  // threw inside composeCrystalFreezeRecommendation on the first run).
+  const statistics = {
+    ok: true,
+    experimentId: 'EXP-P1',
+    crystalDomain: 'financial-risk-value-systems',
+    computedAt: '2026-08-03T00:00:00.000Z',
+    invariantCount: 26,
+    sourceCount: 12,
+    documentCount: 12,
+    externalSources: [],
+    relationshipCount: 40,
+    averageValidationDepth: 2,
+    standingDistribution: [],
+    compositionDensity: 0.12,
+    semanticDiversity: 1.4,
+    namespaceDistributionEntropy: 1.1,
+    coverageEstimate: { boundaryNamespaceCount: 4, representedNamespaceCount: 4, ratio: 1 },
+    derivationHeadroom: 0.5,
+    sliceRatio: 0.4,
+    selectionEntropy: 1.1,
+    duplicateRatio: 0,
+    frozenHash: 'f'.repeat(64),
+    substrateError: null,
+  } as never;
+
+  const population = {
+    discovered: 47, admitted: 32, candidatesExtracted: 68, validated: 54,
+    assignedToCrystal: 26, excludedWithWarnings: 4, exceptions: 7, refused: 4,
+  };
+
+  const build = (extra: Record<string, unknown> = {}) =>
+    buildFreezeCeremonyPackage({
+      crystalId: 'EXP-P1/crystal-vP1',
+      experimentId: 'EXP-P1',
+      crystalDomain: 'financial-risk-value-systems',
+      operatorRef: 'steward-ref',
+      reviewerRef: null,
+      domainBoundary: 'financial risk and value systems',
+      knownLimitations: [],
+      freezeRationale: 'the crystal is ready',
+      ratifiedAt: '2026-08-03T00:00:00.000Z',
+      readiness,
+      statistics,
+      ...extra,
+    } as never);
+
+  it('carries population, assignedCohortHash and excludedRecordsHash', () => {
+    // Mutation: drop any of the three from `base` -> a verifiable crystal hash
+    // can once again conceal how much of the population disappeared.
+    const r = build({
+      population,
+      assignedInvariantIds: ['inv-1', 'inv-2'],
+      excludedRecords: [exception({ recordId: 'SRC-bad-1' })],
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.package.population).toEqual(population);
+    expect(r.package.assignedCohortHash).toBe(computeCohortHash(['inv-1', 'inv-2']));
+    expect(r.package.excludedRecordsHash).toBe(computeCohortHash(['SRC-bad-1']));
+    expect(r.package.excludedRecords).toHaveLength(1);
+  });
+
+  it('the excluded set gets its OWN digest — exclusions are as tamper-evident as inclusions', () => {
+    // The operator's specific addition. Two freezes with the same crystal but
+    // different exclusion sets must be distinguishable.
+    const a = build({ assignedInvariantIds: ['inv-1'], excludedRecords: [exception({ recordId: 'x' })] });
+    const b = build({ assignedInvariantIds: ['inv-1'], excludedRecords: [exception({ recordId: 'y' })] });
+    if (!a.ok || !b.ok) throw new Error('both packages must build');
+    expect(a.package.assignedCohortHash).toBe(b.package.assignedCohortHash);
+    expect(a.package.excludedRecordsHash).not.toBe(b.package.excludedRecordsHash);
+    // …and the difference reaches the package commitment.
+    expect(a.package.packageHash).not.toBe(b.package.packageHash);
+  });
+
+  it('the hashes use the SAME scheme as the cohort-authorization receipts', () => {
+    // So an id set committed at assignment time and the same set committed at
+    // freeze time produce the same digest and a verifier can compare them.
+    const r = build({ assignedInvariantIds: ['inv-b', 'inv-a'] });
+    if (!r.ok) return;
+    expect(r.package.assignedCohortHash).toBe(computeCohortHash(['inv-a', 'inv-b']));
+  });
+
+  it('omitting the history yields null, never a fabricated zero', () => {
+    // "Nothing was excluded" and "nobody told us what was excluded" are
+    // different facts. Mutation: default to `{...zeros}` -> an unsupplied
+    // history reads as a complete corpus.
+    const r = build();
+    if (!r.ok) return;
+    expect(r.package.population).toBeNull();
+    expect(r.package.assignedCohortHash).toBeNull();
+    expect(r.package.excludedRecordsHash).toBeNull();
+  });
+
+  it('the disclosure NEVER gates — eligibility is unchanged by exclusions', () => {
+    // The division of labour the operator specified. Mutation: fold the
+    // exclusion count into `eligibleForRatification` -> the population
+    // disclosure leaks into the pass/fail decision, which is exactly what
+    // keeping `excludedFromCrystal` out of readiness `ok` was for.
+    const without = build();
+    const withMany = build({
+      population,
+      assignedInvariantIds: ['inv-1'],
+      excludedRecords: Array.from({ length: 50 }, (_, i) => exception({ recordId: `x-${i}` })),
+    });
+    if (!without.ok || !withMany.ok) throw new Error('both must build');
+    expect(withMany.package.eligibleForRatification).toBe(without.package.eligibleForRatification);
+    expect(withMany.package.recommendation.verdict).toBe(without.package.recommendation.verdict);
+  });
+});
+
+
+// ── 8 · STAGE 3 — the silent evidence drop (ruling section 7) ──────────────
+
+/**
+ * A REAL defect the isolation review found, not a hypothetical.
+ * `runConstitutionalDiscovery` capped its extraction context at 24,000 chars
+ * with 6,000-char chunks — AT MOST FOUR evidence rows — and `break`ed out of
+ * the loop, silently dropping every remaining row. A 32-source corpus would be
+ * compressed from four of them and report `ok: true` with no indication that
+ * 28 were never read. That is "safe read as finished" at Stage 3.
+ *
+ * These canaries are source-level because the function's own path requires an
+ * LLM call; what regressed is the loop arithmetic and the reporting contract,
+ * and those are what is pinned.
+ */
+describe('Stage 3 extraction — an unread source is reported, never silently dropped', () => {
+  const ENGINE = 'services/invariants/discoveryEngine.ts';
+
+  it('the budget loop CONTINUES past an oversized row instead of breaking', () => {
+    // Mutation: restore `break` -> inclusion depends on list order again and
+    // every later row is dropped without record, including ones that would fit.
+    const src = stripComments(readSource(ENGINE));
+    const at = src.indexOf('const MAX_CHARS = 24_000;');
+    expect(at).toBeGreaterThan(-1);
+    const loop = src.slice(at, at + 700);
+    expect(loop).toMatch(/excluded\.push\(e\);/);
+    expect(loop).toMatch(/continue;/);
+    expect(loop, 'the silent early exit must not return').not.toMatch(/MAX_CHARS\)\s*break;/);
+  });
+
+  it('every dropped row becomes a typed exception that blocks nothing', () => {
+    const src = stripComments(readSource(ENGINE));
+    const at = src.indexOf('const excludedEvidence');
+    expect(at).toBeGreaterThan(-1);
+    const block = src.slice(at, at + 1600);
+    expect(block).toMatch(/stage: 'extract-candidates'/);
+    expect(block).toMatch(/blocksCurrentStage: false/);
+    expect(block).toMatch(/blocksReadiness: false/);
+    // And it says which rows WERE read, so "partial" is legible.
+    expect(block).toMatch(/included\.length/);
+  });
+
+  it('the success result carries excludedEvidence on every return path', () => {
+    // Mutation: return it from only one of the success returns -> a run that
+    // read four rows of thirty-two looks clean on the other paths.
+    const src = stripComments(readSource(ENGINE));
+    const fnAt = src.indexOf('export async function runConstitutionalDiscovery');
+    const body = src.slice(fnAt, src.indexOf('function enrichSignals'));
+    const successReturns = body.match(/return \{ ok: true, candidates:/g) ?? [];
+    expect(successReturns.length).toBeGreaterThanOrEqual(2);
+    const withExcluded = body.match(/return \{ ok: true, candidates:[^;]*excludedEvidence/g) ?? [];
+    expect(withExcluded.length).toBe(successReturns.length);
   });
 });

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Freeze remains a separate governed act by an authority the reviewer does not hold. The `reviewer` role carries maySubmitReviewDecision only: administer-access, edit-materials, award-grade, freeze, canonise, publish and Standing are all false.",
+    "`verifiedFailingBeforeFix` recorded as false — the source docs do not record such a run for this canary."
+  ],
+  "canaries": [
+    {
+      "path": "tests/reviewer-agreement.test.ts",
+      "assertion": "`reviewerAgreement.ts` binds nothing from any freeze, publish or canonisation surface; the agreement states findings are evidence not ratification; `independentReviewRequestOpen` is named for the act it authorises so it cannot answer for internal diagnosis.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-03-REVIEW-EVIDENCE-NOT-RATIFICATION-001",
+  "statement": "Reviewer findings are evidence, not ratification: a reviewer may not freeze, canonise, publish or alter the materials reviewed.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/reviewerAgreement.ts",
+      "defect": "Before the agreement, nothing stated in binding form that a review finding is not a ratification; and a bare `reviewOpen` state could answer for both internal diagnosis and independent external review.",
+      "resolutionId": "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001",
+      "evidence": [
+        "87258ea0a",
+        "tests/reviewer-agreement.test.ts"
+      ]
+    }
+  ]
+}

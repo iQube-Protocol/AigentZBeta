@@ -616,6 +616,93 @@ This is a mature, actively evolving codebase. Before writing any new code:
 
 ---
 
+## Resolution → Invariant Loop — MANDATORY PRACTICE for every agent (PARAMOUNT)
+
+**A resolved problem is not complete until the resolution has been converted into reusable
+development knowledge.** This section is binding on every agent working the AgentiQ stack — Claude
+Code, Codex, Lovable, any future agent — in the same register as Push Commit Messages and the
+Identity Spine. It sits here because it is the knowledge-capture half of `inv.engineering.036`/`037`
+above: that rule stops one *fact* having two homes; this one stops a *lesson* having none.
+
+> **Operator instruction, verbatim (2026-08-03):** *"When a problem requires repeated repair, do not
+> merely patch and continue. Record the resolved causal pattern, derive the smallest reusable
+> candidate invariant, attach the regression mechanism, and carry it into subsequent work. Do not
+> ratify the invariant automatically."*
+
+**Root-level pointer: [`RESOLUTION_RECORDS.md`](RESOLUTION_RECORDS.md).** Registry location, how to
+search it, the preflight, and what may never be auto-promoted — kept at the repo root so no agent
+can miss it.
+
+### Mandatory resolution and invariant preflight — BEFORE you write code
+
+Before beginning any material implementation, repair, migration, refactor, or governed workflow
+change, you **MUST** inspect the resolution-record registry and the invariant registry for records
+relevant to the affected capability, subsystem, route, schema, data owner, failure mode and
+lifecycle stage. You must then **state**:
+
+- which resolution records you reviewed;
+- which existing invariants apply;
+- which canaries or enforcement points protect them;
+- which unresolved risks remain;
+- whether the proposed work could **invalidate, bypass, duplicate or regress** an earlier resolution.
+
+**Do not begin implementation until this preflight is complete.** An unstated preflight is an
+unperformed one. It is cheap: `npm run report:resolutions`, plus a grep of the registry by
+subsystem. It exists because the same actor-vs-subject defect was rediscovered three times in one
+session for want of it.
+
+### When you MUST run the loop — ten triggers, milestone-scoped
+
+Milestone/resolution-triggered, **never commit-triggered** — do not do this on every push. You MUST
+capture a resolution when any of these occurs:
+
+1. A problem required **multiple repair cycles**. 2. A supposedly resolved defect **reappeared**.
+3. A test or canary **encoded the defect** instead of detecting it. 4. **Two subsystems disagreed**
+about the same canonical state. 5. A **local anomaly blocked an unaffected batch**. 6. A
+**governance boundary was confused with a software condition**. 7. A successful implementation
+**established a reusable pattern**. 8. A **milestone became demonstrably complete**. 9. A
+**workaround was replaced** by the canonical implementation. 10. A failure revealed an existing
+**invariant was incomplete or wrongly scoped**.
+
+### The three required outputs — a record missing any of them is INCOMPLETE
+
+| # | Output | Where |
+|---|---|---|
+| 1 | **Resolution record** — the factual account: problem, observedFailure, rootCauses, resolution, **rejectedApproaches**, evidence (real commits/tests only — the No-Guessing rule applies in full) | `codexes/packs/agentiq/resolution-records/records/RES-YYYY-MM-DD-<SLUG>-NNN.json` |
+| 2 | **Candidate invariant** — the smallest reusable rule, one per rule, referenced BY ID from every record that produced it | `codexes/packs/agentiq/resolution-records/candidate-invariants/CI-YYYY-MM-DD-<SLUG>-NNN.json` |
+| 3 | **Canary / enforcement point** — the executable mechanism, path resolved on disk | the canary file, named on the candidate |
+
+*Without the canary, the invariant is advisory prose. Without the invariant, the canary is an
+isolated test whose purpose will eventually be forgotten.*
+
+Schema and the ten trigger constants: `types/resolutionRecords.ts`. Validator, milestone-close check
+and report: `services/invariants/resolutionRecords.ts` — run `npm run report:resolutions` (exits 1 on
+a blocker). Canaries: `tests/resolution-records.test.ts`. Full reasoning:
+`codexes/packs/agentiq/updates/2026-08-03_resolution-to-invariant-loop.md`.
+
+### The ladder — and the one thing an agent MUST NOT do
+
+`observed → candidate → validated → ratified → canonical` (`COMPLETION_LIFECYCLE`, reused from
+CCR-001 §9 — **do not mint a second status vocabulary**). "Applied in another implementation" is
+recorded as a second `occurrence`, never asserted as a status word.
+
+**An agent MUST NOT raise a candidate above `validated`.** `ratified` and `canonical` require a named
+operator act in `ratifiedSource`; the validator refuses without one. `validated` itself requires ≥2
+recorded occurrences or demonstrated regression prevention. **A lesson does not become doctrine
+because a fix worked once** — this is the hypothesis-vs-canon discipline applied to engineering.
+
+### Why this is mandatory — two live proofs
+
+- **The same actor-vs-subject defect (OS-6) recurred THREE times in one session** — the binding
+  resolver, Claim's surface, and the journey `/state` route — because the lesson from the first fix
+  was not carried into the next piece of work (`4c5859882`, `feeee0194`). Precisely the loss this
+  loop exists to prevent; captured as `CI-2026-08-03-ACTOR-SUBJECT-OWNER-001`.
+- **The dev-merge-message rule regressed repeatedly while it existed only as prose**, because prose
+  does not fail a build (see the auto-merge workflow section above). A canary for it was added in
+  parallel on 2026-08-03. Same principle, different rule.
+
+---
+
 ## File and Component Discipline
 
 - **Never create a new file** unless it represents a genuinely new, standalone concern with no existing home.

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "The authorising steward is committed as a `personaPublicRef` — the raw personaId is T0 and is never serialised (Identity & Access Spine)."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "The cohort-authorization receipt must contain `Discovered:` and `Assigned to crystal:`; the cohort hash is order-independent (sha256 over the sorted id set) so the identity committed to is the SET, not the click order.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-PARTIAL-PROGRESS-RECEIPTED-001",
+  "statement": "The executable subset is itself an authorized act and must be receipted — with what advanced, what was excluded and why, the cohort hash, and the authorising steward.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/cohortAuthorization.ts",
+      "defect": "Partial progress had no durable record, so a batch that proceeded with exclusions left no evidence of what the operator actually authorised.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+  "capability": "horizen-agent-registration",
+  "milestone": "Horizen Pilot — one fact, several observers",
+  "problem": "One fact — Nakamoto is registered — had several observers, each reading a different source, disagreeing. Every instance looked like a new bug and was the same bug. The journey stepper drove from `/state`, which resolved the AGENT's own persona and listed its receipts; every journey receipt is written with personaId = the acting operator, so receiptRefs came back empty and Register could never render COMPLETE however completely it had succeeded.",
+  "observedFailure": [
+    "Master Journey advanced to Verify while Verify said \"no tokenId yet\" — the stepper read the receipt, Verify read the `registry_assets` projection, and the projection write had silently failed.",
+    "Claim refused with `aigentqube-moneypenny` while claiming Nakamoto, because `MarketaEligibilityView` never sent `agentSlug` and the server used DEFAULT_REGISTRABLE_AGENT_SLUG.",
+    "Ladder \"Awaiting confirmation\", card \"not yet registered\" and banner \"registered — tokenId 8798\" rendered on ONE screen, because the panel held the tokenId three ways and fed its ladder from the weakest.",
+    "The Evidence-receipts drawer (scoped to the operator persona) listed the horizen_agent_registered receipt while the stepper driven by `/state` showed Register unfinished — the contradiction visible on one screen."
+  ],
+  "rootCauses": [
+    "Two independent Supabase writes (`createRegistrationReceipt`, `updateRegistryAssetBinding`) with nothing making them one transaction; any reader depending on both landing will eventually be wrong.",
+    "`updateRegistryAssetBinding` had three silent-return points and a discarded `.update()` error — it \"succeeded\" while writing nothing.",
+    "The `/state` route re-implemented the receipt query instead of consuming the canonical reader, so it was a second observer with its own (wrong) key.",
+    "A server default was substituted for an operator selection the surface had visibly made."
+  ],
+  "resolution": [
+    "One shared resilient reader with a named fallback and a `fromReceiptFallback` / `fallbackSource` flag, so a stuck write stays diagnosable rather than silently worked around forever.",
+    "Added `findAgentReceiptRefs` to the canonical receipt reader — subject-keyed, returning ids and action types only, never the persona-scoped body — and moved `/state` onto it.",
+    "Gave the ladder an explicit precedence (confirmed external consequence > confirmed receipt > pending request > expired request > prepared local state) and removed every reset-to-null path from the confirmation cache.",
+    "Every abandoned write now logs `[HORIZEN BINDING]` with the ids that failed to persist.",
+    "Both `agentSlug` call sites (GET refresh and POST prove-control) now carry the operator's selection."
+  ],
+  "rejectedApproaches": [
+    "Render both answers and let the operator decide which panel is lying.",
+    "Treat a later failed read as evidence that a confirmed fact was reversed.",
+    "Keep the server default as a substitute for an absent client selection."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001",
+    "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001"
+  ],
+  "canaries": [
+    "tests/horizen-agent-page-surface-wiring.test.ts",
+    "tests/horizen-agent-registration-binding.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [
+      "fd12d4547",
+      "fb9d42023",
+      "feeee0194"
+    ],
+    "tests": [
+      "tests/horizen-agent-page-surface-wiring.test.ts",
+      "tests/horizen-agent-registration-binding.test.ts"
+    ],
+    "receipts": [
+      "horizen_agent_registered"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md",
+      "codexes/packs/agentiq/updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md",
+    "codexes/packs/agentiq/updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md"
+  ]
+}

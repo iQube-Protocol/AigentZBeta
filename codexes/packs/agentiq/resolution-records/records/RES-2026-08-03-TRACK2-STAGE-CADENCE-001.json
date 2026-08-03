@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-03-TRACK2-STAGE-CADENCE-001",
+  "capability": "exp-p1-track2-corpus-admission",
+  "milestone": "EXP-P1 / Crystal prep — stage-gated cadence",
+  "problem": "Stages 3–11 had been planned as one implementation, built ahead of the data they steward. A workflow surface built ahead of its data is designed against an IMAGINED shape of that data. The concrete cost showed up at Stage 2: the review queue posted `{decision, notes}` and never a `provenanceClass`, the ingestion refused, the client checked only the outer `ok`, and every approval moved a source out of the pending queue while producing no evidence row at all.",
+  "observedFailure": [
+    "The review route answered `{ok: true, candidate: {...}, ingestion: {ok: false, error: 'provenanceClass is not set…'}}` and the client reported success.",
+    "Sources moved to `approved_*`, counted as admitted, and left the pending queue — with zero evidence rows behind them. An operator working the queue would have watched 41 sources drain into an apparently-admitted corpus containing nothing.",
+    "The Stage 8 assignment control asks the operator to type invariant IDs, because when it was written there were no validated invariants to list — a design frozen around an absence."
+  ],
+  "rootCauses": [
+    "A stage with no inputs cannot be dry-run, so its refusals, empty states and error paths are all unverified.",
+    "A rendered stage reads as progress. A state machine displayed as a single verdict let the operator believe work had happened that had not.",
+    "A nested failure result was returned faithfully and never inspected — the outer `ok` was the only thing read."
+  ],
+  "resolution": [
+    "Ratified the stage-gated cadence: build only the operator workflow the NEXT stage needs, once the PREVIOUS stage's real outputs exist. Stop between stages and report.",
+    "`applyCandidateReviewDecision` REFUSES an ingesting decision with no `provenanceClass` before any write — a named refusal replaces a swallowed failure.",
+    "The queue asks for the class where it is required and sends it; the card reads `ingestion.ok` and renders an admitted-but-not-ingested source as the amber half-state it is.",
+    "`services/corpusScout/reviewDecision.ts` is the single place a review decision is validated and applied."
+  ],
+  "rejectedApproaches": [
+    "Build the Stage 5 (Classify Provenance) queue now — the ratified crystal domain is still empty, so there are no real promoted invariants to classify, and building it would repeat the exact mistake the cadence exists to stop.",
+    "Default the `provenanceClass` server-side so the existing client keeps working — that hides the missing decision rather than surfacing it."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-OPERATOR-PATH-BEFORE-EXECUTABLE-001"
+  ],
+  "canaries": [
+    "tests/track2-steward-workflow.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "ce6655f9e",
+      "d5f741b43",
+      "0f19830d5"
+    ],
+    "tests": [
+      "tests/track2-steward-workflow.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-02_track2-stage-gated-development-cadence.md",
+      "codexes/packs/agentiq/updates/2026-08-03_track2-stage2-governed-bulk-admission.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-02_track2-stage-gated-development-cadence.md",
+    "codexes/packs/agentiq/updates/2026-08-03_track2-stage2-governed-bulk-admission.md"
+  ]
+}

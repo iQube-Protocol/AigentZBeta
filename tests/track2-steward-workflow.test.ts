@@ -571,26 +571,46 @@ describe('Track 2 programme surface — the guided view', () => {
    * entirely. A control that can circumvent the stages before it is a hole in
    * the ladder, not a convenience.
    */
-  it('the assignment control renders only when every earlier stage is complete', () => {
+  it('the assignment control is gated, and a partially-complete earlier stage no longer withholds it', () => {
+    /*
+     * SUPERSEDED RULE, REPLACED 2026-08-03 (exception-isolation ruling).
+     *
+     * This canary previously required `x.status !== "complete"` alone — every
+     * earlier stage COMPLETE before Stage 8 offered any control. That was
+     * correct while the control was a textarea, because pasting ids into it
+     * bypassed provenance, validation and relationship review.
+     *
+     * The derived surface cannot bypass anything: every row it offers has been
+     * through `evaluateCrystalAssignment`, so an invariant lacking validation
+     * or evidence provenance renders as an exception and cannot be selected.
+     * The safety moved from the STAGE to the RECORD, which is strictly
+     * stronger — and it is what lets a partially-complete Stage 5 stop
+     * withholding assignment of the cohort that IS eligible.
+     *
+     * Per OS-9, keeping the old assertion would have required the paralysis to
+     * remain in order to pass.
+     */
     const src = stripComments(readSource(PANEL));
     expect(src).toMatch(/const blockers = programme\.stages\.filter\(/);
-    expect(src).toMatch(/x\.ordinal < s\.ordinal && x\.status !== "complete"/);
+    expect(src).toMatch(/x\.status !== "complete" &&/);
+    expect(src).toMatch(/x\.status !== "partially-complete"/);
     expect(src).toMatch(/if \(blockers\.length === 0\) \{/);
-    // The control is INSIDE that branch — never rendered unconditionally.
+    // The control is still INSIDE that branch — never rendered unconditionally.
     const at = src.indexOf('if (blockers.length === 0) {');
     const guarded = src.slice(at, at + 300);
     expect(guarded).toMatch(/<AssignmentControl/);
-    // And it is not also rendered somewhere unguarded.
     expect((src.match(/<AssignmentControl/g) ?? []).length).toBe(1);
   });
 
   it('a locked Stage 8 names the stage that IS the next act', () => {
-    // Routing the operator to Stage 5 is the point — a bare refusal would
-    // leave them where the ladder does not want them.
+    // Routing the operator to the real blocker is the point — a bare refusal
+    // would leave them where the ladder does not want them.
     const src = stripComments(readSource(PANEL));
     expect(src).toMatch(/Assignment is not the next act\./);
     expect(src).toMatch(/\{next\.ordinal\}\. \{next\.label\}/);
-    expect(src).toMatch(/This is a\s+closed gate, not a missing feature/);
+    // And the reason given is now the honest one: no eligible invariant can
+    // exist yet — NOT that earlier stages hold unresolved exceptions.
+    expect(src).toMatch(/no eligible invariant can exist yet/);
   });
 
   it('the assignment lock is derived from the programme, not a second rule', () => {
@@ -684,7 +704,7 @@ describe('Track 2 exception isolation — the surface never reimposes the paraly
     const block = src.slice(at, src.indexOf('function ExceptionsSurface'));
     expect(block).toMatch(/Discovered:/);
     expect(block).toMatch(/Assigned to crystal:/);
-    expect(block).toMatch(/population\.manualExceptions/);
+    expect(block).toMatch(/population\.exceptions/);
   });
 
   it('the exceptions surface renders all FOUR blocks* booleans separately', () => {
@@ -715,5 +735,123 @@ describe('Track 2 exception isolation — the surface never reimposes the paraly
     const okLine = src.slice(okAt, okAt + 120);
     expect(okLine).not.toMatch(/exclusion|excluded/i);
     expect(src).toMatch(/computeFreezeBlocking\(/);
+  });
+});
+
+
+/**
+ * STAGE 8 — the DERIVED assignment surface (operator ruling, 2026-08-03).
+ *
+ *   > "Stage 8 is the highest-value next commit because it turns all earlier
+ *   >  classifications into an actual crystal rather than leaving the operator
+ *   >  to paste invariant IDs."
+ *
+ *   > "Do not accept pasted invariant IDs as the primary path."
+ */
+describe('Track 2 Stage 8 — assignment is derived, never pasted', () => {
+  const ROUTE = 'app/api/research/crystal/[experimentId]/assign/route.ts';
+
+  it('the route DERIVES the candidate list from the substrate', () => {
+    // Mutation: delete the GET handler -> the panel has nothing to render and
+    // the operator is back to pasting ids.
+    const src = stripComments(readSource(ROUTE));
+    expect(src).toMatch(/export async function GET\(/);
+    expect(src).toMatch(/listInvariants\(\{ domain: acquisitionDomain/);
+  });
+
+  it('the derived view uses the SAME eligibility function the write path uses', () => {
+    // inv.engineering.036/037: one eligibility rule. Mutation: hand-roll a
+    // status/provenance check in GET -> the view can offer what POST refuses.
+    const src = stripComments(readSource(ROUTE));
+    const getAt = src.indexOf('export async function GET(');
+    const postAt = src.indexOf('export async function POST(');
+    const getBlock = src.slice(getAt, postAt);
+    expect(getBlock).toMatch(/evaluateCrystalAssignment\(/);
+    expect(src.slice(postAt)).toMatch(/evaluateCrystalAssignment\(/);
+    // The GET must not invent its own eligibility literals.
+    expect(getBlock).not.toMatch(/status === 'validated'/);
+    expect(getBlock).not.toMatch(/eligibleStatuses\.includes/);
+  });
+
+  it('the derived view WRITES NOTHING', () => {
+    // Mutation: upsert the context in GET "since it already evaluated" ->
+    // reading the screen would assign the crystal.
+    const src = stripComments(readSource(ROUTE));
+    const getBlock = src.slice(src.indexOf('export async function GET('), src.indexOf('export async function POST('));
+    for (const forbidden of ['upsertContext(', 'writeLifecycleReceipt(']) {
+      expect(getBlock, `GET must not call ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('an ineligible invariant is an EXCEPTION with a remedy, never a refusal', () => {
+    // Both per-record refusals are recoverable; marking them `refused` would
+    // misreport recoverable work as a dead end.
+    const src = stripComments(readSource(ROUTE));
+    const getBlock = src.slice(src.indexOf('export async function GET('), src.indexOf('export async function POST('));
+    expect(getBlock).toMatch(/disposition: 'exception'/);
+    expect(getBlock).not.toMatch(/disposition: 'refused'/);
+    expect(getBlock).toMatch(/advance/);
+    expect(getBlock).toMatch(/classify/);
+  });
+
+  it('an ineligible invariant does not block the eligible cohort', () => {
+    // THE ruling, at Stage 8. Mutation: set blocksCrystalAssignment true ->
+    // one unvalidated invariant withholds every valid one.
+    const src = stripComments(readSource(ROUTE));
+    const getBlock = src.slice(src.indexOf('export async function GET('), src.indexOf('export async function POST('));
+    expect(getBlock).toMatch(/blocksCurrentStage: false/);
+    expect(getBlock).toMatch(/blocksCrystalAssignment: false/);
+    expect(getBlock).toMatch(/blocksReadiness: false/);
+  });
+
+  it('an unratified boundary is a GLOBAL stop, not N per-record refusals', () => {
+    const src = stripComments(readSource(ROUTE));
+    expect(src).toMatch(/governing-declaration-absent/);
+    expect(src).toMatch(/domainAcceptsAssignment\(declaration\)/);
+  });
+
+  it('the cohort hash and rationale are generated by the server', () => {
+    const src = stripComments(readSource(ROUTE));
+    expect(src).toMatch(/computeCohortHash\(/);
+    expect(src).toMatch(/suggestedRationale:/);
+  });
+
+  it('the panel loads the derived list and preselects the executable cohort', () => {
+    // Mutation: drop the preselect -> the operator hand-picks from a list
+    // again, which is the manual work this stage exists to remove.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const loadDerived = useCallback');
+    const block = src.slice(at, at + 1400);
+    expect(block.length).toBeGreaterThan(400);
+    expect(block).toMatch(/summary\.executableRecordIds/);
+    expect(block).toMatch(/setSelected\(new Set\(payload\.summary\.executableRecordIds\)\)/);
+  });
+
+  it('the paste box is a labelled FALLBACK, not the primary path', () => {
+    // The hard requirement. Mutation: render the textarea unconditionally at
+    // the top again -> pasting becomes the primary path.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/Manual fallback — paste invariant ids/);
+    // It is behind a toggle that defaults CLOSED.
+    expect(src).toMatch(/const \[showPaste, setShowPaste\] = useState\(false\)/);
+    expect(src).toMatch(/\{showPaste && \(/);
+  });
+
+  it('each row shows provenance, validation and relationship status', () => {
+    // The three facts the steward is deciding on. Mutation: drop any one ->
+    // the operator is asked to confirm a cohort they cannot assess.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('{derived.rows.map((r) => (');
+    const block = src.slice(at, at + 3000);
+    expect(block).toMatch(/r\.evidenceProvenance/);
+    expect(block).toMatch(/r\.timesValidated/);
+    expect(block).toMatch(/r\.relationshipCount/);
+  });
+
+  it('confirmation still requires a dry run and a rationale', () => {
+    // Derived does NOT mean automatic. One explicit steward confirmation.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/!dryRunSeen \|\|/);
+    expect(src).toMatch(/!rationale\.trim\(\) \|\|/);
   });
 });

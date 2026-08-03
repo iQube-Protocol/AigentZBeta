@@ -200,33 +200,118 @@ issuers. Neither was invented.
 
 ---
 
-## 9. What is NOT done — per stage, precisely
+## 9. Stage 8, the freeze schema, and Stage 3 (added 2026-08-03, second pass)
 
-The shared vocabulary is in place and every stage below can adopt it **without inventing anything**.
-What each still needs, honestly:
+### 9.1 Stage 8 — assignment is DERIVED, not pasted
 
-| Stage | State | What remains |
-|---|---|---|
-| **2 · Review & Admit** | **Done** | — |
-| **9 · Run Readiness** | **Done** (disclosure) | `excludedFromCrystal` is populated only when a caller passes `exclusions`; **no caller does yet**. The Track 2 route must thread Stage-2 exceptions + population through to `runCrystalReadinessReport`. Small, but not written. |
-| **Programme state** | **Done** | — |
-| **3 · Extract Candidates** | Not wired | `runConstitutionalDiscovery` returns `{ok:false}` for the whole run on any failure. Needs per-source try/catch emitting a `source`-scope exception and continuing. Genuinely a change to that function's contract — **not half-built**. |
-| **4 · Review & Promote** | Not wired | `promoteCandidate` already isolates correctly per candidate (the `already-exists` path proves it); it just does not emit `IsolationException`. Adapter only. |
-| **5 · Classify Provenance** | Not wired | `applyProvenanceReclassification` already refuses per invariant. Needs the queue to summarise via `summarizeIsolation` instead of its own counts. |
-| **6 · Validate** | Not wired | Per-invariant already. Needs disposition mapping + cohort receipt. |
-| **7 · Add Relationships** | Not wired | `addEdge` already quarantines contradictions per edge. Needs `edge`-scope exceptions surfaced. |
-| **8 · Assign to Crystal** | **Partially** | `evaluateCrystalAssignment` already produces per-invariant refusals with reasons — the closest existing analogue of this model. Needs its outcomes mapped to `RecordDisposition` and a cohort-authorization receipt. **This is the highest-value next commit.** |
+> "Stage 8 is the highest-value next commit because it turns all earlier
+> classifications into an actual crystal rather than leaving the operator to paste invariant IDs."
+> "Do not accept pasted invariant IDs as the primary path."
 
-Also not done, and deliberately:
+`GET /api/research/crystal/[experimentId]/assign` derives every candidate from the substrate —
+each invariant carrying the **acquisition-domain** context `promoteCandidate` writes — and evaluates
+it through the **same `evaluateCrystalAssignment`** the write path uses. It writes nothing.
 
-- **The freeze package does not yet embed `PopulationDisclosure`.** §5 requires it ("the freeze
-  package must preserve those totals and exclusions"). The disclosure exists and is receipted at
-  Stage 2, but `crystalFreezeCeremony` was not touched — it is a governed artifact under the
-  freeze-gate rules and changing its contents is a separate, deliberate act.
-- **No migration, no new table, no new `ActivityActionType`.** Cohort authorizations ride the
-  existing `writeLifecycleReceipt` summary, the same named trade-off the bulk-review receipt makes.
+Per invariant the surface shows the three facts the decision rests on: **evidence provenance**,
+**validation count**, **intra-corpus relationship count**. The panel preselects exactly the
+executable cohort, shows the server-generated rationale and cohort hash, and keeps
+dry-run-then-confirm. The paste box is a **collapsed, labelled fallback** whose ids still go
+through the same evaluation — it cannot admit what the derived view refused.
 
----
+**An ineligible invariant is an `exception`, never `refused`.** Both per-record refusals are
+recoverable and the remedy is named on the row (validate it / classify it). `refused` means a
+constitutional refusal with no path forward; asserting one where a remedy exists would misreport
+recoverable work as a dead end.
+
+**The gate moved from the stage to the record.** The old rule required every earlier stage
+`complete` — correct while the control was a textarea, because pasting bypassed provenance and
+validation. The derived surface cannot bypass anything, so a **partially-complete** earlier stage
+no longer withholds assignment of the cohort that *is* eligible.
+
+### 9.2 The governed freeze-package amendment
+
+> "Changing the freeze package is a governed artifact change, but it is now justified and should be
+> made deliberately BEFORE the first real freeze — not deferred until after it."
+> "Without this, an independently verifiable crystal hash could still conceal how much of the
+> original population disappeared before freeze."
+
+**What changed.** `FreezeCeremonyPackage` gains four fields:
+
+| Field | What it carries |
+|---|---|
+| `population` | the eight-field disclosure (`discovered`, `admitted`, `candidatesExtracted`, `validated`, `assignedToCrystal`, `excludedWithWarnings`, `exceptions`, `refused`) |
+| `assignedCohortHash` | commitment over the invariant ids that ARE in the crystal |
+| `excludedRecordsHash` | **NEW class of guarantee** — commitment over the ids that were EXCLUDED |
+| `excludedRecords` | the typed exceptions themselves, which the hash commits to |
+
+All four sit inside `packageHash`, so they are as tamper-evident as the corpus statistics.
+
+**Why it was authorized.** `contentHash` commits to the corpus that *survived*. A crystal of 26
+drawn from 26 candidates and one drawn from 300 produce equally clean, equally verifiable hashes —
+a reviewer could check the hash perfectly and never see the attrition.
+
+**What a verifier can now check that they could not before:**
+
+1. **How much of the population disappeared** — the eight counts, on the frozen artifact itself.
+2. **That the exclusion list is the one that existed at freeze time** — `excludedRecordsHash` makes
+   exclusions tamper-evident. Previously only inclusions were.
+3. **That the frozen cohort is the cohort that was authorized at assignment** — both hashes use the
+   same `computeCohortHash` as the cohort-authorization receipts, so the digests are directly
+   comparable across stages.
+4. **That two freezes over the same crystal with different exclusions are distinguishable** — they
+   produce different `packageHash` values.
+
+**The division of labour is preserved and canaried.** These fields are REPORTING, never gating:
+`eligibleForRatification` is unchanged by any number of exclusions, exactly as readiness `ok` is
+unchanged by `excludedFromCrystal`. Readiness assesses the actual assigned crystal; the freeze
+package preserves the acquisition and exclusion history. A canary asserts eligibility is identical
+with 0 and with 50 exclusions.
+
+**Omitting the history yields `null`, never zeros** — "nothing was excluded" and "nobody told us
+what was excluded" are different facts, and only one is evidence of a complete corpus.
+
+### 9.3 Stage 3 — a real defect found and fixed
+
+`runConstitutionalDiscovery` capped its extraction context at 24,000 chars with 6,000-char chunks —
+**at most four evidence rows** — and `break`ed out of the loop, **silently dropping every remaining
+row**. A 32-source corpus would be compressed from four of them and report `ok: true` with no
+indication that 28 were never read. That is "safe read as finished" at Stage 3, and an operator
+watching candidates appear would reasonably conclude the corpus had been extracted from.
+
+The fix is **disclosure, not a raised budget** (the context limit is real): the loop now `continue`s
+rather than breaking — so a later row that fits is still included, and inclusion no longer depends on
+list order — and every dropped row becomes a typed exception naming how many of how many were read.
+Nothing is blocked; the candidates that WERE extracted still advance.
+
+**Not done, and named:** batching extraction across several passes so the whole corpus is read is
+the real remedy. That changes the function's execution model (multiple LLM calls, cross-pass
+deduplication) and is a deliberate separate change.
+
+### 9.4 Stages 4–7 — the honest finding
+
+**These stages already isolate correctly at the record level, and there is no batch operation to
+fix.** `promoteCandidate`, `applyProvenanceReclassification`, the validation gate and `addEdge` each
+act on ONE record, per invocation, from a UI that submits one at a time. A failure in one cannot
+affect another because they are separate requests — the property the ruling requires is already
+structurally true.
+
+What they lack is not isolation but **aggregation**: none of them summarises a run through
+`summarizeIsolation`, and none emits a cohort-authorization receipt, because none has a cohort. That
+work becomes meaningful when (and only when) each grows a batch surface like Stage 2's and Stage 8's.
+
+Building `summarizeIsolation` plumbing into four stages that have nothing to summarise would be
+speculative — the "no over-engineering / no speculative features" rule — so it is **reported rather
+than half-built**, which is what the instruction asked for.
+
+**Also still outstanding:**
+
+- **No caller threads Stage-2 exceptions into `runCrystalReadinessReport`.** `excludedFromCrystal`
+  is populated only when a caller passes `exclusions`; the Track 2 route does not yet. Small, and
+  not written.
+- **The freeze route does not yet POPULATE the four new fields.** The schema accepts them and the
+  builder commits to them; wiring the real counts from the pipeline into
+  `runFreezeCeremonyPreview` is the next step. The fields are `null` until then — which is the
+  honest state, not a silent zero.
 
 ## 10. Verification
 
@@ -242,10 +327,24 @@ production code, running, and restoring:
 | 4 | revert panel lock to `s.ordinal > current.ordinal` | 2 tests, incl. the pre-existing one |
 | 5 | Stage 2 returns `in-progress` instead of `partially-complete` | Stage-2-partial-completion |
 | 6 | `PASSES_THROUGH` drops `partially-complete` | stage-after-partially-complete-is-unblocked |
+| 7 | Stage 8 `blocksCrystalAssignment: true` | ineligible-does-not-block-the-cohort |
+| 8 | Stage 8 GET hand-rolls eligibility instead of `evaluateCrystalAssignment` | same-eligibility-function |
+| 9 | paste box shown by default | paste-is-a-fallback |
+| 10 | drop the cohort preselect | panel-preselects-the-executable-cohort |
+| 11 | `excludedRecordsHash` forced `null` | 2 freeze-schema tests |
+| 12 | exclusions folded into `eligibleForRatification` | disclosure-never-gates |
+| 13 | unsupplied history defaults to zeros | omitting-yields-null |
+| 14 | restore Stage 3's silent `break` | budget-loop-continues |
 
-Two **pre-existing** canaries failed against the new code and were updated with recorded reasons —
-both had pinned the defective shape (the ordinal lock rule; the title heuristic's location in the
-panel).
+**Five pre-existing canaries** failed against the new code and were updated with recorded reasons —
+each had pinned a defective shape: the ordinal lock rule; the title heuristic's location in the
+panel; the provisional-source quarantine; the "every earlier stage complete" Stage 8 gate; and the
+paste-primary assignment control. Per OS-9, a green test that requires the defective shape is
+defending the defect.
+
+One fixture was rebuilt from production shape after a thin stub threw inside
+`composeCrystalFreezeRecommendation` on first run — the same OS-9 rule applied to a fixture rather
+than an assertion.
 
 **Test results:** `exception-isolation` 20 new · `corpus-scout-admission-recommendation` 20 ·
 `track2-steward-workflow` 51 (11 new) · `source-of-truth-parity` 91. Full suite unchanged from
@@ -258,18 +357,19 @@ zero new.
 
 | File | Change |
 |---|---|
-| `services/research/exceptionIsolation.ts` | **NEW** — the shared model: both axes, the typed exception, population disclosure, global stop, `computeFreezeBlocking`, critical path |
+| `services/research/exceptionIsolation.ts` | **NEW** — the shared model: both axes, the typed exception, population disclosure (eight fields), global stop, `computeFreezeBlocking`, critical path |
 | `services/research/cohortAuthorization.ts` | **NEW** — cohort hash + partial-progress authorization record |
+| `services/research/crystalFreezeCeremony.ts` | **GOVERNED SCHEMA AMENDMENT** — `population`, `assignedCohortHash`, `excludedRecordsHash`, `excludedRecords` |
+| `app/api/research/crystal/[experimentId]/assign/route.ts` | **NEW GET** — the derived Stage 8 assignment surface |
+| `services/invariants/discoveryEngine.ts` | reverse lineage; **Stage 3 silent-drop fix** + `excludedEvidence` |
 | `services/corpusScout/admissionRecommendation.ts` | disposition mapping; confidence decoupling; `titleResolutionIssue` moved in; typed exceptions |
 | `services/research/track2Programme.ts` | `partially-complete`; `unblockedStageIds`; Stage 2 honest status |
 | `services/research/crystalReadiness.ts` | `excludedFromCrystal` — separate disclosure, never gating |
 | `app/api/corpus-scout/candidates/prepare-recommendations/route.ts` | server-computed executable batch, population, critical path |
-| `components/research/Track2ProgrammePanel.tsx` | `ExecutableBatchSummary`, `ExceptionsSurface`, unblocked-stage locks, partial-completion rendering |
-| `tests/exception-isolation.test.ts` | **NEW** — 20 canaries incl. the end-to-end acceptance test |
-| `tests/track2-steward-workflow.test.ts` | 11 new; 2 superseded and replaced with reasons |
+| `components/research/Track2ProgrammePanel.tsx` | `ExecutableBatchSummary`, `ExceptionsSurface`, derived `AssignmentControl`, unblocked-stage locks |
+| `tests/exception-isolation.test.ts` | **NEW** — 28 canaries incl. the extended end-to-end and the freeze schema |
+| `tests/track2-steward-workflow.test.ts` | 22 new; 4 superseded and replaced with reasons |
 | `tests/corpus-scout-admission-recommendation.test.ts` | fixture + 1 superseded assertion replaced |
-
----
 
 ## 12. Acceptance criteria
 

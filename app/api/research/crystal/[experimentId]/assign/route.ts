@@ -42,7 +42,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { personaPublicRef } from '@/services/identity/personaReferences';
-import { getInvariantsByIds, listContexts, upsertContext } from '@/services/invariants/store';
+import {
+  getInvariantsByIds,
+  listContexts,
+  listEdgesForInvariants,
+  listInvariants,
+  upsertContext,
+} from '@/services/invariants/store';
 import {
   crystalDeclarationHash,
   crystalDomainForExperiment,
@@ -52,9 +58,26 @@ import {
 } from '@/services/research/crystalDomains';
 import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
 import { writeLifecycleReceipt } from '@/services/research/lifecycle';
+import { buildCohortAuthorization, computeCohortHash } from '@/services/research/cohortAuthorization';
+import {
+  buildCriticalPath,
+  summarizeIsolation,
+  type DispositionAssignment,
+  type IsolationException,
+  type PopulationDisclosure,
+  type RecordDisposition,
+} from '@/services/research/exceptionIsolation';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
+
+/** The acquisition domain Track 2 promotes into. A promoted candidate is
+ *  tagged with its DISCOVERY domain (`promoteCandidate` writes
+ *  `contexts: [{ domain: candidate.domain }]`), which is where the derived
+ *  assignment list reads from — the crystal domain is the DESTINATION, and
+ *  reading it would only ever return what is already assigned. Overridable
+ *  per request; never guessed from the crystal domain (different namespaces). */
+const DEFAULT_ACQUISITION_DOMAIN = 'financial-services';
 
 interface AssignBody {
   invariantIds?: unknown;
@@ -78,6 +101,263 @@ interface AssignmentOutcome {
   detail: string;
   /** Domains this invariant already belonged to, BEFORE this act. */
   priorDomains: string[];
+}
+
+/**
+ * GET — THE DERIVED ASSIGNMENT SURFACE (operator ruling, 2026-08-03).
+ *
+ *   > "Stage 8 is the highest-value next commit because it turns all earlier
+ *   >  classifications into an actual crystal rather than leaving the operator
+ *   >  to paste invariant IDs."
+ *
+ *   > "Do not accept pasted invariant IDs as the primary path."
+ *
+ * Derives the full candidate set from the substrate — every invariant carrying
+ * the ACQUISITION domain context, which is what `promoteCandidate` tags a
+ * promoted Track 2 candidate with. Nothing is hand-entered, and this route
+ * WRITES NOTHING: it evaluates, discloses, and hands the steward a cohort to
+ * confirm.
+ *
+ * Every per-invariant admission decision comes from `evaluateCrystalAssignment`
+ * — the SAME function POST calls, against the same ratified declaration. There
+ * is no second eligibility rule (inv.engineering.036/037).
+ *
+ * ── Why an ineligible invariant is an `exception`, never `refused` ──────────
+ *
+ * Both of the per-record refusals this stage can produce are RECOVERABLE, and
+ * the remedy is a named act the operator can perform:
+ *
+ *   lifecycle-status-ineligible     → validate it (`POST /api/invariants/[id]/advance`)
+ *   evidence-provenance-unrecorded  → classify it (`POST /api/invariants/discovery`)
+ *   evidence-provenance-ineligible  → the record belongs to another population;
+ *                                     it stays outside this crystal by design
+ *
+ * Only the last is terminal, and even it is not a *defect* — it is a correct
+ * exclusion. So nothing here is marked `refused`: `refused` means a
+ * constitutional refusal with no path forward, and asserting one where a
+ * remedy exists would misreport recoverable work as a dead end.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ experimentId: string }> },
+) {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
+  }
+  if (!persona.cartridgeFlags?.isAdmin) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
+  }
+
+  const { experimentId } = await params;
+  const declaration = crystalDomainForExperiment(experimentId);
+  if (!declaration) {
+    return NextResponse.json(
+      { requestSucceeded: false, error: `no crystal domain is declared for experiment '${experimentId}'` },
+      { status: 404 },
+    );
+  }
+  const acquisitionDomain =
+    req.nextUrl.searchParams.get('acquisitionDomain')?.trim() || DEFAULT_ACQUISITION_DOMAIN;
+
+  // ── The candidate population, DERIVED ─────────────────────────────────────
+  //
+  // Everything Track 2 has promoted into the acquisition domain, plus what is
+  // already in the crystal. No status filter on the read: an invariant that
+  // fails the lifecycle gate must still be SHOWN (as an exception with its
+  // remedy), not silently omitted — omitting it is how a narrow crystal comes
+  // to look complete.
+  let candidates: Awaited<ReturnType<typeof listInvariants>>;
+  let alreadyAssigned: Awaited<ReturnType<typeof listInvariants>>;
+  try {
+    [candidates, alreadyAssigned] = await Promise.all([
+      listInvariants({ domain: acquisitionDomain, limit: 500 }),
+      listInvariants({ domain: declaration.domain, limit: 500 }),
+    ]);
+  } catch (error) {
+    return NextResponse.json(
+      { requestSucceeded: false, error: `invariant substrate unreadable: ${error instanceof Error ? error.message : String(error)}` },
+      { status: 503 },
+    );
+  }
+  const assignedIds = new Set(alreadyAssigned.map((r) => r.id));
+
+  // Relationship status, from the SAME edge store the readiness engine reads.
+  let degree = new Map<string, number>();
+  let edgeReadError: string | null = null;
+  try {
+    const ids = candidates.map((r) => r.id);
+    const edges = ids.length > 0 ? await listEdgesForInvariants(ids, 'both') : [];
+    const idSet = new Set(ids);
+    for (const e of edges) {
+      if (!idSet.has(e.fromInvariantId) || !idSet.has(e.toInvariantId)) continue;
+      if (e.fromInvariantId === e.toInvariantId) continue;
+      degree.set(e.fromInvariantId, (degree.get(e.fromInvariantId) ?? 0) + 1);
+      degree.set(e.toInvariantId, (degree.get(e.toInvariantId) ?? 0) + 1);
+    }
+  } catch (error) {
+    // Fail-soft, and SAY SO — an unreadable edge store must not silently
+    // report every invariant as an orphan.
+    edgeReadError = error instanceof Error ? error.message : String(error);
+    degree = new Map();
+  }
+
+  const rows = candidates.map((record) => {
+    const evidenceProvenance = readEvidenceProvenance(record.provenance);
+    const verdict = evaluateCrystalAssignment({
+      declaration,
+      status: record.status,
+      evidenceProvenance,
+    });
+    const relationshipCount = degree.get(record.id) ?? 0;
+    const isAssigned = assignedIds.has(record.id);
+
+    const warnings: string[] = [];
+    // An orphan is admissible — `orphan-detection` is a readiness check over
+    // the CONSTITUTED crystal, not an admission gate. Recording it as a
+    // warning is what carries it into the receipt without withholding the
+    // invariant (ruling §5: amber is not prohibition).
+    if (verdict.admitted && relationshipCount === 0 && !edgeReadError) {
+      warnings.push(
+        'No intra-corpus relationship recorded yet — admissible, but it enters the crystal as an orphan and the ' +
+          'orphan-detection readiness check counts it.',
+      );
+    }
+    if (edgeReadError) {
+      warnings.push(`Relationship status unknown — the edge store could not be read (${edgeReadError}).`);
+    }
+    if (isAssigned) warnings.push('Already assigned to this crystal — re-assigning is idempotent and changes nothing.');
+
+    const disposition: RecordDisposition = verdict.admitted
+      ? warnings.length > 0
+        ? 'ready-with-warning'
+        : 'ready'
+      : 'exception';
+
+    const exception: IsolationException | undefined = verdict.admitted
+      ? undefined
+      : {
+          scope: 'invariant',
+          recordId: record.id,
+          recordLabel: record.statement.slice(0, 120),
+          cause: verdict.detail,
+          // Both recoverable refusals are a provenance/lifecycle conflict in
+          // the shared vocabulary's terms; neither is a duplicate, an
+          // unreadable artifact, or an out-of-domain finding.
+          causeGroup: 'provenance-conflict',
+          disposition: 'exception',
+          stage: 'assign-to-crystal',
+          // The whole ruling: one ineligible invariant does not withhold the
+          // eligible cohort's assignment.
+          blocksCurrentStage: false,
+          blocksCrystalAssignment: false,
+          blocksReadiness: false,
+          // Recomputed against the actual crystal by `computeFreezeBlocking`
+          // when readiness runs; never asserted here.
+          blocksFreeze: false,
+          consequence:
+            'Stays outside the crystal until its remedy is performed. The eligible cohort is unaffected and may be ' +
+            'assigned now.',
+          recommendedAction: verdict.refusals.includes('lifecycle-status-ineligible')
+            ? `Validate it: POST /api/invariants/${record.id}/advance { "action": "validate" }`
+            : verdict.refusals.includes('evidence-provenance-unrecorded')
+              ? "Record its evidence basis: POST /api/invariants/discovery { action: 'classify', invariantId, to, evidenceRefs, rationale }"
+              : 'This record belongs to another experimental population and is correctly excluded from this crystal.',
+          deferrableUntil: null,
+        };
+
+    return {
+      invariantId: record.id,
+      statement: record.statement,
+      status: record.status,
+      timesValidated: record.timesValidated,
+      evidenceProvenance,
+      relationshipCount,
+      alreadyAssigned: isAssigned,
+      admitted: verdict.admitted,
+      refusals: verdict.refusals,
+      detail: verdict.detail,
+      disposition,
+      warnings,
+      ...(exception ? { exception } : {}),
+    };
+  });
+
+  const assignments: DispositionAssignment[] = rows.map((r) => ({
+    recordId: r.invariantId,
+    disposition: r.disposition,
+    exception: r.exception,
+    warnings: r.warnings,
+  }));
+  // An unratified boundary is a BATCH-integrity failure, not a per-record one:
+  // it is one fact about the domain, and evaluating it per record would report
+  // N identical refusals for it.
+  const globalStop = domainAcceptsAssignment(declaration)
+    ? null
+    : {
+        reason: 'governing-declaration-absent' as const,
+        detail: `domain '${declaration.domain}' is '${declaration.ratification}' — no invariant may be assigned to it until the boundary is ratified`,
+      };
+  const summary = summarizeIsolation(assignments, globalStop, 'invariant');
+
+  // The cohort the steward would confirm — computed here so the hash shown is
+  // the hash of exactly what the confirm button sends.
+  const cohortIds = summary.executableRecordIds;
+  const cohortHash = computeCohortHash(cohortIds);
+
+  const population: PopulationDisclosure = {
+    // This route sees the invariant substrate, not the corpus. Reporting a
+    // source count it cannot read would be a guess; the acquisition-stage
+    // counts are disclosed by the Stage 2 surface and by the freeze package.
+    discovered: candidates.length,
+    admitted: candidates.length,
+    candidatesExtracted: candidates.length,
+    validated: candidates.filter((r) => r.timesValidated > 0).length,
+    assignedToCrystal: alreadyAssigned.length,
+    excludedWithWarnings: summary.counts.readyWithWarning,
+    exceptions: summary.counts.exceptions,
+    refused: summary.counts.refused,
+  };
+
+  return NextResponse.json(
+    {
+      requestSucceeded: true,
+      experimentId,
+      crystalDomain: declaration.domain,
+      acquisitionDomain,
+      declarationHash: crystalDeclarationHash(declaration),
+      rows,
+      summary,
+      population,
+      cohortHash,
+      cohortInvariantIds: cohortIds,
+      // GENERATED, not typed by the operator — they may edit it before the
+      // confirm, and the POST records whatever they actually submit.
+      suggestedRationale:
+        `Assigning ${cohortIds.length} eligible invariant(s) to '${declaration.domain}' from acquisition domain ` +
+        `'${acquisitionDomain}'. Every member satisfies the ratified boundary: status ∈ ` +
+        `{${declaration.eligibleStatuses.join('|')}} and evidence provenance ∈ ` +
+        `{${declaration.eligibleProvenance.join('|')}}. ` +
+        (summary.counts.exceptions > 0
+          ? `${summary.counts.exceptions} invariant(s) remain outside the crystal pending their own remedies and are ` +
+            'disclosed separately; they do not affect the eligibility of this cohort. '
+          : '') +
+        `Cohort ${cohortHash}.`,
+      criticalPath: buildCriticalPath({
+        stageLabel: 'assignment',
+        actVerb: 'Assign',
+        noun: 'eligible invariant',
+        counts: summary.counts,
+        // Freeze blocking is decided by the readiness engine over the crystal
+        // that results — never asserted from this stage.
+        freezeBlockers: 0,
+      }),
+      note:
+        'This is a derived, read-only view. Nothing has been written. Confirming assigns exactly the cohort whose ' +
+        'hash is shown above, through the same evaluation this view used.',
+    },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 export async function POST(

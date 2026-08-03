@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-03_invariant-aware-gap-analysis-backlog.md",
+        "updates/2026-08-03_resolution-to-invariant-loop.md",
         "updates/2026-08-03_track2-exception-isolation.md",
         "updates/2026-08-03_observer-state-invariants.md",
         "updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md",
