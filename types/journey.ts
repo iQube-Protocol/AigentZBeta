@@ -116,6 +116,28 @@ export interface JourneyStageDefinition {
    */
   milestone?: JourneyMilestone;
   companion: { before: string; during?: string; complete: string; refused?: string };
+  /**
+   * A POST-ACTIVATION BRANCH, not a step on the admission line (operator
+   * ruling, 2026-08-03).
+   *
+   * The admission spine — Register -> Claim -> Passport -> Delegate ->
+   * aigentMe — establishes the agent and its bounded authority, and is
+   * linear. After it, two INDEPENDENT branches run in parallel and neither
+   * gates the other:
+   *
+   *   'factory'    — ingestion into the agent factory / iQube Registry.
+   *                  Establishes PARTICIPATION and Standing ELIGIBILITY.
+   *   'capability' — Pulse / P&L verification. Establishes eligibility for
+   *                  the financial-services runtime and other specialists.
+   *
+   * These are distinct state AXES, deliberately not collapsed into one
+   * blocking sequence. Verify sat at position 2 of the spine and, because a
+   * local table was missing, immobilised Claim, Passport, delegation and
+   * activation — an optional partner enrichment holding personhood hostage.
+   *
+   * A branch stage carries no `nextStageId`: nothing waits on it.
+   */
+  branch?: 'factory' | 'capability';
   nextStageId?: string;
 }
 

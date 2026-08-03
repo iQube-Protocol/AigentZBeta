@@ -79,42 +79,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         complete:
           'MoneyPenny is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
-      nextStageId: 'verify',
-    },
-    {
-      id: 'verify',
-      label: 'Verify',
-      milestone: 'VERIFIED',
-      description: 'Horizen Pulse and P&L transparency enrich, never enlarge, the agent’s constitutional authority.',
-      actor: 'operator',
-      subjectRef: 'moneypenny',
-      surfaces: [
-        {
-          mode: 'component',
-          ref: 'pulse-transparency-toggle',
-          note: 'Genuinely new component (§22) — no existing Pulse/P&L transparency UI exists in this repo.',
-        },
-        {
-          mode: 'component',
-          ref: 'horizen-agent-page-verify',
-          note: "Reopens Horizen's agent page with transparency framing, per operator ruling 2026-07-31 — the direct partner-side depiction of Pulse/P&L state.",
-        },
-      ],
-      prerequisites: ['register'],
-      permittedActions: ['authorize-pnl-disclosure'],
-      completionEvidence: ['pulseAuthorizationVerified', 'pnlTransparencyEnabled', 'agentCardEnrichmentCommitted'],
-      // GJR-VFY-001 Phase 2 (2026-07-31): horizen_pulse_authorized is the
-      // authorizationClient's own confirmation receipt (Phase 1); the other
-      // two are written by the Phase 2 enrichment step immediately after.
-      receiptTypes: ['horizen_pulse_authorized', 'horizen_pnl_transparency_enabled', 'agent_card_enriched'],
-      companion: {
-        before: 'Horizen can enrich MoneyPenny’s verifiable operational state once you authorize disclosure.',
-        complete:
-          "Horizen has enriched MoneyPenny's verifiable operational state. It has not created or enlarged her constitutional authority.",
-      },
       nextStageId: 'claim',
     },
-    {
+        {
       id: 'claim',
       label: 'Claim',
       milestone: 'CLAIMED',
@@ -128,7 +95,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           note: 'Genuinely new component (§22) — wraps services/passport/externalAgentAdmission.ts, never the domain-mismatched marketing-lane tab.',
         },
       ],
-      prerequisites: ['verify'],
+      prerequisites: ['register'],
       permittedActions: ['prove-wallet-control'],
       completionEvidence: ['controlProofFresh', 'marketaFinalRecommendation'],
       // GJR-MKT-001 Phase 5 (2026-07-31): marketa_eligibility_assessed fires
@@ -220,7 +187,6 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       completionEvidence: ['aigentMeActive', 'focusDispositionRecorded', 'moneypennyRecordedAsDelegatedAgent', 'evidenceChainComplete'],
       receiptTypes: ['aigentme_activated', 'experienceqube_focus_disposition_recorded', 'journey_completed'],
       receiptsSurfacedNatively: true,
-      nextStageId: 'deploy',
       companion: {
         before: 'MoneyPenny is ready to introduce you to aigentMe, your constitutional companion.',
         complete:
@@ -228,9 +194,61 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       },
     },
     {
+      id: 'verify',
+      label: 'Financial-services enrichments',
+      milestone: 'VERIFIED',
+      /*
+       * A POST-ACTIVATION BRANCH, NOT AN ADMISSION STAGE (operator, 2026-08-03).
+       * Both branches hang off aigentMe, per the operator's diagram:
+       *
+       *   Register -> Claim -> Passport -> Delegate -> aigentMe
+       *                                                  |- Ingest -> Standing eligible
+       *                                                  `- Verify -> Financial-services eligible
+       *
+       * It has no `nextStageId`: nothing waits on it, and it is not a step on
+       * a line. Its sibling branch does not wait on it either.
+       *
+       * What it MAY later gate is specific financial-services capability:
+       * advisory over live Pulse data, P&L transparency, treasury execution,
+       * trading/settlement permissions, Marketa participation.
+       */
+      branch: 'capability',
+      description: 'Horizen Pulse and P&L transparency enrich, never enlarge, the agent’s constitutional authority.',
+      actor: 'operator',
+      subjectRef: 'moneypenny',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'pulse-transparency-toggle',
+          note: 'Genuinely new component (§22) — no existing Pulse/P&L transparency UI exists in this repo.',
+        },
+        {
+          mode: 'component',
+          ref: 'horizen-agent-page-verify',
+          note: "Reopens Horizen's agent page with transparency framing, per operator ruling 2026-07-31 — the direct partner-side depiction of Pulse/P&L state.",
+        },
+      ],
+      prerequisites: ['aigentme'],
+      permittedActions: ['authorize-pnl-disclosure'],
+      completionEvidence: ['pulseAuthorizationVerified', 'pnlTransparencyEnabled', 'agentCardEnrichmentCommitted'],
+      // GJR-VFY-001 Phase 2 (2026-07-31): horizen_pulse_authorized is the
+      // authorizationClient's own confirmation receipt (Phase 1); the other
+      // two are written by the Phase 2 enrichment step immediately after.
+      receiptTypes: ['horizen_pulse_authorized', 'horizen_pnl_transparency_enabled', 'agent_card_enriched'],
+      companion: {
+        before: 'Horizen can enrich MoneyPenny’s verifiable operational state once you authorize disclosure.',
+        complete:
+          "Horizen has enriched MoneyPenny's verifiable operational state. It has not created or enlarged her constitutional authority.",
+      },
+    },
+{
       id: 'deploy',
-      label: 'Deploy',
-      description: 'Standing gateway opens; payment demonstration is optional evidence, never a constitutional prerequisite.',
+      // Branch A. Establishes PARTICIPATION and Standing ELIGIBILITY —
+      // ingestion is never itself an accrual of Standing.
+      branch: 'factory',
+      label: 'Ingest into Factory',
+      description:
+        'Ingestion registers the activated agent as a factory participant and makes it ELIGIBLE to accrue Standing. It never accrues Standing itself.',
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -254,12 +272,29 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       prerequisites: ['aigentme'],
       permittedActions: ['prepare-payment-mandate', 'execute-payment'],
       completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'standingGatewayEnabled'],
-      receiptTypes: ['standing_accrued'],
+      /*
+       * INGESTION IS NOT ACCRUAL (operator ruling, 2026-08-03):
+       *
+       *   > "Ingested into Factory ≠ Standing accrued
+       *   >  Ingested into Factory → Eligible to accrue Standing through
+       *   >  qualifying action"
+       *
+       * This stage receipted `standing_accrued` — so merely being admitted to
+       * the factory wrote a Standing accrual. That collapses participation
+       * into merit: Standing is EARNED by later qualifying, validated action,
+       * and awarding it for admission would make the whole measure
+       * meaningless. `capability_registered` records what actually happened
+       * here — the agent became a registered, eligible participant.
+       *
+       * `standing_accrued` remains the accrual receipt, written by the
+       * Standing stage's own qualifying acts, never by this one.
+       */
+      receiptTypes: ['capability_registered'],
       receiptsSurfacedNatively: true,
       companion: {
-        before: 'MoneyPenny’s Standing gateway opens once her transparency and delegation are active.',
+        before: 'Ingest the activated agent into the factory to make it eligible to accrue Standing through validated work.',
         complete:
-          'MoneyPenny entered Horizen capable of paying. Horizen made her financial activity independently observable. Verified transparency now opens her pathway to Standing.',
+          'Ingested as a factory participant and now ELIGIBLE to accrue Standing. Nothing has been accrued yet — Standing is earned through qualifying, validated action.',
       },
       nextStageId: 'standing',
     },
