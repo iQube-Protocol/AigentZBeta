@@ -403,7 +403,14 @@ describe('F — the public workspace posture cannot open a private area', () => 
       /surfaceAllowed\(requestedSurface, visibility, kind\)/,
     );
     expect(src, 'the in-component surface row is not clamped').toMatch(
-      /KIND_SURFACES\[kind\]\.filter\(\(s\) => s !== "administration" && surfaceAllowed\(s, visibility, kind\)\)/,
+      /*
+       * Whitespace-tolerant since 2026-08-03: the admin-only Steward filter was
+       * chained onto this call, so it now spans lines. The CLAMP is what is
+       * pinned — that the row is filtered through `surfaceAllowed` — not its
+       * formatting. A canary that fails on a line break tests the layout, not
+       * the gate.
+       */
+      /KIND_SURFACES\[kind\]\s*\.filter\(\(s\) => s !== "administration" && surfaceAllowed\(s, visibility, kind\)\)/,
     );
     // …and `surfaceAllowed` must actually consult BOTH gates, not be a stub.
     expect(src, 'the Lab gate is missing from surfaceAllowed').toMatch(
@@ -435,7 +442,17 @@ describe('F — the public workspace posture cannot open a private area', () => 
     // over" clamp verified above still holding.
     expect(
       venture.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).filter(Boolean),
-    ).toEqual(['overview', 'collaborate', 'journey', 'operate', 'evidence', 'communicate', 'administration']);
+    /*
+     * `steward` added 2026-08-03, operator-directed: the Polity Passport
+     * Bureau's Review Queue mirrored into the Venture Lab so a Delegate
+     * Passport application raised by the Journey can be decided without
+     * leaving the cartridge. Same reasoning as `journey`'s addition above —
+     * this list guarded against the Research Lab's views BLEEDING IN during
+     * that migration; it was never a permanent bar on a deliberate Venture
+     * Lab surface. The mirror mounts the Bureau's own component and carries
+     * its adminOnly gate (ADMIN_ONLY_SURFACES).
+     */
+    ).toEqual(['overview', 'collaborate', 'journey', 'operate', 'evidence', 'communicate', 'steward', 'administration']);
   });
 
   it('every mount declares its posture consistently with its group', () => {
@@ -548,5 +565,56 @@ describe('G — the Locker lands on credentials, collapsed, with Location last',
     const src = readSource(LOCKER_PATH);
     expect(src, 'a white hairline entered the Locker').not.toMatch(/border-white\/\d/);
     expect(src).not.toMatch(/rgba\(255,\s*255,\s*255/);
+  });
+});
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THE MIRRORED STEWARD QUEUE CARRIES THE ORIGINAL'S GATE (2026-08-03)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Operator-directed: the Polity Passport Bureau's Review Queue is mirrored into
+ * the Venture Lab so a Delegate Passport application raised by the Journey can
+ * be decided without leaving the cartridge.
+ *
+ * Two things must hold, and neither is obvious from the feature request:
+ *
+ *   1. The SAME component is mounted, never a second queue. Two review
+ *      surfaces that could disagree about which applications are open is the
+ *      defect class inv.engineering.036/037 names.
+ *   2. Mirroring must not become a route around an access gate. The Bureau's
+ *      tab is `adminOnly: true`; the mirror is gated in the nav AND at the
+ *      render, so a deep link or a restored surface cannot reach it either.
+ *      CLAUDE.md's Security rule: never weaken a gate.
+ */
+describe('the Venture Lab Steward mirror reuses the Bureau queue and its gate', () => {
+  const partnerSrc = readSource('app/triad/components/codex/tabs/PartnerProgrammesTab.tsx');
+  const configSrc = readSource('data/codex-configs.ts');
+
+  it('mounts the Bureau’s OWN component, not a second queue implementation', () => {
+    expect(partnerSrc).toMatch(/import \{ PassportBureauStewardTab \} from "\.\/PassportBureauStewardTab"/);
+    expect(partnerSrc).toMatch(/surface === "steward" && isAdmin/);
+  });
+
+  it('the source tab it mirrors is adminOnly — so the mirror inherits a real gate', () => {
+    // If the Bureau tab ever stopped being adminOnly, the mirror's gate would
+    // be guarding something no longer restricted; that is worth knowing.
+    const bureauTab = configSrc.slice(configSrc.indexOf("id: 'passport-bureau-steward'"));
+    expect(bureauTab.slice(0, 400)).toMatch(/adminOnly: true/);
+  });
+
+  it('the tab is not OFFERED to a non-admin', () => {
+    expect(partnerSrc).toMatch(/\.filter\(\(s\) => !ADMIN_ONLY_SURFACES\.includes\(s\) \|\| isAdmin\)/);
+    expect(partnerSrc).toMatch(/const ADMIN_ONLY_SURFACES: readonly SubSurface\[\] = \["steward"\]/);
+  });
+
+  it('the tab is not RENDERED for a non-admin either — a deep link cannot reach it', () => {
+    /*
+     * THE ASSERTION THAT FAILS ON THE DEFECT. Hiding a tab is presentation;
+     * `initialSurface`, a restored view or a deep link can all set `surface`
+     * directly, so the render must gate independently of the nav.
+     */
+    const render = partnerSrc.slice(partnerSrc.indexOf('surface === "steward"'));
+    expect(render.slice(0, 120), 'the steward render is not admin-gated').toContain('isAdmin');
   });
 });

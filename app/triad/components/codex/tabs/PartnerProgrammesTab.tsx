@@ -92,6 +92,7 @@ import { StewardParticipationTab } from "./StewardParticipationTab";
 import dynamic from "next/dynamic";
 import { LockerTab } from "./LockerTab";
 import { PilotJourneyTab } from "./PilotJourneyTab";
+import { PassportBureauStewardTab } from "./PassportBureauStewardTab";
 import { useParticipationAccess } from "@/app/hooks/useParticipationAccess";
 import { scopesGrantedIn } from "@/services/passport/participationTabGate";
 
@@ -156,6 +157,10 @@ const SUB_SURFACES = [
   "locker",
   "qubetalk",
   "participants",
+  // Steward review queue, MIRRORED from the Polity Passport Bureau (operator,
+  // 2026-08-03) so passport applications raised by the Journey can be decided
+  // without leaving the cartridge. Admin-gated — see STEWARD_SURFACE below.
+  "steward",
 ] as const;
 type SubSurface = (typeof SUB_SURFACES)[number];
 
@@ -176,6 +181,28 @@ type SubSurface = (typeof SUB_SURFACES)[number];
  * Defence in depth on the one change in this ruling that widens a gate.
  */
 const PUBLIC_SURFACES: readonly SubSurface[] = ["overview"];
+
+/**
+ * ADMIN-ONLY SURFACES.
+ *
+ * `steward` mirrors the Polity Passport Bureau's Review Queue
+ * (`passport-bureau-steward`, `adminOnly: true` in data/codex-configs.ts) into
+ * the Venture Lab, so an operator deciding a Delegate Passport application
+ * raised by the Journey does not have to leave the cartridge to do it.
+ *
+ * The SAME component is mounted — `PassportBureauStewardTab` — never a second
+ * queue implementation. A mirrored surface that re-implemented the queue could
+ * drift from the Bureau's own, and two review surfaces disagreeing about which
+ * applications are open is precisely the class of defect this codebase spent
+ * 2026-08-03 unpicking (inv.engineering.036/037).
+ *
+ * The mirror carries the ORIGINAL's gate. It is enforced in two places on
+ * purpose: the nav strip (so the tab is not offered) and the render (so a deep
+ * link or a restored `initialSurface` cannot reach it either). CLAUDE.md's
+ * Security rule forbids weakening an access gate; mirroring a surface must not
+ * become a way around one.
+ */
+const ADMIN_ONLY_SURFACES: readonly SubSurface[] = ["steward"];
 type WorkspaceVisibility = "private" | "public";
 
 function asVisibility(value: string | undefined): WorkspaceVisibility {
@@ -222,7 +249,7 @@ const KIND_SURFACES: Record<WorkspaceKind, readonly SubSurface[]> = {
   // it was never a permanent bar on a later, deliberate Venture Lab surface.
   // tests/lab-tab-restructure-and-locker-ux.test.ts's pinned list is updated
   // to match, with the same reasoning recorded there.
-  venture: ["overview", "collaborate", "journey", "operate", "evidence", "communicate", "administration"],
+  venture: ["overview", "collaborate", "journey", "operate", "evidence", "communicate", "steward", "administration"],
   research: [
     ...(RESEARCH_WORKSPACE_VIEWS.map((v) => v.id) as SubSurface[]),
     RESEARCH_WORKSPACE_ADMIN_VIEW.id as SubSurface,
@@ -250,6 +277,7 @@ const SUB_LABELS: Record<SubSurface, string> = {
   locker: "Locker",
   qubetalk: "QubeTalk",
   participants: "Participants",
+  steward: "Steward",
 };
 
 function surfaceLabel(surface: SubSurface, kind: WorkspaceKind): string {
@@ -1637,7 +1665,10 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {/* Sub-surface navigation — omitted when the tier-3 menu owns it. */}
       {menuSurface === null && (
       <div className="flex flex-wrap gap-1.5">
-        {KIND_SURFACES[kind].filter((s) => s !== "administration" && surfaceAllowed(s, visibility, kind)).map((s) => (
+        {KIND_SURFACES[kind]
+          .filter((s) => s !== "administration" && surfaceAllowed(s, visibility, kind))
+          .filter((s) => !ADMIN_ONLY_SURFACES.includes(s) || isAdmin)
+          .map((s) => (
           <button
             key={s}
             onClick={() => setSurface(s)}
@@ -1781,6 +1812,13 @@ export function PartnerProgrammesTab({ personaId, isAdmin, initialSurface, works
       {surface === "journey" && (
         <div className={`${PANEL} overflow-hidden`} style={{ minHeight: 520 }}>
           <PilotJourneyTab personaId={personaId} isAdmin={isAdmin} isPartner />
+        </div>
+      )}
+
+      {/* ── Steward — the Bureau's own Review Queue, mounted here ── */}
+      {surface === "steward" && isAdmin && (
+        <div className={`${PANEL} overflow-hidden`} style={{ minHeight: 420 }}>
+          <PassportBureauStewardTab />
         </div>
       )}
 
