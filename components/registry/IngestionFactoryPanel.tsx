@@ -621,7 +621,20 @@ function AssetCard({ asset, onClick }: { asset: RegistryAssetSummary; onClick: (
   );
 }
 
-export function IngestionFactoryPanel() {
+export interface IngestionFactoryPanelProps {
+  /**
+   * Which internal section to open on. Defaults to `"ingest"` — right for the
+   * standalone Registry surface, where the operator arrives to ingest.
+   *
+   * The Horizen journey's Deploy stage passes `"assets"`: it is showing an
+   * agent that is ALREADY in the factory, so landing on "Ingest New Asset"
+   * offered to perform an act the same screen was displaying as done
+   * (operator, 2026-08-03).
+   */
+  initialSection?: "ingest" | "pipeline" | "assets";
+}
+
+export function IngestionFactoryPanel({ initialSection = "ingest" }: IngestionFactoryPanelProps = {}) {
   const [assets, setAssets] = useState<RegistryAssetSummary[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
@@ -630,7 +643,7 @@ export function IngestionFactoryPanel() {
   const [bandFilter, setBandFilter] = useState<TrustBand | "">("");
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
   const [showFilters, setShowFilters] = useState(false);
-  const [activeSection, setActiveSection] = useState<"ingest" | "pipeline" | "assets">("ingest");
+  const [activeSection, setActiveSection] = useState<"ingest" | "pipeline" | "assets">(initialSection);
   const [assetsViewMode, setAssetsViewMode] = useState<ViewMode>("list");
   const [ingestSubmitting, setIngestSubmitting] = useState(false);
   const [ingestCanSubmit, setIngestCanSubmit] = useState(true);

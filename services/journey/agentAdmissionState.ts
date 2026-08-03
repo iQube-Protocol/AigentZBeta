@@ -31,9 +31,26 @@
  *   sponsorship        agent_root_identity.sponsor_persona_id / sponsor_passport_id
  *                      (written by services/agents/sponsorPolityAgent.ts)
  *   delegate passport  polity_passport_records, passport_class 'agent_participant',
- *                      matched to the agent by its agent_card_url
+ *                      reached from the APPLICATION that carries the agent card URL
+ *                      (see the join note below)
  *   delegation         delegation_grants.status = 'active', keyed on the agent's
  *                      own root DID
+ *   factory presence   registry_assets — "the ingested factory is essentially the
+ *                      registry, so presence there is a receipt in and of itself"
+ *                      (operator, 2026-08-03)
+ *
+ * ── WHY THE PASSPORT READ IS A JOIN, NOT A DIRECT MATCH ───────────────────
+ *
+ * `agent_card_url` lives on `polity_passport_applications` (bureau migration
+ * 20260610000000, line 69) and NOT on `polity_passport_records`. The first
+ * version of this reader selected it straight off the records table; PostgREST
+ * rejects the whole query for the unknown column, so the read failed, the
+ * failure was honestly recorded as an audit gap — and `delegatePassportIssued`
+ * stayed `undefined` forever. Honest, and still wrong: the Passport stage could
+ * not go green no matter how many Passports were issued.
+ *
+ * So: find the agent's APPLICATIONS by card URL, then the RECORDS issued from
+ * them via `application_id`. Two reads, one fact, no invented column.
  *
  * ── THREE-VALUED, LIKE EVERY OTHER OBSERVER HERE ──────────────────────────
  *
@@ -54,6 +71,8 @@ export interface AgentAdmissionState {
   delegatePassportIssued: boolean | undefined;
   /** An ACTIVE bounded-delegation grant exists for this agent's root DID. */
   delegationActive: boolean | undefined;
+  /** The agent is present in the registry — i.e. ingested into the Factory. */
+  factoryPresent: boolean | undefined;
   /** Reads that failed, named. Disclosed, never folded into a `false`. */
   auditGaps: string[];
 }
@@ -84,6 +103,7 @@ export async function resolveAgentAdmissionState(
   let sponsorshipRecorded: boolean | undefined;
   let delegatePassportIssued: boolean | undefined;
   let delegationActive: boolean | undefined;
+  let factoryPresent: boolean | undefined;
   let agentRootDid: string | null = null;
 
   // ── 1. Sponsorship, and the agent's own root DID (needed by step 3) ──────
@@ -101,26 +121,46 @@ export async function resolveAgentAdmissionState(
     auditGaps.push(`sponsorship read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // ── 2. Delegate Passport ─────────────────────────────────────────────────
+  // ── 2. Delegate Passport, via the application that names the agent card ──
   try {
-    const { data, error } = await admin
-      .from('polity_passport_records')
-      .select('passport_id, participant_status, revoked, agent_card_url')
-      .eq('passport_class', 'agent_participant')
+    const { data: appData, error: appError } = await admin
+      .from('polity_passport_applications')
+      .select('id, agent_card_url')
+      .not('agent_card_url', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(50);
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as Array<{
-      participant_status?: string;
-      revoked?: boolean;
-      agent_card_url?: string;
-    }>;
-    delegatePassportIssued = rows.some(
-      (r) =>
-        matchesAgentCard(r.agent_card_url, agent.agentCardPath) &&
-        !r.revoked &&
-        (r.participant_status === 'approved' || r.participant_status === 'active'),
-    );
+      .limit(200);
+    if (appError) throw new Error(appError.message);
+    const applicationIds = ((appData ?? []) as Array<{ id: string; agent_card_url?: string }>)
+      .filter((a) => matchesAgentCard(a.agent_card_url, agent.agentCardPath))
+      .map((a) => a.id);
+
+    if (applicationIds.length === 0) {
+      // No application ever named this agent card — a real negative, not a gap.
+      delegatePassportIssued = false;
+    } else {
+      const { data, error } = await admin
+        .from('polity_passport_records')
+        .select('passport_id, participant_status, revoked, application_id')
+        .eq('passport_class', 'agent_participant')
+        .in('application_id', applicationIds)
+        .limit(50);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as Array<{ participant_status?: string; revoked?: boolean }>;
+      /*
+       * `provisionally_issued` counts. The status machine issues participants
+       * at `approved` by default but permits a provisional issue, and a
+       * provisionally issued Passport IS a Passport — treating it as absent
+       * would offer the operator an act the Bureau has already performed,
+       * which is the whole defect class this reader exists to close.
+       */
+      delegatePassportIssued = rows.some(
+        (r) =>
+          !r.revoked &&
+          (r.participant_status === 'approved' ||
+            r.participant_status === 'active' ||
+            r.participant_status === 'provisionally_issued'),
+      );
+    }
   } catch (err) {
     auditGaps.push(`delegate passport read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
@@ -145,5 +185,29 @@ export async function resolveAgentAdmissionState(
     delegationActive = false;
   }
 
-  return { sponsorshipRecorded, delegatePassportIssued, delegationActive, auditGaps };
+  /*
+   * ── 4. Factory presence ──────────────────────────────────────────────────
+   *
+   *   > "The ingested factory is essentially the registry so presence there is
+   *   >  a receipt in and of itself." (operator, 2026-08-03)
+   *
+   * Read exactly that. Nakamoto is already a published L4 AigentQube in the
+   * registry; the Deploy stage waited on a `capability_registered` receipt
+   * that the original ingestion never wrote, so the surface offered to ingest
+   * an agent it was at that moment displaying. Same shape as Register, same
+   * remedy: the registry row IS the outcome.
+   */
+  try {
+    const { data, error } = await admin
+      .from('registry_assets')
+      .select('asset_id')
+      .eq('asset_id', agent.aigentQubeId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    factoryPresent = Boolean(data);
+  } catch (err) {
+    auditGaps.push(`registry presence read failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  return { sponsorshipRecorded, delegatePassportIssued, delegationActive, factoryPresent, auditGaps };
 }

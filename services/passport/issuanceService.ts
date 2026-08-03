@@ -197,6 +197,21 @@ export async function applyReviewDecision(
     personaId: String(app.persona_id || '') || null,
     summary: `Passport issued: ${passportId} (${passportClass}, ${issuedStatus})`,
     actionType: rule.receipt === 'passport_issued' ? 'passport_issued' : 'passport_status_changed',
+    /*
+     * ATTRIBUTE AN AGENT PASSPORT TO ITS AGENT (operator, 2026-08-03).
+     *
+     * This receipt already goes through the canonical pipeline and is already
+     * DVN-anchored (`passport_issued` ∈ ANCHORABLE_ACTION_TYPES). What it did
+     * NOT carry was any reference to the agent it was issued for — it named
+     * only the applying persona. Every agent-scoped reader on the platform
+     * (findAgentReceiptRefs, the Horizen journey's evidence receipts) matches
+     * on `agents_invoked`, so a real, anchored issuance receipt was invisible
+     * to the one surface most in need of it.
+     *
+     * Citizen passports are deliberately left unstamped — a citizen is not an
+     * agent, and inventing an agent ref for one would be a lie about who acted.
+     */
+    agentsInvoked: isCitizen ? undefined : await resolveAgentRefsForCard(admin, app.agent_card_url),
   });
 
   // Sprint 4 — credit Capability Standing for passport issuance. Identity depth
@@ -250,10 +265,39 @@ async function creditPassportCapabilityStanding(
   });
 }
 
+/**
+ * The agent refs an agent-class Passport receipt should be attributed to.
+ *
+ * `agent_card_url` is how a Delegate Passport application names its subject.
+ * The root-identity row for that card carries the runtime agent id every
+ * agent-scoped receipt reader matches on. Best-effort by design: an issuance
+ * must never fail because its attribution lookup did — an unattributed receipt
+ * is a smaller loss than a Passport that was not issued.
+ */
+async function resolveAgentRefsForCard(
+  admin: ReturnType<typeof getSupabaseServer>,
+  agentCardUrl: unknown,
+): Promise<string[] | undefined> {
+  if (!admin || typeof agentCardUrl !== 'string' || !agentCardUrl) return undefined;
+  try {
+    const { data } = await admin
+      .from('agent_root_identity')
+      .select('agent_id')
+      .eq('agent_card_url', agentCardUrl)
+      .maybeSingle();
+    const agentId = (data as { agent_id?: string } | null)?.agent_id;
+    return agentId ? [agentId] : undefined;
+  } catch (e) {
+    console.error('[passport issuance] agent attribution lookup failed:', e);
+    return undefined;
+  }
+}
+
 async function writeReceipt(input: {
   personaId: string | null;
   summary: string;
   actionType: 'passport_issued' | 'passport_status_changed';
+  agentsInvoked?: string[];
 }): Promise<string | null> {
   const personaId = input.personaId || process.env.PASSPORT_BUREAU_SYSTEM_PERSONA_ID || null;
   if (!personaId) {
@@ -269,6 +313,7 @@ async function writeReceipt(input: {
       activeCartridge: PASSPORT_BUREAU_CARTRIDGE_SLUG,
       actionType: input.actionType,
       summary: input.summary,
+      ...(input.agentsInvoked ? { agentsInvoked: input.agentsInvoked } : {}),
     });
     return receipt?.id ?? null;
   } catch (e) {
