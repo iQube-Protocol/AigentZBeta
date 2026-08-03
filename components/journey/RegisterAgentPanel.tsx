@@ -555,6 +555,16 @@ export function RegisterAgentPanel({
    * identical from the outside, and only one of them is about the chain.
    */
   const [lastHorizenAnswer, setLastHorizenAnswer] = useState<string | null>(null);
+  /*
+   * The INDEPENDENT chain read, reported alongside Horizen's answer (pilot,
+   * 2026-08-03: twenty checks with the identifier recovered and the tool
+   * answering, none of it matching the confirmation words). The two sources
+   * measure different things, so both are shown and any disagreement is
+   * stated — never one silently standing in for the other.
+   */
+  const [onChainDetail, setOnChainDetail] = useState<string | null>(null);
+  const [confirmationSource, setConfirmationSource] = useState<string | null>(null);
+  const [divergence, setDivergence] = useState<string | null>(null);
 
   useEffect(() => {
     void readProgress();
@@ -888,6 +898,10 @@ export function RegisterAgentPanel({
         if (typeof json.rawStatus === 'string' && json.rawStatus) {
           setLastHorizenAnswer(json.rawStatus);
         }
+        const chain = json.onChain as { detail?: unknown } | undefined;
+        if (chain && typeof chain.detail === 'string') setOnChainDetail(chain.detail);
+        setConfirmationSource(typeof json.confirmationSource === 'string' ? json.confirmationSource : null);
+        setDivergence(typeof json.divergence === 'string' ? json.divergence : null);
         if (json.confirmed) {
           // `readJsonOrExplain` returns unknown-valued fields — a tokenId that
           // arrived as something other than a string must not be rendered as
@@ -1298,11 +1312,46 @@ export function RegisterAgentPanel({
         {flow.step === 'confirmed' && (
           <div className="flex items-start gap-2 text-xs text-emerald-200">
             <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <p>
-              {selectedAgent.displayName} is registered — Horizen tokenId <span className="font-mono">{flow.tokenId}</span>.
-              The Verify stage can now authorize Pulse/P&amp;L transparency.
-            </p>
+            <div className="min-w-0 flex-1">
+              <p>
+                {selectedAgent.displayName} is registered — Horizen tokenId <span className="font-mono">{flow.tokenId}</span>.
+                The Verify stage can now authorize Pulse/P&amp;L transparency.
+              </p>
+              {/* WHICH SOURCE SAID SO. A confirmation from the chain alone and
+                  one Horizen also reports are different findings, and an
+                  operator acting on this is entitled to know which they have. */}
+              {confirmationSource && (
+                <p className="mt-1 text-[10px] text-emerald-200/80">
+                  confirmed by:{' '}
+                  {confirmationSource === 'both'
+                    ? 'the transaction receipt on-chain AND Horizen’s onboarding status'
+                    : confirmationSource === 'on-chain-receipt'
+                      ? 'the transaction receipt on-chain (verified by ownerOf)'
+                      : 'Horizen’s onboarding status'}
+                </p>
+              )}
+            </div>
           </div>
+        )}
+
+        {/* Stated, never resolved — the two sources measure different things. */}
+        {divergence && (flow.step === 'confirmed' || flow.step === 'error' || flow.step === 'polling') && (
+          <div className="mb-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] leading-relaxed text-amber-100">
+            {divergence}
+          </div>
+        )}
+
+        {onChainDetail && (flow.step === 'error' || flow.step === 'polling') && (
+          <details className="mb-2 rounded-md border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+            <summary className="cursor-pointer text-slate-300">What the chain says</summary>
+            <p className="mt-1.5 break-all text-[10px] leading-relaxed text-slate-400">{onChainDetail}</p>
+            <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500">
+              Read directly from the registration transaction’s own receipt — a minted{' '}
+              <span className="font-mono">Registered</span>/<span className="font-mono">Transfer</span> event whose{' '}
+              <span className="font-mono">ownerOf</span> resolves to this agent’s wallet. This does not depend on how
+              Horizen words its status string.
+            </p>
+          </details>
         )}
 
         {flow.step === 'error' && lastHorizenAnswer && (

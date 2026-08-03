@@ -1230,10 +1230,75 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     expect(block).toMatch(/expectedRegistry: HORIZEN_NETWORK_FACTS\[input\.network\]\.identityRegistry/);
     // The recovered value is read from the decode result, never assumed present.
     expect(block).toMatch(/if \(decoded\.ok\)/);
-    // A failed decode must not read as an answer about the registration.
-    expect(block).toMatch(/catch \{/);
+    // A failed decode must not read as an answer about the registration — it
+    // is caught and reported as unread, with the reason.
+    expect(block).toMatch(/catch \(err\)/);
+    expect(block).toMatch(/the transaction receipt could not be read/);
     // The wallet-keyed registry lookup this replaces must be gone from this path.
     expect(block).not.toMatch(/fetchRegistryAgent/);
+  });
+
+  /*
+   * THE CHAIN IS A SECOND SOURCE, NOT A LOOSENED FIRST ONE (pilot, 2026-08-03).
+   *
+   *   > "Horizen has not confirmed this registration after 20 checks."
+   *
+   * By then the check WAS being made — the identifier had been recovered and
+   * the tool answered without rejecting. `confirmed` is a substring match over
+   * Horizen's prose, so an answer phrased any other way reports "not
+   * confirmed" forever. Widening that match on a guess would risk declaring a
+   * registration confirmed that is not, so it is left alone and the chain is
+   * consulted independently — the Bitcent explorer-fallback posture.
+   */
+  it('the Horizen confirmation heuristic is UNCHANGED — never widened on a guess', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    expect(client).toMatch(
+      /const horizenConfirmed = statusText\.includes\('active'\) \|\| statusText\.includes\('confirmed'\) \|\| statusText\.includes\('complete'\);/,
+    );
+    // Exactly those three words, and no fourth quietly added beside them.
+    const at = client.indexOf('const horizenConfirmed =');
+    const line = client.slice(at, client.indexOf(';', at));
+    expect((line.match(/statusText\.includes\(/g) ?? []).length).toBe(3);
+  });
+
+  it('the chain confirms independently, and the source is always named', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    expect(client).toMatch(/const confirmed = horizenConfirmed \|\| onChain\.verified;/);
+    // Which source said so is reported, never collapsed to a bare boolean.
+    expect(client).toMatch(/confirmationSource: ConfirmationSource \| null/);
+    for (const source of ['both', 'horizen-status', 'on-chain-receipt']) {
+      expect(client, `${source} is not a reportable source`).toContain(`'${source}'`);
+    }
+    // The decode runs unconditionally — it is the confirmation source, not
+    // only a fallback for a missing identifier.
+    expect(client).not.toMatch(/if \(declaresAgentId && !input\.horizenAgentId\?\.trim\(\)\) \{[\s\S]{0,200}decodeAgentIdFromReceipt/);
+  });
+
+  it('a disagreement between the two sources is stated, never resolved', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    const at = client.indexOf('const divergence =');
+    expect(at, 'divergence is not computed').toBeGreaterThan(-1);
+    const block = client.slice(at, at + 1200);
+    // BOTH directions are reported — chain-ahead and Horizen-ahead.
+    expect(block).toMatch(/The chain confirms this registration and Horizen's onboarding status does not/);
+    expect(block).toMatch(/Horizen reports this registration confirmed, but the transaction's own receipt did not/);
+    // And it says the two measure different things rather than treating one as wrong.
+    expect(block).toMatch(/measure different things/);
+  });
+
+  it('a failed registry reread does not discard verified on-chain evidence', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    const at = client.indexOf('if (!reread.ok)');
+    expect(at).toBeGreaterThan(-1);
+    const block = client.slice(at, at + 2000);
+    // The refusal now only fires when the chain did NOT verify.
+    expect(block).toMatch(/if \(!onChain\.verified \|\| !onChain\.agentId\)/);
+    expect(block).toMatch(/refusalCode: 'REGISTRY_REREAD_FAILED'/);
+    // Otherwise the decoded tokenId is used — and the identifier stays absent
+    // rather than being defaulted from it (operator ruling 2026-07-31).
+    expect(block).toMatch(/agentIdentifier: null/);
+    expect(block).toMatch(/humanReadableUrl: null/);
+    expect(block).toMatch(/reported absent rather/);
   });
 });
 
