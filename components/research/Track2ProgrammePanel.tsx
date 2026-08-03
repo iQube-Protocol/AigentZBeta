@@ -38,6 +38,11 @@ import { personaFetch } from "@/utils/personaSpine";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
 import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusScout/intelligence";
 import { findRegistryEntry, type SourceTier } from "@/services/corpusScout/institutionalRegistry";
+import {
+  RECOMMENDATION_TO_REVIEW_DECISION,
+  type AdmissionRecommendation,
+  type RecommendedAdmissionClass,
+} from "@/services/corpusScout/admissionRecommendation";
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 p-4";
 
@@ -388,6 +393,9 @@ function CorpusReviewQueue({
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [recommendations, setRecommendations] = useState<AdmissionRecommendation[] | null>(null);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const [recsErr, setRecsErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!acquisitionDomain) return;
@@ -407,6 +415,11 @@ function CorpusReviewQueue({
       // hold ids that are no longer selectable and silently understate what a
       // subsequent batch would touch.
       setSelected(new Set());
+      // A stale recommendation set is worse than none — a source that just
+      // left the queue (decided) or a newly-admitted source's freshly-computed
+      // lineage would make an old recommendation set wrong in either
+      // direction. Cleared on every reload; the operator re-prepares.
+      setRecommendations(null);
     } catch (e) {
       // Unreadable is not empty. An empty list here would read as "nothing to
       // review" on the one surface whose job is to show what is.
@@ -420,6 +433,37 @@ function CorpusReviewQueue({
   useEffect(() => {
     if (open) void load();
   }, [open, load]);
+
+  /*
+   * PREPARE RECOMMENDATIONS (Track 2 Stage 2, 2026-08-03 operator correction).
+   *
+   * Calls the read-only `/api/corpus-scout/candidates/prepare-recommendations`
+   * route, which aggregates the platform's EXISTING invariant lineage back
+   * onto each pending source (`services/corpusScout/admissionRecommendation.ts`
+   * — no fresh domain guess, no write). This state holds the PREPARED
+   * recommendations only; nothing is admitted until the steward ratifies a
+   * cohort below, which posts through the SAME governed `bulk-review` route
+   * every manual batch already uses.
+   */
+  const prepareRecommendations = useCallback(async () => {
+    if (!acquisitionDomain) return;
+    setRecsLoading(true);
+    setRecsErr(null);
+    try {
+      const res = await personaFetch(
+        `/api/corpus-scout/candidates/prepare-recommendations?campaignDomain=${encodeURIComponent(acquisitionDomain)}`,
+        { cache: "no-store" },
+      );
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `recommendations could not be prepared (HTTP ${res.status})`);
+      setRecommendations((d.recommendations ?? []) as AdmissionRecommendation[]);
+    } catch (e) {
+      setRecommendations(null);
+      setRecsErr(e instanceof Error ? e.message : "recommendations could not be prepared");
+    } finally {
+      setRecsLoading(false);
+    }
+  }, [acquisitionDomain]);
 
   /*
    * THE WHOLE CANON, AS A FILE (operator, 2026-08-02).
@@ -526,6 +570,9 @@ function CorpusReviewQueue({
     () => new Set(duplicateGroups.flatMap((g) => g.sourceIds)),
     [duplicateGroups],
   );
+  /** sourceId → row, for the recommendation cohorts to resolve a title/warning
+   *  context without re-fetching what `load()` already holds. */
+  const rowsById = useMemo(() => new Map((rows ?? []).map((r) => [r.sourceId, r])), [rows]);
 
   /*
    * ISSUER GROUPS — the shape a batch actually has.
@@ -695,6 +742,46 @@ function CorpusReviewQueue({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {rows !== null && rows.length > 0 && (
+            <div className="rounded border border-slate-700 bg-slate-950/40 p-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-medium text-slate-200">
+                  Machine-recommended cohorts
+                </span>
+                <button
+                  onClick={() => void prepareRecommendations()}
+                  disabled={recsLoading}
+                  className="flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-300 transition hover:bg-slate-800/60 disabled:opacity-50"
+                >
+                  {recsLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                  {recommendations ? "Refresh recommendations" : "Prepare recommendations"}
+                </button>
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Aggregates the corpus&rsquo;s EXISTING invariant lineage and this source&rsquo;s own recorded quality
+                signals into a proposed admission class and sub-domain per pending source. Writes nothing — the
+                steward still ratifies each cohort explicitly below, through the same governed route a manual batch
+                uses.
+              </p>
+              {recsErr && (
+                <div className="mt-1.5 rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-[11px] text-rose-200">
+                  {recsErr}
+                </div>
+              )}
+              {recommendations && (
+                <RecommendationCohorts
+                  recommendations={recommendations}
+                  rowsById={rowsById}
+                  duplicateSourceIds={duplicateSourceIds}
+                  onDone={() => {
+                    void load();
+                    onDone();
+                  }}
+                />
+              )}
             </div>
           )}
 
@@ -913,6 +1000,9 @@ function BulkAdmissionControl({
   onSelectIssuer,
   onClearSelection,
   onDone,
+  initialDecision,
+  initialProvenanceClass,
+  initialNotes,
 }: {
   visible: CandidateSource[];
   selected: Set<string>;
@@ -923,10 +1013,22 @@ function BulkAdmissionControl({
   onSelectIssuer: (sourceIds: string[]) => void;
   onClearSelection: () => void;
   onDone: () => void;
+  /*
+   * PRESELECTION, for a caller that already knows what this batch should be
+   * (the machine-recommended cohorts, `RecommendationCohorts` below). Nothing
+   * here changes the write path or its refusals — a preselected decision is
+   * still just the `decision` state's initial value, still requires the SAME
+   * Inspect-then-Record steps, and the operator can change it before either
+   * click. Manual bulk-admission callers omit these and get the pre-existing
+   * blank-start behaviour unchanged.
+   */
+  initialDecision?: string;
+  initialProvenanceClass?: string;
+  initialNotes?: string;
 }) {
-  const [decision, setDecision] = useState("");
-  const [provenanceClass, setProvenanceClass] = useState("");
-  const [notes, setNotes] = useState("");
+  const [decision, setDecision] = useState(initialDecision ?? "");
+  const [provenanceClass, setProvenanceClass] = useState(initialProvenanceClass ?? "");
+  const [notes, setNotes] = useState(initialNotes ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<BulkResult | null>(null);
@@ -1134,6 +1236,262 @@ function BulkAdmissionControl({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * MACHINE-RECOMMENDED COHORTS (Track 2 Stage 2, 2026-08-03 operator
+ * correction — "prepare the decision, don't just execute one the operator
+ * already made").
+ *
+ * Groups the prepared `AdmissionRecommendation`s by (admission class,
+ * primary sub-domain) — the same shape the operator asked for: "EXP-P1
+ * evidence — market integrity: 8", "Reference only: 5", etc. Each cohort maps
+ * to exactly ONE `bulk-review` POST when ratified, because every member
+ * already shares one recommended decision; the sub-domain is display context,
+ * not something `bulk-review` accepts or needs.
+ *
+ * NO WRITE happens here. Ratifying a cohort renders the EXISTING
+ * `BulkAdmissionControl` (preseeded, never auto-submitted) — the same
+ * Inspect-then-Record steps, the same refusals, the same route. A `manual
+ * review required` cohort offers NO ratify control at all: there is no
+ * decision to preseed, so the steward decides those individually below.
+ */
+function RecommendationCohorts({
+  recommendations,
+  rowsById,
+  duplicateSourceIds,
+  onDone,
+}: {
+  recommendations: AdmissionRecommendation[];
+  rowsById: Map<string, CandidateSource>;
+  duplicateSourceIds: Set<string>;
+  onDone: () => void;
+}) {
+  // A source may be MOVED to a different EXISTING cohort (never a fabricated
+  // one — the move selector only ever offers cohort keys the recommendation
+  // pass itself produced) or REMOVED from cohort ratification entirely (it
+  // stays in the ordinary per-source queue below, to be decided by hand).
+  const [moves, setMoves] = useState<Map<string, string>>(new Map());
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+
+  const naturalCohortKey = useCallback(
+    (r: AdmissionRecommendation) => `${r.admissionClass}::${r.primarySubDomain ?? ""}`,
+    [],
+  );
+
+  const cohortMeta = useMemo(() => {
+    const m = new Map<string, { admissionClass: RecommendedAdmissionClass; primarySubDomain: string | null }>();
+    for (const r of recommendations) {
+      const key = naturalCohortKey(r);
+      if (!m.has(key)) m.set(key, { admissionClass: r.admissionClass, primarySubDomain: r.primarySubDomain });
+    }
+    return m;
+  }, [recommendations, naturalCohortKey]);
+
+  const cohorts = useMemo(() => {
+    const groups = new Map<string, AdmissionRecommendation[]>();
+    for (const r of recommendations) {
+      if (excluded.has(r.sourceId)) continue;
+      const key = moves.get(r.sourceId) ?? naturalCohortKey(r);
+      const arr = groups.get(key) ?? [];
+      arr.push(r);
+      groups.set(key, arr);
+    }
+    return [...groups.entries()]
+      .map(([key, members]) => {
+        const meta = cohortMeta.get(key)!;
+        return { key, admissionClass: meta.admissionClass, primarySubDomain: meta.primarySubDomain, members };
+      })
+      .sort((a, b) => b.members.length - a.members.length || a.key.localeCompare(b.key));
+  }, [recommendations, moves, excluded, naturalCohortKey, cohortMeta]);
+
+  const allCohortKeys = useMemo(() => [...cohortMeta.keys()], [cohortMeta]);
+
+  if (cohorts.length === 0) {
+    return <p className="mt-1.5 text-[10px] text-slate-500">No pending source produced a recommendation.</p>;
+  }
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      {cohorts.map((c) => (
+        <CohortCard
+          key={c.key}
+          cohortKey={c.key}
+          admissionClass={c.admissionClass}
+          primarySubDomain={c.primarySubDomain}
+          members={c.members}
+          rowsById={rowsById}
+          duplicateSourceIds={duplicateSourceIds}
+          allCohortKeys={allCohortKeys}
+          onMoveSource={(sourceId, targetKey) => setMoves((prev) => new Map(prev).set(sourceId, targetKey))}
+          onExcludeSource={(sourceId) => setExcluded((prev) => new Set(prev).add(sourceId))}
+          onDone={onDone}
+        />
+      ))}
+    </div>
+  );
+}
+
+const REVIEW_TIER_LABEL: Record<AdmissionRecommendation["reviewTier"], string> = {
+  "auto-include": "auto-include",
+  "needs-review": "needs review",
+  exception: "exception",
+};
+
+function CohortCard({
+  cohortKey,
+  admissionClass,
+  primarySubDomain,
+  members,
+  rowsById,
+  duplicateSourceIds,
+  allCohortKeys,
+  onMoveSource,
+  onExcludeSource,
+  onDone,
+}: {
+  cohortKey: string;
+  admissionClass: RecommendedAdmissionClass;
+  primarySubDomain: string | null;
+  members: AdmissionRecommendation[];
+  rowsById: Map<string, CandidateSource>;
+  duplicateSourceIds: Set<string>;
+  allCohortKeys: string[];
+  onMoveSource: (sourceId: string, targetCohortKey: string) => void;
+  onExcludeSource: (sourceId: string) => void;
+  onDone: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const memberIds = useMemo(() => members.map((m) => m.sourceId).join(","), [members]);
+  const rows = useMemo(
+    () => members.map((m) => rowsById.get(m.sourceId)).filter((r): r is CandidateSource => Boolean(r)),
+    [members, rowsById],
+  );
+  // Selection defaults to "every member" and re-defaults whenever the cohort's
+  // OWN membership changes (a move or exclusion elsewhere) — a stale
+  // selection from before a move would silently under- or over-state what
+  // "Record" is about to touch.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(members.map((m) => m.sourceId)));
+  useEffect(() => {
+    setSelected(new Set(memberIds ? memberIds.split(",") : []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberIds]);
+
+  const avgConfidence = members.reduce((sum, m) => sum + m.confidence, 0) / members.length;
+  const tierCounts = members.reduce(
+    (acc, m) => {
+      acc[m.reviewTier] += 1;
+      return acc;
+    },
+    { "auto-include": 0, "needs-review": 0, exception: 0 } as Record<AdmissionRecommendation["reviewTier"], number>,
+  );
+
+  if (admissionClass === "manual review required") {
+    return (
+      <div className="rounded border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-100">
+        <strong className="font-medium">{members.length} source(s) need manual review</strong> — the recommendation
+        pass offers no decision for these; a canonical-copy choice, a borderline extraction, or an unverifiable
+        artifact hash all require a steward's own judgement. Decide these individually in the queue below.
+        <ul className="mt-1 space-y-0.5">
+          {members.map((m) => (
+            <li key={m.sourceId} className="font-mono text-[10px] text-amber-200/80">
+              {rowsById.get(m.sourceId)?.title ?? m.sourceId} — {m.warnings.join(" ") || "see rationale"}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const suggestedNotes =
+    `Machine-recommended batch — ${members.length} source(s) recommended '${admissionClass}'` +
+    (primarySubDomain ? ` (sub-domain '${primarySubDomain}')` : "") +
+    ` by the Track 2 admission-recommendation pass, average confidence ${avgConfidence.toFixed(2)}. ` +
+    `Reviewed and ratified by the steward before recording.`;
+
+  return (
+    <div className="rounded border border-slate-700 bg-slate-950/60 p-2 text-[11px]">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+      >
+        <span className="font-medium text-slate-100">
+          {admissionClass}
+          {primarySubDomain ? ` — ${primarySubDomain}` : ""}: {members.length}
+        </span>
+        <span className="text-[10px] text-slate-500">
+          avg confidence {avgConfidence.toFixed(2)} · {tierCounts["auto-include"]} auto-include ·{" "}
+          {tierCounts["needs-review"]} needs review · {tierCounts.exception} exception
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-1.5">
+          <ul className="space-y-1">
+            {members.map((m) => (
+              <li key={m.sourceId} className="flex flex-wrap items-start justify-between gap-2 rounded border border-slate-800 bg-slate-950 p-1.5">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-slate-200">{rowsById.get(m.sourceId)?.title ?? m.sourceId}</div>
+                  <div className="text-[10px] text-slate-500">
+                    confidence {m.confidence.toFixed(2)} · {REVIEW_TIER_LABEL[m.reviewTier]}
+                    {m.provisional ? " · PROVISIONAL (no corpus lineage)" : ""}
+                    {duplicateSourceIds.has(m.sourceId) ? " · in a duplicate group" : ""}
+                  </div>
+                  {m.warnings.length > 0 && (
+                    <div className="text-[10px] text-amber-200">{m.warnings.join(" ")}</div>
+                  )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) onMoveSource(m.sourceId, e.target.value);
+                    }}
+                    className="rounded border border-slate-800 bg-slate-900 px-1 py-0.5 text-[10px] text-slate-300"
+                    aria-label={`move ${m.sourceId} to a different cohort`}
+                  >
+                    <option value="">move to…</option>
+                    {allCohortKeys
+                      .filter((k) => k !== cohortKey)
+                      .map((k) => (
+                        <option key={k} value={k}>
+                          {k.replace("::", " — ") || "(uncategorised)"}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    onClick={() => onExcludeSource(m.sourceId)}
+                    title="Decide this source individually instead — remove it from cohort ratification"
+                    className="rounded border border-slate-800 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-400 hover:bg-slate-800/60"
+                  >
+                    remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <BulkAdmissionControl
+            visible={rows}
+            selected={selected}
+            selectedRows={rows.filter((r) => selected.has(r.sourceId))}
+            duplicateSourceIds={duplicateSourceIds}
+            // Institution chips are the manual-selection control's own
+            // organising axis; a cohort is already organised by the
+            // recommendation, so re-surfacing them here would offer a second,
+            // conflicting way to reshape a selection this card already made.
+            issuerGroups={[]}
+            onSelectAllVisible={() => setSelected(new Set(rows.map((r) => r.sourceId)))}
+            onSelectIssuer={() => {}}
+            onClearSelection={() => setSelected(new Set())}
+            initialDecision={RECOMMENDATION_TO_REVIEW_DECISION[admissionClass] ?? ""}
+            initialNotes={suggestedNotes}
+            onDone={onDone}
+          />
         </div>
       )}
     </div>
