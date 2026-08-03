@@ -114,3 +114,59 @@ describe('the reader is reachable and singular', () => {
     expect(src).toMatch(/malformed JSON/);
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * EVERY JOURNEY SOURCE FILE MUST ACTUALLY PARSE
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * ── THE DEFECT (2026-08-03) ───────────────────────────────────────────────
+ *
+ * A scripted edit to app/api/journey/moneypenny-horizen/state/route.ts left an
+ * unbalanced brace. The Amplify build failed with:
+ *
+ *   Error: Expected ',', got '}'   state/route.ts:338
+ *
+ * The full suite — 5128 tests — had passed over that file minutes earlier.
+ *
+ * ── WHY THE SUITE COULD NOT SEE IT ────────────────────────────────────────
+ *
+ * Every canary guarding these routes reads them as TEXT (readFileSync + regex)
+ * because their behaviour is asserted structurally rather than by execution,
+ * and no test imports them. A file that does not parse still yields perfectly
+ * matchable strings. So the tests were green, the code was unbuildable, and
+ * the first thing that noticed was a remote build seven minutes later —
+ * exactly the "deploy-time is the worst moment to find out" failure mode.
+ *
+ * Text-based canaries cannot detect a syntax error by construction. The remedy
+ * is not more of them; it is one canary that runs a real parser.
+ */
+describe('journey sources parse (the canary text-based canaries cannot be)', () => {
+  const ts = require('typescript') as typeof import('typescript');
+
+  const isSource = (f: string) => f.endsWith('.ts') || f.endsWith('.tsx');
+  const parseTargets = [
+    ...walk(path.join(__dirname, '..', 'app/api/journey'), isSource),
+    ...walk(path.join(__dirname, '..', 'components/journey'), isSource),
+    ...walk(path.join(__dirname, '..', 'services/journey'), isSource),
+  ];
+
+  it('finds journey sources to parse', () => {
+    expect(parseTargets.length).toBeGreaterThan(10);
+  });
+
+  it.each(parseTargets)('%s parses without syntax errors', (file) => {
+    const source = fs.readFileSync(file, 'utf8');
+    const sf = ts.createSourceFile(file, source, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX);
+    // `parseDiagnostics` is internal but stable, and is the only way to get
+    // syntax-only errors without a full program (which would need path aliases
+    // and would report unrelated module-resolution noise).
+    const diagnostics = (sf as unknown as { parseDiagnostics?: ts.Diagnostic[] }).parseDiagnostics ?? [];
+    const messages = diagnostics.map((d) => {
+      const pos = d.start != null ? sf.getLineAndCharacterOfPosition(d.start) : null;
+      const where = pos ? `:${pos.line + 1}:${pos.character + 1}` : '';
+      return `${where} ${ts.flattenDiagnosticMessageText(d.messageText, ' ')}`;
+    });
+    expect(messages, `syntax error in ${path.relative(process.cwd(), file)}`).toEqual([]);
+  });
+});
