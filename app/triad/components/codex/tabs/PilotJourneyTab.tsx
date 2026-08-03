@@ -68,8 +68,31 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('nakamoto');
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
+    ({ surfaceRef, descriptor, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
+
+      /*
+       * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
+       * ONCE (operator, 2026-08-03: "in the passport step the decision should
+       * be: is passport present? Yes = move to agent delegation path. No =
+       * move to citizen passport path").
+       *
+       * `operatorPolityCitizenPassportValid` is the observer's own signal,
+       * resolved server-side from the CANONICAL Passport read (with a journey
+       * receipt only as corroboration). Read here rather than re-derived in
+       * the wizard, so the stage and the surface cannot disagree about whether
+       * the operator holds a Passport.
+       *
+       * `undefined` while the state read is in flight — passed through as
+       * undefined so the wizard shows its class picker rather than guessing.
+       * Absence of an answer is not an answer.
+       */
+      const passportStage = runtimeState?.stages.find((s) => s.stageId === 'passport');
+      const passportRouteTo = passportStage
+        ? passportStage.evidencePresent.includes('operatorPolityCitizenPassportValid')
+          ? ('delegate' as const)
+          : ('citizen' as const)
+        : undefined;
       return descriptor.component === 'RegisterAgentPanel'
         ? { agentSlug: selectedAgentSlug, onAgentSlugChange: setSelectedAgentSlug }
         /* The Verify stage must speak about the agent the operator SELECTED,
@@ -91,6 +114,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
           ? {
               prefillAgentCardUrl: selectedAgent.agentCardPath,
               prefillAgentDisplayName: selectedAgent.displayName,
+              routeTo: passportRouteTo,
             }
           : descriptor.component === 'HorizenAgentPageSurface'
             ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
