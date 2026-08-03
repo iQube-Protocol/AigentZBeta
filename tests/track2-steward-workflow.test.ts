@@ -298,16 +298,30 @@ describe('Track 2 Stage 2 — governed bulk admission', () => {
 });
 
 describe('Track 2 programme surface — the guided view', () => {
-  it('stages later than the current one collapse, but completed ones never hide', () => {
+  it('stages that cannot proceed yet collapse, but completed ones never hide', () => {
     /*
      * Al + EXP agent: later stages showed "Nothing here has failed…" warnings
      * that made the screen noisy and buried where the attention belonged. The
      * remedy is collapse-with-a-count, not concealment — and a stage that is
      * COMPLETE stays visible whatever its ordinal, or the surface would
      * misreport progress in the other direction.
+     *
+     * ── SUPERSEDED RULE, REPLACED 2026-08-03 (exception-isolation ruling §6) ─
+     *
+     * This canary previously pinned the literal
+     * `s.ordinal > current.ordinal && s.status !== "complete"`. That rule was
+     * the UI half of the paralysis the ruling abolishes: with Stage 2
+     * partially-complete — 29 sources admitted, 3 quarantined — Stage 3 was
+     * hidden even though the evidence it extracts from already existed.
+     *
+     * Per OS-9, a canary that requires the defective shape in order to pass is
+     * defending the defect. The collapse behaviour it legitimately protects is
+     * preserved; only the AUTHORITY changes, from a client-side ordinal
+     * comparison to the server's own `unblockedStageIds`.
      */
     const src = stripComments(readSource(PANEL));
-    expect(src).toMatch(/const locked = !!current && s\.ordinal > current\.ordinal && s\.status !== "complete";/);
+    expect(src).toMatch(/const unblocked = programme\.unblockedStageIds\?\.includes\(s\.id\) \?\? true;/);
+    expect(src).toMatch(/const locked = !unblocked && s\.status !== "complete";/);
     expect(src).toMatch(/if \(locked && !showAllStages\) return null;/);
     // The count is stated, so nothing is silently dropped.
     expect(src).toMatch(/remaining stage\(s\) unlock automatically/);
@@ -476,18 +490,50 @@ describe('Track 2 programme surface — the guided view', () => {
   });
 
   it('a title that is not a title is flagged, never repaired', () => {
-    const src = stripComments(readSource(PANEL));
-    expect(src).toMatch(/function titleLooksUnresolved\(/);
+    /*
+     * MOVED 2026-08-03 (exception-isolation ruling §4). The judgement now
+     * lives in `services/corpusScout/admissionRecommendation.ts` so the
+     * SERVER-side recommendation pass and this card give the same answer; the
+     * panel keeps a one-line adapter. This canary follows it rather than
+     * pinning the old location — which would have required the duplicate to
+     * stay in order to pass (inv.engineering.036, and the OS-9 rule against a
+     * test that defends the shape it was written beside).
+     */
+    const svc = stripComments(readSource('services/corpusScout/admissionRecommendation.ts'));
+    expect(svc).toMatch(/export function titleResolutionIssue\(/);
     // The literal cases Al found.
-    expect(src).toMatch(/\^\(pdf\|document\|download\|file\|link\|here\|view\)\$/);
+    expect(svc).toMatch(/\^\(pdf\|document\|download\|file\|link\|here\|view\)\$/);
     // The URL-basename fallback case.
-    expect(src).toMatch(/This title is the URL filename/);
+    expect(svc).toMatch(/This title is the URL filename/);
     // It must NOT invent a replacement — guessing a title is worse than
     // naming the absence.
-    const at = src.indexOf('function titleLooksUnresolved(');
-    const body = src.slice(at, src.indexOf('\n}', at));
-    expect(body).not.toMatch(/setTitle|row\.title =/);
+    const at = svc.indexOf('export function titleResolutionIssue(');
+    const body = svc.slice(at, svc.indexOf('\n}', at));
+    expect(body).not.toMatch(/title =|repair/i);
+
+    // The panel still SURFACES it, through the shared function.
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/titleResolutionIssue\(row\.title, row\.canonicalUrl\)/);
     expect(src).toMatch(/The title is unresolved\./);
+  });
+
+  it('an unresolved title is a WARNING on a verifiable source, never a quarantine', () => {
+    /*
+     * Ruling §4, verbatim: "Do not make the operator chase missing titles when
+     * the content itself suffices for evidence admission." Mutation: return a
+     * forcing 'manual review required' on an unresolved title → a filename-
+     * shaped title once again withholds a byte-verified, institutionally
+     * sourced document.
+     */
+    const svc = stripComments(readSource('services/corpusScout/admissionRecommendation.ts'));
+    expect(svc).toMatch(/UNRESOLVED_TITLE_WARNING/);
+    expect(svc).toMatch(/Document title unresolved; source admitted on verified content, issuer, URL and artifact hash\./);
+    // The title check must sit AFTER the content-verifiability gates, in the
+    // warnings-only region.
+    const titleAt = svc.indexOf('const titleIssue = titleResolutionIssue(');
+    const hashGateAt = svc.indexOf('if (!source.artifactHash) {');
+    expect(hashGateAt).toBeGreaterThan(-1);
+    expect(titleAt).toBeGreaterThan(hashGateAt);
   });
 
   it('absence is rendered, not omitted', () => {
@@ -554,5 +600,120 @@ describe('Track 2 programme surface — the guided view', () => {
     const at = src.indexOf('const blockers = programme.stages.filter(');
     const block = src.slice(at, at + 400);
     expect(block).not.toMatch(/provenance|validated|relationship/i);
+  });
+});
+
+
+/**
+ * EXCEPTION ISOLATION at the Track 2 surface (operator ruling, 2026-08-03).
+ *
+ *   > "Constitutional control constrains the unsafe act; it does not
+ *   >  immobilize the safe remainder."
+ *
+ * The behavioural model itself is canaried in `tests/exception-isolation.test.ts`.
+ * These pin the SURFACE and the PROJECTION — the two places the model was
+ * previously contradicted even when the underlying counts were right.
+ */
+describe('Track 2 exception isolation — the surface never reimposes the paralysis', () => {
+  const PANEL = 'components/research/Track2ProgrammePanel.tsx';
+  const PROGRAMME = 'services/research/track2Programme.ts';
+
+  it('Stage 2 reports partially-complete when sources are admitted AND some remain', () => {
+    // Mutation: return 'in-progress' here -> the stage reads as unfinished
+    // work rather than partial completion, `unblockedStageIds` stops
+    // including Stage 3, and extraction waits for a perfect corpus.
+    const src = stripComments(readSource(PROGRAMME));
+    const at = src.indexOf("id: 'review-and-admit'");
+    const stage = src.slice(at, at + 1200);
+    expect(stage).toMatch(/'partially-complete'/);
+  });
+
+  it('the programme state model carries partially-complete, and exposes unblockedStageIds', () => {
+    const src = stripComments(readSource(PROGRAMME));
+    expect(src).toMatch(/export type Track2StageStatus =[\s\S]{0,240}'partially-complete'/);
+    expect(src).toMatch(/unblockedStageIds/);
+  });
+
+  it('a stage after a PARTIALLY-COMPLETE stage is unblocked', () => {
+    // Mutation: drop 'partially-complete' from PASSES_THROUGH -> three
+    // unresolved sources withhold extraction of the twenty-nine already
+    // admitted.
+    const src = stripComments(readSource(PROGRAMME));
+    const at = src.indexOf('PASSES_THROUGH');
+    const block = src.slice(at, at + 400);
+    expect(block).toMatch(/'complete'/);
+    expect(block).toMatch(/'partially-complete'/);
+  });
+
+  it('the panel gates stage locks on the server unblockedStageIds, never on ordinals', () => {
+    // The UI half of the paralysis. Mutation: restore
+    // `s.ordinal > current.ordinal` -> Stage 3 hides behind a
+    // partially-complete Stage 2 even though its inputs exist.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const unblocked =');
+    const block = src.slice(at, at + 300);
+    expect(block).toMatch(/programme\.unblockedStageIds/);
+    expect(block).not.toMatch(/ordinal >/);
+  });
+
+  it('partial completion is never rendered as a failure', () => {
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('const STATUS_LABEL');
+    const labels = src.slice(at, at + 600);
+    expect(labels).toMatch(/"partially-complete":\s*"partially complete/);
+    expect(labels).toMatch(/blocked: "blocked/);
+  });
+
+  it('the primary action is enabled from the shared summary, never from an exception count', () => {
+    // Acceptance criterion #1, at the surface. Mutation: gate the batch panel
+    // on `counts.exceptions === 0` -> three anomalous sources disable
+    // admission of thirty eligible ones again.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('function ExecutableBatchSummary');
+    const block = src.slice(at, src.indexOf('function ExceptionsSurface'));
+    expect(block.length).toBeGreaterThan(500);
+    expect(block).toMatch(/isolation\.globalStop/);
+    expect(block).not.toMatch(/counts\.exceptions\s*===\s*0/);
+  });
+
+  it('the full population is disclosed on the surface, not just what advanced', () => {
+    // The section-5 guardrail: exception isolation WITHOUT population
+    // disclosure lets a materially narrow crystal look complete.
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('function ExecutableBatchSummary');
+    const block = src.slice(at, src.indexOf('function ExceptionsSurface'));
+    expect(block).toMatch(/Discovered:/);
+    expect(block).toMatch(/Assigned to crystal:/);
+    expect(block).toMatch(/population\.manualExceptions/);
+  });
+
+  it('the exceptions surface renders all FOUR blocks* booleans separately', () => {
+    // "This is what stops the system from treating all amber notices alike."
+    const src = stripComments(readSource(PANEL));
+    const at = src.indexOf('function ExceptionsSurface');
+    const block = src.slice(at, at + 4000);
+    for (const field of ['blocksCurrentStage', 'blocksCrystalAssignment', 'blocksReadiness', 'blocksFreeze']) {
+      expect(block, `${field} must be rendered`).toContain(field);
+    }
+  });
+
+  it('the title heuristic lives in ONE place and the panel consumes it', () => {
+    // Moved server-side so the recommendation pass and the card agree
+    // (inv.engineering.036).
+    const src = stripComments(readSource(PANEL));
+    expect(src).toMatch(/titleResolutionIssue\(row\.title, row\.canonicalUrl\)/);
+    expect(src).not.toMatch(/is link text, not a document title/);
+  });
+
+  it('readiness reports exclusions SEPARATELY and never lets them change ok', () => {
+    // Ruling section 3/7. Mutation: fold `excludedFromCrystal` into the `ok`
+    // computation -> an unresolved record outside the crystal becomes a
+    // crystal failure, which is exactly what must not happen.
+    const src = stripComments(readSource('services/research/crystalReadiness.ts'));
+    expect(src).toMatch(/excludedFromCrystal/);
+    const okAt = src.indexOf('const ok = checks.every');
+    const okLine = src.slice(okAt, okAt + 120);
+    expect(okLine).not.toMatch(/exclusion|excluded/i);
+    expect(src).toMatch(/computeFreezeBlocking\(/);
   });
 });

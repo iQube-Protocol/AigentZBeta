@@ -33,6 +33,12 @@ import {
   type SourceQualitySignals,
 } from '@/services/corpusScout/admissionRecommendation';
 import { buildDomainLineageIndex, deriveSourceLineage } from '@/services/invariants/discoveryEngine';
+import {
+  buildCriticalPath,
+  renderPopulationDisclosure,
+  summarizeIsolation,
+  type PopulationDisclosure,
+} from '@/services/research/exceptionIsolation';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -90,6 +96,10 @@ export async function GET(req: NextRequest) {
       campaignDomain: row.campaignDomain,
       campaignSubDomain: row.campaignSubDomain,
       issuer: row.issuer,
+      title: row.title,
+      canonicalUrl: row.canonicalUrl,
+      publicationDate: row.publicationDate,
+      authors: row.authors,
       extractionStatus: row.extractionStatus,
       artifactHash: row.artifactHash,
       extractionWarnings: row.extractionWarnings,
@@ -100,6 +110,53 @@ export async function GET(req: NextRequest) {
     };
     return composeAdmissionRecommendation({ source: signals, lineage });
   });
+
+  // ── The executable batch, computed SERVER-SIDE from the shared model ──────
+  //
+  // The operator must not have to find and deselect problem records by hand
+  // (ruling §2). The summary preselects every ready and ready-with-warning
+  // record and auto-excludes every exception and refusal — and its
+  // `primaryActionEnabled` is deliberately independent of how many exceptions
+  // there are.
+  const summary = summarizeIsolation(
+    recommendations.map((r) => ({
+      recordId: r.sourceId,
+      disposition: r.disposition,
+      exception: r.exception,
+      warnings: r.warnings,
+    })),
+    // No global stop is observable from a read-only preparation pass: the four
+    // batch-integrity conditions that could hold here are all properties of a
+    // WRITE (wrong corpus target, unresolved steward, a changed recommendation
+    // set). They are evaluated at the bulk-review write, not here.
+    null,
+    'source',
+  );
+
+  // ── The full population, ALWAYS (ruling §5) ───────────────────────────────
+  //
+  // The guardrail against quietly reducing the corpus until readiness passes.
+  // `discovered` counts every source in the domain at every review status —
+  // not just the pending queue — so the disclosure can never shrink simply
+  // because sources left the queue.
+  let allInDomain: Awaited<ReturnType<typeof listCandidateSources>> = [];
+  try {
+    allInDomain = await listCandidateSources(admin, { campaignDomain });
+  } catch {
+    // A failed population read must never silently narrow the disclosure —
+    // fall back to what is provably known (the pending queue) and say so.
+    allInDomain = [];
+  }
+  const population: PopulationDisclosure = {
+    discovered: allInDomain.length || pending.length,
+    admitted: allInDomain.filter((s) => Boolean(s.evidenceRowId)).length,
+    excludedWithWarnings: summary.counts.readyWithWarning,
+    manualExceptions: summary.counts.exceptions,
+    refused: summary.counts.refused,
+    // Crystal assignment is downstream of this stage; this route does not read
+    // the crystal, so it reports 0 rather than guessing a number it cannot see.
+    assignedToCrystal: 0,
+  };
 
   return NextResponse.json(
     {
@@ -112,6 +169,18 @@ export async function GET(req: NextRequest) {
       },
       duplicateGroups,
       recommendations,
+      summary,
+      population,
+      populationDisclosure: renderPopulationDisclosure(population),
+      criticalPath: buildCriticalPath({
+        stageLabel: 'admission',
+        actVerb: 'Admit',
+        noun: 'eligible source',
+        counts: summary.counts,
+        // No source-scope exception can block a freeze — only the readiness
+        // engine, over the ACTUAL assigned crystal, can raise one (ruling §3).
+        freezeBlockers: 0,
+      }),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );
