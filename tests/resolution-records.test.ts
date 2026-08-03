@@ -254,7 +254,12 @@ describe('the milestone-close check', () => {
   });
 
   it('a resolution at `candidate` with no compressed rule is a BLOCKER', () => {
-    const broken = clone(registry.records[0]);
+    // Selected by the property under test — the check reasons about records AT
+    // `candidate`, so taking records[0] tested whatever happened to sort first.
+    // Third instance of the same flaw found by the sweep on 2026-08-03.
+    const atCandidate = registry.records.find((r) => r.status === 'candidate');
+    expect(atCandidate, 'no record at `candidate` to exercise the blocker with').toBeDefined();
+    const broken = clone(atCandidate!);
     broken.candidateInvariants = [];
     const { clear, findings } = runMilestoneCloseCheck({ records: [broken], candidates: [] });
     expect(clear).toBe(false);
@@ -323,5 +328,49 @@ describe('the report is DERIVED from the registry', () => {
       const c = registry.candidates.find((x) => x.candidateId === risk.candidateId)!;
       expect(c.canaries.length).toBe(0);
     }
+  });
+});
+
+describe('CANARY-REPRODUCES-DEFECT child rule — a test selects its subject by the property under test', () => {
+  /*
+   * Operator-added child rule (2026-08-03), under the ratified
+   * CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001:
+   *
+   *   "A regression test must select its subject by the property under test,
+   *    not by incidental ordering, index, fixture position or current
+   *    registry shape."
+   *
+   * Earned the hard way, minutes after that invariant was ratified. Three
+   * tests in THIS file selected `registry.candidates[0]` / `registry.records[0]`.
+   * When the operator ratified ACTOR-SUBJECT-OWNER, the record that sorted
+   * first became a validly-ratified one — so the self-promotion test's
+   * mutation carried a legitimate `ratifiedSource` and stopped exercising
+   * self-promotion at all, while still passing. A test bound to array position
+   * is not bound to the condition it claims to test.
+   *
+   * This is the enforcement point. Without it the child rule is advisory prose
+   * — which is the parent invariant's own complaint.
+   */
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+
+  it('no test in this file selects a registry subject by array index', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'resolution-records.test.ts'), 'utf8');
+    // Strip comments so the prose above (which necessarily quotes the defect)
+    // is not itself read as a violation.
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const offenders = code.match(/registry\.(candidates|records)\[\d+\]/g) ?? [];
+    expect(
+      offenders,
+      `select by the property under test instead: ${offenders.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('the subjects ARE selected by a semantic predicate', () => {
+    const source = fs.readFileSync(path.join(__dirname, 'resolution-records.test.ts'), 'utf8');
+    // The three repaired sites, each keyed to what it actually tests.
+    expect(source).toContain("c.ratifiedSource === null");
+    expect(source).toContain("c.status === 'candidate'");
+    expect(source).toContain("r.status === 'candidate'");
   });
 });

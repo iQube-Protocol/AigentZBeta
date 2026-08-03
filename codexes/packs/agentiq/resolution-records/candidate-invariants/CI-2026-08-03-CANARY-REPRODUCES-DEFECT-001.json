@@ -7,7 +7,8 @@
     "FOUR independent occurrences. The operator observed that this and CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 are the strongest candidates in the set on the strength of the historical record. Promotion to `validated` is the operator's to make.",
     "Sibling of the Companion system's MS-7 (\"an inert mechanism is a defect\") — a canary that cannot fail converts an open question into a settled one.",
     "OPERATOR-RATIFIED 2026-08-03 on four independent examples, including tests that actively preserved defects.",
-    "REQUIRED METADATA for future canaries (operator, verbatim): historical defect; pre-fix failing proof; post-fix passing proof; protected invariant; retirement condition."
+    "REQUIRED METADATA for future canaries (operator, verbatim): historical defect; pre-fix failing proof; post-fix passing proof; protected invariant; retirement condition.",
+    "CHILD RULE added 2026-08-03: CI-2026-08-03-CANARY-SUBJECT-SELECTION-001 — \"A regression test must select its subject by the property under test, not by incidental ordering, index, fixture position or current registry shape.\" Discovered by this invariant applying to its own instrument, minutes after ratification. Hierarchy: CANARY-REPRODUCES-DEFECT └── CANARY-SUBJECT-SELECTION."
   ],
   "canaries": [
     {
