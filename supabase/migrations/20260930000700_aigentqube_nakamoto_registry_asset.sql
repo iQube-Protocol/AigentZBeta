@@ -98,6 +98,15 @@ INSERT INTO registry_assets (
   'agentiq-system'
 )
 
+-- A RE-RUN MUST NOT UN-REGISTER A REGISTERED AGENT (2026-08-03).
+--
+-- `metadata = EXCLUDED.metadata` was a blind overwrite, and EXCLUDED.metadata
+-- carries `token_id: null` — so re-running this seed against a database where
+-- Nakamoto's registration HAD landed would silently erase a real, confirmed,
+-- on-chain ERC-8004 registration from the projection every surface reads.
+-- Nakamoto's live registration (tokenId 8798) makes that concrete, not
+-- hypothetical. The seed still refreshes descriptive fields; it now preserves
+-- the existing bindings array whenever that array already carries a tokenId.
 ON CONFLICT (asset_id) DO UPDATE SET
   name               = EXCLUDED.name,
   description        = EXCLUDED.description,
@@ -105,7 +114,13 @@ ON CONFLICT (asset_id) DO UPDATE SET
   publication_status = EXCLUDED.publication_status,
   capabilities       = EXCLUDED.capabilities,
   tags               = EXCLUDED.tags,
-  metadata           = EXCLUDED.metadata,
+  metadata           = CASE
+    WHEN registry_assets.metadata #>> '{external_registry_bindings,0,token_id}' IS NOT NULL
+      THEN EXCLUDED.metadata || jsonb_build_object(
+             'external_registry_bindings',
+             registry_assets.metadata -> 'external_registry_bindings')
+    ELSE EXCLUDED.metadata
+  END,
   updated_at         = now();
 
 INSERT INTO iqube_id_map (source, source_id, primitive_type, synthetic, notes)
