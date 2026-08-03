@@ -37,7 +37,7 @@
     "Adding a `blocking` boolean to distinguish burdensome exceptions. The distinction needed is whether JUDGEMENT is required, which is a property of the evidence, not of severity."
   ],
   "candidateInvariants": [
-    "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001"
+    "CI-2026-08-03-UX-EXCEPTION-TERMINATES-IN-ACT-001"
   ],
   "canaries": [
     "tests/duplicate-resolution.test.ts"

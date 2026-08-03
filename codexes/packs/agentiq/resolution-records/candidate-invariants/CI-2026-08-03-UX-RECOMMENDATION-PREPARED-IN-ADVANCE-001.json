@@ -5,7 +5,13 @@
   "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
   "scope": "cross-capability",
   "status": "candidate",
-  "canaries": [],
+  "canaries": [
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "The rationale arrives pre-populated and editable from the composed plan — never blank — so the operator edits or approves rather than authoring from scratch. Holds for the ambiguous branch too.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
   "occurrences": [
     {
       "site": "components/research/Track2ProgrammePanel.tsx",
@@ -25,6 +31,7 @@
     "The operator edits or approves. They should almost never author from scratch.",
     "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
     "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
-    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`."
+    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`.",
+    "Canary attached 2026-08-03 by the agent implementing the surface this invariant governs. The family was recorded without enforcement points; an invariant without a canary is advisory prose, so the tests that already enforce this rule are named here."
   ]
 }
