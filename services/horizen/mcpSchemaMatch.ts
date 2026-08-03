@@ -33,6 +33,13 @@ export interface McpToolResultContentItem {
 
 export interface McpToolResult {
   content?: McpToolResultContentItem[];
+  /**
+   * Protocol-level tool-execution error flag (MCP `CallToolResult.isError`).
+   * A tool reporting failure still returns `content` — usually the error text —
+   * so anything treating content as a RESULT must check this first or it will
+   * happily consume an error message as an answer.
+   */
+  isError?: boolean;
 }
 
 /**
@@ -172,6 +179,79 @@ export function describeToolResultShape(toolResult: McpToolResult | null | undef
     }
   });
   return parts.join('; ');
+}
+
+/**
+ * The partner-supplied MESSAGE to be signed, from either shape a tool may use.
+ *
+ * ── Evidence, not inference (pilot, 2026-08-03) ───────────────────────────
+ *
+ * `describeToolResultShape` was added precisely so a refusal would say what
+ * the partner actually sent. It did, immediately:
+ *
+ *     "build_pulse_auth_message" did not return a recognisable message field.
+ *     Looked for: message, payload, authMessage, messageToSign,
+ *     authorizationMessage. Actually returned: [0] type=text, NOT JSON (265 chars)
+ *
+ * One text block, not JSON, 265 characters — the message itself, returned
+ * directly rather than wrapped in an object. `extractStringField` could never
+ * see it because it JSON-parses first and gives up when that fails.
+ *
+ * ── Why accepting it is principled, not a guess ───────────────────────────
+ *
+ * MCP defines a tool result's `content` AS its return value, and carries a
+ * separate `isError` flag for failures. So a NON-ERROR call whose entire
+ * result is one text block is returning that text as its answer — reading it
+ * that way follows the protocol rather than guessing a convention.
+ *
+ * The guards are what keep it safe, because the returned string is about to
+ * be signed by the operator's key:
+ *   - `isError === true`  → refuse. A failing tool still returns content, and
+ *     it is usually the error text; consuming that as a message-to-sign is
+ *     exactly the "guessed field puts an error string in front of your key"
+ *     risk the original refusal existed to prevent.
+ *   - more than one text block → refuse as AMBIGUOUS rather than guess which
+ *     one is the message.
+ *   - JSON that parses but lacks a named field → refuse. A structured answer
+ *     that does not name its message is not offering plain text; falling
+ *     through to "stringify the object" would be inventing.
+ *
+ * The named-field path is still tried FIRST and still preferred — this only
+ * fires where the structured read found nothing.
+ */
+export function extractPartnerMessage(
+  toolResult: McpToolResult | null | undefined,
+  fieldNames: string[],
+): { ok: true; message: string; via: 'named-field' | 'sole-text-block' } | { ok: false; reason: string } {
+  if (!toolResult) return { ok: false, reason: 'no result object at all' };
+  if (toolResult.isError === true) {
+    return { ok: false, reason: 'the tool reported isError — its content is a failure message, never a message to sign' };
+  }
+
+  const named = extractStringField(toolResult, fieldNames);
+  if (named) return { ok: true, message: named, via: 'named-field' };
+
+  const content = toolResult.content;
+  if (!Array.isArray(content)) return { ok: false, reason: 'result has no content array' };
+
+  const textBlocks = content.filter((i) => i?.type === 'text' && typeof i.text === 'string' && i.text.length > 0);
+  if (textBlocks.length === 0) return { ok: false, reason: 'result carries no non-empty text block' };
+  if (textBlocks.length > 1) {
+    return { ok: false, reason: `${textBlocks.length} text blocks returned — ambiguous which is the message; refusing rather than choosing` };
+  }
+
+  const sole = textBlocks[0].text as string;
+  // Parses as JSON but had none of the named fields → a structured answer that
+  // does not name its message. Signing its raw source would be inventing.
+  try {
+    JSON.parse(sole);
+    return {
+      ok: false,
+      reason: 'the sole text block is JSON but declares none of the expected message fields — refusing rather than signing its raw source',
+    };
+  } catch {
+    return { ok: true, message: sole, via: 'sole-text-block' };
+  }
 }
 
 /** Extract a named hex-string field (tx hash, message, payload, ...) from an MCP tool result. */

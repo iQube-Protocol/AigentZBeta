@@ -1,10 +1,12 @@
 {
   "schemaVersion": "candidate-invariant/v1.0",
-  "classification": null,
+  "classification": "Child specialization of CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 — a capability-specific implementation invariant, NOT a peer. Operator ruling 2026-08-03.",
   "ratifiedSource": null,
   "notes": [
     "FLAGGED FOR THE OPERATOR, not decided here: this may be the same shape as CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 — a wallet is the OWNER reference and was substituted for the SUBJECT reference. If the operator judges them one rule, this becomes a fourth occurrence of that candidate rather than a candidate of its own. The operator fixed that candidate's count at three, so it is not merged unilaterally.",
-    "`verifiedFailingBeforeFix` is recorded as false: the source doc records the canary being REWRITTEN from the obsolete wallet-keyed assertion, not a fail-before/pass-after run. Recorded honestly rather than assumed."
+    "`verifiedFailingBeforeFix` is recorded as false: the source doc records the canary being REWRITTEN from the obsolete wallet-keyed assertion, not a fail-before/pass-after run. Recorded honestly rather than assumed.",
+    "REPARENTED 2026-08-03 by operator ruling. It is an application of ACTOR-SUBJECT-OWNER plus a narrower recovery rule: wallet is a lookup key, not the agent identifier; actor receipt ownership is not subject identity; recovered identifiers must come from an authoritative source.",
+    "Hierarchy:  ACTOR-SUBJECT-OWNER  └── IDENTIFIER-RECOVERY-CONTRACT. The Horizen case counts as a FOURTH validation occurrence for the PARENT, while this child is preserved as the capability-specific rule. Deliberately NOT promoted with the parent — the operator ratified the parent, not this."
   ],
   "canaries": [
     {
@@ -14,7 +16,7 @@
     }
   ],
   "candidateId": "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
-  "statement": "An identifier may only be recovered from a source whose contract guarantees that identifier; a lookup keyed on a different reference can answer confidently and wrongly.",
+  "statement": "Identifier recovery must return the subject's authoritative identifier; related actor, owner or wallet identifiers may be used only as lookup keys and must never be substituted as the answer.",
   "scope": "local",
   "status": "candidate",
   "derivedFrom": [
