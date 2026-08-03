@@ -41,6 +41,8 @@ import {
   createPartnerAuthorizationRequest,
   updatePartnerAuthorizationRequest,
   getPartnerAuthorizationRequest,
+  checkAuthorizationStoreAvailable as defaultCheckStoreAvailable,
+  type AuthorizationStoreAvailability,
   type PartnerAuthorizationState,
 } from './partnerAuthorizationStore';
 
@@ -91,6 +93,9 @@ export type HorizenAuthorizationRefusalCode =
   | 'REGISTRY_REREAD_FAILED'
   | 'REGISTRY_OWNER_MISMATCH'
   | 'HORIZEN_REREAD_NOT_CONFIRMED'
+  /* The LOCAL authorization store could not be reached — checked before any
+   * partner call, so this refusal always means Horizen was never asked. */
+  | 'AUTHORIZATION_STORE_UNAVAILABLE'
   | 'STATE_MISMATCH';
 
 export type AuthorizationResult<T> =
@@ -114,6 +119,8 @@ async function defaultMcpClient(): Promise<PartnerMcpClient> {
 
 export interface AuthorizationDeps {
   mcpClient?: PartnerMcpClient;
+  /** Injected by Phase 1's tests, which mock the store and must not probe it. */
+  checkStoreAvailable?: () => Promise<AuthorizationStoreAvailability>;
   fetchRegistryAgent?: (registryAlias: string, network: HorizenNetwork) => Promise<HorizenRead<Record<string, unknown>>>;
   resolveSigningKey?: ResolveSigningKey;
   now?: () => Date;
@@ -216,6 +223,37 @@ export async function prepareHorizenTransparencyAuthorization(
   const facts = HORIZEN_NETWORK_FACTS[input.registry.network];
   if (!facts) {
     return { ok: false, refusalCode: 'NETWORK_OR_CONTRACT_MISMATCH', detail: `"${input.registry.network}" is not a recognised Horizen network` };
+  }
+
+  /*
+   * A LOCAL PREREQUISITE IS CHECKED LOCALLY, BEFORE ANY OUTBOUND ACT
+   * (operator, 2026-08-03).
+   *
+   * This function used to call Horizen — listTools, then build the
+   * authorization message — and only afterwards try to persist the request.
+   * So a missing local table surfaced as:
+   *
+   *   createPartnerAuthorizationRequest failed: Could not find the table
+   *   'public.partner_authorization_requests' in the schema cache
+   *
+   * …AFTER the partner had already been asked to do work. That is backwards
+   * twice over: we ask an external party for something we cannot record, and
+   * the operator learns about a deploy step from a partner-facing ceremony.
+   *
+   * `deps.checkStoreAvailable` is injectable so Phase 1's tests, which mock
+   * the store entirely, are not forced through a real availability probe.
+   */
+  const checkStore = deps.checkStoreAvailable ?? defaultCheckStoreAvailable;
+  const storeState = await checkStore();
+  if (!storeState.available) {
+    return {
+      ok: false,
+      refusalCode: 'AUTHORIZATION_STORE_UNAVAILABLE',
+      detail:
+        `The local authorization store is unavailable (${storeState.kind}), so this request could not be ` +
+        `recorded and Horizen was NOT called — nothing was authorized and nothing needs undoing. ` +
+        `${storeState.detail}. Remedy: ${storeState.remedy}`,
+    };
   }
 
   const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
