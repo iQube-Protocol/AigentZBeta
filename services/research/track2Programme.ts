@@ -53,8 +53,31 @@ export type Track2StageId =
  * `unknown` is a first-class value, not a failure mode — see the header. It
  * means "this signal could not be read", which is different from both "not
  * started" and "blocked".
+ *
+ * `partially-complete` (added 2026-08-03, exception-isolation ruling §6) is
+ * the value the isolation model turns on: **every executable record was
+ * processed AND some records remain as exceptions.** It is emphatically not
+ * `blocked`.
+ *
+ *   > "A stage may be `partially-complete` because it contains unresolved
+ *   >  `exception` records while still having processed all `ready` records."
+ *
+ * `blocked` now means what it says and only what it says: NO valid subset can
+ * safely proceed. A stage holding 29 admissible sources and 3 exceptions is
+ * `partially-complete`. Reporting it `blocked` would reintroduce the paralysis
+ * at the reporting layer after the execution layer had already been fixed.
+ *
+ * The record-level counterpart of this axis is `RecordDisposition`
+ * (`services/research/exceptionIsolation.ts`) — the two are DIFFERENT
+ * dimensions and are deliberately never conflated.
  */
-export type Track2StageStatus = 'complete' | 'in-progress' | 'not-started' | 'blocked' | 'unknown';
+export type Track2StageStatus =
+  | 'complete'
+  | 'partially-complete'
+  | 'in-progress'
+  | 'not-started'
+  | 'blocked'
+  | 'unknown';
 
 export interface Track2Stage {
   id: Track2StageId;
@@ -107,6 +130,18 @@ export interface Track2Programme {
   stages: Track2Stage[];
   /** The lowest-ordinal stage that is not complete. The programme's "you are here". */
   currentStageId: Track2StageId;
+  /**
+   * Every stage that MAY PROCEED NOW — each one whose earlier stages are all
+   * either `complete` or `partially-complete` (exception-isolation ruling §6).
+   *
+   * This is what a surface must gate its controls on, NOT `ordinal >
+   * current.ordinal`. A partially-complete Stage 2 holding 3 unresolved
+   * exceptions does not withhold Stage 3 from the 29 sources it already
+   * admitted: *"Stage 3 may begin extraction over the 29 admitted sources
+   * IMMEDIATELY. Do not require every Stage-1-discovered source to be resolved
+   * before Stage 3 can operate over admitted evidence."*
+   */
+  unblockedStageIds: Track2StageId[];
   /** Every remedy on the current stage, hoisted so a surface leads with it. */
   nextActions: string[];
   /** Stated on the payload: this is read, not stored. */
@@ -196,20 +231,27 @@ export function buildTrack2Programme(input: {
       surface: 'Corpus Scout tab',
       workKind: 'scientific',
       actor: 'Steward — approval is never automatic (PRD-ICA-001 §6/§11)',
+      // PARTIAL COMPLETION IS THE HONEST ANSWER (exception-isolation ruling
+      // §6). Sources admitted AND sources still outstanding is not
+      // "in-progress toward all-or-nothing" — it is a stage that has processed
+      // everything executable and is holding the remainder. Reporting it as
+      // `partially-complete` is what lets Stage 3 proceed over the admitted
+      // subset instead of waiting for every discovered source to resolve.
       status:
         s.candidateSources === null
           ? 'unknown'
           : s.candidateSources.admitted > 0
             ? s.candidateSources.pendingReview > 0
-              ? 'in-progress'
+              ? 'partially-complete'
               : 'complete'
-            : s.candidateSources.total > 0
-              ? 'not-started'
-              : 'not-started',
+            : 'not-started',
       detail:
         s.candidateSources === null
           ? 'unreadable'
-          : `${s.candidateSources.admitted} admitted · ${s.candidateSources.pendingReview} awaiting review`,
+          : `${s.candidateSources.admitted} admitted · ${s.candidateSources.pendingReview} awaiting review` +
+            (s.candidateSources.admitted > 0 && s.candidateSources.pendingReview > 0
+              ? ' — the admitted set is available to Stage 3 now; the remainder does not hold it back'
+              : ''),
       remedies:
         s.candidateSources && s.candidateSources.pendingReview > 0
           ? [`${s.candidateSources.pendingReview} source(s) await a human decision. Approval is a human act.`]
@@ -404,11 +446,23 @@ export function buildTrack2Programme(input: {
   ];
 
   const current = stages.find((st) => st.status !== 'complete') ?? stages[stages.length - 1];
+
+  // A stage may proceed when every EARLIER stage has produced something for it
+  // to work on — `complete` or `partially-complete`. `partially-complete`
+  // counting as "may proceed" is the entire point: it is what stops three
+  // unresolved sources from withholding extraction of the twenty-nine already
+  // admitted (exception-isolation ruling §6).
+  const PASSES_THROUGH: ReadonlySet<Track2StageStatus> = new Set(['complete', 'partially-complete']);
+  const unblockedStageIds = stages
+    .filter((st) => stages.every((earlier) => earlier.ordinal >= st.ordinal || PASSES_THROUGH.has(earlier.status)))
+    .map((st) => st.id);
+
   return {
     experimentId: input.experimentId,
     crystalDomain: input.crystalDomain,
     stages,
     currentStageId: current.id,
+    unblockedStageIds,
     nextActions: current.remedies.length > 0 ? current.remedies : [current.detail],
     derivationNote: DERIVATION_NOTE,
   };

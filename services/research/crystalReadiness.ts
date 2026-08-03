@@ -47,6 +47,13 @@ import {
   inPrimaryPopulation,
   partitionByPopulation,
 } from '@/services/research/experimentalPopulations';
+import {
+  computeFreezeBlocking,
+  freezeBlockingExceptions,
+  renderPopulationDisclosure,
+  type IsolationException,
+  type PopulationDisclosure,
+} from '@/services/research/exceptionIsolation';
 
 /** Heuristic-only statement-shape signal for "this looks relational or
  * conditional, not a bare atomic assertion" — see looksDerivationEligible. */
@@ -100,6 +107,17 @@ export interface CrystalReadinessInput {
    * relationship at all (in either direction) — orphan statements do not
    * benefit from the graph-structured retrieval the crystal exists to test. */
   maxOrphanFraction?: number;
+  /**
+   * Records excluded from this crystal, for SEPARATE disclosure (see
+   * `excludedFromCrystal`). Reporting only — no check consults these, and
+   * supplying them can never change `ok`. Their `blocksFreeze` is RECOMPUTED
+   * here against this report's own checks, so a per-record assertion made
+   * upstream can never survive as a freeze blocker the crystal does not
+   * actually have (exception-isolation ruling §3).
+   */
+  exclusions?: readonly IsolationException[];
+  /** The full population behind this crystal, for the same disclosure. */
+  population?: PopulationDisclosure;
 }
 
 export interface CrystalReadinessCheck {
@@ -168,6 +186,41 @@ export interface CrystalReadinessReport {
     orphanCount: number;
     orphanFraction: number;
   };
+  /**
+   * ── EXCLUSIONS, REPORTED SEPARATELY (exception-isolation ruling §3/§7) ────
+   *
+   *   > "Readiness assesses the ACTUAL assigned crystal, reporting excluded
+   *   >  exceptions SEPARATELY — it must not treat every unassigned Track 2
+   *   >  record as a crystal failure."
+   *
+   * This report already assessed only the ASSIGNED crystal: `listInvariants`
+   * is filtered to `{ domain: crystalDomain, status: ['validated',
+   * 'canonical'] }`, so an unassigned or unvalidated Track 2 record was never
+   * one of the rows any check ran over. That property was already correct and
+   * is unchanged.
+   *
+   * What was missing is the DISCLOSURE. A reader could not tell a crystal of
+   * 26 invariants drawn from 26 candidates from a crystal of 26 drawn from
+   * 300 — and the second is a materially narrow crystal that would otherwise
+   * appear complete. `excludedFromCrystal` is that disclosure, and it is
+   * REPORTING, never gating: no check consults it, and `ok` does not move
+   * because of it.
+   *
+   * `null` when the caller supplied no exclusion context — honestly absent
+   * rather than reported as zero, because "nothing was excluded" and "nobody
+   * told us what was excluded" are different facts.
+   */
+  excludedFromCrystal: {
+    /** Exceptions the caller carried in, recomputed for freeze-blocking
+     *  against THIS report's own checks. */
+    exceptions: IsolationException[];
+    /** Those that genuinely block a freeze — computed, never asserted. */
+    freezeBlockers: IsolationException[];
+    /** The full population, so a narrow crystal cannot look complete. */
+    population: PopulationDisclosure | null;
+    /** Stated in one line for any surface that renders it. */
+    disclosure: string;
+  } | null;
 }
 
 function normalizeStatement(statement: string): string {
@@ -332,6 +385,9 @@ export async function runCrystalReadinessReport(
   } catch (error) {
     return {
       ok: false,
+      // An infrastructure fault tells us nothing about exclusions either —
+      // reported absent rather than as an empty (and therefore reassuring) list.
+      excludedFromCrystal: null,
       invariantCount: 0,
       eligibleCount: 0,
       populations: { A: 0, B: 0, C: 0, unclassified: 0, ablationCount: 0 },
@@ -661,9 +717,39 @@ export async function runCrystalReadinessReport(
   });
 
   const ok = checks.every((c) => c.passed);
+
+  // ── Exclusion disclosure — reporting, never gating ────────────────────────
+  //
+  // `blocksFreeze` is RECOMPUTED from the checks just produced. An upstream
+  // stage may have asserted anything; what survives is only what this
+  // crystal's own readiness actually implies (ruling §3: *"If the assigned
+  // crystal passes, unrelated exclusions remain disclosed limitations rather
+  // than blockers."*). Note `ok` is computed ABOVE and is not touched by any
+  // of this.
+  const excludedFromCrystal = input.exclusions
+    ? (() => {
+        const recomputed = computeFreezeBlocking(input.exclusions!, { checks, invariantCount });
+        const blockers = freezeBlockingExceptions(recomputed);
+        return {
+          exceptions: recomputed,
+          freezeBlockers: blockers,
+          population: input.population ?? null,
+          disclosure:
+            (input.population ? `${renderPopulationDisclosure(input.population)}. ` : '') +
+            `${recomputed.length} record(s) excluded from this crystal; ` +
+            (blockers.length === 0
+              ? 'none of them blocks a freeze — the crystal is assessed on what it actually contains, and these ' +
+                'remain disclosed limitations.'
+              : `${blockers.length} of them block a freeze, because the remaining crystal cannot pass a ` +
+                'pre-registered readiness criterion without them.'),
+        };
+      })()
+    : null;
+
   return {
     ok,
     checks,
+    excludedFromCrystal,
     invariantCount,
     eligibleCount,
     populations: {

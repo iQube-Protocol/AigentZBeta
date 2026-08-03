@@ -38,6 +38,9 @@ function passingReadiness(): CrystalReadinessReport {
   return {
     ok: true,
     checks: names.map((name) => ({ name, passed: true, detail: `${name} ok`, remedy: null })),
+    // No exclusion context supplied to this fixture — `null` is the honest
+    // value ("nobody told us what was excluded"), distinct from an empty list.
+    excludedFromCrystal: null,
     invariantCount: 10,
     eligibleCount: 10,
     populations: { A: 10, B: 0, C: 0, unclassified: 0, ablationCount: 10 },

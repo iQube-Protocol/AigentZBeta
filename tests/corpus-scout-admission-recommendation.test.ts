@@ -31,6 +31,7 @@ import {
   type SourceQualitySignals,
 } from '@/services/corpusScout/admissionRecommendation';
 import { isReviewDecision } from '@/services/corpusScout/reviewDecision';
+import { isExecutable } from '@/services/research/exceptionIsolation';
 import { deriveSourceLineage, type DomainLineageIndex, type SourceLineageInvariant } from '@/services/invariants/discoveryEngine';
 
 function baseSignals(overrides: Partial<SourceQualitySignals> = {}): SourceQualitySignals {
@@ -39,6 +40,12 @@ function baseSignals(overrides: Partial<SourceQualitySignals> = {}): SourceQuali
     campaignDomain: 'financial-services',
     campaignSubDomain: 'banking',
     issuer: 'BIS',
+    // A resolved-looking title and complete metadata by default, so a test
+    // that cares about a WARNING has to opt into producing one.
+    title: 'Basel III Monitoring Report — March 2026',
+    canonicalUrl: 'https://www.bis.org/bcbs/publ/d999.pdf',
+    publicationDate: '2026-03-01',
+    authors: ['BIS Basel Committee'],
     extractionStatus: 'ok',
     artifactHash: 'a'.repeat(64),
     extractionWarnings: [],
@@ -172,20 +179,42 @@ describe('composeAdmissionRecommendation — no lineage falls back to the source
     expect(r.warnings.join(' ')).toMatch(/PROVISIONAL/);
   });
 
-  it('confidence is capped at or below PROVISIONAL_CONFIDENCE_CAP regardless of how clean the source-quality signals are', () => {
-    // Every admission-quality signal is as good as it gets: institutional
-    // authority, no warnings, artifact hash present. Still must not escape
-    // the provisional cap once lineage is empty.
-    const source = baseSignals({ extractionWarnings: [], licenseStatus: 'declared', structuralTags: ['causal', 'threshold-based', 'governance', 'constraint', 'temporal'] });
+  it('caps the SUB-DOMAIN confidence at PROVISIONAL_CONFIDENCE_CAP — the placement never reads as graph-derived', () => {
+    const source = baseSignals({
+      extractionWarnings: [],
+      licenseStatus: 'declared',
+      structuralTags: ['causal', 'threshold-based', 'governance', 'constraint', 'temporal'],
+    });
     const r = composeAdmissionRecommendation({ source, lineage: [] });
-    expect(r.confidence).toBeLessThanOrEqual(PROVISIONAL_CONFIDENCE_CAP);
-    expect(r.confidence).toBeLessThan(CONFIDENCE_MANUAL_REVIEW_THRESHOLD);
-    expect(r.reviewTier).toBe('exception');
+    expect(r.domainConfidence).toBeLessThanOrEqual(PROVISIONAL_CONFIDENCE_CAP);
+    expect(r.domainConfidence).toBeLessThan(CONFIDENCE_MANUAL_REVIEW_THRESHOLD);
   });
 
-  it('never presents a provisional recommendation at auto-include confidence', () => {
+  /**
+   * SUPERSEDED ASSERTION, REPLACED DELIBERATELY (exception-isolation ruling,
+   * 2026-08-03).
+   *
+   * This block previously asserted `r.confidence <= PROVISIONAL_CONFIDENCE_CAP`
+   * and `r.reviewTier === 'exception'` — i.e. that a source with no corpus
+   * lineage is QUARANTINED. That encoded the paralysis the ruling abolishes:
+   * a source cannot HAVE lineage until it has been admitted and extracted, so
+   * the first Track 2 batch would have had nothing admissible at all.
+   *
+   * Per OS-9 ("a canary must be written against real evidence, not against the
+   * assumptions of the code it guards"), a test that defends that behaviour is
+   * a test defending a defect. The provisional discipline is preserved where it
+   * belongs — on `domainConfidence`, asserted directly above — while admission
+   * proceeds, because `ingestApprovedSource` writes the source's OWN
+   * `campaignSubDomain` regardless of the lineage placement.
+   */
+  it('a no-lineage source is still ADMISSIBLE — the provisional placement is a warning, not a quarantine', () => {
     const r = composeAdmissionRecommendation({ source: baseSignals(), lineage: [] });
-    expect(r.confidence).toBeLessThan(CONFIDENCE_AUTO_INCLUDE_THRESHOLD);
+    expect(r.disposition).toBe('ready-with-warning');
+    expect(isExecutable(r.disposition)).toBe(true);
+    expect(r.exception).toBeUndefined();
+    // …and it is never silently upgraded to look graph-derived.
+    expect(r.provisional).toBe(true);
+    expect(r.warnings.join(' ')).toMatch(/PROVISIONAL/);
   });
 });
 
@@ -199,7 +228,7 @@ describe('admission class — independent of subdomain placement, from source-qu
     });
     expect(r.admissionClass).toBe('manual review required');
     expect(r.reviewDecision).toBeNull();
-    expect(r.reviewTier).toBe('exception');
+    expect(r.disposition).toBe('exception');
   });
 
   it('a failed extraction is reject — low substance, a measured fact, not a guess', () => {

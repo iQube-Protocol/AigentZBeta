@@ -58,6 +58,12 @@ import type { ReviewDecision } from './reviewDecision';
 import type { SourceTier } from './institutionalRegistry';
 import type { StructuralValueTag } from './types';
 import type { SourceLineageInvariant } from '@/services/invariants/discoveryEngine';
+import {
+  DEFAULT_ACQUISITION_CONSEQUENCE,
+  type ExceptionCauseGroup,
+  type IsolationException,
+  type RecordDisposition,
+} from '@/services/research/exceptionIsolation';
 
 // ── The recommendation vocabulary — mapped onto the ratified one, never restated ──
 
@@ -111,11 +117,25 @@ export const CONFIDENCE_AUTO_INCLUDE_THRESHOLD = 0.85;
 /** [this, AUTO_INCLUDE) → included but highlighted for review. Below this →
  *  the exception queue. Configurable. */
 export const CONFIDENCE_MANUAL_REVIEW_THRESHOLD = 0.6;
-/** A PROVISIONAL (no-lineage, content-only) recommendation is ALWAYS capped
- *  at or below this — strictly below `CONFIDENCE_MANUAL_REVIEW_THRESHOLD| —
- *  so it always routes to the exception queue regardless of how strong its
- *  own content-only signals look. A provisional guess must never be able to
- *  present as equivalent to a graph-derived classification. */
+/** A PROVISIONAL (no-lineage, content-only) SUB-DOMAIN placement is always
+ *  capped at or below this — strictly below `CONFIDENCE_MANUAL_REVIEW_THRESHOLD`
+ *  — so a provisional placement can never present as equivalent to a
+ *  graph-derived classification.
+ *
+ *  **This caps `domainConfidence`, NOT `confidence` (2026-08-03 revision).**
+ *  It used to cap the overall score, which quarantined every no-lineage source
+ *  — and since a source only acquires lineage AFTER it is admitted and
+ *  extracted, that meant the very first Track 2 batch had NO admissible source
+ *  at all. That is the "perfection as the precondition for progress" defect the
+ *  exception-isolation ruling abolishes.
+ *
+ *  The decoupling is not a relaxation, it is a correction of what the number
+ *  was ever about: `ingestApprovedSource` writes the source's OWN recorded
+ *  `campaignSubDomain` to the evidence row (`ingestionBroker.ts`), never the
+ *  lineage-derived one. So the lineage placement is ADVISORY CONTEXT for the
+ *  steward, and admitting a source with a provisional placement writes exactly
+ *  what it would have written anyway. The placement stays labelled provisional
+ *  and rides into the receipt as a warning — it is never silently upgraded. */
 export const PROVISIONAL_CONFIDENCE_CAP = 0.5;
 /** Lineage-derived domain confidence range: from a badly split lineage
  *  (`LINEAGE_CONFIDENCE_FLOOR`) to a fully-agreeing one
@@ -152,6 +172,54 @@ function round2(n: number): number {
   return Math.round(clamp01(n) * 100) / 100;
 }
 
+// ── Title resolution — a WARNING signal, never a forcing rule ───────────────
+
+/**
+ * IS THIS A TITLE, OR IS IT WHAT THE CRAWLER FOUND WHERE A TITLE SHOULD BE?
+ *
+ * Moved here from `Track2ProgrammePanel.tsx` (2026-08-03) so the server-side
+ * recommendation pass and the client card read the SAME judgement — a second
+ * copy would have been the stale one, and the client's copy was unreachable
+ * from the route that now needs it (inv.engineering.036).
+ *
+ * Titles come from the discovery crawler's LINK TEXT, falling back to the URL
+ * basename. Both are frequently not the document's name — a link labelled
+ * "PDF" yields the title "PDF".
+ *
+ * **This never repairs a title and never blocks a source.** Per the operator's
+ * exception-isolation ruling §4: *"A filename-like title or missing metadata
+ * is NOT automatically a blocker… Do not make the operator chase missing
+ * titles when the content itself suffices for evidence admission."* An
+ * unresolved title on a source whose CONTENT is verifiable is a recorded
+ * warning that rides into the receipt, not a refusal.
+ *
+ * Returns the reason the title looks unresolved, or `null` when it looks like
+ * a real document title.
+ */
+export function titleResolutionIssue(title: string, canonicalUrl: string): string | null {
+  const t = (title ?? '').trim();
+  if (!t) return 'No title was captured at all.';
+  if (/^(pdf|document|download|file|link|here|view)$/i.test(t)) {
+    return `“${t}” is link text, not a document title.`;
+  }
+  // The URL basename fallback — the crawler had no link text to use.
+  try {
+    const base = decodeURIComponent(new URL(canonicalUrl).pathname.split('/').filter(Boolean).pop() ?? '');
+    if (base && base.toLowerCase() === t.toLowerCase()) {
+      return 'This title is the URL filename — no document title was found.';
+    }
+  } catch {
+    // An unparseable URL tells us nothing either way; say nothing.
+  }
+  if (t.length < 12) return `“${t}” is too short to be a document title.`;
+  return null;
+}
+
+/** The warning text the operator specified verbatim for an admitted source
+ *  whose title never resolved (ruling §4). Carried INTO THE RECEIPT. */
+export const UNRESOLVED_TITLE_WARNING =
+  'Document title unresolved; source admitted on verified content, issuer, URL and artifact hash.';
+
 // ── Admission-class judgment — SOURCE-QUALITY signals only ──────────────────
 
 /** The source-quality fields the admission-class judgment reads. All of them
@@ -163,6 +231,13 @@ export interface SourceQualitySignals {
   campaignDomain: string;
   campaignSubDomain: string | null;
   issuer: string | null;
+  /** Used ONLY to detect an unresolved title, which is a warning — never a
+   *  blocker (ruling §4). */
+  title: string;
+  canonicalUrl: string;
+  /** Metadata completeness signals. Absence is a WARNING, never a refusal. */
+  publicationDate: string | null;
+  authors: readonly string[];
   extractionStatus: 'pending' | 'ok' | 'below-threshold' | 'failed';
   artifactHash: string | null;
   extractionWarnings: readonly string[];
@@ -179,11 +254,18 @@ export interface SourceQualitySignals {
 
 interface AdmissionClassResult {
   admissionClass: RecommendedAdmissionClass;
-  /** Confidence in the admission-class judgment ALONE (0..1) — combined with
-   *  domain confidence only for the ADMIT classes; see `composeAdmissionRecommendation`. */
+  /** Confidence in the admission-class judgment ALONE (0..1). This is the
+   *  score the COHORT is derived from — deliberately independent of
+   *  sub-domain placement confidence (see `PROVISIONAL_CONFIDENCE_CAP`). */
   confidence: number;
   evidenceUsed: string[];
+  /** NON-FATAL deficiencies. A warning is executable and rides into the
+   *  receipt; it never withholds a source (ruling §5: amber is not
+   *  prohibition). */
   warnings: string[];
+  /** Set only when this judgment quarantines or refuses the source — the
+   *  cause group the single Exceptions surface groups it under. */
+  causeGroup?: ExceptionCauseGroup;
 }
 
 function deriveAdmissionClass(source: SourceQualitySignals): AdmissionClassResult {
@@ -206,20 +288,73 @@ function deriveAdmissionClass(source: SourceQualitySignals): AdmissionClassResul
   // same refusal rather than picking one for them.
   if (source.isDuplicate) {
     warnings.push('This source is a member of an exact-duplicate group — a canonical-copy choice is reserved to the steward.');
-    return { admissionClass: 'manual review required', confidence: FORCED_MANUAL_REVIEW_CONFIDENCE, evidenceUsed, warnings };
+    return {
+      admissionClass: 'manual review required',
+      confidence: FORCED_MANUAL_REVIEW_CONFIDENCE,
+      evidenceUsed,
+      warnings,
+      causeGroup: 'exact-duplicate',
+    };
   }
 
   // A measured fact, not a guess: no usable text was extracted at all.
   if (source.extractionStatus === 'failed') {
-    return { admissionClass: 'reject — low substance', confidence: 0.9, evidenceUsed, warnings };
+    return {
+      admissionClass: 'reject — low substance',
+      confidence: 0.9,
+      evidenceUsed,
+      warnings,
+      causeGroup: 'unreadable-content',
+    };
   }
   if (source.extractionStatus === 'below-threshold') {
     warnings.push('Extraction fell below the substantive-content threshold — a human should read the excerpt before a reject is recorded.');
-    return { admissionClass: 'manual review required', confidence: FORCED_MANUAL_REVIEW_CONFIDENCE, evidenceUsed, warnings };
+    return {
+      admissionClass: 'manual review required',
+      confidence: FORCED_MANUAL_REVIEW_CONFIDENCE,
+      evidenceUsed,
+      warnings,
+      causeGroup: 'unreadable-content',
+    };
   }
   if (!source.artifactHash) {
-    warnings.push('No artifact hash was recorded — this source was never byte-verified, so its provenance cannot be confirmed automatically.');
-    return { admissionClass: 'manual review required', confidence: FORCED_MANUAL_REVIEW_CONFIDENCE, evidenceUsed, warnings };
+    // Ruling §4 makes the artifact hash a REQUIREMENT of the
+    // "content verifiable, metadata incomplete" path — so a source without
+    // one cannot take the ready-with-warnings route. It is quarantined for a
+    // steward, never refused outright: "never byte-verified" and "corrupted"
+    // are different findings, and this signal cannot tell them apart.
+    warnings.push('No artifact hash was recorded — this source was never byte-verified, so its content identity cannot be confirmed automatically.');
+    return {
+      admissionClass: 'manual review required',
+      confidence: FORCED_MANUAL_REVIEW_CONFIDENCE,
+      evidenceUsed,
+      warnings,
+      causeGroup: 'unresolved-artifact-identity',
+    };
+  }
+
+  // ── Past this point the CONTENT IS VERIFIABLE (extraction ok + artifact
+  //    hash present). Everything below is a warning, never a blocker — this
+  //    is ruling §4's "content verifiable, metadata incomplete" path.
+
+  const titleIssue = titleResolutionIssue(source.title, source.canonicalUrl);
+  if (titleIssue) {
+    // The operator's verbatim warning text. It rides into the receipt so the
+    // admission records WHAT it was admitted on, rather than pretending the
+    // title was fine.
+    warnings.push(`${UNRESOLVED_TITLE_WARNING} (${titleIssue})`);
+    evidenceUsed.push(`title unresolved: ${titleIssue}`);
+  }
+  const missingMetadata: string[] = [];
+  if (!source.publicationDate) missingMetadata.push('publication date');
+  if (source.authors.length === 0) missingMetadata.push('authors');
+  if (missingMetadata.length > 0) {
+    warnings.push(
+      `Incomplete publication metadata (${missingMetadata.join(', ')} not captured); admitted on verified content, issuer, URL and artifact hash.`,
+    );
+  }
+  if (source.extractionWarnings.length > 0) {
+    warnings.push(`${source.extractionWarnings.length} extraction warning(s) recorded at retrieval; content was still extracted.`);
   }
 
   let confidence = 1;
@@ -364,14 +499,51 @@ export interface AdmissionRecommendation {
   primaryDomain: string;
   primarySubDomain: string | null;
   secondarySubDomains: SubDomainLineageGroup[];
+  /** The ADMISSION-quality confidence — what the cohort and review tier are
+   *  derived from. Deliberately NOT reduced by a provisional sub-domain
+   *  placement; see `PROVISIONAL_CONFIDENCE_CAP`. */
   confidence: number;
+  /** Confidence in the SUB-DOMAIN PLACEMENT alone. Capped at
+   *  `PROVISIONAL_CONFIDENCE_CAP` when no corpus lineage exists. Reported
+   *  separately so a provisional placement is visible without withholding an
+   *  otherwise-admissible source. */
+  domainConfidence: number;
   reviewTier: ReviewTier;
+  /** The shared four-value RECORD DISPOSITION
+   *  (`services/research/exceptionIsolation.ts`). This is what the executable
+   *  batch is built from — every stage in the pipeline, over every record
+   *  kind, speaks this same vocabulary. */
+  disposition: RecordDisposition;
   evidenceUsed: string[];
   rationale: string;
   /** True = no corpus lineage exists; the domain placement is a content-only
-   *  fallback and must never be shown as equivalent to a graph-derived one. */
+   *  fallback and must never be shown as equivalent to a graph-derived one.
+   *  It is a WARNING, not a blocker — see `PROVISIONAL_CONFIDENCE_CAP`. */
   provisional: boolean;
   warnings: string[];
+  /** Present only for the quarantined and refused cohorts. */
+  exception?: IsolationException;
+}
+
+/**
+ * The RECORD DISPOSITION, derived from the recommendation's own admission
+ * class and review tier — not a second classifier (inv.engineering.037). This
+ * is the single place Stage 2 maps onto the shared vocabulary.
+ */
+function dispositionFor(
+  admissionClass: RecommendedAdmissionClass,
+  reviewTier: ReviewTier,
+  warnings: readonly string[],
+): RecordDisposition {
+  if (admissionClass.startsWith('reject')) return 'refused';
+  if (admissionClass === 'manual review required') return 'exception';
+  // An admit class below the minimum confidence threshold is an exception
+  // (ruling §1c: "recommendation below minimum confidence threshold").
+  if (reviewTier === 'exception') return 'exception';
+  // Executable. Amber when anything non-fatal was recorded — the warning
+  // rides into the receipt, it does not withhold the source (ruling §5).
+  if (reviewTier === 'needs-review' || warnings.length > 0) return 'ready-with-warning';
+  return 'ready';
 }
 
 function composeRationale(input: {
@@ -410,23 +582,39 @@ export function composeAdmissionRecommendation(input: {
   const admission = deriveAdmissionClass(input.source);
   const domain = deriveDomainRecommendation(input.source, input.lineage);
 
-  // Domain/subdomain confidence only bears on the OVERALL score for the
-  // ADMIT classes — a rejected or unresolved source is not being placed in a
-  // subdomain for evidentiary use, so its confidence is governed purely by
-  // the admission-quality judgment (see the module doc, "independent judgment").
-  const isAdmitClass = ADMIT_CLASSES.has(admission.admissionClass);
-  const combined = isAdmitClass ? Math.min(domain.confidence, admission.confidence) : admission.confidence;
-  // A provisional (no-lineage) domain placement caps the OVERALL confidence
-  // too, even when the admission-class judgment alone was strong — the
-  // fallback must never look as trustworthy as a lineage-backed one.
-  const overallConfidence = domain.provisional && isAdmitClass ? Math.min(combined, PROVISIONAL_CONFIDENCE_CAP) : combined;
-
-  const reviewTier = reviewTierFor(admission.admissionClass, overallConfidence);
+  // ── THE TWO CONFIDENCES ARE SEPARATE, AND ONLY ONE GATES ADMISSION ────────
+  //
+  // `admission.confidence` answers "is this source good enough to admit, and
+  // as what grade" from source-quality signals. `domain.confidence` answers
+  // "how sure are we which sub-domain its invariants sit in".
+  //
+  // Only the FIRST decides the cohort. The second is reported beside it.
+  // Folding the domain score into the gate (as this function did until
+  // 2026-08-03) quarantined every source with no lineage — and a source
+  // cannot HAVE lineage until it has been admitted and extracted, so the
+  // first Track 2 batch had nothing admissible at all. It also had no
+  // evidentiary basis: `ingestApprovedSource` writes the source's OWN
+  // `campaignSubDomain`, never the lineage-derived placement, so the placement
+  // does not change what the admission writes.
+  const reviewTier = reviewTierFor(admission.admissionClass, admission.confidence);
   const evidenceUsed = [...admission.evidenceUsed, ...domain.evidenceUsed];
   const warnings = [...admission.warnings];
   if (domain.provisional) {
-    warnings.push('PROVISIONAL — no existing corpus lineage; this is a content-only inference, routed to the exception queue regardless of computed score.');
+    // Recorded as a WARNING that rides into the receipt — not a quarantine.
+    // The placement stays labelled provisional wherever it is shown; it is
+    // never silently upgraded to look graph-derived.
+    warnings.push(
+      'PROVISIONAL sub-domain placement — no existing corpus lineage traces to this source yet, so the ' +
+        'sub-domain shown is the one already recorded at acquisition, not a graph-derived classification. ' +
+        'Admission writes that same recorded sub-domain either way.',
+    );
   }
+
+  const disposition = dispositionFor(admission.admissionClass, reviewTier, warnings);
+  const exception =
+    disposition === 'exception' || disposition === 'refused'
+      ? buildException(input.source, admission, disposition)
+      : undefined;
 
   return {
     sourceId: input.source.sourceId,
@@ -435,18 +623,79 @@ export function composeAdmissionRecommendation(input: {
     primaryDomain: domain.primaryDomain,
     primarySubDomain: domain.primarySubDomain,
     secondarySubDomains: domain.secondarySubDomains,
-    confidence: round2(overallConfidence),
+    confidence: round2(admission.confidence),
+    domainConfidence: round2(domain.confidence),
     reviewTier,
+    disposition,
     evidenceUsed,
     rationale: composeRationale({
       source: input.source,
       admissionClass: admission.admissionClass,
       primarySubDomain: domain.primarySubDomain,
-      confidence: overallConfidence,
+      confidence: admission.confidence,
       provisional: domain.provisional,
       evidenceUsed,
     }),
     provisional: domain.provisional,
     warnings,
+    ...(exception ? { exception } : {}),
+  };
+}
+
+/**
+ * The exception record for a quarantined or refused source, in the SHARED
+ * typed shape the single Exceptions surface consumes.
+ *
+ * ── Why all four `blocks*` booleans are FALSE here ──────────────────────────
+ *
+ * This is a considered position, not an omission, and it is what the operator
+ * means by "typed and consequential" rather than "all amber notices alike":
+ *
+ *   blocksCurrentStage      false — the whole ruling. One anomalous source
+ *                                   does not stop Stage 2 admitting the rest.
+ *   blocksCrystalAssignment false — assignment operates on validated
+ *                                   INVARIANTS. A source that never entered
+ *                                   the corpus produced none, so it cannot
+ *                                   withhold anyone else's.
+ *   blocksReadiness         false — readiness assesses the ACTUAL assigned
+ *                                   crystal. A record outside it is not part
+ *                                   of what is being assessed.
+ *   blocksFreeze            false — and never asserted here in any case:
+ *                                   `computeFreezeBlocking` recomputes it from
+ *                                   whether the crystal that REMAINS can still
+ *                                   pass its pre-registered criteria. A
+ *                                   source-scope exception is never even a
+ *                                   candidate (ruling §3).
+ *
+ * The exclusion is not thereby invisible: it rides in `PopulationDisclosure`
+ * and on the cohort-authorization receipt as a DISCLOSED LIMITATION, which is
+ * the guardrail against quietly shrinking the corpus until readiness passes.
+ */
+function buildException(
+  source: SourceQualitySignals,
+  admission: AdmissionClassResult,
+  disposition: Extract<RecordDisposition, 'exception' | 'refused'>,
+): IsolationException {
+  const refused = disposition === 'refused';
+  return {
+    scope: 'source',
+    recordId: source.sourceId,
+    recordLabel: source.title?.trim() || source.canonicalUrl,
+    cause: admission.warnings[0] ?? `Recommended '${admission.admissionClass}'.`,
+    causeGroup: admission.causeGroup ?? 'low-confidence-classification',
+    disposition,
+    stage: 'review-and-admit',
+    blocksCurrentStage: false,
+    blocksCrystalAssignment: false,
+    blocksReadiness: false,
+    blocksFreeze: false,
+    consequence: DEFAULT_ACQUISITION_CONSEQUENCE,
+    recommendedAction: refused
+      ? 'Record the refusal decision on this source individually, with a rationale. It stays outside ingestion.'
+      : 'Decide this source individually in the review queue — it needs a judgement the recommendation pass will not make.',
+    // Deferrable indefinitely: nothing downstream waits on it. If the crystal
+    // later cannot reach readiness without more corpus, THAT is what surfaces
+    // it — via the readiness engine, not via a per-record assertion here.
+    deferrableUntil: null,
   };
 }
