@@ -196,7 +196,29 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: ['delegate'],
       permittedActions: ['record-focus-disposition'],
-      completionEvidence: ['aigentMeActive', 'focusDispositionRecorded', 'moneypennyRecordedAsDelegatedAgent', 'evidenceChainComplete'],
+      /*
+       * ── aigentMe COMPLETES ON THE PRINCIPAL'S RECOGNITION ACT ────────────
+       *
+       * Operator, 2026-08-03: "flip aigentMe to emerald after the user selects
+       * the role they wish their agent to play in their experienceGuide."
+       *
+       * Two of the four former signals were wrong here:
+       *
+       *   moneypennyRecordedAsDelegatedAgent — reads `agent_delegated`. That is
+       *     DELEGATE's outcome, and requiring it again makes aigentMe a second
+       *     observer of a stage that already owns it. Delegate is aigentMe's
+       *     prerequisite; the stepper enforces that ordering already.
+       *
+       *   evidenceChainComplete — read `journey_completed`, which cannot exist
+       *     until the journey completes, which cannot happen until aigentMe
+       *     completes. A stage that gates on its own downstream completion is
+       *     unreachable by construction, and no act by the operator could ever
+       *     have satisfied it.
+       *
+       * What remains is the act itself: aigentMe active, and the principal's
+       * recorded disposition on how it should regard the agent.
+       */
+      completionEvidence: ['aigentMeActive', 'focusDispositionRecorded'],
       receiptTypes: ['aigentme_activated', 'experienceqube_focus_disposition_recorded', 'journey_completed'],
       receiptsSurfacedNatively: true,
       companion: {

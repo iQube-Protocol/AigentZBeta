@@ -602,3 +602,98 @@ describe('the Bureau receives an absolute Agent Card URL, never a bare path', ()
     expect(tabSrc).toMatch(/\[selectedAgentSlug, origin\]/);
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SPONSORSHIP, PASSPORT ISSUANCE AND DELEGATION ARE OBSERVED CANONICALLY
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * A steward approved Nakamoto's Delegate Passport. The Journey then reverted to
+ * "ready for sponsorship" — offering an act already completed.
+ *
+ * The approval wrote a Passport RECORD and no receipt, and these three signals
+ * read `hasReceipt(...)` alone. Same shape as the registration defect closed
+ * earlier the same day, surviving in the two stages that fix had not reached.
+ *
+ *   > "It must not say an approved Passport or delegation did not happen solely
+ *   >  because its DVN receipt is missing. That would recreate the registration
+ *   >  defect."   — operator, 2026-08-03
+ */
+describe('Passport and Delegate resolve from canonical records, receipts corroborate', () => {
+  const stateSrc = fs
+    .readFileSync(path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  it.each([
+    ['sponsorBinding', 'sponsorshipRecorded'],
+    ['delegatePassportIssued', 'delegatePassportIssued'],
+    ['delegatePassportActive', 'delegatePassportIssued'],
+    ['boundedDelegationActive', 'delegationActive'],
+    ['contextualMandate', 'delegationActive'],
+  ])('%s consults the canonical record, not a receipt alone', (signal, canonical) => {
+    const line = stateSrc.match(new RegExp(`${signal}:[\\s\\S]{0,140}?,\\n`))?.[0] ?? '';
+    expect(line, `${signal} not found — the route moved`).not.toBe('');
+    // THE ASSERTION THAT FAILS ON THE DEFECT: a bare hasReceipt(...) read.
+    expect(line, `${signal} is receipt-only`).toContain(`admission?.${canonical}`);
+  });
+
+  it('the canonical stage outcomes for passport and delegate are canonical-first too', () => {
+    // Scoped to the canonicalStages literal — `passport:`/`delegate:` also key
+    // the platformState stages and the auditGaps map, and a loose match lands
+    // on whichever appears first.
+    const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
+    const passport = block.match(/^\s*passport:[^\n]*/m)?.[0] ?? '';
+    const delegate = block.match(/^\s*delegate:[^\n]*/m)?.[0] ?? '';
+    expect(passport).toContain('admission?.delegatePassportIssued');
+    expect(delegate).toContain('admission?.delegationActive');
+  });
+
+  it('a failed canonical read is disclosed as an audit gap, never rendered as "did not happen"', () => {
+    /*
+     * `AgentAdmissionState` is three-valued on purpose: true / false /
+     * undefined, where undefined means the READ failed. `=== true` means an
+     * unreadable state falls through to the receipt rather than asserting a
+     * negative, and the gaps surface separately.
+     */
+    expect(stateSrc).toMatch(/passport: admission\?\.auditGaps/);
+    expect(stateSrc).toMatch(/delegate: admission\?\.auditGaps/);
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'services/journey/agentAdmissionState.ts'), 'utf8');
+    expect(svc).toMatch(/sponsorshipRecorded: boolean \| undefined/);
+    expect(svc).toMatch(/delegatePassportIssued: boolean \| undefined/);
+    expect(svc).toMatch(/delegationActive: boolean \| undefined/);
+  });
+
+  it('the Delegate Passport is matched by agent-card PATH, so a host change cannot lose it', () => {
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'services/journey/agentAdmissionState.ts'), 'utf8');
+    expect(svc).toMatch(/new URL\(storedUrl\)\.pathname === agentCardPath/);
+  });
+});
+
+/*
+ * aigentMe completes on the principal's RECOGNITION ACT — and could not
+ * previously complete at all.
+ */
+describe('aigentMe completes on activation + recorded disposition', () => {
+  const aigentme = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'aigentme')!;
+
+  it('requires exactly the two signals of the act itself', () => {
+    expect(aigentme.completionEvidence).toEqual(['aigentMeActive', 'focusDispositionRecorded']);
+  });
+
+  it('no longer gates on its own downstream completion', () => {
+    /*
+     * THE ASSERTION THAT FAILS ON THE DEFECT. `evidenceChainComplete` read
+     * `journey_completed`, which cannot exist until the journey completes,
+     * which cannot happen until aigentMe completes. Unreachable by
+     * construction — no operator act could ever have satisfied it.
+     */
+    expect(aigentme.completionEvidence).not.toContain('evidenceChainComplete');
+  });
+
+  it('does not re-observe Delegate’s outcome', () => {
+    // Delegate is aigentMe's prerequisite; the stepper enforces the ordering.
+    // Requiring `agent_delegated` again made aigentMe a second observer of it.
+    expect(aigentme.completionEvidence).not.toContain('moneypennyRecordedAsDelegatedAgent');
+  });
+});
