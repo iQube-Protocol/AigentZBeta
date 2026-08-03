@@ -51,6 +51,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Loader2, ShieldAlert } from 'lucide-react';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 import { personaFetch } from '@/utils/personaSpine';
 import {
   requestWalletSurface,
@@ -81,56 +82,6 @@ interface RegistrableAgentOption {
  * here would fail loudly (a 400 UNKNOWN_AGENT from register/prepare), never
  * silently.
  */
-/**
- * Read a response as JSON, or explain what actually came back.
- *
- * THE DEFECT THIS CLOSES (operator report, 2026-08-02): the Register button
- * failed with `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. That
- * is a JSON *parser* message leaking to an operator, and it names the wrong
- * problem entirely — nothing was wrong with the JSON, because there was no
- * JSON. The panel was calling `register/prepare` and `register/broadcast`,
- * two routes RETIRED by the Wallet Signing Topology ruling (2026-08-01), so
- * Next.js served its 404 HTML page and `res.json()` choked on the doctype.
- *
- * A blind `res.json()` turns every "route missing / gateway error / auth
- * redirect" into the same misleading parse error, so the real cause stays
- * invisible. This reads the body ONCE as text, parses only if it plausibly is
- * JSON, and otherwise raises a message that says what actually happened.
- */
-async function readJsonOrExplain(res: Response, label: string): Promise<Record<string, unknown>> {
-  const raw = await res.text();
-  const trimmed = raw.trimStart();
-  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>;
-    } catch {
-      throw new Error(`${label} returned malformed JSON (HTTP ${res.status}).`);
-    }
-  }
-  if (trimmed.startsWith('<')) {
-    throw new Error(
-      `${label} returned an HTML page instead of JSON (HTTP ${res.status}). ` +
-        `This usually means the route does not exist at that path, or a proxy/auth layer intercepted the call.`,
-    );
-  }
-  /*
-   * A GATEWAY TIMEOUT IS NOT AN "UNEXPECTED RESPONSE" (operator, 2026-08-02:
-   * `register/status returned an unexpected response (HTTP 504)`).
-   *
-   * 504/502/408 with an empty body means nothing answered in time — the
-   * server was still working, or something upstream stopped waiting. Reported
-   * as what it is, and explicitly NOT as a statement about the work the route
-   * was doing: on this ceremony that distinction is the difference between
-   * "the check was slow" and "the registration failed".
-   */
-  if (res.status === 504 || res.status === 502 || res.status === 408) {
-    throw new Error(
-      `${label} did not answer in time (HTTP ${res.status}). Nothing was reported back, so this says nothing ` +
-        'about the work itself — no act has failed and nothing needs repeating beyond the check. Try again.',
-    );
-  }
-  throw new Error(`${label} returned an unexpected response (HTTP ${res.status}).`);
-}
 
 /**
  * How long the live mandate has left, ticking, and an auto-reread on expiry.
