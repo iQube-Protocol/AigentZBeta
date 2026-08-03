@@ -1361,6 +1361,63 @@ describe('one fact, one source — WITHIN the state route (2026-08-03)', () => {
   });
 });
 
+describe('the observer watches the SAME agent the surfaces act on (2026-08-03)', () => {
+  /*
+   * ── WHAT THE OPERATOR SAW ────────────────────────────────────────────────
+   *
+   * On the Claim stage, simultaneously:
+   *
+   *   "Awaiting: Control Proof Fresh, Marketa Final Recommendation"
+   *   "Evidence checklist — 0 of 2 recorded"
+   *   ...and directly below, in the same panel:
+   *   "AGENT_CONTROL_PROVEN · Wallet control proven for Aigent Nakamoto
+   *    (token 8798, base-sepolia)  ·  Agents: aigent-nakamoto"
+   *
+   * The stage was awaiting the exact proof it was displaying.
+   *
+   * ── THE CAUSE ────────────────────────────────────────────────────────────
+   *
+   * `PilotJourneyTab` threads `selectedAgentSlug` into every SURFACE — four
+   * separate fixes, each with its own comment, each made after the operator
+   * reported that surface narrating the wrong agent. The `stateUrl` — the ONE
+   * input the OBSERVER reads — was never given it. `/state` fell back to
+   * DEFAULT_REGISTRABLE_AGENT_SLUG ('moneypenny') and
+   * `findAgentReceiptRefs('aigent-moneypenny', …)` correctly returned nothing.
+   *
+   * The receipts drawer beneath is persona-scoped, not agent-scoped, so it
+   * showed Nakamoto's receipt regardless — which is why the contradiction was
+   * visible in one screenshot.
+   *
+   * Execution had done the act. Projection rendered its input faithfully. The
+   * OBSERVER was watching a different agent. Same defect class as OS-6
+   * (actor-vs-subject), fixed three times on surfaces and never on the
+   * observer — which is the one that decides whether a stage is complete.
+   */
+  const tabSource = fs.readFileSync(
+    path.join(__dirname, '..', 'app/triad/components/codex/tabs/PilotJourneyTab.tsx'),
+    'utf8',
+  );
+
+  it('passes the selected agent to the state URL — never a bare, agent-less observer', () => {
+    const stateUrlLine = tabSource.match(/stateUrl=\{?[^\n]*/)?.[0] ?? '';
+    expect(stateUrlLine, 'stateUrl prop not found — the tab moved').toContain('/state');
+    expect(
+      stateUrlLine,
+      'the observer reads a hardcoded URL with no agentSlug, so it resolves the DEFAULT agent ' +
+        'while every surface acts on the selected one',
+    ).toContain('agentSlug');
+    expect(stateUrlLine).toContain('selectedAgentSlug');
+  });
+
+  it('the observer and the surfaces read the same selection variable', () => {
+    // If a future change introduces a second piece of agent state for the
+    // observer, the two can drift apart again — exactly this defect.
+    const surfaceUses = (tabSource.match(/agentSlug: selectedAgentSlug/g) ?? []).length;
+    expect(surfaceUses, 'surfaces no longer thread selectedAgentSlug — the tab changed shape').toBeGreaterThan(0);
+    expect(tabSource).toMatch(/stateUrl=\{[^}]*selectedAgentSlug/);
+  });
+});
+
 describe('a failed read never becomes a constitutional finding (2026-08-03)', () => {
   /*
    * ── WHAT THE OPERATOR SAW ────────────────────────────────────────────────
