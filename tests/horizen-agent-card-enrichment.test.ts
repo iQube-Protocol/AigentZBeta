@@ -98,8 +98,71 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
     });
   });
 
-  it('writes exactly the two canonical receipt types, never horizen_pulse_authorized (that is Phase 1\'s own receipt)', async () => {
-    seedAigentQube([BASE_BINDING]);
+  it(
+    'writes the two canonical enrichment receipts plus two trust-dimension increments, never horizen_pulse_authorized (that is Phase 1\'s own receipt)',
+    async () => {
+      seedAigentQube([BASE_BINDING]);
+      await enrichAgentCardAfterHorizenAuthorization({
+        actorPersonaId: 'persona-operator-1',
+        aigentQubeId: 'aigentqube-moneypenny',
+        runtimeAgentId: 'aigent-moneypenny',
+        displayName: 'Aigent MoneyPenny',
+        authorizationId: 'auth-1',
+        controllerWallet: '0xController',
+        tokenId: '1234',
+        network: 'base-sepolia',
+        signatureRef: null,
+        submissionRef: null,
+      });
+      const actionTypes = createActivityReceipt.mock.calls.map((c) => c[0].actionType);
+      expect(actionTypes).toEqual([
+        'horizen_pnl_transparency_enabled',
+        'agent_card_enriched',
+        'trust_dimension_incremented',
+        'trust_dimension_incremented',
+      ]);
+      expect(createActivityReceipt.mock.calls.every((c) => c[0].personaId === 'persona-operator-1')).toBe(true);
+    },
+  );
+
+  it(
+    'trust-dimension increments are two DISTINCT signals (Pulse vs P&L consent), never one merged event',
+    async () => {
+      seedAigentQube([BASE_BINDING]);
+      await enrichAgentCardAfterHorizenAuthorization({
+        actorPersonaId: 'persona-operator-1',
+        aigentQubeId: 'aigentqube-moneypenny',
+        runtimeAgentId: 'aigent-moneypenny',
+        displayName: 'Aigent MoneyPenny',
+        authorizationId: 'auth-77',
+        controllerWallet: '0xController',
+        tokenId: '1234',
+        network: 'base-sepolia',
+        signatureRef: null,
+        submissionRef: null,
+      });
+      const trustCalls = createActivityReceipt.mock.calls.filter((c) => c[0].actionType === 'trust_dimension_incremented');
+      expect(trustCalls).toHaveLength(2);
+      const signals = trustCalls.map((c) => c[0].actionInput.signal);
+      expect(signals).toEqual(['pulse_authorization_granted', 'pnl_disclosure_authorization_granted']);
+      // Never capability — that stays the formal scorer's exclusive concern.
+      expect(trustCalls.every((c) => c[0].actionInput.dimension === 'transparency')).toBe(true);
+      expect(trustCalls.every((c) => c[0].actionInput.evidenceRef === 'auth-77')).toBe(true);
+
+      const stored = registryAssetsTable.get('aigentqube-moneypenny')!;
+      // Two +5 increments on a zero baseline (no trust_composite was seeded).
+      expect(stored.metadata.trust_dimensions).toEqual({
+        capability: 0,
+        transparency: 10,
+        evidenceAccuracy: 0,
+        operationalReliability: 0,
+      });
+      expect(stored.metadata.trust_composite).toBe(10);
+    },
+  );
+
+  it('capability is preserved from the pre-existing trust_composite, never reset to zero', async () => {
+    seedAigentQube([BASE_BINDING], { trust_composite: 82 });
     await enrichAgentCardAfterHorizenAuthorization({
       actorPersonaId: 'persona-operator-1',
       aigentQubeId: 'aigentqube-moneypenny',
@@ -112,9 +175,10 @@ describe('enrichAgentCardAfterHorizenAuthorization', () => {
       signatureRef: null,
       submissionRef: null,
     });
-    const actionTypes = createActivityReceipt.mock.calls.map((c) => c[0].actionType);
-    expect(actionTypes).toEqual(['horizen_pnl_transparency_enabled', 'agent_card_enriched']);
-    expect(createActivityReceipt.mock.calls.every((c) => c[0].personaId === 'persona-operator-1')).toBe(true);
+    const stored = registryAssetsTable.get('aigentqube-moneypenny')!;
+    expect(stored.metadata.trust_dimensions.capability).toBe(82);
+    // 82 (capability) + 5 (pulse) + 5 (pnl) = 92 — additive, never overwriting capability.
+    expect(stored.metadata.trust_composite).toBe(92);
   });
 
   it('refuses AIGENTQUBE_NOT_FOUND when no registry_assets row exists', async () => {

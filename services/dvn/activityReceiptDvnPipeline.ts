@@ -263,6 +263,10 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'horizen_registration_submitted',
   'horizen_registration_confirmed',
   'agent_registry_binding_recorded',
+  // Trust dimensions (operator ruling 2026-08-03) — same permitted
+  // addition-only change. A trust-assessment change is audit-worthy by its
+  // nature; see services/registry/trustDimensions.ts.
+  'trust_dimension_incremented',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

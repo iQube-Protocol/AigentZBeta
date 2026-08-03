@@ -704,7 +704,17 @@ async function resolveState(req: NextRequest) {
       await recordJourneyResolution(supabase, agent.aigentQubeId, {
         journeyId: resolution.journeyId,
         journeyVersion: resolution.journeyVersion,
-        subjectRef: resolution.subjectRef,
+        /*
+         * NOT `resolution.subjectRef` — that comes straight off the static
+         * HORIZEN_MONEYPENNY_JOURNEY definition (subjectRef: 'moneypenny'
+         * at every stage), which predates this journey becoming
+         * agent-selectable (2026-07-31). Nakamoto's own persisted
+         * resolution was carrying the literal string "moneypenny" — cosmetic
+         * only (this record is read back keyed by asset_id, never by
+         * subjectRef), but misleading enough to look like cross-agent data
+         * contamination. Use the actual agent this request resolved for.
+         */
+        subjectRef: agent.slug,
         canonicalStages: resolution.stages.filter((s) => s.canonicalOutcome).map((s) => s.stageId),
         milestones: resolution.milestones,
         highestMilestone: resolution.highestMilestone,

@@ -27,6 +27,11 @@
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
+import {
+  recordTrustDimensionIncrement,
+  TRANSPARENCY_INCREMENT_PULSE_AUTHORIZED,
+  TRANSPARENCY_INCREMENT_PNL_DISCLOSURE_AUTHORIZED,
+} from '@/services/registry/trustDimensions';
 
 export interface EnrichAgentCardInput {
   /** The operator's own persona — recorded as the receipts' principal. */
@@ -117,6 +122,41 @@ export async function enrichAgentCardAfterHorizenAuthorization(
     actionType: 'agent_card_enriched',
     summary: `${input.displayName}'s Agent Card enriched with confirmed Horizen Pulse/PnL transparency state (token ${input.tokenId}, ${input.network})`,
   });
+
+  /*
+   * TRANSPARENCY EARNS A MODEST, NAMED CREDIT — NEVER THE FULL UPLIFT
+   * (operator ruling, 2026-08-03). Pulse and P&L disclosure are two
+   * DISTINCT consents (willingness to expose ongoing state vs. willingness
+   * to expose financial performance) even though today's implementation
+   * confirms both in the same authorization call — so they are recorded as
+   * two separate, separately-receipted increments, not one. Best-effort:
+   * a failed trust-dimension write must never undo the authorization that
+   * already succeeded above.
+   */
+  await recordTrustDimensionIncrement({
+    admin,
+    assetId: input.aigentQubeId,
+    dimension: 'transparency',
+    delta: TRANSPARENCY_INCREMENT_PULSE_AUTHORIZED,
+    signal: 'pulse_authorization_granted',
+    evidenceRef: input.authorizationId,
+    rationale: 'Pulse monitoring authorization confirmed by Horizen — willingness to expose ongoing operational state, not yet evidenced.',
+    actorPersonaId: input.actorPersonaId,
+    runtimeAgentId: input.runtimeAgentId,
+    displayName: input.displayName,
+  }).catch(() => null);
+  await recordTrustDimensionIncrement({
+    admin,
+    assetId: input.aigentQubeId,
+    dimension: 'transparency',
+    delta: TRANSPARENCY_INCREMENT_PNL_DISCLOSURE_AUTHORIZED,
+    signal: 'pnl_disclosure_authorization_granted',
+    evidenceRef: input.authorizationId,
+    rationale: 'P&L disclosure authorization confirmed by Horizen — willingness to expose financial performance, not yet evidenced.',
+    actorPersonaId: input.actorPersonaId,
+    runtimeAgentId: input.runtimeAgentId,
+    displayName: input.displayName,
+  }).catch(() => null);
 
   return {
     ok: true,

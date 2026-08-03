@@ -296,7 +296,15 @@ export type ActivityActionType =
   | 'agent_registry_transaction_signed'
   | 'horizen_registration_submitted'
   | 'horizen_registration_confirmed'
-  | 'agent_registry_binding_recorded';
+  | 'agent_registry_binding_recorded'
+  // Trust dimensions (operator ruling, 2026-08-03): transparency willingness
+  // (Pulse/P&L authorization) and evidence-backed accuracy/reliability are
+  // distinct signals from the formal capability/trust-band score — each
+  // increment to metadata.trust_dimensions is receipted here, carrying the
+  // signal type, evidence ref, previous/new score and rationale on
+  // actionInput, never folded silently into the score alone. See
+  // services/registry/trustDimensions.ts.
+  | 'trust_dimension_incremented';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
