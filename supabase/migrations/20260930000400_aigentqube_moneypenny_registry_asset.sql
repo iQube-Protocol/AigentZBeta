@@ -83,6 +83,11 @@ INSERT INTO registry_assets (
   'agentiq-system'
 )
 
+-- A RE-RUN MUST NOT UN-REGISTER A REGISTERED AGENT (2026-08-03) — see the
+-- identical guard and its full reasoning in
+-- 20260930000700_aigentqube_nakamoto_registry_asset.sql. EXCLUDED.metadata
+-- carries `token_id: null`; a blind overwrite would erase a confirmed
+-- on-chain registration from the projection every surface reads.
 ON CONFLICT (asset_id) DO UPDATE SET
   name               = EXCLUDED.name,
   description        = EXCLUDED.description,
@@ -90,7 +95,13 @@ ON CONFLICT (asset_id) DO UPDATE SET
   publication_status = EXCLUDED.publication_status,
   capabilities       = EXCLUDED.capabilities,
   tags               = EXCLUDED.tags,
-  metadata           = EXCLUDED.metadata,
+  metadata           = CASE
+    WHEN registry_assets.metadata #>> '{external_registry_bindings,0,token_id}' IS NOT NULL
+      THEN EXCLUDED.metadata || jsonb_build_object(
+             'external_registry_bindings',
+             registry_assets.metadata -> 'external_registry_bindings')
+    ELSE EXCLUDED.metadata
+  END,
   updated_at         = now();
 
 INSERT INTO iqube_id_map (source, source_id, primitive_type, synthetic, notes)

@@ -35,7 +35,6 @@ import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { runHorizenTransparencyAuthorization } from '@/services/horizen/authorizationClient';
 import { enrichAgentCardAfterHorizenAuthorization } from '@/services/horizen/agentCardEnrichment';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
-import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
 import type { HorizenNetwork } from '@/services/horizen/identity';
 
 export const dynamic = 'force-dynamic';
@@ -84,14 +83,26 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const metadata = (aigentQube.metadata ?? {}) as { external_registry_bindings?: ExternalAgentRegistryBinding[] };
-  const binding = metadata.external_registry_bindings?.[0];
+  /*
+   * The tokenId is READ through the shared resolver (inv.engineering.036/037 —
+   * the same one both Agent Card routes and Claim's gate use), so a stuck
+   * `registry_assets` projection write cannot block Verify when the
+   * registration is provable from the confirmation receipt or the chain. The
+   * ROW itself is still required above, because Verify WRITES the transparency
+   * authorization back into it — an existence check for the write target, not
+   * a second opinion about whether registration happened.
+   */
+  const { resolveHorizenRegistrationBinding } = await import('@/services/horizen/agentRegistrationBinding');
+  const { binding } = await resolveHorizenRegistrationBinding(admin, agent);
   if (!binding?.token_id) {
     return NextResponse.json(
       {
         ok: false,
         refusalCode: 'MISSING_TOKEN_ID',
-        error: 'MoneyPenny has no Horizen tokenId yet — the Register stage must complete before Verify can run',
+        // Named for the agent actually being verified — this said "MoneyPenny"
+        // regardless of the selected subject, the same defect shape Claim's
+        // surface had on 2026-08-03.
+        error: `${agent.displayName} has no Horizen tokenId yet — the Register stage must complete before Verify can run`,
       },
       { status: 409 },
     );

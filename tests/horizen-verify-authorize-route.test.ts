@@ -106,6 +106,20 @@ describe('POST verify/authorize — refusals', () => {
     expect(mockGetAgentAddresses).not.toHaveBeenCalled();
   });
 
+  it('names the agent actually being verified in MISSING_TOKEN_ID — never a hardcoded MoneyPenny', async () => {
+    /*
+     * The message read "MoneyPenny has no Horizen tokenId yet" regardless of
+     * which agent was selected — the same defect shape Claim's surface had
+     * (2026-08-03). An operator verifying Nakamoto was told about MoneyPenny.
+     */
+    registryAssetsRow = { metadata: { external_registry_bindings: [{ token_id: null, network: 'base-sepolia' }] } };
+    const res = await POST(makeRequest({ agentSlug: 'nakamoto' }));
+    const json = await res.json();
+    expect(json.refusalCode).toBe('MISSING_TOKEN_ID');
+    expect(json.error).toContain('Aigent Nakamoto');
+    expect(json.error).not.toContain('MoneyPenny');
+  });
+
   it('409s with NO_CONTROLLER_WALLET when agent_keys has no evm_address on record', async () => {
     registryAssetsRow = BOUND_ROW;
     mockGetAgentAddresses.mockResolvedValue(null);

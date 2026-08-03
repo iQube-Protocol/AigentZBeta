@@ -218,6 +218,37 @@ describe('a structured receipt still short-circuits the chain call', () => {
   });
 });
 
+describe('the AigentQube seed migrations cannot un-register a registered agent', () => {
+  /*
+   * Nakamoto's registry_assets row was MISSING on dev entirely — that, not a
+   * failed update, is why updateRegistryAssetBinding's silent `!row` branch
+   * fired and why every projection reader said "not registered". Seeding the
+   * row is the remedy; the hazard is the seed's own ON CONFLICT clause.
+   *
+   * `metadata = EXCLUDED.metadata` is a blind overwrite and EXCLUDED.metadata
+   * carries `token_id: null`, so re-running either seed against a database
+   * where the registration HAD landed would erase a real, confirmed,
+   * on-chain ERC-8004 registration — silently, and with no error anywhere.
+   */
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const MIGRATIONS = [
+    '20260930000400_aigentqube_moneypenny_registry_asset.sql',
+    '20260930000700_aigentqube_nakamoto_registry_asset.sql',
+  ];
+
+  for (const file of MIGRATIONS) {
+    it(`${file} preserves an existing bindings array that already carries a tokenId`, () => {
+      const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', file), 'utf8');
+      expect(sql, 'a blind metadata overwrite would wipe a confirmed registration').not.toMatch(
+        /metadata\s*=\s*EXCLUDED\.metadata\s*,/,
+      );
+      expect(sql).toContain("registry_assets.metadata #>> '{external_registry_bindings,0,token_id}' IS NOT NULL");
+      expect(sql).toContain("registry_assets.metadata -> 'external_registry_bindings'");
+    });
+  }
+});
+
 describe('refusals that must survive both fixes', () => {
   it('resolves nothing when the agent has no registration receipt at all', async () => {
     seedUnwrittenProjection();
