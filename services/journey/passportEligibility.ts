@@ -69,12 +69,40 @@ export interface RegistrationInput {
   auditGaps: string[];
 }
 
-/** The human from whom authority originates. */
+/**
+ * The human from whom authority originates.
+ *
+ * ── THESE MUST COME FROM THE CANONICAL PASSPORT READ ─────────────────────
+ *
+ * NOT from a receipt this journey wrote. An operator who already holds a valid
+ * Polity Passport — issued through the Passport Bureau, entirely outside this
+ * journey — has no `operator_passport_validated` receipt here, and deriving
+ * these flags from that receipt therefore presents a Passport APPLICATION to
+ * someone who already holds a Passport. That is the same defect class as
+ * everything else this workstream closed: evidence-of-this-ceremony
+ * substituted for the canonical fact. A receipt is audit material; it is not
+ * the authority on whether a Passport exists.
+ *
+ * The canonical read is `resolvePassportPrincipalForAuthUser` +
+ * `isPassportUsable` (services/identity/passportPrincipal.ts).
+ */
 export interface PrincipalInput {
   /** Does the operator hold a resolving Polity Citizen Passport? */
   citizenPassportValid: boolean;
   /** Personhood relationship established (the passport's own precondition). */
   personhoodEstablished: boolean;
+  /**
+   * False when the canonical passport state COULD NOT BE READ — a service
+   * error, an unresolvable lineage — as distinct from being read and found
+   * absent.
+   *
+   * The distinction decides which act the operator is offered, and getting it
+   * wrong restarts a completed ceremony: "could not read" must yield
+   * *re-check*, never *apply for a Passport*. This mirrors
+   * `resolveAgentRegistrationState`'s refusal to report `registered: false`
+   * for `source: 'unresolved'`.
+   */
+  passportReadable?: boolean;
 }
 
 /** The Claim ceremony's outcome. */
@@ -139,6 +167,7 @@ export interface PassportEligibility {
 export type BlockingReasonCode =
   | 'principal-personhood-unresolved'
   | 'principal-citizen-passport-invalid'
+  | 'principal-passport-unreadable'
   | 'registration-not-established'
   | 'control-not-proven'
   | 'control-proof-stale'
@@ -148,6 +177,7 @@ export type BlockingReasonCode =
 export const BLOCKING_REASON_CODES: readonly BlockingReasonCode[] = [
   'principal-personhood-unresolved',
   'principal-citizen-passport-invalid',
+  'principal-passport-unreadable',
   'registration-not-established',
   'control-not-proven',
   'control-proof-stale',
@@ -247,7 +277,20 @@ export function resolvePassportEligibility(input: PassportEligibilityInput): Pas
   // PRD-GJR-001 §7 stage 4 and the Passport stage's own companion text: "Your
   // Polity Citizen Passport must resolve before you can sponsor MoneyPenny."
   // Authority originates in a human; there is no other source for it.
-  if (!input.principal?.personhoodEstablished) {
+  if (input.principal?.passportReadable === false) {
+    /*
+     * COULD NOT READ ≠ DOES NOT HOLD. The act offered here is a RE-CHECK, and
+     * deliberately never an application: offering "apply for a Passport" to an
+     * operator whose Passport merely could not be read this second would
+     * restart a ceremony they already completed.
+     */
+    blockingReasons.push({
+      code: 'principal-passport-unreadable',
+      stageId,
+      summary: 'Your Passport state could not be read just now. Nothing about your Passport has changed.',
+      acts: [journeyAct(stageId, 'recheck-passport', 're-check', 'Re-check')],
+    });
+  } else if (!input.principal?.personhoodEstablished) {
     blockingReasons.push({
       code: 'principal-personhood-unresolved',
       stageId,

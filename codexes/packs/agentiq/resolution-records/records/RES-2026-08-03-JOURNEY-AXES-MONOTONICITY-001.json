@@ -1,0 +1,72 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+  "capability": "guided-journey-runtime",
+  "milestone": "Constitutional Admission Journey — three axes, one spine, two branches",
+  "problem": "An optional partner enrichment was holding an agent's constitutional progression hostage. Verify (Horizen Pulse / P&L transparency) sat at position 2 of the admission line, so when `partner_authorization_requests` proved absent from the deployed schema, Claim, Passport, delegation and activation were all blocked by one unapplied local migration. Underneath it were two deeper defects: three unrelated questions had been strung onto one blocking sequence, and a stage's canonical outcome had been collapsed into its evidence completeness, so Aigent Nakamoto's confirmed registration (tokenId 8798) rendered as 'not registered' because five of its ten expected receipt types were introduced after she registered.",
+  "observedFailure": [
+    "Claim refused VERIFY_NOT_COMPLETE while the constitution it enforces places Pulse (MKT-ADM-007) and P&L (MKT-ADM-008) outside REFUSAL_RULE_IDS entirely.",
+    "Register rendered NOT COMPLETE for a settled, confirmed, chain-backed registration because five Wallet Signing Topology receipt types postdate it and can never exist for it.",
+    "A degraded read — timeout, unreadable receipts, a persona whose receipts are not visible — silently un-completed stages across a refresh, with no constitutional state having changed.",
+    "The Factory ingestion stage declared `receiptTypes: ['standing_accrued']`, so the act of joining wrote a Standing accrual.",
+    "After the spine completed, the 'one next act' resolver named whichever post-activation branch sat earlier in the stage array, privileging one of two branches ruled independent."
+  ],
+  "rootCauses": [
+    "Three distinct state axes — constitutional admission, participation/Standing eligibility, and specialist-capability eligibility — were modelled as one linear sequence, so a 'not yet' on the third changed the answer to the first.",
+    "One boolean carried both 'did the ceremony happen' and 'can we see all its receipts', making an unrecoverable evidence gap indistinguishable from an absent outcome.",
+    "Stage completion was recomputed from the current read every time, with no persisted floor, so observation quality determined reported progress.",
+    "A surface invented an admission prerequisite the ratified policy does not contain, and nothing structurally prevented a second surface from doing the same.",
+    "Ingestion and accrual shared a receipt type, so the eligibility/earnings distinction could be re-collapsed by any observer reading that receipt however carefully the flags were computed."
+  ],
+  "resolution": [
+    "Separated the state into four explicit axes (`services/journey/agentStateAxes.ts`): admission, factory, verification, standing. No expression in the resolver places a verification value on the right-hand side of an admission assignment — the axes cannot contaminate each other because no code path connects them.",
+    "Separated stage TRUTH from stage EVIDENCE (`services/journey/stageResolution.ts`): a stage may be `{status: COMPLETE, canonicalOutcome: true, evidenceCompleteness: 'partial', auditGaps: [...]}`. Gaps are disclosed, never demoting.",
+    "Made the journey monotonic in three independent places — the ratchet unions, the persistence helper unions, and only settledFacts' five listed invalidation events subtract — so no single caller mistake can regress state.",
+    "Built ONE admission gate (`services/journey/passportEligibility.ts`) with a closed blocking set, and carried the ratified authority for every non-blocking classification as data rather than comments.",
+    "Gave every blocker a typed, non-empty tuple of `ExecutableAct`s, closing the open item CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001 recorded against itself: free-prose `recommendedAction` is what allowed a navigation instruction to satisfy the type.",
+    "Derived the off-spine stage set transitively from the `branch` marker, so a branch descendant (Standing) cannot silently return to the constitutional line."
+  ],
+  "rejectedApproaches": [
+    "Waive Verify as a Claim prerequisite case-by-case in each surface — that is the invented-prerequisite defect restated as a policy, and it leaves the next surface free to reinvent it.",
+    "Fork resolveJourneyState to add canonical-outcome handling — a second prerequisite chain is exactly how one fact came to have five observers (RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001). The shared resolver is called twice with two evidence views instead.",
+    "Treat the missing migration as an invalidation of the registration — an evidence gap in a downstream observer has never been evidence that a settled fact stopped being true.",
+    "Hardcode the list of off-spine stages — the first person to add a second step to a branch and forget the list would put a Standing stage back on the constitutional line.",
+    "Weaken the one-gate canary when it flagged Marketa's evidence layer — the canary was taught to detect a decision rather than a shared word, because CLAUDE.md forbids weakening a canary to make a violation pass."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-DISTINCT-STATE-AXES-001",
+    "CI-2026-08-03-ELIGIBILITY-IS-NOT-ACCRUAL-001",
+    "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+    "CI-2026-08-03-ONE-ADMISSION-GATE-001"
+  ],
+  "canaries": [
+    "tests/journey-monotonic-admission.test.ts",
+    "tests/journey-admission-spine.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": ["54f95c32a", "e18b0da0a", "21b61f483"],
+    "tests": [
+      "tests/journey-monotonic-admission.test.ts",
+      "tests/journey-admission-spine.test.ts",
+      "tests/settled-facts.test.ts"
+    ],
+    "receipts": ["horizen_agent_registered", "capability_registered", "standing_accrued"],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md",
+      "codexes/packs/agentiq/updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md"
+  ],
+  "projections": {
+    "targets": ["devon", "constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

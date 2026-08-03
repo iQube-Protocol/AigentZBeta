@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-SETTLED-STAGE-OUTCOME-MONOTONIC-001",
+  "statement": "A stage's canonical outcome and its evidence completeness are separate facts. Missing evidence is disclosed as an audit gap and never demotes an established outcome; and once established, an outcome is reversed only by a named invalidation event, never by a later stage's failure or a degraded read.",
+  "classification": null,
+  "ratifiedSource": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "family": "engineering",
+  "parentCandidateId": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": ["RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001"],
+  "occurrences": [
+    {
+      "site": "services/journey/resolveJourneyState.ts, as consumed by the Register stage",
+      "defect": "One boolean carried both 'did the ceremony happen' and 'can we see all its receipts'. Aigent Nakamoto is registered on base-sepolia (tokenId 8798, confirmed tx, persisted binding), but five of Register's ten `completionEvidence` receipt types were introduced by the Wallet Signing Topology ruling AFTER she registered, so they can never exist for her. An unrecoverable historical paperwork gap therefore rendered as 'not registered' — the settled ceremony re-litigated because its evidence trail is thin.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": ["54f95c32a", "services/journey/stageResolution.ts", "tests/journey-monotonic-admission.test.ts"]
+    },
+    {
+      "site": "app/api/journey/moneypenny-horizen/state/route.ts",
+      "defect": "Completion was recomputed from whatever the current read returned, so a transient failure — a timeout, unreadable receipts, a persona whose receipts are not visible — silently un-completed a stage across a refresh. The same screen could show a different journey position minute to minute with no constitutional state having changed.",
+      "resolutionId": "RES-2026-08-03-JOURNEY-AXES-MONOTONICITY-001",
+      "evidence": ["services/journey/stageResolution.ts", "tests/journey-monotonic-admission.test.ts"]
+    }
+  ],
+  "canaries": [
+    {
+      "path": "tests/journey-monotonic-admission.test.ts",
+      "assertion": "Register resolves COMPLETE from the settled fact with `evidenceCompleteness: 'partial'` and named audit gaps; a degraded read carrying the prior resolution resolves identically; only a named invalidation subtracts; and `recordJourneyResolution` unions rather than replaces, so a caller that computed a regression cannot persist it. The historical behaviour is reproduced IN THE FILE — two tests assert that the evidence-only resolver still calls the same state incomplete. Mutation-verified: deriving `canonicalOutcome` from evidence completeness turns 11 tests red; dropping the prior-resolution floor and replacing the persistence union each turn one red.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "notes": [
+    "Operator ruling, verbatim (2026-08-03): \"Once a stage's canonical outcome has been established, later stages consume that outcome. They do not re-run, reinterpret or invalidate the earlier ceremony because an incidental receipt, migration or observer path is incomplete.\"",
+    "This is the STAGE-level application of the Settled Fact Non-Reconsideration ruling already implemented in services/journey/settledFacts.ts — the same rule, one level up. `settledFacts` stops a FACT being re-derived; this stops a STAGE being re-adjudicated from that fact's evidence.",
+    "Monotonicity is enforced in three independent places so no single caller mistake can undo it: the ratchet unions rather than replaces, the persistence helper unions rather than replaces, and only settledFacts' five listed invalidation events can subtract. Monotonicity that depends on every caller being correct is not monotonicity.",
+    "IMPLEMENTATION NOTE worth preserving: the canonical outcome is honoured by calling the SHARED `resolveJourneyState` a second time with canonical evidence injected, rather than forking its prerequisite/BLOCKED/ordering logic. A forked prerequisite chain is exactly how one fact came to have five observers (RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001)."
+  ],
+  "projections": {
+    "targets": ["devon", "constitutional-computing"],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
