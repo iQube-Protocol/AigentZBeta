@@ -546,3 +546,59 @@ describe('the principal Passport check can never be satisfied by an agent record
     );
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A PATH IS NOT A URL (2026-08-03)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Delegate Passport submission refused with:
+ *
+ *   agent_identity.agent_card.agent_card_url — Must be a valid http(s) URL
+ *
+ * `registrableAgents.agentCardPath` is a PATH ('/api/agents/nakamoto/
+ * agent-card.json'); it was handed to the Bureau as `prefillAgentCardUrl`,
+ * where the Bureau anchors participant identity and validates a URL. The name
+ * of the source field said `Path` and the name of the destination said `Url`,
+ * and nothing checked that the two agreed.
+ *
+ * The origin is read from the BROWSER, never a configured or guessed host
+ * (CLAUDE.md No-Guessing), and never during render (`window` is undefined
+ * server-side — the SSR/CSR rule).
+ */
+describe('the Bureau receives an absolute Agent Card URL, never a bare path', () => {
+  const tabSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/triad/components/codex/tabs/PilotJourneyTab.tsx'),
+    'utf8',
+  );
+
+  it('prefillAgentCardUrl is origin-qualified, not the raw path', () => {
+    // THE ASSERTION THAT FAILS ON THE DEFECT.
+    expect(tabSrc, 'the raw path is passed where a URL is required').not.toMatch(
+      /prefillAgentCardUrl:\s*selectedAgent\.agentCardPath\s*,/,
+    );
+    expect(tabSrc).toMatch(/prefillAgentCardUrl:[^\n]*\$\{origin\}\$\{selectedAgent\.agentCardPath\}/);
+  });
+
+  it('the origin comes from the browser, never a hardcoded or inferred host', () => {
+    expect(tabSrc).toMatch(/window\.location\.origin/);
+    expect(tabSrc, 'a deployment hostname must never be constructed here').not.toMatch(
+      /https?:\/\/[a-z0-9.-]*aigentz|https?:\/\/localhost/i,
+    );
+  });
+
+  it('the origin is read in an effect, never during render', () => {
+    /*
+     * `window` is undefined server-side; reading it in a render path is the
+     * SSR/CSR mismatch CLAUDE.md forbids. State + effect, and empty until
+     * mounted — a prefill that is not yet known is simply not offered.
+     */
+    expect(tabSrc).toMatch(/useEffect\(\(\) => \{\s*if \(typeof window !== 'undefined'\) setOrigin/);
+    expect(tabSrc).toMatch(/const \[origin, setOrigin\] = useState<string>\(''\)/);
+  });
+
+  it('origin is a dependency of the surface-props resolver, so the prefill updates on mount', () => {
+    // Without this the memoised callback would keep the empty first-render value.
+    expect(tabSrc).toMatch(/\[selectedAgentSlug, origin\]/);
+  });
+});

@@ -18,7 +18,7 @@
  * the Companion quick-links document.title signal.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/journey/JourneyRunSurface';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
@@ -67,6 +67,31 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
   const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('nakamoto');
 
+  /*
+   * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).
+   *
+   * `registrableAgents.agentCardPath` is a PATH — '/api/agents/nakamoto/
+   * agent-card.json' — and it was handed straight to the Bureau as
+   * `prefillAgentCardUrl`. The Bureau anchors participant identity on that
+   * value and validates it as a URL, so Delegate Passport submission refused:
+   *
+   *   agent_identity.agent_card.agent_card_url — Must be a valid http(s) URL
+   *
+   * Resolved from the BROWSER'S OWN ORIGIN rather than a configured host: the
+   * card is served by this same deployment, and hardcoding a hostname would
+   * both break across environments and violate the No-Guessing rule (CLAUDE.md
+   * — never construct or infer a deployment URL).
+   *
+   * Held in state and set in an effect, never read during render: `window` is
+   * undefined server-side, and reading it in a render path is the SSR/CSR
+   * mismatch CLAUDE.md's State Management rule forbids. Empty until mounted,
+   * which is honest — a prefill that is not yet known is simply not offered.
+   */
+  const [origin, setOrigin] = useState<string>('');
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin);
+  }, []);
+
   const resolveSurfaceProps = useCallback(
     ({ surfaceRef, descriptor, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
@@ -112,7 +137,8 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
           ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
-              prefillAgentCardUrl: selectedAgent.agentCardPath,
+              // Absolute, per the Bureau's URL validation — see the `origin` note above.
+              prefillAgentCardUrl: origin ? `${origin}${selectedAgent.agentCardPath}` : '',
               prefillAgentDisplayName: selectedAgent.displayName,
               routeTo: passportRouteTo,
             }
@@ -120,7 +146,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
             ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
             : {};
     },
-    [selectedAgentSlug],
+    [selectedAgentSlug, origin],
   );
 
   return (
