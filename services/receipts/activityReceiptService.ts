@@ -613,6 +613,44 @@ export interface AgentRegistrationReceiptFacts {
   createdAt: string;
 }
 
+/**
+ * Which of `actionTypes` this AGENT has receipts for, and their ids — the
+ * subject-keyed counterpart to `listActivityReceiptsForPersona`.
+ *
+ * Same reason as `findAgentRegistrationReceipts` below: a journey receipt is
+ * written against the acting OPERATOR's persona, so asking "what has this
+ * agent done?" by resolving the agent's own persona finds nothing. Returns
+ * ONLY `{id, actionType}` — enough to answer existence and to reference the
+ * receipt, never the persona-scoped body.
+ */
+export async function findAgentReceiptRefs(
+  runtimeAgentId: string,
+  actionTypes: readonly ActivityActionType[],
+  options?: { limit?: number },
+): Promise<{ id: string; actionType: ActivityActionType }[]> {
+  if (!runtimeAgentId || actionTypes.length === 0) return [];
+  const limit = Math.min(Math.max(options?.limit ?? 100, 1), 200);
+
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .select('id, action_type')
+    .in('action_type', actionTypes as ActivityActionType[])
+    .contains('agents_invoked', [runtimeAgentId])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findAgentReceiptRefs failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as { id: string; action_type: ActivityActionType }[]).map((r) => ({
+    id: r.id,
+    actionType: r.action_type,
+  }));
+}
+
 export async function findAgentRegistrationReceipts(
   runtimeAgentId: string,
   options?: { limit?: number },

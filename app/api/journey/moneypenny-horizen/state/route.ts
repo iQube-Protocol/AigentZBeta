@@ -21,7 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { listActivityReceiptsForPersona, type ActivityActionType } from '@/services/receipts/activityReceiptService';
+import { findAgentReceiptRefs, type ActivityActionType } from '@/services/receipts/activityReceiptService';
 import { resolveJourneyState, type AuthoritativePlatformState } from '@/services/journey/resolveJourneyState';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
@@ -72,20 +72,25 @@ export async function GET(req: NextRequest) {
   let aigentQubeResolved = false;
   try {
     const supabase = getSupabaseServer();
-    const { data: persona } = await supabase
-      .from('personas')
-      .select('id')
-      .ilike('fio_handle', agent.fioHandle)
-      .maybeSingle();
-
-    if (persona?.id) {
-      const receipts = await listActivityReceiptsForPersona(persona.id, {
-        actionTypes: JOURNEY_ACTION_TYPES,
-        limit: 100,
-      });
-      for (const receipt of receipts) {
-        (receiptRefs[receipt.actionType] ??= []).push(receipt.id);
-      }
+    /*
+     * FIND THIS AGENT'S RECEIPTS BY THE AGENT, NOT BY A PERSONA (2026-08-03).
+     *
+     * This resolved the AGENT's own persona (`fio_handle = nakamoto@aigent`)
+     * and listed ITS receipts — but every journey receipt is written with
+     * `personaId: actorPersonaId`, the OPERATOR who acted (ArkAgent). The
+     * agent's persona therefore never holds them: `receiptRefs` came back
+     * empty, every `hasReceipt(...)` below was false, and Register could
+     * never reach COMPLETE no matter how completely it had succeeded.
+     *
+     * Aigent Nakamoto's confirmed registration (tokenId 8798) sat behind
+     * exactly this: a real receipt, looked for under the wrong persona.
+     * Identical defect to the one fixed in agentRegistrationBinding.ts the
+     * same day — see OS-6 in
+     * codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md.
+     */
+    const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 100 });
+    for (const ref of refs) {
+      (receiptRefs[ref.actionType] ??= []).push(ref.id);
     }
 
     // §3.1.1 correction — Register requires a real, persisted AigentQube
