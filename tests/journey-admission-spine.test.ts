@@ -193,3 +193,111 @@ describe('registration earns a NOMINAL award, distinguishable from earned Standi
     expect(byId('standing').prerequisites).not.toContain('verify');
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * FINANCIAL-SERVICES ENRICHMENT GATES NOTHING (operator, 2026-08-03)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ *   > "Claim is incorrectly still gated on Marketa. Remove that requirement
+ *   >  immediately... Claim complete = registration established + wallet
+ *   >  control proven."
+ *
+ *   > "The only place the Marketa claim is constitutional is for financial
+ *   >  services enrichment AND FSE must NOT gate ingestion to the factory or
+ *   >  standing. It is additive only to standing not a requisite of it."
+ *
+ * Two separate rulings, one shape: FSE (Marketa, Pulse, P&L) is ADDITIVE
+ * everywhere and REQUISITE nowhere. It had been a Claim prerequisite in three
+ * places at once — the stage's `completionEvidence`, the observer's evidence
+ * map, and the executor's inline call — so removing it from any one of them
+ * left the requirement fully in force. These canaries pin all of it.
+ */
+describe('FSE is additive, never requisite (2026-08-03)', () => {
+  const claim = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'claim')!;
+  const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+  const standing = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'standing')!;
+  const verify = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'verify')!;
+
+  it('Claim requires wallet control and nothing else', () => {
+    expect(claim.completionEvidence).toEqual(['controlProofFresh']);
+  });
+
+  it('no Marketa signal appears in anything that DECIDES Claim', () => {
+    /*
+     * Scoped to the contract fields, deliberately. `surfaces[0].ref` is still
+     * `marketa-eligibility-view` — the component's legacy NAME, carried by
+     * journeySurfaceRegistry.ts. A name is not a dependency: that surface now
+     * observes control state and nothing else. Renaming it is mechanical and
+     * separate; asserting over the whole serialized stage would fail on the
+     * label while proving nothing about what gates the stage.
+     */
+    const deciding = {
+      completionEvidence: claim.completionEvidence,
+      receiptTypes: claim.receiptTypes,
+      prerequisites: claim.prerequisites,
+      description: claim.description,
+      companion: claim.companion,
+    };
+    expect(JSON.stringify(deciding), 'a Marketa requirement survives in Claim').not.toMatch(/marketa/i);
+  });
+
+  it('Claim depends only on Register — never on verify or any enrichment', () => {
+    expect(claim.prerequisites).toEqual(['register']);
+  });
+
+  it('the Claim executor runs no Marketa assessment', () => {
+    const routeSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/claim/prove-control/route.ts'),
+      'utf8',
+    );
+    // Strip comments: the file EXPLAINS the removal, and that prose must not
+    // read as the call still being there.
+    const code = routeSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(code, 'Claim still calls Marketa').not.toMatch(/runMarketaAdmissionAssessment\s*\(/);
+    expect(code, 'Claim still reads a Marketa assessment').not.toMatch(/getCurrentMarketaAdmissionAssessment\s*\(/);
+  });
+
+  it('the observer requires no Marketa receipt for Claim', () => {
+    const stateSrc = fs
+      .readFileSync(path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    // The canonical-outcome line for claim must not consult a Marketa receipt.
+    const canonicalClaim = stateSrc.match(/^\s*claim:\s*hasReceipt\([^\n]*/m)?.[0] ?? '';
+    expect(canonicalClaim, 'claim canonical outcome line not found — the route moved').toContain('agent_control_proven');
+    expect(canonicalClaim, 'Claim completion still consults a Marketa receipt').not.toMatch(/marketa/i);
+  });
+
+  /*
+   * THE SECOND RULING: the Factory branch and Standing must not wait on FSE.
+   * `deploy` and `standing` descend from aigentMe and each other — never from
+   * `verify`. A future edit adding `verify` to either prerequisite chain would
+   * make Standing wait on Pulse/P&L, which is exactly the collapse forbidden.
+   */
+  it('Factory ingestion does not depend on the verification branch', () => {
+    expect(deploy.prerequisites).toEqual(['aigentme']);
+    expect(deploy.prerequisites).not.toContain('verify');
+  });
+
+  it('Standing does not depend on the verification branch', () => {
+    expect(standing.prerequisites).toEqual(['deploy']);
+    expect(standing.prerequisites).not.toContain('verify');
+  });
+
+  it('the two post-activation branches are siblings, neither upstream of the other', () => {
+    expect(verify.prerequisites).toEqual(['aigentme']);
+    expect(verify.nextStageId, 'verify must lead nowhere — it is a leaf branch').toBeUndefined();
+  });
+
+  /*
+   * Marketa's receipts live on the enrichment branch as SURFACED evidence, and
+   * are deliberately absent from its `completionEvidence` — so an assessment
+   * that never runs cannot hold even the enrichment branch open, let alone
+   * Standing.
+   */
+  it('Marketa receipts are surfaced on the enrichment branch but gate nothing there either', () => {
+    expect(verify.receiptTypes.some((t) => /marketa/.test(t))).toBe(true);
+    expect(verify.completionEvidence.some((e) => /marketa/i.test(e))).toBe(false);
+  });
+});

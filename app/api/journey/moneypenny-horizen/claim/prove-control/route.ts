@@ -1,24 +1,35 @@
 /**
  * POST /api/journey/moneypenny-horizen/claim/prove-control
  *
- * GJR Claim stage's one consequential action ("prove wallet control
- * precedes Marketa's final eligibility recommendation — never the
- * reverse"). Builds a fresh, purpose-bound control-proof challenge
- * (services/passport/controlProofChallenge.ts), signs it through the same
- * narrow signer Phase 1 built (services/signing/partnerAuthorizationSigner.ts
- * — 'wallet-control-proof' is its second purpose, not a generalization of
- * it), records the proof, and immediately runs Marketa's FINAL admission
- * assessment (services/marketa/admissionAssessmentRunner.ts) against it —
- * "Control Before Recommendation" made structural: this route cannot reach
- * the assessment call without a signature that recovered to the registered
- * controller wallet.
+ * GJR Claim stage's one consequential action, and its WHOLE act:
+ *
+ *   Claim complete = registration established + wallet control proven
+ *
+ * Builds a fresh, purpose-bound control-proof challenge
+ * (services/passport/controlProofChallenge.ts), signs it through the narrow
+ * signer Phase 1 built (services/signing/partnerAuthorizationSigner.ts —
+ * 'wallet-control-proof' is its second purpose, not a generalization of it),
+ * and records the proof. Nothing further.
+ *
+ * ── WHAT WAS REMOVED, AND WHY (operator ruling, 2026-08-03) ────────────────
+ *
+ * This route also ran Marketa's FINAL admission assessment inline, and
+ * returned its decision as Claim's outcome. Marketa is a FINANCIAL-SERVICES
+ * ENRICHMENT on the post-aigentMe branch — it is not on the admission spine
+ * and gates nothing. Leaving the call here made an optional enrichment part
+ * of a constitutional act: a missing assessments table read as a Claim
+ * failure, and the surface showed an assessment error above an
+ * already-recorded control proof. Removed entirely rather than made
+ * non-fatal, because a softened dependency is still a dependency.
  *
  * Refuses honestly on its CONSTITUTIONAL prerequisites only: no persisted
  * AigentQube, no registration binding, no controller wallet, or a control
- * proof that does not recover to it. It deliberately does NOT require Pulse
- * or P&L authorization — those sit outside Marketa's REFUSAL_RULE_IDS and are
- * reported as `nonBlockingExceptions` (operator ruling 2026-08-03: an
- * optional partner enrichment must never immobilise personhood).
+ * proof that does not recover to it. Pulse/P&L authorization is NOT required
+ * and is reported as `nonBlockingExceptions` — an optional partner enrichment
+ * must never immobilise personhood.
+ *
+ * RESUMABLE: an existing fresh control proof for this agent is reused, never
+ * re-signed (`resumedFromExistingProof` in the response says which happened).
  *
  * Spine-gated: getActivePersona resolves the operator, recorded as every
  * receipt's principal.
@@ -31,13 +42,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { buildControlProofChallenge } from '@/services/passport/controlProofChallenge';
 import { signPartnerAuthorization } from '@/services/signing/partnerAuthorizationSigner';
 import { createActivityReceipt, listActivityReceiptsForPersona, type ActivityReceiptRecord } from '@/services/receipts/activityReceiptService';
-import { runMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentRunner';
 import { CONTROL_PROOF_FRESHNESS_WINDOW_MS } from '@/services/marketa/externalAgentAdmissionEvidence';
-import { getCurrentMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentStore';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import { resolveHorizenRegistrationBinding } from '@/services/horizen/agentRegistrationBinding';
 
@@ -83,20 +91,32 @@ async function getImpl(request: NextRequest) {
     return NextResponse.json({ ok: false, refusalCode: 'UNKNOWN_AGENT', error: `"${agentSlug}" is not a registrable agent` }, { status: 400 });
   }
 
-  const current = await getCurrentMarketaAdmissionAssessment(agent.aigentQubeId);
+  /*
+   * WHAT CLAIM'S SURFACE NEEDS TO KNOW: is control already proven?
+   *
+   * This used to return Marketa's current assessment — so the surface could
+   * not tell whether control was proven, and rendered "Prove wallet control"
+   * indefinitely beside a control-proof receipt already displayed under it.
+   * A control proof that exists must be OBSERVED, and an act already
+   * performed must stop being offered (operator, 2026-08-03).
+   */
+  const controlReceipts = await listActivityReceiptsForPersona(persona.personaId, {
+    actionTypes: ['agent_control_proven'],
+    agentsInvoked: [agent.runtimeAgentId],
+    limit: 5,
+  });
+  const proof = controlReceipts.find(
+    (r) => (r.actionInput as { aigentQubeId?: string } | null)?.aigentQubeId === agent.aigentQubeId,
+  );
+  const fresh = proof ? Date.now() - Date.parse(proof.createdAt) <= CONTROL_PROOF_FRESHNESS_WINDOW_MS : false;
+
   return NextResponse.json({
     ok: true,
-    assessment: current
-      ? {
-          assessmentId: current.assessmentId,
-          decision: current.decision,
-          mode: current.mode,
-          rationale: current.rationale,
-          satisfiedRules: current.satisfiedRules,
-          missingRules: current.missingRules,
-          failedRules: current.failedRules,
-        }
-      : null,
+    controlProven: Boolean(proof),
+    controlProofFresh: fresh,
+    controlProofReceiptId: proof?.id ?? null,
+    provenAt: proof?.createdAt ?? null,
+    signerWallet: (proof?.actionInput as { signerWallet?: string } | null)?.signerWallet ?? null,
   });
 }
 
@@ -265,38 +285,35 @@ async function postImpl(request: NextRequest) {
     });
   }
 
-  const origin = resolveRequestOrigin(request);
-  const assessmentResult = await runMarketaAdmissionAssessment({
-    aigentQubeId: AIGENTQUBE_ID,
-    actorPersonaId: persona.personaId,
-    agentCardUrl: `${origin}${agent.agentCardPath}`,
-    mode: 'FINAL',
-    runtimeAgentId: AGENT_KEY_REF,
-  });
-
-  if (!assessmentResult.ok) {
-    return NextResponse.json({
-      ok: true,
-      controlProofReceiptId: controlReceipt?.id ?? null,
-      // Reported, never silently passed — a non-blocking exception the
-      // operator can see and act on, distinct from a blocker.
-      nonBlockingExceptions: transparencyExceptions,
-      assessmentRefusalCode: assessmentResult.refusalCode,
-      assessmentError: assessmentResult.detail,
-    });
-  }
-
+  /*
+   * ── CLAIM ENDS HERE ──────────────────────────────────────────────────────
+   *
+   * This route used to run Marketa's FINAL admission assessment immediately
+   * after recording the control proof, and its response carried the
+   * assessment/refusal as Claim's own outcome. That made an optional
+   * financial-services enrichment part of the Claim ACT, which is why a
+   * missing `marketa_agent_admission_assessments` table read as a Claim
+   * failure and why the surface showed an assessment error above an
+   * already-proven control receipt.
+   *
+   * The operator's ruling (2026-08-03) is unambiguous:
+   *
+   *   > "Claim complete = registration established + wallet control proven"
+   *   > "Remove the Marketa call from the Claim execution path entirely...
+   *   >  Do not merely make the database failure non-fatal while leaving
+   *   >  Marketa in the stage contract."
+   *
+   * So the call is gone, not softened. Marketa runs on the financial-services
+   * enrichment branch after aigentMe, where its receipt types now live
+   * (services/journey/horizenMoneyPennyJourney.ts, stage `verify`).
+   */
   return NextResponse.json({
     ok: true,
+    controlProven: true,
     controlProofReceiptId: controlReceipt?.id ?? null,
+    /** True when this call reused an existing proof rather than signing a new one. */
+    resumedFromExistingProof: Boolean(existingFreshControlReceipt),
+    // Real, disclosed, and blocking nothing — Pulse/P&L are enrichments.
     nonBlockingExceptions: transparencyExceptions,
-    assessment: {
-      assessmentId: assessmentResult.record.assessmentId,
-      decision: assessmentResult.record.decision,
-      rationale: assessmentResult.record.rationale,
-      satisfiedRules: assessmentResult.record.satisfiedRules,
-      missingRules: assessmentResult.record.missingRules,
-      failedRules: assessmentResult.record.failedRules,
-    },
   });
 }
