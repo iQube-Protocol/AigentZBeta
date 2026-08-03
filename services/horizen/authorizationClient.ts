@@ -533,27 +533,52 @@ export async function verifyHorizenTransparencyActivation(
 
 // ── Full pipeline convenience wrapper (Phase 1 acceptance criterion) ────────
 
+/**
+ * ONE CONNECTION, ONE TOOL LISTING, FOR THE WHOLE CEREMONY.
+ *
+ * Each stage below independently falls back to `defaultMcpClient()` when no
+ * client is injected. Run end to end with no deps, that meant THREE separate
+ * transport connections to Horizen and THREE `listTools` round trips for a
+ * tool set that cannot change inside a single ceremony — roughly three times
+ * the remote latency of the work actually being done, inside one serverless
+ * request whose budget the operator has already seen exhausted (an empty
+ * response body, 2026-08-03).
+ *
+ * Wrapping the shared client rather than editing each stage keeps every stage
+ * independently callable — Phase 1's tests drive them one at a time with their
+ * own mock — while making the composed path pay the connection cost once.
+ */
+function shareOneConnection(client: PartnerMcpClient): PartnerMcpClient {
+  let tools: Promise<{ tools: McpTool[] }> | null = null;
+  return {
+    listTools: () => (tools ??= client.listTools()),
+    callTool: (args) => client.callTool(args),
+  };
+}
+
 export async function runHorizenTransparencyAuthorization(
   input: PrepareHorizenTransparencyAuthorizationInput,
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ authorizationId: string; receiptRef: string | null }>> {
-  const prepared = await prepareHorizenTransparencyAuthorization(input, deps);
+  const shared: AuthorizationDeps = { ...deps, mcpClient: shareOneConnection(deps.mcpClient ?? (await defaultMcpClient())) };
+
+  const prepared = await prepareHorizenTransparencyAuthorization(input, shared);
   if (!prepared.ok) return prepared;
 
-  const signed = await signHorizenTransparencyAuthorization(prepared.value, deps);
+  const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
   if (!signed.ok) return signed;
 
   const submitted = await submitHorizenTransparencyAuthorization(
     prepared.value.authorizationId,
     { message: prepared.value.message, signature: signed.value },
-    deps,
+    shared,
   );
   if (!submitted.ok) return submitted;
 
   const verified = await verifyHorizenTransparencyActivation(
     prepared.value.authorizationId,
     { actorPersonaId: input.actorPersonaId, registry: input.registry, controllerWallet: input.controllerWallet },
-    deps,
+    shared,
   );
   if (!verified.ok) return verified;
 

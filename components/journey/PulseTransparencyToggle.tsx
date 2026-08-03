@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, ShieldAlert } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 const DISCLOSURE_SCOPE = ['pulse-monitoring', 'pnl-disclosure'] as const;
 
@@ -85,9 +86,19 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         // sending it is what makes the default stop mattering.
         body: JSON.stringify({ scope: DISCLOSURE_SCOPE, agentSlug }),
       });
-      const json = await res.json();
+      /*
+       * NOT `res.json()` (operator, 2026-08-03): *"Failed to execute 'json' on
+       * 'Response': Unexpected end of JSON input"* — the whole reported failure
+       * of this button. The route returned an EMPTY body and the raw parser
+       * reported a fact about JSON when the fact was about the request: the
+       * handler wrote nothing, so it crashed or was killed mid-ceremony. This
+       * route runs listTools -> build -> sign -> submit -> reread in ONE
+       * request, which is exactly the shape that hits a serverless timeout.
+       * The shared reader names that cause instead of hiding it.
+       */
+      const json = await readJsonOrExplain(res, 'verify/authorize');
       if (!res.ok || !json.ok) {
-        throw new Error(json?.error ?? `Authorization request failed (${res.status})`);
+        throw new Error(typeof json?.error === 'string' ? json.error : `Authorization request failed (${res.status})`);
       }
       await refresh();
     } catch (err) {
@@ -95,7 +106,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
     } finally {
       setAuthorizing(false);
     }
-  }, [refresh]);
+  }, [agentSlug, refresh]);
 
   if (loading) {
     return (

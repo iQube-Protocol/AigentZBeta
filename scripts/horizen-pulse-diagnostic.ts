@@ -82,10 +82,31 @@ async function main(): Promise<void> {
   let ownerFromRegistry: string | null = null;
   try {
     const { fetchRegistryAgent } = await import('../services/horizen/client');
-    const read = await fetchRegistryAgent(decimalAgentId, NETWORK);
-    const record = (read as { ok?: boolean; value?: Record<string, unknown> }).value ?? null;
+    const read = (await fetchRegistryAgent(decimalAgentId, NETWORK)) as {
+      ok?: boolean;
+      reason?: string;
+      value?: Record<string, unknown>;
+    };
+    const record = read.value ?? null;
     if (!record) {
-      line('Lookup', 'no record returned');
+      /*
+       * "no record returned" WAS ITSELF A DISCARDED ANSWER (2026-08-03).
+       *
+       * This branch collapsed three different facts into one sentence: the
+       * registry answered and has no such agent; the read failed and said why;
+       * the read succeeded with an unexpected shape. The first would mean
+       * Pulse can never work for this id. The second means we learned nothing.
+       * Printing them identically is the same defect as `res.json()` reporting
+       * a parser error — a diagnostic that hides its own finding.
+       */
+      line('Lookup ok', read.ok === true);
+      line('Reason', read.reason ?? '(none given)');
+      line(
+        'Means',
+        read.ok === true
+          ? 'the registry ANSWERED and holds no agent at this id — Pulse cannot apply until it does'
+          : 'the read did not complete, so this says NOTHING about whether the agent is registered',
+      );
     } else {
       const source = typeof record.source === 'string' ? record.source : null;
       ownerFromRegistry = typeof record.owner === 'string' ? record.owner : null;
