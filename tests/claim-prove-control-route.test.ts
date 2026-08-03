@@ -13,11 +13,17 @@ vi.mock('@/services/identity/getActivePersona', () => ({
 }));
 
 let registryAssetsRow: { metadata: any } | null = null;
+let personaRow: { id: string } | null = null;
 vi.mock('@/app/api/_lib/supabaseServer', () => ({
   getSupabaseServer: () => ({
     from: (table: string) => {
-      if (table !== 'registry_assets') throw new Error(`unexpected table: ${table}`);
-      return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: registryAssetsRow, error: null }) }) }) };
+      if (table === 'registry_assets') {
+        return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: registryAssetsRow, error: null }) }) }) };
+      }
+      if (table === 'personas') {
+        return { select: () => ({ ilike: () => ({ maybeSingle: async () => ({ data: personaRow, error: null }) }) }) };
+      }
+      throw new Error(`unexpected table: ${table}`);
     },
   }),
 }));
@@ -37,8 +43,10 @@ vi.mock('@/services/signing/partnerAuthorizationSigner', () => ({
 }));
 
 const mockCreateActivityReceipt = vi.fn(async (input: any) => ({ id: `receipt-${input.actionType}`, ...input }));
+const mockListReceipts = vi.fn();
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
+  listActivityReceiptsForPersona: (...args: any[]) => mockListReceipts(...args),
 }));
 
 const mockRunMarketaAssessment = vi.fn();
@@ -61,6 +69,13 @@ function makeRequest(): NextRequest {
   return { nextUrl: { searchParams: new URLSearchParams() } } as unknown as NextRequest;
 }
 
+function makeRequestWithBody(body: Record<string, unknown>): NextRequest {
+  return {
+    nextUrl: { searchParams: new URLSearchParams() },
+    json: async () => body,
+  } as unknown as NextRequest;
+}
+
 const VERIFIED_BOUND_ROW = {
   metadata: {
     external_registry_bindings: [
@@ -78,9 +93,11 @@ beforeEach(() => {
   mockGetAgentAddresses.mockReset();
   mockSignPartnerAuthorization.mockReset();
   mockCreateActivityReceipt.mockClear();
+  mockListReceipts.mockReset();
   mockRunMarketaAssessment.mockReset();
   mockGetCurrentAssessment.mockReset();
   registryAssetsRow = null;
+  personaRow = null;
 
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });
 });
@@ -204,5 +221,94 @@ describe('POST — success', () => {
     expect(json.ok).toBe(true);
     expect(json.assessmentRefusalCode).toBe('AIGENTQUBE_NOT_FOUND');
     expect(json.controlProofReceiptId).toBe('receipt-agent_control_proven');
+  });
+});
+
+/*
+ * THE ACTUAL FIX (Aigent Nakamoto's live registration, 2026-08-03).
+ *
+ * "Prove wallet control" answered `no registry_assets row for
+ * "aigentqube-moneypenny"` while claiming Nakamoto — a double bug:
+ * MarketaEligibilityView never sent agentSlug (fixed above the fold in
+ * PilotJourneyTab.tsx / MarketaEligibilityView.tsx), AND even with the
+ * correct agentSlug, her registry_assets projection had no tokenId because
+ * the OTHER write from her confirmed registration (updateRegistryAssetBinding)
+ * had not landed. This proves the route survives the second failure too, via
+ * the shared resolveHorizenRegistrationBinding fallback.
+ */
+describe('POST — the agent is honored, and a stuck registry_assets write does not block Claim', () => {
+  it('reads the SELECTED agent (nakamoto), never silently falling back to MoneyPenny', async () => {
+    registryAssetsRow = {
+      metadata: { external_registry_bindings: [{ token_id: '8798', network: 'base-sepolia', transparency: { pulse_enabled: true, pnl_disclosure_authorized: true } }] },
+    };
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xNakamotoWallet' });
+    mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xNakamotoWallet', payloadHash: 'hash', signedAt: '2026-08-03T00:00:00.000Z' } });
+    mockRunMarketaAssessment.mockResolvedValue({
+      ok: true,
+      record: { assessmentId: 'a2', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
+    });
+
+    const res = await POST(makeRequestWithBody({ agentSlug: 'nakamoto' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(mockGetAgentAddresses).toHaveBeenCalledWith('aigent-nakamoto');
+    const assessArgs = mockRunMarketaAssessment.mock.calls[0][0];
+    expect(assessArgs.agentCardUrl).toBe('https://dev-beta.aigentz.me/api/agents/nakamoto/agent-card.json');
+  });
+
+  it('falls back to the confirmation receipt when the registry_assets binding write never landed', async () => {
+    // The registry_assets projection — exactly Nakamoto's real state: the
+    // row and binding exist (Register wrote the placeholder), but token_id
+    // is still null because updateRegistryAssetBinding's write did not stick.
+    registryAssetsRow = {
+      metadata: { external_registry_bindings: [{ token_id: null, registry_alias: null, status: 'pending-registration' }] },
+    };
+    personaRow = { id: 'persona-nakamoto-journey' };
+    mockListReceipts.mockResolvedValue([
+      {
+        actionType: 'horizen_agent_registered',
+        agentsInvoked: ['aigent-nakamoto'],
+        actionInput: {
+          registration: {
+            tokenId: '8798',
+            network: 'base-sepolia',
+            registryAddress: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
+          },
+        },
+      },
+    ]);
+    // Verify's own transparency write DID land (a separate, unaffected act) —
+    // only the registry_assets tokenId is stuck.
+    registryAssetsRow.metadata.external_registry_bindings[0].transparency = { pulse_enabled: true, pnl_disclosure_authorized: true };
+
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xNakamotoWallet' });
+    mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xNakamotoWallet', payloadHash: 'hash', signedAt: '2026-08-03T00:00:00.000Z' } });
+    mockRunMarketaAssessment.mockResolvedValue({
+      ok: true,
+      record: { assessmentId: 'a3', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
+    });
+
+    const res = await POST(makeRequestWithBody({ agentSlug: 'nakamoto' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.assessment.decision).toBe('RECOMMENDED');
+    // The control-proof receipt itself must carry the RECOVERED tokenId, not a blank.
+    const receiptCall = mockCreateActivityReceipt.mock.calls[0][0];
+    expect(receiptCall.actionInput.tokenId).toBe('8798');
+  });
+
+  it('still 409s MISSING_TOKEN_ID when NEITHER the projection NOR any receipt has a tokenId — a real "not registered" is not papered over', async () => {
+    registryAssetsRow = {
+      metadata: { external_registry_bindings: [{ token_id: null, registry_alias: null, status: 'pending-registration' }] },
+    };
+    personaRow = { id: 'persona-nakamoto-journey' };
+    mockListReceipts.mockResolvedValue([]);
+
+    const res = await POST(makeRequestWithBody({ agentSlug: 'nakamoto' }));
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.refusalCode).toBe('MISSING_TOKEN_ID');
   });
 });

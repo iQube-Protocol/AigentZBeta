@@ -82,7 +82,27 @@ export interface RegistrationDeps {
   rpcProvider?: ethers.Provider;
   fetchRegistryAgent?: (registryAlias: string, network: HorizenNetwork) => Promise<HorizenRead<Record<string, unknown>>>;
   updateRegistryAssetBinding?: (aigentQubeId: string, patch: { tokenId: string; registryAlias: string; agentIdentifier: string | null; humanReadableUrl: string | null }) => Promise<void>;
-  createRegistrationReceipt?: (input: { actorPersonaId: string; agent: RegistrableAgentConfig; network: HorizenNetwork; txHash: string }) => Promise<string | null>;
+  /**
+   * The confirmation-evidence receipt. Carries the STRUCTURED result, not
+   * just the transaction that may have produced it (Al, 2026-08-03 — the
+   * receipt this replaced held only `{txHash, network, aigentQubeId}`, so no
+   * observer could conclude REGISTER_COMPLETE from it without a second chain
+   * lookup, and the tokenId lived only in a success banner). `tokenId` is
+   * ALWAYS the ownerOf-verified value at the point this receipt is written —
+   * never a guess.
+   */
+  createRegistrationReceipt?: (input: {
+    actorPersonaId: string;
+    agent: RegistrableAgentConfig;
+    network: HorizenNetwork;
+    txHash: string;
+    tokenId: string;
+    registryAddress: string | null;
+    ownerAddress: string;
+    confirmationSource: ConfirmationSource;
+    blockNumber: number | null;
+    logIndex: number | null;
+  }) => Promise<string | null>;
   /**
    * Derives the owner wallet's PUBLIC address ONLY — derivation/lookup, never
    * signs anything. Horizen's real build_registration_tx schema (confirmed
@@ -645,6 +665,9 @@ export interface OnChainRegistrationEvidence {
   registry: string | null;
   source: 'Registered' | 'Transfer' | null;
   detail: string;
+  /** Where the minting event sits in the chain — null unless `verified`. */
+  blockNumber: number | null;
+  logIndex: number | null;
 }
 
 export interface AgentRegistrationStatus {
@@ -806,7 +829,7 @@ export async function checkAgentRegistrationStatus(
    * reported and the divergence is stated.
    */
   let recoveredAgentId: string | null = null;
-  let onChain: OnChainRegistrationEvidence = { verified: false, agentId: null, registry: null, source: null, detail: 'not attempted' };
+  let onChain: OnChainRegistrationEvidence = { verified: false, agentId: null, registry: null, source: null, detail: 'not attempted', blockNumber: null, logIndex: null };
   try {
     const provider = deps.rpcProvider ?? new ethers.JsonRpcProvider(input.rpcUrl);
     /*
@@ -841,9 +864,11 @@ export async function checkAgentRegistrationStatus(
         detail:
           `${decoded.source} event in transaction ${input.txHash} minted agent ${decoded.agentId} at registry ` +
           `${decoded.registry}; ownerOf(${decoded.agentId}) resolves to ${input.ownerWalletAddress}`,
+        blockNumber: decoded.blockNumber,
+        logIndex: decoded.logIndex,
       };
     } else {
-      onChain = { verified: false, agentId: null, registry: null, source: null, detail: decoded.reason };
+      onChain = { verified: false, agentId: null, registry: null, source: null, detail: decoded.reason, blockNumber: null, logIndex: null };
     }
   } catch (err) {
     // A failed decode is not an answer about the registration — neither about
@@ -852,6 +877,7 @@ export async function checkAgentRegistrationStatus(
     onChain = {
       verified: false, agentId: null, registry: null, source: null,
       detail: `the transaction receipt could not be read: ${err instanceof Error ? err.message : String(err)}`,
+      blockNumber: null, logIndex: null,
     };
   }
 
@@ -965,7 +991,12 @@ export async function checkAgentRegistrationStatus(
       await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId: chainTokenId, registryAlias: chainAlias, agentIdentifier: null, humanReadableUrl: null });
     }
     const chainReceiptId = deps.createRegistrationReceipt
-      ? await deps.createRegistrationReceipt({ actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash })
+      ? await deps.createRegistrationReceipt({
+          actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash,
+          tokenId: chainTokenId, registryAddress: onChain.registry, ownerAddress: input.ownerWalletAddress,
+          confirmationSource: confirmationSource ?? 'on-chain-receipt',
+          blockNumber: onChain.blockNumber, logIndex: onChain.logIndex,
+        })
       : null;
     return {
       ok: true,
@@ -1002,7 +1033,12 @@ export async function checkAgentRegistrationStatus(
       await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId, registryAlias, agentIdentifier, humanReadableUrl });
     }
     if (deps.createRegistrationReceipt) {
-      receiptId = await deps.createRegistrationReceipt({ actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash });
+      receiptId = await deps.createRegistrationReceipt({
+        actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash,
+        tokenId, registryAddress: onChain.registry ?? registryAlias, ownerAddress: input.ownerWalletAddress,
+        confirmationSource: confirmationSource ?? 'horizen-status',
+        blockNumber: onChain.blockNumber, logIndex: onChain.logIndex,
+      });
     }
   }
 

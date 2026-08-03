@@ -198,9 +198,18 @@ export function registerCeremonyProgress(input: {
     label: LADDER[at].label,
     ...detail[stageId],
     expiredAttempts: input.expiredAttempts,
+    /*
+     * THE TERMINAL RUNG IS AN ACHIEVEMENT, NOT A CURRENT ACT (pilot,
+     * 2026-08-03 — "all 5 [rungs] should be green"). Every other rung's
+     * `current` state names something NOT YET done — the current rung is the
+     * one still in flight. REGISTERED has no such open act: reaching it IS
+     * the completion, so `i === at` must render 'done' here specifically,
+     * or a confirmed registration would show its own last rung as still
+     * "in progress" (violet ●) forever.
+     */
     ladder: LADDER.map((s, i) => ({
       ...s,
-      state: i < at ? 'done' : i === at ? 'current' : 'pending',
+      state: i < at || (i === at && stageId === 'REGISTERED') ? 'done' : i === at ? 'current' : 'pending',
     })),
   };
 }

@@ -43,9 +43,23 @@ const DECISION_STYLE: Record<Decision, { border: string; bg: string; text: strin
 
 interface MarketaEligibilityViewProps {
   personaId?: string;
+  /*
+   * WHICH AGENT CLAIM IS ABOUT (2026-08-03).
+   *
+   * This surface previously took no agentSlug at all — its props were
+   * declared and never read (`_props`), and both requests to
+   * claim/prove-control omitted agentSlug, so the server defaulted to
+   * MoneyPenny regardless of which agent Register/Verify had just acted on.
+   * Aigent Nakamoto's live registration hit this directly: "Prove wallet
+   * control" answered `no registry_assets row for "aigentqube-moneypenny"`
+   * while claiming Nakamoto. Required, not defaulted, for the same reason
+   * PulseTransparencyToggle's agentSlug is required: a default here would
+   * silently restore exactly this.
+   */
+  agentSlug: string;
 }
 
-export function MarketaEligibilityView(_props: MarketaEligibilityViewProps) {
+export function MarketaEligibilityView({ agentSlug }: MarketaEligibilityViewProps) {
   const [loading, setLoading] = useState(true);
   const [assessment, setAssessment] = useState<AssessmentView | null>(null);
   const [proving, setProving] = useState(false);
@@ -54,7 +68,10 @@ export function MarketaEligibilityView(_props: MarketaEligibilityViewProps) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await personaFetch('/api/journey/moneypenny-horizen/claim/prove-control', { cache: 'no-store' });
+      const res = await personaFetch(
+        `/api/journey/moneypenny-horizen/claim/prove-control?agentSlug=${encodeURIComponent(agentSlug)}`,
+        { cache: 'no-store' },
+      );
       if (res.ok) {
         const json = await res.json();
         setAssessment(json.assessment ?? null);
@@ -64,7 +81,7 @@ export function MarketaEligibilityView(_props: MarketaEligibilityViewProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentSlug]);
 
   useEffect(() => {
     void refresh();
@@ -74,7 +91,11 @@ export function MarketaEligibilityView(_props: MarketaEligibilityViewProps) {
     setProving(true);
     setError(null);
     try {
-      const res = await personaFetch('/api/journey/moneypenny-horizen/claim/prove-control', { method: 'POST' });
+      const res = await personaFetch('/api/journey/moneypenny-horizen/claim/prove-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agentSlug }),
+      });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json?.error ?? `Request failed (${res.status})`);
       if (json.assessment) setAssessment(json.assessment);
@@ -84,7 +105,7 @@ export function MarketaEligibilityView(_props: MarketaEligibilityViewProps) {
     } finally {
       setProving(false);
     }
-  }, []);
+  }, [agentSlug]);
 
   if (loading) {
     return (

@@ -36,7 +36,7 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 import { runMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentRunner';
 import { getCurrentMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentStore';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
-import type { ExternalAgentRegistryBinding } from '@/types/registry-canonical';
+import { resolveHorizenRegistrationBinding } from '@/services/horizen/agentRegistrationBinding';
 
 export const dynamic = 'force-dynamic';
 
@@ -95,15 +95,18 @@ export async function POST(request: NextRequest) {
 
   const { data: aigentQube } = await admin
     .from('registry_assets')
-    .select('metadata')
+    .select('asset_id')
     .eq('asset_id', AIGENTQUBE_ID)
     .maybeSingle();
   if (!aigentQube) {
     return NextResponse.json({ ok: false, refusalCode: 'NO_PERSISTED_AIGENTQUBE', error: `no registry_assets row for "${AIGENTQUBE_ID}"` }, { status: 409 });
   }
 
-  const metadata = (aigentQube.metadata ?? {}) as { external_registry_bindings?: ExternalAgentRegistryBinding[] };
-  const binding = metadata.external_registry_bindings?.[0];
+  // The ONE resilient reader (services/horizen/agentRegistrationBinding.ts),
+  // shared with both served Agent Card routes — falls back to the
+  // confirmation receipt when the registry_assets projection hasn't caught
+  // up with an already-confirmed registration (Aigent Nakamoto, 2026-08-03).
+  const { binding } = await resolveHorizenRegistrationBinding(admin, agent);
   if (!binding?.token_id) {
     return NextResponse.json(
       { ok: false, refusalCode: 'MISSING_TOKEN_ID', error: `${agent.displayName} has no Horizen tokenId yet — the Register stage must complete first` },
