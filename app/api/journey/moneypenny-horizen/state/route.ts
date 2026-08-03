@@ -38,11 +38,14 @@ import {
 } from '@/services/journey/stageResolution';
 import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
-import {
-  resolvePassportPrincipalForAuthUser,
-  isPassportUsable,
-  loadUsableCitizenPassportForAuthProfile,
-} from '@/services/identity/passportPrincipal';
+/*
+ * `resolvePassportPrincipalForAuthUser` is deliberately NOT imported here.
+ * It walks the DID chain, which belongs to identity VERIFICATION (passport-
+ * native sign-in), never to ordinary Passport recognition — operator ruling
+ * 2026-08-03: "Remove DID-based lookup from the ordinary Passport recognition
+ * flow. Do not retain it as a fallback."
+ */
+import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
 import {
@@ -239,108 +242,96 @@ async function resolveState(req: NextRequest) {
           operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
         } else {
           /*
-           * ══ THE PASSPORT CREDENTIAL IS THE AUTHORITY. THE DID IS ITS
-           *    PRODUCT. ══════════════════════════════════════════════════════
+           * ══ THE PASSPORT IS THE SURFACED CONSTITUTIONAL IDENTIFIER ═══════
            *
            * Operator ruling, 2026-08-03:
            *
-           *   > "It should be the passport VC only — that's essentially the
-           *   >  point of it. A person or agent may arrive without a passport
-           *   >  and not have had a DID issued. The passport process ISSUES
-           *   >  the kybe or root DID, so that can't be the gating issue."
+           *   > "The Passport is the surfaced constitutional identifier. The
+           *   >  DID is a protected sovereign identity primitive used behind
+           *   >  the Passport's cryptographic binding, not a routine discovery
+           *   >  key."
            *
-           * The causal order is:
+           *   > "Remove DID-based lookup from the ordinary Passport
+           *   >  recognition flow. Do not retain it as a fallback."
            *
-           *   arrives with neither → Passport issued → DID minted
-           *                                            (kybe for a human,
-           *                                             root for an agent)
+           * The recognition path is:
            *
-           * So resolving a Passport BY its DID inverts cause and effect. The
-           * DID is downstream of the credential; requiring it to find the
-           * credential asks the output to precede the input, and answers
-           * "no Passport" for every subject whose DID has not been minted yet
-           * — which is precisely the state a new arrival is in.
+           *   active persona / account   (an ACCESS CONTEXT, not the credential)
+           *     -> credential store
+           *       -> surfaced Passport VC
+           *         -> validate class + status
+           *           -> recognise constitutional personhood
            *
-           * This is why the Journey asked the wrong question first. It led
-           * with `resolvePassportPrincipalForAuthUser` (a DID-chain walk) and
-           * treated the credential as the fallback. It now leads with the
-           * CREDENTIAL, and consults the chain only to enrich what it found.
+           * It is NOT persona -> KybeDID/RootDID -> search for Passport. That
+           * ordering inverted the dependency (issuance MINTS the DID, so
+           * requiring one to find a credential answers "no Passport" for every
+           * subject whose DID has not been minted), and it also disclosed a
+           * protected primitive to answer a routine question.
            *
-           * I previously called the null `kybe_identity_id` an issuance
-           * defect. On this model it need not be: a Passport may legitimately
-           * exist before its DID is minted. Whether these particular rows
-           * SHOULD have one by now is a separate question, and not one this
-           * observer is entitled to answer by refusing to see the credential.
+           * TWO SUCCESSIVE CORRECTIONS LANDED HERE. First the ordering was
+           * inverted, leaving the DID walk as a fallback. The operator then
+           * ruled the fallback out entirely: a Citizen Passport is an ANONYMOUS
+           * personhood identifier, and recognising it must not require
+           * disclosing the kybe behind it. Raw DID disclosure belongs only to an
+           * explicit identity-verification act — never to stage recognition.
            *
-           * Role separation holds structurally: the lookup filters
+           * `resolvePassportPrincipalForAuthUser` is deliberately NOT called
+           * here any more. It remains correct for passport-native SIGN-IN,
+           * which is that separate verification context and legitimately needs
+           * a kybe-anchored principal to mint a session.
+           *
+           * Role separation is structural: the lookup filters
            * `passport_class = 'citizen'` in the query, so an agent's
            * `agent_participant` credential can never answer the principal's
-           * question. Agents are root-anchored and correctly hold no kybe —
-           * Nakamoto, arriving from the Horizen registry, is not expected to
-           * have a root DID at all. The Delegate Passport will create it.
+           * question. Nakamoto, arriving from the Horizen registry, is not
+           * expected to hold a RootDID — her Delegate Passport will create it.
            */
           const credential = await loadUsableCitizenPassportForAuthProfile(supabase, caller?.authProfileId ?? '');
 
-          let principal: Awaited<ReturnType<typeof resolvePassportPrincipalForAuthUser>>;
           if (credential.ok) {
-            principal = {
-              ok: true,
-              principal: {
-                // Empty on purpose, and never a lineage: this path establishes
-                // that a CREDENTIAL exists, not that a DID has been minted.
-                // Nothing downstream may read these as identity.
-                kybeId: '',
-                rootIdentityId: '',
-                authUserId,
-                passport: credential.passport,
-              },
-            };
-          } else if (credential.reason === 'unavailable') {
-            // A failed READ stays "cannot tell". Never demoted to "does not
-            // hold", and never silently retried down the DID path — that
-            // would convert an infrastructure fault into a constitutional
-            // finding.
-            principal = { ok: false, reason: 'unavailable' };
-          } else {
             /*
-             * No credential found by subject. The DID walk is consulted ONLY
-             * now — as a second way of finding a credential this deployment
-             * may key differently, never as a prerequisite. If it also finds
-             * nothing, the honest answer is that no Passport exists yet, and
-             * the Citizen path is genuinely the right next act.
+             * PERSONHOOD IS ESTABLISHED BY THE CREDENTIAL ITSELF. A Citizen
+             * Passport IS the anonymous personhood identifier — there is no
+             * further lineage to walk, and no kybe to read, before saying so.
              */
-            principal = await resolvePassportPrincipalForAuthUser(authUserId);
-          }
-
-          if (principal.ok) {
-            const usable = isPassportUsable(principal.principal.passport);
+            const usable = isPassportUsable(credential.passport);
             operatorPassport = { known: true, valid: usable, personhood: true };
             if (usable) {
-              // Settle it: this is exactly the kind of fact that should be
-              // resolved once and retrieved thereafter. Idempotent by contract.
               await settleFact(supabase, agent.aigentQubeId, {
                 subject: 'operator',
                 predicate: 'passport_is_issued',
                 object: {
-                  passportClass: principal.principal.passport.passportClass,
-                  citizenStatus: principal.principal.passport.citizenStatus,
-                  participantStatus: principal.principal.passport.participantStatus,
+                  passportClass: credential.passport.passportClass,
+                  citizenStatus: credential.passport.citizenStatus,
+                  participantStatus: credential.passport.participantStatus,
                 },
-                // T0 DISCIPLINE: kybeId / authUserId / rootIdentityId are
-                // server-internal and never leave this function. The evidence
-                // ref names the SOURCE of the resolution, never the identifiers.
-                evidenceRefs: ['canonical:polity_passport_records', 'resolver:resolvePassportPrincipalForAuthUser'],
-                resolutionAuthority: 'app/api/journey/moneypenny-horizen/state:canonical-passport-read',
+                /*
+                 * T0 DISCIPLINE, AND THE SOVEREIGN-PRIMITIVE RULE. No kybe,
+                 * no root id, no authUserId is recorded — none is even read on
+                 * this path. The evidence ref names the SOURCE of the
+                 * resolution, never an identifier.
+                 */
+                evidenceRefs: ['canonical:polity_passport_records', 'resolver:loadUsableCitizenPassportForAuthProfile'],
+                resolutionAuthority: 'app/api/journey/moneypenny-horizen/state:passport-credential-read',
               });
             }
-          } else if (principal.reason === 'no_passport' || principal.reason === 'passport_inactive') {
-            // READ, and genuinely absent/inactive — a real negative finding.
-            // Personhood still resolved: the lineage walk reached the kybe.
-            operatorPassport = { known: true, valid: false, personhood: true, detail: principal.reason };
+          } else if (credential.reason === 'no_passport' || credential.reason === 'passport_inactive') {
+            /*
+             * READ, and genuinely absent or inactive — a real negative finding,
+             * and the one case where routing to Citizen issuance is correct.
+             * `personhood: true` because the credential store answered: we know
+             * this caller, they simply hold no usable Passport yet.
+             */
+            operatorPassport = { known: true, valid: false, personhood: true, detail: credential.reason };
           } else {
-            // wallet_unknown | lineage_incomplete | principal_unprovisioned |
-            // unavailable — could not read. NOT a negative finding.
-            operatorPassport = { known: false, valid: false, personhood: false, detail: principal.reason };
+            /*
+             * unavailable | principal_unprovisioned — COULD NOT DETERMINE.
+             * Never "no Passport", and explicitly never retried down a DID
+             * path: an unreadable credential store is an infrastructure fault,
+             * not a constitutional finding about the holder.
+             */
+            operatorPassport = { known: false, valid: false, personhood: false, detail: credential.reason };
+          }
           }
         }
       }

@@ -407,6 +407,17 @@ describe('the principal Passport check can never be satisfied by an agent record
     'utf8',
   );
 
+  /*
+   * COMMENTS STRIPPED. The guard's prose explains the two models it replaced
+   * and therefore NAMES the removed resolver; asserting over raw source would
+   * measure the explanation rather than the code.
+   */
+  const passportGuardCode = () =>
+    stateSrc
+      .slice(stateSrc.indexOf("guarded('passport'"), stateSrc.indexOf("guarded('authorization-store'"))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+
   it('the persona-keyed Citizen lookup filters to passport_class = citizen IN THE QUERY', () => {
     /*
      * In the query, not in a post-filter: a delegate's `agent_participant`
@@ -436,64 +447,81 @@ describe('the principal Passport check can never be satisfied by an agent record
     );
     expect(passportGuard, 'passport guard not found — the route moved').not.toBe('');
     expect(passportGuard, 'the agent must never key the principal Passport lookup').not.toMatch(
-      /resolvePassportPrincipal\w*\([^)]*agent\./,
+      /loadUsableCitizenPassportForAuthProfile\([^)]*agent\./,
     );
+    /*
+     * RE-POINTED with the DID-removal ruling. This asserted the lookup was
+     * keyed via `resolvePassportPrincipalForAuthUser(authUserId)` — a resolver
+     * now forbidden in recognition entirely, so the old assertion would defend
+     * the very thing CANARY 3 forbids. The requirement that survives is what
+     * it was really protecting: the lookup is keyed on the AUTHENTICATED
+     * CALLER, never on the journey's agent subject.
+     */
     expect(passportGuard, 'the principal lookup must be keyed on the authenticated caller').toMatch(
-      /resolvePassportPrincipalForAuthUser\(authUserId\)/,
+      /loadUsableCitizenPassportForAuthProfile\(supabase,\s*caller\?\.authProfileId/,
     );
   });
 
   /*
-   * RE-POINTED (2026-08-03). This asserted the ORDER of the old model —
-   * DID walk first, credential lookup as a fallback gated on a negative
-   * finding. The operator then corrected the model itself:
+   * RE-POINTED TWICE (2026-08-03), and this is why they were not deleted.
    *
-   *   > "Passport establishes the DID relationship; DID presence does not
-   *   >  establish Passport eligibility."
+   * v1 asserted the ORDER of the old model: DID walk first, credential as a
+   * fallback. v2 inverted it. The operator then ruled the fallback out
+   * entirely:
    *
-   * So the ordering it pinned is now inverted by design, and asserting it
-   * would defend the defect. The requirement that SURVIVES the inversion is
-   * the one that mattered: a failed READ must never be demoted into a
-   * constitutional finding. Asserted at its new position.
+   *   > "The Passport is the surfaced constitutional identifier. The DID is a
+   *   >  protected sovereign identity primitive used behind the Passport's
+   *   >  cryptographic binding, not a routine discovery key."
+   *
+   * So an ORDERING assertion is now the wrong shape at any polarity — there
+   * is only one lookup. What survives both corrections is the requirement
+   * underneath: recognition must never depend on, or disclose, a raw DID.
    */
-  it('an unreadable credential read stays "cannot tell", never "does not hold"', () => {
-    const passportGuard = stateSrc.slice(
-      stateSrc.indexOf("guarded('passport'"),
-      stateSrc.indexOf("guarded('authorization-store'"),
-    );
-    // `unavailable` short-circuits to an unreadable principal — it must not
-    // fall through to the DID walk, which would convert an infrastructure
-    // fault into "this operator holds no Passport".
-    expect(passportGuard).toMatch(/credential\.reason === 'unavailable'/);
-    expect(passportGuard).toMatch(/principal = \{ ok: false, reason: 'unavailable' \}/);
+  it('CANARY 1+2 — recognition surfaces the credential and exposes NO raw DID', () => {
+    const guard = passportGuardCode();
+    expect(guard).toContain('loadUsableCitizenPassportForAuthProfile');
+    // No sovereign primitive is read, recorded, or returned on this path.
+    expect(guard, 'a raw kybe id appears in recognition').not.toMatch(/kybeId|kybe_identity_id|kybe_did/);
+    expect(guard, 'a raw root id appears in recognition').not.toMatch(/rootIdentityId|root_identity_id|rootDid/);
   });
 
-  it('the CREDENTIAL is resolved first; the DID walk is never the gate', () => {
+  it('CANARY 3 — no ordinary Passport observer queries by raw DID', () => {
+    const guard = passportGuardCode();
+    expect(guard, 'the DID walk is still reachable from stage recognition').not.toContain(
+      'resolvePassportPrincipalForAuthUser',
+    );
+    expect(guard, 'the DID walk is still reachable from stage recognition').not.toContain('resolvePassportPrincipal(');
+  });
+
+  it('CANARY 4 — a missing DID never causes a valid Passport to be rejected', () => {
     /*
-     * THE ASSERTION THAT FAILS ON THE INVERTED DEPENDENCY. A subject who has
-     * never been issued a DID — every new arrival, and Nakamoto arriving from
-     * the Horizen registry — must still be able to present a Passport. Leading
-     * with the DID walk answers "no Passport" for exactly those subjects.
+     * Structural: `loadUsableCitizenPassportForAuthProfile` selects only
+     * credential fields. If it neither selects nor filters a DID column, no
+     * DID state can influence whether a Passport is recognised.
      */
+    const fn = principalSrc.slice(
+      principalSrc.indexOf('export async function loadUsableCitizenPassportForAuthProfile'),
+    );
+    const body = fn.slice(0, fn.indexOf('\n}\n') + 3);
+    expect(body, 'the credential lookup filters on a DID column').not.toMatch(/kybe_identity_id|root_identity_id/);
+    expect(body).toMatch(/\.eq\('passport_class',\s*'citizen'\)/);
+  });
+
+  it('CANARY 5 — DID disclosure remains confined to identity verification', () => {
     /*
-     * COMMENTS STRIPPED FIRST. The guard's own prose explains the inverted
-     * model it replaced, and therefore NAMES `resolvePassportPrincipalForAuthUser`
-     * above the code — so an ordering check over raw source measures the
-     * explanation rather than the implementation, and fails on a correct file.
-     * (Same trap tests/horizen-operator-claim.test.ts documents.)
+     * The kybe walk still exists and is still correct — for passport-native
+     * SIGN-IN, which is the explicit verification context and legitimately
+     * needs a kybe-anchored principal to mint a session. The rule is that it
+     * is reachable ONLY from there.
      */
-    const passportGuard = stateSrc
-      .slice(stateSrc.indexOf("guarded('passport'"), stateSrc.indexOf("guarded('authorization-store'"))
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/\/\/.*$/gm, '');
-    const credentialAt = passportGuard.indexOf('loadUsableCitizenPassportForAuthProfile');
-    const didWalkAt = passportGuard.indexOf('resolvePassportPrincipalForAuthUser(authUserId)');
-    expect(credentialAt, 'the credential lookup is missing').toBeGreaterThan(-1);
-    expect(didWalkAt, 'the DID walk is missing').toBeGreaterThan(-1);
-    expect(
-      credentialAt,
-      'the DID walk runs before the credential lookup — a subject with no DID yet cannot present a Passport',
-    ).toBeLessThan(didWalkAt);
+    expect(principalSrc).toContain('loadUsablePassportByKybe');
+    const walletWalk = principalSrc.slice(
+      principalSrc.indexOf('export async function resolvePassportPrincipal('),
+      principalSrc.indexOf('export async function resolvePassportPrincipalByWorldId'),
+    );
+    expect(walletWalk, 'session minting must still demand a kybe-anchored principal').toContain(
+      'loadUsablePassportByKybe',
+    );
   });
 
   it('the auth/session-minting path is left demanding a full kybe-anchored principal', () => {
