@@ -46,7 +46,9 @@ const mockCreateActivityReceipt = vi.fn(async (input: any) => ({ id: `receipt-${
 const mockListReceipts = vi.fn();
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
-  listActivityReceiptsForPersona: (...args: any[]) => mockListReceipts(...args),
+  // Keyed on the AGENT, not a persona — receipts are written against the
+  // acting operator's persona, so an agent's own persona never holds them.
+  findAgentRegistrationReceipts: (...args: any[]) => mockListReceipts(...args),
 }));
 
 const mockRunMarketaAssessment = vi.fn();
@@ -265,17 +267,20 @@ describe('POST — the agent is honored, and a stuck registry_assets write does 
       metadata: { external_registry_bindings: [{ token_id: null, registry_alias: null, status: 'pending-registration' }] },
     };
     personaRow = { id: 'persona-nakamoto-journey' };
+    // The flat facts shape findAgentRegistrationReceipts returns. A receipt
+    // carrying its own tokenId short-circuits before any chain call — the
+    // pre-enrichment (txHash-only) variant and its on-chain recovery are
+    // covered in tests/horizen-agent-registration-binding.test.ts, where the
+    // provider can be injected rather than dialled for real.
     mockListReceipts.mockResolvedValue([
       {
-        actionType: 'horizen_agent_registered',
-        agentsInvoked: ['aigent-nakamoto'],
-        actionInput: {
-          registration: {
-            tokenId: '8798',
-            network: 'base-sepolia',
-            registryAddress: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
-          },
-        },
+        receiptId: 'r-nakamoto',
+        txHash: '0xedda5f7388434fd979311b4573d1058ad33219058290ef8ea10b429b64b5dde6',
+        network: 'base-sepolia',
+        tokenId: '8798',
+        registryAddress: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
+        ownerAddress: '0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9',
+        createdAt: '2026-08-02T21:09:59.000Z',
       },
     ]);
     // Verify's own transparency write DID land (a separate, unaffected act) —

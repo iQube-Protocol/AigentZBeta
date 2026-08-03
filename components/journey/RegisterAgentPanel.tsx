@@ -463,27 +463,53 @@ export function RegisterAgentPanel({
         metadata?: { horizen?: { tokenId?: unknown; network?: unknown } };
       } | null;
       const horizen = cardJson?.metadata?.horizen;
-      const tokenId = typeof horizen?.tokenId === 'string' && horizen.tokenId ? horizen.tokenId : null;
-      setHorizenFacts({
-        network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
-        tokenId,
-      });
+      const cardTokenId = typeof horizen?.tokenId === 'string' && horizen.tokenId ? horizen.tokenId : null;
       const receiptJson = (await receiptRes.json().catch(() => null)) as {
         receipts?: {
           actionType: string;
           agentsInvoked?: string[] | null;
-          actionInput?: { txHash?: unknown; network?: unknown; horizenAgentId?: unknown } | null;
+          actionInput?: {
+            txHash?: unknown;
+            network?: unknown;
+            horizenAgentId?: unknown;
+            registration?: { tokenId?: unknown } | null;
+          } | null;
         }[];
       } | null;
       const forThisAgent = (receiptJson?.receipts ?? []).filter((r) =>
         (r.agentsInvoked ?? []).includes(`aigent-${agentSlug}`),
       );
+      const confirmedReceipts = forThisAgent.filter((r) => r.actionType === 'horizen_agent_registered');
       const confirmedHashes = new Set(
-        forThisAgent
-          .filter((r) => r.actionType === 'horizen_agent_registered')
+        confirmedReceipts
           .map((r) => (typeof r.actionInput?.txHash === 'string' ? r.actionInput.txHash : ''))
           .filter(Boolean),
       );
+
+      /*
+       * ONE SCREEN, ONE ANSWER (pilot, 2026-08-03).
+       *
+       * The panel held Nakamoto's tokenId in THREE places and fed its ladder
+       * from the weakest one, so a single screenshot showed all of:
+       *   "Awaiting confirmation from Horizen"   (ladder — from the card alone)
+       *   "HORIZEN TOKENID: not yet registered"  (card — projection was stuck)
+       *   "Aigent Nakamoto is registered — Horizen tokenId 8798"  (flow)
+       *
+       * Three claims, mutually exclusive, all rendered at once. The remedy is
+       * the operator's own precedence rule: a CONFIRMED external consequence
+       * outranks a pending request, which outranks prepared local state. Any
+       * source that can say "confirmed" settles it for every source.
+       */
+      const receiptTokenId =
+        confirmedReceipts
+          .map((r) => r.actionInput?.registration?.tokenId)
+          .find((t): t is string => typeof t === 'string' && t.length > 0) ?? null;
+      const tokenId = cardTokenId ?? receiptTokenId ?? flowTokenIdRef.current;
+
+      setHorizenFacts({
+        network: typeof horizen?.network === 'string' && horizen.network ? horizen.network : null,
+        tokenId,
+      });
       // The most recent broadcast with no confirmation receipt behind it.
       const unconfirmed = forThisAgent.find(
         (r) =>
@@ -536,6 +562,18 @@ export function RegisterAgentPanel({
   useEffect(() => {
     flowStepRef.current = flow.step;
   }, [flow.step]);
+
+  /*
+   * The tokenId this session's own confirmation returned — the LAST-RESORT
+   * source for the ladder, used only when neither the Agent Card nor a
+   * confirmation receipt carries it (both server writes stuck at once). It is
+   * never cleared on a later poll: a confirmed registration does not become
+   * unconfirmed because a subsequent read failed to see it.
+   */
+  const flowTokenIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (flow.step === 'confirmed' && flow.tokenId) flowTokenIdRef.current = flow.tokenId;
+  }, [flow]);
 
   /** When the live mandate runs out — the countdown, and the auto-flip. */
   const [liveMandateExpiresAt, setLiveMandateExpiresAt] = useState<string | null>(null);

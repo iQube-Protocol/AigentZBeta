@@ -579,6 +579,85 @@ export async function listActivityReceiptsForPersona(
 }
 
 /**
+ * A registration receipt's own narrow facts, found by AGENT rather than by
+ * persona (Aigent Nakamoto's live registration, 2026-08-03).
+ *
+ * ── The bug this exists to close ───────────────────────────────────────────
+ *
+ * A `horizen_agent_registered` receipt is written with `personaId:
+ * actorPersonaId` — the OPERATOR who acted (ArkAgent), NOT the agent being
+ * registered. Anything trying to find "Nakamoto's registration receipt" by
+ * looking up Nakamoto's own persona therefore searches a persona that never
+ * holds it, finds nothing, and concludes she is unregistered. The receipt was
+ * right there the whole time under a different persona_id.
+ *
+ * Finding it needs a query keyed on `agents_invoked`, which is the only field
+ * that names the SUBJECT of the registration. That crosses persona scope, so
+ * this deliberately returns ONLY the registration facts — never the receipt
+ * body, which stays persona-scoped (same boundary `readReceiptAnchorStatus`
+ * observes: answer the narrow question asked, hand back nothing else).
+ *
+ * `tokenId` is `null` for receipts written before the structured
+ * `actionInput.registration` block existed. That is honest, not a failure —
+ * the caller recovers it from the chain via `txHash`, which is the one fact
+ * every such receipt does carry.
+ */
+export interface AgentRegistrationReceiptFacts {
+  receiptId: string;
+  txHash: string;
+  network: string | null;
+  /** From the structured `registration` block; null on pre-enrichment receipts. */
+  tokenId: string | null;
+  registryAddress: string | null;
+  ownerAddress: string | null;
+  createdAt: string;
+}
+
+export async function findAgentRegistrationReceipts(
+  runtimeAgentId: string,
+  options?: { limit?: number },
+): Promise<AgentRegistrationReceiptFacts[]> {
+  if (!runtimeAgentId) return [];
+  const limit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
+
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .select('id, action_input, created_at')
+    .eq('action_type', 'horizen_agent_registered')
+    .contains('agents_invoked', [runtimeAgentId])
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findAgentRegistrationReceipts failed: ${error.message}`);
+  }
+  if (!data) return [];
+
+  const out: AgentRegistrationReceiptFacts[] = [];
+  for (const row of data as { id: string; action_input: Record<string, unknown> | null; created_at: string }[]) {
+    const input = row.action_input ?? {};
+    const txHash = input.txHash;
+    // No txHash means nothing downstream can verify this receipt against the
+    // chain — an unverifiable row is not evidence, so it is skipped entirely.
+    if (typeof txHash !== 'string' || !txHash) continue;
+    const reg = input.registration as Record<string, unknown> | undefined;
+    out.push({
+      receiptId: row.id,
+      txHash,
+      network:
+        typeof reg?.network === 'string' ? reg.network : typeof input.network === 'string' ? input.network : null,
+      tokenId: typeof reg?.tokenId === 'string' && reg.tokenId ? reg.tokenId : null,
+      registryAddress: typeof reg?.registryAddress === 'string' ? reg.registryAddress : null,
+      ownerAddress: typeof reg?.ownerAddress === 'string' ? reg.ownerAddress : null,
+      createdAt: row.created_at,
+    });
+  }
+  return out;
+}
+
+/**
  * The DVN anchoring state of ONE receipt, by id.
  *
  * Added for the Horizen evidence chain (Slice B), which has to say whether the
