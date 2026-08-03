@@ -289,6 +289,209 @@ export function renderPopulationDisclosure(p: PopulationDisclosure): string {
   );
 }
 
+// ── PIPELINE CONTINUITY — the declared subject of every stage (ruling 2026-08-03) ──
+
+/**
+ * THE FIVE POPULATIONS A STAGE MAY DECLARE (operator ruling, 2026-08-03).
+ *
+ *   > "Each stage should explicitly declare one of: current crystal · admitted
+ *   >  corpus · ratified corpus · assigned crystal · excluded records. The
+ *   >  pipeline must never silently change population."
+ *
+ * ── Why this is a TYPE and not a comment ───────────────────────────────────
+ *
+ * Stage 2, 3 and 4 of the Track 2 programme operated over the experimental
+ * crystal under construction. Stage 5 read the ratified domain registry
+ * instead. Both readings were correct code; neither stage said what it was
+ * reading; so the surface could report *17 promoted invariants exist* and
+ * *there are no invariants to classify* on the same screen, and nothing in the
+ * system could notice that both cannot be true. A population that is only
+ * implied cannot be checked. Declared, it can.
+ *
+ * The five are DISTINCT POPULATIONS, not five names for one:
+ *
+ * | Population | What it actually is |
+ * |---|---|
+ * | `admitted-corpus` | the acquisition-domain source corpus and the evidence rows admitted from it |
+ * | `current-crystal` | the experimental cohort THIS run produced — extracted candidates, the invariants promoted from them |
+ * | `assigned-crystal` | the members actually admitted to the ratified crystal domain |
+ * | `ratified-corpus` | the standing domain registry, all-time, independent of any run |
+ * | `excluded-records` | records explicitly and visibly removed from a population, with a stated reason |
+ *
+ * `ratified-corpus` is in the vocabulary precisely so the substitution that
+ * caused this ruling is NAMEABLE. It is a legitimate population to read — it
+ * is never a legitimate silent substitute for `current-crystal`.
+ */
+export type DeclaredPopulation =
+  | 'admitted-corpus'
+  | 'current-crystal'
+  | 'assigned-crystal'
+  | 'ratified-corpus'
+  | 'excluded-records';
+
+export const DECLARED_POPULATIONS: readonly DeclaredPopulation[] = [
+  'admitted-corpus',
+  'current-crystal',
+  'assigned-crystal',
+  'ratified-corpus',
+  'excluded-records',
+];
+
+export const DECLARED_POPULATION_LABEL: Record<DeclaredPopulation, string> = {
+  'admitted-corpus': 'admitted corpus',
+  'current-crystal': 'current crystal',
+  'assigned-crystal': 'assigned crystal',
+  'ratified-corpus': 'ratified corpus',
+  'excluded-records': 'excluded records',
+};
+
+/**
+ * ONE stage's declaration of what it is reasoning about.
+ *
+ * `consumes` and `produces` differ ONLY at a stage that deliberately
+ * transforms one population into another (extraction turns an admitted corpus
+ * into a candidate cohort; assignment turns that cohort into crystal members).
+ * Everywhere else they are equal, and a difference that is not a declared
+ * transform is exactly the silent substitution this model exists to expose.
+ *
+ * `source` names the actual substrate read. It is what lets a reviewer check
+ * the declaration against reality instead of believing it — a stage that
+ * declares `current-crystal` and names a registry-wide query in `source` is
+ * caught by reading two adjacent lines.
+ */
+export interface PopulationDeclaration {
+  consumes: DeclaredPopulation;
+  produces: DeclaredPopulation;
+  source: string;
+}
+
+/** A stage that declares a population — the minimum `checkPopulationContinuity`
+ *  needs. Declared structurally so this module never imports a pipeline. */
+export interface PopulationDeclaringStage {
+  id: string;
+  ordinal: number;
+  population: PopulationDeclaration;
+}
+
+/**
+ * A place where the pipeline changed what it was reasoning about without
+ * saying so.
+ */
+export interface PopulationContinuityBreak {
+  fromStageId: string;
+  toStageId: string;
+  /** What the upstream stage declared it hands on. */
+  produced: DeclaredPopulation;
+  /** What the downstream stage declared it reads. */
+  consumed: DeclaredPopulation;
+  detail: string;
+}
+
+/**
+ * THE PIPELINE CONTINUITY CHECK.
+ *
+ *   > "Every stage consumes the declared output population of the previous
+ *   >  stage. A stage may narrow that population only through explicit,
+ *   >  receipted exclusions. It may never silently substitute a different
+ *   >  population."
+ *
+ * The head stage consumes nothing upstream, so its `consumes` is unconstrained
+ * — but it must still be DECLARED, which the type already guarantees.
+ */
+export function checkPopulationContinuity(
+  stages: readonly PopulationDeclaringStage[],
+): PopulationContinuityBreak[] {
+  const ordered = [...stages].sort((a, b) => a.ordinal - b.ordinal);
+  const breaks: PopulationContinuityBreak[] = [];
+  for (let i = 1; i < ordered.length; i += 1) {
+    const prev = ordered[i - 1];
+    const here = ordered[i];
+    if (prev.population.produces === here.population.consumes) continue;
+    breaks.push({
+      fromStageId: prev.id,
+      toStageId: here.id,
+      produced: prev.population.produces,
+      consumed: here.population.consumes,
+      detail:
+        `${here.id} reads the ${DECLARED_POPULATION_LABEL[here.population.consumes]} but ${prev.id} hands on ` +
+        `the ${DECLARED_POPULATION_LABEL[prev.population.produces]}. Those are different populations, so any ` +
+        `count either stage reports is about a different subject from the other's.`,
+    });
+  }
+  return breaks;
+}
+
+/**
+ * THE HANDOVER ACCOUNT between two adjacent stages — the arithmetic that makes
+ * a substitution detectable rather than merely forbidden.
+ *
+ *   > "If Stage 4 outputs N promoted candidates, Stage 5 must receive those
+ *   >  same N candidates (minus any explicitly excluded records). It must be
+ *   >  impossible for Stage 5 to report 'no invariants' unless Stage 4 also
+ *   >  reported zero."
+ *
+ * Same identity shape as Stage 3's completion rule
+ * (`batchedExtraction.extractionProgression`), one level up: there it is
+ * `processed + excluded === admitted population`, here it is
+ * `received + excluded === declaredOut`. The rule is the same rule — a stage
+ * cannot claim to have finished a population it cannot count.
+ */
+export interface PopulationHandover {
+  fromStageId: string;
+  toStageId: string;
+  /** The population the pair is meant to be reasoning about. */
+  population: DeclaredPopulation;
+  /** N — what the upstream stage declared it produced. */
+  declaredOut: number;
+  /** What the downstream stage actually received. */
+  received: number;
+  /** Explicitly and visibly removed between the two — the ONLY legitimate
+   *  narrowing (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001`). */
+  excluded: number;
+  /** One stated reason per exclusion. An exclusion without a reason is not an
+   *  exclusion, it is a disappearance. */
+  exclusionReasons: string[];
+}
+
+/** `received + excluded === declaredOut`, and nothing else. */
+export function handoverReconciles(h: PopulationHandover): boolean {
+  return h.received + h.excluded === h.declaredOut;
+}
+
+/**
+ * The breach sentence, or `null` when the handover accounts for itself.
+ *
+ * Returned as prose a surface can render verbatim so the operator meets the
+ * discontinuity itself rather than a downstream symptom of it — the symptom
+ * (*"there are no invariants to classify"*) is what cost this session.
+ */
+export function handoverBreach(h: PopulationHandover): string | null {
+  if (handoverReconciles(h)) return null;
+  const unaccounted = h.declaredOut - h.received - h.excluded;
+  return (
+    `POPULATION DISCONTINUITY between ${h.fromStageId} and ${h.toStageId}: ` +
+    `${h.fromStageId} declared ${h.declaredOut} ${DECLARED_POPULATION_LABEL[h.population]} record(s); ` +
+    `${h.toStageId} received ${h.received} with ${h.excluded} explicitly excluded — ` +
+    (unaccounted > 0
+      ? `${unaccounted} record(s) unaccounted for.`
+      : `${-unaccounted} record(s) MORE than were handed on, so it is reading a different population.`) +
+    ` Neither stage's count can be trusted until the two describe the same subject.`
+  );
+}
+
+/** The account in one line, for a receipt or a surface. */
+export function renderHandover(h: PopulationHandover): string {
+  return (
+    `${h.fromStageId} → ${h.toStageId} over the ${DECLARED_POPULATION_LABEL[h.population]}: ` +
+    `${h.declaredOut} handed on, ${h.received} received, ${h.excluded} explicitly excluded` +
+    (h.exclusionReasons.length > 0 ? ` (${h.exclusionReasons.join('; ')})` : '') +
+    '. ' +
+    (handoverReconciles(h)
+      ? `Accounted: ${h.received} + ${h.excluded} = ${h.declaredOut}.`
+      : (handoverBreach(h) as string))
+  );
+}
+
 // ── Global stop — EXTREMELY RARE, and enumerated ────────────────────────────
 
 /**

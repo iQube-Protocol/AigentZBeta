@@ -35,6 +35,14 @@
 
 import type { CrystalLifecycle } from '@/services/research/crystalDomains';
 import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
+import {
+  checkPopulationContinuity,
+  handoverBreach,
+  renderHandover,
+  type PopulationContinuityBreak,
+  type PopulationDeclaration,
+  type PopulationHandover,
+} from '@/services/research/exceptionIsolation';
 
 export type Track2StageId =
   | 'discover-sources'
@@ -98,6 +106,17 @@ export interface Track2Stage {
   /** Who performs it. */
   actor: string;
   status: Track2StageStatus;
+  /**
+   * WHAT THIS STAGE IS REASONING ABOUT — declared, never implied (operator
+   * ruling, 2026-08-03).
+   *
+   * Required, so a stage cannot be added without saying which population it
+   * reads and which it hands on. `checkPopulationContinuity` then proves the
+   * chain holds; before this field existed, Stage 5 substituted the ratified
+   * domain registry for the crystal it had inherited and nothing in the system
+   * could tell.
+   */
+  population: PopulationDeclaration;
   /** One line stating the observed fact behind `status`. */
   detail: string;
   /**
@@ -107,13 +126,54 @@ export interface Track2Stage {
   remedies: string[];
 }
 
+/**
+ * THE COHORT STAGES 5–7 WORK OVER — resolved from STAGE 4's promoted output,
+ * and from nothing else (operator ruling, 2026-08-03).
+ *
+ * ── The defect this type exists to make impossible ─────────────────────────
+ *
+ *   > "Stage 5 appears to have reverted to querying the ratified domain
+ *   >  registry instead of the crystal it inherited. Those are different
+ *   >  populations."
+ *
+ * Stage 5's old signal was a bare `unclassifiedPromoted: number` counted over
+ * `listInvariants({ domain: acquisitionDomain })` — every invariant ever tagged
+ * with the acquisition domain, across every run and every sub-domain. Stage 4
+ * counted `discovery_candidates WHERE status = 'promoted' AND sub_domain IS
+ * NULL`. Seventeen and sixty-eight, on one screen, about two different sets.
+ *
+ * A bare number cannot be reconciled against the stage that produced it. This
+ * shape can: the ids are named, the exclusions are named, and
+ * `received + excluded === Stage 4's promoted count` is checkable arithmetic.
+ */
+export interface PromotedCohort {
+  /**
+   * The invariants Stage 4 actually promoted, by id — resolved through each
+   * promoted candidate's `promoted_invariant_id`, which is the recorded link
+   * between the two stages. Never a domain query.
+   */
+  invariantIds: string[];
+  /** Of the received cohort, how many carry no recorded evidence provenance. */
+  unclassified: number;
+  /** Of the received cohort, how many carry zero recorded validations. */
+  unvalidated: number;
+  /** Relationships AMONG cohort members, and members with none. Null = unread. */
+  graph: { relationshipCount: number; orphanCount: number } | null;
+  /**
+   * Records that left the population between Stage 4 and here, each with a
+   * stated reason. The only legitimate narrowing — and visible, never
+   * discarded (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001`).
+   */
+  excluded: { recordId: string; reason: string }[];
+}
+
 export interface Track2ProgrammeSignals {
   /** Corpus Scout candidate sources, by review workflow status. Null = unreadable. */
   candidateSources: { total: number; pendingReview: number; admitted: number } | null;
   /** Discovery candidates for the acquisition domain. Null = unreadable. */
   discoveryCandidates: { total: number; awaitingReview: number; promoted: number } | null;
-  /** Promoted invariants with no recorded evidence provenance. Null = unreadable. */
-  unclassifiedPromoted: number | null;
+  /** Stages 5–7's population, inherited from Stage 4. Null = unreadable. */
+  promotedCohort: PromotedCohort | null;
   /** The crystal readiness report over the DECLARED domain. */
   readiness: CrystalReadinessReport;
   /** The lifecycle ladder, already derived elsewhere. Consumed, not recomputed. */
@@ -142,6 +202,22 @@ export interface Track2Programme {
    * before Stage 3 can operate over admitted evidence."*
    */
   unblockedStageIds: Track2StageId[];
+  /**
+   * THE PIPELINE'S OWN ACCOUNT OF ITS SUBJECT (operator ruling, 2026-08-03).
+   *
+   * `breaks` is empty when every stage consumes what the previous one hands
+   * on. `handovers` carries the arithmetic between the stages whose counts the
+   * operator can actually compare — today, Stage 4 → Stage 5. A non-empty
+   * `breaks`, or a handover that does not reconcile, is a defect in the
+   * PIPELINE, not in the data, and is surfaced as such rather than rendered as
+   * an empty queue.
+   */
+  populationContinuity: {
+    breaks: PopulationContinuityBreak[];
+    handovers: PopulationHandover[];
+    /** Every unreconciled handover's breach sentence, verbatim. */
+    breaches: string[];
+  };
   /** Every remedy on the current stage, hoisted so a surface leads with it. */
   nextActions: string[];
   /** Stated on the payload: this is read, not stored. */
@@ -154,12 +230,29 @@ const DERIVATION_NOTE =
   'stored anywhere, so acting through any underlying surface directly is reflected here immediately, and this ' +
   'programme can never disagree with the reports it reads.';
 
-/** Which readiness checks a stage is answerable for. Used to pull the engine's
- *  own remedies through, verbatim — never to restate them. */
+/**
+ * Which readiness checks a stage is answerable for. Used to pull the engine's
+ * own remedies through, verbatim — never to restate them.
+ *
+ * ── ONLY STAGES THAT DECLARE `assigned-crystal` MAY APPEAR HERE ────────────
+ *
+ * `runCrystalReadinessReport` assesses the ASSIGNED crystal — `listInvariants`
+ * filtered to the ratified crystal domain. Its remedies are therefore
+ * statements about the assigned crystal, and hanging them on a stage that
+ * works over the CURRENT crystal imports a foreign population through the
+ * remedy channel.
+ *
+ * That is exactly what happened: Stage 5 carried `provenance-eligibility`,
+ * whose remedy over an empty crystal domain reads *"Domain
+ * 'financial-risk-value-systems' holds no invariants, so this check has
+ * nothing to assess"* — rendered beside a count of sixty-eight, on a stage
+ * holding seventeen. Three populations, one stage. `classify-provenance`,
+ * `validate` and `add-relationships` were removed here on 2026-08-03 and now
+ * derive their remedies from the cohort they actually work over; the same
+ * checks remain on `run-readiness`, which does declare `assigned-crystal`, so
+ * no remedy was lost — only relocated to the stage whose subject it describes.
+ */
 const CHECKS_BY_STAGE: Partial<Record<Track2StageId, string[]>> = {
-  'classify-provenance': ['provenance-eligibility'],
-  validate: ['lifecycle-validation-integrity'],
-  'add-relationships': ['relationship-density', 'graph-connectivity', 'orphan-detection'],
   'assign-to-crystal': ['selection-space'],
   'run-readiness': [
     'selection-space',
@@ -196,10 +289,129 @@ export function buildTrack2Programme(input: {
 }): Track2Programme {
   const { signals: s } = input;
   const populated = s.readiness.invariantCount > 0;
-  const graphChecks = ['relationship-density', 'graph-connectivity', 'orphan-detection'];
-  const graphOk = graphChecks.every((n) => s.readiness.checks.find((c) => c.name === n)?.passed);
-  const provenanceOk = s.readiness.checks.find((c) => c.name === 'provenance-eligibility')?.passed ?? false;
-  const validationOk = s.readiness.checks.find((c) => c.name === 'lifecycle-validation-integrity')?.passed ?? false;
+
+  // ── THE STAGE 4 → STAGE 5 HANDOVER, computed once ─────────────────────────
+  //
+  // `declaredOut` is read from STAGE 4's own signal, and `received` from the
+  // cohort — the two numbers the operator saw disagree. Deriving either from
+  // the other would make them trivially equal and disclose nothing, which is
+  // the mistake `track2Population.ts` already documents for `validated` vs
+  // `assignedToCrystal`.
+  const cohort = s.promotedCohort;
+  const handover: PopulationHandover | null =
+    s.discoveryCandidates && cohort
+      ? {
+          fromStageId: 'review-and-promote',
+          toStageId: 'classify-provenance',
+          population: 'current-crystal',
+          declaredOut: s.discoveryCandidates.promoted,
+          received: cohort.invariantIds.length,
+          excluded: cohort.excluded.length,
+          exclusionReasons: cohort.excluded.map((e) => `${e.recordId}: ${e.reason}`),
+        }
+      : null;
+  const breach = handover ? handoverBreach(handover) : null;
+
+  /**
+   * Stages 5–7 all read the cohort, and all fail the same three ways: the
+   * signal is unreadable (`unknown`), the handover does not reconcile
+   * (`blocked` — a pipeline defect, never an empty queue), or the cohort is
+   * genuinely empty because Stage 4 promoted nothing (`not-started`).
+   *
+   * Written once so the three stages cannot drift into disagreeing about the
+   * same cohort — the second copy would be the stale one.
+   */
+  function cohortGate(): { status: Track2StageStatus; detail: string; remedies: string[] } | null {
+    if (!cohort) {
+      return {
+        status: 'unknown',
+        detail: 'the promoted cohort could not be read — status unknown, not assumed',
+        remedies: [],
+      };
+    }
+    if (breach) {
+      return {
+        status: 'blocked',
+        detail: breach,
+        remedies: [
+          'This is a defect in the pipeline, not in the data. Do not act on either count until the two ' +
+            'stages describe the same population: resolve the promoted candidates that carry no invariant ' +
+            'id, or record them as explicit exclusions with a reason.',
+        ],
+      };
+    }
+    if (cohort.invariantIds.length === 0) {
+      return {
+        status: 'not-started',
+        detail:
+          `nothing has been promoted into the current crystal yet` +
+          (handover ? ` — ${renderHandover(handover)}` : ''),
+        remedies: [],
+      };
+    }
+    return null;
+  }
+
+  const cohortSize = cohort?.invariantIds.length ?? 0;
+  const excludedNote =
+    cohort && cohort.excluded.length > 0
+      ? ` · ${cohort.excluded.length} explicitly excluded (${cohort.excluded.map((e) => e.reason).join('; ')})`
+      : '';
+
+  type StageOutcome = { status: Track2StageStatus; detail: string; remedies: string[] };
+
+  const classifyOutcome: StageOutcome = cohortGate() ?? {
+    status:
+      cohort!.unclassified === 0 ? (cohort!.excluded.length > 0 ? 'partially-complete' : 'complete') : 'in-progress',
+    detail:
+      `${cohort!.unclassified} of ${cohortSize} promoted invariant(s) in the current crystal carry no ` +
+      `recorded evidence provenance${excludedNote}`,
+    remedies:
+      cohort!.unclassified > 0
+        ? [
+            `Classify the ${cohort!.unclassified} unclassified member(s) of the current crystal. Promotion ` +
+              'deliberately leaves evidence provenance unset, so this is expected work, not a fault.',
+          ]
+        : [],
+  };
+
+  const validateOutcome: StageOutcome = cohortGate() ?? {
+    status:
+      cohort!.unvalidated === 0 ? (cohort!.excluded.length > 0 ? 'partially-complete' : 'complete') : 'in-progress',
+    detail:
+      `${cohortSize - cohort!.unvalidated} of ${cohortSize} promoted invariant(s) carry a real validation ` +
+      `count${excludedNote}`,
+    remedies:
+      cohort!.unvalidated > 0
+        ? [`${cohort!.unvalidated} member(s) of the current crystal carry zero validations — run the validation gate on each.`]
+        : [],
+  };
+
+  const relationshipsOutcome: StageOutcome =
+    cohortGate() ??
+    (cohort!.graph === null
+      ? {
+          // An unread graph is `unknown`, never "no relationships". Falling
+          // back to the readiness engine's graph checks here is precisely the
+          // substitution being removed — those checks are about the assigned
+          // crystal.
+          status: 'unknown',
+          detail: 'relationships among the current crystal could not be read — status unknown, not assumed',
+          remedies: [],
+        }
+      : {
+          status: cohort!.graph.orphanCount === 0 ? 'complete' : 'in-progress',
+          detail:
+            `${cohort!.graph.relationshipCount} relationship(s) among the ${cohortSize} member(s) of the ` +
+            `current crystal; ${cohort!.graph.orphanCount} carry none${excludedNote}`,
+          remedies:
+            cohort!.graph.orphanCount > 0
+              ? [
+                  `${cohort!.graph.orphanCount} member(s) of the current crystal carry no relationship to another ` +
+                    'member. Acquisition creates no edges, so these arrive as orphans by default — expected work, not a fault.',
+                ]
+              : [],
+        });
 
   const stages: Track2Stage[] = [
     {
@@ -211,6 +423,14 @@ export function buildTrack2Programme(input: {
       surface: 'Corpus Scout tab',
       workKind: 'scientific',
       actor: 'Steward',
+      // The head of the pipeline: it consumes no upstream stage's output, it
+      // WRITES INTO the acquisition corpus. Declared all the same, because a
+      // stage whose subject is unstated is the defect regardless of position.
+      population: {
+        consumes: 'admitted-corpus',
+        produces: 'admitted-corpus',
+        source: 'corpus_candidate_sources WHERE campaign_domain = <acquisitionDomain> — the head of the pipeline writes into this corpus',
+      },
       status:
         s.candidateSources === null ? 'unknown' : s.candidateSources.total > 0 ? 'complete' : 'not-started',
       detail:
@@ -231,6 +451,11 @@ export function buildTrack2Programme(input: {
       surface: 'Corpus Scout tab',
       workKind: 'scientific',
       actor: 'Steward — approval is never automatic (PRD-ICA-001 §6/§11)',
+      population: {
+        consumes: 'admitted-corpus',
+        produces: 'admitted-corpus',
+        source: 'corpus_candidate_sources WHERE campaign_domain = <acquisitionDomain>, partitioned by reviewWorkflowStatus and evidenceRowId',
+      },
       // PARTIAL COMPLETION IS THE HONEST ANSWER (exception-isolation ruling
       // §6). Sources admitted AND sources still outstanding is not
       // "in-progress toward all-or-nothing" — it is a stage that has processed
@@ -266,6 +491,14 @@ export function buildTrack2Programme(input: {
       surface: 'Invariant Discovery tab',
       workKind: 'scientific',
       actor: 'Steward',
+      // THE FIRST DECLARED TRANSFORM: admitted evidence in, a candidate cohort
+      // out. Legitimate precisely because it is declared — an undeclared
+      // change of population at the same point would be the defect.
+      population: {
+        consumes: 'admitted-corpus',
+        produces: 'current-crystal',
+        source: 'discovery_candidates WHERE domain = <acquisitionDomain> AND sub_domain IS NULL, extracted from the admitted evidence rows',
+      },
       status:
         s.discoveryCandidates === null ? 'unknown' : s.discoveryCandidates.total > 0 ? 'complete' : 'not-started',
       detail:
@@ -283,6 +516,11 @@ export function buildTrack2Programme(input: {
       surface: 'Invariant Discovery tab',
       workKind: 'scientific',
       actor: 'Steward',
+      population: {
+        consumes: 'current-crystal',
+        produces: 'current-crystal',
+        source: "discovery_candidates WHERE domain = <acquisitionDomain> AND sub_domain IS NULL — the same rows Stage 3 produced, partitioned by status ('candidate' | 'promoted')",
+      },
       status:
         s.discoveryCandidates === null
           ? 'unknown'
@@ -306,23 +544,19 @@ export function buildTrack2Programme(input: {
       surface: 'Invariant Discovery tab — classification queue',
       workKind: 'scientific',
       actor: 'Steward — a move into Population A citing only repo-internal sources is refused',
-      status:
-        s.unclassifiedPromoted === null
-          ? populated
-            ? provenanceOk
-              ? 'complete'
-              : 'in-progress'
-            : 'unknown'
-          : s.unclassifiedPromoted === 0
-            ? 'complete'
-            : 'in-progress',
-      detail:
-        s.unclassifiedPromoted === null
-          ? provenanceOk && populated
-            ? 'every crystal member is Population A'
-            : 'classification queue could not be read'
-          : `${s.unclassifiedPromoted} promoted invariant(s) carry no recorded evidence provenance`,
-      remedies: remediesFor('classify-provenance', s.readiness),
+      // THE STAGE THAT SUBSTITUTED (operator, 2026-08-03). It read
+      // `listInvariants({ domain: acquisitionDomain })` — the ratified domain
+      // registry, all-time, every sub-domain — while Stages 3 and 4 worked the
+      // run's own candidate cohort. It now reads the invariants Stage 4
+      // promoted, resolved through `promoted_invariant_id`, and nothing else.
+      population: {
+        consumes: 'current-crystal',
+        produces: 'current-crystal',
+        source: "the invariants named by Stage 4's promoted candidates, resolved through discovery_candidates.promoted_invariant_id",
+      },
+      status: classifyOutcome.status,
+      detail: classifyOutcome.detail,
+      remedies: classifyOutcome.remedies,
     },
     {
       id: 'validate',
@@ -333,13 +567,19 @@ export function buildTrack2Programme(input: {
       surface: 'Invariant Registry — invariant detail',
       workKind: 'scientific',
       actor: 'Steward',
-      status: !populated ? 'not-started' : validationOk ? 'complete' : 'in-progress',
-      detail: populated
-        ? validationOk
-          ? 'every crystal member carries a real validation count'
-          : 'some members carry zero validations'
-        : 'nothing assigned to the crystal domain yet',
-      remedies: remediesFor('validate', s.readiness),
+      // Validation happens BEFORE assignment (Stage 8 admits "eligible
+      // VALIDATED invariants"), so a stage that measured the assigned crystal
+      // could only ever report "nothing assigned yet" while the cohort it is
+      // responsible for sat unvalidated. Same substitution as Stage 5, one
+      // stage later.
+      population: {
+        consumes: 'current-crystal',
+        produces: 'current-crystal',
+        source: "timesValidated over the invariants named by Stage 4's promoted candidates",
+      },
+      status: validateOutcome.status,
+      detail: validateOutcome.detail,
+      remedies: validateOutcome.remedies,
     },
     {
       id: 'add-relationships',
@@ -350,13 +590,14 @@ export function buildTrack2Programme(input: {
       surface: 'Invariant Registry — invariant detail → Related invariants',
       workKind: 'scientific',
       actor: 'Steward',
-      status: !populated ? 'not-started' : graphOk ? 'complete' : 'in-progress',
-      detail: populated
-        ? graphOk
-          ? 'density, connectivity and orphan checks all pass'
-          : `${s.readiness.graph.relationshipCount} intra-crystal edge(s); ${s.readiness.graph.orphanCount} orphan(s)`
-        : 'nothing assigned to the crystal domain yet',
-      remedies: remediesFor('add-relationships', s.readiness),
+      population: {
+        consumes: 'current-crystal',
+        produces: 'current-crystal',
+        source: "invariant_edges among the invariants named by Stage 4's promoted candidates (listEdgesForInvariants over the cohort ids)",
+      },
+      status: relationshipsOutcome.status,
+      detail: relationshipsOutcome.detail,
+      remedies: relationshipsOutcome.remedies,
     },
     {
       id: 'assign-to-crystal',
@@ -367,6 +608,14 @@ export function buildTrack2Programme(input: {
       surface: 'Track 2 programme — guided assignment',
       workKind: 'scientific',
       actor: 'Steward — dry run first; every admission is receipted',
+      // THE SECOND DECLARED TRANSFORM: the run's own cohort in, ratified
+      // crystal members out. This is where the population legitimately becomes
+      // the assigned crystal — and the only place it may.
+      population: {
+        consumes: 'current-crystal',
+        produces: 'assigned-crystal',
+        source: `invariant_contexts WHERE domain = '${input.crystalDomain}' — the ratified crystal domain this stage admits into`,
+      },
       status: populated ? 'complete' : 'not-started',
       detail: populated
         ? `${s.readiness.invariantCount} invariant(s) in '${input.crystalDomain}'`
@@ -382,6 +631,13 @@ export function buildTrack2Programme(input: {
       surface: 'Independent Review panel',
       workKind: 'scientific',
       actor: 'The originating team — it diagnoses its own checks',
+      // The readiness engine assesses the ASSIGNED crystal and nothing else,
+      // so this is the first stage whose remedies may legitimately quote it.
+      population: {
+        consumes: 'assigned-crystal',
+        produces: 'assigned-crystal',
+        source: `runCrystalReadinessReport over domain '${input.crystalDomain}', status validated|canonical`,
+      },
       status: !populated ? 'not-started' : s.readiness.ok ? 'complete' : 'in-progress',
       detail: populated
         ? s.readiness.ok
@@ -399,6 +655,11 @@ export function buildTrack2Programme(input: {
       surface: 'Independent Review panel',
       workKind: 'governance',
       actor: 'An external reviewer',
+      population: {
+        consumes: 'assigned-crystal',
+        produces: 'assigned-crystal',
+        source: 'crystalReviewStageStatus over the same assigned crystal the readiness report assessed',
+      },
       status: s.independentReviewRequestOpen ? 'in-progress' : populated ? 'blocked' : 'not-started',
       detail: s.independentReviewRequestOpen
         ? 'the independent pre-freeze review may open'
@@ -420,6 +681,11 @@ export function buildTrack2Programme(input: {
       surface: 'Track 2 programme — freeze ceremony',
       workKind: 'governance',
       actor: 'The operator, by their own act',
+      population: {
+        consumes: 'assigned-crystal',
+        produces: 'assigned-crystal',
+        source: 'the persisted crystal-version artifact over the assigned crystal — the freeze package carries the full PopulationDisclosure',
+      },
       status:
         s.artifact?.lifecycle === 'frozen'
           ? 'complete'
@@ -457,13 +723,32 @@ export function buildTrack2Programme(input: {
     .filter((st) => stages.every((earlier) => earlier.ordinal >= st.ordinal || PASSES_THROUGH.has(earlier.status)))
     .map((st) => st.id);
 
+  // The continuity check runs over the stages AS BUILT, so a stage added later
+  // with a mis-declared population is caught by the programme that contains it
+  // rather than by a reviewer noticing.
+  const handovers = handover ? [handover] : [];
+  const breaches = handovers.map(handoverBreach).filter((b): b is string => b !== null);
+  const populationContinuity = {
+    breaks: checkPopulationContinuity(stages),
+    handovers,
+    breaches,
+  };
+
   return {
     experimentId: input.experimentId,
     crystalDomain: input.crystalDomain,
     stages,
     currentStageId: current.id,
     unblockedStageIds,
-    nextActions: current.remedies.length > 0 ? current.remedies : [current.detail],
+    populationContinuity,
+    // A discontinuity is the FIRST thing to act on: every count downstream of
+    // it is about a subject nobody has agreed on. It leads `nextActions` ahead
+    // of the current stage's own remedies.
+    nextActions: [
+      ...breaches,
+      ...populationContinuity.breaks.map((b) => b.detail),
+      ...(current.remedies.length > 0 ? current.remedies : [current.detail]),
+    ],
     derivationNote: DERIVATION_NOTE,
   };
 }

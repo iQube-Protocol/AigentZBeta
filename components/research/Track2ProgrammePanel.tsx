@@ -57,9 +57,11 @@ import type {
   DuplicateResolutionDryRun,
 } from "@/services/corpusScout/duplicateResolution";
 import {
+  DECLARED_POPULATION_LABEL,
   EXCEPTION_CAUSE_LABEL,
   groupExceptionsByCause,
   signalForDisposition,
+  type DeclaredPopulation,
   type IsolationException,
   type IsolationSummary,
   type PopulationDisclosure,
@@ -78,6 +80,13 @@ interface Stage {
   workKind: "scientific" | "governance";
   actor: string;
   status: "complete" | "partially-complete" | "in-progress" | "not-started" | "blocked" | "unknown";
+  /** WHAT THIS STAGE IS REASONING ABOUT — rendered on every stage row, because
+   *  a population the operator cannot see is one they cannot check. */
+  population?: {
+    consumes: DeclaredPopulation;
+    produces: DeclaredPopulation;
+    source: string;
+  };
   detail: string;
   remedies: string[];
 }
@@ -91,6 +100,13 @@ interface Programme {
    *  partially-complete. The authority for the lock; never re-derived from
    *  ordinals here (exception-isolation ruling §6). */
   unblockedStageIds?: string[];
+  /** The pipeline's account of its own subject. A non-empty `breaks` or
+   *  `breaches` is a defect in the PIPELINE, not in the data, and is rendered
+   *  as such — never as an empty queue. */
+  populationContinuity?: {
+    breaks: { fromStageId: string; toStageId: string; detail: string }[];
+    breaches: string[];
+  };
   nextActions: string[];
   derivationNote: string;
 }
@@ -225,6 +241,29 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
 
         {programme && (
           <>
+            {/* A POPULATION DISCONTINUITY OUTRANKS EVERY OTHER SIGNAL ON THIS
+                SURFACE (operator, 2026-08-03). When two stages are reasoning
+                about different subjects, every count below is about a
+                population nobody has agreed on — including the reassuring
+                ones. It leads, in rose, before the stage list. */}
+            {((programme.populationContinuity?.breaches.length ?? 0) > 0 ||
+              (programme.populationContinuity?.breaks.length ?? 0) > 0) && (
+              <div className="mb-3 rounded-lg border border-rose-500/40 bg-rose-500/10 p-2.5 text-[11px] text-rose-100">
+                <div className="mb-1 flex items-center gap-1.5 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Population discontinuity — the pipeline changed its subject
+                </div>
+                <ul className="space-y-1">
+                  {programme.populationContinuity?.breaches.map((b, i) => (
+                    <li key={`breach-${i}`}>{b}</li>
+                  ))}
+                  {programme.populationContinuity?.breaks.map((b, i) => (
+                    <li key={`break-${i}`}>{b.detail}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="mb-3 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-[11px] text-slate-300">
               <div className="text-slate-500">crystal domain</div>
               <div className="font-mono text-slate-200">{programme.crystalDomain}</div>
@@ -280,6 +319,27 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                         </span>
                       </div>
                       <div className="text-slate-400">{s.does}</div>
+                      {/* The declared population, on every row. The operator
+                          read 17 / 68 / zero on one screen with nothing saying
+                          which set each number was about; this is the line
+                          that makes that visible without opening the code. */}
+                      {s.population && (
+                        <div className="mt-0.5 text-[10px] text-slate-500" title={s.population.source}>
+                          <span className="text-slate-600">reads</span>{" "}
+                          <span className="text-slate-300">
+                            {DECLARED_POPULATION_LABEL[s.population.consumes]}
+                          </span>
+                          {s.population.produces !== s.population.consumes && (
+                            <>
+                              {" "}
+                              <span className="text-slate-600">→ hands on</span>{" "}
+                              <span className="text-slate-300">
+                                {DECLARED_POPULATION_LABEL[s.population.produces]}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
                       <div className="mt-0.5 text-slate-500">{s.detail}</div>
                       {s.remedies.length > 0 && (
                         <ul className="mt-1.5 space-y-1">
