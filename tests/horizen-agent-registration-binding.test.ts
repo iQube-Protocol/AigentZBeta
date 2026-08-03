@@ -218,6 +218,40 @@ describe('a structured receipt still short-circuits the chain call', () => {
   });
 });
 
+describe('OS-6 holds in the journey state route too — the stepper reads receipts by agent', () => {
+  /*
+   * The SAME wrong-persona bug lived in a second place: the journey `/state`
+   * route resolved the AGENT's persona and listed its receipts, so
+   * `receiptRefs` came back empty, every `hasReceipt(...)` was false, and the
+   * Register stage could never render COMPLETE (emerald) however completely
+   * it had succeeded.
+   *
+   * The tell was visible on one screen: the Evidence-receipts drawer — scoped
+   * to the OPERATOR's persona, which is where receipts actually live — listed
+   * the horizen_agent_registered receipt, while the stepper driven by /state
+   * showed Register unfinished. Same data, two lookups, one keyed wrong.
+   */
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'app', 'api', 'journey', 'moneypenny-horizen', 'state', 'route.ts'),
+    'utf8',
+  );
+
+  it('finds journey receipts by runtimeAgentId, not by the agent’s own persona', () => {
+    expect(source).toMatch(/findAgentReceiptRefs\(agent\.runtimeAgentId, JOURNEY_ACTION_TYPES/);
+    expect(source, 'a persona-keyed receipt list is the bug returning').not.toContain(
+      'listActivityReceiptsForPersona',
+    );
+  });
+
+  it('no longer resolves the agent’s persona row to find receipts', () => {
+    // `registry_assets` is still read (aigentQubeResolved) — only the
+    // personas-by-fio_handle receipt lookup is gone.
+    expect(source).not.toMatch(/ilike\('fio_handle', agent\.fioHandle\)/);
+  });
+});
+
 describe('the AigentQube seed migrations cannot un-register a registered agent', () => {
   /*
    * Nakamoto's registry_assets row was MISSING on dev entirely — that, not a
