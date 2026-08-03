@@ -181,6 +181,15 @@
  *    existing veracity-led composition in services/standing/standingScore.ts so
  *    a trading-outcome term added there fails the build:
  *      tests/venture-trading-substrate.test.ts
+ *  - The RESOLUTION → INVARIANT loop (2026-08-03) reuses COMPLETION_LIFECYCLE
+ *    (CCR-001 §9) as its ladder rather than minting a third status vocabulary,
+ *    and its registry records must reference candidate invariants BY ID rather
+ *    than restating the rule as prose in each record — otherwise one rule with
+ *    three incidents becomes three near-duplicate strings, which is
+ *    `inv.engineering.036` applied to captured knowledge. The canary also
+ *    resolves every claimed canary path on disk (the CAN-CCR-5 discipline) so a
+ *    renamed test cannot silently retire an invariant's only enforcement:
+ *      tests/resolution-records.test.ts
  *
  * Canaries defined IN this file:
  *  - ASSIGNABLE_EXPERIMENTS ↔ EXPERIMENT_REGISTRY

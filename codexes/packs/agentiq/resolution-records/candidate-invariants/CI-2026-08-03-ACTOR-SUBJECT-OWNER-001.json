@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-named 2026-08-03. This is OS-6 in codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md.",
+    "THREE independent occurrences in one day, in three different subsystems. The operator observed that this makes it one of the two strongest candidates in the set: the ladder step \"applied in another implementation / validated by reuse\" is already satisfied by the historical record. Promotion to `validated` is the operator's to make, not an agent's.",
+    "Crossing persona scope to key on the subject means returning ONLY the narrow facts asked for — never the receipt body, which stays persona-scoped (Identity & Access Spine, T0)."
+  ],
+  "canaries": [
+    {
+      "path": "tests/horizen-agent-registration-binding.test.ts",
+      "assertion": "'queries on the runtime agent id and never looks up a persona row' — asserts the `personas` table is not touched at all; plus 'finds journey receipts by runtimeAgentId, not by the agent’s own persona' and 'no longer resolves the agent’s persona row to find receipts'.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/horizen-agent-page-surface-wiring.test.ts",
+      "assertion": "'MarketaEligibilityView requires agentSlug — props are read, not discarded' and 'both the GET refresh and the POST prove-control call send agentSlug — neither can fall back to the server default'.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+  "statement": "Actor, subject and owner are distinct references and must never be silently substituted.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-AGENT-REGISTRATION-001",
+    "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/horizen/agentRegistrationBinding.ts — the binding resolver",
+      "defect": "Receipts were looked up under the registered AGENT's persona; every `horizen_agent_registered` receipt carries personaId = the ACTING operator. The query searched a structurally empty set every time and reported 'not registered'.",
+      "resolutionId": "RES-2026-08-02-AGENT-REGISTRATION-001",
+      "evidence": [
+        "4c5859882",
+        "tests/horizen-agent-registration-binding.test.ts"
+      ]
+    },
+    {
+      "site": "components — MarketaEligibilityView / Claim",
+      "defect": "The client omitted `agentSlug`, so the server substituted DEFAULT_REGISTRABLE_AGENT_SLUG (MoneyPenny) for the agent the operator had visibly selected. Claim refused with `aigentqube-moneypenny` while claiming Nakamoto.",
+      "resolutionId": "RES-2026-08-02-AGENT-REGISTRATION-001",
+      "evidence": [
+        "4c5859882",
+        "tests/horizen-agent-page-surface-wiring.test.ts"
+      ]
+    },
+    {
+      "site": "app/api/journey/moneypenny-horizen/state/route.ts — the journey stepper",
+      "defect": "The `/state` route resolved the AGENT's own persona (`personas.fio_handle = 'nakamoto@aigent'`) and listed its receipts. receiptRefs came back empty, every hasReceipt() was false, and Register could never render COMPLETE however completely it had succeeded.",
+      "resolutionId": "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
+      "evidence": [
+        "feeee0194",
+        "tests/horizen-agent-registration-binding.test.ts"
+      ]
+    }
+  ]
+}

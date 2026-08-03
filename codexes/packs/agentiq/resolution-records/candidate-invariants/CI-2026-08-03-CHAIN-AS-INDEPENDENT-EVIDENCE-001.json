@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Same posture already ratified for Bitcent explorer fallback: a second source, the source NAMED, and any divergence SURFACED rather than silently resolved. That prior adoption is why this is recorded as `cross-capability` scope, but the sites have not both been re-verified here, so it stays a candidate.",
+    "Related to OS-1 (a confirmed consequence outranks every local record of the request) in the observer-state doc."
+  ],
+  "canaries": [
+    {
+      "path": "tests/register-ceremony.test.ts",
+      "assertion": "The heuristic is unchanged (asserted verbatim, exactly three `includes(` calls so a fourth cannot be slipped in); the chain confirms independently with the source named; divergence is stated in both directions; a failed registry reread does not discard chain evidence.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "candidateId": "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001",
+  "statement": "A confirmed external consequence is independent evidence: it must be readable without the vendor’s agreement, the confirming source must be named, and a divergence between sources must be stated in both directions rather than resolved by preferring one.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-HORIZEN-AGENTID-RECOVERY-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/horizen/registrationClient.ts",
+      "defect": "`confirmed` was a substring match over Horizen's flattened prose (active / confirmed / complete). An answer phrased any other way reports 'not confirmed' forever, even though the mint is on chain and verifiable.",
+      "resolutionId": "RES-2026-08-02-HORIZEN-AGENTID-RECOVERY-001",
+      "evidence": [
+        "550d7545a",
+        "tests/register-ceremony.test.ts"
+      ]
+    }
+  ]
+}

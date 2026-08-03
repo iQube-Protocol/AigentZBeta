@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-named 2026-08-03 as one of the six candidate invariants this release produces.",
+    "Absorbs the earlier bullet phrasings \"legacy receipt compatibility\" and \"schema enrichment must not strand historical receipts\" — one rule, not three.",
+    "One occurrence so far. It is NOT eligible for `validated` until the shape is seen a second time or a regression is demonstrably prevented."
+  ],
+  "canaries": [
+    {
+      "path": "tests/horizen-agent-registration-binding.test.ts",
+      "assertion": "\"recovers Nakamoto's tokenId from the transaction her legacy receipt names\" — a legacy receipt with no structured registration block resolves through chain decoding; and \"reports unregistered — never a guess — when the chain does not confirm the tx\".",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-SCHEMA-ENRICHMENT-RECOVERY-001",
+  "statement": "Schema enrichment must preserve recovery for historical receipts.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-AGENT-REGISTRATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/horizen/agentRegistrationBinding.ts",
+      "defect": "The receipt fallback read only the structured `actionInput.registration` block introduced in the SAME change, so Nakamoto's real pre-enrichment receipt — carrying only {txHash, network, aigentQubeId} — was skipped as malformed. A fallback that cannot read the data already in production is not a fallback.",
+      "resolutionId": "RES-2026-08-02-AGENT-REGISTRATION-001",
+      "evidence": [
+        "4c5859882",
+        "tests/horizen-agent-registration-binding.test.ts"
+      ]
+    }
+  ]
+}

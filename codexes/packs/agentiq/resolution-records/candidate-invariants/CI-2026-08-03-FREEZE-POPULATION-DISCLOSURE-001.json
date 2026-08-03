@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-named 2026-08-03. ENFORCEMENT POINT PENDING — deliberately recorded with NO canary. The operator: \"Without this, an independently verifiable crystal hash could still conceal how much of the original population disappeared before freeze.\"",
+    "The freeze-package schema amendment (population counts, assignedCohortHash, excludedRecordsHash, limitations) is authorized and is being built by the Track 2 agent in parallel. When it lands, its canary attaches here and this candidate stops appearing in the milestone-close warnings.",
+    "This is the live, honest example of the gap the milestone-close check exists to surface: an invariant without a canary is advisory prose."
+  ],
+  "canaries": [],
+  "candidateId": "CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001",
+  "statement": "A frozen artifact must disclose both what it contains and what was excluded from the population used to construct it.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/crystalFreezeCeremony.ts",
+      "defect": "The freeze package does not embed PopulationDisclosure. The disclosure exists and is receipted at Stage 2, but the freeze package was deliberately not touched — so an independently verifiable crystal hash could still conceal how much of the original population disappeared before freeze.",
+      "resolutionId": "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001",
+      "evidence": [
+        "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md §9"
+      ]
+    }
+  ]
+}
