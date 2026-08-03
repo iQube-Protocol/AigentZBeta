@@ -140,6 +140,46 @@ const STATUS_TOOL_SPEC = {
   requiredFieldHints: ['tokenid', 'agentid', 'transactionhash', 'txhash', 'submissionref'],
 };
 
+/**
+ * The candidate values a Pulse build call may need, offered by name for
+ * `matchSchemaFields` to select from against the tool's DECLARED schema.
+ *
+ * ── WHY THIS IS EXPORTED (2026-08-03) ─────────────────────────────────────
+ *
+ * `scripts/horizen-pulse-diagnostic.ts` — the tool built expressly to stop us
+ * guessing about this call — hand-rolled its own argument object instead. It
+ * sent `wallet`, Horizen's schema requires `walletAddress`, and the run
+ * reported `walletAddress Required` as though that were the client's defect.
+ * It is not: `matchSchemaFields` matches on containment, so `walletAddress`
+ * picks up the `wallet` candidate and the real client sends it correctly.
+ *
+ * So the diagnostic manufactured a failure the code under diagnosis does not
+ * have, and cost a round trip chasing it. A diagnostic that does not execute
+ * the path it claims to diagnose is worse than none — it produces confident
+ * wrong answers. That is inv.engineering.036/037 landing inside the very tool
+ * meant to enforce evidence over inference. One definition, both callers.
+ */
+export function pulseBuildCandidates(
+  facts: (typeof HORIZEN_NETWORK_FACTS)[HorizenNetwork],
+  decimalAgentId: string,
+  controllerWallet: string,
+): Record<string, unknown> {
+  return {
+    // Pulse enable/disable is one tool; this path only ever enables. Disabling
+    // is a separate governed act and is deliberately not wired here.
+    action: 'enable',
+    tokenId: decimalAgentId,
+    agentId: decimalAgentId,
+    network: facts.pulseSelector,
+    chain: facts.pulseSelector,
+    chainId: facts.chainId,
+    registry: facts.identityRegistry.toLowerCase(),
+    registryAddress: facts.identityRegistry.toLowerCase(),
+    wallet: controllerWallet.toLowerCase(),
+    address: controllerWallet.toLowerCase(),
+  };
+}
+
 // ── Stage 1: prepare ─────────────────────────────────────────────────────
 
 export interface PrepareHorizenTransparencyAuthorizationInput {
@@ -239,20 +279,7 @@ export async function prepareHorizenTransparencyAuthorization(
    * neighbouring one — and the tool's own declared inputSchema, which we
    * already fetch, outranks any prose about it.
    */
-  const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, {
-    // Pulse enable/disable is one tool; this path only ever enables. Disabling
-    // is a separate governed act and is deliberately not wired here.
-    action: 'enable',
-    tokenId: decimalAgentId,
-    agentId: decimalAgentId,
-    network: facts.pulseSelector,
-    chain: facts.pulseSelector,
-    chainId: facts.chainId,
-    registry: facts.identityRegistry.toLowerCase(),
-    registryAddress: facts.identityRegistry.toLowerCase(),
-    wallet: input.controllerWallet.toLowerCase(),
-    address: input.controllerWallet.toLowerCase(),
-  });
+  const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, pulseBuildCandidates(facts, decimalAgentId, input.controllerWallet));
 
   // Fail HERE, naming the field, rather than at the partner with a generic
   // validation dump — the schema was in hand before the call was made.

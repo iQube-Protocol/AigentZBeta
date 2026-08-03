@@ -24,6 +24,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 import { ethers } from 'ethers';
 
 // ── In-memory fake for partnerAuthorizationStore ────────────────────────────
@@ -59,8 +61,11 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
 import {
   prepareHorizenTransparencyAuthorization,
   runHorizenTransparencyAuthorization,
+  pulseBuildCandidates,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
+import { matchSchemaFields, missingRequiredFields } from '@/services/horizen/mcpSchemaMatch';
+import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
 
 const WALLET = ethers.Wallet.createRandom();
 const FIXED_NOW = () => new Date('2026-07-31T12:00:00.000Z');
@@ -134,6 +139,48 @@ describe('runHorizenTransparencyAuthorization — full pipeline (Phase 1 accepta
     // The signature commitment is stored, never the raw signature or the key.
     expect(finalRow.signatureRef).toHaveLength(64); // sha256 hex
     expect(JSON.stringify(finalRow)).not.toContain(WALLET.privateKey.slice(2));
+  });
+});
+
+describe('the diagnostic executes the path it claims to diagnose (2026-08-03)', () => {
+  /*
+   * `scripts/horizen-pulse-diagnostic.ts` exists so we stop inferring what
+   * Horizen wants. It then hand-rolled its own argument literal — sending
+   * `wallet` where the schema requires `walletAddress` — and reported
+   * `walletAddress Required` as though the client had that defect. It does
+   * not: `matchSchemaFields` matches on containment, so `walletAddress`
+   * selects the `wallet` candidate.
+   *
+   * A diagnostic that does not run the real path returns confident WRONG
+   * answers, which is worse than returning none. These canaries pin that the
+   * argument set has exactly one definition and that the containment match
+   * genuinely covers Horizen's declared field name.
+   */
+  const diagnostic = fs.readFileSync(path.join(__dirname, '..', 'scripts/horizen-pulse-diagnostic.ts'), 'utf8');
+
+  it('the diagnostic imports the shared candidate builder rather than defining its own', () => {
+    expect(diagnostic).toContain('pulseBuildCandidates');
+    expect(diagnostic).toContain('matchSchemaFields');
+    expect(diagnostic, 'a second hand-rolled argument literal is the defect returning').not.toMatch(
+      /const args = \{[^}]*action:/,
+    );
+  });
+
+  it("supplies Horizen's declared `walletAddress`, which is what the failed run was really about", () => {
+    // The real schema, copied from the live server 2026-08-03: required are
+    // action, agentId, walletAddress; chain is optional; there is no `network`.
+    const schema = {
+      properties: { action: {}, agentId: {}, walletAddress: {}, chain: {} },
+      required: ['action', 'agentId', 'walletAddress'],
+    };
+    const args = matchSchemaFields(schema, pulseBuildCandidates(HORIZEN_NETWORK_FACTS['base-sepolia'], '8798', '0xABCD'));
+
+    expect(missingRequiredFields(schema, args)).toEqual([]);
+    expect(args.walletAddress).toBe('0xabcd');
+    expect(args.agentId).toBe('8798');
+    expect(args.chain).toBe('base-sepolia');
+    // `network` is not a declared property — offering it must not smuggle it in.
+    expect(args).not.toHaveProperty('network');
   });
 });
 
@@ -312,7 +359,9 @@ describe('the Pulse call conforms to the documented contract, not to inference (
 
   it('lowercases the registry and wallet, as the byte-exact message requires', () => {
     expect(source).toMatch(/registry:\s*facts\.identityRegistry\.toLowerCase\(\)/);
-    expect(source).toMatch(/wallet:\s*input\.controllerWallet\.toLowerCase\(\)/);
+    // The candidates moved into `pulseBuildCandidates` so the diagnostic could
+    // share them; the wallet arrives as a parameter rather than off `input`.
+    expect(source).toMatch(/wallet:\s*controllerWallet\.toLowerCase\(\)/);
   });
 
   it('refuses an unparseable agent id rather than sending a label', () => {

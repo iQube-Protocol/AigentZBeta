@@ -34,6 +34,8 @@
 
 import { HORIZEN_NETWORK_FACTS, parseAgentId, classifyIdentity, type HorizenNetwork } from '../services/horizen/identity';
 import { resolveRegistrableAgent } from '../services/horizen/registrableAgents';
+import { pulseBuildCandidates } from '../services/horizen/authorizationClient';
+import { matchSchemaFields, missingRequiredFields } from '../services/horizen/mcpSchemaMatch';
 
 const NETWORK: HorizenNetwork = 'base-sepolia';
 /** Error bodies ARE the diagnostic and are printed whole. Success payloads are not. */
@@ -99,14 +101,38 @@ async function main(): Promise<void> {
        * Printing them identically is the same defect as `res.json()` reporting
        * a parser error — a diagnostic that hides its own finding.
        */
+      const { HORIZEN_REGISTRY_API } = await import('../services/horizen/client');
       line('Lookup ok', read.ok === true);
       line('Reason', read.reason ?? '(none given)');
+      line('Detail', (read as { detail?: string }).detail ?? '(none)');
+      line('URL', `${HORIZEN_REGISTRY_API}/agents/${decimalAgentId}?network=${facts.registrySelector}`);
       line(
         'Means',
         read.ok === true
           ? 'the registry ANSWERED and holds no agent at this id — Pulse cannot apply until it does'
           : 'the read did not complete, so this says NOTHING about whether the agent is registered',
       );
+      if (read.reason === 'transport' || read.reason === 'http') {
+        /*
+         * A SECOND, INDEPENDENT BLOCKER — worth saying out loud rather than
+         * leaving as a failed line in a section about something else.
+         *
+         * This REST read is not only how the diagnostic resolves the owner. It
+         * is what `verifyHorizenTransparencyActivation` uses to cross-check
+         * that the registry's owner matches the wallet that signed. If the
+         * host does not answer, Verify refuses REGISTRY_REREAD_FAILED even
+         * when build, sign and submit all succeed — so fixing the Pulse call
+         * alone would not complete the ceremony.
+         *
+         * Note the asymmetry the run below establishes: the MCP endpoint on
+         * this SAME host answers. Whatever is wrong is specific to the REST
+         * path, not to reaching Horizen.
+         */
+        console.log('\n  ⚠ SEPARATE BLOCKER: this same read is the owner cross-check in the Verify');
+        console.log('    stage. While it fails, Verify refuses REGISTRY_REREAD_FAILED regardless of');
+        console.log('    whether the Pulse call itself succeeds. The MCP endpoint on the same host');
+        console.log('    is exercised below — compare the two before concluding Horizen is down.');
+      }
     } else {
       const source = typeof record.source === 'string' ? record.source : null;
       ownerFromRegistry = typeof record.owner === 'string' ? record.owner : null;
@@ -149,21 +175,40 @@ async function main(): Promise<void> {
 
   const { tools } = await client.listTools();
   line('Tools declared', tools.length);
+  // The whole declared surface, once. Every later question — "is there an
+  // agent lookup?", "what is the submit tool really called?" — is answered
+  // from this list instead of another round trip.
+  console.log(`\nAll declared tools:\n  ${tools.map((t) => t.name).join('\n  ')}`);
+
   const build = tools.find((t) => t.name === 'build_pulse_auth_message');
   if (!build) {
-    console.log(`\nNo build_pulse_auth_message. Declared: ${tools.map((t) => t.name).join(', ')}\n`);
+    console.log('\nNo build_pulse_auth_message among the tools listed above.\n');
     return;
   }
-  line('Tool', build.name);
+  console.log(`\n── ${build.name} ──`);
   console.log('Input schema:');
   console.log(JSON.stringify(build.inputSchema, null, 2));
 
-  // `chain` is the network SELECTOR, not the chain id — from Horizen's own
-  // schema rejection: chain expects 'base-mainnet' | 'base-sepolia', and
-  // `action` ('enable' | 'disable') is required.
-  const args = { action: 'enable', agentId: decimalAgentId, network: facts.pulseSelector, chain: facts.pulseSelector, wallet };
-  console.log('\nArguments sent:');
+  /*
+   * THE ARGUMENTS THE REAL CLIENT WOULD SEND — not a hand-rolled imitation.
+   *
+   * This script previously built its own `{ action, agentId, network, chain,
+   * wallet }` literal. Horizen's schema requires `walletAddress`, so the run
+   * failed with `walletAddress Required` and read as a defect in the client.
+   * It was a defect in THIS FILE: `matchSchemaFields` matches on containment,
+   * so `walletAddress` selects the `wallet` candidate and the real client
+   * sends it correctly. A diagnostic that does not execute the path it claims
+   * to diagnose returns confident wrong answers.
+   */
+  const args = matchSchemaFields(build.inputSchema, pulseBuildCandidates(facts, decimalAgentId, wallet));
+  console.log('\nArguments sent (built by the client\'s own matcher):');
   console.log(JSON.stringify(args, null, 2));
+  const missing = missingRequiredFields(build.inputSchema, args);
+  if (missing.length > 0) {
+    console.log(`\n  ⚠ The schema declares required argument(s) we supply no value for: ${missing.join(', ')}`);
+    console.log('    The client refuses locally in this case rather than calling. Not calling either.\n');
+    return;
+  }
 
   const result = (await client.callTool({ name: build.name, arguments: args })) as {
     isError?: boolean;
