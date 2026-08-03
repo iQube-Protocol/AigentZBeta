@@ -624,8 +624,37 @@ export interface CheckAgentRegistrationStatusInput {
   rpcUrl?: string;
 }
 
+/**
+ * WHICH SOURCE SAID SO. Never collapsed to a bare boolean: "Horizen's status
+ * string matched" and "the chain has the mint" are different findings, and an
+ * operator reading a confirmation is entitled to know which one they have.
+ */
+export type ConfirmationSource = 'horizen-status' | 'on-chain-receipt' | 'both';
+
+/**
+ * What the registration transaction's OWN receipt says, read independently of
+ * Horizen. `verified: false` means the decode did not produce a mint event
+ * whose `ownerOf` matched — which is NOT a statement that the registration
+ * failed; `detail` says which of those it is.
+ */
+export interface OnChainRegistrationEvidence {
+  verified: boolean;
+  /** The minted ERC-721 tokenId, decoded and ownerOf-verified. */
+  agentId: string | null;
+  /** The contract that emitted the event — read, never assumed to be tx.to. */
+  registry: string | null;
+  source: 'Registered' | 'Transfer' | null;
+  detail: string;
+}
+
 export interface AgentRegistrationStatus {
   confirmed: boolean;
+  /** Null when `confirmed` is false. */
+  confirmationSource: ConfirmationSource | null;
+  /** The independent chain read, always reported — including when it failed. */
+  onChain: OnChainRegistrationEvidence;
+  /** Set when the two sources disagree. Stated, never resolved by preferring one. */
+  divergence: string | null;
   tokenId: string | null;
   registryAlias: string | null;
   /**
@@ -639,6 +668,14 @@ export interface AgentRegistrationStatus {
   rawStatus: string;
   receiptId: string | null;
 }
+
+/**
+ * How long the independent chain read may take before it is reported as unread.
+ * Deliberately well inside the status route's own 25s deadline: an answer that
+ * says "the chain was not read" is useful; a gateway timeout that says nothing
+ * is not.
+ */
+const ON_CHAIN_READ_DEADLINE_MS = 8_000;
 
 function flattenToolResultText(result: McpToolResult | null | undefined): string {
   if (Array.isArray(result?.content)) {
@@ -738,24 +775,84 @@ export async function checkAgentRegistrationStatus(
    * agentId's `ownerOf` before it is ever trusted. Stop querying the wallet
    * for the missing identifier — the receipt already contains it.
    */
+  /*
+   * ── SECOND USE OF THE SAME READ: AN INDEPENDENT CONFIRMATION SOURCE ──────
+   *
+   * Run UNCONDITIONALLY (not only when the identifier is missing), because the
+   * decode answers two questions from one read, and the second one is the
+   * pilot's live block of 2026-08-03:
+   *
+   *   > "Horizen has not confirmed this registration after 20 checks."
+   *
+   * By then the check WAS being made — the identifier had been recovered and
+   * `get_onboarding_status` answered without rejecting. `confirmed` is decided
+   * by a substring match over Horizen's prose ('active' | 'confirmed' |
+   * 'complete'), so an answer phrased any other way reports "not confirmed"
+   * forever. Widening that match on a guess is explicitly forbidden below, and
+   * it would risk the opposite error — declaring a registration confirmed that
+   * is not.
+   *
+   * So the match is LEFT EXACTLY AS IT IS and a second, independent source is
+   * added: the chain. A verified `Registered`/`Transfer` mint event in this
+   * transaction's own receipt, whose `ownerOf` resolves to this owner, is
+   * direct evidence that the registration exists — it does not depend on how
+   * Horizen words a status string. This is the explorer-fallback posture
+   * already ratified for Bitcent: a second source, the source NAMED, and any
+   * divergence between them surfaced rather than silently resolved.
+   *
+   * The two are NOT the same fact and are never conflated. On-chain says the
+   * identifier was minted to this owner. Horizen's onboarding status may track
+   * more than the mint (indexing, validation). Where they disagree, both are
+   * reported and the divergence is stated.
+   */
   let recoveredAgentId: string | null = null;
-  if (declaresAgentId && !input.horizenAgentId?.trim()) {
-    try {
-      const provider = deps.rpcProvider ?? new ethers.JsonRpcProvider(input.rpcUrl);
-      const decoded = await decodeAgentIdFromReceipt({
+  let onChain: OnChainRegistrationEvidence = { verified: false, agentId: null, registry: null, source: null, detail: 'not attempted' };
+  try {
+    const provider = deps.rpcProvider ?? new ethers.JsonRpcProvider(input.rpcUrl);
+    /*
+     * BOUNDED, because this now runs on EVERY check rather than only when the
+     * identifier is missing. `JsonRpcProvider` retries network detection on an
+     * unreachable URL, and the calling route answers within 25s — an unbounded
+     * chain read could spend that whole budget and turn a working Horizen
+     * answer into a timeout. A slow chain read must degrade to "not read",
+     * never to "no answer at all".
+     */
+    const decoded = await Promise.race([
+      decodeAgentIdFromReceipt({
         provider,
         txHash: input.txHash,
         expectedOwner: input.ownerWalletAddress,
         expectedRegistry: HORIZEN_NETWORK_FACTS[input.network].identityRegistry,
-      });
-      if (decoded.ok) {
-        recoveredAgentId = decoded.agentId;
-      }
-    } catch {
-      // A failed decode is not an answer about the registration. Left null
-      // so the refusal below reports honestly rather than this becoming a
-      // silent second failure mode.
+      }),
+      new Promise<{ ok: false; reason: string }>((resolve) =>
+        setTimeout(
+          () => resolve({ ok: false, reason: `the chain read did not complete within ${ON_CHAIN_READ_DEADLINE_MS / 1000}s — this says nothing about the registration` }),
+          ON_CHAIN_READ_DEADLINE_MS,
+        ),
+      ),
+    ]);
+    if (decoded.ok) {
+      recoveredAgentId = decoded.agentId;
+      onChain = {
+        verified: true,
+        agentId: decoded.agentId,
+        registry: decoded.registry,
+        source: decoded.source,
+        detail:
+          `${decoded.source} event in transaction ${input.txHash} minted agent ${decoded.agentId} at registry ` +
+          `${decoded.registry}; ownerOf(${decoded.agentId}) resolves to ${input.ownerWalletAddress}`,
+      };
+    } else {
+      onChain = { verified: false, agentId: null, registry: null, source: null, detail: decoded.reason };
     }
+  } catch (err) {
+    // A failed decode is not an answer about the registration — neither about
+    // the identifier nor about whether it exists. Reported as unread, never as
+    // a negative.
+    onChain = {
+      verified: false, agentId: null, registry: null, source: null,
+      detail: `the transaction receipt could not be read: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 
   const agentIdToSend = input.horizenAgentId?.trim() || recoveredAgentId || null;
@@ -810,16 +907,85 @@ export async function checkAgentRegistrationStatus(
     };
   }
 
-  const confirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('complete');
+  // LEFT EXACTLY AS IT WAS. Widening this on a guess would risk declaring a
+  // registration confirmed that is not — the one error worse than reporting an
+  // unconfirmed one. The independent on-chain source above is the answer to a
+  // Horizen answer this cannot recognise; it is not a licence to loosen this.
+  const horizenConfirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('complete');
+
+  const confirmed = horizenConfirmed || onChain.verified;
+  const confirmationSource: ConfirmationSource | null = !confirmed
+    ? null
+    : horizenConfirmed && onChain.verified
+      ? 'both'
+      : horizenConfirmed
+        ? 'horizen-status'
+        : 'on-chain-receipt';
+  // Stated, never resolved. The chain having the mint while Horizen's
+  // onboarding status does not say so is a real and reportable condition —
+  // they measure different things — and the operator is entitled to see that
+  // rather than have one source quietly stand in for the other.
+  const divergence =
+    onChain.verified && !horizenConfirmed
+      ? `The chain confirms this registration and Horizen's onboarding status does not (yet) say so. On-chain: ${onChain.detail}. Horizen answered: ${rawStatus}. These measure different things — the mint is on-chain; Horizen's status may also track indexing or validation — so this is a divergence to note, not necessarily a fault.`
+      : !onChain.verified && horizenConfirmed
+        ? `Horizen reports this registration confirmed, but the transaction's own receipt did not independently verify it: ${onChain.detail}.`
+        : null;
 
   if (!confirmed) {
-    return { ok: true, value: { confirmed: false, tokenId: null, registryAlias: null, agentIdentifier: null, humanReadableUrl: null, rawStatus, receiptId: null } };
+    return {
+      ok: true,
+      value: {
+        confirmed: false, tokenId: null, registryAlias: null, agentIdentifier: null, humanReadableUrl: null,
+        rawStatus, receiptId: null, confirmationSource: null, onChain, divergence: null,
+      },
+    };
   }
 
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
   const reread = await fetchAgent(input.ownerWalletAddress, input.network);
   if (!reread.ok) {
-    return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
+    /*
+     * A FAILED REREAD IS NOT A LOST REGISTRATION when the chain has already
+     * verified it. The reread is how Horizen's own record is read; it is not
+     * the thing that makes the registration true. Refusing here would discard
+     * verified on-chain evidence because a convenience lookup failed.
+     *
+     * The decoded agentId IS the ERC-721 tokenId — the same value the reread's
+     * `tokenId` field carries — so nothing is invented. `agentIdentifier`
+     * stays NULL (operator ruling 2026-07-31: never defaulted from tokenId),
+     * and therefore so does the human-readable URL.
+     */
+    if (!onChain.verified || !onChain.agentId) {
+      return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
+    }
+    const chainTokenId = onChain.agentId;
+    const chainAlias = `0x${BigInt(chainTokenId).toString(16)}`;
+    if (deps.updateRegistryAssetBinding) {
+      await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId: chainTokenId, registryAlias: chainAlias, agentIdentifier: null, humanReadableUrl: null });
+    }
+    const chainReceiptId = deps.createRegistrationReceipt
+      ? await deps.createRegistrationReceipt({ actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash })
+      : null;
+    return {
+      ok: true,
+      value: {
+        confirmed: true,
+        tokenId: chainTokenId,
+        registryAlias: chainAlias,
+        agentIdentifier: null,
+        humanReadableUrl: null,
+        rawStatus,
+        receiptId: chainReceiptId,
+        confirmationSource,
+        onChain,
+        divergence:
+          `${divergence ? `${divergence} ` : ''}Horizen's registry reread also failed (${reread.reason}), so the ` +
+          'token id below is the one decoded from the transaction receipt and verified by ownerOf. The ' +
+          'human-readable agent identifier is not resolvable without the reread and is reported absent rather ' +
+          'than guessed.',
+      },
+    };
   }
   const tokenId = pickStringField(reread.value, ['tokenId', 'agentId', 'id']);
   const registryAlias = pickStringField(reread.value, ['registryAlias', 'alias']) ?? (tokenId ? `0x${BigInt(tokenId).toString(16)}` : null);
@@ -840,7 +1006,7 @@ export async function checkAgentRegistrationStatus(
     }
   }
 
-  return { ok: true, value: { confirmed: true, tokenId, registryAlias, agentIdentifier, humanReadableUrl, rawStatus, receiptId } };
+  return { ok: true, value: { confirmed: true, tokenId, registryAlias, agentIdentifier, humanReadableUrl, rawStatus, receiptId, confirmationSource, onChain, divergence } };
 }
 
 function pickStringField(obj: Record<string, unknown> | null | undefined, names: string[]): string | null {
