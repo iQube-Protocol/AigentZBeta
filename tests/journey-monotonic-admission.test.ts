@@ -1269,11 +1269,30 @@ describe('ACCEPTANCE 3 — each completed act routes directly to the next, never
     }
   });
 
-  it('the client follows a CHANGED next act rather than pinning the finished stage', () => {
+  /*
+   * RE-POINTED 2026-08-03. This asserted `lastActRef` — a mechanism inside the
+   * outcome/evidence/exception redesign the operator ordered removed:
+   *
+   *   > "Do not add another abstraction, resolver framework, exception
+   *   >  taxonomy, diagnostic surface, state axis, disclosure panel…"
+   *
+   * A canary naming an implementation detail dies with that detail and takes
+   * its requirement with it. The requirement — the surface lands the operator
+   * on the stage the server says is current — survives the redesign's removal
+   * and is asserted here instead.
+   */
+  it('the surface follows the server\'s current stage rather than pinning one', () => {
     const surface = fs.readFileSync(path.join(__dirname, '..', 'components/journey/JourneyRunSurface.tsx'), 'utf8');
-    expect(surface).toContain('lastActRef');
-    expect(surface).toMatch(/lastActRef\.current !== actId/);
-    expect(surface).toContain('setSelectedStageId(stageId)');
+    expect(surface).toMatch(/runtimeState\?\.currentStageId/);
+    // And the resolver moves that pointer as stages complete.
+    const atClaim = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      canonicalOutcomes: { register: true },
+    });
+    const atPassport = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      canonicalOutcomes: { register: true, claim: true },
+    });
+    expect(atClaim.currentStageId).toBe('claim');
+    expect(atPassport.currentStageId).toBe('passport');
   });
 });
 
@@ -1295,12 +1314,14 @@ describe('ACCEPTANCE 5/6 — the branch surface', () => {
     }).toEqual({ factoryIngested: true, standingEligible: true, standingAccrued: 0 });
   });
 
-  it('renders both branches as a pair, and neither as the mandatory next stage', () => {
-    const surface = fs.readFileSync(path.join(__dirname, '..', 'components/journey/JourneyRunSurface.tsx'), 'utf8');
-    // Offered together, in a grid — not appended to the stepper line.
-    expect(surface).toContain('branchOffers');
-    expect(surface).toMatch(/neither waits on the other/i);
-    // The "one next act" block never renders a branch: the server never sends one.
+  /*
+   * RE-POINTED 2026-08-03, same reason as above: the branch SURFACE was part
+   * of the removed redesign, and the operator has deferred that work —
+   * "Do not work on those branches until the admission spine is complete and
+   * executable." What must remain true regardless of how branches are ever
+   * presented is that neither is the mandatory next act.
+   */
+  it('neither branch is ever the mandatory next act', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
       canonicalOutcomes: { register: true, claim: true, passport: true, delegate: true, aigentme: true },
     });
@@ -1337,5 +1358,77 @@ describe('one fact, one source — WITHIN the state route (2026-08-03)', () => {
   it('no Passport-validity read is receipt-only', () => {
     // THE ASSERTION THAT FAILS ON THE DEFECT: `hasReceipt(...)` alone.
     expect(routeSource).not.toMatch(/operatorPolityCitizenPassportValid:\s*hasReceipt\([^)]*\),/);
+  });
+});
+
+describe('a failed read never becomes a constitutional finding (2026-08-03)', () => {
+  /*
+   * ── WHAT THE OPERATOR SAW ────────────────────────────────────────────────
+   *
+   *   Register    "Aigent Nakamoto is registered — token 8798"
+   *   Claim       "Continue to Register"
+   *   Passport    "Your Polity Citizen Passport does not currently resolve"
+   *
+   * Three claims on one screen, two of them false, about facts already
+   * settled. Both had the same shape and neither was a logic error in the
+   * gates — the gates were fed nulls.
+   *
+   * CAUSE 1 — one try, six reads. Every read in the state route sat inside a
+   * SINGLE try with an empty catch. A throw in any one of them silently
+   * nulled every LATER fact, including `registration` and the prior
+   * resolution that is the monotonic floor. `resolvePassportEligibility` then
+   * received `registration: null`, and answered honestly for the input it was
+   * given: "No registration binding has been established" → "Continue to
+   * Register". The screen above it was rendering the tokenId from the Agent
+   * Card, which is fetched separately and did not fail.
+   *
+   * CAUSE 2 — `loadUsablePassportByKybe` selected the OLDEST passport row
+   * (`order(created_at, ascending).limit(1)`). A personhood carrying an early
+   * revoked or expired record followed by the real one resolved to the dead
+   * row, failed `isPassportUsable`, and returned `passport_inactive` — a
+   * REAL-looking negative finding, so it was not even treated as unreadable.
+   *
+   * Both are the operator's rule violated the same way: a fact computed once
+   * and settled once was re-derived per request, and a read that failed was
+   * allowed to answer the question instead of declining to.
+   */
+  const routeSource = fs
+    .readFileSync(path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  it('CAUSE 1 — each fact is read under its own guard, not one shared try', () => {
+    // THE ASSERTION THAT FAILS ON THE DEFECT: one `try {` wrapping them all.
+    expect(routeSource).toContain('guarded(');
+    for (const label of ['receipts', 'registration', 'passport', 'authorization-store', 'prior-resolution']) {
+      expect(routeSource, `"${label}" is not independently guarded`).toContain(`guarded('${label}'`);
+    }
+  });
+
+  it('CAUSE 1 — a failed guard is logged, never swallowed', () => {
+    expect(routeSource).toMatch(/\[JOURNEY STATE\]/);
+  });
+
+  it('CAUSE 1 — Register stays canonical from the served token id when the DB read fails', () => {
+    // The screen showing "token 8798" and a stepper saying "Continue to
+    // Register" must be impossible to render together.
+    expect(routeSource).toMatch(/register:\s*registration\?\.registered === true \|\| Boolean\(horizen\?\.tokenId\)/);
+  });
+
+  it('CAUSE 1 — the eligibility gate gets the same fallback, so it cannot contradict the card', () => {
+    expect(routeSource).toMatch(/horizen\?\.tokenId[\s\S]{0,400}?registered: true/);
+  });
+
+  it('CAUSE 2 — a usable Passport wins over an older unusable one', () => {
+    const src = fs
+      .readFileSync(path.join(__dirname, '..', 'services/identity/passportPrincipal.ts'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    // THE ASSERTION THAT FAILS ON THE DEFECT: ascending order + limit(1) took
+    // the oldest row and let a dead record speak for a live Passport.
+    expect(src, 'the oldest-row selection is the defect').not.toMatch(
+      /polity_passport_records[\s\S]{0,300}?ascending: true[\s\S]{0,120}?limit\(1\)/,
+    );
+    expect(src).toMatch(/snapshots\.find\(\(p\) => isPassportUsable\(p\)\)/);
   });
 });

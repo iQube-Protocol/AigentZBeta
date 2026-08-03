@@ -27,39 +27,9 @@ import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 import { JOURNEY_SURFACES, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
-import type { JourneyDefinition, JourneyMilestone, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
-import type { JourneyAct, StageResolution } from '@/services/journey/stageResolution';
+import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
-
-/**
- * The server's monotonic resolution, when the journey's state route supplies
- * one. Optional so a journey that has not adopted the layer (the Validation
- * Programme) keeps rendering exactly as before — adoption is per-journey, and
- * an absent block means "this journey reports evidence only", never "nothing
- * is complete".
- */
-interface JourneyResolutionPayload {
-  stages: StageResolution[];
-  milestones: JourneyMilestone[];
-  highestMilestone: JourneyMilestone | null;
-  nextExecutableAct: JourneyAct | null;
-  complete: boolean;
-}
-
-/**
- * The two post-activation branches. Rendered as a PAIR of independent offers,
- * deliberately not as a continuation of the stepper line: a line would imply
- * an order, and the operator ruled that neither branch gates the other.
- */
-interface BranchOfferPayload {
-  branch: 'factory' | 'capability';
-  stageId: string;
-  label: string;
-  outcome: string;
-  complete: boolean;
-  available: boolean;
-}
 
 /**
  * One status row above the stepper, crossfading between whichever of
@@ -145,25 +115,10 @@ export function JourneyRunSurface({
   resolveSurfaceProps,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
-  const [resolution, setResolution] = useState<JourneyResolutionPayload | null>(null);
-  const [branchOffers, setBranchOffers] = useState<BranchOfferPayload[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [fullScreen, setFullScreen] = useState(false);
-  /**
-   * The act the operator was last shown. Routing follows a CHANGE in the next
-   * act, never its mere presence — otherwise every poll would yank them back
-   * to the runtime's idea of "current" and a deliberate look at an earlier
-   * stage would be impossible (MS-5: a deliberate act outranks an ambient
-   * observation).
-   */
-  const lastActRef = useRef<string | null>(null);
-  // Read inside `refresh` without making the journey a dependency of it — the
-  // definition is static per mount, and adding it would re-fetch on every
-  // parent render.
-  const journeyRef = useRef(journey);
-  journeyRef.current = journey;
 
   useEffect(() => {
     if (typeof document === 'undefined' || !documentTitle) return;
@@ -188,28 +143,6 @@ export function JourneyRunSurface({
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
       const json = await readJsonOrExplain(res, 'journey/state');
       setRuntimeState(json.state as JourneyRuntimeState);
-      const next = (json.resolution as JourneyResolutionPayload | undefined) ?? null;
-      setResolution(next);
-      setBranchOffers((json.branchOffers as BranchOfferPayload[] | undefined) ?? []);
-
-      /*
-       * ROUTE TO THE NEXT EXECUTABLE ACT (operator ruling, 2026-08-03).
-       *
-       *   > "After each successful act, take the operator to the next required
-       *   >  stage — never back to cartridge home/Lab/dashboard."
-       *
-       * `selectedStageId` used to win forever once set, so completing a stage
-       * left the operator sitting on the stage they had just finished, with
-       * nothing indicating where to go. Following the act only when its id
-       * CHANGES preserves a deliberate selection while still advancing on a
-       * real state transition.
-       */
-      const actId = next?.nextExecutableAct?.actId ?? null;
-      if (actId && lastActRef.current !== null && lastActRef.current !== actId) {
-        const stageId = next?.nextExecutableAct?.stageId;
-        if (stageId && journeyRef.current.stages.some((s) => s.id === stageId)) setSelectedStageId(stageId);
-      }
-      lastActRef.current = actId;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load journey state');
     } finally {
@@ -316,8 +249,6 @@ export function JourneyRunSurface({
   const activeStageId = selectedStageId ?? runtimeState?.currentStageId ?? journey.stages[0]?.id;
   const activeStage = journey.stages.find((s) => s.id === activeStageId) ?? journey.stages[0];
   const activeStageRuntime = runtimeState?.stages.find((s) => s.stageId === activeStageId);
-  const activeResolution = resolution?.stages.find((s) => s.stageId === activeStageId) ?? null;
-  const nextAct = resolution?.nextExecutableAct ?? null;
 
   // Keep the active stage visible in the carousel — including when it was
   // selected from OUTSIDE this strip (the companion's `journey:select-stage`),
@@ -408,163 +339,6 @@ export function JourneyRunSurface({
           ]}
         />
       </div>
-
-      {/*
-        WHERE YOU ARE · WHAT IS COMPLETE · WHAT IS BLOCKING · WHAT IS NOT ·
-        THE ONE NEXT ACT (operator ruling, 2026-08-03).
-
-        Rendered ONLY from the server's resolution — this component computes
-        no completion of its own. A surface that derived its own answer would
-        be a second observer of the same fact, which is the defect the whole
-        settled-fact layer exists to end.
-      */}
-      {activeResolution && (
-        <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* STAGE TRUTH and STAGE EVIDENCE, side by side and never merged.
-                A complete stage with partial evidence must read as complete —
-                that is the entire point of separating them. */}
-            <span
-              className={`rounded px-1.5 py-0.5 font-medium ${
-                activeResolution.canonicalOutcome
-                  ? 'bg-emerald-500/20 text-emerald-200'
-                  : 'bg-slate-700/40 text-slate-300'
-              }`}
-            >
-              {activeResolution.canonicalOutcome ? 'Outcome established' : 'Outcome not yet established'}
-            </span>
-            <span className="text-slate-500">
-              Evidence {activeResolution.evidenceCompleteness}
-              {activeResolution.evidenceCompleteness !== 'complete' && activeResolution.canonicalOutcome
-                ? ' — evidence gaps do not change the outcome'
-                : ''}
-            </span>
-            {resolution?.highestMilestone && (
-              <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-purple-200">
-                {resolution.highestMilestone.replace(/_/g, ' ')}
-              </span>
-            )}
-          </div>
-
-          {/* BLOCKING — each one terminating in an act, never in prose. */}
-          {activeResolution.operationalBlockers.map((blocker) => (
-            <div key={blocker.code} className="rounded-md border border-rose-900/60 bg-rose-950/20 p-2.5">
-              <div className="text-rose-200">{blocker.summary}</div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {blocker.acts.map((act) => (
-                  <button
-                    key={act.actId}
-                    type="button"
-                    title={act.detail}
-                    onClick={() => (act.kind === 're-check' ? void refresh() : selectStage(act.stageId))}
-                    className="rounded border border-rose-800/60 bg-rose-950/30 px-2 py-1 text-[11px] text-rose-100 hover:bg-rose-950/50"
-                  >
-                    {act.label}
-                  </button>
-                ))}
-              </div>
-              {blocker.acts.some((a) => a.detail) && (
-                <details className="mt-1.5">
-                  <summary className="cursor-pointer text-[11px] text-rose-200/60 hover:text-rose-200">Exact remedy</summary>
-                  {blocker.acts
-                    .filter((a) => a.detail)
-                    .map((a) => (
-                      <code key={a.actId} className="mt-1 block break-all text-[11px] text-rose-200/70">
-                        {a.detail}
-                      </code>
-                    ))}
-                </details>
-              )}
-            </div>
-          ))}
-
-          {/* NON-BLOCKING — amber, and explicitly labelled as stopping
-              nothing. A warning is not a refusal. */}
-          {activeResolution.nonBlockingExceptions.length > 0 && (
-            <details className="rounded-md border border-amber-900/60 bg-amber-950/20 p-2.5">
-              <summary className="cursor-pointer text-amber-200">
-                {activeResolution.nonBlockingExceptions.length} disclosed exception
-                {activeResolution.nonBlockingExceptions.length === 1 ? '' : 's'} — blocking nothing
-              </summary>
-              <ul className="mt-1.5 space-y-1.5">
-                {activeResolution.nonBlockingExceptions.map((exception) => (
-                  <li key={exception.code + exception.recordId} className="text-[11px] text-amber-200/80">
-                    <span className="text-amber-100">{exception.recordLabel}</span> — {exception.cause}
-                    <div className="text-amber-200/60">{exception.consequence}</div>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-
-          {/* AUDIT GAPS — visible, named, and never mistaken for absence of
-              the outcome. */}
-          {activeResolution.auditGaps.length > 0 && (
-            <details>
-              <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300">
-                {activeResolution.auditGaps.length} audit gap{activeResolution.auditGaps.length === 1 ? '' : 's'}
-              </summary>
-              <ul className="mt-1.5 space-y-1 text-[11px] text-slate-400">
-                {activeResolution.auditGaps.map((gap) => (
-                  <li key={gap}>{gap}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-
-          {/*
-            THE TWO POST-ACTIVATION BRANCHES (operator ruling, 2026-08-03).
-
-            Rendered SIDE BY SIDE, never as a continuation of the stepper —
-            a line would imply an order, and neither branch gates the other.
-            Each offer states the OUTCOME the operator gets, not the mechanism
-            that delivers it. Shown only once activation makes them executable
-            (MS-9: a control that cannot act must not render).
-          */}
-          {branchOffers.some((offer) => offer.available) && (
-            <div className="border-t border-slate-800 pt-2">
-              <div className="text-slate-500">Agent activated. Continue with either — neither waits on the other:</div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {branchOffers
-                  .filter((offer) => offer.available)
-                  .map((offer) => (
-                    <button
-                      key={offer.branch}
-                      type="button"
-                      onClick={() => selectStage(offer.stageId)}
-                      className={`rounded-md border p-2.5 text-left transition-colors ${
-                        offer.complete
-                          ? 'border-emerald-900/60 bg-emerald-950/20 hover:bg-emerald-950/40'
-                          : 'border-slate-700 bg-slate-950/40 hover:bg-slate-800/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {offer.complete && <Check className="h-3 w-3 shrink-0 text-emerald-300" />}
-                        <span className={offer.complete ? 'text-emerald-200' : 'text-slate-200'}>{offer.label}</span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-slate-400">{offer.outcome}</div>
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* THE ONE NEXT ACT. */}
-          {nextAct && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-slate-800 pt-2">
-              <span className="text-slate-500">Next:</span>
-              <button
-                type="button"
-                title={nextAct.detail}
-                onClick={() => (nextAct.kind === 're-check' ? void refresh() : selectStage(nextAct.stageId))}
-                className="rounded border border-purple-700/60 bg-purple-950/30 px-2 py-1 text-[11px] text-purple-100 hover:bg-purple-950/50"
-              >
-                {nextAct.label}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/*
         EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn why
