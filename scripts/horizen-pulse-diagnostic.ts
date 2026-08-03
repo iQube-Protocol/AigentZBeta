@@ -32,7 +32,13 @@
  *   npx tsx scripts/horizen-pulse-diagnostic.ts --agent=nakamoto --tokenId=8798
  */
 
-import { HORIZEN_NETWORK_FACTS, parseAgentId, classifyIdentity, type HorizenNetwork } from '../services/horizen/identity';
+import {
+  HORIZEN_NETWORK_FACTS,
+  parseAgentId,
+  classifyIdentity,
+  serializeForSurfaces,
+  type HorizenNetwork,
+} from '../services/horizen/identity';
 import { resolveRegistrableAgent } from '../services/horizen/registrableAgents';
 import { pulseBuildCandidates } from '../services/horizen/authorizationClient';
 import { matchSchemaFields, missingRequiredFields } from '../services/horizen/mcpSchemaMatch';
@@ -48,6 +54,41 @@ function arg(name: string): string | null {
 
 function line(label: string, value: unknown): void {
   console.log(`${label.padEnd(22)}${String(value)}`);
+}
+
+/**
+ * The chain's own answer, when the REST index cannot give one.
+ *
+ * `ownerOf` reverting means the token was never minted — a real answer.
+ * Anything else means the call could not be made, which is not an answer at
+ * all. Reported as two different things, because reading either as "not
+ * registered" is what sent this hunt in the wrong direction twice.
+ */
+async function ownerFromChain(agentId: bigint, identityRegistry: string): Promise<string | null> {
+  const { ethers } = await import('ethers');
+  const { fetchOwnerOnChain } = await import('../services/horizen/agentIdRecovery');
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org';
+
+  console.log('\n── ownerOf, on chain (authoritative) ──');
+  line('RPC', rpcUrl);
+  line('IdentityRegistry', identityRegistry);
+  const read = await fetchOwnerOnChain({
+    provider: new ethers.JsonRpcProvider(rpcUrl),
+    identityRegistry,
+    agentId,
+  });
+  if (read.ok) {
+    line('ownerOf', read.owner);
+    return read.owner;
+  }
+  line('ownerOf', `unavailable (${read.reason})`);
+  line('Detail', read.detail);
+  console.log(
+    read.reason === 'not-minted'
+      ? '\n  This IS an answer: no such token on this registry. Pulse cannot apply.'
+      : '\n  This is NOT an answer: the call could not be made. Nothing follows about registration.',
+  );
+  return null;
 }
 
 async function main(): Promise<void> {
@@ -72,11 +113,14 @@ async function main(): Promise<void> {
     console.log(`\nREFUSED: "${rawTokenId}" is not a usable agent id (${parsed.reason}): ${parsed.detail}\n`);
     return;
   }
-  const decimalAgentId = parsed.value.toString(10);
-  console.log('\n── Identifier ──');
+  const surfaces = serializeForSurfaces(parsed.value, NETWORK);
+  const decimalAgentId = surfaces.pulseAgentId;
+  console.log('\n── Identifier, per surface (§2.4.1) ──');
   line('Given', rawTokenId);
-  line('Decimal (for Pulse)', decimalAgentId);
-  line('Hex (registry form)', `0x${parsed.value.toString(16)}`);
+  line('registryAgentId', `${surfaces.registryAgentId}   (Registry REST path — HEX)`);
+  line('registryNetwork', surfaces.registryNetwork);
+  line('pulseAgentId', `${surfaces.pulseAgentId}   (Pulse / PnL — DECIMAL)`);
+  line('pulseChain', surfaces.pulseChain);
   line('Service-onboarded?', parsed.value >= 10_000_000n ? 'YES — likely no ERC-8004 token, Pulse cannot apply' : 'no');
 
   // ── 2. Is this row actually an on-chain ERC-8004 identity? ───────────────
@@ -105,34 +149,22 @@ async function main(): Promise<void> {
       line('Lookup ok', read.ok === true);
       line('Reason', read.reason ?? '(none given)');
       line('Detail', (read as { detail?: string }).detail ?? '(none)');
-      line('URL', `${HORIZEN_REGISTRY_API}/agents/${decimalAgentId}?network=${facts.registrySelector}`);
+      line('URL', `${HORIZEN_REGISTRY_API}/agents/${surfaces.registryAgentId}?network=${surfaces.registryNetwork}`);
       line(
         'Means',
         read.ok === true
-          ? 'the registry ANSWERED and holds no agent at this id — Pulse cannot apply until it does'
-          : 'the read did not complete, so this says NOTHING about whether the agent is registered',
+          ? 'the registry ANSWERED and holds no agent at this id'
+          : 'the INDEX read did not complete — this says NOTHING about whether the agent is registered',
       );
-      if (read.reason === 'transport' || read.reason === 'http') {
-        /*
-         * A SECOND, INDEPENDENT BLOCKER — worth saying out loud rather than
-         * leaving as a failed line in a section about something else.
-         *
-         * This REST read is not only how the diagnostic resolves the owner. It
-         * is what `verifyHorizenTransparencyActivation` uses to cross-check
-         * that the registry's owner matches the wallet that signed. If the
-         * host does not answer, Verify refuses REGISTRY_REREAD_FAILED even
-         * when build, sign and submit all succeed — so fixing the Pulse call
-         * alone would not complete the ceremony.
-         *
-         * Note the asymmetry the run below establishes: the MCP endpoint on
-         * this SAME host answers. Whatever is wrong is specific to the REST
-         * path, not to reaching Horizen.
-         */
-        console.log('\n  ⚠ SEPARATE BLOCKER: this same read is the owner cross-check in the Verify');
-        console.log('    stage. While it fails, Verify refuses REGISTRY_REREAD_FAILED regardless of');
-        console.log('    whether the Pulse call itself succeeds. The MCP endpoint on the same host');
-        console.log('    is exercised below — compare the two before concluding Horizen is down.');
-      }
+      /*
+       * AN INDEX FAILURE IS NOT NON-REGISTRATION (operator direction, 2026-08-03).
+       *
+       * The chain is the ledger; the REST index is a lookup service over it.
+       * Falling back to `ownerOf` against the documented IdentityRegistry
+       * answers the question the index could not — and distinguishes "no such
+       * token" (a revert, a real answer) from "could not read" (no answer).
+       */
+      ownerFromRegistry = await ownerFromChain(parsed.value, facts.identityRegistry);
     } else {
       const source = typeof record.source === 'string' ? record.source : null;
       ownerFromRegistry = typeof record.owner === 'string' ? record.owner : null;
@@ -143,20 +175,37 @@ async function main(): Promise<void> {
         console.log('\n  ⚠ source is not "on-chain" — Pulse owner authorization has no ERC-8004');
         console.log('    ownership anchor for this row and should refuse rather than attempt.');
       }
+      // The index answered but withheld the owner — the chain still can.
+      if (!ownerFromRegistry) ownerFromRegistry = await ownerFromChain(parsed.value, facts.identityRegistry);
     }
   } catch (err) {
     line('Lookup FAILED', err instanceof Error ? err.message : String(err));
   }
 
-  // ── 3. The arguments the contract specifies ──────────────────────────────
+  // ── 3. Does the wallet we would sign with actually own the token? ─────────
+  /*
+   * THE QUESTION THAT COULD MAKE EVERYTHING ELSE MOOT. The contract requires
+   * the signing wallet to equal `ownerOf(agentId)`; if registration was
+   * broadcast from a different wallet, Pulse must refuse however correct the
+   * call is. It had gone unasked through five rounds of parser fixes.
+   */
   const walletArg = arg('wallet');
   const wallet = (walletArg ?? ownerFromRegistry ?? '').toLowerCase();
-  console.log('\n── Request arguments (per the documented contract) ──');
-  line('agentId', `${decimalAgentId}  (decimal)`);
-  line('network', facts.pulseSelector);
-  line('chain', facts.chainId);
-  line('registry', facts.identityRegistry.toLowerCase());
-  line('wallet', wallet || '(unresolved — pass --wallet= or fix the registry read)');
+  console.log('\n── Owner vs signer ──');
+  line('Token owner', ownerFromRegistry ? ownerFromRegistry.toLowerCase() : '(unestablished)');
+  line('Signing wallet', wallet || '(unresolved)');
+  if (ownerFromRegistry && walletArg) {
+    const match = ownerFromRegistry.toLowerCase() === walletArg.toLowerCase();
+    line('Match', match ? 'YES — the signer owns the token' : 'NO');
+    if (!match) {
+      console.log('\n  ⚠ BLOCKING: the wallet we sign with does not own this token. Pulse must refuse.');
+      console.log('    Whatever else is wrong, this alone prevents authorization.');
+    }
+  } else if (!ownerFromRegistry) {
+    console.log('\n  Ownership UNESTABLISHED — neither the index nor the chain answered.');
+    console.log('  Proceeding to the Pulse call anyway, since Horizen is the authority on');
+    console.log('  its own acceptance; but a success here would not prove ownership.');
+  }
   if (!wallet) {
     console.log('\n  Wallet unresolved. The contract requires it to equal ownerOf(agentId);');
     console.log('  guessing it is exactly what this diagnostic exists to stop.\n');

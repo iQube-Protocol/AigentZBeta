@@ -69,7 +69,7 @@ function sleep(ms: number): Promise<void> {
  * seed-URL resolution all inherit it without a second implementation
  * (Extend, Don't Duplicate).
  */
-async function fetchWithRetry(
+export async function fetchWithRetry(
   url: string,
   init: RequestInit,
   timeoutMs: number,

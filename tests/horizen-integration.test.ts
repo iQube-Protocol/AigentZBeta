@@ -21,6 +21,7 @@ import {
   isServiceOnboardedId,
   SERVICE_ONBOARDED_ID_FLOOR,
   HORIZEN_NETWORK_FACTS,
+  serializeForSurfaces,
 } from '@/services/horizen/identity';
 import {
   parseAgentCardObject,
@@ -40,7 +41,7 @@ import {
 import { resolveBinding } from '@/services/horizen/agentBinding';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { HorizenFetch } from '@/services/horizen/client';
+import { fetchRegistryAgent, fetchRegistryPulseStatus, type HorizenFetch } from '@/services/horizen/client';
 
 // ─── Fixtures, from the brief ──────────────────────────────────────────────
 
@@ -159,6 +160,181 @@ describe('identifier normalization (§2.4.1)', () => {
 });
 
 // ─── 2. Network is part of the identity key ────────────────────────────────
+
+describe('one token id, two representations — the surface decides (§2.4.1)', () => {
+  /*
+   * ── THE DEFECT (operator direction, 2026-08-03) ─────────────────────────
+   *
+   * §2.4.1 has been quoted at the top of `identity.ts` since it was written:
+   * the Registry renders HEX, Pulse and PnL use DECIMAL. `fetchRegistryAgent`'s
+   * own doc comment said "passed in the registry's own HEX rendering" — and
+   * then interpolated whatever string arrived.
+   *
+   * So the Verify path asked for `/api/agents/8798?network=sepolia`: right
+   * token, right network, WRONG REPRESENTATION. The registry did not answer,
+   * and we read that silence first as "Horizen has no record of this agent"
+   * and then as a transport fault — two diagnostic rounds spent on a
+   * representation bug.
+   *
+   * ── WHY NO EXISTING CANARY CAUGHT IT (OS-9) ─────────────────────────────
+   *
+   * Every test in this file fed `'0x1eba'` — the correct rendering — so the
+   * suite only ever proved that hex stays hex. The one representation a
+   * caller is most likely to hold (the DECIMAL tokenId stored in
+   * `registry_assets.token_id`, which is what Verify passes) was never
+   * exercised. A canary that only supplies pre-corrected input cannot fail on
+   * the defect it exists to prevent.
+   */
+  const CASES: Array<{ given: string; label: string }> = [
+    { given: '8798', label: 'the DECIMAL form Verify actually holds — the failing case' },
+    { given: '0x225e', label: 'the hex form, already correct' },
+    { given: '7866', label: "the brief's own reference agent, in decimal" },
+    { given: '0x1eba', label: "the brief's own reference agent, in hex" },
+  ];
+
+  for (const { given, label } of CASES) {
+    it(`registry REST is keyed by HEX whatever the caller holds — ${label}`, async () => {
+      const seen: string[] = [];
+      const spy: HorizenFetch = async (url) => {
+        seen.push(url);
+        return { ok: true, status: 200, json: async () => ({ ready: true }) };
+      };
+      await fetchRegistryAgent(given, 'base-sepolia', { fetchImpl: spy });
+
+      const expectedHex = `0x${BigInt(given).toString(16)}`;
+      expect(seen[0]).toContain(`/api/agents/${expectedHex}?`);
+      expect(seen[0]).toContain('network=sepolia');
+      // THE ASSERTION THAT FAILS ON THE HISTORICAL DEFECT: a decimal path
+      // segment is what produced the silence we chased.
+      expect(seen[0], 'a decimal registry path is the defect returning').not.toMatch(
+        new RegExp(`/api/agents/${BigInt(given).toString(10)}[?/]`),
+      );
+    });
+  }
+
+  it('the pulse-status route on the same host uses the same HEX rendering', async () => {
+    // The representation belongs to the SURFACE, not to one route — fixing
+    // only the route we happened to be debugging would leave the twin broken.
+    const seen: string[] = [];
+    const spy: HorizenFetch = async (url) => {
+      seen.push(url);
+      return { ok: true, status: 200, json: async () => ({ enrolled: true }) };
+    };
+    await fetchRegistryPulseStatus('8798', 'base-sepolia', { fetchImpl: spy });
+    expect(seen[0]).toContain('/api/agents/0x225e/pulse-status');
+  });
+
+  it('a non-numeric catalogue reference passes through unchanged', () => {
+    // §2.4.2 rows carry genuine slugs (`virtuals:26`). Hex-ifying something
+    // that is not a number is not available, and coercing one would
+    // manufacture a token id.
+    expect(parseAgentId('virtuals:26').ok).toBe(false);
+  });
+
+  it('the surfaces name their own serialization — there is no generic agentId to reach for', () => {
+    const s = serializeForSurfaces(8798n, 'base-sepolia');
+    expect(s).toEqual({
+      registryAgentId: '0x225e',
+      registryNetwork: 'sepolia',
+      pulseAgentId: '8798',
+      pulseChain: 'base-sepolia',
+    });
+  });
+});
+
+describe('the DEFAULT transport actually issues a request (2026-08-03)', () => {
+  /*
+   * ── THE DEFECT ──────────────────────────────────────────────────────────
+   *
+   * `client.ts`'s `defaultFetch` did:
+   *
+   *   const { fetchWithRetry } = await import('@/services/corpusScout/retrieval');
+   *   return fetchWithRetry(url, init) as unknown as ...
+   *
+   * `fetchWithRetry` was NOT EXPORTED, so the destructure yielded `undefined`
+   * and calling it threw `fetchWithRetry is not a function` — which
+   * `readJson`'s catch classified as `reason: 'transport'`. Its real signature
+   * is `(url, init, timeoutMs) => {ok, response}`, not a `Response`, so even
+   * exported the shape was wrong. One `as unknown as` cast concealed both.
+   *
+   * EVERY Horizen REST read therefore returned `transport` WITHOUT A PACKET
+   * LEAVING THE PROCESS — and we read that as "the host is not answering",
+   * even contrasting it against the MCP endpoint on the same host. It was
+   * never dialled.
+   *
+   * ── WHY NOTHING CAUGHT IT (OS-9, same shape as the hex defect above) ─────
+   *
+   * Every test in this file injects `fetchImpl`. That is correct for offline
+   * determinism and it means the DEFAULT path — the only one production uses —
+   * had no coverage at all. These canaries stub the global `fetch` instead, so
+   * the real adapter runs end to end without a socket.
+   */
+  const withStubbedFetch = async <T>(stub: typeof globalThis.fetch, run: () => Promise<T>): Promise<T> => {
+    const original = globalThis.fetch;
+    globalThis.fetch = stub;
+    try {
+      return await run();
+    } finally {
+      globalThis.fetch = original;
+    }
+  };
+
+  it('fetchWithRetry is exported — the destructure that yielded undefined', async () => {
+    const { fetchWithRetry } = await import('@/services/corpusScout/retrieval');
+    expect(typeof fetchWithRetry, 'not exported is exactly the defect').toBe('function');
+  });
+
+  it('a registry read with NO injected fetchImpl reaches the network and returns the body', async () => {
+    const seen: string[] = [];
+    const result = await withStubbedFetch(
+      (async (url: string | URL) => {
+        seen.push(String(url));
+        return new Response(JSON.stringify({ ready: true, agent: { agentId: '0x225e' } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }) as typeof globalThis.fetch,
+      () => fetchRegistryAgent('8798', 'base-sepolia'),
+    );
+
+    // Before the fix this was {ok:false, reason:'transport'} and `seen` was empty.
+    expect(seen, 'no request was issued — the default transport is broken again').toHaveLength(1);
+    expect(seen[0]).toContain('/api/agents/0x225e?network=sepolia');
+    expect(result.ok).toBe(true);
+  });
+
+  it('a 404 is reported as not-found, not as transport — the statuses are readable now', async () => {
+    // `res.status` was undefined under the cast, so no status-based branch in
+    // `readJson` could ever have been reached.
+    const result = await withStubbedFetch(
+      (async () => new Response('', { status: 404 })) as typeof globalThis.fetch,
+      () => fetchRegistryAgent('8798', 'base-sepolia'),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('not-found');
+  });
+
+  it('a genuine transport failure is still reported as transport', async () => {
+    // The classification must stay correct for the case it was always claiming.
+    const result = await withStubbedFetch(
+      (async () => {
+        throw new TypeError('fetch failed');
+      }) as typeof globalThis.fetch,
+      () => fetchRegistryAgent('8798', 'base-sepolia'),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('transport');
+  });
+
+  it('no `as unknown as` cast stands between the transport and its declared type', () => {
+    // The cast is what allowed a wrong shape AND a missing export to compile.
+    const src = readFileSync(join(process.cwd(), 'services/horizen/client.ts'), 'utf8');
+    const defaultFetchBody = src.slice(src.indexOf('async function defaultFetch'));
+    expect(defaultFetchBody.slice(0, 800)).not.toContain('as unknown as');
+  });
+});
 
 describe('network is part of the identity (§4.4)', () => {
   it('the same agentId on two networks yields two DIFFERENT identity keys', () => {
