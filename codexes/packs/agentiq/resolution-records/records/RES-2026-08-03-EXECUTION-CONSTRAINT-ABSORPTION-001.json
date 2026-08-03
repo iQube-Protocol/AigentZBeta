@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "resolutionId": "RES-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001",
   "capability": "Track 2 — Stage 2 bulk admission (operator experience)",
   "milestone": "Track 2 exception isolation — execution constraints absorbed by the system",
@@ -36,7 +36,8 @@
   ],
   "candidateInvariants": [
     "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
-    "CI-2026-08-03-UX-OPTIMIZE-COMPLETION-NOT-OBSTRUCTION-001"
+    "CI-2026-08-03-UX-OPTIMIZE-COMPLETION-NOT-OBSTRUCTION-001",
+    "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001"
   ],
   "canaries": [
     "tests/execution-absorption.test.ts"
@@ -62,5 +63,14 @@
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
   ],
-  "date": "2026-08-03"
+  "date": "2026-08-03",
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

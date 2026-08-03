@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-TTV-OPTIMIZATION-OBJECTIVE-001",
+  "becameCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "disposition": "promoted-to-candidate",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [],
+  "date": "2026-08-03",
+  "question": "Is the right optimisation target for constitutional computing operator agency, or something agency serves?",
+  "context": "Explored 2026-08-03 and RESOLVED in the same session: the operator ruled that agency is the means and Time to Value the target, then ratified the TTV/TTR objective. Recorded here because the loop should show ideas leaving the workspace, not only entering it.",
+  "wouldRequire": [
+    "Resolved — the operator ratified the objective on 2026-08-03."
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

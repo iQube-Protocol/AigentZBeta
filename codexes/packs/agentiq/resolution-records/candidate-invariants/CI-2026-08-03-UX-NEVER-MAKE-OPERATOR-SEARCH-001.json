@@ -1,17 +1,11 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-UX-NEVER-MAKE-OPERATOR-SEARCH-001",
   "statement": "If the system knows which record needs attention, it must present it. Never 'Go to…', never 'Find…', never 'Locate…'.",
   "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
   "scope": "cross-capability",
-  "status": "candidate",
-  "canaries": [
-    {
-      "path": "tests/duplicate-resolution.test.ts",
-      "assertion": "No prose the exception surface emits contains a navigation instruction ('Go to', 'Find', 'Locate', 'in the review queue', 'individually') — the system already holds the record and presents it rather than sending the operator looking.",
-      "verifiedFailingBeforeFix": true
-    }
-  ],
+  "status": "deprecated",
+  "canaries": [],
   "occurrences": [
     {
       "site": "components/research/Track2ProgrammePanel.tsx",
@@ -27,11 +21,23 @@
   ],
   "ratifiedSource": null,
   "notes": [
+    "COLLAPSED 2026-08-03 into CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001. The operator removed the Agency/UX family: \"Don't create 'UX invariants' as a separate canonical family. Instead say: these constitutional execution principles PROJECT into UX.\" This record is retained as a TOMBSTONE, not deleted — every doc that already cited this id must still be able to find where the rule went.",
+    "WHAT THE COLLAPSE COSTS, stated rather than assumed: Nothing structural. \"If the system knows which record needs attention, it must present it\" is Recommendation Before Interrogation applied to locating the subject. The literal prohibitions (never \"Go to…\", never \"Find…\", never \"Locate…\") are carried as the parent's UX projection.",
     "UX Invariant III, operator-worded verbatim 2026-08-03.",
     "The system already knows. Bring the problem to the operator.",
     "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
     "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
     "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`.",
-    "Canary attached 2026-08-03 by the agent implementing the surface this invariant governs. The family was recorded without enforcement points; an invariant without a canary is advisory prose, so the tests that already enforce this rule are named here."
-  ]
+    "RE-PARENTED 2026-08-03 beneath CI-2026-08-03-UX-NAVIGATION-IS-NEVER-GOVERNANCE-001, which is itself a direct child of the ratified TTV/TTR principle in the operator's hierarchy. Statement unchanged."
+  ],
+  "family": "execution",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": null
+  },
+  "governingPrinciple": false,
+  "supersededBy": "CI-2026-08-03-UX-RECOMMENDATION-PREPARED-IN-ADVANCE-001"
 }

@@ -21,6 +21,11 @@ import {
   listUncapturedUpdateDocs,
   loadRegistry,
 } from '../services/invariants/resolutionRecords';
+import {
+  CLOSE_OUT_KINDS,
+  CLOSE_OUT_RITUAL,
+  CONSTITUTIONAL_EXECUTION_PRINCIPLES,
+} from '../types/resolutionRecords';
 
 const milestoneArg = process.argv.find((a) => a.startsWith('--milestone='));
 const milestone = milestoneArg ? milestoneArg.slice('--milestone='.length) : null;
@@ -30,6 +35,7 @@ const filtered = milestone
   ? {
       records: registry.records.filter((r) => r.milestone.includes(milestone)),
       candidates: registry.candidates,
+      exploration: registry.exploration,
     }
   : registry;
 
@@ -46,6 +52,33 @@ console.log(
   `${report.totals.resolutions} resolutions · ${report.totals.candidates} candidate invariants · ` +
     `${report.totals.canaries} canaries · ${report.totals.candidatesWithoutCanary} candidate(s) with NO canary`,
 );
+
+console.log(rule('Families'));
+for (const [family, n] of Object.entries(report.byFamily)) console.log(`  ${family.padEnd(15)} ${n}`);
+console.log('  (UX is a PROJECTION TARGET, not a family — operator ruling 2026-08-03)');
+
+console.log(rule('Constitutional Execution Family'));
+for (const p of CONSTITUTIONAL_EXECUTION_PRINCIPLES) {
+  const c = registry.candidates.find((k) => k.candidateId === p.candidateId);
+  console.log(`  ${p.name}  [${c?.status ?? 'MISSING'}]  ${c?.canaries.length ?? 0} canary(ies)`);
+}
+
+console.log(rule('Rule trees (derived from parentCandidateId)'));
+if (report.ruleTrees.length === 0) console.log('  none');
+for (const t of report.ruleTrees) {
+  console.log(`  ${t.parentCandidateId}`);
+  for (const child of t.children) console.log(`      └── ${child}`);
+}
+
+console.log(rule('Exploration Workspace'));
+if (report.exploration.length === 0) console.log('  none');
+for (const e of report.exploration) console.log(`  [${e.disposition}] ${e.explorationId} — ${e.question}`);
+
+console.log(rule('Pending projections'));
+if (report.pendingProjections.length === 0) console.log('  none');
+for (const p of report.pendingProjections) {
+  console.log(`  ${p.candidateId} → ${p.targets.join(', ')}  (${p.blockedBy})`);
+}
 
 console.log(rule('Open resolutions (below `validated`)'));
 if (report.openResolutions.length === 0) console.log('  none');
@@ -81,6 +114,12 @@ if (report.milestoneClose.findings.length === 0) console.log('  clear — nothin
 for (const f of report.milestoneClose.findings) {
   console.log(`  [${f.severity.toUpperCase()}] ${f.subjectId ?? '(registry)'}: ${f.message}`);
 }
+console.log(rule('Agent close-out checklist'));
+for (const k of CLOSE_OUT_KINDS) {
+  console.log(`  [ ] ${k.kind}\n        ${k.question}\n        → ${k.destination}`);
+}
+console.log(`\n  Ritual: ${CLOSE_OUT_RITUAL.join(' → ')}`);
+
 console.log(`\n  clear: ${report.milestoneClose.clear}`);
 
 process.exit(report.milestoneClose.clear ? 0 : 1);

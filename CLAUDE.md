@@ -722,6 +722,29 @@ operator act in `ratifiedSource`; the validator refuses without one. `validated`
 recorded occurrences or demonstrated regression prevention. **A lesson does not become doctrine
 because a fix worked once** — this is the hypothesis-vs-canon discipline applied to engineering.
 
+### The Constitutional Time Principle — RATIFIED, and binding on every change
+
+> **Every change must increase operator agency. Before introducing any new interaction, the agent
+> must demonstrate that it either reduces cognitive load, reduces unnecessary navigation, reduces
+> unnecessary decisions, or enables the operator to progress safely. Constitutional compliance is
+> achieved by constraining unsafe acts—not by burdening safe ones.**
+
+The governing objective this serves (operator-ratified 2026-08-03,
+`CI-2026-08-03-TTV-TTR-OBJECTIVE-001`): *constitutional computing shall reduce **Time to Value**
+while keeping **Time to Repair** within constitutional bounds — and neither may be improved by
+materially degrading the other.* Two questions before any design decision: **does this materially
+reduce Time to Value? does this materially increase Time to Repair?** Proceed only if the second is
+no. It measures through the platform's existing **PoTS / Net Value Acceleration**
+(`services/venture/ventureOutcomeAccrual.ts`) — do not define a second version of it.
+
+Six **Constitutional Execution Principles** descend from it: Exception Isolation · Exception
+Terminates in an Act · Execution Constraint Absorption · Cognitive Load Minimization ·
+Recommendation Before Interrogation · Prepared Execution. **UX is a projection of these, never a
+separate family of rules** — find the governing principle first, then follow its projection into the
+work you are doing. Full statements, evidence and canaries:
+`codexes/packs/agentiq/resolution-records/candidate-invariants/`. **Ratification does not cascade:**
+the parent is ratified; every child stays at whatever its own evidence justifies.
+
 ### Why this is mandatory — two live proofs
 
 - **The same actor-vs-subject defect (OS-6) recurred THREE times in one session** — the binding

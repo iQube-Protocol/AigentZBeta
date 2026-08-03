@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-CONSTITUTIONAL-COMMONS-001",
+  "becameCandidateId": null,
+  "disposition": "open",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [
+    "STRONG PRIOR from the preflight: services/invariants/graph.ts + types/invariants.ts already model exactly this shape (InvariantEdgeType, ACYCLIC_EDGE_TYPES, TraversalOptions). The honest first question is not \"build a graph\" but \"does the existing invariant graph already hold this, and what is missing from it?\""
+  ],
+  "date": "2026-08-03",
+  "question": "Should the Constitutional Computing Commons be a live knowledge graph rather than a document set — nodes for invariants, resolutions, principles and experiments, edges for derives-from, constrains, supersedes, validates?",
+  "context": "The operator: \"Not a document. A knowledge graph.\" Raised while designing the knowledge pipeline. DELIBERATELY NOT BUILT: the operator named it as a direction and separately warned against heavyweight ceremony during two critical delivery paths. Half-building a graph store is the speculative work this loop exists to prevent.",
+  "wouldRequire": [
+    "A decision on whether it composes with the EXISTING invariant graph — services/invariants/graph.ts already implements twelve canonical edge types (derives_from, enables, constrains, contradicts, supersedes, generalizes, specializes, depends_on, supports, validates, explains, composes) with acyclicity enforcement. A second graph would be the duplicate this whole rule forbids.",
+    "A persistence decision: the invariant graph is Supabase-backed; the resolution registry is repo files. One of them would have to move, or the graph spans two stores.",
+    "A retrieval surface — a graph nothing queries is a schema, not a commons.",
+    "An access model: the Commons is a publication surface, so the Amendment E governed-proof rules apply before anything enters."
+  ],
+  "projections": {
+    "targets": [
+      "constitutional-computing",
+      "irl"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "structural"
+  }
+}

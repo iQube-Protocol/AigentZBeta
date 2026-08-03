@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": "Child specialization of CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 — a capability-specific implementation invariant, NOT a peer. Operator ruling 2026-08-03.",
   "ratifiedSource": null,
   "notes": [
@@ -32,5 +32,17 @@
         "tests/register-ceremony.test.ts"
       ]
     }
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

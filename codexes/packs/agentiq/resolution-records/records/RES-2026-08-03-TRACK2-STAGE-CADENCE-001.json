@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "date": "2026-08-03",
   "resolutionId": "RES-2026-08-03-TRACK2-STAGE-CADENCE-001",
   "capability": "exp-p1-track2-corpus-admission",
@@ -52,5 +52,14 @@
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-02_track2-stage-gated-development-cadence.md",
     "codexes/packs/agentiq/updates/2026-08-03_track2-stage2-governed-bulk-admission.md"
-  ]
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "exploration-item/v1.0",
+  "explorationId": "EXP-2026-08-03-RESEARCH-REGISTER-OVERLAP-001",
+  "becameCandidateId": null,
+  "disposition": "open",
+  "raisedBy": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "notes": [
+    "NOT RESOLVED UNILATERALLY. The instruction was to project onto an existing repository rather than create a rival, and that is what the `research-registry` target does today. Whether the two should MERGE is an operator decision with a migration behind it."
+  ],
+  "date": "2026-08-03",
+  "question": "Do the repo-file resolution registry and the DB-backed research register (CFS-051) hold two overlapping ideas of \"candidate principle\", and should one absorb the other?",
+  "context": "Found during the mandatory preflight. types/researchRegistry.ts defines CandidatePrinciple / CandidateInvariant / BacklogItem with their own status vocabularies (proposed|under-review|ratified|rejected and candidate|proposed-for-canonization|canonized|rejected), persisted to research_candidate_principles / _invariants / _backlog_items via services/research/registryStore.ts, surfaced by app/api/research/registry/route.ts and ExperimentRegistryTab. That is live, not dormant.",
+  "wouldRequire": [
+    "An operator ruling on whether the two registers serve genuinely different domains — development resolutions versus the research programme — or whether one is a duplicate of the other.",
+    "If they are distinct: nothing more; the `research-registry` projection target is already the seam, and structural-track candidates project onto it rather than being copied.",
+    "If they are one: a migration, because the research register is DB-backed and the resolution registry is repo files, and a reconciliation of two status vocabularies neither of which may be silently rewritten."
+  ],
+  "projections": {
+    "targets": [
+      "research-registry",
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

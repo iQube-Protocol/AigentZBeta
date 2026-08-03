@@ -1,10 +1,10 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-UX-CONSTITUTIONAL-LOAD-STANDARD-001",
   "statement": "A constitutional system must always reduce operator cognitive load while preserving constitutional guarantees. Constitutional safeguards constrain unsafe acts; they must never create unnecessary work for safe acts.",
   "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\". OPERATOR-NOMINATED FOR ELEVATION — the general standard the other nine specialise.",
   "scope": "cross-capability",
-  "status": "candidate",
+  "status": "deprecated",
   "canaries": [],
   "occurrences": [
     {
@@ -21,9 +21,22 @@
   ],
   "ratifiedSource": null,
   "notes": [
+    "COLLAPSED 2026-08-03 into CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001. The operator removed the Agency/UX family: \"Don't create 'UX invariants' as a separate canonical family. Instead say: these constitutional execution principles PROJECT into UX.\" This record is retained as a TOMBSTONE, not deleted — every doc that already cited this id must still be able to find where the rule went.",
+    "WHAT THE COLLAPSE COSTS, stated rather than assumed: Nothing. It was the standard-form restatement of the same rule.",
     "Operator nominated this one for immediate elevation: \"I think that's fundamental enough to sit alongside the engineering invariants.\"",
     "Reach named by the operator: not only Track 2 — DevOn, Journey, Founder Office, Polity Passport, the freeze ceremony, \"ultimately every governed workflow in the platform\". It provides a constitutional standard against which every operator-facing experience can be evaluated.",
     "NOT RATIFIED. An agent may not ratify, and elevation on ONE occurrence would be the anecdote-becoming-doctrine the ladder exists to prevent — the same bar that kept UX-… at candidate and kept CANARY-SUBJECT-SELECTION at candidate on three sightings at one site. Recorded, flagged, awaiting the operator's act.",
-    "UX Invariants I-IX specialise this standard; each is recorded separately."
-  ]
+    "UX Invariants I-IX specialise this standard; each is recorded separately.",
+    "RE-PARENTED 2026-08-03 beneath CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001, which is itself a direct child of the ratified TTV/TTR principle in the operator's hierarchy. Statement unchanged."
+  ],
+  "family": "execution",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": null
+  },
+  "governingPrinciple": false,
+  "supersededBy": "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001"
 }

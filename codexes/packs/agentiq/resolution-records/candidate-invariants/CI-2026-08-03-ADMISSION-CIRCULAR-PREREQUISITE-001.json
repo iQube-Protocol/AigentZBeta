@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": null,
   "ratifiedSource": null,
   "notes": [
@@ -30,5 +30,18 @@
         "tests/corpus-scout-admission-recommendation.test.ts"
       ]
     }
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "irl"
+    ],
+    "researchRequired": true,
+    "ratificationRequired": true,
+    "track": "structural"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

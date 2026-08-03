@@ -35,14 +35,23 @@ import type { CompletionStage } from '@/types/capabilityCompletion';
 import {
   AGENT_MAX_STAGE,
   CANDIDATE_INVARIANT_SCHEMA_VERSION,
+  EXPLORATION_DISPOSITIONS,
+  EXPLORATION_ITEM_SCHEMA_VERSION,
+  INVARIANT_FAMILIES,
+  KNOWLEDGE_TRACKS,
+  PROJECTION_TARGETS,
   RECURRENCE_CLASS_TRIGGERS,
   RESOLUTION_RECORD_SCHEMA_VERSION,
   RESOLUTION_SCOPES,
   RESOLUTION_TRIGGERS,
   atOrAbove,
   type CandidateInvariant,
+  type ExplorationItem,
+  type InvariantFamily,
   type MilestoneCloseFinding,
   type MilestoneCloseResult,
+  type ProjectionDeclaration,
+  type ProjectionTarget,
   type ResolutionIssue,
   type ResolutionRecord,
   type ResolutionRegistryReport,
@@ -59,10 +68,13 @@ import {
 export const RESOLUTION_REGISTRY_ROOT = 'codexes/packs/agentiq/resolution-records';
 export const RESOLUTION_RECORDS_DIR = `${RESOLUTION_REGISTRY_ROOT}/records`;
 export const CANDIDATE_INVARIANTS_DIR = `${RESOLUTION_REGISTRY_ROOT}/candidate-invariants`;
+/** The Exploration Workspace — every UNRESOLVED idea. "This is where IRL begins." */
+export const EXPLORATION_DIR = `${RESOLUTION_REGISTRY_ROOT}/exploration`;
 
 export interface ResolutionRegistry {
   records: ResolutionRecord[];
   candidates: CandidateInvariant[];
+  exploration: ExplorationItem[];
 }
 
 // ---------------------------------------------------------------------------
@@ -82,6 +94,7 @@ export function loadRegistry(repoRoot = process.cwd()): ResolutionRegistry {
   return {
     records: readJsonDir<ResolutionRecord>(join(repoRoot, RESOLUTION_RECORDS_DIR)),
     candidates: readJsonDir<CandidateInvariant>(join(repoRoot, CANDIDATE_INVARIANTS_DIR)),
+    exploration: readJsonDir<ExplorationItem>(join(repoRoot, EXPLORATION_DIR)),
   };
 }
 
@@ -95,7 +108,49 @@ const isStringList = (v: unknown): v is string[] => Array.isArray(v) && v.every(
 /** `RES-YYYY-MM-DD-<SLUG>-NNN` / `CI-YYYY-MM-DD-<SLUG>-NNN`. */
 const RESOLUTION_ID = /^RES-\d{4}-\d{2}-\d{2}-[A-Z0-9-]+-\d{3}$/;
 const CANDIDATE_ID = /^CI-\d{4}-\d{2}-\d{2}-[A-Z0-9-]+-\d{3}$/;
+const EXPLORATION_ID = /^EXP-\d{4}-\d{2}-\d{2}-[A-Z0-9-]+-\d{3}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Validate a projection declaration. Shared by all three record kinds, so
+ * "where does this surface" is answered ONE way (`inv.engineering.036`).
+ *
+ * `invariant-corpus` is gated: it is the ratified canon, and a candidate below
+ * `ratified` declaring it would assert a graduation that has not happened.
+ * The caller passes `stageAllowsCanon` because only it knows the stage.
+ */
+function validateProjections(
+  p: unknown,
+  path: string,
+  push: (path: string, message: string) => void,
+  stageAllowsCanon: boolean,
+): void {
+  const d = p as Partial<ProjectionDeclaration> | null;
+  if (!d || typeof d !== 'object') {
+    push(path, 'is required — every record declares where it should surface (projection, not copying)');
+    return;
+  }
+  if (!Array.isArray(d.targets)) {
+    push(`${path}.targets`, 'must be a list (empty is legal — "nowhere yet" is an honest answer)');
+  } else {
+    d.targets.forEach((t, i) => {
+      if (!(PROJECTION_TARGETS as readonly string[]).includes(t)) {
+        push(`${path}.targets[${i}]`, `'${t}' is not a verified projection target`);
+      }
+    });
+    if (d.targets.includes('invariant-corpus') && !stageAllowsCanon) {
+      push(
+        `${path}.targets`,
+        "declares 'invariant-corpus' below `ratified` — the canon is not a destination a candidate may claim for itself",
+      );
+    }
+  }
+  if (typeof d.researchRequired !== 'boolean') push(`${path}.researchRequired`, 'must be a boolean');
+  if (typeof d.ratificationRequired !== 'boolean') push(`${path}.ratificationRequired`, 'must be a boolean');
+  if (d.track !== null && !(KNOWLEDGE_TRACKS as readonly string[]).includes(d.track as string)) {
+    push(`${path}.track`, `must be one of ${KNOWLEDGE_TRACKS.join(' | ')} or null`);
+  }
+}
 
 export function validateResolutionRecord(input: unknown): ResolutionValidationResult {
   const issues: ResolutionIssue[] = [];
@@ -142,6 +197,54 @@ export function validateResolutionRecord(input: unknown): ResolutionValidationRe
     if (!CANDIDATE_ID.test(id)) push(`candidateInvariants[${i}]`, `'${id}' is not a candidate id (CI-YYYY-MM-DD-<SLUG>-NNN)`);
   });
 
+  // A resolution record is history, never canon — it may never project onto the
+  // invariant corpus, whatever its stage.
+  validateProjections(r.projections, 'projections', push, false);
+
+  return { valid: issues.length === 0, issues };
+}
+
+export function validateExplorationItem(input: unknown): ResolutionValidationResult {
+  const issues: ResolutionIssue[] = [];
+  const push = (path: string, message: string) => issues.push({ path, message });
+  const e = input as Partial<ExplorationItem> | null;
+
+  if (!e || typeof e !== 'object') {
+    return { valid: false, issues: [{ path: '', message: 'exploration item is not an object' }] };
+  }
+  if (e.schemaVersion !== EXPLORATION_ITEM_SCHEMA_VERSION) {
+    push('schemaVersion', `expected '${EXPLORATION_ITEM_SCHEMA_VERSION}', got '${String(e.schemaVersion)}'`);
+    return { valid: false, issues };
+  }
+  if (!isNonEmpty(e.explorationId) || !EXPLORATION_ID.test(e.explorationId)) {
+    push('explorationId', 'must match EXP-YYYY-MM-DD-<SLUG>-NNN');
+  }
+  if (!isNonEmpty(e.question)) push('question', 'is required');
+  if (!isNonEmpty(e.context)) push('context', 'is required');
+  if (!isNonEmpty(e.date) || !ISO_DATE.test(e.date)) push('date', 'must be an ISO date (YYYY-MM-DD)');
+  if (!isStringList(e.wouldRequire) || e.wouldRequire!.length === 0) {
+    push('wouldRequire', 'must name what this would REQUIRE to become real — the guard against half-building');
+  }
+  if (!isStringList(e.raisedBy)) push('raisedBy', 'must be a list of non-empty strings');
+  if (!isStringList(e.notes)) push('notes', 'must be a list of non-empty strings');
+  if (!(EXPLORATION_DISPOSITIONS as readonly string[]).includes(e.disposition as string)) {
+    push('disposition', `must be one of ${EXPLORATION_DISPOSITIONS.join(' | ')}`);
+  }
+  // A promotion must name what it became; an abandonment must say why. Either
+  // way the idea leaves a trace — "some disappear" must not mean silently.
+  if (e.disposition === 'promoted-to-candidate') {
+    if (!isNonEmpty(e.becameCandidateId) || !CANDIDATE_ID.test(e.becameCandidateId!)) {
+      push('becameCandidateId', 'a promoted item must name the candidate it became');
+    }
+  } else if (e.becameCandidateId !== null) {
+    push('becameCandidateId', 'must be null unless the item was promoted');
+  }
+  if (e.disposition === 'abandoned' && (!Array.isArray(e.notes) || e.notes.length === 0)) {
+    push('notes', 'an abandoned idea must record WHY — a silent disappearance is a loss, not a decision');
+  }
+  // Exploration is upstream of everything; it can never project onto the canon.
+  validateProjections(e.projections, 'projections', push, false);
+
   return { valid: issues.length === 0, issues };
 }
 
@@ -164,6 +267,32 @@ export function validateCandidateInvariant(input: unknown): ResolutionValidation
   if (c.classification !== null && !isNonEmpty(c.classification)) {
     push('classification', 'must be a non-empty string or null');
   }
+  if (!(INVARIANT_FAMILIES as readonly string[]).includes(c.family as string)) {
+    push('family', `must be one of ${INVARIANT_FAMILIES.join(' | ')} — an unclassified invariant protects nothing nameable`);
+  }
+  if (c.parentCandidateId !== null && !CANDIDATE_ID.test(c.parentCandidateId ?? '')) {
+    push('parentCandidateId', 'must be a candidate id or null');
+  }
+  if (c.supersededBy !== null && !CANDIDATE_ID.test(c.supersededBy ?? '')) {
+    push('supersededBy', 'must be a candidate id or null');
+  }
+  const deprecated = c.status === 'deprecated';
+  if (deprecated && !isNonEmpty(c.supersededBy)) {
+    // A retired rule that does not say where it went leaves a dangling
+    // reference for every doc that already cited it.
+    push('supersededBy', 'a deprecated rule must name the candidate that absorbed it');
+  }
+  if (!deprecated && c.supersededBy !== null) {
+    push('supersededBy', 'only a deprecated rule names a successor');
+  }
+  if (typeof c.governingPrinciple !== 'boolean') {
+    push('governingPrinciple', 'must be a boolean');
+  } else if (c.governingPrinciple && !atOrAbove(isStageValue(c.status) ? c.status : 'observed', 'ratified')) {
+    // Only the operator designates a governing principle, and `ratified`
+    // already demands a named operator act — so this cannot be self-serve.
+    push('governingPrinciple', 'only a ratified principle may be designated governing — an agent cannot promote its own rule to govern the others');
+  }
+  validateProjections(c.projections, 'projections', push, atOrAbove(isStageValue(c.status) ? c.status : 'observed', 'ratified'));
   if (!RESOLUTION_SCOPES.includes(c.scope as never)) push('scope', `must be one of ${RESOLUTION_SCOPES.join(' | ')}`);
   if (!isStageValue(c.status)) push('status', 'must be a COMPLETION_LIFECYCLE stage');
   if (!isStringList(c.derivedFrom) || c.derivedFrom!.length === 0) {
@@ -247,8 +376,61 @@ export function checkReferentialIntegrity(reg: ResolutionRegistry): ResolutionIs
     for (const o of c.occurrences) {
       if (!recordIds.has(o.resolutionId)) issues.push({ path: `${c.candidateId}.occurrences`, message: `occurrence at '${o.site}' names unknown resolution '${o.resolutionId}'` });
     }
+    // Parent/child integrity — the relation is now DATA, so it can be checked.
+    if (c.parentCandidateId) {
+      const parent = reg.candidates.find((p) => p.candidateId === c.parentCandidateId);
+      if (!parent) {
+        issues.push({ path: `${c.candidateId}.parentCandidateId`, message: `names unknown parent '${c.parentCandidateId}'` });
+      } else {
+        // A family rule may only parent within its own family. A GOVERNING
+        // principle may parent any family, because it governs all of them —
+        // which is what lets Execution Constraint Absorption sit in the Agency
+        // family AND descend from the ratified TTV/TTR objective.
+        if (parent.family !== c.family && !parent.governingPrinciple) {
+          issues.push({
+            path: `${c.candidateId}.family`,
+            message: `is '${c.family}' but its parent ${parent.candidateId} is '${parent.family}' — a corollary of one family cannot belong to another (only a governing principle may parent across families)`,
+          });
+        }
+        if (parent.candidateId === c.candidateId) {
+          issues.push({ path: `${c.candidateId}.parentCandidateId`, message: 'a rule cannot be its own parent' });
+        }
+        if (parent.parentCandidateId === c.candidateId) {
+          issues.push({ path: `${c.candidateId}.parentCandidateId`, message: `forms a parent cycle with ${parent.candidateId}` });
+        }
+      }
+    }
+  }
+  for (const e of reg.exploration) {
+    for (const id of e.raisedBy) {
+      if (id.startsWith('RES-') && !recordIds.has(id)) {
+        issues.push({ path: `${e.explorationId}.raisedBy`, message: `names unknown resolution '${id}'` });
+      }
+    }
+    if (e.becameCandidateId && !candidateIds.has(e.becameCandidateId)) {
+      issues.push({ path: `${e.explorationId}.becameCandidateId`, message: `names unknown candidate '${e.becameCandidateId}'` });
+    }
   }
   return issues;
+}
+
+/**
+ * Every statement in the registry, normalised for comparison. The input to the
+ * duplicate check — one rule must have ONE record, or a rule with three
+ * incidents becomes three near-duplicate strings, which is
+ * `inv.engineering.036` applied to captured knowledge.
+ */
+export function findDuplicateStatements(reg: ResolutionRegistry): { a: string; b: string; statement: string }[] {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const seen = new Map<string, string>();
+  const dupes: { a: string; b: string; statement: string }[] = [];
+  for (const c of reg.candidates) {
+    const key = norm(c.statement);
+    const prior = seen.get(key);
+    if (prior) dupes.push({ a: prior, b: c.candidateId, statement: c.statement });
+    else seen.set(key, c.candidateId);
+  }
+  return dupes;
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +507,31 @@ export function runMilestoneCloseCheck(
     }
   }
 
+  // ── One rule, one record. A near-duplicate statement means the corollary
+  //    structure was skipped and the same lesson now has two homes.
+  for (const d of findDuplicateStatements(reg)) {
+    blocker(d.b, `states the same rule as ${d.a} — one rule has two records. Merge them, or make one a corollary of the other via parentCandidateId`);
+  }
+
+  // ── Projection gates. A declared target that cannot be reached yet is not an
+  //    error, but it must be visible, or "projected" quietly becomes "claimed".
+  for (const c of reg.candidates) {
+    const p = c.projections;
+    if (p.ratificationRequired && !atOrAbove(c.status, 'ratified') && p.targets.length > 0) {
+      warn(c.candidateId, `declares projections (${p.targets.join(', ')}) but requires ratification it has not received — the projection is pending, not live`);
+    }
+    if (p.researchRequired && p.track !== 'structural') {
+      warn(c.candidateId, `requires research but is not on the structural track — research-bound work belongs on the track that routes it`);
+    }
+  }
+
+  // ── The Exploration Workspace must not become a graveyard.
+  for (const e of reg.exploration) {
+    if (e.disposition === 'promoted-to-candidate' && !e.becameCandidateId) {
+      blocker(e.explorationId, 'is promoted but names no candidate — the idea left no trace of what it became');
+    }
+  }
+
   // ── The uncaptured question, asked with its computed answer set.
   if (uncapturedCandidateDocs.length > 0) {
     findings.push({
@@ -392,8 +599,44 @@ export function buildRegistryReport(
           : 'derived from a resolution that already recurred or resisted repair, and nothing executable prevents the next one',
     }));
 
+  const byFamily = INVARIANT_FAMILIES.reduce(
+    (acc, f) => ({ ...acc, [f]: reg.candidates.filter((c) => c.family === f).length }),
+    {} as Record<InvariantFamily, number>,
+  );
+
+  // DERIVED from parentCandidateId — the corollary structure must be readable
+  // without anyone remembering it (the reason it moved out of `notes` prose).
+  const ruleTrees = reg.candidates
+    .filter((c) => reg.candidates.some((k) => k.parentCandidateId === c.candidateId))
+    .map((parent) => ({
+      parentCandidateId: parent.candidateId,
+      statement: parent.statement,
+      children: reg.candidates.filter((k) => k.parentCandidateId === parent.candidateId).map((k) => k.candidateId),
+    }));
+
+  const pendingProjections = reg.candidates
+    .filter((c) => c.projections.targets.length > 0)
+    .filter((c) => (c.projections.ratificationRequired && !atOrAbove(c.status, 'ratified')) || c.projections.researchRequired)
+    .map((c) => ({
+      candidateId: c.candidateId,
+      targets: c.projections.targets as ProjectionTarget[],
+      blockedBy:
+        c.projections.ratificationRequired && !atOrAbove(c.status, 'ratified')
+          ? 'awaiting operator ratification'
+          : 'awaiting research',
+    }));
+
+  const DISPOSITION_ORDER = ['open', 'routed-to-research', 'promoted-to-candidate', 'abandoned'];
+  const exploration = [...reg.exploration]
+    .sort((a, b) => DISPOSITION_ORDER.indexOf(a.disposition) - DISPOSITION_ORDER.indexOf(b.disposition))
+    .map((e) => ({ explorationId: e.explorationId, question: e.question, disposition: e.disposition }));
+
   return {
     generatedFor,
+    byFamily,
+    ruleTrees,
+    exploration,
+    pendingProjections,
     totals: {
       resolutions: reg.records.length,
       candidates: reg.candidates.length,

@@ -1,10 +1,10 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-UX-MAXIMIZE-SAFE-PROGRESS-001",
   "statement": "A constitutional safeguard constrains only the unsafe act. It must never unnecessarily impede the safe remainder of the operator's work.",
-  "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
+  "classification": "Safe Progress — a direct child of the ratified TTV/TTR Constitutional Principle in the operator's hierarchy (2026-08-03).",
   "scope": "cross-capability",
-  "status": "candidate",
+  "status": "deprecated",
   "canaries": [],
   "occurrences": [
     {
@@ -21,10 +21,24 @@
   ],
   "ratifiedSource": null,
   "notes": [
+    "COLLAPSED 2026-08-03 into CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001. The operator removed the Agency/UX family: \"Don't create 'UX invariants' as a separate canonical family. Instead say: these constitutional execution principles PROJECT into UX.\" This record is retained as a TOMBSTONE, not deleted — every doc that already cited this id must still be able to find where the rule went.",
+    "WHAT THE COLLAPSE COSTS, stated rather than assumed: Nothing. \"A constitutional safeguard constrains only the unsafe act; it must never unnecessarily impede the safe remainder\" is Exception Isolation stated from the safeguard's side rather than the record's.",
     "UX Invariant I, operator-worded verbatim 2026-08-03.",
     "Corollary: warnings travel with the work; only genuine blockers stop the work.",
     "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
     "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
-    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`."
-  ]
+    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`.",
+    "RE-PARENTED 2026-08-03 to the operator's own hierarchy as \"Safe Progress\". An earlier pass in this same session had filed it as a numbered corollary of Agency Invariant I; the operator's classification places it directly beneath the TTV/TTR principle instead, with Operator Agency as a SIBLING rather than the parent. The statement is unchanged — it is what the canaries and occurrences were recorded against.",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"The child UX and engineering constructs need not all be independently ratified merely because the parent is ratified\")."
+  ],
+  "family": "execution",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": null
+  },
+  "governingPrinciple": false,
+  "supersededBy": "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001"
 }

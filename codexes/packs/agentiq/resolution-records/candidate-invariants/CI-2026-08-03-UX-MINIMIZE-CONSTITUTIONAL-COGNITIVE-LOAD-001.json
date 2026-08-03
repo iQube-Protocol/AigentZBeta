@@ -1,17 +1,11 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001",
   "statement": "Constitutional governance increases decision quality; it must decrease interaction cost.",
-  "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
+  "classification": "Constitutional Execution Principle 4 — Cognitive Load Minimization. Operator wording (2026-08-03): \"The operator makes constitutional DECISIONS; the system performs constitutional EXECUTION. Every unnecessary decision increases Time to Value.\"",
   "scope": "cross-capability",
   "status": "candidate",
-  "canaries": [
-    {
-      "path": "tests/execution-absorption.test.ts",
-      "assertion": "A 33-source selection against a 25-source server limit is partitioned and executed by the system as one operator act; the operator never partitions, never re-enters the disposition, provenance class or rationale per batch, and batching surfaces only as progress.",
-      "verifiedFailingBeforeFix": true
-    }
-  ],
+  "canaries": [],
   "occurrences": [
     {
       "site": "components/research/Track2ProgrammePanel.tsx",
@@ -32,6 +26,25 @@
     "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
     "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
     "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`.",
-    "Canary attached 2026-08-03 by the agent implementing the surface this invariant governs. The family was recorded without enforcement points; an invariant without a canary is advisory prose, so the tests that already enforce this rule are named here."
-  ]
+    "PLACED 2026-08-03 as Constitutional Execution Principle 4 of six, beneath the ratified Constitutional Time Principle. The operator: \"What you've actually been discovering across these six occurrences is a constitutional execution principle that explains WHY the UX invariants exist.\"",
+    "UX IS A PROJECTION, NOT A FAMILY. This rule reaches the interface through its `ux-framework` projection target — it is not duplicated as a separate UX invariant. Operator: \"No new invariant. Just a UX projection. Same invariant. Different projection.\"",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion\").",
+    "ABSORBED 2026-08-03: CI-…-UX-CONSTITUTIONAL-LOAD-STANDARD-001, CI-…-UX-ONE-DECISION-ONE-PLACE-001 and CI-…-UX-NAVIGATION-IS-NEVER-GOVERNANCE-001.",
+    "UX PROJECTION, carried verbatim from the absorbed records: a decision must never require remembering IDs, copying IDs, opening another screen, re-entering rationale or repeating context.",
+    "FLAGGED FOR THE OPERATOR — the one collapse that may lose an assertion: \"Moving through screens is not governance. Only constitutional decisions are governance.\" draws a line between two KINDS of act, where Cognitive Load Minimization only says to reduce one of them. It is kept here as this principle's sharpest UX projection, but if the operator judges it a seventh execution principle rather than a projection, it should be restored as its own record."
+  ],
+  "family": "execution",
+  "parentCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "projections": {
+    "targets": [
+      "ux-framework",
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }
