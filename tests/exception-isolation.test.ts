@@ -24,6 +24,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readSource, stripComments } from './_lib/sourceAuthority';
 import {
   EXECUTABLE_DISPOSITIONS,
   RECORD_DISPOSITIONS,
@@ -621,5 +622,60 @@ describe('the freeze package preserves the acquisition and exclusion history', (
     if (!without.ok || !withMany.ok) throw new Error('both must build');
     expect(withMany.package.eligibleForRatification).toBe(without.package.eligibleForRatification);
     expect(withMany.package.recommendation.verdict).toBe(without.package.recommendation.verdict);
+  });
+});
+
+
+// ── 8 · STAGE 3 — the silent evidence drop (ruling section 7) ──────────────
+
+/**
+ * A REAL defect the isolation review found, not a hypothetical.
+ * `runConstitutionalDiscovery` capped its extraction context at 24,000 chars
+ * with 6,000-char chunks — AT MOST FOUR evidence rows — and `break`ed out of
+ * the loop, silently dropping every remaining row. A 32-source corpus would be
+ * compressed from four of them and report `ok: true` with no indication that
+ * 28 were never read. That is "safe read as finished" at Stage 3.
+ *
+ * These canaries are source-level because the function's own path requires an
+ * LLM call; what regressed is the loop arithmetic and the reporting contract,
+ * and those are what is pinned.
+ */
+describe('Stage 3 extraction — an unread source is reported, never silently dropped', () => {
+  const ENGINE = 'services/invariants/discoveryEngine.ts';
+
+  it('the budget loop CONTINUES past an oversized row instead of breaking', () => {
+    // Mutation: restore `break` -> inclusion depends on list order again and
+    // every later row is dropped without record, including ones that would fit.
+    const src = stripComments(readSource(ENGINE));
+    const at = src.indexOf('const MAX_CHARS = 24_000;');
+    expect(at).toBeGreaterThan(-1);
+    const loop = src.slice(at, at + 700);
+    expect(loop).toMatch(/excluded\.push\(e\);/);
+    expect(loop).toMatch(/continue;/);
+    expect(loop, 'the silent early exit must not return').not.toMatch(/MAX_CHARS\)\s*break;/);
+  });
+
+  it('every dropped row becomes a typed exception that blocks nothing', () => {
+    const src = stripComments(readSource(ENGINE));
+    const at = src.indexOf('const excludedEvidence');
+    expect(at).toBeGreaterThan(-1);
+    const block = src.slice(at, at + 1600);
+    expect(block).toMatch(/stage: 'extract-candidates'/);
+    expect(block).toMatch(/blocksCurrentStage: false/);
+    expect(block).toMatch(/blocksReadiness: false/);
+    // And it says which rows WERE read, so "partial" is legible.
+    expect(block).toMatch(/included\.length/);
+  });
+
+  it('the success result carries excludedEvidence on every return path', () => {
+    // Mutation: return it from only one of the success returns -> a run that
+    // read four rows of thirty-two looks clean on the other paths.
+    const src = stripComments(readSource(ENGINE));
+    const fnAt = src.indexOf('export async function runConstitutionalDiscovery');
+    const body = src.slice(fnAt, src.indexOf('function enrichSignals'));
+    const successReturns = body.match(/return \{ ok: true, candidates:/g) ?? [];
+    expect(successReturns.length).toBeGreaterThanOrEqual(2);
+    const withExcluded = body.match(/return \{ ok: true, candidates:[^;]*excludedEvidence/g) ?? [];
+    expect(withExcluded.length).toBe(successReturns.length);
   });
 });
