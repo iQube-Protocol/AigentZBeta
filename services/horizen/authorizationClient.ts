@@ -31,7 +31,7 @@
 import { createHash } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, extractStringField, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, extractStringField, extractPartnerMessage, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -199,22 +199,25 @@ export async function prepareHorizenTransparencyAuthorization(
   });
   const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
   const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
-  const message = extractStringField(buildResult, MESSAGE_FIELDS);
-  if (!message) {
-    /*
-     * Still refusing — a guessed field could put an error string in front of
-     * the operator's key. But the refusal now says what the partner ACTUALLY
-     * returned, so the next step is reading one line rather than reverse-
-     * engineering an integration (pilot, 2026-08-03).
-     */
+  /*
+   * Named field first; a lone non-error text block accepted as the message
+   * second (Horizen's `build_pulse_auth_message` returns exactly that — 265
+   * chars of plain text, established by the diagnostic refusal on 2026-08-03,
+   * not assumed). Every refusal below still names what the partner actually
+   * sent, because the next unknown shape should cost one line to diagnose.
+   */
+  const extracted = extractPartnerMessage(buildResult, MESSAGE_FIELDS);
+  if (!extracted.ok) {
     return {
       ok: false,
       refusalCode: 'PARTNER_MESSAGE_UNAVAILABLE',
       detail:
-        `"${buildTool.tool.name}" did not return a recognisable message field — refusing rather than inventing one. ` +
-        `Looked for: ${MESSAGE_FIELDS.join(', ')}. Actually returned: ${describeToolResultShape(buildResult)}`,
+        `"${buildTool.tool.name}" did not return a usable message — refusing rather than inventing one. ` +
+        `${extracted.reason}. Looked for fields: ${MESSAGE_FIELDS.join(', ')}. ` +
+        `Actually returned: ${describeToolResultShape(buildResult)}`,
     };
   }
+  const message = extracted.message;
 
   const now = deps.now ?? (() => new Date());
   const nonce = deps.randomNonce ? deps.randomNonce() : sha256Hex(`${input.authorizationId}:${now().toISOString()}:${Math.random()}`).slice(0, 32);

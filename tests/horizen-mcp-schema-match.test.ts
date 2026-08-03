@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage } from '@/services/horizen/mcpSchemaMatch';
 
 describe('matchSchemaFields (regression-pinned — the register-moneypenny-horizen.ts precedent)', () => {
   it('matches candidate values against the schema\'s own declared property names, never inventing new ones', () => {
@@ -135,5 +135,63 @@ describe('describeToolResultShape — a refusal that can be acted on (2026-08-03
     });
     expect(shape).toContain('token');
     expect(shape, 'a diagnostic must not become an exfiltration channel').not.toContain(secret);
+  });
+});
+
+describe('extractPartnerMessage — Horizen returns the message as plain text (2026-08-03)', () => {
+  /*
+   * The diagnostic refusal produced the evidence in one attempt:
+   *   Actually returned: [0] type=text, NOT JSON (265 chars)
+   * One text block, not JSON — the message itself, returned directly. MCP
+   * defines a result's `content` AS its return value and carries `isError`
+   * separately, so reading a non-error sole text block as the answer follows
+   * the protocol rather than guessing a convention.
+   */
+  const FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
+
+  it('accepts a lone non-JSON text block — the real Horizen shape', () => {
+    const msg = 'Authorize Pulse monitoring for agent 8798 on base-sepolia. Nonce: abc123.';
+    const r = extractPartnerMessage({ content: [{ type: 'text', text: msg }] }, FIELDS);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.message).toBe(msg);
+      expect(r.via).toBe('sole-text-block');
+    }
+  });
+
+  it('still PREFERS a named field when the tool returns structured JSON', () => {
+    const r = extractPartnerMessage(
+      { content: [{ type: 'text', text: JSON.stringify({ message: 'from-field' }) }] },
+      FIELDS,
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.via).toBe('named-field');
+  });
+
+  it('REFUSES when the tool reported isError — an error body is never a message to sign', () => {
+    const r = extractPartnerMessage(
+      { isError: true, content: [{ type: 'text', text: 'tokenId 8798 not found' }] },
+      FIELDS,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toContain('isError');
+  });
+
+  it('REFUSES two text blocks as ambiguous rather than choosing one', () => {
+    const r = extractPartnerMessage(
+      { content: [{ type: 'text', text: 'first' }, { type: 'text', text: 'second' }] },
+      FIELDS,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toContain('ambiguous');
+  });
+
+  it('REFUSES JSON that names none of the expected fields — never signs raw source', () => {
+    const r = extractPartnerMessage(
+      { content: [{ type: 'text', text: JSON.stringify({ unexpected: 'shape' }) }] },
+      FIELDS,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toContain('raw source');
   });
 });

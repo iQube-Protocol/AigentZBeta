@@ -1,11 +1,14 @@
 {
   "schemaVersion": "candidate-invariant/v1.0",
-  "classification": null,
-  "ratifiedSource": null,
+  "classification": "Engineering/constitutional invariant — the operator was explicit that this is NOT a structural scientific claim.",
+  "ratifiedSource": "Operator ruling, 2026-08-03 (session message: \"My ruling on the two candidate invariants\"). The operator explicitly promoted this and supplied the canonical wording verbatim below.",
   "notes": [
     "Operator-named 2026-08-03. This is OS-6 in codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md.",
     "THREE independent occurrences in one day, in three different subsystems. The operator observed that this makes it one of the two strongest candidates in the set: the ladder step \"applied in another implementation / validated by reuse\" is already satisfied by the historical record. Promotion to `validated` is the operator's to make, not an agent's.",
-    "Crossing persona scope to key on the subject means returning ONLY the narrow facts asked for — never the receipt body, which stays persona-scoped (Identity & Access Spine, T0)."
+    "Crossing persona scope to key on the subject means returning ONLY the narrow facts asked for — never the receipt body, which stays persona-scoped (Identity & Access Spine, T0).",
+    "OPERATOR-RATIFIED 2026-08-03. Verbatim ruling: \"Three independent occurrences are enough to move it from candidate to validated operational invariant, especially because the failures appeared across separate seams: binding resolution; Claim; Journey state/receipt lookup.\"",
+    "SUPPORTING IMPLEMENTATION RULE (operator, verbatim): \"Every governed action must explicitly identify who performed the act, which entity the act concerns, and which principal or wallet owns the relevant authority.\"",
+    "FOURTH OCCURRENCE counted per operator ruling: the Horizen identifier-recovery case, now recorded as the child specialization CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001 rather than a peer."
   ],
   "canaries": [
     {
@@ -20,9 +23,9 @@
     }
   ],
   "candidateId": "CI-2026-08-03-ACTOR-SUBJECT-OWNER-001",
-  "statement": "Actor, subject and owner are distinct references and must never be silently substituted.",
+  "statement": "Actor, subject and owner are distinct references. A system must not substitute one for another merely because they are related through the same transaction, wallet or persona.",
   "scope": "cross-capability",
-  "status": "candidate",
+  "status": "ratified",
   "derivedFrom": [
     "RES-2026-08-02-AGENT-REGISTRATION-001",
     "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001"

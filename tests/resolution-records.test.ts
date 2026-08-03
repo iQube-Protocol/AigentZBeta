@@ -148,9 +148,20 @@ describe('an anecdote cannot become doctrine', () => {
   });
 
   it('a candidate self-promoted to `ratified` is REFUSED', () => {
-    // Mutation over a REAL record: this is the exact edit an agent would make
-    // to declare its own lesson canon.
-    const broken = clone(registry.candidates[0]);
+    /*
+     * Mutation over a REAL record: the exact edit an agent would make to
+     * declare its own lesson canon.
+     *
+     * Selects an UNRATIFIED candidate deliberately (2026-08-03). It used to
+     * take `candidates[0]`, which silently became a validly-ratified record
+     * once the operator ratified ACTOR-SUBJECT-OWNER — so the mutation kept
+     * that record's legitimate `ratifiedSource` and the test stopped
+     * exercising self-promotion at all. A canary keyed to array position is
+     * a canary that can quietly stop testing its own subject.
+     */
+    const unratified = registry.candidates.find((c) => c.ratifiedSource === null);
+    expect(unratified, 'no unratified candidate left to attempt self-promotion with').toBeDefined();
+    const broken = clone(unratified!);
     broken.status = 'ratified';
     const result = validateCandidateInvariant(broken);
     expect(result.valid).toBe(false);
@@ -204,9 +215,12 @@ describe('the milestone-close check', () => {
    * OS-9 rejects canaries written against the author's assumptions.
    */
   it('flags a candidate with NO canary — an invariant without one is advisory prose', () => {
-    const real = registry.candidates[0];
-    expect(real, 'registry has no candidates to model a synthetic one on').toBeDefined();
-    const synthetic = { ...real, candidateId: 'CI-SYNTHETIC-NO-CANARY-001', canaries: [] };
+    // Modelled on a candidate that is genuinely still AT `candidate` — the
+    // check reasons about candidates, and a ratified record is a different
+    // subject. (Same array-position fragility as the self-promotion test.)
+    const real = registry.candidates.find((c) => c.status === 'candidate');
+    expect(real, 'registry has no candidate-stage record to model a synthetic one on').toBeDefined();
+    const synthetic = { ...real!, candidateId: 'CI-SYNTHETIC-NO-CANARY-001', canaries: [] };
     const { findings } = runMilestoneCloseCheck({ ...registry, candidates: [synthetic] });
     expect(
       findings.some((f) => f.subjectId === synthetic.candidateId && f.message.includes('advisory prose')),
