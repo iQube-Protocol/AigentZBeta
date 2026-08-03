@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fetchBtcConfirmationWithFallback } from '../services/ops/btcExplorer';
+import {
+  fetchBtcConfirmationWithFallback,
+  fetchBtcRawTxHexWithFallback,
+  fetchBtcOutspendWithFallback,
+} from '../services/ops/btcExplorer';
 
 // Bitcent ops-card confirmation canaries (operator ruling 2026-07-31,
 // following the Bitcent ops-card incident where 33 real mempool.space/
@@ -157,6 +161,78 @@ describe('fetchBtcConfirmationWithFallback — bounded fallback', () => {
     const result = await fetchBtcConfirmationWithFallback(TXID);
     expect(result.confirmed).toBe(false);
     expect(result.confirmations).toBeNull();
+  });
+});
+
+describe('fetchBtcRawTxHexWithFallback — bounded fallback for raw tx hex reads', () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const HEX = 'deadbeef';
+
+  it('returns the raw hex from blockstream.info when it resolves the transaction', async () => {
+    mockFetchByHost({
+      blockstream: (path) => (path.startsWith(`/tx/${TXID}/hex`) ? textResponse(HEX) : jsonResponse({}, false)),
+      mempool: () => jsonResponse({}, false),
+    });
+    const result = await fetchBtcRawTxHexWithFallback(TXID);
+    expect(result.hex).toBe(HEX);
+    expect(result.source).toBe('blockstream');
+    expect(result.error).toBeNull();
+  });
+
+  it('falls back to mempool.space when blockstream.info cannot return the raw hex', async () => {
+    mockFetchByHost({
+      blockstream: () => jsonResponse({}, false),
+      mempool: (path) => (path.startsWith(`/tx/${TXID}/hex`) ? textResponse(HEX) : jsonResponse({}, false)),
+    });
+    const result = await fetchBtcRawTxHexWithFallback(TXID);
+    expect(result.hex).toBe(HEX);
+    expect(result.source).toBe('mempool');
+  });
+
+  it('surfaces an explicit error when neither explorer returns the raw transaction — never null with no explanation', async () => {
+    mockFetchByHost({
+      blockstream: () => jsonResponse({}, false),
+      mempool: () => jsonResponse({}, false),
+    });
+    const result = await fetchBtcRawTxHexWithFallback(TXID);
+    expect(result.hex).toBeNull();
+    expect(result.source).toBeNull();
+    expect(result.error).toBeTruthy();
+  });
+});
+
+describe('fetchBtcOutspendWithFallback — bounded fallback for output-spend status', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reports spent=false from blockstream.info', async () => {
+    mockFetchByHost({
+      blockstream: (path) => (path.startsWith(`/tx/${TXID}/outspend/1`) ? jsonResponse({ spent: false }) : jsonResponse({}, false)),
+      mempool: () => jsonResponse({}, false),
+    });
+    const result = await fetchBtcOutspendWithFallback(TXID, 1);
+    expect(result.spent).toBe(false);
+    expect(result.source).toBe('blockstream');
+  });
+
+  it('falls back to mempool.space when blockstream.info cannot resolve the output', async () => {
+    mockFetchByHost({
+      blockstream: () => jsonResponse({}, false),
+      mempool: (path) => (path.startsWith(`/tx/${TXID}/outspend/1`) ? jsonResponse({ spent: true }) : jsonResponse({}, false)),
+    });
+    const result = await fetchBtcOutspendWithFallback(TXID, 1);
+    expect(result.spent).toBe(true);
+    expect(result.source).toBe('mempool');
+  });
+
+  it('surfaces an explicit error when neither explorer can resolve the output-spend status', async () => {
+    mockFetchByHost({
+      blockstream: () => jsonResponse({}, false),
+      mempool: () => jsonResponse({}, false),
+    });
+    const result = await fetchBtcOutspendWithFallback(TXID, 1);
+    expect(result.spent).toBeNull();
+    expect(result.source).toBeNull();
+    expect(result.error).toBeTruthy();
   });
 });
 

@@ -15,6 +15,7 @@ import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useEntitlementsList } from "@/app/hooks/useEntitlementsList";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
 import { useQctBaseMainnetBalance } from "@/app/hooks/useQctBaseMainnetBalance";
+import { useBitcentTestnet } from "@/hooks/ops/useBitcentTestnet";
 import type { QriptoDenomination } from "@/services/qriptocent/settlement/types";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
@@ -533,6 +534,10 @@ export default function SmartWalletDrawer({
     loading: qctMainnetLoading,
     refresh: refreshQctMainnet,
   } = useQctBaseMainnetBalance(canonicalEvmAddress);
+  // Bitcent (B¢) TESTNET — live premine balance, resolved from primary chain
+  // data by /api/ops/bitcent/testnet (see services/ops/bitcentBalance.ts).
+  // Reuses the same ops-card hook rather than duplicating the fetch.
+  const bitcentTestnet = useBitcentTestnet(30000);
   const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
   const [transactionModalOpen, setTransactionModalOpen] = useState(false);
@@ -1791,18 +1796,17 @@ export default function SmartWalletDrawer({
   // Rune was etched for real on Bitcoin testnet 2026-07-30 — tx
   // 551bbaaa50b5ed91c585aee90af1e8f41932da80a93525fd1eebe234a68deb65 (see
   // codexes/packs/agentiq/updates/2026-07-30_bitcent-testnet-etch-broadcast.md,
-  // R-12 closed). Still stubbed "pending" on both Mainnet and Testnet: no
-  // reliably working Rune-balance indexer was found this session
-  // (mempool.space's assumed Rune API path returned a generic route-not-found,
-  // blockstream.info's Esplora API is not Ordinals/Runes-aware at all) — see
-  // app/api/ops/bitcent/testnet/route.ts for the same honest gap, and its
-  // ops card for the tokenomics + transaction status that ARE known. Flip
-  // these once a live balance source is wired; a fabricated number here would
-  // be worse than an honest "pending".
+  // R-12 closed, verified VALID_ETCH 2026-08-02). TESTNET now reads the live
+  // premine balance from /api/ops/bitcent/testnet, which resolves it from
+  // PRIMARY chain data (services/ops/bitcentBalance.ts) rather than waiting
+  // on a Rune-aware indexer — see that module's header for why a Rune-aware
+  // indexer isn't needed for the common case. MAINNET stays pending: no
+  // mainnet etch has been broadcast (deploy-qct-bitcoin.js unconditionally
+  // refuses mainnet) — there is no Rune to have a balance yet.
   const bcentMainnetPending = true;
-  const bcentTestnetPending = true;
+  const bcentTestnetPending = !bitcentTestnet.data?.balanceResolved;
   const bcentMainnetAmount = 0;
-  const bcentTestnetAmount = 0;
+  const bcentTestnetAmount = bitcentTestnet.data?.balance ?? 0;
 
   // Base Q¢ MAINNET — live ERC-20 read via useQctBaseMainnetBalance (chain 8453).
   const baseQcMainnetAmount = Number(qctMainnetBalance?.balanceFormatted ?? 0);
