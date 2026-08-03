@@ -180,3 +180,62 @@ export async function decodeAgentIdFromReceipt(input: AgentIdRecoveryInput): Pro
     logIndex: chosen.logIndex,
   };
 }
+
+/**
+ * `ownerOf(agentId)` against the documented IdentityRegistry — the
+ * AUTHORITATIVE answer to "who holds this token", used when the registry
+ * INDEX cannot be read.
+ *
+ * ── WHY THIS IS A SEPARATE, AUTHORITATIVE PATH (operator direction, 2026-08-03) ──
+ *
+ * Horizen's REST index and the chain are two different sources, and only one
+ * of them is the ledger. An index read can fail for reasons that say nothing
+ * about registration — the wrong identifier representation (which is exactly
+ * what happened: `/agents/8798` where §2.4.1 requires `/agents/0x225e`), a
+ * cache still warming, a host not answering. Treating any of those as
+ * "this agent is not registered" infers a fact about the CHAIN from a fact
+ * about an INDEXER.
+ *
+ * `ownerOf` reverts for a token that was never minted and returns an address
+ * for one that was, so the two cases are distinguishable — which is the whole
+ * point. This lives beside the receipt-decode recovery because it is the same
+ * concern (establish the truth from the chain, not from a lookup service) and
+ * reuses the ERC-721 read ABI already defined above rather than a second copy.
+ *
+ * Read-only: one `view` call, no signer, nothing submittable.
+ */
+export type RegistryOwnerRead =
+  | { ok: true; owner: string }
+  /** The token does not exist on this registry — `ownerOf` reverted. A real answer. */
+  | { ok: false; reason: 'not-minted'; detail: string }
+  /** The call itself could not be made. Says NOTHING about registration. */
+  | { ok: false; reason: 'unreadable'; detail: string };
+
+export async function fetchOwnerOnChain(input: {
+  provider: ethers.Provider;
+  identityRegistry: string;
+  agentId: string | bigint;
+}): Promise<RegistryOwnerRead> {
+  let tokenId: bigint;
+  try {
+    tokenId = typeof input.agentId === 'bigint' ? input.agentId : BigInt(input.agentId);
+  } catch {
+    return { ok: false, reason: 'unreadable', detail: `"${String(input.agentId)}" is not a token id` };
+  }
+  try {
+    const contract = new ethers.Contract(input.identityRegistry, ERC721_READ_ABI, input.provider);
+    return { ok: true, owner: (await contract.ownerOf(tokenId)) as string };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    /*
+     * ERC-721 mandates a revert for a nonexistent token, so a revert IS the
+     * answer "no such token" — distinguished from a transport/RPC failure,
+     * which is not an answer at all. Conflating them is the same error as
+     * reading the index's silence as non-registration, one layer down.
+     */
+    const reverted = /revert|CALL_EXCEPTION|nonexistent|invalid token/i.test(message);
+    return reverted
+      ? { ok: false, reason: 'not-minted', detail: `ownerOf(${tokenId}) reverted on ${input.identityRegistry}: ${message}` }
+      : { ok: false, reason: 'unreadable', detail: `ownerOf(${tokenId}) could not be read: ${message}` };
+  }
+}

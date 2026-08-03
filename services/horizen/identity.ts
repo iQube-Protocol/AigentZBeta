@@ -222,6 +222,54 @@ export function normalizeAgentIdentity(input: {
 }
 
 /**
+ * How ONE agent id must be written for EACH Horizen surface.
+ *
+ * ── WHY THIS EXISTS AS A TYPE (operator direction, 2026-08-03) ────────────
+ *
+ * §2.4.1 has been quoted at the top of this file since it was written: "the
+ * registry renders hex (0x1eba); Pulse and the Verifiable-PnL service use
+ * decimal (7866)." `normalizeAgentIdentity` has produced BOTH renderings —
+ * `registryAlias` and `pulseAlias` — from the first commit.
+ *
+ * And `fetchRegistryAgent` took a raw string and interpolated it into the
+ * path. So we asked the Registry REST API for `/api/agents/8798` — the right
+ * token, on the right network, in the WRONG REPRESENTATION — and read its
+ * silence as "Horizen has no record of this agent", then as a transport
+ * problem, and spent a diagnostic cycle on each.
+ *
+ * That is the third time in this integration that an authoritative source
+ * existed in this module and a consumer bypassed it (`chain` sent as a number;
+ * the diagnostic's hand-rolled args; now the registry path). A generic
+ * "agentId" is what makes the mistake available: the caller has to REMEMBER
+ * which base a surface wants. So the surfaces name their own serialization,
+ * and there is no un-suffixed `agentId` to reach for.
+ */
+export interface HorizenSurfaceSerialization {
+  /** Registry REST path segment — HEX, e.g. `0x225e` (§2.4.1). */
+  registryAgentId: string;
+  /** Registry REST `?network=` selector — `sepolia` | `mainnet` (§1.2). */
+  registryNetwork: 'sepolia' | 'mainnet';
+  /** Pulse / PnL identifier — DECIMAL, e.g. `8798` (§2.4.1). */
+  pulseAgentId: string;
+  /** Pulse `?network=` selector and MCP `chain` argument (§3.4, §1.1). */
+  pulseChain: HorizenNetwork;
+}
+
+/**
+ * Render one agent id for every surface at once. The ONLY place a Horizen URL
+ * or tool argument should get its identifier from.
+ */
+export function serializeForSurfaces(value: bigint, network: HorizenNetwork): HorizenSurfaceSerialization {
+  const facts = HORIZEN_NETWORK_FACTS[network];
+  return {
+    registryAgentId: `0x${value.toString(16)}`,
+    registryNetwork: facts.registrySelector,
+    pulseAgentId: value.toString(10),
+    pulseChain: facts.pulseSelector,
+  };
+}
+
+/**
  * The storage/dedup key. Network FIRST so the string sorts by chain and so a
  * truncated key can never collide across networks — §4.4's rule made
  * structural rather than remembered.

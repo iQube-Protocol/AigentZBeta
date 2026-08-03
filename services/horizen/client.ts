@@ -37,6 +37,8 @@
 
 import {
   HORIZEN_NETWORK_FACTS,
+  parseAgentId,
+  serializeForSurfaces,
   type HorizenNetwork,
 } from './identity';
 
@@ -76,11 +78,51 @@ export interface HorizenClientOptions {
   fetchImpl?: HorizenFetch;
 }
 
-async function defaultFetch(url: string, init?: { headers?: Record<string, string> }) {
-  // Imported lazily so a test supplying `fetchImpl` never loads the retrieval
-  // stack (and never risks a real socket).
+/**
+ * §5.1 responses are `max-age=15` and the registry indexer refreshes on a
+ * 5-minute cycle, so a read that has not answered in 20s is not about to.
+ * The same budget `retrieval.ts` uses for its own fetches.
+ */
+const HORIZEN_FETCH_TIMEOUT_MS = 20_000;
+
+/**
+ * ── THIS NEVER MADE A REQUEST (found 2026-08-03) ──────────────────────────
+ *
+ * Two defects, both hidden by one `as unknown as` cast:
+ *
+ *   1. `fetchWithRetry` was NOT EXPORTED from `retrieval.ts`. The destructure
+ *      yielded `undefined`, calling it threw `fetchWithRetry is not a
+ *      function`, and `readJson`'s try/catch classified that as
+ *      `reason: 'transport'`.
+ *   2. Its signature is `(url, init, timeoutMs) => {ok, response}` — NOT a
+ *      `Response`. Even exported, `res.status` and `res.json` would have been
+ *      undefined.
+ *
+ * So EVERY Horizen REST read — registry profile, pulse-status, Pulse status,
+ * PnL bridge — has always returned `transport` without a packet leaving the
+ * process. We then read that as "the host is not answering", and even
+ * contrasted it with the MCP endpoint "on the same host", concluding the REST
+ * path was down. It was never dialled.
+ *
+ * The cast is what permitted it: `as unknown as` asserts a shape the compiler
+ * had every means to check and was told not to. It is not used here now — the
+ * adapter unwraps the real return value and hands back a genuine `Response`,
+ * which satisfies `HorizenFetch` structurally.
+ *
+ * Still imported lazily, so a test supplying `fetchImpl` never loads the
+ * retrieval stack and never risks a real socket.
+ */
+async function defaultFetch(url: string, init?: { headers?: Record<string, string> }): Promise<Response> {
   const { fetchWithRetry } = await import('@/services/corpusScout/retrieval');
-  return fetchWithRetry(url, init as RequestInit) as unknown as Awaited<ReturnType<HorizenFetch>>;
+  const attempt = await fetchWithRetry(url, (init ?? {}) as RequestInit, HORIZEN_FETCH_TIMEOUT_MS);
+  if (!attempt.ok) {
+    throw new Error(
+      attempt.aborted
+        ? `no response within ${HORIZEN_FETCH_TIMEOUT_MS}ms for ${url}`
+        : `the request to ${url} failed before any response`,
+    );
+  }
+  return attempt.response;
 }
 
 export type HorizenReadFailure =
@@ -133,17 +175,43 @@ async function readJson<T>(
 }
 
 /**
+ * The Registry REST path segment for an agent reference.
+ *
+ * ── THE DEFECT THIS CLOSES (operator direction, 2026-08-03) ───────────────
+ *
+ * §2.4.1: the Registry renders agent ids in HEX (`0x225e`); Pulse and PnL use
+ * DECIMAL (`8798`). The same number, two representations, and the surface
+ * decides which. `fetchRegistryAgent`'s own doc comment SAID hex — and then
+ * interpolated whatever string the caller handed it.
+ *
+ * So we asked for `/api/agents/8798?network=sepolia`: right token, right
+ * network, wrong representation. The registry did not answer, and we read
+ * that silence first as "Horizen has no record of this agent" and then as a
+ * transport fault, spending a diagnostic round on each. A documented rule that
+ * a function relies on its callers to obey is not enforced; this makes it
+ * structural.
+ *
+ * A NON-NUMERIC reference passes through unchanged: §2.4.2's catalogue rows
+ * carry genuine slugs (`virtuals:26`), and hex-ifying something that is not a
+ * number is not available. Only a parsed id is re-rendered.
+ */
+function registryPathSegment(agentRef: string, network: HorizenNetwork): string {
+  const parsed = parseAgentId(agentRef);
+  return parsed.ok ? serializeForSurfaces(parsed.value, network).registryAgentId : agentRef;
+}
+
+/**
  * §1.2 `GET /agents/:agentId` — full profile.
- * `agentId` is passed in the registry's own HEX rendering (§3: "agentId in
- * hex, matching the REST API's rendering").
+ * `agentId` is rendered in the registry's own HEX form (§2.4.1) by
+ * `registryPathSegment`, whatever representation the caller holds.
  */
 export async function fetchRegistryAgent(
-  registryAlias: string,
+  agentRef: string,
   network: HorizenNetwork,
   options: HorizenClientOptions = {},
 ): Promise<HorizenRead<Record<string, unknown>>> {
   const selector = HORIZEN_NETWORK_FACTS[network].registrySelector;
-  const url = `${HORIZEN_REGISTRY_API}/agents/${encodeURIComponent(registryAlias)}?network=${selector}`;
+  const url = `${HORIZEN_REGISTRY_API}/agents/${encodeURIComponent(registryPathSegment(agentRef, network))}?network=${selector}`;
   return readJson(options.fetchImpl ?? defaultFetch, url, { requireReady: true });
 }
 
@@ -152,14 +220,17 @@ export async function fetchRegistryAgent(
  * `{enrolled, commitmentRecorded}`. §3.3: `commitmentRecorded:true` means the
  * on-chain commitment is registered, "which is what lets SLA proofs finalise
  * at all".
+ *
+ * Same host, same `/agents/` family, therefore the same HEX rendering — the
+ * representation belongs to the SURFACE, not to the individual route.
  */
 export async function fetchRegistryPulseStatus(
-  registryAlias: string,
+  agentRef: string,
   network: HorizenNetwork,
   options: HorizenClientOptions = {},
 ): Promise<HorizenRead<Record<string, unknown>>> {
   const selector = HORIZEN_NETWORK_FACTS[network].registrySelector;
-  const url = `${HORIZEN_REGISTRY_API}/agents/${encodeURIComponent(registryAlias)}/pulse-status?network=${selector}`;
+  const url = `${HORIZEN_REGISTRY_API}/agents/${encodeURIComponent(registryPathSegment(agentRef, network))}/pulse-status?network=${selector}`;
   return readJson(options.fetchImpl ?? defaultFetch, url);
 }
 
