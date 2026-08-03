@@ -155,9 +155,39 @@ export function extractFirstJson(toolResult: McpToolResult | null | undefined): 
  * parsed as JSON, and the top-level keys if it did. It reports; it never
  * widens what counts as an acceptable answer. Deliberately does NOT include
  * VALUES: a partner payload may carry material we should not log.
+ *
+ * ── The one exception, and why it is not a hole (pilot, 2026-08-03) ───────
+ *
+ * When `isError` is set, the content IS the error message, and withholding it
+ * repeats the very defect this function was written to fix. It happened
+ * immediately: the shape-only refusal read `the tool reported isError …
+ * Actually returned: [0] type=text, NOT JSON (265 chars)` — correct, and
+ * still a dead end, because the 265 characters saying WHY were the one thing
+ * suppressed.
+ *
+ * The no-values rule protects a SUCCESS payload, which may carry material we
+ * should not log. An error body is diagnostic output: it exists to be read,
+ * it is what a human would be shown by any other client, and it cannot be the
+ * secret the rule guards. So error text is included verbatim (bounded), and
+ * success payloads stay shape-only.
  */
+const ERROR_TEXT_BUDGET = 2000;
+
 export function describeToolResultShape(toolResult: McpToolResult | null | undefined): string {
   if (!toolResult) return 'no result object at all';
+
+  if (toolResult.isError === true && Array.isArray(toolResult.content)) {
+    const text = toolResult.content
+      .filter((i) => i?.type === 'text' && typeof i.text === 'string')
+      .map((i) => i.text as string)
+      .join(' | ')
+      .trim();
+    if (text) {
+      const shown = text.length > ERROR_TEXT_BUDGET ? `${text.slice(0, ERROR_TEXT_BUDGET)}… (${text.length} chars total)` : text;
+      return `tool-reported error: ${shown}`;
+    }
+  }
+
   const content = toolResult.content;
   if (!Array.isArray(content)) {
     return `result has no content array (keys: ${Object.keys(toolResult).join(', ') || 'none'})`;

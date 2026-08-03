@@ -195,3 +195,42 @@ describe('extractPartnerMessage — Horizen returns the message as plain text (2
     if (!r.ok) expect(r.reason).toContain('raw source');
   });
 });
+
+describe('an isError body is shown, not summarised away (2026-08-03)', () => {
+  /*
+   * Third instance of the same defect in one day: an honest refusal that
+   * discards the one field explaining itself. The isError guard correctly
+   * stopped an error string reaching the operator's key — and then the
+   * shape-only description hid WHY, leaving "[0] type=text, NOT JSON (265
+   * chars)" as the entire diagnosis.
+   *
+   * The no-values rule protects a SUCCESS payload. An error body is
+   * diagnostic output — it exists to be read.
+   */
+  it('includes the error text verbatim when isError is set', () => {
+    const shape = describeToolResultShape({
+      isError: true,
+      content: [{ type: 'text', text: 'Agent 8798 is not owned by the calling wallet' }],
+    });
+    expect(shape).toContain('tool-reported error');
+    expect(shape).toContain('Agent 8798 is not owned by the calling wallet');
+  });
+
+  it('still withholds VALUES from a successful payload — the rule is unchanged there', () => {
+    const secret = 'SUPER-SECRET-PAYLOAD-VALUE';
+    const shape = describeToolResultShape({ content: [{ type: 'text', text: JSON.stringify({ token: secret }) }] });
+    expect(shape).toContain('token');
+    expect(shape).not.toContain(secret);
+  });
+
+  it('bounds a very long error rather than dumping it whole', () => {
+    const shape = describeToolResultShape({ isError: true, content: [{ type: 'text', text: 'x'.repeat(5000) }] });
+    expect(shape).toContain('chars total');
+    expect(shape.length).toBeLessThan(2200);
+  });
+
+  it('falls back to shape when isError is set but carries no text', () => {
+    const shape = describeToolResultShape({ isError: true, content: [{ type: 'image' } as never] });
+    expect(shape).toContain('type=image');
+  });
+});
