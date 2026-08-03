@@ -26,6 +26,17 @@ import { resolveJourneyState, type AuthoritativePlatformState } from '@/services
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
+import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
+import { checkAuthorizationStoreAvailable } from '@/services/horizen/partnerAuthorizationStore';
+import { resolvePassportEligibility } from '@/services/journey/passportEligibility';
+import {
+  journeyAct,
+  readJourneyResolution,
+  recordJourneyResolution,
+  resolveMonotonicJourneyState,
+  type BlockingReason,
+} from '@/services/journey/stageResolution';
+import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +81,19 @@ export async function GET(req: NextRequest) {
 
   const receiptRefs: Record<string, string[]> = {};
   let aigentQubeResolved = false;
+  /*
+   * THE SETTLED REGISTRATION — RETRIEVED, NEVER RE-DERIVED.
+   *
+   * `resolveAgentRegistrationState` is the resolution boundary: it consults
+   * the settled fact first and only reasons when nothing has been settled.
+   * This route consumes its answer and must never reconstruct one of its own
+   * from `hasReceipt(...)` — a sixth observer of "is Nakamoto registered"
+   * would reintroduce exactly the defect
+   * RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001 closed.
+   */
+  let registration: Awaited<ReturnType<typeof resolveAgentRegistrationState>> | null = null;
+  let authorizationStore: Awaited<ReturnType<typeof checkAuthorizationStoreAvailable>> | null = null;
+  let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
   try {
     const supabase = getSupabaseServer();
     /*
@@ -101,6 +125,10 @@ export async function GET(req: NextRequest) {
       .eq('asset_id', agent.aigentQubeId)
       .maybeSingle();
     aigentQubeResolved = !!aigentQube;
+
+    registration = await resolveAgentRegistrationState(supabase, agent);
+    authorizationStore = await checkAuthorizationStoreAvailable(supabase);
+    priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
   } catch {
     // Soft-fail — receipts/registry unavailable, journey stays at its currently-evidenced state.
   }
@@ -164,7 +192,123 @@ export async function GET(req: NextRequest) {
     },
   };
 
-  const runtimeState = resolveJourneyState(HORIZEN_MONEYPENNY_JOURNEY, platformState);
+  /*
+   * ══ STAGE TRUTH, THEN STAGE EVIDENCE ═════════════════════════════════════
+   *
+   * Register's canonical outcome is the SETTLED FACT — not the ten receipts.
+   * Several of those receipt types postdate Nakamoto's real registration (the
+   * Wallet Signing Topology ruling introduced them on 2026-08-01), so they do
+   * not exist for it and never will. Under the old single boolean that
+   * unrecoverable paperwork gap rendered as "not registered". It is now what
+   * it actually is: a canonically complete stage with partial evidence and
+   * named audit gaps.
+   */
+  const storeUnavailable = authorizationStore ? authorizationStore.available === false : false;
 
-  return NextResponse.json({ ok: true, state: runtimeState, agentCardResolved: !!agentCard });
+  const verifyBlockers: BlockingReason[] = [];
+  const verifyExceptions: ExceptionRecord[] = [];
+
+  const eligibility = resolvePassportEligibility({
+    registration: registration
+      ? {
+          registered: registration.registered,
+          settled: registration.settled,
+          tokenId: registration.tokenId,
+          auditGaps: registration.auditGaps,
+        }
+      : null,
+    principal: {
+      // Receipt-derived, exactly as every other stage signal on this route.
+      personhoodEstablished: hasReceipt('operator_passport_validated'),
+      citizenPassportValid: hasReceipt('operator_passport_validated'),
+    },
+    claim: {
+      controlProven: hasReceipt('agent_control_proven'),
+      controlProofFresh: hasReceipt('agent_control_proven'),
+      quarantined: hasReceipt('marketa_eligibility_quarantined'),
+    },
+    // Sponsorship is the sovereign human act the Passport stage exists for.
+    requiredAuthorizations: [
+      { id: 'sponsorship', label: 'sponsorship of this agent', granted: hasReceipt('agent_sponsorship_recorded') },
+    ],
+    ancillary: {
+      pulseAuthorized: hasReceipt('horizen_pulse_authorized'),
+      pnlDisclosureAuthorized: hasReceipt('horizen_pnl_transparency_enabled'),
+      authorizationStoreAvailable: authorizationStore ? authorizationStore.available : undefined,
+      authorizationStoreRemedy: authorizationStore && !authorizationStore.available ? authorizationStore.remedy : undefined,
+      partnerMetadataComplete: registration ? registration.auditGaps.length === 0 : undefined,
+    },
+  });
+
+  if (storeUnavailable && authorizationStore && !authorizationStore.available) {
+    /*
+     * VERIFY-ONLY. The same condition is a BLOCKER here (this is the act it
+     * genuinely prevents) and a NON-BLOCKING EXCEPTION everywhere downstream
+     * (it prevents no other act). One condition, two correct classifications
+     * — which is only expressible because blockers and exceptions are
+     * separate fields rather than one `blocking: boolean`.
+     */
+    verifyBlockers.push({
+      code: 'authorization-store-unavailable',
+      stageId: 'verify',
+      summary: 'Local authorization store unavailable — the transparency authorization cannot be prepared in this deployment.',
+      acts: [
+        journeyAct('verify', 'apply-authorization-migration', 'apply-migration', 'Apply migration', authorizationStore.remedy),
+        journeyAct('verify', 'reload-schema-cache', 'reload-schema-cache', 'Refresh schema', "NOTIFY pgrst, 'reload schema';"),
+        journeyAct('verify', 'recheck-authorization-store', 're-check', 'Re-check'),
+      ],
+    });
+    verifyExceptions.push(
+      ...eligibility.nonBlockingExceptions.filter((e) => e.code === 'authorization-store-unavailable'),
+    );
+  }
+
+  const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, platformState, {
+    canonicalOutcomes: { register: registration?.registered === true },
+    priorCanonicalStages: priorResolution?.canonicalStages ?? [],
+    priorMilestones: priorResolution?.milestones ?? [],
+    auditGaps: { register: registration?.auditGaps ?? [] },
+    operationalBlockers: { verify: verifyBlockers, passport: eligibility.blockingReasons },
+    nonBlockingExceptions: {
+      verify: verifyExceptions,
+      passport: eligibility.nonBlockingExceptions.filter((e) => e.blocksCurrentAct === false),
+    },
+    // The isolation. A missing local migration stops Verify and nothing else.
+    nonBlockingIncompleteStages: storeUnavailable ? ['verify'] : [],
+  });
+
+  // Persist so refresh, persona change and route change all resolve the same
+  // result. The write is itself monotonic — see recordJourneyResolution.
+  try {
+    const supabase = getSupabaseServer();
+    if (supabase) {
+      await recordJourneyResolution(supabase, agent.aigentQubeId, {
+        journeyId: resolution.journeyId,
+        journeyVersion: resolution.journeyVersion,
+        subjectRef: resolution.subjectRef,
+        canonicalStages: resolution.stages.filter((s) => s.canonicalOutcome).map((s) => s.stageId),
+        milestones: resolution.milestones,
+        highestMilestone: resolution.highestMilestone,
+      });
+    }
+  } catch {
+    // A failed record is an audit gap, never a reason to report less progress.
+  }
+
+  return NextResponse.json({
+    ok: true,
+    // Unchanged shape for every existing consumer — now carrying canonical
+    // outcomes and gating relief, so the stepper and this route cannot
+    // disagree (One-State Principle §5.3).
+    state: resolution.runtimeState,
+    resolution: {
+      stages: resolution.stages,
+      milestones: resolution.milestones,
+      highestMilestone: resolution.highestMilestone,
+      nextExecutableAct: resolution.nextExecutableAct,
+      complete: resolution.complete,
+    },
+    passportEligibility: eligibility,
+    agentCardResolved: !!agentCard,
+  });
 }

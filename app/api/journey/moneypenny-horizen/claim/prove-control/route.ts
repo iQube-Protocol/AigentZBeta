@@ -13,10 +13,12 @@
  * the assessment call without a signature that recovered to the registered
  * controller wallet.
  *
- * Refuses honestly when Verify hasn't completed yet (no persisted
- * AigentQube, no tokenId, or Pulse/PnL transparency not yet confirmed) —
- * Claim's own prerequisite on Verify, checked from the same real registry
- * binding Verify itself writes to, not a second source of truth.
+ * Refuses honestly on its CONSTITUTIONAL prerequisites only: no persisted
+ * AigentQube, no registration binding, no controller wallet, or a control
+ * proof that does not recover to it. It deliberately does NOT require Pulse
+ * or P&L authorization — those sit outside Marketa's REFUSAL_RULE_IDS and are
+ * reported as `nonBlockingExceptions` (operator ruling 2026-08-03: an
+ * optional partner enrichment must never immobilise personhood).
  *
  * Spine-gated: getActivePersona resolves the operator, recorded as every
  * receipt's principal.
@@ -113,12 +115,36 @@ export async function POST(request: NextRequest) {
       { status: 409 },
     );
   }
-  if (!binding.transparency?.pulse_enabled || !binding.transparency?.pnl_disclosure_authorized) {
-    return NextResponse.json(
-      { ok: false, refusalCode: 'VERIFY_NOT_COMPLETE', error: 'Pulse monitoring and P&L disclosure must be authorized (Verify stage) before wallet control can be claimed' },
-      { status: 409 },
-    );
-  }
+  /*
+   * ── CLAIM NO LONGER WAITS ON A PARTNER ENRICHMENT (operator, 2026-08-03) ──
+   *
+   *   > "Verify should be the last Horizen dependent stage and then everything
+   *   >  else is our own systems."
+   *
+   * This route used to REFUSE `VERIFY_NOT_COMPLETE` unless Pulse monitoring
+   * AND P&L disclosure were both authorized. That gate was STRICTER THAN THE
+   * CONSTITUTION IT ENFORCES: Marketa's ratified rule engine puts Pulse
+   * (MKT-ADM-007) and P&L (MKT-ADM-008) OUTSIDE `REFUSAL_RULE_IDS`
+   * (`{MKT-ADM-003, 004, 005, 006}`) — their absence is `missing`, an evidence
+   * gap yielding NOT_RECOMMENDED, never `failed` and never REFUSED. The
+   * Verify surface says so in its own words too: authorizing Pulse "does not
+   * create or enlarge her constitutional authority."
+   *
+   * So a panel had invented a prerequisite the constitution does not have,
+   * and an OPTIONAL partner enrichment was immobilising personhood. When the
+   * local authorization store went missing, that self-imposed gate turned a
+   * deploy step into a total block on Claim, Passport and delegation.
+   *
+   * What still gates Claim is unchanged and constitutional: a persisted
+   * AigentQube, a registration binding, a controller wallet, and a fresh
+   * proof of control that recovers to it. Marketa then reports Pulse/P&L
+   * honestly as missing — which is a real, visible, non-blocking exception,
+   * not a silent pass.
+   */
+  const transparencyExceptions: string[] = [];
+  if (!binding.transparency?.pulse_enabled) transparencyExceptions.push('pulse-monitoring-not-authorized');
+  if (!binding.transparency?.pnl_disclosure_authorized) transparencyExceptions.push('pnl-disclosure-not-authorized');
+
   const network = binding.network ?? 'base-sepolia';
 
   const { AgentKeyService } = await import('@/services/identity/agentKeyService');
@@ -169,6 +195,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       controlProofReceiptId: controlReceipt?.id ?? null,
+      // Reported, never silently passed — a non-blocking exception the
+      // operator can see and act on, distinct from a blocker.
+      nonBlockingExceptions: transparencyExceptions,
       assessmentRefusalCode: assessmentResult.refusalCode,
       assessmentError: assessmentResult.detail,
     });
@@ -177,6 +206,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     controlProofReceiptId: controlReceipt?.id ?? null,
+    nonBlockingExceptions: transparencyExceptions,
     assessment: {
       assessmentId: assessmentResult.record.assessmentId,
       decision: assessmentResult.record.decision,

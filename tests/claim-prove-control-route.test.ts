@@ -152,13 +152,30 @@ describe('POST — refusals', () => {
     expect(json.refusalCode).toBe('MISSING_TOKEN_ID');
   });
 
-  it('409s VERIFY_NOT_COMPLETE when Pulse/PnL transparency is not yet authorized', async () => {
+  /*
+   * REPLACED, NOT DELETED (operator ruling 2026-08-03; CANARY-REPRODUCES-DEFECT).
+   *
+   * This asserted `409 VERIFY_NOT_COMPLETE` when Pulse/P&L were unauthorized —
+   * a canary DEFENDING a gate that was stricter than the constitution it
+   * enforces. Marketa's ratified engine keeps Pulse (MKT-ADM-007) and P&L
+   * (MKT-ADM-008) OUT of REFUSAL_RULE_IDS: absent, they are `missing`
+   * evidence, never a refusal. The operator: "Verify should be the last
+   * Horizen dependent stage and then everything else is our own systems."
+   *
+   * So the assertion is inverted to the requirement it should always have
+   * encoded: unauthorized transparency must NOT stop Claim, and the route
+   * must carry on to its real constitutional prerequisites.
+   */
+  it('does NOT refuse when Pulse/PnL transparency is unauthorized — it carries on to the real prerequisites', async () => {
     registryAssetsRow = { metadata: { external_registry_bindings: [{ token_id: '1234', network: 'base-sepolia' }] } };
+    mockGetAgentAddresses.mockResolvedValue(null); // the NEXT, genuine gate
     const res = await POST(makeRequest());
     const json = await res.json();
-    expect(res.status).toBe(409);
-    expect(json.refusalCode).toBe('VERIFY_NOT_COMPLETE');
-    expect(mockGetAgentAddresses).not.toHaveBeenCalled();
+
+    expect(json.refusalCode, 'an optional partner enrichment must not immobilise Claim').not.toBe('VERIFY_NOT_COMPLETE');
+    // It reached the controller-wallet check, which the old gate short-circuited.
+    expect(mockGetAgentAddresses).toHaveBeenCalled();
+    expect(json.refusalCode).toBe('NO_CONTROLLER_WALLET');
   });
 
   it('409s NO_CONTROLLER_WALLET when agent_keys has no evm_address', async () => {

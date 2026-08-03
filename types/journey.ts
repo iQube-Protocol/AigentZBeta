@@ -52,6 +52,33 @@ export interface JourneySurfaceRef {
   note?: string;
 }
 
+/**
+ * The MONOTONIC constitutional ladder (operator ruling, 2026-08-03):
+ *
+ *   REGISTERED → VERIFIED | VERIFIED_WITH_EXCEPTION → CLAIMED
+ *              → PASSPORT_ISSUED → DELEGATED
+ *
+ * Distinct from `JourneyStageState`, and deliberately so. A stage STATE is a
+ * rendering of one stage right now and may legitimately be READY, BLOCKED or
+ * IN_PROGRESS. A MILESTONE is a constitutional fact about the subject that,
+ * once reached, is never un-reached by a later stage's failure.
+ *
+ * Four of the five rungs correspond exactly to a `SettledPredicate`
+ * (services/journey/settledFacts.ts): REGISTERED ← `is_registered`,
+ * CLAIMED ← `control_is_proven`, PASSPORT_ISSUED ← `passport_is_issued`,
+ * DELEGATED ← `delegation_is_granted`. VERIFIED has NO predicate, and that
+ * absence is the point: verification enriches an agent's observable state, it
+ * does not establish a constitutional fact about her (PRD-GJR-001 §3.7,
+ * "transparency is a gateway, never a grant").
+ */
+export type JourneyMilestone =
+  | 'REGISTERED'
+  | 'VERIFIED'
+  | 'VERIFIED_WITH_EXCEPTION'
+  | 'CLAIMED'
+  | 'PASSPORT_ISSUED'
+  | 'DELEGATED';
+
 export interface JourneyStageDefinition {
   id: string;
   label: string;
@@ -81,6 +108,13 @@ export interface JourneyStageDefinition {
    * by more than the drawer). Only the duplicate RENDERING is suppressed.
    */
   receiptsSurfacedNatively?: boolean;
+  /**
+   * Which rung of the monotonic ladder this stage establishes, when it
+   * establishes one. Stages that carry no constitutional milestone (Deploy,
+   * Standing, aigentMe) leave it undefined rather than inventing a rung — the
+   * ladder is the operator's five, not one-per-stage.
+   */
+  milestone?: JourneyMilestone;
   companion: { before: string; during?: string; complete: string; refused?: string };
   nextStageId?: string;
 }
