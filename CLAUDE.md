@@ -109,6 +109,29 @@ When using `git merge origin/dev` before pushing to dev, **ALWAYS** pass `-m` wi
 git merge origin/dev -m "merge dev: sync before pushing <feature/fix> (<commit>)"
 ```
 
+### NEVER leave a bare deploy-trigger commit as the branch tip (2026-08-03)
+
+The workflow takes the merge subject from the session branch's **last commit**
+(`git log -1 --pretty=%s origin/<branch>`). So ending a push with a
+`.amplify-deploy`-only commit produces `merge <branch>: trigger deploy: …` on
+dev — not the forbidden boilerplate, but it tells the operator nothing about
+what shipped, which is the whole point of this rule. Observed on dev
+`3a3ac0390`.
+
+**The remedy is not a better trigger message. Fold the `.amplify-deploy`
+touch INTO the substantive commit** so the tip always names the change:
+
+```bash
+echo "Deploy trigger $(date)" > .amplify-deploy
+git add -A && git commit -m "<what actually changed>"   # one commit, not two
+```
+
+**This is now canary-enforced**: `tests/dev-merge-message-discipline.test.ts`
+fails the build if the workflow regresses to `--no-edit`, if the workflow is
+missing from the branch, or if HEAD's subject is a bare deploy-trigger or a
+default git merge message. The rule kept regressing because it lived only as
+prose, and prose does not fail a build.
+
 ### The auto-merge workflow is the enforcement point — keep it fixed on `main` AND `dev` (root cause of recurring generic merges)
 
 The `merge-claude-to-dev.yml` workflow is what writes the dev merge commit the operator sees in the Amplify build history. GitHub runs the copy of the workflow that lives **in the pushed `claude/**` branch**, so the merge message is only as good as the workflow version that branch carries. The **correct** step is:
