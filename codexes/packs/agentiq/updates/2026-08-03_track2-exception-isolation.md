@@ -470,6 +470,116 @@ property-based selection — `candidates.find(c => dedupeKey(c.statement) === de
 *not* reported as truncated. These would have kept passing while silently testing a different subject
 had ordering changed.
 
+## 9.7 The exception surface now terminates in an act
+
+> *"Present the smallest safe decision at the point where the exception appears, with the evidence
+> and consequence already assembled."*
+
+> **Design invariant:** *"An exception surface is incomplete unless it offers the next safe act in
+> context."*
+
+### The defect
+
+Isolation worked; **it stopped at diagnosis**. The duplicate exception card read *"Decide this
+source individually in the review queue"* — sending the operator to find records the surface already
+held in state, to re-derive a judgement the system could already make from recorded signals, and to
+re-type a rationale the system could already compose.
+
+Every ENGINEERING invariant was satisfied (isolation, receipting, disclosure) and the operator was
+still left with a scavenger hunt. **That gap is why operator-experience invariants are a distinct
+class.**
+
+### What replaced it
+
+For each exact-duplicate group the board now shows **all members side by side** — title, source id,
+canonical URL, artifact hash, page count, extraction completeness and length, metadata
+completeness, admission state, sub-domain placement, existing lineage — plus why the system
+considers them duplicates at all. Then it **derives a recommended canonical copy** and explains it.
+
+**The five questions, in one place:** what happened (members + duplicate basis) · what is
+recommended (derived canonical) · why (the signals that favoured it, named) · what happens if I
+approve (the consequence list, before the act) · what single action moves the remainder forward
+("Accept recommendation and continue").
+
+Actions: **Accept recommendation** · **Choose the other copy** · **Keep both as distinct editions**
+· **Defer this group** — none of which leaves the panel.
+
+### Two classes of exception, not one amber
+
+| Class | Meaning |
+|---|---|
+| `recommended-resolution-available` | signals separate the copies; operator confirms or overrides |
+| `genuine-judgment-required` | signals do **not** separate them; the system cannot tell editions from revisions from distinct works |
+
+Equal scores yield the second, never a coin-flip presented as a derivation. Only the second warrants
+deeper inspection.
+
+### No new write path
+
+The governed treatment **already existed**: `mark_duplicate` + `duplicateOfSourceId` in
+`applyCandidateReviewDecision` sets status `duplicate` and points at the canonical — an **update**,
+so both records survive. The new route loops that same per-source applier once per alias.
+
+**`bulk-review`'s refusal of `mark_duplicate` is honoured, not relaxed** — that refusal exists
+because the alias target is a per-source fact, and looping the single-source applier is exactly what
+it was protecting. A canary asserts the route never touches `bulk-review` and that the refusal still
+stands.
+
+**Preserve both records always.** A canary asserts no `.delete()` appears anywhere in the resolution
+chain, and the dry run reports `recordsDeleted: 0` / `unrelatedRecordsAffected: 0` as fields rather
+than assumptions.
+
+### Every signal is a real field — none invented
+
+| Operator's phrase | Backing field |
+|---|---|
+| complete artifact hash present | `artifactHash` |
+| successful extraction | `extractionStatus === 'ok'` |
+| richer metadata | `issuer`, `publicationDate`, `authors`, `pageCount` |
+| earlier admitted lineage | `evidenceRowId`, `createdAt` |
+| same underlying document bytes | equal `artifactHash` — the axis the group matched on |
+| extraction completeness | `normalizedTextChars` / `normalizedText.length` |
+
+Recency is a **tie-break only**, weighted below any real quality difference so acquisition order can
+never decide canonicality. `extractedChars` returns `null` when unknown — unknown and empty are
+different facts.
+
+### The batch act
+
+**Resolve all recommended exceptions** operates only on groups with deterministic recommendations;
+ambiguous groups appear in `skipped` **by name** rather than being silently omitted (a group that
+vanished from the summary would look resolved). Preview-then-confirm, in the operator's own lines,
+receipted through `cohortAuthorization` with the authorizing steward and cohort hash.
+
+### One decision, one place
+
+A group answered by the board is filtered out of the exception list below it — listing the same
+problem twice invites the operator to act in the weaker place. Canaried.
+
+### The rest of Track 2 — where the pattern applies, and where it cannot yet
+
+The ruling asks for this pattern across provenance, validation, relationships and crystal
+assignment. Applied where an exception surface **exists**:
+
+| Stage | State |
+|---|---|
+| **Stage 2 duplicates** | **Done** — the board above |
+| **Stage 8 assignment** | **Already conforms** — each ineligible invariant carries its named remedy (`validate it: POST …`, `classify it: POST …`) rather than a navigation instruction |
+| **Stage 3 extraction** | Exceptions carry a remedy; there is no interactive surface to host an in-place act, because extraction is a batch run rather than a per-record queue |
+| **Provenance / validation / relationships** | **No exception surface exists yet.** These act one record per invocation from their own tabs and have no aggregated exception list to attach a decision panel to. Building one would be speculative; stated rather than half-built, consistent with the earlier accepted finding |
+
+### Resolution loop
+
+`RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001` (trigger: `reusable-pattern-established`)
+and `CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001` — the **first OPERATOR-EXPERIENCE invariant** in
+the registry, `classification` marking it explicitly as a class distinct from the engineering ones.
+`candidate`, not ratified.
+
+**Recorded as open on the candidate:** `IsolationException.recommendedAction` is free prose, which is
+what allowed a navigation instruction to satisfy the type. A typed action would make the defect
+structurally impossible rather than canaried — but that changes the shared exception shape every
+stage uses, and belongs in its own deliberate act.
+
 ## 10. Verification
 
 **Canaries verified to FAIL before the change** (OS-9: *"a canary must be written against real
@@ -501,6 +611,12 @@ production code, running, and restoring:
 | 21 | verifier trusts `reconciles` instead of recomputing the identity | receipt-claiming-complete-is-rejected |
 | 22 | drop per-row reasons for a failed batch | failed-batch-excluded-ids-with-reasons |
 | 23 | `reconciliationHash` omits the id sets | 2 tamper-detection tests |
+| 24 | tie-break by first id instead of genuine-judgment | 5 tests, incl. identical-copies-yield-judgment |
+| 25 | blank the recommended-branch rationale | pre-populates-an-editable-rationale |
+| 26 | reinstate a navigation instruction in the consequence | 2 never-send-the-operator-looking tests |
+| 27 | a `.delete()` in the resolution path | no-code-path-deletes-a-candidate-source |
+| 28 | drop the board/exception-list dedupe filter | one-decision-one-place |
+| 29 | batch act stops excluding judgement groups | ambiguous-group-is-skipped-by-name |
 
 **Five pre-existing canaries** failed against the new code and were updated with recorded reasons —
 each had pinned a defective shape: the ordinal lock rule; the title heuristic's location in the

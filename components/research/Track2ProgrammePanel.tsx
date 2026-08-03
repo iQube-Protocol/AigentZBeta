@@ -44,6 +44,10 @@ import {
   type AdmissionRecommendation,
   type RecommendedAdmissionClass,
 } from "@/services/corpusScout/admissionRecommendation";
+import type {
+  DuplicateResolutionPlan,
+  DuplicateResolutionDryRun,
+} from "@/services/corpusScout/duplicateResolution";
 import {
   EXCEPTION_CAUSE_LABEL,
   groupExceptionsByCause,
@@ -458,6 +462,8 @@ function CorpusReviewQueue({
   const [recsErr, setRecsErr] = useState<string | null>(null);
   const [isolation, setIsolation] = useState<IsolationSummary | null>(null);
   const [population, setPopulation] = useState<PopulationDisclosure | null>(null);
+  const [duplicatePlans, setDuplicatePlans] = useState<DuplicateResolutionPlan[] | null>(null);
+  const [duplicateDryRun, setDuplicateDryRun] = useState<DuplicateResolutionDryRun | null>(null);
   const [criticalPath, setCriticalPath] = useState<{
     nextSafeAct: string;
     deferred: string;
@@ -487,6 +493,8 @@ function CorpusReviewQueue({
       // lineage would make an old recommendation set wrong in either
       // direction. Cleared on every reload; the operator re-prepares.
       setRecommendations(null);
+      setDuplicatePlans(null);
+      setDuplicateDryRun(null);
       setIsolation(null);
       setPopulation(null);
       setCriticalPath(null);
@@ -532,12 +540,16 @@ function CorpusReviewQueue({
       // re-derived here — a client that recomputed the counts could disagree
       // with the button it renders (inv.engineering.036).
       setIsolation((d.summary ?? null) as IsolationSummary | null);
+      setDuplicatePlans((d.duplicateResolutions ?? null) as DuplicateResolutionPlan[] | null);
+      setDuplicateDryRun((d.duplicateDryRun ?? null) as DuplicateResolutionDryRun | null);
       setPopulation((d.population ?? null) as PopulationDisclosure | null);
       setCriticalPath(
         (d.criticalPath ?? null) as { nextSafeAct: string; deferred: string; milestoneImpact: string } | null,
       );
     } catch (e) {
       setRecommendations(null);
+      setDuplicatePlans(null);
+      setDuplicateDryRun(null);
       setIsolation(null);
       setPopulation(null);
       setCriticalPath(null);
@@ -860,8 +872,26 @@ function CorpusReviewQueue({
                   criticalPath={criticalPath}
                 />
               )}
+              {duplicatePlans && duplicatePlans.length > 0 && acquisitionDomain && (
+                <DuplicateResolutionBoard
+                  plans={duplicatePlans}
+                  dryRun={duplicateDryRun}
+                  campaignDomain={acquisitionDomain}
+                  onResolved={() => {
+                    void load();
+                    void prepareRecommendations();
+                    onDone();
+                  }}
+                />
+              )}
               {isolation && isolation.exceptions.length > 0 && (
-                <ExceptionsSurface exceptions={isolation.exceptions} rowsById={rowsById} />
+                <ExceptionsSurface
+                  exceptions={isolation.exceptions}
+                  rowsById={rowsById}
+                  resolvedGroupSourceIds={
+                    new Set((duplicatePlans ?? []).flatMap((pl) => pl.copies.map((c) => c.sourceId)))
+                  }
+                />
               )}
               {recommendations && (
                 <RecommendationCohorts
@@ -1423,16 +1453,333 @@ function ExecutableBatchSummary({
  * block freeze", which is the honest answer for a source that never entered
  * the corpus.
  */
+/**
+ * THE DUPLICATE RESOLUTION BOARD — an exception that terminates in an act
+ * (operator ruling, 2026-08-03).
+ *
+ *   > "Present the smallest safe decision at the point where the exception
+ *   >  appears, with the evidence and consequence already assembled."
+ *
+ * ── What this replaces ──────────────────────────────────────────────────────
+ *
+ * The duplicate exception card previously read "Decide this source individually
+ * in the review queue" — a navigation instruction that sent the operator to
+ * find records this surface already held, to re-derive a judgement the server
+ * had already made, and to re-type a rationale the server had already written.
+ *
+ * ── The five questions, answered in one place ───────────────────────────────
+ *
+ *   1. What happened?      → the members side by side, with the duplicate basis
+ *   2. What is recommended? → the derived canonical copy
+ *   3. Why?                 → the signals that favoured it, named
+ *   4. What if I approve?   → the consequence list, stated BEFORE the act
+ *   5. What single action?  → "Accept recommendation and continue"
+ *
+ * Nothing here decides anything: the plan, the rationale and the dry run are
+ * all computed server-side, so what the operator confirms is what the executor
+ * performs.
+ */
+function DuplicateResolutionBoard({
+  plans,
+  dryRun,
+  campaignDomain,
+  onResolved,
+}: {
+  plans: DuplicateResolutionPlan[];
+  dryRun: DuplicateResolutionDryRun | null;
+  campaignDomain: string;
+  onResolved: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ previewLines: string[] } | null>(null);
+  // Per-group canonical override — "Choose the other copy" without leaving.
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [deferred, setDeferred] = useState<Set<string>>(new Set());
+  const [rationales, setRationales] = useState<Record<string, string>>({});
+
+  const actionable = plans.filter(
+    (p) => p.kind === "recommended-resolution-available" && !deferred.has(p.groupKey),
+  );
+  const judgement = plans.filter((p) => p.kind === "genuine-judgment-required");
+
+  const post = useCallback(
+    async (isDryRun: boolean, groupKeys: string[]) => {
+      if (groupKeys.length === 0) return;
+      setBusy(true);
+      setErr(null);
+      try {
+        const res = await personaFetch("/api/corpus-scout/candidates/resolve-duplicates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            campaignDomain,
+            groupKeys,
+            canonicalOverrides: overrides,
+            dryRun: isDryRun,
+            ...(groupKeys.length === 1 && rationales[groupKeys[0]]
+              ? { rationale: rationales[groupKeys[0]] }
+              : {}),
+          }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `the duplicate group was not resolved (HTTP ${res.status})`);
+        if (isDryRun) setPreview(d as { previewLines: string[] });
+        else {
+          setPreview(null);
+          onResolved();
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "the duplicate group was not resolved");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [campaignDomain, overrides, rationales, onResolved],
+  );
+
+  return (
+    <div className="mt-2 rounded border border-amber-600/40 bg-amber-950/10 p-2 text-[11px]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+      >
+        <span className="font-medium text-amber-100">
+          {plans.length} exact-duplicate group(s) — {actionable.length} with a recommended resolution
+        </span>
+        <span className="text-[10px] text-amber-200/70">
+          {judgement.length > 0 ? `${judgement.length} need genuine judgement` : "all resolvable now"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-2 space-y-2">
+          {plans.map((plan) => {
+            const canonical = overrides[plan.groupKey] ?? plan.canonicalSourceId;
+            const isDeferred = deferred.has(plan.groupKey);
+            return (
+              <div
+                key={plan.groupKey}
+                className={`rounded border p-2 ${
+                  plan.kind === "recommended-resolution-available"
+                    ? "border-slate-700 bg-slate-950"
+                    : "border-rose-700/40 bg-rose-950/10"
+                }`}
+              >
+                {/* 1 · WHAT HAPPENED — and why these count as duplicates. */}
+                <div className="text-slate-300">{plan.duplicateBasis}</div>
+                <div className="mt-0.5 text-[10px] text-slate-500">
+                  {plan.kind === "recommended-resolution-available"
+                    ? "Recommended resolution available — confirm or override."
+                    : "Genuine judgement required — the system cannot determine which copy is canonical."}
+                </div>
+
+                {/* MEMBERS SIDE BY SIDE, with the evidence already assembled. */}
+                <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+                  {plan.copies.map((copy) => {
+                    const f = copy.facts;
+                    const isCanonical = copy.sourceId === canonical;
+                    return (
+                      <div
+                        key={copy.sourceId}
+                        className={`rounded border p-1.5 ${
+                          isCanonical ? "border-emerald-700/60 bg-emerald-950/20" : "border-slate-800 bg-slate-900/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-medium text-slate-100">{f.title}</span>
+                          {isCanonical && <span className="shrink-0 text-[10px] text-emerald-300">canonical</span>}
+                        </div>
+                        <div className="font-mono text-[10px] text-slate-500">{copy.sourceId}</div>
+                        <a
+                          href={f.canonicalUrl}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="block truncate font-mono text-[10px] text-cyan-300 hover:underline"
+                        >
+                          {f.canonicalUrl}
+                        </a>
+                        <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 text-[10px]">
+                          <dt className="text-slate-500">artifact hash</dt>
+                          <dd className={f.artifactHash ? "font-mono text-slate-300" : "text-amber-300 italic"}>
+                            {f.artifactHash ? `${f.artifactHash.slice(0, 16)}…` : "not recorded"}
+                          </dd>
+                          <dt className="text-slate-500">pages</dt>
+                          <dd className={f.pageCount !== null ? "text-slate-300" : "text-slate-600 italic"}>
+                            {f.pageCount ?? "not captured"}
+                          </dd>
+                          <dt className="text-slate-500">extraction</dt>
+                          <dd className={f.extractionStatus === "ok" ? "text-slate-300" : "text-amber-300"}>
+                            {f.extractionStatus}
+                            {typeof f.normalizedTextChars === "number"
+                              ? ` · ${f.normalizedTextChars.toLocaleString()} chars`
+                              : ""}
+                          </dd>
+                          <dt className="text-slate-500">metadata</dt>
+                          <dd className="text-slate-300">
+                            {[f.issuer && "issuer", f.publicationDate && "date", f.authors.length > 0 && "authors"]
+                              .filter(Boolean)
+                              .join(", ") || "none captured"}
+                          </dd>
+                          <dt className="text-slate-500">admission</dt>
+                          <dd className="text-slate-300">{f.reviewWorkflowStatus}</dd>
+                          <dt className="text-slate-500">sub-domain</dt>
+                          <dd className={f.campaignSubDomain ? "text-slate-300" : "text-slate-600 italic"}>
+                            {f.campaignSubDomain ?? "unplaced"}
+                          </dd>
+                          <dt className="text-slate-500">lineage</dt>
+                          <dd className={f.evidenceRowId ? "text-slate-300" : "text-slate-600 italic"}>
+                            {f.evidenceRowId ? "admitted as evidence" : "none yet"}
+                          </dd>
+                        </dl>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 2 + 3 · WHAT IS RECOMMENDED, AND WHY. */}
+                {plan.kind === "recommended-resolution-available" && (
+                  <div className="mt-1.5 rounded border border-slate-800 bg-slate-900/40 p-1.5">
+                    <div className="text-slate-200">
+                      Recommended canonical source:{" "}
+                      <span className="font-mono text-emerald-300">{canonical}</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">Why: {plan.why.join("; ")}.</div>
+                    <div className="text-[10px] text-slate-400">
+                      Recommended treatment: exclude the other copy as an exact duplicate and preserve it as an alias
+                      to the canonical source.
+                    </div>
+                  </div>
+                )}
+                {plan.ambiguity && (
+                  <div className="mt-1.5 rounded border border-rose-700/40 bg-rose-950/20 p-1.5 text-[10px] text-rose-100">
+                    {plan.ambiguity}
+                  </div>
+                )}
+
+                {/* 4 · WHAT HAPPENS IF I APPROVE — before the act. */}
+                <ul className="mt-1.5 space-y-0.5 text-[10px] text-slate-400">
+                  {plan.consequence.map((c, i) => (
+                    <li key={i}>· {c}</li>
+                  ))}
+                </ul>
+
+                {/* THE RATIONALE, PRE-POPULATED AND EDITABLE. Never blank. */}
+                <textarea
+                  value={rationales[plan.groupKey] ?? plan.rationale}
+                  onChange={(e) => setRationales((prev) => ({ ...prev, [plan.groupKey]: e.target.value }))}
+                  rows={2}
+                  className="mt-1.5 w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[10px] text-slate-200"
+                />
+
+                {/* 5 · THE SINGLE ACTION THAT MOVES THE SAFE REMAINDER FORWARD. */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {plan.kind === "recommended-resolution-available" && !isDeferred && (
+                    <button
+                      onClick={() => void post(false, [plan.groupKey])}
+                      disabled={busy}
+                      className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-emerald-200 disabled:opacity-50"
+                    >
+                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Accept recommendation and continue"}
+                    </button>
+                  )}
+                  {plan.copies
+                    .filter((c) => c.sourceId !== canonical)
+                    .map((c) => (
+                      <button
+                        key={c.sourceId}
+                        onClick={() => setOverrides((prev) => ({ ...prev, [plan.groupKey]: c.sourceId }))}
+                        className="rounded border border-slate-700 bg-slate-900/60 px-2 py-1 text-[10px] text-slate-300 hover:bg-slate-800/60"
+                      >
+                        Choose {c.sourceId.slice(0, 22)}… instead
+                      </button>
+                    ))}
+                  <button
+                    onClick={() =>
+                      setDeferred((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(plan.groupKey)) next.delete(plan.groupKey);
+                        else next.add(plan.groupKey);
+                        return next;
+                      })
+                    }
+                    className="rounded border border-slate-800 bg-slate-900/60 px-2 py-1 text-[10px] text-slate-400 hover:bg-slate-800/60"
+                  >
+                    {isDeferred ? "Un-defer this group" : "Defer this group"}
+                  </button>
+                  <span className="text-[10px] text-slate-600">
+                    Keeping both as distinct editions = defer, then record each with its own decision.
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* THE BATCH ACT — only over groups with deterministic recommendations. */}
+          {actionable.length > 0 && (
+            <div className="rounded border border-slate-700 bg-slate-950 p-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  onClick={() => void post(true, actionable.map((p) => p.groupKey))}
+                  disabled={busy}
+                  className="rounded border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-slate-200 disabled:opacity-50"
+                >
+                  Preview resolving {actionable.length} group(s)
+                </button>
+                <button
+                  onClick={() => void post(false, actionable.map((p) => p.groupKey))}
+                  disabled={busy || !preview}
+                  title={!preview ? "Preview first — the confirm unlocks against an inspection of this exact set" : undefined}
+                  className="rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 text-emerald-200 disabled:opacity-50"
+                >
+                  Resolve all recommended exceptions
+                </button>
+              </div>
+              {(preview?.previewLines ?? (dryRun ? null : null)) && (
+                <ul className="mt-1.5 space-y-0.5 text-[10px] text-slate-300">
+                  {preview!.previewLines.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ul>
+              )}
+              {judgement.length > 0 && (
+                <div className="mt-1 text-[10px] text-slate-500">
+                  {judgement.length} group(s) needing genuine judgement are excluded from this act and stay isolated.
+                </div>
+              )}
+            </div>
+          )}
+
+          {err && (
+            <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExceptionsSurface({
   exceptions,
   rowsById,
+  resolvedGroupSourceIds,
 }: {
   exceptions: IsolationException[];
   rowsById: Map<string, CandidateSource>;
+  /** Sources whose exception is already answered by the resolution board
+   *  above. Listing them again here would show the same problem twice and
+   *  invite the operator to act in the weaker of the two places — the "one
+   *  decision, one place" rule. */
+  resolvedGroupSourceIds?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
-  const groups = useMemo(() => groupExceptionsByCause(exceptions), [exceptions]);
-  const freezeBlockers = exceptions.filter((e) => e.blocksFreeze).length;
+  const unresolved = useMemo(
+    () => exceptions.filter((e) => !(resolvedGroupSourceIds?.has(e.recordId) ?? false)),
+    [exceptions, resolvedGroupSourceIds],
+  );
+  const groups = useMemo(() => groupExceptionsByCause(unresolved), [unresolved]);
+  const freezeBlockers = unresolved.filter((e) => e.blocksFreeze).length;
 
   return (
     <div className="mt-2 rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
@@ -1441,7 +1788,7 @@ function ExceptionsSurface({
         className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
       >
         <span className="font-medium text-slate-200">
-          Review {exceptions.length} exception(s)
+          Review {unresolved.length} exception(s)
         </span>
         <span className="text-[10px] text-slate-500">
           {groups.length} cause group(s) ·{" "}
