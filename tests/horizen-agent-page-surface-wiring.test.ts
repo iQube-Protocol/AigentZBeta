@@ -163,3 +163,37 @@ describe('services/horizen/agentPageUrl.ts is the ONE place that builds this URL
     }
   });
 });
+
+describe('JourneyRunSurface — the pilot can see WHICH evidence is missing, without a SQL console (2026-08-03)', () => {
+  /*
+   * Register stayed un-emerald and the only way to learn why was a Supabase
+   * query against activity_receipts. The surface already received
+   * evidencePresent / evidenceMissing / receiptRefs per stage and collapsed
+   * them into one comma-separated "Awaiting:" list of raw camelCase signal
+   * names — discarding the met/unmet split it had been handed.
+   */
+  const source = read('components/journey/JourneyRunSurface.tsx');
+
+  it('renders both the satisfied and the missing evidence, not only what is missing', () => {
+    expect(source).toContain('activeStageRuntime.evidencePresent.map');
+    expect(source).toContain('activeStageRuntime.evidenceMissing.map');
+  });
+
+  it('surfaces the receipt count so a stage backed by receipts says so', () => {
+    expect(source).toMatch(/activeStageRuntime\.receiptRefs\.length/);
+  });
+
+  it('humanises signal names mechanically — no hand-written label map to go stale', () => {
+    expect(source).toContain('function humaniseSignal');
+    // A curated map would silently fall back to the raw key for any signal the
+    // server adds later; the transformation cannot.
+    expect(source).not.toMatch(/const SIGNAL_LABELS\s*[:=]/);
+  });
+
+  it('computes no stage state of its own — the checklist can never disagree with the server', () => {
+    // It may only READ the runtime arrays; it must not re-derive completeness.
+    const block = source.slice(source.indexOf('EVIDENCE CHECKLIST'), source.indexOf('EVIDENCE CHECKLIST') + 2200);
+    expect(block).not.toMatch(/state\s*===\s*'COMPLETE'/);
+    expect(block).not.toContain('hasReceipt');
+  });
+});
