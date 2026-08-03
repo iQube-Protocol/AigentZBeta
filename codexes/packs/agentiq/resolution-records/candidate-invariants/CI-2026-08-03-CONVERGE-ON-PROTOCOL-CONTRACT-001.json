@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
   "statement": "When integrating with an external protocol, implementation must converge toward the protocol contract, not repeated inference from observed responses. Diagnostics may be used to discover the contract, but once the contract is known the implementation must validate against it rather than heuristics.",
   "classification": "Engineering invariant, operator-worded 2026-08-03. Companion to CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001: diagnostics are a BRIDGE to an explicit contract, never a permanent substitute for one.",
@@ -33,5 +33,17 @@
     "ONE site so far, so the 'cross-capability' scope is an UNEARNED generality claim and the milestone check correctly flags it. Left at `candidate`; an agent may not ratify.",
     "Live cost of not holding it: three rounds of parser inference (JSON fields -> plain text accepted -> isError guard) before the contract was consulted. The first inference was WRONG — the 265-char plain text was an error body, not the message to sign.",
     "Outstanding per operator: four questions still to answer from Horizen directly — exact tool name and request schema; documented success responses; documented error responses; and the message-to-sign contract (raw UTF-8 vs EIP-712 vs hex vs base64). Answering them should let defensive inference code be DELETED, not merely added to."
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

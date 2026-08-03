@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "resolutionId": "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001",
   "capability": "Track 2 — corpus acquisition to frozen crystal (Stage 3, candidate extraction)",
   "milestone": "Track 2 Stage 3 — deterministic batched extraction over the admitted population",
@@ -69,5 +69,13 @@
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
   ],
-  "date": "2026-08-03"
+  "date": "2026-08-03",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

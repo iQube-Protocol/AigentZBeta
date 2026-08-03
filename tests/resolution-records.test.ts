@@ -25,23 +25,34 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CANDIDATE_INVARIANTS_DIR,
+  EXPLORATION_DIR,
   RESOLUTION_RECORDS_DIR,
   buildRegistryReport,
   checkReferentialIntegrity,
   declaredCanaryPaths,
+  findDuplicateStatements,
   loadRegistry,
   runMilestoneCloseCheck,
   validateCandidateInvariant,
+  validateExplorationItem,
   validateResolutionRecord,
 } from '@/services/invariants/resolutionRecords';
 import {
   AGENT_MAX_STAGE,
+  CLOSE_OUT_KINDS,
+  CLOSE_OUT_RITUAL,
+  CONSTITUTIONAL_EXECUTION_PRINCIPLES,
+  CONSTITUTIONAL_TIME_PRINCIPLE_ID,
+  INVARIANT_FAMILIES,
+  OPERATOR_NAMED_FAMILIES,
+  PROJECTION_TARGETS,
   RECURRENCE_CLASS_TRIGGERS,
   RESOLUTION_TRIGGERS,
+  TTV_TTR_OBJECTIVE_SOURCES,
   atOrAbove,
   ladderRank,
 } from '@/types/resolutionRecords';
@@ -50,6 +61,23 @@ import { COMPLETION_LIFECYCLE, mapCompletionStage } from '@/types/capabilityComp
 const REPO_ROOT = process.cwd();
 const registry = loadRegistry(REPO_ROOT);
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+
+/**
+ * Select a mutation subject by the PROPERTY UNDER TEST, never by array position
+ * (CI-2026-08-03-CANARY-SUBJECT-SELECTION-001). A fixture chosen by index
+ * silently changes meaning the moment the registry is re-sorted or a record is
+ * added — which, in a registry that grows every session, is constantly.
+ */
+function pickCandidate(pred: (c: (typeof registry.candidates)[number]) => boolean) {
+  const found = registry.candidates.find(pred);
+  if (!found) throw new Error('no candidate in the registry satisfies the property under test');
+  return found;
+}
+function pickRecord(pred: (r: (typeof registry.records)[number]) => boolean) {
+  const found = registry.records.find(pred);
+  if (!found) throw new Error('no resolution record satisfies the property under test');
+  return found;
+}
 
 describe('the registry exists and is where it says it is', () => {
   it('both directories are present at the one authoritative location', () => {
@@ -84,9 +112,361 @@ describe('every record on disk validates', () => {
     }
   });
 
+  it('exploration items', () => {
+    for (const e of registry.exploration) {
+      const result = validateExplorationItem(e);
+      expect(
+        result.valid,
+        `${(e as { explorationId?: string }).explorationId ?? '(unnamed)'}: ${result.issues.map((i) => `${i.path} ${i.message}`).join('; ')}`,
+      ).toBe(true);
+    }
+  });
+
   it('every cross-reference resolves in both directions', () => {
     const issues = checkReferentialIntegrity(registry);
     expect(issues.map((i) => `${i.path}: ${i.message}`)).toEqual([]);
+  });
+});
+
+describe('three families — and UX is a projection, not one of them', () => {
+  it('every candidate declares a family', () => {
+    for (const c of registry.candidates) {
+      expect(
+        (INVARIANT_FAMILIES as readonly string[]).includes(c.family),
+        `${c.candidateId} has family '${c.family}'`,
+      ).toBe(true);
+    }
+  });
+
+  it('there is NO agency/ux family — the operator removed it', () => {
+    // "Don't create 'UX invariants' as a separate canonical family. Instead say:
+    // these constitutional execution principles PROJECT into UX."
+    expect((INVARIANT_FAMILIES as readonly string[]).includes('agency')).toBe(false);
+    expect((INVARIANT_FAMILIES as readonly string[]).includes('ux')).toBe(false);
+    for (const c of registry.candidates) {
+      expect(['agency', 'ux'].includes(c.family), `${c.candidateId} is still filed as '${c.family}'`).toBe(false);
+    }
+  });
+
+  it('UX is reachable only as a PROJECTION TARGET', () => {
+    expect((PROJECTION_TARGETS as readonly string[]).includes('ux-framework')).toBe(true);
+    // At least one live execution principle must actually project into UX, or
+    // the mechanism the operator replaced the family with is inert (MS-7).
+    const projecting = registry.candidates.filter(
+      (c) => c.family === 'execution' && c.status !== 'deprecated' && c.projections.targets.includes('ux-framework'),
+    );
+    expect(projecting.length, 'no live execution principle projects into UX').toBeGreaterThan(0);
+  });
+
+  it('every operator-named family is populated by a LIVE rule', () => {
+    for (const f of OPERATOR_NAMED_FAMILIES) {
+      expect(
+        registry.candidates.some((c) => c.family === f && c.status !== 'deprecated'),
+        `family '${f}' has no live members`,
+      ).toBe(true);
+    }
+  });
+
+  it('a governing principle may parent across families; a family rule may not', () => {
+    const time = pickCandidate((c) => c.candidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID);
+    expect(time.governingPrinciple, 'the Constitutional Time Principle is not marked governing').toBe(true);
+    expect(time.family).toBe('constitutional');
+    expect(checkReferentialIntegrity(registry)).toEqual([]);
+
+    // Strip the flag: the same cross-family parenting must become an error.
+    const mutated = {
+      records: registry.records,
+      exploration: registry.exploration,
+      candidates: registry.candidates.map((c) =>
+        c.candidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID ? { ...clone(c), governingPrinciple: false } : c,
+      ),
+    };
+    expect(
+      checkReferentialIntegrity(mutated).some((i) => i.message.includes('cannot belong to another')),
+    ).toBe(true);
+  });
+
+  it('only a ratified principle may be designated governing', () => {
+    const broken = clone(pickCandidate((c) => c.status === 'candidate'));
+    broken.governingPrinciple = true;
+    const result = validateCandidateInvariant(broken);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.path === 'governingPrinciple')).toBe(true);
+  });
+});
+
+describe('the Constitutional Execution Family — six principles, no more', () => {
+  it('all six exist, are family `execution`, and descend from the Time Principle', () => {
+    expect(CONSTITUTIONAL_EXECUTION_PRINCIPLES.length).toBe(6);
+    for (const p of CONSTITUTIONAL_EXECUTION_PRINCIPLES) {
+      const c = registry.candidates.find((k) => k.candidateId === p.candidateId);
+      expect(c, `${p.name} (${p.candidateId}) is missing from the registry`).toBeDefined();
+      expect(c!.family, `${p.name} is family '${c!.family}'`).toBe('execution');
+      expect(c!.parentCandidateId, `${p.name} does not descend from the Time Principle`).toBe(
+        CONSTITUTIONAL_TIME_PRINCIPLE_ID,
+      );
+      expect(c!.status).not.toBe('deprecated');
+      expect(c!.classification, `${p.name} carries no execution-principle designation`).toContain(
+        'Constitutional Execution Principle',
+      );
+    }
+  });
+
+  it('the family has no seventh live member', () => {
+    // A live execution rule parented directly on the Time Principle that is not
+    // one of the six means the family grew without the operator naming it.
+    const declared = new Set(CONSTITUTIONAL_EXECUTION_PRINCIPLES.map((p) => p.candidateId));
+    const extras = registry.candidates
+      .filter((c) => c.status !== 'deprecated' && c.parentCandidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID)
+      .filter((c) => !declared.has(c.candidateId))
+      .map((c) => c.candidateId);
+    expect(extras, `undeclared execution principles: ${extras.join(', ')}`).toEqual([]);
+  });
+
+  it('each principle carries the operator wording it was named with', () => {
+    for (const p of CONSTITUTIONAL_EXECUTION_PRINCIPLES) {
+      const c = registry.candidates.find((k) => k.candidateId === p.candidateId)!;
+      // A paraphrase of a ruling is a different ruling — the wording must survive.
+      const fragment = p.operatorText.split('.')[0].slice(0, 40);
+      expect(c.classification, `${p.name} lost its operator wording`).toContain(fragment);
+    }
+  });
+});
+
+describe('collapsing the UX candidates — the trail survives', () => {
+  it('every deprecated rule names the principle that absorbed it', () => {
+    const deprecated = registry.candidates.filter((c) => c.status === 'deprecated');
+    expect(deprecated.length, 'nothing was collapsed').toBeGreaterThan(0);
+    for (const c of deprecated) {
+      expect(c.supersededBy, `${c.candidateId} is deprecated but names no successor`).toBeTruthy();
+      expect(
+        registry.candidates.some((k) => k.candidateId === c.supersededBy),
+        `${c.candidateId} points at a successor that does not exist`,
+      ).toBe(true);
+    }
+  });
+
+  it('a deprecated rule with no successor is REFUSED', () => {
+    const broken = clone(pickCandidate((c) => c.status === 'deprecated'));
+    broken.supersededBy = null;
+    const result = validateCandidateInvariant(broken);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.path === 'supersededBy')).toBe(true);
+  });
+
+  it('every collapse states WHAT IT COSTS, rather than assuming it costs nothing', () => {
+    // The operator: "Report honestly if collapsing the ten UX candidates loses
+    // information the six do not carry — I would rather know that than have it
+    // quietly dropped."
+    for (const c of registry.candidates.filter((k) => k.status === 'deprecated')) {
+      expect(
+        c.notes.some((n) => n.startsWith('WHAT THE COLLAPSE COSTS')),
+        `${c.candidateId} was collapsed without recording what was lost`,
+      ).toBe(true);
+    }
+  });
+
+  it('a tombstone keeps its evidence — a collapse is not a deletion', () => {
+    for (const c of registry.candidates.filter((k) => k.status === 'deprecated')) {
+      expect(c.occurrences.length, `${c.candidateId} lost its occurrences`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('one rule, one record', () => {
+  it('no two candidates state the same rule', () => {
+    const dupes = findDuplicateStatements(registry);
+    expect(dupes.map((d) => `${d.a} == ${d.b}`)).toEqual([]);
+  });
+
+  it('the retired duplicate is gone and its lesson survives where the canaries are', () => {
+    expect(registry.candidates.some((c) => c.candidateId === 'CI-2026-08-03-UX-EXCEPTION-TERMINATES-IN-ACT-001')).toBe(false);
+    const survivor = pickCandidate((c) => c.candidateId === 'CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001');
+    expect(survivor.canaries.length).toBeGreaterThan(0);
+    expect(survivor.notes.join(' ')).toContain('CI-2026-08-03-UX-EXCEPTION-TERMINATES-IN-ACT-001');
+  });
+
+  it('a duplicated statement is a BLOCKER at milestone close', () => {
+    const twin = {
+      ...clone(pickCandidate((c) => c.parentCandidateId === null && !c.governingPrinciple && c.status !== 'deprecated')),
+      candidateId: 'CI-2026-08-03-TWIN-FIXTURE-001',
+      parentCandidateId: null,
+    };
+    const { clear, findings } = runMilestoneCloseCheck({
+      records: registry.records,
+      exploration: registry.exploration,
+      candidates: [...registry.candidates, twin],
+    });
+    expect(clear).toBe(false);
+    expect(findings.some((f) => f.message.includes('one rule has two records'))).toBe(true);
+  });
+});
+
+describe('status does not cascade down the hierarchy', () => {
+  it('a ratified parent does not promote its children', () => {
+    // Operator, verbatim: "The child UX and engineering constructs need not all
+    // be independently ratified merely because the parent is ratified."
+    const parent = pickCandidate((c) => c.candidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID);
+    expect(parent.status).toBe('ratified');
+    const children = registry.candidates.filter((c) => c.parentCandidateId === parent.candidateId);
+    expect(children.length).toBeGreaterThan(0);
+    for (const c of children) {
+      expect(
+        atOrAbove(c.status, 'ratified'),
+        `${c.candidateId} inherited ratification from its parent instead of earning it`,
+      ).toBe(false);
+      expect(c.ratifiedSource, `${c.candidateId} carries a ratification act it was not given`).toBeNull();
+    }
+  });
+
+  it('the schema can express a ratified parent with a candidate child', () => {
+    // If it could not, the operator's rule would be unrepresentable and the
+    // honest thing would be to say so rather than fudge it.
+    const parent = pickCandidate((c) => c.candidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID);
+    const child = pickCandidate((c) => c.parentCandidateId === CONSTITUTIONAL_TIME_PRINCIPLE_ID);
+    expect(validateCandidateInvariant(parent).valid).toBe(true);
+    expect(validateCandidateInvariant(child).valid).toBe(true);
+    expect(parent.status).toBe('ratified');
+    expect(child.status).toBe('candidate');
+  });
+});
+
+describe('the ratified Constitutional Time Principle', () => {
+  const TTV = 'CI-2026-08-03-TTV-TTR-OBJECTIVE-001';
+
+  it('is ratified on a NAMED OPERATOR ACT, quoted verbatim', () => {
+    const c = registry.candidates.find((k) => k.candidateId === TTV);
+    expect(c, 'the ratified objective is missing from the registry').toBeDefined();
+    expect(c!.status).toBe('ratified');
+    expect(c!.ratifiedSource, 'a ratification with no named act is self-promotion').toBeTruthy();
+    // The act must actually quote the operator, not paraphrase them.
+    expect(c!.ratifiedSource!).toContain('explicit operator ratification');
+    // The canonical wording is BIDIRECTIONAL. An intermediate summary rendered
+    // it as the one-sided `Minimize(TTV) subject to TTR`, and the operator
+    // corrected it: "That captures only one direction." This pins both halves,
+    // so the asymmetric form cannot creep back in.
+    expect(c!.statement).toContain('reduce Time to Value while keeping Time to Repair within constitutional bounds');
+    expect(c!.statement).toContain('A reduction in Time to Repair must not be achieved through a material increase in Time to Value');
+    expect(c!.statement).toContain('a reduction in Time to Value must not create an unacceptable increase in Time to Repair');
+  });
+
+  it('points at the EXISTING PoTS definition instead of restating the arithmetic', () => {
+    // inv.engineering.036 — a second definition of Net Value Acceleration would
+    // be the money-critical class of duplicate.
+    for (const src of TTV_TTR_OBJECTIVE_SOURCES) {
+      expect(existsSync(join(REPO_ROOT, src)), `${src} does not resolve on disk`).toBe(true);
+    }
+    const commentary = join(REPO_ROOT, 'services/polity/frameworks/polity-papers-commentary.v1.json');
+    const text = readFileSync(commentary, 'utf8');
+    expect(text).toContain('Net Value Acceleration');
+    expect(text).toContain('Proof of Time Saved');
+  });
+});
+
+describe('projections — nothing is copied, everything is projected', () => {
+  it('every record and candidate declares where it surfaces', () => {
+    for (const r of registry.records) expect(r.projections, `${r.resolutionId}`).toBeDefined();
+    for (const c of registry.candidates) expect(c.projections, `${c.candidateId}`).toBeDefined();
+  });
+
+  it('every declared target is one of the verified projection targets', () => {
+    const all = [
+      ...registry.records.flatMap((r) => r.projections.targets),
+      ...registry.candidates.flatMap((c) => c.projections.targets),
+      ...registry.exploration.flatMap((e) => e.projections.targets),
+    ];
+    const unknown = [...new Set(all)].filter((t) => !(PROJECTION_TARGETS as readonly string[]).includes(t));
+    expect(unknown, `unknown projection targets: ${unknown.join(', ')}`).toEqual([]);
+  });
+
+  it('only a ratified candidate may project onto the invariant corpus', () => {
+    for (const c of registry.candidates) {
+      if (c.projections.targets.includes('invariant-corpus')) {
+        expect(atOrAbove(c.status, 'ratified'), `${c.candidateId} claims the canon at '${c.status}'`).toBe(true);
+      }
+    }
+    // And the validator must refuse the reverse.
+    const broken = clone(pickCandidate((c) => c.status === 'candidate'));
+    broken.projections = { ...broken.projections, targets: [...broken.projections.targets, 'invariant-corpus'] };
+    const result = validateCandidateInvariant(broken);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.message.includes('the canon is not a destination'))).toBe(true);
+  });
+});
+
+describe('the Exploration Workspace — "this is where IRL begins"', () => {
+  it('exists and holds unresolved ideas', () => {
+    expect(existsSync(join(REPO_ROOT, EXPLORATION_DIR))).toBe(true);
+    expect(registry.exploration.length).toBeGreaterThan(0);
+    expect(registry.exploration.some((e) => e.disposition === 'open')).toBe(true);
+  });
+
+  it('an exploration item has NO place on the invariant ladder', () => {
+    // "Not every insight is an invariant." Giving unresolved musing a
+    // CompletionStage would put it on the same ladder as an enforced rule.
+    for (const e of registry.exploration) {
+      expect((e as unknown as Record<string, unknown>).status, `${e.explorationId} has a lifecycle status`).toBeUndefined();
+      expect((e as unknown as Record<string, unknown>).canaries, `${e.explorationId} has canaries`).toBeUndefined();
+    }
+  });
+
+  it('every item says what it would REQUIRE — the guard against half-building', () => {
+    for (const e of registry.exploration) {
+      expect(e.wouldRequire.length, `${e.explorationId} says nothing about what it would take`).toBeGreaterThan(0);
+    }
+  });
+
+  it('a promoted idea names what it became; a promotion with no candidate is refused', () => {
+    for (const e of registry.exploration) {
+      if (e.disposition === 'promoted-to-candidate') {
+        expect(e.becameCandidateId).toBeTruthy();
+        expect(registry.candidates.some((c) => c.candidateId === e.becameCandidateId)).toBe(true);
+      }
+    }
+    const broken = clone(registry.exploration.find((e) => e.disposition === 'promoted-to-candidate')!);
+    broken.becameCandidateId = null;
+    expect(validateExplorationItem(broken).valid).toBe(false);
+  });
+
+  it('the Commons knowledge graph is recorded as exploration, NOT built', () => {
+    // The operator named it as a direction. Half-building a graph store is the
+    // speculative work the loop exists to prevent — and the existing invariant
+    // graph must be considered before a second one is proposed.
+    const commons = registry.exploration.find((e) => e.explorationId === 'EXP-2026-08-03-CONSTITUTIONAL-COMMONS-001');
+    expect(commons, 'the Commons direction is unrecorded').toBeDefined();
+    expect(commons!.disposition).toBe('open');
+    expect(commons!.wouldRequire.join(' ')).toContain('services/invariants/graph.ts');
+  });
+});
+
+describe('the agent close-out checklist', () => {
+  it('every question has a PREDEFINED destination — no agent invents a folder at close-out', () => {
+    expect(CLOSE_OUT_KINDS.length).toBe(8);
+    for (const k of CLOSE_OUT_KINDS) {
+      expect(k.question.length, `${k.kind} has no question`).toBeGreaterThan(0);
+      expect(k.destination.length, `${k.kind} has no destination`).toBeGreaterThan(0);
+    }
+  });
+
+  it('every destination that names a repo path resolves on disk', () => {
+    // A checklist pointing at a folder that does not exist sends the next agent
+    // to invent one — the behaviour this replaces.
+    for (const k of CLOSE_OUT_KINDS) {
+      const path = k.destination.split(' ')[0];
+      if (path.includes('/') && !path.includes('(')) {
+        expect(existsSync(join(REPO_ROOT, path)), `${k.kind} → '${path}' does not exist`).toBe(true);
+      }
+    }
+  });
+
+  it('the ritual is ordered — you cannot project what you have not extracted', () => {
+    expect([...CLOSE_OUT_RITUAL]).toEqual([
+      'resolution-review',
+      'principle-extraction',
+      'projection',
+      'ratification',
+      'retrieval-registration',
+    ]);
   });
 });
 
@@ -173,7 +553,7 @@ describe('an anecdote cannot become doctrine', () => {
     expect(single, 'the registry no longer holds a single-occurrence candidate to mutate').toBeDefined();
     const broken = clone(single!);
     broken.status = 'validated';
-    const { clear, findings } = runMilestoneCloseCheck({ records: registry.records, candidates: [broken] });
+    const { clear, findings } = runMilestoneCloseCheck({ records: registry.records, candidates: [broken], exploration: [] });
     expect(clear).toBe(false);
     expect(findings.some((f) => f.severity === 'blocker' && f.message.includes('single occurrence'))).toBe(true);
   });
@@ -248,7 +628,7 @@ describe('the milestone-close check', () => {
     const strippedCandidates = registry.candidates
       .filter((c) => broken.candidateInvariants.includes(c.candidateId))
       .map((c) => ({ ...clone(c), canaries: [] }));
-    const { clear, findings } = runMilestoneCloseCheck({ records: [broken], candidates: strippedCandidates });
+    const { clear, findings } = runMilestoneCloseCheck({ records: [broken], candidates: strippedCandidates, exploration: [] });
     expect(clear).toBe(false);
     expect(findings.some((f) => f.severity === 'blocker' && f.message.includes('advisory prose'))).toBe(true);
   });
@@ -261,7 +641,7 @@ describe('the milestone-close check', () => {
     expect(atCandidate, 'no record at `candidate` to exercise the blocker with').toBeDefined();
     const broken = clone(atCandidate!);
     broken.candidateInvariants = [];
-    const { clear, findings } = runMilestoneCloseCheck({ records: [broken], candidates: [] });
+    const { clear, findings } = runMilestoneCloseCheck({ records: [broken], candidates: [], exploration: [] });
     expect(clear).toBe(false);
     expect(findings.some((f) => f.message.includes('never compressed into a reusable rule'))).toBe(true);
   });

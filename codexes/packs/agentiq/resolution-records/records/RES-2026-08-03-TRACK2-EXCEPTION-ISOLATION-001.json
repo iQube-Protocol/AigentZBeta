@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "date": "2026-08-03",
   "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
   "capability": "exp-p1-track2-corpus-admission",
@@ -64,5 +64,14 @@
   },
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
-  ]
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

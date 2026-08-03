@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001",
+  "capability": "exp-p1-track2-corpus-admission",
+  "milestone": "Track 2 — Stage 2 bulk admission (operator experience)",
+  "date": "2026-08-03",
+  "problem": "On the live surface the operator selected 33 sources, chose ONE disposition and wrote ONE rationale, and the system refused the whole act: \"33 sources exceeds the 25-source batch limit. This is refused rather than truncated: a partially applied batch that reported success would leave some sources decided and some not, with no record of where it stopped. Split the selection.\" The operator's verdict: \"technically honest but operationally poor. It has detected the constraint. It has not solved the operator's problem.\"",
+  "observedFailure": [
+    "A single governed intent — one disposition, one rationale, 33 subjects — was refused because of a backend batch size the operator has no reason to know exists.",
+    "The remedy was projected onto the operator (\"Split the selection\") although the system held every fact needed to perform it: 33 selected, limit 25, one disposition, one rationale.",
+    "There is no constitutional difference between admitting 33 sources in one batch and in two — the governed outcome, the receipts and the disclosure are identical — so the split was pure execution mechanics surfaced as operator workflow."
+  ],
+  "rootCauses": [
+    "An implementation limit was treated as a constitutional boundary. Refusal-rather-than-truncation is the correct posture for a limit that would corrupt the record; it is the wrong posture for a limit the executor can simply plan around.",
+    "The executor could refuse and could succeed, but could not SEGMENT — so the only honest thing it could do with 33 was decline, and honesty became the ceiling on capability."
+  ],
+  "resolution": [
+    "Recorded the operator-worded invariant: implementation constraints that do not alter constitutional intent shall be absorbed by the system rather than projected onto the operator.",
+    "The refusal-not-truncation reasoning is PRESERVED, not weakened: a partially applied batch reporting success would still be a defect. What changes is that the executor plans the segmentation instead of asking the operator to.",
+    "Enforcement point is being built in parallel by the Track 2 agent (executor-side batching). Recorded as PENDING rather than claimed."
+  ],
+  "rejectedApproaches": [
+    "Truncate to the first 25 and report success — the original refusal is right about this: it would leave some sources decided and some not, with no record of where it stopped.",
+    "Raise the batch limit — moves the cliff without removing it, and the next operator meets it at 51.",
+    "Keep the refusal and improve its wording — the message was already accurate. The defect is not that it explained itself badly; it is that it asked the operator to do arithmetic the system had already done.",
+    "Make the split an explicit operator choice (\"split into two batches?\") — a confirmation for a decision with no constitutional content is still projected work."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001"
+  ],
+  "canaries": [],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [],
+    "tests": [],
+    "receipts": [],
+    "incidentRefs": [
+      "Operator live-surface report, 2026-08-03 — Track 2 Stage 2 bulk admission, 33 selected against a 25-source limit"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-stage2-governed-bulk-admission.md"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

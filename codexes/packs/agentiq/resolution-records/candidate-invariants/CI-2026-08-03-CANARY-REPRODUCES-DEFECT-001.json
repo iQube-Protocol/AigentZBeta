@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": "Engineering/constitutional invariant. Operator: \"particularly valuable because it governs the reliability of every other software invariant.\"",
   "ratifiedSource": "Operator ruling, 2026-08-03 (session message: \"My ruling on the two candidate invariants\"). The operator explicitly promoted this and supplied the canonical wording verbatim below.",
   "notes": [
@@ -67,5 +67,18 @@
         "ebb6c165a"
       ]
     }
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "invariant-corpus"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "date": "2026-08-03",
   "resolutionId": "RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001",
   "capability": "exp-p1-crystal-governance",
@@ -61,5 +61,14 @@
     "codexes/packs/agentiq/updates/2026-08-02_exp-p1-crystal-constitution-and-verification-regime.md",
     "codexes/packs/agentiq/updates/2026-08-02_exp-p1-reviewer-agreement-and-invitation-reissue.md",
     "codexes/packs/agentiq/updates/2026-08-02_track2-freeze-path-readiness.md"
-  ]
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

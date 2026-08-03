@@ -1,10 +1,10 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-UX-ONE-DECISION-ONE-PLACE-001",
   "statement": "A decision must never require remembering IDs, copying IDs, opening another screen, re-entering rationale or repeating context.",
   "classification": "OPERATOR EXPERIENCE (UX) invariant — a distinct class from the engineering resolution invariants. Engineering invariants govern how the system is BUILT; UX invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. Operator-formalised 2026-08-03: \"they have a different purpose\".",
   "scope": "cross-capability",
-  "status": "candidate",
+  "status": "deprecated",
   "canaries": [],
   "occurrences": [
     {
@@ -21,10 +21,23 @@
   ],
   "ratifiedSource": null,
   "notes": [
+    "COLLAPSED 2026-08-03 into CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001. The operator removed the Agency/UX family: \"Don't create 'UX invariants' as a separate canonical family. Instead say: these constitutional execution principles PROJECT into UX.\" This record is retained as a TOMBSTONE, not deleted — every doc that already cited this id must still be able to find where the rule went.",
+    "WHAT THE COLLAPSE COSTS, stated rather than assumed: The concrete prohibitions — no remembering IDs, no copying IDs, no opening another screen, no re-entering rationale, no repeating context. These are a UX PROJECTION of Cognitive Load Minimization, not a separate rule, and are carried verbatim in the parent's notes as its projection.",
     "UX Invariant VIII, operator-worded verbatim 2026-08-03.",
     "All constitutional information must accompany the decision.",
     "Operator, 2026-08-03, reviewing the live Track 2 exception surface: it isolated exceptions correctly but stopped at diagnosis, telling the operator to find the record elsewhere.",
     "ENFORCEMENT PENDING. Recorded with no canary: the resolution-board refactor that would enforce it is being built now. Per the loop's own rule an invariant without a canary is advisory prose, and the milestone-close check will say so until the enforcement point lands.",
-    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`."
-  ]
+    "NEW CLASS. The operator formalised UX invariants as separate from engineering resolution invariants because they serve a different purpose. They share this registry and the one COMPLETION_LIFECYCLE ladder (inv.engineering.036/037 — no second store, no second vocabulary); the class is carried in `classification`.",
+    "RE-PARENTED 2026-08-03 beneath CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001, which is itself a direct child of the ratified TTV/TTR principle in the operator's hierarchy. Statement unchanged."
+  ],
+  "family": "execution",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": null
+  },
+  "governingPrinciple": false,
+  "supersededBy": "CI-2026-08-03-UX-MINIMIZE-CONSTITUTIONAL-COGNITIVE-LOAD-001"
 }

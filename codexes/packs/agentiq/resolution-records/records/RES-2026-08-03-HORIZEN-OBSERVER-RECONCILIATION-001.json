@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "date": "2026-08-03",
   "resolutionId": "RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001",
   "capability": "horizen-agent-registration",
@@ -61,5 +61,13 @@
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md",
     "codexes/packs/agentiq/updates/2026-08-03_horizen-observer-reconciliation-nakamoto.md"
-  ]
+  ],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

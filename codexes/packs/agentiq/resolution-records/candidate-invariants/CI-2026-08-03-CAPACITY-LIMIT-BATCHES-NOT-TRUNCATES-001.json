@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
   "statement": "Capacity limits must produce pagination or batching, not silent population truncation.",
   "classification": null,
@@ -53,5 +53,17 @@
     "Determinism is part of the rule in practice though not in the operator's wording: batching that depends on fetch order is not reproducible, and a re-run producing different batches makes the completion arithmetic unverifiable. Recorded here rather than added to the statement, because extending an operator's wording is not an agent's act.",
     "Only ONE occurrence. `scope: cross-capability` is a claim about where the rule APPLIES, not a claim of demonstrated recurrence — the milestone-close check flags this correctly and it must stay `candidate` until a second, genuinely independent capability exhibits the shape.",
     "The receipt's batchBoundaries field is what makes the partition auditable by someone who was not present for the run — re-partitioning the same population must reproduce it. That property depends on the determinism this invariant's other canaries protect."
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }
