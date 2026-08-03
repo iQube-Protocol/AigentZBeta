@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "The counterweight to CI-2026-08-03-READINESS-SCOPED-TO-OBJECT-001. The freeze half of this rule is CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001, which has no canary yet."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "The full population (Discovered / Admitted / Excluded with warnings / Manual exceptions / Refused / Assigned to crystal) rides every surface AND every partial-progress receipt; canaried in both directions.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001",
+  "statement": "A governed artifact may not pass by silently shrinking the evidentiary population it was assessed over.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/research/exceptionIsolation.ts — PopulationDisclosure",
+      "defect": "Exception isolation, taken alone, lets a system quietly reduce the corpus until readiness passes. \"Exception isolation without population disclosure is a worse failure than the batch-blocking it replaces.\"",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}

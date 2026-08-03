@@ -51,7 +51,8 @@
     "deploy:qct-spl": "node scripts/deploy-qct-spl.js",
     "deploy:qct-reserve": "hardhat run scripts/deploy-qct-reserve.js",
     "deploy:acl-claim": "hardhat run scripts/deploy-acl-claim.js",
-    "type-check:research": "tsc -p tsconfig.research.json --noEmit"
+    "type-check:research": "tsc -p tsconfig.research.json --noEmit",
+    "report:resolutions": "tsx scripts/resolution-records-report.ts"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.40-alpha.7",

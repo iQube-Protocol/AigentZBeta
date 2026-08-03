@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "The ratified cadence: build only the operator workflow the NEXT stage needs, once the PREVIOUS stage’s real outputs exist. Stop between stages and report.",
+    "Track 2 acceptance criterion 7 remains \"met at the projection, per-stage wiring outstanding\" — the honest reading of this candidate against the programme today."
+  ],
+  "canaries": [
+    {
+      "path": "tests/track2-steward-workflow.test.ts",
+      "assertion": "`applyCandidateReviewDecision` refuses an ingesting decision with no `provenanceClass` before any write; the card reads `ingestion.ok` and renders an admitted-but-not-ingested source as the amber half-state it is.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-OPERATOR-PATH-BEFORE-EXECUTABLE-001",
+  "statement": "A programme stage is not executable until the operator path for it exists in the frontend and has been exercised against real data.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-STAGE-CADENCE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stages 3–11",
+      "defect": "A workflow surface built ahead of its data is designed against an imagined shape of it: the Stage 8 assignment control asks the operator to type invariant IDs because there were no validated invariants to list when it was written. A stage with no inputs cannot be dry-run, so its refusals, empty states and error paths are all unverified — and a rendered stage reads as progress.",
+      "resolutionId": "RES-2026-08-03-TRACK2-STAGE-CADENCE-001",
+      "evidence": [
+        "0f19830d5",
+        "codexes/packs/agentiq/updates/2026-08-02_track2-stage-gated-development-cadence.md"
+      ]
+    },
+    {
+      "site": "Track 2 Stage 2 review queue",
+      "defect": "The queue posted `{decision, notes}` and never a `provenanceClass`; ingestion refused; the client read only the outer `ok`. Sources counted as admitted with zero evidence rows behind them — \"safe read as finished\", one stage earlier than expected and invisible.",
+      "resolutionId": "RES-2026-08-03-TRACK2-STAGE-CADENCE-001",
+      "evidence": [
+        "d5f741b43",
+        "tests/track2-steward-workflow.test.ts"
+      ]
+    }
+  ]
+}

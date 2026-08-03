@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001",
+  "capability": "horizen-agent-registration",
+  "milestone": "Horizen Pilot — refusals that name what was observed",
+  "problem": "Verify's PARTNER_MESSAGE_UNAVAILABLE named only what we failed to find, never what Horizen actually returned, so there was no way to tell plain text from nested JSON from an unknown field name. Separately, the wallet printed a fixed 'Awaiting Runes indexer' for unresolved testnet B¢ — naming a dependency the resolver no longer has — while the API already returned `balanceUnresolvedReason` and the surface discarded it.",
+  "observedFailure": [
+    "An honest refusal was a dead end: it stated the absence, never the observed shape.",
+    "A pre-existing canary pinned the literal sentence 'Awaiting Runes indexer' for the TESTNET row — a sentence that had become false, since testnet B¢ is resolved from primary chain data and there is no indexer in that path to await. A green test was requiring the stale shape."
+  ],
+  "rootCauses": [
+    "A diagnostic that reports only the failure to match cannot distinguish the several shapes that would all fail to match.",
+    "A canary written against a literal UI string outlives the mechanism the string describes, and then defends it."
+  ],
+  "resolution": [
+    "The refusal stands (a guessed field could put an error string in front of the operator's key) but now also reports the observed shape: content item types, whether the text parsed as JSON, and the top-level keys if it did — key names only, never values, so a diagnostic does not become an exfiltration channel.",
+    "The testnet row now renders `balanceUnresolvedReason`; the stale canary was replaced with its reason recorded inline. The mainnet row genuinely does await an indexer and is unchanged."
+  ],
+  "rejectedApproaches": [
+    "Guess the partner field name and read it — a guessed field could surface an error string where the operator expects a key.",
+    "Log the values as well as the key names — a diagnostic must not become an exfiltration channel.",
+    "Change the mainnet row to match the testnet one — the mainnet dependency is real."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001"
+  ],
+  "canaries": [
+    "tests/bitcent-explorer-fallback.test.ts",
+    "tests/horizen-mcp-schema-match.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "canary-encoded-the-defect",
+  "evidence": {
+    "commits": [
+      "ebb6c165a"
+    ],
+    "tests": [
+      "tests/bitcent-explorer-fallback.test.ts",
+      "tests/horizen-mcp-schema-match.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md"
+  ]
+}

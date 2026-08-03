@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": "CONSTITUTIONAL-OPERATIONAL INVARIANT governing workflow orchestration — NOT a ratified structural or scientific claim. Whether this pattern generalises across domains and experiments is an open empirical question this pipeline may later produce evidence about.",
+  "ratifiedSource": null,
+  "notes": [
+    "WORDING SHIFT recorded, operator 2026-08-03: earlier phrasing was \"constrains the unsafe ACT\"; the operator's latest phrasing is \"the unsafe RECORD\", which is more precise about scope. The statement above carries the operator's sentence as they last gave it; the earlier phrasing is preserved verbatim in codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md §0 and in services/research/exceptionIsolation.ts.",
+    "The classification is the operator's own and is deliberately NOT upgraded. Ratifying it as a scientific structural invariant now would be the hypothesis-as-canon error CLAUDE.md forbids.",
+    "Absorbs the bullet \"local exceptions must not immobilize the unaffected cohort\" — same rule, operator wording preferred."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "The headline 33→29 acceptance test: three anomalous sources cannot disable admission of thirty eligible ones. Mutation-verified — requiring `counts.exceptions === 0` for the primary action fails it.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/track2-steward-workflow.test.ts",
+      "assertion": "A stage holding unresolved exceptions reports `partially-complete`, and a stage after a `partially-complete` one is unblocked.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-CONTROL-CONSTRAINS-RECORD-001",
+  "statement": "Constitutional control constrains the unsafe record, not the safe remainder.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "services/corpusScout/admissionRecommendation.ts + Track2ProgrammePanel",
+      "defect": "Three anomalous sources made the entire admissible batch unactionable; the operator had to find and deselect each problem record by hand before anything could proceed. \"The present interface is effectively making perfection the precondition for progress.\"",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}

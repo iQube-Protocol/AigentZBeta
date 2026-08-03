@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "date": "2026-08-03",
+  "resolutionId": "RES-2026-08-02-HORIZEN-AGENTID-RECOVERY-001",
+  "capability": "horizen-agent-registration",
+  "milestone": "Horizen Pilot — recover a registration whose identifier was never persisted",
+  "problem": "`checkAgentRegistrationStatus` refuses to call Horizen's `get_onboarding_status` without an agentId. For a registration whose `horizenAgentId` was never persisted, the only recovery path in place was a wallet-keyed registry lookup — `fetchRegistryAgent(ownerWalletAddress, network)` — which is a different tool contract than an agentId lookup with no guarantee the two coincide.",
+  "observedFailure": [
+    "The status check reported STATUS_UNAVAILABLE ('the registration's agent identifier was unavailable') for a registration that had genuinely succeeded on chain.",
+    "After the identifier was recovered, the check moved to a SECOND failure: MAX_POLL_ATTEMPTS — 'Horizen has not confirmed this registration after 20 checks' — because `confirmed` is a substring match over Horizen's flattened prose (active / confirmed / complete) and an answer phrased any other way reports not-confirmed forever.",
+    "REGISTRY_REREAD_FAILED refused whenever Horizen's registry reread failed, discarding chain evidence that had already verified the mint because a convenience lookup failed."
+  ],
+  "rootCauses": [
+    "An identifier was being recovered through a lookup keyed on a DIFFERENT reference (the owner wallet) than the one being recovered (the agent id). ERC-721 `balanceOf` returns a count, not a list — there is no reverse enumeration guarantee.",
+    "A single vendor status string was treated as the only source of truth for a fact the chain itself records."
+  ],
+  "resolution": [
+    "`services/horizen/agentIdRecovery.ts` decodes the minted agentId from the registration transaction's own receipt logs — deterministic, read-only, no registry lookup.",
+    "Scoped to the repo's own recorded identityRegistry address, refusing on ambiguity (more than one decoded agentId) rather than guessing, and verifying `ownerOf()` against the expected owner before the identifier is ever trusted.",
+    "Made the chain a SECOND, independent confirmation source with the source NAMED (`confirmationSource: horizen-status | on-chain-receipt | both`) and any divergence stated in both directions rather than resolved by preferring one.",
+    "Narrowed REGISTRY_REREAD_FAILED to fire only when the chain did not verify; bounded the chain read at 8s so it degrades to \"not read\" rather than consuming the route budget."
+  ],
+  "rejectedApproaches": [
+    "Widen the `confirmed` substring heuristic with a fourth word — the error it risks is the worse one (declaring a registration confirmed that is not). A canary now asserts the line verbatim and that it contains exactly three `includes(` calls.",
+    "Default `agentIdentifier` from the tokenId — forbidden by the operator ruling of 2026-07-31; it stays null and the response says so.",
+    "Keep the wallet-keyed registry lookup as a fallback beside the decode — a source that can answer confidently and wrongly is worse than an honest refusal."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-IDENTIFIER-RECOVERY-CONTRACT-001",
+    "CI-2026-08-03-CHAIN-AS-INDEPENDENT-EVIDENCE-001"
+  ],
+  "canaries": [
+    "tests/register-ceremony.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "workaround-replaced",
+  "evidence": {
+    "commits": [
+      "fb02f6104",
+      "78747308f",
+      "550d7545a"
+    ],
+    "tests": [
+      "tests/register-ceremony.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_horizen-agentid-receipt-decode-recovery.md",
+      "codexes/packs/agentiq/updates/2026-08-03_horizen-on-chain-confirmation-source.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_horizen-agentid-receipt-decode-recovery.md",
+    "codexes/packs/agentiq/updates/2026-08-03_horizen-on-chain-confirmation-source.md"
+  ]
+}

@@ -1548,6 +1548,38 @@ Operator-delegated standing instruction (2026-07-18): the operator relies on age
 
 ---
 
+## Resolution → Invariant Loop — capture the lesson, not just the fix
+
+**When a problem requires repeated repair, do not merely patch and continue. Record the resolved
+causal pattern, derive the smallest reusable candidate invariant, attach the regression mechanism,
+and carry it into subsequent work. Do not ratify the invariant automatically.**
+
+*Milestone-triggered, never per-push.* Run the loop when one of the ten triggers in
+`types/resolutionRecords.ts` fires — a multi-cycle repair, a recurrence, a canary that encoded its
+defect, two subsystems disagreeing, a local anomaly blocking an unaffected batch, a governance
+boundary confused with a software condition, a reusable pattern established, a milestone complete, a
+workaround replaced, or an invariant found incomplete.
+
+**Three outputs, or it is not captured:** the resolution record (the factual account), the candidate
+invariant (the compressed rule), and the canary (the executable mechanism). *Without the canary the
+invariant is advisory prose; without the invariant the canary is an isolated test whose purpose will
+be forgotten.*
+
+| | |
+|---|---|
+| Registry | `codexes/packs/agentiq/resolution-records/{records,candidate-invariants}/` |
+| Schema + ladder | `types/resolutionRecords.ts` (reuses `COMPLETION_LIFECYCLE` — no third vocabulary) |
+| Check + report | `services/invariants/resolutionRecords.ts`, `npm run report:resolutions` |
+| Canaries | `tests/resolution-records.test.ts` |
+| Full doc | `codexes/packs/agentiq/updates/2026-08-03_resolution-to-invariant-loop.md` |
+
+**An agent may raise a candidate no higher than `validated`.** `ratified`/`canonical` require a named
+operator act in `ratifiedSource` — the same hypothesis-vs-canon discipline as the invariant corpus. A
+lesson does not become doctrine because a fix worked once; promotion needs recorded recurrence or
+demonstrated regression prevention.
+
+---
+
 ## Adding to This File
 
 When a new rule, pattern, or constraint is established during development, add it here immediately.

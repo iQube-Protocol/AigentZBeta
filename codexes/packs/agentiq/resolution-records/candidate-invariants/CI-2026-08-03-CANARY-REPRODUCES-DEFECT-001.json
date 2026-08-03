@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-named 2026-08-03. This is OS-9, the meta-invariant, already recorded in the observer-state doc; reinforced three further times since.",
+    "FOUR independent occurrences. The operator observed that this and CI-2026-08-03-ACTOR-SUBJECT-OWNER-001 are the strongest candidates in the set on the strength of the historical record. Promotion to `validated` is the operator's to make.",
+    "Sibling of the Companion system's MS-7 (\"an inert mechanism is a defect\") — a canary that cannot fail converts an open question into a settled one."
+  ],
+  "canaries": [
+    {
+      "path": "tests/horizen-agent-registration-binding.test.ts",
+      "assertion": "The file is written against production evidence: Nakamoto's real tx hash, tokenId, registry address and wallet are fixture constants at the top, so a test asserting that real data is ignored cannot pass unnoticed.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/resolution-records.test.ts",
+      "assertion": "Every canary a candidate invariant claims must resolve on disk, and `verifiedFailingBeforeFix: false` is surfaced as a milestone-close warning rather than being invisible.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
+  "statement": "A canary must reproduce the historical defect before it is accepted as protection.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-02-AGENT-REGISTRATION-001",
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+    "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001"
+  ],
+  "occurrences": [
+    {
+      "site": "tests/horizen-agent-registration-binding.test.ts",
+      "defect": "Six passing tests while the resolver could never work. One was titled 'ignores a receipt with no structured registration block' and fed it exactly the shape of Nakamoto's real receipt — the bug was specified, asserted and defended by a green test. Another asserted the lookup uses the agent's persona, encoding OS-6's bug as a REQUIREMENT.",
+      "resolutionId": "RES-2026-08-02-AGENT-REGISTRATION-001",
+      "evidence": [
+        "4c5859882",
+        "codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md"
+      ]
+    },
+    {
+      "site": "tests/track2-steward-workflow.test.ts",
+      "defect": "Two pre-existing canaries had pinned the defective shape (the stage ordinal lock rule; the title heuristic's location in the panel) and failed against the corrected code. Both were replaced with recorded reasons.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+      ]
+    },
+    {
+      "site": "tests/corpus-scout-admission-recommendation.test.ts",
+      "defect": "A canary asserted the old confidence behaviour — that a source with no invariant lineage is capped and quarantined — i.e. it required the circular-prerequisite defect. Replaced with a comment saying so and why.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+      ]
+    },
+    {
+      "site": "tests/bitcent-explorer-fallback.test.ts",
+      "defect": "A canary pinned the literal sentence 'Awaiting Runes indexer' for the TESTNET row — a label describing a mechanism the resolver no longer uses, since testnet B¢ comes from primary chain data. The green test was requiring a stale shape.",
+      "resolutionId": "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001",
+      "evidence": [
+        "ebb6c165a"
+      ]
+    }
+  ]
+}

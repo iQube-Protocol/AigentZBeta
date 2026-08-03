@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "classification": null,
+  "ratifiedSource": null,
+  "notes": [
+    "Quarantine is not refusal: \"never byte-verified\" and \"corrupted\" are different findings, and a signal that cannot tell them apart must quarantine rather than refuse."
+  ],
+  "canaries": [
+    {
+      "path": "tests/exception-isolation.test.ts",
+      "assertion": "The panel must render `population.manualExceptions`, and every exception stays visible and auditable in `ExceptionsSurface` with its cause, consequence and recommended action.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "candidateId": "CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001",
+  "statement": "An unresolved record is excluded and disclosed, never silently discarded.",
+  "scope": "local",
+  "status": "candidate",
+  "derivedFrom": [
+    "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001"
+  ],
+  "occurrences": [
+    {
+      "site": "components/research/Track2ProgrammePanel.tsx + prepare-recommendations route",
+      "defect": "Before the model, an anomalous record either blocked the batch or vanished from the operator’s view. Neither state told the operator what had been set aside or why.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ]
+}
