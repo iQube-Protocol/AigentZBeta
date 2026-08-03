@@ -38,7 +38,9 @@ import {
   partitionEvidence,
   reconcileExtraction,
   renderExtractionAccount,
+  buildExtractionReceipt,
   type BatchOutcome,
+  type ExtractionReceipt,
   type ExtractedCandidate,
   type ExtractionReconciliation,
 } from '@/services/invariants/batchedExtraction';
@@ -581,6 +583,14 @@ export interface BatchedDiscoveryResult {
   reconciliation: ExtractionReconciliation;
   /** The operator's "total input / processed / excluded", ready to render. */
   account: string;
+  /**
+   * Everything a third party needs to RECHECK the completion identity from the
+   * record alone — population hash, batch boundaries, processed and excluded
+   * id lists with reasons, per-batch candidate counts, the dedup result and a
+   * commitment over all of it (operator ruling, 2026-08-03). The caller writes
+   * this through the EXISTING receipt machinery.
+   */
+  receipt: ExtractionReceipt;
   /** Per-batch summaries, for the receipt the caller writes. */
   batches: { index: number; evidenceCount: number; ok: boolean; error?: string; candidateCount: number }[];
 }
@@ -667,6 +677,12 @@ export async function runBatchedConstitutionalDiscovery(
     candidates: enrichSignals(inserted, evidence),
     reconciliation,
     account: renderExtractionAccount(reconciliation),
+    receipt: buildExtractionReceipt({
+      admittedEvidenceIds: evidence.map((e) => e.id),
+      batches,
+      outcomes,
+      reconciliation,
+    }),
     batches: outcomes.map((o) => ({
       index: o.index,
       evidenceCount: o.evidenceIds.length,

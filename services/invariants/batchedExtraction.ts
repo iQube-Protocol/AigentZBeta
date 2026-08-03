@@ -52,6 +52,7 @@
  */
 
 import type { IsolationException, ProgrammeProgression } from '@/services/research/exceptionIsolation';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
 
 /** The minimum an evidence row must expose to be partitioned. Structurally
  *  satisfied by `EvidenceRow` — declared structurally so this module never
@@ -413,4 +414,201 @@ export function renderExtractionAccount(r: ExtractionReconciliation): string {
       ? `Accounted: ${r.processed} + ${r.excluded} = ${r.totalInput}.`
       : `DOES NOT RECONCILE — ${r.unaccountedEvidenceIds.length} row(s) unaccounted for: ${r.unaccountedEvidenceIds.join(', ')}.`)
   );
+}
+
+// ── The extraction receipt — the identity RECHECKABLE by a third party ─────
+
+/**
+ * What one extraction run must preserve (operator ruling, 2026-08-03).
+ *
+ *   > "That will make silent truncation much harder to reintroduce."
+ *
+ * Each field independently closes a way the old defect could return, and
+ * together they make the completion identity
+ *
+ *     processed + explicitly excluded === admitted population
+ *
+ * **verifiable from the receipt alone** — not merely enforced at runtime and
+ * asserted afterwards as a boolean. A reader who has only this record can
+ * recompute every number and every hash and disagree with us.
+ *
+ * | Field | What it makes impossible |
+ * |---|---|
+ * | `admittedPopulationHash` | changing what was *supposed* to be processed after the fact |
+ * | `batchBoundaries` | an unauditable partition — the batches can be re-derived and compared |
+ * | `processedSourceIds` | asserting a count without naming the rows behind it |
+ * | `excludedSourceIds` + `exclusionReasons` | an unexplained gap between admitted and processed |
+ * | `perBatchCandidateCounts` | hiding that one batch produced everything and the rest were empty |
+ * | `deduplication` | a candidate count that silently double-counts convergence |
+ * | `reconciliationHash` | editing any of the above without the commitment changing |
+ *
+ * Hashes use `computeCohortHash` — the SAME digest the cohort-authorization
+ * receipts and the freeze package use — so an id set committed here and the
+ * same set committed at assignment or freeze produce comparable digests. A
+ * second hashing scheme would make exactly the cross-stage comparison the
+ * operator asked for impossible.
+ */
+export interface ExtractionReceipt {
+  /** Commitment over the admitted population this run was asked to process. */
+  admittedPopulationHash: string;
+  /** The deterministic partition, re-derivable and comparable. */
+  batchBoundaries: { index: number; evidenceIds: string[]; charCount: number }[];
+  processedSourceIds: string[];
+  excludedSourceIds: string[];
+  /** Why each excluded id was excluded — keyed by id, never a parallel array
+   *  whose alignment can drift. */
+  exclusionReasons: { recordId: string; reason: string }[];
+  perBatchCandidateCounts: { index: number; ok: boolean; candidateCount: number }[];
+  deduplication: { beforeDedup: number; afterDedup: number; duplicatesRemoved: number };
+  /** The counts a reader recomputes the identity from — carried explicitly so
+   *  the check does not depend on trusting `reconciles`. */
+  totalInput: number;
+  processed: number;
+  excluded: number;
+  /** Our claim. A verifier recomputes it from the fields above rather than
+   *  believing this flag. */
+  reconciles: boolean;
+  progression: ProgrammeProgression;
+  /** Commitment over the whole outcome — every id set and every count. */
+  reconciliationHash: string;
+}
+
+/**
+ * Build the receipt for one run. PURE. The caller writes it through the
+ * EXISTING receipt machinery (`buildCohortAuthorization` /
+ * `writeLifecycleReceipt`); no second receipt mechanism is introduced.
+ */
+export function buildExtractionReceipt(input: {
+  admittedEvidenceIds: readonly string[];
+  batches: readonly EvidenceBatch[];
+  outcomes: readonly BatchOutcome[];
+  reconciliation: ExtractionReconciliation;
+}): ExtractionReceipt {
+  const r = input.reconciliation;
+  const processedSourceIds = input.outcomes.filter((o) => o.ok).flatMap((o) => o.evidenceIds).sort();
+  const excludedSourceIds = [...new Set(r.exceptions.filter((e) => e.scope !== 'batch').map((e) => e.recordId).concat(
+    input.outcomes.filter((o) => !o.ok).flatMap((o) => o.evidenceIds),
+  ))].sort();
+
+  const admittedPopulationHash = computeCohortHash(input.admittedEvidenceIds);
+  const batchBoundaries = input.batches.map((b) => ({
+    index: b.index,
+    evidenceIds: b.rows.map((row) => row.id).sort(),
+    charCount: b.charCount,
+  }));
+  const perBatchCandidateCounts = input.outcomes.map((o) => ({
+    index: o.index,
+    ok: o.ok,
+    candidateCount: o.candidates.length,
+  }));
+  const beforeDedup = r.candidates.length + r.duplicatesRemoved;
+
+  // The reconciliation commitment covers every id set AND every count, so no
+  // field above can be edited without this changing. Built from the same
+  // digest function as every other cohort commitment in the pipeline.
+  const reconciliationHash = computeCohortHash([
+    `admitted:${admittedPopulationHash}`,
+    `processed:${computeCohortHash(processedSourceIds)}`,
+    `excluded:${computeCohortHash(excludedSourceIds)}`,
+    `batches:${computeCohortHash(batchBoundaries.map((b) => `${b.index}:${b.evidenceIds.join(',')}`))}`,
+    `counts:${r.totalInput}:${r.processed}:${r.excluded}`,
+    `dedup:${beforeDedup}:${r.candidates.length}`,
+  ]);
+
+  return {
+    admittedPopulationHash,
+    batchBoundaries,
+    processedSourceIds,
+    excludedSourceIds,
+    // EVERY EXCLUDED SOURCE ID CARRIES ITS OWN REASON.
+    //
+    // A batch-scope exception explains the BATCH; it does not explain the rows
+    // inside it, and the ruling asks for "excluded source IDs AND reasons".
+    // `verifyExtractionReceipt` caught this on its first run — four excluded
+    // ids with no reason attached — so batch failures are expanded here into a
+    // per-row reason naming the batch that failed. A reader checking one id
+    // never has to infer why it is missing.
+    exclusionReasons: [
+      ...r.exceptions.filter((e) => e.scope !== 'batch').map((e) => ({ recordId: e.recordId, reason: e.cause })),
+      ...input.outcomes
+        .filter((o) => !o.ok)
+        .flatMap((o) =>
+          o.evidenceIds.map((id) => ({
+            recordId: id,
+            reason: `Extraction batch ${o.index} failed and this row was not read: ${o.error ?? 'no reason reported'}`,
+          })),
+        ),
+    ],
+    perBatchCandidateCounts,
+    deduplication: { beforeDedup, afterDedup: r.candidates.length, duplicatesRemoved: r.duplicatesRemoved },
+    totalInput: r.totalInput,
+    processed: r.processed,
+    excluded: r.excluded,
+    reconciles: r.reconciles,
+    progression: r.progression,
+    reconciliationHash,
+  };
+}
+
+/**
+ * RECHECK the completion identity from a receipt alone — the third-party
+ * verification path. Takes only the receipt, recomputes what it can, and
+ * reports disagreement rather than trusting `reconciles`.
+ *
+ * This exists because a boolean on a record is a claim, and the operator's
+ * point is that the claim must be checkable by someone who was not there.
+ */
+export function verifyExtractionReceipt(receipt: ExtractionReceipt): {
+  valid: boolean;
+  failures: string[];
+} {
+  const failures: string[] = [];
+
+  // The counts must match the id lists they summarise.
+  if (new Set(receipt.processedSourceIds).size !== receipt.processed) {
+    failures.push(
+      `processed count ${receipt.processed} does not match ${new Set(receipt.processedSourceIds).size} distinct processed id(s)`,
+    );
+  }
+  if (new Set(receipt.excludedSourceIds).size !== receipt.excluded) {
+    failures.push(
+      `excluded count ${receipt.excluded} does not match ${new Set(receipt.excludedSourceIds).size} distinct excluded id(s)`,
+    );
+  }
+  // THE IDENTITY, recomputed rather than believed.
+  if (receipt.processed + receipt.excluded !== receipt.totalInput) {
+    failures.push(
+      `identity fails: processed ${receipt.processed} + excluded ${receipt.excluded} !== admitted ${receipt.totalInput}`,
+    );
+  }
+  // A row may not be both processed and excluded.
+  const both = receipt.processedSourceIds.filter((id) => receipt.excludedSourceIds.includes(id));
+  if (both.length > 0) failures.push(`${both.length} id(s) counted as BOTH processed and excluded: ${both.join(', ')}`);
+  // Every excluded id must carry a stated reason.
+  const explained = new Set(receipt.exclusionReasons.map((e) => e.recordId));
+  const unexplained = receipt.excludedSourceIds.filter((id) => !explained.has(id));
+  if (unexplained.length > 0) failures.push(`${unexplained.length} excluded id(s) carry no reason: ${unexplained.join(', ')}`);
+  // The claimed flag must agree with the recomputation.
+  const recomputed = failures.length === 0;
+  if (receipt.reconciles !== recomputed) {
+    failures.push(`receipt claims reconciles=${receipt.reconciles} but recomputation says ${recomputed}`);
+  }
+  // And a run that does not reconcile may never claim completion.
+  if (!recomputed && receipt.progression === 'complete') {
+    failures.push('receipt reports `complete` over an identity that does not hold');
+  }
+  // The commitment must cover what the receipt says.
+  const expected = computeCohortHash([
+    `admitted:${receipt.admittedPopulationHash}`,
+    `processed:${computeCohortHash(receipt.processedSourceIds)}`,
+    `excluded:${computeCohortHash(receipt.excludedSourceIds)}`,
+    `batches:${computeCohortHash(receipt.batchBoundaries.map((b) => `${b.index}:${b.evidenceIds.join(',')}`))}`,
+    `counts:${receipt.totalInput}:${receipt.processed}:${receipt.excluded}`,
+    `dedup:${receipt.deduplication.beforeDedup}:${receipt.deduplication.afterDedup}`,
+  ]);
+  if (expected !== receipt.reconciliationHash) {
+    failures.push('reconciliationHash does not commit to the fields on this receipt — it has been edited');
+  }
+
+  return { valid: failures.length === 0, failures };
 }

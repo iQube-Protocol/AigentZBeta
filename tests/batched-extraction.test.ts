@@ -28,9 +28,12 @@ import {
   partitionEvidence,
   reconcileExtraction,
   renderExtractionAccount,
+  buildExtractionReceipt,
+  verifyExtractionReceipt,
   type BatchOutcome,
   type PartitionableEvidence,
 } from '@/services/invariants/batchedExtraction';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
 
 const row = (id: string, chars: number, title = `row ${id}`): PartitionableEvidence => ({
   id,
@@ -268,9 +271,15 @@ describe('candidates are deduplicated globally, never per batch', () => {
     const r = reconcileExtraction({ admittedEvidenceIds: ['a', 'b'], batches: outcomes, unprocessable: [] });
     expect(r.candidates).toHaveLength(1);
     expect(r.duplicatesRemoved).toBe(1);
-    expect([...r.candidates[0].evidenceIds].sort()).toEqual(['a', 'b']);
+    // SELECTED BY THE PROPERTY UNDER TEST, never by position (child rule of the
+    // ratified CANARY-REPRODUCES-DEFECT): the subject is "the candidate whose
+    // statement is the duplicated one", which stays correct however the
+    // surviving list is ordered.
+    const merged = r.candidates.find((c) => candidateDedupeKey(c.statement) === candidateDedupeKey(same));
+    expect(merged, 'the merged candidate must be findable by its statement').toBeDefined();
+    expect([...merged!.evidenceIds].sort()).toEqual(['a', 'b']);
     // …and the stronger confidence survives, not whichever arrived first.
-    expect(r.candidates[0].confidence).toBe(0.8);
+    expect(merged!.confidence).toBe(0.8);
   });
 
   it('the dedup key normalises case and punctuation, but does not merge distinct statements', () => {
@@ -333,9 +342,15 @@ describe('row-level truncation is disclosed, not silent', () => {
     const big = row('big', 200_000);
     const { truncatedRows } = partitionEvidence([row('small', 100), big]);
     expect(truncatedRows).toHaveLength(1);
-    expect(truncatedRows[0].row.id).toBe('big');
-    expect(truncatedRows[0].readChars).toBe(ROW_MAX_CHARS);
-    expect(truncatedRows[0].totalChars).toBe(200_000);
+    // Selected by the property under test — "the entry for the oversized row" —
+    // not by position, so the assertion survives a change in report ordering
+    // and cannot silently start testing a different row.
+    const entry = truncatedRows.find((t) => t.row.id === 'big');
+    expect(entry, 'the oversized row must be reported as truncated').toBeDefined();
+    expect(entry!.readChars).toBe(ROW_MAX_CHARS);
+    expect(entry!.totalChars).toBe(200_000);
+    // And the row that was read whole is NOT reported as truncated.
+    expect(truncatedRows.some((t) => t.row.id === 'small')).toBe(false);
   });
 
   it('a truncated row still COUNTS AS PROCESSED — it contributed', () => {
@@ -372,5 +387,120 @@ describe('row-level truncation is disclosed, not silent', () => {
     expect(e!.blocksFreeze).toBe(false);
     // …and the account says so rather than reporting a clean full read.
     expect(renderExtractionAccount(r)).toMatch(/read only in part/);
+  });
+});
+
+
+// ── 8 · THE EXTRACTION RECEIPT — the identity RECHECKABLE by a third party ──
+
+/**
+ *   > "That will make silent truncation much harder to reintroduce."
+ *
+ * The point is not that a receipt exists but that it carries enough to RECHECK
+ * the completion identity, rather than a boolean asserting it held. Every
+ * canary below therefore verifies through `verifyExtractionReceipt`, which is
+ * the third-party path: it recomputes from the record and disagrees with us
+ * when the record is wrong.
+ *
+ * Subjects are selected by the property under test — never by array index —
+ * per the child rule of the ratified CANARY-REPRODUCES-DEFECT invariant.
+ */
+describe('the extraction receipt makes the completion identity independently verifiable', () => {
+  function runOver(pop: PartitionableEvidence[], failBatchIndexes: number[] = []) {
+    const { batches, unprocessable, truncatedRows } = partitionEvidence(pop);
+    const outcomes: BatchOutcome[] = batches.map((b) => ({
+      index: b.index,
+      evidenceIds: b.rows.map((r) => r.id),
+      ok: !failBatchIndexes.includes(b.index),
+      ...(failBatchIndexes.includes(b.index) ? { error: 'inference timed out' } : {}),
+      candidates: failBatchIndexes.includes(b.index)
+        ? []
+        : [{ statement: `Invariant from batch ${b.index}.`, rationale: '', evidenceIds: b.rows.map((r) => r.id), confidence: 0.7, abstractionLevel: 'L3' }],
+    }));
+    const reconciliation = reconcileExtraction({
+      admittedEvidenceIds: pop.map((r) => r.id),
+      batches: outcomes,
+      unprocessable,
+      truncatedRows,
+    });
+    return { batches, outcomes, reconciliation, receipt: buildExtractionReceipt({ admittedEvidenceIds: pop.map((r) => r.id), batches, outcomes, reconciliation }) };
+  }
+
+  it('carries all seven fields the ruling names', () => {
+    const { receipt } = runOver(realisticPopulation(32, 5_000));
+    expect(receipt.admittedPopulationHash).toHaveLength(32);
+    expect(receipt.batchBoundaries.length).toBeGreaterThan(1);
+    expect(receipt.processedSourceIds).toHaveLength(32);
+    expect(receipt.excludedSourceIds).toEqual([]);
+    expect(receipt.exclusionReasons).toEqual([]);
+    expect(receipt.perBatchCandidateCounts).toHaveLength(receipt.batchBoundaries.length);
+    expect(receipt.deduplication.afterDedup).toBeGreaterThan(0);
+    expect(receipt.reconciliationHash).toHaveLength(32);
+  });
+
+  it('a verifier recomputes the identity from the receipt alone and agrees', () => {
+    const { receipt } = runOver(realisticPopulation(32, 5_000));
+    const v = verifyExtractionReceipt(receipt);
+    expect(v.failures).toEqual([]);
+    expect(v.valid).toBe(true);
+    // The identity is RECHECKABLE, not merely asserted.
+    expect(receipt.processed + receipt.excluded).toBe(receipt.totalInput);
+  });
+
+  it('a failed batch appears as excluded ids WITH reasons, and still verifies', () => {
+    const { receipt } = runOver(realisticPopulation(32, 5_000), [0]);
+    expect(receipt.excludedSourceIds.length).toBeGreaterThan(0);
+    // Every excluded id carries a stated reason — selected by id, not position.
+    for (const id of receipt.excludedSourceIds) {
+      const reason = receipt.exclusionReasons.find((e) => e.recordId === id || e.recordId.startsWith('batch-'));
+      expect(reason, `excluded id ${id} must carry a reason`).toBeDefined();
+    }
+    expect(verifyExtractionReceipt(receipt).failures).toEqual([]);
+    expect(receipt.progression).toBe('partially-complete');
+  });
+
+  it('a TAMPERED count is caught by the verifier — the boolean is not trusted', () => {
+    // The whole point of "recheck, not believe". Mutation of the RECORD rather
+    // than of the code: someone edits `processed` upward to make a partial run
+    // look whole.
+    const { receipt } = runOver(realisticPopulation(8, 5_000), [0]);
+    const tampered = { ...receipt, processed: receipt.totalInput, excluded: 0, reconciles: true };
+    const v = verifyExtractionReceipt(tampered);
+    expect(v.valid).toBe(false);
+    expect(v.failures.join(' ')).toMatch(/does not match|identity fails|has been edited/);
+  });
+
+  it('a receipt claiming `complete` over a broken identity is rejected', () => {
+    const { receipt } = runOver(realisticPopulation(8, 5_000));
+    const lying = { ...receipt, processed: receipt.processed - 1, progression: 'complete' as const, reconciles: true };
+    const v = verifyExtractionReceipt(lying);
+    expect(v.valid).toBe(false);
+    expect(v.failures.join(' ')).toMatch(/identity fails/);
+  });
+
+  it('the reconciliation hash commits to the id sets — editing one changes it', () => {
+    const a = runOver(realisticPopulation(8, 5_000)).receipt;
+    const b = runOver(realisticPopulation(9, 5_000)).receipt;
+    expect(a.reconciliationHash).not.toBe(b.reconciliationHash);
+    // …and it is detectable on a single edited field.
+    const edited = { ...a, processedSourceIds: a.processedSourceIds.slice(0, -1) };
+    expect(verifyExtractionReceipt(edited).valid).toBe(false);
+  });
+
+  it('the hashes use the SAME digest as the cohort and freeze commitments', () => {
+    // So an id set committed here and the same set committed at assignment or
+    // freeze produce comparable digests (operator's cross-stage point).
+    const pop = realisticPopulation(4, 5_000);
+    const { receipt } = runOver(pop);
+    expect(receipt.admittedPopulationHash).toBe(computeCohortHash(pop.map((r) => r.id)));
+  });
+
+  it('batch boundaries are re-derivable — the partition is auditable, not asserted', () => {
+    const pop = realisticPopulation(32, 5_000);
+    const { receipt } = runOver(pop);
+    // Re-partitioning the same population must reproduce the recorded boundaries.
+    const { batches } = partitionEvidence(pop);
+    const rederived = batches.map((b) => ({ index: b.index, evidenceIds: b.rows.map((r) => r.id).sort(), charCount: b.charCount }));
+    expect(receipt.batchBoundaries).toEqual(rederived);
   });
 });

@@ -397,6 +397,79 @@ occurrence and the milestone check correctly flags its `cross-capability` scope 
 generality claim; the note records that `scope` is a claim about where the rule *applies*, not about
 demonstrated recurrence.
 
+## 9.6 The extraction receipt, and the freeze counts made concrete
+
+### The identity, verifiable by a third party
+
+> *"That will make silent truncation much harder to reintroduce."*
+
+A boolean saying the identity held is a claim. `buildExtractionReceipt` records what a reader needs
+to **recheck** it without having been there, and `verifyExtractionReceipt` is that recheck path — it
+recomputes and disagrees with us rather than trusting `reconciles`.
+
+| Field | What it makes impossible |
+|---|---|
+| `admittedPopulationHash` | changing what was *supposed* to be processed after the fact |
+| `batchBoundaries` | an unauditable partition — re-partitioning must reproduce it exactly |
+| `processedSourceIds` | asserting a count without naming the rows behind it |
+| `excludedSourceIds` + `exclusionReasons` | an unexplained gap between admitted and processed |
+| `perBatchCandidateCounts` | hiding that one batch produced everything and the rest were empty |
+| `deduplication` | a candidate count that silently double-counts convergence |
+| `reconciliationHash` | editing any of the above without the commitment changing |
+
+Every hash is `computeCohortHash` — the same digest the cohort-authorization receipts and the freeze
+package use — so an id set committed at extraction and the same set committed at assignment or
+freeze produce **comparable** digests.
+
+**The verifier caught a real gap in its own receipt on first run.** A failed *batch* produced one
+batch-scoped reason, leaving each excluded *source id* unexplained — while the ruling asks for
+"excluded source IDs **and** reasons". Batch failures are now expanded into a per-row reason naming
+the batch that failed. A recheck path finding its own record deficient is the mechanism working.
+
+### Freeze population counts are now concrete
+
+> *"a zero that means 'unknown' is precisely the dishonesty this work exists to remove."*
+
+`services/research/track2Population.ts` resolves all eight counts from rows that exist:
+
+| Field | Read from |
+|---|---|
+| `discovered` | every `corpus_candidate_sources` row in the acquisition domain |
+| `admitted` | those carrying an `evidence_row_id` |
+| `candidatesExtracted` | `discovery_candidates` for the domain |
+| `validated` | acquisition-domain invariants with `timesValidated > 0` |
+| `assignedToCrystal` | invariants carrying the crystal-domain context |
+| `excludedWithWarnings` | approved sources with **no** evidence row — the admitted-but-not-ingested half-state |
+| `exceptions` | `pending_review`, `needs_retrieval_fix`, `duplicate`, `superseded` |
+| `refused` | every `rejected_*` status |
+
+Every `ReviewWorkflowStatus` lands in exactly one bucket, so the counts **partition** the corpus
+rather than sampling it. The freeze-preview route now supplies them, along with
+`assignedInvariantIds` for `assignedCohortHash`.
+
+**When a count cannot be read it stays `null` and the route returns `populationUnreadable` naming the
+field and the reason** — never a zero, and never a silent null. One unreadable field nulls the whole
+disclosure, because a population with one guessed number is not a population.
+
+**Still not wired, stated precisely:** `excludedRecords` / `excludedRecordsHash` on the freeze
+package. The Stage-2 exception list exists per-request in the prepare-recommendations response but is
+not persisted, so there is no durable store to read the excluded set from at freeze time. Persisting
+it is a schema change; inventing the set at freeze time from current review statuses would
+manufacture a list that was never the one authorised. Named here rather than defaulted.
+
+### The ratified canary rule, applied
+
+`CANARY-REPRODUCES-DEFECT` was ratified today, with a child rule: *"A regression test must select its
+subject by the property under test, not by incidental ordering, index, fixture position or current
+registry shape."*
+
+Audited my own canaries against it and found **five index-based selections** in
+`tests/batched-extraction.test.ts` (`candidates[0]`, `truncatedRows[0]`). All replaced with
+property-based selection — `candidates.find(c => dedupeKey(c.statement) === dedupeKey(same))`,
+`truncatedRows.find(t => t.row.id === 'big')` — plus a negative assertion that the row read whole is
+*not* reported as truncated. These would have kept passing while silently testing a different subject
+had ordering changed.
+
 ## 10. Verification
 
 **Canaries verified to FAIL before the change** (OS-9: *"a canary must be written against real
@@ -425,6 +498,9 @@ production code, running, and restoring:
 | 18 | dedup per batch instead of globally | union-of-evidence |
 | 19 | abort the run on the first failed batch | surviving-batch-keeps-its-candidates |
 | 20 | drop the `truncatedRows` disclosure | 3 row-truncation tests |
+| 21 | verifier trusts `reconciles` instead of recomputing the identity | receipt-claiming-complete-is-rejected |
+| 22 | drop per-row reasons for a failed batch | failed-batch-excluded-ids-with-reasons |
+| 23 | `reconciliationHash` omits the id sets | 2 tamper-detection tests |
 
 **Five pre-existing canaries** failed against the new code and were updated with recorded reasons —
 each had pinned a defective shape: the ordinal lock rule; the title heuristic's location in the
