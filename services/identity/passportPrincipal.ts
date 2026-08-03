@@ -426,23 +426,43 @@ export async function loadUsablePassportByKybe(
  * issuer does not make this redundant: it will simply start succeeding at the
  * kybe step first.
  */
-export async function loadUsableCitizenPassportForAuthProfile(
+/**
+ * The persona ids a caller owns — THE shared scope for "does this holder have
+ * X", so every surface answers it over the same set.
+ *
+ * ── WHY (operator, 2026-08-03) ────────────────────────────────────────────
+ *
+ * The Journey routed to the Delegate path (it searched every persona the
+ * caller owns and found the Citizen Passport) while the Passport Bureau
+ * embedded inside it said "No Citizen Passport application yet" — because
+ * `/api/polity-passport/wallet` scoped to the ACTIVE persona alone. A holder
+ * with several personas therefore got two answers to one question, on one
+ * screen. A credential belongs to the HOLDER, not to whichever persona happens
+ * to be selected when the question is asked.
+ */
+export async function listOwnedPersonaIds(
   supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
   authProfileId: string,
-): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {
+): Promise<{ ok: true; personaIds: string[] } | { ok: false; reason: PrincipalFailure }> {
   if (!authProfileId) return { ok: false, reason: 'principal_unprovisioned' };
-
-  const { data: personaRows, error: personaErr } = await supabase
+  const { data, error } = await supabase
     .from('personas')
     .select('id')
     .eq('auth_profile_id', authProfileId)
     .eq('status', 'active');
-  if (personaErr) return { ok: false, reason: 'unavailable' };
-
-  const personaIds = (personaRows ?? [])
-    .map((r) => (r as { id?: string }).id)
-    .filter((v): v is string => Boolean(v));
+  if (error) return { ok: false, reason: 'unavailable' };
+  const personaIds = (data ?? []).map((r) => (r as { id?: string }).id).filter((v): v is string => Boolean(v));
   if (personaIds.length === 0) return { ok: false, reason: 'principal_unprovisioned' };
+  return { ok: true, personaIds };
+}
+
+export async function loadUsableCitizenPassportForAuthProfile(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  authProfileId: string,
+): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {
+  const owned = await listOwnedPersonaIds(supabase, authProfileId);
+  if (!owned.ok) return { ok: false, reason: owned.reason };
+  const personaIds = owned.personaIds;
 
   const { data: rows, error } = await supabase
     .from('polity_passport_records')
