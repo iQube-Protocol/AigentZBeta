@@ -343,25 +343,43 @@ export async function loadUsablePassportByKybe(
   supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
   kybeId: string,
 ): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {
-  const { data: passportRow, error: ppErr } = await supabase
+  /*
+   * A USABLE row wins over an unusable one — never "the oldest row wins"
+   * (found 2026-08-03, Nakamoto journey).
+   *
+   * This took `.order(created_at, ascending).limit(1)`: the OLDEST record
+   * under the kybe. A personhood that ever accumulated a second record — an
+   * early revoked or expired issuance followed by the real one — therefore
+   * resolved to the dead row, failed `isPassportUsable`, and reported
+   * `passport_inactive` for an operator whose current Passport is valid. On
+   * the journey's Passport stage that rendered as "Your Polity Citizen
+   * Passport does not currently resolve" — a re-litigation of a settled fact,
+   * lost to row-selection order.
+   *
+   * The question this function answers is in its name: is there a usable
+   * Passport for this personhood? So it reads the records and answers THAT —
+   * preferring any usable row, and only when none is usable reporting the
+   * newest row's honest inactive state.
+   */
+  const { data: passportRows, error: ppErr } = await supabase
     .from('polity_passport_records')
     .select('passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at')
     .eq('kybe_identity_id', kybeId)
-    .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .order('created_at', { ascending: false })
+    .limit(10);
   if (ppErr) return { ok: false, reason: 'unavailable' };
-  if (!passportRow) return { ok: false, reason: 'no_passport' };
+  const rows = (passportRows ?? []) as Record<string, unknown>[];
+  if (rows.length === 0) return { ok: false, reason: 'no_passport' };
 
-  const row = passportRow as Record<string, unknown>;
-  const passport: PassportSnapshot = {
+  const snapshots: PassportSnapshot[] = rows.map((row) => ({
     passportClass: (row.passport_class as string) ?? null,
     citizenStatus: (row.citizen_status as string) ?? null,
     participantStatus: (row.participant_status as string) ?? null,
     passportGrade: (row.passport_grade as string) ?? null,
     revoked: Boolean(row.revoked),
     expiresAt: (row.expires_at as string) ?? null,
-  };
-  if (!isPassportUsable(passport)) return { ok: false, reason: 'passport_inactive' };
-  return { ok: true, passport };
+  }));
+  const usable = snapshots.find((p) => isPassportUsable(p));
+  if (usable) return { ok: true, passport: usable };
+  return { ok: false, reason: 'passport_inactive' };
 }

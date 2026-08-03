@@ -160,7 +160,26 @@ async function resolveState(req: NextRequest) {
     valid: false,
     personhood: false,
   };
-  try {
+  /*
+   * EACH FACT IS GUARDED ALONE (operator, 2026-08-03: "A constitutional fact
+   * should be computed once, settled once, and consumed everywhere").
+   *
+   * Everything below sat in ONE try with an empty catch. A throw in ANY read
+   * — the receipt query, the passport walk, the store probe — silently nulled
+   * EVERY LATER fact, including `registration` and `priorResolution` (the
+   * monotonic floor). The journey then rendered "Continue to Register" and
+   * "Resolve your Citizen Passport" against an agent whose registration the
+   * same screen displayed as token 8798. One failed read must degrade one
+   * fact, never the set.
+   */
+  const guarded = async (label: string, step: () => Promise<void>) => {
+    try {
+      await step();
+    } catch (err) {
+      console.error(`[JOURNEY STATE] ${label} read failed`, err instanceof Error ? err.message : err);
+    }
+  };
+  {
     const supabase = getSupabaseServer();
     /*
      * FIND THIS AGENT'S RECEIPTS BY THE AGENT, NOT BY A PERSONA (2026-08-03).
@@ -178,76 +197,83 @@ async function resolveState(req: NextRequest) {
      * same day — see OS-6 in
      * codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md.
      */
-    const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 100 });
-    for (const ref of refs) {
-      (receiptRefs[ref.actionType] ??= []).push(ref.id);
-    }
+    if (supabase) await guarded('receipts', async () => {
+      const refs = await findAgentReceiptRefs(agent.runtimeAgentId, JOURNEY_ACTION_TYPES, { limit: 100 });
+      for (const ref of refs) {
+        (receiptRefs[ref.actionType] ??= []).push(ref.id);
+      }
+    });
+    if (supabase) await guarded('aigentqube', async () => {
+      // §3.1.1 correction — Register requires a real, persisted AigentQube
+      // before anything else (registered externally != backed by an AigentQube).
+      const { data: aigentQube } = await supabase
+        .from('registry_assets')
+        .select('asset_id')
+        .eq('asset_id', agent.aigentQubeId)
+        .maybeSingle();
+      aigentQubeResolved = !!aigentQube;
+    });
+    if (supabase) await guarded('registration', async () => {
+      registration = await resolveAgentRegistrationState(supabase, agent);
+    });
+    if (supabase) await guarded('passport', async () => {
+      /*
+       * ORDER MATTERS, and it is the settled-fact order: RETRIEVE, then read,
+       * then corroborate. A Passport already settled is never re-derived.
+       */
+      registrationStandingSeeded = isSettled(
+        await readSettledFact(supabase, agent.aigentQubeId, agent.runtimeAgentId, 'registry_standing_seeded'),
+      );
 
-    // §3.1.1 correction — Register requires a real, persisted AigentQube
-    // before anything else (registered externally != backed by an AigentQube).
-    const { data: aigentQube } = await supabase
-      .from('registry_assets')
-      .select('asset_id')
-      .eq('asset_id', agent.aigentQubeId)
-      .maybeSingle();
-    aigentQubeResolved = !!aigentQube;
-
-    registration = await resolveAgentRegistrationState(supabase, agent);
-
-    /*
-     * ORDER MATTERS, and it is the settled-fact order: RETRIEVE, then read,
-     * then corroborate. A Passport already settled is never re-derived.
-     */
-    registrationStandingSeeded = isSettled(
-      await readSettledFact(supabase, agent.aigentQubeId, agent.runtimeAgentId, 'registry_standing_seeded'),
-    );
-
-    const settledPassport = await readSettledFact(supabase, agent.aigentQubeId, 'operator', 'passport_is_issued');
-    if (isSettled(settledPassport)) {
-      operatorPassport = { known: true, valid: true, personhood: true };
-    } else {
-      const caller = await getCallerIdentityContext(req);
-      const authUserId = caller?.authUserId ?? null;
-      if (!authUserId) {
-        operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
+      const settledPassport = await readSettledFact(supabase, agent.aigentQubeId, 'operator', 'passport_is_issued');
+      if (isSettled(settledPassport)) {
+        operatorPassport = { known: true, valid: true, personhood: true };
       } else {
-        const principal = await resolvePassportPrincipalForAuthUser(authUserId);
-        if (principal.ok) {
-          const usable = isPassportUsable(principal.principal.passport);
-          operatorPassport = { known: true, valid: usable, personhood: true };
-          if (usable) {
-            // Settle it: this is exactly the kind of fact that should be
-            // resolved once and retrieved thereafter. Idempotent by contract.
-            await settleFact(supabase, agent.aigentQubeId, {
-              subject: 'operator',
-              predicate: 'passport_is_issued',
-              object: {
-                passportClass: principal.principal.passport.passportClass,
-                citizenStatus: principal.principal.passport.citizenStatus,
-                participantStatus: principal.principal.passport.participantStatus,
-              },
-              // T0 DISCIPLINE: kybeId / authUserId / rootIdentityId are
-              // server-internal and never leave this function. The evidence
-              // ref names the SOURCE of the resolution, never the identifiers.
-              evidenceRefs: ['canonical:polity_passport_records', 'resolver:resolvePassportPrincipalForAuthUser'],
-              resolutionAuthority: 'app/api/journey/moneypenny-horizen/state:canonical-passport-read',
-            });
-          }
-        } else if (principal.reason === 'no_passport' || principal.reason === 'passport_inactive') {
-          // READ, and genuinely absent/inactive — a real negative finding.
-          // Personhood still resolved: the lineage walk reached the kybe.
-          operatorPassport = { known: true, valid: false, personhood: true, detail: principal.reason };
+        const caller = await getCallerIdentityContext(req);
+        const authUserId = caller?.authUserId ?? null;
+        if (!authUserId) {
+          operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
         } else {
-          // wallet_unknown | lineage_incomplete | principal_unprovisioned |
-          // unavailable — could not read. NOT a negative finding.
-          operatorPassport = { known: false, valid: false, personhood: false, detail: principal.reason };
+          const principal = await resolvePassportPrincipalForAuthUser(authUserId);
+          if (principal.ok) {
+            const usable = isPassportUsable(principal.principal.passport);
+            operatorPassport = { known: true, valid: usable, personhood: true };
+            if (usable) {
+              // Settle it: this is exactly the kind of fact that should be
+              // resolved once and retrieved thereafter. Idempotent by contract.
+              await settleFact(supabase, agent.aigentQubeId, {
+                subject: 'operator',
+                predicate: 'passport_is_issued',
+                object: {
+                  passportClass: principal.principal.passport.passportClass,
+                  citizenStatus: principal.principal.passport.citizenStatus,
+                  participantStatus: principal.principal.passport.participantStatus,
+                },
+                // T0 DISCIPLINE: kybeId / authUserId / rootIdentityId are
+                // server-internal and never leave this function. The evidence
+                // ref names the SOURCE of the resolution, never the identifiers.
+                evidenceRefs: ['canonical:polity_passport_records', 'resolver:resolvePassportPrincipalForAuthUser'],
+                resolutionAuthority: 'app/api/journey/moneypenny-horizen/state:canonical-passport-read',
+              });
+            }
+          } else if (principal.reason === 'no_passport' || principal.reason === 'passport_inactive') {
+            // READ, and genuinely absent/inactive — a real negative finding.
+            // Personhood still resolved: the lineage walk reached the kybe.
+            operatorPassport = { known: true, valid: false, personhood: true, detail: principal.reason };
+          } else {
+            // wallet_unknown | lineage_incomplete | principal_unprovisioned |
+            // unavailable — could not read. NOT a negative finding.
+            operatorPassport = { known: false, valid: false, personhood: false, detail: principal.reason };
+          }
         }
       }
-    }
-    authorizationStore = await checkAuthorizationStoreAvailable(supabase);
-    priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
-  } catch {
-    // Soft-fail — receipts/registry unavailable, journey stays at its currently-evidenced state.
+    });
+    if (supabase) await guarded('authorization-store', async () => {
+      authorizationStore = await checkAuthorizationStoreAvailable(supabase);
+    });
+    if (supabase) await guarded('prior-resolution', async () => {
+      priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
+    });
   }
 
   const hasReceipt = (type: ActivityActionType) => (receiptRefs[type]?.length ?? 0) > 0;
@@ -348,7 +374,17 @@ async function resolveState(req: NextRequest) {
           tokenId: registration.tokenId,
           auditGaps: registration.auditGaps,
         }
-      : null,
+      : horizen?.tokenId
+        ? {
+            // The DB-side read failed THIS REQUEST; the served Agent Card —
+            // the same canonical reader over HTTP — still answers. A failed
+            // read is never a finding of non-registration.
+            registered: true,
+            settled: false,
+            tokenId: String(horizen.tokenId),
+            auditGaps: ['registration state read failed on this request; token id consumed from the served Agent Card'],
+          }
+        : null,
     principal: {
       /*
        * CANONICAL FIRST, receipt as CORROBORATION ONLY.
@@ -426,7 +462,14 @@ async function resolveState(req: NextRequest) {
       : 'not-started';
 
   const canonicalStages: Record<string, boolean | undefined> = {
-    register: registration?.registered === true,
+    /*
+     * The Agent Card in THIS SAME RESPONSE carries the tokenId, produced by
+     * the same canonical binding reader server-side. If the DB-side
+     * resolution failed this request, the fact has not ceased to be true —
+     * the screen that shows "registered — token 8798" and a stepper that says
+     * "Continue to Register" must be impossible to render together.
+     */
+    register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven') && hasReceipt('marketa_eligibility_recommended'),
     passport: hasReceipt('agent_delegate_passport_issued'),
     delegate: hasReceipt('agent_delegated'),
