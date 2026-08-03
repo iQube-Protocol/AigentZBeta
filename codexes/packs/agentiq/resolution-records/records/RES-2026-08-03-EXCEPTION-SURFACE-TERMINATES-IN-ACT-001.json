@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "resolutionId": "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001",
+  "capability": "Track 2 — Stage 2 exception surface (operator experience)",
+  "milestone": "Track 2 exception isolation — duplicate groups resolved in place",
+  "problem": "The Track 2 exception surface isolated anomalies correctly and then stopped at diagnosis. It answered 'what is wrong' and left 'what do I do about it' to the operator. The exact-duplicate exception card recommended 'Decide this source individually in the review queue' — sending the operator to find a record the system already held in memory, to re-derive a canonical-copy judgement the system could already make from recorded quality signals, and to re-type a rationale the system could already compose. The isolation was constitutionally correct and operationally incomplete: an exception that never terminates in an executable act converts a governance control into an obstruction.",
+  "observedFailure": [
+    "The duplicate exception card's recommendedAction read 'Decide this source individually in the review queue' — a navigation instruction, not an act.",
+    "Both duplicate members were already loaded in the surface's own state, yet the operator was asked to locate them elsewhere.",
+    "The canonical-copy choice was presented as requiring human judgement even where artifact hash, extraction status, metadata completeness and existing lineage clearly separated the two copies.",
+    "No rationale was pre-composed, so a steward who accepted the obvious treatment still had to author the justification from a blank field.",
+    "All manual-review exceptions carried the same amber weight, so a group needing one confirmation looked as burdensome as one needing genuine editorial judgement.",
+    "The consequence of resolving a group — which record survives, whether anything is deleted, whether the freeze is affected — was nowhere stated before the act."
+  ],
+  "rootCauses": [
+    "The exception model was designed around ISOLATION (which record is affected, what does it block) and never around RESOLUTION (what is the smallest safe act that clears it).",
+    "IsolationException carries `recommendedAction` as free prose, which permitted a navigation instruction to satisfy the type while offering no act.",
+    "The governed treatment already existed — `mark_duplicate` with `duplicateOfSourceId` in applyCandidateReviewDecision — but nothing derived WHICH source should be canonical, so the surface could not offer it.",
+    "Quality signals sufficient to rank two copies of identical bytes were already recorded on every row and were never read for this purpose.",
+    "Exceptions were classified by CAUSE (duplicate, unreadable, provenance) but never by whether human judgement was actually required, so a mechanical decision and an editorial one were presented identically."
+  ],
+  "resolution": [
+    "Added services/corpusScout/duplicateResolution.ts: derives a recommended canonical copy from quality signals that already exist on the row, explains the derivation signal by signal, states the consequence before the act, and pre-composes an editable rationale.",
+    "Split exceptions into 'recommended-resolution-available' and 'genuine-judgment-required'. Only the second warrants deeper inspection; equal scores yield the second rather than a coin-flip presented as a derivation.",
+    "Added POST /api/corpus-scout/candidates/resolve-duplicates performing the whole governed treatment in one step, by looping the EXISTING single-source applier once per alias — no new write path, and bulk-review's deliberate refusal of mark_duplicate is honoured rather than relaxed.",
+    "Both records are always preserved: mark_duplicate is an update that records duplicateOfSourceId, never a delete. A canary asserts no code path in the resolution chain deletes a candidate source.",
+    "Added a dry run in the operator's own shape (duplicate records / canonical retained / aliases excluded / records deleted / unrelated affected / freeze impact) computed from the same plans the execution uses, so preview and act cannot disagree.",
+    "The batch act operates only on groups carrying a deterministic recommendation; ambiguous groups are listed in `skipped` by name rather than silently omitted, so a group that needs judgement can never look resolved.",
+    "Receipts ride the existing cohortAuthorization machinery, carrying the authorizing steward and the affected cohort hash."
+  ],
+  "rejectedApproaches": [
+    "Improving the wording of the recommendedAction string. The defect was not that the instruction was unclear but that it was an instruction at all; a better-worded scavenger hunt is still a scavenger hunt.",
+    "Auto-resolving duplicate groups without confirmation. The ruling asks for the smallest safe act to be OFFERED, not performed unilaterally — admission and exclusion remain steward acts.",
+    "Picking a canonical copy by first-seen or lowest id when signals tie. That presents an arbitrary preference as a derivation; the honest answer is that the system cannot tell, which is exactly the 'genuine judgment required' class.",
+    "Relaxing bulk-review's refusal of mark_duplicate so the batch act could reuse it. That refusal exists because the alias target is a per-source fact; looping the single-source applier honours it instead.",
+    "Deleting the duplicate row. Simpler and irreversible: it destroys the provenance record of an acquisition that really happened, and the ruling requires both records preserved.",
+    "Adding a `blocking` boolean to distinguish burdensome exceptions. The distinction needed is whether JUDGEMENT is required, which is a property of the evidence, not of severity."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001"
+  ],
+  "canaries": [
+    "tests/duplicate-resolution.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "07c7db033",
+      "26112448a"
+    ],
+    "tests": [
+      "tests/duplicate-resolution.test.ts"
+    ],
+    "receipts": [
+      "research_lifecycle_transition"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ],
+  "date": "2026-08-03"
+}
