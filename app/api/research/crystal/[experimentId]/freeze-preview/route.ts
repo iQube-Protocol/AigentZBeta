@@ -24,12 +24,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { crystalDeclarationHash, crystalDomainForExperiment } from '@/services/research/crystalDomains';
 import { runFreezeCeremonyPreview } from '@/services/research/crystalFreezeCeremony';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { resolveTrack2Population } from '@/services/research/track2Population';
+
+/** The acquisition domain upstream of the crystal. A DIFFERENT namespace from
+ *  the crystal domain — never derived from it (the Track 2 route makes the same
+ *  refusal). Overridable per request. */
+const DEFAULT_ACQUISITION_DOMAIN = 'financial-services';
 
 export const dynamic = 'force-dynamic';
 
 interface FreezePreviewBody {
   crystalId?: unknown;
   crystalDomain?: unknown;
+  /** The acquisition domain the population is read from. Optional; defaults to
+   *  `DEFAULT_ACQUISITION_DOMAIN`, never derived from `crystalDomain`. */
+  acquisitionDomain?: unknown;
   operatorRef?: unknown;
   reviewerRef?: unknown;
   /**
@@ -151,7 +161,32 @@ export async function POST(
     );
   }
 
+  /*
+   * THE POPULATION, RESOLVED FROM REAL DATA (operator ruling, 2026-08-03).
+   *
+   *   > "Without this, an independently verifiable crystal hash could still
+   *   >  conceal how much of the original population disappeared before freeze."
+   *
+   * The schema accepted these fields and `packageHash` committed to them, but
+   * nothing populated them — every count read `null`, and a null discloses
+   * nothing. `resolveTrack2Population` reads all eight from rows that exist.
+   *
+   * When a count cannot be read it returns `null` WITH the reason, and the
+   * package's `population` stays `null` rather than carrying a zero: *"a zero
+   * that means 'unknown' is precisely the dishonesty this work exists to
+   * remove."* The unreadable fields are surfaced on the response so the
+   * operator sees WHY the disclosure is absent instead of reading a clean-looking
+   * set of zeroes.
+   */
+  const acquisitionDomain = asString(body.acquisitionDomain) || DEFAULT_ACQUISITION_DOMAIN;
+  const populationResult = await resolveTrack2Population(getSupabaseServer(), {
+    acquisitionDomain,
+    crystalDomain,
+  });
+
   const result = await runFreezeCeremonyPreview({
+    ...(populationResult.population ? { population: populationResult.population } : {}),
+    ...(populationResult.assignedInvariantIds ? { assignedInvariantIds: populationResult.assignedInvariantIds } : {}),
     crystalId: asString(body.crystalId) || `${experimentId}/crystal-vP1`,
     experimentId,
     crystalDomain,
@@ -173,6 +208,10 @@ export async function POST(
     {
       ok: true,
       package: result.package,
+      acquisitionDomain,
+      /* Named gaps, never silent zeroes. Empty ⇒ every count on the package is
+       * a real read. */
+      populationUnreadable: populationResult.unreadable,
       /*
        * TWO DIFFERENT QUESTIONS, ANSWERED SEPARATELY (audit, 2026-08-02).
        *
