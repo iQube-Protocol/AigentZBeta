@@ -31,7 +31,7 @@
 import { createHash } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, extractStringField, extractPartnerMessage, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -224,17 +224,48 @@ export async function prepareHorizenTransparencyAuthorization(
   // that these are the SAME identifier and must be normalised via BigInt.
   const decimalAgentId = parsedAgentId.value.toString(10);
 
+  /*
+   * `chain` IS THE NETWORK SELECTOR, NOT THE CHAIN ID — corrected 2026-08-03
+   * from Horizen's own schema rejection:
+   *
+   *   chain: expected 'base-mainnet' | 'base-sepolia', received number
+   *   action: expected 'enable' | 'disable', received undefined, Required
+   *
+   * I had read `Chain: 84532` from the Q&A's MESSAGE BODY and applied it to
+   * the tool ARGUMENT. Those are different contracts: 84532 is what Horizen
+   * writes INTO the plaintext it returns; the argument that selects the
+   * network is the same string selector as `network`. Converging on "the
+   * contract" means the contract for the thing being called, not a
+   * neighbouring one — and the tool's own declared inputSchema, which we
+   * already fetch, outranks any prose about it.
+   */
   const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, {
+    // Pulse enable/disable is one tool; this path only ever enables. Disabling
+    // is a separate governed act and is deliberately not wired here.
+    action: 'enable',
     tokenId: decimalAgentId,
     agentId: decimalAgentId,
     network: facts.pulseSelector,
-    chain: facts.chainId,
+    chain: facts.pulseSelector,
     chainId: facts.chainId,
     registry: facts.identityRegistry.toLowerCase(),
     registryAddress: facts.identityRegistry.toLowerCase(),
     wallet: input.controllerWallet.toLowerCase(),
     address: input.controllerWallet.toLowerCase(),
   });
+
+  // Fail HERE, naming the field, rather than at the partner with a generic
+  // validation dump — the schema was in hand before the call was made.
+  const missing = missingRequiredFields(buildTool.tool.inputSchema, buildArgs);
+  if (missing.length > 0) {
+    return {
+      ok: false,
+      refusalCode: 'INVALID_REQUEST',
+      detail:
+        `"${buildTool.tool.name}" declares required argument(s) this client supplies no value for: ` +
+        `${missing.join(', ')}. Declared schema: ${JSON.stringify(buildTool.tool.inputSchema?.properties ?? {})}`,
+    };
+  }
   const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
   const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
   /*

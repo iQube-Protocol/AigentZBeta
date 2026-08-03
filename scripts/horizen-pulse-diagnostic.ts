@@ -137,7 +137,10 @@ async function main(): Promise<void> {
   console.log('Input schema:');
   console.log(JSON.stringify(build.inputSchema, null, 2));
 
-  const args = { agentId: decimalAgentId, network: facts.pulseSelector, chain: facts.chainId, wallet };
+  // `chain` is the network SELECTOR, not the chain id — from Horizen's own
+  // schema rejection: chain expects 'base-mainnet' | 'base-sepolia', and
+  // `action` ('enable' | 'disable') is required.
+  const args = { action: 'enable', agentId: decimalAgentId, network: facts.pulseSelector, chain: facts.pulseSelector, wallet };
   console.log('\nArguments sent:');
   console.log(JSON.stringify(args, null, 2));
 

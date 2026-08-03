@@ -66,6 +66,33 @@ export function matchSchemaFields(
 }
 
 /**
+ * Required properties the tool DECLARES that our arguments do not supply.
+ *
+ * ── Why (pilot, 2026-08-03) ───────────────────────────────────────────────
+ *
+ * Horizen rejected a Pulse call with:
+ *   `action` — expected 'enable' | 'disable', received undefined, Required
+ *   `chain`  — expected 'base-mainnet' | 'base-sepolia', received number
+ *
+ * Both were knowable BEFORE the call: the tool declares its own input schema
+ * and we already fetch it via `listTools`. We were offering candidates and
+ * hoping, when the schema was in hand the whole time. `matchSchemaFields`
+ * correctly never invents a property — but silently omitting a REQUIRED one
+ * turns a local, precise failure into a remote, generic one.
+ *
+ * This reports; it does not fill anything in. A missing required argument is
+ * a refusal for the caller to make, with the field named.
+ */
+export function missingRequiredFields(
+  schema: McpToolSchema | undefined | null,
+  args: Record<string, unknown>,
+): string[] {
+  const required = (schema as { required?: unknown } | null | undefined)?.required;
+  if (!Array.isArray(required)) return [];
+  return required.filter((r): r is string => typeof r === 'string' && args[r] === undefined);
+}
+
+/**
  * How strongly a tool's declared input schema overlaps a set of expected
  * field-name hints (substring, case-insensitive). Used to identify a
  * compatible tool by SHAPE when the partner's real tool name doesn't match
