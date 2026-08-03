@@ -332,7 +332,6 @@ async function resolveState(req: NextRequest) {
              */
             operatorPassport = { known: false, valid: false, personhood: false, detail: credential.reason };
           }
-          }
         }
       }
     });
