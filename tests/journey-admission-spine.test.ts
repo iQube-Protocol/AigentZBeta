@@ -373,3 +373,105 @@ describe('the Passport stage routes on the observed Passport, never re-asks (202
     expect(effect, 'auto-routing must only replace the class QUESTION').toContain("step !== 'class'");
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * PRINCIPAL vs DELEGATE — TWO IDENTITY CLASSES, TWO ANCHORS
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * The operator's canonical model (2026-08-03):
+ *
+ *   Human citizen / principal → KybeDID → Citizen Passport
+ *   Agent / delegate          → RootDID → Delegate Passport
+ *
+ * An agent row lacking `kybe_identity_id` is EXPECTED and must never be read
+ * as a defect — a correction the operator had to make after I reported the
+ * absence across all rows as one finding, collapsing the two classes.
+ *
+ * The Passport stage's opening question is asked of the PRINCIPAL:
+ *
+ *   Does the active human principal hold a usable Citizen Passport?
+ *
+ * These canaries hold the roles apart structurally, so a future observer
+ * cannot answer the principal's question with a delegate's record — the
+ * ACTOR-SUBJECT-OWNER defect class (CI-2026-08-03-ACTOR-SUBJECT-OWNER-001),
+ * which has already recurred three times in this codebase.
+ */
+describe('the principal Passport check can never be satisfied by an agent record', () => {
+  const principalSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'services/identity/passportPrincipal.ts'),
+    'utf8',
+  );
+  const stateSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'),
+    'utf8',
+  );
+
+  it('the persona-keyed Citizen lookup filters to passport_class = citizen IN THE QUERY', () => {
+    /*
+     * In the query, not in a post-filter: a delegate's `agent_participant`
+     * row must never be a candidate the principal check could select, even
+     * transiently. Structural, not conventional.
+     */
+    const fn = principalSrc.slice(principalSrc.indexOf('loadUsableCitizenPassportForAuthProfile'));
+    expect(fn).toMatch(/\.eq\('passport_class',\s*'citizen'\)/);
+  });
+
+  it('personas are resolved server-side from the caller, never supplied by the caller', () => {
+    const fn = principalSrc.slice(principalSrc.indexOf('loadUsableCitizenPassportForAuthProfile'));
+    // Keyed on the auth profile the server derived from the Bearer token.
+    expect(fn).toMatch(/\.eq\('auth_profile_id',\s*authProfileId\)/);
+    expect(fn, 'a caller-supplied personaId must never key this lookup').not.toMatch(/personaIdHint|body\.personaId/);
+  });
+
+  it('the observer never passes an agent identifier into Passport resolution', () => {
+    /*
+     * THE ASSERTION THAT FAILS ON THE DEFECT the operator suspected. The
+     * principal resolution must be keyed on the CALLER, never on the journey's
+     * agent subject.
+     */
+    const passportGuard = stateSrc.slice(
+      stateSrc.indexOf("guarded('passport'"),
+      stateSrc.indexOf("guarded('authorization-store'"),
+    );
+    expect(passportGuard, 'passport guard not found — the route moved').not.toBe('');
+    expect(passportGuard, 'the agent must never key the principal Passport lookup').not.toMatch(
+      /resolvePassportPrincipal\w*\([^)]*agent\./,
+    );
+    expect(passportGuard, 'the principal lookup must be keyed on the authenticated caller').toMatch(
+      /resolvePassportPrincipalForAuthUser\(authUserId\)/,
+    );
+  });
+
+  it('the persona fallback fires only on a NEGATIVE finding, never on an unreadable state', () => {
+    /*
+     * `unavailable` means the read failed. Falling back on it would convert
+     * "cannot tell" into "does not hold" — the exact collapse the whole
+     * settled-fact discipline exists to prevent.
+     */
+    const passportGuard = stateSrc.slice(
+      stateSrc.indexOf("guarded('passport'"),
+      stateSrc.indexOf("guarded('authorization-store'"),
+    );
+    expect(passportGuard).toMatch(/reason === 'no_passport' \|\| principal\.reason === 'lineage_incomplete'/);
+    expect(passportGuard, "an 'unavailable' read must not trigger the fallback").not.toMatch(
+      /reason === 'unavailable'[\s\S]{0,80}loadUsableCitizenPassportForAuthProfile/,
+    );
+  });
+
+  it('the auth/session-minting path is left demanding a full kybe-anchored principal', () => {
+    /*
+     * The fallback answers "may this caller sponsor?" — a read. It must not
+     * become a way to MINT a session without personhood, so
+     * resolvePassportPrincipal / ForAuthUser keep the kybe walk unchanged.
+     */
+    const walletWalk = principalSrc.slice(
+      principalSrc.indexOf('export async function resolvePassportPrincipal('),
+      principalSrc.indexOf('export async function resolvePassportPrincipalByWorldId'),
+    );
+    expect(walletWalk).toContain('loadUsablePassportByKybe');
+    expect(walletWalk, 'the session-minting path must not adopt the persona fallback').not.toContain(
+      'loadUsableCitizenPassportForAuthProfile',
+    );
+  });
+});

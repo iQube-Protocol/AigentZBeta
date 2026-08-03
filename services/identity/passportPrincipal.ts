@@ -383,3 +383,87 @@ export async function loadUsablePassportByKybe(
   if (usable) return { ok: true, passport: usable };
   return { ok: false, reason: 'passport_inactive' };
 }
+
+/**
+ * Does the CALLER hold a usable Polity **Citizen** Passport — asked by
+ * persona, for the case where the kybe anchor was never written.
+ *
+ * ── WHY THIS EXISTS (operator, 2026-08-03) ────────────────────────────────
+ *
+ * The Journey's Passport stage asks one question: *does the active human
+ * principal hold a usable Citizen Passport, such that they may sponsor an
+ * agent?* It resolved that through `loadUsablePassportByKybe`, and got `false`
+ * for an operator holding FIVE active, unrevoked, unexpired Citizen Passports.
+ *
+ * The cause was not actor–subject confusion (the resolver never receives the
+ * agent) and not row selection. It was that `kybe_identity_id` is NULL on every
+ * `ppc-*` row in this deployment, so a query filtering on it cannot return a
+ * row for anyone. The Passports are reachable only by `persona_id` — which is
+ * how `/api/polity-passport/wallet` finds them, and why the wallet and the
+ * Journey disagreed about the same fact.
+ *
+ * ── WHAT THIS IS NOT ──────────────────────────────────────────────────────
+ *
+ * NOT a replacement for the kybe walk, and NOT usable for minting a session.
+ * `resolvePassportPrincipalForAuthUser` is unchanged: passport-native ACCESS
+ * still demands a full kybe-anchored principal, because a session must be
+ * bound to personhood. This answers the narrower, read-only question "may this
+ * caller sponsor?", which needs a Passport but not a minted principal.
+ *
+ * ── THE TWO CONSTRAINTS THAT KEEP IT SAFE ─────────────────────────────────
+ *
+ * 1. Personas are resolved SERVER-SIDE from the caller's own auth profile.
+ *    A caller-supplied personaId is never trusted here — that would let any
+ *    caller assert someone else's Passport.
+ * 2. `passport_class = 'citizen'` is filtered in the QUERY. An agent's
+ *    `agent_participant` Passport can never satisfy the principal check, so
+ *    the role separation the operator insists on — principal vs delegate —
+ *    is structural rather than conventional. (Agents are root-id anchored and
+ *    correctly carry no kybe; only Citizen Passports are kybe-bearing.)
+ *
+ * The underlying issuance gap — Citizen Passports written without their kybe
+ * anchor — is a SEPARATE defect this one merely stops blocking on. Fixing the
+ * issuer does not make this redundant: it will simply start succeeding at the
+ * kybe step first.
+ */
+export async function loadUsableCitizenPassportForAuthProfile(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServer>>,
+  authProfileId: string,
+): Promise<{ ok: true; passport: PassportSnapshot } | { ok: false; reason: PrincipalFailure }> {
+  if (!authProfileId) return { ok: false, reason: 'principal_unprovisioned' };
+
+  const { data: personaRows, error: personaErr } = await supabase
+    .from('personas')
+    .select('id')
+    .eq('auth_profile_id', authProfileId)
+    .eq('status', 'active');
+  if (personaErr) return { ok: false, reason: 'unavailable' };
+
+  const personaIds = (personaRows ?? [])
+    .map((r) => (r as { id?: string }).id)
+    .filter((v): v is string => Boolean(v));
+  if (personaIds.length === 0) return { ok: false, reason: 'principal_unprovisioned' };
+
+  const { data: rows, error } = await supabase
+    .from('polity_passport_records')
+    .select('passport_class, citizen_status, participant_status, passport_grade, revoked, expires_at')
+    .in('persona_id', personaIds)
+    .eq('passport_class', 'citizen')
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) return { ok: false, reason: 'unavailable' };
+  if (!rows || rows.length === 0) return { ok: false, reason: 'no_passport' };
+
+  const snapshots: PassportSnapshot[] = (rows as Record<string, unknown>[]).map((row) => ({
+    passportClass: (row.passport_class as string) ?? null,
+    citizenStatus: (row.citizen_status as string) ?? null,
+    participantStatus: (row.participant_status as string) ?? null,
+    passportGrade: (row.passport_grade as string) ?? null,
+    revoked: Boolean(row.revoked),
+    expiresAt: (row.expires_at as string) ?? null,
+  }));
+  // Same discipline as the kybe path: a USABLE row wins over an unusable one.
+  const usable = snapshots.find((p) => isPassportUsable(p));
+  if (usable) return { ok: true, passport: usable };
+  return { ok: false, reason: 'passport_inactive' };
+}
