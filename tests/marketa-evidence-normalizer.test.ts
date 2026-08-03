@@ -70,7 +70,7 @@ describe('validateAgentCardSchema', () => {
 describe('assembleExternalAgentAdmissionEvidence', () => {
   it('refuses AIGENTQUBE_NOT_FOUND when no registry_assets row exists', async () => {
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'AIGENTQUBE_NOT_FOUND' });
@@ -82,7 +82,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
       { id: 'receipt-control-1', actionType: 'agent_control_proven', createdAt: '2026-07-31T11:00:00.000Z', actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xOwner' } },
     ]);
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       {
         fetchAgentCard: fetchAgentCardOk(),
         fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { owner: '0xOwner' } }),
@@ -110,7 +110,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
   it('never asserts sponsorEligible — always null regardless of how clean the evidence is', async () => {
     registryAssetsRow = BOUND_ROW;
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -120,7 +120,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
   it('records unresolvedClaims rather than fabricating success when the Agent Card is unreachable', async () => {
     registryAssetsRow = BOUND_ROW;
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: async () => ({ ok: false, text: async () => '' }), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -133,7 +133,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
     registryAssetsRow = BOUND_ROW;
     const mismatchedCard = JSON.stringify({ name: 'X', url: 'https://someone-else/card.json', metadata: {} });
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(mismatchedCard), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -145,7 +145,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
   it('reports no control proof recorded honestly, never as proven', async () => {
     registryAssetsRow = BOUND_ROW;
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -160,7 +160,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
       { id: 'receipt-control-old', actionType: 'agent_control_proven', createdAt: '2026-07-28T12:00:00.000Z', actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xOwner' } },
     ]);
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -175,7 +175,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
       { id: 'receipt-control-1', actionType: 'agent_control_proven', createdAt: '2026-07-31T11:00:00.000Z', actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xSignerWallet' } },
     ]);
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       {
         fetchAgentCard: fetchAgentCardOk(),
         fetchRegistryAgent: async () => ({ ok: true, ready: true, value: { owner: '0xDifferentOwner' } }),
@@ -190,7 +190,7 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
   it('marks the external registry unresolved when no tokenId exists yet (Register incomplete)', async () => {
     registryAssetsRow = { metadata: { external_registry_bindings: [{ token_id: null, network: 'base-sepolia' }] } };
     const result = await assembleExternalAgentAdmissionEvidence(
-      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL },
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
       { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
     );
     expect(result.ok).toBe(true);
@@ -198,6 +198,18 @@ describe('assembleExternalAgentAdmissionEvidence', () => {
     expect(result.evidence.externalRegistry.resolves).toBe(false);
     expect(result.evidence.transparency).toMatchObject({ pulseSupported: false, pulseEnabled: false });
     expect(result.evidence.risk.unresolvedClaims).toContain('external-registry-not-resolved');
+  });
+
+  it('scopes the control-proof receipt query by runtimeAgentId, not persona alone (2026-08-03)', async () => {
+    registryAssetsRow = BOUND_ROW;
+    await assembleExternalAgentAdmissionEvidence(
+      { aigentQubeId: 'aigentqube-moneypenny', actorPersonaId: 'persona-1', agentCardUrl: VALID_CARD_URL, runtimeAgentId: 'aigent-moneypenny' },
+      { fetchAgentCard: fetchAgentCardOk(), now: FIXED_NOW },
+    );
+    expect(mockListReceipts).toHaveBeenCalledWith(
+      'persona-1',
+      expect.objectContaining({ actionTypes: ['agent_control_proven'], agentsInvoked: ['aigent-moneypenny'] }),
+    );
   });
 
   it('produces a deterministic evidenceSnapshotHash for identical evidence', async () => {

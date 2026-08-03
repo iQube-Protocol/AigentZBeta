@@ -44,11 +44,17 @@ vi.mock('@/services/signing/partnerAuthorizationSigner', () => ({
 
 const mockCreateActivityReceipt = vi.fn(async (input: any) => ({ id: `receipt-${input.actionType}`, ...input }));
 const mockListReceipts = vi.fn();
+const mockListActivityReceiptsForPersona = vi.fn();
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => mockCreateActivityReceipt(...args),
   // Keyed on the AGENT, not a persona — receipts are written against the
   // acting operator's persona, so an agent's own persona never holds them.
   findAgentRegistrationReceipts: (...args: any[]) => mockListReceipts(...args),
+  // The resume-without-re-signing check (2026-08-03) — an existing fresh
+  // agent_control_proven receipt for THIS agent means the route skips
+  // signing entirely. Empty by default so pre-existing tests keep exercising
+  // the sign-a-fresh-proof path unchanged.
+  listActivityReceiptsForPersona: (...args: any[]) => mockListActivityReceiptsForPersona(...args),
 }));
 
 const mockRunMarketaAssessment = vi.fn();
@@ -96,6 +102,8 @@ beforeEach(() => {
   mockSignPartnerAuthorization.mockReset();
   mockCreateActivityReceipt.mockClear();
   mockListReceipts.mockReset();
+  mockListActivityReceiptsForPersona.mockReset();
+  mockListActivityReceiptsForPersona.mockResolvedValue([]);
   mockRunMarketaAssessment.mockReset();
   mockGetCurrentAssessment.mockReset();
   registryAssetsRow = null;
@@ -240,6 +248,81 @@ describe('POST — success', () => {
     expect(json.ok).toBe(true);
     expect(json.assessmentRefusalCode).toBe('AIGENTQUBE_NOT_FOUND');
     expect(json.controlProofReceiptId).toBe('receipt-agent_control_proven');
+  });
+});
+
+describe('POST — resume from settled state, never re-sign (2026-08-03)', () => {
+  /*
+   * The operator's requirement, verbatim: "Resume Claim from the existing
+   * agent_control_proven receipt. Do not request another signature... the
+   * five duplicate control-proof receipts should be treated as corroborating
+   * duplicates and never cause another signing prompt." Every prior version
+   * of this route signed a FRESH challenge unconditionally on every POST —
+   * the actual mechanism that produced those five duplicates.
+   */
+  it('reuses an existing fresh control-proof receipt for this agent — never signs again', async () => {
+    registryAssetsRow = VERIFIED_BOUND_ROW;
+    mockListActivityReceiptsForPersona.mockResolvedValue([
+      {
+        id: 'receipt-existing-control',
+        createdAt: new Date(Date.now() - 1000).toISOString(),
+        actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xController' },
+      },
+    ]);
+    mockRunMarketaAssessment.mockResolvedValue({
+      ok: true,
+      record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] },
+    });
+
+    const res = await POST(makeRequest());
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.ok).toBe(true);
+    expect(json.controlProofReceiptId).toBe('receipt-existing-control');
+    expect(mockGetAgentAddresses, 'no need to resolve a signer wallet when reusing an existing proof').not.toHaveBeenCalled();
+    expect(mockSignPartnerAuthorization).not.toHaveBeenCalled();
+    expect(mockCreateActivityReceipt).not.toHaveBeenCalled();
+
+    const assessArgs = mockRunMarketaAssessment.mock.calls[0][0];
+    expect(assessArgs.runtimeAgentId).toBe('aigent-moneypenny');
+  });
+
+  it('signs a fresh proof when the existing receipt is stale (older than the freshness window)', async () => {
+    registryAssetsRow = VERIFIED_BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xController', payloadHash: 'hash', signedAt: '2026-07-31T12:00:00.000Z' } });
+    mockListActivityReceiptsForPersona.mockResolvedValue([
+      {
+        id: 'receipt-stale-control',
+        createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25h ago — outside the 24h window
+        actionInput: { aigentQubeId: 'aigentqube-moneypenny', signerWallet: '0xController' },
+      },
+    ]);
+    mockRunMarketaAssessment.mockResolvedValue({ ok: true, record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] } });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockSignPartnerAuthorization).toHaveBeenCalled();
+    expect(mockCreateActivityReceipt).toHaveBeenCalled();
+  });
+
+  it('signs a fresh proof when the only existing receipt is for a different aigentQube', async () => {
+    registryAssetsRow = VERIFIED_BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockSignPartnerAuthorization.mockResolvedValue({ ok: true, result: { signature: '0xsig', signerAddress: '0xController', payloadHash: 'hash', signedAt: '2026-07-31T12:00:00.000Z' } });
+    mockListActivityReceiptsForPersona.mockResolvedValue([
+      {
+        id: 'receipt-other-agent',
+        createdAt: new Date(Date.now() - 1000).toISOString(),
+        actionInput: { aigentQubeId: 'aigentqube-someone-else', signerWallet: '0xController' },
+      },
+    ]);
+    mockRunMarketaAssessment.mockResolvedValue({ ok: true, record: { assessmentId: 'a1', decision: 'RECOMMENDED', rationale: 'ok', satisfiedRules: [], missingRules: [], failedRules: [] } });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(mockSignPartnerAuthorization).toHaveBeenCalled();
   });
 });
 

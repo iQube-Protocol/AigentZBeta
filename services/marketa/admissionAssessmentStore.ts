@@ -73,6 +73,78 @@ function adminOrDefault(admin?: SupabaseClient): SupabaseClient {
   return client;
 }
 
+/**
+ * Is this store usable RIGHT NOW — asked before, not during, the ceremony.
+ *
+ * ── WHY THIS EXISTS (operator, 2026-08-03) ───────────────────────────────
+ *
+ * `partner_authorization_requests` (Verify) had this exact gap earlier the
+ * same day: a table referenced by code but never migrated onto this
+ * deployment. There the fix was `checkAuthorizationStoreAvailable`, checked
+ * BEFORE calling Horizen. This is the identical shape one layer over: Claim's
+ * `runMarketaAdmissionAssessment` called `getCurrentMarketaAdmissionAssessment`
+ * with no guard, so a missing `marketa_agent_admission_assessments` table
+ * THREW — after `agent_control_proven` had already been written, and before
+ * Marketa could write even `marketa_eligibility_assessed`. Repeated clicks
+ * therefore produced repeated control-proof receipts and NOTHING from
+ * Marketa, with no visible cause until the route's own try/catch (added the
+ * same day) finally surfaced `Could not find the table … in the schema
+ * cache` instead of an empty response body.
+ *
+ * Mirrors `checkAuthorizationStoreAvailable` exactly — one shared shape for
+ * "is this durable store reachable", not a second implementation of it.
+ */
+export type MarketaStoreAvailability =
+  | { available: true }
+  | {
+      available: false;
+      kind: 'no-client' | 'table-absent' | 'permission-denied' | 'unknown';
+      detail: string;
+      remedy: string;
+    };
+
+export async function checkMarketaAssessmentStoreAvailable(admin?: SupabaseClient): Promise<MarketaStoreAvailability> {
+  const client = admin ?? getSupabaseServer();
+  if (!client) {
+    return {
+      available: false,
+      kind: 'no-client',
+      detail: 'no server Supabase client is configured in this environment',
+      remedy: 'Set SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL for this deployment, then redeploy.',
+    };
+  }
+
+  const { error } = await client.from(TABLE).select('assessment_id', { head: true, count: 'exact' }).limit(1);
+  if (!error) return { available: true };
+
+  const code = (error as { code?: string }).code ?? '';
+  const message = error.message ?? String(error);
+  if (code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)) {
+    return {
+      available: false,
+      kind: 'table-absent',
+      detail: message,
+      remedy:
+        `Apply supabase/migrations/20260930000600_marketa_agent_admission_assessments.sql to this project, ` +
+        `then reload PostgREST's schema cache: NOTIFY pgrst, 'reload schema';`,
+    };
+  }
+  if (code === '42501' || /permission denied|row-level security/i.test(message)) {
+    return {
+      available: false,
+      kind: 'permission-denied',
+      detail: message,
+      remedy: `The table exists but this caller cannot read it — check that the route uses the service-role client, and the RLS policy on ${TABLE}.`,
+    };
+  }
+  return {
+    available: false,
+    kind: 'unknown',
+    detail: message,
+    remedy: `Read the error above against ${TABLE}; it is neither a missing table nor a permissions refusal.`,
+  };
+}
+
 export interface CreateMarketaAdmissionAssessmentInput {
   assessmentId: string;
   subjectAigentQubeId: string;

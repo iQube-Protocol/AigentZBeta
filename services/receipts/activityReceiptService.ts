@@ -549,6 +549,17 @@ export interface ListReceiptsOptions {
   limit?: number;
   cartridge?: string;
   actionTypes?: ActivityActionType[];
+  /**
+   * Narrow to receipts naming this AGENT as a subject (overlap match against
+   * `agents_invoked`), on top of the persona scope — the same `.contains()`
+   * shape `findAgentReceiptRefs`/`findAgentRegistrationReceipts` already use.
+   *
+   * Added 2026-08-03: a persona-only, `limit`-bounded read of a shared action
+   * type (e.g. `agent_control_proven`) can silently miss one agent's receipt
+   * when another agent under the same persona has more recent ones of the
+   * same type. Passing this closes that window without a second reader.
+   */
+  agentsInvoked?: string[];
 }
 
 export async function listActivityReceiptsForPersona(
@@ -567,6 +578,9 @@ export async function listActivityReceiptsForPersona(
   if (options?.cartridge) q = q.eq('active_cartridge', options.cartridge);
   if (options?.actionTypes && options.actionTypes.length > 0) {
     q = q.in('action_type', options.actionTypes);
+  }
+  if (options?.agentsInvoked && options.agentsInvoked.length > 0) {
+    q = q.contains('agents_invoked', options.agentsInvoked);
   }
 
   const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
