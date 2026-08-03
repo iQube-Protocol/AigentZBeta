@@ -245,7 +245,22 @@ export async function GET(req: NextRequest) {
         marketaFinalRecommendation: hasReceipt('marketa_eligibility_recommended'),
       },
       passport: {
-        operatorPolityCitizenPassportValid: hasReceipt('operator_passport_validated'),
+        /*
+         * ONE FACT, ONE SOURCE — inside one file (2026-08-03).
+         *
+         * The canonical Passport read below (`operatorPassport`) was wired
+         * into the eligibility gate but NOT into this evidence checklist,
+         * which kept deriving the same fact from `hasReceipt` alone. So an
+         * operator holding a Passport issued through the Bureau would pass
+         * the gate and still see "operator Passport not validated" on the
+         * stage's evidence line.
+         *
+         * That is the exact defect this session has chased all day — one fact
+         * with two observers reaching two answers — reintroduced a few
+         * hundred lines apart in a single route. Canonical first, receipt as
+         * corroboration, identical to lines below.
+         */
+        operatorPolityCitizenPassportValid: operatorPassport.valid || hasReceipt('operator_passport_validated'),
         sponsorBinding: hasReceipt('agent_sponsorship_recorded'),
         delegatePassportIssued: hasReceipt('agent_delegate_passport_issued'),
       },

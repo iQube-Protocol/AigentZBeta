@@ -1307,3 +1307,35 @@ describe('ACCEPTANCE 5/6 — the branch surface', () => {
     expect(resolution.nextExecutableAct).toBeNull();
   });
 });
+
+describe('one fact, one source — WITHIN the state route (2026-08-03)', () => {
+  /*
+   * The canonical Passport read was wired into the eligibility gate but not
+   * into the stage evidence checklist, which kept deriving the same fact from
+   * `hasReceipt` alone. An operator holding a Bureau-issued Passport would
+   * pass the gate and still see "operator Passport not validated" on the
+   * stage's evidence line.
+   *
+   * That is the session's signature defect — one fact, two observers, two
+   * answers — reintroduced a few hundred lines apart inside a single route,
+   * by the very change that fixed it elsewhere. Worth a canary precisely
+   * because it survived a fix aimed at it.
+   */
+  const routeSource = fs
+    .readFileSync(path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '');
+
+  it('every Passport-validity read in the route consults the canonical value', () => {
+    const reads = routeSource.match(/operatorPolityCitizenPassportValid:[^,\n]*/g) ?? [];
+    expect(reads.length, 'no Passport-validity read found — the route moved').toBeGreaterThan(0);
+    for (const read of reads) {
+      expect(read, `a receipt-only Passport read survives: ${read}`).toContain('operatorPassport.valid');
+    }
+  });
+
+  it('no Passport-validity read is receipt-only', () => {
+    // THE ASSERTION THAT FAILS ON THE DEFECT: `hasReceipt(...)` alone.
+    expect(routeSource).not.toMatch(/operatorPolityCitizenPassportValid:\s*hasReceipt\([^)]*\),/);
+  });
+});
