@@ -238,9 +238,117 @@ export interface IsolationException {
   consequence: string;
   /** WHAT WOULD RESOLVE IT — a steward-actionable next step. */
   recommendedAction: string;
+  /**
+   * The TYPED successor to `recommendedAction`'s free prose. Optional here
+   * only so the existing Track 2 construction sites keep compiling; every new
+   * exception surface must supply it. See `ExecutableAct` below for why.
+   */
+  acts?: NonEmptyActs;
   /** The milestone past which resolution can no longer wait, or `null` when
    *  it can be deferred indefinitely without affecting the programme. */
   deferrableUntil: string | null;
+}
+
+// ── EVERY EXCEPTION TERMINATES IN AN ACT — structurally, not by review ──────
+
+/**
+ * ONE executable treatment: a button, not a sentence.
+ *
+ * ── Why this type exists (CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001) ──
+ *
+ * That candidate invariant records its own unresolved follow-up verbatim:
+ *
+ *   > "OPEN, and deliberately not resolved here: `IsolationException.
+ *   >  recommendedAction` is free prose, which is what allowed a navigation
+ *   >  instruction to satisfy the type. A typed action (a discriminated union
+ *   >  of executable treatments) would make the defect structurally
+ *   >  impossible rather than canaried."
+ *
+ * This is that type. Prose could satisfy `recommendedAction` while saying
+ * "Decide this source individually in the review queue" — a navigation
+ * instruction, which the ruling forbids. An `ExecutableAct` cannot be a
+ * navigation instruction, because `kind` is a closed set of things the system
+ * DOES and `label` sits beside it rather than standing in for it.
+ *
+ * `detail` carries the exact payload the operator would otherwise have to go
+ * and find — the migration path, the SQL, the stage to open — because
+ * "never make the operator search" is the sibling rule enforced by the same
+ * canaries.
+ */
+export type ExecutableActKind =
+  /** Apply a named migration to the environment that lacks it. */
+  | 'apply-migration'
+  /** Make PostgREST re-read the schema after a migration landed. */
+  | 'reload-schema-cache'
+  /** Re-run the observation that failed. Never a fix — a re-read. */
+  | 're-check'
+  /** Take the operator to the surface where the act is performed. */
+  | 'open-stage'
+  /** Perform the stage's own constitutional ceremony. */
+  | 'perform-ceremony'
+  /** Record the exception as seen and proceed with the safe remainder. */
+  | 'acknowledge-and-continue'
+  /** Resolve one record's own anomaly (dedupe, reclassify, supersede). */
+  | 'resolve-record'
+  /** Show the recorded evidence gaps without changing any state. */
+  | 'view-audit-gaps';
+
+export interface ExecutableAct {
+  /** Stable id a surface dispatches on. Never a sentence. */
+  actId: string;
+  kind: ExecutableActKind;
+  /** Imperative button text — "Apply migration", never "You should…". */
+  label: string;
+  /** What the act operates on: a stage id, a record id, a surface ref. */
+  target?: string;
+  /** The exact payload — migration path, SQL, command. Never a description
+   *  of where to find it. */
+  detail?: string;
+}
+
+/**
+ * At least one act. A `readonly [T, ...T[]]` tuple makes "an exception with no
+ * executable treatment" a COMPILE error rather than a review finding — which
+ * is the difference between an invariant and advice.
+ */
+export type NonEmptyActs = readonly [ExecutableAct, ...ExecutableAct[]];
+
+/**
+ * The domain-free exception shape, shared by the research pipeline and the
+ * Guided Journey Runtime.
+ *
+ * `IsolationException` above is the Track 2-shaped record: its `causeGroup`
+ * and `stage` unions are corpus vocabulary, and widening them so a journey
+ * stage could use them would hand the corpus Exceptions surface groups it
+ * cannot render (this module's own warning, a few types up). So the two share
+ * the AXES — `RecordDisposition`, `isExecutable`, `signalForDisposition`, and
+ * the act type above — and differ only in the domain vocabulary each carries.
+ * That is one model with two records, not two models.
+ */
+export interface ExceptionRecord {
+  /** Stable code the surface groups and tests assert on. Never free prose. */
+  code: string;
+  /** The affected record — never a batch id. */
+  recordId: string;
+  recordLabel: string;
+  /** WHY — the observed fact, stated as what IS true. */
+  cause: string;
+  disposition: Extract<RecordDisposition, 'exception' | 'refused'>;
+  /** WHAT FOLLOWS — and, for a non-blocking exception, what does NOT follow. */
+  consequence: string;
+  /** Does this stop the act it attaches to? A non-blocking exception is
+   *  `false`, and that is the whole point of recording it separately. */
+  blocksCurrentAct: boolean;
+  acts: NonEmptyActs;
+  deferrableUntil: string | null;
+}
+
+/** True when an exception offers at least one executable treatment. Reads the
+ *  typed `acts` only — prose in `recommendedAction` cannot satisfy it. */
+export function terminatesInAct(
+  exception: Pick<ExceptionRecord, 'acts'> | Pick<IsolationException, 'acts'>,
+): boolean {
+  return Array.isArray(exception.acts) && exception.acts.length > 0;
 }
 
 // ── Population disclosure — the counterweight guardrail (ruling §5) ─────────

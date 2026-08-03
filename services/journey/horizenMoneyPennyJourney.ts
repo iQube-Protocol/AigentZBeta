@@ -25,6 +25,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'register',
       label: 'Register',
+      milestone: 'REGISTERED',
       description: 'The agent enters Horizen as a discoverable, technically controllable external presence.',
       actor: 'moneypenny',
       subjectRef: 'moneypenny',
@@ -83,6 +84,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'verify',
       label: 'Verify',
+      milestone: 'VERIFIED',
       description: 'Horizen Pulse and P&L transparency enrich, never enlarge, the agent’s constitutional authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
@@ -115,6 +117,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'claim',
       label: 'Claim',
+      milestone: 'CLAIMED',
       description: 'Proof of wallet control precedes Marketa’s final eligibility recommendation — never the reverse.',
       actor: 'operator',
       subjectRef: 'moneypenny',
@@ -149,6 +152,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'passport',
       label: 'Passport',
+      milestone: 'PASSPORT_ISSUED',
       description: "The operator's own Polity Citizen Passport resolves, then sponsorship, then the agent's Polity Delegate Passport issues.",
       actor: 'operator',
       subjectRef: 'moneypenny',
@@ -172,6 +176,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'delegate',
       label: 'Delegate',
+      milestone: 'DELEGATED',
       receiptsSurfacedNatively: true,
       description: 'Bounded delegation and FS Runtime bootstrap activate the agent’s authority.',
       actor: 'operator',
