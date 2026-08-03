@@ -212,3 +212,45 @@ describe('required refusal canaries', () => {
     expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED' });
   });
 });
+
+describe('the Pulse call conforms to the documented contract, not to inference (2026-08-03)', () => {
+  /*
+   * Horizen's partner Q&A specifies the byte-exact Pulse message and the
+   * arguments producing it: DECIMAL agentId, the pulse network selector, the
+   * numeric chain id, lowercased registry and wallet. Every one of those
+   * facts already lived in HORIZEN_NETWORK_FACTS / parseAgentId — the call
+   * simply wasn't reading them, and was sending the string 'base-sepolia'
+   * where chain id 84532 belongs.
+   */
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'services', 'horizen', 'authorizationClient.ts'),
+    'utf8',
+  );
+
+  it('sends the numeric chain id, never the network name as `chain`', () => {
+    expect(source).toMatch(/chain:\s*facts\.chainId/);
+    expect(source, "'chain' was being sent the network key").not.toMatch(/chain:\s*input\.registry\.network/);
+  });
+
+  it('sends the pulse network selector from the facts table', () => {
+    expect(source).toMatch(/network:\s*facts\.pulseSelector/);
+  });
+
+  it('normalises the agent id to DECIMAL through parseAgentId', () => {
+    expect(source).toContain('parseAgentId(input.registry.tokenId)');
+    expect(source).toMatch(/parsedAgentId\.value\.toString\(10\)/);
+    expect(source).toMatch(/agentId:\s*decimalAgentId/);
+  });
+
+  it('lowercases the registry and wallet, as the byte-exact message requires', () => {
+    expect(source).toMatch(/registry:\s*facts\.identityRegistry\.toLowerCase\(\)/);
+    expect(source).toMatch(/wallet:\s*input\.controllerWallet\.toLowerCase\(\)/);
+  });
+
+  it('refuses an unparseable agent id rather than sending a label', () => {
+    expect(source).toMatch(/if \(!parsedAgentId\.ok\)/);
+    expect(source).toContain('is not a usable agent id');
+  });
+});

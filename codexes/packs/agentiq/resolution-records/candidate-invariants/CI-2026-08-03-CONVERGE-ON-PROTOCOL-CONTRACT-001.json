@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "candidateId": "CI-2026-08-03-CONVERGE-ON-PROTOCOL-CONTRACT-001",
+  "statement": "When integrating with an external protocol, implementation must converge toward the protocol contract, not repeated inference from observed responses. Diagnostics may be used to discover the contract, but once the contract is known the implementation must validate against it rather than heuristics.",
+  "classification": "Engineering invariant, operator-worded 2026-08-03. Companion to CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001: diagnostics are a BRIDGE to an explicit contract, never a permanent substitute for one.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/horizen-authorization-client.test.ts",
+      "assertion": "the Pulse call sends facts.chainId, facts.pulseSelector, a decimal agentId via parseAgentId, and lowercased registry/wallet — the documented contract rather than inferred values",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "services/horizen/authorizationClient.ts",
+      "defect": "The Pulse build call sent the string 'base-sepolia' as `chain` where the contract specifies chain id 84532, and the raw network key rather than facts.pulseSelector. HORIZEN_NETWORK_FACTS and parseAgentId already encoded the whole contract; the consumer computed `facts` and then did not use it. Three successive rounds of response-shape inference preceded reading the contract.",
+      "resolutionId": "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001",
+      "evidence": [
+        "Horizen partner Q&A relayed by operator 2026-08-03",
+        "services/horizen/identity.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-03-DIAGNOSABLE-REFUSALS-001"
+  ],
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-worded verbatim 2026-08-03: \"When integrating with an external protocol, implementation should converge toward the protocol contract, not repeated inference from observed responses. Diagnostics may be used to discover the contract, but once the contract is known, the implementation should validate against it rather than heuristics.\"",
+    "Operator's framing of the relationship: \"It doesn't replace diagnostics — it says diagnostics are a bridge to an explicit contract, not a permanent substitute for one.\"",
+    "ONE site so far, so the 'cross-capability' scope is an UNEARNED generality claim and the milestone check correctly flags it. Left at `candidate`; an agent may not ratify.",
+    "Live cost of not holding it: three rounds of parser inference (JSON fields -> plain text accepted -> isError guard) before the contract was consulted. The first inference was WRONG — the 265-char plain text was an error body, not the message to sign.",
+    "Outstanding per operator: four questions still to answer from Horizen directly — exact tool name and request schema; documented success responses; documented error responses; and the message-to-sign contract (raw UTF-8 vs EIP-712 vs hex vs base64). Answering them should let defensive inference code be DELETED, not merely added to."
+  ]
+}
