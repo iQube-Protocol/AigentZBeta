@@ -190,3 +190,85 @@ export async function fetchBtcConfirmationWithFallback(txid: string): Promise<Bt
     error: 'Neither blockstream.info nor mempool.space could resolve this transaction',
   };
 }
+
+export interface BtcRawTxHexResult {
+  hex: string | null;
+  source: BtcExplorerSource | null;
+  checkedAt: string;
+  error: string | null;
+}
+
+async function probeRawTxHex(apiBase: string, txid: string): Promise<string | null> {
+  const res = await fetch(`${apiBase}/tx/${txid}/hex`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const text = (await res.text()).trim();
+  return /^[0-9a-f]+$/i.test(text) ? text : null;
+}
+
+/**
+ * Raw transaction hex, bounded-fallback (same shape as
+ * fetchBtcConfirmationWithFallback above). Used to decode a transaction's own
+ * Runestone from PRIMARY chain data — never a Rune-aware indexer's opinion —
+ * following the precedent set by scripts/verify-bitcent-etch.js.
+ */
+export async function fetchBtcRawTxHexWithFallback(txid: string): Promise<BtcRawTxHexResult> {
+  const checkedAt = new Date().toISOString();
+  const primaryBase = btcCanonicalApiBase();
+  const fallbackBase = mempoolApiBase();
+
+  const [primary, fallback] = await Promise.all([
+    probeRawTxHex(primaryBase, txid).catch(() => null),
+    probeRawTxHex(fallbackBase, txid).catch(() => null),
+  ]);
+
+  if (primary) return { hex: primary, source: 'blockstream', checkedAt, error: null };
+  if (fallback) return { hex: fallback, source: 'mempool', checkedAt, error: null };
+  return {
+    hex: null,
+    source: null,
+    checkedAt,
+    error: 'Neither blockstream.info nor mempool.space returned the raw transaction',
+  };
+}
+
+export interface BtcOutspendResult {
+  /** null only when neither source could resolve the output's spend status. */
+  spent: boolean | null;
+  source: BtcExplorerSource | null;
+  checkedAt: string;
+  error: string | null;
+}
+
+async function probeOutspend(apiBase: string, txid: string, vout: number): Promise<boolean | null> {
+  const res = await fetch(`${apiBase}/tx/${txid}/outspend/${vout}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  const json: any = await res.json();
+  return typeof json?.spent === 'boolean' ? json.spent : null;
+}
+
+/**
+ * Whether a specific transaction output has been spent, bounded-fallback.
+ * A plain Esplora capability (no Rune awareness needed) — used to determine
+ * whether a Rune balance allocated to that output at etch time is still
+ * live there, without needing a Rune-aware indexer for the common case
+ * where the output has never moved.
+ */
+export async function fetchBtcOutspendWithFallback(txid: string, vout: number): Promise<BtcOutspendResult> {
+  const checkedAt = new Date().toISOString();
+  const primaryBase = btcCanonicalApiBase();
+  const fallbackBase = mempoolApiBase();
+
+  const [primary, fallback] = await Promise.all([
+    probeOutspend(primaryBase, txid, vout).catch(() => null),
+    probeOutspend(fallbackBase, txid, vout).catch(() => null),
+  ]);
+
+  if (primary !== null) return { spent: primary, source: 'blockstream', checkedAt, error: null };
+  if (fallback !== null) return { spent: fallback, source: 'mempool', checkedAt, error: null };
+  return {
+    spent: null,
+    source: null,
+    checkedAt,
+    error: 'Neither blockstream.info nor mempool.space could resolve the output-spend status',
+  };
+}

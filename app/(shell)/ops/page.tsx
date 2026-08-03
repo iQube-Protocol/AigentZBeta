@@ -841,6 +841,10 @@ export default function OpsPage() {
             const premine = bitcent.data?.premine;
             const activeIssuance = bitcent.data?.initiallyActiveIssuance;
             const governedReserve = bitcent.data?.governedReserve;
+            const balanceResolved = bitcent.data?.balanceResolved ?? false;
+            const balance = bitcent.data?.balance;
+            const balanceSource = bitcent.data?.balanceSource;
+            const balanceUnresolvedReason = bitcent.data?.balanceUnresolvedReason;
             return (
               <Card key={key} title={
                 <span className="inline-flex items-center gap-2">
@@ -859,6 +863,19 @@ export default function OpsPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Premine:</span>
                   <span className="text-xs text-slate-300">{premine != null ? premine.toLocaleString() : "—"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Live Balance:</span>
+                  <span className="text-xs text-slate-300">
+                    {balanceResolved && balance != null ? (
+                      <>
+                        {balance.toLocaleString()} B¢
+                        {balanceSource && <span className="ml-1 text-slate-500">(source: {BTC_EXPLORER_LABELS[balanceSource]})</span>}
+                      </>
+                    ) : (
+                      <span title={balanceUnresolvedReason ?? undefined}>Awaiting Runes indexer</span>
+                    )}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Active / Reserve:</span>

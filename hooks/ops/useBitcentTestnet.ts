@@ -27,6 +27,15 @@ interface BitcentTestnetData {
   initiallyActiveIssuance: number | null;
   governedReserve: number | null;
   premineCustodianAddress: string | null;
+  /** Live premine balance, resolved from primary chain data (see
+   * services/ops/bitcentBalance.ts) — never fabricated. false always carries
+   * balanceUnresolvedReason; never render `balance` unless this is true. */
+  balanceResolved: boolean;
+  balance: number | null;
+  balanceSource: 'blockstream' | 'mempool' | null;
+  balanceCheckedAt: string | null;
+  balanceOutputIndex: number | null;
+  balanceUnresolvedReason: string | null;
   error?: string;
 }
 

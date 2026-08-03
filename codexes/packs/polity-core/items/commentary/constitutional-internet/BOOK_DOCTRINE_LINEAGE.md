@@ -205,6 +205,199 @@ root/persona separation, metaNet/blakNet separation, and the two product invaria
 > **No party that supplies entropy may thereby acquire the capacity to reconstruct, correlate or
 > control the identifier, key, person or action derived from it.**
 
-**Manuscript rule:** *"is integrating"* now; *"uses"* only after implementation, tests, receipts and
-deployment evidence. The *"we have not attempted to defeat quantum cryptography"* formulation is
-retained verbatim — it was always correct.
+**Manuscript rule — CR-9 three-stage language rule** (corrected 2026-08-02):
+
+| State | Permitted wording |
+|---|---|
+| **Projected** ← *current* | *"is **specified to integrate**"* / *"the **roadmap integrates**"* |
+| Entering deployment | *"is integrating"* |
+| Operational | *"uses"* |
+
+*"is integrating"* was initially drafted as the permitted-now wording; it was withdrawn from the
+Projected stage because it implies active implementation while execution is not authorised. The
+*"we have not attempted to defeat quantum cryptography"* formulation is retained verbatim — it was
+always correct.
+
+---
+
+## Registered external source — SRC-IF-IAPP-2017-001 (2026-08-02)
+
+**IAPP, *"BSI Group eyeing ethical data use,"* Sam Pfeifle, 1 June 2017.**
+`https://iapp.org/news/a/bsi-group-eyeing-ethical-data-use` ·
+archived at `03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md` ·
+sha256 `de36753f…dd6a` · **verificationStatus: independently-retrieved-live-source**
+
+**Source hierarchy:** the live IAPP URL is the **primary external source**; the archived Markdown is
+the **durable Polity Core evidence record**. The archive exists because the older linked
+representation of the initiative is already broken.
+
+### What it establishes
+
+1. The Internet Foundation existed as an NGO by at least **2013**.
+2. It was seeking the creation of a universal declaration of digital rights.
+3. IAPP had covered that effort **as far back as 2013**.
+4. Dele Atanda and the Foundation had proposed ethical-data-use standards work to BSI before 2017.
+5. That work concerned privacy, ownership, consent, fair use, data transfer, correction, erasure,
+   arbitration and notification.
+6. It connected to standards work beyond baseline legal compliance, including GDPR and the changing
+   UK data-protection environment.
+
+### What it does NOT establish
+
+The Foundation's **present constitutional mandate**, current legal or operational status, present
+relationship to the polity, governance structure, or current relationship to metaProof. Those require
+a **separate canonical founding and mandate instrument**.
+
+### Chapter effect
+
+| Chapter | Lineage effect |
+|---|---|
+| **Ch5 — Human Rights, Digital Rights, and Personhood Rights** | *Doctrine lineage.* The *"the Internet Foundation and I called for a Universal Declaration of Digital Rights"* attribution is **externally verified**. Supersedes **R-16**. |
+| **Ch10 — By What Authority?** | *Authority lineage.* The permissionless/participatory authority argument gains an externally evidenced institutional actor with a dated public record. **G-4 (plutocracy) unaffected.** |
+| **Ch21 — The Polity as Constitutional Institute** | *Institutional lineage.* **Historical existence supported; present mandate still uncodified.** The present-tense sponsor/guardian passages remain unsupported. |
+
+**The governing distinction, to be carried consistently through all three chapters:**
+
+> **Historical existence and UDDR lineage — externally verified.**
+> **Current constitutional mandate — pending canonical documentation.**
+
+---
+
+## CR-10 · Person standing and invariant standing → **Ch18** (2026-08-02)
+
+**Ratified ontology correction.** Ch18's doctrine is **Supported after correction** — the chapter's
+argument stands; only its labels needed separating.
+
+| Concept | Doctrine source | Implementation |
+|---|---|---|
+| **Person standing** | `STANDING_CHARTER.md` v1.0.0 §Purpose (*"Standing is not reputation / popularity / status / social ranking"*); `STANDING_FRAMEWORK.md` v1.0.1 L24 (*"event-driven, never time-driven"*) | `services/crm/standingAccrualService.ts:296 accrueStanding()`; monotone capability lane; verification-gated accrual |
+| **Invariant standing** | CFS-009 **Law XII**; invariant lifecycle doctrine | `services/invariants/lifecycle.ts:291` — `penalty = min(0.8, timesContradicted × 0.15)`; `law_xii_truth_standing_reach.sql` |
+
+**These are two different `standing` fields on two different tables.** The doctrine lineage for Ch18
+must cite the **person** sources for person passages and the **Law XII / invariant lifecycle** sources
+for decay, contradiction-penalty and confidence passages — never interchangeably.
+
+**Glossary (Appendix III) requirement:** two separate entries, each stating what it attaches to, what
+changes it, and what does not. **A single "standing" entry is forbidden.**
+
+---
+
+## CR-11 · Receipt-class anchoring and proof-state precision → **Ch13, Ch19, Ch20** (2026-08-02)
+
+**Ratified implementation-status correction.** The lineage for these three chapters must be recorded
+**per receipt class and per proof class**, never as one universal anchoring state.
+
+### The three conditions, kept distinct
+
+> A **receipt** records a consequential act.
+> A **proof** establishes a claim about that act or state.
+> **Anchoring** preserves the proof against later alteration.
+
+A receipt's existence does not prove anchoring. An anchoring capability's existence does not prove
+every class uses it. One class operating does not establish another's state.
+
+### Class-by-class lineage
+
+| Class | Status | Evidence basis |
+|---|---|---|
+| **Access-decision receipts** | Operational (audited path) | live batcher evidence of successful submissions |
+| **Governance / ratification** | Implemented in part; not operationally anchored | zero anchored; unresolved pending/failed state; no automated finalizer invocation |
+| **Proof of State** | Implemented · Demonstrated · Operational for deployed paths only | canister interface + tests/receipts where they exist |
+| **Proof of Risk / Price** | Doctrine where canonical; Projected implementation | no authoritative implementation, route, schema, IDL or receipt pipeline found |
+
+### Chapter lineage effects
+
+- **Ch13** — cite the proof chain **stage by stage** (generation → verification → submission →
+  anchoring → operational confirmation). The doctrine supports the chain; the deployment evidence
+  supports only some stages for some classes.
+- **Ch19** — cite the access-spine denial receipt for the refusal claim. **Do not** cite the
+  MoneyPenny runtime path or the venture substrate as evidence of operational refusal provenance.
+- **Ch20** — the class split is itself the citation: it demonstrates the evidentiary discipline the
+  chapter argues for.
+
+**Governing rule for this lineage:** *Do not describe an architectural possibility as an operational
+receipt state. Immutability must be claimed by receipt class, proof class, and demonstrated path.*
+
+---
+
+## CR-12 · The Commons → **Ch21, Ch22, Epilogue** (2026-08-02)
+
+**Ratified constitutional status; technical implementation incomplete.**
+
+The Commons is a **constitutionally ratified institution of the polity**, constituted to preserve
+proven capabilities · constitutional and structural invariants · canaries · provenance ·
+implementation evidence · failures · repairs · reproduction knowledge · and the conditions under
+which a capability may legitimately be reused.
+
+| Dimension | State | Lineage basis |
+|---|---|---|
+| Constitutional status | **Ratified** | `METACOMMONS_CHARTER.md` v1.0.0 (2026-06-17); Amendment E; Amendment G four-layer separation; Law XVI |
+| Institutional doctrine | **Supported** | charter + ontology + ratification ledger |
+| Technical implementation | **Projected / partially scaffolded** | no canonical resource model, no `MetaCommonsResource`, no `promoteToCommons` pathway |
+| Operational state | **Not operational** | code and tests explicitly identify the limitation |
+
+### The distinction that governs the lineage
+
+> **Constitutional existence does not imply technical operation.**
+
+This is the doctrinal counterpart to CR-11's receipt-class discipline: in both cases the failure mode
+is a **single label spanning two different conditions**. CR-11 separated *receipt exists* from
+*receipt anchored*; CR-12 separates *institution constituted* from *machinery operating*.
+
+**Commons ≠ Registry, and both remain present-tense:** the Commons preserves shared proof and
+reusable capability; the Registry preserves ordered memory, attribution, state and constitutional
+lineage. This distinction **is** ratified (Law XVI + Amendment G) and canary-enforced — cite it
+freely.
+
+### Chapter lineage effects
+
+- **Ch21** — cite the charter and Amendment E/G for the **mandate**; qualify **operation**.
+- **Ch22** — cite the *necessity* of reusable shared proof; **do not** cite the Commons as the
+  operational mechanism delivering it.
+- **Epilogue** — `6238-6254` depicts Commons operation in the present indicative and requires the
+  forward-horizon / qualification / implementation decision recorded in CR-12.
+
+**Governing rule:** *The Commons is constitutionally real before it is technically complete. The
+manuscript may state its mandate now; it may state its operation only when the machinery exists.*
+
+---
+
+## CR-13 · Embodied constitutional agents and personal digital twins → **Ch7, Ch8, Ch15, Epilogue** (2026-08-02)
+
+**CONTROLLING — supersedes the two earlier partial classifications.**
+
+> **A machine may represent a person. It must never impersonate the person.**
+
+### Implementation layering to cite in Ch15
+
+| Layer | State |
+|---|---|
+| Constitutional agent — principal, delegation, mandate, limits, refusal, receipts, standing | **Implemented** |
+| Constitutional knowledge grounding | **Implemented and functional** |
+| **D-ID embodiment** — visible form, voice, speaking presence | **Implemented and functional** |
+| **Avaturn personal digital twin** — metaKnyts stack | **Fully integrated and functional** |
+| Dynamic personal knowledge & fidelity | **Under development** |
+
+### Chapter lineage effects
+
+- **Ch7** — **strengthen**: embodied constitutional agents already operate in functional form.
+- **Ch8** — **retain**: personal digital twins extend representation but do not acquire the
+  constitutional status of the person.
+- **Ch15** — cite the **five-layer stack** above, with Tavus/Tavurn as the enhancement roadmap.
+- **Epilogue** — may depict embodied agents and personal twins as **present capabilities**;
+  qualify only dynamic personal knowledge, fidelity, continuity and fully surfaced disclosure.
+
+### The remaining gap, named precisely
+
+**Interface-level disclosure completeness** — not absent constitutional operation. This is the same
+distinction CR-11 and CR-12 draw: *the capability exists; the question is which surface exposes it.*
+CR-11 separated receipt-exists from receipt-anchored; CR-12 separated institution-constituted from
+machinery-operating; **CR-13 separates constitutionally-operating from interface-surfaced.**
+
+### Evidence footing
+
+Verified at HEAD, the implementations are hosted **outside this repository** — behind
+`metavatar.agentiq.ai` and in the metaKnyts stack. The audit's scope was
+`iQube-Protocol/AigentZBeta`, so its findings were scope statements, not existence claims. For the
+book's evidence chain these remain **operator-attested** until integration references, per-layer
+demonstration receipts and deployed evidence are deposited into `03 Source Lineage`.

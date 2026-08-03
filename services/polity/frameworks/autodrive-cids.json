@@ -18,6 +18,90 @@
       "version": "1.0.0",
       "cid": "bafkr6ibmhpwihx7ghvalps3a3dk5wf7iq7yl7dwc35b4a2rhkfx5vqenbm",
       "publishedAt": "2026-06-20T21:11:39.736Z"
+    },
+    {
+      "asset": "standing-charter",
+      "version": "1.0.0",
+      "path": "services/polity/frameworks/standing-charter.v1.json",
+      "cid": "bafkr6idtzfdb7psq23qigfbafjg3xo7kum7hwhaoijokytufo7qbpodowi",
+      "publishedAt": "2026-08-02T20:22:42.315Z"
+    },
+    {
+      "asset": "metacommons-charter",
+      "version": "1.0.0",
+      "path": "services/polity/frameworks/metacommons-charter.v1.json",
+      "cid": "bafkr6igmf7i7muooaaheybjrvxrf24zaizurjuy7z54zja3evxesgc3gja",
+      "publishedAt": "2026-08-02T20:22:43.224Z"
+    },
+    {
+      "asset": "founder-office-charter",
+      "version": "1.0.0",
+      "path": "services/polity/frameworks/founder-office-charter.v1.json",
+      "cid": "bafkr6iautfskm5czrk7a3erkomna7kkobiqp2kznhoowvuqr47emwvahki",
+      "publishedAt": "2026-08-02T20:22:44.147Z"
+    },
+    {
+      "asset": "constitution-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/CONSTITUTION.md",
+      "cid": "bafkr6iafonzuq7hawnxzkztusmundmd66gzp4tnosqwg7olb4kczvgposi",
+      "publishedAt": "2026-08-02T20:22:45.685Z"
+    },
+    {
+      "asset": "standing-charter-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/STANDING_CHARTER.md",
+      "cid": "bafkr6icafney7nc4xne5c5wxiv3si7kowh45utqawf2ndmplkntljhnaca",
+      "publishedAt": "2026-08-02T20:22:46.503Z"
+    },
+    {
+      "asset": "metacommons-charter-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/METACOMMONS_CHARTER.md",
+      "cid": "bafkr6ifhtmtakpj64dyen4rtcf7tqe6m5jfwt56zb747ysm5j75ji2zqhq",
+      "publishedAt": "2026-08-02T20:22:47.322Z"
+    },
+    {
+      "asset": "founder-office-charter-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/FOUNDER_OFFICE_CHARTER.md",
+      "cid": "bafkr6ihoopr3vupds4tqv3eym3dtoewdxtw3zvf3z6bfspzar2ba5siyx4",
+      "publishedAt": "2026-08-02T20:22:48.021Z"
+    },
+    {
+      "asset": "agent-charter-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/AGENT_CHARTER.md",
+      "cid": "bafkr6ibh6dqkijm4mmmyj3siyttrjq7ngtb2q37lb2fhtorc2rmx2yejyu",
+      "publishedAt": "2026-08-02T20:22:48.691Z"
+    },
+    {
+      "asset": "delegation-framework-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/DELEGATION_FRAMEWORK.md",
+      "cid": "bafkr6iewz3aih6fy7zby4cvb6xtzcpixvd5z6zzfvyzix35642tr6xm63a",
+      "publishedAt": "2026-08-02T20:22:49.332Z"
+    },
+    {
+      "asset": "standing-framework-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/STANDING_FRAMEWORK.md",
+      "cid": "bafkr6idm7ub2jryefol7kqhazl3a3rieqfwrzvpa3vjem6zpgfyb3hepva",
+      "publishedAt": "2026-08-02T20:22:50.088Z"
+    },
+    {
+      "asset": "governance-framework-doc",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/GOVERNANCE_FRAMEWORK.md",
+      "cid": "bafkr6ic6ezjs2mnrx6qx5efnzz6loibnz7nhcbcfe4vq7mymhyn2ssck5q",
+      "publishedAt": "2026-08-02T20:22:50.803Z"
+    },
+    {
+      "asset": "src-if-iapp-2017-001",
+      "version": "1.0.0",
+      "path": "codexes/packs/polity-core/items/commentary/constitutional-internet/03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md",
+      "cid": "bafkr6igp5rhkahrf6iq7qestbz7edr67yj7g4bnhjotafszmnninbzx3uq",
+      "publishedAt": "2026-08-02T20:22:51.664Z"
     }
   ]
 }

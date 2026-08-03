@@ -28,10 +28,16 @@ It is **not** *Entering deployment*: implementation has **not begun** and execut
 not authorised** (PRD §32 — an execution plan must be written and approved first). The audited code
 remains classical (`node:crypto` `randomBytes` for all IVs, keys and identifiers).
 
-**Permitted manuscript wording now** (CR-9): *"The Constitutional Internet **is integrating** quantum
-entropy to strengthen the randomness upon which keys, identifiers, privacy, and constitutional
-randomization processes depend."* Upgradeable to *"uses"* only after implementation, tests, receipts
-and deployment evidence exist. **Publication target: implement before final publication.**
+**Permitted manuscript wording — CR-9 three-stage rule** (corrected 2026-08-02; the earlier draft
+permitted *"is integrating"* at Projected, which was inconsistent with execution-not-authorised):
+
+| State | Permitted wording |
+|---|---|
+| **Projected** ← *current* | *"is **specified to integrate**"* / *"the **roadmap integrates**"* |
+| Entering deployment | *"is integrating"* |
+| Operational | *"uses"* |
+
+**Publication target: implement before final publication.**
 
 **The manuscript's narrower quantum position was already correct and is unaffected** — *"We have not
 attempted to defeat quantum cryptography. We use quantum mechanics to strengthen randomness and,
@@ -58,7 +64,32 @@ external QRNG source exists outside this repo → then *Needs external verificat
 
 </details>
 
-### A-2 · Ch18 — "standing decays" is **contradicted by ratified doctrine**
+### A-2 · Ch18 — person standing vs invariant standing
+### ✅ RESOLVED 2026-08-02 by operator ruling **CR-10** — ontology correction, not a contradiction
+
+**The finding is withdrawn in its absolute form.** The decay / contradiction-penalty / challenge
+language applies to **invariant standing**, not to the standing of a person. Code and ratified
+doctrine support **both** concepts; the manuscript had allowed their labels to blur.
+
+| | Person standing | Invariant standing |
+|---|---|---|
+| Attaches to | a **person** | a **proposition / candidate / discovered rule** |
+| Records | proven **conduct** | evidentiary **support** |
+| Changes on | contribution, validation, proven harm, penalty, repair, successful challenge, correction, reversal | recurrence, validation, contradiction, new evidence, narrowing, supersession |
+| Time alone | **does not reduce it** | — |
+| Contradiction | — | **may reduce it** (`lifecycle.ts:291`, Law XII) |
+
+> **Person standing is event-driven, never time-driven. A person does not lose standing through
+> inactivity alone.** What looks like decay is **consequence carried forward through proof**.
+
+**Required action:** separate the two throughout the manuscript, matrix, Plates and glossary. Ch18
+must not imply a person's standing naturally decays; any decay/penalty/confidence passage must
+**explicitly name** invariant standing. **CI-18: Doctrine Supported after ontology correction;
+Implementation Supported; Impact Correct ontology.**
+
+<details><summary>Original A-2 finding (superseded in its absolute form)</summary>
+
+**A-2 · Ch18 — "standing decays" is contradicted by ratified doctrine**
 **Type:** Ontology conflict · **Support:** Conflicting · **Impact:** Correct ontology
 
 `STANDING_FRAMEWORK.md:24` (ratified): Standing is *"event-driven, **never** time-driven."* The
@@ -81,7 +112,35 @@ contest or revocation path exists for persona Standing.** (`standing_corrected` 
 **nothing** until `verificationStatus === 'verified'`; consequence lanes carry 70%; the capability
 signal is ceilinged at 40 so "signal noise cannot overwhelm verified outcomes."
 
-### A-3 · Ch13/Ch20 — anchoring is claimed unscoped; governance receipts are at **zero**
+</details>
+
+### A-3 · Ch13/Ch20 — receipt-class anchoring
+### ✅ RULED 2026-08-02 by operator ruling **CR-11** — qualify by class, do not weaken the argument
+
+**Resolved as an implementation-status correction.** The claim is not withdrawn; it is **scoped by
+receipt class**. The evidence stands as found — the ruling changes what may be *said* about it.
+
+| Class | Permitted status |
+|---|---|
+| **Access-decision receipts** (incl. supported refusals) | **Operational** in the audited path |
+| **Governance / ratification receipts** | **Implemented in part · NOT operationally anchored** |
+| **Proof of State** | Implemented · Demonstrated · Operational **only** for deployed paths evidenced |
+| **Proof of Risk / Proof of Price** | Doctrine where canonical · **Projected · Not operational** |
+
+**Canonical distinction:** a *receipt* records an act; a *proof* establishes a claim about it;
+*anchoring* preserves the proof against alteration. **The successful operation of one receipt class
+does not establish the operational state of another.**
+
+**Ch13** must distinguish the stages — generation · verification · submission · anchoring ·
+operational confirmation — and **must not compress them into a single assertion of immutability**.
+**Ch20** should use the split as an **exemplar of its own implementation-state discipline**.
+
+**CI-13 Partially supported / qualify wording · CI-20 Supported after implementation-state separation.**
+Six remediation steps are recorded in CR-11 before governance anchoring may be called operational.
+
+<details><summary>Original A-3 finding (evidence unchanged; framing superseded)</summary>
+
+**A-3 · Ch13/Ch20 — anchoring is claimed unscoped; governance receipts are at zero**
 **Type:** Overclaim · **Support:** Conflicting · **Impact:** Qualify wording
 
 Live GitHub Actions evidence, canonical repo:
@@ -116,8 +175,11 @@ anchored. Any screenshot used as evidence must be accompanied by proof mock mode
 including refusals — are submitted to the DVN canister on a fifteen-minute cycle." *Not supportable:*
 any unqualified claim that governance/ratification acts are immutably anchored today.
 
+</details>
+
 ### A-4 · Ch21 — the **Internet Foundation** has no *current* mandate instrument
 ### ✅ NARROWED 2026-08-02 by operator ruling **CR-8** — historical existence now externally evidenced
+### ⏸ **PARKED 2026-08-02** — mandate ruling deferred pending source materials from the operator
 
 **The earlier absolute finding ("zero evidentiary existence") is WITHDRAWN.** External published
 evidence — IAPP, *"BSI Group eyeing ethical data use,"* 1 June 2017, recording that the Foundation's
@@ -132,9 +194,12 @@ operators, governance and continuity, or current institutional status. **Ch21's 
 sponsor/guardian role therefore remains unsupported.** The question to close is no longer *"did this
 organisation exist"* (it did) but *"what is its constitutional mandate today."*
 
-*Verification caveat:* the IAPP citation is **operator-attested**; the agent could not independently
-retrieve it (`iapp.org` → HTTP 403; `web.archive.org` blocked). Recommend archiving a copy into
-`03 Source Lineage` — the predecessor link is already broken.
+*Verification: **EXTERNALLY VERIFIED** (upgraded 2026-08-02).* The article has been independently
+retrieved from the live IAPP page and archived as registered source **`SRC-IF-IAPP-2017-001`**
+(`03-source-lineage/internet-foundation-uddr/SRC-IF-IAPP-2017-001.md`, sha256 `de36753f…dd6a`). The earlier
+*operator-attested* qualification recorded a limitation of the **agent's retrieval**, not of the
+evidence, and no longer applies. The live IAPP URL remains the primary external source; the archived
+Markdown is the durable Polity Core evidence record.
 
 <details><summary>Original A-4 finding (superseded in its absolute form)</summary>
 
@@ -162,7 +227,39 @@ with no instrument behind either. See also ruling **R-16**.
 
 </details>
 
-### A-5 · Ch21/Ch22 — the **Commons is ratified but not built**, and canaries forbid claiming otherwise
+### A-5 · Ch21/Ch22 — the Commons: constitutional status vs implementation state
+### ✅ RULED 2026-08-02 by operator ruling **CR-12** — status split, institution retained
+
+**Resolved into a four-part status rather than a contradiction.** The canaries forbid claiming
+**operation**, not claiming the **institution** — and the ruling makes that distinction load-bearing.
+
+| Dimension | State |
+|---|---|
+| **Constitutional status** | **Ratified** |
+| **Institutional doctrine** | **Supported** |
+| **Technical implementation** | **Projected / partially scaffolded** |
+| **Operational state** | **Not operational** |
+
+> **Constitutional existence does not imply technical operation.** An institution may be
+> constitutionally constituted **before** the machinery required to operate it is complete.
+
+**Retained in present tense:** what the Commons *is*, what it is *constituted to preserve*, why
+constitutional society requires it, and **how it differs from the Registry** — that distinction is
+valid and present. **Not permitted:** any implication that the complete machinery is functioning.
+
+**⚠ Epilogue passage requiring a decision — `01-working-manuscript.md:6238-6254`.** *"The result
+enters the Commons with its proof, methods, limits, and reproduction guidance"* sits inside the
+day-in-the-life sequence, in the present indicative, so a reader takes it as capability available
+now. Under CR-12 it must be (a) framed explicitly as the forward horizon, (b) qualified in place, or
+(c) backed by completed implementation before publication. The same paragraph carries *"The Internet
+Foundation continues to sponsor…"* (line 6255) — parked under the deferred mandate ruling; the two
+should be resolved together.
+
+**CI-21 and CI-22: Partially supported / qualify wording.** Ten-item implementation gate recorded in CR-12.
+
+<details><summary>Original A-5 finding (evidence unchanged; framing superseded)</summary>
+
+**A-5 · Ch21/Ch22 — the Commons is ratified but not built, and canaries forbid claiming otherwise**
 **Type:** Overclaim · **Impact:** Move to future tense
 
 Three independent in-repo statements: `services/venture/metacommonsSignals.ts` (*"deterministic stub…
@@ -179,7 +276,68 @@ and canary-enforced.
 
 ## Severity B — material qualifications
 
-### B-1 · Ch15/Epilogue — the **embodied delegate** has no code, test, or receipt
+</details>
+
+### B-1 · Ch15/Epilogue — embodied constitutional agents and personal digital twins
+### ❌ **SUPERSEDED 2026-08-02 by operator ruling CR-13** — the finding was wrong in scope
+
+**The original finding is withdrawn.** Embodied constitutional agents are **functional** through D-ID
+and constitutional knowledge grounding. **Personal digital twins are fully integrated** through
+Avaturn in the metaKnyts stack. The remaining work concerns **dynamic personal knowledge, higher
+fidelity, continuity and interface-level constitutional disclosure** — not first implementation.
+
+**Where the audit went wrong.** Two errors, both of scope rather than method:
+
+1. **Generalising from the host wrapper.** *"Zero disclosure surface"* was verified against
+   `AvatarHostProps` / `AgentConfig` / `AvatarContext` — the **wrapper**. `packages/avatar-host/`
+   renders an **external iframe** (`https://metavatar.agentiq.ai/metaVatar.html`); what runs inside
+   was never visible. The accurate claim is *no disclosure fields cross the host boundary in this
+   repository* — not that disclosure is absent.
+2. **Treating repository scope as existence.** Avaturn has **0 occurrences** here; the integration
+   lives in the **metaKnyts stack**, outside the audited repo. *"Not found in the audited
+   repository"* is a scope statement.
+
+**Reclassified per CR-13:** D-ID embodiment **Implemented and functional** · constitutional KB
+grounding **Implemented and functional** · Avaturn personal digital twins **Fully integrated** ·
+dynamic personal KBs **Under development** · Tavus/Tavurn enhancement **Roadmap** ·
+disclosure-interface completeness **Partial**. **CI-07 / CI-08 / CI-15: Supported · Strengthen
+present tense.**
+
+**What remains, precisely:** *interface-level disclosure completeness* — how visibly and consistently
+the embodiment surfaces non-human status, principal, mandate, authority limits, provenance, receipt
+status, refusal, revocation, challenge and remedy. **Where these exist in the architecture but are
+not surfaced at the interface, that is a surfacing gap, not absent constitutional operation.**
+
+**`PRD-AGM-011` is an enhancement roadmap**, not a first implementation — its own "first
+implementation" framing is superseded and corrected in the PRD.
+
+**To make CR-13 citable in the book's evidence chain**, deposit into `03 Source Lineage`: the
+metaVatar/D-ID integration reference, the Avaturn/metaKnyts integration reference, one demonstration
+receipt per layer, and deployed-environment evidence. Until then **operator-attested** — the footing
+CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and resolvable the same way.
+
+<details><summary>Original B-1 finding (withdrawn — overstated repository scope as absence)</summary>
+
+**B-1 · Ch15/Epilogue — the embodied delegate has no code, test, or receipt**
+
+`PRD-AGM-011 — Agent Me Digital Twin (Tavus Pilot)` is canonised at
+`codexes/packs/irl/foundation/PRD-AGM-011_agent-me-digital-twin-tavus-pilot.md`. It establishes
+**delegated embodiment** as a constitutional primitive — *the Citizen is never embodied; delegated
+personas may be embodied* — with a provider-independent adapter, memory retained inside Agent Me, and
+receipts unchanged.
+
+**The finding stays open.** Execution is not authorised, and one gap is material to *this
+discrepancy specifically*: the PRD governs the constitutional chain but **does not yet specify the
+third-party disclosure surface** the manuscript's doctrine requires — that an observer can know it is
+an agent, whom it represents, under what authority, and where that authority ends. Step 5 discloses
+the chain to the **Citizen provisioning** the twin; the doctrine concerns the **counterparty meeting**
+it. Flagged in the PRD for operator ruling.
+
+**CI-07 / CI-15 remain Projected** until implementation, tests and receipts exist.
+
+<details><summary>Original B-1 finding (unchanged — still the current code state)</summary>
+
+**B-1 · Ch15/Epilogue — the embodied delegate has no code, test, or receipt**
 **Type:** Overclaim · **Impact:** Move to future tense
 
 The manuscript states an embodied delegate *"must make its status legible"* — that observers can know
@@ -191,6 +349,8 @@ with zero disclosure surface** — `AvatarHostProps` / `AgentConfig` / `AvatarCo
 delegate-status, principal-identity, mandate, or non-human fields. The package README marks it
 *"🚧 In Development — Phase 5."* Nearest real evidence: `agent-charter.v1.json`
 `agentsMustBeIdentifiedAsNonHuman: true` — a **ratified doctrine flag, not rendering code**.
+
+</details>
 
 ### B-2 · Ch24 — **exit rights are unimplemented while entry rights are fully instrumented**
 **Type:** Overclaim · **Impact:** Qualify wording
@@ -209,7 +369,24 @@ doctrine (Art. X §6) says *"shall retain, **where feasible**, rights of portabi
 is stronger than its own constitution here.** Structurally, an order whose exit rights are unbuilt
 while entry is fully instrumented is the asymmetry Ch2 indicts platforms for.
 
-### B-3 · Ch19 — "a refusal produces a receipt" is false in the flagship path
+### B-3 · Ch19 — "a refusal produces a receipt" is not yet universal
+### ✅ RULED 2026-08-02 by operator ruling **CR-11** — add implementation evidence
+
+**The core claim is retained.** Constitutional machinery must produce receipts and enforce authority
+at action time — and bounded-authority-at-action-time remains the **strongest-supported claim in
+scope**. What must be added is the **limitation**: refusal receipts are **not yet produced
+consistently in every runtime path**, including the audited MoneyPenny execution path.
+
+**Scope the claim to the access-spine path** (live, evidenced, durable, carries `allow:false` plus
+reason) until the four remediation steps in CR-11 are complete: write a durable receipt for blocked
+MoneyPenny runtime executions · include the refusal invariant, mandate boundary and failed step ·
+test the receipt path · verify persistence after the client session ends.
+
+**CI-19 Partially supported / add implementation evidence.**
+
+<details><summary>Original B-3 finding (evidence unchanged; framing superseded)</summary>
+
+**B-3 · Ch19 — "a refusal produces a receipt" is false in the flagship path**
 **Type:** Overclaim · **Impact:** Qualify wording
 
 True in four places (access-spine denials, `approval_rejected`, Marketa refusals). **False in
@@ -223,6 +400,8 @@ response body, discarded when the caller closes the tab.
 *"receipt persisted — NO; receipt DVN-anchored — NO"* — adding that *"a report that says 'the receipts
 exist' when it means 'receipt objects were generated' claims provenance that does not exist."*
 Enforced by `assertVentureJournalCanLeaveMemory`, which **throws**.
+
+</details>
 
 ### B-4 · Ch6/Ch14/Ch23 — time sovereignty and repair are **not measured**
 **Type:** Overclaim + Missing proof · **Impact:** Qualify wording

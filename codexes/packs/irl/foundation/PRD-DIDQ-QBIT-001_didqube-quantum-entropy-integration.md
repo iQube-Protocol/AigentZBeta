@@ -23,7 +23,7 @@ This PRD is **canonised as a specification of record**, not as an authorisation 
 | **Execution authority** | **NOT granted.** An execution plan must be written and approved first. |
 | **Current code state** | Not implemented. The audited repository uses classical CSPRNG (`node:crypto` `randomBytes`) for all IVs, keys and identifiers. |
 | **Publication target** | Implement before final publication of *The Constitutional Internet* |
-| **Manuscript status** | Ch17 is **Projected** — see CR-9 for the exact permitted wording |
+| **Manuscript status** | Ch17 is **Projected**. Permitted wording is *"is **specified to integrate**"* / *"the **roadmap integrates**"*. **Not** *"is integrating"* — that unlocks at *Entering deployment*; *"uses"* at *Operational*. See CR-9. |
 
 **Cross-references.** This PRD is the controlling implementation specification for editorial-register
 ruling **CR-9 (Quantum Entropy Implementation Status)** and for matrix row **CI-17** in
@@ -778,4 +778,7 @@ DIDQube Proof-of-State receipt
 6. Only then begin Phase 1.
 
 Until Phase 1 delivers code, tests, receipts and deployment evidence, matrix row **CI-17** remains
-**Projected** and the manuscript must use the CR-9 pending-implementation wording.
+**Projected** and the manuscript must use the CR-9 **Projected**-stage wording — *"is specified to
+integrate"* / *"the roadmap integrates"*. The three stages are: **Projected** → *"is specified to
+integrate"*; **Entering deployment** (execution begun) → *"is integrating"*; **Operational**
+(implemented, tested, receipted, deployed) → *"uses"*.

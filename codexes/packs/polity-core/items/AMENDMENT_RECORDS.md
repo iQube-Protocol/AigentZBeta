@@ -80,7 +80,40 @@ matches the in-repo source of legitimacy.
 | Polity Constitution | 1.0.0 | `bafkr6ie7xpb76mbi43zcq6bza5u6w7hkoiyzzt6u2dzc77n434khlatvqq` |
 | Autonomous Agent Charter | 1.0.0 | `bafkr6ifttkd6vwktjy45aqsxzirap5p7iizyy6ligekmqtgbkmfonxygxq` |
 | Delegation Framework | 1.0.0 | `bafkr6ibmhpwihx7ghvalps3a3dk5wf7iq7yl7dwc35b4a2rhkfx5vqenbm` |
+| Standing Charter | 1.0.0 | `bafkr6idtzfdb7psq23qigfbafjg3xo7kum7hwhaoijokytufo7qbpodowi` |
+| metaCommons Charter | 1.0.0 | `bafkr6igmf7i7muooaaheybjrvxrf24zaizurjuy7z54zja3evxesgc3gja` |
+| Founder Office Charter | 1.0.0 | `bafkr6iautfskm5czrk7a3erkomna7kkobiqp2kznhoowvuqr47emwvahki` |
 
-Published 2026-06-20 via `POST /api/polity-core/publish`. The CIDs are also
-served by `GET /api/polity-core/constitution` and recorded in
+Published 2026-06-20 via `POST /api/polity-core/publish`; the Standing,
+metaCommons and Founder Office frameworks published 2026-08-02 via
+`scripts/publish-polity-core.mjs`. The CIDs are also served by
+`GET /api/polity-core/constitution` and recorded in
 `services/polity/frameworks/autodrive-cids.json`.
+
+### Human-readable documents (published 2026-08-02)
+
+The ratified Markdown documents are published alongside their machine-readable
+counterparts, so a reader can verify the prose they were governed by — not only
+the JSON a machine consumed.
+
+| Document | Version | Autodrive CID (Autonomys mainnet) |
+|---|---|---|
+| CONSTITUTION.md | 1.0.0 | `bafkr6iafonzuq7hawnxzkztusmundmd66gzp4tnosqwg7olb4kczvgposi` |
+| AGENT_CHARTER.md | 1.0.0 | `bafkr6ibh6dqkijm4mmmyj3siyttrjq7ngtb2q37lb2fhtorc2rmx2yejyu` |
+| DELEGATION_FRAMEWORK.md | 1.0.0 | `bafkr6iewz3aih6fy7zby4cvb6xtzcpixvd5z6zzfvyzix35642tr6xm63a` |
+| STANDING_CHARTER.md | 1.0.0 | `bafkr6icafney7nc4xne5c5wxiv3si7kowh45utqawf2ndmplkntljhnaca` |
+| STANDING_FRAMEWORK.md | 1.0.0 | `bafkr6idm7ub2jryefol7kqhazl3a3rieqfwrzvpa3vjem6zpgfyb3hepva` |
+| METACOMMONS_CHARTER.md | 1.0.0 | `bafkr6ifhtmtakpj64dyen4rtcf7tqe6m5jfwt56zb747ysm5j75ji2zqhq` |
+| FOUNDER_OFFICE_CHARTER.md | 1.0.0 | `bafkr6ihoopr3vupds4tqv3eym3dtoewdxtw3zvf3z6bfspzar2ba5siyx4` |
+| GOVERNANCE_FRAMEWORK.md | 1.0.0 | `bafkr6ic6ezjs2mnrx6qx5efnzz6loibnz7nhcbcfe4vq7mymhyn2ssck5q` |
+
+### Constitutional Internet source lineage (published 2026-08-02)
+
+| Source ID | Record | Autodrive CID (Autonomys mainnet) |
+|---|---|---|
+| `SRC-IF-IAPP-2017-001` | IAPP — BSI Group eyeing ethical data use (2017) | `bafkr6igp5rhkahrf6iq7qestbz7edr67yj7g4bnhjotafszmnninbzx3uq` |
+
+Published under ruling **CR-8**. The source establishes the Internet Foundation's
+**historical existence and UDDR lineage**; it does **not** establish its present
+constitutional mandate. The live IAPP URL remains the primary external source;
+this content-addressed record is the durable evidence copy.
