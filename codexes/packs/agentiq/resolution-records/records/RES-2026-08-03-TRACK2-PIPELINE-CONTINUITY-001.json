@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-03-TRACK2-PIPELINE-CONTINUITY-001",
+  "capability": "Track 2 — corpus acquisition to frozen crystal (the eleven-stage programme projection)",
+  "milestone": "Track 2 — every stage declares the population it is reasoning about",
+  "problem": "The Track 2 Experiment Pipeline reported three mutually incompatible facts on one screen: Stage 4 '17 promoted · 0 awaiting review', Stage 5 '68 promoted invariant(s) carry no recorded evidence provenance', and — on that same Stage 5 — a provenance-eligibility notice reading \"Domain 'financial-risk-value-systems' holds no invariants, so this check has nothing to assess\". The operator's diagnosis was exact and is the one to carry forward: this is a state-model defect, not a UI wording issue. Stages 2, 3 and 4 operated over the current experimental crystal; Stage 5 had reverted to querying the ratified domain registry instead of the crystal it inherited. Those are different populations, so the surface could simultaneously report that 17 promoted invariants exist and that there are no invariants to classify — and nothing in the system could notice that both cannot be true.",
+  "observedFailure": [
+    "Stage 5's count came from listInvariants({ domain: 'financial-services', limit: 500 }) — a filter over invariant_contexts, i.e. the standing domain registry across every run and every sub-domain — while Stage 4's count came from discovery_candidates WHERE domain = 'financial-services' AND sub_domain IS NULL. 68 and 17 were both true, of two different sets.",
+    "Stage 5's remedy came from a THIRD population again: remediesFor('classify-provenance', readiness) pulled the provenance-eligibility check computed over the ratified crystal domain 'financial-risk-value-systems', which was empty. So one stage row carried 68, 17 (inherited) and zero at once, with two different domain names on screen and neither labelled.",
+    "Stages 6 (validate) and 7 (add-relationships) carried the same substitution: both are performed BEFORE crystal assignment yet both measured the ASSIGNED crystal via readiness.invariantCount, so over an empty crystal domain both reported 'not-started — nothing assigned to the crystal domain yet' while the cohort they were responsible for sat unvalidated and unrelated.",
+    "No stage stated its input population anywhere — in the type, the payload or the surface — so the contradiction was not detectable by any check, only by an operator reading three numbers and knowing enough to distrust them.",
+    "The pre-fix code renders the observed screen without complaint: fed a 68-record cohort against Stage 4's declared 17, the programme returned Stage 5 'in-progress' with a count, rather than refusing a population it could not account for."
+  ],
+  "rootCauses": [
+    "The input population of each stage was IMPLICIT — a property of whichever query the composing route happened to pass in. An implied population cannot be compared with the previous stage's, so substitution was undetectable rather than merely unnoticed.",
+    "The programme's signal for Stage 5 was a bare number (`unclassifiedPromoted: number | null`). A scalar carries no identity: it cannot be reconciled against the stage that produced it, and nothing about it says which set it counted.",
+    "The link that already existed between the two stages — discovery_candidates.promoted_invariant_id, written by promoteCandidate at the moment of promotion — was never used. The route re-derived Stage 5's population by domain query instead of following the recorded handover.",
+    "A stage's population could also be changed through the REMEDY channel, not only the count channel: CHECKS_BY_STAGE attached readiness checks computed over the assigned crystal to three stages that work over the current crystal. Prose imports a population as effectively as arithmetic does.",
+    "Stage ordering made the substitution look plausible: stages 6 and 7 precede stage 8 (assignment), so reading the assigned crystal there was reading a population that does not exist yet — an error that reads as 'not started' rather than as a defect.",
+    "The existing population guards protected a population AT REST (NO-SILENT-POPULATION-SHRINK within one artifact, FREEZE-POPULATION-DISCLOSURE within one freeze package) and none compared two stages, so none of them could fire on a population that changed IN MOTION between stages."
+  ],
+  "resolution": [
+    "Added the population vocabulary and continuity model to services/research/exceptionIsolation.ts — the module that already owns PopulationDisclosure and ProgrammeProgression, so the pipeline has one population model rather than two: DeclaredPopulation ('admitted-corpus' | 'current-crystal' | 'assigned-crystal' | 'ratified-corpus' | 'excluded-records'), PopulationDeclaration { consumes, produces, source }, checkPopulationContinuity, PopulationHandover, handoverReconciles, handoverBreach, renderHandover.",
+    "'ratified-corpus' is deliberately IN the vocabulary. It is a legitimate population to read and was never a legitimate silent substitute for the current crystal; keeping it named is what makes the defect describable instead of merely forbidden.",
+    "Made `population: PopulationDeclaration` a REQUIRED field on Track2Stage. A stage cannot now be added without stating which population it reads, which it hands on, and the substrate behind the claim — the `source` string is what lets a reviewer check the declaration against reality rather than believe it.",
+    "Replaced the `unclassifiedPromoted: number | null` signal with `promotedCohort: PromotedCohort | null`, carrying the invariant IDS, the unclassified and unvalidated counts over those ids, the intra-cohort graph, and explicit exclusions each with a stated reason.",
+    "The route now resolves that cohort by following discovery_candidates.promoted_invariant_id from the SAME candidates array Stage 4 is counted from, so the two stages cannot be about different sets. A promoted candidate with no recorded invariant id, or an id that does not resolve to a row, becomes an explicit exclusion carrying its reason — never a silent shortfall.",
+    "Stages 5, 6 and 7 all consume that one cohort through a shared gate, so the three cannot drift into disagreeing about the same population.",
+    "Enforced the operator's arithmetic: received + explicitly excluded === Stage 4's declared output. A handover that does not reconcile BLOCKS stages 5–7 with the breach sentence as their detail and leads the programme's nextActions — the operator meets the discontinuity itself rather than its downstream symptom ('there are no invariants to classify'), which is what cost the session.",
+    "Removed classify-provenance, validate and add-relationships from CHECKS_BY_STAGE. Those readiness checks describe the assigned crystal, so they now appear only on run-readiness, which declares that population. No remedy was lost — the orphan-detection remedy is still carried verbatim, relocated to the stage whose subject it describes, and a canary pins it there.",
+    "Stage 7 reports `unknown` when the intra-cohort graph cannot be read, rather than falling back to the readiness engine's graph checks — an unread graph is not 'no relationships', and the fallback WAS the substitution.",
+    "Track2ProgrammePanel renders each stage's declared population and leads with a rose discontinuity banner when the pipeline changes its subject, so the operator can see which set each number is about without reading the code.",
+    "Added tests/pipeline-continuity.test.ts (19 assertions), including the observed screen reproduced as a fixture. Verified failing before the fix: with the fix stashed, all 19 go red — among them 'classify-provenance must refuse a population it cannot account for: expected in-progress to be blocked'."
+  ],
+  "rejectedApproaches": [
+    "Pointing Stage 5's existing domain query at the crystal domain instead of the acquisition domain. It would have replaced one substituted population with another — the assigned crystal is not what Stage 4 hands on either — and would have left the count a bare number that no future check could reconcile.",
+    "Filtering the domain query down to the promoted ids. Cheaper, and it produces the right number today, but it keeps the registry as the source and the promoted set as a filter over it, so a promoted invariant missing from a 500-row page would vanish silently. Following promoted_invariant_id makes the cohort the population rather than a subset of a larger one.",
+    "Documenting each stage's population in comments and reviewing for drift. This is precisely the failure mode CLAUDE.md already records for the dev-merge-message rule: prose does not fail a build. The population is a required typed field for the same reason.",
+    "Keeping the readiness remedies on stages 5–7 as 'useful context'. Their usefulness was the trap: 'Domain X holds no invariants' is a true, helpful, actionable sentence about a population that stage does not work over, and its plausibility is what let three populations share one row unchallenged.",
+    "Reporting the discontinuity as a warning and rendering the counts anyway. When two stages are reasoning about different subjects, every count downstream is about a population nobody has agreed on — including the reassuring ones. A warning beside untrustworthy numbers still invites acting on them.",
+    "Recording the invariant at `validated`, or at `cross-capability` scope. The operator's own framing suggests wider reach, and it may well have it, but all three occurrences are stages of one capability found in one pass — one defect discovered once, not a shape that recurred across capabilities. `ratified`/`canonical` additionally require a named operator act no agent may perform.",
+    "Creating a new module for the population model. exceptionIsolation.ts already owns PopulationDisclosure and ProgrammeProgression; a second population module would have been the parallel implementation inv.engineering.037 forbids, and the two would have disagreed about what a population is."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-PIPELINE-CONTINUITY-001"
+  ],
+  "canaries": [
+    "tests/pipeline-continuity.test.ts",
+    "tests/crystal-freeze-rehearsal.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [
+      "5819ad93f"
+    ],
+    "tests": [
+      "tests/pipeline-continuity.test.ts",
+      "tests/crystal-freeze-rehearsal.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_track2-pipeline-continuity.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-pipeline-continuity.md",
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ],
+  "date": "2026-08-03",
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
