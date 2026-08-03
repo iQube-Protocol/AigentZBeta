@@ -313,6 +313,90 @@ than half-built**, which is what the instruction asked for.
   `runFreezeCeremonyPreview` is the next step. The fields are `null` until then — which is the
   honest state, not a silent zero.
 
+## 9.5 Stage 3 — deterministic batched extraction (the real remedy)
+
+> **The operator's framing, which supersedes "truncation":** *"Partial evidence was processed as
+> though the full population had been processed."*
+
+The conservative fix in §9.3 made the result HONEST. The operator's verdict was that it *"does not
+solve extraction completeness"* — an honest partial is still partial. `services/invariants/batchedExtraction.ts`
+is the completeness half, built to the operator's own pipeline:
+
+```
+partition full admitted population → process deterministic batches → receipt each batch
+  → record failures and exclusions → reconcile all batch outputs
+  → deduplicate candidates globally → report total input / processed / excluded
+```
+
+### The hard completion rule, as executable arithmetic
+
+> Stage 3 may only become `complete` when **processed + explicitly excluded = admitted population**.
+> Otherwise it stays `partially-complete`.
+
+`extractionProgression` is the only place this is evaluated. Two properties worth stating because
+they are easy to get subtly wrong:
+
+- **Reconciling is necessary, not sufficient.** A run that reconciles but excluded rows is
+  `partially-complete` — `complete` means every admitted row was *read*.
+- **A broken identity can never be `complete`,** whatever else looks fine. An unaccounted row means
+  the accounting itself is wrong, and a stage cannot claim to have finished a population it cannot
+  count.
+
+### Determinism, and the order-dependence bug that is not coming back
+
+Partitioning sorts by evidence id **before** packing, so batches are a function of the SET, never of
+fetch order — a re-run over the same population yields identical batches. A row that does not fit
+the current batch opens a new one rather than ending the loop. That second property has its own
+canary because **I caused that exact bug in this area**: the pre-fix loop `break`ed, so a small row
+that would have fitted was dropped because a larger row earlier in the list did not.
+
+### Isolation inside Stage 3
+
+A failed batch quarantines **only its own rows**: the loop continues, its rows are recorded as an
+explicit exclusion with the failure named, and every other batch's candidates stand. Treating a
+failed batch as a failed run would reintroduce, inside Stage 3, precisely the paralysis the
+exception-isolation ruling abolished at Stage 2 — one timeout discarding a whole population's work.
+
+### Global dedup, after reconciliation
+
+Two batches can independently surface the same invariant from different evidence. That is a
+**convergence signal**, so the surviving candidate carries the UNION of the contributing evidence ids
+and the higher confidence, rather than whichever batch happened to be first. Candidates are inserted
+**once**, after dedup — inserting per batch would persist the duplicate before dedup could run.
+
+### A second instance of the same defect, found by this work's own canary
+
+While asserting the `unprocessable` branch, a canary failed and exposed the same shape one level
+down: **a row longer than 6,000 characters is capped, while one `discovery_evidence` row holds up to
+200,000** (`ingestionBroker.ts`'s chunk size). So up to **97% of a source can go unread while the
+candidate derived from it cites that source as its basis**.
+
+It is **disclosed, not fixed**. Every capped row is reported with how much was read, counts as
+processed (it did contribute), and rides on the exception list. Splitting a row across batches and
+reconciling partial readings of one document is a distinct mechanism; building it under cover of this
+change would be the speculative build the rules forbid. **Recorded as outstanding, and as an open
+question for the operator:** a processor that reads part of a record and counts the record as
+processed satisfies the invariant's letter through disclosure — whether that should be permitted at
+all is not an agent's call.
+
+### The resolution loop (mandatory preflight performed)
+
+Preflight reviewed the whole registry plus a targeted search on `extract|population|truncat|batch|bounded`.
+Six existing candidates bear on this work; the closest, `CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001`,
+governs a governed *artifact* passing over a shrunken population — the two new ones govern the
+*processor* that shrinks it, upstream of any artifact.
+
+| Output | Id |
+|---|---|
+| Resolution record | `RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001` (trigger: `multi-cycle-repair`) |
+| Candidate invariant | `CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001` |
+| Candidate invariant | `CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001` |
+
+Both are `candidate` and **not ratified** — that is the operator's act. The second carries one
+occurrence and the milestone check correctly flags its `cross-capability` scope as an unearned
+generality claim; the note records that `scope` is a claim about where the rule *applies*, not about
+demonstrated recurrence.
+
 ## 10. Verification
 
 **Canaries verified to FAIL before the change** (OS-9: *"a canary must be written against real
@@ -335,6 +419,12 @@ production code, running, and restoring:
 | 12 | exclusions folded into `eligibleForRatification` | disclosure-never-gates |
 | 13 | unsupplied history defaults to zeros | omitting-yields-null |
 | 14 | restore Stage 3's silent `break` | budget-loop-continues |
+| 15 | remove the `!reconciles` guard from `extractionProgression` | looks-complete-but-does-not-reconcile |
+| 16 | drop the sort-by-id before packing | same-population-any-order |
+| 17 | reintroduce `break` in the batch packing loop | 4 tests, incl. row-that-fits-is-never-excluded |
+| 18 | dedup per batch instead of globally | union-of-evidence |
+| 19 | abort the run on the first failed batch | surviving-batch-keeps-its-candidates |
+| 20 | drop the `truncatedRows` disclosure | 3 row-truncation tests |
 
 **Five pre-existing canaries** failed against the new code and were updated with recorded reasons —
 each had pinned a defective shape: the ordinal lock rule; the title heuristic's location in the
@@ -345,6 +435,14 @@ defending the defect.
 One fixture was rebuilt from production shape after a thin stub threw inside
 `composeCrystalFreezeRecommendation` on first run — the same OS-9 rule applied to a fixture rather
 than an assertion.
+
+**OS-9 caught one of my own canaries mid-flight.** Mutation 15 initially did NOT fail: the
+completion canary I first wrote passed with *and* without the guard it claimed to protect, because
+an adjacent condition (`processed !== totalInput`) already forced the same answer in the case it
+tested. That is exactly `CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001`. It was replaced with the case
+where **only** the guard prevents a false `complete` — a batch reporting an evidence id outside the
+admitted population, driving `processed` to `totalInput` while a genuinely admitted row goes unread.
+The replacement fails when the guard is removed.
 
 **Test results:** `exception-isolation` 20 new · `corpus-scout-admission-recommendation` 20 ·
 `track2-steward-workflow` 51 (11 new) · `source-of-truth-parity` 91. Full suite unchanged from

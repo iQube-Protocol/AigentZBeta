@@ -34,6 +34,14 @@ import {
 } from '@/services/research/experimentalPopulations';
 import { PROVENANCE_CLASSES, type ProvenanceClass } from '@/services/corpusScout/types';
 import type { IsolationException } from '@/services/research/exceptionIsolation';
+import {
+  partitionEvidence,
+  reconcileExtraction,
+  renderExtractionAccount,
+  type BatchOutcome,
+  type ExtractedCandidate,
+  type ExtractionReconciliation,
+} from '@/services/invariants/batchedExtraction';
 import type { InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -534,6 +542,186 @@ export async function runConstitutionalDiscovery(
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
   return { ok: true, candidates: enrichSignals(inserted, evidence), excludedEvidence };
+}
+
+/**
+ * BATCHED CONSTITUTIONAL DISCOVERY — the completeness remedy (operator ruling,
+ * 2026-08-03).
+ *
+ *   > "Partial evidence was processed as though the full population had been
+ *   >  processed."
+ *
+ * `runConstitutionalDiscovery` reads ONE bounded context and reports what it
+ * could not fit. That is honest but partial. This orchestrator processes the
+ * WHOLE admitted population by partitioning it into deterministic batches,
+ * running the same extraction over each, and reconciling the results against
+ * the arithmetic identity Stage 3's completion now depends on:
+ *
+ *     processed + explicitly excluded === admitted population
+ *
+ * ── What it composes, and what it does not duplicate ────────────────────────
+ *
+ * Partitioning, reconciliation, global dedup and the completion rule all live
+ * in `batchedExtraction.ts` as pure functions. The per-batch model call is
+ * `extractCandidatesFromBatch` below — the SAME prompt construction, parsing
+ * and filtering the single-pass path uses, factored out rather than copied
+ * (inv.engineering.036/037). Neither path holds a second copy of the grammar
+ * mandate or the L0/L1 rejection rule.
+ *
+ * ── Rows are inserted ONCE, after global dedup ──────────────────────────────
+ *
+ * Candidates are accumulated in memory across batches and written in a single
+ * insert AFTER reconciliation. Inserting per batch would persist the same
+ * invariant twice whenever two batches independently surfaced it — which is
+ * exactly the convergence case dedup exists to fold together.
+ */
+export interface BatchedDiscoveryResult {
+  ok: true;
+  candidates: CandidateRow[];
+  reconciliation: ExtractionReconciliation;
+  /** The operator's "total input / processed / excluded", ready to render. */
+  account: string;
+  /** Per-batch summaries, for the receipt the caller writes. */
+  batches: { index: number; evidenceCount: number; ok: boolean; error?: string; candidateCount: number }[];
+}
+
+export async function runBatchedConstitutionalDiscovery(
+  admin: SupabaseClient,
+  domain: string,
+  opts: { scopeLevel?: DiscoveryScopeLevel; subDomain?: string | null } = {},
+): Promise<BatchedDiscoveryResult | { ok: false; error: string }> {
+  const subDomain = opts.subDomain?.trim() || null;
+  const scopeLevel: DiscoveryScopeLevel = subDomain ? (opts.scopeLevel ?? 'sub-domain') : 'domain';
+  const evidence = await listDomainEvidence(admin, domain, subDomain);
+  if (evidence.length === 0) {
+    return {
+      ok: false,
+      error: subDomain
+        ? `No evidence for ${domain}/${subDomain} — add sub-domain or domain-wide evidence first.`
+        : 'No evidence for this domain — add evidence first (Stage 1).',
+    };
+  }
+
+  // Deterministic: a function of the SET, never of fetch order or the clock.
+  const { batches, unprocessable, truncatedRows } = partitionEvidence(evidence);
+
+  const outcomes: BatchOutcome[] = [];
+  for (const batch of batches) {
+    const rows = batch.rows.map((r) => evidence.find((e) => e.id === r.id)!).filter(Boolean);
+    const result = await extractCandidatesFromBatch(domain, subDomain, rows);
+    outcomes.push({
+      index: batch.index,
+      evidenceIds: batch.rows.map((r) => r.id),
+      ok: result.ok,
+      ...(result.ok ? {} : { error: result.error }),
+      candidates: result.ok ? result.candidates : [],
+    });
+    // A FAILED BATCH DOES NOT STOP THE RUN. The loop continues; the failure is
+    // reconciled as an explicit exclusion of that batch's rows.
+  }
+
+  const reconciliation = reconcileExtraction({
+    admittedEvidenceIds: evidence.map((e) => e.id),
+    batches: outcomes,
+    unprocessable,
+    truncatedRows,
+  });
+
+  // ── ONE insert, after global dedup ────────────────────────────────────────
+  let inserted: CandidateRow[] = [];
+  if (reconciliation.candidates.length > 0) {
+    const toInsert = reconciliation.candidates.map((c) => ({
+      domain,
+      sub_domain: subDomain,
+      scope_level: scopeLevel,
+      abstraction_level: normalizeAbstraction(c.abstractionLevel),
+      discovery_class: 'constitutional' as const,
+      statement: c.statement,
+      rationale: c.rationale,
+      evidence_ids: c.evidenceIds,
+      confidence: c.confidence,
+      discovery_provenance: {
+        stage: 'constitutional',
+        scopeLevel,
+        subDomain,
+        evidenceCount: reconciliation.processed,
+        // The account travels WITH the candidates, so a later reader of these
+        // rows can see the population they were compressed from rather than
+        // assuming it was the whole corpus.
+        batchedExtraction: {
+          totalInput: reconciliation.totalInput,
+          processed: reconciliation.processed,
+          excluded: reconciliation.excluded,
+          reconciles: reconciliation.reconciles,
+          batchCount: reconciliation.batchCount,
+        },
+      },
+    }));
+    const { data, error } = await admin.from('discovery_candidates').insert(toInsert).select('*');
+    if (error) return { ok: false, error: error.message };
+    inserted = (data ?? []).map(toCandidateRow);
+  }
+
+  return {
+    ok: true,
+    candidates: enrichSignals(inserted, evidence),
+    reconciliation,
+    account: renderExtractionAccount(reconciliation),
+    batches: outcomes.map((o) => ({
+      index: o.index,
+      evidenceCount: o.evidenceIds.length,
+      ok: o.ok,
+      ...(o.error ? { error: o.error } : {}),
+      candidateCount: o.candidates.length,
+    })),
+  };
+}
+
+/**
+ * ONE batch's extraction — the model call, parsing and filtering, factored out
+ * of `runConstitutionalDiscovery` so the single-pass and batched paths cannot
+ * drift apart. Returns parsed candidates; PERSISTS NOTHING, because the
+ * batched path must dedup globally before anything is written.
+ */
+async function extractCandidatesFromBatch(
+  domain: string,
+  subDomain: string | null,
+  rows: readonly EvidenceRow[],
+): Promise<{ ok: true; candidates: ExtractedCandidate[] } | { ok: false; error: string }> {
+  const included = rows.map((e) => ({ ...e, content: e.content.slice(0, 6_000) }));
+  const system = subDomain ? subDomainSystemPrompt(domain, subDomain) : domainSystemPrompt(domain);
+  const scopeLine = subDomain ? `DOMAIN: ${domain}\nSUB-DOMAIN: ${subDomain}` : `DOMAIN: ${domain}`;
+  const user =
+    `${scopeLine}\n\nEVIDENCE (cite by index):\n` +
+    included.map((e, i) => `[${i}] (${e.sourceKind}) ${e.title}\n${e.content}`).join('\n\n---\n\n');
+
+  let parsed: ExtractionResult;
+  try {
+    const call = await callSovereign('analysis', system, user, 1400, 0);
+    parsed = JSON.parse(extractJson(call.text)) as ExtractionResult;
+  } catch (e) {
+    return { ok: false, error: `discovery inference failed: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  const raw = Array.isArray(parsed?.candidates) ? parsed.candidates : [];
+  const candidates: ExtractedCandidate[] = raw
+    .filter((c) => c && typeof c.statement === 'string' && c.statement.trim())
+    // Drop L0/L1 (verbatim/summary) — the same belt-and-braces filter the
+    // single-pass path applies, from the same mandate.
+    .filter((c) => {
+      const lvl = normalizeAbstraction(c.abstractionLevel);
+      return lvl !== 'L0' && lvl !== 'L1';
+    })
+    .slice(0, 12)
+    .map((c) => ({
+      statement: c.statement.trim(),
+      rationale: (c.rationale ?? '').trim(),
+      evidenceIds: (Array.isArray(c.evidenceIndices) ? c.evidenceIndices : [])
+        .map((i) => included[i]?.id)
+        .filter((id): id is string => Boolean(id)),
+      confidence: typeof c.confidence === 'number' ? Math.max(0, Math.min(1, c.confidence)) : 0.5,
+      abstractionLevel: c.abstractionLevel ?? null,
+    }));
+  return { ok: true, candidates };
 }
 
 /** Both read-time signals in one pass — convergence (within-corpus support) and

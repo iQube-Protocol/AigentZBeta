@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "candidateId": "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001",
+  "statement": "Capacity limits must produce pagination or batching, not silent population truncation.",
+  "classification": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "A 32-source population is fully partitioned across several context-sized batches — not capped at the four rows one context fits — and every row lands in exactly one batch or in an explicitly recorded exclusion, never nowhere.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "Partitioning is deterministic: the same population in any order yields identical batches, because rows are sorted by id before packing.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "A row that FITS is never excluded because an earlier row did not — the packing loop opens a new batch rather than ending, so inclusion is a property of the row and not of its position in the list.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "A failed batch quarantines only its own rows: the surviving batches keep their candidates and the failure becomes a typed exception that blocks nothing.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stage 3 — services/invariants/discoveryEngine.ts::runConstitutionalDiscovery",
+      "defect": "A 24,000-character model-context budget was implemented as a `break` in the packing loop, silently discarding every evidence row past the first four instead of batching the population across several passes.",
+      "resolutionId": "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001",
+      "evidence": [
+        "tests/batched-extraction.test.ts",
+        "152e2e541"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001"
+  ],
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-worded, verbatim (2026-08-03).",
+    "The sibling of CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001 and deliberately separate: that one governs REPORTING (a bounded processor must disclose what it did not process), this one governs MECHANISM (a capacity limit must be answered by batching rather than by dropping population). A processor can satisfy one and violate the other — honest partial reporting over a truncating mechanism was exactly the intermediate state this work passed through.",
+    "Determinism is part of the rule in practice though not in the operator's wording: batching that depends on fetch order is not reproducible, and a re-run producing different batches makes the completion arithmetic unverifiable. Recorded here rather than added to the statement, because extending an operator's wording is not an agent's act.",
+    "Only ONE occurrence. `scope: cross-capability` is a claim about where the rule APPLIES, not a claim of demonstrated recurrence — the milestone-close check flags this correctly and it must stay `candidate` until a second, genuinely independent capability exhibits the shape."
+  ]
+}

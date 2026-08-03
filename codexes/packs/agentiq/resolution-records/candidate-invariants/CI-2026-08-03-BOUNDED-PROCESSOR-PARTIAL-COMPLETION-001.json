@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "candidateId": "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+  "statement": "A bounded processor must distinguish partial completion from complete processing. Unprocessed population must be disclosed, counted and either resumed or explicitly excluded.",
+  "classification": null,
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "A run whose accounting does not reconcile can never report `complete`, even when every surface count looks finished: a batch reporting an evidence id outside the admitted population drives `processed` to `totalInput` while a genuinely admitted row goes unread, and `extractionProgression` still returns `partially-complete`.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "processed + explicitly excluded === admitted population is evaluated in one place, and `complete` additionally requires every admitted row to have been READ — a reconciling run with exclusions is `partially-complete`.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/batched-extraction.test.ts",
+      "assertion": "A row read only in part is disclosed with how much was read, counts as processed because it contributed, and rides on the exception list rather than being implied complete.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stage 3 — services/invariants/discoveryEngine.ts::runConstitutionalDiscovery",
+      "defect": "At most four of thirty-two admitted evidence rows were read and the run returned ok:true with no field distinguishing a full read from a partial one. The operator's framing: partial evidence was processed as though the full population had been processed.",
+      "resolutionId": "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001",
+      "evidence": [
+        "tests/batched-extraction.test.ts",
+        "152e2e541"
+      ]
+    },
+    {
+      "site": "Track 2 Stage 3, row scale — services/invariants/batchedExtraction.ts::partitionEvidence",
+      "defect": "The same shape one level down, found by this module's own canary: a 200,000-character evidence row is capped at 6,000 while the candidate derived from it cites the whole row as its basis. Disclosed, not resolved — splitting a row across batches is a distinct mechanism and remains outstanding.",
+      "resolutionId": "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001",
+      "evidence": [
+        "tests/batched-extraction.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001"
+  ],
+  "ratifiedSource": null,
+  "notes": [
+    "Operator-worded, verbatim (2026-08-03). Do not paraphrase the statement — the two halves ('disclosed, counted' and 'resumed or explicitly excluded') are separate obligations and a shorter rendering loses one.",
+    "Reconciling is NECESSARY for `complete`, not sufficient: a run that reconciles but excluded rows is `partially-complete`, because `complete` means every admitted record was processed.",
+    "Two occurrences are recorded, but they are the SAME session and the same subsystem at two scales. Recurrence across genuinely independent capabilities has not yet been demonstrated, so this stays `candidate` — an agent may not raise it, and the second occurrence is not offered as evidence of generality.",
+    "Related but distinct from CI-2026-08-03-NO-SILENT-POPULATION-SHRINK-001, which governs a governed ARTIFACT passing over a shrunken population. This one governs the PROCESSOR that shrinks it, upstream of any artifact.",
+    "OPEN: row-level truncation is disclosed but not resolved. A processor that reads part of a record and counts the record as processed satisfies this invariant's letter through disclosure; whether that should be permitted at all is an operator question."
+  ]
+}
