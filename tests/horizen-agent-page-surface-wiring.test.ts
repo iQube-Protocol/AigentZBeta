@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 
 function read(relPath: string): string {
   return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8');
@@ -37,11 +38,28 @@ describe('journeySurfaceRegistry — Horizen agent page is resolved, not unresol
 });
 
 describe('horizenMoneyPennyJourney — Verify stage actually surfaces the Horizen page', () => {
+  /*
+   * SUBJECT SELECTION CORRECTED, WITH THE REASON RECORDED
+   * (CI-2026-08-03-CANARY-SUBJECT-SELECTION-001: "a regression test must
+   * select its subject by the property under test, not by incidental
+   * ordering, index, fixture position or current registry shape").
+   *
+   * This read the Verify stage as "the source text between `id: 'verify'` and
+   * `nextStageId: 'claim'`" — pinning Verify's POSITION on the admission line
+   * as the way to find it. When the operator moved Verify off the spine into
+   * a post-activation branch (2026-08-03), a branch stage correctly has no
+   * `nextStageId` at all, so the regex matched nothing and the canary failed
+   * for a reason that had nothing to do with its subject.
+   *
+   * The property under test is "the Verify stage surfaces the Horizen page".
+   * It now reads the parsed definition and finds the stage by its id, so the
+   * canary survives any future reordering and fails only if Verify genuinely
+   * stops surfacing that page.
+   */
   it('the Verify stage surfaces array includes horizen-agent-page-verify', () => {
-    const source = read('services/journey/horizenMoneyPennyJourney.ts');
-    const verifyStageMatch = source.match(/id: 'verify',[\s\S]*?nextStageId: 'claim',/);
-    expect(verifyStageMatch).not.toBeNull();
-    expect(verifyStageMatch![0]).toContain('horizen-agent-page-verify');
+    const verify = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'verify');
+    expect(verify).toBeDefined();
+    expect(verify!.surfaces.map((s) => s.ref)).toContain('horizen-agent-page-verify');
   });
 });
 
