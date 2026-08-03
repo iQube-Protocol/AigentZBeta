@@ -152,6 +152,70 @@ describe('POST verify/authorize — refusals', () => {
   });
 });
 
+describe('nothing leaves this route unnamed (2026-08-03)', () => {
+  /*
+   * THE OPERATOR-REPORTED DEFECT, verbatim: `Failed to execute 'json' on
+   * 'Response': Unexpected end of JSON input` when clicking "Authorize Pulse
+   * monitoring & P&L disclosure".
+   *
+   * That message is about a parser. The fact behind it was about the request:
+   * the route answered with ZERO BYTES. Every anticipated path here returns a
+   * JSON refusal — but an UNANTICIPATED throw (MCP transport refusing to
+   * connect, the partner dropping the socket mid-ceremony, a Supabase client
+   * error) escaped the handler entirely and left the platform to answer with
+   * whatever it liked, including nothing.
+   *
+   * THIS CANARY FAILS AGAINST THE HISTORICAL DEFECT (OS-9): before the
+   * try/catch, `POST` REJECTED here instead of resolving, so there was no
+   * response to assert on at all.
+   */
+  it('converts an unanticipated throw into a JSON refusal that names the error', async () => {
+    registryAssetsRow = BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockRunHorizenTransparencyAuthorization.mockRejectedValue(
+      new TypeError('fetch failed: ECONNREFUSED horizen mcp'),
+    );
+
+    const res = await POST(makeRequest());
+    const json = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(json.ok).toBe(false);
+    expect(json.refusalCode).toBe('UNHANDLED_AUTHORIZATION_ERROR');
+    // The thrown error is still information — reporting silence discards it.
+    expect(json.error).toContain('ECONNREFUSED horizen mcp');
+    expect(json.error).toContain('TypeError');
+  });
+
+  it('does not claim the authorization failed — a killed ceremony says nothing either way', async () => {
+    // A crash after submission is indistinguishable, from here, from a crash
+    // before it. Asserting "it failed" would be a fabrication in the opposite
+    // direction from fabricating success.
+    registryAssetsRow = BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockRunHorizenTransparencyAuthorization.mockRejectedValue(new Error('socket hang up'));
+
+    const json = await (await POST(makeRequest())).json();
+    expect(json.error).toMatch(/says whether Horizen recorded the authorization/i);
+  });
+
+  it('a throw from persona resolution is also named, not swallowed by the platform', async () => {
+    mockGetActivePersona.mockRejectedValue(new Error('supabase unreachable'));
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toContain('supabase unreachable');
+  });
+
+  it('declares a duration budget, because the ceremony is four remote legs in one request', async () => {
+    // The empty body was a KILLED handler, not a thrown one. The try/catch
+    // above cannot catch a process the platform terminates — only a budget
+    // that fits the work can prevent it.
+    const { maxDuration } = await import('@/app/api/journey/moneypenny-horizen/verify/authorize/route');
+    expect(typeof maxDuration).toBe('number');
+    expect(maxDuration).toBeGreaterThan(30);
+  });
+});
+
 describe('POST verify/authorize — success', () => {
   it('resolves real inputs from registry_assets + agent_keys + a fresh Agent Card fetch, then enriches', async () => {
     registryAssetsRow = BOUND_ROW;

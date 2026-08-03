@@ -39,6 +39,22 @@ import type { HorizenNetwork } from '@/services/horizen/identity';
 
 export const dynamic = 'force-dynamic';
 
+/*
+ * THIS ROUTE IS A FOUR-LEG REMOTE CEREMONY, AND THE DEFAULT BUDGET DOES NOT
+ * COVER IT (operator, 2026-08-03: `Failed to execute 'json' on 'Response':
+ * Unexpected end of JSON input`).
+ *
+ * An empty response body is not a JSON problem — it is a handler that never
+ * wrote anything, i.e. one that crashed or was killed. This handler makes an
+ * agent-card fetch plus prepare -> sign -> submit -> reread against Horizen's
+ * remote MCP server in a SINGLE request. That is the exact shape a serverless
+ * timeout kills mid-flight, and a killed handler returns zero bytes.
+ *
+ * Honored where the platform allows; the pipeline below is also made cheaper
+ * (one connection instead of three) rather than relying on this alone.
+ */
+export const maxDuration = 120;
+
 interface AuthorizeBody {
   /** The exact disclosure scope the operator reviewed before authorizing (spec §5 "operator reviews exact scope"). */
   scope?: string[];
@@ -46,7 +62,35 @@ interface AuthorizeBody {
   agentSlug?: string;
 }
 
+/*
+ * EVERY EXIT FROM THIS ROUTE IS A NAMED ANSWER (Exception Terminates in an Act).
+ *
+ * The handler body below returns a JSON refusal on every path it anticipates —
+ * but an UNANTICIPATED throw (the MCP transport failing to connect, the partner
+ * dropping the socket, a Supabase client error) escaped it entirely and left
+ * the platform to answer. What the platform sends is not guaranteed to be JSON
+ * and can be nothing at all, which is what the operator saw. A thrown error is
+ * still information; discarding it and returning silence is the defect.
+ */
 export async function POST(request: NextRequest) {
+  try {
+    return await authorize(request);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'UNHANDLED_AUTHORIZATION_ERROR',
+        error:
+          `The authorization ceremony threw before it could answer: ` +
+          `${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. ` +
+          'Nothing here says whether Horizen recorded the authorization — re-read the state before retrying.',
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function authorize(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 

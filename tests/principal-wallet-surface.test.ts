@@ -259,7 +259,18 @@ describe('Register detects and explains before it offers', () => {
 
   it('reads the wallet gate before the mandate button is offered', () => {
     expect(register).toMatch(/\/api\/wallet\/principal\/status/);
-    expect(register).toMatch(/walletGate\?\.ready &&/);
+    /*
+     * PINS THE GATE, NOT ONE SYNTAX FOR IT (2026-08-03). This read
+     * `/walletGate\?\.ready &&/` and broke when the mandate action moved to a
+     * descriptor object whose `enabled` field carries the same condition —
+     * a refactor that preserved the gate exactly. A canary that fails on a
+     * behaviour-preserving rewrite trains the next agent to delete it.
+     *
+     * What must remain true: the mandate offer is enabled ONLY by the
+     * resolved wallet gate, and a not-ready gate says why.
+     */
+    expect(register).toMatch(/enabled:\s*Boolean\(walletGate\?\.ready\)/);
+    expect(register).toMatch(/principal wallet must be ready before a mandate can be prepared/);
   });
 
   it('requires BOTH configured and proven', () => {
@@ -407,7 +418,9 @@ describe('the acceptance conditions the operator specified', () => {
     // only when !ready.
     expect(register).toMatch(/capability === 'SIGNER_CONFIGURED' && Boolean\(json\.controlProven\)/);
     expect(register).toMatch(/walletGate && !walletGate\.ready &&/);
-    expect(register).toMatch(/walletGate\?\.ready &&/);
+    // Same stale literal as above: the positive gate now lives on the mandate
+    // action descriptor's `enabled`, not in a bare `&&` guard.
+    expect(register).toMatch(/enabled:\s*Boolean\(walletGate\?\.ready\)/);
   });
 
   it('renders each non-ready capability separately, not one collapsed message', () => {

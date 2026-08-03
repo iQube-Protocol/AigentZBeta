@@ -137,6 +137,49 @@ describe('runHorizenTransparencyAuthorization — full pipeline (Phase 1 accepta
   });
 });
 
+describe('the composed ceremony pays its remote costs ONCE (2026-08-03)', () => {
+  /*
+   * WHY THIS EXISTS: the operator's Verify button returned an EMPTY response
+   * body — `Failed to execute 'json' on 'Response': Unexpected end of JSON
+   * input` — which is a handler killed before it could write, i.e. a timeout.
+   *
+   * The pipeline's own shape was part of the cost. `prepare`, `submit` and
+   * `verify` each independently discover tools, so a full run made THREE
+   * `listTools` round trips (and, uninjected, three separate transport
+   * connections) for a tool set that cannot change inside one ceremony.
+   *
+   * THIS CANARY FAILS AGAINST THE HISTORICAL DEFECT (OS-9): run against the
+   * pre-fix client it observes 3 calls, not 1.
+   *
+   * WHAT IT DOES NOT COVER, stated rather than implied: the connection count.
+   * That path only runs when NO client is injected, and every test here
+   * injects one. The connection saving is asserted by reading
+   * `shareOneConnection`'s single `defaultMcpClient()` call site, not by this.
+   */
+  it('discovers the partner tool set exactly once across prepare, submit and verify', async () => {
+    const mcpClient = fakeMcpClient();
+    const result = await runHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mcpClient.listTools).toHaveBeenCalledTimes(1);
+  });
+
+  it('still lets each stage discover tools on its own — sharing must not break independent use', async () => {
+    // The stages are driven one at a time elsewhere (and by Phase 1's own
+    // tests). Sharing was added by WRAPPING the client in the composed path,
+    // precisely so a stage called alone keeps working unchanged.
+    const mcpClient = fakeMcpClient();
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
+    expect(prepared.ok).toBe(true);
+    expect(mcpClient.listTools).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('required refusal canaries', () => {
   it('missing token ID', async () => {
     const result = await prepareHorizenTransparencyAuthorization(

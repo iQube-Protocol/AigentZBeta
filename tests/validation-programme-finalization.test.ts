@@ -428,8 +428,24 @@ describe('Download JSON for Agent — the real manifest, never the raw crystal r
   });
 
   it('the panel warns the operator BEFORE they hand over a not-ready package', () => {
+    /*
+     * RE-POINTED 2026-08-03. This asserted the literal phrase "not
+     * review-ready", which was DELIBERATELY removed: over an unconstituted
+     * crystal it is a failure verdict about an object that exists, so it read
+     * as "you did something wrong" when the truthful message is "the crystal
+     * has not been constituted yet" — and it sent a human to fix a selection
+     * that was correct.
+     *
+     * The warning did not go away; it became a STAGE. The requirement is that
+     * the operator is told, before the download, what is missing and who acts
+     * — not that any particular sentence appears.
+     */
     const src = stripComments(readSource(PANEL));
-    expect(src).toContain('not review-ready');
+    expect(src).toContain('lifecycle.label');
+    expect(src).toContain('remainingWorkKind');
+    expect(src).toContain('whoActs');
+    // And the removed wording stays removed in operator-visible text.
+    expect(src, 'the failure-verdict wording was removed on purpose').not.toContain('not review-ready');
   });
 
   it("the crystal route no longer says 'ok' for a request while its contents fail", () => {
