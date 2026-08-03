@@ -157,6 +157,11 @@ export async function POST(request: NextRequest) {
       horizenAgentId: body.horizenAgentId ?? null,
       network: body.network as HorizenNetwork,
       actorPersonaId: persona.personaId,
+      // Read-only recovery input (services/horizen/agentIdRecovery.ts) — used
+      // ONLY to decode the registration's own receipt logs when
+      // horizenAgentId is absent. Same resolution as registerCeremony.ts's
+      // broadcast rpcUrl; never read from process.env inside the client.
+      rpcUrl: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org',
     },
     {
       updateRegistryAssetBinding,
