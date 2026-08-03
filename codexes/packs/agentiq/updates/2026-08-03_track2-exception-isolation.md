@@ -580,6 +580,80 @@ what allowed a navigation instruction to satisfy the type. A typed action would 
 structurally impossible rather than canaried — but that changes the shared exception shape every
 stage uses, and belongs in its own deliberate act.
 
+## 9.8 Execution constraints are absorbed, not projected onto the operator
+
+> **The invariant:** *"Implementation constraints that do not alter constitutional intent shall be
+> absorbed by the system rather than projected onto the operator."*
+
+Named non-constitutional constraints: pagination · batching · retries · chunking · cursor
+continuation · rate limits · API segmentation · transaction grouping.
+
+### The defect
+
+The operator selected 33 sources, chose one disposition, one provenance class and one rationale —
+and was refused: *"33 sources exceeds the 25-source batch limit… Split the selection."*
+
+> *"Technically honest but operationally poor. It has detected the constraint. It has not solved the
+> operator's problem."*
+
+### What did NOT change, and why that matters most
+
+**The server's refusal is untouched.** `MAX_BATCH = 25` and refuse-rather-than-truncate are correct:
+a silently truncated batch reporting success is exactly the population-shrink defect fixed at
+Stage 3 (`CI-…-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001`). The limit is **absorbed**, never raised
+and never relaxed.
+
+A canary pins the client's mirrored constant to the server's declared value, so drift resurfaces as
+a build failure rather than as the old refusal reaching the operator again.
+
+### What changed
+
+One operator act now loops N batches. The disposition, provenance class and rationale are entered
+once. **Each batch still carries its own receipt** — the operator's framing was *"One click. Two
+receipts. Zero operator work."*, and collapsing the receipts would collapse the constitutional
+record.
+
+Partitioning sorts by source id before packing, so the same selection yields the same batches
+regardless of click order — the determinism discipline the Stage 3 partitioner already carries.
+
+Batching surfaces as **progress** ("Executing… batch 1 of 2"), with the explicit partition available
+as expandable detail rather than as a decision — Shape B over Shape A, as the operator preferred.
+
+### The load-bearing requirement: partial failure stays honest
+
+Absorbing the batching must not reintroduce the defect the refusal was protecting against. If batch 2
+fails after batch 1 succeeded, the surface reports **exactly that** — how many were recorded, how
+many were not, which batch it stopped at, and **the id of every source not recorded**, named rather
+than counted. `summariseAbsorbedExecution` cannot describe a partial run as complete, and the run
+**stops at the first failure** rather than pressing on and leaving the operator unable to tell what
+landed.
+
+### The stale duplicate warning
+
+The warning above the same control still read *"…this is not blocked, because only you can say which
+copy is canonical."* True when written; **stale** once the resolution board shipped, because the
+operator now can. It points at the board instead — a warning whose remedy exists but which does not
+name it is a dead end, not a caution.
+
+### Registry work done in passing
+
+Two findings from the preflight, both fixed rather than noted:
+
+1. **A duplicate candidate invariant I created.** `CI-…-EXCEPTION-TERMINATES-IN-ACT-001` and the
+   family's `CI-…-UX-EXCEPTION-TERMINATES-IN-ACT-001` were one rule in two homes — the exact
+   `inv.engineering.036/037` defect. Consolidated onto the UX-prefixed id (it carries the
+   operator-formalised family naming), with my four verified canaries and occurrence carried across,
+   and the duplicate removed.
+2. **The whole UX family had zero canaries.** Ten invariants, all advisory prose — *"without the
+   canary, the invariant is advisory prose"*. Attached the tests that already enforce five of them.
+
+`CI-2026-08-03-EXECUTION-CONSTRAINT-ABSORPTION-001` is being authored by the other agent and is
+**deliberately not duplicated**. It is omitted from `candidateInvariants` rather than referenced,
+because the referential-integrity canary correctly refuses a record naming a candidate absent from
+disk — a dangling reference is a broken registry, not a placeholder. The record states exactly what
+to add on both sides when it lands; `tests/execution-absorption.test.ts` is its enforcement point and
+is already written.
+
 ## 10. Verification
 
 **Canaries verified to FAIL before the change** (OS-9: *"a canary must be written against real
@@ -617,6 +691,12 @@ production code, running, and restoring:
 | 27 | a `.delete()` in the resolution path | no-code-path-deletes-a-candidate-source |
 | 28 | drop the board/exception-list dedupe filter | one-decision-one-place |
 | 29 | batch act stops excluding judgement groups | ambiguous-group-is-skipped-by-name |
+| 30 | a partial run reports `complete` | batch-2-failing-reports-PARTIAL + only-all-batches-is-complete |
+| 31 | drop the sort before packing | same-selection-any-order |
+| 32 | drop `notRecordedSourceIds` | 4 reconciliation tests |
+| 33 | send the whole selection as one request | one-act-loops-the-batches |
+| 34 | `receiptWritten` true if ANY batch receipted | each-batch-keeps-its-own-receipt |
+| 35 | restore the stale duplicate warning | warning-points-at-the-board |
 
 **Five pre-existing canaries** failed against the new code and were updated with recorded reasons —
 each had pinned a defective shape: the ordinal lock rule; the title heuristic's location in the
