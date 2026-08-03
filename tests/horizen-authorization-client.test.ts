@@ -229,9 +229,32 @@ describe('the Pulse call conforms to the documented contract, not to inference (
     'utf8',
   );
 
-  it('sends the numeric chain id, never the network name as `chain`', () => {
-    expect(source).toMatch(/chain:\s*facts\.chainId/);
-    expect(source, "'chain' was being sent the network key").not.toMatch(/chain:\s*input\.registry\.network/);
+  /*
+   * CORRECTED 2026-08-03 from Horizen's own schema rejection:
+   *   chain:  expected 'base-mainnet' | 'base-sepolia', received number
+   *   action: expected 'enable' | 'disable', received undefined, Required
+   *
+   * `Chain: 84532` is what Horizen writes INTO the plaintext message body; the
+   * tool ARGUMENT selecting the network is the string selector. The previous
+   * assertion pinned the wrong one — a canary defending a defect, replaced
+   * rather than deleted (CANARY-REPRODUCES-DEFECT).
+   */
+  it('sends the network SELECTOR as `chain`, never the numeric chain id', () => {
+    expect(source).toMatch(/chain:\s*facts\.pulseSelector/);
+    expect(source, 'chain: facts.chainId is exactly what Horizen rejected as a number').not.toMatch(
+      /\n\s*chain:\s*facts\.chainId/,
+    );
+  });
+
+  it('supplies the required `action` argument', () => {
+    expect(source).toMatch(/action:\s*'enable'/);
+  });
+
+  it('refuses locally when the tool declares a required argument we do not supply', () => {
+    // The schema was in hand before the call — a missing required field should
+    // fail here, naming it, not at the partner with a generic validation dump.
+    expect(source).toContain('missingRequiredFields(buildTool.tool.inputSchema, buildArgs)');
+    expect(source).toContain('declares required argument(s) this client supplies no value for');
   });
 
   it('sends the pulse network selector from the facts table', () => {
