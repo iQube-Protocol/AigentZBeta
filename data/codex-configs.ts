@@ -3286,6 +3286,39 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       }
     },
     {
+      /*
+       * REVIEW QUEUE, MIRRORED (operator, 2026-08-03).
+       *
+       * The SAME component the Polity Passport Bureau's own Steward tab mounts
+       * (`passport-bureau-steward`) — never a second queue, so the two
+       * surfaces cannot disagree about which applications are open
+       * (inv.engineering.036/037). Mirrored here so a Delegate Passport
+       * application raised by the Venture Lab Journey can be decided without
+       * leaving the cartridge.
+       *
+       * `adminOnly: true` carries the ORIGINAL's gate. Mirroring a surface must
+       * never become a route around one (CLAUDE.md Security — never weaken an
+       * access gate).
+       */
+      id: 'venture-lab-steward-queue',
+      label: 'Review Queue',
+      slug: 'review-queue',
+      enabled: true,
+      adminOnly: true,
+      group: 'administer',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PassportBureauStewardTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Gavel',
+        description: 'Steward review queue — approve, deny or request info on passport applications, mirrored from the Polity Passport Bureau',
+        color: 'violet'
+      }
+    },
+    {
       id: 'plan-pricing',
       label: 'Plan Pricing',
       slug: 'plan-pricing',

@@ -92,10 +92,22 @@ describe('A — the Administer group answers to platform admin, never a cartridg
     ).toEqual([]);
   });
 
-  it('a platform admin opens exactly Plan Pricing and α Docs — the gate admits somebody', () => {
+  it('a platform admin opens the Administer group — the gate admits somebody', () => {
+    /*
+     * `review-queue` added 2026-08-03, operator-directed: the Polity Passport
+     * Bureau's Steward queue mirrored here so a Delegate Passport application
+     * raised by the Journey can be decided without leaving the cartridge. It
+     * mounts the Bureau's OWN component and carries its `adminOnly: true`.
+     *
+     * What this canary protects is that the group ADMITS a platform admin and
+     * NOTHING here is reachable without that flag — not a frozen membership
+     * count. The separate 'a cartridge admin opens nothing' assertion is the
+     * half that guards the gate, and it is untouched.
+     */
     expect(slugsInGroup(VENTURE_LAB_CODEX, 'administer', { isAdmin: true })).toEqual([
       'alpha-docs',
       'plan-pricing',
+      'review-queue',
     ]);
   });
 
