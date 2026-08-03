@@ -1175,11 +1175,22 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
   });
 
   it('the client names a gateway timeout as a timeout', () => {
-    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
-    expect(panel).toMatch(/res\.status === 504 \|\| res\.status === 502 \|\| res\.status === 408/);
-    expect(panel).toMatch(/did not answer in time/);
+    /*
+     * MOVED, NOT LOST (2026-08-03). `readJsonOrExplain` was a private function
+     * in RegisterAgentPanel, hardened over several real incidents, while every
+     * other surface kept calling raw `.json()` and kept reproducing the defect
+     * it had already solved. It now lives in utils/ as the ONE implementation
+     * (inv.engineering.036/037), so this asserts against its real home and a
+     * sibling below asserts the panel still reaches it.
+     */
+    const reader = stripComments(readSource('utils/readJsonOrExplain.ts'));
+    expect(reader).toMatch(/res\.status === 504 \|\| res\.status === 502 \|\| res\.status === 408/);
+    expect(reader).toMatch(/did not answer in time/);
     // And must not let a transport failure read as the act having failed.
-    expect(panel).toMatch(/no act has failed/);
+    expect(reader).toMatch(/no act has failed/);
+    // The panel must still USE it — behaviour is only preserved if reached.
+    const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
+    expect(panel).toContain("from '@/utils/readJsonOrExplain'");
   });
 
   it("Horizen's agent identifier is kept, not discarded with the rest of the build response", () => {
