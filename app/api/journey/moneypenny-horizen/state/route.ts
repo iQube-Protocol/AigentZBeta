@@ -238,49 +238,78 @@ async function resolveState(req: NextRequest) {
         if (!authUserId) {
           operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
         } else {
-          let principal = await resolvePassportPrincipalForAuthUser(authUserId);
-
           /*
-           * THE KYBE ANCHOR IS MISSING, THE PASSPORT IS NOT (operator, 2026-08-03).
+           * ══ THE PASSPORT CREDENTIAL IS THE AUTHORITY. THE DID IS ITS
+           *    PRODUCT. ══════════════════════════════════════════════════════
            *
-           * Every `ppc-*` row in this deployment has a NULL `kybe_identity_id`,
-           * so the kybe walk above returns `no_passport`/`lineage_incomplete`
-           * for an operator holding five active Citizen Passports. The
-           * Passports are real and reachable — by `persona_id`, which is how
-           * /api/polity-passport/wallet has been showing them all along.
+           * Operator ruling, 2026-08-03:
            *
-           * Falling back is the Settled Fact discipline applied to a lookup:
-           * an observer's inability to find evidence THROUGH ONE KEY is not
-           * evidence that the fact is untrue. Only tried when the kybe path
-           * reports a NEGATIVE finding — never when it reports an
-           * infrastructure failure (`unavailable`), which must stay a
-           * "cannot read" rather than becoming a "does not hold".
+           *   > "It should be the passport VC only — that's essentially the
+           *   >  point of it. A person or agent may arrive without a passport
+           *   >  and not have had a DID issued. The passport process ISSUES
+           *   >  the kybe or root DID, so that can't be the gating issue."
            *
-           * Agents are unaffected by design: they are root-id anchored, hold
-           * no kybe, and their `agent_participant` Passports are excluded by
-           * the `passport_class = 'citizen'` filter inside the fallback. The
-           * principal question can never be answered by a delegate's record.
+           * The causal order is:
+           *
+           *   arrives with neither → Passport issued → DID minted
+           *                                            (kybe for a human,
+           *                                             root for an agent)
+           *
+           * So resolving a Passport BY its DID inverts cause and effect. The
+           * DID is downstream of the credential; requiring it to find the
+           * credential asks the output to precede the input, and answers
+           * "no Passport" for every subject whose DID has not been minted yet
+           * — which is precisely the state a new arrival is in.
+           *
+           * This is why the Journey asked the wrong question first. It led
+           * with `resolvePassportPrincipalForAuthUser` (a DID-chain walk) and
+           * treated the credential as the fallback. It now leads with the
+           * CREDENTIAL, and consults the chain only to enrich what it found.
+           *
+           * I previously called the null `kybe_identity_id` an issuance
+           * defect. On this model it need not be: a Passport may legitimately
+           * exist before its DID is minted. Whether these particular rows
+           * SHOULD have one by now is a separate question, and not one this
+           * observer is entitled to answer by refusing to see the credential.
+           *
+           * Role separation holds structurally: the lookup filters
+           * `passport_class = 'citizen'` in the query, so an agent's
+           * `agent_participant` credential can never answer the principal's
+           * question. Agents are root-anchored and correctly hold no kybe —
+           * Nakamoto, arriving from the Horizen registry, is not expected to
+           * have a root DID at all. The Delegate Passport will create it.
            */
-          if (!principal.ok && (principal.reason === 'no_passport' || principal.reason === 'lineage_incomplete')) {
-            const byPersona = await loadUsableCitizenPassportForAuthProfile(supabase, caller?.authProfileId ?? '');
-            if (byPersona.ok) {
-              console.warn(
-                '[JOURNEY STATE] Citizen Passport resolved by persona because its kybe anchor is absent — ' +
-                  'issuance is not writing kybe_identity_id on ppc-* rows. Recognised, and recorded as an audit gap.',
-              );
-              principal = {
-                ok: true,
-                principal: {
-                  // T0 and deliberately unusable as a principal: this path
-                  // establishes that a Passport EXISTS, never a minted
-                  // identity. Nothing downstream may treat these as a lineage.
-                  kybeId: '',
-                  rootIdentityId: '',
-                  authUserId,
-                  passport: byPersona.passport,
-                },
-              };
-            }
+          const credential = await loadUsableCitizenPassportForAuthProfile(supabase, caller?.authProfileId ?? '');
+
+          let principal: Awaited<ReturnType<typeof resolvePassportPrincipalForAuthUser>>;
+          if (credential.ok) {
+            principal = {
+              ok: true,
+              principal: {
+                // Empty on purpose, and never a lineage: this path establishes
+                // that a CREDENTIAL exists, not that a DID has been minted.
+                // Nothing downstream may read these as identity.
+                kybeId: '',
+                rootIdentityId: '',
+                authUserId,
+                passport: credential.passport,
+              },
+            };
+          } else if (credential.reason === 'unavailable') {
+            // A failed READ stays "cannot tell". Never demoted to "does not
+            // hold", and never silently retried down the DID path — that
+            // would convert an infrastructure fault into a constitutional
+            // finding.
+            principal = { ok: false, reason: 'unavailable' };
+          } else {
+            /*
+             * No credential found by subject. The DID walk is consulted ONLY
+             * now — as a second way of finding a credential this deployment
+             * may key differently, never as a prerequisite. If it also finds
+             * nothing, the honest answer is that no Passport exists yet, and
+             * the Citizen path is genuinely the right next act.
+             */
+            principal = await resolvePassportPrincipalForAuthUser(authUserId);
           }
 
           if (principal.ok) {
