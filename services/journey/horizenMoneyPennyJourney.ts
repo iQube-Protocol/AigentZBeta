@@ -286,15 +286,30 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        * meaningless. `capability_registered` records what actually happened
        * here — the agent became a registered, eligible participant.
        *
-       * `standing_accrued` remains the accrual receipt, written by the
-       * Standing stage's own qualifying acts, never by this one.
+       * CORRECTED SAME DAY by the operator: removing the accrual entirely was
+       * too absolute. Registration IS a consequential, receipted act — it has
+       * cost, commitment and consequence — so it earns a NOMINAL one-time
+       * award. Their voter-registration analogy is exact: registering is not
+       * civic contribution equivalent to voting, but it is a constitutionally
+       * meaningful act that may justify a modest initial grant.
+       *
+       * So BOTH receipts, recording two separate things:
+       *   capability_registered — admitted, and now ELIGIBLE to accrue.
+       *   standing_accrued      — a one-time NOMINAL registration award,
+       *                           basis 'iqube_registry_registration',
+       *                           tier 'initial', non-repeatable.
+       *
+       * The safeguard is not "no Standing on ingestion". It is that admission
+       * Standing stays DISTINGUISHABLE from earned performance Standing —
+       * enforced by the basis code and by the seed being too small to move a
+       * Standing bucket. See services/journey/registrationStandingSeed.ts.
        */
-      receiptTypes: ['capability_registered'],
+      receiptTypes: ['capability_registered', 'standing_accrued'],
       receiptsSurfacedNatively: true,
       companion: {
         before: 'Ingest the activated agent into the factory to make it eligible to accrue Standing through validated work.',
         complete:
-          'Ingested as a factory participant and now ELIGIBLE to accrue Standing. Nothing has been accrued yet — Standing is earned through qualifying, validated action.',
+          'Ingested as a factory participant, now eligible to accrue Standing, and credited a nominal one-time registration award. That award records a completed act, not demonstrated performance — substantive Standing is still earned through validated contribution.',
       },
       nextStageId: 'standing',
     },

@@ -24,6 +24,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import {
+  REGISTRATION_STANDING_SEED,
+  REGISTRATION_SEED_STANDING,
+  shouldAwardRegistrationSeed,
+} from '@/services/journey/registrationStandingSeed';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import type { JourneyStageDefinition } from '@/types/journey';
 
@@ -36,6 +43,13 @@ const byId = (id: string): JourneyStageDefinition => {
 const orderOf = (id: string) => STAGES.findIndex((s) => s.id === id);
 
 const SPINE = ['register', 'claim', 'passport', 'delegate', 'aigentme'] as const;
+
+/** Read from the module's own closed union so the canary cannot drift from it. */
+const SETTLED_PREDICATES = fs
+  .readFileSync(path.join(__dirname, '..', 'services/journey/settledFacts.ts'), 'utf8')
+  .match(/export type SettledPredicate =([\s\S]*?);/)![1]
+  .match(/'([a-z_]+)'/g)!
+  .map((q) => q.replace(/'/g, ''));
 
 describe('the admission spine is Register -> Claim -> Passport -> Delegate -> aigentMe', () => {
   it('runs in that order, with nothing interleaved', () => {
@@ -95,21 +109,87 @@ describe('enrichments and factory ingestion are parallel branches, not steps', (
   });
 });
 
-describe('ingestion establishes eligibility, never accrual', () => {
-  it('Standing follows factory ingestion, not verification', () => {
-    /*
-     * The operator's constitutional distinction, verbatim:
-     *   "Ingested into Factory ≠ Standing accrued
-     *    Ingested into Factory → Eligible to accrue Standing through
-     *    qualifying action"
-     */
-    expect(byId('standing').prerequisites).toEqual(['deploy']);
-    expect(byId('standing').prerequisites).not.toContain('verify');
+describe('registration earns a NOMINAL award, distinguishable from earned Standing', () => {
+  /*
+   * ── CORRECTED BY THE OPERATOR, SAME DAY ─────────────────────────────────
+   *
+   * My first version of this block forbade Standing at ingestion outright.
+   * That was too absolute, and they said so:
+   *
+   *   > "Factory ingestion can earn a nominal initial Standing award because
+   *   >  registration is itself a consequential, receipted action — not
+   *   >  merely passive eligibility. … The important safeguard is not 'no
+   *   >  Standing on ingestion.' It is: Admission Standing must be
+   *   >  distinguishable from earned performance Standing."
+   *
+   * So the sequence is:
+   *
+   *   Registered in iQube Registry -> Standing eligible
+   *                                -> NOMINAL onboarding Standing accrued
+   *   Subsequent validated contribution -> ADDITIONAL Standing accrued
+   *
+   * These canaries now enforce the six conditions the operator listed, in
+   * their order.
+   */
+  it('1. registration Standing is present after successful ingestion', () => {
+    // The condition my previous canary had exactly backwards.
+    expect(byId('deploy').receiptTypes ?? []).toContain('standing_accrued');
   });
 
-  it('the ingestion stage carries no Standing-accrual receipt', () => {
-    // Ingestion may receipt the ingestion itself; it must not receipt an
-    // accrual, which is earned only by later qualifying, validated action.
-    expect(byId('deploy').receiptTypes ?? []).not.toContain('standing_accrued');
+  it('2. the award is one-time — idempotency is structural, not remembered', () => {
+    /*
+     * "Registration cannot be repeatedly farmed for Standing." A caller that
+     * merely remembers not to call twice is not idempotent: a refresh, retry
+     * or second observer would each re-award. The seed is gated on a SETTLED
+     * FACT, and `settleFact` returns `alreadySettled: true` without
+     * overwriting, so repeated attempts land exactly once.
+     */
+    expect(SETTLED_PREDICATES).toContain('registry_standing_seeded');
+    expect(REGISTRATION_STANDING_SEED.repeatable).toBe(false);
+    expect(shouldAwardRegistrationSeed({ ok: true, alreadySettled: false })).toBe(true);
+    expect(shouldAwardRegistrationSeed({ ok: true, alreadySettled: true }), 'a second attempt must not re-award').toBe(false);
+  });
+
+  it('3. the award is distinguishable from contribution Standing, by basis and tier', () => {
+    // The operator's actual safeguard: not the amount, the DISTINGUISHABILITY.
+    expect(REGISTRATION_STANDING_SEED.basis).toBe('iqube_registry_registration');
+    expect(REGISTRATION_STANDING_SEED.tier).toBe('initial');
+    expect(REGISTRATION_STANDING_SEED.impliesPerformance).toBe(false);
+  });
+
+  it('4. registration alone cannot grant elevated authority', () => {
+    /*
+     * Derived from the accrual service's own live constants, so this stays
+     * true if they change rather than resting on a comment: bucket =
+     * floor(overall / BUCKET_STEP), so a seed below one bucket step cannot
+     * move an agent off bucket 0, cannot reach STANDING_THRESHOLD, and
+     * therefore unlocks nothing gated on a Standing tier.
+     */
+    const svc = fs.readFileSync(path.join(__dirname, '..', 'services/crm/standingAccrualService.ts'), 'utf8');
+    const bucketStep = Number(svc.match(/const BUCKET_STEP = (\d+)/)![1]);
+    const threshold = Number(svc.match(/const STANDING_THRESHOLD = (\d+)/)![1]);
+    expect(REGISTRATION_SEED_STANDING).toBeLessThan(bucketStep);
+    expect(REGISTRATION_SEED_STANDING).toBeLessThan(threshold);
+    expect(Math.floor(REGISTRATION_SEED_STANDING / bucketStep), 'the seed must not move the bucket').toBe(0);
+  });
+
+  it('5. a failed or incomplete ingestion receives no Standing', () => {
+    // The gate is the settlement itself: a run that never settles never awards.
+    expect(shouldAwardRegistrationSeed({ ok: false })).toBe(false);
+    expect(shouldAwardRegistrationSeed({ ok: false, alreadySettled: false })).toBe(false);
+  });
+
+  it('6. Standing is never awarded before the registry act is receipted', () => {
+    // Both receipts on the stage, and the registration receipt FIRST — the
+    // award records a completed act, so the act must be recorded first.
+    const receipts = byId('deploy').receiptTypes ?? [];
+    expect(receipts).toContain('capability_registered');
+    expect(receipts).toContain('standing_accrued');
+    expect(receipts.indexOf('capability_registered')).toBeLessThan(receipts.indexOf('standing_accrued'));
+  });
+
+  it('Standing still follows factory ingestion, not verification', () => {
+    expect(byId('standing').prerequisites).toEqual(['deploy']);
+    expect(byId('standing').prerequisites).not.toContain('verify');
   });
 });

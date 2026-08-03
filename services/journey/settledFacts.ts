@@ -75,7 +75,16 @@ export type SettledPredicate =
   | 'is_registered'
   | 'control_is_proven'
   | 'passport_is_issued'
-  | 'delegation_is_granted';
+  | 'delegation_is_granted'
+  /*
+   * The one-time registration Standing award (operator correction,
+   * 2026-08-03). Settling it IS the idempotency mechanism: `settleFact`
+   * returns `alreadySettled: true` on a second attempt and does not
+   * overwrite, so the seed can be attempted on every refresh, retry or
+   * observer and lands exactly once. See
+   * `services/journey/registrationStandingSeed.ts`.
+   */
+  | 'registry_standing_seeded';
 
 /**
  * Why a settled fact may be reopened. NOTHING ELSE MAY.
