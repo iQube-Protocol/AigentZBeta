@@ -169,3 +169,146 @@ export async function resolveHorizenRegistrationBinding(
     return unresolved;
   }
 }
+
+/**
+ * THE ONE ANSWER to "is this agent registered on Horizen" — settled once,
+ * consumed thereafter.
+ *
+ * ── WHY (operator ruling, 2026-08-03) ────────────────────────────────────
+ *
+ *   > "It's already been reasoned. Why is it re-reasoning again as to whether
+ *   >  Nakamoto is registered or not? That's an invariant now. It's proven,
+ *   >  we have the proof, it's been registered."
+ *
+ * `resolveHorizenRegistrationBinding` above is a RESILIENT READER: it consults
+ * the projection, then a structured receipt, then the chain. That resilience
+ * was the right fix for a stuck write — but it is still a derivation, and it
+ * ran independently on every screen, which is how one settled fact came to
+ * have five observers capable of five answers.
+ *
+ * This function is the resolution boundary. It derives ONCE, records the
+ * result as a `SettledFact`, and from then on RETRIEVES rather than reasons.
+ * Downstream stages ask `state.settled`; they never re-run the ladder.
+ *
+ * The order matters and is the operator's:
+ *   1. the settled fact, if one exists  (retrieval — no reasoning)
+ *   2. the canonical persisted binding
+ *   3. reconstruction from transaction + receipts
+ *   4. unresolved
+ *
+ * A step-2/3 success SETTLES, so step 1 answers every subsequent call.
+ *
+ * `source: 'unresolved'` is NOT `registered: false`. It means this resolver
+ * could not establish the fact — an evidence gap, not a negative finding. The
+ * distinction is the whole point: an observer's inability to find evidence
+ * has never been evidence that a settled fact stopped being true.
+ */
+export type RegistrationStateSource = 'settled' | 'binding' | 'receipt-reconstruction' | 'unresolved';
+
+export interface AgentRegistrationState {
+  registered: boolean;
+  tokenId: string | null;
+  /** The Registry REST rendering — hex (§2.4.1). Derived, never re-typed. */
+  registryAgentId: string | null;
+  network: string | null;
+  evidenceRefs: string[];
+  source: RegistrationStateSource;
+  /** True once this fact is settled — downstream must not re-derive. */
+  settled: boolean;
+  /**
+   * Evidence the resolver expected and did not find. Reported so a gap stays
+   * visible and fixable — and NEVER folded into `registered`.
+   */
+  auditGaps: string[];
+}
+
+export async function resolveAgentRegistrationState(
+  admin: SupabaseClient,
+  agent: RegistrableAgentConfig,
+  deps: ResolveBindingDeps = {},
+): Promise<AgentRegistrationState> {
+  const { readSettledFact, settleFact, isSettled } = await import('@/services/journey/settledFacts');
+  const { parseAgentId, serializeForSurfaces } = await import('./identity');
+
+  // ── 1. Retrieval. No reasoning happens past this point. ─────────────────
+  const existing = await readSettledFact<{
+    standard: string;
+    network: string;
+    tokenId: string;
+    registryId: string;
+  }>(admin, agent.aigentQubeId, agent.runtimeAgentId, 'is_registered');
+  if (isSettled(existing) && existing) {
+    return {
+      registered: true,
+      tokenId: existing.object.tokenId,
+      registryAgentId: existing.object.registryId,
+      network: existing.object.network,
+      evidenceRefs: existing.evidenceRefs,
+      source: 'settled',
+      settled: true,
+      auditGaps: [],
+    };
+  }
+
+  // ── 2/3. Derive once, through the shared resilient reader. ──────────────
+  const { binding, fromReceiptFallback, fallbackSource } = await resolveHorizenRegistrationBinding(admin, agent, deps);
+  if (!binding?.token_id) {
+    return {
+      registered: false,
+      tokenId: null,
+      registryAgentId: null,
+      network: binding?.network ?? null,
+      evidenceRefs: [],
+      source: 'unresolved',
+      settled: false,
+      auditGaps: ['no registration binding could be resolved from the projection, receipts or the chain'],
+    };
+  }
+
+  const network = binding.network ?? 'base-sepolia';
+  const parsed = parseAgentId(binding.token_id);
+  const registryAgentId = parsed.ok
+    ? serializeForSurfaces(parsed.value, network === 'base-mainnet' ? 'base-mainnet' : 'base-sepolia').registryAgentId
+    : null;
+
+  const auditGaps: string[] = [];
+  if (fromReceiptFallback) {
+    auditGaps.push(
+      `the registry_assets projection did not carry this binding; it was reconstructed via ${fallbackSource ?? 'a fallback'}`,
+    );
+  }
+  if (!binding.human_readable_url) {
+    auditGaps.push("Horizen's human-readable page identifier was never returned for this registration");
+  }
+
+  const evidenceRefs = [
+    `binding:${agent.aigentQubeId}`,
+    ...(binding.identity_registry_contract ? [`registry:${binding.identity_registry_contract}`] : []),
+    ...(fallbackSource ? [`fallback:${fallbackSource}`] : []),
+  ];
+
+  // ── The settlement. Idempotent: a race cannot produce two truths. ───────
+  const settled = await settleFact(admin, agent.aigentQubeId, {
+    subject: agent.runtimeAgentId,
+    predicate: 'is_registered',
+    object: { standard: 'ERC-8004', network, tokenId: binding.token_id, registryId: registryAgentId ?? binding.token_id },
+    evidenceRefs,
+    resolutionAuthority: 'services/horizen/agentRegistrationBinding.resolveAgentRegistrationState',
+  });
+  if (!settled.ok) {
+    // The fact is still TRUE — we simply failed to record that it is settled.
+    // Reported as an audit gap, never as a failure to be registered.
+    auditGaps.push(`the settlement could not be persisted (${settled.reason}): ${settled.detail}`);
+  }
+
+  return {
+    registered: true,
+    tokenId: binding.token_id,
+    registryAgentId,
+    network,
+    evidenceRefs,
+    source: fromReceiptFallback ? 'receipt-reconstruction' : 'binding',
+    settled: settled.ok,
+    auditGaps,
+  };
+}
