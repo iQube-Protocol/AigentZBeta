@@ -102,7 +102,26 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   return (
     <JourneyRunSurface
       journey={HORIZEN_MONEYPENNY_JOURNEY}
-      stateUrl="/api/journey/moneypenny-horizen/state"
+      /*
+       * THE OBSERVER MUST WATCH THE AGENT THE SURFACES ARE ACTING ON
+       * (operator, 2026-08-03: "Is the observer recognising that the wallet
+       * has been proven?").
+       *
+       * Every SURFACE above threads `selectedAgentSlug` — RegisterAgentPanel,
+       * PulseTransparencyToggle, MarketaEligibilityView and
+       * HorizenAgentPageSurface each got that fix individually, each with its
+       * own comment. This URL — the ONE input the observer reads — never did.
+       * So `/state` fell back to DEFAULT_REGISTRABLE_AGENT_SLUG (moneypenny)
+       * and `findAgentReceiptRefs('aigent-moneypenny', …)` returned nothing,
+       * while the stage's own receipts drawer (persona-scoped, not
+       * agent-scoped) displayed Nakamoto's `agent_control_proven` receipt in
+       * plain view. Claim rendered "Awaiting: Control Proof Fresh · 0 of 2
+       * recorded" directly above the very proof it was awaiting.
+       *
+       * The execution layer had done the act. The projection layer was
+       * faithful. The OBSERVER was watching a different agent.
+       */
+      stateUrl={`/api/journey/moneypenny-horizen/state?agentSlug=${encodeURIComponent(selectedAgentSlug)}`}
       personaId={personaId}
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}
