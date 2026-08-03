@@ -629,6 +629,28 @@ above: that rule stops one *fact* having two homes; this one stops a *lesson* ha
 > candidate invariant, attach the regression mechanism, and carry it into subsequent work. Do not
 > ratify the invariant automatically."*
 
+**Root-level pointer: [`RESOLUTION_RECORDS.md`](RESOLUTION_RECORDS.md).** Registry location, how to
+search it, the preflight, and what may never be auto-promoted — kept at the repo root so no agent
+can miss it.
+
+### Mandatory resolution and invariant preflight — BEFORE you write code
+
+Before beginning any material implementation, repair, migration, refactor, or governed workflow
+change, you **MUST** inspect the resolution-record registry and the invariant registry for records
+relevant to the affected capability, subsystem, route, schema, data owner, failure mode and
+lifecycle stage. You must then **state**:
+
+- which resolution records you reviewed;
+- which existing invariants apply;
+- which canaries or enforcement points protect them;
+- which unresolved risks remain;
+- whether the proposed work could **invalidate, bypass, duplicate or regress** an earlier resolution.
+
+**Do not begin implementation until this preflight is complete.** An unstated preflight is an
+unperformed one. It is cheap: `npm run report:resolutions`, plus a grep of the registry by
+subsystem. It exists because the same actor-vs-subject defect was rediscovered three times in one
+session for want of it.
+
 ### When you MUST run the loop — ten triggers, milestone-scoped
 
 Milestone/resolution-triggered, **never commit-triggered** — do not do this on every push. You MUST

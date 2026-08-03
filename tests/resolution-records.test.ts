@@ -187,16 +187,41 @@ describe('the milestone-close check', () => {
     expect(clear).toBe(true);
   });
 
+  /*
+   * RETIRED DELIBERATELY, 2026-08-03 — as this test's own failure message
+   * instructed ("if the freeze-disclosure enforcement point landed, retire
+   * this expectation deliberately rather than deleting the check").
+   *
+   * It landed the same session: CI-2026-08-03-FREEZE-POPULATION-DISCLOSURE-001
+   * was recorded with NO canary as the live example of the gap, and acquired
+   * one when the freeze-package amendment shipped (commit f9024e6d5). That is
+   * the loop working, so the registry no longer contains a canary-less
+   * candidate to point at.
+   *
+   * The CHECK still matters and must not be deleted with the example. It is
+   * now exercised against a synthetic candidate, so it tests the check's
+   * capability rather than a passing state of the data — the same reason
+   * OS-9 rejects canaries written against the author's assumptions.
+   */
   it('flags a candidate with NO canary — an invariant without one is advisory prose', () => {
-    const pending = registry.candidates.find((c) => c.canaries.length === 0);
+    const real = registry.candidates[0];
+    expect(real, 'registry has no candidates to model a synthetic one on').toBeDefined();
+    const synthetic = { ...real, candidateId: 'CI-SYNTHETIC-NO-CANARY-001', canaries: [] };
+    const { findings } = runMilestoneCloseCheck({ ...registry, candidates: [synthetic] });
     expect(
-      pending,
-      'no canary-less candidate in the registry — if the freeze-disclosure enforcement point landed, retire this expectation deliberately rather than deleting the check',
-    ).toBeDefined();
-    const { findings } = runMilestoneCloseCheck(registry);
-    expect(
-      findings.some((f) => f.subjectId === pending!.candidateId && f.message.includes('advisory prose')),
+      findings.some((f) => f.subjectId === synthetic.candidateId && f.message.includes('advisory prose')),
     ).toBe(true);
+  });
+
+  it('does not warn when that same candidate HAS a canary — the check discriminates', () => {
+    // Guards the retirement above: if the check warned unconditionally it
+    // would pass the test above while telling the operator nothing.
+    const withCanary = registry.candidates.find((c) => c.canaries.length > 0);
+    expect(withCanary, 'no canary-bearing candidate to check against').toBeDefined();
+    const { findings } = runMilestoneCloseCheck({ ...registry, candidates: [withCanary!] });
+    expect(
+      findings.some((f) => f.subjectId === withCanary!.candidateId && f.message.includes('advisory prose')),
+    ).toBe(false);
   });
 
   it('a recurrence-class resolution with nothing executable protecting it is a BLOCKER', () => {
