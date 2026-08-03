@@ -29,6 +29,7 @@ import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/servi
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
 import { checkAuthorizationStoreAvailable } from '@/services/horizen/partnerAuthorizationStore';
 import { resolvePassportEligibility } from '@/services/journey/passportEligibility';
+import { resolveAgentAdmissionState } from '@/services/journey/agentAdmissionState';
 import {
   journeyAct,
   readJourneyResolution,
@@ -151,6 +152,12 @@ async function resolveState(req: NextRequest) {
    */
   let registration: Awaited<ReturnType<typeof resolveAgentRegistrationState>> | null = null;
   let authorizationStore: Awaited<ReturnType<typeof checkAuthorizationStoreAvailable>> | null = null;
+  /*
+   * SPONSORSHIP, DELEGATE PASSPORT AND DELEGATION — read from the records those
+   * acts write, never from their receipts alone (operator, 2026-08-03). See
+   * services/journey/agentAdmissionState.ts for the defect this closes.
+   */
+  let admission: Awaited<ReturnType<typeof resolveAgentAdmissionState>> | null = null;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
   /*
    * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
@@ -335,6 +342,9 @@ async function resolveState(req: NextRequest) {
         }
       }
     });
+    if (supabase) await guarded('agent-admission', async () => {
+      admission = await resolveAgentAdmissionState(supabase, agent);
+    });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
     });
@@ -396,13 +406,22 @@ async function resolveState(req: NextRequest) {
          * corroboration, identical to lines below.
          */
         operatorPolityCitizenPassportValid: operatorPassport.valid || hasReceipt('operator_passport_validated'),
-        sponsorBinding: hasReceipt('agent_sponsorship_recorded'),
-        delegatePassportIssued: hasReceipt('agent_delegate_passport_issued'),
+        /*
+         * CANONICAL FIRST, receipt as CORROBORATION — the same correction made
+         * to `operatorPolityCitizenPassportValid` above, now applied to its
+         * siblings. A steward's approval writes a Passport record; it does not
+         * necessarily write a receipt, and the absence of one is an audit gap,
+         * never evidence the approval did not happen.
+         */
+        sponsorBinding: admission?.sponsorshipRecorded === true || hasReceipt('agent_sponsorship_recorded'),
+        delegatePassportIssued:
+          admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
       },
       delegate: {
-        delegatePassportActive: hasReceipt('agent_delegate_passport_issued'),
-        boundedDelegationActive: hasReceipt('agent_delegated'),
-        contextualMandate: hasReceipt('agent_delegated'),
+        delegatePassportActive:
+          admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
+        boundedDelegationActive: admission?.delegationActive === true || hasReceipt('agent_delegated'),
+        contextualMandate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
         bootstrapApproval: hasReceipt('finance_authoritative_execution'),
         aigentZObserverReceipt: hasReceipt('finance_authoritative_execution'),
         fsRuntimeActive: hasReceipt('finance_authoritative_execution'),
@@ -554,9 +573,15 @@ async function resolveState(req: NextRequest) {
      */
     register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven'),
-    passport: hasReceipt('agent_delegate_passport_issued'),
-    delegate: hasReceipt('agent_delegated'),
-    aigentme: hasReceipt('aigentme_activated'),
+    passport: admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
+    delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
+    /*
+     * aigentMe is complete on the RECOGNITION ACT — activation plus the
+     * principal's recorded disposition (operator, 2026-08-03). It no longer
+     * waits on `journey_completed`, which could not exist until aigentMe
+     * itself completed.
+     */
+    aigentme: hasReceipt('aigentme_activated') && hasReceipt('experienceqube_focus_disposition_recorded'),
   };
   for (const stageId of priorResolution?.canonicalStages ?? []) {
     if (canonicalStages[stageId] !== true) canonicalStages[stageId] = canonicalStages[stageId] || true;
@@ -594,7 +619,12 @@ async function resolveState(req: NextRequest) {
     canonicalOutcomes: { register: registration?.registered === true },
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
     priorMilestones: priorResolution?.milestones ?? [],
-    auditGaps: { register: registration?.auditGaps ?? [] },
+    auditGaps: {
+      register: registration?.auditGaps ?? [],
+      // Failed canonical reads are DISCLOSED, never rendered as "did not happen".
+      passport: admission?.auditGaps ?? [],
+      delegate: admission?.auditGaps ?? [],
+    },
     operationalBlockers: { verify: verifyBlockers, passport: eligibility.blockingReasons },
     nonBlockingExceptions: {
       verify: verifyExceptions,
