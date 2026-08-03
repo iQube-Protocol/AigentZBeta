@@ -126,6 +126,33 @@ describe('PilotJourneyTab — the selected agent, never MoneyPenny, reaches Clai
   });
 });
 
+describe('RegisterAgentPanel — one screen, one answer about whether registration happened (2026-08-03)', () => {
+  /*
+   * The pilot's 21:10 screenshot showed THREE mutually exclusive claims at
+   * once: the ladder said "Awaiting confirmation from Horizen", the Agent
+   * Card row said "HORIZEN TOKENID: not yet registered", and the banner
+   * below both said "Aigent Nakamoto is registered — Horizen tokenId 8798".
+   * The panel held the tokenId in three places and fed its ladder from the
+   * weakest one.
+   */
+  const source = read('components/journey/RegisterAgentPanel.tsx');
+
+  it('the ladder tokenId falls back through card → receipt → this session’s own confirmation', () => {
+    expect(source).toMatch(/const tokenId =\s*cardTokenId \?\? receiptTokenId \?\? flowTokenIdRef\.current/);
+  });
+
+  it('reads the confirmation receipt’s structured registration.tokenId, not just the Agent Card', () => {
+    expect(source).toContain('r.actionInput?.registration?.tokenId');
+  });
+
+  it('a confirmed tokenId is never cleared by a later poll that fails to see it', () => {
+    // The ref is only ever ASSIGNED on a confirmation — no reset-to-null path,
+    // or a confirmed registration would flip back to "awaiting" on one bad read.
+    expect(source).toMatch(/if \(flow\.step === 'confirmed' && flow\.tokenId\) flowTokenIdRef\.current = flow\.tokenId/);
+    expect(source).not.toMatch(/flowTokenIdRef\.current = null/);
+  });
+});
+
 describe('services/horizen/agentPageUrl.ts is the ONE place that builds this URL', () => {
   it('no other file in services/horizen hand-builds an agent-registry.horizenlabs.io URL', () => {
     const dir = path.join(__dirname, '..', 'services', 'horizen');
