@@ -79,7 +79,45 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'journey_completed',
 ];
 
+/*
+ * THIS ROUTE GREW, AND ITS FAILURE MODE GREW WITH IT (operator, 2026-08-03:
+ * `Failed to execute 'json' on 'Response': Unexpected end of JSON input`
+ * AGAIN).
+ *
+ * It now resolves settled facts, the registration ladder, the caller's
+ * canonical Passport principal, WRITES two settlements, and persists a
+ * journey resolution — where it once read receipts. Every one of those is a
+ * remote call that can throw or hang, and an unhandled throw leaves the
+ * platform to answer with zero bytes.
+ *
+ * I fixed exactly this on verify/authorize and did NOT apply it to the class.
+ * That is why it came back on a different route: the defect was never
+ * "verify/authorize is missing a catch", it was "a journey route may answer
+ * with nothing". Both halves are now enforced by
+ * tests/journey-response-honesty.test.ts across EVERY journey route and
+ * EVERY journey client.
+ */
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
+  try {
+    return await resolveState(req);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'JOURNEY_STATE_UNAVAILABLE',
+        error:
+          `The journey state could not be resolved: ` +
+          `${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. ` +
+          'No stage has changed — this is a read that failed, not an act that failed.',
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function resolveState(req: NextRequest) {
   const origin = resolveRequestOrigin(req);
   const agentSlug = req.nextUrl.searchParams.get('agentSlug') ?? DEFAULT_REGISTRABLE_AGENT_SLUG;
   const agent = resolveRegistrableAgent(agentSlug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;

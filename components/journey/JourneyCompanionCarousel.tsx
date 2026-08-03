@@ -23,6 +23,7 @@ import { Check, Lock } from 'lucide-react';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { JOURNEY_INTRO_TEXT, focusJourneyStage } from '@/services/journey/journeyCompanionTrigger';
 import type { JourneyRuntimeState } from '@/types/journey';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface Props {
   personaId?: string;
@@ -39,7 +40,7 @@ export function JourneyCompanionCarousel({ personaId, codexId }: Props) {
       try {
         const res = await fetch('/api/journey/moneypenny-horizen/state', { cache: 'no-store' });
         if (!res.ok) return;
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'journey/companion');
         if (!cancelled) setRuntimeState(json.state as JourneyRuntimeState);
       } catch {
         /* leave null — chips still render, just without live status */

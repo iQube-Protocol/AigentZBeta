@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Loader2, ShieldAlert, XCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 type Decision = 'DRAFT_ELIGIBLE' | 'DRAFT_BLOCKED' | 'RECOMMENDED' | 'NOT_RECOMMENDED' | 'REFUSED' | 'QUARANTINED';
 
@@ -73,7 +74,7 @@ export function MarketaEligibilityView({ agentSlug }: MarketaEligibilityViewProp
         { cache: 'no-store' },
       );
       if (res.ok) {
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'claim/prove-control');
         setAssessment(json.assessment ?? null);
       }
     } catch {
@@ -96,7 +97,7 @@ export function MarketaEligibilityView({ agentSlug }: MarketaEligibilityViewProp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ agentSlug }),
       });
-      const json = await res.json();
+      const json = await readJsonOrExplain(res, 'claim/prove-control');
       if (!res.ok || !json.ok) throw new Error(json?.error ?? `Request failed (${res.status})`);
       if (json.assessment) setAssessment(json.assessment);
       else if (json.assessmentRefusalCode) setError(`Control proven, but the eligibility assessment could not run: ${json.assessmentError ?? json.assessmentRefusalCode}`);

@@ -30,6 +30,7 @@ import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import type { JourneyDefinition, JourneyMilestone, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import type { JourneyAct, StageResolution } from '@/services/journey/stageResolution';
 import { overlayZClass } from '@/components/ui/overlayLayers';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 /**
  * The server's monotonic resolution, when the journey's state route supplies
@@ -185,7 +186,7 @@ export function JourneyRunSurface({
       // when known.
       const res = await personaFetch(stateUrl, { cache: 'no-store', personaIdHint: personaId });
       if (!res.ok) throw new Error(`Journey state request failed (${res.status})`);
-      const json = await res.json();
+      const json = await readJsonOrExplain(res, 'journey/state');
       setRuntimeState(json.state as JourneyRuntimeState);
       const next = (json.resolution as JourneyResolutionPayload | undefined) ?? null;
       setResolution(next);

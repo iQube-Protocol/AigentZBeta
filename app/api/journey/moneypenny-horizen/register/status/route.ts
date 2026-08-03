@@ -124,7 +124,36 @@ async function updateRegistryAssetBinding(
   }
 }
 
+/*
+ * EVERY EXIT IS A NAMED ANSWER (operator, 2026-08-03, on the third report of
+ * `Unexpected end of JSON input`).
+ *
+ * An unanticipated throw here — a Supabase client error, a partner socket
+ * dropped, an import that fails at runtime — left the platform to answer, and
+ * what it sends is not guaranteed to be JSON and can be nothing at all. A
+ * thrown error is still information; discarding it and returning silence is
+ * the defect. Enforced across every journey route by
+ * tests/journey-response-honesty.test.ts.
+ */
 export async function POST(request: NextRequest) {
+  try {
+    return await postImpl(request);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'UNHANDLED_ROUTE_ERROR',
+        error:
+          `This request threw before it could answer: ` +
+          `${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. ` +
+          'Nothing here says whether the work completed — re-read the state before retrying.',
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function postImpl(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 
