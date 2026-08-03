@@ -16,6 +16,7 @@ import React, { useCallback, useState } from 'react';
 import { ChevronDown, ChevronRight, Receipt as ReceiptIcon, Loader2 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface StageReceiptsDrawerProps {
   receiptTypes: readonly string[];
@@ -37,7 +38,7 @@ export function StageReceiptsDrawer({ receiptTypes }: StageReceiptsDrawerProps) 
         { cache: 'no-store' },
       );
       if (res.ok) {
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'journey/receipts');
         setReceipts(Array.isArray(json.receipts) ? json.receipts : []);
         setPersonaLabel(json.personaDisplayLabel ?? null);
       }

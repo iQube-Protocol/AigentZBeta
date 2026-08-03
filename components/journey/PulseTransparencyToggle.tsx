@@ -61,7 +61,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
     try {
       const res = await fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' });
       if (res.ok) {
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'agent-card');
         setHorizen((json?.metadata?.horizen as AgentCardHorizen) ?? null);
       }
     } catch {

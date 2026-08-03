@@ -19,6 +19,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 const DISPOSITIONS = [
   { value: 'central', label: 'Central to my ExperienceQube', description: 'This focus should shape what I build.' },
@@ -61,7 +62,7 @@ export function AigentMeFocusDispositionPrompt({
         cache: 'no-store',
       });
       if (res.ok) {
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'aigentme/focus');
         setDisposition(json.disposition ?? null);
       }
     } catch {

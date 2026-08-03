@@ -30,6 +30,7 @@ import { ExternalLink, Loader2, ShieldAlert } from 'lucide-react';
 import { IframeTab } from '@/app/triad/components/codex/tabs/IframeTab';
 import { isHorizenAgentPageUrl } from '@/services/horizen/agentPageUrl';
 import { PILOT_AGENTS } from './RegisterAgentPanel';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface HorizenAgentPageSurfaceProps {
   agentSlug?: string;
@@ -57,7 +58,7 @@ export function HorizenAgentPageSurface({ agentSlug = 'moneypenny', mode = 'regi
       try {
         const res = await fetch(agent.agentCardPath, { cache: 'no-store' });
         if (!res.ok) return;
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'agent-card');
         if (!cancelled) setHorizen((json?.metadata?.horizen as AgentCardHorizen) ?? null);
       } catch {
         // Soft-fail — renders the honest awaiting state below.

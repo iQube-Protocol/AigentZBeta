@@ -14,6 +14,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Loader2, ExternalLink, ChevronDown, Copy, Check } from 'lucide-react';
+import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface AgentCardData {
   name?: string;
@@ -54,7 +55,7 @@ export function AgentCardSurface({ route = '/api/agents/moneypenny/agent-card.js
       try {
         const res = await fetch(route, { cache: 'no-store' });
         if (!res.ok) throw new Error(`Agent Card request failed (${res.status})`);
-        const json = (await res.json()) as AgentCardData;
+        const json = (await readJsonOrExplain(res, 'agent-card')) as unknown as AgentCardData;
         if (!cancelled) setCard(json);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the Agent Card');

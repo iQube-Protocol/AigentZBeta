@@ -642,7 +642,7 @@ export function RegisterAgentPanel({
   const readWalletGate = useCallback(async () => {
     try {
       const res = await personaFetch('/api/wallet/principal/status', { cache: 'no-store', personaIdHint: personaId });
-      const json = (await res.json()) as {
+      const json = (await readJsonOrExplain(res, 'register/invocation')) as unknown as {
         ok?: boolean;
         capability?: string;
         controlProven?: boolean;
@@ -702,7 +702,7 @@ export function RegisterAgentPanel({
       try {
         const res = await personaFetch('/api/persona/sponsored-agents', { cache: 'no-store', personaIdHint: personaId });
         if (!res.ok) return;
-        const json = await res.json();
+        const json = await readJsonOrExplain(res, 'register/status');
         if (Array.isArray(json?.agents)) {
           setSponsoredAgents(
             json.agents.map((a: { agentRootId: string; displayName: string; agentCardUrl: string | null }) => ({
