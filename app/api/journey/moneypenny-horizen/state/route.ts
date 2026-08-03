@@ -38,7 +38,11 @@ import {
 } from '@/services/journey/stageResolution';
 import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
-import { resolvePassportPrincipalForAuthUser, isPassportUsable } from '@/services/identity/passportPrincipal';
+import {
+  resolvePassportPrincipalForAuthUser,
+  isPassportUsable,
+  loadUsableCitizenPassportForAuthProfile,
+} from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
 import {
@@ -234,7 +238,51 @@ async function resolveState(req: NextRequest) {
         if (!authUserId) {
           operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
         } else {
-          const principal = await resolvePassportPrincipalForAuthUser(authUserId);
+          let principal = await resolvePassportPrincipalForAuthUser(authUserId);
+
+          /*
+           * THE KYBE ANCHOR IS MISSING, THE PASSPORT IS NOT (operator, 2026-08-03).
+           *
+           * Every `ppc-*` row in this deployment has a NULL `kybe_identity_id`,
+           * so the kybe walk above returns `no_passport`/`lineage_incomplete`
+           * for an operator holding five active Citizen Passports. The
+           * Passports are real and reachable — by `persona_id`, which is how
+           * /api/polity-passport/wallet has been showing them all along.
+           *
+           * Falling back is the Settled Fact discipline applied to a lookup:
+           * an observer's inability to find evidence THROUGH ONE KEY is not
+           * evidence that the fact is untrue. Only tried when the kybe path
+           * reports a NEGATIVE finding — never when it reports an
+           * infrastructure failure (`unavailable`), which must stay a
+           * "cannot read" rather than becoming a "does not hold".
+           *
+           * Agents are unaffected by design: they are root-id anchored, hold
+           * no kybe, and their `agent_participant` Passports are excluded by
+           * the `passport_class = 'citizen'` filter inside the fallback. The
+           * principal question can never be answered by a delegate's record.
+           */
+          if (!principal.ok && (principal.reason === 'no_passport' || principal.reason === 'lineage_incomplete')) {
+            const byPersona = await loadUsableCitizenPassportForAuthProfile(supabase, caller?.authProfileId ?? '');
+            if (byPersona.ok) {
+              console.warn(
+                '[JOURNEY STATE] Citizen Passport resolved by persona because its kybe anchor is absent — ' +
+                  'issuance is not writing kybe_identity_id on ppc-* rows. Recognised, and recorded as an audit gap.',
+              );
+              principal = {
+                ok: true,
+                principal: {
+                  // T0 and deliberately unusable as a principal: this path
+                  // establishes that a Passport EXISTS, never a minted
+                  // identity. Nothing downstream may treat these as a lineage.
+                  kybeId: '',
+                  rootIdentityId: '',
+                  authUserId,
+                  passport: byPersona.passport,
+                },
+              };
+            }
+          }
+
           if (principal.ok) {
             const usable = isPassportUsable(principal.principal.passport);
             operatorPassport = { known: true, valid: usable, personhood: true };
