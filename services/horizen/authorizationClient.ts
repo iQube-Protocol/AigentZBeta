@@ -31,7 +31,7 @@
 import { createHash } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, extractStringField, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, extractStringField, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -198,12 +198,21 @@ export async function prepareHorizenTransparencyAuthorization(
     address: input.controllerWallet,
   });
   const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
-  const message = extractStringField(buildResult, ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage']);
+  const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
+  const message = extractStringField(buildResult, MESSAGE_FIELDS);
   if (!message) {
+    /*
+     * Still refusing — a guessed field could put an error string in front of
+     * the operator's key. But the refusal now says what the partner ACTUALLY
+     * returned, so the next step is reading one line rather than reverse-
+     * engineering an integration (pilot, 2026-08-03).
+     */
     return {
       ok: false,
       refusalCode: 'PARTNER_MESSAGE_UNAVAILABLE',
-      detail: `"${buildTool.tool.name}" did not return a recognisable message field — refusing rather than inventing one`,
+      detail:
+        `"${buildTool.tool.name}" did not return a recognisable message field — refusing rather than inventing one. ` +
+        `Looked for: ${MESSAGE_FIELDS.join(', ')}. Actually returned: ${describeToolResultShape(buildResult)}`,
     };
   }
 
@@ -324,14 +333,20 @@ export async function submitHorizenTransparencyAuthorization(
     network: record.network,
   });
   const submitResult = await mcpClient.callTool({ name: submitTool.tool.name, arguments: submitArgs });
-  const submissionRef = extractStringField(submitResult, ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id']);
+  const SUBMISSION_FIELDS = ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id'];
+  const submissionRef = extractStringField(submitResult, SUBMISSION_FIELDS);
   if (!submissionRef) {
+    // Same diagnostic treatment as the build stage — an unrecognised partner
+    // response must be reportable without reverse-engineering the integration.
+    const detail =
+      `"${submitTool.tool.name}" did not return a recognisable submission reference. ` +
+      `Looked for: ${SUBMISSION_FIELDS.join(', ')}. Actually returned: ${describeToolResultShape(submitResult)}`;
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
       refusalCode: 'HORIZEN_SUBMISSION_FAILED',
-      refusalDetail: `"${submitTool.tool.name}" did not return a recognisable submission reference`,
+      refusalDetail: detail,
     });
-    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED', detail: `"${submitTool.tool.name}" did not return a recognisable submission reference` };
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED', detail };
   }
 
   await updatePartnerAuthorizationRequest(authorizationId, { state: 'SUBMITTED', submissionRef });

@@ -1805,6 +1805,20 @@ export default function SmartWalletDrawer({
   // refuses mainnet) — there is no Rune to have a balance yet.
   const bcentMainnetPending = true;
   const bcentTestnetPending = !bitcentTestnet.data?.balanceResolved;
+  /*
+   * SAY WHY IT IS UNRESOLVED, NOT A STALE MECHANISM NAME (pilot, 2026-08-03).
+   *
+   * "Awaiting Runes indexer" described a dependency the balance resolver no
+   * longer has: testnet B¢ is derived from PRIMARY CHAIN DATA (decode the
+   * Runestone, check the etch output's spend status), so there is no indexer
+   * to await. When resolution now fails it fails for a different, knowable
+   * reason — which the API already returns as `balanceUnresolvedReason` and
+   * this surface was throwing away, printing a fixed sentence over it.
+   *
+   * Same defect shape as Verify's partner-message refusal the same day: an
+   * honest "unknown" that discards the one field explaining the unknown.
+   */
+  const bcentTestnetPendingLabel = bitcentTestnet.data?.balanceUnresolvedReason ?? 'Balance unresolved';
   const bcentMainnetAmount = 0;
   const bcentTestnetAmount = bitcentTestnet.data?.balance ?? 0;
 
@@ -1874,7 +1888,7 @@ export default function SmartWalletDrawer({
       key: "bcent-testnet",
       label: "Bitcent (B¢)",
       // See bcent-mainnet above — unresolved must never render as zero.
-      value: bcentTestnetPending ? "Awaiting Runes indexer" : formatFixed(bcentTestnetAmount),
+      value: bcentTestnetPending ? bcentTestnetPendingLabel : formatFixed(bcentTestnetAmount),
       unit: bcentTestnetPending ? "" : "B¢",
       logo: TOKEN_LOGOS.bitcoin,
       fallbackIcon: <TrendingUp className="w-4 h-4 text-orange-300" />,

@@ -246,8 +246,19 @@ describe('Bitcent wallet — unresolved balance must never render as zero', () =
     expect(source).toMatch(/bcentMainnetPending \? "Awaiting Runes indexer" : formatFixed\(bcentMainnetAmount\)/);
   });
 
-  it('the testnet Bitcent row shows "Awaiting Runes indexer" when pending, never a bare amount', () => {
-    expect(source).toMatch(/bcentTestnetPending \? "Awaiting Runes indexer" : formatFixed\(bcentTestnetAmount\)/);
+  /*
+   * REPLACED 2026-08-03. This asserted the literal "Awaiting Runes indexer"
+   * for the TESTNET row — pinning a sentence that had become false. Testnet
+   * B¢ is resolved from primary chain data (Runestone decode + output spend
+   * check); there is no indexer in that path to await, and the API returns
+   * `balanceUnresolvedReason` giving the real cause. A green test requiring
+   * the stale sentence was defending the defect (OS-9,
+   * codexes/packs/agentiq/updates/2026-08-03_observer-state-invariants.md).
+   * The MAINNET row above still legitimately awaits an indexer and keeps its
+   * assertion unchanged.
+   */
+  it('the testnet Bitcent row shows the reason it is unresolved, never a bare amount', () => {
+    expect(source).toMatch(/bcentTestnetPending \? bcentTestnetPendingLabel : formatFixed\(bcentTestnetAmount\)/);
   });
 });
 
@@ -275,5 +286,33 @@ describe('Bitcent ops card — the two JSON files the route readFileSync()s at r
     );
     expect(routeSource).toMatch(/readFileSync\(join\(process\.cwd\(\), 'scripts', 'bitcent-issuance-record\.json'\)/);
     expect(routeSource).toMatch(/readFileSync\(join\(process\.cwd\(\), 'deployments', 'bitcent-testnet\.json'\)/);
+  });
+});
+
+describe('an unresolved balance says WHY, not a mechanism it no longer uses (2026-08-03)', () => {
+  /*
+   * The wallet printed "Awaiting Runes indexer" for every unresolved testnet
+   * B¢ balance. That names a dependency the resolver does not have — testnet
+   * B¢ comes from primary chain data (Runestone decode + output spend check),
+   * with no Rune-aware indexer in the path at all. Meanwhile the API already
+   * returned `balanceUnresolvedReason` explaining the real cause, and the
+   * surface discarded it.
+   */
+  const fs = require('fs') as typeof import('fs');
+  const path = require('path') as typeof import('path');
+  const drawer = fs.readFileSync(
+    path.join(__dirname, '..', 'app', 'components', 'content', 'SmartWalletDrawer.tsx'),
+    'utf8',
+  );
+
+  it('the testnet row renders the API-supplied reason, never a hardcoded indexer sentence', () => {
+    expect(drawer).toContain('bitcentTestnet.data?.balanceUnresolvedReason');
+    expect(drawer).toMatch(/value: bcentTestnetPending \? bcentTestnetPendingLabel/);
+  });
+
+  it('still never renders an unresolved balance as a number', () => {
+    // The honesty rule this row already had must survive the change.
+    expect(drawer).toMatch(/unit: bcentTestnetPending \? "" : "B¢"/);
+    expect(drawer).toMatch(/pending: bcentTestnetPending/);
   });
 });
