@@ -29,7 +29,7 @@
  */
 
 import { createHash } from 'crypto';
-import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
+import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
 import { findCompatibleTool, matchSchemaFields, extractStringField, extractPartnerMessage, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
@@ -189,13 +189,51 @@ export async function prepareHorizenTransparencyAuthorization(
     };
   }
 
+  /*
+   * CONFORM TO THE DOCUMENTED CONTRACT, NOT TO WHAT HAPPENED TO COMPILE
+   * (Horizen partner Q&A, relayed 2026-08-03).
+   *
+   * Pulse authorization is a Horizen capability layered ON TOP of ERC-8004
+   * registration, not part of it. Its message is byte-exact plaintext and the
+   * arguments that produce it are specified:
+   *
+   *   ASR Pulse enable
+   *   Agent: 7866                      <- DECIMAL, never hex, never a label
+   *   Network: sepolia
+   *   Chain: 84532                     <- the CHAIN ID, not a network name
+   *   Registry: 0x8004a818…            <- LOWERCASED
+   *   Wallet: 0x…                      <- LOWERCASED, and must equal ownerOf(agentId)
+   *   Issued At: <ISO-8601>
+   *
+   * Every one of those facts already lived in `HORIZEN_NETWORK_FACTS` and
+   * `parseAgentId` (services/horizen/identity.ts) — this call simply wasn't
+   * reading them. `chain` was being sent the string 'base-sepolia' where the
+   * chain id 84532 belongs, and the network selector was the raw key rather
+   * than `facts.pulseSelector`. That is inv.engineering.036/037 in its usual
+   * shape: the authoritative source existed and a consumer bypassed it.
+   */
+  const parsedAgentId = parseAgentId(input.registry.tokenId);
+  if (!parsedAgentId.ok) {
+    return {
+      ok: false,
+      refusalCode: 'INVALID_REQUEST',
+      detail: `registry.tokenId "${input.registry.tokenId}" is not a usable agent id (${parsedAgentId.reason}): ${parsedAgentId.detail}`,
+    };
+  }
+  // Hex in the registry, decimal in Pulse/PnL — the partner Q&A is explicit
+  // that these are the SAME identifier and must be normalised via BigInt.
+  const decimalAgentId = parsedAgentId.value.toString(10);
+
   const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, {
-    tokenId: input.registry.tokenId,
-    agentId: input.registry.tokenId,
-    network: input.registry.network,
-    chain: input.registry.network,
-    wallet: input.controllerWallet,
-    address: input.controllerWallet,
+    tokenId: decimalAgentId,
+    agentId: decimalAgentId,
+    network: facts.pulseSelector,
+    chain: facts.chainId,
+    chainId: facts.chainId,
+    registry: facts.identityRegistry.toLowerCase(),
+    registryAddress: facts.identityRegistry.toLowerCase(),
+    wallet: input.controllerWallet.toLowerCase(),
+    address: input.controllerWallet.toLowerCase(),
   });
   const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
   const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
