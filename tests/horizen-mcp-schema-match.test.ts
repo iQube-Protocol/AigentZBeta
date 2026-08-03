@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape } from '@/services/horizen/mcpSchemaMatch';
 
 describe('matchSchemaFields (regression-pinned — the register-moneypenny-horizen.ts precedent)', () => {
   it('matches candidate values against the schema\'s own declared property names, never inventing new ones', () => {
@@ -98,5 +98,42 @@ describe('schemaFieldOverlapScore', () => {
   it('counts case-insensitive substring hits only', () => {
     expect(schemaFieldOverlapScore({ properties: { tokenId: {}, network: {}, unrelated: {} } }, ['tokenid', 'network'])).toBe(2);
     expect(schemaFieldOverlapScore({ properties: {} }, ['tokenid'])).toBe(0);
+  });
+});
+
+describe('describeToolResultShape — a refusal that can be acted on (2026-08-03)', () => {
+  /*
+   * Verify refused with `"build_pulse_auth_message" did not return a
+   * recognisable message field — refusing rather than inventing one`. The
+   * refusal is correct (a guessed field could put an error string in front of
+   * the operator's key) but it named only what we failed to find, never what
+   * the partner actually sent — so there was no way to tell plain-text from
+   * nested-JSON from a different field name without partner source.
+   */
+  it('names the top-level keys when the tool returned a JSON object', () => {
+    const shape = describeToolResultShape({
+      content: [{ type: 'text', text: JSON.stringify({ result: { msg: 'sign me' } }) }],
+    });
+    expect(shape).toContain('JSON object with keys: result');
+  });
+
+  it('says explicitly when the text is NOT JSON — the plain-string case', () => {
+    const shape = describeToolResultShape({ content: [{ type: 'text', text: 'Please sign: 0xabc' }] });
+    expect(shape).toContain('NOT JSON');
+  });
+
+  it('reports a missing content array rather than throwing', () => {
+    expect(describeToolResultShape({} as never)).toContain('no content array');
+    expect(describeToolResultShape(null)).toContain('no result object');
+    expect(describeToolResultShape({ content: [] })).toContain('empty array');
+  });
+
+  it('never leaks partner VALUES — only shapes and key names', () => {
+    const secret = 'SUPER-SECRET-PAYLOAD-VALUE';
+    const shape = describeToolResultShape({
+      content: [{ type: 'text', text: JSON.stringify({ token: secret }) }],
+    });
+    expect(shape).toContain('token');
+    expect(shape, 'a diagnostic must not become an exfiltration channel').not.toContain(secret);
   });
 });

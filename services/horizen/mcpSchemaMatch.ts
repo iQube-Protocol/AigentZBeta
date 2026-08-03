@@ -130,6 +130,50 @@ export function extractFirstJson(toolResult: McpToolResult | null | undefined): 
   return null;
 }
 
+/**
+ * What a tool result ACTUALLY looked like, for a refusal that a human can act on.
+ *
+ * ── Why this exists (pilot, 2026-08-03) ───────────────────────────────────
+ *
+ * Verify refused with: `"build_pulse_auth_message" did not return a
+ * recognisable message field — refusing rather than inventing one`. The
+ * refusal is CORRECT — signing a field we guessed at would be far worse —
+ * but it named only what we failed to find, never what the partner actually
+ * sent. There is no way to tell from it whether the tool returned plain text
+ * rather than JSON, nested the message one level down, used a field name not
+ * in our candidate list, or errored. So the honest refusal was also a dead
+ * end, and the only way forward was to read partner source we don't have.
+ *
+ * This describes the OBSERVED shape — content item types, whether the text
+ * parsed as JSON, and the top-level keys if it did. It reports; it never
+ * widens what counts as an acceptable answer. Deliberately does NOT include
+ * VALUES: a partner payload may carry material we should not log.
+ */
+export function describeToolResultShape(toolResult: McpToolResult | null | undefined): string {
+  if (!toolResult) return 'no result object at all';
+  const content = toolResult.content;
+  if (!Array.isArray(content)) {
+    return `result has no content array (keys: ${Object.keys(toolResult).join(', ') || 'none'})`;
+  }
+  if (content.length === 0) return 'result.content is an empty array';
+
+  const parts = content.map((item, i) => {
+    const type = item?.type ?? 'undefined';
+    if (type !== 'text' || typeof item?.text !== 'string') return `[${i}] type=${type}, no text`;
+    const text = item.text;
+    try {
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return `[${i}] type=text, JSON object with keys: ${Object.keys(parsed as Record<string, unknown>).join(', ') || 'none'}`;
+      }
+      return `[${i}] type=text, JSON ${Array.isArray(parsed) ? 'array' : typeof parsed}`;
+    } catch {
+      return `[${i}] type=text, NOT JSON (${text.length} chars)`;
+    }
+  });
+  return parts.join('; ');
+}
+
 /** Extract a named hex-string field (tx hash, message, payload, ...) from an MCP tool result. */
 export function extractStringField(toolResult: McpToolResult | null | undefined, fieldNames: string[]): string | null {
   const parsed = extractFirstJson(toolResult) as Record<string, unknown> | null;
