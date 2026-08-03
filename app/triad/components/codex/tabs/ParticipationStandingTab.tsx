@@ -72,9 +72,14 @@ export interface ParticipationStandingTabProps {
    * for every other mount, so nothing else changes.
    */
   only?: StandingView;
+  /**
+   * Which section of the Ingestion Factory to open on. Passed straight through
+   * to `IngestionFactoryPanel`; only meaningful on the registry view.
+   */
+  registrySection?: "ingest" | "pipeline" | "assets";
 }
 
-export function ParticipationStandingTab({ only }: ParticipationStandingTabProps = {}) {
+export function ParticipationStandingTab({ only, registrySection }: ParticipationStandingTabProps = {}) {
   // Default 'registry': the operator lands on the Ingestion Factory, full
   // width, exactly as elsewhere — ingest first, monitor standing after.
   //
@@ -170,7 +175,7 @@ export function ParticipationStandingTab({ only }: ParticipationStandingTabProps
     return (
       <div className="w-full">
         {tabStrip}
-        <IngestionFactoryPanel />
+        <IngestionFactoryPanel initialSection={registrySection} />
       </div>
     );
   }

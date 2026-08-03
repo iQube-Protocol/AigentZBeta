@@ -625,17 +625,42 @@ describe('Passport and Delegate resolve from canonical records, receipts corrobo
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/\/\/.*$/gm, '');
 
+  /*
+   * RE-POINTED 2026-08-03, not relaxed. Three of the five signals below are
+   * the SAME fact — "this agent has a Delegate Passport" — read in the
+   * Passport stage, the Delegate stage and the canonical-stage map. They were
+   * three separate expressions and had already drifted once: Passport went
+   * canonical-first while Delegate stayed receipt-only. The fix names the fact
+   * once, as `passportIssuedForAgent`.
+   *
+   * So the requirement each of them must still satisfy is unchanged — reach a
+   * canonical record, not a receipt alone — but for those three it is now
+   * satisfied THROUGH the shared binding, whose own definition is asserted
+   * separately below. A signal that reads `hasReceipt(...)` directly, or a
+   * `passportIssuedForAgent` that stops being canonical-first, still fails.
+   */
+  const PASSPORT_BINDING = 'passportIssuedForAgent';
+
   it.each([
-    ['sponsorBinding', 'sponsorshipRecorded'],
-    ['delegatePassportIssued', 'delegatePassportIssued'],
-    ['delegatePassportActive', 'delegatePassportIssued'],
-    ['boundedDelegationActive', 'delegationActive'],
-    ['contextualMandate', 'delegationActive'],
+    ['sponsorBinding', 'admission?.sponsorshipRecorded'],
+    ['delegatePassportIssued', PASSPORT_BINDING],
+    ['delegatePassportActive', PASSPORT_BINDING],
+    ['boundedDelegationActive', 'admission?.delegationActive'],
+    ['contextualMandate', 'admission?.delegationActive'],
   ])('%s consults the canonical record, not a receipt alone', (signal, canonical) => {
     const line = stateSrc.match(new RegExp(`${signal}:[\\s\\S]{0,140}?,\\n`))?.[0] ?? '';
     expect(line, `${signal} not found — the route moved`).not.toBe('');
     // THE ASSERTION THAT FAILS ON THE DEFECT: a bare hasReceipt(...) read.
-    expect(line, `${signal} is receipt-only`).toContain(`admission?.${canonical}`);
+    expect(line, `${signal} is receipt-only`).toContain(canonical);
+  });
+
+  it('the shared Passport binding is itself canonical-first', () => {
+    // Where the three signals above delegate their answer. If this becomes
+    // receipt-only, all three regress at once — which is exactly why it is
+    // asserted here rather than trusted.
+    const decl = stateSrc.match(/const passportIssuedForAgent[\s\S]{0,240}?;\n/)?.[0] ?? '';
+    expect(decl, 'the shared Passport binding is gone').not.toBe('');
+    expect(decl).toContain('admission?.delegatePassportIssued');
   });
 
   it('the canonical stage outcomes for passport and delegate are canonical-first too', () => {
@@ -645,7 +670,7 @@ describe('Passport and Delegate resolve from canonical records, receipts corrobo
     const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
     const passport = block.match(/^\s*passport:[^\n]*/m)?.[0] ?? '';
     const delegate = block.match(/^\s*delegate:[^\n]*/m)?.[0] ?? '';
-    expect(passport).toContain('admission?.delegatePassportIssued');
+    expect(passport).toContain(PASSPORT_BINDING);
     expect(delegate).toContain('admission?.delegationActive');
   });
 
@@ -695,5 +720,179 @@ describe('aigentMe completes on activation + recorded disposition', () => {
     // Delegate is aigentMe's prerequisite; the stepper enforces the ordering.
     // Requiring `agent_delegated` again made aigentMe a second observer of it.
     expect(aigentme.completionEvidence).not.toContain('moneypennyRecordedAsDelegatedAgent');
+  });
+});
+
+/*
+ * ══ EVERY STAGE MUST HAVE AN EVIDENCE ENTRY, KEYED BY ITS OWN ID ══════════
+ *
+ * The defect this closes (operator, 2026-08-03: "ensure passport, delegate,
+ * aigentMe, ingest to factory and standing all flip to emerald at the right
+ * stages"):
+ *
+ * The Activate stage was renamed `deploy` and Standing was split out of it on
+ * 2026-08-02. The observer's evidence map kept the key `activate`. Stage
+ * evidence is looked up BY STAGE ID, so `deploy` and `standing` read an
+ * evidence record that did not exist — every field missing, every request —
+ * while `activate` described a stage no longer in the journey.
+ *
+ * Nothing errored. Nothing logged. Two stages simply could never complete.
+ * A rename is exactly the change most likely to cause this and least likely
+ * to be noticed, which is why it is now a build failure rather than prose.
+ */
+describe('observer evidence keys and journey stage ids are the same set', () => {
+  const stateSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'),
+    'utf8',
+  );
+
+  /** The top-level keys of the `stages: { ... }` literal in platformState. */
+  function evidenceKeys(): string[] {
+    const start = stateSrc.indexOf('const platformState');
+    const stagesAt = stateSrc.indexOf('stages: {', start);
+    const body = stateSrc.slice(stagesAt);
+    // Keys at exactly one nesting level inside `stages: {` — six spaces of
+    // indentation in this file. Comment lines never match `<name>: {`.
+    return Array.from(body.matchAll(/^ {6}(\w+): \{$/gm)).map((m) => m[1]);
+  }
+
+  it('every stage in the journey has an evidence entry under its own id', () => {
+    const keys = new Set(evidenceKeys());
+    for (const stage of HORIZEN_MONEYPENNY_JOURNEY.stages) {
+      expect(keys.has(stage.id), `no evidence entry for stage "${stage.id}"`).toBe(true);
+    }
+  });
+
+  it('no evidence entry names a stage that does not exist', () => {
+    const stageIds = new Set(HORIZEN_MONEYPENNY_JOURNEY.stages.map((s) => s.id));
+    for (const key of evidenceKeys()) {
+      expect(stageIds.has(key), `evidence key "${key}" names no stage`).toBe(true);
+    }
+  });
+
+  it('every field a stage requires is supplied by that stage’s evidence entry', () => {
+    /*
+     * The second half of the same class: a key that matches its stage but
+     * omits a field the stage's `completionEvidence` demands is missing
+     * forever. Deploy's old entry supplied `delegatePassportActive` /
+     * `boundedDelegationActive` / `standingGatewayEnabled` — Delegate's and
+     * Standing's outcomes — and none of its own.
+     */
+    const start = stateSrc.indexOf('const platformState');
+    const body = stateSrc.slice(stateSrc.indexOf('stages: {', start));
+    for (const stage of HORIZEN_MONEYPENNY_JOURNEY.stages) {
+      const entryAt = body.indexOf(`\n      ${stage.id}: {`);
+      if (entryAt < 0) continue; // covered by the test above
+      const entry = body.slice(entryAt, body.indexOf('\n      },', entryAt));
+      for (const field of stage.completionEvidence) {
+        // `name:` or ES shorthand `name,` — Register's entry uses both forms.
+        const supplied = new RegExp(`\\b${field}\\s*[:,]`).test(entry);
+        expect(supplied, `stage "${stage.id}" needs "${field}"`).toBe(true);
+      }
+    }
+  });
+});
+
+/*
+ * ══ INGESTION AND ISSUANCE ARE OBSERVED CANONICALLY ═══════════════════════
+ */
+describe('Deploy observes registry presence; Passport observes the receipt the Bureau writes', () => {
+  const stateSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/api/journey/moneypenny-horizen/state/route.ts'),
+    'utf8',
+  );
+  const admissionSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'services/journey/agentAdmissionState.ts'),
+    'utf8',
+  );
+
+  it('Deploy completes on its OWN outcome, not on Delegate’s or Standing’s', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    expect(deploy.completionEvidence).toEqual(['factoryIngested']);
+    // Standing is Deploy's SUCCESSOR — requiring it here was a cycle.
+    expect(deploy.completionEvidence).not.toContain('standingGatewayEnabled');
+  });
+
+  it('registry presence is read canonically, per "presence there is a receipt in itself"', () => {
+    expect(admissionSrc).toMatch(/from\('registry_assets'\)/);
+    expect(admissionSrc).toMatch(/factoryPresent: boolean \| undefined/);
+    const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
+    expect(block.match(/^\s*deploy:[^\n]*/m)?.[0] ?? '').toContain('admission?.factoryPresent');
+  });
+
+  it('Standing has NO canonical shortcut — an accrual is the only thing that accrues', () => {
+    /*
+     * Deliberately asymmetric with Deploy. Reading registry presence for
+     * Standing would collapse "admitted" into "has earned", which the
+     * operator's ingestion-is-not-accrual ruling forbids.
+     */
+    const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
+    const end = block.indexOf('\n  };');
+    expect(block.slice(0, end)).not.toMatch(/^\s*standing:/m);
+  });
+
+  it('the Delegate Passport is corroborated by passport_issued — the receipt that is actually written', () => {
+    /*
+     * `agent_delegate_passport_issued` is emitted by NOTHING in this codebase.
+     * The Bureau's canonical issuance path writes `passport_issued` through the
+     * normal DVN-anchored pipeline. Waiting on the phantom type is why an
+     * approved Passport left the stage amber.
+     */
+    expect(stateSrc).toMatch(/const passportIssuedForAgent[\s\S]{0,200}hasReceipt\('passport_issued'\)/);
+    const passportStage = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'passport')!;
+    expect(passportStage.receiptTypes).toContain('passport_issued');
+  });
+
+  it('the issuance receipt is attributed to the agent, so agent-scoped readers can see it', () => {
+    /*
+     * Every agent-scoped reader matches on `agents_invoked`. An issuance
+     * receipt that names only the applying persona is real, anchored, and
+     * invisible to the journey.
+     */
+    const issuance = fs.readFileSync(
+      path.join(__dirname, '..', 'services/passport/issuanceService.ts'),
+      'utf8',
+    );
+    expect(issuance).toMatch(/agentsInvoked: isCitizen \? undefined : await resolveAgentRefsForCard/);
+  });
+
+  it('the Delegate Passport is found via the application that carries the agent card URL', () => {
+    /*
+     * `agent_card_url` exists on polity_passport_applications and NOT on
+     * polity_passport_records. Selecting it off the records table made
+     * PostgREST reject the whole query, so the read failed honestly and
+     * `delegatePassportIssued` stayed undefined forever — the Passport stage
+     * could not go green no matter how many Passports were issued.
+     */
+    expect(admissionSrc).toMatch(/from\('polity_passport_applications'\)[\s\S]{0,120}agent_card_url/);
+    expect(admissionSrc).toMatch(/\.in\('application_id', applicationIds\)/);
+    const recordsQuery = admissionSrc.slice(admissionSrc.indexOf("from('polity_passport_records')"));
+    expect(recordsQuery.slice(0, 200)).not.toContain('agent_card_url');
+  });
+});
+
+/*
+ * ══ THE FACTORY SURFACE OPENS ON WHAT IS ALREADY THERE ════════════════════
+ */
+describe('the Deploy stage deep-links into Ingested Assets', () => {
+  it('pins the Ingestion Factory to its assets section', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    const surface = deploy.surfaces[0] as { props?: Record<string, unknown> };
+    expect(surface.props?.only).toBe('registry');
+    expect(surface.props?.registrySection).toBe('assets');
+  });
+
+  it('the panel honours an initial section instead of always opening on the ingest form', () => {
+    const panel = fs.readFileSync(
+      path.join(__dirname, '..', 'components/registry/IngestionFactoryPanel.tsx'),
+      'utf8',
+    );
+    expect(panel).toMatch(/initialSection = "ingest"/);
+    expect(panel).toMatch(/useState<"ingest" \| "pipeline" \| "assets">\(initialSection\)/);
+    const tab = fs.readFileSync(
+      path.join(__dirname, '..', 'app/triad/components/codex/tabs/ParticipationStandingTab.tsx'),
+      'utf8',
+    );
+    expect(tab).toMatch(/<IngestionFactoryPanel initialSection=\{registrySection\} \/>/);
   });
 });

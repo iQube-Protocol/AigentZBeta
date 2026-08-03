@@ -62,13 +62,31 @@ describe('ParticipationStandingTab — Ingestion Factory beside a single Standin
   it('renders IngestionFactoryPanel full width with no wrapping title/description chrome pushed above it', () => {
     const match = source.match(/if \(view === 'registry'\) \{([\s\S]*?)\n {2}\}/);
     expect(match).not.toBeNull();
-    expect(match![1]).toContain('<IngestionFactoryPanel />');
+    expect(match![1]).toMatch(/<IngestionFactoryPanel[^>]*\/>/);
     // No h2/title text competing with the panel's own header when this view is active.
     expect(match![1]).not.toMatch(/<h2/);
   });
 
-  it('mounts IngestionFactoryPanel with no props — it is self-contained and reads its own canonical APIs', () => {
-    expect(source).not.toMatch(/<IngestionFactoryPanel\s+\w/);
+  /*
+   * RE-POINTED 2026-08-03. This asserted `<IngestionFactoryPanel />` with NO
+   * props, standing for a real requirement: the panel is self-contained and
+   * reads its own canonical APIs — nobody hands it data.
+   *
+   * The Deploy stage now passes `initialSection` so the journey lands on
+   * INGESTED ASSETS rather than the ingest form (operator, 2026-08-03). That is
+   * a PRESENTATION pin — which of the panel's own sections opens first — not
+   * data, and the requirement is untouched.
+   *
+   * So the assertion moves from "no props" to the thing that actually mattered:
+   * nothing is passed that the panel would otherwise fetch for itself.
+   */
+  it('passes IngestionFactoryPanel no DATA — it still reads its own canonical APIs', () => {
+    const mount = source.match(/<IngestionFactoryPanel([^>]*)\/>/)?.[1] ?? '';
+    const propNames = Array.from(mount.matchAll(/(\w+)=/g)).map((m) => m[1]);
+    expect(propNames.every((p) => p === 'initialSection'), `unexpected props: ${propNames}`).toBe(true);
+    for (const dataProp of ['assets', 'intakes', 'records', 'data', 'items']) {
+      expect(propNames).not.toContain(dataProp);
+    }
   });
 
   it('the Standing view keeps its original combined lanes+reach+receipts content in one tab, not three', () => {
@@ -127,11 +145,18 @@ describe('Journey wiring — Deploy and Standing are separate stages, not a pair
 
     const deploy = source.match(/id: 'deploy',[\s\S]*?nextStageId: 'standing',/);
     expect(deploy).not.toBeNull();
-    expect(deploy![0]).toContain("props: { only: 'registry' }");
+    /*
+     * Matched on the PIN, not on the whole props literal. Deploy now also
+     * carries `registrySection: 'assets'` (the Ingested-Assets deep link,
+     * operator 2026-08-03); an exact-literal match would have failed on an
+     * addition that leaves this requirement — the view is pinned, so the tab
+     * strip cannot render — completely intact.
+     */
+    expect(deploy![0]).toMatch(/props: \{[^}]*only: 'registry'/);
 
     const standing = source.match(/id: 'standing',[\s\S]*?receiptTypes: \['standing_accrued'\],/);
     expect(standing).not.toBeNull();
-    expect(standing![0]).toContain("props: { only: 'standing' }");
+    expect(standing![0]).toMatch(/props: \{[^}]*only: 'standing'/);
   });
 
   it('a pinned mount renders no tab strip at all — every view branch uses the same nulled strip', () => {

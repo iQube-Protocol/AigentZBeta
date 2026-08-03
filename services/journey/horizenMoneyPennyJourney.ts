@@ -145,7 +145,19 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       prerequisites: ['claim'],
       permittedActions: ['record-sponsorship'],
       completionEvidence: ['operatorPolityCitizenPassportValid', 'sponsorBinding', 'delegatePassportIssued'],
-      receiptTypes: ['operator_passport_validated', 'agent_sponsorship_recorded', 'agent_delegate_passport_issued'],
+      /*
+       * `passport_issued` is the receipt the Bureau's canonical issuance path
+       * actually writes (services/passport/issuanceService.ts), through the
+       * normal DVN-anchored pipeline. `agent_delegate_passport_issued` is
+       * written by nothing — it is retained only so any historical row bearing
+       * it still surfaces here, never as the thing the stage waits on.
+       */
+      receiptTypes: [
+        'operator_passport_validated',
+        'agent_sponsorship_recorded',
+        'passport_issued',
+        'agent_delegate_passport_issued',
+      ],
       companion: {
         before: "Your Polity Citizen Passport must resolve before you can sponsor MoneyPenny.",
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
@@ -310,7 +322,14 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           // itself. (It was briefly wired through resolveSurfaceProps and
           // silently never applied — the two-tab strip stayed on both
           // stages, operator report 2026-08-02.)
-          props: { only: 'registry' },
+          /*
+           * `registrySection: 'assets'` — the Factory opens on INGESTED ASSETS,
+           * not on "Ingest New Asset" (operator, 2026-08-03). By the time this
+           * stage is reachable the agent is already a published registry asset;
+           * landing on the ingest form invited the operator to re-perform an act
+           * the very same surface lists as done. Deep-link to the evidence.
+           */
+          props: { only: 'registry', registrySection: 'assets' },
           note:
             'Rendered bare — the registry Ingestion Factory ALONE (operator direction 2026-08-02). ' +
             'Standing was split out of this surface into its own eighth stage below, so Deploy no longer ' +
@@ -319,7 +338,22 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: ['aigentme'],
       permittedActions: ['prepare-payment-mandate', 'execute-payment'],
-      completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'standingGatewayEnabled'],
+      /*
+       * A STAGE COMPLETES ON ITS OWN OUTCOME (operator ruling, 2026-08-03 —
+       * the same correction applied to aigentMe earlier the same day).
+       *
+       * This read `delegatePassportActive`, `boundedDelegationActive` and
+       * `standingGatewayEnabled`: two outcomes belonging to Delegate and one
+       * belonging to Standing, the stage AFTER this one. So Ingestion could
+       * not complete until Standing had accrued, while Standing lists Deploy
+       * as its prerequisite — a cycle, and the reason neither ever went green.
+       *
+       * Ingestion's own outcome is that the agent is IN the factory:
+       *
+       *   > "The ingested factory is essentially the registry so presence
+       *   >  there is a receipt in and of itself."
+       */
+      completionEvidence: ['factoryIngested'],
       /*
        * INGESTION IS NOT ACCRUAL (operator ruling, 2026-08-03):
        *

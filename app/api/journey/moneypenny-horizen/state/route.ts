@@ -76,6 +76,17 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'operator_passport_validated',
   'agent_sponsorship_recorded',
   'agent_delegate_passport_issued',
+  /*
+   * THE RECEIPT THE BUREAU ACTUALLY WRITES.
+   *
+   * `agent_delegate_passport_issued` is written by NOTHING in this codebase —
+   * it is a receipt type the journey contract invented and then waited on. The
+   * canonical issuance path (services/passport/issuanceService.ts) emits
+   * `passport_issued` through the normal, DVN-anchored pipeline, exactly as the
+   * operator said it should. So read THAT, and let the phantom type stand only
+   * as a corroborating alias for any historical row that carries it.
+   */
+  'passport_issued',
   'agent_delegated',
   'finance_authoritative_execution',
   'standing_accrued',
@@ -354,6 +365,23 @@ async function resolveState(req: NextRequest) {
   }
 
   const hasReceipt = (type: ActivityActionType) => (receiptRefs[type]?.length ?? 0) > 0;
+
+  /*
+   * ONE FACT, ONE EXPRESSION. "This agent has a Delegate Passport" is read by
+   * the Passport stage, the Delegate stage AND the canonical-stage map — three
+   * places that were three separate expressions and had already drifted apart
+   * once (the Delegate stage was still receipt-only after Passport went
+   * canonical-first). Naming it once makes the drift impossible rather than
+   * merely unlikely.
+   *
+   * Canonical first (the issued Passport record), receipts as corroboration —
+   * `passport_issued` being the one the Bureau actually writes.
+   */
+  const passportIssuedForAgent =
+    admission?.delegatePassportIssued === true ||
+    hasReceipt('passport_issued') ||
+    hasReceipt('agent_delegate_passport_issued');
+
   const horizen = (agentCard?.metadata as Record<string, unknown> | undefined)?.horizen as
     | Record<string, unknown>
     | undefined;
@@ -414,21 +442,41 @@ async function resolveState(req: NextRequest) {
          * never evidence the approval did not happen.
          */
         sponsorBinding: admission?.sponsorshipRecorded === true || hasReceipt('agent_sponsorship_recorded'),
-        delegatePassportIssued:
-          admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
+        delegatePassportIssued: passportIssuedForAgent,
       },
       delegate: {
-        delegatePassportActive:
-          admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
+        delegatePassportActive: passportIssuedForAgent,
         boundedDelegationActive: admission?.delegationActive === true || hasReceipt('agent_delegated'),
         contextualMandate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
         bootstrapApproval: hasReceipt('finance_authoritative_execution'),
         aigentZObserverReceipt: hasReceipt('finance_authoritative_execution'),
         fsRuntimeActive: hasReceipt('finance_authoritative_execution'),
       },
-      activate: {
-        delegatePassportActive: hasReceipt('agent_delegate_passport_issued'),
-        boundedDelegationActive: hasReceipt('agent_delegated'),
+      /*
+       * ── THE STAGE ID IS `deploy`, AND THIS KEY SAID `activate` ────────────
+       *
+       * The Deploy stage was renamed from Activate on 2026-08-02 and the
+       * Standing stage was split out of it. This evidence map kept the old
+       * key. `resolveMonotonicJourneyState` looks stage evidence up BY STAGE
+       * ID, so `deploy` and `standing` were reading an evidence record that
+       * did not exist — every field missing, every request, forever — while
+       * `activate` sat here describing a stage no longer in the journey.
+       *
+       * That is why neither could ever turn emerald: not a gating decision, a
+       * key that stopped matching its stage and no canary that compared the
+       * two. `tests/journey-admission-spine.test.ts` now asserts every stage
+       * id has an evidence entry and every evidence key names a real stage.
+       */
+      deploy: {
+        // Presence in the registry IS the receipt (operator, 2026-08-03) —
+        // corroborated by ingestion's own receipt where one was written.
+        factoryIngested: admission?.factoryPresent === true || hasReceipt('capability_registered'),
+      },
+      standing: {
+        // Standing is EARNED. It is the one stage with no canonical shortcut:
+        // an accrual receipt is the accrual. Reading registry presence here
+        // would recreate the exact ingestion-equals-accrual collapse the
+        // operator's ruling forbids.
         standingGatewayEnabled: hasReceipt('standing_accrued'),
       },
       aigentme: {
@@ -573,8 +621,14 @@ async function resolveState(req: NextRequest) {
      */
     register: registration?.registered === true || Boolean(horizen?.tokenId),
     claim: hasReceipt('agent_control_proven'),
-    passport: admission?.delegatePassportIssued === true || hasReceipt('agent_delegate_passport_issued'),
+    passport: passportIssuedForAgent,
     delegate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
+    /*
+     * Deploy's canonical outcome is REGISTRY PRESENCE, not the receipt the
+     * original ingestion never wrote. Standing deliberately has NO entry here:
+     * it is earned, and the only thing that can establish it is an accrual.
+     */
+    deploy: admission?.factoryPresent === true || hasReceipt('capability_registered'),
     /*
      * aigentMe is complete on the RECOGNITION ACT — activation plus the
      * principal's recorded disposition (operator, 2026-08-03). It no longer
@@ -595,7 +649,10 @@ async function resolveState(req: NextRequest) {
      * earned Standing" the same observation — the precise collapse the ruling
      * forbids, arriving through the back door of a shared receipt type.
      */
-    factoryIngested: hasReceipt('capability_registered') || (priorResolution?.canonicalStages ?? []).includes('deploy'),
+    factoryIngested:
+      admission?.factoryPresent === true ||
+      hasReceipt('capability_registered') ||
+      (priorResolution?.canonicalStages ?? []).includes('deploy'),
     pulse: pulseState,
     pnl: pnlState,
     /*
@@ -624,6 +681,7 @@ async function resolveState(req: NextRequest) {
       // Failed canonical reads are DISCLOSED, never rendered as "did not happen".
       passport: admission?.auditGaps ?? [],
       delegate: admission?.auditGaps ?? [],
+      deploy: admission?.auditGaps ?? [],
     },
     operationalBlockers: { verify: verifyBlockers, passport: eligibility.blockingReasons },
     nonBlockingExceptions: {
