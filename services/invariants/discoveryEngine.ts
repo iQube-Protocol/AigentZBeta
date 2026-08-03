@@ -1245,6 +1245,118 @@ export async function suggestClassification(
   });
 }
 
+// ── Reverse lineage: candidate SOURCE → discovered/promoted invariants ──────
+//
+// Track 2 Stage 2 admission recommendation (2026-08-03) needs the OPPOSITE
+// direction of `suggestClassification`'s join: given a Corpus Scout candidate
+// SOURCE (not yet admitted), which discovery candidates / promoted invariants
+// already trace back to it? The join is the SAME one `suggestClassification`
+// already performs — `discovery_evidence.source_ref` is matched against a
+// document URL — walked the other way, so it is built here beside it rather
+// than re-derived in `services/corpusScout` (inv.engineering.036/037).
+//
+// A source with no prior acquisition of its URL has NO lineage — this is the
+// ordinary case for Stage 2 (sources are recommended BEFORE admission, and
+// admission is what creates the evidence row `source_ref` would match). The
+// caller (`services/corpusScout/admissionRecommendation.ts`) is required to
+// treat an empty result as "no lineage", never as an error, and to fall back
+// to content-only inference labelled PROVISIONAL — never to synthesize a
+// domain/sub-domain placement, which is the same discipline
+// `suggestClassification` applies to a missing `source_ref`.
+
+/** Built ONCE per "prepare recommendations" pass — not once per source — so
+ *  every pending source in a batch is checked against the SAME evidence and
+ *  candidate corpus read. Three DB reads: `discovery_evidence` for the domain
+ *  (their `source_ref` is what a candidate source's `canonicalUrl` is matched
+ *  against), non-rejected `discovery_candidates` for the domain (their
+ *  `domain`/`subDomain` columns ARE the classification — read, never
+ *  re-inferred), and the `specializes` PARENT edges of whichever of those
+ *  candidates are promoted (so siblings under one parent can be told apart
+ *  from independent roots by `groupLineageBySubDomain`). */
+export interface DomainLineageIndex {
+  domain: string;
+  /** `discovery_evidence.source_ref` (verbatim) → the evidence row ids sharing it. */
+  evidenceIdsByRef: ReadonlyMap<string, string[]>;
+  /** Every non-rejected `discovery_candidates` row for the domain — baseline
+   *  (sub_domain IS NULL) AND sub-domain rows alike. */
+  candidates: readonly CandidateRow[];
+  /** Promoted invariant id → its direct `specializes` PARENT invariant ids. */
+  parentsByInvariantId: ReadonlyMap<string, string[]>;
+}
+
+export async function buildDomainLineageIndex(admin: SupabaseClient, domain: string): Promise<DomainLineageIndex> {
+  const { data: evidenceRows, error: evErr } = await admin
+    .from('discovery_evidence')
+    .select('id, source_ref')
+    .in('domain', evidenceDomainsFor(domain));
+  if (evErr) throw new Error(`lineage evidence read failed: ${evErr.message}`);
+  const evidenceIdsByRef = new Map<string, string[]>();
+  for (const r of evidenceRows ?? []) {
+    const ref = typeof r.source_ref === 'string' ? r.source_ref.trim() : '';
+    if (!ref) continue;
+    const list = evidenceIdsByRef.get(ref) ?? [];
+    list.push(String(r.id));
+    evidenceIdsByRef.set(ref, list);
+  }
+
+  const { data: candidateRows, error: candErr } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('domain', domain)
+    .in('status', ['candidate', 'promoted']);
+  if (candErr) throw new Error(`lineage candidate read failed: ${candErr.message}`);
+  const candidates = (candidateRows ?? []).map(toCandidateRow);
+
+  const promotedIds = [
+    ...new Set(candidates.map((c) => c.promotedInvariantId).filter((id): id is string => Boolean(id))),
+  ];
+  const parentsByInvariantId = new Map<string, string[]>();
+  if (promotedIds.length > 0) {
+    const edges = await listEdgesForInvariants(promotedIds, 'out', ['specializes']);
+    for (const e of edges) {
+      const list = parentsByInvariantId.get(e.fromInvariantId) ?? [];
+      list.push(e.toInvariantId);
+      parentsByInvariantId.set(e.fromInvariantId, list);
+    }
+  }
+  return { domain, evidenceIdsByRef, candidates, parentsByInvariantId };
+}
+
+/** ONE lineage item a source's canonical URL resolved to — a discovery
+ *  candidate (promoted or not). `id` is the PROMOTED INVARIANT id when the
+ *  candidate has been promoted, else the candidate's own id — the identity
+ *  `groupLineageBySubDomain` groups and counts by. */
+export interface SourceLineageInvariant {
+  id: string;
+  promoted: boolean;
+  domain: string;
+  subDomain: string | null;
+  statement: string;
+  /** Direct `specializes` parents. Empty for an unpromoted candidate — it has
+   *  not been placed in the graph yet, so it is its own family (a root). */
+  parentIds: readonly string[];
+}
+
+/** ONE source's lineage, resolved from an ALREADY-BUILT index — pure, no I/O,
+ *  so a batch of pending sources can each be checked without a query apiece. */
+export function deriveSourceLineage(canonicalUrl: string, index: DomainLineageIndex): SourceLineageInvariant[] {
+  const ref = typeof canonicalUrl === 'string' ? canonicalUrl.trim() : '';
+  if (!ref) return [];
+  const evidenceIds = index.evidenceIdsByRef.get(ref);
+  if (!evidenceIds || evidenceIds.length === 0) return [];
+  const evidenceIdSet = new Set(evidenceIds);
+  return index.candidates
+    .filter((c) => c.evidenceIds.some((id) => evidenceIdSet.has(id)))
+    .map((c) => ({
+      id: c.promotedInvariantId ?? c.id,
+      promoted: c.promotedInvariantId !== null,
+      domain: c.domain,
+      subDomain: c.subDomain,
+      statement: c.statement,
+      parentIds: c.promotedInvariantId ? (index.parentsByInvariantId.get(c.promotedInvariantId) ?? []) : [],
+    }));
+}
+
 export async function promoteCandidate(
   admin: SupabaseClient,
   candidateId: string,
