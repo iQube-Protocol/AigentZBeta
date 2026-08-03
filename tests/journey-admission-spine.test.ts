@@ -429,7 +429,13 @@ describe('the principal Passport check can never be satisfied by an agent record
   });
 
   it('personas are resolved server-side from the caller, never supplied by the caller', () => {
-    const fn = principalSrc.slice(principalSrc.indexOf('loadUsableCitizenPassportForAuthProfile'));
+    /*
+     * The persona scope was extracted into `listOwnedPersonaIds` so the wallet
+     * route and the Journey observer answer over the SAME set (they disagreed
+     * on one screen otherwise). The requirement is unchanged and now asserted
+     * where it lives.
+     */
+    const fn = principalSrc.slice(principalSrc.indexOf('export async function listOwnedPersonaIds'));
     // Keyed on the auth profile the server derived from the Bearer token.
     expect(fn).toMatch(/\.eq\('auth_profile_id',\s*authProfileId\)/);
     expect(fn, 'a caller-supplied personaId must never key this lookup').not.toMatch(/personaIdHint|body\.personaId/);
