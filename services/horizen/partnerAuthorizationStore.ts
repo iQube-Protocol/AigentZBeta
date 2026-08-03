@@ -128,6 +128,91 @@ function adminOrDefault(admin?: SupabaseClient): SupabaseClient {
  * constraint violation as the replay refusal rather than letting a raw
  * Postgres error leak to the caller.
  */
+/**
+ * Is the authorization store usable RIGHT NOW — asked before, not during, the
+ * ceremony.
+ *
+ * ── WHY THIS EXISTS (operator, 2026-08-03) ───────────────────────────────
+ *
+ * The Verify ceremony called Horizen FIRST and persisted second, so a missing
+ * local table surfaced only after the partner had already been asked to build
+ * an authorization message. The operator saw:
+ *
+ *   createPartnerAuthorizationRequest failed: Could not find the table
+ *   'public.partner_authorization_requests' in the schema cache
+ *
+ * A local prerequisite must be checked locally, before any outbound act. We
+ * do not ask a partner to do work we cannot record.
+ *
+ * The kinds are kept DISTINCT because they have different remedies and the
+ * operator has to pick one: a missing migration is a deploy step, a stale
+ * PostgREST cache is a reload, a refused write is permissions. Collapsing
+ * them into "store unavailable" hands back a fact with no next act.
+ */
+export type AuthorizationStoreAvailability =
+  | { available: true }
+  | {
+      available: false;
+      kind: 'no-client' | 'table-absent' | 'permission-denied' | 'unknown';
+      detail: string;
+      /** The exact next act, executable — never "check the database". */
+      remedy: string;
+    };
+
+export async function checkAuthorizationStoreAvailable(
+  admin?: SupabaseClient,
+): Promise<AuthorizationStoreAvailability> {
+  const client = admin ?? getSupabaseServer();
+  if (!client) {
+    return {
+      available: false,
+      kind: 'no-client',
+      detail: 'no server Supabase client is configured in this environment',
+      remedy: 'Set SUPABASE_SERVICE_ROLE_KEY and NEXT_PUBLIC_SUPABASE_URL for this deployment, then redeploy.',
+    };
+  }
+
+  // `head: true` reads no rows — the cheapest probe that still forces
+  // PostgREST to resolve the relation.
+  const { error } = await client.from(TABLE).select('authorization_id', { head: true, count: 'exact' }).limit(1);
+  if (!error) return { available: true };
+
+  /*
+   * PostgREST reports an unknown relation as PGRST205 ("Could not find the
+   * table … in the schema cache") and Postgres itself as 42P01
+   * (undefined_table). Both mean the same thing to an operator — the
+   * migration has not reached this database — and both are distinguished
+   * here from a permissions refusal (42501 / RLS), which means the table
+   * EXISTS and the caller cannot read it. Opposite remedies.
+   */
+  const code = (error as { code?: string }).code ?? '';
+  const message = error.message ?? String(error);
+  if (code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)) {
+    return {
+      available: false,
+      kind: 'table-absent',
+      detail: message,
+      remedy:
+        `Apply supabase/migrations/20260930000500_partner_authorization_requests.sql to this project, ` +
+        `then reload PostgREST's schema cache: NOTIFY pgrst, 'reload schema';`,
+    };
+  }
+  if (code === '42501' || /permission denied|row-level security/i.test(message)) {
+    return {
+      available: false,
+      kind: 'permission-denied',
+      detail: message,
+      remedy: `The table exists but this caller cannot read it — check that the route uses the service-role client, and the RLS policy on ${TABLE}.`,
+    };
+  }
+  return {
+    available: false,
+    kind: 'unknown',
+    detail: message,
+    remedy: `Read the error above against ${TABLE}; it is neither a missing table nor a permissions refusal.`,
+  };
+}
+
 export async function createPartnerAuthorizationRequest(
   input: CreatePartnerAuthorizationRequestInput,
   admin?: SupabaseClient,

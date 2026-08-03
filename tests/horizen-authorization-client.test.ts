@@ -44,6 +44,10 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
     return { ok: true, record };
   }),
   getPartnerAuthorizationRequest: vi.fn(async (id: string) => rows.get(id) ?? null),
+  // The ceremony now probes the store BEFORE calling Horizen (operator,
+  // 2026-08-03: a local prerequisite is checked locally). The mock store is
+  // by definition available.
+  checkAuthorizationStoreAvailable: vi.fn(async () => ({ available: true })),
   updatePartnerAuthorizationRequest: vi.fn(async (id: string, patch: any) => {
     const existing = rows.get(id);
     if (!existing) throw new Error(`no row for ${id}`);

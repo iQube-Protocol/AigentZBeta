@@ -197,3 +197,123 @@ describe('JourneyRunSurface — the pilot can see WHICH evidence is missing, wit
     expect(block).not.toContain('hasReceipt');
   });
 });
+
+describe('a missing page URL is not a missing registration (2026-08-03)', () => {
+  /*
+   * ── THE OPERATOR'S REPORT ────────────────────────────────────────────────
+   *
+   *   > "The UI still says 'Awaiting Horizen registration for Aigent
+   *   >  Nakamoto' even though Nakamoto's ERC-8004 registration and token ID
+   *   >  are already known. That is an observer-state failure on our side,
+   *   >  not a Horizen registration failure."
+   *
+   * ── WHY IT HAPPENED, AND WHY IT IS A RECURRENCE ─────────────────────────
+   *
+   * `HorizenAgentPageSurface` gated purely on `humanReadableUrl` and reported
+   * its absence as absence of REGISTRATION. Nakamoto is the case that
+   * separates the two: her registration was recovered from the chain, and
+   * `registrationClient.ts`'s recovery branch writes `humanReadableUrl: null`
+   * BY DESIGN, because Horizen's page identifier is a distinct field only a
+   * confirmed partner reread yields and the 2026-07-31 ruling forbids
+   * defaulting it from the tokenId. A fully registered agent can therefore
+   * have no page URL indefinitely.
+   *
+   * This is the FIFTH observer of "is Nakamoto registered", reading a SIXTH
+   * source — precisely what `RES-2026-08-03-HORIZEN-OBSERVER-RECONCILIATION-001`
+   * and `CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001` were recorded to stop.
+   * The lesson existed and was not carried into this component.
+   */
+  const SURFACE = path.join(__dirname, '..', 'components/journey/HorizenAgentPageSurface.tsx');
+  const source = fs.readFileSync(SURFACE, 'utf8');
+
+  it('reads the canonical registration fact, not only the page URL', () => {
+    // THE ASSERTION THAT FAILS ON THE DEFECT: pre-fix the component never
+    // referenced tokenId at all, and had exactly one !resolved branch.
+    expect(source).toMatch(/horizen\?\.tokenId/);
+    expect(source).toMatch(/!resolved && registeredTokenId/);
+  });
+
+  it('never renders "Awaiting Horizen registration" when a token id exists', () => {
+    /*
+     * The operator's own acceptance condition, verbatim: "the UI displays
+     * 'awaiting registration' alongside a non-null token ID" must be
+     * impossible. Structural check — the registered branch must RETURN before
+     * the awaiting branch is reachable.
+     */
+    /*
+     * ANCHORED ON THE RENDER SITE, NOT ON PROSE. First written as a plain
+     * `indexOf('Awaiting Horizen registration for')`, it matched the source
+     * comment quoting the operator's report — which appears ABOVE the fix —
+     * and failed against correct code. A canary that can be tripped by a
+     * comment is measuring the wrong thing.
+     */
+    const registeredAt = source.indexOf('!resolved && registeredTokenId');
+    const awaitingAt = source.search(/<p className="text-slate-300">Awaiting Horizen registration for/);
+    expect(registeredAt, 'the registered branch is missing').toBeGreaterThan(-1);
+    expect(awaitingAt, 'the awaiting branch is missing').toBeGreaterThan(-1);
+    expect(registeredAt, 'a token id must be answered BEFORE the awaiting state').toBeLessThan(awaitingAt);
+  });
+
+  it('says which fact is missing — the page identifier, not the registration', () => {
+    expect(source).toMatch(/is registered — token/);
+    expect(source).toMatch(/page identifier is a\s*\n?\s*\* separate field|separate field from the token id/);
+  });
+
+  it('still refuses to guess a URL: the middle state renders no iframe', () => {
+    // The 2026-07-31 ruling stands — agentIdentifier is never defaulted from
+    // tokenId. Being honest about registration must not become fabricating
+    // an embed target.
+    const middle = source.slice(
+      source.indexOf('!resolved && registeredTokenId'),
+      source.search(/<p className="text-slate-300">Awaiting Horizen registration for/),
+    );
+    expect(middle).not.toContain('IframeTab');
+    expect(middle).not.toContain('buildHorizenAgentPageUrl');
+  });
+});
+
+describe('a local prerequisite is checked locally, before any partner call (2026-08-03)', () => {
+  /*
+   * The operator saw the Verify ceremony fail with:
+   *
+   *   createPartnerAuthorizationRequest failed: Could not find the table
+   *   'public.partner_authorization_requests' in the schema cache
+   *
+   * …AFTER Horizen had already been asked to build an authorization message,
+   * because `prepareHorizenTransparencyAuthorization` called listTools and
+   * the build tool BEFORE it tried to persist. We must not ask an external
+   * party for work we cannot record.
+   */
+  const CLIENT = path.join(__dirname, '..', 'services/horizen/authorizationClient.ts');
+  const source = fs.readFileSync(CLIENT, 'utf8');
+
+  it('checks the authorization store before the MCP client is constructed', () => {
+    const storeCheck = source.indexOf('checkStoreAvailable');
+    const mcp = source.indexOf('deps.mcpClient ?? (await defaultMcpClient())');
+    expect(storeCheck).toBeGreaterThan(-1);
+    expect(storeCheck, 'the store must be probed BEFORE Horizen is contacted').toBeLessThan(mcp);
+  });
+
+  it('the refusal states plainly that Horizen was never called', () => {
+    expect(source).toContain('AUTHORIZATION_STORE_UNAVAILABLE');
+    expect(source).toMatch(/Horizen was NOT called/);
+    expect(source).toMatch(/nothing was authorized and nothing needs undoing/);
+  });
+
+  it('the store distinguishes its failure kinds, because they have different remedies', async () => {
+    const store = fs.readFileSync(path.join(__dirname, '..', 'services/horizen/partnerAuthorizationStore.ts'), 'utf8');
+    for (const kind of ['no-client', 'table-absent', 'permission-denied', 'unknown']) {
+      expect(store, `missing failure kind: ${kind}`).toContain(`'${kind}'`);
+    }
+    // A remedy is an executable act, not "check the database".
+    expect(store).toContain("NOTIFY pgrst, 'reload schema'");
+    expect(store).toContain('20260930000500_partner_authorization_requests.sql');
+  });
+
+  it('a Verify-stage failure cannot be a statement about Register', () => {
+    // Stage independence: the store refusal names only the authorization, and
+    // never claims anything about registration state.
+    const refusal = source.slice(source.indexOf("refusalCode: 'AUTHORIZATION_STORE_UNAVAILABLE'"), source.indexOf("refusalCode: 'AUTHORIZATION_STORE_UNAVAILABLE'") + 700);
+    expect(refusal).not.toMatch(/register|registration/i);
+  });
+});

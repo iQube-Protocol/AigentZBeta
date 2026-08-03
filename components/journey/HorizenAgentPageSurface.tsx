@@ -81,6 +81,55 @@ export function HorizenAgentPageSurface({ agentSlug = 'moneypenny', mode = 'regi
   const candidateUrl = horizen?.humanReadableUrl ?? null;
   const resolved = candidateUrl != null && isHorizenAgentPageUrl(candidateUrl);
 
+  /*
+   * ── THREE STATES, NOT TWO (operator, 2026-08-03) ────────────────────────
+   *
+   *   > "The UI still says 'Awaiting Horizen registration for Aigent
+   *   >  Nakamoto' even though Nakamoto's ERC-8004 registration and token ID
+   *   >  are already known. That is an observer-state failure on our side,
+   *   >  not a Horizen registration failure."
+   *
+   * This surface gated on `humanReadableUrl` alone and reported its absence
+   * as absence of REGISTRATION. Those are different facts, and Nakamoto is
+   * the case that separates them: her registration was recovered from the
+   * chain, and `registrationClient.ts`'s recovery branch writes
+   * `agentIdentifier: null, humanReadableUrl: null` BY DESIGN — Horizen's
+   * page identifier is a distinct field that only a confirmed partner reread
+   * yields, and the operator's 2026-07-31 ruling forbids defaulting it from
+   * the tokenId. So a fully registered agent legitimately has no page URL,
+   * possibly forever.
+   *
+   * The registration fact is read from the CANONICAL source the Agent Card
+   * already serves: `metadata.horizen.tokenId`, resolved server-side through
+   * `resolveHorizenRegistrationBinding` — the same reader every other
+   * observer of this fact uses (CI-2026-08-03-CANONICAL-READER-OWNERSHIP-001).
+   * This component previously read a SIXTH source for a fact that already had
+   * one owner, which is how the same defect recurred.
+   *
+   * Still never a guessed URL: the middle state renders no iframe.
+   */
+  const registeredTokenId = horizen?.tokenId ?? null;
+
+  if (!resolved && registeredTokenId) {
+    return (
+      <div className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
+        <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+        <div>
+          <p className="text-slate-300">
+            {agent.displayName} is registered — token {registeredTokenId}
+            {horizen?.network ? ` on ${horizen.network}` : ''}
+          </p>
+          <p className="mt-1">
+            Horizen&apos;s human-readable agent page is not available for this registration: its page identifier is a
+            separate field from the token id, supplied only by a confirmed Horizen reread. This registration was
+            established from the chain, so no page identifier was returned. Registration is unaffected; the embedded
+            page is not rendered rather than guessed.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!resolved) {
     return (
       <div className="flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-400">
