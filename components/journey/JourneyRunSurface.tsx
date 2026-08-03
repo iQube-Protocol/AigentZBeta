@@ -36,6 +36,21 @@ import { overlayZClass } from '@/components/ui/overlayLayers';
  * this with `key={activeStageId}` so switching stages always starts fresh at
  * slide 0, fully visible.
  */
+/**
+ * A server-derived signal name, made readable — MECHANICALLY.
+ *
+ * `principalRegistrationMandateSigned` → "Principal registration mandate
+ * signed". Deliberately a pure transformation of the identifier rather than a
+ * hand-written label map: a map would be a second place stating what each
+ * signal means, and it would silently fall back to the raw key the moment the
+ * server added a signal it didn't know (inv.engineering.036/037). Reads worse
+ * than curated prose; cannot go stale, and cannot mislabel a new signal.
+ */
+function humaniseSignal(signal: string): string {
+  const spaced = signal.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 function RotatingStatusLine({ slides }: { slides: Array<{ key: string; node: React.ReactNode }> }) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -315,7 +330,7 @@ export function JourneyRunSurface({
           slides={[
             { key: 'description', node: <span className="text-slate-400">{activeStage.description}</span> },
             ...(activeStageRuntime && activeStageRuntime.evidenceMissing.length > 0
-              ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.join(', ')}</span> }]
+              ? [{ key: 'awaiting', node: <span className="text-slate-400">Awaiting: {activeStageRuntime.evidenceMissing.map(humaniseSignal).join(', ')}</span> }]
               : []),
             ...(activeStageRuntime?.refusalReason
               ? [{ key: 'refused', node: <span className="text-rose-300">Refused: {activeStageRuntime.refusalReason}</span> }]
@@ -323,6 +338,44 @@ export function JourneyRunSurface({
           ]}
         />
       </div>
+
+      {/*
+        EVIDENCE CHECKLIST — the pilot must not need a SQL console to learn why
+        a finished-looking stage is not complete (operator, 2026-08-03: "The
+        application should eventually expose this same receipt checklist
+        directly in the Journey interface so you are not required to use
+        Supabase for normal pilot completion").
+
+        Every value here already travelled to this component in
+        `evidencePresent` / `evidenceMissing` / `receiptRefs` — the surface was
+        summarising it to a comma list and discarding the met/unmet split. This
+        renders the same server-derived facts, and computes nothing of its own:
+        a checklist that could disagree with the stage state would be one more
+        thing to go stale (the same rule registerCeremonyProgress follows).
+      */}
+      {activeStageRuntime && (activeStageRuntime.evidencePresent.length > 0 || activeStageRuntime.evidenceMissing.length > 0) && (
+        <details className="mt-1.5">
+          <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300">
+            Evidence checklist — {activeStageRuntime.evidencePresent.length} of{' '}
+            {activeStageRuntime.evidencePresent.length + activeStageRuntime.evidenceMissing.length} recorded
+            {activeStageRuntime.receiptRefs.length > 0 ? ` · ${activeStageRuntime.receiptRefs.length} receipts` : ''}
+          </summary>
+          <ul className="mt-1.5 space-y-1 rounded-lg border border-slate-800 bg-slate-900/40 p-2.5">
+            {activeStageRuntime.evidencePresent.map((sig) => (
+              <li key={sig} className="flex items-center gap-2 text-[11px] text-emerald-300/80">
+                <Check className="h-3 w-3 shrink-0" />
+                <span>{humaniseSignal(sig)}</span>
+              </li>
+            ))}
+            {activeStageRuntime.evidenceMissing.map((sig) => (
+              <li key={sig} className="flex items-center gap-2 text-[11px] text-slate-400">
+                <span className="h-3 w-3 shrink-0 rounded-full border border-slate-600" />
+                <span>{humaniseSignal(sig)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <div className="relative border-b border-slate-800 bg-slate-900/40 px-4 py-2.5 rounded-lg">
         {/* Rendered only while there is somewhere to scroll TO. */}
