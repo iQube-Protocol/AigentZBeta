@@ -1211,26 +1211,81 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
     expect(at).toBeLessThan(client.indexOf("callTool({ name: 'get_onboarding_status'"));
   });
 
-  it("recovery hop 3 reads Horizen's own registry — never the wallet as agentId", () => {
+  it('recovery decodes the minted agentId from the registration receipt — never the wallet-keyed registry', () => {
     /*
-     * Operator's transaction (0xedda5f73...) predates the identifier being
-     * persisted, so hops 1-2 (prepared / receipt) have nothing to recover.
-     * Hop 3 is a READ of Horizen's registry, keyed by the wallet address —
-     * that is a lookup key, not the wallet substituted AS an agentId. The
-     * distinction Al drew: fetchAgent being wallet-keyed does not license
-     * sending the wallet as agentId, but it does license USING it to look up
-     * a record whose ANSWER may carry Horizen's own identifier.
+     * ERC-721 gives no reverse (wallet -> tokenId) enumeration guarantee, so
+     * a registry read keyed by the owner wallet (the earlier hop) could
+     * answer confidently and wrongly. The transaction that minted the
+     * identifier carries it directly in its own receipt logs — that is the
+     * only source this recovery path is permitted to use (operator direction
+     * via Al, 2026-08-02, superseding the wallet-keyed registry lookup).
      */
     const client = stripComments(readSource('services/horizen/registrationClient.ts'));
     const at = client.indexOf('let recoveredAgentId: string | null = null;');
-    expect(at, 'hop 3 (registry lookup) is not implemented').toBeGreaterThan(-1);
+    expect(at, 'receipt-decode recovery is not implemented').toBeGreaterThan(-1);
     const block = client.slice(at, client.indexOf('const agentIdToSend =', at));
-    expect(block).toMatch(/fetchRegistryAgent/);
-    expect(block).toMatch(/lookup\(input\.ownerWalletAddress, input\.network\)/);
-    // The recovered value is read from the RESPONSE, never assumed present.
-    expect(block).toMatch(/if \(record\.ok\)/);
-    expect(block).toMatch(/pickStringField\(record\.value, \[/);
-    // A failed lookup must not read as an answer about the registration.
+    expect(block).toMatch(/decodeAgentIdFromReceipt/);
+    expect(block).toMatch(/txHash: input\.txHash/);
+    expect(block).toMatch(/expectedOwner: input\.ownerWalletAddress/);
+    expect(block).toMatch(/expectedRegistry: HORIZEN_NETWORK_FACTS\[input\.network\]\.identityRegistry/);
+    // The recovered value is read from the decode result, never assumed present.
+    expect(block).toMatch(/if \(decoded\.ok\)/);
+    // A failed decode must not read as an answer about the registration.
     expect(block).toMatch(/catch \{/);
+    // The wallet-keyed registry lookup this replaces must be gone from this path.
+    expect(block).not.toMatch(/fetchRegistryAgent/);
+  });
+});
+
+describe('agentIdRecovery — decoding the minted identifier from the receipt', () => {
+  const readAgentIdRecoverySource = () => stripComments(readSource('services/horizen/agentIdRecovery.ts'));
+
+  it('is read-only: no signer, no write path, recovery can never submit a registration', () => {
+    const src = readAgentIdRecoverySource();
+    expect(src).not.toMatch(/new ethers\.Wallet/);
+    expect(src).toMatch(/getTransactionReceipt/);
+  });
+
+  it('scans every receipt log, not just those addressed to the transaction target', () => {
+    const src = readAgentIdRecoverySource();
+    expect(src).toMatch(/for \(const log of receipt\.logs\)/);
+    expect(src).not.toMatch(/log\.address\.toLowerCase\(\) === .*\.to/);
+  });
+
+  it('decodes both the ERC-8004 Registered event and the ERC-721 Transfer mint event', () => {
+    const src = readAgentIdRecoverySource();
+    expect(src).toMatch(/event Registered\(uint256 indexed agentId, string agentURI, address indexed owner\)/);
+    expect(src).toMatch(/event Transfer\(address indexed from, address indexed to, uint256 indexed tokenId\)/);
+    expect(src).toMatch(/parsed\.args\.from === ethers\.ZeroAddress/);
+  });
+
+  it('refuses on ambiguity rather than guessing among distinct decoded agentIds', () => {
+    const src = readAgentIdRecoverySource();
+    const at = src.indexOf('distinctIds.size > 1');
+    expect(at).toBeGreaterThan(-1);
+    expect(src.slice(at, at + 300)).toMatch(/ok: false/);
+    expect(src.slice(at, at + 300)).toMatch(/ambiguous/);
+  });
+
+  it('mandatorily verifies ownerOf before accepting a decoded identifier', () => {
+    const src = readAgentIdRecoverySource();
+    const at = src.indexOf('ownerOf(chosen.agentId)');
+    expect(at, 'ownerOf verification missing').toBeGreaterThan(-1);
+    const block = src.slice(at, at + 700);
+    expect(block).toMatch(/onChainOwner\.toLowerCase\(\) !== input\.expectedOwner\.toLowerCase\(\)/);
+    expect(block).toMatch(/ok: false/);
+  });
+
+  it('treats tokenURI as best-effort — its failure never invalidates an already-verified identifier', () => {
+    const src = readAgentIdRecoverySource();
+    const at = src.indexOf('tokenURI(chosen.agentId)');
+    expect(at, 'tokenURI enrichment missing').toBeGreaterThan(-1);
+    const block = src.slice(Math.max(0, at - 200), at + 300);
+    expect(block).toMatch(/catch \{/);
+  });
+
+  it('returns `ok: false` before any receipt exists, never a guessed positive', () => {
+    const src = readAgentIdRecoverySource();
+    expect(src).toMatch(/no receipt found for transaction/);
   });
 });

@@ -40,6 +40,7 @@ import { createHash } from 'crypto';
 import { ethers } from 'ethers';
 import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
+import { decodeAgentIdFromReceipt } from './agentIdRecovery';
 import { findCompatibleTool, matchSchemaFields, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from './registrableAgents';
 import { buildHorizenAgentPageUrl } from './agentPageUrl';
@@ -612,6 +613,15 @@ export interface CheckAgentRegistrationStatusInput {
   ownerWalletAddress: string;
   network: HorizenNetwork;
   actorPersonaId: string;
+  /**
+   * RPC endpoint used ONLY to read the registration transaction's own
+   * receipt (getTransactionReceipt + ownerOf/tokenURI view calls) when
+   * `horizenAgentId` is absent and must be decoded. Resolved by the CALLER
+   * (this module never reads process.env) — same discipline as
+   * `broadcastAgentRegistration`'s `rpcUrl`. Read-only: no signer is ever
+   * constructed from it.
+   */
+  rpcUrl?: string;
 }
 
 export interface AgentRegistrationStatus {
@@ -705,32 +715,45 @@ export async function checkAgentRegistrationStatus(
   const declaresAgentId = /agentId/.test(JSON.stringify(byName.get_onboarding_status.inputSchema ?? {}));
 
   /*
-   * RECOVERY HOP 3 — ASK HORIZEN'S OWN REGISTRY (operator direction via Al).
+   * RECOVERY — DECODE THE MINTED IDENTIFIER FROM THE REGISTRATION'S OWN
+   * RECEIPT (operator direction via Al, superseding the earlier
+   * registry-lookup hop, 2026-08-02).
    *
-   *   prepared identifier -> receipt -> REGISTRY RECORD -> transaction event -> stop
+   *   prepared identifier -> receipt (fetchRegistryAgent) -> ON-CHAIN RECEIPT LOGS -> stop
    *
-   * Hops 1 and 2 only help registrations prepared AFTER the identifier began
-   * being persisted. The pilot's transaction predates that, so it has nothing
-   * to recover from and the refusal fires — correctly, but with no way
-   * forward.
+   * The earlier hop asked Horizen's registry "what did this wallet
+   * register" — `fetchRegistryAgent(ownerWalletAddress, network)`. ERC-721
+   * gives no reverse (wallet -> tokenId) enumeration guarantee, so that read
+   * could answer confidently and WRONGLY: a wallet-keyed lookup is a
+   * different tool contract than an agentId lookup, and there is no proof
+   * the two ever coincide.
    *
-   * This is hop 3: read the registry record Horizen itself keeps and take the
-   * identifier IF the response explicitly contains one. That is not the wallet
-   * substitution Al struck out — the wallet is the LOOKUP KEY for a read whose
-   * ANSWER carries Horizen's own identifier. Nothing is inferred: absent means
-   * absent, and the refusal still fires.
+   * The transaction that minted the identifier is the one place it is
+   * guaranteed to be deterministic: Horizen's ERC-8004 `Registered` event
+   * and the standard ERC-721 `Transfer` mint event are both emitted in that
+   * transaction's OWN receipt (services/horizen/agentIdRecovery.ts).
+   * Decoding it needs no registry lookup, scans every log (Horizen may relay
+   * through a wrapper contract, so the emitting event's `log.address` is not
+   * assumed to equal the tx's `to`), and mandatorily verifies the decoded
+   * agentId's `ownerOf` before it is ever trusted. Stop querying the wallet
+   * for the missing identifier — the receipt already contains it.
    */
   let recoveredAgentId: string | null = null;
   if (declaresAgentId && !input.horizenAgentId?.trim()) {
     try {
-      const lookup = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
-      const record = await lookup(input.ownerWalletAddress, input.network);
-      if (record.ok) {
-        recoveredAgentId = pickStringField(record.value, ['agentId', 'agentIdentifier', 'identifier', 'tokenId']);
+      const provider = deps.rpcProvider ?? new ethers.JsonRpcProvider(input.rpcUrl);
+      const decoded = await decodeAgentIdFromReceipt({
+        provider,
+        txHash: input.txHash,
+        expectedOwner: input.ownerWalletAddress,
+        expectedRegistry: HORIZEN_NETWORK_FACTS[input.network].identityRegistry,
+      });
+      if (decoded.ok) {
+        recoveredAgentId = decoded.agentId;
       }
     } catch {
-      // A failed lookup is not an answer about the registration. Left null so
-      // the refusal below reports honestly rather than this becoming a
+      // A failed decode is not an answer about the registration. Left null
+      // so the refusal below reports honestly rather than this becoming a
       // silent second failure mode.
     }
   }
@@ -742,8 +765,9 @@ export async function checkAgentRegistrationStatus(
       refusalCode: 'STATUS_UNAVAILABLE',
       detail:
         'Horizen status could not be checked because the registration\'s agent identifier was unavailable — ' +
-        'it was not returned when the registration was built, is not on the submission receipt, and Horizen\'s ' +
-        `registry holds no identifier for ${input.ownerWalletAddress} on ${input.network}. ` +
+        'it was not returned when the registration was built, is not on the submission receipt, and could not ' +
+        `be decoded from transaction ${input.txHash}'s own receipt logs (no Registered/Transfer mint event found ` +
+        'at the recorded Identity Registry, or its owner did not match). ' +
         `The on-chain transaction (${input.txHash}) remains valid. Do not re-register.`,
     };
   }
