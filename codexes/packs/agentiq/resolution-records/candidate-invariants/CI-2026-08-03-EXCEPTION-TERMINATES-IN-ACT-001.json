@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "candidate-invariant/v1.0",
+  "candidateId": "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
+  "statement": "Every exception must terminate in an executable decision. An exception surface is incomplete unless it offers the next safe act in context, carrying the evidence, the recommendation, the rationale, the consequence and the action.",
+  "classification": "OPERATOR EXPERIENCE (UX) invariant — operator-formalised 2026-08-03 as a class DISTINCT from the engineering invariants. Engineering invariants govern how the system is BUILT; operator-experience invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. This candidate carries operator invariants II, V and VI; the sibling rule against navigation instructions (III, VIII) and the completion-over-obstruction principle (IX) are recorded in the notes as part of the same class.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "A duplicate-group exception derives a recommended canonical copy from recorded quality signals, explains why in terms of those signals, states the consequence before the act (including that both records are preserved), and pre-populates an editable rationale — so the operator confirms or overrides rather than authoring from scratch.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "No prose the exception surface emits contains a navigation instruction ('Go to', 'Find', 'Locate', 'in the review queue', 'individually') — the system already holds the record and must present it rather than send the operator looking.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "Exceptions are split into 'recommended-resolution-available' and 'genuine-judgment-required'; copies whose signals do not separate them yield the second rather than an arbitrary preference presented as a derivation.",
+      "verifiedFailingBeforeFix": true
+    },
+    {
+      "path": "tests/duplicate-resolution.test.ts",
+      "assertion": "No code path in the resolution chain deletes a candidate source — aliasing is an update recording duplicateOfSourceId, and the dry run asserts recordsDeleted === 0 and unrelatedRecordsAffected === 0.",
+      "verifiedFailingBeforeFix": true
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stage 2 exception surface — components/research/Track2ProgrammePanel.tsx ExceptionsSurface, duplicate group card",
+      "defect": "The exception card recommended 'Decide this source individually in the review queue' — a navigation instruction rather than an act — while both duplicate members were already loaded in the surface's own state and the quality signals needed to rank them were already recorded on every row.",
+      "resolutionId": "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001",
+      "evidence": [
+        "tests/duplicate-resolution.test.ts",
+        "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001"
+  ],
+  "ratifiedSource": null,
+  "notes": [
+    "FIRST MEMBER OF A NEW INVARIANT CLASS. The operator formalised operator-experience invariants on 2026-08-03 as distinct from the engineering invariants already in this registry. Every prior candidate here governs construction; this one governs the steward's interaction with the result. The two classes can be satisfied independently — the surface this record concerns satisfied every engineering invariant (isolation, receipting, disclosure) while failing the operator entirely.",
+    "Operator's design statement, verbatim: 'An exception surface is incomplete unless it offers the next safe act in context.'",
+    "Sibling operator invariants of the same class, carried here because they are enforced by the same canaries rather than duplicated as separate candidates: III/VIII — never make the operator search, never require remembering or copying ids, one decision in one place; IV — governance must decrease interaction cost while increasing decision quality; VI — the recommended action arrives prepared; IX — constitutional systems optimise completion, not obstruction.",
+    "The five questions every exception surface must answer, from the ruling: what happened; what does the system recommend; why; what will happen if I approve; what single action moves the safe remainder forward.",
+    "SCOPE LIMIT, recorded honestly: one occurrence, at one surface. `cross-capability` is a claim about where the rule APPLIES — the ruling directs it at provenance, validation, relationships and crystal assignment too — not a claim of demonstrated recurrence. The milestone-close check flags this correctly and it must stay `candidate` until a second, genuinely independent surface exhibits the shape.",
+    "OPEN, and deliberately not resolved here: `IsolationException.recommendedAction` is free prose, which is what allowed a navigation instruction to satisfy the type. A typed action (a discriminated union of executable treatments) would make the defect structurally impossible rather than canaried. That is a change to the shared exception shape used by every stage and belongs in its own deliberate act."
+  ]
+}

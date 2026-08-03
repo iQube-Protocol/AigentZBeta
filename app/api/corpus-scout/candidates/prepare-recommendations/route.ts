@@ -25,6 +25,10 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
 import { findDuplicateCandidates } from '@/services/corpusScout/intelligence';
+import {
+  composeDuplicateResolution,
+  dryRunDuplicateResolution,
+} from '@/services/corpusScout/duplicateResolution';
 import { findRegistryEntry } from '@/services/corpusScout/institutionalRegistry';
 import {
   composeAdmissionRecommendation,
@@ -77,6 +81,20 @@ export async function GET(req: NextRequest) {
     })),
   );
   const duplicateSourceIds = new Set(duplicateGroups.flatMap((g) => g.sourceIds));
+
+  /*
+   * THE SMALLEST SAFE ACT FOR EACH DUPLICATE GROUP (operator ruling, 2026-08-03).
+   *
+   *   > "An exception surface is incomplete unless it offers the next safe act
+   *   >  in context."
+   *
+   * Derived SERVER-SIDE so the panel renders a recommendation rather than
+   * computing one — and so the plan the operator sees is the same plan the
+   * executor acts on. `composeDuplicateResolution` writes nothing.
+   */
+  const duplicateResolutions = duplicateGroups.map((group) =>
+    composeDuplicateResolution({ group, rows: pending }),
+  );
 
   let lineageIndex: Awaited<ReturnType<typeof buildDomainLineageIndex>>;
   try {
@@ -171,6 +189,8 @@ export async function GET(req: NextRequest) {
         manualReviewThreshold: CONFIDENCE_MANUAL_REVIEW_THRESHOLD,
       },
       duplicateGroups,
+      duplicateResolutions,
+      duplicateDryRun: dryRunDuplicateResolution(duplicateResolutions),
       recommendations,
       summary,
       population,
