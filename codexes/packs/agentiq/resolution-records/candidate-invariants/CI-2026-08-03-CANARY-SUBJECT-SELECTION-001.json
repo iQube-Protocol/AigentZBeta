@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-CANARY-SUBJECT-SELECTION-001",
   "statement": "A regression test must select its subject by the property under test, not by incidental ordering, index, fixture position or current registry shape.",
   "classification": "Child implementation rule under CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001 — operator-added 2026-08-03. Not a peer invariant; it is how the parent is satisfied in test code.",
@@ -47,5 +47,17 @@
     "CHILD of CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001. Hierarchy:  CANARY-REPRODUCES-DEFECT  └── CANARY-SUBJECT-SELECTION. Recorded as a child rather than a peer for the same reason IDENTIFIER-RECOVERY-CONTRACT was: it is an application of the parent, not an independent claim.",
     "Three occurrences at ONE site (this test file), so it does NOT meet the >=2-distinct-sites bar for `validated`. Deliberately left at `candidate`: the rule is almost certainly general, but its evidence so far is not. Recurrence elsewhere is what would earn promotion — and an agent may not ratify.",
     "Discovered minutes after the parent was ratified, by the parent applying to its own instrument: a green test that had silently stopped testing its subject is exactly \"instrument failure, not protection\"."
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": "CI-2026-08-03-CANARY-REPRODUCES-DEFECT-001",
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

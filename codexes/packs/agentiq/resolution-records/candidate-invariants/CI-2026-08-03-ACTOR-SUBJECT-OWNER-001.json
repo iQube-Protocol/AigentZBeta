@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": "Engineering/constitutional invariant — the operator was explicit that this is NOT a structural scientific claim.",
   "ratifiedSource": "Operator ruling, 2026-08-03 (session message: \"My ruling on the two candidate invariants\"). The operator explicitly promoted this and supplied the canonical wording verbatim below.",
   "notes": [
@@ -58,5 +58,18 @@
         "tests/horizen-agent-registration-binding.test.ts"
       ]
     }
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon",
+      "invariant-corpus"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

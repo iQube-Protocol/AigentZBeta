@@ -39,6 +39,14 @@ import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
 import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusScout/intelligence";
 import { findRegistryEntry, type SourceTier } from "@/services/corpusScout/institutionalRegistry";
 import {
+  ABSORBED_BATCH_LIMIT,
+  partitionForExecution,
+  renderPartitionPreview,
+  summariseAbsorbedExecution,
+  type AbsorbedExecutionSummary,
+  type ExecutionBatchOutcome,
+} from "@/services/corpusScout/executionAbsorption";
+import {
   RECOMMENDATION_TO_REVIEW_DECISION,
   titleResolutionIssue,
   type AdmissionRecommendation,
@@ -1140,6 +1148,9 @@ function BulkAdmissionControl({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<BulkResult | null>(null);
+  const [absorbed, setAbsorbed] = useState<AbsorbedExecutionSummary | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showPartition, setShowPartition] = useState(false);
 
   const chosen = DECISIONS.find((d) => d.value === decision) ?? null;
   const requiresProvenanceClass = chosen?.consequence.includes("Ingestion Broker") ?? false;
@@ -1151,34 +1162,123 @@ function BulkAdmissionControl({
 
   const selectedDuplicates = selectedRows.filter((r) => duplicateSourceIds.has(r.sourceId));
 
+  /*
+   * EXECUTION CONSTRAINT ABSORPTION (operator ruling, 2026-08-03).
+   *
+   *   > "Implementation constraints that do not alter constitutional intent
+   *   >  shall be absorbed by the system rather than projected onto the
+   *   >  operator."
+   *
+   * The server caps a batch at 25 and REFUSES rather than truncating — which is
+   * correct and unchanged, because a silently truncated batch reporting success
+   * is the population-shrink defect. What was wrong was handing the operator
+   * the remedy ("Split the selection") when the system already held every fact
+   * needed to perform it: the selection, the limit, one disposition, one
+   * provenance class, one rationale, and no constitutional difference whatever
+   * between one batch and two.
+   *
+   * So the executor absorbs it: ONE operator act, N requests, EACH still
+   * carrying its own governed receipt. The operator thinks "admit these
+   * sources", never "execute two POSTs because the backend limits batches".
+   *
+   * Partial failure stays HONEST. If batch 2 fails after batch 1 succeeded,
+   * `summariseAbsorbedExecution` reports exactly that — how many were recorded,
+   * how many were not, and where it stopped. Absorbing the batching must never
+   * reintroduce the defect the refusal was protecting against.
+   */
   const post = useCallback(
     async (dryRun: boolean) => {
       if (selected.size === 0 || !chosen) return;
       setBusy(true);
       setErr(null);
+      setAbsorbed(null);
+
+      const batches = partitionForExecution([...selected]);
+      const outcomes: ExecutionBatchOutcome[] = [];
+      const merged: BulkResult["outcomes"] = [];
+      let written = 0;
+      let requested = 0;
+      let decided = 0;
+      let ingestionFailures = 0;
+      let receiptsWritten = 0;
+
       try {
-        const res = await personaFetch("/api/corpus-scout/candidates/bulk-review", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sourceIds: [...selected],
-            decision: chosen.value,
-            notes: notes.trim(),
-            provenanceClass: provenanceClass || undefined,
-            dryRun,
-          }),
+        for (const batch of batches) {
+          setProgress({ current: batch.ordinal, total: batches.length });
+          const res = await personaFetch("/api/corpus-scout/candidates/bulk-review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sourceIds: batch.sourceIds,
+              decision: chosen.value,
+              notes: notes.trim(),
+              provenanceClass: provenanceClass || undefined,
+              dryRun,
+            }),
+          });
+          const d = await res.json().catch(() => null);
+          if (!d?.ok) {
+            // STOP HERE, and say so. Continuing past a failure would leave the
+            // operator unable to tell which sources were recorded.
+            outcomes.push({
+              ordinal: batch.ordinal,
+              sourceIds: batch.sourceIds,
+              ok: false,
+              error: d?.error || `batch ${batch.ordinal} was not processed (HTTP ${res.status})`,
+            });
+            break;
+          }
+          const bulk = d as BulkResult;
+          outcomes.push({
+            ordinal: batch.ordinal,
+            sourceIds: batch.sourceIds,
+            ok: true,
+            written: bulk.written,
+            ingestionFailures: bulk.ingestionFailures,
+            receiptWritten: bulk.receiptWritten,
+          });
+          merged.push(...bulk.outcomes);
+          written += bulk.written;
+          requested += bulk.requested;
+          decided += bulk.decided;
+          ingestionFailures += bulk.ingestionFailures;
+          if (bulk.receiptWritten) receiptsWritten += 1;
+        }
+
+        const summary = summariseAbsorbedExecution({
+          totalSelected: selected.size,
+          batches,
+          outcomes,
         });
-        const d = await res.json().catch(() => null);
-        if (!d?.ok) throw new Error(d?.error || `the batch was not processed (HTTP ${res.status})`);
-        setResult(d as BulkResult);
-        if (!dryRun) onDone();
+        setAbsorbed(summary);
+        setResult({
+          dryRun,
+          decision: chosen.value,
+          requested,
+          decided,
+          written,
+          ingestionFailures,
+          // EACH BATCH KEEPS ITS OWN RECEIPT — that is the constitutional part
+          // and is not collapsed. This flag reports whether EVERY batch was
+          // receipted, so a missing one cannot hide behind a successful sibling.
+          receiptWritten: receiptsWritten === outcomes.filter((o) => o.ok).length && receiptsWritten > 0,
+          receiptWarning:
+            receiptsWritten < outcomes.filter((o) => o.ok).length
+              ? `${outcomes.filter((o) => o.ok).length - receiptsWritten} batch receipt(s) were not written. The decisions stand; the attributable record of those batches does not.`
+              : null,
+          outcomes: merged,
+        });
+        if (!dryRun && summary.batchesSucceeded > 0) onDone();
       } catch (e) {
+        const summary = summariseAbsorbedExecution({ totalSelected: selected.size, batches, outcomes });
+        setAbsorbed(summary);
         setErr(
           e instanceof Error
-            ? e.message
-            : "the batch was not processed — every source in it is still at whatever status it already had",
+            ? `${e.message} — ${summary.headline}`
+            : `the batch was not processed — ${summary.headline}`,
         );
       } finally {
+        setProgress(null);
         setBusy(false);
       }
     },
@@ -1238,11 +1338,21 @@ function BulkAdmissionControl({
         </p>
       ) : (
         <div className="mt-2 space-y-1.5">
+          {/* THE WARNING NOW TERMINATES IN AN ACT (UX II, 2026-08-03).
+              It previously ended "…only you can say which copy is canonical",
+              which was true before the resolution board existed and is stale
+              now: the board above derives a canonical copy, explains it, and
+              resolves the group in place. A warning with no act attached is
+              the diagnosis-only defect. */}
           {selectedDuplicates.length > 0 && (
             <div className="rounded border border-amber-500/30 bg-amber-500/10 p-1.5 text-amber-100">
               {selectedDuplicates.length} selected source(s) belong to an exact-duplicate group. Admitting more than
-              one member ingests the same document twice — this is not blocked, because only you can say which copy
-              is canonical.
+              one member ingests the same document twice.{" "}
+              <strong className="font-medium">
+                Resolve them in the duplicate panel above — it recommends a canonical copy and preserves the other as
+                an alias in one act.
+              </strong>{" "}
+              This is not blocked; you may still admit them and decide later.
             </div>
           )}
           <select
@@ -1287,6 +1397,35 @@ function BulkAdmissionControl({
             placeholder="rationale (required to record — written onto every source in the batch and carried on the receipt)"
             className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
           />
+          {/* SHAPE A — the partition, as expandable DETAIL rather than a
+              decision. The operator asked for batching not to surface unless
+              asked; this is what "asked" looks like. */}
+          {selected.size > ABSORBED_BATCH_LIMIT && (
+            <div className="rounded border border-slate-800 bg-slate-900/40 p-1.5 text-[10px]">
+              <button
+                onClick={() => setShowPartition((v) => !v)}
+                className="text-slate-400 underline-offset-2 hover:underline"
+              >
+                {showPartition ? "Hide" : "Show"} how this will be executed (
+                {partitionForExecution([...selected]).length} batches)
+              </button>
+              {showPartition && chosen && (
+                <ul className="mt-1 space-y-0.5 text-slate-400">
+                  {renderPartitionPreview(partitionForExecution([...selected]), {
+                    decisionLabel: chosen.label,
+                    provenanceClass: provenanceClass || null,
+                    rationale: notes.trim() || "(none yet)",
+                  }).map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                  <li className="text-slate-600">
+                    Batching is an execution detail, not a decision — each batch is still receipted separately.
+                  </li>
+                </ul>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={() => void post(true)}
@@ -1313,7 +1452,39 @@ function BulkAdmissionControl({
         </div>
       )}
 
+      {/* SHAPE B — "Executing… Batch 1 of 2…". The operator sees progress, not
+          a constraint they must solve. */}
+      {progress && (
+        <div className="mt-1.5 flex items-center gap-1.5 text-slate-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Executing… batch {progress.current} of {progress.total}
+        </div>
+      )}
+
       {err && <div className="mt-1.5 rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+
+      {/* PARTIAL FAILURE STAYS HONEST. Absorbing the batching must never
+          reintroduce the "partially applied batch reporting success" defect the
+          server's refusal was protecting against — so a run that stopped
+          partway says which batch it stopped at and names the sources that were
+          NOT recorded. */}
+      {absorbed && absorbed.outcome !== "complete" && absorbed.batchesAttempted > 0 && (
+        <div className="mt-1.5 rounded border border-amber-500/40 bg-amber-500/10 p-1.5 text-amber-100">
+          <strong className="font-medium">{absorbed.headline}</strong>
+          {absorbed.notRecordedSourceIds.length > 0 && (
+            <ul className="mt-1 max-h-24 space-y-0.5 overflow-y-auto font-mono text-[10px] text-amber-200/80">
+              {absorbed.notRecordedSourceIds.map((id) => (
+                <li key={id}>{id} — not recorded</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {absorbed && absorbed.outcome === "complete" && absorbed.batchCount > 1 && (
+        <div className="mt-1.5 text-[10px] text-slate-500">
+          {absorbed.headline} Each batch carries its own receipt.
+        </div>
+      )}
 
       {result && (
         <div className="mt-2 space-y-1 rounded border border-slate-800 bg-slate-950 p-2">

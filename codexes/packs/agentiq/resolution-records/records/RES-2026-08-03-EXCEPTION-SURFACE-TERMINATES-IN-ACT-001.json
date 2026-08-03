@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "resolution-record/v1.0",
+  "schemaVersion": "resolution-record/v2.0",
   "resolutionId": "RES-2026-08-03-EXCEPTION-SURFACE-TERMINATES-IN-ACT-001",
   "capability": "Track 2 — Stage 2 exception surface (operator experience)",
   "milestone": "Track 2 exception isolation — duplicate groups resolved in place",
@@ -63,5 +63,14 @@
   "sourceDocs": [
     "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
   ],
-  "date": "2026-08-03"
+  "date": "2026-08-03",
+  "projections": {
+    "targets": [
+      "devon",
+      "ux-framework"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
 }

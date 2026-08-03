@@ -227,10 +227,26 @@ describe('Track 2 Stage 2 — governed bulk admission', () => {
     // substituting the artifact hash would fabricate a match on an axis that
     // was never checked.
     expect(src).toMatch(/normalizedTextHash: null/);
-    // Selecting duplicates is WARNED, never silently blocked — only the
-    // steward can say which copy is canonical.
+    // Selecting duplicates is WARNED, never silently blocked.
     expect(src).toMatch(/belong to an exact-duplicate group/);
-    expect(src).toMatch(/this is not blocked/);
+    /*
+     * ASSERTION BROADENED 2026-08-03, reason recorded inline.
+     *
+     * This pinned the literal lowercase substring "this is not blocked", which
+     * was a fragment of the sentence "…this is not blocked, because only you
+     * can say which copy is canonical." That sentence became STALE when the
+     * in-place duplicate resolution board shipped: the operator CAN now resolve
+     * the group right there, so a warning ending on that caveat was a dead end
+     * (UX invariant II — every exception terminates in an executable decision).
+     *
+     * The PROPERTY the canary exists to protect — warned, never silently
+     * blocked — is unchanged and is asserted case-insensitively below. What is
+     * no longer pinned is one particular rendering of it, which had made the
+     * canary fail on a reword that improved the surface.
+     */
+    expect(src).toMatch(/not blocked/i);
+    // …and the warning must now NAME the remedy rather than ending on a caveat.
+    expect(src).toMatch(/Resolve them in the duplicate panel above/);
   });
 
   it('the institution tier is read from the ratified registry, never assumed', () => {

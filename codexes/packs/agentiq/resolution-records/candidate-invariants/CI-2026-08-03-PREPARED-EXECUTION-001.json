@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-03-PREPARED-EXECUTION-001",
+  "statement": "When intent is fully specified, prepare execution. The operator approves prepared work rather than reconstructs work.",
+  "scope": "cross-capability",
+  "status": "candidate",
+  "ratifiedSource": null,
+  "governingPrinciple": false,
+  "supersededBy": null,
+  "derivedFrom": [
+    "RES-2026-08-03-KNOWLEDGE-PIPELINE-001"
+  ],
+  "occurrences": [
+    {
+      "site": "Track 2 Stage 2 — prepare-recommendations route",
+      "defect": "The server already computed the executable batch, the population and the critical path before the operator arrived, which is this principle working. The inverse — the batch-limit refusal, where intent was fully specified and execution was NOT prepared — is what named it.",
+      "resolutionId": "RES-2026-08-03-BATCH-LIMIT-PROJECTED-ONTO-OPERATOR-001",
+      "evidence": [
+        "9d86b3a1c",
+        "tests/exception-isolation.test.ts"
+      ]
+    }
+  ],
+  "canaries": [],
+  "notes": [
+    "PLACED 2026-08-03 as Constitutional Execution Principle 6 of six, beneath the ratified Constitutional Time Principle. The operator: \"What you've actually been discovering across these six occurrences is a constitutional execution principle that explains WHY the UX invariants exist.\"",
+    "UX IS A PROJECTION, NOT A FAMILY. This rule reaches the interface through its `ux-framework` projection target — it is not duplicated as a separate UX invariant. Operator: \"No new invariant. Just a UX projection. Same invariant. Different projection.\"",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion\")."
+  ],
+  "family": "execution",
+  "parentCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "classification": "Constitutional Execution Principle 6 — Prepared Execution. Operator wording (2026-08-03): \"When intent is fully specified, prepare execution. The operator approves prepared work rather than reconstructs work.\"",
+  "projections": {
+    "targets": [
+      "ux-framework",
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

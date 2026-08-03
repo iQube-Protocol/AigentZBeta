@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
   "statement": "A bounded processor must distinguish partial completion from complete processing. Unprocessed population must be disclosed, counted and either resumed or explicitly excluded.",
   "classification": null,
@@ -58,5 +58,17 @@
     "OPEN: row-level truncation is disclosed but not resolved. A processor that reads part of a record and counts the record as processed satisfies this invariant's letter through disclosure; whether that should be permitted at all is an operator question.",
     "Receipt fields specified by the operator 2026-08-03 so the identity is verifiable by a third party, not merely enforced at runtime: admitted population hash, batch boundaries, processed ids, excluded ids AND reasons, per-batch candidate counts, dedup result, reconciliation hash. Hashes reuse computeCohortHash so digests are comparable across extraction, assignment and freeze.",
     "verifyExtractionReceipt found a real gap in the first receipt implementation: a failed BATCH produced one batch-scoped reason, leaving each excluded source id unexplained. Batch failures are now expanded into a per-row reason. The verifier catching its own receipt's deficiency is the intended behaviour of a recheck path."
-  ]
+  ],
+  "family": "engineering",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

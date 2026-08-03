@@ -1,10 +1,11 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": null,
   "ratifiedSource": null,
   "notes": [
     "The ratified cadence: build only the operator workflow the NEXT stage needs, once the PREVIOUS stage’s real outputs exist. Stop between stages and report.",
-    "Track 2 acceptance criterion 7 remains \"met at the projection, per-stage wiring outstanding\" — the honest reading of this candidate against the programme today."
+    "Track 2 acceptance criterion 7 remains \"met at the projection, per-stage wiring outstanding\" — the honest reading of this candidate against the programme today.",
+    "FAMILY FLAGGED FOR THE OPERATOR: classified `constitutional` because the failure mode was a FALSE CLAIM ABOUT PROGRAMME STATE (\"a rendered stage reads as progress\"), which is a governance defect. It reads equally well as `agency` — it protects the operator's ability to actually act on a stage. Not decided unilaterally."
   ],
   "canaries": [
     {
@@ -39,5 +40,17 @@
         "tests/track2-steward-workflow.test.ts"
       ]
     }
-  ]
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

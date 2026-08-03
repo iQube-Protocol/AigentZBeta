@@ -1,8 +1,8 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "candidateId": "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001",
   "statement": "Every exception must terminate in an executable decision. An exception surface is incomplete unless it offers the next safe act in context, carrying the evidence, the recommendation, the rationale, the consequence and the action.",
-  "classification": "OPERATOR EXPERIENCE (UX) invariant — operator-formalised 2026-08-03 as a class DISTINCT from the engineering invariants. Engineering invariants govern how the system is BUILT; operator-experience invariants govern how it BEHAVES FOR ITS HUMAN STEWARD. This candidate carries operator invariants II, V and VI; the sibling rule against navigation instructions (III, VIII) and the completion-over-obstruction principle (IX) are recorded in the notes as part of the same class.",
+  "classification": "Constitutional Execution Principle 2 — Exception Terminates in an Act. Operator wording (2026-08-03): \"Every exception surface must terminate in the smallest executable constitutional action. Never terminate in navigation, in investigation, or in \"go somewhere else.\"\"",
   "scope": "cross-capability",
   "status": "candidate",
   "canaries": [
@@ -36,6 +36,14 @@
         "tests/duplicate-resolution.test.ts",
         "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
       ]
+    },
+    {
+      "site": "components/research/Track2ProgrammePanel.tsx",
+      "defect": "The Track 2 exception surface isolated exceptions correctly and then stopped at diagnosis — the exact-duplicate card read \"Decide this source individually in the review queue\", sending the operator to find a record the system already held.",
+      "resolutionId": "RES-2026-08-03-TRACK2-EXCEPTION-ISOLATION-001",
+      "evidence": [
+        "operator screenshot of the live Laboratory > Experiments exception board, 2026-08-03"
+      ]
     }
   ],
   "derivedFrom": [
@@ -43,11 +51,31 @@
   ],
   "ratifiedSource": null,
   "notes": [
+    "MERGED 2026-08-03: CI-2026-08-03-UX-EXCEPTION-TERMINATES-IN-ACT-001 stated the same rule (\"Every exception must terminate in an executable decision. An exception panel is incomplete if it only diagnoses.\") with no canary, while this record carried four. Two records for one rule is the exact inv.engineering.036 defect the registry exists to prevent, so the twin was retired and its occurrence folded in here. The retired id is recorded so a reader meeting it in an older doc can find its home.",
     "FIRST MEMBER OF A NEW INVARIANT CLASS. The operator formalised operator-experience invariants on 2026-08-03 as distinct from the engineering invariants already in this registry. Every prior candidate here governs construction; this one governs the steward's interaction with the result. The two classes can be satisfied independently — the surface this record concerns satisfied every engineering invariant (isolation, receipting, disclosure) while failing the operator entirely.",
     "Operator's design statement, verbatim: 'An exception surface is incomplete unless it offers the next safe act in context.'",
     "Sibling operator invariants of the same class, carried here because they are enforced by the same canaries rather than duplicated as separate candidates: III/VIII — never make the operator search, never require remembering or copying ids, one decision in one place; IV — governance must decrease interaction cost while increasing decision quality; VI — the recommended action arrives prepared; IX — constitutional systems optimise completion, not obstruction.",
     "The five questions every exception surface must answer, from the ruling: what happened; what does the system recommend; why; what will happen if I approve; what single action moves the safe remainder forward.",
     "SCOPE LIMIT, recorded honestly: one occurrence, at one surface. `cross-capability` is a claim about where the rule APPLIES — the ruling directs it at provenance, validation, relationships and crystal assignment too — not a claim of demonstrated recurrence. The milestone-close check flags this correctly and it must stay `candidate` until a second, genuinely independent surface exhibits the shape.",
-    "OPEN, and deliberately not resolved here: `IsolationException.recommendedAction` is free prose, which is what allowed a navigation instruction to satisfy the type. A typed action (a discriminated union of executable treatments) would make the defect structurally impossible rather than canaried. That is a change to the shared exception shape used by every stage and belongs in its own deliberate act."
-  ]
+    "OPEN, and deliberately not resolved here: `IsolationException.recommendedAction` is free prose, which is what allowed a navigation instruction to satisfy the type. A typed action (a discriminated union of executable treatments) would make the defect structurally impossible rather than canaried. That is a change to the shared exception shape used by every stage and belongs in its own deliberate act.",
+    "PLACED 2026-08-03 as Constitutional Execution Principle 2 of six, beneath the ratified Constitutional Time Principle. The operator: \"What you've actually been discovering across these six occurrences is a constitutional execution principle that explains WHY the UX invariants exist.\"",
+    "UX IS A PROJECTION, NOT A FAMILY. This rule reaches the interface through its `ux-framework` projection target — it is not duplicated as a separate UX invariant. Operator: \"No new invariant. Just a UX projection. Same invariant. Different projection.\"",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion\").",
+    "ABSORBED 2026-08-03: CI-…-UX-SMALLEST-SAFE-ACT-001. Its reframing is kept: the question is not \"what happened?\" but \"what is the smallest constitutionally safe thing I can do next?\"",
+    "UX PROJECTION (operator's own example): duplicate panel; canonical recommendation; rationale; execute."
+  ],
+  "family": "execution",
+  "parentCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "projections": {
+    "targets": [
+      "ux-framework",
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

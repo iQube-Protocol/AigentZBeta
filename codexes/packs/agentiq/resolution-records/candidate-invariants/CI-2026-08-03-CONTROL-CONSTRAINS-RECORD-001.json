@@ -1,11 +1,15 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
-  "classification": "CONSTITUTIONAL-OPERATIONAL INVARIANT governing workflow orchestration — NOT a ratified structural or scientific claim. Whether this pattern generalises across domains and experiments is an open empirical question this pipeline may later produce evidence about.",
+  "schemaVersion": "candidate-invariant/v2.0",
+  "classification": "Constitutional Execution Principle 1 — Exception Isolation. Operator wording (2026-08-03): \"Unsafe records are isolated; safe records continue. Never block an executable subset because another subset requires review.\"",
   "ratifiedSource": null,
   "notes": [
     "WORDING SHIFT recorded, operator 2026-08-03: earlier phrasing was \"constrains the unsafe ACT\"; the operator's latest phrasing is \"the unsafe RECORD\", which is more precise about scope. The statement above carries the operator's sentence as they last gave it; the earlier phrasing is preserved verbatim in codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md §0 and in services/research/exceptionIsolation.ts.",
     "The classification is the operator's own and is deliberately NOT upgraded. Ratifying it as a scientific structural invariant now would be the hypothesis-as-canon error CLAUDE.md forbids.",
-    "Absorbs the bullet \"local exceptions must not immobilize the unaffected cohort\" — same rule, operator wording preferred."
+    "Absorbs the bullet \"local exceptions must not immobilize the unaffected cohort\" — same rule, operator wording preferred.",
+    "PLACED 2026-08-03 as Constitutional Execution Principle 1 of six, beneath the ratified Constitutional Time Principle. The operator: \"What you've actually been discovering across these six occurrences is a constitutional execution principle that explains WHY the UX invariants exist.\"",
+    "UX IS A PROJECTION, NOT A FAMILY. This rule reaches the interface through its `ux-framework` projection target — it is not duplicated as a separate UX invariant. Operator: \"No new invariant. Just a UX projection. Same invariant. Different projection.\"",
+    "STATUS IS NOT INHERITED. Its parent is `ratified`; this rule stays at whatever its OWN evidence and enforcement point justify (operator, verbatim: \"They may remain candidate or validated implementation invariants until their own evidence and enforcement points justify promotion\").",
+    "ABSORBED 2026-08-03: CI-…-UX-MAXIMIZE-SAFE-PROGRESS-001 (the same rule stated from the safeguard's side) and CI-…-UX-OPTIMIZE-COMPLETION-NOT-OBSTRUCTION-001. From the latter, the emphasis worth keeping: \"the objective is not to detect every anomaly. It is to complete the constitutional process while isolating anomalies.\""
   ],
   "canaries": [
     {
@@ -36,5 +40,19 @@
         "tests/exception-isolation.test.ts"
       ]
     }
-  ]
+  ],
+  "family": "execution",
+  "parentCandidateId": "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+  "projections": {
+    "targets": [
+      "ux-framework",
+      "devon",
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }

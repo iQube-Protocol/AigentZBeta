@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "resolutionId": "RES-2026-08-03-KNOWLEDGE-PIPELINE-001",
+  "capability": "constitutional-knowledge-pipeline",
+  "milestone": "Resolution loop → Constitutional Knowledge Lifecycle",
+  "date": "2026-08-03",
+  "problem": "The resolution registry captured lessons but could not say what KIND of thing a lesson was, where it should surface, or what still had to happen before it could be trusted. Nine agency rules had been recorded as a flat list with no parent, the same rule had been recorded twice under two ids, and there was nowhere at all to put an idea that was not yet a rule. The operator: \"What began as a Resolution Record is really becoming a Constitutional Knowledge Lifecycle for the platform… Not every insight is an invariant, and not every invariant belongs immediately in the canon.\"",
+  "observedFailure": [
+    "CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001 and CI-2026-08-03-EXCEPTION-TERMINATES-IN-ACT-001 stated the same rule under two ids; the second carried no canary. Two records for one rule is the exact inv.engineering.036 defect the registry exists to prevent, occurring inside the registry itself.",
+    "Every candidate was unclassified: nothing recorded whether a rule protected software, governance, or the operator's ability to act.",
+    "Parent/child relations existed only as prose in `notes`, where nothing could read them — so a corollary could drift from its parent, or be mis-parented across families, with no error.",
+    "Nothing declared where a lesson should surface. \"Projection\" was an intention with no field to carry it.",
+    "Unresolved ideas had no home, so they either became premature candidate invariants or were lost."
+  ],
+  "rootCauses": [
+    "The registry modelled the CAPTURE of a lesson but not its LIFECYCLE — there was one ladder for maturity and no axis at all for kind, destination, or readiness-to-apply.",
+    "A relation held as prose is not a relation. Anything a canary cannot read will eventually drift.",
+    "With no Exploration Workspace, the only way to record an idea was to assert it as a rule — which is precisely the \"not every insight is an invariant\" collapse."
+  ],
+  "resolution": [
+    "Three families as a FACET of the existing record — engineering / constitutional / agency. Same registry, same COMPLETION_LIFECYCLE, no second store and no second ladder.",
+    "Formalised `parentCandidateId`, moving the parent/child relation out of prose into data, with referential integrity, cycle refusal, and a rule that a child shares its parent's family.",
+    "Restructured the nine agency rules under Agency Invariant I as six corollaries plus four second-level children — every one an EXISTING record re-parented, zero twins minted.",
+    "Merged the duplicated exception rule into the record that carried the canaries, folding in the twin's occurrence and recording the retired id.",
+    "Added `projections` to every record: targets, researchRequired, ratificationRequired, track. Declaring where something surfaces creates a pointer, never a copy.",
+    "Added the Exploration Workspace for unresolved ideas, with its own disposition vocabulary and no place on the invariant ladder.",
+    "Recorded the operator-ratified TTV/TTR objective, pointing at the platform's EXISTING PoTS / Net Value Acceleration definition rather than restating it.",
+    "Made the eight-question close-out checklist a real constant with a predefined destination per kind, so no agent invents a folder at close-out time."
+  ],
+  "rejectedApproaches": [
+    "A second status vocabulary for resolution records (`superseded` / `withdrawn`). COMPLETION_LIFECYCLE already carries `deprecated`, and minting a rival ladder is what the loop exists to prevent. Reported to the operator rather than resolved silently.",
+    "A new store for Candidate Principles. `types/researchRegistry.ts` + `services/research/registryStore.ts` (CFS-051) already provide `research_candidate_principles` / `_invariants` / `_backlog_items`, live behind an API route and a codex tab. Structural-track work PROJECTS onto that register via the `research-registry` target instead.",
+    "A fresh definition of Proof of Time Saved. PoTS is already defined in the ratified Polity Papers commentary and computed in shipped code; a second definition would be the money-critical class of duplicate.",
+    "Building the Constitutional Computing Commons as a live knowledge graph. The operator describes it as a direction, not a deliverable; half-building a graph store is exactly the speculative work the loop exists to prevent. Recorded as an exploration item with what it would require.",
+    "Rewriting each agency rule's `statement` to the operator's corollary text. The statements are what the canaries and occurrences were recorded against; rewriting them would silently change the rules. The corollary text is carried verbatim in `classification`, which is what that field is for."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-TTV-TTR-OBJECTIVE-001",
+    "CI-2026-08-03-AGENCY-INVARIANT-I-001"
+  ],
+  "canaries": [
+    "tests/resolution-records.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "fb4543c7e",
+      "352fee7c3",
+      "9d86b3a1c"
+    ],
+    "tests": [
+      "tests/resolution-records.test.ts",
+      "tests/duplicate-resolution.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_resolution-to-invariant-loop.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_resolution-to-invariant-loop.md",
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ],
+  "projections": {
+    "targets": [
+      "devon",
+      "constitutional-computing",
+      "ux-framework"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}

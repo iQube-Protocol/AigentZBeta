@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "candidate-invariant/v1.0",
+  "schemaVersion": "candidate-invariant/v2.0",
   "classification": null,
   "ratifiedSource": null,
   "notes": [
@@ -31,5 +31,17 @@
         "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md §9"
       ]
     }
-  ]
+  ],
+  "family": "constitutional",
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "constitutional-computing"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "governingPrinciple": false,
+  "supersededBy": null
 }
