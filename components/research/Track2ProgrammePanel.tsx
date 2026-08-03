@@ -40,9 +40,19 @@ import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusS
 import { findRegistryEntry, type SourceTier } from "@/services/corpusScout/institutionalRegistry";
 import {
   RECOMMENDATION_TO_REVIEW_DECISION,
+  titleResolutionIssue,
   type AdmissionRecommendation,
   type RecommendedAdmissionClass,
 } from "@/services/corpusScout/admissionRecommendation";
+import {
+  EXCEPTION_CAUSE_LABEL,
+  groupExceptionsByCause,
+  signalForDisposition,
+  type IsolationException,
+  type IsolationSummary,
+  type PopulationDisclosure,
+  type RecordDisposition,
+} from "@/services/research/exceptionIsolation";
 
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 p-4";
 
@@ -55,7 +65,7 @@ interface Stage {
   surface: string;
   workKind: "scientific" | "governance";
   actor: string;
-  status: "complete" | "in-progress" | "not-started" | "blocked" | "unknown";
+  status: "complete" | "partially-complete" | "in-progress" | "not-started" | "blocked" | "unknown";
   detail: string;
   remedies: string[];
 }
@@ -65,6 +75,10 @@ interface Programme {
   crystalDomain: string;
   stages: Stage[];
   currentStageId: string;
+  /** Stages that MAY PROCEED NOW — every earlier stage complete or
+   *  partially-complete. The authority for the lock; never re-derived from
+   *  ordinals here (exception-isolation ruling §6). */
+  unblockedStageIds?: string[];
   nextActions: string[];
   derivationNote: string;
 }
@@ -99,6 +113,11 @@ interface AssignmentOutcome {
 
 const STATUS_ICON: Record<Stage["status"], React.ReactNode> = {
   complete: <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />,
+  // Partial completion is PROGRESS, not a fault — emerald, never rose. A
+  // stage holding unresolved exceptions while having processed everything
+  // executable must not read as a failure (exception-isolation ruling §5:
+  // amber is not prohibition, and this is not even amber).
+  "partially-complete": <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400/60" />,
   "in-progress": <Circle className="h-3.5 w-3.5 text-amber-300" />,
   "not-started": <Circle className="h-3.5 w-3.5 text-slate-600" />,
   blocked: <ShieldAlert className="h-3.5 w-3.5 text-rose-300" />,
@@ -106,12 +125,16 @@ const STATUS_ICON: Record<Stage["status"], React.ReactNode> = {
 };
 
 /** `unknown` is never rendered as a failure — it means the signal could not be
- *  read, which is different from both "not started" and "blocked". */
+ *  read, which is different from both "not started" and "blocked".
+ *
+ *  `partially-complete` is likewise never rendered as a failure: it means the
+ *  stage processed every executable record and is holding the remainder. */
 const STATUS_LABEL: Record<Stage["status"], string> = {
   complete: "complete",
+  "partially-complete": "partially complete — eligible records processed",
   "in-progress": "in progress",
   "not-started": "not started",
-  blocked: "blocked",
+  blocked: "blocked — no valid subset can proceed",
   unknown: "not observable from here",
 };
 
@@ -205,10 +228,19 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
 
             <ol className="space-y-2">
               {programme.stages.map((s) => {
-                const current = programme.stages.find((x) => x.id === programme.currentStageId);
-                // Locked = later than where the work is, and not itself done.
-                // A completed stage is never concealed, whatever its ordinal.
-                const locked = !!current && s.ordinal > current.ordinal && s.status !== "complete";
+                // LOCKED IS READ FROM THE SERVER'S OWN `unblockedStageIds`,
+                // never re-derived from ordinals here (exception-isolation
+                // ruling §6).
+                //
+                // The old rule — `s.ordinal > current.ordinal` — was the UI
+                // half of the paralysis: with Stage 2 holding three unresolved
+                // sources, Stage 3 was hidden even though twenty-nine sources
+                // had already been admitted for it to extract from. A stage
+                // after a PARTIALLY-COMPLETE stage is unblocked, because
+                // partial completion means the earlier stage produced
+                // something to work on.
+                const unblocked = programme.unblockedStageIds?.includes(s.id) ?? true;
+                const locked = !unblocked && s.status !== "complete";
                 if (locked && !showAllStages) return null;
                 return (
                 <li
@@ -321,10 +353,12 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
             </ol>
 
             {(() => {
-              const current = programme.stages.find((x) => x.id === programme.currentStageId);
-              const lockedCount = current
-                ? programme.stages.filter((x) => x.ordinal > current.ordinal && x.status !== "complete").length
-                : 0;
+              // Same authority as the per-stage lock above — the server's
+              // `unblockedStageIds`, never a second ordinal rule that could
+              // disagree with it.
+              const lockedCount = programme.stages.filter(
+                (x) => !(programme.unblockedStageIds?.includes(x.id) ?? true) && x.status !== "complete",
+              ).length;
               if (lockedCount === 0) return null;
               return (
                 <button
@@ -396,6 +430,13 @@ function CorpusReviewQueue({
   const [recommendations, setRecommendations] = useState<AdmissionRecommendation[] | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
   const [recsErr, setRecsErr] = useState<string | null>(null);
+  const [isolation, setIsolation] = useState<IsolationSummary | null>(null);
+  const [population, setPopulation] = useState<PopulationDisclosure | null>(null);
+  const [criticalPath, setCriticalPath] = useState<{
+    nextSafeAct: string;
+    deferred: string;
+    milestoneImpact: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     if (!acquisitionDomain) return;
@@ -420,6 +461,9 @@ function CorpusReviewQueue({
       // lineage would make an old recommendation set wrong in either
       // direction. Cleared on every reload; the operator re-prepares.
       setRecommendations(null);
+      setIsolation(null);
+      setPopulation(null);
+      setCriticalPath(null);
     } catch (e) {
       // Unreadable is not empty. An empty list here would read as "nothing to
       // review" on the one surface whose job is to show what is.
@@ -457,8 +501,20 @@ function CorpusReviewQueue({
       const d = await res.json().catch(() => null);
       if (!d?.ok) throw new Error(d?.error || `recommendations could not be prepared (HTTP ${res.status})`);
       setRecommendations((d.recommendations ?? []) as AdmissionRecommendation[]);
+      // The executable batch, the population and the critical path are all
+      // computed SERVER-SIDE from the shared isolation model. None of them is
+      // re-derived here — a client that recomputed the counts could disagree
+      // with the button it renders (inv.engineering.036).
+      setIsolation((d.summary ?? null) as IsolationSummary | null);
+      setPopulation((d.population ?? null) as PopulationDisclosure | null);
+      setCriticalPath(
+        (d.criticalPath ?? null) as { nextSafeAct: string; deferred: string; milestoneImpact: string } | null,
+      );
     } catch (e) {
       setRecommendations(null);
+      setIsolation(null);
+      setPopulation(null);
+      setCriticalPath(null);
       setRecsErr(e instanceof Error ? e.message : "recommendations could not be prepared");
     } finally {
       setRecsLoading(false);
@@ -771,6 +827,16 @@ function CorpusReviewQueue({
                   {recsErr}
                 </div>
               )}
+              {isolation && (
+                <ExecutableBatchSummary
+                  isolation={isolation}
+                  population={population}
+                  criticalPath={criticalPath}
+                />
+              )}
+              {isolation && isolation.exceptions.length > 0 && (
+                <ExceptionsSurface exceptions={isolation.exceptions} rowsById={rowsById} />
+              )}
               {recommendations && (
                 <RecommendationCohorts
                   recommendations={recommendations}
@@ -913,33 +979,19 @@ const DECISIONS: {
  *   >  CFTC titles appear only as 'PDF' ... I would not admit any CFTC
  *   >  document until the title is resolved."
  *
- * Titles come from the discovery crawler's LINK TEXT, falling back to the URL
- * basename (`deriveTitleFromUrl`). Both are frequently not the document's
- * name — a link labelled "PDF" yields the title "PDF". Rendered plainly, that
- * looks like bibliographic metadata and invites an admission decision made on
- * nothing.
+ * THE JUDGEMENT ITSELF NOW LIVES SERVER-SIDE, in
+ * `services/corpusScout/admissionRecommendation.ts::titleResolutionIssue`
+ * (moved 2026-08-03), because the recommendation pass needs the SAME answer
+ * this card renders — and a second copy would have been the stale one
+ * (inv.engineering.036). This wrapper only adapts the row shape.
  *
- * This does not repair the title — it cannot, and guessing one would be worse.
- * It marks the ones that are visibly not titles so the steward inspects
- * before deciding, which is the judgement Al actually made by hand.
+ * It does not repair the title, and — since the exception-isolation ruling §4
+ * — it does not BLOCK the source either: an unresolved title on a source whose
+ * content is verifiable is a recorded warning that rides into the receipt,
+ * never a refusal.
  */
 function titleLooksUnresolved(row: CandidateSource): string | null {
-  const t = (row.title ?? "").trim();
-  if (!t) return "No title was captured at all.";
-  if (/^(pdf|document|download|file|link|here|view)$/i.test(t)) {
-    return `“${t}” is link text, not a document title.`;
-  }
-  // The URL basename fallback — the crawler had no link text to use.
-  try {
-    const base = decodeURIComponent(new URL(row.canonicalUrl).pathname.split("/").filter(Boolean).pop() ?? "");
-    if (base && base.toLowerCase() === t.toLowerCase()) {
-      return "This title is the URL filename — no document title was found.";
-    }
-  } catch {
-    // An unparseable URL tells us nothing either way; say nothing.
-  }
-  if (t.length < 12) return `“${t}” is too short to be a document title.`;
-  return null;
+  return titleResolutionIssue(row.title, row.canonicalUrl);
 }
 
 /**
@@ -1236,6 +1288,177 @@ function BulkAdmissionControl({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * THE EXECUTABLE BATCH (exception-isolation ruling §2, §5, §6).
+ *
+ *   > "THE PRESENCE OF EXCEPTIONS MUST NOT DISABLE THE PRIMARY ACTION."
+ *
+ * Renders the counts the operator specified, the FULL population disclosure,
+ * and the critical path — all read from the SERVER's computed summary, never
+ * recomputed here (a client that recounted could disagree with the button it
+ * draws).
+ *
+ * Three properties are load-bearing and each has a canary:
+ *
+ *   1. The primary action's enablement comes from
+ *      `isolation.primaryActionEnabled`, which is `executable > 0 && no global
+ *      stop`. The exception count is deliberately NOT consulted — three
+ *      anomalous sources cannot disable admission of thirty eligible ones.
+ *   2. The population line is ALWAYS rendered when known. Exception isolation
+ *      without population disclosure is a worse failure than the
+ *      batch-blocking it replaces: it lets a materially narrow crystal look
+ *      complete (ruling §5).
+ *   3. A global stop — and ONLY a global stop — turns the action off, and says
+ *      which of the five enumerated integrity failures held.
+ */
+function ExecutableBatchSummary({
+  isolation,
+  population,
+  criticalPath,
+}: {
+  isolation: IsolationSummary;
+  population: PopulationDisclosure | null;
+  criticalPath: { nextSafeAct: string; deferred: string; milestoneImpact: string } | null;
+}) {
+  const c = isolation.counts;
+  return (
+    <div className="mt-2 rounded border border-slate-700 bg-slate-950 p-2 text-[11px]">
+      <div className="text-slate-300">
+        {c.total} pending source(s) · <span className="text-emerald-300">{c.ready} ready to admit</span> ·{" "}
+        <span className="text-amber-200">{c.readyWithWarning} ready with warnings</span> ·{" "}
+        <span className="text-rose-200">{c.exceptions} manual-review exception(s)</span> ·{" "}
+        <span className="text-rose-300">{c.refused} refused</span>
+      </div>
+      <div className="mt-1 font-medium text-slate-100">{isolation.headline}</div>
+
+      {/* THE POPULATION, ALWAYS. Never only what advanced. */}
+      {population && (
+        <div className="mt-1.5 rounded border border-slate-800 bg-slate-900/40 p-1.5 text-[10px] text-slate-400">
+          <span className="text-slate-500">Full population — </span>
+          Discovered: {population.discovered} / Admitted: {population.admitted} / Excluded with warnings:{" "}
+          {population.excludedWithWarnings} / Manual exceptions: {population.manualExceptions} / Refused:{" "}
+          {population.refused} / Assigned to crystal: {population.assignedToCrystal}
+          <div className="mt-0.5 text-slate-600">
+            Shown on every act so exception isolation can never quietly narrow the corpus until readiness passes.
+          </div>
+        </div>
+      )}
+
+      {criticalPath && (
+        <div className="mt-1.5 space-y-0.5 rounded border border-slate-800 bg-slate-900/40 p-1.5 text-[10px]">
+          <div className="text-slate-200">
+            <span className="text-slate-500">Next safe act: </span>
+            {criticalPath.nextSafeAct}
+          </div>
+          <div className="text-slate-400">
+            <span className="text-slate-500">Deferred: </span>
+            {criticalPath.deferred}
+          </div>
+          <div className="text-slate-400">
+            <span className="text-slate-500">Current milestone impact: </span>
+            {criticalPath.milestoneImpact}
+          </div>
+        </div>
+      )}
+
+      {/* A GLOBAL STOP IS THE ONLY THING THAT WITHHOLDS THE ACT. */}
+      {isolation.globalStop && (
+        <div className="mt-1.5 rounded border border-rose-500/40 bg-rose-500/10 p-1.5 text-rose-100">
+          <strong className="font-medium">Batch integrity failure.</strong> {isolation.globalStop.detail} No record
+          can proceed until this is resolved — this is one of the five enumerated conditions that compromise every
+          record in the act, not a per-record exception.
+        </div>
+      )}
+      {!isolation.globalStop && c.exceptions + c.refused > 0 && (
+        <div className="mt-1.5 text-[10px] text-slate-500">
+          The {c.exceptions + c.refused} excluded record(s) are quarantined individually and do not withhold the{" "}
+          {c.executable} above. They stay visible, receipted and revisitable below.
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * THE ONE EXCEPTIONS SURFACE for Track 2 (ruling §8) — grouped by cause, with
+ * every exception stating what it affects, why, what follows, what would
+ * resolve it, whether it blocks a freeze and whether it can be deferred.
+ *
+ * `blocksFreeze` is rendered from the record, and the record's value is
+ * COMPUTED against the actual crystal (`computeFreezeBlocking`) — never
+ * asserted per cause. Almost every Stage 2 exception therefore reads "does not
+ * block freeze", which is the honest answer for a source that never entered
+ * the corpus.
+ */
+function ExceptionsSurface({
+  exceptions,
+  rowsById,
+}: {
+  exceptions: IsolationException[];
+  rowsById: Map<string, CandidateSource>;
+}) {
+  const [open, setOpen] = useState(false);
+  const groups = useMemo(() => groupExceptionsByCause(exceptions), [exceptions]);
+  const freezeBlockers = exceptions.filter((e) => e.blocksFreeze).length;
+
+  return (
+    <div className="mt-2 rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+      >
+        <span className="font-medium text-slate-200">
+          Review {exceptions.length} exception(s)
+        </span>
+        <span className="text-[10px] text-slate-500">
+          {groups.length} cause group(s) ·{" "}
+          {freezeBlockers === 0 ? "none blocks the freeze" : `${freezeBlockers} block the freeze`}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {groups.map((g) => (
+            <div key={g.causeGroup}>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+                {EXCEPTION_CAUSE_LABEL[g.causeGroup]} ({g.exceptions.length})
+              </div>
+              <ul className="mt-0.5 space-y-1">
+                {g.exceptions.map((e) => (
+                  <li key={e.recordId} className="rounded border border-slate-800 bg-slate-950 p-1.5">
+                    <div className="text-slate-200">
+                      {rowsById.get(e.recordId)?.title ?? e.recordLabel}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-slate-400">{e.cause}</div>
+                    <div className="text-[10px] text-slate-500">{e.consequence}</div>
+                    <div className="text-[10px] text-cyan-300/80">{e.recommendedAction}</div>
+                    <div className="mt-0.5 flex flex-wrap gap-2 text-[10px]">
+                      <span className={e.blocksCurrentStage ? "text-rose-300" : "text-slate-600"}>
+                        {e.blocksCurrentStage ? "blocks this stage" : "does not block this stage"}
+                      </span>
+                      <span className={e.blocksCrystalAssignment ? "text-rose-300" : "text-slate-600"}>
+                        {e.blocksCrystalAssignment ? "blocks crystal assignment" : "does not block assignment"}
+                      </span>
+                      <span className={e.blocksReadiness ? "text-rose-300" : "text-slate-600"}>
+                        {e.blocksReadiness ? "blocks readiness" : "does not block readiness"}
+                      </span>
+                      <span className={e.blocksFreeze ? "text-rose-300" : "text-slate-600"}>
+                        {e.blocksFreeze ? "BLOCKS FREEZE" : "does not block freeze"}
+                      </span>
+                      <span className="text-slate-600">
+                        {e.deferrableUntil ? `defer until ${e.deferrableUntil}` : "deferrable"}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
     </div>
