@@ -28,6 +28,7 @@ import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import { resolveAgentRegistrationState } from '@/services/horizen/agentRegistrationBinding';
 import { checkAuthorizationStoreAvailable } from '@/services/horizen/partnerAuthorizationStore';
+import { checkMarketaAssessmentStoreAvailable } from '@/services/marketa/admissionAssessmentStore';
 import { resolvePassportEligibility } from '@/services/journey/passportEligibility';
 import {
   journeyAct,
@@ -144,6 +145,16 @@ async function resolveState(req: NextRequest) {
    */
   let registration: Awaited<ReturnType<typeof resolveAgentRegistrationState>> | null = null;
   let authorizationStore: Awaited<ReturnType<typeof checkAuthorizationStoreAvailable>> | null = null;
+  /*
+   * CLAIM'S OWN LOCAL PREREQUISITE (2026-08-03) — mirrors `authorizationStore`
+   * exactly. `admissionAssessmentRunner.ts` already refuses cleanly with
+   * `MARKETA_ASSESSMENT_STORE_UNAVAILABLE` when this table is missing, but
+   * that refusal only reached the operator who clicked the button and read
+   * the component's own error text. This observer never carried it forward
+   * as a `claim` blocker, so the stepper showed a bare, undiagnosed "Continue
+   * to Claim" — the execution layer knew exactly why; the observer did not.
+   */
+  let marketaAssessmentStore: Awaited<ReturnType<typeof checkMarketaAssessmentStoreAvailable>> | null = null;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
   /*
    * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
@@ -271,6 +282,9 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
     });
+    if (supabase) await guarded('marketa-assessment-store', async () => {
+      marketaAssessmentStore = await checkMarketaAssessmentStoreAvailable(supabase);
+    });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
     });
@@ -362,9 +376,11 @@ async function resolveState(req: NextRequest) {
    * named audit gaps.
    */
   const storeUnavailable = authorizationStore ? authorizationStore.available === false : false;
+  const marketaStoreUnavailable = marketaAssessmentStore ? marketaAssessmentStore.available === false : false;
 
   const verifyBlockers: BlockingReason[] = [];
   const verifyExceptions: ExceptionRecord[] = [];
+  const claimBlockers: BlockingReason[] = [];
 
   const eligibility = resolvePassportEligibility({
     registration: registration
@@ -442,6 +458,32 @@ async function resolveState(req: NextRequest) {
     );
   }
 
+  if (marketaStoreUnavailable && marketaAssessmentStore && !marketaAssessmentStore.available) {
+    /*
+     * CLAIM'S OWN NAMED BLOCKER (2026-08-03) — the same shape as Verify's,
+     * one stage over. `runMarketaAdmissionAssessment` already refuses this
+     * exact condition cleanly (MARKETA_ASSESSMENT_STORE_UNAVAILABLE) rather
+     * than throwing — this is that same true fact, carried forward into what
+     * the OBSERVER reports, so the stepper's diagnostic line names the real
+     * cause instead of a bare, repeatable "Continue to Claim". Unlike Verify,
+     * this is NOT added to `nonBlockingIncompleteStages` below: Claim
+     * genuinely gates Passport on the admission spine, and this fix makes the
+     * reason visible without relaxing that gate.
+     */
+    claimBlockers.push({
+      code: 'marketa-assessment-store-unavailable',
+      stageId: 'claim',
+      summary:
+        'Local Marketa assessment store unavailable — the eligibility assessment cannot be recorded in this deployment. ' +
+        'Wallet control proof is preserved and will not be re-requested.',
+      acts: [
+        journeyAct('claim', 'apply-marketa-migration', 'apply-migration', 'Apply migration', marketaAssessmentStore.remedy),
+        journeyAct('claim', 'reload-schema-cache', 'reload-schema-cache', 'Refresh schema', "NOTIFY pgrst, 'reload schema';"),
+        journeyAct('claim', 'recheck-marketa-store', 're-check', 'Re-check'),
+      ],
+    });
+  }
+
   /*
    * ══ THE THREE AXES ═══════════════════════════════════════════════════════
    *
@@ -512,7 +554,7 @@ async function resolveState(req: NextRequest) {
     priorCanonicalStages: priorResolution?.canonicalStages ?? [],
     priorMilestones: priorResolution?.milestones ?? [],
     auditGaps: { register: registration?.auditGaps ?? [] },
-    operationalBlockers: { verify: verifyBlockers, passport: eligibility.blockingReasons },
+    operationalBlockers: { verify: verifyBlockers, passport: eligibility.blockingReasons, claim: claimBlockers },
     nonBlockingExceptions: {
       verify: verifyExceptions,
       passport: eligibility.nonBlockingExceptions.filter((e) => e.blocksCurrentAct === false),

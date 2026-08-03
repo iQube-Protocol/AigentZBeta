@@ -34,8 +34,9 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { buildControlProofChallenge } from '@/services/passport/controlProofChallenge';
 import { signPartnerAuthorization } from '@/services/signing/partnerAuthorizationSigner';
-import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { createActivityReceipt, listActivityReceiptsForPersona, type ActivityReceiptRecord } from '@/services/receipts/activityReceiptService';
 import { runMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentRunner';
+import { CONTROL_PROOF_FRESHNESS_WINDOW_MS } from '@/services/marketa/externalAgentAdmissionEvidence';
 import { getCurrentMarketaAdmissionAssessment } from '@/services/marketa/admissionAssessmentStore';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import { resolveHorizenRegistrationBinding } from '@/services/horizen/agentRegistrationBinding';
@@ -194,41 +195,75 @@ async function postImpl(request: NextRequest) {
 
   const network = binding.network ?? 'base-sepolia';
 
-  const { AgentKeyService } = await import('@/services/identity/agentKeyService');
-  const addresses = await new AgentKeyService().getAgentAddresses(AGENT_KEY_REF);
-  if (!addresses?.evmAddress) {
-    return NextResponse.json({ ok: false, refusalCode: 'NO_CONTROLLER_WALLET', error: `no evm_address on record for agent "${AGENT_KEY_REF}"` }, { status: 409 });
-  }
-
-  const challenge = buildControlProofChallenge({ aigentQubeId: AIGENTQUBE_ID, controllerWallet: addresses.evmAddress });
-
-  const signed = await signPartnerAuthorization({
-    keyRef: AGENT_KEY_REF,
-    payload: challenge.message,
-    purpose: 'wallet-control-proof',
-    expectedSigner: addresses.evmAddress,
-    network,
-    expiresAt: challenge.expiresAt,
-  });
-  if (!signed.ok) {
-    return NextResponse.json({ ok: false, refusalCode: signed.refusalCode, error: signed.detail }, { status: 422 });
-  }
-
-  const controlReceipt = await createActivityReceipt({
-    personaId: persona.personaId,
-    activeCartridge: 'agentiq',
-    actionType: 'agent_control_proven',
-    summary: `Wallet control proven for ${agent.displayName} (token ${binding.token_id}, ${network}) without revealing the private key`,
+  /*
+   * RESUME FROM SETTLED STATE — NEVER RE-SIGN (operator, 2026-08-03):
+   *
+   *   > "Resume Claim from the existing agent_control_proven receipt. Do not
+   *   >  request another signature... the five duplicate control-proof
+   *   >  receipts should be treated as corroborating duplicates and never
+   *   >  cause another signing prompt."
+   *
+   * Every prior call here signed a FRESH challenge unconditionally — the
+   * actual mechanism that produced those five duplicates, and the reason a
+   * retry after the (now-fixed) missing-migration refusal would have asked
+   * for another signature. Checked BEFORE resolving the controller wallet:
+   * a resumed Claim needs neither the wallet address nor a signer, only the
+   * existing receipt. Checked agent-scoped (not persona-only) so a receipt
+   * for a different agent under the same persona can never satisfy this —
+   * same fix as externalAgentAdmissionEvidence.ts's control-proof lookup,
+   * applied here first.
+   */
+  const existingControlReceipts = await listActivityReceiptsForPersona(persona.personaId, {
+    actionTypes: ['agent_control_proven'],
     agentsInvoked: [AGENT_KEY_REF],
-    actionInput: {
-      aigentQubeId: AIGENTQUBE_ID,
-      signerWallet: signed.result.signerAddress,
-      network,
-      tokenId: binding.token_id,
-      nonce: challenge.nonce,
-      messageHash: signed.result.payloadHash,
-    },
+    limit: 5,
   });
+  const existingFreshControlReceipt = existingControlReceipts.find((r) => {
+    const actionInput = r.actionInput as { aigentQubeId?: string } | null;
+    if (actionInput?.aigentQubeId !== AIGENTQUBE_ID) return false;
+    return Date.now() - Date.parse(r.createdAt) <= CONTROL_PROOF_FRESHNESS_WINDOW_MS;
+  });
+
+  let controlReceipt: ActivityReceiptRecord | null;
+  if (existingFreshControlReceipt) {
+    controlReceipt = existingFreshControlReceipt;
+  } else {
+    const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+    const addresses = await new AgentKeyService().getAgentAddresses(AGENT_KEY_REF);
+    if (!addresses?.evmAddress) {
+      return NextResponse.json({ ok: false, refusalCode: 'NO_CONTROLLER_WALLET', error: `no evm_address on record for agent "${AGENT_KEY_REF}"` }, { status: 409 });
+    }
+
+    const challenge = buildControlProofChallenge({ aigentQubeId: AIGENTQUBE_ID, controllerWallet: addresses.evmAddress });
+
+    const signed = await signPartnerAuthorization({
+      keyRef: AGENT_KEY_REF,
+      payload: challenge.message,
+      purpose: 'wallet-control-proof',
+      expectedSigner: addresses.evmAddress,
+      network,
+      expiresAt: challenge.expiresAt,
+    });
+    if (!signed.ok) {
+      return NextResponse.json({ ok: false, refusalCode: signed.refusalCode, error: signed.detail }, { status: 422 });
+    }
+
+    controlReceipt = await createActivityReceipt({
+      personaId: persona.personaId,
+      activeCartridge: 'agentiq',
+      actionType: 'agent_control_proven',
+      summary: `Wallet control proven for ${agent.displayName} (token ${binding.token_id}, ${network}) without revealing the private key`,
+      agentsInvoked: [AGENT_KEY_REF],
+      actionInput: {
+        aigentQubeId: AIGENTQUBE_ID,
+        signerWallet: signed.result.signerAddress,
+        network,
+        tokenId: binding.token_id,
+        nonce: challenge.nonce,
+        messageHash: signed.result.payloadHash,
+      },
+    });
+  }
 
   const origin = resolveRequestOrigin(request);
   const assessmentResult = await runMarketaAdmissionAssessment({
@@ -236,6 +271,7 @@ async function postImpl(request: NextRequest) {
     actorPersonaId: persona.personaId,
     agentCardUrl: `${origin}${agent.agentCardPath}`,
     mode: 'FINAL',
+    runtimeAgentId: AGENT_KEY_REF,
   });
 
   if (!assessmentResult.ok) {

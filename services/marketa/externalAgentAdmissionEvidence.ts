@@ -83,6 +83,19 @@ export interface AssembleEvidenceInput {
   aigentQubeId: string;
   actorPersonaId: string;
   agentCardUrl: string;
+  /**
+   * The runtime agent id (`agents_invoked` value) this control proof was
+   * recorded against — e.g. `registrableAgents.ts`'s `runtimeAgentId`.
+   *
+   * Scopes the control-proof receipt query to THIS agent (2026-08-03): the
+   * lookup below used to be persona-only with `limit: 5`, so a persona with
+   * five or more recent `agent_control_proven` receipts for a DIFFERENT
+   * agent could push this agent's own receipt outside the fetch window —
+   * evidence assembly would then report `control.proven: false` for an
+   * agent whose control was, in fact, already proven, contradicting "resume
+   * from the existing receipt, never re-sign".
+   */
+  runtimeAgentId: string;
 }
 
 export interface AssembleEvidenceDeps {
@@ -172,8 +185,11 @@ export async function assembleExternalAgentAdmissionEvidence(
   // ── Control proof ────────────────────────────────────────────────────
   const controlReceipts = await listActivityReceiptsForPersona(input.actorPersonaId, {
     actionTypes: ['agent_control_proven'],
+    agentsInvoked: [input.runtimeAgentId],
     limit: 5,
   });
+  // The agent-scoped query above is the fix; this aigentQubeId match stays as
+  // a corroborating check, not a replacement — defense in depth, not removed.
   const controlReceipt = controlReceipts.find(
     (r) => (r.actionInput as { aigentQubeId?: string } | null)?.aigentQubeId === input.aigentQubeId,
   );
