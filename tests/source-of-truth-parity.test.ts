@@ -1949,3 +1949,95 @@ describe('Corpus Scout review decision — ONE applier, two routes (2026-08-03)'
     }
   });
 });
+
+describe('Corpus Scout admission recommendation — aggregates existing lineage, restates nothing (2026-08-03)', () => {
+  const REC = 'services/corpusScout/admissionRecommendation.ts';
+  const LINEAGE = 'services/invariants/discoveryEngine.ts';
+  const ROUTE = 'app/api/corpus-scout/candidates/prepare-recommendations/route.ts';
+  const PANEL = 'components/research/Track2ProgrammePanel.tsx';
+
+  it('the recommendation vocabulary maps onto the ratified ReviewDecision union — it does not restate it', () => {
+    // Mutation: hand-declare 'approve_exp_p1' etc. inside admissionRecommendation.ts
+    // instead of importing the type from reviewDecision.ts → a second decision
+    // vocabulary exists, and the two can drift (inv.engineering.036/037).
+    const rec = stripComments(readSource(REC));
+    expect(rec).toMatch(/import type \{ ReviewDecision \} from '\.\/reviewDecision'/);
+    expect(rec).toMatch(/export const RECOMMENDATION_TO_REVIEW_DECISION/);
+    expect(rec, 'must not restate the decision → status vocabulary').not.toMatch(/approve_exp_p1:\s*'approved_exp_p1'/);
+    // 'manual review required' is deliberately UNMAPPED — it is the absence
+    // of a decision the machine will offer, not an eighth decision.
+    const mapBlock = rec.slice(rec.indexOf('RECOMMENDATION_TO_REVIEW_DECISION'), rec.indexOf('ADMIT_CLASSES'));
+    expect(mapBlock).not.toMatch(/'manual review required':/);
+  });
+
+  it('the route reuses the EXISTING duplicate detector and institutional registry lookup — it does not re-derive them', () => {
+    const route = stripComments(readSource(ROUTE));
+    expect(route).toMatch(/from '@\/services\/corpusScout\/intelligence'/);
+    expect(route).toMatch(/findDuplicateCandidates\(/);
+    expect(route).toMatch(/from '@\/services\/corpusScout\/institutionalRegistry'/);
+    expect(route).toMatch(/findRegistryEntry\(/);
+  });
+
+  it('the route reuses the lineage index built in discoveryEngine.ts — it does not re-derive the source_ref join', () => {
+    const route = stripComments(readSource(ROUTE));
+    expect(route).toMatch(/from '@\/services\/invariants\/discoveryEngine'/);
+    expect(route).toMatch(/buildDomainLineageIndex\(/);
+    expect(route).toMatch(/deriveSourceLineage\(/);
+    // And the join itself lives in exactly one place.
+    const lineage = stripComments(readSource(LINEAGE));
+    expect(lineage).toMatch(/export async function buildDomainLineageIndex/);
+    expect(lineage).toMatch(/export function deriveSourceLineage/);
+  });
+
+  it('the recommendation pass reads pending_review sources only — an already-decided source is never recommended', () => {
+    // The three sources manually admitted before this feature existed (and
+    // any future decided source) must never be shown as overridable by a
+    // recommendation. Filtering to pending_review at the READ is what makes
+    // that structural rather than a UI convention that could be bypassed.
+    const route = stripComments(readSource(ROUTE));
+    expect(route).toMatch(/reviewWorkflowStatus:\s*'pending_review'/);
+  });
+
+  it('the route performs no write — no updateCandidateReview, no applyCandidateReviewDecision, no ingestApprovedSource', () => {
+    const route = stripComments(readSource(ROUTE));
+    for (const forbidden of ['updateCandidateReview(', 'applyCandidateReviewDecision(', 'ingestApprovedSource(', '.update(', '.insert(']) {
+      expect(route, `prepare-recommendations must not call ${forbidden}`).not.toContain(forbidden);
+    }
+  });
+
+  it('confidence thresholds are named, exported constants — not magic numbers restated at the call site', () => {
+    const rec = stripComments(readSource(REC));
+    for (const name of [
+      'CONFIDENCE_AUTO_INCLUDE_THRESHOLD',
+      'CONFIDENCE_MANUAL_REVIEW_THRESHOLD',
+      'PROVISIONAL_CONFIDENCE_CAP',
+    ]) {
+      expect(rec, `${name} must be an exported constant`).toMatch(new RegExp(`export const ${name}`));
+    }
+    // The route reports the policy from the SAME constants, not restated values.
+    const route = stripComments(readSource(ROUTE));
+    expect(route).toMatch(/CONFIDENCE_AUTO_INCLUDE_THRESHOLD/);
+    expect(route).toMatch(/CONFIDENCE_MANUAL_REVIEW_THRESHOLD/);
+  });
+
+  it('the UI ratifies a cohort through the EXISTING BulkAdmissionControl — it does not post to bulk-review a second way', () => {
+    // The cohort card must not fetch('/api/corpus-scout/candidates/bulk-review'
+    // itself; it must preseed and render the shared control.
+    const panel = stripComments(readSource(PANEL));
+    const cohortCard = panel.slice(panel.indexOf('function CohortCard'), panel.indexOf('interface BulkResult'));
+    expect(cohortCard.length).toBeGreaterThan(200);
+    expect(cohortCard).toMatch(/<BulkAdmissionControl/);
+    expect(cohortCard, 'CohortCard must not open a second write path to bulk-review').not.toMatch(/bulk-review/);
+  });
+
+  it('a manual-review-required cohort offers no ratify control', () => {
+    const panel = stripComments(readSource(PANEL));
+    const cohortCard = panel.slice(panel.indexOf('function CohortCard'), panel.indexOf('interface BulkResult'));
+    const manualBranch = cohortCard.slice(
+      cohortCard.indexOf('admissionClass === "manual review required"'),
+      cohortCard.indexOf('const suggestedNotes'),
+    );
+    expect(manualBranch.length).toBeGreaterThan(100);
+    expect(manualBranch).not.toMatch(/<BulkAdmissionControl/);
+  });
+});
