@@ -26,7 +26,7 @@ export const SLUG_RE = /^[a-z][a-z0-9-]{2,40}$/;
  * auditable AS an override rather than appearing as ordinary capacity.
  */
 export interface SponsorshipCapacityOverride {
-  authority: 'administrator';
+  authority: 'administrator' | 'migrated_agent_passport_issuance';
   /** The constitutional basis relied upon — stated, never inferred. */
   basis: string;
   /** What ordinary capacity actually was at the moment of override. */
@@ -56,6 +56,31 @@ export interface SponsorAgentInput {
   isAutonomous?: boolean;
   /** Whether the caller holds platform admin authority (gates autonomous). */
   callerIsAdmin?: boolean;
+  /**
+   * Set ONLY when minting the RootDID for an agent that already has an
+   * identity elsewhere in the platform (e.g. `agent_keys.agent_id` /
+   * `runtimeAgentId` from the Horizen registrable-agent config) — an agent
+   * MIGRATED into the constitutional admission journey rather than born in
+   * it. When present, this identity is used verbatim instead of deriving
+   * `agent_id`/`did_uri` from `slug` (which would mint a SECOND, disagreeing
+   * identifier for the same agent — the exact defect class this override
+   * exists to avoid). `agentCardUrl` must match the agent's already-served
+   * card, since the platform anchors participant identity on that URL.
+   */
+  existingIdentity?: { agentId: string; didUri: string; agentCardUrl: string };
+  /**
+   * Set ONLY to complete an act a steward has ALREADY approved (a Delegate
+   * Passport application decided `approved`) for a migrated agent that has
+   * no RootDID yet. This is not a request for NEW sponsorship capacity —
+   * the sponsoring act already happened at Passport approval; minting the
+   * RootDID here is projecting that approval, not making a fresh capacity
+   * decision. Bypasses the ordinary-capacity block (never `callerIsAdmin`,
+   * which implies a live administrator in the request) and records the
+   * override with `authority: 'migrated_agent_passport_issuance'` so it is
+   * auditable as a distinct, narrow reason rather than silent or
+   * indistinguishable from an admin's own capacity override.
+   */
+  migratedAgentApprovedPassportId?: string;
 }
 
 export interface SponsoredAgentResult {
@@ -101,6 +126,8 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     isAigentMe = false,
     isAutonomous = false,
     callerIsAdmin = false,
+    existingIdentity,
+    migratedAgentApprovedPassportId,
   } = input;
 
   if (!slug || !SLUG_RE.test(slug)) {
@@ -230,7 +257,16 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
        * what the operator ruled against: "do not rewrite the displayed
        * ordinary capacity as positive."
        */
-      if (!callerIsAdmin) {
+      if (migratedAgentApprovedPassportId) {
+        capacityOverride = {
+          authority: 'migrated_agent_passport_issuance',
+          basis:
+            `completing RootDID projection for an already-approved Delegate Passport ` +
+            `(${migratedAgentApprovedPassportId}) — the sponsoring act happened at steward ` +
+            'approval, not here; this is not a new capacity decision',
+          ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
+        };
+      } else if (!callerIsAdmin) {
         return {
           ok: false,
           status: 409,
@@ -240,12 +276,13 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
             'or earn additional capacity when a sponsored participant reaches Standing.',
           capacity: { base, earned, used, remaining: 0 },
         };
+      } else {
+        capacityOverride = {
+          authority: 'administrator',
+          basis: 'canonical admin authority (persona.cartridgeFlags.isAdmin) — capacity limit only',
+          ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
+        };
       }
-      capacityOverride = {
-        authority: 'administrator',
-        basis: 'canonical admin authority (persona.cartridgeFlags.isAdmin) — capacity limit only',
-        ordinaryCapacityAtOverride: { base, earned, used, remaining: 0 },
-      };
     }
   }
 
@@ -262,11 +299,14 @@ export async function sponsorPolityAgent(input: SponsorAgentInput): Promise<Spon
     return { ok: false, status: 409, error: `Slug '${slug}' already taken — choose another` };
   }
 
-  // 3. Write the root identity.
+  // 3. Write the root identity. A migrated agent keeps the identity it
+  // already has everywhere else on the platform (agent_keys.agent_id /
+  // runtimeAgentId) rather than a freshly-derived one — see
+  // `existingIdentity` above.
   const agentIdPrefix = resolvedClass === 'polity_autonomous' ? 'polity-autonomous' : 'polity-bound';
-  const agentId = `${agentIdPrefix}:${slug}`;
-  const didUri = `did:agent:root:${slug}`;
-  const agentCardUrl = `${origin}/api/agents/${slug}/agent-card.json`;
+  const agentId = existingIdentity?.agentId ?? `${agentIdPrefix}:${slug}`;
+  const didUri = existingIdentity?.didUri ?? `did:agent:root:${slug}`;
+  const agentCardUrl = existingIdentity?.agentCardUrl ?? `${origin}/api/agents/${slug}/agent-card.json`;
 
   const insertRow: Record<string, unknown> = {
     agent_id: agentId,

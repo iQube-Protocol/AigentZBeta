@@ -896,3 +896,79 @@ describe('the Deploy stage deep-links into Ingested Assets', () => {
     expect(tab).toMatch(/<IngestionFactoryPanel initialSection=\{registrySection\} \/>/);
   });
 });
+
+/*
+ * ══ THE MIGRATED-AGENT GAP ═════════════════════════════════════════════════
+ *
+ * An agent that walks Register -> Claim -> Passport WITHOUT ever passing
+ * through Agent Homecoming's stand-up step (which seeds the RootDID BEFORE
+ * Passport issuance) can have an APPROVED Delegate Passport and NO
+ * `agent_root_identity` row at all. Nakamoto is this exact case (operator,
+ * 2026-08-03): sponsorship and delegation read `agent_root_identity`, so both
+ * stayed real negatives forever despite an issued VC, and she was invisible
+ * in the Locker's "Sponsored Agents" list and the Delegate agent-picker.
+ *
+ * The fix mints the RootDID at the point the operator's own ruling says it
+ * should: "Passport issuance mints the DID." These canaries guard the two
+ * ways that mint could quietly regress into a NEW disagreeing-identifier bug
+ * — the same defect class this whole file exists to catch.
+ */
+describe('a migrated agent whose Passport is approved gets its RootDID minted, not skipped', () => {
+  const admissionSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'services/journey/agentAdmissionState.ts'),
+    'utf8',
+  );
+  const sponsorSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'services/agents/sponsorPolityAgent.ts'),
+    'utf8',
+  );
+
+  it('self-heals only when the Passport is issued and no root identity exists yet', () => {
+    const call = admissionSrc.match(/if \(delegatePassportIssued === true[\s\S]{0,200}?\{/)?.[0] ?? '';
+    expect(call, 'the self-heal gate is gone').not.toBe('');
+    expect(call).toContain('!agentRootDid');
+    expect(call).toContain('auditGaps.length === 0');
+  });
+
+  it('mints the agent\'s PRE-EXISTING identity, never a fresh slug-derived one', () => {
+    // THE ASSERTION THAT FAILS ON THE DEFECT: minting via a bare slug would
+    // create agent_id 'polity-bound:<slug>', a SECOND identifier disagreeing
+    // with the `runtimeAgentId` Register/Claim/receipts already use for this
+    // agent — exactly the two-sources-of-truth shape this session kept fixing.
+    const mintCall = admissionSrc.slice(admissionSrc.indexOf('const result = await sponsorPolityAgent('));
+    const call = mintCall.slice(0, mintCall.indexOf('\n  }\n') + 1);
+    expect(call).toContain('existingIdentity');
+    expect(call).toContain('agent.runtimeAgentId');
+    expect(call).toContain('migratedAgentApprovedPassportId');
+  });
+
+  it('resolves the sponsor from the CALLER, never from the application row', () => {
+    /*
+     * agent-participant applications ride /api/polity-passport/submit, a
+     * DELIBERATELY persona-less machine surface. An application-derived
+     * `persona_id` is always null on that path — reading it as the sponsor
+     * would silently no-op the mint for every real Nakamoto-shaped agent.
+     */
+    expect(admissionSrc).toMatch(/callerAuthProfileId: string \| null/);
+    expect(admissionSrc).toMatch(/listOwnedPersonaIds\(admin, callerAuthProfileId\)/);
+    expect(admissionSrc).not.toMatch(/sponsorPersonaId:\s*row\?\.persona_id/);
+  });
+
+  it('never blocks on ordinary sponsorship capacity — the sponsoring act already happened at approval', () => {
+    expect(sponsorSrc).toMatch(/migratedAgentApprovedPassportId/);
+    const branch = sponsorSrc.match(/if \(migratedAgentApprovedPassportId\)[\s\S]{0,260}?\}/)?.[0] ?? '';
+    expect(branch, 'the migrated-agent capacity branch is gone').not.toBe('');
+    expect(branch).toContain("authority: 'migrated_agent_passport_issuance'");
+  });
+
+  it('the override authority is distinct from an administrator override, not silently reused', () => {
+    expect(sponsorSrc).toMatch(
+      /authority: 'administrator' \| 'migrated_agent_passport_issuance'/,
+    );
+  });
+
+  it('binds the freshly-minted identity to the passport that justified minting it', () => {
+    const bindCall = admissionSrc.slice(admissionSrc.indexOf("from('agent_root_identity')\n      .update"));
+    expect(bindCall.slice(0, 200)).toContain('bound_passport_id: passportId');
+  });
+});

@@ -59,10 +59,37 @@
  * distinction that `resolveAgentRegistrationState` draws between `unresolved`
  * and `registered: false`, and the reason a failed migration never became a
  * constitutional finding.
+ *
+ * ── THE MIGRATED-AGENT GAP (operator, 2026-08-03) ─────────────────────────
+ *
+ * An agent that walks Register → Claim → Passport WITHOUT ever passing
+ * through Agent Homecoming's stand-up step (services/homecoming/agentHomecoming.ts,
+ * which runs `sponsorPolityAgent` to seed the RootDID BEFORE its Passport is
+ * issued) can have an APPROVED Delegate Passport and NO `agent_root_identity`
+ * row at all. Nakamoto is this exact case: Register/Claim proved wallet
+ * control against the Horizen registry; nothing in that path — nor generic
+ * Passport issuance — ever mints a RootDID. Sponsorship and delegation read
+ * `agent_root_identity`, so both stayed real negatives forever, and Nakamoto
+ * was invisible in the Locker's "Sponsored Agents" list and the Delegate
+ * agent-picker, despite an approved Passport and an issued VC.
+ *
+ * The operator's ruling: "Passport issuance mints the DID." So when this
+ * reader finds `delegatePassportIssued === true` and no root identity row,
+ * it mints one right here (`mintRootIdentityForApprovedPassport`) — the
+ * self-heal applies to ANY agent in this shape, not just Nakamoto. It reuses
+ * `sponsorPolityAgent`'s capacity-checked insert core (one authoritative
+ * genesis path — inv.engineering.036/037), parameterized with the agent's
+ * PRE-EXISTING identity (`runtimeAgentId`) via `existingIdentity` so the new
+ * row never disagrees with the identifier Register/Claim/receipts already
+ * use for this agent. The sponsoring act already happened at steward
+ * approval, so this never blocks on ordinary capacity — see
+ * `migratedAgentApprovedPassportId` on `sponsorPolityAgent`.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
+import { sponsorPolityAgent } from '@/services/agents/sponsorPolityAgent';
+import { listOwnedPersonaIds } from '@/services/identity/passportPrincipal';
 
 export interface AgentAdmissionState {
   /** A sponsoring persona + citizen passport are recorded against the agent. */
@@ -95,9 +122,123 @@ function matchesAgentCard(storedUrl: string | null | undefined, agentCardPath: s
   }
 }
 
+/**
+ * Mints the RootDID for a migrated agent whose Delegate Passport has ALREADY
+ * been approved but who has no `agent_root_identity` row — see "THE
+ * MIGRATED-AGENT GAP" above. Best-effort: any failure is returned as a
+ * message, never thrown — a failed backfill attempt must not break the
+ * journey-state read that triggered it.
+ *
+ * The application itself carries no sponsor: agent-participant applications
+ * ride `/api/polity-passport/submit`, a DELIBERATELY persona-less machine
+ * surface ("machine submissions have no spine persona" — its own header
+ * comment). So the sponsor is resolved the same way
+ * `app/api/homecoming/agent/stand-up/route.ts` resolves a Homecoming
+ * delegate's genesis sponsor: the CALLER currently viewing this journey
+ * (widened to every persona on their auth account), sponsoring from their
+ * own active citizen passport. `callerAuthProfileId` must be the account
+ * actually looking at the Passport stage — never a value read off the
+ * application row, which has none.
+ */
+async function mintRootIdentityForApprovedPassport(
+  admin: SupabaseClient,
+  agent: RegistrableAgentConfig,
+  applicationId: string,
+  passportId: string,
+  callerAuthProfileId: string | null,
+): Promise<{ didUri: string | null; error?: string }> {
+  try {
+    if (!callerAuthProfileId) {
+      return { didUri: null, error: 'no authenticated caller to sponsor the mint from' };
+    }
+
+    const { data: appRow, error: appErr } = await admin
+      .from('polity_passport_applications')
+      .select('agent_card_url, application_payload')
+      .eq('id', applicationId)
+      .maybeSingle();
+    if (appErr) throw new Error(appErr.message);
+    const row = appRow as { agent_card_url?: string; application_payload?: unknown } | null;
+    const agentCardUrl = row?.agent_card_url;
+    if (!agentCardUrl) {
+      return { didUri: null, error: 'application missing agent_card_url' };
+    }
+
+    // The CALLER's own active citizen passport, widened to every persona on
+    // their auth account — exactly the stand-up route's resolution.
+    const owned = await listOwnedPersonaIds(admin, callerAuthProfileId);
+    if (!owned.ok) {
+      return { didUri: null, error: `caller has no owned personas: ${owned.reason}` };
+    }
+    const { data: citizenRows, error: citizenErr } = await admin
+      .from('polity_passport_records')
+      .select('passport_id, persona_id, citizen_status')
+      .in('persona_id', owned.personaIds)
+      .eq('passport_class', 'citizen');
+    if (citizenErr) throw new Error(citizenErr.message);
+    const citizens = (citizenRows ?? []) as Array<{ passport_id: string; persona_id: string; citizen_status?: string }>;
+    const chosenCitizen = citizens.find((c) => c.citizen_status === 'active') ?? citizens[0];
+    if (!chosenCitizen) {
+      return { didUri: null, error: 'caller has no citizen passport to sponsor from' };
+    }
+
+    const payload = row?.application_payload;
+    const participant =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>).participant : undefined;
+    const payloadDescription =
+      participant && typeof participant === 'object' && participant !== null
+        ? (participant as Record<string, unknown>).description
+        : undefined;
+    const description =
+      typeof payloadDescription === 'string' && payloadDescription.trim()
+        ? payloadDescription.trim()
+        : `${agent.displayName} — migrated agent participant, RootDID projected from an already-approved Delegate Passport.`;
+
+    const result = await sponsorPolityAgent({
+      admin,
+      sponsorPersonaId: chosenCitizen.persona_id,
+      sponsorPassportId: chosenCitizen.passport_id,
+      slug: agent.slug,
+      displayName: agent.displayName,
+      description,
+      origin: new URL(agentCardUrl).origin,
+      existingIdentity: {
+        agentId: agent.runtimeAgentId,
+        didUri: `did:agent:root:${agent.runtimeAgentId}`,
+        agentCardUrl,
+      },
+      migratedAgentApprovedPassportId: passportId,
+    });
+    if (!result.ok || !result.agent) {
+      return { didUri: null, error: result.error ?? 'sponsorPolityAgent failed' };
+    }
+
+    // Bind the passport to the freshly-minted RootDID — the same L5 signal
+    // services/homecoming/issueDelegatePassport.ts writes for Homecoming
+    // delegates, now completed for a migrated agent instead.
+    await admin
+      .from('agent_root_identity')
+      .update({ bound_passport_id: passportId })
+      .eq('id', result.agent.agentRootId)
+      .is('bound_passport_id', null);
+
+    return { didUri: result.agent.didUri };
+  } catch (err) {
+    return { didUri: null, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function resolveAgentAdmissionState(
   admin: SupabaseClient,
   agent: RegistrableAgentConfig,
+  /**
+   * The requesting caller's auth-profile id — used ONLY to sponsor a
+   * migrated agent's RootDID self-heal mint (see "THE MIGRATED-AGENT GAP"
+   * below). Never used to gate or alter any read above; optional so
+   * existing callers that don't yet resolve caller identity keep working
+   * (the self-heal simply stays a no-op audit gap for them).
+   */
+  callerAuthProfileId: string | null = null,
 ): Promise<AgentAdmissionState> {
   const auditGaps: string[] = [];
   let sponsorshipRecorded: boolean | undefined;
@@ -122,6 +263,7 @@ export async function resolveAgentAdmissionState(
   }
 
   // ── 2. Delegate Passport, via the application that names the agent card ──
+  let issuedPassport: { passportId: string; applicationId: string } | null = null;
   try {
     const { data: appData, error: appError } = await admin
       .from('polity_passport_applications')
@@ -145,7 +287,12 @@ export async function resolveAgentAdmissionState(
         .in('application_id', applicationIds)
         .limit(50);
       if (error) throw new Error(error.message);
-      const rows = (data ?? []) as Array<{ participant_status?: string; revoked?: boolean }>;
+      const rows = (data ?? []) as Array<{
+        passport_id: string;
+        participant_status?: string;
+        revoked?: boolean;
+        application_id?: string;
+      }>;
       /*
        * `provisionally_issued` counts. The status machine issues participants
        * at `approved` by default but permits a provisional issue, and a
@@ -153,16 +300,40 @@ export async function resolveAgentAdmissionState(
        * would offer the operator an act the Bureau has already performed,
        * which is the whole defect class this reader exists to close.
        */
-      delegatePassportIssued = rows.some(
+      const issuedRow = rows.find(
         (r) =>
           !r.revoked &&
           (r.participant_status === 'approved' ||
             r.participant_status === 'active' ||
             r.participant_status === 'provisionally_issued'),
       );
+      delegatePassportIssued = Boolean(issuedRow);
+      if (issuedRow?.application_id) {
+        issuedPassport = { passportId: issuedRow.passport_id, applicationId: issuedRow.application_id };
+      }
     }
   } catch (err) {
     auditGaps.push(`delegate passport read failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // ── 2.5. Migrated-agent self-heal — mint the RootDID an approved Passport
+  // implies but never created (see "THE MIGRATED-AGENT GAP" above). Only
+  // when the Passport read itself succeeded cleanly (no audit gap) and the
+  // root-identity read in step 1 genuinely found nothing (not merely failed).
+  if (delegatePassportIssued === true && !agentRootDid && issuedPassport && auditGaps.length === 0) {
+    const minted = await mintRootIdentityForApprovedPassport(
+      admin,
+      agent,
+      issuedPassport.applicationId,
+      issuedPassport.passportId,
+      callerAuthProfileId,
+    );
+    if (minted.didUri) {
+      agentRootDid = minted.didUri;
+      sponsorshipRecorded = true;
+    } else {
+      auditGaps.push(`migrated-agent RootDID mint failed: ${minted.error ?? 'unknown error'}`);
+    }
   }
 
   // ── 3. Bounded delegation ────────────────────────────────────────────────

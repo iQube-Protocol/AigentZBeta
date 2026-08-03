@@ -185,6 +185,10 @@ async function resolveState(req: NextRequest) {
     valid: false,
     personhood: false,
   };
+  // Hoisted so the agent-admission read (below) can sponsor a migrated
+  // agent's RootDID mint from the SAME caller the passport read resolves —
+  // one authoritative caller-identity read, not two.
+  let caller: Awaited<ReturnType<typeof getCallerIdentityContext>> | null = null;
   /*
    * EACH FACT IS GUARDED ALONE (operator, 2026-08-03: "A constitutional fact
    * should be computed once, settled once, and consumed everywhere").
@@ -251,10 +255,10 @@ async function resolveState(req: NextRequest) {
       );
 
       const settledPassport = await readSettledFact(supabase, agent.aigentQubeId, 'operator', 'passport_is_issued');
+      caller = await getCallerIdentityContext(req);
       if (isSettled(settledPassport)) {
         operatorPassport = { known: true, valid: true, personhood: true };
       } else {
-        const caller = await getCallerIdentityContext(req);
         const authUserId = caller?.authUserId ?? null;
         if (!authUserId) {
           operatorPassport = { known: false, valid: false, personhood: false, detail: 'no authenticated caller on this request' };
@@ -354,7 +358,7 @@ async function resolveState(req: NextRequest) {
       }
     });
     if (supabase) await guarded('agent-admission', async () => {
-      admission = await resolveAgentAdmissionState(supabase, agent);
+      admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
     });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
