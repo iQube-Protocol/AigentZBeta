@@ -615,7 +615,17 @@ describe('rehearsal — the Track 2 programme reads the substrate, it does not o
       signals: {
         candidateSources: { total: 4, pendingReview: 0, admitted: 4 },
         discoveryCandidates: { total: 20, awaitingReview: 0, promoted: 14 },
-        unclassifiedPromoted: 0,
+        // STAGE 5–7's POPULATION IS STAGE 4's OUTPUT, so the fixture must hand
+        // on exactly what Stage 4 declares (14). A cohort of any other size is
+        // a population discontinuity and the programme now refuses it — which
+        // is the point of the 2026-08-03 ruling, not an inconvenience of it.
+        promotedCohort: {
+          invariantIds: Array.from({ length: 14 }, (_, i) => `promoted-${i}`),
+          unclassified: 0,
+          unvalidated: 0,
+          graph: { relationshipCount: 14, orphanCount: 0 },
+          excluded: [],
+        },
         readiness,
         lifecycle,
         artifact: null,
@@ -653,7 +663,14 @@ describe('rehearsal — the Track 2 programme reads the substrate, it does not o
     mountCrystal(CRYSTAL, []);
     const readiness = await runCrystalReadinessReport({ experimentId: 'SANDBOX', crystalDomain: SANDBOX_DOMAIN });
     const orphanRemedy = readiness.checks.find((c) => c.name === 'orphan-detection')!.remedy!;
-    const stage = p.stages.find((s) => s.id === 'add-relationships')!;
+    // ON `run-readiness`, NOT `add-relationships` (population ruling,
+    // 2026-08-03). The readiness engine assesses the ASSIGNED crystal, so its
+    // remedies belong to the stage that declares that population. Hanging them
+    // on a current-crystal stage is how "Domain X holds no invariants" came to
+    // be rendered beside a count of 68 on a stage holding 17. Carried verbatim
+    // still — relocated, never reworded.
+    const stage = p.stages.find((s) => s.id === 'run-readiness')!;
+    expect(stage.population.consumes).toBe('assigned-crystal');
     expect(stage.status).toBe('in-progress');
     expect(stage.remedies.join(' ')).toContain(orphanRemedy);
   });
@@ -662,7 +679,7 @@ describe('rehearsal — the Track 2 programme reads the substrate, it does not o
     const p = await programmeOver(CRYSTAL, EDGES, {
       candidateSources: null,
       discoveryCandidates: null,
-      unclassifiedPromoted: null,
+      promotedCohort: null,
     });
     for (const id of ['discover-sources', 'review-and-admit', 'extract-candidates', 'review-and-promote']) {
       const s = p.stages.find((x) => x.id === id)!;

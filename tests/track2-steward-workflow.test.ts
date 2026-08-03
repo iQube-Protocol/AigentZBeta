@@ -660,7 +660,13 @@ describe('Track 2 exception isolation — the surface never reimposes the paraly
     // including Stage 3, and extraction waits for a perfect corpus.
     const src = stripComments(readSource(PROGRAMME));
     const at = src.indexOf("id: 'review-and-admit'");
-    const stage = src.slice(at, at + 1200);
+    // The window ends at the NEXT stage rather than at a fixed character
+    // count: a byte budget makes this assertion fail when an unrelated field
+    // is added to the stage (the `population` declaration did exactly that on
+    // 2026-08-03), which is a canary reporting its own brittleness rather than
+    // the mutation it was written to catch.
+    const next = src.indexOf("id: 'extract-candidates'", at);
+    const stage = src.slice(at, next > at ? next : at + 1200);
     expect(stage).toMatch(/'partially-complete'/);
   });
 
