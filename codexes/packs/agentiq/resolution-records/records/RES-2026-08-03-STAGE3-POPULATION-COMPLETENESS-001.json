@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "resolution-record/v1.0",
+  "resolutionId": "RES-2026-08-03-STAGE3-POPULATION-COMPLETENESS-001",
+  "capability": "Track 2 — corpus acquisition to frozen crystal (Stage 3, candidate extraction)",
+  "milestone": "Track 2 Stage 3 — deterministic batched extraction over the admitted population",
+  "problem": "Stage 3 extraction read a single bounded model context and reported success over the whole admitted population. At a 24,000-character budget with a 6,000-character per-row cap, at most FOUR evidence rows entered a pass; the packing loop then `break`ed, silently discarding every remaining row. A run over 32 admitted sources would compress four of them and return ok:true with no signal that 28 were never read. The operator's framing is sharper than 'truncation' and is the one to carry forward: partial evidence was processed as though the full population had been processed.",
+  "observedFailure": [
+    "runConstitutionalDiscovery returned ok:true after reading at most four of the admitted evidence rows, with no field distinguishing a full read from a partial one.",
+    "The packing loop used `break`, so a small row that WOULD have fitted was dropped because a larger row earlier in the list did not — inclusion depended on fetch order rather than on whether the row fit.",
+    "Downstream readers (candidate review, the Track 2 programme projection) treated the resulting candidates as the corpus's output, because nothing in the result said otherwise.",
+    "A second instance of the same shape one level down: a row longer than 6,000 characters is capped, while one discovery_evidence row holds up to 200,000 characters — so up to 97% of a source could go unread while the candidate derived from it cited that source as its basis.",
+    "A first-draft canary for the completion guard passed with AND without the guard, because an adjacent condition already forced the same answer in the case it tested."
+  ],
+  "rootCauses": [
+    "A capacity limit (model context) was implemented as silent truncation instead of as pagination or batching — the processor treated 'as much as fits' as 'the population'.",
+    "The processed set and the admitted population were never compared, so there was no mechanism by which a shortfall could be detected, let alone reported.",
+    "Completion was inferred from the absence of an error rather than from an accounting identity over the population.",
+    "The per-row cap and the per-batch budget were both applied as slices, with no distinction between 'this row was read' and 'this row was read in part'.",
+    "The first repair (break -> continue plus typed exclusions) made the result honest but left completeness unaddressed; honesty about a partial result is not the same property as processing the whole population."
+  ],
+  "resolution": [
+    "Added services/invariants/batchedExtraction.ts: deterministic partitioning of the full admitted population into context-sized batches, reconciliation of every batch outcome, and global candidate dedup.",
+    "Partitioning sorts by evidence id BEFORE packing, so batches are a function of the SET rather than of fetch order, and a re-run over the same population yields identical batches.",
+    "A row that does not fit the current batch opens a new batch instead of ending the loop, so the order-dependence defect cannot recur.",
+    "Added the hard completion rule as executable arithmetic in extractionProgression: Stage 3 may report `complete` only when processed + explicitly excluded === admitted population, and never when the identity fails, whatever else looks healthy.",
+    "A failed batch quarantines only its own rows: the loop continues, its rows are recorded as an explicit exclusion with the failure named, and every other batch's candidates stand.",
+    "Global dedup runs AFTER reconciliation, never per batch, so the same statement surfaced independently by two batches survives once carrying the UNION of its evidence ids and the higher confidence — the convergence signal is preserved rather than discarded as noise.",
+    "Candidates are inserted ONCE, after dedup, so a statement found by two batches never produces two registry rows.",
+    "Row-level truncation is now disclosed as a typed exception naming how much of the row was read; the row still counts as processed because it did contribute.",
+    "Added services/invariants/discoveryEngine.ts::runBatchedConstitutionalDiscovery, composing those pure functions, with the per-batch model call factored out of the single-pass path so the two cannot drift."
+  ],
+  "rejectedApproaches": [
+    "Raising the context budget. The limit is a real model constraint, not a tunable; a larger number would move the cliff rather than remove it, and would restore silent truncation the moment a corpus outgrew it.",
+    "Truncating each row further so more rows fit one pass. That processes a fragment of every source while reporting each as read — the same defect, applied more widely.",
+    "Treating a failed batch as a failed run. That reintroduces inside Stage 3 exactly the paralysis the exception-isolation ruling abolished at Stage 2: one timeout would discard an entire population's extraction.",
+    "Deduplicating within each batch. Two batches can independently surface the same invariant from different evidence; per-batch dedup cannot see that, so it would emit two near-identical registry rows and lose the convergence signal.",
+    "Inserting candidates per batch as they are produced. Simpler to write, but it persists duplicates before dedup can run and makes a partial run's rows indistinguishable from a complete one's.",
+    "Fixing row-level truncation in this change by splitting a row across batches. That is a distinct mechanism (reconciling partial readings of one document) and building it under cover of this work would be a speculative build; it is disclosed and recorded as outstanding instead.",
+    "Keeping the first-draft completion canary. It passed with and without the guard it claimed to protect, so it was replaced with a case where only the guard prevents a false `complete`."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-03-BOUNDED-PROCESSOR-PARTIAL-COMPLETION-001",
+    "CI-2026-08-03-CAPACITY-LIMIT-BATCHES-NOT-TRUNCATES-001"
+  ],
+  "canaries": [
+    "tests/batched-extraction.test.ts",
+    "tests/exception-isolation.test.ts"
+  ],
+  "scope": "cross-capability",
+  "status": "candidate",
+  "trigger": "multi-cycle-repair",
+  "evidence": {
+    "commits": [
+      "152e2e541",
+      "f9024e6d5",
+      "bf4ed07df"
+    ],
+    "tests": [
+      "tests/batched-extraction.test.ts",
+      "tests/exception-isolation.test.ts"
+    ],
+    "receipts": [
+      "research_lifecycle_transition"
+    ],
+    "incidentRefs": [
+      "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+    ]
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/updates/2026-08-03_track2-exception-isolation.md"
+  ],
+  "date": "2026-08-03"
+}
