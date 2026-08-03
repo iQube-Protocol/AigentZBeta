@@ -301,3 +301,75 @@ describe('FSE is additive, never requisite (2026-08-03)', () => {
     expect(verify.completionEvidence.some((e) => /marketa/i.test(e))).toBe(false);
   });
 });
+
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * THE PASSPORT STAGE'S DECISION (operator, 2026-08-03)
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ *   > "In the passport step the decision should be: is passport present?
+ *   >  Yes = move to agent delegation path. No = move to citizen passport
+ *   >  path."
+ *
+ * The gate (services/journey/passportEligibility.ts) already branched this
+ * way. The SURFACE did not: PassportBureauApplyTab opened on a class picker
+ * asking "Who is this Passport for?" — putting a question to the operator
+ * that the observer had already answered, and offering a Citizen Passport
+ * APPLICATION to someone holding a Citizen Passport.
+ *
+ * The answer now travels observer → projection → surface, which is the
+ * operator's own three-layer rule applied to a stage entry point:
+ * "projection consumes observer state only; no stepper component may query
+ * lower-level evidence directly."
+ */
+describe('the Passport stage routes on the observed Passport, never re-asks (2026-08-03)', () => {
+  const tabSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/triad/components/codex/tabs/PilotJourneyTab.tsx'),
+    'utf8',
+  );
+  const wizardSrc = fs.readFileSync(
+    path.join(__dirname, '..', 'app/triad/components/codex/tabs/PassportBureauApplyTab.tsx'),
+    'utf8',
+  );
+
+  it('the journey reads the decision from the OBSERVER, not from its own query', () => {
+    expect(tabSrc, 'the passport route is not derived from observer state').toMatch(
+      /runtimeState\?\.stages\.find\([\s\S]{0,80}?'passport'/,
+    );
+    expect(tabSrc).toContain('operatorPolityCitizenPassportValid');
+    expect(tabSrc, 'the decision never reaches the wizard').toMatch(/routeTo:\s*passportRouteTo/);
+  });
+
+  it('Passport present routes to the delegation path; absent routes to the Citizen path', () => {
+    // Both directions present, and neither defaulted.
+    expect(tabSrc).toMatch(/'delegate' as const/);
+    expect(tabSrc).toMatch(/'citizen' as const/);
+  });
+
+  it('an unresolved observer yields NO route — absence of an answer is not an answer', () => {
+    // `passportStage` undefined (state still loading) must produce `undefined`,
+    // never a guess in either direction.
+    expect(tabSrc).toMatch(/:\s*undefined;/);
+    expect(wizardSrc, 'the wizard must render its picker when no route is given').toMatch(
+      /if \(!routeTo \|\|[^)]*\) return;/,
+    );
+  });
+
+  it('auto-routing reuses the SAME two resolvers as a manual pick', () => {
+    /*
+     * A second entry path into the wizard would be free to diverge from the
+     * first — precisely how the 2026-07-31 regression put a Delegate applicant
+     * through the human Account step. The effect must delegate to
+     * `handleClassChoice`, never call `setStep` itself.
+     */
+    const effect = wizardSrc.match(/if \(!routeTo[\s\S]{0,300}?\}, \[routeTo[^\]]*\]\);/)?.[0] ?? '';
+    expect(effect, 'auto-route effect not found — the component moved').not.toBe('');
+    expect(effect, 'auto-routing must go through handleClassChoice').toContain('handleClassChoice(');
+    expect(effect, 'auto-routing must not set the step directly').not.toMatch(/setStep\(/);
+  });
+
+  it('a late observer answer cannot yank the operator off a decision in progress', () => {
+    const effect = wizardSrc.match(/if \(!routeTo[\s\S]{0,300}?\}, \[routeTo[^\]]*\]\);/)?.[0] ?? '';
+    expect(effect, 'auto-routing must only replace the class QUESTION').toContain("step !== 'class'");
+  });
+});

@@ -102,6 +102,16 @@ export interface JourneyRunSurfaceProps {
     surfaceRef: JourneySurfaceRef;
     descriptor: Extract<JourneySurfaceDescriptor, { kind: 'component' }>;
     stage: JourneyStageDefinition;
+    /**
+     * The OBSERVER's resolved state, so a surface can be handed a decision the
+     * observer has already made rather than re-deriving it (operator's
+     * three-layer rule, 2026-08-03: "projection consumes observer state only;
+     * no stepper component may query lower-level evidence directly").
+     *
+     * Null while the first read is in flight — a caller must treat that as
+     * "not known yet", never as a negative finding.
+     */
+    runtimeState: JourneyRuntimeState | null;
   }) => Record<string, unknown>;
 }
 
@@ -531,7 +541,8 @@ export function JourneyRunSurface({
                   </div>
                 );
               }
-              const extraProps = resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage }) ?? {};
+              const extraProps =
+                resolveSurfaceProps?.({ surfaceRef, descriptor, stage: activeStage, runtimeState }) ?? {};
               return (
                 /*
                  * Keyed by the SURFACE, not by array position.

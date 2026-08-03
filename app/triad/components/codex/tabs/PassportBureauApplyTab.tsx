@@ -159,9 +159,34 @@ interface PassportBureauApplyTabProps {
    * already has. */
   prefillAgentCardUrl?: string;
   prefillAgentDisplayName?: string;
+  /**
+   * THE DECISION, MADE BY THE OBSERVER — not re-asked here.
+   *
+   * ── Why this exists (operator, 2026-08-03) ─────────────────────────────
+   *
+   *   > "In the passport step the decision should be: is passport present?
+   *   >  Yes = move to agent delegation path. No = move to citizen passport
+   *   >  path."
+   *
+   * The wizard opens on a class picker ("Who is this Passport for?"). Inside
+   * the Guided Journey that question is already answered: the journey's
+   * observer has read the operator's canonical Citizen Passport and reports
+   * it as `operatorPolityCitizenPassportValid`. Asking again put a decision
+   * to the operator that the system had already made, and offered "apply for
+   * a Citizen Passport" to someone holding one.
+   *
+   * `'delegate'`  — a Citizen Passport is present; go straight to the agent
+   *                 delegation path.
+   * `'citizen'`   — none present; go to the Citizen Passport path.
+   * `undefined`   — no observer answer (standalone use of this tab, or the
+   *                 state read has not resolved). The class picker renders,
+   *                 which is the honest behaviour when nothing is known —
+   *                 never a guess in either direction.
+   */
+  routeTo?: 'citizen' | 'delegate';
 }
 
-export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefillAgentDisplayName }: PassportBureauApplyTabProps = {}) {
+export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefillAgentDisplayName, routeTo }: PassportBureauApplyTabProps = {}) {
   const subHeaderSlotEl = useContext(SubHeaderSlotContext);
   const [step, setStep] = useState<StepId>('class');
   const [passportClass, setPassportClass] = useState<PassportClass>('citizen');
@@ -605,6 +630,28 @@ export function PassportBureauApplyTab({ personaId, prefillAgentCardUrl, prefill
     },
     [signedIn],
   );
+
+  /*
+   * THE OBSERVER'S ANSWER, APPLIED ONCE (operator, 2026-08-03):
+   *
+   *   is passport present?  yes → agent delegation path
+   *                         no  → citizen passport path
+   *
+   * Routed through `handleClassChoice`, deliberately, so the SAME two
+   * resolvers decide the entry step as when the operator picks by hand — a
+   * second path into the wizard would be free to diverge from the first, which
+   * is exactly how the Delegate-through-the-Account-step regression happened.
+   *
+   * Guarded on `step === 'class'` so it only ever replaces the QUESTION, never
+   * a decision already in progress: once the operator has moved off the class
+   * step, a late-arriving observer read must not yank them back.
+   */
+  const autoRoutedRef = useRef(false);
+  useEffect(() => {
+    if (!routeTo || autoRoutedRef.current || step !== 'class') return;
+    autoRoutedRef.current = true;
+    handleClassChoice(routeTo === 'delegate' ? 'participant' : 'citizen');
+  }, [routeTo, step, handleClassChoice]);
 
   const handleAccount = useCallback(async () => {
     setBusy(true);
