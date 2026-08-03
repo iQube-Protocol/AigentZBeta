@@ -443,20 +443,57 @@ describe('the principal Passport check can never be satisfied by an agent record
     );
   });
 
-  it('the persona fallback fires only on a NEGATIVE finding, never on an unreadable state', () => {
-    /*
-     * `unavailable` means the read failed. Falling back on it would convert
-     * "cannot tell" into "does not hold" — the exact collapse the whole
-     * settled-fact discipline exists to prevent.
-     */
+  /*
+   * RE-POINTED (2026-08-03). This asserted the ORDER of the old model —
+   * DID walk first, credential lookup as a fallback gated on a negative
+   * finding. The operator then corrected the model itself:
+   *
+   *   > "Passport establishes the DID relationship; DID presence does not
+   *   >  establish Passport eligibility."
+   *
+   * So the ordering it pinned is now inverted by design, and asserting it
+   * would defend the defect. The requirement that SURVIVES the inversion is
+   * the one that mattered: a failed READ must never be demoted into a
+   * constitutional finding. Asserted at its new position.
+   */
+  it('an unreadable credential read stays "cannot tell", never "does not hold"', () => {
     const passportGuard = stateSrc.slice(
       stateSrc.indexOf("guarded('passport'"),
       stateSrc.indexOf("guarded('authorization-store'"),
     );
-    expect(passportGuard).toMatch(/reason === 'no_passport' \|\| principal\.reason === 'lineage_incomplete'/);
-    expect(passportGuard, "an 'unavailable' read must not trigger the fallback").not.toMatch(
-      /reason === 'unavailable'[\s\S]{0,80}loadUsableCitizenPassportForAuthProfile/,
-    );
+    // `unavailable` short-circuits to an unreadable principal — it must not
+    // fall through to the DID walk, which would convert an infrastructure
+    // fault into "this operator holds no Passport".
+    expect(passportGuard).toMatch(/credential\.reason === 'unavailable'/);
+    expect(passportGuard).toMatch(/principal = \{ ok: false, reason: 'unavailable' \}/);
+  });
+
+  it('the CREDENTIAL is resolved first; the DID walk is never the gate', () => {
+    /*
+     * THE ASSERTION THAT FAILS ON THE INVERTED DEPENDENCY. A subject who has
+     * never been issued a DID — every new arrival, and Nakamoto arriving from
+     * the Horizen registry — must still be able to present a Passport. Leading
+     * with the DID walk answers "no Passport" for exactly those subjects.
+     */
+    /*
+     * COMMENTS STRIPPED FIRST. The guard's own prose explains the inverted
+     * model it replaced, and therefore NAMES `resolvePassportPrincipalForAuthUser`
+     * above the code — so an ordering check over raw source measures the
+     * explanation rather than the implementation, and fails on a correct file.
+     * (Same trap tests/horizen-operator-claim.test.ts documents.)
+     */
+    const passportGuard = stateSrc
+      .slice(stateSrc.indexOf("guarded('passport'"), stateSrc.indexOf("guarded('authorization-store'"))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '');
+    const credentialAt = passportGuard.indexOf('loadUsableCitizenPassportForAuthProfile');
+    const didWalkAt = passportGuard.indexOf('resolvePassportPrincipalForAuthUser(authUserId)');
+    expect(credentialAt, 'the credential lookup is missing').toBeGreaterThan(-1);
+    expect(didWalkAt, 'the DID walk is missing').toBeGreaterThan(-1);
+    expect(
+      credentialAt,
+      'the DID walk runs before the credential lookup — a subject with no DID yet cannot present a Passport',
+    ).toBeLessThan(didWalkAt);
   });
 
   it('the auth/session-minting path is left demanding a full kybe-anchored principal', () => {
