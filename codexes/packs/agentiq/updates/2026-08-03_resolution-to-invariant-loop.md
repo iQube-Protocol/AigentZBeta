@@ -313,4 +313,39 @@ At milestone close:
 | `tests/resolution-records.test.ts` | **NEW** — 25 canaries |
 | `package.json` | `report:resolutions` script |
 | `tests/source-of-truth-parity.test.ts` | header index cross-reference (no new canary in that file) |
-| `CLAUDE.md` | compact "Resolution → Invariant Loop" section pointing here |
+| `CLAUDE.md` | **"Resolution → Invariant Loop — MANDATORY PRACTICE for every agent (PARAMOUNT)"** — see §11 |
+
+---
+
+## 11. The CLAUDE.md section — binding, and why it sits where it does
+
+The operator: *"the resolution record work once done should be referenced in the CLAUDE.md so it
+becomes MANDATORY PRACTICE for any agent working on the AgentiQ stack."* It is therefore written in
+the register of Push Commit Messages and the Identity Spine — "you MUST", not "consider" — and carries
+enough on its own that an agent can tell whether the loop applies to what it just did **without
+opening another file**: the ten triggers, the registry paths and id formats, the three required
+outputs, the ladder, and the one prohibition (no self-ratification).
+
+**Placement: immediately after "Core Principle: Extend, Don't Duplicate".** That section carries
+`inv.engineering.036`/`037` and their parity-canary enforcement; this one is its knowledge-capture
+half. 036 stops one **fact** having two homes; this stops a **lesson** having none — and both were
+learned the same way, that *the doctrine was already right and the enforcement was missing*. Putting
+them adjacent means an agent reading the duplication rule reads the capture rule in the same breath,
+and neither reads as an afterthought at the foot of the file.
+
+Two live proofs are cited in the binding text rather than left to this doc, because a rule that
+cannot show its cost gets skipped:
+
+- **OS-6 recurring three times in one session** — binding resolver, Claim's surface, journey `/state`
+  route (`4c5859882`, `feeee0194`). The lesson from the first fix was not carried into the next piece
+  of work. That is exactly what the loop prevents.
+- **The dev-merge-message rule regressing repeatedly while it existed only as prose.** Reported by the
+  operator as newly canaried in `tests/dev-merge-message-discipline.test.ts` (parallel work,
+  2026-08-03).
+
+> **Verification note, flagged rather than assumed:** that test file is **not present in this
+> worktree and not on `claude/tokenqube-minting-integration-ms2yjd`** at the time of writing. It is
+> named in CLAUDE.md prose as parallel work and is deliberately **NOT** recorded as a canary path in
+> the resolution registry — an unverified path there would fail this loop's own
+> "every claimed canary resolves on disk" check, which is the correct behaviour. If the file lands
+> under a different name, update the CLAUDE.md reference.
