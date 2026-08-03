@@ -82,6 +82,41 @@ invariant (the compressed reusable rule), and the canary or enforcement point.
 *Without the canary the invariant is advisory prose; without the invariant the
 canary is an isolated test whose purpose will be forgotten.*
 
+## Two classes of invariant — engineering and operator experience
+
+The registry holds **two classes**, formalised by the operator on 2026-08-03 because *"they have a
+different purpose"*. Both share this registry and the one `COMPLETION_LIFECYCLE` ladder — no second
+store, no second vocabulary (`inv.engineering.036/037`). The class is carried in `classification`.
+
+| Class | Governs | Example |
+|---|---|---|
+| **Engineering resolution invariant** | how the system is BUILT | *Actor, subject and owner are distinct references* |
+| **Operator experience (UX) invariant** | how it BEHAVES FOR ITS HUMAN STEWARD | *Every exception must terminate in an executable decision* |
+
+The general standard the UX class specialises, operator-nominated for elevation:
+
+> A constitutional system must always reduce operator cognitive load while preserving constitutional
+> guarantees. Constitutional safeguards constrain unsafe acts; they must never create unnecessary
+> work for safe acts.
+
+Its reach is deliberately platform-wide, not Track 2: DevOn, Journey, Founder Office, Polity
+Passport, the freeze ceremony — *"ultimately every governed workflow in the platform"*. It is the
+standard against which any operator-facing experience can be evaluated.
+
+**UX Invariants I–IX** (`CI-2026-08-03-UX-*`): maximize safe progress · every exception terminates
+in an executable decision · never make the operator search · minimize constitutional cognitive load ·
+every exception produces a smallest safe act · the recommendation is prepared in advance ·
+navigation is never governance · one decision, one place · optimize completion, not obstruction.
+
+### Two preflights, not one
+
+Because the classes are distinct, material work needs **both**:
+
+- **Engineering preflight** — what implementation lessons already exist for this subsystem?
+- **Operator preflight** — what interaction principles already exist for this operator flow?
+
+A change that touches an operator-facing surface is not preflighted until both have been stated.
+
 ## How candidate invariants enter the invariant registry
 
 ```
