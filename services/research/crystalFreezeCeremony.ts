@@ -58,6 +58,11 @@ import {
 } from '@/services/research/crystalFreezeRecommendation';
 import type { CrystalReadinessReport } from '@/services/research/crystalReadiness';
 import type { CrystalStatisticsReport } from '@/services/research/crystalStatistics';
+import { computeCohortHash } from '@/services/research/cohortAuthorization';
+import type {
+  IsolationException,
+  PopulationDisclosure,
+} from '@/services/research/exceptionIsolation';
 
 export interface FreezeCeremonyRatificationInput {
   /** The FrozenArtifact.id this package previews a freeze for (e.g.
@@ -110,6 +115,53 @@ export interface FreezeCeremonyPackage {
   freezeRationale: string;
   recommendation: CrystalFreezeRecommendation;
   /**
+   * ── GOVERNED SCHEMA AMENDMENT, operator-authorized 2026-08-03 ─────────────
+   *
+   *   > "Without this, an independently verifiable crystal hash could still
+   *   >  conceal how much of the original population disappeared before
+   *   >  freeze."
+   *
+   * The freeze package previously committed to WHAT WAS FROZEN and to nothing
+   * about what was NOT. `contentHash` is a commitment over the corpus that
+   * survived — so a crystal of 26 invariants drawn from 26 candidates and a
+   * crystal of 26 drawn from 300 produce equally clean, equally verifiable
+   * hashes. An independent reviewer could check the hash perfectly and still
+   * have no way to see the attrition behind it.
+   *
+   * These four fields close that. They are REPORTING, not gating: no readiness
+   * check consults them and `eligibleForRatification` does not move because of
+   * them — the division of labour the operator specified is preserved
+   * ("readiness must continue to assess only the actual assigned crystal,
+   * while the freeze package preserves the entire acquisition and exclusion
+   * history").
+   *
+   * `null` when the caller supplies no exclusion context — honestly absent
+   * rather than reported as zero, because "nothing was excluded" and "nobody
+   * told us what was excluded" are different facts and only one of them is
+   * evidence of a complete corpus.
+   *
+   * All four are inside `packageHash`'s commitment (they are on `base`), so
+   * they are as tamper-evident as the corpus statistics themselves.
+   */
+  population: PopulationDisclosure | null;
+  /** Commitment over the invariant ids that ARE in the crystal. */
+  assignedCohortHash: string | null;
+  /**
+   * Commitment over the record ids that were EXCLUDED — the operator's own
+   * addition, and the point of it: exclusions become exactly as tamper-evident
+   * as inclusions. Without it, a later reader could verify what was kept but
+   * not that the list of what was dropped is the same list that was dropped at
+   * freeze time.
+   */
+  excludedRecordsHash: string | null;
+  /**
+   * The excluded records themselves, as the shared typed exception. Distinct
+   * from `knownLimitations`, which is free prose about the crystal's scope:
+   * these are RECORDS, with ids, causes and dispositions, and they are what
+   * `excludedRecordsHash` commits to.
+   */
+  excludedRecords: IsolationException[];
+  /**
    * True only when the embedded recommendation says READY_FOR_FREEZE. A
    * package is still built and returned when this is false — building the
    * preview is diagnostic and always allowed; what this flag gates is
@@ -144,6 +196,17 @@ export interface FreezeCeremonyPackage {
 export interface BuildFreezeCeremonyPackageInput extends FreezeCeremonyRatificationInput {
   readiness: CrystalReadinessReport;
   statistics: CrystalStatisticsReport;
+  /**
+   * The acquisition + exclusion history (governed schema amendment,
+   * 2026-08-03). OPTIONAL, and deliberately so: omitting it yields `null` on
+   * the package — an honest "not supplied" — rather than a fabricated zero
+   * that would read as "nothing was excluded".
+   */
+  population?: PopulationDisclosure;
+  /** The invariant ids that ARE in the crystal. */
+  assignedInvariantIds?: readonly string[];
+  /** The records that were excluded, in the shared typed shape. */
+  excludedRecords?: readonly IsolationException[];
 }
 
 /**
@@ -189,6 +252,21 @@ export function buildFreezeCeremonyPackage(
   const contentHash = input.statistics.frozenHash;
   const knownLimitations = [...new Set([...input.knownLimitations, ...recommendation.remainingRisks])];
 
+  // ── The acquisition + exclusion history (2026-08-03 amendment) ────────────
+  //
+  // Both hashes use the SAME `computeCohortHash` the cohort-authorization
+  // receipts use, so an id set committed to at assignment time and the same
+  // set committed to at freeze time produce the SAME digest — a verifier can
+  // compare them directly. A second hashing scheme here would make that
+  // comparison impossible (inv.engineering.036).
+  const excludedRecords = [...(input.excludedRecords ?? [])];
+  const assignedCohortHash = input.assignedInvariantIds
+    ? computeCohortHash(input.assignedInvariantIds)
+    : null;
+  const excludedRecordsHash = input.excludedRecords
+    ? computeCohortHash(excludedRecords.map((e) => e.recordId))
+    : null;
+
   const receiptPreview = {
     summary:
       `${input.experimentId} artifact '${input.crystalId}' (crystal-version) frozen — ` +
@@ -213,6 +291,14 @@ export function buildFreezeCeremonyPackage(
     knownLimitations,
     freezeRationale: input.freezeRationale,
     recommendation,
+    population: input.population ?? null,
+    assignedCohortHash,
+    excludedRecordsHash,
+    excludedRecords,
+    // UNCHANGED by the amendment, deliberately: the four disclosure fields are
+    // REPORTING. Eligibility is still decided by the recommendation over the
+    // crystal that actually exists — readiness assesses the assigned crystal,
+    // the package preserves the history (operator ruling, 2026-08-03).
     eligibleForRatification: recommendation.verdict === 'READY_FOR_FREEZE',
     receiptPreview,
     dvnAnchorRef: null,

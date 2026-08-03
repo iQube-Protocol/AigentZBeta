@@ -33,6 +33,7 @@ import {
   type ClassificationSuggestionSource,
 } from '@/services/research/experimentalPopulations';
 import { PROVENANCE_CLASSES, type ProvenanceClass } from '@/services/corpusScout/types';
+import type { IsolationException } from '@/services/research/exceptionIsolation';
 import type { InvariantSemanticType } from '@/types/invariants';
 
 export type DiscoveryClass = 'constitutional' | 'structural' | 'experiential';
@@ -396,7 +397,18 @@ export async function runConstitutionalDiscovery(
   admin: SupabaseClient,
   domain: string,
   opts: { scopeLevel?: DiscoveryScopeLevel; subDomain?: string | null } = {},
-): Promise<{ ok: true; candidates: CandidateRow[] } | { ok: false; error: string }> {
+): Promise<
+  | {
+      ok: true;
+      candidates: CandidateRow[];
+      /** Evidence rows that did not fit this pass's context budget, as typed
+       *  exceptions. EMPTY is meaningful (everything was read); a non-empty
+       *  list means the extraction was partial and says which rows it missed
+       *  (exception-isolation ruling §7). */
+      excludedEvidence: IsolationException[];
+    }
+  | { ok: false; error: string }
+> {
   const subDomain = opts.subDomain?.trim() || null;
   const scopeLevel: DiscoveryScopeLevel = subDomain ? (opts.scopeLevel ?? 'sub-domain') : 'domain';
   // A horizontal-capability domain reads its own direct corpus AND the
@@ -412,16 +424,64 @@ export async function runConstitutionalDiscovery(
     };
   }
 
-  // Bounded context: cap total chars so the extraction stays within budget.
+  // ── Bounded context — and the exclusion it causes is now REPORTED ─────────
+  //
+  // THE DEFECT THIS CLOSES (2026-08-03, exception-isolation ruling §7).
+  //
+  // At a 24,000-char budget with 6,000-char chunks, AT MOST FOUR evidence rows
+  // enter an extraction pass. The loop `break`s and every remaining row is
+  // silently dropped — so a corpus of 32 admitted sources would be compressed
+  // from four of them, and the run would report `ok: true` with no indication
+  // that 28 sources were never read. That is "safe read as finished" at Stage
+  // 3: an operator would see candidates appear and reasonably conclude the
+  // corpus had been extracted from.
+  //
+  // The isolation model's answer is not to raise the budget (the context limit
+  // is real) but to make the exclusion VISIBLE: every dropped source becomes a
+  // typed exception the operator can see, with the honest remedy. The
+  // successful extraction still advances — the eligible cohort proceeds and
+  // the excluded remainder is preserved, which is the ruling exactly.
   const MAX_CHARS = 24_000;
+  const CHUNK_CHARS = 6_000;
   let used = 0;
   const included: EvidenceRow[] = [];
+  const excluded: EvidenceRow[] = [];
   for (const e of evidence) {
-    const chunk = e.content.slice(0, 6_000);
-    if (used + chunk.length > MAX_CHARS) break;
+    const chunk = e.content.slice(0, CHUNK_CHARS);
+    // NOTE: no `break` — a later row that FITS is still included. The old
+    // early exit also made inclusion depend on list order rather than on
+    // whether the row fit at all.
+    if (used + chunk.length > MAX_CHARS) {
+      excluded.push(e);
+      continue;
+    }
     included.push({ ...e, content: chunk });
     used += chunk.length;
   }
+  const excludedEvidence: IsolationException[] = excluded.map((e) => ({
+    scope: 'source',
+    recordId: e.id,
+    recordLabel: e.title,
+    cause:
+      `Did not fit the ${MAX_CHARS.toLocaleString()}-character extraction context budget for this pass ` +
+      `(${included.length} of ${evidence.length} evidence row(s) were read).`,
+    causeGroup: 'unreadable-content',
+    disposition: 'exception',
+    stage: 'extract-candidates',
+    // The whole ruling: an unread source does not withhold the candidates that
+    // WERE extracted from the sources that fit.
+    blocksCurrentStage: false,
+    blocksCrystalAssignment: false,
+    blocksReadiness: false,
+    blocksFreeze: false,
+    consequence:
+      'No candidate invariant was extracted from this source in this pass. It remains admitted evidence and is ' +
+      'unchanged; nothing downstream is blocked.',
+    recommendedAction:
+      'Run extraction again scoped to a sub-domain that includes this source, so it enters a pass with a smaller ' +
+      'corpus competing for the same budget.',
+    deferrableUntil: null,
+  }));
   const system = subDomain ? subDomainSystemPrompt(domain, subDomain) : domainSystemPrompt(domain);
   const scopeLine = subDomain ? `DOMAIN: ${domain}\nSUB-DOMAIN: ${subDomain}` : `DOMAIN: ${domain}`;
   const user = `${scopeLine}\n\nEVIDENCE (cite by index):\n` +
@@ -437,7 +497,7 @@ export async function runConstitutionalDiscovery(
     return { ok: false, error: `discovery inference failed: ${e instanceof Error ? e.message : String(e)}` };
   }
   const raw = Array.isArray(result?.candidates) ? result.candidates : [];
-  if (raw.length === 0) return { ok: true, candidates: [] };
+  if (raw.length === 0) return { ok: true, candidates: [], excludedEvidence };
 
   const rows = raw
     .filter((c) => c && typeof c.statement === 'string' && c.statement.trim())
@@ -468,12 +528,12 @@ export async function runConstitutionalDiscovery(
         },
       };
     });
-  if (rows.length === 0) return { ok: true, candidates: [] };
+  if (rows.length === 0) return { ok: true, candidates: [], excludedEvidence };
 
   const { data, error } = await admin.from('discovery_candidates').insert(rows).select('*');
   if (error) return { ok: false, error: error.message };
   const inserted = (data ?? []).map(toCandidateRow);
-  return { ok: true, candidates: enrichSignals(inserted, evidence) };
+  return { ok: true, candidates: enrichSignals(inserted, evidence), excludedEvidence };
 }
 
 /** Both read-time signals in one pass — convergence (within-corpus support) and

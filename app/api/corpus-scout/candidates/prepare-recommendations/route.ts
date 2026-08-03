@@ -151,10 +151,13 @@ export async function GET(req: NextRequest) {
     discovered: allInDomain.length || pending.length,
     admitted: allInDomain.filter((s) => Boolean(s.evidenceRowId)).length,
     excludedWithWarnings: summary.counts.readyWithWarning,
-    manualExceptions: summary.counts.exceptions,
+    exceptions: summary.counts.exceptions,
     refused: summary.counts.refused,
-    // Crystal assignment is downstream of this stage; this route does not read
-    // the crystal, so it reports 0 rather than guessing a number it cannot see.
+    // Downstream of this stage and NOT readable from here. Reported as 0
+    // rather than guessed — the freeze package, which sees the whole
+    // pipeline, is where all eight counts are real.
+    candidatesExtracted: 0,
+    validated: 0,
     assignedToCrystal: 0,
   };
 
