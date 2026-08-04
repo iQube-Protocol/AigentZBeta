@@ -107,6 +107,10 @@ function cohortOf(size: number, over: Partial<PromotedCohort> = {}): PromotedCoh
     graph: { relationshipCount: 0, orphanCount: size },
     excluded: [],
     unaccountedRecords: [],
+    unclassifiedRecords: [],
+    unvalidatedRecords: [],
+    orphanRecords: [],
+    members: [],
     ...over,
   };
 }

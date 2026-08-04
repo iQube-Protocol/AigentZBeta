@@ -43,7 +43,7 @@ import {
   type PopulationDeclaration,
   type PopulationHandover,
 } from '@/services/research/exceptionIsolation';
-import type { UnaccountedPromotionRecord } from '@/services/research/populationReconciliation';
+import type { CohortMemberRef, UnaccountedPromotionRecord } from '@/services/research/populationReconciliation';
 
 export type Track2StageId =
   | 'discover-sources'
@@ -176,6 +176,27 @@ export interface PromotedCohort {
    * rather than repeat the diagnosis.
    */
   unaccountedRecords: UnaccountedPromotionRecord[];
+  /** Named worklists for the action buttons Stages 5-7 render (al, 2026-08-04: "replace explanation with action; an action needs a record to act on"). */
+  unclassifiedRecords: CohortMemberRef[];
+  unvalidatedRecords: CohortMemberRef[];
+  orphanRecords: CohortMemberRef[];
+  members: CohortMemberRef[];
+}
+
+/**
+ * The three named worklists Stages 5-7 render as executable queues, rather
+ * than a count with nowhere to click (al, 2026-08-04 steward-workflow
+ * ruling). Present whenever there is a cohort to work over; each list is
+ * simply the cohort's own field, carried here so the panel does not have to
+ * reach into `reconciliation`/stage internals to find it.
+ */
+export interface Track2ActionQueues {
+  crystalId: string;
+  unclassified: CohortMemberRef[];
+  unvalidated: CohortMemberRef[];
+  orphans: CohortMemberRef[];
+  /** Every distinct resolved cohort member — the Relationship Queue's "relate to" picker. */
+  members: CohortMemberRef[];
 }
 
 /**
@@ -254,6 +275,8 @@ export interface Track2Programme {
    * the diagnosis.
    */
   reconciliation: PopulationReconciliationView | null;
+  /** Stages 5-7's action-queue worklists (al, 2026-08-04). `null` when there is no cohort to work over yet. */
+  actionQueues: Track2ActionQueues | null;
   /** Every remedy on the current stage, hoisted so a surface leads with it. */
   nextActions: string[];
   /** Stated on the payload: this is read, not stored. */
@@ -799,6 +822,16 @@ export function buildTrack2Programme(input: {
         }
       : null;
 
+  const actionQueues: Track2Programme['actionQueues'] = cohort
+    ? {
+        crystalId: input.experimentId,
+        unclassified: cohort.unclassifiedRecords,
+        unvalidated: cohort.unvalidatedRecords,
+        orphans: cohort.orphanRecords,
+        members: cohort.members,
+      }
+    : null;
+
   return {
     experimentId: input.experimentId,
     crystalDomain: input.crystalDomain,
@@ -807,6 +840,7 @@ export function buildTrack2Programme(input: {
     unblockedStageIds,
     populationContinuity,
     reconciliation,
+    actionQueues,
     // A discontinuity is the FIRST thing to act on: every count downstream of
     // it is about a subject nobody has agreed on. It leads `nextActions` ahead
     // of the current stage's own remedies.
