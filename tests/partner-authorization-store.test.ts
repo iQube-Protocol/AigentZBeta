@@ -43,6 +43,7 @@ function fakeSupabaseClient(result: { data?: unknown; error?: { code?: string; m
   const builder: any = {
     select: () => builder,
     insert: () => builder,
+    update: () => builder,
     eq: () => builder,
     limit: () => builder,
     single: () => Promise.resolve(result),
@@ -50,6 +51,62 @@ function fakeSupabaseClient(result: { data?: unknown; error?: { code?: string; m
     then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
   };
   return { from: vi.fn(() => builder) } as any;
+}
+
+/**
+ * Each independent statement in the retry/resume branch
+ * (insert -> getPartnerAuthorizationRequest's select -> the reset update)
+ * calls `.from(TABLE)` fresh, so a single shared result can't represent all
+ * three. This fake hands back the queued results in call order — one
+ * `.from()` invocation, one result off the queue.
+ */
+function fakeSupabaseClientSequence(results: Array<{ data?: unknown; error?: { code?: string; message?: string; details?: string } | null }>) {
+  const queue = [...results];
+  return {
+    from: vi.fn(() => {
+      const result = queue.shift() ?? { data: null, error: null };
+      const builder: any = {
+        select: () => builder,
+        insert: () => builder,
+        update: () => builder,
+        eq: () => builder,
+        limit: () => builder,
+        single: () => Promise.resolve(result),
+        maybeSingle: () => Promise.resolve(result),
+        then: (resolve: any, reject: any) => Promise.resolve(result).then(resolve, reject),
+      };
+      return builder;
+    }),
+  } as any;
+}
+
+function existingRow(overrides: Partial<Record<string, unknown>> = {}) {
+  const now = '2026-08-04T00:00:00.000Z';
+  return {
+    authorization_id: 'horizen-pulse-auth-aigentqube-nakamoto-8798-base-sepolia',
+    purpose: 'horizen-financial-transparency',
+    subject_aigent_iqube_id: 'aigentqube-nakamoto',
+    key_ref: 'aigent-nakamoto',
+    partner: 'horizen',
+    network: 'base-sepolia',
+    payload_hash: null,
+    nonce: 'stale-nonce-from-earlier-attempt',
+    expires_at: now,
+    agent_id: '8798',
+    wallet_address: '0xabc',
+    issued_at: now,
+    state: 'PREPARED',
+    signer_address: null,
+    signature_ref: null,
+    submission_ref: null,
+    partner_status: null,
+    receipt_ref: null,
+    refusal_code: null,
+    refusal_detail: null,
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  };
 }
 
 beforeEach(() => {
@@ -124,6 +181,72 @@ describe('createPartnerAuthorizationRequest', () => {
       ok: false,
       refusalCode: 'LOCAL_PERSISTENCE_FAILED',
       detail: expect.stringContaining('Authorization was not submitted to Horizen because MetaMe could not create its local authorization record'),
+    });
+  });
+
+  describe('retry for the same deterministic authorizationId (al, 2026-08-04)', () => {
+    // authorizationId is `horizen-pulse-auth-<aigentQubeId>-<tokenId>-<network>`
+    // — the SAME string on every click of Authorize for a given agent. A
+    // PRIMARY KEY collision on it is the expected shape of a retry, not a
+    // coincidental nonce reuse — the live symptom was:
+    //   nonce "2d701cb15bf275f0c3f7b8bb5ee26004" already used for partner "horizen"
+    // reported for a nonce that was generated FRESH that same attempt.
+    const pkCollisionError = {
+      code: '23505',
+      message: 'duplicate key value violates unique constraint "partner_authorization_requests_pkey"',
+      details: `Key (authorization_id)=(${baseInput.authorizationId}) already exists.`,
+    };
+
+    it('a PK collision is NEVER reported as a nonce replay, even though Postgres raises the same 23505 code for both constraints', async () => {
+      const client = fakeSupabaseClientSequence([
+        { data: null, error: pkCollisionError },
+        { data: existingRow({ state: 'REFUSED' }), error: null },
+        { data: existingRow({ nonce: baseInput.nonce, state: 'PREPARED' }), error: null },
+      ]);
+      const result = await createPartnerAuthorizationRequest(baseInput, client);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.record.nonce).toBe(baseInput.nonce);
+    });
+
+    it.each(['PREPARED', 'AWAITING_SIGNATURE', 'SIGNED', 'REFUSED', 'EXPIRED', 'QUARANTINED'])(
+      'a stalled row in %s state is RESET with this attempt\'s fresh facts and returned as ok:true — Horizen was never confirmed to have this authorization',
+      async (state) => {
+        const client = fakeSupabaseClientSequence([
+          { data: null, error: pkCollisionError },
+          { data: existingRow({ state }), error: null },
+          { data: existingRow({ nonce: baseInput.nonce, agent_id: baseInput.agentId, state: 'PREPARED' }), error: null },
+        ]);
+        const result = await createPartnerAuthorizationRequest(baseInput, client);
+        expect(result).toMatchObject({ ok: true, record: { state: 'PREPARED', nonce: baseInput.nonce } });
+      },
+    );
+
+    it.each(['SUBMITTED', 'CONFIRMED'])(
+      'a row already %s is NEVER reset — refuses with AUTHORIZATION_ALREADY_IN_FLIGHT naming the real state, so a resume can never silently abandon a real submission',
+      async (state) => {
+        const client = fakeSupabaseClientSequence([
+          { data: null, error: pkCollisionError },
+          { data: existingRow({ state }), error: null },
+        ]);
+        const result = await createPartnerAuthorizationRequest(baseInput, client);
+        expect(result).toMatchObject({ ok: false, refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT', existingState: state });
+        // No third `.from()` call — the reset UPDATE must never fire for these states.
+        expect(client.from).toHaveBeenCalledTimes(2);
+      },
+    );
+
+    it('a genuine nonce-constraint collision (not the PK) still returns NONCE_MISSING_OR_REPLAYED, single-step — regression guard', async () => {
+      const client = fakeSupabaseClient({
+        error: {
+          code: '23505',
+          message: 'duplicate key value violates unique constraint "uq_partner_authorization_requests_partner_nonce"',
+          details: `Key (partner, nonce)=(horizen, ${baseInput.nonce}) already exists.`,
+        },
+      });
+      const result = await createPartnerAuthorizationRequest(baseInput, client);
+      expect(result).toMatchObject({ ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED' });
+      // Single .from() call — no existing-row lookup for a genuine nonce collision.
+      expect(client.from).toHaveBeenCalledTimes(1);
     });
   });
 
