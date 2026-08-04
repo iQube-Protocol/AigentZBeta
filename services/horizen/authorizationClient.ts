@@ -110,6 +110,20 @@ export type HorizenAuthorizationRefusalCode =
   | 'LOCAL_PERSISTENCE_FAILED'
   /** A row for this deterministic authorizationId already exists AND has reached SUBMITTED/CONFIRMED — see partnerAuthorizationStore.ts's createPartnerAuthorizationRequest. Re-read status; never re-prepare blindly. */
   | 'AUTHORIZATION_ALREADY_IN_FLIGHT'
+  /**
+   * The signer module's OWN internal self-check (recovered === wallet ===
+   * expectedSigner) already passed, but an INDEPENDENT re-verification —
+   * recovering the signer from the EXACT message text over the FRESHLY
+   * persisted record, at the orchestrator level — did not match (al,
+   * 2026-08-04: "the decisive local test is recoverAddress(exactMessage,
+   * signature) === ownerOf(agentId)... that should run before submission").
+   * Exists to catch a FUTURE divergence between what was signed and what
+   * gets submitted (e.g. a refactor that reconstructs the message from
+   * parsed fields instead of threading it verbatim) before
+   * enable_pulse_monitoring is ever called, not merely today's composition
+   * of already-passing checks.
+   */
+  | 'SIGNATURE_INTEGRITY_FAILED'
   | 'STATE_MISMATCH';
 
 export type AuthorizationResult<T> =
@@ -685,6 +699,52 @@ async function crossCheckRegistryOwner(
 }
 
 /**
+ * The decisive local test (al, 2026-08-04): `recoverAddress(exactMessage,
+ * signature) === walletAddress`, checked at the ORCHESTRATOR level against
+ * the FRESHLY persisted record — the same record submitHorizenTransparency
+ * Authorization is about to read `agentId`/`walletAddress`/`issuedAt` from —
+ * rather than trusting that the signer module's own internal self-check
+ * (inside signPartnerAuthorization) still describes the artifact that will
+ * actually be submitted. `exactMessage` MUST be the verbatim string returned
+ * by build_pulse_auth_message, threaded through unmodified — never
+ * reconstructed from parsed fields.
+ *
+ * By construction today this always agrees with signHorizenTransparency
+ * Authorization's own check AND with crossCheckRegistryOwner's earlier
+ * pre-sign result (composition, not coincidence: the same controllerWallet
+ * flows through prepare -> sign -> here). Its value is as a REGRESSION GATE:
+ * it fails loudly if a future change ever lets "what was signed" and "what
+ * gets submitted" diverge — e.g. a refactor that rebuilds the message from
+ * parsed fields instead of preserving the artifact verbatim.
+ */
+export async function verifySignatureIntegrity(
+  authorizationId: string,
+  exactMessage: string,
+  signature: PartnerAuthorizationSignature,
+): Promise<{ ok: true } | { ok: false; refusalCode: 'SIGNATURE_INTEGRITY_FAILED'; detail: string }> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record?.walletAddress) {
+    return {
+      ok: false,
+      refusalCode: 'SIGNATURE_INTEGRITY_FAILED',
+      detail: `authorization "${authorizationId}" has no persisted walletAddress to verify the signature against`,
+    };
+  }
+  const { ethers } = await import('ethers');
+  const recovered = ethers.verifyMessage(exactMessage, signature.signature);
+  if (recovered.toLowerCase() !== signature.signerAddress.toLowerCase() || recovered.toLowerCase() !== record.walletAddress.toLowerCase()) {
+    return {
+      ok: false,
+      refusalCode: 'SIGNATURE_INTEGRITY_FAILED',
+      detail:
+        `recovered signer (${recovered}) over the exact message about to be submitted does not match the ` +
+        `persisted walletAddress (${record.walletAddress}) — refusing before enable_pulse_monitoring is called`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * Flattens an MCP tool result's text content into one lowercase string for a
  * keyword confirmation check. `JSON.stringify(toolResult)` on the WRAPPED
  * `{content:[{type:'text',text:...}]}` shape double-escapes the inner JSON's
@@ -807,14 +867,15 @@ export async function runHorizenTransparencyAuthorization(
   const prepared = await prepareHorizenTransparencyAuthorization(input, shared);
   if (!prepared.ok) return prepared;
 
-  const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
-  if (!signed.ok) return signed;
-
   /*
-   * FAIL FAST, BEFORE HORIZEN'S STATE-CHANGING CALL (2026-08-04). Placed
-   * AFTER sign (a cheap, local, key-custody self-check with no network call)
-   * and BEFORE submit (the partner mutation) — see crossCheckRegistryOwner's
-   * own doc comment for why this exists and what it replaces.
+   * OWNERSHIP, BEFORE SIGNING (moved here 2026-08-04, al: "Signing is itself
+   * a governed cryptographic act... there is no reason to ask the agent key
+   * to sign a message that is already known to name the wrong wallet."). The
+   * canonical order is now: resolve token -> read ownerOf -> compare with the
+   * proposed signer -> build the exact message (already done above, in
+   * prepare) -> sign -> submit -> reread. verifyHorizenTransparencyActivation's
+   * post-submit reread remains as the authoritative CONFIRMATION afterward —
+   * not a duplicate of this pre-flight refusal.
    */
   const ownerCheck = await crossCheckRegistryOwner(input.registry, input.controllerWallet, shared);
   if (!ownerCheck.ok) {
@@ -824,6 +885,27 @@ export async function runHorizenTransparencyAuthorization(
       refusalDetail: ownerCheck.detail,
     });
     return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail };
+  }
+
+  const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
+  if (!signed.ok) return signed;
+
+  /*
+   * THE DECISIVE LOCAL TEST, BEFORE SUBMISSION (al, 2026-08-04): recover the
+   * signer from the EXACT message that will be submitted and require it
+   * match both the persisted walletAddress and (transitively, via the
+   * ownership check just above) the registry's on-chain owner. See
+   * verifySignatureIntegrity's own doc comment for why this is a regression
+   * gate rather than a redundant re-check of something already proven.
+   */
+  const integrityCheck = await verifySignatureIntegrity(prepared.value.authorizationId, prepared.value.message, signed.value);
+  if (!integrityCheck.ok) {
+    await updatePartnerAuthorizationRequest(prepared.value.authorizationId, {
+      state: 'REFUSED',
+      refusalCode: integrityCheck.refusalCode,
+      refusalDetail: integrityCheck.detail,
+    });
+    return { ok: false, refusalCode: integrityCheck.refusalCode, detail: integrityCheck.detail };
   }
 
   const submitted = await submitHorizenTransparencyAuthorization(
