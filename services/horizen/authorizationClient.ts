@@ -126,9 +126,66 @@ export type HorizenAuthorizationRefusalCode =
   | 'SIGNATURE_INTEGRITY_FAILED'
   | 'STATE_MISMATCH';
 
+/**
+ * One row of a field-by-field comparison between what was SIGNED (parsed
+ * from build_pulse_auth_message's exact returned text) and what was
+ * SUBMITTED (the arguments actually sent to enable_pulse_monitoring) —
+ * deliberately unnormalized (al, 2026-08-04: "Do not normalize values
+ * before comparison. Show exact strings and lengths"). `signedValue` is
+ * `null` when no matching labelled line was found in the message at all —
+ * itself informative, not an error.
+ */
+export interface HorizenMessageFieldParityRow {
+  field: string;
+  signedValue: string | null;
+  submittedValue: string | null;
+  equal: boolean;
+}
+
+/**
+ * A bounded escalation artifact (al, 2026-08-04) — produced ONLY when
+ * enable_pulse_monitoring rejects a submission that verifySignatureIntegrity
+ * already confirmed locally valid (recovered signer = submitted wallet =
+ * registry owner). Unlike the bounded transcript in a refusal's `detail`
+ * (never the message text, never the raw signature — safe for general
+ * logs), THIS artifact deliberately carries the full exact message and
+ * signature, because it exists for exactly one purpose: handing Horizen (or
+ * an operator escalating to them) everything needed to determine whether
+ * their build and enable endpoints agree on the same message, without
+ * requiring a second live reproduction. Callers MUST route this to a
+ * secure/restricted surface, never general logs or a broad API response —
+ * this module does not decide that placement.
+ */
+export interface HorizenEscalationPacket {
+  tokenId: string;
+  network: HorizenNetwork;
+  registryContract: string;
+  expectedOwner: string;
+  recoveredSigner: string;
+  issuedAt: string;
+  endpoint: string;
+  messageByteLength: number;
+  messageHash: string;
+  exactMessage: string;
+  signature: string;
+  signatureLength: number;
+  signatureVByte: string;
+  submittedArguments: Record<string, unknown>;
+  buildTool: { name: string; inputSchema: unknown; rawResult: unknown };
+  submitTool: { name: string; rawResult: unknown };
+  fieldParity: HorizenMessageFieldParityRow[];
+  capturedAt: string;
+}
+
 export type AuthorizationResult<T> =
   | { ok: true; value: T }
-  | { ok: false; refusalCode: HorizenAuthorizationRefusalCode; detail: string };
+  | {
+      ok: false;
+      refusalCode: HorizenAuthorizationRefusalCode;
+      detail: string;
+      /** Populated ONLY for HORIZEN_SUBMISSION_REJECTED, after local signature integrity already passed. See HorizenEscalationPacket's own doc comment for handling requirements. */
+      escalationPacket?: HorizenEscalationPacket;
+    };
 
 // ── Injected dependencies (never touched by Phase 1 tests — always mocked) ──
 
@@ -251,6 +308,16 @@ export interface PreparedAuthorization {
   envelope: HorizenTransparencyAuthorization;
   /** The exact partner-supplied message text this envelope's signature must be produced over. Preserved verbatim, never altered. */
   message: string;
+  /**
+   * Carried forward ONLY so a submission rejection can attach a full
+   * HorizenEscalationPacket naming exactly what the build stage declared and
+   * returned (al, 2026-08-04: "print the live MCP inputSchema and complete
+   * successful output from build_pulse_auth_message"). Never used for any
+   * decision in this pipeline — a pure diagnostic carry.
+   */
+  buildToolName: string;
+  buildToolInputSchema: unknown;
+  rawBuildResult: unknown;
 }
 
 export async function prepareHorizenTransparencyAuthorization(
@@ -473,7 +540,18 @@ export async function prepareHorizenTransparencyAuthorization(
 
   await updatePartnerAuthorizationRequest(input.authorizationId, { state: 'PREPARED', payloadHash: envelope.messageHash });
 
-  return { ok: true, value: { authorizationId: input.authorizationId, actorPersonaId: input.actorPersonaId, envelope, message } };
+  return {
+    ok: true,
+    value: {
+      authorizationId: input.authorizationId,
+      actorPersonaId: input.actorPersonaId,
+      envelope,
+      message,
+      buildToolName: buildTool.tool.name,
+      buildToolInputSchema: buildTool.tool.inputSchema,
+      rawBuildResult: buildResult,
+    },
+  };
 }
 
 // ── Stage 2: sign ────────────────────────────────────────────────────────
@@ -553,6 +631,114 @@ function buildSignatureDiagnosticTranscript(args: {
   };
 }
 
+/**
+ * Parses `Label: value` lines out of the ASR message text — the format
+ * every documented example uses ("Agent: 7866", "Network: sepolia",
+ * "Issued At: <ISO-8601>", ...). Labels are captured EXACTLY as they appear
+ * (case, spacing) so a caller can inspect what the message actually said;
+ * matching against a canonical field name for the parity table below is a
+ * SEPARATE, case-insensitive step, never baked into this parse.
+ */
+export function parseLabelledMessageFields(message: string): Map<string, string> {
+  const fields = new Map<string, string>();
+  for (const line of message.split(/\r?\n/)) {
+    const m = /^\s*([A-Za-z][A-Za-z ]*?)\s*:\s*(.+?)\s*$/.exec(line);
+    if (m) fields.set(m[1], m[2]);
+  }
+  return fields;
+}
+
+/** Every spelling variant this integration has seen or documented for each canonical field the ASR message may name — case-insensitive lookup keys only. */
+const FIELD_LABEL_CANDIDATES: Record<string, string[]> = {
+  agentId: ['agent', 'agentid', 'agent id'],
+  name: ['name'],
+  endpoint: ['endpoint'],
+  walletAddress: ['wallet', 'walletaddress', 'wallet address'],
+  issuedAt: ['issued at', 'issuedat'],
+  action: ['action'],
+  network: ['network'],
+  chain: ['chain'],
+  chainId: ['chain id', 'chainid'],
+  registry: ['registry', 'registry address', 'registry contract'],
+};
+
+/**
+ * The field-by-field parity report (al, 2026-08-04): "Parse every factual
+ * field from the signed text and produce a parity report... Do not
+ * normalize values before comparison. Show exact strings and lengths."
+ * Exact string equality only — no case-folding, no trimming beyond what the
+ * line parser already does to isolate the value from its label, no address
+ * checksum normalization. A field absent from BOTH is still reported
+ * (`equal: false` when either side is null) so a caller sees explicitly
+ * that no comparison could be made, rather than the row being silently
+ * dropped.
+ */
+export function buildFieldParityTable(message: string, submitted: Record<string, unknown>): HorizenMessageFieldParityRow[] {
+  const parsedLabels = parseLabelledMessageFields(message);
+  const lowerLabelMap = new Map<string, string>();
+  for (const [label, value] of parsedLabels) lowerLabelMap.set(label.toLowerCase(), value);
+
+  return Object.entries(FIELD_LABEL_CANDIDATES).map(([field, candidates]) => {
+    let signedValue: string | null = null;
+    for (const candidate of candidates) {
+      if (lowerLabelMap.has(candidate)) {
+        signedValue = lowerLabelMap.get(candidate)!;
+        break;
+      }
+    }
+    const raw = submitted[field];
+    const submittedValue = raw === undefined || raw === null ? null : String(raw);
+    return {
+      field,
+      signedValue,
+      submittedValue,
+      equal: signedValue !== null && submittedValue !== null && signedValue === submittedValue,
+    };
+  });
+}
+
+/**
+ * Assembles the bounded escalation artifact — see HorizenEscalationPacket's
+ * own doc comment for what this is for and how it must be handled.
+ */
+function buildHorizenEscalationPacket(args: {
+  registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string };
+  expectedOwner: string;
+  message: string;
+  signature: PartnerAuthorizationSignature;
+  issuedAt: string;
+  endpoint: string;
+  submittedArguments: Record<string, unknown>;
+  buildToolName: string;
+  buildToolInputSchema: unknown;
+  rawBuildResult: unknown;
+  submitToolName: string;
+  rawSubmitResult: unknown;
+  now: () => Date;
+}): HorizenEscalationPacket {
+  const sig = args.signature.signature;
+  return {
+    tokenId: args.registry.tokenId,
+    network: args.registry.network,
+    registryContract: HORIZEN_NETWORK_FACTS[args.registry.network]?.identityRegistry ?? 'unknown',
+    expectedOwner: args.expectedOwner,
+    recoveredSigner: args.signature.signerAddress,
+    issuedAt: args.issuedAt,
+    endpoint: args.endpoint,
+    messageByteLength: Buffer.byteLength(args.message, 'utf8'),
+    messageHash: sha256Hex(args.message),
+    exactMessage: args.message,
+    signature: sig,
+    signatureLength: sig.length,
+    signatureVByte: sig.length >= 2 ? sig.slice(-2) : '',
+    submittedArguments: args.submittedArguments,
+    buildTool: { name: args.buildToolName, inputSchema: args.buildToolInputSchema, rawResult: args.rawBuildResult },
+    submitTool: { name: args.submitToolName, rawResult: args.rawSubmitResult },
+    fieldParity: buildFieldParityTable(args.message, args.submittedArguments),
+    capturedAt: args.now().toISOString(),
+  };
+}
+
 export async function submitHorizenTransparencyAuthorization(
   authorizationId: string,
   args: {
@@ -565,6 +751,19 @@ export async function submitHorizenTransparencyAuthorization(
      */
     agentDisplayName: string;
     endpoint: string;
+    /**
+     * Escalation-only carry (al, 2026-08-04) — never used for any decision
+     * here. registry/expectedOwner let a rejection's escalation packet name
+     * the registry contract and the owner already confirmed by
+     * verifySignatureIntegrity; the build* fields let it include the build
+     * stage's exact tool name/schema/raw response, all optional so this
+     * function stays independently callable/testable without them.
+     */
+    registry?: { network: HorizenNetwork; tokenId: string; registryAlias?: string };
+    expectedOwner?: string;
+    buildToolName?: string;
+    buildToolInputSchema?: unknown;
+    rawBuildResult?: unknown;
   },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ submissionRef: string }>> {
@@ -665,15 +864,57 @@ export async function submitHorizenTransparencyAuthorization(
       issuedAt: record.issuedAt,
       endpoint: args.endpoint,
     });
-    const detail =
-      `"${submitTool.tool.name}" rejected the request: ${describeToolResultShape(submitResult)}. ` +
-      `Local signature transcript (recovery already verified before this call): ${JSON.stringify(transcript)}`;
+    const partnerErrorText = describeToolResultShape(submitResult);
+
+    /*
+     * TWO FRAMINGS, NOT ONE (al, 2026-08-04): "The error should now be
+     * surfaced as: Horizen rejected a locally verified owner signature.
+     * Local authorization integrity passed. Partner contract clarification
+     * required. — not merely 'Invalid signature', and not another
+     * invitation to retry." That framing is only HONEST when this rejection
+     * is actually the signature check — an unrelated rejection (a schema
+     * validation dump, a business-rule refusal) keeps the generic wording
+     * because it IS generic, and claiming "local integrity passed" for a
+     * defect this integration might still own would overclaim.
+     */
+    const looksLikeSignatureRejection = /invalid signature/i.test(partnerErrorText);
+    const detail = looksLikeSignatureRejection
+      ? `Horizen rejected a locally verified owner signature. Local authorization integrity passed. Partner contract ` +
+        `clarification required. Partner response: ${partnerErrorText}. ` +
+        `Local signature transcript (recovery already verified before this call): ${JSON.stringify(transcript)}`
+      : `"${submitTool.tool.name}" rejected the request: ${partnerErrorText}. ` +
+        `Local signature transcript (recovery already verified before this call): ${JSON.stringify(transcript)}`;
+
+    // The full escalation packet — the exact message/signature belong here,
+    // NEVER in `detail` above (general-log-visible). Requires the
+    // escalation-only carry fields; standalone callers that omit them
+    // (e.g. direct unit tests of this function alone) simply get no packet
+    // rather than a half-populated one.
+    const escalationPacket =
+      args.registry && args.expectedOwner && args.buildToolName !== undefined
+        ? buildHorizenEscalationPacket({
+            registry: args.registry,
+            expectedOwner: args.expectedOwner,
+            message: args.message,
+            signature: args.signature,
+            issuedAt: record.issuedAt,
+            endpoint: args.endpoint,
+            submittedArguments: submitArgs,
+            buildToolName: args.buildToolName,
+            buildToolInputSchema: args.buildToolInputSchema,
+            rawBuildResult: args.rawBuildResult,
+            submitToolName: submitTool.tool.name,
+            rawSubmitResult: submitResult,
+            now: deps.now ?? (() => new Date()),
+          })
+        : undefined;
+
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
       refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
       refusalDetail: detail,
     });
-    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail };
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail, ...(escalationPacket ? { escalationPacket } : {}) };
   }
 
   const SUBMISSION_FIELDS = ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id'];
@@ -997,6 +1238,14 @@ export async function runHorizenTransparencyAuthorization(
       signature: signed.value,
       agentDisplayName: input.agentDisplayName,
       endpoint: input.pulseEndpoint,
+      // Escalation-only carry — see submitHorizenTransparencyAuthorization's
+      // own doc comment. ownerCheck.owner is the ACTUAL resolved registry
+      // owner (never re-derived here).
+      registry: input.registry,
+      expectedOwner: ownerCheck.owner,
+      buildToolName: prepared.value.buildToolName,
+      buildToolInputSchema: prepared.value.buildToolInputSchema,
+      rawBuildResult: prepared.value.rawBuildResult,
     },
     shared,
   );
