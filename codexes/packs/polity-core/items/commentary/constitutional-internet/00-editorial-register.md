@@ -670,8 +670,9 @@ resolvable the same way.
 
 ### CR-14 — Constitution Before Substrate: quantum transition launchpad (operator-ratified 2026-08-04)
 
-**Status:** **Doctrine ratified. Manuscript insertion QUEUED — held for the final consolidation
-pass. Do not apply to `01-working-manuscript.md` yet, and do not deploy.**
+**Status:** **Doctrine ratified. Manuscript insertion APPLIED in `01-controlling-manuscript-v0.3.md`
+(2026-08-04 consolidation pass).** `01-working-manuscript.md` (v0.2) is left unmodified as the
+archival source of record — the insertion lives only in the controlling manuscript.
 
 This adds a compact constitutional launchpad for quantum transition into the canon **without
 reopening the book architecture and without expanding Volume II into a technical quantum
@@ -745,8 +746,8 @@ Society*.**
 | Operational quantum-native implementation | Not claimed |
 | Quantum entropy integration | Separately governed by CR-9 / `PRD-DIDQ-QBIT-001` |
 | Post-quantum readiness | Constitutional requirement; implementation state tracked separately |
-| **Manuscript application** | **Queued for the final consolidation pass — not yet applied** |
-| **Deploy status** | **Not pushed live** |
+| **Manuscript application** | **Applied — `01-controlling-manuscript-v0.3.md` (2026-08-04)** |
+| **Deploy status** | **Not pushed live as of the consolidation pass; deploy is a separate operator decision** |
 
 #### Required cross-references
 
@@ -886,3 +887,17 @@ the book's **working corpus** (manuscript, evidence matrix, editorial registers,
 carrying a pointer record and, at most, the ratified volume registered in `collections.json`.
 Relocation is a separate deliberate change; `docs/` is **not** glob-traced (only three specific files
 are), so it is a viable interim home if Supabase upload is not yet available.
+
+---
+
+## Consolidation pass — v0.3 Controlling Manuscript produced (2026-08-04)
+
+Operator-directed consolidation pass produced `01-controlling-manuscript-v0.3.md`, applying CR-1
+through CR-14 and ADD-1 through ADD-3 to v0.2 (`01-working-manuscript.md`, left unmodified as the
+archival source of record). Full disposition of every ruling, the still-open editorial decisions
+this pass does not resolve, the implementation matters kept out of manuscript scope, and a
+chapter-by-chapter publication-readiness call are recorded in the companion document,
+`01-controlling-manuscript-v0.3-companion.md`. Both files are registered in
+`codexes/packs/polity-core/collections.json` under `col_commentary_constitutional_internet`.
+
+Not pushed to Amplify as part of this pass — that remains a separate operator decision.
