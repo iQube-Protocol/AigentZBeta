@@ -745,6 +745,7 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
         content: [{ type: 'text', text: 'Registry API returned 401 for /agents/8798/enable-pulse — Invalid signature' }],
       },
     });
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const result = await runHorizenTransparencyAuthorization(baseInput({ registry: { network: 'base-sepolia', tokenId: '8798' } }), {
       mcpClient,
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
@@ -752,6 +753,16 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
       now: FIXED_NOW,
     });
     expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED' });
+
+    // The packet is otherwise unreachable (never in `detail`, never
+    // forwarded by the route) — this [HORIZEN ESCALATION] log, mirroring
+    // services/dvn/activityReceiptDvnPipeline.ts's own [DVN ESCALATION]
+    // pattern, is the ONLY place it currently lands.
+    const escalationLog = consoleErrorSpy.mock.calls.find((c) => typeof c[0] === 'string' && c[0].startsWith('[HORIZEN ESCALATION]'));
+    expect(escalationLog).toBeTruthy();
+    const loggedJson = JSON.parse(escalationLog![0].slice(escalationLog![0].indexOf('{')));
+    expect(loggedJson.exactMessage).toBe(asrMessage);
+    consoleErrorSpy.mockRestore();
     if (result.ok) return;
 
     // The corrected framing (al, 2026-08-04) — only for a rejection that
