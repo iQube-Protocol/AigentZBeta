@@ -637,6 +637,54 @@ function pickStringField(obj: Record<string, unknown> | null | undefined, names:
 }
 
 /**
+ * Does the registry's own on-chain owner match the wallet this ceremony is
+ * signing/submitting as? One definition, two call sites (2026-08-04):
+ *   - `runHorizenTransparencyAuthorization` — BEFORE submit, so a wrong
+ *     wallet never reaches Horizen's state-changing enable_pulse_monitoring
+ *     call at all.
+ *   - `verifyHorizenTransparencyActivation` — AFTER submit, as the
+ *     authoritative post-hoc confirmation (control could theoretically
+ *     change between prepare and reread).
+ *
+ * ── WHY THE PRE-SUBMIT CALL EXISTS (al, 2026-08-04) ─────────────────────
+ *
+ * The message-building comment above states outright: "Wallet: 0x… must
+ * equal ownerOf(agentId)". Before this, the ONLY owner cross-check ran
+ * post-submit — so a wallet that is not the token's actual on-chain owner
+ * reached Horizen's REAL signature verification and came back as:
+ *
+ *   "enable_pulse_monitoring" rejected the request: tool-reported error:
+ *   Registry API returned 401 for /agents/8798/enable-pulse — Invalid
+ *   signature
+ *
+ * That is cryptographically true (the signature cannot verify against a
+ * message the actual owner didn't produce) but diagnostically useless — it
+ * reads as a signing bug when the real defect is a wrong wallet. Checking
+ * here turns that into a named, local REGISTRY_OWNER_MISMATCH before any
+ * partner contact for the state-changing call happens.
+ */
+async function crossCheckRegistryOwner(
+  registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string },
+  controllerWallet: string,
+  deps: AuthorizationDeps,
+): Promise<{ ok: true } | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH'; detail: string }> {
+  const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
+  const reread = await fetchAgent(registry.registryAlias ?? registry.tokenId, registry.network);
+  if (!reread.ok) {
+    return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
+  }
+  const owner = pickStringField(reread.value, ['owner', 'ownerAddress', 'controller', 'controllerWallet']);
+  if (owner && owner.toLowerCase() !== controllerWallet.toLowerCase()) {
+    return {
+      ok: false,
+      refusalCode: 'REGISTRY_OWNER_MISMATCH',
+      detail: `registry-reread owner (${owner}) does not match the controller wallet (${controllerWallet})`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
  * Flattens an MCP tool result's text content into one lowercase string for a
  * keyword confirmation check. `JSON.stringify(toolResult)` on the WRAPPED
  * `{content:[{type:'text',text:...}]}` shape double-escapes the inner JSON's
@@ -660,16 +708,10 @@ export async function verifyHorizenTransparencyActivation(
     return { ok: false, refusalCode: 'STATE_MISMATCH', detail: `authorization "${authorizationId}" is not in SUBMITTED state` };
   }
 
-  const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
-  const reread = await fetchAgent(args.registry.registryAlias ?? args.registry.tokenId, args.registry.network);
-  if (!reread.ok) {
-    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'REGISTRY_REREAD_FAILED', refusalDetail: reread.reason });
-    return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
-  }
-  const owner = pickStringField(reread.value, ['owner', 'ownerAddress', 'controller', 'controllerWallet']);
-  if (owner && owner.toLowerCase() !== args.controllerWallet.toLowerCase()) {
-    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'REGISTRY_OWNER_MISMATCH', refusalDetail: `registry owner ${owner} != controller ${args.controllerWallet}` });
-    return { ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH', detail: `registry-reread owner (${owner}) does not match the controller wallet (${args.controllerWallet})` };
+  const ownerCheck = await crossCheckRegistryOwner(args.registry, args.controllerWallet, deps);
+  if (!ownerCheck.ok) {
+    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: ownerCheck.refusalCode, refusalDetail: ownerCheck.detail });
+    return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail };
   }
 
   const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
@@ -767,6 +809,22 @@ export async function runHorizenTransparencyAuthorization(
 
   const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
   if (!signed.ok) return signed;
+
+  /*
+   * FAIL FAST, BEFORE HORIZEN'S STATE-CHANGING CALL (2026-08-04). Placed
+   * AFTER sign (a cheap, local, key-custody self-check with no network call)
+   * and BEFORE submit (the partner mutation) — see crossCheckRegistryOwner's
+   * own doc comment for why this exists and what it replaces.
+   */
+  const ownerCheck = await crossCheckRegistryOwner(input.registry, input.controllerWallet, shared);
+  if (!ownerCheck.ok) {
+    await updatePartnerAuthorizationRequest(prepared.value.authorizationId, {
+      state: 'REFUSED',
+      refusalCode: ownerCheck.refusalCode,
+      refusalDetail: ownerCheck.detail,
+    });
+    return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail };
+  }
 
   const submitted = await submitHorizenTransparencyAuthorization(
     prepared.value.authorizationId,

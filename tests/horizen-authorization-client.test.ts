@@ -347,6 +347,25 @@ describe('required refusal canaries', () => {
     expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH' });
   });
 
+  it('a wallet that is not the registry\'s on-chain owner is refused BEFORE enable_pulse_monitoring is ever called (al, 2026-08-04) — never a live "Invalid signature" 401 for a wrong-wallet configuration', async () => {
+    const stranger = ethers.Wallet.createRandom();
+    const mcpClient = fakeMcpClient();
+    const callToolSpy = vi.fn(mcpClient.callTool);
+    mcpClient.callTool = callToolSpy;
+    const result = await runHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(stranger.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH' });
+    // build_pulse_auth_message is fine (it only builds text, never mutates
+    // anything on Horizen's side) — enable_pulse_monitoring, the actual
+    // state-changing call, must never fire for a wrong-owner wallet.
+    const calledTools = callToolSpy.mock.calls.map((c) => c[0]?.name);
+    expect(calledTools).not.toContain('enable_pulse_monitoring');
+  });
+
   it('partner mutation not confirmed — a valid signature is not completion without an authoritative reread', async () => {
     const result = await runHorizenTransparencyAuthorization(baseInput(), {
       mcpClient: fakeMcpClient({ statusText: '{"status":"pending"}' }),
@@ -367,6 +386,10 @@ describe('required refusal canaries', () => {
     });
     const result = await runHorizenTransparencyAuthorization(baseInput(), {
       mcpClient,
+      // The new pre-submit owner cross-check (2026-08-04) now runs between
+      // sign and submit — without this fixture it would fall through to the
+      // REAL defaultFetchRegistryAgent and attempt a live network call.
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
       resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
       now: FIXED_NOW,
     });
