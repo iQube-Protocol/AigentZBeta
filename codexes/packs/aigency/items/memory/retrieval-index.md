@@ -3539,3 +3539,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bca5b77.md](../build_/COMMITS/COMMIT-bca5b77.md)
 - Message: Document Nakamoto asset publication and aigentMe state reset findings and fixes
+
+## Commit `c6113f2` — 2026-08-04T00:32:39Z
+- Type: `push`
+- Brief: [COMMIT-c6113f2.md](../build_/COMMITS/COMMIT-c6113f2.md)
+- Message: Document mandatory delegation security architecture and constraints
