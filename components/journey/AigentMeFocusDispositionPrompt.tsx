@@ -32,6 +32,13 @@ interface AigentMeFocusDispositionPromptProps {
   domainFocus?: string;
   agentLabel?: string;
   /**
+   * Which agent this recognition act concerns (resolveRegistrableAgent slug,
+   * e.g. 'nakamoto'). Threaded straight through to the server — parameter
+   * propagation only, never inferred or defaulted here. Omitted keeps the
+   * server's own MoneyPenny default (al, 2026-08-04).
+   */
+  agentSlug?: string;
+  /**
    * Fired once a disposition is successfully recorded (Guided Journey
    * Runtime §24.9 Ephemeral Interface, Durable Consequence) — lets a
    * hosting capsule close itself immediately ("the closing ceremony").
@@ -48,6 +55,7 @@ interface AigentMeFocusDispositionPromptProps {
 export function AigentMeFocusDispositionPrompt({
   domainFocus = 'Financial Services',
   agentLabel = 'MoneyPenny',
+  agentSlug,
   onResolved,
 }: AigentMeFocusDispositionPromptProps) {
   const [loading, setLoading] = useState(true);
@@ -58,7 +66,8 @@ export function AigentMeFocusDispositionPrompt({
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition', {
+      const qs = agentSlug ? `?agentSlug=${encodeURIComponent(agentSlug)}` : '';
+      const res = await personaFetch(`/api/journey/moneypenny-horizen/aigentme/disposition${qs}`, {
         cache: 'no-store',
       });
       if (res.ok) {
@@ -70,7 +79,7 @@ export function AigentMeFocusDispositionPrompt({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentSlug]);
 
   useEffect(() => {
     void refresh();
@@ -84,7 +93,11 @@ export function AigentMeFocusDispositionPrompt({
         const res = await personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ disposition: value, domainFocus: domainFocus.toLowerCase().replace(/\s+/g, '-') }),
+          body: JSON.stringify({
+            disposition: value,
+            domainFocus: domainFocus.toLowerCase().replace(/\s+/g, '-'),
+            agentSlug,
+          }),
         });
         const json = await res.json().catch(() => null);
         if (!res.ok || !json?.ok) {
@@ -109,7 +122,7 @@ export function AigentMeFocusDispositionPrompt({
         setSubmitting(false);
       }
     },
-    [domainFocus, onResolved],
+    [domainFocus, agentSlug, onResolved],
   );
 
   const chosen = DISPOSITIONS.find((d) => d.value === disposition);

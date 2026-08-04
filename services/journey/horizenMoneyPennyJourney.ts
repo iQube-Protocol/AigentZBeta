@@ -181,11 +181,29 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       prerequisites: ['passport'],
       permittedActions: ['approve-bounded-delegation', 'ratify-bootstrap'],
-      completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'contextualMandate', 'bootstrapApproval', 'aigentZObserverReceipt', 'fsRuntimeActive'],
+      /*
+       * DELEGATE COMPLETES ON DELEGATION, NOT ON FS RUNTIME ACTIVATION
+       * (operator correction via al, 2026-08-04).
+       *
+       * `bootstrapApproval`, `aigentZObserverReceipt` and `fsRuntimeActive` are
+       * FS Runtime activation conditions (all three read the same
+       * `finance_authoritative_execution` receipt) — a capability enrichment
+       * that belongs on the Financial-services branch (the `verify` stage),
+       * not a delegation condition. Requiring them here meant a real,
+       * DVN-anchored delegation grant plus a correctly-assigned delegate could
+       * never turn this stage emerald, because two unrelated FS-activation
+       * signals were bundled onto the delegation act itself.
+       *
+       * Delegate's own outcome is exactly three things: a usable Delegate
+       * Passport, an active delegation grant, and the agent structurally
+       * assigned as this persona's delegate (never inferring aigentMe from
+       * that assignment — see personaAssignedAsDelegate in agentStateAxes/state).
+       */
+      completionEvidence: ['delegatePassportActive', 'boundedDelegationActive', 'personaAssignedAsDelegate'],
       receiptTypes: ['agent_delegated', 'finance_authoritative_execution'],
       companion: {
-        before: 'A bounded delegation and Aigent Z’s bootstrap observation are required before the FS Runtime can activate.',
-        complete: 'Control says can. The Passport and delegation say may. The mandate says what MoneyPenny may do now.',
+        before: 'A bounded delegation and its structural assignment to this persona are required before aigentMe.',
+        complete: 'Control says can. The Passport and delegation say may. Nakamoto is now a recognised bounded delegate.',
       },
       nextStageId: 'aigentme',
     },
@@ -241,7 +259,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'verify',
-      label: 'Financial-services enrichments',
+      label: 'Enrich',
       milestone: 'VERIFIED',
       /*
        * A POST-ACTIVATION BRANCH, NOT AN ADMISSION STAGE (operator, 2026-08-03).

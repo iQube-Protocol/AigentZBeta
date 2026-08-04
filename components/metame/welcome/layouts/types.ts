@@ -192,6 +192,16 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    * second thing if only the first reaches it.
    */
   onFocusDispositionRecorded?: (disposition: string) => void;
+  /**
+   * Which agent MoneyPennyFocusLayout's recognition ceremony concerns
+   * (resolveRegistrableAgent slug, e.g. 'nakamoto') — threaded straight
+   * through to AigentMeFocusDispositionPrompt and the disposition route.
+   * Undefined preserves the existing MoneyPenny default (al, 2026-08-04:
+   * parameter propagation only, no capsule/layout redesign).
+   */
+  focusAgentSlug?: string;
+  /** Display label for the same agent, shown in the ceremony's copy. */
+  focusAgentLabel?: string;
 };
 
 export interface RightPaneLayoutDefinition {

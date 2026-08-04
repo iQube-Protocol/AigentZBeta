@@ -100,6 +100,15 @@ export interface AgentAdmissionState {
   delegationActive: boolean | undefined;
   /** The agent is present in the registry — i.e. ingested into the Factory. */
   factoryPresent: boolean | undefined;
+  /**
+   * `agent_root_identity.id` — the row id `persona_agent_assignments` keys
+   * against. Exposed so a caller can check whether the OPERATOR's active
+   * persona has this agent structurally assigned as a delegate, independent
+   * of the aigentMe designation (CFS-024). `null` when the root identity read
+   * failed or found nothing — a caller must not infer "not assigned" from
+   * that alone.
+   */
+  agentRootId: string | null;
   /** Reads that failed, named. Disclosed, never folded into a `false`. */
   auditGaps: string[];
 }
@@ -246,16 +255,18 @@ export async function resolveAgentAdmissionState(
   let delegationActive: boolean | undefined;
   let factoryPresent: boolean | undefined;
   let agentRootDid: string | null = null;
+  let agentRootId: string | null = null;
 
   // ── 1. Sponsorship, and the agent's own root DID (needed by step 3) ──────
   try {
     const { data, error } = await admin
       .from('agent_root_identity')
-      .select('did_uri, sponsor_persona_id, sponsor_passport_id')
+      .select('id, did_uri, sponsor_persona_id, sponsor_passport_id')
       .eq('agent_id', agent.runtimeAgentId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     agentRootDid = (data as { did_uri?: string } | null)?.did_uri ?? null;
+    agentRootId = (data as { id?: string } | null)?.id ?? null;
     const row = data as { sponsor_persona_id?: string; sponsor_passport_id?: string } | null;
     sponsorshipRecorded = Boolean(row?.sponsor_persona_id || row?.sponsor_passport_id);
   } catch (err) {
@@ -380,5 +391,5 @@ export async function resolveAgentAdmissionState(
     auditGaps.push(`registry presence read failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  return { sponsorshipRecorded, delegatePassportIssued, delegationActive, factoryPresent, auditGaps };
+  return { sponsorshipRecorded, delegatePassportIssued, delegationActive, factoryPresent, agentRootId, auditGaps };
 }
