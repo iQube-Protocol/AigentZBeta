@@ -3724,26 +3724,41 @@ function FreezeControl({ experimentId, onDone }: { experimentId: string; onDone:
   );
 }
 
+interface ProvenanceClassSuggestionView {
+  suggestedClass: string;
+  confidence: number;
+  primarySource: string | null;
+  supportingSources: string[];
+  reason: string;
+}
+
 /**
- * STAGE 5's ACTION — a classification QUEUE, not a fictitious "Classify All"
- * (al, 2026-08-04 steward-workflow ruling).
+ * STAGE 5's ACTION — AI-ASSISTED REVIEW, NOT A BLANK FORM (operator
+ * direction, 2026-08-05: "the steward should never begin with a blank form
+ * when the substrate can derive a reasonable proposal").
  *
- *   > "If batch classification is legal: Classify All. Otherwise: Open Queue
- *   >  which opens directly into the unresolved list."
+ * `suggest-classification` (POST /api/invariants/discovery) now returns TWO
+ * things: `suggestion` (evidence refs + rationale, pre-filled from the
+ * invariant's ALREADY-RESOLVED evidence — unchanged from before) and
+ * `classSuggestion` (services/invariants/provenanceSuggestion.ts — a
+ * REVIEWED proposal of the class itself, with confidence, a primary source
+ * and supporting sources). Accepting a suggestion still submits through the
+ * SAME `POST {action:'classify'}` this queue always called — every refusal
+ * in `applyProvenanceReclassification` still runs, including the
+ * anti-laundering check that a move into Population A must cite at least
+ * one non-repo-internal source. This is deliberately a different posture
+ * from the OTHER classify surface (components/composer/
+ * InvariantDiscoveryTab.tsx), which is canaried to never pre-select a class
+ * at all — that canary is about a SILENT default sitting among clerical
+ * fields; a card that names its own confidence, reason and sources and
+ * requires its own dedicated Accept is the reviewed act that rule exists to
+ * require, not the unreviewed one it forbids.
  *
- * Batch classification is not legal in general: `applyProvenanceReclassification`
- * requires a per-record evidence-provenance class, citations and rationale —
- * there is no shared input across arbitrary cohort members. So this steps
- * through `queue` one record at a time over the EXISTING `POST
- * /api/invariants/discovery {action:'classify'}` route (services/research/
- * experimentalPopulations.ts's `applyProvenanceReclassification` is the only
- * writer; this component never calls it directly). `suggest-classification`
- * pre-fills evidence refs/rationale where the server can compute them —
- * mirrors the Population Reconciliation Board's "pre-populate the
- * recommended action when deterministic" principle — the class itself always
- * requires the steward's own judgement (the suggestion function's own
- * contract: it reports `recordedProvenanceClass` as context, never applies
- * it).
+ * "Accept All High-Confidence" batch-submits only suggestions the steward
+ * never had to look at individually (confidence > 95) through this SAME
+ * classify action — a per-record refusal (e.g. the anti-laundering check)
+ * is caught and counted as "needs manual review," never treated as a batch
+ * failure.
  */
 function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: string }[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
@@ -3751,83 +3766,186 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
   const [to, setTo] = useState<string>("");
   const [evidenceRefs, setEvidenceRefs] = useState("");
   const [rationale, setRationale] = useState("");
+  const [classSuggestion, setClassSuggestion] = useState<ProvenanceClassSuggestionView | null>(null);
+  const [suggestionDismissed, setSuggestionDismissed] = useState(false);
+  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
+  const [batch, setBatch] = useState<{ running: boolean; progress: number; total: number; summary: string | null }>({
+    running: false,
+    progress: 0,
+    total: 0,
+    summary: null,
+  });
 
   const current = queue[index];
 
-  const loadSuggestion = useCallback(async (invariantId: string) => {
+  const fetchSuggestion = useCallback(async (invariantId: string) => {
     try {
       const res = await personaFetch("/api/invariants/discovery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "suggest-classification", invariantId }),
       });
-      const d = await res.json().catch(() => null);
-      const s = d?.suggestion as { suggestedEvidenceRefs?: string[]; suggestedRationale?: string } | undefined;
-      setEvidenceRefs(s?.suggestedEvidenceRefs?.join("\n") ?? "");
-      setRationale(s?.suggestedRationale ?? "");
+      return (await res.json().catch(() => null)) as {
+        suggestion?: { suggestedEvidenceRefs?: string[]; suggestedRationale?: string };
+        classSuggestion?: ProvenanceClassSuggestionView | null;
+      } | null;
     } catch {
-      setEvidenceRefs("");
-      setRationale("");
+      return null;
     }
   }, []);
+
+  const loadCurrent = useCallback(
+    async (invariantId: string) => {
+      setLoadingSuggestion(true);
+      setSuggestionDismissed(false);
+      setClassSuggestion(null);
+      const d = await fetchSuggestion(invariantId);
+      setEvidenceRefs(d?.suggestion?.suggestedEvidenceRefs?.join("\n") ?? "");
+      setRationale(d?.suggestion?.suggestedRationale ?? "");
+      setClassSuggestion(d?.classSuggestion ?? null);
+      setLoadingSuggestion(false);
+    },
+    [fetchSuggestion],
+  );
 
   const openQueue = useCallback(() => {
     setOpen(true);
     setIndex(0);
     setTo("");
     setDone(0);
-    if (queue[0]) void loadSuggestion(queue[0].id);
-  }, [queue, loadSuggestion]);
+    setBatch({ running: false, progress: 0, total: 0, summary: null });
+    if (queue[0]) void loadCurrent(queue[0].id);
+  }, [queue, loadCurrent]);
 
-  const classifyAndNext = useCallback(async () => {
-    if (!current || !to) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await personaFetch("/api/invariants/discovery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "classify",
-          invariantId: current.id,
-          to,
-          evidenceRefs: evidenceRefs.split("\n").map((s) => s.trim()).filter(Boolean),
-          rationale,
-        }),
-      });
-      const d = await res.json().catch(() => null);
-      if (!d?.ok) throw new Error(d?.error || `classification refused (HTTP ${res.status})`);
-      setDone((n) => n + 1);
-      const nextIndex = index + 1;
-      if (nextIndex >= queue.length) {
-        setOpen(false);
-        onDone();
-        return;
+  const submit = useCallback(
+    async (args: { to: string; evidenceRefs: string[]; rationale: string }) => {
+      if (!current) return;
+      setBusy(true);
+      setErr(null);
+      try {
+        const res = await personaFetch("/api/invariants/discovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "classify", invariantId: current.id, ...args }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `classification refused (HTTP ${res.status})`);
+        setDone((n) => n + 1);
+        const nextIndex = index + 1;
+        if (nextIndex >= queue.length) {
+          setOpen(false);
+          onDone();
+          return;
+        }
+        setIndex(nextIndex);
+        setTo("");
+        void loadCurrent(queue[nextIndex].id);
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "classification failed");
+      } finally {
+        setBusy(false);
       }
-      setIndex(nextIndex);
-      setTo("");
-      void loadSuggestion(queue[nextIndex].id);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "classification failed");
-    } finally {
-      setBusy(false);
+    },
+    [current, index, queue, onDone, loadCurrent],
+  );
+
+  const acceptSuggestion = useCallback(() => {
+    if (!classSuggestion) return;
+    void submit({
+      to: classSuggestion.suggestedClass,
+      evidenceRefs: [classSuggestion.primarySource, ...classSuggestion.supportingSources].filter((v): v is string => Boolean(v)),
+      rationale: classSuggestion.reason,
+    });
+  }, [classSuggestion, submit]);
+
+  const editSuggestion = useCallback(() => {
+    if (!classSuggestion) return;
+    setTo(classSuggestion.suggestedClass);
+    setEvidenceRefs([classSuggestion.primarySource, ...classSuggestion.supportingSources].filter(Boolean).join("\n"));
+    setRationale(classSuggestion.reason);
+    setSuggestionDismissed(true);
+  }, [classSuggestion]);
+
+  const classifyAndNext = useCallback(
+    () => void submit({ to, evidenceRefs: evidenceRefs.split("\n").map((s) => s.trim()).filter(Boolean), rationale }),
+    [submit, to, evidenceRefs, rationale],
+  );
+
+  const acceptAllHighConfidence = useCallback(async () => {
+    setBatch({ running: true, progress: 0, total: queue.length, summary: null });
+    let accepted = 0;
+    let needsReview = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const record = queue[i];
+      setBatch((b) => ({ ...b, progress: i }));
+      const d = await fetchSuggestion(record.id);
+      const s = d?.classSuggestion;
+      if (!s || s.confidence <= HIGH_CONFIDENCE_THRESHOLD) {
+        needsReview += 1;
+        continue;
+      }
+      try {
+        const res = await personaFetch("/api/invariants/discovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "classify",
+            invariantId: record.id,
+            to: s.suggestedClass,
+            evidenceRefs: [s.primarySource, ...s.supportingSources].filter(Boolean),
+            rationale: s.reason,
+          }),
+        });
+        const body = await res.json().catch(() => null);
+        if (body?.ok) accepted += 1;
+        else needsReview += 1;
+      } catch {
+        needsReview += 1;
+      }
     }
-  }, [current, to, evidenceRefs, rationale, index, queue, loadSuggestion, onDone]);
+    setBatch({
+      running: false,
+      progress: queue.length,
+      total: queue.length,
+      summary: `${accepted} classified automatically; ${needsReview} left for manual review (no high-confidence suggestion, or the classification was refused)`,
+    });
+    setOpen(false);
+    onDone();
+  }, [queue, fetchSuggestion, onDone]);
 
   if (!open) {
     return (
-      <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
-        <span className="text-slate-300">{queue.length} member(s) require provenance</span>
-        <button
-          type="button"
-          onClick={openQueue}
-          className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
-        >
-          Open Classification Queue
-        </button>
+      <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300">{queue.length} member(s) require provenance</span>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => void acceptAllHighConfidence()}
+              disabled={batch.running}
+              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {batch.running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Accept All High-Confidence (&gt;{HIGH_CONFIDENCE_THRESHOLD}%)
+            </button>
+            <button
+              type="button"
+              onClick={openQueue}
+              className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+            >
+              Open Classification Queue
+            </button>
+          </div>
+        </div>
+        {batch.running && (
+          <div className="text-slate-500">
+            reviewing record {batch.progress + 1} of {batch.total}…
+          </div>
+        )}
+        {batch.summary && <div className="text-slate-400">{batch.summary}</div>}
       </div>
     );
   }
@@ -3845,6 +3963,67 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
       {current && (
         <>
           <div className="rounded border border-slate-800 bg-slate-950 p-1.5 text-slate-200">{current.label}</div>
+
+          {loadingSuggestion && (
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" /> asking Invariant Intelligence for the strongest provenance classification…
+            </div>
+          )}
+
+          {!loadingSuggestion && classSuggestion && !suggestionDismissed && (
+            <div className="rounded border border-slate-800 bg-slate-950/60 p-2">
+              <div className="mb-1 flex items-center justify-between">
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                    classSuggestion.confidence > HIGH_CONFIDENCE_THRESHOLD
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : classSuggestion.confidence >= 70
+                        ? "bg-amber-500/15 text-amber-200"
+                        : "bg-slate-700/40 text-slate-400"
+                  }`}
+                >
+                  {classSuggestion.confidence}% confidence
+                </span>
+                <span className="font-mono text-[10px] text-violet-300">{classSuggestion.suggestedClass}</span>
+              </div>
+              {classSuggestion.primarySource && (
+                <div className="text-slate-300">
+                  primary source: <span className="font-mono text-[10px] text-slate-400">{classSuggestion.primarySource}</span>
+                </div>
+              )}
+              {classSuggestion.supportingSources.length > 0 && (
+                <div className="text-slate-500">supporting: {classSuggestion.supportingSources.join(", ")}</div>
+              )}
+              <div className="mt-0.5 text-slate-500">{classSuggestion.reason}</div>
+              <div className="mt-1.5 flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={acceptSuggestion}
+                  disabled={busy}
+                  className="rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+                >
+                  ✓ Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={editSuggestion}
+                  disabled={busy}
+                  className="rounded border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-slate-200 disabled:opacity-50"
+                >
+                  ✎ Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestionDismissed(true)}
+                  disabled={busy}
+                  className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-slate-400 disabled:opacity-50"
+                >
+                  ✕ Reject
+                </button>
+              </div>
+            </div>
+          )}
+
           <select
             value={to}
             onChange={(e) => setTo(e.target.value)}
@@ -3873,7 +4052,7 @@ function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: st
           />
           <button
             type="button"
-            onClick={() => void classifyAndNext()}
+            onClick={classifyAndNext}
             disabled={busy || !to || !rationale.trim()}
             className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
           >
