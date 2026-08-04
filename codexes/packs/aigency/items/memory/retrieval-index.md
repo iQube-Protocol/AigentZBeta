@@ -3534,3 +3534,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-232dd70.md](../build_/COMMITS/COMMIT-232dd70.md)
 - Message: record 15 autodrive CIDs from 2026-08-02 publication
+
+## Commit `bca5b77` — 2026-08-04T00:26:23Z
+- Type: `push`
+- Brief: [COMMIT-bca5b77.md](../build_/COMMITS/COMMIT-bca5b77.md)
+- Message: Document Nakamoto asset publication and aigentMe state reset findings and fixes

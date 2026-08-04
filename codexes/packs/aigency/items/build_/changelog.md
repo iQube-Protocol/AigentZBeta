@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bca5b77`](https://github.com/iQube-Protocol/AigentZBeta/commit/bca5b771ef59e24ed1ab23f550817da4a69b71de) [push] Document Nakamoto asset publication and aigentMe state reset findings and fixes (Claude, 2026-08-04T00:26:23Z)
 - [`232dd70`](https://github.com/iQube-Protocol/AigentZBeta/commit/232dd70cc955bf4ba06a631457b26ba1cc8a43b1) [push] record 15 autodrive CIDs from 2026-08-02 publication (Kn0w-1, 2026-08-02T16:28:01-04:00)
 - [`065fecd`](https://github.com/iQube-Protocol/AigentZBeta/commit/065fecd09985d1239bd4998bbcbcbee20b5c9277) [feat] add canonical metaMe and iQube brand source assets (Kn0w-1, 2026-07-29T18:42:52-04:00)
 - [`a10f5fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/a10f5fd83550411a56b4aae37b23b0b406df87a8) [feat] add Stage-0 instrument validation (IRV-001/IPV-001) — shake down IRE+IPE before the science (Claude, 2026-07-18T01:11:40Z)

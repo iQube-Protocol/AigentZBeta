@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-02T20:30:55.892Z",
+  "last_updated": "2026-08-04T00:28:25.608Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "232dd70cc955bf4ba06a631457b26ba1cc8a43b1",
-  "latest_commit_short": "232dd70",
-  "latest_commit_title": "record 15 autodrive CIDs from 2026-08-02 publication",
+  "latest_commit": "bca5b771ef59e24ed1ab23f550817da4a69b71de",
+  "latest_commit_short": "bca5b77",
+  "latest_commit_title": "Document Nakamoto asset publication and aigentMe state reset findings and fixes",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bca5b77",
+      "full_sha": "bca5b771ef59e24ed1ab23f550817da4a69b71de",
+      "title": "Document Nakamoto asset publication and aigentMe state reset findings and fixes",
+      "author": "Claude",
+      "timestamp": "2026-08-04T00:26:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bca5b77.md"
+    },
     {
       "sha": "232dd70",
       "full_sha": "232dd70cc955bf4ba06a631457b26ba1cc8a43b1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T10:40:52Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dd7dc45.md"
-    },
-    {
-      "sha": "151f802",
-      "full_sha": "151f802efa79fe584ee487799214044258a4d802",
-      "title": "Build the Constitutional Development Environment: validation forks to remediation, deployment gated on consequence test",
-      "author": "Claude",
-      "timestamp": "2026-07-07T10:32:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-151f802.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
