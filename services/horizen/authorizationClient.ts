@@ -31,7 +31,7 @@
 import { createHash } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, extractIssuedAt, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -86,6 +86,10 @@ export type HorizenAuthorizationRefusalCode =
   | 'NETWORK_OR_CONTRACT_MISMATCH'
   | 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND'
   | 'PARTNER_MESSAGE_UNAVAILABLE'
+  /** build_pulse_auth_message's response named none of the shapes we can extract an issuedAt from — refusing rather than generating our own (al / Horizen brief, 2026-08-04). */
+  | 'ISSUED_AT_UNAVAILABLE'
+  /** enable_pulse_monitoring reported isError — a tool-level rejection (e.g. schema validation), distinct from a successful-but-unparseable response. */
+  | 'HORIZEN_SUBMISSION_REJECTED'
   | 'NONCE_MISSING_OR_REPLAYED'
   | 'AUTHORIZATION_EXPIRED'
   | 'SIGNING_FAILED'
@@ -200,6 +204,21 @@ export interface PrepareHorizenTransparencyAuthorizationInput {
   registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string };
   scope: string[];
   expiresInSeconds?: number;
+  /**
+   * Enrollment metadata `enable_pulse_monitoring`'s live schema requires
+   * (al / Horizen brief, 2026-08-04) — NOT part of the signed message
+   * (`build_pulse_auth_message`'s ASR body carries only agentId/network/
+   * chain/registry/wallet/issuedAt), so these two are resolved fresh at
+   * submit time rather than persisted.
+   *
+   * `pulseEndpoint` MUST be resolved by the caller from the agent's own
+   * canonical Agent Card `services[]` entry — never invented, never the
+   * Agent Card URL itself unless the card explicitly declares that as the
+   * monitored service. The caller refuses locally (before this pipeline is
+   * even invoked) when no eligible public HTTPS endpoint exists.
+   */
+  agentDisplayName: string;
+  pulseEndpoint: string;
 }
 
 export interface PreparedAuthorization {
@@ -216,6 +235,9 @@ export async function prepareHorizenTransparencyAuthorization(
 ): Promise<AuthorizationResult<PreparedAuthorization>> {
   if (!input.actorPersonaId || !input.aigentQubeId || !input.agentCardHash || !input.controllerWallet || !input.keyRef || !input.scope?.length) {
     return { ok: false, refusalCode: 'INVALID_REQUEST', detail: 'actorPersonaId, aigentQubeId, agentCardHash, controllerWallet, keyRef and a non-empty scope are all required' };
+  }
+  if (!input.agentDisplayName || !input.pulseEndpoint) {
+    return { ok: false, refusalCode: 'INVALID_REQUEST', detail: 'agentDisplayName and pulseEndpoint are required — enable_pulse_monitoring cannot enroll without them' };
   }
   if (!input.registry?.tokenId) {
     return { ok: false, refusalCode: 'MISSING_TOKEN_ID', detail: 'registry.tokenId is required' };
@@ -353,9 +375,31 @@ export async function prepareHorizenTransparencyAuthorization(
   }
   const message = extracted.message;
 
+  /*
+   * NEVER REGENERATE issuedAt (al / Horizen brief, 2026-08-04). This used to
+   * be `now().toISOString()` — a value independently generated AFTER the
+   * build call returned, with no relationship to what the signed message
+   * actually says. `enable_pulse_monitoring`'s own live schema requires back
+   * "the issuedAt returned by build_pulse_auth_message"; Horizen's signature
+   * verification reconstructs the message server-side using ITS OWN
+   * issuedAt, so submitting any other value fails verification even with an
+   * otherwise-correct call. Extracted from the message text itself — never
+   * generated, never guessed.
+   */
+  const issuedAt = extractIssuedAt(message);
+  if (!issuedAt) {
+    return {
+      ok: false,
+      refusalCode: 'ISSUED_AT_UNAVAILABLE',
+      detail:
+        `"${buildTool.tool.name}"'s response did not contain a recognisable issuedAt — refusing rather than ` +
+        `generating one, since enable_pulse_monitoring requires back the EXACT value embedded in the signed ` +
+        `message. Looked for: issuedAt="...", "Issued At: ...". Actually returned: ${describeToolResultShape(buildResult)}`,
+    };
+  }
+
   const now = deps.now ?? (() => new Date());
   const nonce = deps.randomNonce ? deps.randomNonce() : sha256Hex(`${input.authorizationId}:${now().toISOString()}:${Math.random()}`).slice(0, 32);
-  const issuedAt = now().toISOString();
   const expiresAt = new Date(now().getTime() + (input.expiresInSeconds ?? 900) * 1000).toISOString();
 
   const created = await createPartnerAuthorizationRequest({
@@ -367,6 +411,9 @@ export async function prepareHorizenTransparencyAuthorization(
     network: input.registry.network,
     nonce,
     expiresAt,
+    agentId: decimalAgentId,
+    walletAddress: input.controllerWallet,
+    issuedAt,
   });
   if (!created.ok) {
     return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: created.detail };
@@ -442,12 +489,34 @@ export async function signHorizenTransparencyAuthorization(
 
 export async function submitHorizenTransparencyAuthorization(
   authorizationId: string,
-  args: { message: string; signature: PartnerAuthorizationSignature },
+  args: {
+    message: string;
+    signature: PartnerAuthorizationSignature;
+    /**
+     * Enrollment metadata NOT part of the signed message — resolved fresh by
+     * the caller (never persisted, never message-critical). See
+     * PrepareHorizenTransparencyAuthorizationInput's own doc comment.
+     */
+    agentDisplayName: string;
+    endpoint: string;
+  },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ submissionRef: string }>> {
   const record = await getPartnerAuthorizationRequest(authorizationId);
   if (!record || record.state !== 'SIGNED') {
     return { ok: false, refusalCode: 'STATE_MISMATCH', detail: `authorization "${authorizationId}" is not in SIGNED state` };
+  }
+  // The three message-critical facts MUST have been persisted at prepare —
+  // a row from before this correction landed cannot be resubmitted (its
+  // signature was produced without them being tracked at all).
+  if (!record.agentId || !record.walletAddress || !record.issuedAt) {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail:
+        `authorization "${authorizationId}" is missing agentId/walletAddress/issuedAt — it was prepared before ` +
+        `the 2026-08-04 correction and cannot be resumed. Re-run prepare to start a fresh request.`,
+    };
   }
 
   const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
@@ -461,15 +530,67 @@ export async function submitHorizenTransparencyAuthorization(
     };
   }
 
+  /*
+   * THE FULL ENROLLMENT ENVELOPE, NOT JUST THE SIGNATURE (al / Horizen brief,
+   * 2026-08-04). `enable_pulse_monitoring`'s live schema requires agentId,
+   * name, endpoint, walletAddress, signature AND issuedAt — offering only
+   * message/signature candidates left every one of those unmatched and sent
+   * as `undefined`, which is exactly the five-field Zod rejection observed
+   * live. agentId/walletAddress/issuedAt are read back from the PERSISTED
+   * record — the exact values that produced the signed message, never
+   * re-derived; name/endpoint come from the caller since they are not part
+   * of the signed message at all.
+   */
   const submitArgs = matchSchemaFields(submitTool.tool.inputSchema, {
+    agentId: record.agentId,
+    name: args.agentDisplayName,
+    endpoint: args.endpoint,
+    walletAddress: record.walletAddress,
     message: args.message,
     signature: args.signature.signature,
     signedMessage: args.signature.signature,
     signedPayload: args.signature.signature,
     signerAddress: args.signature.signerAddress,
+    issuedAt: record.issuedAt,
+    chain: record.network,
     network: record.network,
   });
+
+  const missing = missingRequiredFields(submitTool.tool.inputSchema, submitArgs);
+  if (missing.length > 0) {
+    const detail =
+      `"${submitTool.tool.name}" declares required argument(s) this client supplies no value for: ` +
+      `${missing.join(', ')}. Declared schema: ${JSON.stringify(submitTool.tool.inputSchema?.properties ?? {})}`;
+    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'HORIZEN_SUBMISSION_FAILED', refusalDetail: detail });
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED', detail };
+  }
+
   const submitResult = await mcpClient.callTool({ name: submitTool.tool.name, arguments: submitArgs });
+
+  /*
+   * isError IS TERMINAL, CHECKED FIRST (al / Horizen brief, 2026-08-04).
+   *
+   * A tool-level rejection (schema validation, business-rule refusal, ...)
+   * still returns `content` — usually the error body — and the code
+   * previously ran straight into `extractStringField` looking for a
+   * submission reference inside it, then reported the misleading "did not
+   * return a recognisable submission reference" as if the call had merely
+   * returned an unfamiliar SUCCESS shape. It never had: `enable_pulse_
+   * monitoring` was rejected outright by Horizen's own argument validation.
+   * Reusing `describeToolResultShape`'s error-body-verbatim path (the same
+   * discipline `extractPartnerMessage` already applies) reports what
+   * actually happened instead of a generic parsing complaint.
+   */
+  if (submitResult.isError === true) {
+    const detail = `"${submitTool.tool.name}" rejected the request: ${describeToolResultShape(submitResult)}`;
+    await updatePartnerAuthorizationRequest(authorizationId, {
+      state: 'REFUSED',
+      refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
+      refusalDetail: detail,
+    });
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail };
+  }
+
   const SUBMISSION_FIELDS = ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id'];
   const submissionRef = extractStringField(submitResult, SUBMISSION_FIELDS);
   if (!submissionRef) {
@@ -635,7 +756,12 @@ export async function runHorizenTransparencyAuthorization(
 
   const submitted = await submitHorizenTransparencyAuthorization(
     prepared.value.authorizationId,
-    { message: prepared.value.message, signature: signed.value },
+    {
+      message: prepared.value.message,
+      signature: signed.value,
+      agentDisplayName: input.agentDisplayName,
+      endpoint: input.pulseEndpoint,
+    },
     shared,
   );
   if (!submitted.ok) return submitted;

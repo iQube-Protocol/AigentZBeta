@@ -42,6 +42,15 @@ export interface PartnerAuthorizationRequestRecord {
   payloadHash: string | null;
   nonce: string;
   expiresAt: string;
+  /**
+   * The three facts that produced the signed Pulse message (al / Horizen
+   * brief, 2026-08-04) — persisted so a resumed/retried submit reads back the
+   * EXACT values, never re-derives them. `null` only for rows created before
+   * this correction landed.
+   */
+  agentId: string | null;
+  walletAddress: string | null;
+  issuedAt: string | null;
   state: PartnerAuthorizationState;
   signerAddress: string | null;
   signatureRef: string | null;
@@ -64,6 +73,9 @@ interface DbRow {
   payload_hash: string | null;
   nonce: string;
   expires_at: string;
+  agent_id: string | null;
+  wallet_address: string | null;
+  issued_at: string | null;
   state: PartnerAuthorizationState;
   signer_address: string | null;
   signature_ref: string | null;
@@ -87,6 +99,9 @@ function rowToRecord(row: DbRow): PartnerAuthorizationRequestRecord {
     payloadHash: row.payload_hash,
     nonce: row.nonce,
     expiresAt: row.expires_at,
+    agentId: row.agent_id,
+    walletAddress: row.wallet_address,
+    issuedAt: row.issued_at,
     state: row.state,
     signerAddress: row.signer_address,
     signatureRef: row.signature_ref,
@@ -109,6 +124,10 @@ export interface CreatePartnerAuthorizationRequestInput {
   network: string;
   nonce: string;
   expiresAt: string;
+  /** The exact facts that produced (or will produce) the signed message — see PartnerAuthorizationRequestRecord. */
+  agentId: string;
+  walletAddress: string;
+  issuedAt: string;
 }
 
 export type CreatePartnerAuthorizationRequestResult =
@@ -233,6 +252,9 @@ export async function createPartnerAuthorizationRequest(
       network: input.network,
       nonce: input.nonce,
       expires_at: input.expiresAt,
+      agent_id: input.agentId,
+      wallet_address: input.walletAddress,
+      issued_at: input.issuedAt,
       state: 'PREPARED' as PartnerAuthorizationState,
       created_at: now,
       updated_at: now,
