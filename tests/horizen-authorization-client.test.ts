@@ -82,7 +82,9 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
 
 import {
   prepareHorizenTransparencyAuthorization,
+  signHorizenTransparencyAuthorization,
   runHorizenTransparencyAuthorization,
+  verifySignatureIntegrity,
   pulseBuildCandidates,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
@@ -330,6 +332,12 @@ describe('required refusal canaries', () => {
     const mcpClient = fakeMcpClient();
     const result = await runHorizenTransparencyAuthorization(baseInput({ controllerWallet: other.address }), {
       mcpClient,
+      // The ownership check now runs BEFORE signing (2026-08-04) — set the
+      // registry owner to match the declared controllerWallet so THIS test
+      // still isolates the thing it actually tests: a key-custody mismatch
+      // (resolveSigningKey resolves a DIFFERENT wallet than the one declared
+      // as the controller), independent of registry truth.
+      fetchRegistryAgent: fakeFetchRegistryAgent(other.address),
       resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
       now: FIXED_NOW,
     });
@@ -347,23 +355,73 @@ describe('required refusal canaries', () => {
     expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH' });
   });
 
-  it('a wallet that is not the registry\'s on-chain owner is refused BEFORE enable_pulse_monitoring is ever called (al, 2026-08-04) — never a live "Invalid signature" 401 for a wrong-wallet configuration', async () => {
+  it('a wallet that is not the registry\'s on-chain owner is refused BEFORE SIGNING even happens (moved 2026-08-04, al: "signing is itself a governed cryptographic act") — never a live "Invalid signature" 401 for a wrong-wallet configuration', async () => {
     const stranger = ethers.Wallet.createRandom();
     const mcpClient = fakeMcpClient();
     const callToolSpy = vi.fn(mcpClient.callTool);
     mcpClient.callTool = callToolSpy;
+    const resolveSigningKeySpy = vi.fn(async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }));
     const result = await runHorizenTransparencyAuthorization(baseInput(), {
       mcpClient,
       fetchRegistryAgent: fakeFetchRegistryAgent(stranger.address),
-      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      resolveSigningKey: resolveSigningKeySpy,
       now: FIXED_NOW,
     });
     expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH' });
+    // The agent key is never even resolved — no reason to ask it to sign a
+    // message already known to name the wrong wallet.
+    expect(resolveSigningKeySpy).not.toHaveBeenCalled();
     // build_pulse_auth_message is fine (it only builds text, never mutates
     // anything on Horizen's side) — enable_pulse_monitoring, the actual
-    // state-changing call, must never fire for a wrong-owner wallet.
+    // state-changing call, must never fire for a wrong-owner wallet either.
     const calledTools = callToolSpy.mock.calls.map((c) => c[0]?.name);
     expect(calledTools).not.toContain('enable_pulse_monitoring');
+  });
+
+  it('the signature-integrity gate catches a walletAddress that drifted between signing and submission — never a mystery Horizen 401 for a local data-continuity bug', async () => {
+    const prepared = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId: 'auth-integrity-drift' }),
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+
+    // Simulate drift: something mutated the persisted record's walletAddress
+    // AFTER the message was signed against the original one (e.g. a bug, or
+    // a future refactor that reconstructs facts instead of threading them
+    // verbatim) — the row is the in-memory fake store `rows` this file's own
+    // partnerAuthorizationStore mock uses.
+    const row = rows.get('auth-integrity-drift');
+    row.walletAddress = ethers.Wallet.createRandom().address;
+
+    const integrity = await verifySignatureIntegrity('auth-integrity-drift', prepared.value.message, signed.value);
+    expect(integrity).toMatchObject({ ok: false, refusalCode: 'SIGNATURE_INTEGRITY_FAILED' });
+  });
+
+  it('the signature-integrity gate passes when nothing has drifted — a genuine regression guard, not a permanently-failing check', async () => {
+    const prepared = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId: 'auth-integrity-clean' }),
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+
+    const integrity = await verifySignatureIntegrity('auth-integrity-clean', prepared.value.message, signed.value);
+    expect(integrity).toEqual({ ok: true });
   });
 
   it('partner mutation not confirmed — a valid signature is not completion without an authoritative reread', async () => {
