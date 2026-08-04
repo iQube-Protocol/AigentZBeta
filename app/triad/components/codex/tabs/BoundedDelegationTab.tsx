@@ -762,7 +762,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           </div>
         ) : assignedAgentsList.length === 0 ? (
           <p className="text-[11px] text-slate-400">
-            No agents assigned to this persona yet. Assign one below — the first you mark as aigentMe becomes this persona&apos;s primary delegate.
+            No agents assigned to this persona yet. Assign one below as a delegate — designating one as aigentMe (your constitutional companion) is a separate, deliberate choice, never automatic.
           </p>
         ) : (
           <div className="space-y-2">
@@ -823,8 +823,12 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
             value=""
             onChange={(e) => {
               if (!e.target.value) return;
-              const nextRole: AssignmentRole = assignedAgentsList.some((a) => a.role === "aigentMe") ? "delegate" : "aigentMe";
-              mutateAssignment(e.target.value, nextRole);
+              // Assigning an agent NEVER auto-designates it aigentMe — aigentMe is
+              // the constitutional companion, a deliberate choice the operator makes
+              // via the explicit "Make aigentMe" action below, independent of import
+              // order. A specialized delegate (e.g. a Financial Services agent) being
+              // the first one assigned must not silently become the companion.
+              mutateAssignment(e.target.value, "delegate");
             }}
             className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300"
           >
