@@ -401,3 +401,47 @@ Verified at HEAD, the implementations are hosted **outside this repository** —
 `iQube-Protocol/AigentZBeta`, so its findings were scope statements, not existence claims. For the
 book's evidence chain these remain **operator-attested** until integration references, per-layer
 demonstration receipts and deployed evidence are deposited into `03 Source Lineage`.
+
+## CR-14 · Constitution Before Substrate: quantum transition launchpad → **Ch17, Ch19, Epilogue** (2026-08-04)
+
+**QUEUED — doctrine ratified, manuscript insertion held for the final consolidation pass. Not yet
+applied to `01-working-manuscript.md`. Not deployed.**
+
+> Constitution precedes substrate. The substrate may change. The constitutional subject must remain
+> continuous.
+
+### The four-part distinction
+
+> Quantum resistance protects the present constitutional order.
+> Quantum entropy strengthens its operations.
+> Quantum-native computation may transform its future substrate.
+> Constitutional continuity must govern all three.
+
+### Chapter lineage effects (queued)
+
+- **Ch17** — cross-reference only; no new prose required by this ruling.
+- **Ch19** — insert the queued passage (see CR-14 in `00-editorial-register.md`) stating the
+  Constitutional Internet cannot be constitutionally bound to a single computational substrate.
+- **Epilogue** — append the queued forward reference to constitutional continuity across substrate
+  evolution.
+
+### Scope discipline
+
+Volume II is a **compact launchpad only** — quantum resistance as continuity protection, quantum
+entropy per CR-9, and the substrate-independence requirement. Technical treatment of qubit
+imprinting, quantum-native iQubes, quantum-state identity, entanglement as governance primitive,
+quantum storage architecture, and speculative quantum collective intelligence is **reserved for
+Volume III, *The Constitutional Society***.
+
+### Relationship to CR-9
+
+CR-9 governs the **implementation status** of quantum entropy (`PRD-DIDQ-QBIT-001`, Projected
+stage, execution not authorised). CR-14 governs the **constitutional doctrine** that the order must
+survive any substrate change, quantum entropy included. CR-14 makes no claim about CR-9's
+implementation stage and does not upgrade it.
+
+### Full text
+
+Governing doctrine, the queued Chapter 19 passage, the queued Epilogue sentence, canon registration
+fields, and required cross-references are recorded in full under CR-14 in `00-editorial-register.md`
+— that is the controlling record.

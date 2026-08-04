@@ -668,6 +668,100 @@ reference · one demonstration receipt per layer · deployed-environment evidenc
 **operator-attested** — the same footing CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and
 resolvable the same way.
 
+### CR-14 — Constitution Before Substrate: quantum transition launchpad (operator-ratified 2026-08-04)
+
+**Status:** **Doctrine ratified. Manuscript insertion QUEUED — held for the final consolidation
+pass. Do not apply to `01-working-manuscript.md` yet, and do not deploy.**
+
+This adds a compact constitutional launchpad for quantum transition into the canon **without
+reopening the book architecture and without expanding Volume II into a technical quantum
+treatment.** It establishes that the Constitutional Internet is not constitutionally dependent on
+any single computational substrate.
+
+#### Canonical doctrine
+
+> **Constitution precedes substrate.**
+> The substrate may change. The constitutional subject must remain continuous.
+
+The Constitutional Internet must remain valid across changes in computational form, including:
+classical computing · distributed systems · blockchains · secure enclaves · post-quantum
+cryptography · quantum entropy systems · future quantum-native information or computing
+environments.
+
+Technological change must not alter, by technical accident: who the constitutional subject is ·
+where authority originates · how mandates are bounded · how state transitions are validated · how
+receipts establish consequence · how personhood remains continuous · how rights and standing remain
+attributable.
+
+#### Governing distinction (four-part)
+
+> Quantum resistance protects the present constitutional order.
+> Quantum entropy strengthens its operations.
+> Quantum-native computation may transform its future substrate.
+> Constitutional continuity must govern all three.
+
+#### Volume II scope — compact launchpad only
+
+Volume II may address only: quantum resistance as continuity protection · quantum entropy as a
+source of stronger randomness for keys, identifiers, cohorts and privacy-preserving processes · the
+constitutional requirement that the order survive a change in computational substrate.
+
+**Must NOT introduce technical treatment of:** qubit imprinting · quantum-native iQubes ·
+quantum-state identity · entanglement as a governance primitive · quantum storage architecture ·
+speculative quantum collective intelligence. **These belong to Volume III, *The Constitutional
+Society*.**
+
+#### Manuscript insertion — queued, Chapter 19 (*Constitutional Information and Computing*)
+
+> The Constitutional Internet cannot be constitutionally bound to a single computational substrate.
+> Today, its proofs, credentials, mandates and records are expressed predominantly through classical
+> systems, cryptographic networks and distributed infrastructure. Those systems will change.
+> Post-quantum cryptography will alter how continuity is protected. Quantum entropy may strengthen
+> how identifiers, keys and privacy-preserving processes are generated. More radically, future
+> information systems may represent and process state through quantum rather than exclusively
+> classical forms.
+>
+> None of these changes can be permitted to redefine the constitutional subject by technical
+> accident. The person must remain continuous across changes in representation. Authority must
+> remain attributable. Mandates must remain bounded. State transitions must remain inspectable. The
+> substrate may evolve; the constitutional order must persist.
+>
+> Constitution precedes substrate.
+
+#### Epilogue forward reference — queued
+
+> The next constitutional frontier is not only the governance of intelligent systems, but the
+> preservation of constitutional continuity as the information substrate itself evolves beyond
+> exclusively classical forms.
+
+#### Canon registration
+
+| Field | Value |
+|---|---|
+| Doctrine | **Ratified** |
+| Volume II treatment | Compact launchpad only |
+| Volume III treatment | Reserved for substantive development |
+| Engineering claims | None |
+| Operational quantum-native implementation | Not claimed |
+| Quantum entropy integration | Separately governed by CR-9 / `PRD-DIDQ-QBIT-001` |
+| Post-quantum readiness | Constitutional requirement; implementation state tracked separately |
+| **Manuscript application** | **Queued for the final consolidation pass — not yet applied** |
+| **Deploy status** | **Not pushed live** |
+
+#### Required cross-references
+
+Ch17 (privacy, entropy and quantum resistance) · Ch19 (constitutional information and computing) ·
+Epilogue (transition toward *The Constitutional Society*) · Qubit entropy integration PRD
+(`PRD-DIDQ-QBIT-001`) · DIDQube operating model · "Infrastructure must not become sovereignty" ·
+"Personhood gives continuity" · "State is constitutional" · "Representation never supersedes the
+embodied person."
+
+#### Governing interpretation
+
+Do not frame this as a claim that quantum systems are already integrated into the Constitutional
+Internet. **The claim is constitutional, not technical:** the Constitutional Internet is designed
+as an order that must remain valid through changes in computational substrate.
+
 ---
 
 ---
