@@ -259,7 +259,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'verify',
-      label: 'Enrich',
+      label: 'Verify',
       milestone: 'VERIFIED',
       /*
        * A POST-ACTIVATION BRANCH, NOT AN ADMISSION STAGE (operator, 2026-08-03).

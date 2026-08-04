@@ -76,9 +76,30 @@ async function resolveHorizenBinding(): Promise<ExternalAgentRegistryBinding | n
   }
 }
 
+/**
+ * Agent Runtime Endpoint (operator ruling, 2026-08-04) — a PROJECTION of
+ * `registry_assets.metadata.runtime`, the canonical, platform-agnostic
+ * runtime descriptor (services/registry/runtimeDescriptor.ts). Same
+ * soft-fail discipline as `resolveHorizenBinding`: this is a live,
+ * external-facing A2A discovery endpoint and must never 500 on a registry
+ * read.
+ */
+async function resolveRuntime() {
+  try {
+    const { getSupabaseServer } = await import('@/app/api/_lib/supabaseServer');
+    const { getAssetRuntimeDescriptor } = await import('@/services/registry/runtimeDescriptor');
+    const supabase = getSupabaseServer();
+    if (!supabase) return null;
+    return await getAssetRuntimeDescriptor(supabase, 'aigentqube-moneypenny');
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const origin = resolveRequestOrigin(req);
   const binding = await resolveHorizenBinding();
+  const runtime = await resolveRuntime();
 
   return withCors(
     NextResponse.json({
@@ -205,6 +226,13 @@ export async function GET(req: NextRequest) {
         ...(binding?.transparency
           ? { evidence: { standingStatus: 'eligible', standingSignals: ['pnl-transparency-enabled'] } }
           : {}),
+
+        // Agent Runtime Endpoint (operator ruling, 2026-08-04) — a pure
+        // projection of registry_assets.metadata.runtime; this route never
+        // hand-authors a runtime value. Absent entirely until a real
+        // descriptor is set for this asset (services/registry/
+        // runtimeDescriptor.ts), never fabricated as a default.
+        ...(runtime ? { runtime } : {}),
 
         motto: 'Specialize the agent, not the engine.',
       },
