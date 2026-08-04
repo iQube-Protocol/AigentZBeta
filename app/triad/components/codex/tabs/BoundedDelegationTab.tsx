@@ -237,7 +237,10 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`);
+      const res = await personaFetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`,
+        { personaIdHint: pid },
+      );
       const data = await res.json();
       setDelegation(data);
       if (data?.agent_root_did) setDelegationAgentDid(data.agent_root_did);
@@ -251,8 +254,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const loadAuditEvents = useCallback(async () => {
     setAuditLoading(true);
     try {
-      const res = await fetch(
-        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}&events=1`
+      const res = await personaFetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}&events=1`,
+        { personaIdHint: pid },
       );
       const data = await res.json();
       setAuditEvents(data.events ?? []);
@@ -497,9 +501,21 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     setGranting(true);
     setError(null);
     try {
-      const res = await fetch("/api/codex/chat/agentiq-os/delegation", {
+      /*
+       * personaFetch, NOT fetch — this route resolves the caller via
+       * getActivePersona (spine-gated: "A delegation grants authority to act
+       * on a persona's behalf, so it can only be issued by that persona").
+       * A raw fetch attaches no Bearer token, so the spine sees no caller at
+       * all and refuses with "Not authenticated" regardless of which persona
+       * is shown active in the header (CLAUDE.md: cookies are NOT sufficient
+       * for a spine endpoint). personaIdHint pins it to the SAME persona this
+       * component is already granting on behalf of (`pid`), rather than
+       * falling back to whatever the spine's own default resolution picks.
+       */
+      const res = await personaFetch("/api/codex/chat/agentiq-os/delegation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        personaIdHint: pid,
         body: JSON.stringify({
           persona_id: pid,
           agent_root_did: selectedAgent.didUri || selectedAgent.agentRootId,
@@ -538,8 +554,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     setRevoking(true);
     setError(null);
     try {
-      await fetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`, {
+      await personaFetch(`/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`, {
         method: "DELETE",
+        personaIdHint: pid,
       });
       setJustRevoked(true);
       await loadDelegation();

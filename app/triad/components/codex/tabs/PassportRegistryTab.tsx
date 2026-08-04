@@ -222,9 +222,9 @@ export function PassportRegistryTab({ personaId }: { personaId?: string }) {
         sessionPersonas[0]?.id ||
         '';
       if (!pid) return;
-      const res = await fetch(
+      const res = await personaFetch(
         `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}`,
-        { cache: 'no-store' },
+        { cache: 'no-store', personaIdHint: pid },
       );
       const data = await res.json();
       setActiveDelegationDid(data?.active && data?.agent_root_did ? String(data.agent_root_did) : null);

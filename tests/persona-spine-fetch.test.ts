@@ -62,6 +62,13 @@ const SPINE_ENDPOINT_PREFIXES = [
   // from "no reviews yet", which for a review queue is the worst possible
   // silent failure.
   '/api/research/review',
+  // Added 2026-08-03 (Nakamoto Delegate grant). Only this route's POST
+  // handler calls getActivePersona (GET/DELETE take an explicit persona_id
+  // query param and never needed the spine) — found live, as "Not
+  // authenticated" on Confirm Grant with the active persona shown correctly
+  // in the header, because the header's own display never goes through this
+  // transport at all.
+  '/api/codex/chat/agentiq-os/delegation',
 ] as const;
 
 /**
@@ -78,6 +85,7 @@ const PREFIX_ROUTE_PROOF: Record<string, string> = {
   '/api/qubetalk/': 'app/api/qubetalk/channels/route.ts',
   '/api/marketa/qubetalk': 'app/api/marketa/qubetalk/route.ts',
   '/api/research/review': 'app/api/research/review/route.ts',
+  '/api/codex/chat/agentiq-os/delegation': 'app/api/codex/chat/agentiq-os/delegation/route.ts',
 };
 
 /** route file → the gate module it delegates caller resolution to. */
