@@ -515,6 +515,44 @@ export async function signHorizenTransparencyAuthorization(
 
 // ── Stage 3: submit ──────────────────────────────────────────────────────
 
+/**
+ * A BOUNDED, SAFE diagnostic transcript (al, 2026-08-04: "If local recovery
+ * does equal the ERC-8004 owner and Horizen still rejects it... output a
+ * safe signature transcript and escalate it... as a contract discrepancy
+ * rather than adding more inference code"). Attached ONLY when Horizen
+ * rejects a submission this client already verified locally
+ * (verifySignatureIntegrity ran before submit was ever called) — the point
+ * is to hand a partner-facing escalation exactly the facts needed to
+ * distinguish a signature-format variant this integration hasn't matched
+ * from a genuine server-side defect, nothing more. Deliberately narrow:
+ * message BYTE LENGTH and a HASH of it, never the message text itself; the
+ * signature's length/prefix/v-byte, never anything secret (the private key
+ * never reaches this function at all). Every field is a fact already
+ * computed for this exact submission — nothing inferred, nothing guessed.
+ */
+function buildSignatureDiagnosticTranscript(args: {
+  message: string;
+  signature: PartnerAuthorizationSignature;
+  expectedOwner: string;
+  agentId: string;
+  issuedAt: string;
+  endpoint: string;
+}): Record<string, string | number> {
+  const sig = args.signature.signature;
+  return {
+    messageByteLength: Buffer.byteLength(args.message, 'utf8'),
+    messageHash: sha256Hex(args.message),
+    recoveredSigner: args.signature.signerAddress,
+    expectedOwner: args.expectedOwner,
+    signatureLength: sig.length,
+    signaturePrefix: sig.slice(0, 10),
+    signatureVByte: sig.length >= 2 ? sig.slice(-2) : '',
+    agentId: args.agentId,
+    issuedAt: args.issuedAt,
+    endpoint: args.endpoint,
+  };
+}
+
 export async function submitHorizenTransparencyAuthorization(
   authorizationId: string,
   args: {
@@ -610,7 +648,26 @@ export async function submitHorizenTransparencyAuthorization(
    * actually happened instead of a generic parsing complaint.
    */
   if (submitResult.isError === true) {
-    const detail = `"${submitTool.tool.name}" rejected the request: ${describeToolResultShape(submitResult)}`;
+    /*
+     * A bounded, safe diagnostic transcript rides along with this refusal
+     * (al, 2026-08-04) — this call is only reached after
+     * verifySignatureIntegrity already confirmed recovery/wallet/owner agree
+     * LOCALLY, so a rejection here means either a signature-contract variant
+     * this integration hasn't matched (prefix, encoding, hashing) or a
+     * partner-side defect — never a local ownership/logic bug the earlier
+     * gates would already have caught.
+     */
+    const transcript = buildSignatureDiagnosticTranscript({
+      message: args.message,
+      signature: args.signature,
+      expectedOwner: record.walletAddress,
+      agentId: record.agentId,
+      issuedAt: record.issuedAt,
+      endpoint: args.endpoint,
+    });
+    const detail =
+      `"${submitTool.tool.name}" rejected the request: ${describeToolResultShape(submitResult)}. ` +
+      `Local signature transcript (recovery already verified before this call): ${JSON.stringify(transcript)}`;
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
       refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
@@ -681,7 +738,10 @@ async function crossCheckRegistryOwner(
   registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string },
   controllerWallet: string,
   deps: AuthorizationDeps,
-): Promise<{ ok: true } | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH'; detail: string }> {
+): Promise<
+  | { ok: true; owner: string }
+  | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH'; detail: string }
+> {
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
   const reread = await fetchAgent(registry.registryAlias ?? registry.tokenId, registry.network);
   if (!reread.ok) {
@@ -695,32 +755,47 @@ async function crossCheckRegistryOwner(
       detail: `registry-reread owner (${owner}) does not match the controller wallet (${controllerWallet})`,
     };
   }
-  return { ok: true };
+  // No `owner` field reported at all (a lenient registry read) — the
+  // controllerWallet is the only candidate available; downstream callers
+  // (verifySignatureIntegrity) use this as the expected owner for the
+  // decisive local test either way.
+  return { ok: true, owner: owner ?? controllerWallet };
 }
 
 /**
- * The decisive local test (al, 2026-08-04): `recoverAddress(exactMessage,
- * signature) === walletAddress`, checked at the ORCHESTRATOR level against
- * the FRESHLY persisted record — the same record submitHorizenTransparency
- * Authorization is about to read `agentId`/`walletAddress`/`issuedAt` from —
- * rather than trusting that the signer module's own internal self-check
- * (inside signPartnerAuthorization) still describes the artifact that will
- * actually be submitted. `exactMessage` MUST be the verbatim string returned
- * by build_pulse_auth_message, threaded through unmodified — never
- * reconstructed from parsed fields.
+ * THE decisive local test (al, 2026-08-04): `recoverAddress(exactMessage,
+ * signature) === walletAddress submitted === ownerOf(agentId)`. Three
+ * quantities, one gate — not a composition of two separately-passing checks
+ * trusted by inference:
+ *   - `expectedOwner` is the value crossCheckRegistryOwner ACTUALLY resolved
+ *     moments earlier (never re-derived, never assumed equal to
+ *     controllerWallet even though it always is today);
+ *   - `record.walletAddress` is read FRESH from the persisted row — the same
+ *     one submitHorizenTransparencyAuthorization is about to read
+ *     `agentId`/`walletAddress`/`issuedAt` from — never the in-memory value
+ *     used to build/sign, so a drift between "what was signed" and "what
+ *     will be submitted" cannot hide behind an unchanged local variable;
+ *   - `signature.signerAddress` is the signer module's OWN internal
+ *     recovery, re-derived here independently rather than trusted.
  *
- * By construction today this always agrees with signHorizenTransparency
- * Authorization's own check AND with crossCheckRegistryOwner's earlier
- * pre-sign result (composition, not coincidence: the same controllerWallet
- * flows through prepare -> sign -> here). Its value is as a REGRESSION GATE:
- * it fails loudly if a future change ever lets "what was signed" and "what
- * gets submitted" diverge — e.g. a refactor that rebuilds the message from
- * parsed fields instead of preserving the artifact verbatim.
+ * `exactMessage` MUST be the verbatim string returned by
+ * build_pulse_auth_message, threaded through unmodified — never
+ * reconstructed from parsed fields. Signing method is ordinary EIP-191
+ * personal_sign (`ethers.Wallet.signMessage` / `ethers.verifyMessage`) — the
+ * SAME primitive on both the signing and recovery side; no typed-data
+ * signing, no pre-hashing, anywhere in this pipeline.
+ *
+ * By construction today all three quantities agree (composition, not
+ * coincidence: the same controllerWallet flows through prepare -> sign ->
+ * here). Its value is as a REGRESSION GATE — it fails loudly if a future
+ * change ever lets any one of them diverge from the other two, before
+ * enable_pulse_monitoring is ever called.
  */
 export async function verifySignatureIntegrity(
   authorizationId: string,
   exactMessage: string,
   signature: PartnerAuthorizationSignature,
+  expectedOwner: string,
 ): Promise<{ ok: true } | { ok: false; refusalCode: 'SIGNATURE_INTEGRITY_FAILED'; detail: string }> {
   const record = await getPartnerAuthorizationRequest(authorizationId);
   if (!record?.walletAddress) {
@@ -732,13 +807,19 @@ export async function verifySignatureIntegrity(
   }
   const { ethers } = await import('ethers');
   const recovered = ethers.verifyMessage(exactMessage, signature.signature);
-  if (recovered.toLowerCase() !== signature.signerAddress.toLowerCase() || recovered.toLowerCase() !== record.walletAddress.toLowerCase()) {
+  const recoveredLower = recovered.toLowerCase();
+  if (
+    recoveredLower !== signature.signerAddress.toLowerCase() ||
+    recoveredLower !== record.walletAddress.toLowerCase() ||
+    recoveredLower !== expectedOwner.toLowerCase()
+  ) {
     return {
       ok: false,
       refusalCode: 'SIGNATURE_INTEGRITY_FAILED',
       detail:
-        `recovered signer (${recovered}) over the exact message about to be submitted does not match the ` +
-        `persisted walletAddress (${record.walletAddress}) — refusing before enable_pulse_monitoring is called`,
+        `recovered signer (${recovered}) over the exact message about to be submitted does not agree with ALL of: ` +
+        `persisted walletAddress (${record.walletAddress}), registry owner (${expectedOwner}) — refusing before ` +
+        `enable_pulse_monitoring is called`,
     };
   }
   return { ok: true };
@@ -893,12 +974,13 @@ export async function runHorizenTransparencyAuthorization(
   /*
    * THE DECISIVE LOCAL TEST, BEFORE SUBMISSION (al, 2026-08-04): recover the
    * signer from the EXACT message that will be submitted and require it
-   * match both the persisted walletAddress and (transitively, via the
-   * ownership check just above) the registry's on-chain owner. See
-   * verifySignatureIntegrity's own doc comment for why this is a regression
-   * gate rather than a redundant re-check of something already proven.
+   * match ALL THREE of the persisted walletAddress, the ACTUAL registry
+   * owner just resolved (`ownerCheck.owner`, never re-derived), and the
+   * signer module's own recovery. See verifySignatureIntegrity's own doc
+   * comment for why this checks all three explicitly rather than trusting
+   * composition of separately-passing checks.
    */
-  const integrityCheck = await verifySignatureIntegrity(prepared.value.authorizationId, prepared.value.message, signed.value);
+  const integrityCheck = await verifySignatureIntegrity(prepared.value.authorizationId, prepared.value.message, signed.value, ownerCheck.owner);
   if (!integrityCheck.ok) {
     await updatePartnerAuthorizationRequest(prepared.value.authorizationId, {
       state: 'REFUSED',
