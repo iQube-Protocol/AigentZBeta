@@ -100,6 +100,14 @@ export type HorizenAuthorizationRefusalCode =
   /* The LOCAL authorization store could not be reached — checked before any
    * partner call, so this refusal always means Horizen was never asked. */
   | 'AUTHORIZATION_STORE_UNAVAILABLE'
+  /**
+   * The local authorization row itself could not be created (e.g. a
+   * schema-drift missing column) — distinct from AUTHORIZATION_STORE_UNAVAILABLE
+   * only in WHEN it was caught (the pre-flight probe vs the write itself);
+   * both mean the same thing to the caller: Horizen never recorded anything
+   * (al, 2026-08-04).
+   */
+  | 'LOCAL_PERSISTENCE_FAILED'
   | 'STATE_MISMATCH';
 
 export type AuthorizationResult<T> =
@@ -416,7 +424,11 @@ export async function prepareHorizenTransparencyAuthorization(
     issuedAt,
   });
   if (!created.ok) {
-    return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: created.detail };
+    // Pass the store's own refusalCode through VERBATIM (fixed 2026-08-04) —
+    // this used to hardcode NONCE_MISSING_OR_REPLAYED regardless of what the
+    // store actually reported, mislabeling e.g. a LOCAL_PERSISTENCE_FAILED
+    // schema-drift refusal as a nonce replay.
+    return { ok: false, refusalCode: created.refusalCode, detail: created.detail };
   }
 
   const envelope: HorizenTransparencyAuthorization = {
