@@ -60,6 +60,15 @@ export type JourneySurfaceDescriptor =
        * use, where it is the only one and entirely correct.
        */
       suppressFloatingCopilot?: true;
+      /**
+       * Opt-in only (al, 2026-08-04) — this embed surface's URL should carry
+       * the Journey's currently-selected agent as `?agentSlug=`. Explicit per
+       * descriptor, never a blanket default: `founder-office` and
+       * `passport-bureau-apply` are NOT agent-specific and must never receive
+       * it, however JourneyRunSurface is called. Only `aigentme-welcome` sets
+       * this true.
+       */
+      agentScoped?: true;
       note: string;
     }
   | {
@@ -198,6 +207,10 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     // journey that is the second one on screen, arguing with the journey's
     // companion over the same operator.
     suppressFloatingCopilot: true,
+    // The ONE embed surface whose recognition ceremony must speak about —
+    // and receipt against — the Journey's actually-selected agent, never a
+    // hardcoded default. See agentScoped's own doc comment above.
+    agentScoped: true,
     note:
       'Confirmed real and live — AigentMeWelcomeSplitTab, the operator’s existing copilot/dashboard ' +
       'shell. The focus-disposition ceremony is a Welcome Capsule inside this shell itself (§24.8 ' +
@@ -273,3 +286,26 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
     note: "The Research Workspace's Activity view, locked to one workspace and rendered bare.",
   },
 };
+
+/**
+ * Build the iframe `src` for an 'embed'-kind surface descriptor. Pulled out
+ * of JourneyRunSurface as its own pure function (al, 2026-08-04) so the
+ * agentSlug propagation rule — appended ONLY when the descriptor opts in via
+ * `agentScoped: true` AND a selected agent was actually supplied — is
+ * directly unit-testable without rendering React or mocking Next.js router
+ * hooks. `buildCodexUrl` is still the single place that turns options into a
+ * URL; this function only decides WHICH options apply to a given surface.
+ */
+export function buildEmbedSurfaceSrc(
+  descriptor: Extract<JourneySurfaceDescriptor, { kind: 'embed' }>,
+  input: { personaId?: string; selectedAgentSlug?: string },
+  buildUrl: (slug: string, opts: import('@/utils/codex-nav').CodexNavOptions) => string,
+): string {
+  return buildUrl(descriptor.codexSlug, {
+    tab: descriptor.tab,
+    personaId: input.personaId,
+    shell: 'embed',
+    suppressCopilot: descriptor.suppressFloatingCopilot,
+    ...(descriptor.agentScoped && input.selectedAgentSlug ? { agentSlug: input.selectedAgentSlug } : {}),
+  });
+}

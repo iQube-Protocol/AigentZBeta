@@ -191,6 +191,13 @@ interface TabRendererProps {
   previewDevice?: DeviceType;
   /** Rendering shell — forwarded to tab components that generate cross-cartridge links. */
   shell?: 'embed' | 'viewer';
+  /**
+   * Which Journey-selectable agent this mount concerns (resolveRegistrableAgent
+   * slug, e.g. "nakamoto") — forwarded to the rendered tab component. Today
+   * only AigentMeWelcomeSplitTab declares/consumes it; every other tab
+   * ignores the extra prop harmlessly. Undefined for every non-Journey mount.
+   */
+  agentSlug?: string;
 }
 
 // Component registry for static tabs
@@ -377,7 +384,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, isInvestor, partnerId, issueSlug, previewDevice, shell }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, isInvestor, partnerId, issueSlug, previewDevice, shell, agentSlug }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -417,6 +424,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
         tabSlug={tab.slug}
         codexId={codexId}
         shell={shell}
+        agentSlug={agentSlug}
         {...tab.config.props}
       />
     );

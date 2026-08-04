@@ -25,7 +25,7 @@ import { createPortal } from 'react-dom';
 import { Check, Lock, Loader2, RefreshCw, ExternalLink, Construction, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
-import { JOURNEY_SURFACES, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
+import { JOURNEY_SURFACES, buildEmbedSurfaceSrc, type JourneySurfaceDescriptor } from '@/services/journey/journeySurfaceRegistry';
 import { StageReceiptsDrawer } from '@/components/journey/StageReceiptsDrawer';
 import type { JourneyDefinition, JourneyRuntimeState, JourneyStageDefinition, JourneySurfaceRef } from '@/types/journey';
 import { overlayZClass } from '@/components/ui/overlayLayers';
@@ -113,6 +113,16 @@ export interface JourneyRunSurfaceProps {
      */
     runtimeState: JourneyRuntimeState | null;
   }) => Record<string, unknown>;
+  /**
+   * The Journey's currently-selected agent (resolveRegistrableAgent slug,
+   * e.g. "nakamoto") — the SAME value used to build `stateUrl`'s `agentSlug`
+   * query param, so the iframe's selected agent and the observer's selected
+   * agent are always identical (al, 2026-08-04). Forwarded only to 'embed'
+   * surfaces that opt in via `agentScoped: true` in journeySurfaceRegistry —
+   * see buildEmbedSurfaceSrc. Undefined leaves every embed surface's URL
+   * unchanged.
+   */
+  selectedAgentSlug?: string;
 }
 
 export function JourneyRunSurface({
@@ -123,6 +133,7 @@ export function JourneyRunSurface({
   documentTitle,
   components,
   resolveSurfaceProps,
+  selectedAgentSlug,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -480,15 +491,11 @@ export function JourneyRunSurface({
               );
             }
             if (descriptor.kind === 'embed') {
-              const src = buildCodexUrl(descriptor.codexSlug, {
-                tab: descriptor.tab,
-                personaId,
-                shell: 'embed',
-                // Declared on the surface, not decided here: only a cartridge
-                // that mounts its own floating copilot needs suppressing, and
-                // the registry is where what-is-being-composed is recorded.
-                suppressCopilot: descriptor.suppressFloatingCopilot,
-              });
+              // Declared on the surface, not decided here: only a cartridge
+              // that mounts its own floating copilot needs suppressing, and
+              // agentSlug is appended ONLY when the descriptor itself opts in
+              // (agentScoped: true) — see buildEmbedSurfaceSrc.
+              const src = buildEmbedSurfaceSrc(descriptor, { personaId, selectedAgentSlug }, buildCodexUrl);
               return (
                 <iframe
                   key={i}

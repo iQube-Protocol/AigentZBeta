@@ -66,6 +66,17 @@ export interface CodexNavOptions {
    * there and entirely correct.
    */
   suppressCopilot?: boolean;
+  /**
+   * Which Journey-selectable agent the destination surface concerns
+   * (resolveRegistrableAgent slug, e.g. "nakamoto") — propagated as
+   * `?agentSlug=`. A NAMED, TYPED field, deliberately not a generic query
+   * passthrough (al, 2026-08-04): this carries exactly one identity, the
+   * selected Journey agent, and nothing else. The receiving route resolves
+   * it server-side through `resolveRegistrableAgent` and never trusts it as
+   * a runtime agent id directly. Omitted preserves every existing caller's
+   * URL byte-for-byte.
+   */
+  agentSlug?: string;
 }
 
 /**
@@ -89,6 +100,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     fromTab,
     shell = "embed",
     suppressCopilot,
+    agentSlug,
   } = opts;
 
   const params = new URLSearchParams();
@@ -108,6 +120,9 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   if (from)       params.set("from",       from);
   if (fromTab)    params.set("fromTab",    fromTab);
   if (suppressCopilot) params.set("copilot", "off");
+  // Trimmed, non-empty only — URLSearchParams.set percent-encodes the value;
+  // the receiving route is what actually validates it, via resolveRegistrableAgent.
+  if (agentSlug && agentSlug.trim().length > 0) params.set("agentSlug", agentSlug.trim());
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug

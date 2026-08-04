@@ -65,8 +65,10 @@ describe('aigentMe Capsule ↔ Layout Contract — dismiss path clears both stat
     // host of the CHOICE and then calls this same `handleDismiss` (2026-08-02
     // — see "the closing ceremony's other two halves" below). The invariant
     // this canary guards is unchanged: there is still exactly ONE dismiss
-    // path, and it is still the generic gateway.
-    expect(code).toMatch(/body=\{<AigentMeFocusDispositionPrompt onResolved=\{handleResolved\} \/>\}/);
+    // path, and it is still the generic gateway. The prompt also now takes
+    // agentSlug/agentLabel (al, 2026-08-04, parameter propagation only) — the
+    // match tolerates whatever props sit between the tag and onResolved.
+    expect(code).toMatch(/body=\{\s*<AigentMeFocusDispositionPrompt[\s\S]*?onResolved=\{handleResolved\}[\s\S]*?\/>\s*\}/);
     const dismissBodies = code.match(/onRequestLayout\?\.\("stack"\)/g) ?? [];
     expect(dismissBodies.length, 'a second dismiss call site would be a parallel path').toBe(1);
   });
@@ -169,7 +171,11 @@ describe('the focus check-in is answered once, and answering it is heard', () =>
     // still race the write it exists to survive.
     const guardAt = src.indexOf('if (focusDispositionAnsweredRef.current) return;');
     expect(guardAt).toBeGreaterThan(-1);
-    const fetchAt = src.indexOf("personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition'");
+    // Agent-selectable (al, 2026-08-04): the URL now carries an optional
+    // ?agentSlug= built just above this call, so the literal request target
+    // is a template literal rather than a bare string — same call, same
+    // invariant, updated match.
+    const fetchAt = src.indexOf("personaFetch(`/api/journey/moneypenny-horizen/aigentme/disposition${qs}`");
     expect(fetchAt).toBeGreaterThan(-1);
     expect(guardAt).toBeLessThan(fetchAt);
     // A prior answer read from the server is just as settled as one made now.

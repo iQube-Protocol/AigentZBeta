@@ -33,6 +33,12 @@ import { readSource, stripComments } from './_lib/sourceAuthority';
 const PANEL = 'app/triad/components/CodexPanelDynamic.tsx';
 const EMBED_PAGE = 'app/(embed)/triad/embed/codex/[codexSlug]/page.tsx';
 const RUNNER = 'components/journey/JourneyRunSurface.tsx';
+// The embed-src construction (including suppressCopilot) was extracted from
+// RUNNER into a pure, unit-testable helper (al, 2026-08-04) — see
+// tests/journey-agent-scoped-embed.test.ts for its own direct coverage. The
+// invariant this file guards (read from the descriptor, never hardcode a
+// cartridge) now lives here.
+const REGISTRY = 'services/journey/journeySurfaceRegistry.ts';
 
 describe('the aigentMe journey surface suppresses the cartridge’s own copilot', () => {
   it('is declared on the surface, where what-is-being-composed is recorded', () => {
@@ -74,13 +80,18 @@ describe('buildCodexUrl emits the suppression only when asked', () => {
 });
 
 describe('the suppression travels end to end, and defaults to off at every hop', () => {
-  it('the journey runner reads the flag from the descriptor rather than naming a cartridge', () => {
-    const src = stripComments(readSource(RUNNER));
+  it('the embed-src builder reads the flag from the descriptor rather than naming a cartridge', () => {
+    const src = stripComments(readSource(REGISTRY));
     expect(src).toContain('suppressCopilot: descriptor.suppressFloatingCopilot');
+  });
+
+  it('the journey runner itself no longer constructs the embed src inline — one builder, not two', () => {
+    const src = stripComments(readSource(RUNNER));
     expect(
       src,
-      'hardcoding the cartridge here would put the rule in two places and drift from the registry',
-    ).not.toContain("'metame-codex'");
+      'a second, hand-inlined suppressCopilot construction here would drift from the registry builder',
+    ).not.toContain('suppressCopilot: descriptor.suppressFloatingCopilot');
+    expect(src).toContain('buildEmbedSurfaceSrc(descriptor');
   });
 
   it('the embed page treats only the exact value as the suppression', () => {

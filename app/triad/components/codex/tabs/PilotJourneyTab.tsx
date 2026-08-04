@@ -172,6 +172,10 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
        * faithful. The OBSERVER was watching a different agent.
        */
       stateUrl={`/api/journey/moneypenny-horizen/state?agentSlug=${encodeURIComponent(selectedAgentSlug)}`}
+      // Same value the observer's own stateUrl above already carries — the
+      // iframe's selected agent and the observer's selected agent must never
+      // diverge (al, 2026-08-04).
+      selectedAgentSlug={selectedAgentSlug}
       personaId={personaId}
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}
