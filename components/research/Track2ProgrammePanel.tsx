@@ -609,17 +609,19 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                             onDone={() => void reloadAndAdvance()}
                           />
                         )}
-                      {/* STAGE 7 ACTION (al, 2026-08-04): "15 members require
-                          relationship derivation." No relationship-suggestion
-                          algorithm exists anywhere in the platform — addEdge
-                          requires a human-declared relation type and rationale
-                          per pair, so "Generate Relationships" is a fast queue
-                          over the EXISTING single-edge route, not an invented
-                          auto-linker. */}
+                      {/* STAGE 7 ACTION (operator direction, 2026-08-04:
+                          "The graph engine should perform the reasoning; the
+                          human should perform constitutional oversight.").
+                          Ranked relationship suggestions from
+                          services/invariants/relationshipSuggestion.ts,
+                          reviewed as Accept/Edit/Reject cards — every write
+                          still goes through the EXISTING single-edge route,
+                          never a new writer. */}
                       {s.id === "add-relationships" &&
                         !isDownstreamOfReconciliation &&
                         (programme.actionQueues?.orphans.length ?? 0) > 0 && (
                           <RelationshipQueue
+                            experimentId={experimentId}
                             queue={programme.actionQueues!.orphans}
                             members={programme.actionQueues!.members}
                             onDone={() => void reloadAndAdvance()}
@@ -3961,40 +3963,104 @@ function ValidateAllControl({
   );
 }
 
+interface RelationshipSuggestionView {
+  relatedInvariantId: string;
+  relatedLabel: string;
+  relationType: string;
+  rationale: string;
+  confidence: number;
+}
+
+/** A suggestion this auto-batch action must never write on its own — a genuine logical conflict is always a steward's call, not a heuristic's (al, 2026-08-04). */
+const NEVER_AUTO_ACCEPT_TYPE = "contradicts";
+const HIGH_CONFIDENCE_THRESHOLD = 95;
+
 /**
- * STAGE 7's ACTION — a relationship QUEUE, not an invented "Generate
- * Relationships" auto-linker (al, 2026-08-04 steward-workflow ruling). No
- * relationship-suggestion algorithm exists anywhere in the platform —
- * `addEdge` (services/invariants/lifecycle.ts) requires a human-declared
- * relation type and rationale per pair, so generating edges automatically
- * would mean inventing a new capability with real graph-integrity
- * consequences (three readiness checks read this graph). This steps through
- * `queue` (the cohort's orphan members) one at a time over the EXISTING
- * `POST /api/invariants/[id]/edges` route, offering the OTHER cohort members
- * (`members`) as the "relate to" candidates — no wider invariant search is
- * needed because a relationship recorded here is, by construction, a claim
- * about this crystal's own members.
+ * STAGE 7's ACTION — AI-ASSISTED REVIEW, NOT A BLANK FORM (operator
+ * direction, 2026-08-04: "The steward's role becomes constitutional
+ * approval, not manual graph construction. The graph engine should perform
+ * the reasoning; the human should perform constitutional oversight.").
+ *
+ * For each orphan cohort member, `POST .../suggest-relationships` (backed by
+ * services/invariants/relationshipSuggestion.ts, which calls the platform's
+ * `callSovereign('classification', ...)`) returns ranked candidate
+ * relationships — related member, relation type, rationale, confidence.
+ * The steward Accepts one as-is, Edits it before submitting, Rejects it
+ * (dismissed from view only — nothing is written or persisted for a
+ * rejection), or falls through to Choose Different, the same manual form
+ * this queue used before. EVERY write — accepted, edited or manual — still
+ * goes through the SAME EXISTING `POST /api/invariants/[id]/edges` this
+ * queue always called; this component never writes an edge on its own
+ * authority, it only pre-fills the form a human still submits.
+ *
+ * "Accept All High-Confidence" batch-writes only suggestions the steward
+ * never had to look at individually: confidence > 95, AND the existing
+ * `preview:true` cycle/quarantine check reports no conflict, AND the
+ * relation type is never `contradicts` — a genuine logical conflict is
+ * always a steward's call, never a heuristic's, however confident the
+ * model is. Everything else in the batch is left for the per-record queue.
  */
 function RelationshipQueue({
+  experimentId,
   queue,
   members,
   onDone,
 }: {
+  experimentId: string;
   queue: { id: string; label: string }[];
   members: { id: string; label: string }[];
   onDone: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
+  const [suggestions, setSuggestions] = useState<RelationshipSuggestionView[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [manualOpen, setManualOpen] = useState(false);
   const [toInvariantId, setToInvariantId] = useState("");
   const [relation, setRelation] = useState<string>("");
   const [rationale, setRationale] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState(0);
+  const [batch, setBatch] = useState<{ running: boolean; progress: number; total: number; summary: string | null }>({
+    running: false,
+    progress: 0,
+    total: 0,
+    summary: null,
+  });
 
   const current = queue[index];
   const candidates = useMemo(() => members.filter((m) => m.id !== current?.id), [members, current]);
+  const visibleSuggestions = useMemo(() => suggestions.filter((s) => !dismissedIds.has(s.relatedInvariantId + s.relationType)), [suggestions, dismissedIds]);
+
+  const fetchSuggestions = useCallback(
+    async (invariantId: string): Promise<RelationshipSuggestionView[]> => {
+      try {
+        const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/suggest-relationships`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invariantId }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) return [];
+        return (d.suggestions ?? []) as RelationshipSuggestionView[];
+      } catch {
+        return [];
+      }
+    },
+    [experimentId],
+  );
+
+  const loadCurrent = useCallback(async (recordId: string) => {
+    setLoadingSuggestions(true);
+    setSuggestions([]);
+    setDismissedIds(new Set());
+    setManualOpen(false);
+    const s = await fetchSuggestions(recordId);
+    setSuggestions(s);
+    setLoadingSuggestions(false);
+  }, [fetchSuggestions]);
 
   const openQueue = useCallback(() => {
     setOpen(true);
@@ -4003,49 +4069,147 @@ function RelationshipQueue({
     setRelation("");
     setRationale("");
     setDone(0);
+    setBatch({ running: false, progress: 0, total: 0, summary: null });
+    if (queue[0]) void loadCurrent(queue[0].id);
+  }, [queue, loadCurrent]);
+
+  const advance = useCallback(() => {
+    setDone((n) => n + 1);
+    const nextIndex = index + 1;
+    if (nextIndex >= queue.length) {
+      setOpen(false);
+      onDone();
+      return;
+    }
+    setIndex(nextIndex);
+    setToInvariantId("");
+    setRelation("");
+    setRationale("");
+    void loadCurrent(queue[nextIndex].id);
+  }, [index, queue, onDone, loadCurrent]);
+
+  const writeEdge = useCallback(
+    async (args: { toInvariantId: string; relation: string; rationale: string }) => {
+      if (!current) return;
+      setBusy(true);
+      setErr(null);
+      try {
+        const res = await personaFetch(`/api/invariants/${encodeURIComponent(current.id)}/edges`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(args),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `relationship refused (HTTP ${res.status})`);
+        advance();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "relationship creation failed");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [current, advance],
+  );
+
+  const acceptSuggestion = useCallback(
+    (s: RelationshipSuggestionView) => void writeEdge({ toInvariantId: s.relatedInvariantId, relation: s.relationType, rationale: s.rationale }),
+    [writeEdge],
+  );
+
+  const editSuggestion = useCallback((s: RelationshipSuggestionView) => {
+    setToInvariantId(s.relatedInvariantId);
+    setRelation(s.relationType);
+    setRationale(s.rationale);
+    setManualOpen(true);
   }, []);
 
-  const recordAndNext = useCallback(async () => {
-    if (!current || !toInvariantId || !relation || !rationale.trim()) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const res = await personaFetch(`/api/invariants/${encodeURIComponent(current.id)}/edges`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toInvariantId, relation, rationale: rationale.trim() }),
-      });
-      const d = await res.json().catch(() => null);
-      if (!d?.ok) throw new Error(d?.error || `relationship refused (HTTP ${res.status})`);
-      setDone((n) => n + 1);
-      const nextIndex = index + 1;
-      if (nextIndex >= queue.length) {
-        setOpen(false);
-        onDone();
-        return;
+  const rejectSuggestion = useCallback((s: RelationshipSuggestionView) => {
+    // Client-side dismiss only — a rejected suggestion was never written
+    // anywhere, so there is nothing to undo and nothing to receipt.
+    setDismissedIds((prev) => new Set(prev).add(s.relatedInvariantId + s.relationType));
+  }, []);
+
+  const recordAndNext = useCallback(
+    () => void writeEdge({ toInvariantId, relation, rationale: rationale.trim() }),
+    [writeEdge, toInvariantId, relation, rationale],
+  );
+
+  const acceptAllHighConfidence = useCallback(async () => {
+    setBatch({ running: true, progress: 0, total: queue.length, summary: null });
+    let accepted = 0;
+    let needsReview = 0;
+    for (let i = 0; i < queue.length; i++) {
+      const record = queue[i];
+      setBatch((b) => ({ ...b, progress: i }));
+      const recordSuggestions = await fetchSuggestions(record.id);
+      let wroteOne = false;
+      for (const s of recordSuggestions) {
+        if (s.confidence <= HIGH_CONFIDENCE_THRESHOLD || s.relationType === NEVER_AUTO_ACCEPT_TYPE) continue;
+        try {
+          const previewRes = await personaFetch(`/api/invariants/${encodeURIComponent(record.id)}/edges`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toInvariantId: s.relatedInvariantId, relation: s.relationType, rationale: s.rationale, preview: true }),
+          });
+          const previewBody = await previewRes.json().catch(() => null);
+          if (!previewBody?.ok || previewBody.wouldSucceed !== true || previewBody.quarantineWarning) continue;
+          const writeRes = await personaFetch(`/api/invariants/${encodeURIComponent(record.id)}/edges`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toInvariantId: s.relatedInvariantId, relation: s.relationType, rationale: s.rationale }),
+          });
+          const writeBody = await writeRes.json().catch(() => null);
+          if (writeBody?.ok) {
+            wroteOne = true;
+            break; // one accepted relationship is enough to clear this record's orphan status
+          }
+        } catch {
+          // one candidate failing never stops the batch — move to the next suggestion or record
+        }
       }
-      setIndex(nextIndex);
-      setToInvariantId("");
-      setRelation("");
-      setRationale("");
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "relationship creation failed");
-    } finally {
-      setBusy(false);
+      if (wroteOne) accepted += 1;
+      else needsReview += 1;
     }
-  }, [current, toInvariantId, relation, rationale, index, queue, onDone]);
+    setBatch({
+      running: false,
+      progress: queue.length,
+      total: queue.length,
+      summary: `${accepted} accepted automatically; ${needsReview} left for manual review (no high-confidence conflict-free suggestion)`,
+    });
+    setOpen(false);
+    onDone();
+  }, [queue, fetchSuggestions, onDone]);
 
   if (!open) {
     return (
-      <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
-        <span className="text-slate-300">{queue.length} member(s) require relationship derivation</span>
-        <button
-          type="button"
-          onClick={openQueue}
-          className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
-        >
-          Open Relationship Queue
-        </button>
+      <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+        <div className="flex items-center justify-between">
+          <span className="text-slate-300">{queue.length} member(s) require relationship derivation</span>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => void acceptAllHighConfidence()}
+              disabled={batch.running}
+              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {batch.running ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Accept All High-Confidence (&gt;{HIGH_CONFIDENCE_THRESHOLD}%)
+            </button>
+            <button
+              type="button"
+              onClick={openQueue}
+              className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+            >
+              Open Relationship Queue
+            </button>
+          </div>
+        </div>
+        {batch.running && (
+          <div className="text-slate-500">
+            reviewing record {batch.progress + 1} of {batch.total}…
+          </div>
+        )}
+        {batch.summary && <div className="text-slate-400">{batch.summary}</div>}
       </div>
     );
   }
@@ -4063,46 +4227,121 @@ function RelationshipQueue({
       {current && (
         <>
           <div className="rounded border border-slate-800 bg-slate-950 p-1.5 text-slate-200">{current.label}</div>
-          <select
-            value={toInvariantId}
-            onChange={(e) => setToInvariantId(e.target.value)}
-            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
-          >
-            <option value="">— relate to which other member —</option>
-            {candidates.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={relation}
-            onChange={(e) => setRelation(e.target.value)}
-            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
-          >
-            <option value="">— relation type —</option>
-            {INVARIANT_EDGE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          <textarea
-            value={rationale}
-            onChange={(e) => setRationale(e.target.value)}
-            rows={2}
-            placeholder="rationale — why this relationship holds"
-            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
-          />
-          <button
-            type="button"
-            onClick={() => void recordAndNext()}
-            disabled={busy || !toInvariantId || !relation || !rationale.trim()}
-            className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-            Record &amp; next
-          </button>
+
+          {loadingSuggestions && (
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <Loader2 className="h-3 w-3 animate-spin" /> asking Invariant Intelligence for the strongest relationships…
+            </div>
+          )}
+
+          {!loadingSuggestions && visibleSuggestions.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="text-slate-500">suggested relationships — reviewed and approved by you, never written automatically</div>
+              {visibleSuggestions.map((s) => (
+                <div key={s.relatedInvariantId + s.relationType} className="rounded border border-slate-800 bg-slate-950/60 p-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                        s.confidence > HIGH_CONFIDENCE_THRESHOLD
+                          ? "bg-emerald-500/15 text-emerald-300"
+                          : s.confidence >= 70
+                            ? "bg-amber-500/15 text-amber-200"
+                            : "bg-slate-700/40 text-slate-400"
+                      }`}
+                    >
+                      {s.confidence}% confidence
+                    </span>
+                    <span className="font-mono text-[10px] text-violet-300">{s.relationType}</span>
+                  </div>
+                  <div className="text-slate-200">→ {s.relatedLabel}</div>
+                  <div className="mt-0.5 text-slate-500">{s.rationale}</div>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => acceptSuggestion(s)}
+                      disabled={busy}
+                      className="rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+                    >
+                      ✓ Accept
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => editSuggestion(s)}
+                      disabled={busy}
+                      className="rounded border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-slate-200 disabled:opacity-50"
+                    >
+                      ✎ Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => rejectSuggestion(s)}
+                      disabled={busy}
+                      className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-slate-400 disabled:opacity-50"
+                    >
+                      ✕ Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!loadingSuggestions && visibleSuggestions.length === 0 && !manualOpen && (
+            <div className="text-slate-500">no suggestion cleared review for this member.</div>
+          )}
+
+          {!manualOpen ? (
+            <button
+              type="button"
+              onClick={() => setManualOpen(true)}
+              className="text-slate-500 underline decoration-slate-600 hover:text-slate-300"
+            >
+              + Choose Different
+            </button>
+          ) : (
+            <div className="space-y-1.5 rounded border border-slate-800 bg-slate-950/40 p-1.5">
+              <select
+                value={toInvariantId}
+                onChange={(e) => setToInvariantId(e.target.value)}
+                className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+              >
+                <option value="">— relate to which other member —</option>
+                {candidates.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={relation}
+                onChange={(e) => setRelation(e.target.value)}
+                className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+              >
+                <option value="">— relation type —</option>
+                {INVARIANT_EDGE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                value={rationale}
+                onChange={(e) => setRationale(e.target.value)}
+                rows={2}
+                placeholder="rationale — why this relationship holds"
+                className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+              />
+              <button
+                type="button"
+                onClick={recordAndNext}
+                disabled={busy || !toInvariantId || !relation || !rationale.trim()}
+                className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                Record &amp; next
+              </button>
+            </div>
+          )}
         </>
       )}
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
