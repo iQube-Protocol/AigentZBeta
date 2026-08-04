@@ -167,7 +167,26 @@ async function authorize(request: NextRequest) {
   let agentCardHash: string;
   let pulseEndpoint: string | null;
   try {
-    const cardRes = await fetch(`${origin}${agent.agentCardPath}`, { cache: 'no-store' });
+    /*
+     * CACHE-BUST THE SELF-FETCH (2026-08-04). This fetch leaves the Lambda and
+     * comes back in over the PUBLIC origin — i.e. through whatever CDN sits in
+     * front of Amplify — so it is subject to edge caching the same way an
+     * external client's request would be. `{ cache: 'no-store' }` only
+     * disables NEXT.JS'S OWN fetch cache; it says nothing about an
+     * intermediary CDN, which can serve a cached pre-authorization response
+     * (from before an agent's runtime descriptor existed) indefinitely if its
+     * cache policy doesn't fully honour the route's `Cache-Control: no-store`
+     * response header. A unique query param defeats any URL-keyed cache
+     * regardless of how that policy is configured; the explicit no-cache
+     * request headers are a second, redundant guard for edges that do
+     * respect them. Confirmed necessary, not theoretical: this route kept
+     * refusing NO_RUNTIME_ENDPOINT for Nakamoto after her descriptor was
+     * verified live via both /agent-card.json and /health directly.
+     */
+    const cardRes = await fetch(`${origin}${agent.agentCardPath}?_cb=${Date.now()}-${Math.random().toString(36).slice(2)}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
     if (!cardRes.ok) throw new Error(`agent-card fetch failed: HTTP ${cardRes.status}`);
     const cardText = await cardRes.text();
     agentCardHash = createHash('sha256').update(cardText, 'utf8').digest('hex');
