@@ -1,4 +1,7 @@
--- 20260804000300_partner_authorization_request_message_facts.sql
+-- 20260930001400_partner_authorization_request_message_facts.sql
+-- (renamed from an initially-wrong 20260804000300 prefix so this sorts AFTER
+-- 20260930000500's table-creation migration, per this repo's forward-dated
+-- 202609xx numbering convention for the batch it belongs to.)
 --
 -- GJR-VFY-001 Phase 1 correction (al / Horizen brief, 2026-08-04): Horizen's
 -- real `enable_pulse_monitoring` tool requires the submission to carry the

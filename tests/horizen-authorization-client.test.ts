@@ -34,6 +34,16 @@ const usedNonces = new Set<string>();
 
 vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
   createPartnerAuthorizationRequest: vi.fn(async (input: any) => {
+    // Trigger fixture for the LOCAL_PERSISTENCE_FAILED pass-through canary
+    // below — mirrors a real schema-drift INSERT failure without touching
+    // Supabase.
+    if (input.authorizationId === 'auth-local-persistence-fails') {
+      return {
+        ok: false,
+        refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+        detail: `Authorization was not submitted to Horizen because MetaMe could not create its local authorization record: Could not find the 'agent_id' column of 'partner_authorization_requests' in the schema cache`,
+      };
+    }
     const nonceKey = `${input.partner}:${input.nonce}`;
     if (usedNonces.has(nonceKey)) {
       return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used` };
@@ -281,6 +291,22 @@ describe('required refusal canaries', () => {
     const input2 = baseInput({ authorizationId: 'auth-replay-2' });
     const second = await prepareHorizenTransparencyAuthorization(input2, deps);
     expect(second).toMatchObject({ ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED' });
+  });
+
+  it('local persistence failure (e.g. schema drift) passes its OWN refusalCode through verbatim — never mislabeled as a nonce replay, never a thrown error (al, 2026-08-04)', async () => {
+    const result = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId: 'auth-local-persistence-fails' }),
+      { mcpClient: fakeMcpClient() },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+      detail: expect.stringContaining('Authorization was not submitted to Horizen'),
+    });
+    // The defect this closes: the caller used to hardcode
+    // NONCE_MISSING_OR_REPLAYED for ANY createPartnerAuthorizationRequest
+    // failure, regardless of what the store actually reported.
+    expect(result).not.toMatchObject({ refusalCode: 'NONCE_MISSING_OR_REPLAYED' });
   });
 
   it('invalid signature — signer does not match the registered controller', async () => {

@@ -132,7 +132,18 @@ export interface CreatePartnerAuthorizationRequestInput {
 
 export type CreatePartnerAuthorizationRequestResult =
   | { ok: true; record: PartnerAuthorizationRequestRecord }
-  | { ok: false; refusalCode: 'NONCE_MISSING_OR_REPLAYED'; detail: string };
+  | { ok: false; refusalCode: 'NONCE_MISSING_OR_REPLAYED'; detail: string }
+  /**
+   * Any OTHER insert failure (e.g. a schema-drift missing column) — a
+   * DEFINITE refusal, never a thrown error (al, 2026-08-04: "the system does
+   * know that this attempt did not reach Horizen" — this write happens
+   * strictly before signing and before enable_pulse_monitoring, Horizen's
+   * only STATE-CHANGING call in this ceremony, is ever invoked. Even though
+   * build_pulse_auth_message may already have been called by this point,
+   * that call only builds message text — it records nothing on Horizen's
+   * side — so a failure here always means Horizen never recorded anything).
+   */
+  | { ok: false; refusalCode: 'LOCAL_PERSISTENCE_FAILED'; detail: string };
 
 function adminOrDefault(admin?: SupabaseClient): SupabaseClient {
   const client = admin ?? getSupabaseServer();
@@ -172,11 +183,25 @@ export type AuthorizationStoreAvailability =
   | { available: true }
   | {
       available: false;
-      kind: 'no-client' | 'table-absent' | 'permission-denied' | 'unknown';
+      kind: 'no-client' | 'table-absent' | 'columns-absent' | 'permission-denied' | 'unknown';
       detail: string;
       /** The exact next act, executable — never "check the database". */
       remedy: string;
     };
+
+/**
+ * Same detection pair services/receipts/activityReceiptService.ts already
+ * uses for its own missing-column canary (inv.engineering.036/037 — one
+ * detection method, not a second one invented per table): PostgREST reports
+ * an unknown COLUMN as PGRST204, Postgres itself as 42703 (undefined_column)
+ * — distinct from PGRST205/42P01 (unknown TABLE) below.
+ */
+const COLUMN_MISSING_CODES = new Set(['42703', 'PGRST204']);
+function isMissingColumn(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code && COLUMN_MISSING_CODES.has(err.code)) return true;
+  return typeof err.message === 'string' && /column .* does not exist|could not find the .* column/i.test(err.message);
+}
 
 export async function checkAuthorizationStoreAvailable(
   admin?: SupabaseClient,
@@ -192,8 +217,20 @@ export async function checkAuthorizationStoreAvailable(
   }
 
   // `head: true` reads no rows — the cheapest probe that still forces
-  // PostgREST to resolve the relation.
-  const { error } = await client.from(TABLE).select('authorization_id', { head: true, count: 'exact' }).limit(1);
+  // PostgREST to resolve the relation. Selects every column
+  // createPartnerAuthorizationRequest's INSERT actually writes (not just
+  // authorization_id) — a prior version probed authorization_id alone, which
+  // cannot detect a table that exists but is missing agent_id/wallet_address/
+  // issued_at (20260930001400's columns). That gap let exactly that drift
+  // reach createPartnerAuthorizationRequest's INSERT instead of this
+  // pre-flight check — confirmed live, not theoretical (al, 2026-08-04):
+  // "Could not find the 'agent_id' column of 'partner_authorization_requests'
+  // in the schema cache", surfaced mid-ceremony after Horizen's
+  // build_pulse_auth_message had already been called.
+  const { error } = await client
+    .from(TABLE)
+    .select('authorization_id, agent_id, wallet_address, issued_at', { head: true, count: 'exact' })
+    .limit(1);
   if (!error) return { available: true };
 
   /*
@@ -206,7 +243,7 @@ export async function checkAuthorizationStoreAvailable(
    */
   const code = (error as { code?: string }).code ?? '';
   const message = error.message ?? String(error);
-  if (code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)) {
+  if (code === 'PGRST205' || code === '42P01' || (/schema cache|does not exist/i.test(message) && !isMissingColumn(error))) {
     return {
       available: false,
       kind: 'table-absent',
@@ -214,6 +251,17 @@ export async function checkAuthorizationStoreAvailable(
       remedy:
         `Apply supabase/migrations/20260930000500_partner_authorization_requests.sql to this project, ` +
         `then reload PostgREST's schema cache: NOTIFY pgrst, 'reload schema';`,
+    };
+  }
+  if (isMissingColumn(error)) {
+    return {
+      available: false,
+      kind: 'columns-absent',
+      detail: message,
+      remedy:
+        `Apply supabase/migrations/20260930001400_partner_authorization_request_message_facts.sql to this ` +
+        `project (adds agent_id/wallet_address/issued_at), then reload PostgREST's schema cache: ` +
+        `NOTIFY pgrst, 'reload schema';`,
     };
   }
   if (code === '42501' || /permission denied|row-level security/i.test(message)) {
@@ -266,7 +314,15 @@ export async function createPartnerAuthorizationRequest(
     if (error.code === '23505') {
       return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used for partner "${input.partner}"` };
     }
-    throw new Error(`createPartnerAuthorizationRequest failed: ${error.message}`);
+    // A DEFINITE refusal, not a thrown error (al, 2026-08-04) — this is the
+    // ceremony's local persistence step, strictly before Horizen's
+    // state-changing enable_pulse_monitoring call; a failure here always
+    // means the authorization was not submitted, never an open question.
+    return {
+      ok: false,
+      refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+      detail: `Authorization was not submitted to Horizen because MetaMe could not create its local authorization record: ${error.message}`,
+    };
   }
   return { ok: true, record: rowToRecord(data as DbRow) };
 }
