@@ -73,6 +73,12 @@ export interface UnaccountedPromotionRecord {
   recommendedReason: string;
 }
 
+/** One cohort member, named — the shared shape the classify/validate/relationship queues render (al, 2026-08-04: "replace explanation with action" — an action needs a record to act on, never only a count). */
+export interface CohortMemberRef {
+  id: string;
+  label: string;
+}
+
 export interface ReconciledPromotedCohort {
   /** The invariants Stage 4 actually promoted, deduplicated — resolved through promoted_invariant_id. */
   invariantIds: string[];
@@ -83,6 +89,14 @@ export interface ReconciledPromotedCohort {
   excluded: { recordId: string; reason: string }[];
   /** Every promoted candidate that is neither a distinct resolved member nor an operator-confirmed exclusion. */
   unaccountedRecords: UnaccountedPromotionRecord[];
+  /** Cohort members with no recorded evidence provenance — the Classification Queue's worklist, named individually. */
+  unclassifiedRecords: CohortMemberRef[];
+  /** Cohort members with zero recorded validations — Stage 6's "Validate All" worklist. */
+  unvalidatedRecords: CohortMemberRef[];
+  /** Cohort members with no relationship to another cohort member — the Relationship Queue's worklist. Empty (not necessarily null) whenever `graph` is null, since there is nothing to list from an unread graph. */
+  orphanRecords: CohortMemberRef[];
+  /** Every distinct resolved cohort member, named — so the Relationship Queue can offer "relate to which other member" without a second, wider invariant search. */
+  members: CohortMemberRef[];
 }
 
 function labelFor(statement: string): string {
@@ -181,6 +195,7 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
   }
 
   let graph: ReconciledPromotedCohort['graph'] = null;
+  let orphanRecords: CohortMemberRef[] = [];
   if (records.length > 0) {
     try {
       const { listEdgesForInvariants } = await import('@/services/invariants/store');
@@ -193,6 +208,7 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
         degree.add(e.toInvariantId);
       }
       graph = { relationshipCount: intra.length, orphanCount: records.length - degree.size };
+      orphanRecords = records.filter((r) => !degree.has(r.id)).map((r) => ({ id: r.id, label: labelFor(r.statement) }));
     } catch {
       graph = null; // unread ⇒ `unknown`, never "no relationships"
     }
@@ -201,12 +217,22 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
   }
 
   const { readEvidenceProvenance } = await import('@/services/research/experimentalPopulations');
+  const unclassifiedRecords = records
+    .filter((r) => readEvidenceProvenance(r.provenance) === null)
+    .map((r) => ({ id: r.id, label: labelFor(r.statement) }));
+  const unvalidatedRecords = records
+    .filter((r) => r.timesValidated === 0)
+    .map((r) => ({ id: r.id, label: labelFor(r.statement) }));
   return {
     invariantIds: records.map((r) => r.id).sort(),
-    unclassified: records.filter((r) => readEvidenceProvenance(r.provenance) === null).length,
-    unvalidated: records.filter((r) => r.timesValidated === 0).length,
+    unclassified: unclassifiedRecords.length,
+    unvalidated: unvalidatedRecords.length,
     graph,
     excluded,
     unaccountedRecords,
+    unclassifiedRecords,
+    unvalidatedRecords,
+    orphanRecords,
+    members: records.map((r) => ({ id: r.id, label: labelFor(r.statement) })),
   };
 }

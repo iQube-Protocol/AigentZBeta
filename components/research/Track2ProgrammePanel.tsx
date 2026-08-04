@@ -36,6 +36,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2, Circle, Loader2, Lock, RefreshCw, ShieldAlert } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { PROVENANCE_CLASSES } from "@/services/corpusScout/types";
+import { INVARIANT_EDGE_TYPES } from "@/types/invariants";
 import { findDuplicateCandidates, type DuplicateGroup } from "@/services/corpusScout/intelligence";
 import { findRegistryEntry, type SourceTier } from "@/services/corpusScout/institutionalRegistry";
 import {
@@ -109,6 +110,8 @@ interface Programme {
   };
   /** The Population Reconciliation Board's data (al, 2026-08-04) — rendered ONCE, at Stage 5. */
   reconciliation?: PopulationReconciliationView | null;
+  /** Stages 5-7's action-queue worklists (al, 2026-08-04). */
+  actionQueues?: Track2ActionQueues | null;
   nextActions: string[];
   derivationNote: string;
 }
@@ -137,6 +140,20 @@ interface PopulationReconciliationView {
   received: number;
   explicitlyExcluded: number;
   unaccountedRecords: UnaccountedPromotionRecord[];
+}
+
+interface CohortMemberRef {
+  id: string;
+  label: string;
+}
+
+/** Stages 5-7's named worklists (al, 2026-08-04 steward-workflow ruling) — replaces "N have no provenance" with a queue of the exact N. */
+interface Track2ActionQueues {
+  crystalId: string;
+  unclassified: CohortMemberRef[];
+  unvalidated: CohortMemberRef[];
+  orphans: CohortMemberRef[];
+  members: CohortMemberRef[];
 }
 
 interface RatifiedBoundary {
@@ -218,8 +235,15 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
    * concealing finished work would misreport progress in the other direction.
    */
   const [showAllStages, setShowAllStages] = useState(false);
+  /*
+   * COMPLETED STAGES COLLAPSE AUTOMATICALLY (al, 2026-08-04 steward-workflow
+   * ruling): "The operator should spend 95% of their time looking at the
+   * current stage." Manually re-expanded stages stay expanded across a
+   * reload — this is presentation only, never a second authority on status.
+   */
+  const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set());
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<Programme | null> => {
     setLoading(true);
     setError(null);
     try {
@@ -230,14 +254,46 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
       if (!d?.requestSucceeded) {
         throw new Error(d?.error || `the Track 2 programme could not be read (HTTP ${res.status})`);
       }
-      setProgramme(d.programme as Programme);
+      const p = d.programme as Programme;
+      setProgramme(p);
       setAcquisitionDomain(typeof d.acquisitionDomain === "string" ? d.acquisitionDomain : null);
+      return p;
     } catch (e) {
       setError(e instanceof Error ? e.message : "the Track 2 programme could not be read");
+      return null;
     } finally {
       setLoading(false);
     }
   }, [experimentId]);
+
+  /*
+   * AUTO-PROGRESS (al, 2026-08-04): "Whenever a stage finishes: refresh
+   * state, advance focus, scroll to the next incomplete stage. The operator
+   * should never have to hunt." Every action control's `onDone` calls this
+   * instead of bare `load()` — reads the FRESHLY FETCHED programme `load()`
+   * returns, never the pre-reload React state, so the scroll target is never
+   * one action stale.
+   */
+  const reloadAndAdvance = useCallback(async () => {
+    const p = await load();
+    if (!p) return;
+    const next = p.stages.find((s) => s.status !== "complete");
+    if (!next) return;
+    // A freshly-completed stage collapses again on its own next reload
+    // (removing it from the manually-expanded set), so finishing Stage 5
+    // does not leave it pinned open once Stage 6 is the focus.
+    setExpandedStageIds((prev) => {
+      const copy = new Set(prev);
+      copy.delete(next.id);
+      return copy;
+    });
+    if (typeof document === "undefined") return;
+    // Deferred one frame — the DOM node for `next` only exists after THIS
+    // render commits the freshly-fetched programme.
+    requestAnimationFrame(() => {
+      document.getElementById(`track2-stage-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [load]);
 
   useEffect(() => {
     void load();
@@ -305,6 +361,63 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
               </ul>
             </div>
 
+            {(() => {
+              /*
+               * FREEZE MODE (al, 2026-08-04 steward-workflow ruling): "When
+               * only one path remains to complete the experiment,
+               * automatically switch into: Finish Crystal... Every button
+               * should move this checklist toward completion. No narrative."
+               *
+               * Additive, not a page replacement — the full stage list below
+               * still carries the actual controls; this is a compact
+               * "how much is left" summary so the operator does not have to
+               * scroll the whole ladder to see it. Active only once every
+               * scientific-work stage (1-7) has produced something usable
+               * (complete or partially-complete) AND at least one governance
+               * stage (8-11) remains — a crystal that is fully frozen has
+               * nothing left to finish, so the banner does not outlive its
+               * own purpose.
+               */
+              const PASSES: ReadonlySet<Stage["status"]> = new Set(["complete", "partially-complete"]);
+              const tailIds = ["assign-to-crystal", "run-readiness", "prepare-independent-review", "freeze"];
+              const tail = programme.stages.filter((s) => tailIds.includes(s.id));
+              const earlier = programme.stages.filter((s) => !tailIds.includes(s.id));
+              const earlierAllPass = earlier.every((s) => PASSES.has(s.status));
+              const tailRemaining = tail.filter((s) => s.status !== "complete");
+              if (!earlierAllPass || tailRemaining.length === 0) return null;
+              return (
+                <div className="mb-3 rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-2.5 text-[11px]">
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="font-medium text-emerald-200">Finish Crystal — remaining work</span>
+                    <span className="text-emerald-300/70">
+                      estimated completion: {tailRemaining.length <= 2 ? "< 3 minutes" : "a few minutes"}
+                    </span>
+                  </div>
+                  <ul className="space-y-0.5">
+                    {tail.map((s) => (
+                      <li key={s.id}>
+                        <a
+                          href={`#track2-stage-${s.id}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            document.getElementById(`track2-stage-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                          }}
+                          className="flex items-center gap-1.5 text-slate-200 hover:text-white"
+                        >
+                          {s.status === "complete" ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <Circle className="h-3 w-3 text-slate-500" />
+                          )}
+                          {s.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
             <ol className="space-y-2">
               {programme.stages.map((s) => {
                 // LOCKED IS READ FROM THE SERVER'S OWN `unblockedStageIds`,
@@ -337,6 +450,32 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                 const pendingReconciliation = (programme.reconciliation?.unaccountedRecords.length ?? 0) > 0;
                 const isDownstreamOfReconciliation =
                   pendingReconciliation && (s.id === "validate" || s.id === "add-relationships") && s.status === "blocked";
+
+                /*
+                 * COMPLETED STAGES COLLAPSE AUTOMATICALLY (al, 2026-08-04
+                 * steward-workflow ruling): "Display only ✓ Discover ✓
+                 * Review ✓ Promote... Expand only on demand. The operator
+                 * should spend 95% of their time looking at the current
+                 * stage." The current stage never collapses even if complete
+                 * (there is nowhere else to look right after finishing it),
+                 * and a manual expand persists until the next auto-advance.
+                 */
+                if (s.status === "complete" && s.id !== programme.currentStageId && !expandedStageIds.has(s.id)) {
+                  return (
+                    <li key={s.id} id={`track2-stage-${s.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedStageIds((prev) => new Set(prev).add(s.id))}
+                        className="flex w-full items-center gap-2 rounded-lg border border-slate-800/60 bg-slate-900/20 px-2.5 py-1 text-left text-[11px] text-slate-500 transition hover:border-slate-800 hover:bg-slate-900/40 hover:text-slate-300"
+                      >
+                        <CheckCircle2 className="h-3 w-3 text-emerald-400/70" />
+                        <span>
+                          {s.ordinal}. {s.label}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
                 return (
                 <li
                   key={s.id}
@@ -415,9 +554,26 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                         <PopulationReconciliationBoard
                           experimentId={experimentId}
                           reconciliation={programme.reconciliation}
-                          onDone={() => void load()}
+                          onDone={() => void reloadAndAdvance()}
                         />
                       )}
+                      {/* STAGE 5 ACTION (al, 2026-08-04): "13 members require
+                          provenance. [Open Classification Queue]." A real
+                          "Classify All" has no shared inputs across arbitrary
+                          records — each classification cites its OWN evidence
+                          and rationale — so batch here means a fast per-record
+                          queue over the EXISTING classify action, never a
+                          fictitious one-click batch with no well-defined
+                          semantics. Only offered once reconciliation is not
+                          the blocking act. */}
+                      {s.id === "classify-provenance" &&
+                        !pendingReconciliation &&
+                        (programme.actionQueues?.unclassified.length ?? 0) > 0 && (
+                          <ClassificationQueue
+                            queue={programme.actionQueues!.unclassified}
+                            onDone={() => void reloadAndAdvance()}
+                          />
+                        )}
                       <div className="mt-1 text-[10px] text-slate-600">
                         {s.surface} · {s.actor}
                       </div>
@@ -435,8 +591,59 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                       {s.id === "review-and-admit" && (
                         <CorpusReviewQueue
                           acquisitionDomain={acquisitionDomain}
-                          onDone={() => void load()}
+                          onDone={() => void reloadAndAdvance()}
                         />
+                      )}
+                      {/* STAGE 6 ACTION (al, 2026-08-04): "15 members require
+                          validation. [Validate All]." Unlike Stage 5/7,
+                          validation IS a genuine machine-run gate with no
+                          per-record human content, so a real batch is honest
+                          here — one new caller of the EXISTING validateInvariant,
+                          never a new rule. */}
+                      {s.id === "validate" &&
+                        !isDownstreamOfReconciliation &&
+                        (programme.actionQueues?.unvalidated.length ?? 0) > 0 && (
+                          <ValidateAllControl
+                            experimentId={experimentId}
+                            count={programme.actionQueues!.unvalidated.length}
+                            onDone={() => void reloadAndAdvance()}
+                          />
+                        )}
+                      {/* STAGE 7 ACTION (al, 2026-08-04): "15 members require
+                          relationship derivation." No relationship-suggestion
+                          algorithm exists anywhere in the platform — addEdge
+                          requires a human-declared relation type and rationale
+                          per pair, so "Generate Relationships" is a fast queue
+                          over the EXISTING single-edge route, not an invented
+                          auto-linker. */}
+                      {s.id === "add-relationships" &&
+                        !isDownstreamOfReconciliation &&
+                        (programme.actionQueues?.orphans.length ?? 0) > 0 && (
+                          <RelationshipQueue
+                            queue={programme.actionQueues!.orphans}
+                            members={programme.actionQueues!.members}
+                            onDone={() => void reloadAndAdvance()}
+                          />
+                        )}
+                      {/* STAGE 9 ACTION (al, 2026-08-04): "[Run Readiness].
+                          9/9 checks passed." Readiness is already a
+                          whole-crystal read (runCrystalReadinessReport) — this
+                          button is the SAME reload every other control
+                          already triggers, just labelled for what this stage
+                          specifically is waiting on. */}
+                      {s.id === "run-readiness" && (
+                        <button
+                          type="button"
+                          onClick={() => void reloadAndAdvance()}
+                          disabled={loading}
+                          className="mt-2 flex items-center gap-1.5 rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+                        >
+                          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                          Run Readiness
+                        </button>
+                      )}
+                      {s.id === "prepare-independent-review" && s.status === "in-progress" && (
+                        <ReviewPackageControl onDone={() => void reloadAndAdvance()} />
                       )}
                       {/* STAGE 8 IS LOCKED UNTIL ITS PREREQUISITES ARE REAL
                           (Al, 2026-08-02).
@@ -489,7 +696,7 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                               x.status !== "partially-complete",
                           );
                           if (blockers.length === 0) {
-                            return <AssignmentControl experimentId={experimentId} onDone={() => void load()} />;
+                            return <AssignmentControl experimentId={experimentId} onDone={() => void reloadAndAdvance()} />;
                           }
                           const next = blockers[0];
                           return (
@@ -506,7 +713,7 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           );
                         })()}
                       {s.id === "freeze" && (
-                        <FreezeControl experimentId={experimentId} onDone={() => void load()} />
+                        <FreezeControl experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
                       )}
                     </div>
                   </div>
@@ -3399,34 +3606,56 @@ function FreezeControl({ experimentId, onDone }: { experimentId: string; onDone:
         className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
       />
 
-      <div className="flex flex-wrap gap-1.5">
-        <button
-          onClick={() => void runPreview()}
-          disabled={busy || !operatorRef.trim() || !rationale.trim()}
-          className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+      {/*
+       * PROGRESSIVE UNLOCK, NOT A ROW OF THREE PEER BUTTONS (al, 2026-08-04
+       * steward-workflow ruling): "Each successful action immediately
+       * unlocks the next." Presentational only — the handlers, gating
+       * conditions and network calls below are UNCHANGED; step 2 dims until
+       * a preview has produced a content hash and step 3 dims until that
+       * preview reports the freeze would actually succeed, so the operator
+       * sees the ceremony as one path rather than three independent choices.
+       */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="w-3.5 text-slate-500">1.</span>
+          <button
+            onClick={() => void runPreview()}
+            disabled={busy || !operatorRef.trim() || !rationale.trim()}
+            className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Preview Package"}
+          </button>
+        </div>
+        <div className={`flex items-center gap-1.5 transition-opacity ${contentHash ? "" : "opacity-40"}`}>
+          <span className="w-3.5 text-slate-500">2.</span>
+          <button
+            onClick={() => void provision()}
+            disabled={busy}
+            className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
+          >
+            Provision Artifact
+          </button>
+        </div>
+        <div
+          className={`flex items-center gap-1.5 transition-opacity ${
+            contentHash && eligible === true && execution?.wouldFreezeSucceed === true ? "" : "opacity-40"
+          }`}
         >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Preview package"}
-        </button>
-        <button
-          onClick={() => void provision()}
-          disabled={busy}
-          className="rounded border border-slate-800 bg-slate-900/60 px-2.5 py-1 text-slate-300 disabled:opacity-50"
-        >
-          Provision artifact
-        </button>
-        <button
-          onClick={() => void freeze()}
-          disabled={
-            busy ||
-            !contentHash ||
-            !boundaryAcknowledged ||
-            eligible !== true ||
-            execution?.wouldFreezeSucceed !== true
-          }
-          className="flex items-center gap-1 rounded border border-violet-800 bg-violet-900/30 px-2.5 py-1 text-violet-200 disabled:opacity-50"
-        >
-          <Lock className="h-3 w-3" /> Freeze
-        </button>
+          <span className="w-3.5 text-slate-500">3.</span>
+          <button
+            onClick={() => void freeze()}
+            disabled={
+              busy ||
+              !contentHash ||
+              !boundaryAcknowledged ||
+              eligible !== true ||
+              execution?.wouldFreezeSucceed !== true
+            }
+            className="flex items-center gap-1 rounded border border-violet-800 bg-violet-900/30 px-2.5 py-1 text-violet-200 disabled:opacity-50"
+          >
+            <Lock className="h-3 w-3" /> Freeze
+          </button>
+        </div>
       </div>
 
       {err && (
@@ -3489,6 +3718,479 @@ function FreezeControl({ experimentId, onDone }: { experimentId: string; onDone:
           act and is out of scope for EXP-P1.
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * STAGE 5's ACTION — a classification QUEUE, not a fictitious "Classify All"
+ * (al, 2026-08-04 steward-workflow ruling).
+ *
+ *   > "If batch classification is legal: Classify All. Otherwise: Open Queue
+ *   >  which opens directly into the unresolved list."
+ *
+ * Batch classification is not legal in general: `applyProvenanceReclassification`
+ * requires a per-record evidence-provenance class, citations and rationale —
+ * there is no shared input across arbitrary cohort members. So this steps
+ * through `queue` one record at a time over the EXISTING `POST
+ * /api/invariants/discovery {action:'classify'}` route (services/research/
+ * experimentalPopulations.ts's `applyProvenanceReclassification` is the only
+ * writer; this component never calls it directly). `suggest-classification`
+ * pre-fills evidence refs/rationale where the server can compute them —
+ * mirrors the Population Reconciliation Board's "pre-populate the
+ * recommended action when deterministic" principle — the class itself always
+ * requires the steward's own judgement (the suggestion function's own
+ * contract: it reports `recordedProvenanceClass` as context, never applies
+ * it).
+ */
+function ClassificationQueue({ queue, onDone }: { queue: { id: string; label: string }[]; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [to, setTo] = useState<string>("");
+  const [evidenceRefs, setEvidenceRefs] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(0);
+
+  const current = queue[index];
+
+  const loadSuggestion = useCallback(async (invariantId: string) => {
+    try {
+      const res = await personaFetch("/api/invariants/discovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suggest-classification", invariantId }),
+      });
+      const d = await res.json().catch(() => null);
+      const s = d?.suggestion as { suggestedEvidenceRefs?: string[]; suggestedRationale?: string } | undefined;
+      setEvidenceRefs(s?.suggestedEvidenceRefs?.join("\n") ?? "");
+      setRationale(s?.suggestedRationale ?? "");
+    } catch {
+      setEvidenceRefs("");
+      setRationale("");
+    }
+  }, []);
+
+  const openQueue = useCallback(() => {
+    setOpen(true);
+    setIndex(0);
+    setTo("");
+    setDone(0);
+    if (queue[0]) void loadSuggestion(queue[0].id);
+  }, [queue, loadSuggestion]);
+
+  const classifyAndNext = useCallback(async () => {
+    if (!current || !to) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch("/api/invariants/discovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "classify",
+          invariantId: current.id,
+          to,
+          evidenceRefs: evidenceRefs.split("\n").map((s) => s.trim()).filter(Boolean),
+          rationale,
+        }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `classification refused (HTTP ${res.status})`);
+      setDone((n) => n + 1);
+      const nextIndex = index + 1;
+      if (nextIndex >= queue.length) {
+        setOpen(false);
+        onDone();
+        return;
+      }
+      setIndex(nextIndex);
+      setTo("");
+      void loadSuggestion(queue[nextIndex].id);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "classification failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [current, to, evidenceRefs, rationale, index, queue, loadSuggestion, onDone]);
+
+  if (!open) {
+    return (
+      <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+        <span className="text-slate-300">{queue.length} member(s) require provenance</span>
+        <button
+          type="button"
+          onClick={openQueue}
+          className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+        >
+          Open Classification Queue
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span>
+          Record {index + 1} of {queue.length} · {done} classified this session
+        </span>
+        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+          close
+        </button>
+      </div>
+      {current && (
+        <>
+          <div className="rounded border border-slate-800 bg-slate-950 p-1.5 text-slate-200">{current.label}</div>
+          <select
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+          >
+            <option value="">— select evidence-provenance class —</option>
+            {PROVENANCE_CLASSES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <textarea
+            value={evidenceRefs}
+            onChange={(e) => setEvidenceRefs(e.target.value)}
+            rows={2}
+            placeholder="evidence references, one per line"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+          />
+          <textarea
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            rows={2}
+            placeholder="rationale"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+          />
+          <button
+            type="button"
+            onClick={() => void classifyAndNext()}
+            disabled={busy || !to || !rationale.trim()}
+            className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Classify &amp; next
+          </button>
+        </>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * STAGE 6's ACTION — a genuine batch (al, 2026-08-04 steward-workflow
+ * ruling): "15 members require validation. [Validate All]." Validation has
+ * no per-record human content — `validateInvariant` runs the same
+ * consistency/groundedness/canonical-form gate on every invariant — so this
+ * button is honest where Stage 5/7's queues are the honest choice instead.
+ * Calls the NEW `POST .../validate-all`, itself a new caller of the
+ * EXISTING `validateInvariant`.
+ */
+function ValidateAllControl({
+  experimentId,
+  count,
+  onDone,
+}: {
+  experimentId: string;
+  count: number;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const run = useCallback(async () => {
+    setBusy(true);
+    setErr(null);
+    setSummary(null);
+    setProgress({ done: 0, total: count });
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/validate-all`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const d = await res.json().catch(() => null);
+      if (!d || (res.status !== 200 && res.status !== 207)) {
+        throw new Error(d?.error || `validation batch failed (HTTP ${res.status})`);
+      }
+      const outcomes = (d.outcomes ?? []) as { ok: boolean }[];
+      setProgress({ done: outcomes.length, total: count });
+      setSummary(d.summary ?? null);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "the validation batch could not be run");
+    } finally {
+      setBusy(false);
+    }
+  }, [experimentId, count, onDone]);
+
+  return (
+    <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between">
+        <span className="text-slate-300">{count} member(s) require validation</span>
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={busy}
+          className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          Validate All
+        </button>
+      </div>
+      {progress && (
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+          <div
+            className="h-full bg-emerald-500/70 transition-all"
+            style={{ width: `${progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0}%` }}
+          />
+        </div>
+      )}
+      {summary && <div className="text-slate-400">{summary}</div>}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * STAGE 7's ACTION — a relationship QUEUE, not an invented "Generate
+ * Relationships" auto-linker (al, 2026-08-04 steward-workflow ruling). No
+ * relationship-suggestion algorithm exists anywhere in the platform —
+ * `addEdge` (services/invariants/lifecycle.ts) requires a human-declared
+ * relation type and rationale per pair, so generating edges automatically
+ * would mean inventing a new capability with real graph-integrity
+ * consequences (three readiness checks read this graph). This steps through
+ * `queue` (the cohort's orphan members) one at a time over the EXISTING
+ * `POST /api/invariants/[id]/edges` route, offering the OTHER cohort members
+ * (`members`) as the "relate to" candidates — no wider invariant search is
+ * needed because a relationship recorded here is, by construction, a claim
+ * about this crystal's own members.
+ */
+function RelationshipQueue({
+  queue,
+  members,
+  onDone,
+}: {
+  queue: { id: string; label: string }[];
+  members: { id: string; label: string }[];
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [toInvariantId, setToInvariantId] = useState("");
+  const [relation, setRelation] = useState<string>("");
+  const [rationale, setRationale] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(0);
+
+  const current = queue[index];
+  const candidates = useMemo(() => members.filter((m) => m.id !== current?.id), [members, current]);
+
+  const openQueue = useCallback(() => {
+    setOpen(true);
+    setIndex(0);
+    setToInvariantId("");
+    setRelation("");
+    setRationale("");
+    setDone(0);
+  }, []);
+
+  const recordAndNext = useCallback(async () => {
+    if (!current || !toInvariantId || !relation || !rationale.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/invariants/${encodeURIComponent(current.id)}/edges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toInvariantId, relation, rationale: rationale.trim() }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `relationship refused (HTTP ${res.status})`);
+      setDone((n) => n + 1);
+      const nextIndex = index + 1;
+      if (nextIndex >= queue.length) {
+        setOpen(false);
+        onDone();
+        return;
+      }
+      setIndex(nextIndex);
+      setToInvariantId("");
+      setRelation("");
+      setRationale("");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "relationship creation failed");
+    } finally {
+      setBusy(false);
+    }
+  }, [current, toInvariantId, relation, rationale, index, queue, onDone]);
+
+  if (!open) {
+    return (
+      <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+        <span className="text-slate-300">{queue.length} member(s) require relationship derivation</span>
+        <button
+          type="button"
+          onClick={openQueue}
+          className="rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 hover:bg-slate-700/60"
+        >
+          Open Relationship Queue
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span>
+          Record {index + 1} of {queue.length} · {done} related this session
+        </span>
+        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+          close
+        </button>
+      </div>
+      {current && (
+        <>
+          <div className="rounded border border-slate-800 bg-slate-950 p-1.5 text-slate-200">{current.label}</div>
+          <select
+            value={toInvariantId}
+            onChange={(e) => setToInvariantId(e.target.value)}
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+          >
+            <option value="">— relate to which other member —</option>
+            {candidates.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={relation}
+            onChange={(e) => setRelation(e.target.value)}
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200"
+          >
+            <option value="">— relation type —</option>
+            {INVARIANT_EDGE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <textarea
+            value={rationale}
+            onChange={(e) => setRationale(e.target.value)}
+            rows={2}
+            placeholder="rationale — why this relationship holds"
+            className="w-full rounded border border-slate-800 bg-slate-950 px-2 py-1 text-slate-200 placeholder:text-slate-600"
+          />
+          <button
+            type="button"
+            onClick={() => void recordAndNext()}
+            disabled={busy || !toInvariantId || !relation || !rationale.trim()}
+            className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+            Record &amp; next
+          </button>
+        </>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * STAGE 10's ACTION (al, 2026-08-04 steward-workflow ruling, operator
+ * confirmed 2026-08-04): "Generate Review Package. [Send to Reviewer]."
+ *
+ * Wires to the EXISTING, EXP-P1-wide Independent Review Lab
+ * (services/research/independentReviewPlan.ts's `buildReviewPlan` via
+ * `POST /api/research/review`) — never a lightweight Track2-only
+ * substitute. This IS a heavier, more consequential act than the other
+ * buttons on this page: `buildReviewPlan` reads the WHOLE EXP-P1 corpus
+ * within its namespace boundary, not only this crystal's assigned members,
+ * and `mode:'run'` dispatches both reviewers for real. Reviewer selection
+ * defaults to the pinned `EXP_P1_REVIEWER_PAIR` when none is supplied
+ * (services/research/review/_lib/resolveSelection.ts), which is what makes
+ * "Send to Reviewer" a genuine one-click act rather than a hidden
+ * reviewer-picker dialog.
+ */
+function ReviewPackageControl({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  const [ran, setRan] = useState<{ tally: Record<string, unknown> } | null>(null);
+
+  const call = useCallback(async (mode: "preview" | "run") => {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await personaFetch("/api/research/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `review ${mode} failed (HTTP ${res.status})`);
+      setSummary(d.summary ?? null);
+      if (mode === "run") {
+        setRan({ tally: d.tally ?? {} });
+        onDone();
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : `the review ${mode} could not be run`);
+    } finally {
+      setBusy(false);
+    }
+  }, [onDone]);
+
+  return (
+    <div className="mt-2 space-y-1.5 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => void call("preview")}
+          disabled={busy}
+          className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          Generate Review Package
+        </button>
+        {summary && !ran && (
+          <button
+            type="button"
+            onClick={() => void call("run")}
+            disabled={busy}
+            className="flex items-center gap-1 rounded border border-violet-800 bg-violet-900/30 px-2.5 py-1 font-medium text-violet-200 disabled:opacity-50"
+          >
+            Send to Reviewer
+          </button>
+        )}
+      </div>
+      {summary && (
+        <div className="text-slate-400">
+          package <span className="font-mono text-slate-300">{String(summary.packageHash ?? "").slice(0, 16)}…</span>{" "}
+          · {String(summary.corpusRowCount ?? "?")} corpus row(s) · {String(summary.inBoundaryCount ?? "?")} in
+          boundary
+        </div>
+      )}
+      {ran && (
+        <div className="rounded border border-emerald-500/30 bg-emerald-500/10 p-1.5 text-emerald-200">
+          Sent to reviewers — tally: {JSON.stringify(ran.tally)}
+        </div>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
     </div>
   );
 }
