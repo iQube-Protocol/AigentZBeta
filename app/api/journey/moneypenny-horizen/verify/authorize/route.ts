@@ -182,22 +182,25 @@ async function authorize(request: NextRequest) {
   }
 
   /*
-   * REFUSE LOCALLY, BEFORE CALLING HORIZEN AT ALL (al / Horizen brief,
-   * 2026-08-04). Pulse monitors a live HTTP service; nothing in this
-   * platform's Agent Cards declares one yet. Inventing a URL (e.g. reusing
-   * the Agent Card route itself, which merely DESCRIBES the agent) would be
-   * exactly the fabrication CLAUDE.md's No-Guessing rule forbids, and would
-   * hand Horizen a health-check target no one intended it to poll.
+   * REFUSE LOCALLY, BEFORE CALLING HORIZEN AT ALL (operator ruling,
+   * 2026-08-04). Pulse monitors a live HTTP service, resolved from the
+   * agent's canonical Agent Runtime Endpoint descriptor
+   * (registry_assets.metadata.runtime — services/registry/runtimeDescriptor.ts).
+   * Nothing in this platform's Agent Cards declares one yet. Inventing a URL
+   * (e.g. reusing the Agent Card route itself, which merely DESCRIBES the
+   * agent) would be exactly the fabrication CLAUDE.md's No-Guessing rule
+   * forbids, and would hand Horizen a health-check target no one intended it
+   * to poll.
    */
   if (!pulseEndpoint) {
     return NextResponse.json(
       {
         ok: false,
-        refusalCode: 'NO_PULSE_ENDPOINT_DECLARED',
+        refusalCode: 'NO_RUNTIME_ENDPOINT',
         error:
-          `${agent.displayName}'s Agent Card declares no eligible public HTTPS service endpoint under ` +
-          `services[] (or metadata.services[]) — Pulse has nothing to health-check. Add a service entry ` +
-          `there (ideally tagged type: "pulse-health") before authorizing Pulse monitoring.`,
+          `${agent.displayName} has no Agent Runtime Endpoint declared (registry_assets.metadata.runtime.endpoint) ` +
+          `— Pulse has nothing to health-check. Set a runtime descriptor for this asset ` +
+          `(services/registry/runtimeDescriptor.ts: setAssetRuntimeDescriptor) before authorizing Pulse monitoring.`,
       },
       { status: 409 },
     );
