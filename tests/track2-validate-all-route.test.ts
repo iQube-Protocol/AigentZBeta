@@ -92,8 +92,8 @@ describe('POST validate-all — batch behaviour', () => {
     expect(mockValidateInvariant).toHaveBeenCalledWith('inv-1', { personaId: 'persona-steward' });
     expect(mockValidateInvariant).toHaveBeenCalledWith('inv-2', { personaId: 'persona-steward' });
     expect(body.outcomes).toEqual([
-      { invariantId: 'inv-1', ok: true, detail: 'validated' },
-      { invariantId: 'inv-2', ok: true, detail: 'validated' },
+      { invariantId: 'inv-1', ok: true, detail: 'validated', checks: [] },
+      { invariantId: 'inv-2', ok: true, detail: 'validated', checks: [] },
     ]);
   });
 
@@ -112,6 +112,7 @@ describe('POST validate-all — batch behaviour', () => {
     expect(res.status).toBe(207);
     expect(body.ok).toBe(false);
     expect(body.outcomes[1]).toMatchObject({ invariantId: 'inv-2', ok: false, detail: 'groundedness: no evidence' });
+    expect(body.outcomes[1].checks).toEqual([{ name: 'groundedness', passed: false, detail: 'no evidence' }]);
   });
 
   it('catches a thrown error from one record without losing the other outcomes', async () => {

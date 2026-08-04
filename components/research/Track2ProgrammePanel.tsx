@@ -147,6 +147,19 @@ interface CohortMemberRef {
   label: string;
 }
 
+interface ReadinessCheck {
+  name: string;
+  passed: boolean;
+  detail: string;
+  remedy: string | null;
+}
+
+interface ReadinessReport {
+  ok: boolean;
+  checks: ReadinessCheck[];
+  invariantCount: number;
+}
+
 /** Stages 5-7's named worklists (al, 2026-08-04 steward-workflow ruling) — replaces "N have no provenance" with a queue of the exact N. */
 interface Track2ActionQueues {
   crystalId: string;
@@ -222,6 +235,8 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
    * so it must come from the server's answer — never be inferred here.
    */
   const [acquisitionDomain, setAcquisitionDomain] = useState<string | null>(null);
+  /** The full nine-check readiness breakdown (operator direction, 2026-08-05: show the current state up front, not only after a click). */
+  const [readiness, setReadiness] = useState<ReadinessReport | null>(null);
   /*
    * FUTURE STAGES ARE COLLAPSED (Al + EXP agent, 2026-08-02).
    *
@@ -257,6 +272,7 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
       const p = d.programme as Programme;
       setProgramme(p);
       setAcquisitionDomain(typeof d.acquisitionDomain === "string" ? d.acquisitionDomain : null);
+      setReadiness((d.readiness as ReadinessReport) ?? null);
       return p;
     } catch (e) {
       setError(e instanceof Error ? e.message : "the Track 2 programme could not be read");
@@ -627,12 +643,32 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                             onDone={() => void reloadAndAdvance()}
                           />
                         )}
-                      {/* STAGE 9 ACTION (al, 2026-08-04): "[Run Readiness].
-                          9/9 checks passed." Readiness is already a
-                          whole-crystal read (runCrystalReadinessReport) — this
-                          button is the SAME reload every other control
-                          already triggers, just labelled for what this stage
-                          specifically is waiting on. */}
+                      {/* STAGE 9 (operator direction, 2026-08-05: "Predicted
+                          readiness... 9/9"). Readiness is a LIVE, deterministic
+                          read of the actual current crystal (runCrystal
+                          ReadinessReport) — not a probabilistic forecast, so
+                          there is no separate "predicted" state to compute.
+                          The honest version of "show it before the steward
+                          has to ask" is showing the full nine-check
+                          breakdown INLINE, immediately, rather than hiding it
+                          behind a click — the button re-reads the live state
+                          (the SAME reload every other control already
+                          triggers) rather than approving anything separate. */}
+                      {s.id === "run-readiness" && readiness && (
+                        <div className="mt-2 space-y-1 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+                          <ul className="space-y-0.5">
+                            {readiness.checks.map((c) => (
+                              <li key={c.name} className={c.passed ? "text-emerald-300" : "text-amber-200"}>
+                                {c.passed ? "✓" : "○"} {c.name}
+                                <span className="ml-1.5 text-slate-500">{c.detail}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className={`font-medium ${readiness.ok ? "text-emerald-300" : "text-amber-200"}`}>
+                            {readiness.checks.filter((c) => c.passed).length} / {readiness.checks.length} checks passed
+                          </div>
+                        </div>
+                      )}
                       {s.id === "run-readiness" && (
                         <button
                           type="button"
@@ -3217,6 +3253,24 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
   );
 
   const dryRunSeen = result?.dryRun === true;
+  /*
+   * EXPECTED GRAPH GROWTH (operator direction, 2026-08-05: "System already
+   * knows eligible members, destination crystal, admission order... [+15
+   * nodes, +48 edges]"). Computed from `derived.rows`, already fetched for
+   * the dry-run cohort — no new call. `newNodes` excludes rows already in
+   * the crystal (`alreadyAssigned`); `carriedEdges` is each selected row's
+   * OWN already-recorded relationship count, not a re-derivation of the
+   * graph — an honest "how connected is what you're about to admit," not a
+   * claim about edges this act itself creates (assignment writes no edges).
+   */
+  const expectedGrowth = useMemo(() => {
+    if (!derived) return null;
+    const rows = derived.rows.filter((r) => selected.has(r.invariantId));
+    return {
+      newNodes: rows.filter((r) => !r.alreadyAssigned).length,
+      carriedEdges: rows.reduce((sum, r) => sum + r.relationshipCount, 0),
+    };
+  }, [derived, selected]);
   const toggle = (id: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -3257,6 +3311,14 @@ function AssignmentControl({ experimentId, onDone }: { experimentId: string; onD
             <span className="font-mono text-slate-400">{derived.crystalDomain}</span> · from{" "}
             <span className="font-mono text-slate-400">{derived.acquisitionDomain}</span>
           </div>
+          {expectedGrowth && (
+            <div className="text-slate-300">
+              {selected.size} selected → destination <span className="font-mono text-slate-200">{derived.crystalDomain}</span> ·
+              expected <span className="text-emerald-300">+{expectedGrowth.newNodes} node(s)</span>, carrying{" "}
+              <span className="text-emerald-300">{expectedGrowth.carriedEdges} relationship(s)</span> already recorded on
+              them
+            </div>
+          )}
 
           <ul className="max-h-64 space-y-1 overflow-y-auto pr-1">
             {derived.rows.map((r) => (
@@ -4088,11 +4150,13 @@ function ValidateAllControl({
   const [err, setErr] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [outcomes, setOutcomes] = useState<{ invariantId: string; ok: boolean; detail: string; checks: { name: string; passed: boolean; detail?: string }[] }[]>([]);
 
   const run = useCallback(async () => {
     setBusy(true);
     setErr(null);
     setSummary(null);
+    setOutcomes([]);
     setProgress({ done: 0, total: count });
     try {
       const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/validate-all`, {
@@ -4103,9 +4167,10 @@ function ValidateAllControl({
       if (!d || (res.status !== 200 && res.status !== 207)) {
         throw new Error(d?.error || `validation batch failed (HTTP ${res.status})`);
       }
-      const outcomes = (d.outcomes ?? []) as { ok: boolean }[];
-      setProgress({ done: outcomes.length, total: count });
+      const results = (d.outcomes ?? []) as typeof outcomes;
+      setProgress({ done: results.length, total: count });
       setSummary(d.summary ?? null);
+      setOutcomes(results);
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "the validation batch could not be run");
@@ -4137,6 +4202,36 @@ function ValidateAllControl({
         </div>
       )}
       {summary && <div className="text-slate-400">{summary}</div>}
+      {/* Per-record check breakdown (operator direction, 2026-08-05: the
+          steward reviews what was checked, not only a pass/fail count) —
+          validateInvariant's own verdict.checks, rendered verbatim. */}
+      {outcomes.length > 0 && (
+        <ul className="max-h-52 space-y-1 overflow-y-auto">
+          {outcomes.map((o) => (
+            <li
+              key={o.invariantId}
+              className={`rounded border p-1.5 ${o.ok ? "border-emerald-500/20 bg-emerald-500/5" : "border-amber-500/20 bg-amber-500/5"}`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] text-slate-400">{o.invariantId}</span>
+                <span className={o.ok ? "text-emerald-300" : "text-amber-200"}>{o.ok ? "PASS" : "FAILED"}</span>
+              </div>
+              {o.checks.length > 0 ? (
+                <ul className="mt-0.5 space-y-0.5">
+                  {o.checks.map((c) => (
+                    <li key={c.name} className={c.passed ? "text-slate-500" : "text-amber-200"}>
+                      {c.passed ? "✓" : "○"} {c.name}
+                      {c.detail && <span className="text-slate-600"> — {c.detail}</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="mt-0.5 text-slate-500">{o.detail}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
     </div>
   );
@@ -4544,10 +4639,22 @@ function RelationshipQueue({
  * "Send to Reviewer" a genuine one-click act rather than a hidden
  * reviewer-picker dialog.
  */
+interface ReviewExecutiveSummaryView {
+  strengths: string[];
+  weaknesses: string[];
+  openQuestions: string[];
+}
+
 function ReviewPackageControl({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
+  // Steward-facing only — built from `summary` above, never from the sealed
+  // package the blinded reviewers receive. See
+  // services/research/reviewExecutiveSummary.ts's own header for why that
+  // boundary matters; this component only renders what the route already
+  // decided is safe to show here.
+  const [executiveSummary, setExecutiveSummary] = useState<ReviewExecutiveSummaryView | null>(null);
   const [ran, setRan] = useState<{ tally: Record<string, unknown> } | null>(null);
 
   const call = useCallback(async (mode: "preview" | "run") => {
@@ -4562,6 +4669,7 @@ function ReviewPackageControl({ onDone }: { onDone: () => void }) {
       const d = await res.json().catch(() => null);
       if (!d?.ok) throw new Error(d?.error || `review ${mode} failed (HTTP ${res.status})`);
       setSummary(d.summary ?? null);
+      setExecutiveSummary(d.executiveSummary ?? null);
       if (mode === "run") {
         setRan({ tally: d.tally ?? {} });
         onDone();
@@ -4601,6 +4709,43 @@ function ReviewPackageControl({ onDone }: { onDone: () => void }) {
           package <span className="font-mono text-slate-300">{String(summary.packageHash ?? "").slice(0, 16)}…</span>{" "}
           · {String(summary.corpusRowCount ?? "?")} corpus row(s) · {String(summary.inBoundaryCount ?? "?")} in
           boundary
+        </div>
+      )}
+      {executiveSummary && (
+        <div className="space-y-1 rounded border border-slate-800 bg-slate-950/60 p-2">
+          <div className="text-[10px] text-slate-600">
+            executive summary — for you, the steward, never sent to the blinded reviewers
+          </div>
+          {executiveSummary.strengths.length > 0 && (
+            <div>
+              <div className="text-emerald-300">Strengths</div>
+              <ul className="list-disc pl-4 text-slate-300">
+                {executiveSummary.strengths.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {executiveSummary.weaknesses.length > 0 && (
+            <div>
+              <div className="text-amber-200">Weaknesses</div>
+              <ul className="list-disc pl-4 text-slate-300">
+                {executiveSummary.weaknesses.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {executiveSummary.openQuestions.length > 0 && (
+            <div>
+              <div className="text-cyan-300">Open questions</div>
+              <ul className="list-disc pl-4 text-slate-300">
+                {executiveSummary.openQuestions.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       {ran && (

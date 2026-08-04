@@ -43,6 +43,8 @@ interface ValidateOutcome {
   invariantId: string;
   ok: boolean;
   detail: string;
+  /** validateInvariant's own per-check verdict, verbatim — so the steward reviews what was checked, not only whether it passed (operator direction, 2026-08-05). */
+  checks: { name: string; passed: boolean; detail?: string }[];
 }
 
 export async function POST(
@@ -94,9 +96,10 @@ export async function POST(
         invariantId: t.id,
         ok: verdict.ok,
         detail: verdict.ok ? 'validated' : failing.join('; ') || 'validation gate failed',
+        checks: verdict.checks,
       });
     } catch (e) {
-      outcomes.push({ invariantId: t.id, ok: false, detail: e instanceof Error ? e.message : 'validate_failed' });
+      outcomes.push({ invariantId: t.id, ok: false, detail: e instanceof Error ? e.message : 'validate_failed', checks: [] });
     }
   }
 
