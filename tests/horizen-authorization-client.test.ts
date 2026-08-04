@@ -401,7 +401,30 @@ describe('required refusal canaries', () => {
     const row = rows.get('auth-integrity-drift');
     row.walletAddress = ethers.Wallet.createRandom().address;
 
-    const integrity = await verifySignatureIntegrity('auth-integrity-drift', prepared.value.message, signed.value);
+    const integrity = await verifySignatureIntegrity('auth-integrity-drift', prepared.value.message, signed.value, WALLET.address);
+    expect(integrity).toMatchObject({ ok: false, refusalCode: 'SIGNATURE_INTEGRITY_FAILED' });
+  });
+
+  it('the signature-integrity gate catches an expectedOwner that disagrees, even when the recovered signer and persisted walletAddress already agree with each other — the decisive three-way test, not a composition of two checks', async () => {
+    const prepared = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId: 'auth-integrity-owner-mismatch' }),
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+
+    // recoveredSigner === persisted walletAddress === WALLET.address, but the
+    // registry's ACTUAL resolved owner (what crossCheckRegistryOwner would
+    // have returned moments earlier) is a stranger — must still refuse.
+    const stranger = ethers.Wallet.createRandom();
+    const integrity = await verifySignatureIntegrity('auth-integrity-owner-mismatch', prepared.value.message, signed.value, stranger.address);
     expect(integrity).toMatchObject({ ok: false, refusalCode: 'SIGNATURE_INTEGRITY_FAILED' });
   });
 
@@ -420,7 +443,7 @@ describe('required refusal canaries', () => {
     expect(signed.ok).toBe(true);
     if (!signed.ok) return;
 
-    const integrity = await verifySignatureIntegrity('auth-integrity-clean', prepared.value.message, signed.value);
+    const integrity = await verifySignatureIntegrity('auth-integrity-clean', prepared.value.message, signed.value, WALLET.address);
     expect(integrity).toEqual({ ok: true });
   });
 
@@ -605,6 +628,25 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
     // "did not return a recognisable submission reference" complaint.
     expect(result.detail).toContain('Invalid arguments for tool enable_pulse_monitoring');
     expect(result.detail).not.toContain('did not return a recognisable submission reference');
+
+    // A bounded, safe diagnostic transcript rides along (al, 2026-08-04) —
+    // this rejection was only reachable after verifySignatureIntegrity
+    // already confirmed local recovery/wallet/owner agreement, so the
+    // transcript is what an escalation to Horizen would need.
+    const transcriptMatch = result.detail.match(/Local signature transcript.*?: (\{.*\})$/);
+    expect(transcriptMatch).toBeTruthy();
+    const transcript = JSON.parse(transcriptMatch![1]);
+    expect(transcript).toMatchObject({
+      recoveredSigner: WALLET.address,
+      expectedOwner: WALLET.address,
+      agentId: '1234', // baseInput()'s default registry.tokenId
+      issuedAt: '2026-07-31T12:00:00.000Z',
+    });
+    expect(typeof transcript.messageByteLength).toBe('number');
+    expect(typeof transcript.messageHash).toBe('string');
+    expect(typeof transcript.signatureLength).toBe('number');
+    // Never the private key, never the full message text, never the raw signature.
+    expect(JSON.stringify(transcript)).not.toContain(WALLET.privateKey);
   });
 
   it('build_pulse_auth_message response with no extractable issuedAt refuses locally rather than generating one', async () => {
