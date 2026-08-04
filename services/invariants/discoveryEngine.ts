@@ -25,7 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { callSovereign } from '@/services/constitutional/modelRouter';
 import { discoverInvariant, addEdge } from '@/services/invariants/lifecycle';
 import { listEdgesForInvariants } from '@/services/invariants/store';
-import { similarity } from '@/services/invariants/comparison';
+import { similarity, findDuplicates } from '@/services/invariants/comparison';
 import { evidenceDomainsFor, parseObservationDomain, discoveryDomain, discoveryNamespace } from '@/services/invariants/discoveryDomains';
 import {
   composeClassificationSuggestion,
@@ -238,6 +238,27 @@ export interface CandidateRow {
   convergence?: ConvergenceInfo;
   /** Enriched at read time (route/service), not stored — see RecurrenceInfo. */
   recurrence?: RecurrenceInfo;
+  /**
+   * An OPERATOR-CONFIRMED decision that this promoted candidate does not
+   * enter the crystal — the record-level counterpart to `excludeCandidate
+   * FromCrystal` below (al, 2026-08-04: "an exclusion without a reason is
+   * not an exclusion, it is a disappearance"). Stored inside
+   * `discovery_provenance`, the SAME jsonb column `promoteCandidate`'s own
+   * duplicate-resolution path already writes structured facts into — never
+   * a new column for a fact this small and this specific to one candidate.
+   * `null` until a steward acts through the Population Reconciliation Board.
+   */
+  crystalExclusion: CrystalExclusion | null;
+}
+
+/** See `CandidateRow.crystalExclusion`'s own doc comment. */
+export interface CrystalExclusion {
+  reason: string;
+  excludedBy: string;
+  excludedAt: string;
+  crystalId: string;
+  fromStageId: string;
+  toStageId: string;
 }
 
 function committer(personaId: string): string {
@@ -1773,6 +1794,132 @@ export async function promoteCandidate(
   }
 }
 
+// ── Population reconciliation — repairing / excluding a promoted candidate ──
+// (Population Reconciliation Board, operator direction via Aletheon,
+// 2026-08-04: "Repair and include must call the existing canonical
+// capability that repairs the missing transition or field. Do not invent a
+// parallel write path.")
+
+export type RepairPromotedCandidateRefusalReason =
+  | 'not-found'
+  | 'not-promoted'
+  | 'already-linked'
+  | 'no-deterministic-match';
+
+/**
+ * Repairs a PROMOTED candidate that carries no `promoted_invariant_id` (or
+ * one that does not resolve), by finding an EXISTING invariant whose
+ * statement is an EXACT match — the SAME canonical-duplicate detection
+ * `discoverInvariant` (`services/invariants/lifecycle.ts`) already runs via
+ * `findDuplicates`, reused here rather than re-implemented. This is
+ * deliberately NOT a second promotion path: `promoteCandidate` above cannot
+ * run on this row at all (it refuses any candidate whose `status !==
+ * 'candidate'`, and this row is already `'promoted'`) — the write below sets
+ * the SAME `promoted_invariant_id` column `promoteCandidate` itself writes,
+ * completing what promotion should have recorded rather than opening a
+ * parallel one.
+ *
+ * Refuses honestly with `no-deterministic-match` when no exact statement
+ * match exists — this function never guesses which invariant a candidate
+ * "should" resolve to; that case requires a steward's own judgment.
+ */
+export async function repairPromotedCandidateInvariantLink(
+  admin: SupabaseClient,
+  candidateId: string,
+): Promise<
+  | { ok: true; invariantId: string }
+  | { ok: false; reason: RepairPromotedCandidateRefusalReason; detail: string }
+> {
+  const { data: c, error } = await admin
+    .from('discovery_candidates')
+    .select('*')
+    .eq('id', candidateId)
+    .maybeSingle();
+  if (error) return { ok: false, reason: 'not-found', detail: error.message };
+  if (!c) return { ok: false, reason: 'not-found', detail: `no candidate "${candidateId}"` };
+  if (c.status !== 'promoted') {
+    return { ok: false, reason: 'not-promoted', detail: `candidate is '${c.status}', not 'promoted' — nothing to repair` };
+  }
+  if (c.promoted_invariant_id) {
+    return { ok: false, reason: 'already-linked', detail: 'candidate already carries a promoted_invariant_id' };
+  }
+
+  const namespace = discoveryNamespace(String(c.domain));
+  const duplicates = await findDuplicates(String(c.statement), { namespace });
+  const exact = duplicates.find((d) => d.exact);
+  if (!exact) {
+    return {
+      ok: false,
+      reason: 'no-deterministic-match',
+      detail: 'no existing invariant states this candidate exactly — no deterministic repair exists; steward judgment required',
+    };
+  }
+
+  await admin
+    .from('discovery_candidates')
+    .update({
+      promoted_invariant_id: exact.invariant.id,
+      discovery_provenance: {
+        ...(c.discovery_provenance ?? {}),
+        resolvedAs: 'repaired-exact-match',
+        repairedAt: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', candidateId);
+  return { ok: true, invariantId: exact.invariant.id };
+}
+
+export interface ExcludeCandidateInput {
+  reason: string;
+  excludedBy: string;
+  crystalId: string;
+  fromStageId: string;
+  toStageId: string;
+}
+
+/**
+ * Records an OPERATOR-CONFIRMED decision that a promoted candidate does not
+ * enter the crystal — the write side of `CandidateRow.crystalExclusion`. A
+ * reason is REQUIRED: "an exclusion without a reason is not an exclusion, it
+ * is a disappearance" (al, 2026-08-04). Idempotent re-application by the same
+ * steward is allowed (it overwrites with the same shape); this is a
+ * disclosure record, not a nonce-guarded ceremony.
+ */
+export async function excludeCandidateFromCrystal(
+  admin: SupabaseClient,
+  candidateId: string,
+  input: ExcludeCandidateInput,
+): Promise<{ ok: true } | { ok: false; reason: 'not-found' | 'invalid-input'; detail: string }> {
+  if (!input.reason.trim()) {
+    return { ok: false, reason: 'invalid-input', detail: 'an exclusion reason is required' };
+  }
+  const { data: c, error } = await admin
+    .from('discovery_candidates')
+    .select('discovery_provenance')
+    .eq('id', candidateId)
+    .maybeSingle();
+  if (error) return { ok: false, reason: 'not-found', detail: error.message };
+  if (!c) return { ok: false, reason: 'not-found', detail: `no candidate "${candidateId}"` };
+
+  const exclusion: CrystalExclusion = {
+    reason: input.reason.trim(),
+    excludedBy: input.excludedBy,
+    excludedAt: new Date().toISOString(),
+    crystalId: input.crystalId,
+    fromStageId: input.fromStageId,
+    toStageId: input.toStageId,
+  };
+  await admin
+    .from('discovery_candidates')
+    .update({
+      discovery_provenance: { ...(c.discovery_provenance ?? {}), crystalExclusion: exclusion },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', candidateId);
+  return { ok: true };
+}
+
 export async function rejectCandidate(admin: SupabaseClient, candidateId: string): Promise<{ ok: boolean }> {
   const { error } = await admin
     .from('discovery_candidates')
@@ -1784,7 +1931,7 @@ export async function rejectCandidate(admin: SupabaseClient, candidateId: string
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-function toCandidateRow(r: Record<string, unknown>): CandidateRow {
+export function toCandidateRow(r: Record<string, unknown>): CandidateRow {
   const prov = (r.discovery_provenance ?? {}) as Record<string, unknown>;
   return {
     id: String(r.id), domain: String(r.domain),
@@ -1803,6 +1950,21 @@ function toCandidateRow(r: Record<string, unknown>): CandidateRow {
       ? (prov.classification as CompareClassification) : null),
     coverage: Array.isArray(prov.coverage) ? (prov.coverage as string[]) : null,
     compression: parseCompression(prov.compression),
+    crystalExclusion: parseCrystalExclusion(prov.crystalExclusion),
+  };
+}
+
+function parseCrystalExclusion(v: unknown): CrystalExclusion | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  if (typeof o.reason !== 'string' || !o.reason.trim()) return null;
+  return {
+    reason: o.reason,
+    excludedBy: String(o.excludedBy ?? ''),
+    excludedAt: String(o.excludedAt ?? ''),
+    crystalId: String(o.crystalId ?? ''),
+    fromStageId: String(o.fromStageId ?? ''),
+    toStageId: String(o.toStageId ?? ''),
   };
 }
 

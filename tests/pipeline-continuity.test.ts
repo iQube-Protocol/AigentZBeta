@@ -106,6 +106,7 @@ function cohortOf(size: number, over: Partial<PromotedCohort> = {}): PromotedCoh
     unvalidated: size,
     graph: { relationshipCount: 0, orphanCount: size },
     excluded: [],
+    unaccountedRecords: [],
     ...over,
   };
 }
@@ -186,8 +187,17 @@ describe('every stage declares the population it is reasoning about', () => {
     expect(code, 'the Track 2 route must not resolve a stage population by domain query').not.toMatch(
       /listInvariants\(/,
     );
-    expect(route).toMatch(/promotedInvariantId/);
-    expect(route).toMatch(/resolvePromotedCohort/);
+    // The resolution itself moved into a dedicated service module
+    // (services/research/populationReconciliation.ts, 2026-08-04) so the
+    // Population Reconciliation Board could share it — the route now only
+    // delegates. Same substrate, same rule, no domain query either place.
+    expect(route).toMatch(/reconcilePromotedCohort/);
+    const service = readFileSync(
+      join(__dirname, '..', 'services', 'research', 'populationReconciliation.ts'),
+      'utf8',
+    );
+    expect(service).toMatch(/promotedInvariantId/);
+    expect(service).not.toMatch(/listInvariants\(/);
   });
 });
 
