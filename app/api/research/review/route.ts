@@ -188,6 +188,27 @@ export async function POST(req: NextRequest) {
       steward,
     };
 
+    /*
+     * EXECUTIVE SUMMARY FOR THE STEWARD ONLY (operator direction,
+     * 2026-08-05) — built from `summary` above, which is already returned
+     * to the steward unredacted. NEVER pass `plan.pkg` or `preview` into
+     * this call; see services/research/reviewExecutiveSummary.ts's own
+     * header for why that boundary matters. A failure here never blocks the
+     * ceremony — the steward can still preview/send without it, exactly as
+     * if this feature did not exist.
+     */
+    const { summarizeReviewPackage } = await import('@/services/research/reviewExecutiveSummary');
+    const executiveSummaryResult = await summarizeReviewPackage({
+      corpusRowCount: summary.corpusRowCount,
+      inBoundaryCount: summary.inBoundaryCount,
+      outOfBoundaryCount: summary.outOfBoundaryCount,
+      classC: { assessed: summary.classC.assessed, admitted: summary.classC.admitted, extracted: summary.classC.extracted, ruling: summary.classC.ruling },
+      individuallyEnumerated: summary.individuallyEnumerated,
+      mechanicallyFlaggedCount: summary.mechanicallyFlagged,
+      reviewerCount: summary.reviewers.length,
+    }).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    const executiveSummary = executiveSummaryResult.ok ? executiveSummaryResult.summary : null;
+
     if (mode === 'preview') {
       await upsertReview(gate.caller.admin, {
         reviewId: plan.reviewId,
@@ -206,7 +227,7 @@ export async function POST(req: NextRequest) {
         actionAt: null,
       });
       // The preview IS the sealed package — same object, same hash.
-      return NextResponse.json({ ok: true, mode, summary, preview });
+      return NextResponse.json({ ok: true, mode, summary, preview, executiveSummary });
     }
 
     const providerFor = (a: ReviewerAssignment): ReviewProvider => {
@@ -261,6 +282,7 @@ export async function POST(req: NextRequest) {
       mode,
       summary,
       preview,
+      executiveSummary,
       tally: artifacts.tally,
       contested: artifacts.contested,
       preRunManifest: artifacts.preRunManifest,
