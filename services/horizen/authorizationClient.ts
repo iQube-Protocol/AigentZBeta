@@ -909,6 +909,21 @@ export async function submitHorizenTransparencyAuthorization(
           })
         : undefined;
 
+    /*
+     * ESCALATION LOGGING (2026-08-04) — mirrors services/dvn/
+     * activityReceiptDvnPipeline.ts's [DVN ESCALATION] console.error
+     * pattern verbatim: same mechanism, same reason (surfaces in
+     * CloudWatch/Amplify error-level logs, restricted to infra operators,
+     * never a general API response or a broad-audience DB column). Without
+     * this, the packet was computed and then silently discarded — it never
+     * reached `detail` (general-log-visible; deliberately bounded) and the
+     * route never forwards `escalationPacket` to its JSON response. This is
+     * the ONLY place this artifact is currently retrievable.
+     */
+    if (escalationPacket) {
+      console.error(`[HORIZEN ESCALATION] enable_pulse_monitoring rejected authorization "${authorizationId}": ${JSON.stringify(escalationPacket)}`);
+    }
+
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
       refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
