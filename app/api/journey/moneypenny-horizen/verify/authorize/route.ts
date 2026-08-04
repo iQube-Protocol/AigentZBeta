@@ -33,6 +33,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { runHorizenTransparencyAuthorization } from '@/services/horizen/authorizationClient';
+import { resolvePulseEndpoint } from '@/services/horizen/pulseEndpoint';
 import { enrichAgentCardAfterHorizenAuthorization } from '@/services/horizen/agentCardEnrichment';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import type { HorizenNetwork } from '@/services/horizen/identity';
@@ -164,15 +165,41 @@ async function authorize(request: NextRequest) {
 
   const origin = resolveRequestOrigin(request);
   let agentCardHash: string;
+  let pulseEndpoint: string | null;
   try {
     const cardRes = await fetch(`${origin}${agent.agentCardPath}`, { cache: 'no-store' });
     if (!cardRes.ok) throw new Error(`agent-card fetch failed: HTTP ${cardRes.status}`);
     const cardText = await cardRes.text();
     agentCardHash = createHash('sha256').update(cardText, 'utf8').digest('hex');
+    // Parsed once, reused for both the hash (above, over the raw text — so
+    // the hash still commits to exact bytes) and the Pulse endpoint below.
+    pulseEndpoint = resolvePulseEndpoint(JSON.parse(cardText));
   } catch (err) {
     return NextResponse.json(
       { ok: false, refusalCode: 'AGENT_CARD_UNAVAILABLE', error: err instanceof Error ? err.message : 'agent-card fetch failed' },
       { status: 502 },
+    );
+  }
+
+  /*
+   * REFUSE LOCALLY, BEFORE CALLING HORIZEN AT ALL (al / Horizen brief,
+   * 2026-08-04). Pulse monitors a live HTTP service; nothing in this
+   * platform's Agent Cards declares one yet. Inventing a URL (e.g. reusing
+   * the Agent Card route itself, which merely DESCRIBES the agent) would be
+   * exactly the fabrication CLAUDE.md's No-Guessing rule forbids, and would
+   * hand Horizen a health-check target no one intended it to poll.
+   */
+  if (!pulseEndpoint) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'NO_PULSE_ENDPOINT_DECLARED',
+        error:
+          `${agent.displayName}'s Agent Card declares no eligible public HTTPS service endpoint under ` +
+          `services[] (or metadata.services[]) — Pulse has nothing to health-check. Add a service entry ` +
+          `there (ideally tagged type: "pulse-health") before authorizing Pulse monitoring.`,
+      },
+      { status: 409 },
     );
   }
 
@@ -187,6 +214,8 @@ async function authorize(request: NextRequest) {
     keyRef: AGENT_KEY_REF,
     registry: { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined },
     scope,
+    agentDisplayName: agent.displayName,
+    pulseEndpoint,
   });
 
   if (!result.ok) {

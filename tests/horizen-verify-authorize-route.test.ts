@@ -71,7 +71,16 @@ beforeEach(() => {
   registryAssetsRow = null;
 
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });
-  mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => '{"name":"Aigent MoneyPenny"}' });
+  // Declares a Pulse-monitorable services[] entry (al / Horizen brief,
+  // 2026-08-04) — without one, the route now refuses locally with
+  // NO_PULSE_ENDPOINT_DECLARED rather than inventing an endpoint for
+  // Horizen to poll. See tests/horizen-pulse-endpoint.test.ts for the
+  // resolver's own unit coverage.
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ name: 'Aigent MoneyPenny', services: [{ type: 'pulse-health', url: 'https://moneypenny.example.test/health' }] }),
+  });
 });
 
 const BOUND_ROW = {
@@ -137,6 +146,17 @@ describe('POST verify/authorize — refusals', () => {
     const json = await res.json();
     expect(res.status).toBe(502);
     expect(json.refusalCode).toBe('AGENT_CARD_UNAVAILABLE');
+    expect(mockRunHorizenTransparencyAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('409s with NO_PULSE_ENDPOINT_DECLARED when the Agent Card declares no eligible services[] entry — never invents a URL for Horizen to poll', async () => {
+    registryAssetsRow = BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => '{"name":"Aigent MoneyPenny"}' });
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.refusalCode).toBe('NO_PULSE_ENDPOINT_DECLARED');
     expect(mockRunHorizenTransparencyAuthorization).not.toHaveBeenCalled();
   });
 

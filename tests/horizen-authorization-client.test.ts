@@ -74,20 +74,43 @@ import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
 const WALLET = ethers.Wallet.createRandom();
 const FIXED_NOW = () => new Date('2026-07-31T12:00:00.000Z');
 
-function fakeMcpClient(overrides: Partial<{ tools: any[]; buildMessage: string; submissionRef: string; statusText: string }> = {}) {
+/**
+ * `enable_pulse_monitoring`'s schema, copied from the LIVE server (2026-08-04
+ * diagnostic, al / Horizen brief) — required: agentId, name, endpoint,
+ * walletAddress, signature, issuedAt; chain optional. There is no `message`
+ * property on the real tool at all.
+ */
+const REAL_ENABLE_PULSE_SCHEMA = {
+  properties: {
+    agentId: {}, name: {}, endpoint: {}, healthPath: {}, walletAddress: {}, signature: {}, issuedAt: {}, chain: {},
+  },
+  required: ['agentId', 'name', 'endpoint', 'walletAddress', 'signature', 'issuedAt'],
+};
+
+function fakeMcpClient(
+  overrides: Partial<{ tools: any[]; buildMessage: string; submissionRef: string; statusText: string; enableResult: any }> = {},
+) {
   const tools = overrides.tools ?? [
     { name: 'build_pulse_auth_message', inputSchema: { properties: { tokenId: {}, network: {}, wallet: {} } } },
-    { name: 'enable_pulse_monitoring', inputSchema: { properties: { message: {}, signature: {} } } },
+    { name: 'enable_pulse_monitoring', inputSchema: REAL_ENABLE_PULSE_SCHEMA },
     { name: 'get_onboarding_status', inputSchema: { properties: { tokenId: {}, submissionRef: {} } } },
   ];
-  const buildMessage = overrides.buildMessage ?? 'authorize pulse monitoring for token 1234 on base-sepolia';
+  // Must embed a parseable issuedAt — extractIssuedAt reads it from the
+  // message text itself, never generates one (al / Horizen brief, 2026-08-04).
+  const buildMessage =
+    overrides.buildMessage ??
+    'Sign this message... then call enable_pulse_monitoring with the signature and issuedAt="2026-07-31T12:00:00.000Z".\n' +
+      'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T12:00:00.000Z';
   const submissionRef = overrides.submissionRef ?? '0xsubmission123';
   const statusText = overrides.statusText ?? '{"status":"active"}';
   return {
     listTools: vi.fn(async () => ({ tools })),
     callTool: vi.fn(async ({ name }: { name: string }) => {
       if (name === 'build_pulse_auth_message') return { content: [{ type: 'text', text: JSON.stringify({ message: buildMessage }) }] };
-      if (name === 'enable_pulse_monitoring') return { content: [{ type: 'text', text: JSON.stringify({ submissionRef }) }] };
+      if (name === 'enable_pulse_monitoring') {
+        if (overrides.enableResult) return overrides.enableResult;
+        return { content: [{ type: 'text', text: JSON.stringify({ submissionRef }) }] };
+      }
       if (name === 'get_onboarding_status') return { content: [{ type: 'text', text: statusText }] };
       throw new Error(`unexpected tool call: ${name}`);
     }),
@@ -108,6 +131,8 @@ function baseInput(overrides: Partial<PrepareHorizenTransparencyAuthorizationInp
     keyRef: 'aigent-moneypenny',
     registry: { network: 'base-sepolia', tokenId: '1234' },
     scope: ['pulse-monitoring', 'pnl-disclosure'],
+    agentDisplayName: 'Aigent Test',
+    pulseEndpoint: 'https://example.test/health',
     ...overrides,
   };
 }
@@ -294,7 +319,7 @@ describe('required refusal canaries', () => {
   it('partner submission failure — no recognisable submission reference is refused, never guessed', async () => {
     const mcpClient = fakeMcpClient();
     mcpClient.callTool = vi.fn(async ({ name }: { name: string }) => {
-      if (name === 'build_pulse_auth_message') return { content: [{ type: 'text', text: JSON.stringify({ message: 'authorize this' }) }] };
+      if (name === 'build_pulse_auth_message') return { content: [{ type: 'text', text: JSON.stringify({ message: 'authorize this issuedAt="2026-07-31T12:00:00.000Z"' }) }] };
       if (name === 'enable_pulse_monitoring') return { content: [{ type: 'text', text: JSON.stringify({ unrelatedField: 'x' }) }] };
       throw new Error(`unexpected tool call: ${name}`);
     });
@@ -371,5 +396,97 @@ describe('the Pulse call conforms to the documented contract, not to inference (
   it('refuses an unparseable agent id rather than sending a label', () => {
     expect(source).toMatch(/if \(!parsedAgentId\.ok\)/);
     expect(source).toContain('is not a usable agent id');
+  });
+});
+
+describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Horizen brief, 2026-08-04)', () => {
+  /*
+   * The live error was conclusive, not a parsing defect: Horizen's real
+   * enable_pulse_monitoring requires agentId, name, endpoint, walletAddress,
+   * signature AND issuedAt. Offering only message/signature candidates left
+   * five fields undefined — exactly what the Zod rejection named. This
+   * canary calls the tool through a schema shaped exactly like the live one
+   * and inspects what was actually sent.
+   */
+  it('sends all six required fields, none undefined', async () => {
+    const mcpClient = fakeMcpClient();
+    const result = await runHorizenTransparencyAuthorization(baseInput({ agentDisplayName: 'Aigent Nakamoto', pulseEndpoint: 'https://nakamoto.example/health' }), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+
+    const submitCall = mcpClient.callTool.mock.calls.find((c: any[]) => c[0].name === 'enable_pulse_monitoring');
+    expect(submitCall, 'enable_pulse_monitoring was never called').toBeTruthy();
+    const sentArgs = submitCall![0].arguments;
+
+    for (const field of REAL_ENABLE_PULSE_SCHEMA.required) {
+      expect(sentArgs[field], `"${field}" must not be undefined`).not.toBeUndefined();
+    }
+    expect(sentArgs.name).toBe('Aigent Nakamoto');
+    expect(sentArgs.endpoint).toBe('https://nakamoto.example/health');
+    expect(missingRequiredFields(REAL_ENABLE_PULSE_SCHEMA, sentArgs)).toEqual([]);
+  });
+
+  /*
+   * "Do not regenerate issuedAt, substitute another wallet, or alter the
+   * agent ID between the build and enable calls." — the values submitted
+   * must be IDENTICAL to the ones that produced the signed message, not
+   * independently re-derived at submit time.
+   */
+  it('submits the EXACT agentId/walletAddress/issuedAt that produced the signed message — never regenerated', async () => {
+    const mcpClient = fakeMcpClient();
+    const result = await runHorizenTransparencyAuthorization(baseInput({ registry: { network: 'base-sepolia', tokenId: '8798' } }), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+
+    const submitCall = mcpClient.callTool.mock.calls.find((c: any[]) => c[0].name === 'enable_pulse_monitoring');
+    const sentArgs = submitCall![0].arguments;
+
+    // The exact issuedAt embedded in the build response's own message text —
+    // never `now()`, never freshly generated.
+    expect(sentArgs.issuedAt).toBe('2026-07-31T12:00:00.000Z');
+    expect(sentArgs.agentId).toBe('8798'); // decimal, matching the tokenId
+    expect(sentArgs.walletAddress.toLowerCase()).toBe(WALLET.address.toLowerCase());
+  });
+
+  /*
+   * isError IS TERMINAL (al / Horizen brief, 2026-08-04): "The tool returned
+   * isError: true; the client should stop there and report a tool validation
+   * failure, not run the success-reference extractor." Before this fix, a
+   * rejected call fell through to "did not return a recognisable submission
+   * reference" — true, but misleading: the tool never reached success at
+   * all, it was rejected outright.
+   */
+  it('treats isError:true as terminal — never attempts submission-reference extraction on it', async () => {
+    const zodStyleError =
+      'Invalid arguments for tool enable_pulse_monitoring: [{"code":"invalid_type","expected":"string","received":"undefined","path":["agentId"],"message":"Required"}]';
+    const mcpClient = fakeMcpClient({
+      enableResult: { isError: true, content: [{ type: 'text', text: zodStyleError }] },
+    });
+    const result = await runHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED' });
+    if (result.ok) return;
+    // The tool's own rejection reason is reported verbatim — not the generic
+    // "did not return a recognisable submission reference" complaint.
+    expect(result.detail).toContain('Invalid arguments for tool enable_pulse_monitoring');
+    expect(result.detail).not.toContain('did not return a recognisable submission reference');
+  });
+
+  it('build_pulse_auth_message response with no extractable issuedAt refuses locally rather than generating one', async () => {
+    const mcpClient = fakeMcpClient({ buildMessage: 'authorize pulse monitoring, no timestamp mentioned at all' });
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'ISSUED_AT_UNAVAILABLE' });
   });
 });

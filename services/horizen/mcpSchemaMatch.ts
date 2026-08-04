@@ -322,3 +322,36 @@ export function extractStringField(toolResult: McpToolResult | null | undefined,
   }
   return null;
 }
+
+/**
+ * The EXACT `issuedAt` baked into `build_pulse_auth_message`'s plaintext
+ * response — never independently regenerated (al / Horizen brief, 2026-08-04:
+ * "Do not regenerate issuedAt... after signing"). Horizen's own live schema
+ * for `enable_pulse_monitoring` names this requirement explicitly: `issuedAt`
+ * is documented as *"the issuedAt returned by build_pulse_auth_message"* — and
+ * the signature is computed over a message this value is embedded in, so
+ * submitting any other value fails signature verification even with an
+ * otherwise-correct call.
+ *
+ * The live response observed (2026-08-04 diagnostic) states it twice, in two
+ * shapes — a quoted assignment in the preamble sentence, and a labelled line
+ * inside the ASR message body itself:
+ *
+ *   Sign this message... then call enable_pulse_monitoring with the
+ *   signature and issuedAt="2026-08-04T03:35:05.609Z".
+ *   ...
+ *   Issued At: 2026-08-04T03:35:05.609Z
+ *
+ * The quoted form is tried first (unambiguous, delimited); the labelled line
+ * is the fallback for a response that omits the preamble sentence. Returns
+ * `null` — never a guess or a freshly-generated timestamp — if neither shape
+ * is found, so the caller can refuse rather than sign/submit with a fabricated
+ * value.
+ */
+export function extractIssuedAt(message: string): string | null {
+  const quoted = message.match(/issuedAt\s*=\s*"([^"]+)"/i);
+  if (quoted) return quoted[1];
+  const labelled = message.match(/Issued At:\s*(\S+)/i);
+  if (labelled) return labelled[1];
+  return null;
+}
