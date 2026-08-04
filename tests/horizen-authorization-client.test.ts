@@ -85,6 +85,8 @@ import {
   signHorizenTransparencyAuthorization,
   runHorizenTransparencyAuthorization,
   verifySignatureIntegrity,
+  parseLabelledMessageFields,
+  buildFieldParityTable,
   pulseBuildCandidates,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
@@ -647,11 +649,188 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
     expect(typeof transcript.signatureLength).toBe('number');
     // Never the private key, never the full message text, never the raw signature.
     expect(JSON.stringify(transcript)).not.toContain(WALLET.privateKey);
+
+    // The unrelated (non-signature) rejection still gets a full escalation
+    // packet — attachment isn't conditioned on the "looks like a signature
+    // rejection" wording check, only the framing text is.
+    expect(result.escalationPacket).toBeTruthy();
   });
 
   it('build_pulse_auth_message response with no extractable issuedAt refuses locally rather than generating one', async () => {
     const mcpClient = fakeMcpClient({ buildMessage: 'authorize pulse monitoring, no timestamp mentioned at all' });
     const result = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
     expect(result).toMatchObject({ ok: false, refusalCode: 'ISSUED_AT_UNAVAILABLE' });
+  });
+});
+
+describe('parseLabelledMessageFields (al, 2026-08-04)', () => {
+  it('extracts "Label: value" lines, preserving exact case/spacing of the value, ignoring prose lines with no colon-labelled structure', () => {
+    const message =
+      'ASR Pulse enable\n' +
+      'This message authorizes Pulse monitoring for your agent.\n' +
+      'Agent: 8798\n' +
+      'Network: base-sepolia\n' +
+      'Chain: 84532\n' +
+      'Registry: 0x8004A818BFB912233c491871b3d84c89A494BD9e\n' +
+      'Wallet: 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9\n' +
+      'Issued At: 2026-08-04T11:04:25.071Z\n' +
+      'By signing, you agree to Horizen\'s terms.';
+    const fields = parseLabelledMessageFields(message);
+    expect(fields.get('Agent')).toBe('8798');
+    expect(fields.get('Network')).toBe('base-sepolia');
+    expect(fields.get('Chain')).toBe('84532');
+    expect(fields.get('Registry')).toBe('0x8004A818BFB912233c491871b3d84c89A494BD9e');
+    expect(fields.get('Wallet')).toBe('0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9');
+    expect(fields.get('Issued At')).toBe('2026-08-04T11:04:25.071Z');
+    // Prose lines produce no entry — never guessed into a field.
+    expect(fields.size).toBe(6);
+  });
+
+  it('returns an empty map for a message with no labelled lines at all', () => {
+    expect(parseLabelledMessageFields('just some free text\nwith no colons naming fields').size).toBe(0);
+  });
+});
+
+describe('buildFieldParityTable — exact, unnormalized comparison (al, 2026-08-04: "Do not normalize values before comparison")', () => {
+  const message =
+    'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\n' +
+    'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\nWallet: 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9\n' +
+    'Issued At: 2026-08-04T11:04:25.071Z';
+
+  it('reports equal:true when the submitted value matches the signed value byte-for-byte', () => {
+    const table = buildFieldParityTable(message, { agentId: '8798', issuedAt: '2026-08-04T11:04:25.071Z' });
+    expect(table.find((r) => r.field === 'agentId')).toEqual({ field: 'agentId', signedValue: '8798', submittedValue: '8798', equal: true });
+    expect(table.find((r) => r.field === 'issuedAt')).toMatchObject({ equal: true });
+  });
+
+  it('reports equal:false and shows BOTH exact values, unnormalized, when they genuinely differ — e.g. the message names the network selector but submission sends the numeric chain id', () => {
+    const table = buildFieldParityTable(message, { network: '84532' }); // wrong on purpose: message says "base-sepolia"
+    const row = table.find((r) => r.field === 'network');
+    expect(row).toEqual({ field: 'network', signedValue: 'base-sepolia', submittedValue: '84532', equal: false });
+  });
+
+  it('is case-SENSITIVE on values — a casing-only difference (e.g. checksum vs lowercased wallet) is reported as unequal, never silently normalized away', () => {
+    const table = buildFieldParityTable(message, { walletAddress: '0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9' });
+    const row = table.find((r) => r.field === 'walletAddress');
+    expect(row?.equal).toBe(false);
+    expect(row?.signedValue).toBe('0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9');
+    expect(row?.submittedValue).toBe('0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9');
+  });
+
+  it('reports signedValue:null (not a crash, not a guess) for a field never mentioned in the message at all', () => {
+    const row = buildFieldParityTable(message, { name: 'Aigent Nakamoto' }).find((r) => r.field === 'name');
+    expect(row).toEqual({ field: 'name', signedValue: null, submittedValue: 'Aigent Nakamoto', equal: false });
+  });
+});
+
+describe('HorizenEscalationPacket — attached on submission rejection (al, 2026-08-04)', () => {
+  // Wallet line matches record.walletAddress's EXACT case (WALLET.address,
+  // checksummed) so the "everything agrees" test below is a genuinely clean
+  // baseline — this repo's own pulseBuildCandidates lowercases the wallet
+  // going INTO build_pulse_auth_message's request, so a real ceremony's
+  // RETURNED message would likely embed the lowercased form while
+  // record.walletAddress stays checksummed; that specific, expected-looking
+  // mismatch is exercised separately in the case-sensitivity test above.
+  const asrMessage =
+    'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\n' +
+    'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\nWallet: ' +
+    WALLET.address +
+    '\nIssued At: 2026-07-31T12:00:00.000Z';
+
+  it('an "Invalid signature" rejection gets the corrected framing AND a full escalation packet with the exact message and signature (never bounded, unlike the general-log transcript)', async () => {
+    const mcpClient = fakeMcpClient({
+      buildMessage: asrMessage,
+      enableResult: {
+        isError: true,
+        content: [{ type: 'text', text: 'Registry API returned 401 for /agents/8798/enable-pulse — Invalid signature' }],
+      },
+    });
+    const result = await runHorizenTransparencyAuthorization(baseInput({ registry: { network: 'base-sepolia', tokenId: '8798' } }), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED' });
+    if (result.ok) return;
+
+    // The corrected framing (al, 2026-08-04) — only for a rejection that
+    // actually names "Invalid signature", never blanket-applied.
+    expect(result.detail).toContain('Horizen rejected a locally verified owner signature.');
+    expect(result.detail).toContain('Local authorization integrity passed.');
+    expect(result.detail).toContain('Partner contract clarification required.');
+
+    const packet = result.escalationPacket;
+    expect(packet).toBeTruthy();
+    if (!packet) return;
+    // The FULL exact text and signature — deliberately NOT bounded here,
+    // unlike buildSignatureDiagnosticTranscript's hash-only general-log form.
+    expect(packet.exactMessage).toBe(asrMessage);
+    expect(packet.signature.length).toBeGreaterThan(100);
+    expect(packet.tokenId).toBe('8798');
+    expect(packet.network).toBe('base-sepolia');
+    expect(packet.registryContract.toLowerCase()).toBe(HORIZEN_NETWORK_FACTS['base-sepolia'].identityRegistry.toLowerCase());
+    expect(packet.expectedOwner.toLowerCase()).toBe(WALLET.address.toLowerCase());
+    expect(packet.recoveredSigner.toLowerCase()).toBe(WALLET.address.toLowerCase());
+    expect(packet.issuedAt).toBe('2026-07-31T12:00:00.000Z');
+    expect(packet.buildTool.name).toBe('build_pulse_auth_message');
+    expect(packet.submitTool.name).toBe('enable_pulse_monitoring');
+    // The field parity table proves agreement for the fields that DO use
+    // the same representation on both sides in this fixture.
+    expect(packet.fieldParity.find((r) => r.field === 'agentId')).toMatchObject({ equal: true });
+    expect(packet.fieldParity.find((r) => r.field === 'walletAddress')).toMatchObject({ equal: true });
+    // 'network' has NO submitted counterpart at all with the REAL live
+    // schema (REAL_ENABLE_PULSE_SCHEMA declares no `network` property, only
+    // `chain` — matchSchemaFields drops any candidate the tool doesn't
+    // declare) — reported honestly as submittedValue:null, not hidden.
+    expect(packet.fieldParity.find((r) => r.field === 'network')).toEqual({
+      field: 'network',
+      signedValue: 'base-sepolia',
+      submittedValue: null,
+      equal: false,
+    });
+    // 'chain' IS forwarded, and is a KNOWN, DOCUMENTED representation
+    // difference in this codebase, not a bug: the message writes the
+    // numeric chain id ('84532') while the enable_pulse_monitoring
+    // ARGUMENT sends the network selector ('base-sepolia') — see
+    // pulseBuildCandidates's own header comment. The parity table reports
+    // this unnormalized, exactly as it should — the row exists precisely so
+    // a reader can judge whether a given mismatch is expected or the actual
+    // defect, rather than this code pre-deciding.
+    expect(packet.fieldParity.find((r) => r.field === 'chain')).toEqual({
+      field: 'chain',
+      signedValue: '84532',
+      submittedValue: 'base-sepolia',
+      equal: false,
+    });
+  });
+
+  it('the escalation packet\'s field parity table surfaces a genuine mismatch when the message and submission disagree — the exact defect class under investigation', async () => {
+    // The message embeds a DIFFERENT wallet casing than what was actually
+    // submitted — exercising operator concern #3 verbatim ("the message
+    // contains a lowercased wallet, while the API reconstructs a checksum
+    // address literally") without needing a live reproduction.
+    const mismatchedMessage = asrMessage.replace(`Wallet: ${WALLET.address}`, `Wallet: ${WALLET.address.toLowerCase()}`);
+    const mcpClient = fakeMcpClient({
+      buildMessage: mismatchedMessage,
+      enableResult: {
+        isError: true,
+        content: [{ type: 'text', text: 'Registry API returned 401 for /agents/8798/enable-pulse — Invalid signature' }],
+      },
+    });
+    const result = await runHorizenTransparencyAuthorization(baseInput({ registry: { network: 'base-sepolia', tokenId: '8798' } }), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    if (result.ok) throw new Error('expected a refusal');
+    const row = result.escalationPacket?.fieldParity.find((r) => r.field === 'walletAddress');
+    expect(row).toEqual({
+      field: 'walletAddress',
+      signedValue: WALLET.address.toLowerCase(),
+      submittedValue: WALLET.address,
+      equal: false,
+    });
   });
 });
