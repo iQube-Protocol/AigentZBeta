@@ -108,6 +108,8 @@ export type HorizenAuthorizationRefusalCode =
    * (al, 2026-08-04).
    */
   | 'LOCAL_PERSISTENCE_FAILED'
+  /** A row for this deterministic authorizationId already exists AND has reached SUBMITTED/CONFIRMED — see partnerAuthorizationStore.ts's createPartnerAuthorizationRequest. Re-read status; never re-prepare blindly. */
+  | 'AUTHORIZATION_ALREADY_IN_FLIGHT'
   | 'STATE_MISMATCH';
 
 export type AuthorizationResult<T> =

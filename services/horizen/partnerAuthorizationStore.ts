@@ -143,7 +143,19 @@ export type CreatePartnerAuthorizationRequestResult =
    * that call only builds message text — it records nothing on Horizen's
    * side — so a failure here always means Horizen never recorded anything).
    */
-  | { ok: false; refusalCode: 'LOCAL_PERSISTENCE_FAILED'; detail: string };
+  | { ok: false; refusalCode: 'LOCAL_PERSISTENCE_FAILED'; detail: string }
+  /**
+   * `authorizationId` is DETERMINISTIC per (aigentQubeId, tokenId, network) —
+   * see app/api/journey/moneypenny-horizen/verify/authorize/route.ts's
+   * `horizen-pulse-auth-${aigentQubeId}-${tokenId}-${network}` — so every
+   * retry for the SAME agent targets the SAME primary key, by design (one
+   * authorization per agent, not one row per attempt). A row already exists
+   * AND has reached SUBMITTED or CONFIRMED — i.e. Horizen may already have
+   * this authorization on record — so resetting it here would silently
+   * abandon a submission that might still resolve. Refuse and name the
+   * existing state; the caller must re-read status, never blindly re-prepare.
+   */
+  | { ok: false; refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT'; detail: string; existingState: PartnerAuthorizationState };
 
 function adminOrDefault(admin?: SupabaseClient): SupabaseClient {
   const client = admin ?? getSupabaseServer();
@@ -280,6 +292,22 @@ export async function checkAuthorizationStoreAvailable(
   };
 }
 
+/**
+ * `23505` (unique_violation) fires from EITHER of this table's two unique
+ * constraints — the PRIMARY KEY on `authorization_id`, or
+ * `uq_partner_authorization_requests_partner_nonce` on `(partner, nonce)` —
+ * and Postgres/PostgREST names the violated constraint in the error, so
+ * which one fired is never a guess. Blindly reporting every 23505 as a nonce
+ * replay (fixed 2026-08-04) misattributed a PRIMARY KEY collision — expected
+ * on a RETRY, since authorizationId is deterministic per agent — as a
+ * coincidental reuse of a nonce that was in fact generated fresh moments
+ * earlier and could not possibly have been "used" before.
+ */
+function isAuthorizationIdCollision(error: { message?: string; details?: string } | null | undefined): boolean {
+  const text = `${error?.message ?? ''} ${error?.details ?? ''}`;
+  return /authorization_id|_pkey/i.test(text) && !/\bnonce\b/i.test(text);
+}
+
 export async function createPartnerAuthorizationRequest(
   input: CreatePartnerAuthorizationRequestInput,
   admin?: SupabaseClient,
@@ -310,21 +338,78 @@ export async function createPartnerAuthorizationRequest(
     .select('*')
     .single();
 
-  if (error) {
-    if (error.code === '23505') {
-      return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used for partner "${input.partner}"` };
+  if (!error) return { ok: true, record: rowToRecord(data as DbRow) };
+
+  if (error.code === '23505' && isAuthorizationIdCollision(error)) {
+    /*
+     * A RETRY FOR THE SAME AGENT, NOT A DUPLICATE (2026-08-04). One
+     * authorization per (aigentQubeId, tokenId, network) is the DESIGN — see
+     * this function's own header — so a row already existing under this id
+     * is the expected shape of "the operator clicked Authorize again", not
+     * an error. What matters is whether Horizen might already have it:
+     *   - SUBMITTED/CONFIRMED: refuse — resetting here could silently
+     *     abandon a submission that may still resolve. Re-read status instead.
+     *   - anything else (PREPARED/AWAITING_SIGNATURE/SIGNED/REFUSED/EXPIRED/
+     *     QUARANTINED): Horizen's state-changing call was never confirmed to
+     *     have landed, so it's safe to reset the row with THIS attempt's
+     *     fresh nonce/issuedAt/facts and let the ceremony proceed exactly as
+     *     if this were a fresh row.
+     */
+    const existing = await getPartnerAuthorizationRequest(input.authorizationId, client);
+    if (existing && (existing.state === 'SUBMITTED' || existing.state === 'CONFIRMED')) {
+      return {
+        ok: false,
+        refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT',
+        detail:
+          `authorization "${input.authorizationId}" already exists in state ${existing.state} — Horizen may already ` +
+          `have this authorization on record. Re-read status rather than re-preparing.`,
+        existingState: existing.state,
+      };
     }
-    // A DEFINITE refusal, not a thrown error (al, 2026-08-04) — this is the
-    // ceremony's local persistence step, strictly before Horizen's
-    // state-changing enable_pulse_monitoring call; a failure here always
-    // means the authorization was not submitted, never an open question.
-    return {
-      ok: false,
-      refusalCode: 'LOCAL_PERSISTENCE_FAILED',
-      detail: `Authorization was not submitted to Horizen because MetaMe could not create its local authorization record: ${error.message}`,
-    };
+    const { data: resetData, error: resetError } = await client
+      .from(TABLE)
+      .update({
+        nonce: input.nonce,
+        expires_at: input.expiresAt,
+        agent_id: input.agentId,
+        wallet_address: input.walletAddress,
+        issued_at: input.issuedAt,
+        payload_hash: null,
+        state: 'PREPARED' as PartnerAuthorizationState,
+        signer_address: null,
+        signature_ref: null,
+        submission_ref: null,
+        partner_status: null,
+        receipt_ref: null,
+        refusal_code: null,
+        refusal_detail: null,
+        updated_at: now,
+      })
+      .eq('authorization_id', input.authorizationId)
+      .select('*')
+      .single();
+    if (resetError) {
+      return {
+        ok: false,
+        refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+        detail: `Authorization was not submitted to Horizen because MetaMe could not reset its stalled local authorization record for a retry: ${resetError.message}`,
+      };
+    }
+    return { ok: true, record: rowToRecord(resetData as DbRow) };
   }
-  return { ok: true, record: rowToRecord(data as DbRow) };
+
+  if (error.code === '23505') {
+    return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used for partner "${input.partner}"` };
+  }
+  // A DEFINITE refusal, not a thrown error (al, 2026-08-04) — this is the
+  // ceremony's local persistence step, strictly before Horizen's
+  // state-changing enable_pulse_monitoring call; a failure here always
+  // means the authorization was not submitted, never an open question.
+  return {
+    ok: false,
+    refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+    detail: `Authorization was not submitted to Horizen because MetaMe could not create its local authorization record: ${error.message}`,
+  };
 }
 
 export async function getPartnerAuthorizationRequest(
