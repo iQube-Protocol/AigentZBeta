@@ -34,6 +34,7 @@ import {
   type KpiRecord,
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
+import { resolveRegistrableAgent } from "@/services/horizen/registrableAgents";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
 import { useActivations } from "@/services/activations/ActivationsContext";
 import {
@@ -389,9 +390,17 @@ interface Props {
   isPartner?: boolean;
   personaId?: string;
   density?: 'narrow' | 'wide';
+  /**
+   * Which agent's journey this Welcome surface concerns (resolveRegistrableAgent
+   * slug, e.g. 'nakamoto'). Threaded from PilotJourneyTab's resolveSurfaceProps
+   * — parameter propagation only (al, 2026-08-04). Undefined preserves the
+   * existing MoneyPenny-scoped behavior for every other caller of this tab.
+   */
+  agentSlug?: string;
 }
 
-export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: Props) {
+export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin, agentSlug }: Props) {
+  const focusAgent = resolveRegistrableAgent(agentSlug ?? null);
   const spine = usePersonaSpine({ personaIdHint: personaId });
 
   // ── Core bootstrap + sub-surface state ─────────────────────────────
@@ -943,7 +952,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     if (focusDispositionAnsweredRef.current) return;
     let cancelled = false;
 
-    personaFetch('/api/journey/moneypenny-horizen/aigentme/disposition', {
+    const qs = agentSlug ? `?agentSlug=${encodeURIComponent(agentSlug)}` : '';
+    personaFetch(`/api/journey/moneypenny-horizen/aigentme/disposition${qs}`, {
       personaIdHint: personaId,
       cache: 'no-store',
     })
@@ -969,7 +979,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spine.status, personaId]);
+  }, [spine.status, personaId, agentSlug]);
 
   /**
    * The principal answered the focus check-in.
@@ -3147,6 +3157,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               const layoutProps = {
                 onRequestLayout: requestLayout,
                 onFocusDispositionRecorded: handleFocusDispositionRecorded,
+                focusAgentSlug: agentSlug,
+                focusAgentLabel: focusAgent?.displayName,
                 theme,
                 personaId,
                 displayLabel: spine.displayLabel ?? data.displayLabel,

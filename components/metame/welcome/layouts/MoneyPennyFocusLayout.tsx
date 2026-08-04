@@ -21,7 +21,7 @@ import { LayoutShell } from "./LayoutShell";
 import type { RightPaneLayoutDefinition, RightPaneLayoutProps } from "./types";
 
 function MoneyPennyFocusLayoutComponent(props: RightPaneLayoutProps) {
-  const { theme = "dark", onRequestLayout, onFocusDispositionRecorded } = props;
+  const { theme = "dark", onRequestLayout, onFocusDispositionRecorded, focusAgentSlug, focusAgentLabel } = props;
 
   const handleDismiss = useCallback(() => {
     onRequestLayout?.("stack");
@@ -54,7 +54,13 @@ function MoneyPennyFocusLayoutComponent(props: RightPaneLayoutProps) {
       headerTitle="Focus check-in"
       onDismiss={handleDismiss}
       dismissLabel="Close"
-      body={<AigentMeFocusDispositionPrompt onResolved={handleResolved} />}
+      body={
+        <AigentMeFocusDispositionPrompt
+          agentSlug={focusAgentSlug}
+          agentLabel={focusAgentLabel}
+          onResolved={handleResolved}
+        />
+      }
     />
   );
 }

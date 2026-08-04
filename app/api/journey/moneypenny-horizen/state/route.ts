@@ -39,6 +39,7 @@ import {
 } from '@/services/journey/stageResolution';
 import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 /*
  * `resolvePassportPrincipalForAuthUser` is deliberately NOT imported here.
  * It walks the DID chain, which belongs to identity VERIFICATION (passport-
@@ -169,6 +170,16 @@ async function resolveState(req: NextRequest) {
    * services/journey/agentAdmissionState.ts for the defect this closes.
    */
   let admission: Awaited<ReturnType<typeof resolveAgentAdmissionState>> | null = null;
+  /*
+   * PERSONA ASSIGNMENT ≠ aigentMe DESIGNATION (al, 2026-08-04). Whether the
+   * OPERATOR's active persona has structurally assigned this agent as a
+   * delegate (persona_agent_assignments, role IN 'delegate'/'aigentMe' — both
+   * count as "assigned"; which one is aigentMe is a wholly separate fact this
+   * read never touches). Delegate's completion needs this alongside the
+   * Passport + grant; it must never be inferred from — or conflated with —
+   * aigentMe designation.
+   */
+  let personaAssignedAsDelegate: boolean | undefined;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
   /*
    * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
@@ -360,6 +371,23 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('agent-admission', async () => {
       admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
     });
+    if (supabase) await guarded('persona-assignment', async () => {
+      const agentRootId = admission?.agentRootId;
+      if (!agentRootId) return; // no root identity resolved — genuinely nothing to assign yet
+      const activePersona = await getActivePersona(req);
+      if (!activePersona?.personaId) return;
+      const { data, error } = await supabase
+        .from('persona_agent_assignments')
+        .select('role')
+        .eq('persona_id', activePersona.personaId)
+        .eq('agent_root_id', agentRootId)
+        .eq('active', true)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      // Either role counts as "assigned" — aigentMe is a separate designation
+      // layered on TOP of being assigned, never a substitute for it.
+      personaAssignedAsDelegate = Boolean(data && (data.role === 'delegate' || data.role === 'aigentMe'));
+    });
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
     });
@@ -451,6 +479,13 @@ async function resolveState(req: NextRequest) {
       delegate: {
         delegatePassportActive: passportIssuedForAgent,
         boundedDelegationActive: admission?.delegationActive === true || hasReceipt('agent_delegated'),
+        // Structural assignment (persona_agent_assignments) — independent of
+        // aigentMe designation. See the `persona-assignment` guarded read above.
+        personaAssignedAsDelegate: personaAssignedAsDelegate === true,
+        // Retained for FS-branch visibility only — no longer part of
+        // Delegate's own completionEvidence (al, 2026-08-04): these are FS
+        // Runtime activation signals, not delegation conditions. The `verify`
+        // stage is where a future FS-specific checklist would surface them.
         contextualMandate: admission?.delegationActive === true || hasReceipt('agent_delegated'),
         bootstrapApproval: hasReceipt('finance_authoritative_execution'),
         aigentZObserverReceipt: hasReceipt('finance_authoritative_execution'),
