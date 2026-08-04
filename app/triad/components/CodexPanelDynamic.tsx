@@ -84,6 +84,14 @@ interface CodexPanelDynamicProps {
    * changes.
    */
   suppressFloatingCopilot?: boolean;
+  /**
+   * Which Journey-selectable agent the current mount concerns
+   * (resolveRegistrableAgent slug, e.g. "nakamoto") — forwarded to
+   * TabRenderer -> the active tab component. A single named field, not a
+   * generic props bag (al, 2026-08-04); undefined for every mount that
+   * isn't reached via a Journey iframe with `?agentSlug=`.
+   */
+  agentSlug?: string;
 }
 
 type IssueOption = {
@@ -141,6 +149,7 @@ export default function CodexPanelDynamic({
   onClose,
   shell = 'embed',
   suppressFloatingCopilot = false,
+  agentSlug,
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -1248,6 +1257,7 @@ export default function CodexPanelDynamic({
                   issueSlug={isQriptopian ? issueSlug : undefined}
                   previewDevice={previewDevice}
                   shell={shell}
+                  agentSlug={agentSlug}
                 />
               </SubHeaderSlotContext.Provider>
             )}

@@ -11,6 +11,7 @@
  * - theme | mode
  * - density
  * - personaId
+ * - agentSlug (Journey-selected agent, e.g. "nakamoto" — al, 2026-08-04)
  */
 
 "use client";
@@ -80,6 +81,12 @@ function DynamicCodexContent() {
   // the persona; the URL param is only for optimistic gating like isAdmin/isPartner.
   const queryIsInvestor = searchParams?.get("isInvestor") === "true" || searchParams?.get("investor") === "1";
   const queryPartnerId = readFirst(searchParams, ["partnerId", "partner_id"]);
+  // The Journey's selected agent (al, 2026-08-04) — a single named field,
+  // read exactly like every other param here, never a generic passthrough.
+  // Forwarded to CodexPanelDynamic -> TabRenderer -> the tab component
+  // (today, only AigentMeWelcomeSplitTab consumes it); the destination route
+  // resolves it through resolveRegistrableAgent and never trusts it directly.
+  const queryAgentSlug = readFirst(searchParams, ["agentSlug"]);
   // `?copilot=off` — a HOST that already provides the operator's conversational
   // partner (today: the Guided Journey viewport) suppresses the cartridge's own
   // floating copilot, so only one is on screen (MS-1: one navigation). Absent
@@ -105,6 +112,7 @@ function DynamicCodexContent() {
       isInvestor={queryIsInvestor || undefined}
       partnerId={queryPartnerId || undefined}
       suppressFloatingCopilot={querySuppressCopilot || undefined}
+      agentSlug={queryAgentSlug}
       useDefaults={true}
     />
   );
