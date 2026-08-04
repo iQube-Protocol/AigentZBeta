@@ -304,7 +304,17 @@ export type ActivityActionType =
   // signal type, evidence ref, previous/new score and rationale on
   // actionInput, never folded silently into the score alone. See
   // services/registry/trustDimensions.ts.
-  | 'trust_dimension_incremented';
+  | 'trust_dimension_incremented'
+  // Population Reconciliation Board (al, 2026-08-04, Track 2 Stage 5): the
+  // two treatments an operator applies to a promoted candidate the
+  // Stage 4 → Stage 5 handover could not account for. One receipt per
+  // resolved record — never a single batch receipt — so a partial batch
+  // failure discloses exactly which records were treated and which were
+  // not. See services/research/populationReconciliation.ts and
+  // services/invariants/discoveryEngine.ts's repairPromotedCandidateInvariantLink /
+  // excludeCandidateFromCrystal.
+  | 'population_record_repaired'
+  | 'population_record_excluded';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

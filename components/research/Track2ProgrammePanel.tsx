@@ -107,8 +107,36 @@ interface Programme {
     breaks: { fromStageId: string; toStageId: string; detail: string }[];
     breaches: string[];
   };
+  /** The Population Reconciliation Board's data (al, 2026-08-04) — rendered ONCE, at Stage 5. */
+  reconciliation?: PopulationReconciliationView | null;
   nextActions: string[];
   derivationNote: string;
+}
+
+type UnaccountedDefect = "missing-invariant-id" | "unresolvable-invariant-id" | "duplicate-invariant-id";
+
+interface UnaccountedPromotionRecord {
+  candidateId: string;
+  label: string;
+  domain: string;
+  subDomain: string | null;
+  evidenceCount: number;
+  promotedInvariantId: string | null;
+  defect: UnaccountedDefect;
+  duplicateOfCandidateId: string | null;
+  deterministicRepairInvariantId: string | null;
+  recommendedTreatment: "repair" | "exclude";
+  recommendedReason: string;
+}
+
+interface PopulationReconciliationView {
+  crystalId: string;
+  fromStageId: string;
+  toStageId: string;
+  declaredOut: number;
+  received: number;
+  explicitlyExcluded: number;
+  unaccountedRecords: UnaccountedPromotionRecord[];
 }
 
 interface RatifiedBoundary {
@@ -293,9 +321,26 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                 const unblocked = programme.unblockedStageIds?.includes(s.id) ?? true;
                 const locked = !unblocked && s.status !== "complete";
                 if (locked && !showAllStages) return null;
+                /*
+                 * ONE WARNING, NOT THREE (al, 2026-08-04).
+                 *
+                 *   > "Stage 5, 6 and 7 all repeat the same warning. That
+                 *   >  creates the impression of three separate failures.
+                 *   >  They are not three failures. They are one upstream
+                 *   >  discontinuity propagating downstream."
+                 *
+                 * Stages 6-7 are blocked by the SAME Stage 4 -> 5 handover
+                 * Stage 5 itself is blocked by — never a second, independent
+                 * diagnosis. When reconciliation is pending, they link back
+                 * to the one active board instead of repeating it.
+                 */
+                const pendingReconciliation = (programme.reconciliation?.unaccountedRecords.length ?? 0) > 0;
+                const isDownstreamOfReconciliation =
+                  pendingReconciliation && (s.id === "validate" || s.id === "add-relationships") && s.status === "blocked";
                 return (
                 <li
                   key={s.id}
+                  id={`track2-stage-${s.id}`}
                   className={`rounded-lg border p-2.5 text-[11px] ${
                     s.id === programme.currentStageId
                       ? "border-slate-700 bg-slate-950"
@@ -341,17 +386,37 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                         </div>
                       )}
                       <div className="mt-0.5 text-slate-500">{s.detail}</div>
-                      {s.remedies.length > 0 && (
-                        <ul className="mt-1.5 space-y-1">
-                          {s.remedies.map((r, i) => (
-                            <li
-                              key={i}
-                              className="rounded border border-amber-500/20 bg-amber-500/5 p-1.5 text-amber-100"
-                            >
-                              {r}
-                            </li>
-                          ))}
-                        </ul>
+                      {isDownstreamOfReconciliation ? (
+                        <div className="mt-1.5 rounded border border-amber-500/20 bg-amber-500/5 p-1.5 text-amber-100">
+                          Waiting on Stage 5 reconciliation — not a separate failure.{" "}
+                          <a
+                            href="#track2-stage-classify-provenance"
+                            className="underline decoration-amber-400/50 hover:decoration-amber-400"
+                          >
+                            Go to the Population Reconciliation Board
+                          </a>
+                          .
+                        </div>
+                      ) : (
+                        s.remedies.length > 0 && (
+                          <ul className="mt-1.5 space-y-1">
+                            {s.remedies.map((r, i) => (
+                              <li
+                                key={i}
+                                className="rounded border border-amber-500/20 bg-amber-500/5 p-1.5 text-amber-100"
+                              >
+                                {r}
+                              </li>
+                            ))}
+                          </ul>
+                        )
+                      )}
+                      {s.id === "classify-provenance" && pendingReconciliation && programme.reconciliation && (
+                        <PopulationReconciliationBoard
+                          experimentId={experimentId}
+                          reconciliation={programme.reconciliation}
+                          onDone={() => void load()}
+                        />
                       )}
                       <div className="mt-1 text-[10px] text-slate-600">
                         {s.surface} · {s.actor}
@@ -475,6 +540,243 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+const DEFECT_LABEL: Record<UnaccountedDefect, string> = {
+  "missing-invariant-id": "Missing invariant_id",
+  "unresolvable-invariant-id": "Unresolvable invariant_id",
+  "duplicate-invariant-id": "Duplicate resolution",
+};
+
+/**
+ * THE POPULATION RECONCILIATION BOARD (al, 2026-08-04, Track 2 Stage 5).
+ *
+ *   > "The operator must be able to complete the repair from the place
+ *   >  where the exception is surfaced." — not a navigation instruction.
+ *
+ * Renders every unaccounted promoted candidate INDIVIDUALLY, with the exact
+ * defect and — where one exists — the deterministic repair already found by
+ * the server (`reconcilePromotedCohort`). Never re-derives a recommendation
+ * here: `record.recommendedTreatment` / `record.deterministicRepairInvariantId`
+ * are read verbatim, because a client that recomputed them could disagree
+ * with the server's own account of the same records.
+ *
+ * Both treatments post to the SAME governed route
+ * (`POST /api/research/track2/[experimentId]/reconcile`), which applies each
+ * through the existing canonical capability and receipts it individually —
+ * this component never writes `discovery_candidates` itself.
+ */
+function PopulationReconciliationBoard({
+  experimentId,
+  reconciliation,
+  onDone,
+}: {
+  experimentId: string;
+  reconciliation: PopulationReconciliationView;
+  onDone: () => void;
+}) {
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [err, setErr] = useState<string | null>(null);
+  const [lastOutcomes, setLastOutcomes] = useState<
+    { candidateId: string; treatment: "repair" | "exclude"; ok: boolean; detail: string }[] | null
+  >(null);
+
+  const { unaccountedRecords, declaredOut, received, explicitlyExcluded } = reconciliation;
+
+  const apply = useCallback(
+    async (treatments: { candidateId: string; treatment: "repair" | "exclude"; reason?: string }[]) => {
+      setErr(null);
+      setBusyIds((prev) => new Set([...prev, ...treatments.map((t) => t.candidateId)]));
+      try {
+        const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/reconcile`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ treatments }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d) throw new Error(`the reconciliation could not be applied (HTTP ${res.status})`);
+        setLastOutcomes(d.outcomes ?? null);
+        if (!res.ok && res.status !== 207) {
+          throw new Error(d.error || `the reconciliation could not be applied (HTTP ${res.status})`);
+        }
+        // RELOAD, NEVER LOCAL BOOKKEEPING (al, 2026-08-04: "do not require the
+        // operator to navigate away and manually refresh"). The server is the
+        // one authority on whether the population now reconciles.
+        onDone();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "the reconciliation could not be applied");
+      } finally {
+        setBusyIds((prev) => {
+          const next = new Set(prev);
+          for (const t of treatments) next.delete(t.candidateId);
+          return next;
+        });
+      }
+    },
+    [experimentId, onDone],
+  );
+
+  const repairBatch = unaccountedRecords.filter((r) => r.recommendedTreatment === "repair" && r.deterministicRepairInvariantId);
+  const excludeBatch = unaccountedRecords.filter(
+    (r) => r.recommendedTreatment === "exclude" && (r.defect === "duplicate-invariant-id" || r.defect === "unresolvable-invariant-id"),
+  );
+
+  return (
+    <div className="mt-2 rounded-lg border border-rose-500/30 bg-rose-500/5 p-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-rose-100">
+        <ShieldAlert className="h-3.5 w-3.5" />
+        Population Reconciliation Board
+      </div>
+      <p className="mt-1 text-[10px] text-rose-200/80">
+        Every promoted candidate not yet a distinct crystal member, individually. Resolve each below — Stage 5
+        unlocks automatically once every record is accounted for.
+      </p>
+
+      {/* THE LIVE POPULATION EQUATION (al, 2026-08-04). */}
+      <div className="mt-2 grid grid-cols-4 gap-1.5 text-center text-[10px]">
+        {[
+          { label: "Declared", value: declaredOut },
+          { label: "Proceeding", value: received },
+          { label: "Explicitly excluded", value: explicitlyExcluded },
+          { label: "Unresolved", value: unaccountedRecords.length },
+        ].map((cell) => (
+          <div key={cell.label} className="rounded border border-slate-800 bg-slate-950/60 p-1.5">
+            <div className="text-slate-500">{cell.label}</div>
+            <div className={`font-mono text-sm ${cell.label === "Unresolved" && cell.value > 0 ? "text-rose-300" : "text-slate-200"}`}>
+              {cell.value}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 text-center text-[10px] text-slate-600">
+        Stage 5 unlocks when proceeding + explicitly excluded = declared population.
+      </div>
+
+      {err && (
+        <div className="mt-2 rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-[11px] text-rose-200">{err}</div>
+      )}
+      {lastOutcomes && lastOutcomes.some((o) => !o.ok) && (
+        <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/5 p-1.5 text-[11px] text-amber-100">
+          {lastOutcomes.filter((o) => !o.ok).length} of {lastOutcomes.length} treatment(s) failed — the rest were
+          applied. Failed record(s):
+          <ul className="mt-1 space-y-0.5">
+            {lastOutcomes
+              .filter((o) => !o.ok)
+              .map((o) => (
+                <li key={o.candidateId} className="font-mono text-[10px]">
+                  {o.candidateId}: {o.detail}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      {/* BATCH ACTIONS — only when 2+ records share the SAME deterministic
+          treatment (al, 2026-08-04: "If both records have the same
+          deterministic defect, provide: Repair both and continue"). */}
+      {(repairBatch.length > 1 || excludeBatch.length > 1) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {repairBatch.length > 1 && (
+            <button
+              onClick={() =>
+                void apply(repairBatch.map((r) => ({ candidateId: r.candidateId, treatment: "repair" as const })))
+              }
+              disabled={repairBatch.some((r) => busyIds.has(r.candidateId))}
+              className="rounded border border-emerald-700/50 bg-emerald-950/30 px-2.5 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-900/40 disabled:opacity-50"
+            >
+              Repair all {repairBatch.length} and continue
+            </button>
+          )}
+          {excludeBatch.length > 1 && (
+            <button
+              onClick={() =>
+                void apply(
+                  excludeBatch.map((r) => ({
+                    candidateId: r.candidateId,
+                    treatment: "exclude" as const,
+                    reason: r.recommendedReason,
+                  })),
+                )
+              }
+              disabled={excludeBatch.some((r) => busyIds.has(r.candidateId))}
+              className="rounded border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-50"
+            >
+              Exclude all {excludeBatch.length} and continue
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* EVERY RECORD, INDIVIDUALLY — never only an aggregate count. */}
+      <ul className="mt-2 space-y-1.5">
+        {unaccountedRecords.map((r) => {
+          const busy = busyIds.has(r.candidateId);
+          const canRepair = r.recommendedTreatment === "repair" && Boolean(r.deterministicRepairInvariantId);
+          const reasonValue = reasons[r.candidateId] ?? (canRepair ? "" : r.recommendedReason);
+          return (
+            <li key={r.candidateId} className="rounded border border-slate-800 bg-slate-950/60 p-2 text-[11px]">
+              <div className="flex flex-wrap items-baseline gap-1.5">
+                <span className="rounded border border-slate-700 bg-slate-900/60 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                  {DEFECT_LABEL[r.defect]}
+                </span>
+                <span className="font-mono text-[10px] text-slate-500">{r.candidateId}</span>
+              </div>
+              <div className="mt-1 text-slate-200">{r.label}</div>
+              <div className="mt-1 text-[10px] text-slate-500">
+                {r.domain}
+                {r.subDomain ? `/${r.subDomain}` : ""} · {r.evidenceCount} evidence source(s) ·{" "}
+                {r.promotedInvariantId ? (
+                  <span className="font-mono">promoted_invariant_id: {r.promotedInvariantId}</span>
+                ) : (
+                  "no promoted_invariant_id recorded"
+                )}
+                {r.duplicateOfCandidateId && (
+                  <>
+                    {" "}
+                    · already claimed by <span className="font-mono">{r.duplicateOfCandidateId}</span>
+                  </>
+                )}
+              </div>
+              <div className="mt-1 text-amber-100">{r.recommendedReason}</div>
+
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {canRepair ? (
+                  <button
+                    onClick={() => void apply([{ candidateId: r.candidateId, treatment: "repair" }])}
+                    disabled={busy}
+                    className="rounded border border-emerald-700/50 bg-emerald-950/30 px-2.5 py-1 text-[11px] text-emerald-200 transition hover:bg-emerald-900/40 disabled:opacity-50"
+                  >
+                    {busy ? "Repairing…" : "Repair and include"}
+                  </button>
+                ) : (
+                  <span className="rounded border border-slate-700 bg-slate-900/60 px-2 py-0.5 text-[10px] text-slate-500">
+                    Steward judgment required — no deterministic repair
+                  </span>
+                )}
+                <input
+                  type="text"
+                  value={reasonValue}
+                  onChange={(e) => setReasons((prev) => ({ ...prev, [r.candidateId]: e.target.value }))}
+                  placeholder="exclusion reason"
+                  className="min-w-[10rem] flex-1 rounded border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 placeholder:text-slate-600"
+                />
+                <button
+                  onClick={() =>
+                    void apply([{ candidateId: r.candidateId, treatment: "exclude", reason: reasonValue.trim() }])
+                  }
+                  disabled={busy || !reasonValue.trim()}
+                  className="rounded border border-slate-700 bg-slate-900/60 px-2.5 py-1 text-[11px] text-slate-200 transition hover:bg-slate-800/60 disabled:opacity-50"
+                >
+                  {busy ? "Excluding…" : "Explicitly exclude"}
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
