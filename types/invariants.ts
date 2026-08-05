@@ -170,6 +170,23 @@ export type InvariantSemanticType =
   | 'law'
   | 'epistemic'; // ratified by Law XII (CFS-009 amendment)
 
+/**
+ * The six values above, as a runtime-checkable array (2026-08-05, Stage 9
+ * structural-diversity remediation) — `promoteCandidate` had hardcoded
+ * `semanticType: 'constraint'` on every promotion with no other path to set
+ * it, so every crystal's structural-diversity check was permanently stuck at
+ * one shape. This array is what a semantic-type classifier validates a
+ * model's proposal against, mirroring `INVARIANT_EDGE_TYPES` above.
+ */
+export const INVARIANT_SEMANTIC_TYPES: readonly InvariantSemanticType[] = [
+  'principle',
+  'constraint',
+  'definition',
+  'heuristic',
+  'law',
+  'epistemic',
+];
+
 /** CFS-001 §5 — the confidence ladder, mirroring standingScore.ts weights. */
 export type InvariantConfidenceBasis =
   | 'document_verified'   // 1.0

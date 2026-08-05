@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runCrystalReadinessReport } from '../services/research/crystalReadiness';
+import { runCrystalReadinessReport, connectedComponents } from '../services/research/crystalReadiness';
 import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
 import type { InvariantEdgeRecord } from '@/types/invariants';
 
@@ -274,5 +274,24 @@ describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
     const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
     expect(typeof report.derivationEligibleFraction).toBe('number');
     expect(typeof report.duplicatePairCount).toBe('number');
+  });
+});
+
+describe('connectedComponents (2026-08-05, Stage 9 bridge-candidate remediation) — full membership, not just sizes', () => {
+  it('groups connected ids together and isolates unconnected ones, matching the sizes the readiness check itself reports', () => {
+    const groups = connectedComponents(['a', 'b', 'c', 'd'], [['a', 'b']]);
+    const sorted = groups.map((g) => [...g].sort()).sort((x, y) => y.length - x.length);
+    expect(sorted).toEqual([['a', 'b'], ['c'], ['d']]);
+  });
+
+  it('returns one group per id when there are no edges at all', () => {
+    const groups = connectedComponents(['x', 'y'], []);
+    expect(groups).toHaveLength(2);
+  });
+
+  it('transitively merges a chain into a single component', () => {
+    const groups = connectedComponents(['a', 'b', 'c'], [['a', 'b'], ['b', 'c']]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].sort()).toEqual(['a', 'b', 'c']);
   });
 });
