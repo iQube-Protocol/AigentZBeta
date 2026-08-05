@@ -88,6 +88,7 @@ import {
   parseLabelledMessageFields,
   buildFieldParityTable,
   pulseBuildCandidates,
+  detectPulseArgumentDrift,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
 import { matchSchemaFields, missingRequiredFields } from '@/services/horizen/mcpSchemaMatch';
@@ -640,7 +641,11 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
     const transcript = JSON.parse(transcriptMatch![1]);
     expect(transcript).toMatchObject({
       recoveredSigner: WALLET.address,
-      expectedOwner: WALLET.address,
+      // The persisted walletAddress is now the EXACT string sent to
+      // build_pulse_auth_message — lowercased, matching what the signed
+      // message actually embeds (2026-08-05 wallet-casing fix) — never the
+      // checksummed value `AgentKeyService` returns.
+      expectedOwner: WALLET.address.toLowerCase(),
       agentId: '1234', // baseInput()'s default registry.tokenId
       issuedAt: '2026-07-31T12:00:00.000Z',
     });
@@ -724,17 +729,20 @@ describe('buildFieldParityTable — exact, unnormalized comparison (al, 2026-08-
 });
 
 describe('HorizenEscalationPacket — attached on submission rejection (al, 2026-08-04)', () => {
-  // Wallet line matches record.walletAddress's EXACT case (WALLET.address,
-  // checksummed) so the "everything agrees" test below is a genuinely clean
-  // baseline — this repo's own pulseBuildCandidates lowercases the wallet
-  // going INTO build_pulse_auth_message's request, so a real ceremony's
-  // RETURNED message would likely embed the lowercased form while
-  // record.walletAddress stays checksummed; that specific, expected-looking
-  // mismatch is exercised separately in the case-sensitivity test above.
+  // Wallet line is LOWERCASED (2026-08-05 fix) — matching the EXACT string
+  // pulseBuildCandidates sends to build_pulse_auth_message, and the exact
+  // string now persisted as record.walletAddress
+  // (`messageWalletAddress` in prepareHorizenTransparencyAuthorization).
+  // Before the fix, this fixture used the checksummed WALLET.address, which
+  // masked the real defect: record.walletAddress was persisted from
+  // `input.controllerWallet` AS GIVEN (checksummed), so a REAL ceremony's
+  // returned message — always lowercased, since that's what we send build —
+  // would disagree with the checksummed submission by case alone. That is
+  // the live "401 — Invalid signature" Horizen diagnosed on 2026-08-05.
   const asrMessage =
     'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\n' +
     'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\nWallet: ' +
-    WALLET.address +
+    WALLET.address.toLowerCase() +
     '\nIssued At: 2026-07-31T12:00:00.000Z';
 
   it('an "Invalid signature" rejection gets the corrected framing AND a full escalation packet with the exact message and signature (never bounded, unlike the general-log transcript)', async () => {
@@ -817,11 +825,18 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
   });
 
   it('the escalation packet\'s field parity table surfaces a genuine mismatch when the message and submission disagree — the exact defect class under investigation', async () => {
-    // The message embeds a DIFFERENT wallet casing than what was actually
-    // submitted — exercising operator concern #3 verbatim ("the message
-    // contains a lowercased wallet, while the API reconstructs a checksum
-    // address literally") without needing a live reproduction.
-    const mismatchedMessage = asrMessage.replace(`Wallet: ${WALLET.address}`, `Wallet: ${WALLET.address.toLowerCase()}`);
+    // The wallet-CASING drift this test originally simulated is now
+    // prevented BY CONSTRUCTION (2026-08-05 fix): submission always uses
+    // `messageWalletAddress`, the exact string sent to build, never a
+    // re-derived or independently-cased value — so that specific mismatch
+    // can no longer occur via this code path at all. What this test now
+    // proves instead: if Horizen's OWN returned message ever names a
+    // DIFFERENT wallet entirely (not merely different casing of the same
+    // one — a partner-side anomaly this client cannot prevent),
+    // buildFieldParityTable still surfaces it honestly rather than masking
+    // it.
+    const anotherWallet = ethers.Wallet.createRandom();
+    const mismatchedMessage = asrMessage.replace(WALLET.address.toLowerCase(), anotherWallet.address.toLowerCase());
     const mcpClient = fakeMcpClient({
       buildMessage: mismatchedMessage,
       enableResult: {
@@ -839,9 +854,36 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
     const row = result.escalationPacket?.fieldParity.find((r) => r.field === 'walletAddress');
     expect(row).toEqual({
       field: 'walletAddress',
-      signedValue: WALLET.address.toLowerCase(),
-      submittedValue: WALLET.address,
+      signedValue: anotherWallet.address.toLowerCase(),
+      submittedValue: WALLET.address.toLowerCase(),
       equal: false,
     });
+  });
+
+  /*
+   * A REGRESSION GATE, THE SAME REGISTER AS verifySignatureIntegrity
+   * (2026-08-05): today `submitArgs.walletAddress` is LITERALLY
+   * `record.walletAddress` (both flow from `messageWalletAddress` at
+   * prepare time), so this passes trivially — its value is catching a
+   * FUTURE change that reintroduces the exact casing bug Horizen diagnosed
+   * (e.g. a refactor that re-derives the submitted wallet from
+   * `AgentKeyService` again instead of reading the persisted record).
+   */
+  it('detectPulseArgumentDrift names the differing field and both exact values when build-time and submit-time disagree', () => {
+    const drifted = detectPulseArgumentDrift(
+      { agentId: '8798', walletAddress: WALLET.address.toLowerCase(), issuedAt: '2026-07-31T12:00:00.000Z', network: 'base-sepolia' },
+      { agentId: '8798', walletAddress: WALLET.address, issuedAt: '2026-07-31T12:00:00.000Z', chain: 'base-sepolia' },
+    );
+    expect(drifted).toEqual([
+      { field: 'walletAddress', builtValue: WALLET.address.toLowerCase(), submitValue: WALLET.address },
+    ]);
+  });
+
+  it('detectPulseArgumentDrift reports no drift when every field agrees byte-for-byte', () => {
+    const drift = detectPulseArgumentDrift(
+      { agentId: '8798', walletAddress: WALLET.address.toLowerCase(), issuedAt: '2026-07-31T12:00:00.000Z', network: 'base-sepolia' },
+      { agentId: '8798', walletAddress: WALLET.address.toLowerCase(), issuedAt: '2026-07-31T12:00:00.000Z', chain: 'base-sepolia' },
+    );
+    expect(drift).toEqual([]);
   });
 });
