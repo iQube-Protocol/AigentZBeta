@@ -148,16 +148,34 @@ interface CohortMemberRef {
   statement: string;
 }
 
+/**
+ * `scientific-readiness` is a freeze-gating hard check; `scientific-maturity`
+ * is informational only and never blocks Freeze (operator ruling,
+ * 2026-08-05: "Can this crystal be frozen? Is this crystal scientifically
+ * ideal? Those are not the same question."). Mirrors
+ * services/research/crystalReadiness.ts's CrystalReadinessCheck.
+ */
 interface ReadinessCheck {
   name: string;
   passed: boolean;
   detail: string;
   remedy: string | null;
+  tier: "scientific-readiness" | "scientific-maturity";
+}
+
+interface ReadinessMaturitySummary {
+  checks: ReadinessCheck[];
+  passedCount: number;
+  totalCount: number;
+  band: "bronze" | "silver" | "gold";
 }
 
 interface ReadinessReport {
+  /** READY FOR FREEZE — depends only on `scientific-readiness`-tier checks. */
   ok: boolean;
   checks: ReadinessCheck[];
+  /** Informational only — never gates anything. */
+  maturity: ReadinessMaturitySummary;
   invariantCount: number;
 }
 
@@ -418,8 +436,14 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                       // direction, 2026-08-05: "Run Readiness / 7/9 passed / Structural
                       // diversity [Resolve] / Graph connectivity [Resolve]") — [Resolve]
                       // scrolls to Stage 9, where the actual affordance lives; it is not a
-                      // second control, just a pointer to the one true place.
+                      // second control, just a pointer to the one true place. Includes BOTH
+                      // tiers — a maturity finding is still worth resolving, it just no
+                      // longer withholds this stage's own completion.
                       const failingChecks = s.id === "run-readiness" && readiness ? readiness.checks.filter((c) => !c.passed) : [];
+                      const readinessTierTotal = readiness ? readiness.checks.filter((c) => c.tier === "scientific-readiness").length : 0;
+                      const readinessTierPassed = readiness
+                        ? readiness.checks.filter((c) => c.tier === "scientific-readiness" && c.passed).length
+                        : 0;
                       return (
                         <li key={s.id}>
                           <a
@@ -438,7 +462,8 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                             {s.label}
                             {s.id === "run-readiness" && readiness && (
                               <span className="text-slate-500">
-                                — {readiness.checks.filter((c) => c.passed).length}/{readiness.checks.length} passed
+                                — {readinessTierPassed}/{readinessTierTotal} scientific-readiness passed
+                                {readiness.maturity.totalCount > 0 && ` · maturity ${readiness.maturity.band}`}
                               </span>
                             )}
                           </a>
@@ -682,27 +707,60 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           behind a click — the button re-reads the live state
                           (the SAME reload every other control already
                           triggers) rather than approving anything separate. */}
+                      {/* Two tiers, never conflated (operator ruling, 2026-08-05): "Can this
+                          crystal be frozen?" (scientific-readiness, hard gate) is a different
+                          question from "Is this crystal scientifically ideal?" (scientific-
+                          maturity, informational). A first crystal that is all one semantic
+                          shape, or still fragmented into disjoint clusters, is a true finding
+                          about the corpus — not evidence corruption — and must not block Freeze
+                          the way a real data-integrity failure does. */}
                       {s.id === "run-readiness" && readiness && (
-                        <div className="mt-2 space-y-1 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
-                          <ul className="space-y-0.5">
-                            {readiness.checks.map((c) => (
-                              <li key={c.name} className={c.passed ? "text-emerald-300" : "text-amber-200"}>
-                                {c.passed ? "✓" : "○"} {c.name}
-                                <span className="ml-1.5 text-slate-500">{c.detail}</span>
-                                {/* Executable remediation in place of prose (operator direction, 2026-08-05):
-                                    a failing check gets an affordance that actually resolves it, not another
-                                    sentence explaining why it's blocked. */}
-                                {!c.passed && c.name === "structural-diversity" && (
-                                  <DiversityCandidateQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
-                                )}
-                                {!c.passed && c.name === "graph-connectivity" && (
-                                  <BridgeRelationshipQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                          <div className={`font-medium ${readiness.ok ? "text-emerald-300" : "text-amber-200"}`}>
-                            {readiness.checks.filter((c) => c.passed).length} / {readiness.checks.length} checks passed
+                        <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+                          <div>
+                            <div className="mb-0.5 font-medium text-slate-300">Scientific Readiness (freeze-gating)</div>
+                            <ul className="space-y-0.5">
+                              {readiness.checks
+                                .filter((c) => c.tier === "scientific-readiness")
+                                .map((c) => (
+                                  <li key={c.name} className={c.passed ? "text-emerald-300" : "text-amber-200"}>
+                                    {c.passed ? "✓" : "○"} {c.name}
+                                    <span className="ml-1.5 text-slate-500">{c.detail}</span>
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="mb-0.5 font-medium text-slate-300">
+                              Scientific Maturity — informational, does not block Freeze
+                            </div>
+                            <ul className="space-y-0.5">
+                              {readiness.checks
+                                .filter((c) => c.tier === "scientific-maturity")
+                                .map((c) => (
+                                  <li key={c.name} className={c.passed ? "text-emerald-300" : "text-sky-300"}>
+                                    {c.passed ? "✓" : "⚠"} {c.name}
+                                    <span className="ml-1.5 text-slate-500">{c.detail}</span>
+                                    {/* Executable remediation in place of prose (operator direction,
+                                        2026-08-05): a maturity finding still gets an affordance that
+                                        actually resolves it — "always a way to resolve any blocker, not
+                                        just highlighting it" — it just no longer withholds Freeze. */}
+                                    {!c.passed && c.name === "structural-diversity" && (
+                                      <DiversityCandidateQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
+                                    )}
+                                    {!c.passed && c.name === "graph-connectivity" && (
+                                      <BridgeRelationshipQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
+                                    )}
+                                  </li>
+                                ))}
+                            </ul>
+                          </div>
+                          <div className="flex items-center justify-between border-t border-slate-800 pt-1.5">
+                            <span className={`font-medium ${readiness.ok ? "text-emerald-300" : "text-amber-200"}`}>
+                              Overall: {readiness.ok ? "READY FOR FREEZE" : "NOT YET READY"}
+                            </span>
+                            <span className="text-slate-400">
+                              Scientific maturity: {readiness.maturity.band} ({readiness.maturity.passedCount}/{readiness.maturity.totalCount})
+                            </span>
                           </div>
                         </div>
                       )}
