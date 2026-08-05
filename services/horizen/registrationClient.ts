@@ -41,7 +41,7 @@ import { ethers } from 'ethers';
 import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
 import { decodeAgentIdFromReceipt } from './agentIdRecovery';
-import { findCompatibleTool, matchSchemaFields, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, firstEmbeddedJsonObject, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from './registrableAgents';
 import { buildHorizenAgentPageUrl } from './agentPageUrl';
 
@@ -251,57 +251,13 @@ export interface UnsignedTx {
   chainId?: string | number;
 }
 
-/** Mirrors scripts/register-moneypenny-horizen.ts's extractUnsignedTx — moved here so the script and this service share one implementation (never a second copy, inv.engineering.036/037). */
 /**
- * The first balanced JSON object embedded anywhere in `text`, or null.
- *
- * Horizen does not return bare JSON. It returns human prose, a `--- structured
- * ---` marker, and then the object — so `JSON.parse(text)` throws on the very
- * response that contains the transaction. Brace-balanced rather than a regex,
- * and string-aware, so a `{` or `}` inside a description field cannot truncate
- * the object early (Nakamoto's own description contains braces-adjacent
- * punctuation and several escaped quotes).
+ * Mirrors scripts/register-moneypenny-horizen.ts's extractUnsignedTx.
+ * `firstEmbeddedJsonObject` (brace-balanced, `--- structured ---`-marker-aware
+ * extraction) now lives in `./mcpSchemaMatch` — shared with
+ * `authorizationClient.ts`'s `extractStructuredMessageField` — never a second
+ * copy (inv.engineering.036/037).
  */
-function firstEmbeddedJsonObject(text: string): unknown | null {
-  // Horizen marks the machine-readable part; prefer it when present so a brace
-  // in the prose above can never be mistaken for the start of the object.
-  const marker = text.indexOf('--- structured ---');
-  const from = marker === -1 ? 0 : marker;
-
-  // Otherwise try EVERY `{` in turn. Taking only the first one is fragile:
-  // Horizen's prose is free text, and a single stray brace in it would consume
-  // the whole extraction and report "no transaction" about a response that
-  // contains one. Found by a test case before it was found in production.
-  for (let start = text.indexOf('{', from); start !== -1; start = text.indexOf('{', start + 1)) {
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let i = start; i < text.length; i += 1) {
-      const ch = text[i];
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inString = false;
-        continue;
-      }
-      if (ch === '"') inString = true;
-      else if (ch === '{') depth += 1;
-      else if (ch === '}') {
-        depth -= 1;
-        if (depth === 0) {
-          try {
-            return JSON.parse(text.slice(start, i + 1));
-          } catch {
-            break; // not the object — try the next candidate `{`
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
-
 /**
  * The unsigned transaction inside a `build_registration_tx` result.
  *
