@@ -3788,6 +3788,11 @@ function FreezeControl({
           contentHash,
           signedBy: [operatorRef, reviewerRef].filter(Boolean),
           freezeRationale: rationale,
+          // The server re-validates this — it never trusts a client boolean
+          // as the acknowledgement itself, only as a required INPUT the
+          // route then checks alongside its own ratified-declaration read
+          // (operator ruling, EXP PP1 Track 2, 2026-08-05).
+          boundaryAcknowledged,
         },
         "requestSucceeded",
       );
@@ -3801,7 +3806,7 @@ function FreezeControl({
     } finally {
       setBusy(false);
     }
-  }, [call, experimentId, contentHash, operatorRef, reviewerRef, rationale, onDone]);
+  }, [call, experimentId, contentHash, operatorRef, reviewerRef, rationale, boundaryAcknowledged, onDone]);
 
   return (
     <div className="mt-2 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
