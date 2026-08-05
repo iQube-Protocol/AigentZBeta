@@ -668,7 +668,7 @@ reference · one demonstration receipt per layer · deployed-environment evidenc
 **operator-attested** — the same footing CR-8 held before `SRC-IF-IAPP-2017-001` was archived, and
 resolvable the same way.
 
-### CR-14 — Constitution Before Substrate: quantum transition launchpad (operator-ratified 2026-08-04)
+### CR-17 — Constitution Before Substrate: quantum transition launchpad (operator-ratified 2026-08-04)
 
 **Status:** **Doctrine ratified. Manuscript insertion APPLIED in `01-controlling-manuscript-v0.3.md`
 (2026-08-04 consolidation pass).** `01-working-manuscript.md` (v0.2) is left unmodified as the
@@ -893,7 +893,7 @@ are), so it is a viable interim home if Supabase upload is not yet available.
 ## Consolidation pass — v0.3 Controlling Manuscript produced (2026-08-04)
 
 Operator-directed consolidation pass produced `01-controlling-manuscript-v0.3.md`, applying CR-1
-through CR-14 and ADD-1 through ADD-3 to v0.2 (`01-working-manuscript.md`, left unmodified as the
+through CR-17 and ADD-1 through ADD-3 to v0.2 (`01-working-manuscript.md`, left unmodified as the
 archival source of record). Full disposition of every ruling, the still-open editorial decisions
 this pass does not resolve, the implementation matters kept out of manuscript scope, and a
 chapter-by-chapter publication-readiness call are recorded in the companion document,

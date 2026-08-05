@@ -26,8 +26,8 @@ note: >-
   material appeared both as a proposal/draft and as its final integrated
   version; the draft is removed and the integrated version is retained
   verbatim; (3) applying the ratified correction register (CR-1 through
-  CR-14) and the author-directed additions (ADD-1 through ADD-3) from
-  00-editorial-register.md; (4) inserting the CR-14 "Constitution Before
+  CR-17) and the author-directed additions (ADD-1 through ADD-3) from
+  00-editorial-register.md; (4) inserting the CR-17 "Constitution Before
   Substrate" quantum-transition passage into Chapter Nineteen and its
   Epilogue forward reference, both of which were queued and held pending
   this pass; (5) adding the ADD-1 concise embodied-delegate echo into

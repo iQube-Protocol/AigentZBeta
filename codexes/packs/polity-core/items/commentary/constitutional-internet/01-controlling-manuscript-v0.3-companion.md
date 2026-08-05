@@ -19,25 +19,51 @@ note: >-
 ## 0. Scope of this pass
 
 v0.3 consolidates v0.2 (`01-working-manuscript.md`) by (a) stripping interleaved editorial
-dialogue and the duplicated Epilogue draft, (b) applying rulings CR-1–CR-14 and additions
-ADD-1–ADD-3 from `00-editorial-register.md`, and (c) inserting the previously-queued CR-14
+dialogue and the duplicated Epilogue draft, (b) applying rulings CR-1–CR-17 and additions
+ADD-1–ADD-3 from `00-editorial-register.md`, and (c) inserting the previously-queued CR-17
 quantum-transition passage. It does **not** re-litigate any open audit finding, does not ratify
 any proposed doctrine, and does not touch the Internet Foundation's parked mandate question. v0.2
 remains the archival source of record.
 
 Companion corpus positioning, per the operator's instruction for this pass:
 
-- **Experience Sovereignty** and **COYN Thesis** are registered Polity Core *commentary* (not
-  ratified law — see `items/commentary/README.md`), available for citation, not integration. They
-  live at `items/commentary/experience-sovereignty/07-agent-runbook.md` and
-  `items/commentary/coyn-thesis/01…05-*.md`, registered in `collections.json` under
-  `col_commentary_experience_sovereignty` and `col_commentary_coyn_thesis`.
-- **The Polity** commentary (`items/commentary/polity/01–04`, incl. *The Constitution of the
-  Agentic Polity*) is likewise available for citation as pre-existing constitutional commentary.
-- **The Genie in the Lamp** and **The Constitutional Internet for Agents** — searched repo-wide;
-  **neither exists yet** as a file, pack item, or `collections.json` entry. They are treated here
-  as companion deliverables to be produced separately; nothing in v0.3 assumes their content or
-  reopens the human-book architecture to make room for them.
+- **Experience Sovereignty**, **COYN Thesis**, and **The Polity** are canonical Polity Core
+  *constitutional commentary* — registered, citable, and part of the doctrinal record. They live at
+  `items/commentary/experience-sovereignty/07-agent-runbook.md`, `items/commentary/coyn-thesis/01…
+  05-*.md`, and `items/commentary/polity/01…04-*.md`, registered in `collections.json` under
+  `col_commentary_experience_sovereignty`, `col_commentary_coyn_thesis`, and `col_commentary_polity`.
+  Being *commentary* rather than an individually ratified constitutional instrument is the normal
+  status for a Polity Paper — per `items/commentary/README.md`, the one paper elevated to ratified
+  constitutional status is *The Constitution of the Agentic Polity* (`items/commentary/polity/04-*`)
+  itself; the source works are not diminished by remaining commentary alongside it.
+  **Derived invariant doctrine is a separate question and must be stated at its own status:** the 28
+  invariants seeded from Experience Sovereignty (`inv.polity.207`–`inv.polity.234`,
+  `codexes/packs/agentiq/updates/2026-07-17_polity-experience-sovereignty-canonization.md`) are
+  recorded at **`status: "proposed"`** in that canonization record — verified directly in this pass,
+  not ratified. Two earlier, separate invariants are already canonical: `inv.polity.163` (Time
+  Sovereignty) and `inv.polity.164` (Experience Sovereignty). Citing the 207–234 block as ratified
+  canon would violate the hypothesis-vs-canon discipline (CLAUDE.md, "Hypothesis vs Canon") this
+  project is bound by; v0.3 and this companion cite the source commentary, not the proposed block, as
+  doctrine.
+- **The Genie in the Lamp** and **The Constitutional Internet for Agents** — an exhaustive repo
+  search (current branch and every remote branch) for `CI-AGENT-EDITION`, `BL-17`, `Genie in the
+  Lamp`, `Action Boundary`, and `Paper VI` returned **no matches anywhere**. This companion cannot
+  therefore confirm the operator's stated programme records (`CI-AGENT-EDITION.md`, a `BL-17`
+  launch-readiness backlog entry, a Paper VI series ruling, an "Action Boundary" source draft) as
+  deposited artifacts in `iQube-Protocol/AigentZBeta` — they may exist in a different repository, an
+  uncommitted local session, or another planning surface this pass has no visibility into. Until
+  their location is confirmed, v0.3 treats both works as **programme-level intentions asserted by
+  the operator, not yet locatable in this codebase**, and does not fabricate their content or assume
+  a deposit that cannot be verified. This is a factual-location gap, not a judgment that the
+  underlying programme decisions are wrong.
+
+**Deletion-scope confirmation (v0.2 lines 4967–5960).** Verified by direct line-for-line comparison
+against the retained integrated Epilogue (v0.2 lines 5961–6529): the deleted block consists of two
+kinds of content only — interleaved editorial dialogue (author voice notes and drafting responses)
+and a full draft copy of the embodied-delegate/human-machine-symbiosis Epilogue material that is
+word-for-word identical to the integrated version that follows it, differing only in missing
+Markdown heading markers. No sentence in the deleted range lacks a surviving match in the retained
+text. **No unique intended narrative passage was lost.**
 
 ## 1. Ruling-to-chapter integration matrix
 
@@ -56,10 +82,10 @@ Companion corpus positioning, per the operator's instruction for this pass:
 | CR-11 — Receipt-class anchoring and proof-state precision | Ch13, Ch19, Ch20 | **Ch13: checked, no change needed** — its proof-chain description is already staged (before-action / execution / consequence / challenge) and never compresses to a single immutability claim. **Ch19: applied** — qualified "Constitutional refusal produces a receipt" with the required limitation that this is not yet true of every runtime path. **Ch20: applied** — reworded the chapter's closing "Its machinery operates" to "Its machinery is implemented and demonstrated in the paths this book can verify, and is being extended to the rest," matching the reconciliation audit's specific required fix for CI-20. |
 | CR-12 — The Commons: institution vs. implementation | Ch21, Ch22, Epilogue | **Epilogue: applied** to the specific flagged passage ("The Commons and the Registry" scene) — both present-indicative Commons sentences reworded to "is constituted to preserve" framing. **Ch21/Ch22: checked, no change made** — existing Commons language there already reads as definitional/mandate ("The Commons preserves…" as a statement of constitutional purpose) rather than an operational-completeness claim; left as the author wrote it rather than over-editing a borderline case. |
 | CR-13 — Embodied constitutional agents and personal digital twins | Ch7, Ch8, Ch15, Epilogue | **No manuscript change required.** The ruling **supersedes** the audit finding that flagged this (B-1) as wrong in scope — the existing manuscript language was already correct; only the audit's own claim needed correction, not the prose. |
-| CR-14 — Constitution Before Substrate | Ch17 (cross-ref only), Ch19, Epilogue | **Applied — the reason for this pass.** Inserted the full queued passage into Ch19 (after the constitutional-computing/pluralism discussion, before the chapter's closing synthesis) and the forward-reference sentence into the Epilogue's Closing (before the final "threshold was recognition / participation" beats, so the book's actual last words are undisturbed). Ch17 needed no new prose — cross-reference only, per the register. |
+| CR-17 — Constitution Before Substrate | Ch17 (cross-ref only), Ch19, Epilogue | **Applied — the reason for this pass.** Inserted the full queued passage into Ch19 (after the constitutional-computing/pluralism discussion, before the chapter's closing synthesis) and the forward-reference sentence into the Epilogue's Closing (before the final "threshold was recognition / participation" beats, so the book's actual last words are undisturbed). Ch17 needed no new prose — cross-reference only, per the register. |
 | ADD-1 — The Embodied Delegate | Ch15 echo + Epilogue | **Applied.** v0.2 had the full Epilogue treatment integrated but had **not yet** added the concise Ch15 echo the register calls for. Added one paragraph immediately after Ch15's attribution discussion, using only the governing distinctions already ratified in ADD-1/CR-13 (agent may represent, must never be confused with, the person; the four-part proof question). |
 | ADD-2 — Human–Machine Constitutional Symbiosis | Epilogue | **Applied by removing the duplicate.** The integrated version (already correctly sequenced: day-in-life → Humans and Machines → Invitation → Closing) is retained verbatim; the draft/proposal copy and the two rounds of dialogue that produced it were deleted along with the rest of the draft Epilogue block. |
-| ADD-3 — Contained invitation + revised close | Epilogue | **Applied by removing the duplicate.** Same disposition as ADD-2 — the integrated "The Invitation" and "Closing" sections are retained verbatim (with the one CR-14 sentence added to Closing); the draft copy is removed. |
+| ADD-3 — Contained invitation + revised close | Epilogue | **Applied by removing the duplicate.** Same disposition as ADD-2 — the integrated "The Invitation" and "Closing" sections are retained verbatim (with the one CR-17 sentence added to Closing); the draft copy is removed. |
 
 ## 2. Genuinely unresolved editorial decisions
 
@@ -169,13 +195,13 @@ change (in the manuscript or in the codebase) to move a chapter to fully clear.
 | 16 | The Passport Of The Person | Supported | **Clear** on everything except one naming item. | "Companion Edge Service" naming (B-8) — not addressed in this pass; low risk, recommend a follow-up wording pass. |
 | 17 | Privacy Through Different Assumptions | Was Conflicting → **resolved in this pass** | **Clear.** CR-9 wording applied; the exact "we use quantum mechanics to strengthen randomness" formulation retained per the register. | None on the manuscript side; CR-9's own implementation gate (§3) governs any future upgrade to stronger wording. |
 | 18 | Standing Carries Consequence | Was Conflicting → **resolved in this pass** | **Clear.** CR-10 wording applied; no decay/contradiction-penalty language remains for person standing. | Appendix III glossary split (§2) is a structural addition, not blocking this chapter's own text. |
-| 19 | Constitutional Information And Computing | Partially supported → **strengthened in this pass** | **Clear.** CR-11 refusal-receipt qualification applied; CR-14 substrate-independence passage inserted. | Canonical registry-plane status (noted by the audit) is a code-side item, not a wording issue post-edit. |
+| 19 | Constitutional Information And Computing | Partially supported → **strengthened in this pass** | **Clear.** CR-11 refusal-receipt qualification applied; CR-17 substrate-independence passage inserted. | Canonical registry-plane status (noted by the audit) is a code-side item, not a wording issue post-edit. |
 | 20 | The Constitutional Internet Is Here | Partially supported → **resolved in this pass** | **Clear.** Closing sentence reworded per the audit's specific CI-20 instruction. | `DVN_MOCK_MODE` hardcoded status (§3) is a code-side risk to the *evidence*, not to this chapter's current wording. |
 | 21 | The Polity As Constitutional Institute | Partially supported | **Not clear — the book's largest open item.** | Internet Foundation present-tense mandate (§2) is an explicit candidate publication blocker; Commons operational-completeness qualified in Epilogue only, not re-touched here (§1); Venture Lab ontology (G-7) and Commons/ontology divergence (G-8) both open. |
 | 22 | Many Bridges, One Polity | Partially supported | **Clear on doctrine**, qualified on evidence. | README/package.json/licensing hygiene (§3) undercuts the openness claim's supporting evidence, not its argument. |
 | 23 | The Person Becomes Visible | Partially supported — strongest-evidenced claim in scope | **Clear**, and under-stated relative to evidence (C-2). | Optional strengthening only; explicitly must **not** cite time-saved/RepairRisk evidence (still unmeasured, §3). |
 | 24 | Entering The Polity | Partially supported | **Clear on the claims it makes**, narrowed already to the implemented subset. | Exit-rights implementation gap (B-2, §3) remains real; the manuscript's current wording does not overclaim it. |
-| — | Epilogue — The Constitutional Society | Partially supported | **Clear.** Duplicate draft removed; CR-12 Commons framing qualified in the flagged passage; CR-14 forward reference added; ADD-2/ADD-3 integrated versions retained verbatim. | Internet Foundation present-tense sponsorship line in the same scene as the qualified Commons passage was deliberately left untouched — same open item as Ch21. |
+| — | Epilogue — The Constitutional Society | Partially supported | **Clear.** Duplicate draft removed; CR-12 Commons framing qualified in the flagged passage; CR-17 forward reference added; ADD-2/ADD-3 integrated versions retained verbatim. | Internet Foundation present-tense sponsorship line in the same scene as the qualified Commons passage was deliberately left untouched — same open item as Ch21. |
 
 **Overall**: 20 of 24 chapters plus the Epilogue are assessed clear for publication as currently
 worded. Two (Ch12, Ch21) carry genuine open gates requiring an operator decision, not an editorial
