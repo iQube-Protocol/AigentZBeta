@@ -31,7 +31,7 @@
 import { createHash } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, extractIssuedAt, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, extractStructuredMessageField, extractIssuedAt, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -139,7 +139,43 @@ export type HorizenAuthorizationRefusalCode =
    * local check (recovered signer, registry owner) already passed.
    */
   | 'PULSE_ARGUMENT_DRIFT'
+  /**
+   * INSTRUMENTATION, NOT A FIX (Horizen live-test escalation, 2026-08-05).
+   *
+   * Horizen's engineer reproduced our 401 via live probes and narrowed it to
+   * one class of defect: "the recovered signer ≠ the walletAddress you
+   * submitted... your 401 says your bytes ≠ our reconstruction." His leading
+   * hypothesis: `build_pulse_auth_message` returns a human-readable blob
+   * PLUS a `--- structured ---` JSON section carrying a `message` field —
+   * and the signable bytes are that field, not the rendered text around it.
+   *
+   * `extractPartnerMessage`'s `sole-text-block` fallback (mcpSchemaMatch.ts)
+   * accepts the ENTIRE text block whenever the whole thing fails to
+   * `JSON.parse` — which is exactly what a prose-preamble-plus-marker
+   * response does, even though a `message` field is sitting right there
+   * inside the embedded JSON. This refusal fires when
+   * `extractStructuredMessageField`'s marker-aware read disagrees with what
+   * `extractPartnerMessage` decided to sign — i.e. the two extractions of
+   * the SAME response chose different bytes. Per al's explicit direction:
+   * "Do not change signing behavior until the instrumentation identifies
+   * the exact divergence" — this refuses LOUDLY with every diagnostic named,
+   * rather than silently picking one side or attempting a fix blind.
+   */
+  | 'PULSE_MESSAGE_DRIFT'
   | 'STATE_MISMATCH';
+
+/**
+ * One side of a `PULSE_MESSAGE_DRIFT` comparison — deliberately unnormalized,
+ * mirroring `HorizenMessageFieldParityRow`'s own "show exact strings and
+ * lengths" doctrine (al, 2026-08-04).
+ */
+export interface PulseMessageDriftSide {
+  length: number;
+  json: string;
+  sha256: string;
+  first32: string;
+  last32: string;
+}
 
 /**
  * One row of a field-by-field comparison between what was SIGNED (parsed
@@ -513,6 +549,42 @@ export async function prepareHorizenTransparencyAuthorization(
     };
   }
   const message = extracted.message;
+
+  /*
+   * PULSE_MESSAGE_DRIFT INSTRUMENTATION (Horizen live-test escalation,
+   * 2026-08-05) — see the refusal code's own doc comment above for the full
+   * evidence chain. This compares `message` (what is about to be signed,
+   * decided by `extractPartnerMessage`) against a marker-aware read of the
+   * SAME `buildResult` (`extractStructuredMessageField`). If a structured
+   * `message` field exists and differs from what we're about to sign, that
+   * is decisive: refuse now, with every byte-level diagnostic named, rather
+   * than sign, submit, and receive Horizen's 401 again. If no structured
+   * alternative is found at all, there is nothing to diff against — proceed
+   * exactly as before; this instrumentation only ever ADDS a refusal, it
+   * never widens what gets signed.
+   */
+  const structuredAttempt = extractStructuredMessageField(buildResult, MESSAGE_FIELDS);
+  if (structuredAttempt.found && structuredAttempt.message !== message) {
+    const describe = (s: string): PulseMessageDriftSide => ({
+      length: s.length,
+      json: JSON.stringify(s),
+      sha256: sha256Hex(s),
+      first32: s.slice(0, 32),
+      last32: s.slice(-32),
+    });
+    const signed = describe(message);
+    const structured = describe(structuredAttempt.message);
+    return {
+      ok: false,
+      refusalCode: 'PULSE_MESSAGE_DRIFT',
+      detail:
+        `"${buildTool.tool.name}"'s response contains a structured "message" field that differs from the text ` +
+        `extractPartnerMessage chose to sign (via: ${extracted.via}, markerPresent: ${structuredAttempt.markerPresent}). ` +
+        `Refusing to sign rather than guess which side Horizen's server reconstructs against. ` +
+        `SIGNED candidate — length ${signed.length}, sha256 ${signed.sha256}, first32 ${signed.first32}, last32 ${signed.last32}, json ${signed.json}. ` +
+        `STRUCTURED candidate — length ${structured.length}, sha256 ${structured.sha256}, first32 ${structured.first32}, last32 ${structured.last32}, json ${structured.json}.`,
+    };
+  }
 
   /*
    * NEVER REGENERATE issuedAt (al / Horizen brief, 2026-08-04). This used to

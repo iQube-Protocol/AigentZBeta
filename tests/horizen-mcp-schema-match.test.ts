@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage, extractStructuredMessageField, firstEmbeddedJsonObject } from '@/services/horizen/mcpSchemaMatch';
 
 describe('matchSchemaFields (regression-pinned — the register-moneypenny-horizen.ts precedent)', () => {
   it('matches candidate values against the schema\'s own declared property names, never inventing new ones', () => {
@@ -193,6 +193,97 @@ describe('extractPartnerMessage — Horizen returns the message as plain text (2
     );
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toContain('raw source');
+  });
+
+  /*
+   * THE DEFECT CLASS UNDER LIVE INVESTIGATION (Horizen engineer's live-probe
+   * escalation, 2026-08-05): a response that is prose + an "ASR Pulse
+   * enable" body + a `--- structured ---` marker + a trailing JSON object
+   * naming `message`. This whole blob fails `JSON.parse` (it isn't bare
+   * JSON), so the named-field path here finds nothing and the sole-text-block
+   * fallback accepts the ENTIRE blob — preamble and all — as the message to
+   * sign. `extractStructuredMessageField` (below) is what a caller uses to
+   * catch this: it looks PAST the marker for the JSON's own `message` field.
+   */
+  it('sole-text-block accepts the FULL preamble+ASR+structured blob when the whole thing is not bare JSON — the exact shape extractStructuredMessageField exists to catch', () => {
+    const blob =
+      'Sign this message with wallet 0x24bb… then call enable_pulse_monitoring with the signature and issuedAt="2026-08-05T00:00:00.000Z".\n' +
+      'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-08-05T00:00:00.000Z\n' +
+      '--- structured ---\n' +
+      JSON.stringify({ message: 'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-08-05T00:00:00.000Z' });
+    const r = extractPartnerMessage({ content: [{ type: 'text', text: blob }] }, FIELDS);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.via).toBe('sole-text-block');
+      // The bug shape: the ENTIRE blob, not the JSON's own message field.
+      expect(r.message).toBe(blob);
+      expect(r.message).toContain('Sign this message with wallet');
+      expect(r.message).toContain('--- structured ---');
+    }
+  });
+});
+
+describe('firstEmbeddedJsonObject — brace-balanced, marker-aware extraction', () => {
+  it('finds the JSON object after a "--- structured ---" marker, ignoring braces in the prose above it', () => {
+    const text = 'Some prose with a stray { brace.\n--- structured ---\n' + JSON.stringify({ message: 'the real message', foo: 'bar' });
+    expect(firstEmbeddedJsonObject(text)).toEqual({ message: 'the real message', foo: 'bar' });
+  });
+
+  it('returns null when no JSON object is embedded at all', () => {
+    expect(firstEmbeddedJsonObject('just plain prose, no braces here')).toBeNull();
+  });
+});
+
+describe('extractStructuredMessageField — the message named INSIDE embedded JSON, distinct from the whole-blob fallback (2026-08-05)', () => {
+  const FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
+
+  it('extracts the structured message field from a preamble+ASR+marker+JSON blob — the exact case extractPartnerMessage cannot distinguish', () => {
+    const structuredMessage = 'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-08-05T00:00:00.000Z';
+    const blob =
+      'Sign this message with wallet 0x24bb… then call enable_pulse_monitoring with the signature.\n' +
+      'ASR Pulse enable\nAgent: 8798\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-08-05T00:00:00.000Z\n' +
+      '--- structured ---\n' +
+      JSON.stringify({ message: structuredMessage });
+
+    const r = extractStructuredMessageField({ content: [{ type: 'text', text: blob }] }, FIELDS);
+    expect(r.found).toBe(true);
+    if (r.found) {
+      expect(r.message).toBe(structuredMessage);
+      expect(r.markerPresent).toBe(true);
+      // This is the divergence a drift check compares against — it must NOT
+      // equal the whole rendered blob extractPartnerMessage would fall back to.
+      expect(r.message).not.toContain('Sign this message with wallet');
+    }
+  });
+
+  it('reports not-found, naming why, when no embedded JSON object exists at all', () => {
+    const r = extractStructuredMessageField({ content: [{ type: 'text', text: 'plain text, no JSON anywhere' }] }, FIELDS);
+    expect(r.found).toBe(false);
+    if (!r.found) {
+      expect(r.markerPresent).toBe(false);
+      expect(r.reason).toContain('no text block contained an embedded JSON object');
+    }
+  });
+
+  it('reports not-found when a marker is present but the embedded JSON names none of the expected fields', () => {
+    const blob = 'prose\n--- structured ---\n' + JSON.stringify({ unexpected: 'shape' });
+    const r = extractStructuredMessageField({ content: [{ type: 'text', text: blob }] }, FIELDS);
+    expect(r.found).toBe(false);
+    if (!r.found) {
+      expect(r.markerPresent).toBe(true);
+      expect(r.reason).toContain('none of');
+    }
+  });
+
+  it('agrees with extractPartnerMessage when the response is bare JSON with a named field — no drift on the existing, already-working shape', () => {
+    const bare = { content: [{ type: 'text', text: JSON.stringify({ message: 'ASR Pulse enable\nAgent: 8798' }) }] };
+    const viaPartner = extractPartnerMessage(bare, FIELDS);
+    const viaStructured = extractStructuredMessageField(bare, FIELDS);
+    expect(viaPartner.ok).toBe(true);
+    expect(viaStructured.found).toBe(true);
+    if (viaPartner.ok && viaStructured.found) {
+      expect(viaStructured.message).toBe(viaPartner.message);
+    }
   });
 });
 

@@ -148,6 +148,58 @@ export function findCompatibleTool(
   return { ok: false, role: spec.role, declaredToolNames: tools.map((t) => t.name) };
 }
 
+/**
+ * The first balanced JSON object embedded anywhere in `text`, or null.
+ *
+ * Horizen does not always return bare JSON. Some tools return human prose, a
+ * `--- structured ---` marker, and then the object — so `JSON.parse(text)`
+ * throws on a response that DOES contain what's needed. Brace-balanced
+ * rather than a regex, and string-aware, so a `{` or `}` inside a
+ * description field cannot truncate the object early.
+ *
+ * Moved here from `registrationClient.ts` (2026-08-05) — `authorizationClient.ts`
+ * needs the identical extraction for `extractStructuredMessageField` below,
+ * and `mcpSchemaMatch.ts` is this codebase's one authoritative location for
+ * shared MCP-result mechanics (inv.engineering.036/037: never a second copy).
+ */
+export function firstEmbeddedJsonObject(text: string): unknown | null {
+  // Horizen marks the machine-readable part; prefer it when present so a brace
+  // in the prose above can never be mistaken for the start of the object.
+  const marker = text.indexOf('--- structured ---');
+  const from = marker === -1 ? 0 : marker;
+
+  // Otherwise try EVERY `{` in turn. Taking only the first one is fragile:
+  // free text can contain a stray brace that would consume the whole
+  // extraction and report "nothing found" about a response that has it.
+  for (let start = text.indexOf('{', from); start !== -1; start = text.indexOf('{', start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === '\\') escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(text.slice(start, i + 1));
+          } catch {
+            break; // not the object — try the next candidate `{`
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /** Extract the first JSON object found in an MCP tool result's text content blocks. */
 export function extractFirstJson(toolResult: McpToolResult | null | undefined): unknown | null {
   const content = toolResult?.content;
@@ -354,4 +406,62 @@ export function extractIssuedAt(message: string): string | null {
   const labelled = message.match(/Issued At:\s*(\S+)/i);
   if (labelled) return labelled[1];
   return null;
+}
+
+export type StructuredMessageExtraction =
+  | { found: true; message: string; markerPresent: boolean }
+  | { found: false; markerPresent: boolean; reason: string };
+
+/**
+ * The MESSAGE named inside an embedded JSON object (a `--- structured ---`
+ * block, or any other brace-balanced object found in the text) — DISTINCT
+ * from `extractPartnerMessage`, whose `sole-text-block` fallback may accept
+ * the ENTIRE text block, preamble and all, when no top-level `JSON.parse`
+ * succeeds.
+ *
+ * ── Why this exists (Horizen live-test escalation, 2026-08-05) ─────────────
+ *
+ * Horizen's own engineer reproduced our HTTP 401 by signing corrupted
+ * variants and reported: signing the full rendered text blob (preamble +
+ * human-readable body) 401s; signing the JSON `message` field verbatim
+ * 403s (i.e. recovers to a real signature, just the wrong owner in his
+ * deliberately-wrong test) — meaning a 401 is consistent with "the signed
+ * bytes are not what the structured `message` field says they should be."
+ *
+ * This function is instrumentation, not a fix: it exists so a caller can
+ * COMPARE what is about to be signed (`extractPartnerMessage`'s `message`)
+ * against what a structured/marker-aware read of the SAME response would
+ * consider the message, and refuse loudly on any divergence rather than
+ * silently sign whichever the prior extraction happened to settle on.
+ */
+export function extractStructuredMessageField(
+  toolResult: McpToolResult | null | undefined,
+  fieldNames: string[],
+): StructuredMessageExtraction {
+  const content = toolResult?.content;
+  if (!Array.isArray(content)) return { found: false, markerPresent: false, reason: 'result has no content array' };
+  for (const item of content) {
+    if (item?.type !== 'text' || typeof item.text !== 'string') continue;
+    const markerPresent = item.text.includes('--- structured ---');
+    const embedded = firstEmbeddedJsonObject(item.text);
+    if (embedded && typeof embedded === 'object' && !Array.isArray(embedded)) {
+      for (const f of fieldNames) {
+        const v = (embedded as Record<string, unknown>)[f];
+        if (typeof v === 'string' && v.length > 0) return { found: true, message: v, markerPresent };
+      }
+      return {
+        found: false,
+        markerPresent,
+        reason: `an embedded JSON object was found but declares none of: ${fieldNames.join(', ')}`,
+      };
+    }
+    if (markerPresent) {
+      return {
+        found: false,
+        markerPresent,
+        reason: 'a "--- structured ---" marker was present but no valid JSON object could be extracted after it',
+      };
+    }
+  }
+  return { found: false, markerPresent: false, reason: 'no text block contained an embedded JSON object' };
 }

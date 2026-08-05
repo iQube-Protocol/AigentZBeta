@@ -892,3 +892,90 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
     expect(drift).toEqual([]);
   });
 });
+
+/*
+ * PULSE_MESSAGE_DRIFT — instrumentation for the Horizen live-test escalation
+ * (2026-08-05): "the recovered signer ≠ the walletAddress you submitted...
+ * your 401 says your bytes ≠ our reconstruction." Leading hypothesis: build_
+ * pulse_auth_message returns a human-readable blob PLUS a `--- structured
+ * ---` JSON section, and the signable bytes are that section's `message`
+ * field — not the rendered text around it. These tests exercise
+ * `prepareHorizenTransparencyAuthorization`'s new comparison between what
+ * `extractPartnerMessage` chose to sign and a marker-aware read of the same
+ * response, WITHOUT changing which value gets signed on the non-drifted path
+ * (al, 2026-08-05: "Do not change signing behavior until the instrumentation
+ * identifies the exact divergence").
+ */
+describe('PULSE_MESSAGE_DRIFT — instrumentation, not a fix (Horizen live-test escalation, 2026-08-05)', () => {
+  function mcpClientWithBuildText(buildText: string) {
+    const base = fakeMcpClient();
+    return {
+      ...base,
+      callTool: vi.fn(async ({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) => {
+        if (name === 'build_pulse_auth_message') return { content: [{ type: 'text', text: buildText }] };
+        return base.callTool({ name, arguments: args });
+      }),
+    };
+  }
+
+  it('refuses with rich byte-level diagnostics when the structured JSON message differs from the whole-blob fallback', async () => {
+    const structuredMessage =
+      'ASR Pulse enable\nAgent: 1234\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-07-31T12:00:00.000Z';
+    const blob =
+      'Sign this message with wallet 0xabc… then call enable_pulse_monitoring with the signature and issuedAt="2026-07-31T12:00:00.000Z".\n' +
+      structuredMessage +
+      '\n--- structured ---\n' +
+      JSON.stringify({ message: structuredMessage });
+
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: mcpClientWithBuildText(blob),
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe('PULSE_MESSAGE_DRIFT');
+    // Named diagnostics on BOTH sides — length, sha256, first/last 32 chars,
+    // JSON.stringify — never just "they differ."
+    expect(result.detail).toContain('SIGNED candidate');
+    expect(result.detail).toContain('STRUCTURED candidate');
+    expect(result.detail).toContain('sha256');
+    expect(result.detail).toContain('first32');
+    expect(result.detail).toContain('last32');
+    // The signed side is the full blob (the bug); the structured side is not.
+    // (first32/last32 are printed as raw slices, not JSON.stringify-quoted —
+    // only the whole-string `json` field is stringified.)
+    expect(result.detail).toContain(blob.slice(0, 32));
+    expect(result.detail).toContain(structuredMessage.slice(0, 32));
+
+    // Never persisted as PREPARED — the local refusal happens before any
+    // partner-facing state transition that would suggest progress was made.
+    expect(rows.size).toBe(0);
+  });
+
+  it('does NOT refuse when the response is bare JSON with a named field — the existing, already-working shape agrees with itself and is never flagged as drift', async () => {
+    // fakeMcpClient()'s default build response is exactly this shape:
+    // `{"message": "..."}` with no prose/marker at all — extractPartnerMessage
+    // resolves it via 'named-field' and extractStructuredMessageField finds
+    // the identical field via the same embedded JSON object. Asserted
+    // explicitly here (rather than only implicitly via the next test) because
+    // this is precisely the shape every other test in this file signs today —
+    // instrumentation must never regress it.
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: fakeMcpClient(),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.message).not.toContain('--- structured ---');
+  });
+
+  it('proceeds unchanged when no structured alternative exists at all — instrumentation only ever adds a refusal, never narrows the existing accepted shape', async () => {
+    // The existing, already-working bare-JSON shape every other test in this
+    // file uses — no "--- structured ---" marker anywhere.
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: fakeMcpClient(),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+  });
+});
