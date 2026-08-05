@@ -871,6 +871,20 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           no reason to render while the crystal cannot legally freeze yet. */}
                       {s.id === "freeze" &&
                         (() => {
+                          /*
+                           * FREEZE IS A ONE-TIME CONSTITUTIONAL ACT (operator
+                           * bug report, 2026-08-05): "The UI still renders
+                           * the pre-freeze ceremony... creating the
+                           * impression that another freeze is required...
+                           * The operator should never be able to 'freeze
+                           * again.'" `s.status === 'complete'` on THIS stage
+                           * means exactly `s.artifact?.lifecycle ===
+                           * 'frozen'` (track2Programme.ts's own freeze-stage
+                           * status derivation) — never re-derived here.
+                           */
+                          if (s.status === "complete") {
+                            return <FrozenSummary experimentId={experimentId} />;
+                          }
                           const readinessStage = programme.stages.find((st) => st.id === "run-readiness");
                           if (readinessStage && readinessStage.status !== "complete") {
                             return (
@@ -3669,6 +3683,89 @@ interface DerivedAssignment {
     warnings: string[];
     exception?: IsolationException;
   }[];
+}
+
+/**
+ * FROZEN — read-only, one-time (operator bug report, 2026-08-05): "The
+ * operator should never be able to 'freeze again.' Freeze is a one-time
+ * constitutional act." Rendered INSTEAD of `FreezeControl` the moment
+ * `s.status === 'complete'` on the freeze stage — no ceremony inputs, no
+ * Preview/Provision/Freeze buttons, no operator reference, no rationale, no
+ * boundary acknowledgement. Reads the artifact fresh from the server
+ * (GET .../freeze?crystalId=...) rather than trusting any LOCAL state left
+ * over from the freeze click itself, so a fresh page load renders this same
+ * summary rather than the pre-freeze ceremony.
+ */
+function FrozenSummary({ experimentId }: { experimentId: string }) {
+  const [artifact, setArtifact] = useState<{
+    id: string;
+    contentHash: string | null;
+    commitmentHash: string | null;
+    frozenAt: string | null;
+    signedBy: string[];
+    receiptId: string | null;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch(`/api/research/crystal/${encodeURIComponent(experimentId)}/freeze`, { cache: "no-store" });
+        const d = await res.json().catch(() => null);
+        if (cancelled) return;
+        if (d?.requestSucceeded && d.artifact) setArtifact(d.artifact);
+        else setError((d && typeof d.error === "string" && d.error) || `could not read the frozen artifact (HTTP ${res.status})`);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : "could not read the frozen artifact");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [experimentId]);
+
+  if (loading) {
+    return (
+      <div className="mt-2 flex items-center gap-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-500">
+        <Loader2 className="h-3 w-3 animate-spin" /> Reading the frozen artifact…
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded border border-emerald-900/60 bg-emerald-950/20 p-2 text-[11px] text-emerald-100">
+      <div className="flex items-center gap-1.5 font-medium text-emerald-200">
+        <Lock className="h-3.5 w-3.5" /> Frozen — the crystal&apos;s content is fixed and receipted
+      </div>
+      {error && <div className="text-rose-300">{error}</div>}
+      {artifact && (
+        <div className="space-y-1 text-emerald-200/80">
+          <div>
+            Frozen at <span className="text-emerald-100">{artifact.frozenAt ?? "—"}</span>
+          </div>
+          <div>
+            Content hash{" "}
+            <span className="font-mono text-emerald-100">{artifact.contentHash ? `${artifact.contentHash.slice(0, 16)}…` : "—"}</span>
+          </div>
+          <div>
+            Signed by <span className="text-emerald-100">{artifact.signedBy.length > 0 ? artifact.signedBy.join(", ") : "—"}</span>
+          </div>
+          <div>
+            Receipt <span className="font-mono text-emerald-100">{artifact.receiptId ?? "not recorded"}</span>
+          </div>
+        </div>
+      )}
+      <div className="mt-1 rounded border border-slate-800 bg-slate-950/60 p-2 text-slate-400">
+        <span className="font-medium text-slate-300">Next constitutional act:</span> Publish as Canonical.{" "}
+        No publish-as-canonical surface exists yet for a crystal-version artifact — reported honestly rather
+        than linked to something that isn&apos;t built.
+      </div>
+    </div>
+  );
 }
 
 /**

@@ -760,6 +760,12 @@ export interface FrozenArtifact {
   commitmentHash: string | null;
   frozenAt: string | null;
   signedBy: string[]; // T2 refs of signatories (IRL + reviewer, per IRL-016 §2)
+  /** The freeze act's own lifecycle-transition receipt — persisted on the
+   *  research_objects row since PRD-EPI-001 §2, but never read back until
+   *  now (2026-08-05: the Freeze UI needs it to render a post-freeze summary
+   *  without re-deriving anything). Null before freeze; null is also honest
+   *  if the write somehow failed while lifecycle still reached 'frozen'. */
+  receiptId: string | null;
 }
 
 /** task-set and answer-key are mutually referential by design (PRD-EPI-001

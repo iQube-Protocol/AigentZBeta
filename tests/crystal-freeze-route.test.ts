@@ -36,10 +36,16 @@ vi.mock('@/services/research/crystalStatistics', () => ({
 // crystalDomainForExperiment is left REAL and unmocked — the point of these
 // tests is that the route reads the real ratified declaration, never a
 // stand-in. 'EXP-P1' resolves it; anything else resolves null.
-import { POST } from '@/app/api/research/crystal/[experimentId]/freeze/route';
+import { GET, POST } from '@/app/api/research/crystal/[experimentId]/freeze/route';
 
 function makeRequest(body: unknown): NextRequest {
   return { json: async () => body } as unknown as NextRequest;
+}
+
+function makeGetRequest(query: Record<string, string> = {}): NextRequest {
+  const url = new URL('http://localhost/api/research/crystal/EXP-P1/freeze');
+  for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+  return { nextUrl: url } as unknown as NextRequest;
 }
 
 const params = (experimentId: string) => Promise.resolve({ experimentId });
@@ -111,5 +117,50 @@ describe('POST freeze — domain boundary is never operator input', () => {
     // route embeds the ratified boundary nowhere but its own refusal/response text.
     const callArgs = mockFreezeArtifact.mock.calls[0][0];
     expect(callArgs).not.toHaveProperty('domainBoundary');
+  });
+});
+
+describe('GET freeze — read-only artifact lookup (2026-08-05, "freeze is a one-time constitutional act")', () => {
+  /*
+   * Added so the Freeze surface can render a post-freeze summary instead of
+   * re-mounting the ceremony on every reload. Admin-gated the same as POST.
+   */
+  it('requires authentication', async () => {
+    mockGetActivePersona.mockResolvedValue(null);
+    const res = await GET(makeGetRequest(), { params: params('EXP-P1') });
+    expect(res.status).toBe(401);
+  });
+
+  it('requires admin access', async () => {
+    mockGetActivePersona.mockResolvedValue({ personaId: 'persona-1', cartridgeFlags: { isAdmin: false } });
+    const res = await GET(makeGetRequest(), { params: params('EXP-P1') });
+    expect(res.status).toBe(403);
+  });
+
+  it('returns the frozen artifact by default id when no crystalId is supplied', async () => {
+    mockGetArtifactById.mockResolvedValue({
+      id: 'EXP-P1/crystal-vP1',
+      lifecycle: 'frozen',
+      contentHash: 'hash-abc',
+      commitmentHash: 'hash-abc',
+      frozenAt: '2026-08-05T00:00:00.000Z',
+      signedBy: ['operator-ref-1'],
+      receiptId: 'receipt-1',
+    });
+    const res = await GET(makeGetRequest(), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.requestSucceeded).toBe(true);
+    expect(body.artifact.receiptId).toBe('receipt-1');
+    expect(mockGetArtifactById).toHaveBeenCalledWith('EXP-P1/crystal-vP1');
+  });
+
+  it('returns artifact: null (not an error) when nothing has been provisioned yet', async () => {
+    mockGetArtifactById.mockResolvedValue(null);
+    const res = await GET(makeGetRequest(), { params: params('EXP-P1') });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.requestSucceeded).toBe(true);
+    expect(body.artifact).toBeNull();
   });
 });
