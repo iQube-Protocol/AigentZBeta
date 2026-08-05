@@ -95,6 +95,36 @@ function asString(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+/**
+ * GET ?crystalId=... — read-only. Exists so the Freeze surface can render a
+ * post-freeze summary (receipt, immutable metadata) WITHOUT re-mounting the
+ * ceremony inputs on every reload (operator bug report, 2026-08-05: "the UI
+ * still renders the pre-freeze ceremony... creating the impression that
+ * another freeze is required"). The programme route's own artifact signal
+ * is a narrow `{id, lifecycle}` projection — this is the first place that
+ * reads the artifact's full frozen fields (contentHash, signedBy, frozenAt,
+ * receiptId) back out.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ experimentId: string }> },
+) {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
+  }
+  if (!persona.cartridgeFlags?.isAdmin) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
+  }
+  const { experimentId } = await params;
+  const crystalId = req.nextUrl.searchParams.get('crystalId') || `${experimentId}/crystal-vP1`;
+  const artifact = await getArtifactById(crystalId).catch(() => null);
+  return NextResponse.json(
+    { requestSucceeded: true, artifact },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ experimentId: string }> },

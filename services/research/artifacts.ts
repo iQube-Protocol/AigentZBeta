@@ -39,6 +39,10 @@ function fromRow(row: ResearchObjectRecord): FrozenArtifact {
     commitmentHash: (p.commitmentHash as string | null) ?? null,
     frozenAt: (p.frozenAt as string | null) ?? null,
     signedBy: Array.isArray(p.signedBy) ? p.signedBy : [],
+    // From the ROW, not the payload — receiptId is its own column
+    // (services/research/lifecycle.ts's ResearchObjectRecord), never
+    // duplicated into the JSON blob.
+    receiptId: row.receiptId ?? null,
   };
 }
 
@@ -105,6 +109,7 @@ export async function upsertArtifact(input: {
     commitmentHash: null,
     frozenAt: null,
     signedBy: [],
+    receiptId: null,
     ...(input.taskSetId ? { taskSetId: input.taskSetId } : {}),
     ...(input.taskSetContentHash ? { taskSetContentHash: input.taskSetContentHash } : {}),
   } as FrozenArtifact;
