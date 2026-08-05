@@ -270,6 +270,16 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
    */
   const [showAllStages, setShowAllStages] = useState(false);
   /*
+   * OPERATOR-AUTHORITY CONTINUATION NOTE (al, EXP PP1 Track 2, 2026-08-05):
+   * when Stage 10's reviewer call hits a transport failure (HTTP 5xx,
+   * timeout — never a real governance rejection), "Continue under
+   * Operator Authority" reveals Stage 11 immediately and seeds its
+   * freeze rationale with an honest record of the attempt, so the
+   * receipted rationale — not a UI toast that vanishes on reload — is
+   * where the audit trail lives.
+   */
+  const [freezeRationaleSeed, setFreezeRationaleSeed] = useState<string | null>(null);
+  /*
    * COMPLETED STAGES COLLAPSE AUTOMATICALLY (al, 2026-08-04 steward-workflow
    * ruling): "The operator should spend 95% of their time looking at the
    * current stage." Manually re-expanded stages stay expanded across a
@@ -775,8 +785,17 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                           Run Readiness
                         </button>
                       )}
-                      {s.id === "prepare-independent-review" && s.status === "in-progress" && (
-                        <ReviewPackageControl onDone={() => void reloadAndAdvance()} />
+                      {s.id === "prepare-independent-review" && s.status === "partially-complete" && (
+                        <ReviewPackageControl
+                          onDone={() => void reloadAndAdvance()}
+                          onContinueUnderAuthority={(note) => {
+                            setFreezeRationaleSeed(note);
+                            setShowAllStages(true);
+                            requestAnimationFrame(() =>
+                              document.getElementById("track2-stage-freeze")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+                            );
+                          }}
+                        />
                       )}
                       {/* STAGE 8 IS LOCKED UNTIL ITS PREREQUISITES ARE REAL
                           (Al, 2026-08-02).
@@ -872,7 +891,13 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                               </div>
                             );
                           }
-                          return <FreezeControl experimentId={experimentId} onDone={() => void reloadAndAdvance()} />;
+                          return (
+                            <FreezeControl
+                              experimentId={experimentId}
+                              onDone={() => void reloadAndAdvance()}
+                              initialRationale={freezeRationaleSeed ?? undefined}
+                            />
+                          );
                         })()}
                     </div>
                   </div>
@@ -3658,10 +3683,21 @@ interface DerivedAssignment {
  * preview returned, and the server recomputes and refuses a mismatch. Nothing
  * here recomputes or substitutes a hash.
  */
-function FreezeControl({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+function FreezeControl({
+  experimentId,
+  onDone,
+  initialRationale,
+}: {
+  experimentId: string;
+  onDone: () => void;
+  /** Seeded once, on mount — e.g. an honest record of a Stage 10 reviewer
+   *  transport failure the operator is proceeding past (al, 2026-08-05).
+   *  The operator can still edit or clear it before freezing. */
+  initialRationale?: string;
+}) {
   const [operatorRef, setOperatorRef] = useState("");
   const [reviewerRef, setReviewerRef] = useState("");
-  const [rationale, setRationale] = useState("");
+  const [rationale, setRationale] = useState(initialRationale ?? "");
   const [boundaryAcknowledged, setBoundaryAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -5083,9 +5119,36 @@ interface ReviewExecutiveSummaryView {
   openQuestions: string[];
 }
 
-function ReviewPackageControl({ onDone }: { onDone: () => void }) {
+/**
+ * A reviewer TRANSPORT failure (gateway timeout, 502/503/504, or a body
+ * that isn't the route's own JSON at all) is not a governance verdict — it
+ * means the reviewer call never completed, not that it completed and
+ * rejected the crystal (al, EXP PP1 Track 2, 2026-08-05). The route's own
+ * business-logic failures always return `{ok:false, error}` JSON (see
+ * app/api/research/review/route.ts's catch block) with a 409 (ReviewRefusal)
+ * or 500 (genuine server error) — a response that never parsed as JSON at
+ * all, or a 502/503/504, means the platform gateway killed the request
+ * before this app's own error handling ever ran.
+ */
+const TRANSPORT_FAILURE_STATUSES = new Set([502, 503, 504]);
+
+interface ReviewUnavailable {
+  status: number;
+  at: string;
+}
+
+function ReviewPackageControl({
+  onDone,
+  onContinueUnderAuthority,
+}: {
+  onDone: () => void;
+  /** Reveals Stage 11 and seeds its freeze rationale with the honest
+   *  transport-failure note — never called for a real rejection. */
+  onContinueUnderAuthority: (note: string) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState<ReviewUnavailable | null>(null);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
   // Steward-facing only — built from `summary` above, never from the sealed
   // package the blinded reviewers receive. See
@@ -5098,6 +5161,7 @@ function ReviewPackageControl({ onDone }: { onDone: () => void }) {
   const call = useCallback(async (mode: "preview" | "run") => {
     setBusy(true);
     setErr(null);
+    setUnavailable(null);
     try {
       const res = await personaFetch("/api/research/review", {
         method: "POST",
@@ -5105,7 +5169,18 @@ function ReviewPackageControl({ onDone }: { onDone: () => void }) {
         body: JSON.stringify({ mode }),
       });
       const d = await res.json().catch(() => null);
-      if (!d?.ok) throw new Error(d?.error || `review ${mode} failed (HTTP ${res.status})`);
+      if (!d?.ok) {
+        // A parsed `{ok:false}` body means THIS route ran and refused —
+        // that is a real outcome (ReviewRefusal or a genuine 500), so it
+        // still renders as `err`. A response that never parsed as JSON at
+        // all is the gateway-timeout case: this route's handler never got
+        // to write a response, so there is no verdict to report.
+        if (d === null || TRANSPORT_FAILURE_STATUSES.has(res.status)) {
+          setUnavailable({ status: res.status, at: new Date().toISOString() });
+          return;
+        }
+        throw new Error(d?.error || `review ${mode} failed (HTTP ${res.status})`);
+      }
       setSummary(d.summary ?? null);
       setExecutiveSummary(d.executiveSummary ?? null);
       if (mode === "run") {
@@ -5142,6 +5217,38 @@ function ReviewPackageControl({ onDone }: { onDone: () => void }) {
           </button>
         )}
       </div>
+      {unavailable && (
+        <div className="space-y-1.5 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-amber-100">
+          <div>
+            <strong className="font-medium">Reviewer unavailable</strong> (HTTP {unavailable.status}) — the reviewer
+            call did not complete. This is a transport failure, not a review rejection: no verdict was returned, and
+            none is recorded.
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void call("run")}
+              disabled={busy}
+              className="flex items-center gap-1 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 font-medium text-slate-100 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onContinueUnderAuthority(
+                  `Independent review attempted — reviewer unavailable (HTTP ${unavailable.status}) at ${unavailable.at}. ` +
+                    'Review did not complete; no verdict was returned. Proceeding to freeze under operator authority.',
+                )
+              }
+              className="flex items-center gap-1 rounded border border-emerald-700 bg-emerald-900/30 px-2.5 py-1 font-medium text-emerald-200"
+            >
+              Continue under Operator Authority
+            </button>
+          </div>
+        </div>
+      )}
       {summary && (
         <div className="text-slate-400">
           package <span className="font-mono text-slate-300">{String(summary.packageHash ?? "").slice(0, 16)}…</span>{" "}

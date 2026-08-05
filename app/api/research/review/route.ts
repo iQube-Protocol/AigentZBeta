@@ -46,6 +46,16 @@ import {
 import { EXP_P1_REVIEW_QUESTION } from '@/services/research/review/templates/expP1Admissibility';
 
 export const dynamic = 'force-dynamic';
+// `mode:'run'` dispatches BOTH reviewers through `runDualReview` — a real
+// multi-call round trip to the Venice provider that can legitimately run
+// well past a typical serverless default (al, EXP PP1 Track 2, 2026-08-05:
+// a platform gateway timeout here was surfacing to the operator as "review
+// run failed (HTTP 504)", which reads as a governance rejection when it is
+// actually a transport failure — the client now distinguishes the two, but
+// giving this route more room to actually finish is the other half of the
+// fix). Best-effort: only takes effect on platforms that honor Next.js
+// route segment config for function duration.
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const gate = await requireReviewReadAccess(req);

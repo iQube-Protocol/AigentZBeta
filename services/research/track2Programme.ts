@@ -738,9 +738,23 @@ export function buildTrack2Programme(input: {
         produces: 'assigned-crystal',
         source: 'crystalReviewStageStatus over the same assigned crystal the readiness report assessed',
       },
-      status: s.independentReviewRequestOpen ? 'in-progress' : populated ? 'blocked' : 'not-started',
+      // 'partially-complete', not 'in-progress' (al, EXP PP1 Track 2,
+      // 2026-08-05): independent review is OPTIONAL to freeze —
+      // `checkFreezeGate` never requires it, and `crystalFreezeCeremony`
+      // already treats a missing reviewerRef as "reported, never hidden."
+      // Stage 10 being merely ELIGIBLE (not necessarily attempted, and
+      // never blocked on a reviewer transport failure such as an HTTP
+      // 504) is enough for Stage 11 to be workable — the same
+      // "produced something to work on" logic PASSES_THROUGH already
+      // applies everywhere else in this file. Leaving this at
+      // 'in-progress' forever was the actual bug: it silently withheld
+      // Stage 11 from `unblockedStageIds` no matter what the reviewer
+      // call did, so an infrastructure timeout on Stage 10 LOOKED LIKE a
+      // constitutional block on Freeze when nothing downstream ever
+      // checked review status at all.
+      status: s.independentReviewRequestOpen ? 'partially-complete' : populated ? 'blocked' : 'not-started',
       detail: s.independentReviewRequestOpen
-        ? 'the independent pre-freeze review may open'
+        ? 'the independent pre-freeze review may open — optional; a reviewer transport failure never blocks Freeze'
         : populated
           ? 'readiness has not passed — this is internal diagnostic work, not a reviewer’s to assess'
           : 'nothing to review yet',
