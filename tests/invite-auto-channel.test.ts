@@ -54,4 +54,10 @@ describe('Invite → auto-channel', () => {
   it('createAccessInvitation only writes open_peer_channel when opted in (safe on un-migrated DB)', () => {
     expect(src).toMatch(/\.\.\.\(input\.openPeerChannel === true \? \{ open_peer_channel: true \} : \{\}\)/);
   });
+
+  it('createAccessInvitation only writes campaign-context columns when actually supplied (safe on un-migrated DB, 2026-08-05 Agent Bench plan)', () => {
+    expect(src).toMatch(/\.\.\.\(input\.campaignId\?\.trim\(\) \? \{ campaign_id: input\.campaignId\.trim\(\) \} : \{\}\)/);
+    expect(src).toMatch(/\.\.\.\(input\.externalAgentRef\?\.trim\(\) \? \{ external_agent_ref: input\.externalAgentRef\.trim\(\) \} : \{\}\)/);
+    expect(src).toMatch(/\.\.\.\(input\.requestedServiceDomain\?\.trim\(\) \? \{ requested_service_domain: input\.requestedServiceDomain\.trim\(\) \} : \{\}\)/);
+  });
 });

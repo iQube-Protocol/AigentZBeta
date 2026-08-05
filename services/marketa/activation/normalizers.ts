@@ -17,6 +17,8 @@ import type {
   CandidateOpportunity,
   CandidateSourceType,
   CandidateVertical,
+  ExternalRegistryProvider,
+  ExternalTransparencyState,
   LegalTrack,
   OutreachStatus,
   StrategicLane,
@@ -52,6 +54,22 @@ function asOutreachStatus(value: unknown): OutreachStatus {
   return ['not_started', 'drafted', 'approved', 'sent', 'responded', 'declined', 'opted_out'].includes(raw)
     ? (raw as OutreachStatus)
     : 'not_started';
+}
+
+/** Nullable, never defaulted — an unrecognised value is genuinely unknown, not 'horizen' by fallback. */
+function asRegistryProvider(value: unknown): ExternalRegistryProvider | null {
+  return value === 'horizen' ? 'horizen' : null;
+}
+
+function asTransparencyState(value: unknown): ExternalTransparencyState | null {
+  const raw = typeof value === 'string' ? value : null;
+  return raw && ['enabled', 'available', 'unknown', 'unsupported', 'not-applicable'].includes(raw)
+    ? (raw as ExternalTransparencyState)
+    : null;
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value : null;
 }
 
 /** Human Mobility Services amendment: map the legacy lane id on any read path. */
@@ -100,6 +118,14 @@ function camelToSnake(input: CandidateAgentInput) {
     reputation: EMPTY_REPUTATION_STUB,
     revenue_tracking: { ...EMPTY_REVENUE_TRACKING, ...(input.revenueTracking ?? {}) },
     notes: input.notes ?? '',
+    registry_provider: input.registryProvider ?? null,
+    registry_network: input.registryNetwork ?? null,
+    on_chain_agent_id: input.onChainAgentId ?? null,
+    registry_contract: input.registryContract ?? null,
+    owner_wallet: input.ownerWallet ?? null,
+    pulse_state: input.pulseState ?? null,
+    pnl_state: input.pnlState ?? null,
+    runtime_agent_id: input.runtimeAgentId ?? null,
   };
 }
 
@@ -127,6 +153,30 @@ export function normalizeCandidateInput(raw: unknown): CandidateAgentInput {
     activationStatus: asActivationStatus(body.activationStatus ?? body.activation_status),
     outreachStatus: asOutreachStatus(body.outreachStatus ?? body.outreach_status),
     notes: asString(body.notes),
+    ...(asRegistryProvider(body.registryProvider ?? body.registry_provider) !== null
+      ? { registryProvider: asRegistryProvider(body.registryProvider ?? body.registry_provider)! }
+      : {}),
+    ...(asNullableString(body.registryNetwork ?? body.registry_network) !== null
+      ? { registryNetwork: asNullableString(body.registryNetwork ?? body.registry_network)! }
+      : {}),
+    ...(asNullableString(body.onChainAgentId ?? body.on_chain_agent_id) !== null
+      ? { onChainAgentId: asNullableString(body.onChainAgentId ?? body.on_chain_agent_id)! }
+      : {}),
+    ...(asNullableString(body.registryContract ?? body.registry_contract) !== null
+      ? { registryContract: asNullableString(body.registryContract ?? body.registry_contract)! }
+      : {}),
+    ...(asNullableString(body.ownerWallet ?? body.owner_wallet) !== null
+      ? { ownerWallet: asNullableString(body.ownerWallet ?? body.owner_wallet)! }
+      : {}),
+    ...(asTransparencyState(body.pulseState ?? body.pulse_state) !== null
+      ? { pulseState: asTransparencyState(body.pulseState ?? body.pulse_state)! }
+      : {}),
+    ...(asTransparencyState(body.pnlState ?? body.pnl_state) !== null
+      ? { pnlState: asTransparencyState(body.pnlState ?? body.pnl_state)! }
+      : {}),
+    ...(asNullableString(body.runtimeAgentId ?? body.runtime_agent_id) !== null
+      ? { runtimeAgentId: asNullableString(body.runtimeAgentId ?? body.runtime_agent_id)! }
+      : {}),
   };
 }
 
@@ -153,6 +203,14 @@ export function candidatePatchToDb(raw: unknown) {
     outreachStatus: 'outreach_status',
     activationStatus: 'activation_status',
     notes: 'notes',
+    registryProvider: 'registry_provider',
+    registryNetwork: 'registry_network',
+    onChainAgentId: 'on_chain_agent_id',
+    registryContract: 'registry_contract',
+    ownerWallet: 'owner_wallet',
+    pulseState: 'pulse_state',
+    pnlState: 'pnl_state',
+    runtimeAgentId: 'runtime_agent_id',
   };
   for (const [camel, snake] of Object.entries(scalarMap)) {
     if (body[camel] !== undefined) patch[snake] = body[camel];
@@ -342,5 +400,13 @@ export function dbToCandidate(row: Record<string, unknown>): CandidateAgent {
     notes: asString(row.notes),
     createdAt: asString(row.created_at),
     updatedAt: asString(row.updated_at),
+    registryProvider: asRegistryProvider(row.registry_provider),
+    registryNetwork: asNullableString(row.registry_network),
+    onChainAgentId: asNullableString(row.on_chain_agent_id),
+    registryContract: asNullableString(row.registry_contract),
+    ownerWallet: asNullableString(row.owner_wallet),
+    pulseState: asTransparencyState(row.pulse_state),
+    pnlState: asTransparencyState(row.pnl_state),
+    runtimeAgentId: asNullableString(row.runtime_agent_id),
   };
 }

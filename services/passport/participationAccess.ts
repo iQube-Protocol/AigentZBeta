@@ -561,6 +561,12 @@ export interface AccessInvitationRow {
    *  they hold, WITHOUT exposing the claimable bearer code (which is never
    *  stored — hashed at rest, shown once). One-way: cannot recover the code. */
   codeFingerprint: string;
+  /** Campaign context (2026-08-05 canonical Agent Bench plan, §3/§4) — set
+   *  only for a Constitutional Admission Package invitation; null on every
+   *  other invitation type, unaffected by this addition. */
+  campaignId: string | null;
+  externalAgentRef: string | null;
+  requestedServiceDomain: string | null;
 }
 
 function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
@@ -578,6 +584,9 @@ function toInvitationRow(r: Record<string, unknown>): AccessInvitationRow {
     revokedAt: (r.revoked_at as string | null) ?? null,
     allowedExperiments: ((r.allowed_experiments as string[] | null) ?? null),
     codeFingerprint: String(r.code_hash ?? '').slice(0, 12),
+    campaignId: (r.campaign_id as string | null) ?? null,
+    externalAgentRef: (r.external_agent_ref as string | null) ?? null,
+    requestedServiceDomain: (r.requested_service_domain as string | null) ?? null,
   };
 }
 
@@ -597,6 +606,11 @@ export async function createAccessInvitation(
     allowedExperiments?: string[];
     /** Open a QubeTalk peer channel with the issuer when the invitee claims. */
     openPeerChannel?: boolean;
+    /** Campaign context (2026-08-05 canonical Agent Bench plan) — set only
+     *  when issuing a Constitutional Admission Package invitation. */
+    campaignId?: string;
+    externalAgentRef?: string;
+    requestedServiceDomain?: string;
   },
 ): Promise<{ ok: true; rawCode: string; invitation: AccessInvitationRow } | { ok: false; error: string }> {
   if (!DOMAIN_ROLES[input.domain].includes(input.role)) {
@@ -652,6 +666,11 @@ export async function createAccessInvitation(
       // creation is byte-identical (and safe) on a DB that hasn't applied
       // 20260805300000 yet.
       ...(input.openPeerChannel === true ? { open_peer_channel: true } : {}),
+      // Same discipline for campaign context (migration 20260930001700) — a
+      // caller that never passes these leaves the insert byte-identical.
+      ...(input.campaignId?.trim() ? { campaign_id: input.campaignId.trim() } : {}),
+      ...(input.externalAgentRef?.trim() ? { external_agent_ref: input.externalAgentRef.trim() } : {}),
+      ...(input.requestedServiceDomain?.trim() ? { requested_service_domain: input.requestedServiceDomain.trim() } : {}),
     })
     .select('*')
     .single();
