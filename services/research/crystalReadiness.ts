@@ -120,10 +120,37 @@ export interface CrystalReadinessInput {
   population?: PopulationDisclosure;
 }
 
+/**
+ * Two tiers (operator ruling, 2026-08-05 — "Can this crystal be frozen? Is
+ * this crystal considered scientifically ideal? Those are not the same
+ * question."):
+ *
+ * - `scientific-readiness` — a hard gate. A crystal cannot legally freeze
+ *   while one of these fails (data integrity, provenance eligibility,
+ *   receipted validation, minimum graph structure). ALL of these must pass
+ *   for `CrystalReadinessReport.ok`.
+ * - `scientific-maturity` — informational, non-blocking. These describe how
+ *   SCIENTIFICALLY COMPLETE the corpus is, not whether it is constitutionally
+ *   sound. A first crystal of N repetitions of one semantic shape, or one
+ *   still fragmented into disjoint clusters, is a true and useful finding —
+ *   it is not evidence corruption, and treating it as a freeze blocker would
+ *   mean no first crystal in a new domain could ever be ratified (a crystal
+ *   improves after freezing the same way Standing accrues after a Passport is
+ *   issued — neither invalidates what already exists). `ok` NEVER depends on
+ *   a `scientific-maturity` check; see `CrystalReadinessReport.maturity` for
+ *   the corresponding informational summary.
+ *
+ * If a specific experiment genuinely needs a maturity check enforced as a
+ * hard gate, that is an EXPLICIT experiment policy to add on top of this
+ * report — never an intrinsic property of the crystal itself.
+ */
+export type CrystalReadinessTier = 'scientific-readiness' | 'scientific-maturity';
+
 export interface CrystalReadinessCheck {
   name: string;
   passed: boolean;
   detail: string;
+  tier: CrystalReadinessTier;
   /**
    * WHAT FIXES THIS, in the lifecycle ladder's register (operator ruling,
    * 2026-08-02).
@@ -145,9 +172,27 @@ export interface CrystalReadinessCheck {
   remedy: string | null;
 }
 
+/** Bronze/Silver/Gold — how many `scientific-maturity` checks currently pass.
+ *  Never gates anything; a crystal can be frozen at any band. */
+export type ScientificMaturityBand = 'bronze' | 'silver' | 'gold';
+
+export interface CrystalMaturitySummary {
+  checks: CrystalReadinessCheck[];
+  passedCount: number;
+  totalCount: number;
+  band: ScientificMaturityBand;
+}
+
 export interface CrystalReadinessReport {
+  /**
+   * READY FOR FREEZE — true iff every `scientific-readiness`-tier check
+   * passes. NEVER depends on a `scientific-maturity` check (operator ruling,
+   * 2026-08-05) — see `CrystalReadinessCheck`'s own doc comment for why.
+   */
   ok: boolean;
   checks: CrystalReadinessCheck[];
+  /** Informational only — see `CrystalMaturitySummary`. Never consulted by `ok`. */
+  maturity: CrystalMaturitySummary;
   invariantCount: number;
   /** Population A — the PRIMARY EXP-P1 evaluation population. */
   eligibleCount: number;
@@ -417,6 +462,7 @@ export async function runCrystalReadinessReport(
       checks: [
         {
           name: 'invariant-fetch',
+          tier: 'scientific-readiness',
           passed: false,
           detail:
             `could not read domain '${crystalDomain}' for experiment '${input.experimentId}' from the invariant ` +
@@ -427,6 +473,7 @@ export async function runCrystalReadinessReport(
             'be concluded from it. Restore the invariant substrate and re-run.',
         },
       ],
+      maturity: { checks: [], passedCount: 0, totalCount: 0, band: 'bronze' },
     };
   }
 
@@ -454,6 +501,7 @@ export async function runCrystalReadinessReport(
     invariantCount > 0 && sliceCap >= minMeaningfulSliceSize && sliceCap < invariantCount;
   checks.push({
     name: 'selection-space',
+    tier: 'scientific-readiness',
     passed: selectionSpaceOk,
     detail:
       invariantCount === 0
@@ -476,6 +524,7 @@ export async function runCrystalReadinessReport(
   const derivationOk = invariantCount > 0 && derivationFraction >= minDerivationEligibleFraction;
   checks.push({
     name: 'derivation-headroom',
+    tier: 'scientific-readiness',
     passed: derivationOk,
     remedy: derivationOk
       ? null
@@ -502,6 +551,7 @@ export async function runCrystalReadinessReport(
     invariantCount > 0 && distinctShapes >= 2 && dominantShapeFraction <= maxDominantShapeFraction;
   checks.push({
     name: 'structural-diversity',
+    tier: 'scientific-maturity',
     passed: diversityOk,
     remedy: diversityOk
       ? null
@@ -524,6 +574,7 @@ export async function runCrystalReadinessReport(
   const duplicatePairs = findNearDuplicatePairs(invariants, duplicateSimilarityThreshold);
   checks.push({
     name: 'duplicate-detection',
+    tier: 'scientific-readiness',
     // FAIL-CLOSED FIX 2026-07-26: this was `duplicatePairs.length === 0`, which
     // reports passed:true on an EMPTY collection — "no duplicates found" is
     // vacuously true when there is nothing to compare. Every sibling check
@@ -564,6 +615,7 @@ export async function runCrystalReadinessReport(
   const ineligibleForCrystal = invariantCount - eligibleCount;
   checks.push({
     name: 'provenance-eligibility',
+    tier: 'scientific-readiness',
     passed: invariantCount > 0 && eligibleCount === invariantCount,
     remedy:
       invariantCount > 0 && eligibleCount === invariantCount
@@ -600,6 +652,7 @@ export async function runCrystalReadinessReport(
   const zeroValidated = invariants.filter((inv) => inv.timesValidated <= 0);
   checks.push({
     name: 'lifecycle-validation-integrity',
+    tier: 'scientific-readiness',
     passed: invariantCount > 0 && zeroValidated.length === 0,
     detail:
       invariantCount > 0 && zeroValidated.length === 0
@@ -656,6 +709,7 @@ export async function runCrystalReadinessReport(
   const EDGE_ROUTE = 'POST /api/invariants/<id>/edges { toInvariantId, relation, rationale, evidenceRefs }';
   checks.push({
     name: 'relationship-density',
+    tier: 'scientific-readiness',
     passed: densityOk,
     remedy: densityOk
       ? null
@@ -685,6 +739,7 @@ export async function runCrystalReadinessReport(
   const connectivityOk = invariantCount > 1 && connectivityRatio >= minConnectivityRatio;
   checks.push({
     name: 'graph-connectivity',
+    tier: 'scientific-maturity',
     passed: connectivityOk,
     remedy: connectivityOk
       ? null
@@ -709,6 +764,7 @@ export async function runCrystalReadinessReport(
   const orphansOk = invariantCount > 0 && orphanFraction <= maxOrphanFraction;
   checks.push({
     name: 'orphan-detection',
+    tier: 'scientific-readiness',
     passed: orphansOk,
     remedy: orphansOk
       ? null
@@ -728,7 +784,26 @@ export async function runCrystalReadinessReport(
           edgeFetchSuffix,
   });
 
-  const ok = checks.every((c) => c.passed);
+  // READY FOR FREEZE never depends on a `scientific-maturity` check (operator
+  // ruling, 2026-08-05) — see CrystalReadinessCheck's doc comment.
+  const ok = checks.filter((c) => c.tier === 'scientific-readiness').every((c) => c.passed);
+
+  const maturityChecks = checks.filter((c) => c.tier === 'scientific-maturity');
+  const maturityPassedCount = maturityChecks.filter((c) => c.passed).length;
+  const maturity: CrystalMaturitySummary = {
+    checks: maturityChecks,
+    passedCount: maturityPassedCount,
+    totalCount: maturityChecks.length,
+    // totalCount:0 (nothing was measured) is deliberately 'bronze', not
+    // 'gold' — a vacuous "nothing to prove wrong" must never read as an
+    // achievement.
+    band:
+      maturityChecks.length > 0 && maturityPassedCount === maturityChecks.length
+        ? 'gold'
+        : maturityPassedCount > 0
+          ? 'silver'
+          : 'bronze',
+  };
 
   // ── Exclusion disclosure — reporting, never gating ────────────────────────
   //
@@ -761,6 +836,7 @@ export async function runCrystalReadinessReport(
   return {
     ok,
     checks,
+    maturity,
     excludedFromCrystal,
     invariantCount,
     eligibleCount,

@@ -236,6 +236,24 @@ export interface RevenueTrackingSummary {
   revenueAttributionNotes: string;
 }
 
+/**
+ * The external registry a candidate was discovered on (2026-08-05 canonical
+ * Agent Bench plan, §4: "Do not invent a parallel `ExternalAgentProspect`
+ * type — extend `CandidateAgent`... Provider-agnostic from day one"). Horizen
+ * is the first value; a second ERC-8004 registry or MCP registry adds a
+ * value here, never a parallel candidate type.
+ */
+export type ExternalRegistryProvider = 'horizen';
+
+/**
+ * Advisory-only transparency state (Pulse/P&L or any future external
+ * verification). Never gates anything — see the plan's §7 acceptance
+ * criterion: "external service failures never block constitutional
+ * admission." `'unknown'` means genuinely not yet resolved, never coerced
+ * to a default.
+ */
+export type ExternalTransparencyState = 'enabled' | 'available' | 'unknown' | 'unsupported' | 'not-applicable';
+
 export interface CandidateAgentInput {
   name: string;
   description?: string;
@@ -259,6 +277,24 @@ export interface CandidateAgentInput {
   outreachStatus?: OutreachStatus;
   revenueTracking?: Partial<RevenueTrackingSummary>;
   notes?: string;
+  /** External-registry fields — set only for candidates discovered via a registry adapter (e.g. Horizen). */
+  registryProvider?: ExternalRegistryProvider;
+  registryNetwork?: string;
+  onChainAgentId?: string;
+  registryContract?: string;
+  ownerWallet?: string;
+  pulseState?: ExternalTransparencyState;
+  pnlState?: ExternalTransparencyState;
+  /**
+   * Set ONLY once a steward has explicitly linked this candidate to an entry
+   * in `services/horizen/registrableAgents.ts` (a manual, deliberate act
+   * today — REGISTRABLE_AGENTS is a 2-entry hand-maintained config, not a
+   * dynamic registry; generalizing that is Phase E of the 2026-08-05
+   * canonical plan, not assumed here). Never guessed from name/capability
+   * matching — an unlinked candidate has no admission-fact resolution at
+   * all, and the Agent Bench must say so rather than fabricate one.
+   */
+  runtimeAgentId?: string;
 }
 
 export interface CandidateAgent extends Required<Omit<CandidateAgentInput,
@@ -282,7 +318,15 @@ export interface CandidateAgent extends Required<Omit<CandidateAgentInput,
   'activationStatus' |
   'outreachStatus' |
   'revenueTracking' |
-  'notes'
+  'notes' |
+  'registryProvider' |
+  'registryNetwork' |
+  'onChainAgentId' |
+  'registryContract' |
+  'ownerWallet' |
+  'pulseState' |
+  'pnlState' |
+  'runtimeAgentId'
 >> {
   id: string;
   description: string;
@@ -314,6 +358,15 @@ export interface CandidateAgent extends Required<Omit<CandidateAgentInput,
   notes: string;
   createdAt: string;
   updatedAt: string;
+  /** Null means "not a registry-backed candidate" or "not yet resolved" — never coerced to a false-implying default. */
+  registryProvider: ExternalRegistryProvider | null;
+  registryNetwork: string | null;
+  onChainAgentId: string | null;
+  registryContract: string | null;
+  ownerWallet: string | null;
+  pulseState: ExternalTransparencyState | null;
+  pnlState: ExternalTransparencyState | null;
+  runtimeAgentId: string | null;
 }
 
 export interface CandidateOpportunity {

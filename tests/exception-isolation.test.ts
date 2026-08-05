@@ -499,9 +499,24 @@ describe('END-TO-END — one valid source, one FAILED EXTRACTION, one invalid ca
  * other is the failure mode both halves exist to prevent.
  */
 describe('the freeze package preserves the acquisition and exclusion history', () => {
+  const MATURITY_TIER_CHECK_NAMES = new Set(['structural-diversity', 'graph-connectivity']);
+  const readinessChecks = PRE_REGISTERED_READINESS_CHECKS.map((name) => ({
+    name,
+    passed: true,
+    detail: 'ok',
+    remedy: null,
+    tier: MATURITY_TIER_CHECK_NAMES.has(name) ? 'scientific-maturity' : 'scientific-readiness',
+  }));
+  const readinessMaturityChecks = readinessChecks.filter((c) => c.tier === 'scientific-maturity');
   const readiness = {
     ok: true,
-    checks: PRE_REGISTERED_READINESS_CHECKS.map((name) => ({ name, passed: true, detail: 'ok', remedy: null })),
+    checks: readinessChecks,
+    maturity: {
+      checks: readinessMaturityChecks,
+      passedCount: readinessMaturityChecks.length,
+      totalCount: readinessMaturityChecks.length,
+      band: 'gold',
+    },
     excludedFromCrystal: null,
     invariantCount: 26,
     eligibleCount: 26,

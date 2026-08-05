@@ -710,11 +710,17 @@ export function buildTrack2Programme(input: {
         produces: 'assigned-crystal',
         source: `runCrystalReadinessReport over domain '${input.crystalDomain}', status validated|canonical`,
       },
+      // READY FOR FREEZE (`s.readiness.ok`) depends only on the
+      // `scientific-readiness`-tier checks — `scientific-maturity` checks
+      // (structural-diversity, graph-connectivity) are informational and
+      // never block this stage's completion (operator ruling, 2026-08-05:
+      // "Can this crystal be frozen? Is this crystal scientifically ideal?
+      // Those are not the same question.").
       status: !populated ? 'not-started' : s.readiness.ok ? 'complete' : 'in-progress',
       detail: populated
         ? s.readiness.ok
-          ? 'all nine checks pass'
-          : `${s.readiness.checks.filter((c) => !c.passed).length}/${s.readiness.checks.length} checks failing`
+          ? `all scientific-readiness checks pass — maturity ${s.readiness.maturity.passedCount}/${s.readiness.maturity.totalCount} (${s.readiness.maturity.band})`
+          : `${s.readiness.checks.filter((c) => c.tier === 'scientific-readiness' && !c.passed).length}/${s.readiness.checks.filter((c) => c.tier === 'scientific-readiness').length} scientific-readiness checks failing`
         : 'nothing to assess yet',
       remedies: remediesFor('run-readiness', s.readiness),
     },

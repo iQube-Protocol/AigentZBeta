@@ -2843,6 +2843,33 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       ],
     },
     {
+      // The Agent Bench (2026-08-05 canonical Threshold Cohort Activation +
+      // Founder Office Agent Bench plan, §5) — "a new tab alongside
+      // FinancialServicesTab, registered the same way in TabRenderer.tsx."
+      // A read-only projection over Marketa candidates, Access &
+      // Invitations, the admission journey's facts, and the registry's
+      // publication/trust state — organized around what the founder DOES
+      // (Discover/Invite/Sponsor/Admit/Deploy/Operate), not which table a
+      // row lives in.
+      id: 'agent-bench',
+      label: 'Agent Bench',
+      slug: 'agent-bench',
+      enabled: true,
+      adminOnly: true,
+      group: 'service',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AgentBenchTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Rocket',
+        description: 'Founder Office operating console for admitting external agents — Discover, Invite, Sponsor, Admit, Deploy, Operate.',
+        color: 'emerald'
+      },
+    },
+    {
       id: 'commercial-funnel',
       label: 'Commercial Funnel',
       slug: 'commercial-funnel',
