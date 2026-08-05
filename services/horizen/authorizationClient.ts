@@ -187,7 +187,14 @@ export interface HorizenEscalationPacket {
   signatureVByte: string;
   submittedArguments: Record<string, unknown>;
   buildTool: { name: string; inputSchema: unknown; rawResult: unknown };
-  submitTool: { name: string; rawResult: unknown };
+  /**
+   * `inputSchema` added 2026-08-05 (Horizen escalation direction: "capture
+   * the complete live MCP schemas... for both build_pulse_auth_message and
+   * enable_pulse_monitoring") — previously only build's schema was carried;
+   * a reader could see what we sent submit but not what Horizen's own
+   * schema DECLARED it expected.
+   */
+  submitTool: { name: string; inputSchema: unknown; rawResult: unknown };
   fieldParity: HorizenMessageFieldParityRow[];
   capturedAt: string;
 }
@@ -791,6 +798,7 @@ function buildHorizenEscalationPacket(args: {
   buildToolInputSchema: unknown;
   rawBuildResult: unknown;
   submitToolName: string;
+  submitToolInputSchema: unknown;
   rawSubmitResult: unknown;
   now: () => Date;
 }): HorizenEscalationPacket {
@@ -811,7 +819,7 @@ function buildHorizenEscalationPacket(args: {
     signatureVByte: sig.length >= 2 ? sig.slice(-2) : '',
     submittedArguments: args.submittedArguments,
     buildTool: { name: args.buildToolName, inputSchema: args.buildToolInputSchema, rawResult: args.rawBuildResult },
-    submitTool: { name: args.submitToolName, rawResult: args.rawSubmitResult },
+    submitTool: { name: args.submitToolName, inputSchema: args.submitToolInputSchema, rawResult: args.rawSubmitResult },
     fieldParity: buildFieldParityTable(args.message, args.submittedArguments),
     capturedAt: args.now().toISOString(),
   };
@@ -1012,6 +1020,7 @@ export async function submitHorizenTransparencyAuthorization(
             buildToolInputSchema: args.buildToolInputSchema,
             rawBuildResult: args.rawBuildResult,
             submitToolName: submitTool.tool.name,
+            submitToolInputSchema: submitTool.tool.inputSchema,
             rawSubmitResult: submitResult,
             now: deps.now ?? (() => new Date()),
           })

@@ -794,6 +794,11 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
     expect(packet.issuedAt).toBe('2026-07-31T12:00:00.000Z');
     expect(packet.buildTool.name).toBe('build_pulse_auth_message');
     expect(packet.submitTool.name).toBe('enable_pulse_monitoring');
+    // 2026-08-05: the escalation packet must carry BOTH tools' declared MCP
+    // schemas, not just build's — otherwise a reader can see what MetaMe
+    // submitted but not what Horizen's own schema said it expected.
+    expect(packet.buildTool.inputSchema).toBeTruthy();
+    expect(packet.submitTool.inputSchema).toEqual(REAL_ENABLE_PULSE_SCHEMA);
     // The field parity table proves agreement for the fields that DO use
     // the same representation on both sides in this fixture.
     expect(packet.fieldParity.find((r) => r.field === 'agentId')).toMatchObject({ equal: true });
