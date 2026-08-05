@@ -23,6 +23,14 @@ vi.mock('@/services/marketa/activation/agentBenchReadModel', () => ({
   buildAgentBenchRow: (...args: any[]) => mockBuildAgentBenchRow(...args),
 }));
 
+// Empty by default — these tests exercise Marketa-row grouping in
+// isolation. The registrable-agent union (e.g. Aigent Nakamoto, who has no
+// Marketa candidate row) has its own dedicated test below.
+const mockListRegistrableAgents = vi.fn(() => [] as any[]);
+vi.mock('@/services/horizen/registrableAgents', () => ({
+  listRegistrableAgents: () => mockListRegistrableAgents(),
+}));
+
 import { GET } from '@/app/api/marketa/activation/agent-bench/route';
 
 function fakeSupabase(opts: {
@@ -59,6 +67,8 @@ beforeEach(() => {
   mockGetSupabaseServer.mockReset();
   mockDbToCandidate.mockReset();
   mockBuildAgentBenchRow.mockReset();
+  mockListRegistrableAgents.mockReset();
+  mockListRegistrableAgents.mockReturnValue([]);
 });
 
 describe('GET agent-bench', () => {
@@ -84,8 +94,11 @@ describe('GET agent-bench', () => {
       }),
     );
     mockDbToCandidate.mockImplementation((row: Record<string, unknown>) => makeRow(row.id as string, null, null, null));
-    mockBuildAgentBenchRow.mockImplementation((_admin: unknown, candidate: { id: string }) =>
-      Promise.resolve({ candidateId: candidate.id, lifecycleState: candidate.id === 'cand-1' ? 'candidate' : 'service-ready' }),
+    mockBuildAgentBenchRow.mockImplementation((_admin: unknown, subject: { kind: string; candidate: { id: string } }) =>
+      Promise.resolve({
+        candidateId: subject.candidate.id,
+        lifecycleState: subject.candidate.id === 'cand-1' ? 'candidate' : 'service-ready',
+      }),
     );
 
     const res = await GET({} as any);
@@ -128,5 +141,47 @@ describe('GET agent-bench', () => {
     await GET({} as any);
 
     expect(mockBuildAgentBenchRow).toHaveBeenCalledWith(expect.anything(), expect.anything(), { hasInvitation: false });
+  });
+
+  describe('registrable-agent union (e.g. Aigent Nakamoto — no Marketa candidate row)', () => {
+    it('includes a registrable agent with no linked Marketa candidate, as a registrable-agent subject', async () => {
+      mockGetSupabaseServer.mockReturnValue(fakeSupabase({ candidateRows: [], invitationRows: [] }));
+      mockListRegistrableAgents.mockReturnValue([
+        { slug: 'nakamoto', displayName: 'Aigent Nakamoto', runtimeAgentId: 'aigent-nakamoto', aigentQubeId: 'aigentqube-nakamoto', agentCardPath: '/x', fioHandle: 'nakamoto@aigent' },
+      ]);
+      mockBuildAgentBenchRow.mockResolvedValue({ candidateId: 'aigent-nakamoto', lifecycleState: 'in-admission' });
+
+      const res = await GET({} as any);
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(mockBuildAgentBenchRow).toHaveBeenCalledWith(
+        expect.anything(),
+        { kind: 'registrable-agent', agent: expect.objectContaining({ runtimeAgentId: 'aigent-nakamoto' }) },
+        { hasInvitation: false },
+      );
+      expect(body.rows['in-admission']).toHaveLength(1);
+      expect(body.rows['in-admission'][0].candidateId).toBe('aigent-nakamoto');
+    });
+
+    it('never duplicates a registrable agent already linked to a Marketa candidate', async () => {
+      mockGetSupabaseServer.mockReturnValue(fakeSupabase({ candidateRows: [{ id: 'cand-1' }], invitationRows: [] }));
+      mockDbToCandidate.mockReturnValue({ ...makeRow('cand-1', null, null, null), runtimeAgentId: 'aigent-nakamoto' });
+      mockListRegistrableAgents.mockReturnValue([
+        { slug: 'nakamoto', displayName: 'Aigent Nakamoto', runtimeAgentId: 'aigent-nakamoto', aigentQubeId: 'aigentqube-nakamoto', agentCardPath: '/x', fioHandle: 'nakamoto@aigent' },
+      ]);
+      mockBuildAgentBenchRow.mockResolvedValue({ candidateId: 'cand-1', lifecycleState: 'candidate' });
+
+      await GET({} as any);
+
+      // Exactly one call — the Marketa candidate's own row — never a second
+      // registrable-agent row for the same runtimeAgentId.
+      expect(mockBuildAgentBenchRow).toHaveBeenCalledTimes(1);
+      expect(mockBuildAgentBenchRow).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ kind: 'marketa' }),
+        expect.anything(),
+      );
+    });
   });
 });

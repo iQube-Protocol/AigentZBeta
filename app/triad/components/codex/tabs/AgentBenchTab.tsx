@@ -2,25 +2,38 @@
 
 /**
  * AgentBenchTab — the Founder Office Agent Bench (2026-08-05 canonical
- * Threshold Cohort Activation + Agent Bench plan, §5). A read-only
- * projection (Phase B / Pass 2) over Marketa's candidate model, the
- * extended Access & Invitations mechanism, the Horizen/Nakamoto admission
- * journey's fact reader, and the registry's publication/trust state —
- * joined by GET /api/marketa/activation/agent-bench. It owns none of that
- * state; every action either calls an EXISTING write path (the Phase A
- * Admission Package generator) or deep-links to the surface that owns the
- * next step (Passport Review Queue, the Factory record, Financial
- * Services) — never a parallel control (CLAUDE.md "Extend, Don't
- * Duplicate").
+ * Threshold Cohort Activation + Agent Bench plan, §5; extended 2026-08-05
+ * per the "Agent Bench — Canonical Agent Lifecycle Brief"). A read-only
+ * projection over Marketa's candidate model, EVERY registrable agent
+ * (services/horizen/registrableAgents.ts — e.g. Aigent Nakamoto, who has no
+ * Marketa candidate row and predates Marketa's discovery pipeline), the
+ * extended Access & Invitations mechanism, the Horizen registration
+ * resolver, the admission journey's fact reader, the receipt-based
+ * Pulse/P&L reader, and the registry's publication/trust state — joined by
+ * GET /api/marketa/activation/agent-bench. It owns none of that state;
+ * every action either calls an EXISTING write path (the Phase A Admission
+ * Package generator) or deep-links to the surface that owns the next step
+ * (Passport Review Queue, the Factory record, Financial Services) — never a
+ * parallel control (CLAUDE.md "Extend, Don't Duplicate").
  *
  * Organized around what the founder DOES (Discover / Invite / Sponsor /
  * Admit / Deploy / Operate), not around which table a row lives in — §5's
- * governing framing. Only Discover has a live action in this pass
- * (Prepare & Send Admission Package); Sponsor stays read-only because
- * Operator Activation is the one non-delegable constitutional act and
- * happens outside this app today, via the Package's own delivery channel
- * (§3, §6 Phase D). Spine discipline: `personaFetch` only. House style:
- * translucent slate, no white hairlines.
+ * governing framing. These are FILTERED VIEWS over one persistent set of
+ * rows, never destructive hand-offs: a row is never removed once it
+ * advances, it simply reports whichever single `lifecycleState` its real
+ * facts currently support and appears under a different tab as those facts
+ * change (operator brief, 2026-08-05, acceptance criteria #3/#6).
+ *
+ * Every row also carries `runtimeMemberships` — a COLLECTION, never a
+ * single scalar — because an agent may apply to, qualify for, or operate in
+ * more than one runtime (only "Financial Services" has a real backing
+ * today; a second runtime is a new array entry, not a redesign).
+ *
+ * Only Discover has a live action in this pass (Prepare & Send Admission
+ * Package); Sponsor stays read-only because Operator Activation is the one
+ * non-delegable constitutional act and happens outside this app today, via
+ * the Package's own delivery channel (§3, §6 Phase D). Spine discipline:
+ * `personaFetch` only. House style: translucent slate, no white hairlines.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -32,12 +45,23 @@ import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
 
 type BenchLifecycleState = 'candidate' | 'invited' | 'in-admission' | 'service-ready' | 'engaged';
+type BenchRowSource = 'marketa' | 'registrable-agent';
+type RuntimeMembershipStatus = 'not-applied' | 'applying' | 'pending-review' | 'approved' | 'active' | 'suspended' | 'revoked';
 
 interface AdmissionFacts {
   sponsorshipRecorded?: boolean;
   delegatePassportIssued?: boolean;
   delegationActive?: boolean;
   factoryPresent?: boolean;
+}
+
+interface RuntimeMembership {
+  runtimeId: string;
+  runtimeLabel: string;
+  status: RuntimeMembershipStatus;
+  eligibility: { satisfied: string[]; outstanding: string[] };
+  approvedAt?: string;
+  activatedAt?: string;
 }
 
 interface AgreementRow {
@@ -50,19 +74,19 @@ interface AgreementRow {
 interface AgentBenchRow {
   candidateId: string;
   name: string;
+  source: BenchRowSource;
   registryProvider: string | null;
   registryNetwork: string | null;
   onChainAgentId: string | null;
   capabilities: string[];
-  overallPriorityScore: number;
-  pulseState: string | null;
-  pnlState: string | null;
+  /** Null when there is no Marketa candidate scoring for this row (e.g. a registrable-agent-only row) — never fabricated. */
+  overallPriorityScore: number | null;
   lifecycleState: BenchLifecycleState;
   admission: AdmissionFacts | null;
   registry: { publicationStatus: string; trustBand: string } | null;
-  serviceReady: boolean;
-  serviceReadyUnresolved: string[];
-  fsVerified: boolean;
+  pulseAuthorized: boolean;
+  pnlEnabled: boolean;
+  runtimeMemberships: RuntimeMembership[];
   agreements: AgreementRow[];
 }
 
@@ -89,10 +113,20 @@ const ACTIONS: {
   { id: 'admit', label: 'Admit', icon: ShieldCheck, lifecycle: 'in-admission',
     blurb: 'Sponsorship accepted — the admission journey is running. Deep-links to the Passport Review Queue and the Factory record; never duplicates their controls.' },
   { id: 'deploy', label: 'Deploy', icon: Rocket, lifecycle: 'service-ready',
-    blurb: 'Service Ready — the computed constitutional + technical checklist holds. FS Verified is shown as a separate, non-gating state.' },
+    blurb: 'Approved for at least one runtime — the computed constitutional + technical checklist holds for it.' },
   { id: 'operate', label: 'Operate', icon: Activity, lifecycle: 'engaged',
-    blurb: 'Active Constitutional Agreements — role, scope, and receipts.' },
+    blurb: 'Active in at least one runtime — role, scope, and receipts shown per runtime membership.' },
 ];
+
+const RUNTIME_STATUS_STYLE: Record<RuntimeMembershipStatus, string> = {
+  'not-applied': 'border-slate-600 bg-slate-800/60 text-slate-500',
+  applying: 'border-slate-600 bg-slate-800/60 text-slate-400',
+  'pending-review': 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+  approved: 'border-cyan-500/40 bg-cyan-500/10 text-cyan-300',
+  active: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+  suspended: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+  revoked: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+};
 
 async function fetchBench(): Promise<BenchData | { error: string }> {
   const res = await personaFetch('/api/marketa/activation/agent-bench', { cache: 'no-store' });
@@ -145,6 +179,73 @@ function FactChip({ label, value }: { label: string; value: boolean | undefined 
   );
 }
 
+/** One badge per runtime membership — the multi-runtime model rendered as a
+ *  strip, never collapsed into a single pass/fail flag (operator brief). */
+function RuntimeMembershipBadges({ memberships }: { memberships: RuntimeMembership[] }) {
+  if (memberships.length === 0) {
+    return <span className="text-[10px] text-slate-600 italic">no runtime memberships tracked for this agent</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {memberships.map((m) => (
+        <span
+          key={m.runtimeId}
+          title={
+            m.eligibility.outstanding.length > 0
+              ? `Outstanding: ${m.eligibility.outstanding.join('; ')}`
+              : 'All eligibility conditions satisfied'
+          }
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${RUNTIME_STATUS_STYLE[m.status]}`}
+        >
+          {m.runtimeLabel}: {m.status}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Always-visible persistent facts — identity, source, capabilities,
+ *  registry/trust band, Pulse/P&L, runtime memberships. Shown the same
+ *  regardless of which action tab is active, per the card-structure spec:
+ *  the tab-specific section below carries only the NEXT governed act. */
+function PersistentCardHeader({ row }: { row: AgentBenchRow }) {
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <div>
+        <div className="flex items-center gap-1.5">
+          <div className="text-sm text-slate-200 font-medium">{row.name}</div>
+          <span className="rounded border border-slate-700 bg-slate-800/40 px-1 py-0.5 text-[9px] uppercase tracking-wide text-slate-500">
+            {row.source === 'registrable-agent' ? 'registrable agent' : 'via Marketa'}
+          </span>
+        </div>
+        <div className="text-[11px] mt-0.5"><ExternalRefLine row={row} /></div>
+        {row.capabilities.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {row.capabilities.map((c) => (
+              <span key={c} className="rounded bg-slate-800/60 border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{c}</span>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+          {row.registry && (
+            <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
+              {row.registry.publicationStatus} · {row.registry.trustBand}
+            </span>
+          )}
+          <FactChip label="Pulse" value={row.pulseAuthorized} />
+          <FactChip label="P&L" value={row.pnlEnabled} />
+        </div>
+        <div className="mt-1.5">
+          <RuntimeMembershipBadges memberships={row.runtimeMemberships} />
+        </div>
+      </div>
+      <div className="shrink-0 text-right text-[11px] text-slate-500">
+        Priority <span className="text-slate-300 font-mono">{row.overallPriorityScore ?? '—'}</span>
+      </div>
+    </div>
+  );
+}
+
 function RowCard({ row, action, personaId, onPrepared }: {
   row: AgentBenchRow;
   action: BenchAction;
@@ -171,24 +272,16 @@ function RowCard({ row, action, personaId, onPrepared }: {
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm text-slate-200 font-medium">{row.name}</div>
-          <div className="text-[11px] mt-0.5"><ExternalRefLine row={row} /></div>
-          {row.capabilities.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {row.capabilities.map((c) => (
-                <span key={c} className="rounded bg-slate-800/60 border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-400">{c}</span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="shrink-0 text-right text-[11px] text-slate-500">
-          Priority <span className="text-slate-300 font-mono">{row.overallPriorityScore}</span>
-        </div>
-      </div>
+      <PersistentCardHeader row={row} />
 
-      {action === 'discover' && (
+      {action === 'discover' && row.source !== 'marketa' && (
+        <div className="pt-1 border-t border-slate-800 text-[11px] text-slate-500 italic">
+          Registrable, but not a Marketa discovery record — the Admission Package generator is Marketa-candidate-scoped.
+          This agent's admission proceeds via its own Journey, never a second admission process.
+        </div>
+      )}
+
+      {action === 'discover' && row.source === 'marketa' && (
         <div className="pt-1 border-t border-slate-800 space-y-1.5">
           <button
             disabled={busy}
@@ -254,18 +347,18 @@ function RowCard({ row, action, personaId, onPrepared }: {
 
       {action === 'deploy' && (
         <div className="pt-1 border-t border-slate-800 space-y-1.5">
-          <div className="flex flex-wrap gap-1.5">
-            <FactChip label="Service Ready" value={row.serviceReady} />
-            <FactChip label="FS Verified (separate state)" value={row.fsVerified} />
-            {row.registry && (
-              <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
-                {row.registry.publicationStatus} · {row.registry.trustBand}
-              </span>
-            )}
-          </div>
-          {row.serviceReadyUnresolved.length > 0 && (
+          {row.runtimeMemberships
+            .filter((m) => m.status === 'approved')
+            .map((m) => (
+              <div key={m.runtimeId} className="text-[11px] text-slate-400">
+                <span className="text-slate-300">{m.runtimeLabel}</span> is approved — every eligibility condition holds.
+              </div>
+            ))}
+          {row.runtimeMemberships.some((m) => m.eligibility.outstanding.length > 0) && (
             <ul className="text-[10px] text-slate-500 list-disc list-inside">
-              {row.serviceReadyUnresolved.map((u) => <li key={u}>{u}</li>)}
+              {row.runtimeMemberships.flatMap((m) => m.eligibility.outstanding.map((u) => `${m.runtimeLabel}: ${u}`)).map((u) => (
+                <li key={u}>{u}</li>
+              ))}
             </ul>
           )}
           <a
@@ -325,10 +418,10 @@ export function AgentBenchTab({ personaId }: { personaId?: string }) {
           <div>
             <h2 className="text-sm font-semibold text-slate-200">Agent Bench</h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              The founder's operating console over Marketa candidates, Access &amp; Invitations, the admission
-              journey's facts, and the registry's publication/trust state — organized around what you do, not
-              which table a row lives in. It owns none of that state; every action either calls an existing write
-              path or deep-links to the surface that does.
+              The founder's operating console over Marketa candidates, every registrable agent, Access &amp;
+              Invitations, the admission journey's facts, the Horizen registration resolver, and the registry's
+              publication/trust state — organized around what you do, not which table a row lives in. It owns none of
+              that state; every action either calls an existing write path or deep-links to the surface that does.
             </p>
           </div>
           <button onClick={load} className="shrink-0 flex items-center gap-1 rounded border border-slate-700 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-300">
