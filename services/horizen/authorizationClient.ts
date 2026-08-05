@@ -162,6 +162,25 @@ export type HorizenAuthorizationRefusalCode =
    * rather than silently picking one side or attempting a fix blind.
    */
   | 'PULSE_MESSAGE_DRIFT'
+  /**
+   * A signature may recover locally to the correct owner INDEFINITELY while
+   * still being invalid for Horizen's ceremony, because the signed request
+   * itself carries a short validity window (documented as five minutes) and
+   * Horizen's server-side reconstruction refuses a stale `issuedAt` even
+   * though the bytes we signed and the bytes we submitted agree perfectly
+   * (operator escalation, 2026-08-05: a live rejection's `issuedAt` matched
+   * an EARLIER attempt's, on what was reported as a fresh retry).
+   *
+   * `prepareHorizenTransparencyAuthorization` checks the freshly-extracted
+   * `issuedAt` against `now()` immediately after every
+   * `build_pulse_auth_message` call, and retries that SAME call once (never
+   * sign, never submit, never persist) before giving up — so a transient
+   * stale response self-heals without the operator re-clicking Authorize.
+   * This refusal fires only if BOTH attempts come back stale, which means
+   * something more persistent (partner-side caching, clock skew) is
+   * happening and deserves a human look rather than a silent third retry.
+   */
+  | 'PULSE_AUTHORIZATION_EXPIRED'
   | 'STATE_MISMATCH';
 
 /**
@@ -272,6 +291,31 @@ export interface AuthorizationDeps {
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
+/**
+ * Horizen's documented validity window for a signed Pulse authorization
+ * message (partner spec — "valid for five minutes"). Used only as the
+ * FALLBACK when the message text itself doesn't state its own window;
+ * `parsePulseValidForMs` always prefers what the partner actually said.
+ */
+const PULSE_AUTH_DEFAULT_VALIDITY_MS = 5 * 60 * 1000;
+
+/** How many total attempts at `build_pulse_auth_message` a single prepare
+ *  call will make before giving up on staleness — one fresh call, one
+ *  retry. Never more: a persistently stale response is a partner-side or
+ *  clock-skew condition to surface, not to mask with silent retries. */
+const PULSE_AUTH_MAX_BUILD_ATTEMPTS = 2;
+
+/**
+ * The partner-stated validity window, if the message names one (e.g. "valid
+ * for 5 minutes") — never guessed. Returns null when absent, so the caller
+ * falls back to `PULSE_AUTH_DEFAULT_VALIDITY_MS` explicitly rather than this
+ * function silently supplying it.
+ */
+function parsePulseValidForMs(message: string): number | null {
+  const m = message.match(/valid\s+for\s+(\d+)\s*minute/i);
+  return m ? parseInt(m[1], 10) * 60 * 1000 : null;
 }
 
 const BUILD_TOOL_SPEC = {
@@ -528,88 +572,142 @@ export async function prepareHorizenTransparencyAuthorization(
         `${missing.join(', ')}. Declared schema: ${JSON.stringify(buildTool.tool.inputSchema?.properties ?? {})}`,
     };
   }
-  const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
-  const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
-  /*
-   * Named field first; a lone non-error text block accepted as the message
-   * second (Horizen's `build_pulse_auth_message` returns exactly that — 265
-   * chars of plain text, established by the diagnostic refusal on 2026-08-03,
-   * not assumed). Every refusal below still names what the partner actually
-   * sent, because the next unknown shape should cost one line to diagnose.
-   */
-  const extracted = extractPartnerMessage(buildResult, MESSAGE_FIELDS);
-  if (!extracted.ok) {
-    return {
-      ok: false,
-      refusalCode: 'PARTNER_MESSAGE_UNAVAILABLE',
-      detail:
-        `"${buildTool.tool.name}" did not return a usable message — refusing rather than inventing one. ` +
-        `${extracted.reason}. Looked for fields: ${MESSAGE_FIELDS.join(', ')}. ` +
-        `Actually returned: ${describeToolResultShape(buildResult)}`,
-    };
-  }
-  const message = extracted.message;
-
-  /*
-   * PULSE_MESSAGE_DRIFT INSTRUMENTATION (Horizen live-test escalation,
-   * 2026-08-05) — see the refusal code's own doc comment above for the full
-   * evidence chain. This compares `message` (what is about to be signed,
-   * decided by `extractPartnerMessage`) against a marker-aware read of the
-   * SAME `buildResult` (`extractStructuredMessageField`). If a structured
-   * `message` field exists and differs from what we're about to sign, that
-   * is decisive: refuse now, with every byte-level diagnostic named, rather
-   * than sign, submit, and receive Horizen's 401 again. If no structured
-   * alternative is found at all, there is nothing to diff against — proceed
-   * exactly as before; this instrumentation only ever ADDS a refusal, it
-   * never widens what gets signed.
-   */
-  const structuredAttempt = extractStructuredMessageField(buildResult, MESSAGE_FIELDS);
-  if (structuredAttempt.found && structuredAttempt.message !== message) {
-    const describe = (s: string): PulseMessageDriftSide => ({
-      length: s.length,
-      json: JSON.stringify(s),
-      sha256: sha256Hex(s),
-      first32: s.slice(0, 32),
-      last32: s.slice(-32),
-    });
-    const signed = describe(message);
-    const structured = describe(structuredAttempt.message);
-    return {
-      ok: false,
-      refusalCode: 'PULSE_MESSAGE_DRIFT',
-      detail:
-        `"${buildTool.tool.name}"'s response contains a structured "message" field that differs from the text ` +
-        `extractPartnerMessage chose to sign (via: ${extracted.via}, markerPresent: ${structuredAttempt.markerPresent}). ` +
-        `Refusing to sign rather than guess which side Horizen's server reconstructs against. ` +
-        `SIGNED candidate — length ${signed.length}, sha256 ${signed.sha256}, first32 ${signed.first32}, last32 ${signed.last32}, json ${signed.json}. ` +
-        `STRUCTURED candidate — length ${structured.length}, sha256 ${structured.sha256}, first32 ${structured.first32}, last32 ${structured.last32}, json ${structured.json}.`,
-    };
-  }
-
-  /*
-   * NEVER REGENERATE issuedAt (al / Horizen brief, 2026-08-04). This used to
-   * be `now().toISOString()` — a value independently generated AFTER the
-   * build call returned, with no relationship to what the signed message
-   * actually says. `enable_pulse_monitoring`'s own live schema requires back
-   * "the issuedAt returned by build_pulse_auth_message"; Horizen's signature
-   * verification reconstructs the message server-side using ITS OWN
-   * issuedAt, so submitting any other value fails verification even with an
-   * otherwise-correct call. Extracted from the message text itself — never
-   * generated, never guessed.
-   */
-  const issuedAt = extractIssuedAt(message);
-  if (!issuedAt) {
-    return {
-      ok: false,
-      refusalCode: 'ISSUED_AT_UNAVAILABLE',
-      detail:
-        `"${buildTool.tool.name}"'s response did not contain a recognisable issuedAt — refusing rather than ` +
-        `generating one, since enable_pulse_monitoring requires back the EXACT value embedded in the signed ` +
-        `message. Looked for: issuedAt="...", "Issued At: ...". Actually returned: ${describeToolResultShape(buildResult)}`,
-    };
-  }
-
   const now = deps.now ?? (() => new Date());
+  const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
+
+  type BuildAttempt =
+    | { kind: 'ok'; buildResult: McpToolResult; message: string; issuedAt: string }
+    | { kind: 'refuse'; refusalCode: HorizenAuthorizationRefusalCode; detail: string }
+    | { kind: 'stale'; issuedAt: string; ageMs: number; validForMs: number };
+
+  /*
+   * ONE ATTEMPT: call build_pulse_auth_message, extract, drift-check,
+   * extract issuedAt, and check it against ITS OWN validity window. Never
+   * signs, never submits, never persists anything — a pure read-and-check,
+   * safe to repeat.
+   */
+  async function attemptBuild(): Promise<BuildAttempt> {
+    const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
+    /*
+     * Named field first; a lone non-error text block accepted as the message
+     * second (Horizen's `build_pulse_auth_message` returns exactly that — 265
+     * chars of plain text, established by the diagnostic refusal on 2026-08-03,
+     * not assumed). Every refusal below still names what the partner actually
+     * sent, because the next unknown shape should cost one line to diagnose.
+     */
+    const extracted = extractPartnerMessage(buildResult, MESSAGE_FIELDS);
+    if (!extracted.ok) {
+      return {
+        kind: 'refuse',
+        refusalCode: 'PARTNER_MESSAGE_UNAVAILABLE',
+        detail:
+          `"${buildTool.tool.name}" did not return a usable message — refusing rather than inventing one. ` +
+          `${extracted.reason}. Looked for fields: ${MESSAGE_FIELDS.join(', ')}. ` +
+          `Actually returned: ${describeToolResultShape(buildResult)}`,
+      };
+    }
+    const message = extracted.message;
+
+    /*
+     * PULSE_MESSAGE_DRIFT INSTRUMENTATION (Horizen live-test escalation,
+     * 2026-08-05) — see the refusal code's own doc comment above for the full
+     * evidence chain. This compares `message` (what is about to be signed,
+     * decided by `extractPartnerMessage`) against a marker-aware read of the
+     * SAME `buildResult` (`extractStructuredMessageField`). If a structured
+     * `message` field exists and differs from what we're about to sign, that
+     * is decisive: refuse now, with every byte-level diagnostic named, rather
+     * than sign, submit, and receive Horizen's 401 again. If no structured
+     * alternative is found at all, there is nothing to diff against — proceed
+     * exactly as before; this instrumentation only ever ADDS a refusal, it
+     * never widens what gets signed.
+     */
+    const structuredAttempt = extractStructuredMessageField(buildResult, MESSAGE_FIELDS);
+    if (structuredAttempt.found && structuredAttempt.message !== message) {
+      const describe = (s: string): PulseMessageDriftSide => ({
+        length: s.length,
+        json: JSON.stringify(s),
+        sha256: sha256Hex(s),
+        first32: s.slice(0, 32),
+        last32: s.slice(-32),
+      });
+      const signed = describe(message);
+      const structured = describe(structuredAttempt.message);
+      return {
+        kind: 'refuse',
+        refusalCode: 'PULSE_MESSAGE_DRIFT',
+        detail:
+          `"${buildTool.tool.name}"'s response contains a structured "message" field that differs from the text ` +
+          `extractPartnerMessage chose to sign (via: ${extracted.via}, markerPresent: ${structuredAttempt.markerPresent}). ` +
+          `Refusing to sign rather than guess which side Horizen's server reconstructs against. ` +
+          `SIGNED candidate — length ${signed.length}, sha256 ${signed.sha256}, first32 ${signed.first32}, last32 ${signed.last32}, json ${signed.json}. ` +
+          `STRUCTURED candidate — length ${structured.length}, sha256 ${structured.sha256}, first32 ${structured.first32}, last32 ${structured.last32}, json ${structured.json}.`,
+      };
+    }
+
+    /*
+     * NEVER REGENERATE issuedAt (al / Horizen brief, 2026-08-04). This used to
+     * be `now().toISOString()` — a value independently generated AFTER the
+     * build call returned, with no relationship to what the signed message
+     * actually says. `enable_pulse_monitoring`'s own live schema requires back
+     * "the issuedAt returned by build_pulse_auth_message"; Horizen's signature
+     * verification reconstructs the message server-side using ITS OWN
+     * issuedAt, so submitting any other value fails verification even with an
+     * otherwise-correct call. Extracted from the message text itself — never
+     * generated, never guessed.
+     */
+    const issuedAt = extractIssuedAt(message);
+    if (!issuedAt) {
+      return {
+        kind: 'refuse',
+        refusalCode: 'ISSUED_AT_UNAVAILABLE',
+        detail:
+          `"${buildTool.tool.name}"'s response did not contain a recognisable issuedAt — refusing rather than ` +
+          `generating one, since enable_pulse_monitoring requires back the EXACT value embedded in the signed ` +
+          `message. Looked for: issuedAt="...", "Issued At: ...". Actually returned: ${describeToolResultShape(buildResult)}`,
+      };
+    }
+
+    /*
+     * A SIGNATURE MAY RECOVER TO THE CORRECT OWNER INDEFINITELY WHILE STILL
+     * BEING INVALID FOR THE PARTNER CEREMONY (operator escalation, 2026-08-05):
+     * Horizen's server-side reconstruction refuses a stale `issuedAt` even
+     * when the signed bytes and submitted bytes agree byte-for-byte — a live
+     * rejection's transcript showed the SAME issuedAt reappearing on what was
+     * reported as a fresh retry. Checked here, immediately after extraction,
+     * so a stale response never reaches signing at all.
+     */
+    const validForMs = parsePulseValidForMs(message) ?? PULSE_AUTH_DEFAULT_VALIDITY_MS;
+    const ageMs = now().getTime() - Date.parse(issuedAt);
+    if (!Number.isFinite(ageMs) || ageMs > validForMs) {
+      return { kind: 'stale', issuedAt, ageMs, validForMs };
+    }
+
+    return { kind: 'ok', buildResult, message, issuedAt };
+  }
+
+  let attempt: BuildAttempt = { kind: 'stale', issuedAt: '', ageMs: 0, validForMs: 0 };
+  for (let i = 1; i <= PULSE_AUTH_MAX_BUILD_ATTEMPTS; i += 1) {
+    attempt = await attemptBuild();
+    if (attempt.kind !== 'stale') break;
+    if (i === PULSE_AUTH_MAX_BUILD_ATTEMPTS) {
+      return {
+        ok: false,
+        refusalCode: 'PULSE_AUTHORIZATION_EXPIRED',
+        detail:
+          `"${buildTool.tool.name}" returned an issuedAt (${attempt.issuedAt}) already ` +
+          `${Math.round(attempt.ageMs / 1000)}s old — beyond its ${Math.round(attempt.validForMs / 1000)}s validity ` +
+          `window — on ${i} of ${PULSE_AUTH_MAX_BUILD_ATTEMPTS} attempts. Refusing to sign an already-expired ` +
+          'authorization rather than submit it and receive Horizen\'s rejection for a reason this check already caught.',
+      };
+    }
+    // Loop again — a genuinely FRESH build_pulse_auth_message call, never
+    // reusing this attempt's message, issuedAt or anything derived from it.
+  }
+  if (attempt.kind === 'refuse') {
+    return { ok: false, refusalCode: attempt.refusalCode, detail: attempt.detail };
+  }
+  const { buildResult, message, issuedAt } = attempt;
+
   const nonce = deps.randomNonce ? deps.randomNonce() : sha256Hex(`${input.authorizationId}:${now().toISOString()}:${Math.random()}`).slice(0, 32);
   const expiresAt = new Date(now().getTime() + (input.expiresInSeconds ?? 900) * 1000).toISOString();
 

@@ -309,7 +309,7 @@ describe('required refusal canaries', () => {
   it('local persistence failure (e.g. schema drift) passes its OWN refusalCode through verbatim — never mislabeled as a nonce replay, never a thrown error (al, 2026-08-04)', async () => {
     const result = await prepareHorizenTransparencyAuthorization(
       baseInput({ authorizationId: 'auth-local-persistence-fails' }),
-      { mcpClient: fakeMcpClient() },
+      { mcpClient: fakeMcpClient(), now: FIXED_NOW },
     );
     expect(result).toMatchObject({
       ok: false,
@@ -325,7 +325,7 @@ describe('required refusal canaries', () => {
   it('AUTHORIZATION_ALREADY_IN_FLIGHT also passes through verbatim — the fix generalises to every store refusal code, not just one', async () => {
     const result = await prepareHorizenTransparencyAuthorization(
       baseInput({ authorizationId: 'auth-already-in-flight' }),
-      { mcpClient: fakeMcpClient() },
+      { mcpClient: fakeMcpClient(), now: FIXED_NOW },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT' });
   });
@@ -384,7 +384,7 @@ describe('required refusal canaries', () => {
   it('the signature-integrity gate catches a walletAddress that drifted between signing and submission — never a mystery Horizen 401 for a local data-continuity bug', async () => {
     const prepared = await prepareHorizenTransparencyAuthorization(
       baseInput({ authorizationId: 'auth-integrity-drift' }),
-      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address), now: FIXED_NOW },
     );
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
@@ -411,7 +411,7 @@ describe('required refusal canaries', () => {
   it('the signature-integrity gate catches an expectedOwner that disagrees, even when the recovered signer and persisted walletAddress already agree with each other — the decisive three-way test, not a composition of two checks', async () => {
     const prepared = await prepareHorizenTransparencyAuthorization(
       baseInput({ authorizationId: 'auth-integrity-owner-mismatch' }),
-      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address), now: FIXED_NOW },
     );
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
@@ -434,7 +434,7 @@ describe('required refusal canaries', () => {
   it('the signature-integrity gate passes when nothing has drifted — a genuine regression guard, not a permanently-failing check', async () => {
     const prepared = await prepareHorizenTransparencyAuthorization(
       baseInput({ authorizationId: 'auth-integrity-clean' }),
-      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+      { mcpClient: fakeMcpClient(), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address), now: FIXED_NOW },
     );
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
@@ -973,6 +973,80 @@ describe('PULSE_MESSAGE_DRIFT — instrumentation, not a fix (Horizen live-test 
     // The existing, already-working bare-JSON shape every other test in this
     // file uses — no "--- structured ---" marker anywhere.
     const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: fakeMcpClient(),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+  });
+});
+
+/*
+ * PULSE_AUTHORIZATION_EXPIRED — a signature may recover to the correct owner
+ * indefinitely while still being invalid for Horizen's ceremony, because the
+ * signed request carries a short validity window (operator escalation,
+ * 2026-08-05: a live rejection's issuedAt matched an EARLIER attempt's, on
+ * what was reported as a fresh retry). These tests exercise the staleness
+ * check + bounded auto-retry inside prepareHorizenTransparencyAuthorization,
+ * WITHOUT touching wallet casing, signature encoding, Passport resolution,
+ * persona attribution, or agent identity (al's explicit scope for this pass).
+ */
+describe('PULSE_AUTHORIZATION_EXPIRED — staleness guard + bounded auto-retry (2026-08-05)', () => {
+  function mcpClientWithBuildSequence(messages: string[]) {
+    const base = fakeMcpClient();
+    let callIndex = 0;
+    return {
+      ...base,
+      callTool: vi.fn(async ({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) => {
+        if (name === 'build_pulse_auth_message') {
+          const text = messages[Math.min(callIndex, messages.length - 1)];
+          callIndex += 1;
+          return { content: [{ type: 'text', text: JSON.stringify({ message: text }) }] };
+        }
+        return base.callTool({ name, arguments: args });
+      }),
+    };
+  }
+
+  // FIXED_NOW is 2026-07-31T12:00:00.000Z — stale is well outside the 5-minute
+  // default window relative to it; fresh is comfortably inside it.
+  const staleMessage = 'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T11:00:00.000Z';
+  const freshMessage = 'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T11:58:00.000Z';
+
+  it('refuses PULSE_AUTHORIZATION_EXPIRED after both attempts come back stale — never signs, never submits, never persists', async () => {
+    const mcpClient = mcpClientWithBuildSequence([staleMessage, staleMessage]);
+    const result = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-expired-both' }), {
+      mcpClient,
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe('PULSE_AUTHORIZATION_EXPIRED');
+    expect(result.detail).toContain('2 of 2 attempts');
+    // build_pulse_auth_message was called exactly twice — one fresh attempt, one retry, never more.
+    const buildCalls = mcpClient.callTool.mock.calls.filter((c: any[]) => c[0]?.name === 'build_pulse_auth_message');
+    expect(buildCalls).toHaveLength(2);
+    // Never persisted — a refused prepare must not leave a PREPARED row behind.
+    expect(rows.has('auth-expired-both')).toBe(false);
+  });
+
+  it('self-heals on a transient stale response — the retry succeeds and the ceremony proceeds normally', async () => {
+    const mcpClient = mcpClientWithBuildSequence([staleMessage, freshMessage]);
+    const result = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-expired-self-heals' }), {
+      mcpClient,
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The SECOND (fresh) message is what was actually prepared/signed — never the first, stale one.
+    expect(result.value.message).toBe(freshMessage);
+    const buildCalls = mcpClient.callTool.mock.calls.filter((c: any[]) => c[0]?.name === 'build_pulse_auth_message');
+    expect(buildCalls).toHaveLength(2);
+  });
+
+  it('never flags the existing, already-working fixture (issuedAt pinned to the same instant as now()) as stale', async () => {
+    // Every other test in this file relies on this: FIXED_NOW === the
+    // fixture's embedded issuedAt, i.e. age 0 — must never be treated as expired.
+    const result = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-not-stale' }), {
       mcpClient: fakeMcpClient(),
       now: FIXED_NOW,
     });
