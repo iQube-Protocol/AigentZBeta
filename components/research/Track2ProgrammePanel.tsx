@@ -145,6 +145,7 @@ interface PopulationReconciliationView {
 interface CohortMemberRef {
   id: string;
   label: string;
+  statement: string;
 }
 
 interface ReadinessCheck {
@@ -410,25 +411,52 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                     </span>
                   </div>
                   <ul className="space-y-0.5">
-                    {tail.map((s) => (
-                      <li key={s.id}>
-                        <a
-                          href={`#track2-stage-${s.id}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            document.getElementById(`track2-stage-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-                          }}
-                          className="flex items-center gap-1.5 text-slate-200 hover:text-white"
-                        >
-                          {s.status === "complete" ? (
-                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                          ) : (
-                            <Circle className="h-3 w-3 text-slate-500" />
+                    {tail.map((s) => {
+                      const scrollTo = () =>
+                        document.getElementById(`track2-stage-${s.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      // Run Readiness gets its OWN failing checks named here (operator
+                      // direction, 2026-08-05: "Run Readiness / 7/9 passed / Structural
+                      // diversity [Resolve] / Graph connectivity [Resolve]") — [Resolve]
+                      // scrolls to Stage 9, where the actual affordance lives; it is not a
+                      // second control, just a pointer to the one true place.
+                      const failingChecks = s.id === "run-readiness" && readiness ? readiness.checks.filter((c) => !c.passed) : [];
+                      return (
+                        <li key={s.id}>
+                          <a
+                            href={`#track2-stage-${s.id}`}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              scrollTo();
+                            }}
+                            className="flex items-center gap-1.5 text-slate-200 hover:text-white"
+                          >
+                            {s.status === "complete" ? (
+                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <Circle className="h-3 w-3 text-slate-500" />
+                            )}
+                            {s.label}
+                            {s.id === "run-readiness" && readiness && (
+                              <span className="text-slate-500">
+                                — {readiness.checks.filter((c) => c.passed).length}/{readiness.checks.length} passed
+                              </span>
+                            )}
+                          </a>
+                          {failingChecks.length > 0 && (
+                            <ul className="ml-4 mt-0.5 space-y-0.5">
+                              {failingChecks.map((c) => (
+                                <li key={c.name} className="flex items-center justify-between text-slate-400">
+                                  <span>{c.name}</span>
+                                  <button type="button" onClick={scrollTo} className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200">
+                                    Resolve
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
                           )}
-                          {s.label}
-                        </a>
-                      </li>
-                    ))}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               );
@@ -661,6 +689,15 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                               <li key={c.name} className={c.passed ? "text-emerald-300" : "text-amber-200"}>
                                 {c.passed ? "✓" : "○"} {c.name}
                                 <span className="ml-1.5 text-slate-500">{c.detail}</span>
+                                {/* Executable remediation in place of prose (operator direction, 2026-08-05):
+                                    a failing check gets an affordance that actually resolves it, not another
+                                    sentence explaining why it's blocked. */}
+                                {!c.passed && c.name === "structural-diversity" && (
+                                  <DiversityCandidateQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
+                                )}
+                                {!c.passed && c.name === "graph-connectivity" && (
+                                  <BridgeRelationshipQueue experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
+                                )}
                               </li>
                             ))}
                           </ul>
@@ -750,9 +787,35 @@ export function Track2ProgrammePanel({ experimentId = "EXP-P1" }: { experimentId
                             </div>
                           );
                         })()}
-                      {s.id === "freeze" && (
-                        <FreezeControl experimentId={experimentId} onDone={() => void reloadAndAdvance()} />
-                      )}
+                      {/* Gated behind readiness (operator direction, 2026-08-05: "Stages 10
+                          and 11 should show only: Waiting for readiness: 7/9 [Return to
+                          unresolved checks]. Do not repeat the long explanations downstream.")
+                          — the full ceremony (ref inputs, 3-step flow, boundary panel) has
+                          no reason to render while the crystal cannot legally freeze yet. */}
+                      {s.id === "freeze" &&
+                        (() => {
+                          const readinessStage = programme.stages.find((st) => st.id === "run-readiness");
+                          if (readinessStage && readinessStage.status !== "complete") {
+                            return (
+                              <div className="mt-2 flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px] text-slate-400">
+                                <span>
+                                  Waiting for readiness:{" "}
+                                  {readiness ? `${readiness.checks.filter((c) => c.passed).length}/${readiness.checks.length}` : "…"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    document.getElementById("track2-stage-run-readiness")?.scrollIntoView({ behavior: "smooth", block: "center" })
+                                  }
+                                  className="text-emerald-300 underline decoration-emerald-700 hover:text-emerald-200"
+                                >
+                                  Return to unresolved checks
+                                </button>
+                              </div>
+                            );
+                          }
+                          return <FreezeControl experimentId={experimentId} onDone={() => void reloadAndAdvance()} />;
+                        })()}
                     </div>
                   </div>
                 </li>
@@ -4245,6 +4308,28 @@ interface RelationshipSuggestionView {
   confidence: number;
 }
 
+/** Stage 9 structural-diversity remediation (al, 2026-08-05) — mirrors app/api/.../diversity-candidates's DiversityCandidateView. */
+interface DiversityCandidateView {
+  candidateId: string;
+  statement: string;
+  evidenceSummary: string;
+  proposedSemanticType: string;
+  confidence: number;
+  reason: string;
+}
+
+/** Stage 9 graph-connectivity remediation (al, 2026-08-05) — mirrors app/api/.../bridge-candidates's BridgeCandidateView. */
+interface BridgeCandidateView {
+  invariantAId: string;
+  invariantAStatement: string;
+  invariantBId: string;
+  invariantBStatement: string;
+  relationType: string;
+  rationale: string;
+  confidence: number;
+  componentsJoined: [number, number];
+}
+
 /** A suggestion this auto-batch action must never write on its own — a genuine logical conflict is always a steward's call, not a heuristic's (al, 2026-08-04). */
 const NEVER_AUTO_ACCEPT_TYPE = "contradicts";
 const HIGH_CONFIDENCE_THRESHOLD = 95;
@@ -4617,6 +4702,301 @@ function RelationshipQueue({
             </div>
           )}
         </>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * Stage 9 — "Find diversity candidates" (operator direction, 2026-08-05):
+ * the structural-diversity remediation. Fetches unpromoted candidates whose
+ * natural semantic shape genuinely differs from the crystal's dominant one;
+ * Accept promotes+validates with that EXACT reviewed shape via
+ * POST .../diversity-candidates/[id]/accept — never a relabel of an
+ * existing crystal member. When nothing qualifies, points at the Corpus
+ * Scout tab with the exact domain/missing-shapes context rather than a
+ * fabricated deep link (CorpusScoutTab takes no URL params today).
+ */
+function DiversityCandidateQueue({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [candidates, setCandidates] = useState<DiversityCandidateView[]>([]);
+  const [dominantShape, setDominantShape] = useState<string | null>(null);
+  const [scanned, setScanned] = useState(0);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/diversity-candidates`, { cache: "no-store" });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `could not read diversity candidates (HTTP ${res.status})`);
+      setCandidates(d.candidates ?? []);
+      setDominantShape(d.dominantShape ?? null);
+      setScanned(d.scanned ?? 0);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "diversity-candidate search failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId]);
+
+  const openQueue = useCallback(() => {
+    setOpen(true);
+    void load();
+  }, [load]);
+
+  const accept = useCallback(
+    async (c: DiversityCandidateView) => {
+      setBusyId(c.candidateId);
+      setErr(null);
+      try {
+        const res = await personaFetch(
+          `/api/research/track2/${encodeURIComponent(experimentId)}/diversity-candidates/${encodeURIComponent(c.candidateId)}/accept`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ semanticType: c.proposedSemanticType }) },
+        );
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `extraction refused (HTTP ${res.status})`);
+        setCandidates((prev) => prev.filter((x) => x.candidateId !== c.candidateId));
+        onDone();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "extract-and-validate failed");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [experimentId, onDone],
+  );
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={openQueue}
+        className="mt-1.5 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700/60"
+      >
+        Find diversity candidates
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span>
+          {loading
+            ? "scanning extracted candidates for a distinct shape…"
+            : `${candidates.length} candidate(s) with a shape distinct from '${dominantShape}' (${scanned} scanned)`}
+        </span>
+        <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+          close
+        </button>
+      </div>
+      {loading && (
+        <div className="flex items-center gap-1.5 text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> classifying…
+        </div>
+      )}
+      {!loading &&
+        candidates.map((c) => (
+          <div key={c.candidateId} className="rounded border border-slate-800 bg-slate-950/60 p-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="rounded bg-violet-500/15 px-1.5 py-0.5 font-mono text-[10px] text-violet-300">{c.proposedSemanticType}</span>
+              <span className="text-[10px] text-slate-500">{c.confidence}% confidence</span>
+            </div>
+            <div className="text-slate-200">{c.statement}</div>
+            <div className="mt-0.5 text-slate-500">Evidence: {c.evidenceSummary}</div>
+            <div className="mt-0.5 text-slate-500">Why distinct: {c.reason}</div>
+            <button
+              type="button"
+              onClick={() => void accept(c)}
+              disabled={busyId === c.candidateId}
+              className="mt-1.5 flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {busyId === c.candidateId ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Extract and validate
+            </button>
+          </div>
+        ))}
+      {!loading && candidates.length === 0 && (
+        <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-slate-400">
+          No extracted candidate scanned ({scanned}) resolves to a shape distinct from &apos;{dominantShape}&apos;. Open the{" "}
+          <span className="font-medium text-slate-200">Corpus Scout</span> tab and acquire material for domain{" "}
+          <span className="font-mono text-slate-300">financial-risk-value-systems</span> aimed at the missing shapes (any of: constraint, law,
+          definition, principle, heuristic, epistemic — other than &apos;{dominantShape}&apos;).
+        </div>
+      )}
+      {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
+    </div>
+  );
+}
+
+/**
+ * Stage 9 — "Find valid bridge relationships" (operator direction,
+ * 2026-08-05): the graph-connectivity remediation. Proposes relationships
+ * between the largest component and every smaller one, via the SAME
+ * `suggestRelationships` engine Stage 7 uses. Single Accept goes through the
+ * existing `POST /api/invariants/[id]/edges`; batch Accept goes through
+ * `POST .../accept-bridges`, which enforces the identical per-edge rules.
+ */
+function BridgeRelationshipQueue({ experimentId, onDone }: { experimentId: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [candidates, setCandidates] = useState<BridgeCandidateView[]>([]);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [acceptingAll, setAcceptingAll] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const keyOf = (c: BridgeCandidateView) => `${c.invariantAId}~${c.invariantBId}~${c.relationType}`;
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/bridge-candidates`, { cache: "no-store" });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `could not read bridge candidates (HTTP ${res.status})`);
+      setCandidates(d.candidates ?? []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "bridge-candidate search failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [experimentId]);
+
+  const openQueue = useCallback(() => {
+    setOpen(true);
+    void load();
+  }, [load]);
+
+  const acceptOne = useCallback(
+    async (c: BridgeCandidateView) => {
+      setBusyKey(keyOf(c));
+      setErr(null);
+      try {
+        const res = await personaFetch(`/api/invariants/${encodeURIComponent(c.invariantAId)}/edges`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ toInvariantId: c.invariantBId, relation: c.relationType, rationale: c.rationale }),
+        });
+        const d = await res.json().catch(() => null);
+        if (!d?.ok) throw new Error(d?.error || `bridge refused (HTTP ${res.status})`);
+        setCandidates((prev) => prev.filter((x) => keyOf(x) !== keyOf(c)));
+        onDone();
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "bridge acceptance failed");
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [onDone],
+  );
+
+  const rejectOne = useCallback((c: BridgeCandidateView) => {
+    setCandidates((prev) => prev.filter((x) => keyOf(x) !== keyOf(c)));
+  }, []);
+
+  const acceptAll = useCallback(async () => {
+    setAcceptingAll(true);
+    setErr(null);
+    try {
+      const res = await personaFetch(`/api/research/track2/${encodeURIComponent(experimentId)}/accept-bridges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bridges: candidates.map((c) => ({ fromInvariantId: c.invariantAId, toInvariantId: c.invariantBId, relation: c.relationType, rationale: c.rationale })),
+        }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!d?.ok) throw new Error(d?.error || `batch accept refused (HTTP ${res.status})`);
+      setCandidates([]);
+      onDone();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "accept-all failed");
+    } finally {
+      setAcceptingAll(false);
+    }
+  }, [experimentId, candidates, onDone]);
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={openQueue}
+        className="mt-1.5 rounded border border-slate-700 bg-slate-800/60 px-2.5 py-1 text-[11px] font-medium text-slate-100 hover:bg-slate-700/60"
+      >
+        Find valid bridge relationships
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 space-y-2 rounded border border-slate-800 bg-slate-900/40 p-2 text-[11px]">
+      <div className="flex items-center justify-between text-slate-400">
+        <span>{loading ? "scanning disconnected clusters…" : `${candidates.length} grounded bridge(s) found`}</span>
+        <div className="flex items-center gap-2">
+          {candidates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void acceptAll()}
+              disabled={acceptingAll}
+              className="flex items-center gap-1 rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+            >
+              {acceptingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Accept all grounded bridges
+            </button>
+          )}
+          <button type="button" onClick={() => setOpen(false)} className="text-slate-500 hover:text-slate-300">
+            close
+          </button>
+        </div>
+      </div>
+      {loading && (
+        <div className="flex items-center gap-1.5 text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> asking Invariant Intelligence which clusters genuinely relate…
+        </div>
+      )}
+      {!loading &&
+        candidates.map((c) => (
+          <div key={keyOf(c)} className="rounded border border-slate-800 bg-slate-950/60 p-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-violet-300">{c.relationType}</span>
+              <span className="text-[10px] text-slate-500">
+                joins clusters of {c.componentsJoined[0]} + {c.componentsJoined[1]} · {c.confidence}% confidence
+              </span>
+            </div>
+            <div className="text-slate-200">{c.invariantAStatement}</div>
+            <div className="my-0.5 text-center text-slate-500">↓ {c.relationType}</div>
+            <div className="text-slate-200">{c.invariantBStatement}</div>
+            <div className="mt-0.5 text-slate-500">{c.rationale}</div>
+            <div className="mt-1.5 flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => void acceptOne(c)}
+                disabled={busyKey === keyOf(c)}
+                className="rounded border border-emerald-800 bg-emerald-900/30 px-2 py-0.5 font-medium text-emerald-200 disabled:opacity-50"
+              >
+                ✓ Accept relationship
+              </button>
+              <button
+                type="button"
+                onClick={() => rejectOne(c)}
+                disabled={busyKey === keyOf(c)}
+                className="rounded border border-slate-800 bg-slate-900/60 px-2 py-0.5 text-slate-400 disabled:opacity-50"
+              >
+                ✕ Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      {!loading && candidates.length === 0 && (
+        <div className="rounded border border-slate-800 bg-slate-950/40 p-2 text-slate-400">
+          No grounded relationship found between the disconnected clusters and the largest one. A genuine relationship may not exist yet in the
+          corpus — acquiring more material for the smaller cluster's topic is the remedy, not inventing an edge.
+        </div>
       )}
       {err && <div className="rounded border border-rose-500/30 bg-rose-500/10 p-1.5 text-rose-200">{err}</div>}
     </div>

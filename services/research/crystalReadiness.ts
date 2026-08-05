@@ -287,7 +287,7 @@ function looksDerivationEligible(inv: InvariantRecord): boolean {
  * invariant with many cross-domain edges masquerade as a well-connected
  * collection while every other member sits unconnected to it.
  */
-async function fetchIntraCrystalEdges(
+export async function fetchIntraCrystalEdges(
   invariants: InvariantRecord[],
 ): Promise<{ pairs: Array<[string, string]>; degree: Map<string, number> }> {
   const ids = invariants.map((inv) => inv.id);
@@ -311,9 +311,15 @@ async function fetchIntraCrystalEdges(
   return { pairs, degree };
 }
 
-/** Union-find over the intra-crystal undirected pairs — connected-component
- * sizes are the mechanical basis for the graph-connectivity check. */
-function connectedComponentSizes(ids: readonly string[], pairs: ReadonlyArray<[string, string]>): number[] {
+/**
+ * Union-find over the intra-crystal undirected pairs — full component
+ * MEMBERSHIP, not just sizes. Exported (2026-08-05, Stage 9 bridge-candidate
+ * remediation) so the graph-connectivity remedy can propose which SPECIFIC
+ * invariants to relate across which SPECIFIC components, not just report a
+ * count. `connectedComponentSizes` below derives sizes from this so the two
+ * never disagree about the same partition.
+ */
+export function connectedComponents(ids: readonly string[], pairs: ReadonlyArray<[string, string]>): string[][] {
   const parent = new Map<string, string>(ids.map((id) => [id, id]));
   function find(x: string): string {
     let root = x;
@@ -332,12 +338,18 @@ function connectedComponentSizes(ids: readonly string[], pairs: ReadonlyArray<[s
     if (ra !== rb) parent.set(ra, rb);
   }
   for (const [a, b] of pairs) union(a, b);
-  const sizes = new Map<string, number>();
+  const groups = new Map<string, string[]>();
   for (const id of ids) {
     const root = find(id);
-    sizes.set(root, (sizes.get(root) ?? 0) + 1);
+    const group = groups.get(root);
+    if (group) group.push(id);
+    else groups.set(root, [id]);
   }
-  return [...sizes.values()];
+  return [...groups.values()];
+}
+
+function connectedComponentSizes(ids: readonly string[], pairs: ReadonlyArray<[string, string]>): number[] {
+  return connectedComponents(ids, pairs).map((group) => group.length);
 }
 
 function groupBySemanticType(invariants: InvariantRecord[]): Map<string, number> {

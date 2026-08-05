@@ -1647,6 +1647,12 @@ export async function promoteCandidate(
   candidateId: string,
   actor: { personaId: string; sessionId?: string },
   parentInvariantIds: string[] = [],
+  // 2026-08-05 (Stage 9 structural-diversity remediation): every promotion
+  // used to hardcode 'constraint' below with no way to set anything else —
+  // the ONLY reason a crystal's structural-diversity check could never pass.
+  // Defaults to 'constraint' so every existing caller is unaffected; only the
+  // diversity-candidate accept path passes a different, steward-reviewed type.
+  semanticType: InvariantSemanticType = 'constraint',
 ): Promise<
   | { ok: true; invariantId: string; linkedParents: number; alreadyExisted?: boolean }
   | { ok: false; error: string }
@@ -1674,7 +1680,7 @@ export async function promoteCandidate(
       {
         statement: String(c.statement),
         namespace,
-        semanticType: 'constraint' as InvariantSemanticType,
+        semanticType,
         status: 'proposed',
         confidence: Number(c.confidence) || 0.5,
         // Machine-discovered candidate → the 'agent_verified' rung of the
