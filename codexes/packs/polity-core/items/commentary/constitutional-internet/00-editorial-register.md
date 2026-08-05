@@ -901,3 +901,27 @@ chapter-by-chapter publication-readiness call are recorded in the companion docu
 `codexes/packs/polity-core/collections.json` under `col_commentary_constitutional_internet`.
 
 Not pushed to Amplify as part of this pass — that remains a separate operator decision.
+
+---
+
+## Publication-readiness pass — v0.4 First Publication Candidate produced (2026-08-04)
+
+Operator-directed reader-experience editorial pass over v0.3, producing
+`01-controlling-manuscript-v0.4.md`. Does not reopen any ratified ruling or resolve any item the
+v0.3 companion recorded as genuinely unresolved. Three independent reviewers read the full 24
+chapters and Epilogue for narrative continuity, repetition, transitions, and accessibility; their
+findings plus direct resolution of Chapter Twelve (consequence vs. expulsion, fair representation)
+and Chapter Twenty-One / the Epilogue (Internet Foundation present-tense mandate claims) are
+recorded in full — change register, chapter-readiness table, remaining-evidence list, and the two
+operator-decision gates that remain — in `01-controlling-manuscript-v0.4-companion.md`. Both files
+registered in `collections.json`.
+
+The parallel companion-series work named alongside this instruction (Genie in the Lamp human/agent
+constraint section, Paper VI manuscript deposit, Constitutional Internet for Agents outline) was
+not attempted in this pass: an exhaustive repo-wide search (this session, current branch and every
+remote branch) found no `CI-AGENT-EDITION.md`, no `BL-17` entry, and no deposited Paper VI or Genie
+in the Lamp manuscript anywhere in `iQube-Protocol/AigentZBeta`. Producing that work here would mean
+fabricating content this register cannot verify exists. Flagged for the operator to locate or
+deposit; not fabricated.
+
+Not pushed to Amplify as part of this pass — that remains a separate operator decision.
