@@ -3,7 +3,7 @@
 **Date:** 2026-08-05 (revised same day — see §8, Revision history)
 **Status:** Canonical architecture for onboarding external agents into the constitutional ecosystem, not Horizen-specific. No code shipped yet. Grounded in a direct codebase audit (not assumed architecture); every "exists" claim below was verified against real files.
 
-**Revision note:** the first draft treated the Constitutional Admission Package as one artifact among several and organized the Agent Bench around storage states. This revision (i) elevates the Admission Package to an explicit lifecycle stage, (ii) adds an `Invited` state so the discovery-to-admission funnel is measurable, (iii) reframes the Bench around operator actions rather than database terms, (iv) renames `Available` to `Service Ready`, (v) renames Phase D to Operator Activation, and (vi) generalizes the Pulse/P&L acceptance criterion to any external service. Confirmed conclusion, unchanged: almost all of this is composition over existing surfaces, not new construction.
+**Revision note:** the first draft treated the Constitutional Admission Package as one artifact among several and organized the Agent Bench around storage states. A first revision (i) elevated the Admission Package to an explicit lifecycle stage, (ii) added an `Invited` state so the discovery-to-admission funnel is measurable, (iii) reframed the Bench around operator actions rather than database terms, (iv) renamed `Available` to `Service Ready`, (v) renamed Phase D to Operator Activation, and (vi) generalized the Pulse/P&L acceptance criterion to any external service. A second revision then corrected `Service Ready`'s definition (it referenced the full journey through `standing`, which would have made the optional `verify` stage an accidental gate) and clarified that the Admission Package is presented to the agent for relay, delivered directly to the operator, and creates no authority on its own. Full detail in §8. Confirmed conclusion, unchanged: almost all of this is composition over existing surfaces, not new construction.
 
 ## 1. The question this answers
 
@@ -39,7 +39,7 @@ Qualification
 Constitutional Admission Package   ← explicit stage
       │
       ▼
-Delivered to agent AND operator
+Presented to the agent for relay; delivered directly to the operator
       │
       ▼
 Operator Activation                ← the sponsorship decision (§6, Phase D)
@@ -69,6 +69,8 @@ The Package is generated once, at the Qualification→Package transition, and ca
 - Pulse/P&L status (disclosed, never gating — see §7)
 - the evidence bundle Marketa scored it on
 
+**Two audiences, one human act.** The Admission Package addresses the candidate agent and its operator — but not symmetrically. It explains to the agent why it was selected and gives it a package it may present to its operator; the operator-facing section carries the sponsorship rationale and the governed Journey link. Package delivery creates no authority of any kind. Only the human operator may accept sponsorship and originate delegated authority — that act is Operator Activation (§6, Phase D), and it remains an explicit human act regardless of how the Package reached either party.
+
 ## 4. Reuse, don't duplicate — the concrete mapping
 
 ### External Agent Prospect → extend Marketa's existing `CandidateAgent`
@@ -93,7 +95,7 @@ The existing `access_invitations`/`access_grants` schema (migration `20260725000
 
 ### Financial Services agent selector → make the existing free-text field registry-driven
 
-`FinancialServicesTab.tsx`'s `agentRef` state is a plain `<input>` defaulting to `"agent-financial-intelligence"`. This is the one clear, scoped code change from the operator's plan: replace the free-text input with a `<select>` populated from `registry_assets` filtered to agents whose `publicationStatus === 'published'` and whose journey-admission facts (sponsor, passport, active delegation — from `agentAdmissionState.ts`) are all true. This is what "serviceable" cashes out to concretely, since that term doesn't exist as a stored field: it's a computed join of `publicationStatus` + admission facts, not a new column.
+`FinancialServicesTab.tsx`'s `agentRef` state is a plain `<input>` defaulting to `"agent-financial-intelligence"`. This is the one clear, scoped code change from the operator's plan: replace the free-text input with a `<select>` populated from agents that are **Service Ready** (§5's explicit computed condition — never `register→standing` all settled, so an optional external verification can never become an accidental gate here either). This is what "serviceable" cashes out to concretely, since that term doesn't exist as a stored field: it's a computed join of `publicationStatus` + admission facts, not a new column. A service contract that specifically requires FS Verified filters on that separate state.
 
 ### The Constitutional Admission Package — a new, reusable artifact type, now an explicit stage (§3)
 
@@ -137,7 +139,18 @@ Candidates → Invited → In Admission → Service Ready → Engaged
   ```
 
 - **In Admission** — Operator Activation is complete (sponsorship accepted); the journey is running. Deep-links to the Journey, the Passport Review Queue, and the Factory record — never duplicates their controls.
-- **Service Ready** — admission complete (`register→standing` all settled), registry `publicationStatus: 'published'`. Named for what actually happened — Passport, delegation, registry binding and Standing eligibility all hold, which is a constitutional fact, not mere availability. Appears automatically in `FinancialServicesTab`'s (now registry-driven) agent selector once wired — no separate "add to team" action needed.
+- **Service Ready** — a computed condition, deliberately NOT `register→standing all settled`: the journey's `verify` stage sits between `aigentme` and `deploy` (`register → claim → passport → delegate → aigentme → verify → deploy → standing`), and `verify` is where Pulse/P&L transparency lives. Requiring every journey stage through `standing` would make an optional external service an accidental admission gate — exactly what §7's generalized criterion forbids. Service Ready instead requires, computed directly against `agentAdmissionState.ts`'s real facts and the registry record:
+
+  - ✓ external registration recognised
+  - ✓ controller wallet proven
+  - ✓ usable Delegate Passport issued
+  - ✓ active bounded delegation
+  - ✓ structural persona assignment
+  - ✓ registry asset reconciled and published
+  - ✓ callable runtime and applicable policy requirements satisfied
+  - ✓ Standing eligibility established
+
+  External verification and transparency (Pulse, P&L, or any future external service) enrich trust and Standing but do not gate Service Ready unless a specific service contract explicitly requires them. The Financial Services selector may separately display **Service Ready** and **FS Verified** as two distinct states on the same agent — an agent can be Service Ready without being FS Verified, and a service contract that specifically requires FS Verified filters on that second state, never by silently folding it into Service Ready.
 - **Engaged** — has an active Constitutional Agreement (`services/constitutional/constitutionalAgreement.ts`). Shows role, authority scope, receipts, Standing earned.
 
 ## 6. Phase plan
@@ -174,4 +187,10 @@ Primary metric: **median Time to Threshold**, paired with **risk of repair per c
 5. An **`Invited`** lifecycle state is added, making the full discovery-to-admission funnel measurable for the first time.
 6. The acceptance criterion generalizes from "Pulse/P&L failures never block admission" to "external service failures never block constitutional admission" — future-proofing against any external integration, not only Horizen.
 
-With these six changes, this document is treated as the **canonical architecture for onboarding external agents into the constitutional ecosystem** — not a Horizen-specific plan.
+**2026-08-05, second same-day revision** — three corrections on approval of the above:
+
+7. Service Ready is redefined from `register→standing all settled` to an explicit list of computed constitutional and technical conditions (§5). The journey's `verify` stage sits between `aigentme` and `deploy`, and `verify` is where Pulse/P&L transparency lives — requiring the full sequence through `standing` would have made an optional external service an accidental admission gate, directly contradicting refinement #6/§7. `Service Ready` and `FS Verified` are now explicitly two distinct, separately-displayable states.
+8. The Admission Package's delivery is clarified: it is presented to the candidate agent for relay, and delivered directly to the operator wherever an operator channel is known — never framed as the agent being independently invited to authorize its own admission. Package delivery creates no authority; Operator Activation (§6, Phase D) remains the sole human act that originates it.
+9. A UTF-8 encoding concern was raised against a delivered patch file; verified byte-for-byte (decode check + `iconv` round-trip) that both the source document and the patch are clean UTF-8 — the mojibake was introduced downstream of delivery, not in this document, so no character was altered here.
+
+With these nine changes, this document is treated as the **canonical architecture for onboarding external agents into the constitutional ecosystem** — not a Horizen-specific plan.
