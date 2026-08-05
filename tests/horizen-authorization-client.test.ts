@@ -65,8 +65,13 @@ vi.mock('@/services/receipts/activityReceiptService', () => ({
 import {
   prepareHorizenTransparencyAuthorization,
   runHorizenTransparencyAuthorization,
+  signHorizenTransparencyAuthorization,
+  submitHorizenTransparencyAuthorization,
   pulseBuildCandidates,
+  parsePulseAuthMessage,
+  diffPulseCeremonyArgs,
   type PrepareHorizenTransparencyAuthorizationInput,
+  type PulseCeremonyArgs,
 } from '@/services/horizen/authorizationClient';
 import { matchSchemaFields, missingRequiredFields } from '@/services/horizen/mcpSchemaMatch';
 import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
@@ -371,5 +376,199 @@ describe('the Pulse call conforms to the documented contract, not to inference (
   it('refuses an unparseable agent id rather than sending a label', () => {
     expect(source).toMatch(/if \(!parsedAgentId\.ok\)/);
     expect(source).toContain('is not a usable agent id');
+  });
+});
+
+/*
+ * Horizen partner confirmation (2026-08-04): the server never reads
+ * `message`/`signedMessage`/`signedPayload` — it reconstructs the signed
+ * plaintext server-side from `(action, agentId, walletAddress, issuedAt,
+ * chain)` and verifies the signature against ITS OWN reconstruction. These
+ * canaries pin that:
+ *   1. this client parses the partner's own returned plaintext for the
+ *      authoritative `issuedAt` rather than stamping its own clock;
+ *   2. the same five values used to build the message are the ones sent to
+ *      enable_pulse_monitoring, not re-derived or silently omitted;
+ *   3. a malformed/incomplete set of those five values is refused LOCALLY,
+ *      before any call to Horizen.
+ */
+const REALISTIC_PULSE_MESSAGE = (overrides: Partial<Record<'agent' | 'network' | 'chain' | 'registry' | 'wallet' | 'issuedAt', string>> = {}) =>
+  [
+    'ASR Pulse enable',
+    `Agent: ${overrides.agent ?? '8798'}`,
+    `Network: ${overrides.network ?? 'sepolia'}`,
+    `Chain: ${overrides.chain ?? '84532'}`,
+    `Registry: ${overrides.registry ?? '0x8004a818f0a0b5f3c8e6b2f0b5d9b0e0c0a0b0c0'}`,
+    `Wallet: ${overrides.wallet ?? '0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9'}`,
+    `Issued At: ${overrides.issuedAt ?? '2026-08-04T16:17:12.655Z'}`,
+  ].join('\n');
+
+describe('parsePulseAuthMessage — reads the partner\'s own plaintext template', () => {
+  it('extracts every documented field', () => {
+    const parsed = parsePulseAuthMessage(REALISTIC_PULSE_MESSAGE());
+    expect(parsed).toEqual({
+      action: 'enable',
+      agentId: '8798',
+      network: 'sepolia',
+      chainId: '84532',
+      registry: '0x8004a818f0a0b5f3c8e6b2f0b5d9b0e0c0a0b0c0',
+      walletAddress: '0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9',
+      issuedAt: '2026-08-04T16:17:12.655Z',
+    });
+  });
+
+  it('never throws on unrecognised text, and returns nulls rather than guessing', () => {
+    expect(() => parsePulseAuthMessage('not the template at all')).not.toThrow();
+    expect(parsePulseAuthMessage('not the template at all')).toEqual({
+      action: null,
+      agentId: null,
+      network: null,
+      chainId: null,
+      registry: null,
+      walletAddress: null,
+      issuedAt: null,
+    });
+  });
+});
+
+describe('diffPulseCeremonyArgs — byte-identity comparison', () => {
+  const base: PulseCeremonyArgs = { action: 'enable', agentId: '8798', walletAddress: '0x24bb…d4b9', chain: 'base-sepolia', issuedAt: '2026-08-04T16:17:12.655Z' };
+
+  it('reports no diffs for identical objects', () => {
+    expect(diffPulseCeremonyArgs(base, { ...base })).toEqual([]);
+  });
+
+  it('names the exact field and both values on a mismatch (e.g. wallet casing)', () => {
+    const drifted: PulseCeremonyArgs = { ...base, walletAddress: '0x24BB…D4B9' };
+    const diffs = diffPulseCeremonyArgs(base, drifted);
+    expect(diffs).toHaveLength(1);
+    expect(diffs[0]).toContain('walletAddress');
+    expect(diffs[0]).toContain(base.walletAddress);
+    expect(diffs[0]).toContain(drifted.walletAddress);
+  });
+});
+
+describe('the ceremony preserves issuedAt from the partner\'s own message, never its own clock (2026-08-04)', () => {
+  it('uses the parsed "Issued At:" value when the build message matches the documented template', async () => {
+    const mcpClient = fakeMcpClient({ buildMessage: REALISTIC_PULSE_MESSAGE({ agent: '1234', wallet: WALLET.address.toLowerCase() }) });
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    // FIXED_NOW is 2026-07-31T12:00:00.000Z — the message's own timestamp must win, not the clock.
+    expect(prepared.value.pulseArgs.issuedAt).toBe('2026-08-04T16:17:12.655Z');
+    expect(prepared.value.envelope.issuedAt).toBe('2026-08-04T16:17:12.655Z');
+  });
+
+  it('falls back to the local clock, loudly, when the message does not match the template', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const mcpClient = fakeMcpClient({ buildMessage: 'not the documented template' });
+      const prepared = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      expect(prepared.value.pulseArgs.issuedAt).toBe(FIXED_NOW().toISOString());
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[HORIZEN ESCALATION]'));
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+});
+
+describe('submitHorizenTransparencyAuthorization sends the same five reconstruction fields the build call used (2026-08-04)', () => {
+  it('includes action, agentId, walletAddress, chain and issuedAt when the partner schema declares them', async () => {
+    const mcpClient = fakeMcpClient({
+      tools: [
+        { name: 'build_pulse_auth_message', inputSchema: { properties: { tokenId: {}, network: {}, wallet: {} } } },
+        {
+          name: 'enable_pulse_monitoring',
+          inputSchema: { properties: { message: {}, signature: {}, action: {}, agentId: {}, walletAddress: {}, chain: {}, issuedAt: {} } },
+        },
+        { name: 'get_onboarding_status', inputSchema: { properties: { tokenId: {}, submissionRef: {} } } },
+      ],
+      buildMessage: REALISTIC_PULSE_MESSAGE({ agent: '1234', wallet: WALLET.address.toLowerCase() }),
+    });
+
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput(), { mcpClient, now: FIXED_NOW });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+
+    await submitHorizenTransparencyAuthorization(
+      prepared.value.authorizationId,
+      { message: prepared.value.message, signature: signed.value, pulseArgs: prepared.value.pulseArgs },
+      { mcpClient },
+    );
+
+    const submitCall = mcpClient.callTool.mock.calls.find((c: any) => c[0].name === 'enable_pulse_monitoring');
+    expect(submitCall).toBeTruthy();
+    const sentArgs = submitCall[0].arguments;
+    expect(sentArgs.action).toBe(prepared.value.pulseArgs.action);
+    expect(sentArgs.agentId).toBe(prepared.value.pulseArgs.agentId);
+    expect(sentArgs.walletAddress).toBe(prepared.value.pulseArgs.walletAddress);
+    expect(sentArgs.chain).toBe(prepared.value.pulseArgs.chain);
+    expect(sentArgs.issuedAt).toBe(prepared.value.pulseArgs.issuedAt);
+    // The exact same value that was used to build the message — not re-lowercased, not re-derived.
+    expect(sentArgs.walletAddress).toBe(WALLET.address.toLowerCase());
+  });
+
+  async function prepareAndSign(authorizationId: string) {
+    // agent: '1234' matches baseInput()'s registry.tokenId, so the message's
+    // own Agent: line agrees with what this client requested — no spurious
+    // build-time drift warning from an intentionally mismatched fixture.
+    const mcpClient = fakeMcpClient({ buildMessage: REALISTIC_PULSE_MESSAGE({ agent: '1234', wallet: WALLET.address.toLowerCase() }) });
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId }), { mcpClient, now: FIXED_NOW });
+    if (!prepared.ok) throw new Error(`prepare failed: ${prepared.detail}`);
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    if (!signed.ok) throw new Error(`sign failed: ${signed.detail}`);
+    return { mcpClient, prepared: prepared.value, signed: signed.value };
+  }
+
+  it('refuses locally with PULSE_ARGUMENT_DRIFT — never calling Horizen — when walletAddress was re-cased after the build step', async () => {
+    const { mcpClient, prepared, signed } = await prepareAndSign('auth-drift-casing');
+    const checksummed = ethers.getAddress(prepared.pulseArgs.walletAddress); // EIP-55 checksummed, not lowercased
+    const callsBefore = mcpClient.callTool.mock.calls.length;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await submitHorizenTransparencyAuthorization(
+        prepared.authorizationId,
+        { message: prepared.message, signature: signed, pulseArgs: { ...prepared.pulseArgs, walletAddress: checksummed } },
+        { mcpClient },
+      );
+      expect(result).toMatchObject({ ok: false, refusalCode: 'PULSE_ARGUMENT_DRIFT' });
+      if (!result.ok) expect(result.detail).toContain('not lowercased');
+      // The whole point: refused before spending a network call on it.
+      expect(mcpClient.callTool.mock.calls.length).toBe(callsBefore);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('refuses locally with PULSE_ARGUMENT_DRIFT when a required field is missing, once a row exists', async () => {
+    const { mcpClient, prepared, signed } = await prepareAndSign('auth-drift-missing-field');
+    const callsBefore = mcpClient.callTool.mock.calls.length;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await submitHorizenTransparencyAuthorization(
+        prepared.authorizationId,
+        { message: prepared.message, signature: signed, pulseArgs: { ...prepared.pulseArgs, chain: '' } },
+        { mcpClient },
+      );
+      expect(result).toMatchObject({ ok: false, refusalCode: 'PULSE_ARGUMENT_DRIFT' });
+      // The whole point: refused BEFORE any partner call.
+      expect(mcpClient.callTool.mock.calls.length).toBe(callsBefore);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

@@ -90,6 +90,7 @@ export type HorizenAuthorizationRefusalCode =
   | 'AUTHORIZATION_EXPIRED'
   | 'SIGNING_FAILED'
   | 'HORIZEN_SUBMISSION_FAILED'
+  | 'PULSE_ARGUMENT_DRIFT'
   | 'REGISTRY_REREAD_FAILED'
   | 'REGISTRY_OWNER_MISMATCH'
   | 'HORIZEN_REREAD_NOT_CONFIRMED'
@@ -129,6 +130,77 @@ export interface AuthorizationDeps {
 
 function sha256Hex(input: string): string {
   return createHash('sha256').update(input, 'utf8').digest('hex');
+}
+
+/**
+ * The exact five fields Horizen's `enable_pulse_monitoring` reconstructs the
+ * signed message from server-side (partner confirmation, 2026-08-04): the
+ * server never reads a `message`/`signedMessage`/`signedPayload` field — it
+ * rebuilds the plaintext from `(action, agentId, walletAddress, issuedAt,
+ * chain)` and verifies the signature against ITS OWN reconstruction. So the
+ * submit call must reproduce, byte-for-byte, the same five values the build
+ * call used — not re-derive them.
+ */
+export interface PulseCeremonyArgs {
+  action: 'enable' | 'disable';
+  agentId: string;
+  walletAddress: string;
+  chain: string;
+  issuedAt: string;
+}
+
+/** Best-effort extraction of the fields Horizen's own returned plaintext embeds. */
+export interface ParsedPulseAuthMessage {
+  action: 'enable' | 'disable' | null;
+  agentId: string | null;
+  network: string | null;
+  /** The numeric chain id as written into the MESSAGE BODY — distinct from the `chain` tool argument, which is the network selector string. */
+  chainId: string | null;
+  registry: string | null;
+  walletAddress: string | null;
+  issuedAt: string | null;
+}
+
+/**
+ * Parses the documented Pulse message template:
+ *
+ *   ASR Pulse enable
+ *   Agent: 7866
+ *   Network: sepolia
+ *   Chain: 84532
+ *   Registry: 0x8004a818…
+ *   Wallet: 0x…
+ *   Issued At: <ISO-8601>
+ *
+ * Never throws. Any line it cannot find comes back `null` — callers must
+ * treat that as "the template did not match", not as "the field is empty",
+ * and must not silently substitute a locally-computed value for `issuedAt`
+ * without logging that the parse fell through, because that substitution is
+ * exactly the drift this exists to catch.
+ */
+export function parsePulseAuthMessage(message: string): ParsedPulseAuthMessage {
+  const match = (re: RegExp): string | null => re.exec(message)?.[1] ?? null;
+  const action = match(/^ASR Pulse (enable|disable)\s*$/im);
+  return {
+    action: action === 'enable' || action === 'disable' ? action : null,
+    agentId: match(/^Agent:\s*(\S+)\s*$/im),
+    network: match(/^Network:\s*(\S+)\s*$/im),
+    chainId: match(/^Chain:\s*(\S+)\s*$/im),
+    registry: match(/^Registry:\s*(\S+)\s*$/im),
+    walletAddress: match(/^Wallet:\s*(\S+)\s*$/im),
+    issuedAt: match(/^Issued At:\s*(\S+)\s*$/im),
+  };
+}
+
+/** Field-by-field diff between two ceremony argument sets — empty array means byte-identical. */
+export function diffPulseCeremonyArgs(built: PulseCeremonyArgs, atSubmit: PulseCeremonyArgs): string[] {
+  const diffs: string[] = [];
+  (Object.keys(built) as (keyof PulseCeremonyArgs)[]).forEach((key) => {
+    if (built[key] !== atSubmit[key]) {
+      diffs.push(`${key}: built="${built[key]}" vs submit="${atSubmit[key]}"`);
+    }
+  });
+  return diffs;
 }
 
 const BUILD_TOOL_SPEC = {
@@ -208,6 +280,13 @@ export interface PreparedAuthorization {
   envelope: HorizenTransparencyAuthorization;
   /** The exact partner-supplied message text this envelope's signature must be produced over. Preserved verbatim, never altered. */
   message: string;
+  /**
+   * The exact five values used to build `message` — carried forward so the
+   * submit stage sends the SAME values rather than re-deriving them. Never
+   * reconstruct a `PulseCeremonyArgs` independently at submit time; always
+   * thread this object through.
+   */
+  pulseArgs: PulseCeremonyArgs;
 }
 
 export async function prepareHorizenTransparencyAuthorization(
@@ -355,8 +434,74 @@ export async function prepareHorizenTransparencyAuthorization(
 
   const now = deps.now ?? (() => new Date());
   const nonce = deps.randomNonce ? deps.randomNonce() : sha256Hex(`${input.authorizationId}:${now().toISOString()}:${Math.random()}`).slice(0, 32);
-  const issuedAt = now().toISOString();
-  const expiresAt = new Date(now().getTime() + (input.expiresInSeconds ?? 900) * 1000).toISOString();
+
+  /*
+   * ISSUED-AT MUST COME FROM WHAT THE PARTNER ACTUALLY EMBEDDED, NOT FROM OUR
+   * OWN CLOCK (Horizen partner confirmation, 2026-08-04).
+   *
+   * The server reconstructs the signed message from (action, agentId,
+   * walletAddress, issuedAt, chain) and verifies the signature against ITS
+   * OWN reconstruction — so `issuedAt` must be byte-identical to whatever the
+   * build tool actually put in the plaintext it returned. Generating our own
+   * timestamp AFTER the build call already returned is exactly the "recreate
+   * the value instead of preserving it" failure mode: any clock skew, however
+   * small, between when Horizen's server stamped the message and when this
+   * process calls `now()` produces a DIFFERENT `issuedAt` string, and the
+   * server's reconstruction then fails to match a signature that is otherwise
+   * completely valid — a silent 401 with no code-level symptom.
+   *
+   * The parsed value is therefore authoritative when the template matches. A
+   * locally-generated timestamp is a documented fallback, not a substitute
+   * that fails silently: logged loudly, because it means every downstream
+   * `chain`/`agentId`/`walletAddress` comparison below is also unverifiable
+   * against what Horizen actually embedded.
+   */
+  const parsedMessage = parsePulseAuthMessage(message);
+  const usedFallbackIssuedAt = parsedMessage.issuedAt === null;
+  const issuedAt = parsedMessage.issuedAt ?? now().toISOString();
+  const expiresAt = new Date(new Date(issuedAt).getTime() + (input.expiresInSeconds ?? 900) * 1000).toISOString();
+
+  const pulseArgs: PulseCeremonyArgs = {
+    action: 'enable',
+    agentId: decimalAgentId,
+    walletAddress: input.controllerWallet.toLowerCase(),
+    chain: facts.pulseSelector,
+    issuedAt,
+  };
+
+  if (usedFallbackIssuedAt) {
+    console.error(
+      `[HORIZEN ESCALATION] build_pulse_auth_message's returned message did not match the documented ` +
+        `"Issued At: <ISO-8601>" template — falling back to a locally-generated issuedAt (${issuedAt}). ` +
+        `If the partner's server also derives issuedAt from the plaintext it returned, this fallback WILL ` +
+        `cause the subsequent enable_pulse_monitoring call to fail signature verification (byte-identity ` +
+        `requirement). Message shape: ${describeToolResultShape(buildResult)}.`,
+    );
+  }
+
+  /*
+   * DRIFT DETECTION AT THE EARLIEST POSSIBLE POINT — before any signing or
+   * submission has happened, not after Horizen rejects it. Compares what we
+   * ASKED the build tool to use (the request-side candidates) against what
+   * the build tool's own returned plaintext says it ACTUALLY used. A
+   * mismatch here means Horizen's build tool silently normalised or ignored
+   * one of our arguments — evidence a human needs, not a guess to make.
+   */
+  const buildTimeDrift: string[] = [];
+  if (parsedMessage.agentId !== null && parsedMessage.agentId !== pulseArgs.agentId) {
+    buildTimeDrift.push(`agentId: requested="${pulseArgs.agentId}" vs message="${parsedMessage.agentId}"`);
+  }
+  if (parsedMessage.walletAddress !== null && parsedMessage.walletAddress.toLowerCase() !== pulseArgs.walletAddress) {
+    buildTimeDrift.push(`walletAddress: requested="${pulseArgs.walletAddress}" vs message="${parsedMessage.walletAddress}"`);
+  }
+  if (buildTimeDrift.length > 0) {
+    console.error(
+      `[HORIZEN ESCALATION] PULSE_ARGUMENT_DRIFT at build time — the message build_pulse_auth_message ` +
+        `returned does not embed the values this client requested: ${buildTimeDrift.join('; ')}. Signing this ` +
+        `message will sign whatever Horizen's plaintext actually says, which may not match this client's ` +
+        `own record of the request.`,
+    );
+  }
 
   const created = await createPartnerAuthorizationRequest({
     authorizationId: input.authorizationId,
@@ -398,7 +543,7 @@ export async function prepareHorizenTransparencyAuthorization(
 
   await updatePartnerAuthorizationRequest(input.authorizationId, { state: 'PREPARED', payloadHash: envelope.messageHash });
 
-  return { ok: true, value: { authorizationId: input.authorizationId, actorPersonaId: input.actorPersonaId, envelope, message } };
+  return { ok: true, value: { authorizationId: input.authorizationId, actorPersonaId: input.actorPersonaId, envelope, message, pulseArgs } };
 }
 
 // ── Stage 2: sign ────────────────────────────────────────────────────────
@@ -442,12 +587,47 @@ export async function signHorizenTransparencyAuthorization(
 
 export async function submitHorizenTransparencyAuthorization(
   authorizationId: string,
-  args: { message: string; signature: PartnerAuthorizationSignature },
+  args: { message: string; signature: PartnerAuthorizationSignature; pulseArgs: PulseCeremonyArgs },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ submissionRef: string }>> {
   const record = await getPartnerAuthorizationRequest(authorizationId);
   if (!record || record.state !== 'SIGNED') {
     return { ok: false, refusalCode: 'STATE_MISMATCH', detail: `authorization "${authorizationId}" is not in SIGNED state` };
+  }
+
+  /*
+   * ABORT LOCALLY, BEFORE CONTACTING HORIZEN, IF THE CEREMONY ARGUMENTS ARE
+   * MALFORMED (operator direction, 2026-08-04) — a byte-identity requirement
+   * cannot be satisfied by a value that is empty, or a wallet that was
+   * re-cased after the build step. This does not re-derive `pulseArgs`
+   * independently (there is nothing else to derive it FROM at this stage —
+   * it must arrive as the exact object the build stage produced); it checks
+   * the object actually received is well-formed before spending a network
+   * call on it.
+   */
+  const malformed: string[] = [];
+  if (!args.pulseArgs?.agentId) malformed.push('agentId is missing or empty');
+  if (!args.pulseArgs?.walletAddress) malformed.push('walletAddress is missing or empty');
+  else if (args.pulseArgs.walletAddress !== args.pulseArgs.walletAddress.toLowerCase()) {
+    malformed.push(
+      `walletAddress "${args.pulseArgs.walletAddress}" is not lowercased — it must be passed through unchanged ` +
+        `from the build stage, never re-checksummed or re-cased afterward`,
+    );
+  }
+  if (!args.pulseArgs?.chain) malformed.push('chain is missing or empty');
+  if (!args.pulseArgs?.issuedAt) malformed.push('issuedAt is missing or empty');
+  if (args.pulseArgs?.action !== 'enable' && args.pulseArgs?.action !== 'disable') {
+    malformed.push(`action is "${args.pulseArgs?.action}", expected "enable" or "disable"`);
+  }
+  if (malformed.length > 0) {
+    const detail = `PULSE_ARGUMENT_DRIFT — refusing to call Horizen with malformed ceremony arguments: ${malformed.join('; ')}`;
+    console.error(`[HORIZEN ESCALATION] ${detail}`);
+    await updatePartnerAuthorizationRequest(authorizationId, {
+      state: 'REFUSED',
+      refusalCode: 'PULSE_ARGUMENT_DRIFT',
+      refusalDetail: detail,
+    });
+    return { ok: false, refusalCode: 'PULSE_ARGUMENT_DRIFT', detail };
   }
 
   const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
@@ -461,6 +641,17 @@ export async function submitHorizenTransparencyAuthorization(
     };
   }
 
+  /*
+   * THE FIVE RECONSTRUCTION FIELDS, PASSED THROUGH UNCHANGED FROM THE BUILD
+   * STAGE (Horizen partner confirmation, 2026-08-04) — `agentId`,
+   * `walletAddress`, `chain`, `action`, `issuedAt` are exactly what the
+   * server rebuilds the signed message from. Previously this call sent none
+   * of them — only `message`/`signature`/`network` — so the server's
+   * reconstruction depended entirely on whatever it defaulted these to,
+   * which had no reason to match what `build_pulse_auth_message` used. That
+   * mismatch, not a signature or ownership defect, is the leading hypothesis
+   * for the observed 401s.
+   */
   const submitArgs = matchSchemaFields(submitTool.tool.inputSchema, {
     message: args.message,
     signature: args.signature.signature,
@@ -468,6 +659,12 @@ export async function submitHorizenTransparencyAuthorization(
     signedPayload: args.signature.signature,
     signerAddress: args.signature.signerAddress,
     network: record.network,
+    action: args.pulseArgs.action,
+    agentId: args.pulseArgs.agentId,
+    walletAddress: args.pulseArgs.walletAddress,
+    wallet: args.pulseArgs.walletAddress,
+    chain: args.pulseArgs.chain,
+    issuedAt: args.pulseArgs.issuedAt,
   });
   const submitResult = await mcpClient.callTool({ name: submitTool.tool.name, arguments: submitArgs });
   const SUBMISSION_FIELDS = ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id'];
@@ -475,9 +672,19 @@ export async function submitHorizenTransparencyAuthorization(
   if (!submissionRef) {
     // Same diagnostic treatment as the build stage — an unrecognised partner
     // response must be reportable without reverse-engineering the integration.
-    const detail =
-      `"${submitTool.tool.name}" did not return a recognisable submission reference. ` +
-      `Looked for: ${SUBMISSION_FIELDS.join(', ')}. Actually returned: ${describeToolResultShape(submitResult)}`;
+    const shape = describeToolResultShape(submitResult);
+    const detail = `"${submitTool.tool.name}" did not return a recognisable submission reference. Looked for: ${SUBMISSION_FIELDS.join(', ')}. Actually returned: ${shape}`;
+    /*
+     * THE LOG LINE JOHN ASKED FOR (2026-08-04): "Registry API returned
+     * <status> for /agents/<id>/enable-pulse — <reason>" — the <reason>
+     * suffix is carried inside `shape` whenever the tool reported `isError`
+     * (see `describeToolResultShape`'s error-text branch), so this line is
+     * the one artifact a human needs to pull from CloudWatch and relay back.
+     */
+    console.error(
+      `[HORIZEN ESCALATION] enable_pulse_monitoring failed for agent ${args.pulseArgs.agentId} ` +
+        `(wallet ${args.pulseArgs.walletAddress}, chain ${args.pulseArgs.chain}, issuedAt ${args.pulseArgs.issuedAt}): ${shape}`,
+    );
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
       refusalCode: 'HORIZEN_SUBMISSION_FAILED',
@@ -635,7 +842,7 @@ export async function runHorizenTransparencyAuthorization(
 
   const submitted = await submitHorizenTransparencyAuthorization(
     prepared.value.authorizationId,
-    { message: prepared.value.message, signature: signed.value },
+    { message: prepared.value.message, signature: signed.value, pulseArgs: prepared.value.pulseArgs },
     shared,
   );
   if (!submitted.ok) return submitted;
