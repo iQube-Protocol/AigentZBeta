@@ -1865,6 +1865,30 @@ describe('Track 2 operator seams (2026-08-02)', () => {
     expect(panel, 'no domainBoundary is ever posted').not.toMatch(/domainBoundary:/);
     // The hash submitted for a freeze is the one the operator was shown.
     expect(panel).toMatch(/contentHash,/);
+    // The freeze act itself carries the acknowledgement forward — the
+    // server re-validates it, never trusting the client boolean alone
+    // (operator ruling, EXP PP1 Track 2, 2026-08-05).
+    expect(panel).toMatch(/boundaryAcknowledged/);
+  });
+
+  it('the freeze ACT (not just the preview) refuses a caller-supplied boundary and requires boundaryAcknowledged (2026-08-05)', () => {
+    /*
+     * Freeze must never accept a domain boundary as operator input — the
+     * ratified boundary is read server-side from the Domain Declaration and
+     * the operator's only constitutional act is to acknowledge it. A gap
+     * here previously existed: freeze-preview refused a caller-supplied
+     * domainBoundary, but the freeze ACT itself had no equivalent guard and
+     * no boundaryAcknowledged field at all — the "I ratify this exact
+     * boundary" checkbox was UI-only, unenforced server-side.
+     */
+    const src = stripComments(readSource('app/api/research/crystal/[experimentId]/freeze/route.ts'));
+    expect(src).toMatch(/body\[forbidden\] !== undefined/);
+    expect(src).toContain("'domainBoundary', 'namespace', 'scope'");
+    expect(src).toMatch(/body\.boundaryAcknowledged !== true/);
+    expect(src, 'the ratified declaration must be read server-side, before scope is checked').toMatch(
+      /crystalDomainForExperiment\(experimentId\)/,
+    );
+    expect(src, 'a missing ratified declaration must block freeze').toMatch(/no ratified Domain Declaration exists/);
   });
 
   it('assignment records the eight facts a governed inclusion act must carry', () => {
