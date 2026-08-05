@@ -124,6 +124,21 @@ export type HorizenAuthorizationRefusalCode =
    * of already-passing checks.
    */
   | 'SIGNATURE_INTEGRITY_FAILED'
+  /**
+   * One of the message-critical fields about to be sent to
+   * `enable_pulse_monitoring` (agentId, walletAddress, issuedAt, chain)
+   * differs — BYTE FOR BYTE, not case-insensitively — from the value
+   * persisted at prepare time, i.e. the value actually sent to
+   * `build_pulse_auth_message` (Horizen partner confirmation, 2026-08-05:
+   * "the arguments you pass to enable_pulse_monitoring must exactly
+   * reproduce the ones used in build_pulse_auth_message"). Refused LOCALLY,
+   * before Horizen is ever contacted for submission — a drift here would
+   * make Horizen's server-side message reconstruction differ from what was
+   * actually signed, producing a cryptographically-correct-looking but
+   * server-side-mismatched `401 — Invalid signature` that every earlier
+   * local check (recovered signer, registry owner) already passed.
+   */
+  | 'PULSE_ARGUMENT_DRIFT'
   | 'STATE_MISMATCH';
 
 /**
@@ -430,7 +445,33 @@ export async function prepareHorizenTransparencyAuthorization(
    * neighbouring one — and the tool's own declared inputSchema, which we
    * already fetch, outranks any prose about it.
    */
-  const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, pulseBuildCandidates(facts, decimalAgentId, input.controllerWallet));
+  /*
+   * THE EXACT STRING EMBEDDED IN THE SIGNED MESSAGE — CAPTURED HERE, NEVER
+   * RE-DERIVED AT SUBMIT (Horizen partner confirmation, 2026-08-05).
+   *
+   *   > "The server never reads your message field. It reconstructs the
+   *   >  signed message server-side from (action, agentId, walletAddress,
+   *   >  issuedAt, chain) and verifies the signature against its own
+   *   >  reconstruction... byte-for-byte identity has to hold between what
+   *   >  the wallet signed and what the server rebuilds."
+   *
+   * `pulseBuildCandidates` lowercases the wallet before sending it to
+   * `build_pulse_auth_message` — so the message we go on to SIGN embeds the
+   * LOWERCASE address. Before this fix, the persisted record (and therefore
+   * `submitHorizenTransparencyAuthorization`'s `walletAddress` argument) kept
+   * `input.controllerWallet` AS GIVEN — `AgentKeyService` returns an
+   * EIP-55-checksummed address, so the value submit sent back differed from
+   * the build-time value BY CASE ALONE. Horizen's server-side reconstruction
+   * then embedded the checksummed casing, producing a message that was
+   * never actually signed — recovered signer still equalled the true owner
+   * (case-insensitive recovery), so every LOCAL check passed while the
+   * PARTNER's own signature verification failed with exactly `401 — Invalid
+   * signature`. Exactly the same class of defect `issuedAt` was fixed for
+   * above (2026-08-04) — captured from what was actually SENT, never
+   * re-read from a differently-cased source at the next stage.
+   */
+  const messageWalletAddress = input.controllerWallet.toLowerCase();
+  const buildArgs = matchSchemaFields(buildTool.tool.inputSchema, pulseBuildCandidates(facts, decimalAgentId, messageWalletAddress));
 
   // Fail HERE, naming the field, rather than at the partner with a generic
   // validation dump — the schema was in hand before the call was made.
@@ -503,7 +544,10 @@ export async function prepareHorizenTransparencyAuthorization(
     nonce,
     expiresAt,
     agentId: decimalAgentId,
-    walletAddress: input.controllerWallet,
+    // The EXACT string sent to build_pulse_auth_message — see
+    // `messageWalletAddress`'s own comment above. Never `input.controllerWallet`
+    // as given; that casing is not provably what the signed message embeds.
+    walletAddress: messageWalletAddress,
     issuedAt,
   });
   if (!created.ok) {
@@ -697,6 +741,40 @@ export function buildFieldParityTable(message: string, submitted: Record<string,
   });
 }
 
+export interface PulseArgumentDrift {
+  field: string;
+  builtValue: string;
+  submitValue: string;
+}
+
+/**
+ * BYTE-FOR-BYTE, NEVER CASE-INSENSITIVE (Horizen partner confirmation,
+ * 2026-08-05) — the exact defect this catches (a wallet address that
+ * recovers to the same signer under either casing but reconstructs a
+ * DIFFERENT message string) is invisible to a case-insensitive compare.
+ * Checks only fields actually present in `submitArgs` — a schema that
+ * declares neither `walletAddress` nor `signerAddress` has nothing to drift
+ * on for that fact, and `missingRequiredFields` already refused it earlier
+ * if the schema required one.
+ */
+export function detectPulseArgumentDrift(
+  record: { agentId: string | null; walletAddress: string | null; issuedAt: string | null; network: string },
+  submitArgs: Record<string, unknown>,
+): PulseArgumentDrift[] {
+  const drift: PulseArgumentDrift[] = [];
+  const check = (field: string, builtValue: string | null, submitValue: unknown) => {
+    if (builtValue === null || submitValue === undefined) return;
+    if (String(submitValue) !== builtValue) {
+      drift.push({ field, builtValue, submitValue: String(submitValue) });
+    }
+  };
+  check('agentId', record.agentId, submitArgs.agentId);
+  check('walletAddress', record.walletAddress, submitArgs.walletAddress ?? submitArgs.signerAddress);
+  check('issuedAt', record.issuedAt, submitArgs.issuedAt);
+  check('chain', record.network, submitArgs.chain ?? submitArgs.network);
+  return drift;
+}
+
 /**
  * Assembles the bounded escalation artifact — see HorizenEscalationPacket's
  * own doc comment for what this is for and how it must be handled.
@@ -807,6 +885,12 @@ export async function submitHorizenTransparencyAuthorization(
    * of the signed message at all.
    */
   const submitArgs = matchSchemaFields(submitTool.tool.inputSchema, {
+    // Pulse enable/disable is one tool; offered explicitly so a schema that
+    // declares `action` reconstructs the SAME message-critical fact
+    // build_pulse_auth_message was called with (Horizen partner
+    // confirmation, 2026-08-05: reconstruction reads "action, agentId,
+    // walletAddress, issuedAt, chain").
+    action: 'enable',
     agentId: record.agentId,
     name: args.agentDisplayName,
     endpoint: args.endpoint,
@@ -828,6 +912,30 @@ export async function submitHorizenTransparencyAuthorization(
       `${missing.join(', ')}. Declared schema: ${JSON.stringify(submitTool.tool.inputSchema?.properties ?? {})}`;
     await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'HORIZEN_SUBMISSION_FAILED', refusalDetail: detail });
     return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED', detail };
+  }
+
+  /*
+   * THE DRIFT GATE, BEFORE HORIZEN IS EVER CONTACTED (Horizen partner
+   * confirmation, 2026-08-05: "instrument the ceremony so it proves whether
+   * the two calls are byte-identical... abort locally with a
+   * PULSE_ARGUMENT_DRIFT diagnostic before contacting Horizen").
+   *
+   * `record.agentId`/`walletAddress`/`issuedAt` are the EXACT values
+   * persisted at prepare time — the ones actually sent to
+   * `build_pulse_auth_message` (see `messageWalletAddress`'s own comment in
+   * `prepareHorizenTransparencyAuthorization`). Compared BYTE FOR BYTE
+   * against what `submitArgs` is about to send — never case-insensitively,
+   * because the defect this catches (mismatched wallet casing) is
+   * cryptographically invisible to a case-insensitive comparison.
+   */
+  const drift = detectPulseArgumentDrift(record, submitArgs);
+  if (drift.length > 0) {
+    const detail =
+      `submit arguments differ from what was sent to build_pulse_auth_message — refusing before Horizen is ` +
+      `contacted: ${drift.map((d) => `${d.field} (built: "${d.builtValue}", submitting: "${d.submitValue}")`).join('; ')}`;
+    console.error(`[PULSE ARGUMENT DRIFT] authorization "${authorizationId}": ${detail}`);
+    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'PULSE_ARGUMENT_DRIFT', refusalDetail: detail });
+    return { ok: false, refusalCode: 'PULSE_ARGUMENT_DRIFT', detail };
   }
 
   const submitResult = await mcpClient.callTool({ name: submitTool.tool.name, arguments: submitArgs });
