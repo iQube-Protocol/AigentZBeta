@@ -212,3 +212,20 @@ describe('THE ACCEPTANCE TEST (al, 2026-08-04, verbatim seed)', () => {
     expect(cohort.invariantIds.length + cohort.excluded.length + cohort.unaccountedRecords.length).toBe(declaredOut);
   });
 });
+
+describe('CohortMemberRef carries the real statement, not just the truncated label (2026-08-05 regression)', () => {
+  it('members[].statement is the full, untruncated statement — suggestRelationships requires {id, statement}, and label alone left it undefined at runtime', async () => {
+    const longStatement = `S${'x'.repeat(200)}.`; // > 140 chars, so label WILL truncate it
+    const promoted = [candidate({ id: 'c-long', promotedInvariantId: 'inv-long', statement: longStatement })];
+    // `records` resolves through getInvariantsByIds — the INVARIANT's statement is what
+    // members[].statement must carry, not the candidate row's own statement field.
+    mockGetInvariantsByIds.mockResolvedValue([invariant('inv-long', { statement: longStatement })]);
+
+    const cohort = await reconcilePromotedCohort(promoted);
+    const member = cohort.members.find((m) => m.id === 'inv-long');
+    expect(member).toBeTruthy();
+    expect(member!.statement).toBe(longStatement);
+    expect(member!.label.length).toBeLessThan(longStatement.length);
+    expect(member!.label).not.toBe(member!.statement);
+  });
+});

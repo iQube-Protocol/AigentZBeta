@@ -77,6 +77,19 @@ export interface UnaccountedPromotionRecord {
 export interface CohortMemberRef {
   id: string;
   label: string;
+  /**
+   * The full statement text — added 2026-08-05. `suggestRelationships`
+   * (services/invariants/relationshipSuggestion.ts) requires `{id, statement}`
+   * and was being handed `CohortMemberRef[]` (`{id, label}`) directly by
+   * suggest-relationships/route.ts. `label` is a 140-char-truncated DISPLAY
+   * string (see `labelFor` below), not the property `statement` — so every
+   * pool member's statement was `undefined` at runtime (TypeScript would
+   * normally reject this assignment, but `tsc --noEmit` is broken in this
+   * environment for an unrelated pre-existing reason, so it shipped
+   * unnoticed). This field closes the gap without changing the suggestion
+   * module itself — `members` now structurally satisfies `{id, statement}[]`.
+   */
+  statement: string;
 }
 
 export interface ReconciledPromotedCohort {
@@ -208,7 +221,7 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
         degree.add(e.toInvariantId);
       }
       graph = { relationshipCount: intra.length, orphanCount: records.length - degree.size };
-      orphanRecords = records.filter((r) => !degree.has(r.id)).map((r) => ({ id: r.id, label: labelFor(r.statement) }));
+      orphanRecords = records.filter((r) => !degree.has(r.id)).map((r) => ({ id: r.id, label: labelFor(r.statement), statement: r.statement }));
     } catch {
       graph = null; // unread ⇒ `unknown`, never "no relationships"
     }
@@ -219,10 +232,10 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
   const { readEvidenceProvenance } = await import('@/services/research/experimentalPopulations');
   const unclassifiedRecords = records
     .filter((r) => readEvidenceProvenance(r.provenance) === null)
-    .map((r) => ({ id: r.id, label: labelFor(r.statement) }));
+    .map((r) => ({ id: r.id, label: labelFor(r.statement), statement: r.statement }));
   const unvalidatedRecords = records
     .filter((r) => r.timesValidated === 0)
-    .map((r) => ({ id: r.id, label: labelFor(r.statement) }));
+    .map((r) => ({ id: r.id, label: labelFor(r.statement), statement: r.statement }));
   return {
     invariantIds: records.map((r) => r.id).sort(),
     unclassified: unclassifiedRecords.length,
@@ -233,6 +246,6 @@ export async function reconcilePromotedCohort(promoted: CandidateRow[]): Promise
     unclassifiedRecords,
     unvalidatedRecords,
     orphanRecords,
-    members: records.map((r) => ({ id: r.id, label: labelFor(r.statement) })),
+    members: records.map((r) => ({ id: r.id, label: labelFor(r.statement), statement: r.statement })),
   };
 }
