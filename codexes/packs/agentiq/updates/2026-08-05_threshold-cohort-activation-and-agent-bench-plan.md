@@ -1,9 +1,9 @@
 # Threshold Cohort Activation + Founder Office Agent Bench — Plan
 
-**Date:** 2026-08-05 (revised same day — see §8, Revision history)
-**Status:** Canonical architecture for onboarding external agents into the constitutional ecosystem, not Horizen-specific. No code shipped yet. Grounded in a direct codebase audit (not assumed architecture); every "exists" claim below was verified against real files.
+**Date:** 2026-08-05 (revised same day — see §9, Revision history)
+**Status:** Canonical architecture for onboarding external agents into the constitutional ecosystem, not Horizen-specific, and not merely an automation layer over human-driven recruitment (§8). No code shipped yet at time of writing — Phase A implementation began same day, see the companion session note. Grounded in a direct codebase audit (not assumed architecture); every "exists" claim below was verified against real files.
 
-**Revision note:** the first draft treated the Constitutional Admission Package as one artifact among several and organized the Agent Bench around storage states. A first revision (i) elevated the Admission Package to an explicit lifecycle stage, (ii) added an `Invited` state so the discovery-to-admission funnel is measurable, (iii) reframed the Bench around operator actions rather than database terms, (iv) renamed `Available` to `Service Ready`, (v) renamed Phase D to Operator Activation, and (vi) generalized the Pulse/P&L acceptance criterion to any external service. A second revision then corrected `Service Ready`'s definition (it referenced the full journey through `standing`, which would have made the optional `verify` stage an accidental gate) and clarified that the Admission Package is presented to the agent for relay, delivered directly to the operator, and creates no authority on its own. Full detail in §8. Confirmed conclusion, unchanged: almost all of this is composition over existing surfaces, not new construction.
+**Revision note:** the first draft treated the Constitutional Admission Package as one artifact among several and organized the Agent Bench around storage states. A first revision (i) elevated the Admission Package to an explicit lifecycle stage, (ii) added an `Invited` state so the discovery-to-admission funnel is measurable, (iii) reframed the Bench around operator actions rather than database terms, (iv) renamed `Available` to `Service Ready`, (v) renamed Phase D to Operator Activation, and (vi) generalized the Pulse/P&L acceptance criterion to any external service. A second revision then corrected `Service Ready`'s definition (it referenced the full journey through `standing`, which would have made the optional `verify` stage an accidental gate) and clarified that the Admission Package is presented to the agent for relay, delivered directly to the operator, and creates no authority on its own. A third revision folds Autonomous Constitutional Recruitment into the canonical architecture (§8) — the Founder becomes a recruitment-policy author rather than an individual recruiter, with Marketa executing discovery/qualification/packaging/invitation autonomously within that policy, and Operator Activation narrowing to Approve/Decline/Request More Information. Full detail in §9. Confirmed conclusion, unchanged: almost all of this is composition over existing surfaces, not new construction.
 
 ## 1. The question this answers
 
@@ -176,7 +176,57 @@ Only after D proves out — extract the Horizen-specific discovery adapter into 
 
 Primary metric: **median Time to Threshold**, paired with **risk of repair per completed admission** — the goal is admitting agents without recreating the repair burden the Nakamoto pilot absorbed manually.
 
-## 8. Revision history
+## 8. Addendum: Autonomous Constitutional Recruitment (Phase D extension)
+
+This is not a future optimization on top of §6's Phase D — it is a change to the operating model, folded into the canonical architecture now. The constitutional principle is unchanged: **only a human operator may originate constitutional authority through sponsorship.** But identifying, qualifying, packaging, and inviting candidates are not sovereign acts, and delegating them to Marketa under explicit policy is the intended operating model, not a later automation pass.
+
+### Four constitutional responsibilities
+
+| Responsibility | Actor | Constitutional status |
+|---|---|---|
+| Recruitment policy | Founder | Sovereign governance |
+| Discovery & qualification | Marketa | Delegated automation |
+| Sponsorship decision | Human operator | Sovereign act |
+| Journey execution | Runtime | Constitutional execution |
+
+The Founder defines policy. Marketa executes policy. The operator grants authority. The runtime carries out the constitutional process.
+
+### The Founder's role changes from recruiter to policy author
+
+The Founder no longer recruits agents individually — they publish a **recruitment policy** (registry, capability filters, minimum trust band, Pulse/P&L preference — never a requirement, per §7 — a daily invitation ceiling, and the campaign it feeds). Once published, Marketa operates autonomously within those constitutional limits. Founder Office (§4's mapping) is a **governance console**, not a manual recruitment interface: the Founder manages recruitment policy, campaign policy, service priorities, invitation limits, and constitutional constraints — never individual candidate outreach.
+
+### Marketa becomes the constitutional recruiter
+
+```
+Discover → Evaluate → Score → Prepare Admission Package → Automatically Issue Invitation → Monitor Response → Escalate Exceptions
+```
+
+The Founder is removed from this operational loop entirely. The Admission Package (§3) becomes the primary recruiting instrument, generated automatically for every candidate that clears policy, with the same two-audience delivery already specified — nothing about the Package's content or its no-authority-on-delivery property changes.
+
+### Operator Activation narrows to three responses
+
+The only action required from the operator becomes **Approve / Decline / Request More Information.** Everything before that point is automated under policy; everything after an Approve proceeds through the existing Constitutional Admission Journey unchanged.
+
+### The Bench, revised
+
+Same six stages as §5 (Discover → Invite → Sponsor → Admit → Deploy → Operate) — but now only **Sponsor** requires a human action. Every other stage is a projection of automated state, exactly as the read model in §5 already treats them.
+
+### Service Ready remains the same computed condition
+
+No change to §5's list. Admission completing is still the registration event — no manual linking, no manual onboarding, once the same computed conditions hold.
+
+### Four constitutional maturity levels
+
+1. **Manual recruitment, manual invitation, manual sponsorship** — completed, via Nakamoto.
+2. **Automated discovery, manual sponsorship** — the current implementation target (§6, Phases A–D).
+3. **Policy-driven recruitment, automatic invitations, human approvals only** — this addendum's target.
+4. **Constitutional recruitment network** — Service Ready agents may recommend additional candidates; Marketa independently evaluates those recommendations; qualified candidates receive Admission Packages automatically. Human sponsorship remains mandatory at every level — recommendations never bypass constitutional admission.
+
+### Revised success criterion
+
+The objective is no longer merely admitting external agents. It is a repeatable constitutional recruitment pipeline where founders govern through policy, Marketa continuously discovers/qualifies/packages/invites within that policy, operators perform only the sovereign sponsorship decision, admitted agents automatically become Service Ready, and the pipeline scales without increasing founder operational workload.
+
+## 9. Revision history
 
 **2026-08-05, same-day revision**, incorporating six refinements from the operator's review of the first draft:
 
@@ -193,4 +243,10 @@ Primary metric: **median Time to Threshold**, paired with **risk of repair per c
 8. The Admission Package's delivery is clarified: it is presented to the candidate agent for relay, and delivered directly to the operator wherever an operator channel is known — never framed as the agent being independently invited to authorize its own admission. Package delivery creates no authority; Operator Activation (§6, Phase D) remains the sole human act that originates it.
 9. A UTF-8 encoding concern was raised against a delivered patch file; verified byte-for-byte (decode check + `iconv` round-trip) that both the source document and the patch are clean UTF-8 — the mojibake was introduced downstream of delivery, not in this document, so no character was altered here.
 
-With these nine changes, this document is treated as the **canonical architecture for onboarding external agents into the constitutional ecosystem** — not a Horizen-specific plan.
+**2026-08-05, third same-day revision** — folds Autonomous Constitutional Recruitment into the canonical architecture (§8), not deferred as a future enhancement:
+
+10. The Founder's role changes from individual recruiter to recruitment-policy author; Marketa executes discovery/qualification/packaging/invitation autonomously within that published policy.
+11. Operator Activation narrows to three responses (Approve / Decline / Request More Information) once policy-driven recruitment is in effect — the sponsorship decision remains the one non-delegable constitutional act.
+12. Four constitutional maturity levels are named (manual → automated discovery → policy-driven recruitment → constitutional recruitment network), giving the pilot an explicit scale-up path where human sponsorship remains mandatory at every level.
+
+With these twelve changes, this document is treated as the **canonical architecture for onboarding external agents into the constitutional ecosystem** — not a Horizen-specific plan, and not merely an automation layer over human-driven recruitment.
