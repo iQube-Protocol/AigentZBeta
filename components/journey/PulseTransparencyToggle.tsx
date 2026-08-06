@@ -31,7 +31,16 @@ const DISCLOSURE_SCOPE = ['pulse-monitoring', 'pnl-disclosure'] as const;
  * brief, 2026-08-05: "A Horizen /verify/authorize timeout is a transport
  * condition, not a constitutional state").
  */
-type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired';
+/**
+ * `not-enrolled` (operator's follow-up, 2026-08-06) is a CONCLUSIVE, retryable
+ * negative from Horizen's own authoritative reread ("Not enrolled in Pulse
+ * monitoring. Next step: Enroll…") — distinct from `pending` (no conclusive
+ * answer yet) and `denied` (a generic local/partner refusal). Trapping this
+ * behind "Verification pending" left the operator with only a status-check
+ * button that could never change the outcome, since nothing re-attempts
+ * enrollment from there.
+ */
+type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired' | 'not-enrolled';
 interface VerifyStatusInfo {
   state: VerifyStatusState;
   refusalCode?: string;
@@ -418,6 +427,65 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           {checkingStatus ? 'Checking…' : 'Check status now'}
         </button>
         <p className="mt-2 text-amber-200/60">Checking automatically every {Math.round(STATUS_POLL_MS / 1000)}s.</p>
+        {attemptFooter}
+      </div>
+    );
+  }
+
+  /*
+   * NOT ENROLLED — a CONCLUSIVE, retryable negative from Horizen's own
+   * authoritative reread (operator's follow-up, 2026-08-06). Distinct from
+   * both `pending` (no answer yet — never rendered with this copy) and
+   * `denied` (a generic refusal): Horizen said, in words, "not enrolled...
+   * Next step: Enroll", and every local check (signature, ownership, message
+   * selection) already passed. The retry affordance is available
+   * IMMEDIATELY — there is nothing ambiguous left to wait out.
+   */
+  if (status?.state === 'not-enrolled') {
+    return (
+      <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            <p className="font-medium">Pulse is not enrolled</p>
+            <p className="mt-1 text-amber-200/80">
+              Horizen&apos;s current authoritative state reports that this agent is not enrolled in Pulse monitoring.
+              The previous submission did not establish enrollment. This is not a signature or ownership failure.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => void authorize()}
+            disabled={authorizing}
+            className="rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40 disabled:opacity-50"
+          >
+            {authorizing ? 'Authorizing…' : 'Create fresh authorization'}
+          </button>
+          <button
+            onClick={() => void checkStatus()}
+            disabled={checkingStatus}
+            className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/40 disabled:opacity-50"
+          >
+            {checkingStatus ? 'Checking…' : 'Check status again'}
+          </button>
+        </div>
+        {error && <p className="mt-2 text-rose-300">{error}</p>}
+        {status.refusalDetail && (
+          <div className="mt-2 border-t border-amber-900/40 pt-2">
+            <button
+              onClick={() => setShowPartnerResponse((v) => !v)}
+              className="text-amber-200/70 underline decoration-dotted underline-offset-2 hover:text-amber-100"
+            >
+              {showPartnerResponse ? 'Hide' : 'Show'} partner response
+            </button>
+            {showPartnerResponse && (
+              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800 bg-slate-950/60 p-2 text-[10px] leading-relaxed text-slate-300">
+                {status.refusalDetail}
+              </pre>
+            )}
+          </div>
+        )}
         {attemptFooter}
       </div>
     );

@@ -40,6 +40,7 @@ import {
   extractIssuedAt,
   describeToolResultShape,
   normalizeMcpSubmissionResult,
+  classifyPulseEnrollmentState,
   type McpTool,
   type McpToolResult,
   type NormalizedMcpSubmissionResult,
@@ -224,6 +225,23 @@ export type HorizenAuthorizationRefusalCode =
    * settle it without recreating or resigning anything.
    */
   | 'PARTNER_STATE_UNRESOLVED'
+  /**
+   * The authoritative reread gave an EXPLICIT NEGATIVE, not an inconclusive
+   * one (Al's follow-up brief, 2026-08-06, after a live `get_onboarding_status`
+   * answered "✗ Not enrolled in Pulse monitoring. Next step: Enroll…" and was
+   * classified as merely unresolved-pending — trapping the operator behind a
+   * status-check button that can never change that outcome, since nothing
+   * re-attempts enrollment). `classifyPulseEnrollmentState` returning
+   * `NOT_ENROLLED` is itself a CONCLUSIVE answer, distinct from
+   * `PARTNER_STATE_UNRESOLVED`'s "no answer yet" — retryable, and NOT a
+   * signature, ownership, or cryptographic failure: every local check already
+   * passed. It means only that the prior ceremony did not establish
+   * enrollment. Persisted as `state: REFUSED` (retry already works via the
+   * existing non-CONFIRMED/non-recent-SUBMITTED reset path in
+   * partnerAuthorizationStore.ts — no new `state` value, no migration) with
+   * THIS refusalCode naming the specific, conclusive reason.
+   */
+  | 'PARTNER_NOT_ENROLLED'
   | 'STATE_MISMATCH';
 
 /**
@@ -375,6 +393,13 @@ export type AuthorizationResult<T> =
       diagnostics?: AuthorizationAttemptDiagnostics;
       /** The complete, untruncated partner response when one was received — never summarised to "[0] type=text, NOT JSON". */
       partnerResponse?: NormalizedMcpSubmissionResult;
+      /**
+       * Whether this refusal can be resolved by simply trying the ceremony
+       * again — set explicitly (never inferred by the UI from the refusal
+       * code alone) so the surface's retry affordance and this module's own
+       * notion of "retryable" cannot silently drift apart.
+       */
+      retryable?: boolean;
     };
 
 // ── Injected dependencies (never touched by Phase 1 tests — always mocked) ──
@@ -1795,9 +1820,42 @@ export async function verifyHorizenTransparencyActivation(
   });
   const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
   const statusText = flattenToolResultText(statusResult);
-  const confirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('enabled') || statusText.includes('complete');
+  /*
+   * THREE OUTCOMES, NOT TWO (Al's follow-up brief, 2026-08-06). A bare
+   * `.includes('enabled')` check cannot tell "Horizen hasn't answered
+   * conclusively yet" from "Horizen just said, in words, that it is not
+   * enrolled" — and a live `get_onboarding_status` reread did exactly the
+   * latter ("✗ Not enrolled in Pulse monitoring. Next step: Enroll…"), which
+   * this classifier's predecessor filed under the former. See
+   * `classifyPulseEnrollmentState`'s own doc comment for the full evidence
+   * and the negation-outranks-positive rule that fixes it.
+   */
+  const enrollmentState = classifyPulseEnrollmentState(statusText);
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
-  if (!confirmed) {
+
+  if (enrollmentState === 'NOT_ENROLLED') {
+    /*
+     * A CONCLUSIVE NEGATIVE — retryable, and explicitly not a claim about the
+     * signature. See PARTNER_NOT_ENROLLED's own doc comment for why this is
+     * `state: REFUSED` (no new state value, no migration) distinguished by
+     * refusalCode alone, and why that is enough for the existing retry path
+     * in partnerAuthorizationStore.ts to already work unchanged.
+     */
+    const detail =
+      `Horizen's authoritative status reports this agent is NOT enrolled in Pulse monitoring — the prior submission ` +
+      `did not establish enrollment. This is not a signature, ownership, or cryptographic failure: every local check ` +
+      `(recovered signer, registry owner, message selection) already passed. Retry by creating a fresh authorization. ` +
+      `Partner state read: ${rawStatus}`;
+    await updatePartnerAuthorizationRequest(authorizationId, {
+      state: 'REFUSED',
+      refusalCode: 'PARTNER_NOT_ENROLLED',
+      refusalDetail: detail,
+      partnerStatus: rawStatus,
+    });
+    return { ok: false, refusalCode: 'PARTNER_NOT_ENROLLED', detail, retryable: true };
+  }
+
+  if (enrollmentState === 'PENDING_CONVERGENCE') {
     /*
      * NOT A DENIAL, AND NO LONGER WRITTEN AS ONE (Al's brief, 2026-08-06).
      *
@@ -1806,7 +1864,9 @@ export async function verifyHorizenTransparencyActivation(
      * verdict — the same defect class as reading a transport timeout as a
      * refusal, and the reason a possibly-successful enablement ended up shown
      * to the operator as a rejection. Horizen's real refusals arrive through
-     * the submit path (`isError`, or explicit rejection prose), not here.
+     * the submit path (`isError`, or explicit rejection prose), or now through
+     * an explicit NOT_ENROLLED reread (handled above) — never through mere
+     * silence here.
      *
      * The row is left in whatever reconcilable state it already held — for a
      * SUBMITTED row that means SUBMITTED, so refresh can settle it later;
@@ -1831,6 +1891,7 @@ export async function verifyHorizenTransparencyActivation(
         `Partner state read: ${rawStatus}`,
     };
   }
+  // enrollmentState === 'CONFIRMED' falls through to the confirmation path below.
 
   const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
   let receiptRef: string | null = null;

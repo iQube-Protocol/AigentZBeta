@@ -60,7 +60,14 @@ export const maxDuration = 45;
  */
 const STATUS_DEADLINE_MS = 25_000;
 
-export type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired';
+/**
+ * `not-enrolled` (Al's follow-up brief, 2026-08-06) is DISTINCT from
+ * `denied`/`pending` — it names an authoritative, conclusive, retryable
+ * negative ("Horizen said no, in words") rather than a generic local/partner
+ * refusal or an inconclusive reread. See PARTNER_NOT_ENROLLED's doc comment
+ * in authorizationClient.ts for the full evidence chain.
+ */
+export type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired' | 'not-enrolled';
 
 export async function GET(request: NextRequest) {
   try {
@@ -222,6 +229,26 @@ async function statusImpl(request: NextRequest) {
    * for a row that was already REFUSED we report its ORIGINAL refusal rather
    * than the inconclusive reread's wording.
    */
+  /*
+   * A CONCLUSIVE NEGATIVE, checked BEFORE the inconclusive-pending case below
+   * (Al's follow-up brief, 2026-08-06). Horizen answered in words — "not
+   * enrolled", "Next step: Enroll" — so this is never rendered as "Verification
+   * pending — Horizen has not yet responded"; that copy is reserved for
+   * genuine silence/ambiguity. Retryable immediately: the surface offers
+   * "Create fresh authorization" from this state without an extra click.
+   */
+  if (result.refusalCode === 'PARTNER_NOT_ENROLLED') {
+    return NextResponse.json({
+      ok: true,
+      state: 'not-enrolled' as VerifyStatusState,
+      authorizationId,
+      refusalCode: result.refusalCode,
+      refusalDetail: result.detail,
+      retryable: result.retryable ?? true,
+      note: 'Horizen’s current authoritative state reports this agent is not enrolled in Pulse monitoring. The previous submission did not establish enrollment.',
+    });
+  }
+
   if (result.refusalCode === 'PARTNER_STATE_UNRESOLVED') {
     return NextResponse.json({
       ok: true,
