@@ -122,7 +122,24 @@ export function MetaAvatar() {
       // Create fresh script element for D-ID SDK
       const script = document.createElement('script');
       script.type = 'module';
-      script.src = 'https://agent.d-id.com/v2/index.js';
+      /*
+       * CACHE-BUSTED SRC — the actual cause of the blank-on-return report.
+       *
+       * `<script type="module">` is evaluated AT MOST ONCE per exact URL for
+       * the life of the page (the browser's module map is keyed by resolved
+       * URL, not by how many `<script>` tags request it). The mount effect
+       * below correctly re-runs `init()` on every remount — a fresh script
+       * element, a fresh container id, a fresh sweep — but re-appending the
+       * SAME src silently no-ops on the SECOND and every later mount: the
+       * module's top-level init code (the part that reads `data-target-id`
+       * and renders into the container) never runs again, so the new,
+       * genuinely fresh container sits there with nothing rendered into it —
+       * a real container, a real cleanup, an SDK that was never asked to look
+       * at either. A trailing query string makes each injection a distinct
+       * module URL, so the browser fetches and evaluates it fresh every time,
+       * exactly as `init()` already intends.
+       */
+      script.src = `https://agent.d-id.com/v2/index.js?_r=${Date.now()}`;
       script.setAttribute('data-mode', 'full');
       script.setAttribute('data-client-key', DID_CLIENT_KEY);
       script.setAttribute('data-agent-id', DID_AGENT_ID);

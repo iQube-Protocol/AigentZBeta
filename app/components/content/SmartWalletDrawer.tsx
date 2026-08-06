@@ -2,6 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { overlayZClass } from "@/components/ui/overlayLayers";
+import { MarkdownLite } from "@/components/ui/markdown-lite";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 
@@ -3653,13 +3654,13 @@ export default function SmartWalletDrawer({
                       {msg.role === 'assistant' && (
                         <Bot className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
                       )}
-                      <p className={`text-sm leading-relaxed max-w-[85%] ${
-                        msg.role === 'user'
-                          ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm'
-                          : 'text-white/80'
-                      }`}>
-                        {msg.content}
-                      </p>
+                      {msg.role === 'assistant' ? (
+                        <MarkdownLite text={msg.content} className="max-w-[85%] space-y-1 text-sm leading-relaxed text-white/80" />
+                      ) : (
+                        <p className="text-sm leading-relaxed max-w-[85%] bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm">
+                          {msg.content}
+                        </p>
+                      )}
                       {msg.role === 'user' && (
                         <User className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                       )}
@@ -3744,13 +3745,27 @@ export default function SmartWalletDrawer({
                   wallet-native wrapper; expanded swaps in the full cartridge
                   ArchitectPanel component IN PLACE (composition, never a
                   navigation) so the draft can be read at full size. Neither
-                  path forms, authorizes, or settles anything. */}
+                  path forms, authorizes, or settles anything.
+
+                  BOTH stay MOUNTED, toggled by class only — never
+                  conditionally rendered by component type (operator report,
+                  2026-08-06: "when the full screen is activated or collapsed
+                  it's losing state"). Swapping `moneyPennyExpanded ? <A/> :
+                  <B/>` unmounts whichever one wasn't showing, wiping its
+                  intent/result `useState`. This is the SAME ternary-hidden-
+                  class discipline the four mode viewports already use above
+                  (MS-3-style: state survives a visibility toggle) — each
+                  surface now keeps its OWN drafted intent/result across every
+                  expand/collapse, exactly as the mode rail already keeps
+                  Chat/Architect/Runtime/metaAvatar state across mode
+                  switches. */}
               <div className={moneyPennyMode === 'architect' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
-                {moneyPennyExpanded ? (
+                <div className={moneyPennyExpanded ? '' : 'hidden'}>
                   <ArchitectPanel />
-                ) : (
+                </div>
+                <div className={moneyPennyExpanded ? 'hidden' : ''}>
                   <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
-                )}
+                </div>
               </div>
 
               {/* RUNTIME — read-only shadow preview. Collapsed uses the
@@ -3764,13 +3779,17 @@ export default function SmartWalletDrawer({
                   MoneyPenny" page navigation — the full runtime now opens
                   in place, inside whichever host currently has this drawer
                   mounted, and never opens a new tab. Preview/shadow/
-                  authoritative semantics are RuntimePanel's own, untouched. */}
+                  authoritative semantics are RuntimePanel's own, untouched.
+
+                  BOTH stay MOUNTED, toggled by class only — same state-
+                  preservation fix as Architect above, same reason. */}
               <div className={moneyPennyMode === 'runtime' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
-                {moneyPennyExpanded ? (
+                <div className={moneyPennyExpanded ? '' : 'hidden'}>
                   <RuntimePanel />
-                ) : (
+                </div>
+                <div className={moneyPennyExpanded ? 'hidden' : ''}>
                   <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
-                )}
+                </div>
               </div>
 
               {/* METAAVATAR — the video avatar companion. Occupies this same
