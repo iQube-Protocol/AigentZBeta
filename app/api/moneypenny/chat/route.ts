@@ -35,7 +35,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callSovereign } from '@/services/constitutional/modelRouter';
-import { resolveCitableInvariants, formatCitableInvariantsBlock } from '@/services/invariants/resolution';
+import { resolveCitableInvariants, formatCitableInvariantsBlock, resolveCommonConstitutionalGround } from '@/services/invariants/resolution';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -95,23 +95,25 @@ export async function runMoneyPennyChat(params: MoneyPennyChatParams): Promise<M
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user');
   const messageText = lastUserMessage?.content ?? '';
 
-  // Invariant Resolution Engine (CFS-037) — resolve the invariants relevant
-  // to THIS message, exactly like codex/chat's SmartTriad Phase 2 block.
-  // Scoped to the `finance` namespace (PRD-MPY-001 Phase 3) — the FS
-  // Invariant Library derived from the QriptoCENT Corpus — so MoneyPenny
-  // cites real inv.finance.* invariants instead of the platform-wide slice.
-  // resolveCitableInvariants falls back to the unscoped slice if the
-  // finance-scoped one comes back empty (small library, early on), and
-  // formatCitableInvariantsBlock returns '' when nothing was resolved —
-  // never fabricate a citation block from nothing.
-  const citable = await resolveCitableInvariants(messageText, 8, { namespaces: ['finance'] });
-  const invariantBlock = formatCitableInvariantsBlock(citable);
+  // Invariant Resolution Engine (CFS-037) — two layers:
+  // 1. Domain-scoped finance invariants (PRD-MPY-001 Phase 3) for FS-specific knowledge
+  // 2. Common constitutional ground for shared platform concepts (iQube, metaMe, polity).
+  // The ground-truth block must always be available so MoneyPenny can answer questions
+  // about platform fundamentals, not just wallet/pricing specifics.
+  const [domainInvariants, groundTruth] = await Promise.all([
+    resolveCitableInvariants(messageText, 4, { namespaces: ['finance'] }),
+    resolveCommonConstitutionalGround(messageText, undefined, 4),
+  ]);
+
+  const domainBlock = formatCitableInvariantsBlock(domainInvariants);
+  const groundBlock = formatCitableInvariantsBlock(groundTruth);
 
   const contextStr = context
     ? `\n\nUser Context:\n- Wallet Balance: ${typeof context.walletBalance === 'number' ? context.walletBalance.toFixed(2) : '0'} Q¢\n- Agent: ${context.agentName || 'Unknown'}`
     : '';
 
-  const systemPrompt = `${MONEYPENNY_SYSTEM_PROMPT}${contextStr}${invariantBlock ? `\n\n${invariantBlock}` : ''}`;
+  const invariantBlocks = [groundBlock, domainBlock].filter(Boolean).join('\n\n');
+  const systemPrompt = `${MONEYPENNY_SYSTEM_PROMPT}${contextStr}${invariantBlocks ? `\n\n${invariantBlocks}` : ''}`;
 
   // callSovereign takes a single system + user string (no message-array
   // shape) — fold recent turns into one transcript, latest message last,
