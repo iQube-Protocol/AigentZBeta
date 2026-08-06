@@ -3539,9 +3539,12 @@ export default function SmartWalletDrawer({
                     }`}
                   >
                     <User className="w-3 h-3" />
-                    MoneyPenny
+                    metaVatar
                   </button>
                 </div>
+                {copilotMode === 'avatar' && (
+                  <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">MoneyPenny active</span>
+                )}
               </div>
               <Tooltip text="Back">
                 <button
