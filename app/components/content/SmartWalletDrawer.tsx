@@ -3855,28 +3855,80 @@ export default function SmartWalletDrawer({
                 </div>
 
                 {moneyPennyMode === 'chat' && (
-                  // This is an embedded MetaAvatar iframe (useMetaAvatar /
-                  // requestAvatar('copilot', 'aigent-moneypenny') above), not
-                  // a fetch() call from this component — it does not hit
-                  // /api/moneypenny/chat or any other route in this file, so
-                  // there is no divergent grounded/ungrounded path to
-                  // reconcile HERE. Whatever chat backend the avatar host
-                  // itself calls is outside this repo's API layer and out of
-                  // scope for this pass; flagging it so a future session
-                  // doesn't assume parity with the "Copilot" tab's grounding
-                  // above.
-                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center">
-                    <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
-                    <p className="text-sm text-white/40 text-center mb-4">
-                      MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.
-                    </p>
-                    <button
-                      onClick={refreshAvatar}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      Refresh Avatar
-                    </button>
+                  // The avatar iframe (useMetaAvatar / requestAvatar('copilot',
+                  // 'aigent-moneypenny') above) is a visual companion only —
+                  // whatever backend IT calls is outside this repo's API layer.
+                  // The actual grounded text chat below is the SAME state +
+                  // handler as the "Copilot" tab (copilotMessages/copilotPrompt/
+                  // handleSendPrompt → /api/moneypenny/chat, finance-namespace
+                  // invariant grounding) — one chat, two surfaces, never a
+                  // second implementation.
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                      <div className="text-xs uppercase tracking-wider text-white/60">Ask MoneyPenny</div>
+                      <button
+                        onClick={refreshAvatar}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Refresh Avatar
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
+                      {copilotMessages.map((msg, i) => (
+                        <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
+                          {msg.role === 'assistant' && (
+                            <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                          )}
+                          <p className={`text-sm leading-relaxed max-w-[85%] ${
+                            msg.role === 'user'
+                              ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm'
+                              : 'text-white/80'
+                          }`}>
+                            {msg.content}
+                          </p>
+                          {msg.role === 'user' && (
+                            <User className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                      ))}
+                      {copilotLoading && (
+                        <div className="flex gap-3">
+                          <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                          <div className="copilot-thinking-dots emerald">
+                            <span className="dot" />
+                            <span className="dot" />
+                            <span className="dot" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-auto flex gap-2 pt-2 flex-shrink-0">
+                      <input
+                        type="text"
+                        value={copilotPrompt}
+                        onChange={(e) => setCopilotPrompt(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendPrompt();
+                          }
+                        }}
+                        placeholder="Ask MoneyPenny anything..."
+                        disabled={copilotLoading}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/90 placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all disabled:opacity-50"
+                      />
+                      <Tooltip text="Send message">
+                        <button
+                          onClick={() => handleSendPrompt()}
+                          disabled={copilotLoading || !copilotPrompt.trim()}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-white/90 hover:bg-white/15 hover:border-cyan-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label="Send message"
+                        >
+                          <Send className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
+                    </div>
                   </div>
                 )}
 

@@ -49,6 +49,7 @@ import { resolveRegistrableAgentByRuntimeId, type RegistrableAgentConfig } from 
 import { getAsset } from '@/services/registry/persistence';
 import { findAgentReceiptRefs } from '@/services/receipts/activityReceiptService';
 import { listAgreements, type ConstitutionalAgreementRow } from '@/services/constitutional/constitutionalAgreement';
+import type { CapabilityDescriptor } from '@/types/registryIngestion';
 
 export type BenchLifecycleState = 'candidate' | 'invited' | 'in-admission' | 'service-ready' | 'engaged';
 
@@ -86,6 +87,15 @@ export interface AgentBenchRow {
   registryNetwork: string | null;
   onChainAgentId: string | null;
   capabilities: string[];
+  /**
+   * The same capabilities as full descriptors (name + tags), when a registry
+   * asset backs this row — additive to `capabilities` (never breaking; that
+   * field stays name-only for existing callers). Empty when there is no
+   * registry asset yet. Feed this to `capabilitySignalFromDescriptors` +
+   * `deriveCapabilityAction` (services/iqube/legibility/capabilityAction.ts)
+   * to render a capability-derived action instead of a bare chip list.
+   */
+  capabilityDescriptors: CapabilityDescriptor[];
   /** Null when there is no Marketa candidate scoring for this row (e.g. a registrable-agent-only row like Nakamoto) — never fabricated. */
   overallPriorityScore: number | null;
   lifecycleState: BenchLifecycleState;
@@ -242,6 +252,7 @@ export async function buildAgentBenchRow(
     registryNetwork,
     onChainAgentId,
     capabilities,
+    capabilityDescriptors: registryAsset?.capabilities ?? [],
     overallPriorityScore: subject.kind === 'marketa' ? subject.candidate.scores.overallPriorityScore : null,
     lifecycleState: deriveLifecycleState({ hasInvitation: opts.hasInvitation, admission, runtimeMemberships }),
     admission,
