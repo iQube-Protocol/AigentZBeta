@@ -346,12 +346,22 @@ describe('MoneyPenny wallet surface (SmartWalletDrawer) — same authority bound
     expect(code).toContain('personaFetch(');
   });
 
-  it('SmartWalletDrawer wires both wallet panels into the MoneyPenny tab additively (Chat sub-mode untouched)', () => {
+  it('SmartWalletDrawer wires both wallet panels into the MoneyPenny tab additively — Chat stays the default sub-mode', () => {
     const code = stripComments(readSource(WALLET_DRAWER_PATH));
     expect(code).toContain('MoneyPennyWalletArchitect');
     expect(code).toContain('MoneyPennyWalletRuntime');
-    // The pre-existing Chat/avatar copy must still be present verbatim --
-    // this is the additive-only canary for the wallet surface.
-    expect(code).toContain('MoneyPenny is ready to help with your wallet, rewards, and Q¢ questions.');
+    // 'chat' is still the default moneyPennyMode -- Architect/Runtime are
+    // additive tabs alongside it, never a replacement of the default.
+    expect(code).toMatch(/useState<'chat' \| 'architect' \| 'runtime'>\('chat'\)/);
+    // 2026-08-06: Chat's own content changed FROM a static avatar-only
+    // placeholder TO a real grounded text chat (operator-requested, same
+    // session: "wire the copilot to the MoneyPenny KB" + "metaVatar renders
+    // a blank screen") -- reusing the Copilot tab's exact backend call
+    // (handleSendPrompt -> /api/moneypenny/chat), never a second
+    // implementation. The old placeholder-copy assertion this canary used to
+    // pin is gone on purpose; what still must hold is that Chat is grounded
+    // through the SAME route as the Copilot tab, not a divergent one.
+    expect(code).toContain('/api/moneypenny/chat');
+    expect(code).toContain("moneyPennyMode === 'chat'");
   });
 });
