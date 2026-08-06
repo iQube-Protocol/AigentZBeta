@@ -24,6 +24,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { ethers } from 'ethers';
@@ -900,19 +901,25 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
 });
 
 /*
- * PULSE_MESSAGE_DRIFT — instrumentation for the Horizen live-test escalation
- * (2026-08-05): "the recovered signer ≠ the walletAddress you submitted...
- * your 401 says your bytes ≠ our reconstruction." Leading hypothesis: build_
- * pulse_auth_message returns a human-readable blob PLUS a `--- structured
- * ---` JSON section, and the signable bytes are that section's `message`
- * field — not the rendered text around it. These tests exercise
- * `prepareHorizenTransparencyAuthorization`'s new comparison between what
- * `extractPartnerMessage` chose to sign and a marker-aware read of the same
- * response, WITHOUT changing which value gets signed on the non-drifted path
- * (al, 2026-08-05: "Do not change signing behavior until the instrumentation
- * identifies the exact divergence").
+ * CANONICAL MESSAGE SELECTION — the structured `message` field IS the
+ * signable payload (Al's brief, 2026-08-06).
+ *
+ * These tests replace the 2026-08-05 "PULSE_MESSAGE_DRIFT instrumentation"
+ * block, whose contract was: refuse whenever the structured message differs
+ * from the whole-blob fallback. That refusal did its job — it produced the
+ * decisive evidence — and the evidence disproved the assumption underneath
+ * it. Horizen's live build response carries an 826-byte instructional
+ * envelope AND a 198-byte structured `message`; `enable_pulse_monitoring`
+ * accepts no message argument, so the server reconstructs the canonical
+ * message and verifies against THAT. Signing the envelope recovers
+ * perfectly to the right owner locally and still 401s at the partner.
+ *
+ * So a difference between the two candidates is no longer a refusal — it is
+ * the normal shape of the response, and the structured field wins. The
+ * fail-closed behaviour survives only where it is still true: two structured
+ * fields naming DIFFERENT strings, which no local rule can decide.
  */
-describe('PULSE_MESSAGE_DRIFT — instrumentation, not a fix (Horizen live-test escalation, 2026-08-05)', () => {
+describe('canonical message selection — structured `message` wins over the instructional envelope (2026-08-06)', () => {
   function mcpClientWithBuildText(buildText: string) {
     const base = fakeMcpClient();
     return {
@@ -924,65 +931,244 @@ describe('PULSE_MESSAGE_DRIFT — instrumentation, not a fix (Horizen live-test 
     };
   }
 
-  it('refuses with rich byte-level diagnostics when the structured JSON message differs from the whole-blob fallback', async () => {
-    const structuredMessage =
-      'ASR Pulse enable\nAgent: 1234\nNetwork: base-sepolia\nChain: 84532\nIssued At: 2026-07-31T12:00:00.000Z';
-    const blob =
-      'Sign this message with wallet 0xabc… then call enable_pulse_monitoring with the signature and issuedAt="2026-07-31T12:00:00.000Z".\n' +
-      structuredMessage +
-      '\n--- structured ---\n' +
-      JSON.stringify({ message: structuredMessage });
+  /*
+   * THE EXACT LIVE RESPONSE SHAPE observed on 2026-08-06 — instructional
+   * preamble, human-readable body, `--- structured ---` marker, then JSON
+   * carrying the canonical `message`. issuedAt is pinned to FIXED_NOW so the
+   * staleness guard never fires and these tests isolate SELECTION alone.
+   */
+  const CANONICAL_MESSAGE =
+    'ASR Pulse enable\n' +
+    'Agent: 8798\n' +
+    'Network: sepolia\n' +
+    'Chain: 84532\n' +
+    'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\n' +
+    'Wallet: 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9\n' +
+    'Issued At: 2026-07-31T12:00:00.000Z';
 
+  function liveDualCandidateResponse(structured: Record<string, unknown> = {}): string {
+    return (
+      'Sign this message with wallet 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9 using personal_sign, then call ' +
+      'enable_pulse_monitoring with the signature and issuedAt="2026-07-31T12:00:00.000Z". Do not modify the ' +
+      'message in any way; the server reconstructs it byte-for-byte during verification.\n\n' +
+      CANONICAL_MESSAGE +
+      '\n\n--- structured ---\n' +
+      JSON.stringify({
+        chain: 'base-sepolia',
+        network: 'sepolia',
+        action: 'enable',
+        message: CANONICAL_MESSAGE,
+        issuedAt: '2026-07-31T12:00:00.000Z',
+        validForMs: 300000,
+        ...structured,
+      })
+    );
+  }
+
+  it('selects the structured 198-byte canonical message, NOT the instructional envelope around it', async () => {
+    const blob = liveDualCandidateResponse();
     const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
       mcpClient: mcpClientWithBuildText(blob),
       now: FIXED_NOW,
     });
 
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The exact structured string — byte for byte, no trimming, no rebuild.
+    expect(result.value.message).toBe(CANONICAL_MESSAGE);
+    // And emphatically NOT the envelope: no preamble, no marker, no JSON.
+    expect(result.value.message).not.toContain('Sign this message with wallet');
+    expect(result.value.message).not.toContain('--- structured ---');
+    expect(result.value.message.length).toBeLessThan(blob.length);
+    expect(result.value.selection.source).toBe('structured-message');
+    expect(result.value.selection.field).toBe('message');
+  });
+
+  it('records the rejected envelope as a noncanonical diagnostic candidate rather than refusing on it', async () => {
+    const blob = liveDualCandidateResponse();
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: mcpClientWithBuildText(blob),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const { selection } = result.value;
+    // Both sides recorded — which was signed, and which was not.
+    expect(selection.messageByteLength).toBe(Buffer.byteLength(CANONICAL_MESSAGE, 'utf8'));
+    expect(selection.outerCandidateByteLength).toBe(Buffer.byteLength(blob, 'utf8'));
+    expect(selection.outerCandidateHash).not.toBe(selection.messageHash);
+  });
+
+  it('the persisted payload_hash and the envelope messageHash are the SELECTED message\'s hash — never the envelope\'s', async () => {
+    const authorizationId = 'auth-canonical-hash';
+    const blob = liveDualCandidateResponse();
+    const result = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: mcpClientWithBuildText(blob),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const expectedHash = createHash('sha256').update(CANONICAL_MESSAGE, 'utf8').digest('hex');
+    const envelopeHash = createHash('sha256').update(blob, 'utf8').digest('hex');
+    expect(result.value.envelope.messageHash).toBe(expectedHash);
+    expect(result.value.envelope.messageHash).not.toBe(envelopeHash);
+    // Persisted as payload_hash — the value FRESH_AUTHORIZATION_NOT_CREATED
+    // compares against on the next attempt, so it must be the signed one.
+    expect(rows.get(authorizationId).payloadHash).toBe(expectedHash);
+  });
+
+  it('local recovery succeeds against the SELECTED structured message, and the same signature does NOT recover to the owner over the envelope', async () => {
+    const blob = liveDualCandidateResponse();
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-canonical-recovery' }), {
+      mcpClient: mcpClientWithBuildText(blob),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      now: FIXED_NOW,
+    });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+
+    // Recovery over the SELECTED message === the owner. This is the property
+    // Horizen's server-side reconstruction actually tests.
+    expect(ethers.verifyMessage(CANONICAL_MESSAGE, signed.value.signature).toLowerCase()).toBe(WALLET.address.toLowerCase());
+    // The same signature over the ENVELOPE recovers to some other address —
+    // which is exactly why signing the envelope produced a 401 while every
+    // local check passed.
+    expect(ethers.verifyMessage(blob, signed.value.signature).toLowerCase()).not.toBe(WALLET.address.toLowerCase());
+  });
+
+  it('a structured-vs-envelope difference does NOT raise PULSE_MESSAGE_DRIFT — that refusal encoded the disproved assumption', async () => {
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: mcpClientWithBuildText(liveDualCandidateResponse()),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) expect(result.refusalCode).not.toBe('PULSE_MESSAGE_DRIFT');
+  });
+
+  it('TWO structured fields naming DIFFERENT strings still fails closed with PULSE_MESSAGE_DRIFT — the one genuinely undecidable case', async () => {
+    // `message` and `payload` are both in MESSAGE_FIELDS; making them
+    // disagree is a contract ambiguity no local rule can resolve.
+    const blob = liveDualCandidateResponse({ payload: 'ASR Pulse enable\nAgent: 9999\nIssued At: 2026-07-31T12:00:00.000Z' });
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: mcpClientWithBuildText(blob),
+      now: FIXED_NOW,
+    });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.refusalCode).toBe('PULSE_MESSAGE_DRIFT');
-    // Named diagnostics on BOTH sides — length, sha256, first/last 32 chars,
-    // JSON.stringify — never just "they differ."
-    expect(result.detail).toContain('SIGNED candidate');
-    expect(result.detail).toContain('STRUCTURED candidate');
-    expect(result.detail).toContain('sha256');
-    expect(result.detail).toContain('first32');
-    expect(result.detail).toContain('last32');
-    // The signed side is the full blob (the bug); the structured side is not.
-    // (first32/last32 are printed as raw slices, not JSON.stringify-quoted —
-    // only the whole-string `json` field is stringified.)
-    expect(result.detail).toContain(blob.slice(0, 32));
-    expect(result.detail).toContain(structuredMessage.slice(0, 32));
-
-    // Never persisted as PREPARED — the local refusal happens before any
-    // partner-facing state transition that would suggest progress was made.
+    expect(result.detail).toContain('conflicting canonical message fields');
+    // Never persisted — the refusal precedes any state transition.
     expect(rows.size).toBe(0);
   });
 
-  it('does NOT refuse when the response is bare JSON with a named field — the existing, already-working shape agrees with itself and is never flagged as drift', async () => {
-    // fakeMcpClient()'s default build response is exactly this shape:
-    // `{"message": "..."}` with no prose/marker at all — extractPartnerMessage
-    // resolves it via 'named-field' and extractStructuredMessageField finds
-    // the identical field via the same embedded JSON object. Asserted
-    // explicitly here (rather than only implicitly via the next test) because
-    // this is precisely the shape every other test in this file signs today —
-    // instrumentation must never regress it.
-    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
-      mcpClient: fakeMcpClient(),
-      now: FIXED_NOW,
-    });
+  /*
+   * THE LIVE ARTIFACT, PINNED (Al's brief, 2026-08-06). Uses the real
+   * issuedAt from the 2026-08-06 escalation (`2026-08-06T01:21:51.528Z`) and
+   * asserts the selected message hashes to the exact value the brief records:
+   *
+   *   selected  : 198 bytes, sha256 784fe278f784da67cde3f2ca2558971190f9c7feaf7af97a88447e3c12d64964
+   *   envelope  : 826 bytes, sha256 1c60a368…  (NOT signed)
+   *
+   * A future change that reverts to signing the envelope fails HERE, on a
+   * hash the partner themselves can verify — not on an internal invariant
+   * whose meaning has to be reconstructed from prose.
+   *
+   * The 198-byte length and its sha256 are the partner's OWN recorded values
+   * and are pinned exactly. The envelope's 826 bytes / 1c60a368… are NOT
+   * pinned: the live instructional preamble is not in this repo verbatim, and
+   * hand-writing prose padded to exactly 826 bytes would be inventing
+   * precision we do not have (CLAUDE.md's No-Guessing rule). What IS asserted
+   * about the envelope is the property that matters — it is longer than the
+   * canonical message, hashes differently, and is not what gets signed.
+   */
+  it('reproduces the live 2026-08-06 escalation artifact exactly — 198 bytes, sha256 784fe278…', async () => {
+    const liveIssuedAt = '2026-08-06T01:21:51.528Z';
+    const liveMessage =
+      'ASR Pulse enable\n' +
+      'Agent: 8798\n' +
+      'Network: sepolia\n' +
+      'Chain: 84532\n' +
+      'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\n' +
+      'Wallet: 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9\n' +
+      `Issued At: ${liveIssuedAt}`;
+    // Sanity-anchor the fixture itself against the brief's recorded facts
+    // before asserting the selector reproduces them.
+    expect(Buffer.byteLength(liveMessage, 'utf8')).toBe(198);
+    expect(createHash('sha256').update(liveMessage, 'utf8').digest('hex')).toBe(
+      '784fe278f784da67cde3f2ca2558971190f9c7feaf7af97a88447e3c12d64964',
+    );
+
+    const blob =
+      `Sign this message with wallet 0x24bbb9c7aacb33556d1429a3e1b33f05faf7d4b9 using personal_sign, then call ` +
+      `enable_pulse_monitoring with the signature and issuedAt="${liveIssuedAt}".\n\n` +
+      liveMessage +
+      '\n\n--- structured ---\n' +
+      JSON.stringify({
+        chain: 'base-sepolia',
+        network: 'sepolia',
+        action: 'enable',
+        message: liveMessage,
+        issuedAt: liveIssuedAt,
+        validForMs: 300000,
+      });
+
+    const result = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId: 'auth-live-artifact', registry: { network: 'base-sepolia', tokenId: '8798' } }),
+      // `now` pinned to the live issuedAt so the staleness guard sees age 0 —
+      // this test is about SELECTION, not the validity window.
+      { mcpClient: mcpClientWithBuildText(blob), now: () => new Date(liveIssuedAt) },
+    );
+
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.message).not.toContain('--- structured ---');
+    if (!result.ok) return;
+    expect(result.value.message).toBe(liveMessage);
+    expect(result.value.selection.messageByteLength).toBe(198);
+    expect(result.value.selection.messageHash).toBe('784fe278f784da67cde3f2ca2558971190f9c7feaf7af97a88447e3c12d64964');
+    // The envelope is recorded, is genuinely larger, and is NOT what was
+    // signed — the property that matters, without pinning prose we don't have.
+    expect(result.value.selection.outerCandidateByteLength).toBe(Buffer.byteLength(blob, 'utf8'));
+    expect(result.value.selection.outerCandidateByteLength!).toBeGreaterThan(198);
+    // The message hash MUST differ from the envelope hash — that difference
+    // IS the bug this fix removes.
+    expect(result.value.selection.messageHash).not.toBe(result.value.selection.outerCandidateHash);
+    expect(result.value.envelope.issuedAt).toBe(liveIssuedAt);
   });
 
-  it('proceeds unchanged when no structured alternative exists at all — instrumentation only ever adds a refusal, never narrows the existing accepted shape', async () => {
-    // The existing, already-working bare-JSON shape every other test in this
-    // file uses — no "--- structured ---" marker anywhere.
+  it('legacy shapes with NO structured message keep the existing fallback exactly — bare JSON named field', async () => {
+    // fakeMcpClient()'s default build response is `{"message": "..."}` with
+    // no prose/marker at all. Every other test in this file signs this shape;
+    // the selection change must never regress it.
     const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
       mcpClient: fakeMcpClient(),
       now: FIXED_NOW,
     });
     expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.message).not.toContain('--- structured ---');
+    // Bare JSON IS an embedded object, so this still resolves structurally.
+    expect(result.value.selection.source).toBe('structured-message');
+  });
+
+  it('legacy shapes with NO structured message keep the existing fallback exactly — plain text, no JSON at all', async () => {
+    // Horizen's earlier 265-char plain-text response (2026-08-03 diagnostic):
+    // no JSON object anywhere, so the sole-text-block fallback still applies.
+    const plain = 'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T12:00:00.000Z';
+    const result = await prepareHorizenTransparencyAuthorization(baseInput(), {
+      mcpClient: mcpClientWithBuildText(plain),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.message).toBe(plain);
+    expect(result.value.selection.source).toBe('sole-text-block');
   });
 });
 
@@ -1091,6 +1277,85 @@ describe('FRESH_AUTHORIZATION_NOT_CREATED — replay guard (2026-08-06)', () => 
     expect(second.diagnostics?.messageHash).toBe(first.value.envelope.messageHash);
     // The old row is untouched — never overwritten by the rejected replay.
     expect(rows.get(authorizationId)).toEqual(persistedAfterFirst);
+  });
+
+  /*
+   * FRESH AFTER REJECTION, WITH THE CANONICAL SELECTOR IN PLAY (Al's brief,
+   * 2026-08-06, acceptance item 9). A rejected authorization may be retained
+   * for history but must never be returned as the active prepared
+   * authorization — a genuine retry produces a new issuedAt, a new canonical
+   * message, a new hash, and therefore a new signature.
+   */
+  it('a fresh attempt after a REFUSED authorization produces a new issuedAt, hash and signature — the rejected row is not resurrected', async () => {
+    const authorizationId = 'auth-fresh-after-refusal';
+    const canonical = (issuedAt: string) =>
+      'ASR Pulse enable\nAgent: 8798\nNetwork: sepolia\nChain: 84532\n' +
+      'Registry: 0x8004a818bfb912233c491871b3d84c89a494bd9e\n' +
+      `Wallet: ${WALLET.address.toLowerCase()}\nIssued At: ${issuedAt}`;
+    const responseFor = (issuedAt: string) => ({
+      content: [
+        {
+          type: 'text',
+          text:
+            `Sign this message… issuedAt="${issuedAt}".\n\n` +
+            canonical(issuedAt) +
+            '\n\n--- structured ---\n' +
+            JSON.stringify({ message: canonical(issuedAt), issuedAt, validForMs: 300000 }),
+        },
+      ],
+    });
+    const clientFor = (issuedAt: string) => {
+      const base = fakeMcpClient();
+      return {
+        ...base,
+        callTool: vi.fn(async ({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) => {
+          if (name === 'build_pulse_auth_message') return responseFor(issuedAt);
+          return base.callTool({ name, arguments: args });
+        }),
+      };
+    };
+    const signWith = async (prepared: any, now: () => Date) =>
+      signHorizenTransparencyAuthorization(prepared, {
+        resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+        now,
+      });
+
+    // Attempt 1 → prepare, sign, then land in REFUSED (as a partner rejection would).
+    const firstIssuedAt = '2026-07-31T12:00:00.000Z';
+    const firstNow = () => new Date(firstIssuedAt);
+    const first = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId, registry: { network: 'base-sepolia', tokenId: '8798' } }),
+      { mcpClient: clientFor(firstIssuedAt), now: firstNow },
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const firstSigned = await signWith(first.value, firstNow);
+    expect(firstSigned.ok).toBe(true);
+    if (!firstSigned.ok) return;
+    rows.set(authorizationId, { ...rows.get(authorizationId), state: 'REFUSED', refusalCode: 'HORIZEN_SUBMISSION_REJECTED' });
+
+    // Attempt 2 → a genuinely fresh build response, three minutes later.
+    const secondIssuedAt = '2026-07-31T12:03:00.000Z';
+    const secondNow = () => new Date(secondIssuedAt);
+    const second = await prepareHorizenTransparencyAuthorization(
+      baseInput({ authorizationId, registry: { network: 'base-sepolia', tokenId: '8798' } }),
+      { mcpClient: clientFor(secondIssuedAt), now: secondNow },
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const secondSigned = await signWith(second.value, secondNow);
+    expect(secondSigned.ok).toBe(true);
+    if (!secondSigned.ok) return;
+
+    // Every one of the four values Al requires to change, changed.
+    expect(second.value.envelope.issuedAt).not.toBe(first.value.envelope.issuedAt);
+    expect(second.value.envelope.messageHash).not.toBe(first.value.envelope.messageHash);
+    expect(second.value.message).not.toBe(first.value.message);
+    expect(secondSigned.value.signature).not.toBe(firstSigned.value.signature);
+    expect(second.value.attemptId).not.toBe(first.value.attemptId);
+    // The refused row was superseded, not returned as-is.
+    expect(second.diagnostics?.rowAction).toBe('reset');
+    expect(rows.get(authorizationId).state).toBe('SIGNED');
   });
 
   it('proceeds normally when the second attempt genuinely differs (new issuedAt) from the persisted attempt', async () => {
