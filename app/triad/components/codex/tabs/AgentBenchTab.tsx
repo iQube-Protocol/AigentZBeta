@@ -72,6 +72,23 @@ interface AgreementRow {
   displayLabel: string;
 }
 
+type PulseStageStatus = 'ok' | 'pending' | 'failed' | 'unknown';
+
+interface PulseLifecycleStage {
+  id: 'registered' | 'enrolled' | 'healthy' | 'sla-receipts' | 'pnl-transparency';
+  label: string;
+  status: PulseStageStatus;
+  detail?: string;
+}
+
+interface PulseLifecycle {
+  stages: PulseLifecycleStage[];
+  uptimeCurrent: number | null;
+  totalChallenges: number | null;
+  slaProofCount: number;
+  correlationError?: string;
+}
+
 interface AgentBenchRow {
   candidateId: string;
   name: string;
@@ -87,6 +104,7 @@ interface AgentBenchRow {
   registry: { publicationStatus: string; trustBand: string } | null;
   pulseAuthorized: boolean;
   pnlEnabled: boolean;
+  pulseLifecycle: PulseLifecycle | null;
   runtimeMemberships: RuntimeMembership[];
   agreements: AgreementRow[];
 }
@@ -118,6 +136,13 @@ const ACTIONS: {
   { id: 'operate', label: 'Operate', icon: Activity, lifecycle: 'engaged',
     blurb: 'Active in at least one runtime — role, scope, and receipts shown per runtime membership.' },
 ];
+
+const PULSE_STAGE_STYLE: Record<PulseStageStatus, string> = {
+  ok: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+  pending: 'border-slate-600 bg-slate-800/60 text-slate-400',
+  failed: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+  unknown: 'border-slate-700 bg-slate-800/40 text-slate-600',
+};
 
 const RUNTIME_STATUS_STYLE: Record<RuntimeMembershipStatus, string> = {
   'not-applied': 'border-slate-600 bg-slate-800/60 text-slate-500',
@@ -201,6 +226,43 @@ function RuntimeMembershipBadges({ memberships }: { memberships: RuntimeMembersh
           {m.runtimeLabel}: {m.status}
         </span>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Registered → Enrolled → Healthy → SLA receipts → P&L transparency — the
+ * OPERATIONAL Pulse pipeline (Horizen operational-hardening brief,
+ * 2026-08-06), rendered as its own strip rather than folded into the two
+ * flat Pulse/P&L FactChips those replaced. Deliberately separate from
+ * `RuntimeMembershipBadges` above: that strip is CONSTITUTIONAL eligibility
+ * (never gated by Pulse); this one is whether Horizen's own monitoring is
+ * actually succeeding right now. `unknown` (grey) is a real, distinct state
+ * from `failed` (rose) — a stage this row never had a live signal for is
+ * not the same claim as one that was checked and is failing.
+ */
+function PulseLifecycleStrip({ lifecycle }: { lifecycle: PulseLifecycle | null }) {
+  if (!lifecycle) {
+    return <span className="text-[10px] text-slate-600 italic">no Pulse lifecycle tracked for this agent</span>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {lifecycle.stages.map((stage, i) => (
+        <React.Fragment key={stage.id}>
+          {i > 0 && <span className="text-slate-700">→</span>}
+          <span
+            title={stage.detail ?? (stage.status === 'unknown' ? 'No live signal read yet' : undefined)}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${PULSE_STAGE_STYLE[stage.status]}`}
+          >
+            {stage.label}
+          </span>
+        </React.Fragment>
+      ))}
+      {lifecycle.correlationError && (
+        <span title={lifecycle.correlationError} className="text-[10px] text-amber-400/80 italic">
+          live read incomplete
+        </span>
+      )}
     </div>
   );
 }
@@ -312,11 +374,12 @@ function PersistentCardHeader({ row }: { row: AgentBenchRow }) {
               {row.registry.publicationStatus} · {row.registry.trustBand}
             </span>
           )}
-          <FactChip label="Pulse" value={row.pulseAuthorized} />
-          <FactChip label="P&L" value={row.pnlEnabled} />
         </div>
         <div className="mt-1.5">
           <RuntimeMembershipBadges memberships={row.runtimeMemberships} />
+        </div>
+        <div className="mt-1.5">
+          <PulseLifecycleStrip lifecycle={row.pulseLifecycle} />
         </div>
       </div>
       <div className="shrink-0 text-right text-[11px] text-slate-500">

@@ -50,6 +50,8 @@ import { getAsset } from '@/services/registry/persistence';
 import { findAgentReceiptRefs } from '@/services/receipts/activityReceiptService';
 import { listAgreements, type ConstitutionalAgreementRow } from '@/services/constitutional/constitutionalAgreement';
 import type { CapabilityDescriptor } from '@/types/registryIngestion';
+import { correlateAgent } from '@/services/horizen/correlate';
+import { HORIZEN_NETWORKS, type HorizenNetwork } from '@/services/horizen/identity';
 
 export type BenchLifecycleState = 'candidate' | 'invited' | 'in-admission' | 'service-ready' | 'engaged';
 
@@ -79,6 +81,122 @@ export type BenchSubject =
   | { kind: 'marketa'; candidate: CandidateAgent }
   | { kind: 'registrable-agent'; agent: RegistrableAgentConfig };
 
+/**
+ * Pulse operational lifecycle — Registered → Enrolled → Healthy → SLA
+ * receipts → P&L transparency (Horizen operational-hardening brief,
+ * 2026-08-06). Deliberately a SEPARATE, narrower concept from
+ * `runtimeMemberships`/`RuntimeMembershipStatus` above: those are
+ * CONSTITUTIONAL admission/eligibility states (never gated by Pulse — see
+ * `buildFinancialServicesMembership`'s own ruling, unchanged), while this is
+ * OPERATIONAL — whether the partner's own monitoring is actually succeeding
+ * right now. "Standing" is deliberately NOT a stage here: it is a separate,
+ * already-real constitutional axis (`standing_accrued` receipts, unrelated
+ * to Horizen) with its own home elsewhere in the journey — folding it into a
+ * Pulse-specific strip would be exactly the axis-collapsing this session's
+ * own admission-spine work spent effort undoing.
+ */
+export type PulseStageStatus = 'ok' | 'pending' | 'failed' | 'unknown';
+
+export interface PulseLifecycleStage {
+  id: 'registered' | 'enrolled' | 'healthy' | 'sla-receipts' | 'pnl-transparency';
+  label: string;
+  status: PulseStageStatus;
+  /** Human-readable detail for a tooltip — the real number/reason, never invented. */
+  detail?: string;
+}
+
+export interface PulseLifecycle {
+  stages: PulseLifecycleStage[];
+  /** Horizen's own reported current-uptime percentage, or null if never read. */
+  uptimeCurrent: number | null;
+  totalChallenges: number | null;
+  slaProofCount: number;
+  /** Set only when a live Horizen read was attempted and failed — surfaced, never swallowed. */
+  correlationError?: string;
+}
+
+function asHorizenNetwork(network: string | null): HorizenNetwork | null {
+  return network && (HORIZEN_NETWORKS as readonly string[]).includes(network) ? (network as HorizenNetwork) : null;
+}
+
+/**
+ * The live half of the Pulse lifecycle — `registered`/`enrolled`/
+ * `pnl-transparency` are already-known receipt/registration facts (passed
+ * in); `healthy`/`sla-receipts` require an actual Horizen read
+ * (`correlateAgent`, services/horizen/correlate.ts), because there is no
+ * receipt or DB record anywhere in this codebase for "is Pulse's own
+ * monitoring currently succeeding" — this is the exact live signal
+ * `PulseTransparencyToggle.tsx`'s success panel already promises ("check
+ * the Agent Bench / Pulse leaderboard for current uptime").
+ *
+ * Only attempted when `pulseAuthorized` is true and a network+alias are
+ * known — an agent that was never enrolled has nothing to health-check, and
+ * spending a live partner call on every Bench render for every candidate
+ * would be wasted cost for a question that has no answer yet. A failed or
+ * skipped read leaves `healthy`/`sla-receipts` at 'unknown' — NEVER 'ok' or
+ * 'failed' by default, so a transport hiccup can never masquerade as either
+ * a health confirmation or a health failure.
+ */
+async function resolvePulseLifecycle(args: {
+  registered: boolean;
+  pulseAuthorized: boolean;
+  pnlEnabled: boolean;
+  registryAlias: string | null;
+  network: string | null;
+}): Promise<PulseLifecycle> {
+  const stages: PulseLifecycleStage[] = [
+    { id: 'registered', label: 'Registered', status: args.registered ? 'ok' : 'pending' },
+    { id: 'enrolled', label: 'Pulse enrolled', status: args.pulseAuthorized ? 'ok' : 'pending' },
+    { id: 'healthy', label: 'Healthy', status: 'unknown' },
+    { id: 'sla-receipts', label: 'SLA receipts', status: 'unknown' },
+    { id: 'pnl-transparency', label: 'P&L transparency', status: args.pnlEnabled ? 'ok' : 'pending' },
+  ];
+
+  let uptimeCurrent: number | null = null;
+  let totalChallenges: number | null = null;
+  let slaProofCount = 0;
+  let correlationError: string | undefined;
+
+  const network = asHorizenNetwork(args.network);
+  if (args.pulseAuthorized && args.registryAlias && network) {
+    try {
+      const result = await correlateAgent(args.registryAlias, network);
+      if (!result.ok) {
+        correlationError = result.detail;
+      } else if (!result.record.pulse.present) {
+        // A real, honest negative — Horizen itself says no live Pulse
+        // record exists (e.g. not yet enrolled on ITS side, or a transport
+        // failure on this specific read) — never overridden by the
+        // receipt-derived `pulseAuthorized` above, which only proves an
+        // authorization ACT happened, not that Pulse holds a record now.
+        correlationError = result.record.pulse.detail;
+      } else {
+        const pulse = result.record.pulse.value;
+        uptimeCurrent = pulse.uptimeCurrent;
+        totalChallenges = pulse.totalChallenges;
+        slaProofCount = pulse.slaProofs.length;
+
+        const healthy = stages.find((s) => s.id === 'healthy')!;
+        healthy.status = uptimeCurrent === null ? 'unknown' : uptimeCurrent > 0 ? 'ok' : 'failed';
+        healthy.detail = uptimeCurrent === null ? 'Horizen has not reported an uptime reading yet' : `${uptimeCurrent}% current uptime`;
+
+        const slaReceipts = stages.find((s) => s.id === 'sla-receipts')!;
+        slaReceipts.status = slaProofCount > 0 ? 'ok' : 'pending';
+        slaReceipts.detail =
+          totalChallenges !== null
+            ? `${slaProofCount} SLA proof(s) recorded of ${totalChallenges} challenge(s) issued`
+            : slaProofCount > 0
+              ? `${slaProofCount} SLA proof(s) recorded`
+              : undefined;
+      }
+    } catch (e) {
+      correlationError = e instanceof Error ? e.message : 'Horizen correlation read failed';
+    }
+  }
+
+  return { stages, uptimeCurrent, totalChallenges, slaProofCount, correlationError };
+}
+
 export interface AgentBenchRow {
   candidateId: string;
   name: string;
@@ -104,6 +222,8 @@ export interface AgentBenchRow {
   registry: { publicationStatus: string; trustBand: string } | null;
   pulseAuthorized: boolean;
   pnlEnabled: boolean;
+  /** Null when there is no registrable agent to check (a Marketa-only candidate) — never fabricated. */
+  pulseLifecycle: PulseLifecycle | null;
   runtimeMemberships: RuntimeMembership[];
   agreements: ConstitutionalAgreementRow[];
 }
@@ -253,6 +373,16 @@ export async function buildAgentBenchRow(
         ? subject.candidate.capabilities
         : [];
 
+  const pulseLifecycle = registrableAgent
+    ? await resolvePulseLifecycle({
+        registered: registrationState?.registered === true,
+        pulseAuthorized,
+        pnlEnabled,
+        registryAlias: onChainAgentId,
+        network: registryNetwork,
+      })
+    : null;
+
   return {
     candidateId: subject.kind === 'registrable-agent' ? subject.agent.runtimeAgentId : subject.candidate.id,
     name: subject.kind === 'registrable-agent' ? subject.agent.displayName : subject.candidate.name,
@@ -268,6 +398,7 @@ export async function buildAgentBenchRow(
     registry: registryAsset ? { publicationStatus: registryAsset.publicationStatus, trustBand: registryAsset.trustBand } : null,
     pulseAuthorized,
     pnlEnabled,
+    pulseLifecycle,
     runtimeMemberships,
     agreements,
   };

@@ -39,6 +39,16 @@ vi.mock('@/services/constitutional/constitutionalAgreement', () => ({
   listAgreements: () => mockListAgreements(),
 }));
 
+// `resolvePulseLifecycle` calls this LIVE Horizen read whenever a row is
+// Pulse-authorized — MUST be mocked, exactly like every other dependency
+// above, or this suite makes real network calls to Horizen on every run
+// (caught 2026-08-06: the first pass here took 3-4s per test instead of
+// milliseconds, which was that unmocked live call, not a real assertion).
+const mockCorrelateAgent = vi.fn();
+vi.mock('@/services/horizen/correlate', () => ({
+  correlateAgent: (...args: any[]) => mockCorrelateAgent(...args),
+}));
+
 import { buildAgentBenchRow } from '@/services/marketa/activation/agentBenchReadModel';
 
 const NAKAMOTO_AGENT = {
@@ -68,6 +78,11 @@ beforeEach(() => {
   mockFindAgentReceiptRefs.mockResolvedValue([]);
   mockListAgreements.mockReset();
   mockListAgreements.mockResolvedValue([]);
+  mockCorrelateAgent.mockReset();
+  mockCorrelateAgent.mockResolvedValue({
+    ok: true,
+    record: { pulse: { present: true, value: { enrolled: true, commitmentRecorded: true, slaTarget: 99, uptimeCurrent: 87, totalChallenges: 12, slaProofs: [{}, {}] } } },
+  });
 });
 
 describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', () => {
@@ -117,6 +132,21 @@ describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', ()
     });
     expect(row.runtimeMemberships[0].eligibility.outstanding).toEqual([]);
     expect(row.lifecycleState).toBe('engaged');
+
+    // Pulse lifecycle — the live Horizen read is attempted because the row
+    // IS Pulse-authorized and carries a real network + token id, and its
+    // result (mocked above: 87% uptime, 2 SLA proofs) drives the healthy/
+    // sla-receipts stages. Never a boolean collapse of this richer read.
+    expect(mockCorrelateAgent).toHaveBeenCalledWith('8798', 'base-sepolia');
+    expect(row.pulseLifecycle).not.toBeNull();
+    const stageStatus = (id: string) => row.pulseLifecycle!.stages.find((s) => s.id === id)?.status;
+    expect(stageStatus('registered')).toBe('ok');
+    expect(stageStatus('enrolled')).toBe('ok');
+    expect(stageStatus('healthy')).toBe('ok');
+    expect(stageStatus('sla-receipts')).toBe('ok');
+    expect(stageStatus('pnl-transparency')).toBe('ok');
+    expect(row.pulseLifecycle!.uptimeCurrent).toBe(87);
+    expect(row.pulseLifecycle!.slaProofCount).toBe(2);
   });
 
   it('reports Service Ready even with Pulse/P&L outstanding — verify is optional, never an admission gate (operator ruling 2026-08-06)', async () => {
@@ -151,6 +181,56 @@ describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', ()
     expect(row.runtimeMemberships[0].eligibility.outstanding).toContain('Pulse authorized');
     expect(row.runtimeMemberships[0].eligibility.outstanding).toContain('P&L transparency enabled');
     expect(row.lifecycleState).toBe('service-ready');
+
+    // Never enrolled -> nothing to health-check -> the live Horizen read is
+    // never attempted, and healthy/sla-receipts stay honestly 'unknown'
+    // rather than 'ok' or 'failed'.
+    expect(mockCorrelateAgent).not.toHaveBeenCalled();
+    const stageStatus = (id: string) => row.pulseLifecycle!.stages.find((s) => s.id === id)?.status;
+    expect(stageStatus('enrolled')).toBe('pending');
+    expect(stageStatus('healthy')).toBe('unknown');
+    expect(stageStatus('sla-receipts')).toBe('unknown');
+  });
+
+  it('reports 0% uptime honestly as failed, never as ok or unknown — the exact live Nakamoto state before the /health fix', async () => {
+    mockResolveAgentAdmissionState.mockResolvedValue(FULL_ADMISSION);
+    mockResolveAgentRegistrationState.mockResolvedValue({
+      registered: true, tokenId: '8798', registryAgentId: '0x1a5e', network: 'base-sepolia',
+      evidenceRefs: [], source: 'settled', settled: true, auditGaps: [],
+    });
+    mockGetAsset.mockResolvedValue({ capabilities: [], publicationStatus: 'published', trustBand: 'verified' });
+    mockFindAgentReceiptRefs.mockResolvedValue([{ id: 'r1', actionType: 'horizen_pulse_authorized' }]);
+    mockListAgreements.mockResolvedValue([]);
+    mockCorrelateAgent.mockResolvedValue({
+      ok: true,
+      record: { pulse: { present: true, value: { enrolled: true, commitmentRecorded: true, slaTarget: 99, uptimeCurrent: 0, totalChallenges: 13, slaProofs: [] } } },
+    });
+
+    const row = await buildAgentBenchRow({} as any, { kind: 'registrable-agent', agent: NAKAMOTO_AGENT }, { hasInvitation: false });
+
+    const stageStatus = (id: string) => row.pulseLifecycle!.stages.find((s) => s.id === id)?.status;
+    expect(stageStatus('healthy')).toBe('failed');
+    expect(stageStatus('sla-receipts')).toBe('pending');
+    expect(row.pulseLifecycle!.uptimeCurrent).toBe(0);
+  });
+
+  it('surfaces a live-read failure as correlationError without claiming ok or failed for healthy/sla-receipts', async () => {
+    mockResolveAgentAdmissionState.mockResolvedValue(FULL_ADMISSION);
+    mockResolveAgentRegistrationState.mockResolvedValue({
+      registered: true, tokenId: '8798', registryAgentId: '0x1a5e', network: 'base-sepolia',
+      evidenceRefs: [], source: 'settled', settled: true, auditGaps: [],
+    });
+    mockGetAsset.mockResolvedValue({ capabilities: [], publicationStatus: 'published', trustBand: 'verified' });
+    mockFindAgentReceiptRefs.mockResolvedValue([{ id: 'r1', actionType: 'horizen_pulse_authorized' }]);
+    mockListAgreements.mockResolvedValue([]);
+    mockCorrelateAgent.mockResolvedValue({ ok: false, reason: 'read-failed', detail: 'Horizen registry request timed out' });
+
+    const row = await buildAgentBenchRow({} as any, { kind: 'registrable-agent', agent: NAKAMOTO_AGENT }, { hasInvitation: false });
+
+    const stageStatus = (id: string) => row.pulseLifecycle!.stages.find((s) => s.id === id)?.status;
+    expect(stageStatus('healthy')).toBe('unknown');
+    expect(stageStatus('sla-receipts')).toBe('unknown');
+    expect(row.pulseLifecycle!.correlationError).toBe('Horizen registry request timed out');
   });
 
   it('surfaces a registration audit gap as an outstanding eligibility reason, never silently', async () => {
