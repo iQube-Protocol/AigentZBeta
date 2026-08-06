@@ -534,6 +534,46 @@ export function pulseBuildCandidates(
   };
 }
 
+/**
+ * The candidate values ANY Horizen status/onboarding read may need —
+ * `chain`/`chainId`, not just `network`, for the SAME reason
+ * `pulseBuildCandidates` already carries all three (Horizen, confirmed
+ * 2026-08-06 directly: "get_onboarding_status defaults to base-mainnet when
+ * you omit chain. Pass chain: 'base-sepolia' and it returns [Nakamoto's real
+ * wallet]... I hit the same trap on my first lookup").
+ *
+ * ── THE DEFECT THIS CLOSES ────────────────────────────────────────────────
+ *
+ * Both status-read call sites below (`fetchOnboardingStatusOwner`'s owner
+ * cross-check, and the authoritative enrollment reread) hand-rolled their own
+ * candidate object with `network` alone — never `chain`. `matchSchemaFields`
+ * matches by NAME, not by meaning: a schema property literally called
+ * `chain` never matches a candidate key called `network` (neither string
+ * contains the other), so on a partner tool whose schema names it `chain`,
+ * the argument was silently omitted and the tool defaulted to base-mainnet.
+ * That defaulted lookup returned an unrelated agent's owner on mainnet
+ * (token 8798 happens to exist there too, coincidentally) — which is the
+ * entire evidence trail behind the now-closed `HORIZEN_OWNER_SOURCE_CONFLICT`
+ * investigation: not a partner-side data inconsistency, a local chain-
+ * resolution omission. `pulseBuildCandidates` already carried the fix for
+ * the BUILD call; these two reads just never reused it (inv.engineering.
+ * 036/037 — one authoritative candidate set, not three).
+ */
+export function pulseStatusCandidates(
+  facts: (typeof HORIZEN_NETWORK_FACTS)[HorizenNetwork],
+  agentId: string,
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    tokenId: agentId,
+    agentId,
+    network: facts.pulseSelector,
+    chain: facts.pulseSelector,
+    chainId: facts.chainId,
+    ...extra,
+  };
+}
+
 // ── Stage 1: prepare ─────────────────────────────────────────────────────
 
 export interface PrepareHorizenTransparencyAuthorizationInput {
@@ -1682,11 +1722,10 @@ async function fetchOnboardingStatusOwner(
     const { tools } = await mcpClient.listTools();
     const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
     if (!statusTool.ok) return { owner: null };
-    const statusArgs = matchSchemaFields(statusTool.tool.inputSchema, {
-      tokenId: registry.tokenId,
-      agentId: registry.tokenId,
-      network: registry.network,
-    });
+    const statusArgs = matchSchemaFields(
+      statusTool.tool.inputSchema,
+      pulseStatusCandidates(HORIZEN_NETWORK_FACTS[registry.network], registry.tokenId),
+    );
     const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
     const content = statusResult?.content;
     const rawText = Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join(' ') : '';
@@ -1894,13 +1933,13 @@ export async function verifyHorizenTransparencyActivation(
       detail: `no tool compatible with role "status" declared by Horizen's MCP server. Declared tools: ${statusTool.declaredToolNames.join(', ') || '(none)'}`,
     };
   }
-  const statusArgs = matchSchemaFields(statusTool.tool.inputSchema, {
-    tokenId: args.registry.tokenId,
-    agentId: args.registry.tokenId,
-    submissionRef: record.submissionRef ?? '',
-    transactionHash: record.submissionRef ?? '',
-    network: args.registry.network,
-  });
+  const statusArgs = matchSchemaFields(
+    statusTool.tool.inputSchema,
+    pulseStatusCandidates(HORIZEN_NETWORK_FACTS[args.registry.network], args.registry.tokenId, {
+      submissionRef: record.submissionRef ?? '',
+      transactionHash: record.submissionRef ?? '',
+    }),
+  );
   const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
   const statusText = flattenToolResultText(statusResult);
   /*

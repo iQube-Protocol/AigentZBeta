@@ -96,6 +96,7 @@ import {
   parseLabelledMessageFields,
   buildFieldParityTable,
   pulseBuildCandidates,
+  pulseStatusCandidates,
   detectPulseArgumentDrift,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
@@ -1470,6 +1471,92 @@ describe('HORIZEN_OWNER_SOURCE_CONFLICT — Horizen\'s own two services disagree
       { mcpClient: fakeMcpClient({ statusText: LIVE_ONBOARDING_STATUS_TEXT }), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
     );
     expect(verified).toMatchObject({ ok: false, refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT' });
+  });
+});
+
+/*
+ * THE ROOT CAUSE, CLOSED (Horizen, confirmed directly 2026-08-06):
+ *
+ *   > "get_onboarding_status defaults to base-mainnet when you omit chain.
+ *   >  Pass chain: 'base-sepolia' and it returns [the real wallet]... I hit
+ *   >  the same trap on my first lookup, so it's an easy one."
+ *
+ * The `HORIZEN_OWNER_SOURCE_CONFLICT` transcript above (owner
+ * 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709, "Agent #0x225e") was never a
+ * partner-side inconsistency between two Horizen services — it was
+ * `fetchOnboardingStatusOwner`'s and `verifyHorizenTransparencyActivation`'s
+ * own `get_onboarding_status` calls never offering a `chain` candidate (only
+ * `network`), so a schema property literally named `chain` was left
+ * unpopulated and Horizen defaulted the lookup to base-mainnet — where token
+ * 8798 happens to belong to a different, unrelated agent. These canaries pin
+ * that both call sites now explicitly supply `chain` (and `chainId`)
+ * whenever the tool's declared schema names either, via the shared
+ * `pulseStatusCandidates` (mirroring `pulseBuildCandidates`'s existing
+ * completeness — inv.engineering.036/037, one candidate set, not three).
+ */
+describe('get_onboarding_status calls always supply chain explicitly (2026-08-06 fix)', () => {
+  const STATUS_SCHEMA_WITH_CHAIN = {
+    properties: { tokenId: {}, agentId: {}, network: {}, chain: {}, chainId: {}, submissionRef: {}, transactionHash: {} },
+  };
+
+  function toolsWithChainAwareStatus(statusText?: string) {
+    return [
+      { name: 'build_pulse_auth_message', inputSchema: { properties: { tokenId: {}, network: {}, wallet: {} } } },
+      { name: 'enable_pulse_monitoring', inputSchema: REAL_ENABLE_PULSE_SCHEMA },
+      { name: 'get_onboarding_status', inputSchema: STATUS_SCHEMA_WITH_CHAIN },
+    ];
+  }
+
+  it('pulseStatusCandidates always carries chain + chainId, never network alone', () => {
+    const candidates = pulseStatusCandidates(HORIZEN_NETWORK_FACTS['base-sepolia'], '8798');
+    expect(candidates.network).toBe('base-sepolia');
+    expect(candidates.chain).toBe('base-sepolia');
+    expect(candidates.chainId).toBe(84532);
+  });
+
+  it('the pre-submit owner cross-check sends an explicit chain to a schema that declares one', async () => {
+    const mcpClient = fakeMcpClient({ tools: toolsWithChainAwareStatus() });
+    await runHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-chain-explicit-precheck', registry: { network: 'base-sepolia', tokenId: '8798' } }), {
+      mcpClient,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    const statusCall = mcpClient.callTool.mock.calls.find(([args]: [any]) => args.name === 'get_onboarding_status');
+    expect(statusCall, 'get_onboarding_status was never called').toBeDefined();
+    expect(statusCall![0].arguments.chain).toBe('base-sepolia');
+    expect(statusCall![0].arguments.chainId).toBe(84532);
+  });
+
+  it('the post-submit reread (verifyHorizenTransparencyActivation) sends an explicit chain too', async () => {
+    const authorizationId = 'auth-chain-explicit-reread';
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId, registry: { network: 'base-sepolia', tokenId: '8798' } }), {
+      mcpClient: fakeMcpClient({ tools: toolsWithChainAwareStatus() }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      now: FIXED_NOW,
+    });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+    rows.set(authorizationId, { ...rows.get(authorizationId), state: 'SUBMITTED', submissionRef: '0xsub' });
+
+    const mcpClient = fakeMcpClient({ tools: toolsWithChainAwareStatus() });
+    await verifyHorizenTransparencyActivation(
+      authorizationId,
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' }, controllerWallet: WALLET.address },
+      { mcpClient, fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+    );
+    const statusCalls = mcpClient.callTool.mock.calls.filter(([args]: [any]) => args.name === 'get_onboarding_status');
+    expect(statusCalls.length, 'both the owner cross-check and the enrollment reread call get_onboarding_status').toBeGreaterThanOrEqual(1);
+    for (const [args] of statusCalls) {
+      expect(args.arguments.chain).toBe('base-sepolia');
+      expect(args.arguments.chainId).toBe(84532);
+    }
   });
 });
 

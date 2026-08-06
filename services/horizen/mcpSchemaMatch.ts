@@ -45,6 +45,18 @@ export interface McpToolResult {
 /**
  * Best-effort schema-to-argument matcher. Prints nothing itself (callers log);
  * never invents a property the schema doesn't declare.
+ *
+ * EXACT MATCH WINS FIRST, across ALL candidates, before any substring
+ * fallback (2026-08-06) — discovered via `chain`/`chainId` both being
+ * offered as distinct candidates for a status/onboarding call: a schema
+ * property named `chainId` also satisfies `lower.includes('chain')`, so the
+ * single-pass containment check could bind `chainId` to the `chain`
+ * candidate's STRING value ('base-sepolia') merely because `chain` happened
+ * to be visited first in candidate-iteration order — the exact class of
+ * chain-selector/chain-id type confusion this file has already hit once
+ * (`chain: 84532` where the string selector belonged, per `pulseBuildCandidates`'s
+ * own history). A schema property that names a candidate EXACTLY must never
+ * be satisfied by a shorter, merely-contained one.
  */
 export function matchSchemaFields(
   schema: McpToolSchema | undefined | null,
@@ -52,15 +64,17 @@ export function matchSchemaFields(
 ): Record<string, unknown> {
   const props: Record<string, unknown> = schema?.properties ?? {};
   const propNames = Object.keys(props);
+  const entries = Object.entries(candidates);
   const matched: Record<string, unknown> = {};
   for (const propName of propNames) {
     const lower = propName.toLowerCase();
-    for (const [candidateKey, candidateValue] of Object.entries(candidates)) {
-      if (lower === candidateKey.toLowerCase() || lower.includes(candidateKey.toLowerCase())) {
-        matched[propName] = candidateValue;
-        break;
-      }
+    const exact = entries.find(([candidateKey]) => lower === candidateKey.toLowerCase());
+    if (exact) {
+      matched[propName] = exact[1];
+      continue;
     }
+    const contained = entries.find(([candidateKey]) => lower.includes(candidateKey.toLowerCase()));
+    if (contained) matched[propName] = contained[1];
   }
   return matched;
 }
