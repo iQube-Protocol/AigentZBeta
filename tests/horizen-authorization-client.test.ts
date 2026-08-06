@@ -457,34 +457,63 @@ describe('required refusal canaries', () => {
     expect(integrity).toEqual({ ok: true });
   });
 
-  it('partner mutation not confirmed — a valid signature is not completion without an authoritative reread', async () => {
-    const result = await runHorizenTransparencyAuthorization(baseInput(), {
-      mcpClient: fakeMcpClient({ statusText: '{"status":"pending"}' }),
+  /*
+   * A valid signature is still not completion without an authoritative reread
+   * — unchanged. What CHANGED (Al's brief, 2026-08-06) is the VERDICT recorded
+   * when the reread has not converged: `PARTNER_STATE_UNRESOLVED`, and the row
+   * stays SUBMITTED. It used to write REFUSED + HORIZEN_REREAD_NOT_CONFIRMED,
+   * recording a timing condition as a constitutional denial — the same defect
+   * class as reading a transport timeout as a refusal.
+   */
+  it('partner mutation not confirmed — reports PARTNER_STATE_UNRESOLVED and leaves the row SUBMITTED, never REFUSED', async () => {
+    const authorizationId = 'auth-unresolved-reread';
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText: '{"status":"awaiting"}' }),
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
       resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
       now: FIXED_NOW,
     });
-    expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED' });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'PARTNER_STATE_UNRESOLVED' });
+    // Never a completion receipt without confirmation — unchanged guarantee.
     expect(createActivityReceipt).not.toHaveBeenCalled();
+    // And never a denial: refresh must be able to settle this later.
+    expect(rows.get(authorizationId).state).toBe('SUBMITTED');
   });
 
-  it('partner submission failure — no recognisable submission reference is refused, never guessed', async () => {
+  /*
+   * REPLACES "no recognisable submission reference is refused, never guessed"
+   * (Al's brief, 2026-08-06). That test encoded the defect: it asserted that a
+   * successful, non-`isError` response carrying no transaction-like reference
+   * must be recorded as HORIZEN_SUBMISSION_FAILED. Horizen then answered a
+   * real enablement with 1109 characters of prose and the client discarded it,
+   * persisting REFUSED for what may have been a completed authorization.
+   *
+   * A reference is metadata. The reread decides.
+   */
+  it('a response with no submission reference is NOT a failure — it proceeds to the authoritative reread, which decides', async () => {
+    const authorizationId = 'auth-no-reference';
     const mcpClient = fakeMcpClient();
-    mcpClient.callTool = vi.fn(async ({ name }: { name: string }) => {
-      if (name === 'build_pulse_auth_message') return { content: [{ type: 'text', text: JSON.stringify({ message: 'authorize this issuedAt="2026-07-31T12:00:00.000Z"' }) }] };
+    const base = fakeMcpClient();
+    mcpClient.callTool = vi.fn(async ({ name, arguments: args }: { name: string; arguments: Record<string, unknown> }) => {
+      if (name === 'build_pulse_auth_message') {
+        return { content: [{ type: 'text', text: JSON.stringify({ message: 'authorize this issuedAt="2026-07-31T12:00:00.000Z"' }) }] };
+      }
+      // A successful response naming no reference at all.
       if (name === 'enable_pulse_monitoring') return { content: [{ type: 'text', text: JSON.stringify({ unrelatedField: 'x' }) }] };
-      throw new Error(`unexpected tool call: ${name}`);
+      return base.callTool({ name, arguments: args });
     });
-    const result = await runHorizenTransparencyAuthorization(baseInput(), {
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
       mcpClient,
-      // The new pre-submit owner cross-check (2026-08-04) now runs between
-      // sign and submit — without this fixture it would fall through to the
-      // REAL defaultFetchRegistryAgent and attempt a live network call.
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
       resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
       now: FIXED_NOW,
     });
-    expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED' });
+    // The default status fixture reports `{"status":"active"}` — so the reread
+    // CONFIRMS, and a missing reference never blocked completion.
+    expect(result.ok).toBe(true);
+    expect(rows.get(authorizationId).state).toBe('CONFIRMED');
+    expect(rows.get(authorizationId).submissionRef ?? null).toBeNull();
+    expect(createActivityReceipt).toHaveBeenCalled();
   });
 });
 

@@ -31,7 +31,19 @@
 import { createHash, randomUUID } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
-import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, extractStructuredMessageField, extractIssuedAt, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import {
+  findCompatibleTool,
+  matchSchemaFields,
+  missingRequiredFields,
+  extractPartnerMessage,
+  extractStructuredMessageField,
+  extractIssuedAt,
+  describeToolResultShape,
+  normalizeMcpSubmissionResult,
+  type McpTool,
+  type McpToolResult,
+  type NormalizedMcpSubmissionResult,
+} from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
   type ResolveSigningKey,
@@ -196,20 +208,23 @@ export type HorizenAuthorizationRefusalCode =
    * THIS click, and the old refused row is never touched when this fires.
    */
   | 'FRESH_AUTHORIZATION_NOT_CREATED'
+  /**
+   * The authoritative reread ran and could not resolve whether Pulse is
+   * enabled — NOT a denial, NOT a failure, and never a reason to re-sign
+   * (Al's brief, 2026-08-06: "If the submit text says success but the
+   * immediate reread has not converged, retain SUBMITTED and allow refresh to
+   * resolve it. Do not classify it as failure.").
+   *
+   * `HORIZEN_REREAD_NOT_CONFIRMED` used to be written as `REFUSED` for this
+   * case, which recorded a TIMING condition as a constitutional verdict — the
+   * same defect class as reading a transport timeout as a denial. Horizen's
+   * genuine refusals arrive through the submit path (an `isError` result, or
+   * explicit rejection prose), never through a reread that merely hasn't
+   * converged yet. The row stays SUBMITTED so "Refresh partner status" can
+   * settle it without recreating or resigning anything.
+   */
+  | 'PARTNER_STATE_UNRESOLVED'
   | 'STATE_MISMATCH';
-
-/**
- * One side of a `PULSE_MESSAGE_DRIFT` comparison — deliberately unnormalized,
- * mirroring `HorizenMessageFieldParityRow`'s own "show exact strings and
- * lengths" doctrine (al, 2026-08-04).
- */
-export interface PulseMessageDriftSide {
-  length: number;
-  json: string;
-  sha256: string;
-  first32: string;
-  last32: string;
-}
 
 /**
  * WHICH of the strings in `build_pulse_auth_message`'s response was selected
@@ -343,7 +358,13 @@ export interface AuthorizationAttemptDiagnostics {
 }
 
 export type AuthorizationResult<T> =
-  | { ok: true; value: T; diagnostics?: AuthorizationAttemptDiagnostics }
+  | {
+      ok: true;
+      value: T;
+      diagnostics?: AuthorizationAttemptDiagnostics;
+      /** The complete, untruncated `enable_pulse_monitoring` response — see NormalizedMcpSubmissionResult and Al's change 5. */
+      partnerResponse?: NormalizedMcpSubmissionResult;
+    }
   | {
       ok: false;
       refusalCode: HorizenAuthorizationRefusalCode;
@@ -352,6 +373,8 @@ export type AuthorizationResult<T> =
       escalationPacket?: HorizenEscalationPacket;
       /** Populated whenever a build attempt ran before this refusal — see AuthorizationAttemptDiagnostics. */
       diagnostics?: AuthorizationAttemptDiagnostics;
+      /** The complete, untruncated partner response when one was received — never summarised to "[0] type=text, NOT JSON". */
+      partnerResponse?: NormalizedMcpSubmissionResult;
     };
 
 // ── Injected dependencies (never touched by Phase 1 tests — always mocked) ──
@@ -1284,7 +1307,7 @@ export async function submitHorizenTransparencyAuthorization(
     messageSelection?: PulseMessageSelection;
   },
   deps: AuthorizationDeps = {},
-): Promise<AuthorizationResult<{ submissionRef: string }>> {
+): Promise<AuthorizationResult<{ submissionRef: string | null; partnerResponse: NormalizedMcpSubmissionResult }>> {
   const record = await getPartnerAuthorizationRequest(authorizationId);
   if (!record || record.state !== 'SIGNED') {
     return { ok: false, refusalCode: 'STATE_MISMATCH', detail: `authorization "${authorizationId}" is not in SIGNED state` };
@@ -1479,27 +1502,81 @@ export async function submitHorizenTransparencyAuthorization(
       refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
       refusalDetail: detail,
     });
-    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail, ...(escalationPacket ? { escalationPacket } : {}) };
+    return {
+      ok: false,
+      refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
+      detail,
+      ...(escalationPacket ? { escalationPacket } : {}),
+      // The full partner body, verbatim — never only `describeToolResultShape`'s
+      // summary (Al's change 5: "The actual text is necessary evidence").
+      partnerResponse: normalizeMcpSubmissionResult(submitResult),
+    };
   }
 
-  const SUBMISSION_FIELDS = ['submissionRef', 'transactionHash', 'txHash', 'hash', 'id'];
-  const submissionRef = extractStringField(submitResult, SUBMISSION_FIELDS);
-  if (!submissionRef) {
-    // Same diagnostic treatment as the build stage — an unrecognised partner
-    // response must be reportable without reverse-engineering the integration.
+  /*
+   * ── A SUBMISSION REFERENCE IS METADATA, NOT A PREREQUISITE ───────────────
+   * (Al's brief, 2026-08-06.)
+   *
+   * This branch used to demand a JSON object carrying submissionRef/
+   * transactionHash/txHash/hash/id and, finding none, write REFUSED. Horizen
+   * then answered a genuinely successful (non-`isError`) call with 1109
+   * characters of plain text — and the client threw the whole response away
+   * and recorded a local failure for what may well have been a completed
+   * enablement. Pulse enablement is a registry API call, not necessarily a
+   * chain transaction, so there may be no hash to return at all.
+   *
+   * The normalizer preserves everything and interprets without discarding.
+   * The row goes to SUBMITTED — which is the truth: Horizen's state-changing
+   * call was made and answered — and the AUTHORITATIVE REREAD that follows
+   * (verifyHorizenTransparencyActivation, run next by the pipeline, or later
+   * by "Refresh partner status") is what decides CONFIRMED. A missing
+   * reference no longer terminates the ceremony.
+   */
+  const normalized = normalizeMcpSubmissionResult(submitResult);
+
+  /*
+   * Explicit rejection prose on a NON-`isError` response — Horizen answered
+   * successfully at the transport level while saying, in words, that it
+   * refused. Recorded as REFUSED, with the partner's exact text preserved;
+   * "Refresh partner status" still performs an authoritative reread that can
+   * override this, because partner STATE outranks partner PROSE.
+   */
+  if (normalized.semanticStatus === 'rejected') {
     const detail =
-      `"${submitTool.tool.name}" did not return a recognisable submission reference. ` +
-      `Looked for: ${SUBMISSION_FIELDS.join(', ')}. Actually returned: ${describeToolResultShape(submitResult)}`;
+      `"${submitTool.tool.name}" answered without a transport error but its response states a refusal. ` +
+      `Partner response: ${normalized.partnerMessage ?? describeToolResultShape(submitResult)}`;
     await updatePartnerAuthorizationRequest(authorizationId, {
       state: 'REFUSED',
-      refusalCode: 'HORIZEN_SUBMISSION_FAILED',
+      refusalCode: 'HORIZEN_SUBMISSION_REJECTED',
       refusalDetail: detail,
+      partnerStatus: normalized.partnerMessage ?? undefined,
     });
-    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_FAILED', detail };
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail, partnerResponse: normalized };
   }
 
-  await updatePartnerAuthorizationRequest(authorizationId, { state: 'SUBMITTED', submissionRef });
-  return { ok: true, value: { submissionRef } };
+  /*
+   * confirmed / pending / unknown all become SUBMITTED. `unknown` is NOT a
+   * failure: an unfamiliar success shape is exactly the case the reread
+   * exists to settle, and refusing here would repeat the defect this change
+   * removes. What the response actually said is preserved on the row.
+   */
+  console.log(
+    `[PULSE SUBMISSION] authorization "${authorizationId}" — "${submitTool.tool.name}" answered ` +
+      `semanticStatus=${normalized.semanticStatus}, submissionRef=${normalized.submissionRef ?? 'none'}, ` +
+      `${normalized.textBlocks.length} text block(s), ${normalized.parsedJsonValues.length} JSON value(s). ` +
+      `Partner response (verbatim): ${normalized.partnerMessage ?? '(no text)'}`,
+  );
+  await updatePartnerAuthorizationRequest(authorizationId, {
+    state: 'SUBMITTED',
+    // Only set when one genuinely exists — never a fabricated placeholder.
+    ...(normalized.submissionRef ? { submissionRef: normalized.submissionRef } : {}),
+    ...(normalized.partnerMessage ? { partnerStatus: normalized.partnerMessage } : {}),
+  });
+  return {
+    ok: true,
+    value: { submissionRef: normalized.submissionRef ?? null, partnerResponse: normalized },
+    partnerResponse: normalized,
+  };
 }
 
 // ── Stage 4: verify ──────────────────────────────────────────────────────
@@ -1645,14 +1722,52 @@ function flattenToolResultText(result: McpToolResult | null | undefined): string
   return JSON.stringify(result ?? {}).toLowerCase();
 }
 
+/**
+ * The states a reread may legitimately run against. SUBMITTED is the normal
+ * case; `RECONCILABLE_STATES` additionally lets "Refresh partner status"
+ * reconcile a row that a LOCAL decision refused — because partner STATE
+ * outranks any local or prose-level verdict (Al's brief, 2026-08-06:
+ * "A confirmed reread overrides a missing submission reference", and the
+ * refresh must "reconcile the local authorization request"). CONFIRMED is
+ * excluded: there is nothing to reconcile. PREPARED/AWAITING_SIGNATURE/SIGNED
+ * are excluded: Horizen's state-changing call was never made, so there is no
+ * partner state to read.
+ */
+export const RECONCILABLE_STATES: PartnerAuthorizationState[] = ['SUBMITTED', 'REFUSED', 'QUARANTINED', 'EXPIRED'];
+
 export async function verifyHorizenTransparencyActivation(
   authorizationId: string,
-  args: { actorPersonaId: string; registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string }; controllerWallet: string },
+  args: {
+    actorPersonaId: string;
+    registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string };
+    controllerWallet: string;
+    /**
+     * Which local states this reread may run against — defaults to SUBMITTED
+     * alone, exactly as before. "Refresh partner status" passes
+     * `RECONCILABLE_STATES` so a locally-refused row can still be reconciled
+     * against authoritative partner state.
+     */
+    allowStates?: PartnerAuthorizationState[];
+    /**
+     * What `enable_pulse_monitoring`'s own response semantically said, when
+     * this reread follows a submission in the same request. Used ONLY to
+     * choose the wording/severity of a non-convergent outcome — never to
+     * assert confirmation, which always requires the partner's own state.
+     */
+    submitSemanticStatus?: NormalizedMcpSubmissionResult['semanticStatus'];
+  },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ confirmed: true }>> {
   const record = await getPartnerAuthorizationRequest(authorizationId);
-  if (!record || record.state !== 'SUBMITTED') {
-    return { ok: false, refusalCode: 'STATE_MISMATCH', detail: `authorization "${authorizationId}" is not in SUBMITTED state` };
+  const allowStates = args.allowStates ?? (['SUBMITTED'] as PartnerAuthorizationState[]);
+  if (!record || !allowStates.includes(record.state)) {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail:
+        `authorization "${authorizationId}" is ${record ? `in ${record.state} state` : 'absent'} — this reread accepts ` +
+        `${allowStates.join('/')}`,
+    };
   }
 
   const ownerCheck = await crossCheckRegistryOwner(args.registry, args.controllerWallet, deps);
@@ -1683,8 +1798,38 @@ export async function verifyHorizenTransparencyActivation(
   const confirmed = statusText.includes('active') || statusText.includes('confirmed') || statusText.includes('enabled') || statusText.includes('complete');
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
   if (!confirmed) {
-    await updatePartnerAuthorizationRequest(authorizationId, { state: 'REFUSED', refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', refusalDetail: rawStatus, partnerStatus: rawStatus });
-    return { ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'authoritative reread did not confirm activation — a valid signature is not completion without it' };
+    /*
+     * NOT A DENIAL, AND NO LONGER WRITTEN AS ONE (Al's brief, 2026-08-06).
+     *
+     * This used to write `REFUSED` + HORIZEN_REREAD_NOT_CONFIRMED, which
+     * recorded "the partner's state has not converged yet" as a constitutional
+     * verdict — the same defect class as reading a transport timeout as a
+     * refusal, and the reason a possibly-successful enablement ended up shown
+     * to the operator as a rejection. Horizen's real refusals arrive through
+     * the submit path (`isError`, or explicit rejection prose), not here.
+     *
+     * The row is left in whatever reconcilable state it already held — for a
+     * SUBMITTED row that means SUBMITTED, so refresh can settle it later;
+     * for a row a local decision already refused, the ORIGINAL refusal detail
+     * is preserved rather than overwritten by this inconclusive reread.
+     */
+    if (record.state === 'SUBMITTED') {
+      await updatePartnerAuthorizationRequest(authorizationId, { state: 'SUBMITTED', partnerStatus: rawStatus });
+    }
+    const because =
+      args.submitSemanticStatus === 'confirmed'
+        ? 'the submission response itself reported success, so this is very likely convergence lag rather than a refusal'
+        : args.submitSemanticStatus === 'pending'
+          ? 'the submission response reported the request as still processing'
+          : 'the submission response did not clearly state an outcome either';
+    return {
+      ok: false,
+      refusalCode: 'PARTNER_STATE_UNRESOLVED',
+      detail:
+        `Horizen's authoritative reread did not (yet) report Pulse as enabled, and ${because}. The authorization is ` +
+        `unchanged and still submitted — nothing needs re-authorizing or re-signing. Re-check status to resolve it. ` +
+        `Partner state read: ${rawStatus}`,
+    };
   }
 
   const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
@@ -1820,18 +1965,32 @@ export async function runHorizenTransparencyAuthorization(
     shared,
   );
   if (!submitted.ok) return { ...submitted, diagnostics };
+  const partnerResponse = submitted.value.partnerResponse;
 
+  /*
+   * THE AUTHORITATIVE REREAD ALWAYS RUNS (Al's change 2, 2026-08-06) — the
+   * submission's own acknowledgement never decides the outcome, whatever
+   * shape it arrived in. `submitSemanticStatus` only shapes how a
+   * NON-convergent result is worded; confirmation still requires Horizen's
+   * own state.
+   */
   const verified = await verifyHorizenTransparencyActivation(
     prepared.value.authorizationId,
-    { actorPersonaId: input.actorPersonaId, registry: input.registry, controllerWallet: input.controllerWallet },
+    {
+      actorPersonaId: input.actorPersonaId,
+      registry: input.registry,
+      controllerWallet: input.controllerWallet,
+      submitSemanticStatus: partnerResponse.semanticStatus,
+    },
     shared,
   );
-  if (!verified.ok) return { ...verified, diagnostics };
+  if (!verified.ok) return { ...verified, diagnostics, partnerResponse };
 
   const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
   return {
     ok: true,
     value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null },
     diagnostics,
+    partnerResponse,
   };
 }
