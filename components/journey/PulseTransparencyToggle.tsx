@@ -37,6 +37,13 @@ interface VerifyStatusInfo {
   refusalCode?: string;
   refusalDetail?: string;
   note?: string;
+  /**
+   * WHICH authorization row this status describes. Al's change 4 (2026-08-06):
+   * the surface must identify the attempt it is projecting, so a status read
+   * for an OLDER row can never be rendered as the outcome of the attempt the
+   * operator just created.
+   */
+  authorizationId?: string;
 }
 
 /** Same cadence as RegisterAgentPanel's own poll while a partner check is outstanding. */
@@ -66,6 +73,21 @@ interface AttemptDiagnostics {
     messageByteLength: number;
     outerCandidateByteLength: number | null;
   };
+  /** Which row this attempt wrote — compared against the projected status to catch stale projection. */
+  authorizationId?: string;
+}
+
+/**
+ * `enable_pulse_monitoring`'s complete response, preserved and shown on
+ * demand (Al's change 5, 2026-08-06). The operator previously saw only
+ * `[0] type=text, NOT JSON (1109 chars)` — a summary that hid the one thing
+ * that would have said whether the submission succeeded.
+ */
+interface PartnerResponseInfo {
+  semanticStatus: 'confirmed' | 'pending' | 'rejected' | 'unknown';
+  submissionRef?: string;
+  partnerMessage?: string;
+  textBlocks?: string[];
 }
 
 interface AgentCardHorizen {
@@ -102,6 +124,16 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
   const [status, setStatus] = useState<VerifyStatusInfo | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [lastAttempt, setLastAttempt] = useState<AttemptDiagnostics | null>(null);
+  const [partnerResponse, setPartnerResponse] = useState<PartnerResponseInfo | null>(null);
+  const [showPartnerResponse, setShowPartnerResponse] = useState(false);
+  /**
+   * The authorizationId the most recent "Create fresh authorization" actually
+   * wrote. Compared against whatever the status read projects (Al's change 4's
+   * explicit guard) so a verdict belonging to a DIFFERENT row can never be
+   * rendered as this attempt's outcome. A ref, not state: it is an identity to
+   * compare against, and it must not itself trigger a re-render.
+   */
+  const expectedAuthorizationIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -134,7 +166,17 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
       });
       const json = await readJsonOrExplain(res, 'verify/status').catch(() => null);
       if (json && typeof json.state === 'string') {
-        setStatus({ state: json.state as VerifyStatusState, refusalCode: json.refusalCode, refusalDetail: json.refusalDetail, note: json.note });
+        setStatus({
+          state: json.state as VerifyStatusState,
+          refusalCode: json.refusalCode,
+          refusalDetail: json.refusalDetail,
+          note: json.note,
+          authorizationId: typeof json.authorizationId === 'string' ? json.authorizationId : undefined,
+        });
+        // The refresh reconciled a locally-refused row against the partner and
+        // confirmed it — the Agent Card projection changed, so re-read it
+        // rather than leaving the surface showing pre-confirmation state.
+        if (json.state === 'complete') await refresh();
       }
     } catch {
       // A thrown error here (readJsonOrExplain's own timeout framing, or a
@@ -142,7 +184,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
     } finally {
       setCheckingStatus(false);
     }
-  }, [agentSlug]);
+  }, [agentSlug, refresh]);
 
   useEffect(() => {
     void refresh();
@@ -166,6 +208,19 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
   const authorize = useCallback(async () => {
     setAuthorizing(true);
     setError(null);
+    /*
+     * CLEAR THE PREVIOUS ATTEMPT'S PRESENTATION FIRST (Al's change 4,
+     * 2026-08-06: "clear the previous rejection presentation"). The operator
+     * pressed "Create fresh authorization" and then kept reading the OLD
+     * rejected attempt's 826-byte transcript — so the fix was invisible and
+     * the screen argued against the work. A stale verdict must never survive
+     * the start of a new ceremony.
+     */
+    setStatus(null);
+    setLastAttempt(null);
+    setPartnerResponse(null);
+    setShowPartnerResponse(false);
+    expectedAuthorizationIdRef.current = null;
     try {
       const res = await personaFetch('/api/journey/moneypenny-horizen/verify/authorize', {
         method: 'POST',
@@ -188,9 +243,21 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
       // Captured REGARDLESS of ok/refusal — a refusal that reached the
       // prepare stage still carries an attemptId/issuedAt/messageHash worth
       // showing (Al's audit brief, 2026-08-06).
-      if (json?.diagnostics && typeof json.diagnostics.attemptId === 'string') {
-        setLastAttempt(json.diagnostics as AttemptDiagnostics);
+      const attempt = json?.diagnostics && typeof json.diagnostics.attemptId === 'string' ? (json.diagnostics as AttemptDiagnostics) : null;
+      if (attempt) setLastAttempt(attempt);
+      // The partner's own response, preserved whether the ceremony succeeded
+      // or refused — this is the evidence the old summary threw away.
+      if (json?.partnerResponse && typeof json.partnerResponse.semanticStatus === 'string') {
+        setPartnerResponse(json.partnerResponse as PartnerResponseInfo);
       }
+      /*
+       * STALE-PROJECTION GUARD (Al's change 4). The attempt just created names
+       * its authorizationId; so does every status read. Recorded here and
+       * compared at render, so a card narrating a different row than the one
+       * this click wrote is surfaced rather than swallowed.
+       */
+      expectedAuthorizationIdRef.current =
+        (typeof json?.authorizationId === 'string' ? json.authorizationId : attempt?.authorizationId) ?? null;
       if (!res.ok || !json.ok) {
         /*
          * FRESH_AUTHORIZATION_NOT_CREATED is a LOCAL GUARD catching replay,
@@ -225,6 +292,65 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
       setAuthorizing(false);
     }
   }, [agentSlug, refresh, checkStatus]);
+
+  /*
+   * ── ATTEMPT PROVENANCE + THE PARTNER'S OWN WORDS ────────────────────────
+   *
+   * One footer, rendered by every outcome card (Al's changes 4 and 5,
+   * 2026-08-06). It answers, without a log dive: which attempt is this, which
+   * bytes did it sign, which row did it write, is the card even talking about
+   * that row — and what did Horizen actually say?
+   */
+  const projectionMismatch =
+    expectedAuthorizationIdRef.current !== null &&
+    status?.authorizationId !== undefined &&
+    status.authorizationId !== expectedAuthorizationIdRef.current;
+
+  const attemptFooter =
+    lastAttempt || partnerResponse || projectionMismatch ? (
+      <div className="mt-2 space-y-1.5 border-t border-slate-700/40 pt-2 text-[10px] text-slate-400">
+        {projectionMismatch && (
+          <p className="rounded border border-amber-800/60 bg-amber-950/30 px-2 py-1 text-amber-200">
+            Projection mismatch: this card is showing authorization{' '}
+            <span className="font-mono">{status?.authorizationId}</span>, but the attempt just created was{' '}
+            <span className="font-mono">{expectedAuthorizationIdRef.current}</span>. Treat the verdict above as
+            belonging to the older attempt, not this one.
+          </p>
+        )}
+        {lastAttempt && (
+          <p>
+            Attempt: {lastAttempt.attemptId.slice(0, 8)} · Prepared: {lastAttempt.preparedAt} · Message:{' '}
+            {lastAttempt.messageHash.slice(0, 12)} · Row: {lastAttempt.rowAction}
+            {lastAttempt.selection && (
+              <>
+                {' '}
+                · Signed: {lastAttempt.selection.source} ({lastAttempt.selection.messageByteLength}B
+                {lastAttempt.selection.outerCandidateByteLength !== null
+                  ? `, envelope ${lastAttempt.selection.outerCandidateByteLength}B not signed`
+                  : ''}
+                )
+              </>
+            )}
+          </p>
+        )}
+        {partnerResponse && (
+          <div>
+            <button
+              onClick={() => setShowPartnerResponse((v) => !v)}
+              className="text-slate-300 underline decoration-dotted underline-offset-2 hover:text-slate-100"
+            >
+              {showPartnerResponse ? 'Hide' : 'Show'} partner response ({partnerResponse.semanticStatus}
+              {partnerResponse.submissionRef ? `, ref ${partnerResponse.submissionRef}` : ', no reference'})
+            </button>
+            {showPartnerResponse && (
+              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800 bg-slate-950/60 p-2 text-[10px] leading-relaxed text-slate-300">
+                {partnerResponse.partnerMessage ?? partnerResponse.textBlocks?.join('\n') ?? '(no text returned)'}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
+    ) : null;
 
   if (loading) {
     return (
@@ -292,6 +418,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           {checkingStatus ? 'Checking…' : 'Check status now'}
         </button>
         <p className="mt-2 text-amber-200/60">Checking automatically every {Math.round(STATUS_POLL_MS / 1000)}s.</p>
+        {attemptFooter}
       </div>
     );
   }
@@ -339,22 +466,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           </button>
         </div>
         {error && <p className="mt-2 text-rose-300">{error}</p>}
-        {lastAttempt && (
-          <p className="mt-2 border-t border-rose-900/40 pt-2 text-[10px] text-rose-200/60">
-            Attempt: {lastAttempt.attemptId.slice(0, 8)} · Prepared: {lastAttempt.preparedAt} · Message:{' '}
-            {lastAttempt.messageHash.slice(0, 12)} · Row: {lastAttempt.rowAction}
-            {lastAttempt.selection && (
-              <>
-                {' '}
-                · Signed: {lastAttempt.selection.source} ({lastAttempt.selection.messageByteLength}B
-                {lastAttempt.selection.outerCandidateByteLength !== null
-                  ? `, envelope ${lastAttempt.selection.outerCandidateByteLength}B not signed`
-                  : ''}
-                )
-              </>
-            )}
-          </p>
-        )}
+        {attemptFooter}
       </div>
     );
   }
@@ -380,6 +492,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         {authorizing ? 'Authorizing…' : 'Authorize Pulse monitoring & P&L disclosure'}
       </button>
       {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
+      {attemptFooter}
     </div>
   );
 }

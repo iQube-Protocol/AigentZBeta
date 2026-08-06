@@ -125,20 +125,19 @@ async function statusImpl(request: NextRequest) {
     });
   }
 
-  if (record.state === 'EXPIRED') {
-    return NextResponse.json({ ok: true, state: 'expired' as VerifyStatusState, authorizationId, note: 'the request window lapsed locally, before reaching Horizen — Authorize may be retried' });
-  }
-
-  if (record.state === 'REFUSED' || record.state === 'QUARANTINED') {
-    return NextResponse.json(
-      { ok: true, state: 'denied' as VerifyStatusState, authorizationId, refusalCode: record.refusalCode, refusalDetail: record.refusalDetail },
-      { status: 200 },
-    );
-  }
-
-  // record.state === 'SUBMITTED' — Horizen's own state-changing call landed;
-  // only the AUTHORITATIVE REREAD remains. Idempotent and safe to repeat as
-  // many times as needed — it never re-signs and never re-submits.
+  /*
+   * ── EVERY REMAINING STATE GETS A REAL PARTNER REREAD (Al's change 3,
+   * 2026-08-06: "The button must not merely reload the current local
+   * authorization row… Do not silently do nothing.") ──────────────────────
+   *
+   * SUBMITTED, REFUSED, QUARANTINED and EXPIRED all reach Horizen below.
+   * REFUSED especially: a LOCAL decision (a missing submission reference, an
+   * inconclusive earlier reread) may have refused a submission the partner
+   * actually accepted, so partner STATE must be allowed to override a local
+   * verdict. That is the whole reason the operator pressed this button.
+   *
+   * The reread is idempotent — it never re-signs and never re-submits.
+   */
   const { AgentKeyService } = await import('@/services/identity/agentKeyService');
   const addresses = await new AgentKeyService().getAgentAddresses(agent.runtimeAgentId);
   if (!addresses?.evmAddress) {
@@ -146,16 +145,20 @@ async function statusImpl(request: NextRequest) {
       ok: true,
       state: 'pending' as VerifyStatusState,
       authorizationId,
+      partnerState: record.state,
       note: `${agent.displayName}'s controller wallet could not be re-resolved for the reread — the submitted authorization is unaffected; try again`,
     });
   }
 
+  const { RECONCILABLE_STATES } = await import('@/services/horizen/authorizationClient');
   const timedOut = Symbol('verify-status-deadline');
   const result = await Promise.race([
-    verifyHorizenTransparencyActivation(
-      authorizationId,
-      { actorPersonaId: persona.personaId, registry: { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined }, controllerWallet: addresses.evmAddress },
-    ),
+    verifyHorizenTransparencyActivation(authorizationId, {
+      actorPersonaId: persona.personaId,
+      registry: { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined },
+      controllerWallet: addresses.evmAddress,
+      allowStates: RECONCILABLE_STATES,
+    }),
     new Promise<typeof timedOut>((resolve) => setTimeout(() => resolve(timedOut), STATUS_DEADLINE_MS)),
   ]);
 
@@ -176,9 +179,77 @@ async function statusImpl(request: NextRequest) {
   }
 
   if (result.ok) {
-    return NextResponse.json({ ok: true, state: 'complete' as VerifyStatusState, authorizationId });
+    /*
+     * CONFIRMATION MUST ALSO LAND ON THE AGENT CARD (Al's change 3, items 4-5).
+     * `verifyHorizenTransparencyActivation` writes CONFIRMED and the activity
+     * receipt; the Agent Card transparency block is enriched by the authorize
+     * route, so a confirmation discovered HERE — the whole point of a refresh
+     * that reconciles — has to run the same enrichment or the Verify surface
+     * would stay grey while the authorization is confirmed. Idempotent by the
+     * same deterministic authorizationId, so repeated refreshes are safe.
+     */
+    const { enrichAgentCardAfterHorizenAuthorization } = await import('@/services/horizen/agentCardEnrichment');
+    const enrichment = await enrichAgentCardAfterHorizenAuthorization({
+      actorPersonaId: persona.personaId,
+      aigentQubeId: agent.aigentQubeId,
+      runtimeAgentId: agent.runtimeAgentId,
+      displayName: agent.displayName,
+      authorizationId,
+      controllerWallet: addresses.evmAddress,
+      tokenId: binding.token_id,
+      network,
+      signatureRef: null,
+      submissionRef: null,
+    });
+    const confirmedRecord = await getPartnerAuthorizationRequest(authorizationId, admin);
+    return NextResponse.json({
+      ok: true,
+      state: 'complete' as VerifyStatusState,
+      authorizationId,
+      reconciledFrom: record.state,
+      receiptRef: confirmedRecord?.receiptRef ?? null,
+      ...(enrichment.ok
+        ? { receiptRefs: enrichment.receiptRefs }
+        : { enrichmentRefusalCode: enrichment.refusalCode, enrichmentError: enrichment.detail }),
+    });
   }
-  // A real answer came back and it was not a confirmation — REFUSED was just
-  // persisted by verifyHorizenTransparencyActivation itself.
+
+  /*
+   * A real answer came back and it was not a confirmation. `PARTNER_STATE_
+   * UNRESOLVED` is explicitly NOT a denial (see its own doc comment) — it maps
+   * to 'pending' so the surface keeps polling and never asks the operator to
+   * re-authorize. Only a genuine partner/local REFUSAL reads as 'denied', and
+   * for a row that was already REFUSED we report its ORIGINAL refusal rather
+   * than the inconclusive reread's wording.
+   */
+  if (result.refusalCode === 'PARTNER_STATE_UNRESOLVED') {
+    return NextResponse.json({
+      ok: true,
+      state: 'pending' as VerifyStatusState,
+      authorizationId,
+      partnerState: record.state,
+      refusalCode: result.refusalCode,
+      note: result.detail,
+    });
+  }
+
+  if (record.state === 'REFUSED' || record.state === 'QUARANTINED') {
+    return NextResponse.json({
+      ok: true,
+      state: 'denied' as VerifyStatusState,
+      authorizationId,
+      refusalCode: record.refusalCode,
+      refusalDetail: record.refusalDetail,
+      note: `Re-checked against Horizen; the partner did not report Pulse as enabled. Reread outcome: ${result.detail}`,
+    });
+  }
+  if (record.state === 'EXPIRED') {
+    return NextResponse.json({
+      ok: true,
+      state: 'expired' as VerifyStatusState,
+      authorizationId,
+      note: `the request window lapsed locally, before reaching Horizen — Authorize may be retried. Reread outcome: ${result.detail}`,
+    });
+  }
   return NextResponse.json({ ok: true, state: 'denied' as VerifyStatusState, authorizationId, refusalCode: result.refusalCode, error: result.detail });
 }

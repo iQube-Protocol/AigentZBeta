@@ -363,6 +363,204 @@ export function extractPartnerMessage(
   }
 }
 
+/**
+ * ── SUBMISSION-RESULT NORMALIZATION (Al's brief, 2026-08-06) ────────────────
+ *
+ * A partner mutation is confirmed by AUTHORITATIVE PARTNER STATE, never by
+ * the shape of its transport acknowledgement.
+ *
+ * `enable_pulse_monitoring` returned 1109 characters of NON-JSON text, with
+ * `isError` unset — i.e. the signature gate passed and the tool answered
+ * successfully — and the client discarded the whole thing because it found no
+ * `submissionRef`/`transactionHash`/`hash`/`id` in a JSON object. That may
+ * well have been Horizen's success response, thrown away and then persisted
+ * locally as REFUSED. Requiring a transaction-like reference to recognise
+ * completion is the defect: Pulse enablement is a registry API call, not
+ * necessarily a chain transaction, so there may be no hash to return at all.
+ *
+ * This normalizer PRESERVES everything and interprets without discarding:
+ * the raw result, every text block, whatever JSON any block happens to
+ * contain, a reference if one exists anywhere, and a semantic reading of the
+ * prose. It decides nothing on its own — `semanticStatus` is one input to a
+ * resolution that an authoritative reread always outranks.
+ */
+export interface NormalizedMcpSubmissionResult {
+  /** The complete MCP result, never summarised away — see Al's change 5. */
+  rawResult: unknown;
+  /** Every `content[].text` block, verbatim and untruncated. */
+  textBlocks: string[];
+  /** JSON parsed out of any text block that happened to contain it — prose blocks are not failures. */
+  parsedJsonValues: unknown[];
+  /** A transaction-like reference if one exists anywhere. USEFUL METADATA, never a prerequisite for success. */
+  submissionRef?: string;
+  semanticStatus: 'confirmed' | 'pending' | 'rejected' | 'unknown';
+  /** The joined partner prose, for display and diagnostics. */
+  partnerMessage?: string;
+}
+
+/** Reference field names searched in both parsed JSON and raw text (Al's change 1, rule 4). */
+export const SUBMISSION_REFERENCE_FIELDS = [
+  'submissionRef',
+  'transactionHash',
+  'txHash',
+  'hash',
+  'id',
+  'authorizationId',
+  'requestId',
+] as const;
+
+/*
+ * Partner language, matched case-insensitively. Ordering of the CHECKS (not
+ * these lists) is what matters: rejection is tested first so a response that
+ * names a failure is never read as a success. A false 'rejected' is still
+ * correctable — the authoritative reread outranks it — whereas a false
+ * 'confirmed' would assert a mutation that never happened.
+ */
+const REJECTION_PATTERNS = [
+  /invalid signature/i,
+  /\bunauthorized\b/i,
+  /\bforbidden\b/i,
+  /\brejected\b/i,
+  /\bdenied\b/i,
+  /\bnot authori[sz]ed\b/i,
+  /\b(?:4\d{2}|5\d{2})\b\s+(?:error|status)/i,
+];
+/**
+ * `already enabled` is CONFIRMED, not an error (Al's acceptance test 2): a
+ * repeat authorization for an agent Horizen already monitors has reached the
+ * intended state, and treating idempotent success as failure is what would
+ * push an operator into yet another needless ceremony.
+ */
+const CONFIRMATION_PATTERNS = [
+  /pulse\s+(?:monitoring\s+)?(?:is\s+)?(?:now\s+)?enabled/i,
+  /monitoring\s+(?:is\s+)?(?:now\s+)?enabled/i,
+  /already\s+enabled/i,
+  /successfully\s+enabled/i,
+  /enabled\s+successfully/i,
+  /authorization\s+accepted/i,
+  /\bagent\s+updated\b/i,
+  /pulse\s+monitoring\s+active/i,
+];
+const PENDING_PATTERNS = [
+  // "being processed" and "processing" are both ordinary partner phrasings.
+  /\bprocess(?:ing|ed)\b/i,
+  /\bqueued\b/i,
+  /\bpending\b/i,
+  /\bin\s+progress\b/i,
+  /\bsubmitted\b/i,
+];
+
+/**
+ * A negation immediately before a confirmation phrase inverts it — "pulse
+ * monitoring is NOT enabled" must never read as confirmation. Deliberately
+ * narrow: only the words that actually appear in partner refusals, checked
+ * within a short window before the match, rather than a general-purpose
+ * natural-language negation attempt this has no business claiming to do.
+ */
+const NEGATION_BEFORE = /\b(?:not|never|cannot|can't|couldn't|could not|failed to|unable to|isn't|is not|wasn't|was not)\s*$/i;
+
+function matchesUnnegated(text: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    const m = pattern.exec(text);
+    if (!m) continue;
+    const preceding = text.slice(Math.max(0, m.index - 24), m.index);
+    if (NEGATION_BEFORE.test(preceding.trimEnd() + ' ')) continue;
+    return true;
+  }
+  return false;
+}
+
+/** Depth-bounded search for any of `fields` in an already-parsed JSON value. */
+function findReferenceInJson(value: unknown, fields: readonly string[], depth = 0): string | null {
+  if (depth > 6 || value === null || typeof value !== 'object') return null;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findReferenceInJson(item, fields, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  for (const field of fields) {
+    const v = record[field];
+    if (typeof v === 'string' && v.length > 0) return v;
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  }
+  for (const nested of Object.values(record)) {
+    const found = findReferenceInJson(nested, fields, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * `"submissionRef": "0x…"` / `submissionRef=0x…` / `submissionRef: 0x…`
+ * spelled inside PROSE, for a partner that names its reference in a sentence
+ * rather than a JSON body. Never invents a value: only a labelled occurrence
+ * of a field name this integration already searches for counts.
+ */
+function findReferenceInText(text: string, fields: readonly string[]): string | null {
+  for (const field of fields) {
+    const labelled = new RegExp(`${field}\\s*[=:]\\s*"?([A-Za-z0-9_\\-.]{4,})"?`, 'i').exec(text);
+    if (labelled) return labelled[1];
+  }
+  return null;
+}
+
+export function normalizeMcpSubmissionResult(
+  toolResult: McpToolResult | null | undefined,
+  referenceFields: readonly string[] = SUBMISSION_REFERENCE_FIELDS,
+): NormalizedMcpSubmissionResult {
+  const textBlocks: string[] = [];
+  const parsedJsonValues: unknown[] = [];
+
+  if (Array.isArray(toolResult?.content)) {
+    for (const item of toolResult!.content) {
+      if (item?.type === 'text' && typeof item.text === 'string' && item.text.length > 0) {
+        textBlocks.push(item.text);
+        // Whole-block JSON first, then a brace-balanced embedded object — a
+        // prose block carrying a `--- structured ---` section is common on
+        // this partner and must not be written off as "NOT JSON".
+        try {
+          parsedJsonValues.push(JSON.parse(item.text));
+        } catch {
+          const embedded = firstEmbeddedJsonObject(item.text);
+          if (embedded !== null) parsedJsonValues.push(embedded);
+        }
+      }
+    }
+  }
+
+  const partnerMessage = textBlocks.length > 0 ? textBlocks.join('\n') : undefined;
+
+  let submissionRef: string | undefined;
+  for (const parsed of parsedJsonValues) {
+    const found = findReferenceInJson(parsed, referenceFields);
+    if (found) {
+      submissionRef = found;
+      break;
+    }
+  }
+  if (!submissionRef && partnerMessage) {
+    submissionRef = findReferenceInText(partnerMessage, referenceFields) ?? undefined;
+  }
+
+  /*
+   * `isError` is the protocol's own failure flag and outranks any prose —
+   * a tool that reports failure has failed, whatever its body reads like.
+   */
+  let semanticStatus: NormalizedMcpSubmissionResult['semanticStatus'] = 'unknown';
+  if (toolResult?.isError === true) {
+    semanticStatus = 'rejected';
+  } else if (partnerMessage) {
+    if (matchesUnnegated(partnerMessage, REJECTION_PATTERNS)) semanticStatus = 'rejected';
+    else if (matchesUnnegated(partnerMessage, CONFIRMATION_PATTERNS)) semanticStatus = 'confirmed';
+    else if (matchesUnnegated(partnerMessage, PENDING_PATTERNS)) semanticStatus = 'pending';
+  }
+
+  return { rawResult: toolResult ?? null, textBlocks, parsedJsonValues, submissionRef, semanticStatus, partnerMessage };
+}
+
 /** Extract a named hex-string field (tx hash, message, payload, ...) from an MCP tool result. */
 export function extractStringField(toolResult: McpToolResult | null | undefined, fieldNames: string[]): string | null {
   const parsed = extractFirstJson(toolResult) as Record<string, unknown> | null;

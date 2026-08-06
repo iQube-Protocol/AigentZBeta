@@ -250,7 +250,24 @@ async function authorize(request: NextRequest) {
      * doc comment in authorizationClient.ts.
      */
     return NextResponse.json(
-      { ok: false, refusalCode: result.refusalCode, error: result.detail, diagnostics: result.diagnostics },
+      {
+        ok: false,
+        refusalCode: result.refusalCode,
+        error: result.detail,
+        diagnostics: result.diagnostics,
+        /*
+         * THE PARTNER'S EXACT WORDS, UNTRUNCATED (Al's change 5, 2026-08-06:
+         * "The actual text is necessary evidence"). `enable_pulse_monitoring`
+         * answered with 1109 characters that the operator only ever saw
+         * summarised as `[0] type=text, NOT JSON` — which is precisely the
+         * information needed to tell a success from a failure. Safe to expose:
+         * this is the partner's own response about the operator's OWN agent,
+         * and it is what any other MCP client would display. Unlike
+         * `escalationPacket` (exact signed message + signature) which stays
+         * server-log-only, this carries no key-adjacent material.
+         */
+        partnerResponse: result.partnerResponse,
+      },
       { status: 422 },
     );
   }
@@ -278,6 +295,7 @@ async function authorize(request: NextRequest) {
       enrichmentRefusalCode: enrichment.refusalCode,
       enrichmentError: enrichment.detail,
       diagnostics: result.diagnostics,
+      partnerResponse: result.partnerResponse,
     });
   }
 
@@ -287,5 +305,6 @@ async function authorize(request: NextRequest) {
     receiptRef: result.value.receiptRef,
     receiptRefs: enrichment.receiptRefs,
     diagnostics: result.diagnostics,
+    partnerResponse: result.partnerResponse,
   });
 }

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage, extractStructuredMessageField, firstEmbeddedJsonObject } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage, extractStructuredMessageField, firstEmbeddedJsonObject, normalizeMcpSubmissionResult } from '@/services/horizen/mcpSchemaMatch';
 
 describe('matchSchemaFields (regression-pinned — the register-moneypenny-horizen.ts precedent)', () => {
   it('matches candidate values against the schema\'s own declared property names, never inventing new ones', () => {
@@ -323,5 +323,105 @@ describe('an isError body is shown, not summarised away (2026-08-03)', () => {
   it('falls back to shape when isError is set but carries no text', () => {
     const shape = describeToolResultShape({ isError: true, content: [{ type: 'image' } as never] });
     expect(shape).toContain('type=image');
+  });
+});
+
+/*
+ * normalizeMcpSubmissionResult — Al's brief, 2026-08-06.
+ *
+ * `enable_pulse_monitoring` answered a genuinely successful call (no
+ * `isError`) with 1109 characters of NON-JSON text, and the client discarded
+ * the entire response because it found no `submissionRef`/`transactionHash`/
+ * `hash`/`id` in a JSON object — then persisted REFUSED for what may have been
+ * a completed enablement. Pulse enablement is a registry API call, not
+ * necessarily a chain transaction, so there may be no hash to return at all.
+ *
+ * The invariant these tests pin: a partner mutation is confirmed by
+ * AUTHORITATIVE PARTNER STATE, never by the shape of its transport
+ * acknowledgement. A reference is useful metadata, never a prerequisite.
+ */
+describe('normalizeMcpSubmissionResult — a submission reference is metadata, not a prerequisite (2026-08-06)', () => {
+  const textResult = (text: string, isError?: boolean) => ({ ...(isError ? { isError } : {}), content: [{ type: 'text', text }] });
+
+  it('accepts a text-only confirmation with NO submission reference at all', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Pulse monitoring enabled for agent 8798 on base-sepolia.'));
+    expect(n.semanticStatus).toBe('confirmed');
+    expect(n.submissionRef).toBeUndefined();
+  });
+
+  it('treats "already enabled" idempotently as confirmed, never as an error', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Agent 8798 is already enabled for Pulse monitoring; no change made.'));
+    expect(n.semanticStatus).toBe('confirmed');
+  });
+
+  it('classifies prose "processing" as pending', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Your request is being processed and will be applied shortly.'));
+    expect(n.semanticStatus).toBe('pending');
+  });
+
+  it('classifies a text rejection as rejected', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Registry API returned 401 — Invalid signature.'));
+    expect(n.semanticStatus).toBe('rejected');
+  });
+
+  it('`isError` outranks confirming prose — a tool that reports failure has failed', () => {
+    const n = normalizeMcpSubmissionResult(textResult('pulse monitoring enabled', true));
+    expect(n.semanticStatus).toBe('rejected');
+  });
+
+  it('does NOT read a negated confirmation as success', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Pulse monitoring is not enabled for this agent.'));
+    expect(n.semanticStatus).not.toBe('confirmed');
+  });
+
+  it('leaves genuinely unrecognisable text as unknown — for the reread to settle, never as a failure', () => {
+    const n = normalizeMcpSubmissionResult(textResult('Thank you. Reference material is available in the developer portal.'));
+    expect(n.semanticStatus).toBe('unknown');
+  });
+
+  it('still finds a reference in a JSON response — the pre-existing shape keeps working unchanged', () => {
+    const n = normalizeMcpSubmissionResult({ content: [{ type: 'text', text: JSON.stringify({ submissionRef: '0xdeadbeef' }) }] });
+    expect(n.submissionRef).toBe('0xdeadbeef');
+    expect(n.parsedJsonValues).toHaveLength(1);
+  });
+
+  it('finds a reference nested inside a JSON response, and in the newly-searched field names', () => {
+    const n = normalizeMcpSubmissionResult({ content: [{ type: 'text', text: JSON.stringify({ result: { requestId: 'req-123' } }) }] });
+    expect(n.submissionRef).toBe('req-123');
+  });
+
+  it('finds a reference spelled inside PROSE, without requiring the whole body to be JSON', () => {
+    // Scoped to what this test is actually about: reference extraction from
+    // prose. A bare "Enabled." is deliberately NOT treated as a confirmation —
+    // the classifier requires a phrase that names what was enabled, and
+    // loosening it to match any stray "enabled" would tune detection to a
+    // fixture rather than to the partner's real language.
+    const n = normalizeMcpSubmissionResult(textResult('Done. transactionHash: 0xabc123def456 — see the explorer.'));
+    expect(n.submissionRef).toBe('0xabc123def456');
+    expect(n.semanticStatus).not.toBe('rejected');
+  });
+
+  it('parses a `--- structured ---` block inside prose rather than writing the block off as "NOT JSON"', () => {
+    const n = normalizeMcpSubmissionResult(
+      textResult('Pulse monitoring enabled.\n\n--- structured ---\n' + JSON.stringify({ enabled: true, submissionRef: 'sub-77' })),
+    );
+    expect(n.parsedJsonValues).toHaveLength(1);
+    expect(n.submissionRef).toBe('sub-77');
+    expect(n.semanticStatus).toBe('confirmed');
+  });
+
+  it('PRESERVES the exact partner text, untruncated — the evidence the old summary threw away', () => {
+    // The observed live length. `describeToolResultShape` reduced exactly this
+    // to "[0] type=text, NOT JSON (1109 chars)".
+    const long = 'Pulse monitoring enabled. ' + 'detail '.repeat(155);
+    const n = normalizeMcpSubmissionResult(textResult(long));
+    expect(n.partnerMessage).toBe(long);
+    expect(n.textBlocks).toEqual([long]);
+    expect(n.rawResult).toBeTruthy();
+  });
+
+  it('handles an empty/absent result without throwing — unknown, never a crash', () => {
+    expect(normalizeMcpSubmissionResult(null).semanticStatus).toBe('unknown');
+    expect(normalizeMcpSubmissionResult({}).textBlocks).toEqual([]);
   });
 });

@@ -42,6 +42,21 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
 const mockVerifyHorizenTransparencyActivation = vi.fn();
 vi.mock('@/services/horizen/authorizationClient', () => ({
   verifyHorizenTransparencyActivation: (...args: any[]) => mockVerifyHorizenTransparencyActivation(...args),
+  // The route imports this to widen the reread to locally-refused rows
+  // (Al's change 3, 2026-08-06). Mirrors the real export's value — a mock that
+  // omitted it would make `allowStates` silently undefined and stop this
+  // suite from exercising the widening at all.
+  RECONCILABLE_STATES: ['SUBMITTED', 'REFUSED', 'QUARANTINED', 'EXPIRED'],
+}));
+
+/**
+ * A confirmation discovered by the refresh has to enrich the Agent Card too
+ * (Al's change 3, item 4) — mocked so this suite can assert the call without
+ * reaching Supabase.
+ */
+const mockEnrichAgentCard = vi.fn();
+vi.mock('@/services/horizen/agentCardEnrichment', () => ({
+  enrichAgentCardAfterHorizenAuthorization: (...args: any[]) => mockEnrichAgentCard(...args),
 }));
 
 const mockGetAgentAddresses = vi.fn();
@@ -76,6 +91,8 @@ beforeEach(() => {
   mockVerifyHorizenTransparencyActivation.mockReset();
   mockGetAgentAddresses.mockReset();
   mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xabc' });
+  mockEnrichAgentCard.mockReset();
+  mockEnrichAgentCard.mockResolvedValue({ ok: true, receiptRefs: ['receipt-enrich-1'] });
 });
 
 describe('GET verify/status', () => {
@@ -113,19 +130,68 @@ describe('GET verify/status', () => {
     expect(mockVerifyHorizenTransparencyActivation).not.toHaveBeenCalled();
   });
 
-  it('reports expired — distinct from a partner denial — for an EXPIRED row', async () => {
+  it('reports expired — distinct from a partner denial — for an EXPIRED row, after re-checking the partner', async () => {
     mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'EXPIRED' });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'PARTNER_STATE_UNRESOLVED', detail: 'not enabled' });
+    const res = await GET(makeRequest('nakamoto'));
+    const body = await res.json();
+    // PARTNER_STATE_UNRESOLVED reads as pending, never a denial (see its own
+    // doc comment) — an EXPIRED row whose partner state is simply unknown must
+    // not be reported as though Horizen had refused it.
+    expect(body.state).toBe('pending');
+  });
+
+  it('an EXPIRED row whose partner reread is inconclusive-but-terminal still reports expired, not denied', async () => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'EXPIRED' });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'no' });
     const res = await GET(makeRequest('nakamoto'));
     const body = await res.json();
     expect(body.state).toBe('expired');
   });
 
-  it.each(['REFUSED', 'QUARANTINED'])('reports denied for a %s row, carrying the refusal code and detail', async (state) => {
-    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', refusalDetail: 'not confirmed' });
+  /*
+   * A LOCALLY-REFUSED ROW IS NOW RECONCILED AGAINST THE PARTNER (Al's change
+   * 3, 2026-08-06: "The button must not merely reload the current local
+   * authorization row… Do not silently do nothing.").
+   *
+   * This is the defect the operator hit: a local decision refused a submission
+   * Horizen may have accepted, and "Refresh partner status" then only re-read
+   * that local refusal back — so the button appeared to do nothing and the
+   * stale verdict was unfalsifiable from the UI.
+   */
+  it.each(['REFUSED', 'QUARANTINED'])('reconciles a %s row against Horizen and reports denied only when the partner still does not confirm', async (state) => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', refusalDetail: 'invalid signature' });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'still not enabled' });
     const res = await GET(makeRequest('nakamoto'));
     const body = await res.json();
+    expect(mockVerifyHorizenTransparencyActivation).toHaveBeenCalledTimes(1);
     expect(body.state).toBe('denied');
-    expect(body.refusalCode).toBe('HORIZEN_REREAD_NOT_CONFIRMED');
+    // The ORIGINAL refusal is reported, not overwritten by the reread's wording.
+    expect(body.refusalCode).toBe('HORIZEN_SUBMISSION_REJECTED');
+    expect(body.refusalDetail).toBe('invalid signature');
+    expect(body.note).toContain('Re-checked against Horizen');
+  });
+
+  it.each(['REFUSED', 'QUARANTINED'])('a %s row that the partner reports as ENABLED is reconciled to complete — partner state overrides a local refusal', async (state) => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', refusalDetail: 'no submission ref', receiptRef: 'receipt-9' });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: true, value: { confirmed: true } });
+    const res = await GET(makeRequest('nakamoto'));
+    const body = await res.json();
+    expect(body.state).toBe('complete');
+    expect(body.reconciledFrom).toBe(state);
+    // And the Agent Card is enriched, or the Verify surface would stay grey
+    // while the authorization is confirmed.
+    expect(mockEnrichAgentCard).toHaveBeenCalledTimes(1);
+    expect(body.receiptRefs).toEqual(['receipt-enrich-1']);
+  });
+
+  it('the reread is widened to reconcilable states — never left as SUBMITTED-only, or a refused row could never be reconciled', async () => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'REFUSED', refusalCode: 'X', refusalDetail: 'y' });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'no' });
+    await GET(makeRequest('nakamoto'));
+    const args = mockVerifyHorizenTransparencyActivation.mock.calls[0][1];
+    expect(args.allowStates).toContain('REFUSED');
+    expect(args.allowStates).toContain('SUBMITTED');
   });
 
   describe('SUBMITTED — re-attempts ONLY the authoritative reread', () => {
@@ -140,12 +206,59 @@ describe('GET verify/status', () => {
 
     it('reports denied when the reread comes back with a real refusal (not a timeout)', async () => {
       mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED' });
-      mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'not confirmed yet' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH', detail: 'wrong owner' });
       const res = await GET(makeRequest('nakamoto'));
       const body = await res.json();
       expect(res.status).toBe(200);
       expect(body.state).toBe('denied');
-      expect(body.refusalCode).toBe('HORIZEN_REREAD_NOT_CONFIRMED');
+      expect(body.refusalCode).toBe('REGISTRY_OWNER_MISMATCH');
+    });
+
+    /*
+     * PARTNER_STATE_UNRESOLVED IS NOT A DENIAL (Al's brief, 2026-08-06). A
+     * reread that has not converged must keep the surface polling, never tell
+     * the operator the authorization was refused and never ask them to
+     * re-authorize — the same principle already applied to transport timeouts.
+     */
+    it('reports pending — NEVER denied — when the reread has not converged (PARTNER_STATE_UNRESOLVED)', async () => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+        ok: false,
+        refusalCode: 'PARTNER_STATE_UNRESOLVED',
+        detail: 'the submission response itself reported success, so this is very likely convergence lag',
+      });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.state).toBe('pending');
+      expect(body.note).toContain('convergence lag');
+      expect(JSON.stringify(body)).not.toMatch(/re-?authoriz/i);
+    });
+
+    it('enriches the Agent Card when the reread confirms — a confirmation found by refresh must not leave Verify grey', async () => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED', receiptRef: 'receipt-3' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: true, value: { confirmed: true } });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(body.state).toBe('complete');
+      expect(mockEnrichAgentCard).toHaveBeenCalledTimes(1);
+      expect(mockEnrichAgentCard.mock.calls[0][0]).toMatchObject({
+        aigentQubeId: AGENT.aigentQubeId,
+        runtimeAgentId: AGENT.runtimeAgentId,
+        tokenId: BINDING.token_id,
+        network: BINDING.network,
+      });
+    });
+
+    it('still reports complete when enrichment fails — the authorization is confirmed regardless of a projection step', async () => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: true, value: { confirmed: true } });
+      mockEnrichAgentCard.mockResolvedValue({ ok: false, refusalCode: 'NO_MATCHING_BINDING', detail: 'no binding' });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(body.state).toBe('complete');
+      expect(body.enrichmentRefusalCode).toBe('NO_MATCHING_BINDING');
     });
 
     it('reports pending — NEVER denied — when the reread itself times out', async () => {
