@@ -66,8 +66,21 @@ const STATUS_DEADLINE_MS = 25_000;
  * negative ("Horizen said no, in words") rather than a generic local/partner
  * refusal or an inconclusive reread. See PARTNER_NOT_ENROLLED's doc comment
  * in authorizationClient.ts for the full evidence chain.
+ *
+ * `owner-source-conflict` (Al's escalation, 2026-08-06) is DISTINCT again —
+ * NOT retryable, and never framed as a signature/wallet defect: it names a
+ * disagreement between two of HORIZEN'S OWN services about who owns the
+ * token. No local action resolves it. See HORIZEN_OWNER_SOURCE_CONFLICT's
+ * doc comment in authorizationClient.ts for the full evidence chain.
  */
-export type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired' | 'not-enrolled';
+export type VerifyStatusState =
+  | 'not-started'
+  | 'pending'
+  | 'complete'
+  | 'denied'
+  | 'expired'
+  | 'not-enrolled'
+  | 'owner-source-conflict';
 
 export async function GET(request: NextRequest) {
   try {
@@ -237,6 +250,26 @@ async function statusImpl(request: NextRequest) {
    * genuine silence/ambiguity. Retryable immediately: the surface offers
    * "Create fresh authorization" from this state without an extra click.
    */
+  /*
+   * A PARTNER-SIDE DATA CONFLICT, checked BEFORE every other branch (Al's
+   * escalation, 2026-08-06). Horizen's OWN two services (REST vs
+   * onboarding-status) disagree about who owns this token — never our
+   * signature, our wallet, or our retry to fix. NOT retryable: the surface
+   * must not offer "Create fresh authorization" from this state, and must
+   * show both addresses rather than describe this as a signature failure.
+   */
+  if (result.refusalCode === 'HORIZEN_OWNER_SOURCE_CONFLICT') {
+    return NextResponse.json({
+      ok: true,
+      state: 'owner-source-conflict' as VerifyStatusState,
+      authorizationId,
+      refusalCode: result.refusalCode,
+      refusalDetail: result.detail,
+      retryable: false,
+      note: 'Horizen’s own services disagree about who owns this token — this cannot be resolved by re-authorizing.',
+    });
+  }
+
   if (result.refusalCode === 'PARTNER_NOT_ENROLLED') {
     return NextResponse.json({
       ok: true,

@@ -40,7 +40,18 @@ const DISCLOSURE_SCOPE = ['pulse-monitoring', 'pnl-disclosure'] as const;
  * button that could never change the outcome, since nothing re-attempts
  * enrollment from there.
  */
-type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired' | 'not-enrolled';
+/**
+ * `owner-source-conflict` (Al's escalation, 2026-08-06) is NOT retryable and
+ * never framed as our signature/wallet being wrong — it names a disagreement
+ * between two of HORIZEN'S OWN services about who owns the token. A live
+ * investigation proved this for Nakamoto's token 8798: their REST endpoint
+ * and their `get_onboarding_status` tool reported different owners for the
+ * same token, and the REST value was the one corroborated by the on-chain
+ * mint event and a direct `ownerOf()` read. No local action — re-signing,
+ * choosing a different wallet, retrying — can resolve a disagreement between
+ * two of the partner's own services.
+ */
+type VerifyStatusState = 'not-started' | 'pending' | 'complete' | 'denied' | 'expired' | 'not-enrolled' | 'owner-source-conflict';
 interface VerifyStatusInfo {
   state: VerifyStatusState;
   refusalCode?: string;
@@ -441,6 +452,58 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
    * selection) already passed. The retry affordance is available
    * IMMEDIATELY — there is nothing ambiguous left to wait out.
    */
+  /*
+   * OWNER-SOURCE CONFLICT — Horizen's OWN two services disagree about who
+   * owns this token (Al's escalation, 2026-08-06). NOT retryable, and
+   * deliberately offers NO "Create fresh authorization" button: a live
+   * investigation proved no local action (re-signing, choosing a different
+   * wallet, retrying) can resolve a disagreement between two of the
+   * partner's own services. Both addresses are shown in full, since naming
+   * only one would misrepresent this as resolvable from our side.
+   */
+  if (status?.state === 'owner-source-conflict') {
+    return (
+      <div className="rounded-md border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            <p className="font-medium">Pulse enrollment cannot proceed</p>
+            <p className="mt-1 text-rose-200/80">
+              Horizen&apos;s own services disagree about who owns this token — this is not a signature, wallet, or
+              ownership issue on our side, and it cannot be resolved by creating another authorization. The registry
+              owner and signing wallet must be reconciled by Horizen before retrying.
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => void checkStatus()}
+            disabled={checkingStatus}
+            className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/40 disabled:opacity-50"
+          >
+            {checkingStatus ? 'Checking…' : 'Check status again'}
+          </button>
+        </div>
+        {status.refusalDetail && (
+          <div className="mt-2 border-t border-rose-900/40 pt-2">
+            <button
+              onClick={() => setShowPartnerResponse((v) => !v)}
+              className="text-rose-200/70 underline decoration-dotted underline-offset-2 hover:text-rose-100"
+            >
+              {showPartnerResponse ? 'Hide' : 'Show'} the conflicting values
+            </button>
+            {showPartnerResponse && (
+              <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-slate-800 bg-slate-950/60 p-2 text-[10px] leading-relaxed text-slate-300">
+                {status.refusalDetail}
+              </pre>
+            )}
+          </div>
+        )}
+        {attemptFooter}
+      </div>
+    );
+  }
+
   if (status?.state === 'not-enrolled') {
     return (
       <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">

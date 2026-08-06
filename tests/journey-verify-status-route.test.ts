@@ -237,6 +237,58 @@ describe('GET verify/status', () => {
     });
 
     /*
+     * HORIZEN_OWNER_SOURCE_CONFLICT — a partner-side data conflict, NOT
+     * retryable, and never framed as our signature/wallet being wrong (Al's
+     * escalation, 2026-08-06 — see the refusal code's own doc comment in
+     * authorizationClient.ts for the full live-investigation evidence).
+     */
+    it('reports owner-source-conflict — never denied, never pending, never retryable — when Horizen\'s own two services disagree, naming both addresses', async () => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+        ok: false,
+        refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT',
+        detail:
+          'Horizen\'s own services disagree about who owns this token: the registry REST endpoint reports owner ' +
+          '0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9, while the onboarding-status service reports ' +
+          '0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709.',
+      });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.state).toBe('owner-source-conflict');
+      expect(body.state).not.toBe('denied');
+      expect(body.state).not.toBe('pending');
+      expect(body.refusalCode).toBe('HORIZEN_OWNER_SOURCE_CONFLICT');
+      // Explicitly NOT retryable — the surface must not offer another authorization attempt.
+      expect(body.retryable).toBe(false);
+      // Both addresses present for the operator to see.
+      expect(body.refusalDetail).toContain('0x24BBB9C7aAcB33556D1429a3e1B33f05fAf7D4B9');
+      expect(body.refusalDetail).toContain('0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709');
+      // Never framed as a signature/wallet defect on our side.
+      expect(JSON.stringify(body)).not.toMatch(/\binvalid signature\b/i);
+    });
+
+    /*
+     * A row already REFUSED with HORIZEN_OWNER_SOURCE_CONFLICT (from an
+     * earlier check) reconciles the same way on a repeat check — idempotent,
+     * still surfaced distinctly from the generic REFUSED/QUARANTINED
+     * 'denied' branch.
+     */
+    it.each(['REFUSED', 'QUARANTINED'])('a %s row still reporting HORIZEN_OWNER_SOURCE_CONFLICT on re-check stays owner-source-conflict, not the generic denied branch', async (state) => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state, refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT', refusalDetail: 'owners disagree (prior check)' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+        ok: false,
+        refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT',
+        detail: 'owners still disagree',
+      });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(body.state).toBe('owner-source-conflict');
+      expect(body.refusalCode).toBe('HORIZEN_OWNER_SOURCE_CONFLICT');
+    });
+
+    /*
      * PARTNER_NOT_ENROLLED — a CONCLUSIVE negative is a distinct UI state
      * from `pending` (operator's follow-up, 2026-08-06). The evidence: a live
      * `get_onboarding_status` reread said, in words, "Not enrolled in Pulse
