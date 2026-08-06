@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-04T00:34:22.224Z",
+  "last_updated": "2026-08-06T23:12:04.765Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c6113f259c378452a6db7a83ae64698ce085e387",
-  "latest_commit_short": "c6113f2",
-  "latest_commit_title": "Document mandatory delegation security architecture and constraints",
+  "latest_commit": "e78fe17dd057901f865956c6d291853e489e1bea",
+  "latest_commit_short": "e78fe17",
+  "latest_commit_title": "fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e78fe17",
+      "full_sha": "e78fe17dd057901f865956c6d291853e489e1bea",
+      "title": "fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants",
+      "author": "Claude",
+      "timestamp": "2026-08-06T22:53:23Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-e78fe17.md"
+    },
     {
       "sha": "c6113f2",
       "full_sha": "c6113f259c378452a6db7a83ae64698ce085e387",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T13:25:07Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a865e95.md"
-    },
-    {
-      "sha": "f647b06",
-      "full_sha": "f647b06df9ce867dea367b59939453984d0b323b",
-      "title": "Add the auto-act control surface to the Dev Command Center (opt-in, navigation-only, always-disablable, always-notifying)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T13:22:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f647b06.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
