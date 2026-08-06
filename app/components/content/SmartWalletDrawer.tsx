@@ -564,6 +564,17 @@ export default function SmartWalletDrawer({
   // Architect (proposal drafting), Runtime (read-only shadow-preview
   // trace). See MoneyPennyWalletArchitect / MoneyPennyWalletRuntime.
   const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime'>('chat');
+  // Off by default (2026-08-06 fix): the D-ID avatar iframe is a fixed,
+  // z-140 overlay anchored to avatarAnchorRef's rect (app/(shell)/layout.tsx)
+  // — while its SDK script hasn't rendered (slow load, blocked, or errored)
+  // that overlay is a solid black div covering EVERYTHING underneath,
+  // including the grounded text chat below. Reported live as "metaVatar
+  // renders a blank screen" — the chat was never broken, it was blacked out
+  // by an overlay whose success this component cannot guarantee. Making the
+  // visual avatar opt-in (never requested until the operator asks for it)
+  // means the chat is always usable; the toggle is the escape hatch for
+  // whoever wants the video avatar and can tolerate its load risk.
+  const [avatarRequested, setAvatarRequested] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
@@ -1019,7 +1030,7 @@ export default function SmartWalletDrawer({
   // otherwise it would render on top of the Architect/Runtime panels that
   // share the same anchor section.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === 'avatar' && moneyPennyMode === 'chat') {
+    if (open && copilotOpen && copilotMode === 'avatar' && moneyPennyMode === 'chat' && avatarRequested) {
       requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
@@ -1027,7 +1038,7 @@ export default function SmartWalletDrawer({
 
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
-  }, [open, copilotOpen, copilotMode, moneyPennyMode, requestAvatar, releaseAvatar, agent?.id]);
+  }, [open, copilotOpen, copilotMode, moneyPennyMode, avatarRequested, requestAvatar, releaseAvatar, agent?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3542,9 +3553,12 @@ export default function SmartWalletDrawer({
                     metaVatar
                   </button>
                 </div>
-                {copilotMode === 'avatar' && (
-                  <span className="text-[9px] text-cyan-400 bg-cyan-500/20 px-1 rounded">MoneyPenny active</span>
-                )}
+                <Tooltip text="MoneyPenny is the active agent for this Copilot">
+                  <span className="flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-cyan-500/20 text-cyan-400">
+                    <BadgeCheck className="w-3 h-3" />
+                    MoneyPenny
+                  </span>
+                </Tooltip>
               </div>
               <Tooltip text="Back">
                 <button
@@ -3565,7 +3579,7 @@ export default function SmartWalletDrawer({
                 onMouseEnter={() => showCopilotQuickPrompts()}
                 onMouseLeave={() => showCopilotQuickPrompts()}
               >
-                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask Copilot</div>
+                <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
                 
                 {/* Chat Messages Area */}
                 <div ref={copilotChatScrollRef} className="mb-2 flex-1 min-h-0 overflow-y-auto space-y-3 pb-16">
@@ -3866,13 +3880,25 @@ export default function SmartWalletDrawer({
                   <div className="flex-1 min-h-0 flex flex-col">
                     <div className="flex items-center justify-between mb-2 flex-shrink-0">
                       <div className="text-xs uppercase tracking-wider text-white/60">Ask MoneyPenny</div>
-                      <button
-                        onClick={refreshAvatar}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Refresh Avatar
-                      </button>
+                      <div className="flex items-center gap-1">
+                        {avatarRequested && (
+                          <button
+                            onClick={refreshAvatar}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            Refresh
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setAvatarRequested((v) => !v)}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                          title={avatarRequested ? 'Hide the video avatar and show only chat' : 'Load the video avatar (may take a moment; falls back to chat if it fails)'}
+                        >
+                          <User className="w-3 h-3" />
+                          {avatarRequested ? 'Hide Avatar' : 'Show Avatar'}
+                        </button>
+                      </div>
                     </div>
                     <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
                       {copilotMessages.map((msg, i) => (
