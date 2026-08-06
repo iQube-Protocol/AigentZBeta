@@ -159,28 +159,54 @@ export function MetaAvatar() {
     // Initialize on mount
     init();
 
-    // Listen for external refresh events
-    const handleRefresh = () => {
-      console.log('[MetaAvatar] refresh event received');
-      
+    const reload = () => {
       // Clean up current script
       if (scriptRef.current && scriptRef.current.parentNode) {
         scriptRef.current.parentNode.removeChild(scriptRef.current);
         scriptRef.current = null;
       }
-      
+
       // Clear container
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
-      
+
       // Re-initialize
       init();
     };
 
+    // Listen for external refresh events
+    const handleRefresh = () => {
+      console.log('[MetaAvatar] refresh event received');
+      reload();
+    };
+
     window.addEventListener('metaAvatarRefresh', handleRefresh);
 
+    /*
+     * BROWSER-TAB RETURN (operator report, 2026-08-06: "still blank screen on
+     * returning after changing tabs" — persisting after the module-cache-bust
+     * fix above, which only covers a React mount/unmount, not this). D-ID's
+     * embedded video widget is known to suspend its underlying media/WebRTC
+     * pipeline when its tab is backgrounded and NOT reliably resume it when
+     * the tab regains visibility — a widget-side lifecycle issue, not
+     * something a container/script-tag fix can reach. The one lever this
+     * component has is the SAME reload path `metaAvatarRefresh` already uses:
+     * fire it automatically when the tab transitions hidden -> visible while
+     * this instance is mounted (i.e. while a container actually owns the
+     * avatar), so a stalled widget gets a fresh script + container rather
+     * than staying blank until the operator finds a manual refresh control.
+     */
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[MetaAvatar] tab became visible — reloading to recover from a possible suspended widget');
+        reload();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('metaAvatarRefresh', handleRefresh);
 
       // Cleanup on unmount. The container clear + script removal below were
