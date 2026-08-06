@@ -42,6 +42,13 @@ import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
 import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
 import { MoneyPennyWalletArchitect } from "../wallet/MoneyPennyWalletArchitect";
 import { MoneyPennyWalletRuntime } from "../wallet/MoneyPennyWalletRuntime";
+// The full cartridge components, reused as-is (composition, not a rewrite)
+// for the expanded Architect/Runtime views — see the MoneyPenny Wallet
+// Service Reconstitution pass (2026-08-06). Neither takes props; both are
+// already self-contained personaFetch-driven components with no
+// window.open/target=_blank anywhere in them.
+import { ArchitectPanel } from "@/app/(shell)/moneypenny/components/ArchitectPanel";
+import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
 import { TransactionModal } from "../wallet/TransactionModal";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
@@ -558,23 +565,24 @@ export default function SmartWalletDrawer({
     { role: 'assistant', content: "Hi! I can help you manage your wallet, find content, or answer questions. What would you like to do?" }
   ]);
   const [copilotLoading, setCopilotLoading] = useState(false);
-  const [copilotMode, setCopilotMode] = useState<'chat' | 'avatar'>('chat');
-  // Sub-mode within the "MoneyPenny" (avatar) tab — additive PRD-MPY-001
-  // wallet surface: Chat (existing avatar iframe, default/unchanged),
-  // Architect (proposal drafting), Runtime (read-only shadow-preview
-  // trace). See MoneyPennyWalletArchitect / MoneyPennyWalletRuntime.
-  const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime'>('chat');
-  // Off by default (2026-08-06 fix): the D-ID avatar iframe is a fixed,
-  // z-140 overlay anchored to avatarAnchorRef's rect (app/(shell)/layout.tsx)
-  // — while its SDK script hasn't rendered (slow load, blocked, or errored)
-  // that overlay is a solid black div covering EVERYTHING underneath,
-  // including the grounded text chat below. Reported live as "metaVatar
-  // renders a blank screen" — the chat was never broken, it was blacked out
-  // by an overlay whose success this component cannot guarantee. Making the
-  // visual avatar opt-in (never requested until the operator asks for it)
-  // means the chat is always usable; the toggle is the escape hatch for
-  // whoever wants the video avatar and can tolerate its load risk.
-  const [avatarRequested, setAvatarRequested] = useState(false);
+  // MoneyPenny Wallet Service Reconstitution (2026-08-06) — ONE top-level
+  // mode selector for the whole MoneyPenny service, replacing the prior
+  // two-level copilotMode('chat'|'avatar') + moneyPennyMode('chat'|
+  // 'architect'|'runtime') split that presented Chat/Copilot, Architect,
+  // Runtime and metaAvatar as competing/overlapping surfaces. 'chat' is
+  // both the former "Copilot" tab AND the former metaVatar-tab "cyan Chat"
+  // — those already shared one engine (handleSendPrompt -> copilotMessages
+  // -> /api/moneypenny/chat, unified 2026-08-06 earlier this session); this
+  // pass removes the second RENDERING of that same chat, not a second
+  // engine (there never was a second one to reconcile).
+  const [moneyPennyMode, setMoneyPennyMode] = useState<'chat' | 'architect' | 'runtime' | 'avatar'>('chat');
+  // Expand/collapse for Architect and Runtime — swaps the compact wallet-
+  // native wrapper (MoneyPennyWalletArchitect / MoneyPennyWalletRuntime) for
+  // the full cartridge component (ArchitectPanel / RuntimePanel, imported
+  // directly — composition, not a rewrite) IN PLACE, and grows the panel's
+  // own height. Never navigates anywhere, so it can never open a new tab and
+  // always stays inside whichever host currently has this drawer mounted.
+  const [moneyPennyExpanded, setMoneyPennyExpanded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
@@ -755,9 +763,12 @@ export default function SmartWalletDrawer({
   const [signUpConfirmationSent, setSignUpConfirmationSent] = useState(false);
   const [showQcBreakdown, setShowQcBreakdown] = useState(false);
   const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
-  const askCopilotCardRef = useRef<HTMLElement | null>(null);
-  const copilotAnchorRef = useRef<HTMLDivElement | null>(null);
-  const avatarAnchorRef = useRef<HTMLElement | null>(null);
+  // ONE anchor for the whole MoneyPenny mode viewport (replaces the former
+  // askCopilotCardRef/copilotAnchorRef/avatarAnchorRef trio) — the avatar
+  // overlay position effect below now measures this single container
+  // regardless of which mode is active, since only one mode renders at a
+  // time and they all share this same viewport box.
+  const moneyPennyViewportRef = useRef<HTMLDivElement | null>(null);
   const copilotChatScrollRef = useRef<HTMLDivElement | null>(null);
   const copilotQuickPromptsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedLibraryItem, setSelectedLibraryItem] = useState<any>(null);
@@ -868,10 +879,10 @@ export default function SmartWalletDrawer({
   }, [open]);
 
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === "chat") {
+    if (open && copilotOpen && moneyPennyMode === "chat") {
       showCopilotQuickPrompts();
     }
-  }, [open, copilotOpen, copilotMode, showCopilotQuickPrompts]);
+  }, [open, copilotOpen, moneyPennyMode, showCopilotQuickPrompts]);
 
   useEffect(() => {
     scrollCopilotToBottom();
@@ -1023,14 +1034,16 @@ export default function SmartWalletDrawer({
     generateDid();
   }, [agent?.fioHandle, activePersona?.fioHandle]);
 
-  // Request/release avatar based on copilot state and mode. The live
-  // MetaAvatar iframe is a fixed-position overlay anchored to
-  // avatarAnchorRef's bounding rect (see app/(shell)/layout.tsx) — it must
-  // only be requested while the "MoneyPenny" tab's Chat sub-mode is showing,
-  // otherwise it would render on top of the Architect/Runtime panels that
-  // share the same anchor section.
+  // Request/release avatar based on the unified mode. The live MetaAvatar
+  // iframe is a fixed-position overlay anchored to moneyPennyViewportRef's
+  // bounding rect (see app/(shell)/layout.tsx) — it is requested ONLY while
+  // 'avatar' is the active MoneyPenny mode, so it never renders on top of
+  // Chat/Architect/Runtime (MoneyPenny Wallet Service Reconstitution,
+  // 2026-08-06 — "avatar mode does not render simultaneously over another
+  // MoneyPenny mode"). Selecting the metaAvatar tab IS the deliberate
+  // request; no separate Show/Hide Avatar toggle is needed.
   useEffect(() => {
-    if (open && copilotOpen && copilotMode === 'avatar' && moneyPennyMode === 'chat' && avatarRequested) {
+    if (open && copilotOpen && moneyPennyMode === 'avatar') {
       requestAvatar('copilot', 'aigent-moneypenny');
     } else {
       releaseAvatar('copilot');
@@ -1038,13 +1051,13 @@ export default function SmartWalletDrawer({
 
     // Cleanup on unmount
     return () => releaseAvatar('copilot');
-  }, [open, copilotOpen, copilotMode, moneyPennyMode, avatarRequested, requestAvatar, releaseAvatar, agent?.id]);
+  }, [open, copilotOpen, moneyPennyMode, requestAvatar, releaseAvatar, agent?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const root = document.documentElement;
     const updateAnchor = () => {
-      const anchor = askCopilotCardRef.current ?? avatarAnchorRef.current ?? copilotAnchorRef.current;
+      const anchor = moneyPennyViewportRef.current;
       if (!anchor) return;
       const rect = anchor.getBoundingClientRect();
       root.style.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
@@ -1061,7 +1074,7 @@ export default function SmartWalletDrawer({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [open, copilotOpen, copilotMode, activeTab]);
+  }, [open, copilotOpen, moneyPennyMode, moneyPennyExpanded, activeTab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3524,64 +3537,116 @@ export default function SmartWalletDrawer({
           </div>
         </div>
 
-        {/* Copilot Panel (Qriptopian parity) */}
+        {/* MoneyPenny Wallet Service — ONE modal, ONE persistent identity
+            header, ONE horizontally-scrollable mode rail (Chat / Architect /
+            Runtime / metaAvatar). Reconstituted 2026-08-06 from what used to
+            be two competing tab levels (Copilot/metaVatar, then a SEPARATE
+            Chat/Architect/Runtime sub-nav only reachable from "metaVatar")
+            into a single mode selector, per the MoneyPenny Wallet Service
+            Reconstitution brief. All four mode viewports below stay mounted
+            at all times (visibility toggled via the `hidden` class, never
+            unmounted) so switching modes never resets the Chat conversation,
+            the Architect draft, or the Runtime execution state. */}
         {copilotOpen && (
-          <div className="mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0 h-[380px] overflow-hidden rounded-xl border border-white/10 bg-white/5">
-            <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/10 rounded-t-xl flex-shrink-0">
-              <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5">
-                  <button
-                    onClick={() => setCopilotMode('chat')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
-                      copilotMode === 'chat'
-                        ? 'bg-purple-500/20 text-purple-400'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    Copilot
-                  </button>
-                  <button
-                    onClick={() => setCopilotMode('avatar')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-all ${
-                      copilotMode === 'avatar'
-                        ? 'bg-cyan-500/20 text-cyan-400'
-                        : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <User className="w-3 h-3" />
-                    metaVatar
-                  </button>
-                </div>
-                <Tooltip text="MoneyPenny is the active agent for this Copilot">
-                  <span className="flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-cyan-500/20 text-cyan-400">
+          <div className={`mx-3 mt-2 mb-0 flex flex-col animate-fade-in flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/5 transition-all ${moneyPennyExpanded ? 'h-[70vh]' : 'h-[380px]'}`}>
+            <div className="flex items-center justify-between gap-2 px-3 py-2 bg-white/5 border-b border-white/10 rounded-t-xl flex-shrink-0">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <Tooltip text="MoneyPenny — the Wallet Copilot's native Financial Services agent">
+                  <span className="flex shrink-0 items-center gap-1 px-2 py-1 rounded-md text-xs bg-cyan-500/20 text-cyan-400">
                     <BadgeCheck className="w-3 h-3" />
                     MoneyPenny
                   </span>
                 </Tooltip>
-              </div>
-              <Tooltip text="Back">
-                <button
-                  onClick={() => setCopilotOpen(false)}
-                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                {/* Mode rail — horizontally scrollable, never wraps (narrow
+                    wallet widths keep every tab reachable via scroll rather
+                    than shrinking labels into illegibility). */}
+                <div
+                  role="tablist"
+                  aria-label="MoneyPenny mode"
+                  className="flex min-w-0 items-center gap-1 overflow-x-auto no-scrollbar flex-nowrap"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-              </Tooltip>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'chat'}
+                    onClick={() => setMoneyPennyMode('chat')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'chat' ? 'bg-purple-500/20 text-purple-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    Chat
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'architect'}
+                    onClick={() => setMoneyPennyMode('architect')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'architect' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Compass className="w-3 h-3" />
+                    Architect
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'runtime'}
+                    onClick={() => setMoneyPennyMode('runtime')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'runtime' ? 'bg-violet-500/20 text-violet-300' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <Cpu className="w-3 h-3" />
+                    Runtime
+                  </button>
+                  <button
+                    role="tab"
+                    aria-selected={moneyPennyMode === 'avatar'}
+                    onClick={() => setMoneyPennyMode('avatar')}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap px-2 py-1 rounded-md text-xs transition-all ${
+                      moneyPennyMode === 'avatar' ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/50 hover:text-white/80'
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                    metaAvatar
+                  </button>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {(moneyPennyMode === 'architect' || moneyPennyMode === 'runtime') && (
+                  <Tooltip text={moneyPennyExpanded ? 'Collapse' : 'Expand — open the full workspace in place, never a new tab'}>
+                    <button
+                      onClick={() => setMoneyPennyExpanded((v) => !v)}
+                      className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                    >
+                      {moneyPennyExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                    </button>
+                  </Tooltip>
+                )}
+                <Tooltip text="Back">
+                  <button
+                    onClick={() => setCopilotOpen(false)}
+                    className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+              </div>
             </div>
 
-            {copilotMode === "chat" ? (
-              <div ref={copilotAnchorRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
-              {/* Ask Copilot - Chat Interface */}
+            <div ref={moneyPennyViewportRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+              {/* CHAT — the ONE canonical MoneyPenny text chat. This is the
+                  former "Copilot" chat AND the former metaVatar-tab "cyan
+                  Chat" — both already called the same handleSendPrompt ->
+                  copilotMessages -> /api/moneypenny/chat engine before this
+                  pass (unified earlier this session); this removes the
+                  second RENDERING of that one chat, never a second store. */}
               <section
-                ref={askCopilotCardRef}
-                className="relative rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-3 h-[290px] flex flex-col"
+                className={`relative rounded-xl backdrop-blur-xl bg-white/5 border border-white/10 p-3 flex flex-col ${moneyPennyMode === 'chat' ? '' : 'hidden'} ${moneyPennyExpanded ? 'h-[calc(70vh-180px)]' : 'h-[290px]'}`}
                 onMouseEnter={() => showCopilotQuickPrompts()}
                 onMouseLeave={() => showCopilotQuickPrompts()}
               >
                 <div className="text-xs uppercase tracking-wider text-white/60 mb-3">Ask MoneyPenny</div>
-                
-                {/* Chat Messages Area */}
+
                 <div ref={copilotChatScrollRef} className="mb-2 flex-1 min-h-0 overflow-y-auto space-y-3 pb-16">
                   {copilotMessages.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
@@ -3589,8 +3654,8 @@ export default function SmartWalletDrawer({
                         <Bot className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
                       )}
                       <p className={`text-sm leading-relaxed max-w-[85%] ${
-                        msg.role === 'user' 
-                          ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm' 
+                        msg.role === 'user'
+                          ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm'
                           : 'text-white/80'
                       }`}>
                         {msg.content}
@@ -3658,12 +3723,12 @@ export default function SmartWalletDrawer({
                       }
                     }}
                     onFocus={() => showCopilotQuickPrompts()}
-                    placeholder="Ask anything..."
+                    placeholder="Ask MoneyPenny anything..."
                     disabled={copilotLoading}
                     className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/90 placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all disabled:opacity-50"
                   />
                   <Tooltip text="Send message">
-                    <button 
+                    <button
                       onClick={() => handleSendPrompt()}
                       disabled={copilotLoading || !copilotPrompt.trim()}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-white/90 hover:bg-white/15 hover:border-purple-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -3675,302 +3740,223 @@ export default function SmartWalletDrawer({
                 </div>
               </section>
 
-              {/* Wide/copilot contextual tab content */}
-              {activeTab === "wallet" && (
-                <>
-                  <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
-                    <div className="quick-actions-carousel">
-                      <Tooltip text="Browse your content library">
-                        <button
-                          onClick={() => {
-                            triadContext?.actions.refreshLibrary?.();
-                            setActiveTab("library");
-                          }}
-                          className="quick-action-item"
-                        >
-                          <BookOpen className="w-3.5 h-3.5" />
-                          <span>Library</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Claim pending rewards">
-                        <button onClick={() => setActiveTab("rewards")} className="quick-action-item">
-                          <Gift className="w-3.5 h-3.5" />
-                          <span>Rewards</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="View available tasks">
-                        <button onClick={() => setActiveTab("tasks")} className="quick-action-item">
-                          <CheckSquare className="w-3.5 h-3.5" />
-                          <span>Tasks</span>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Build your reputation">
-                        <button onClick={() => setActiveTab("reputation")} className="quick-action-item">
-                          <Trophy className="w-3.5 h-3.5" />
-                          <span>Reputation</span>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </section>
+              {/* ARCHITECT — proposal-only. Collapsed uses the compact
+                  wallet-native wrapper; expanded swaps in the full cartridge
+                  ArchitectPanel component IN PLACE (composition, never a
+                  navigation) so the draft can be read at full size. Neither
+                  path forms, authorizes, or settles anything. */}
+              <div className={moneyPennyMode === 'architect' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
+                {moneyPennyExpanded ? (
+                  <ArchitectPanel />
+                ) : (
+                  <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
+                )}
+              </div>
 
-                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
-                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-3xl font-bold text-white/95">
-                          {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
-                        </div>
-                        <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm text-white/60">Ready for payments</div>
-                        <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          Live
-                        </div>
-                      </div>
-                    </div>
-                  </section>
+              {/* RUNTIME — read-only shadow preview. Collapsed uses the
+                  compact wallet-native wrapper (always shadow, Financial
+                  Intelligence only). Expanded swaps in the full cartridge
+                  RuntimePanel component IN PLACE — the SAME component the
+                  standalone /moneypenny page renders, carrying the complete
+                  Constitutional Agreement lifecycle (Form/Accept/Authorize)
+                  behind its own human-click Authorize gate. This REPLACES
+                  the former "Open full Runtime + Agreement lifecycle in
+                  MoneyPenny" page navigation — the full runtime now opens
+                  in place, inside whichever host currently has this drawer
+                  mounted, and never opens a new tab. Preview/shadow/
+                  authoritative semantics are RuntimePanel's own, untouched. */}
+              <div className={moneyPennyMode === 'runtime' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
+                {moneyPennyExpanded ? (
+                  <RuntimePanel />
+                ) : (
+                  <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
+                )}
+              </div>
 
-                  <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
-                    <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
-                    <div className="space-y-2">
-                      <Tooltip text="Purchase selected content with Q¢">
-                        <button
-                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
-                          onClick={async () => {
-                            if (currentContent && triadContext) {
-                              await triadContext.actions.purchaseContent(currentContent.id, "arb");
-                            }
-                          }}
-                          disabled={!currentContent}
-                        >
-                          <CreditCard className="w-5 h-5 text-purple-400" />
-                          <div>
-                            <div className="text-sm text-white/90">Purchase Content</div>
-                            <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
-                          </div>
-                        </button>
-                      </Tooltip>
-                      <Tooltip text="Refresh library from QubeBase">
-                        <button
-                          className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
-                          onClick={() => {
-                            triadContext?.actions.refreshLibrary?.();
-                            setActiveTab("library");
-                          }}
-                        >
-                          <RefreshCw className="w-5 h-5 text-purple-400" />
-                          <div>
-                            <div className="text-sm text-white/90">Sync Library</div>
-                            <div className="text-xs text-white/60">Refresh from QubeBase</div>
-                          </div>
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </section>
-                </>
-              )}
-
-              {activeTab === "library" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Library Context</div>
-                  <div className="text-sm text-white/80">
-                    {walletNode?.contentEntitlements?.length || 0} item(s) available. Use the Library tab below to browse covers and open entitlements.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "tasks" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Task Context</div>
-                  <div className="text-sm text-white/80">
-                    {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length} active tasks and {quests.length} active quest(s).
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "reputation" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Reputation Context</div>
-                  <div className="text-sm text-white/80">
-                    Score {activePersona?.reputationScore || 0} with {(activePersona?.badges || []).length} badge(s) earned.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "rewards" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Rewards Context</div>
-                  <div className="text-sm text-white/80">
-                    Lifetime rewards are surfaced in the Rewards tab. Use this copilot to claim pending rewards and review history.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "payments" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Payments Context</div>
-                  <div className="text-sm text-white/80">
-                    Payment flow is active. Use this copilot for conversion, settlement retries, and purchase assistance.
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "iqube" && (
-                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
-                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">PersonaQube</div>
-                  <div className="text-sm text-white/80">
-                    Stage your persona as a content-addressed PersonaQube on Autonomys — enables cryptographic binding to SkillQubes and cross-platform portability.
-                  </div>
-                </section>
-              )}
-            </div>
-            ) : (
-              // "MoneyPenny" avatar mode: PRD-MPY-001 exposes three modes —
-              // Advisor (Chat, the pre-existing embedded MetaAvatar iframe
-              // below — unchanged), Architect (proposal drafting), and
-              // Runtime (read-only constitutional-service shadow preview).
-              // The sub-nav below is additive; Chat stays the default and
-              // its content/behavior is untouched.
-              <section
-                ref={avatarAnchorRef}
-                className="mx-3 mt-3 mb-3 rounded-xl bg-white/5 border border-white/10 p-4 h-[290px] flex-1 min-h-0 flex flex-col overflow-hidden"
-              >
-                <div className="flex items-center gap-1 bg-white/5 rounded-lg p-0.5 mb-3 flex-shrink-0 self-center">
+              {/* METAAVATAR — the video avatar companion. Occupies this same
+                  mode viewport (never a second panel overlaying the modal
+                  and the wallet at once); the D-ID iframe itself is a fixed
+                  overlay positioned against moneyPennyViewportRef above, only
+                  requested while this mode is active (the effect near
+                  requestAvatar). Chat remains the canonical text surface —
+                  no second text-input implementation here. */}
+              <div className={moneyPennyMode === 'avatar' ? 'h-[290px] flex flex-col' : 'hidden'}>
+                <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-3 rounded-xl bg-black/20 border border-white/10">
+                  <div className="text-xs uppercase tracking-wider text-white/60">MoneyPenny — metaAvatar</div>
+                  <p className="max-w-xs text-center text-[11px] text-white/40">
+                    Video avatar companion. Use Chat for the canonical text interaction with MoneyPenny.
+                  </p>
                   <button
-                    onClick={() => setMoneyPennyMode('chat')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
-                      moneyPennyMode === 'chat' ? 'bg-cyan-500/20 text-cyan-400' : 'text-white/50 hover:text-white/80'
-                    }`}
+                    onClick={refreshAvatar}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/60 transition-all hover:bg-white/10 hover:text-white"
                   >
-                    <User className="w-3 h-3" />
-                    Chat
-                  </button>
-                  <button
-                    onClick={() => setMoneyPennyMode('architect')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
-                      moneyPennyMode === 'architect' ? 'bg-emerald-500/20 text-emerald-400' : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <Compass className="w-3 h-3" />
-                    Architect
-                  </button>
-                  <button
-                    onClick={() => setMoneyPennyMode('runtime')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] transition-all ${
-                      moneyPennyMode === 'runtime' ? 'bg-violet-500/20 text-violet-300' : 'text-white/50 hover:text-white/80'
-                    }`}
-                  >
-                    <Cpu className="w-3 h-3" />
-                    Runtime
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Refresh Avatar
                   </button>
                 </div>
+              </div>
 
-                {moneyPennyMode === 'chat' && (
-                  // The avatar iframe (useMetaAvatar / requestAvatar('copilot',
-                  // 'aigent-moneypenny') above) is a visual companion only —
-                  // whatever backend IT calls is outside this repo's API layer.
-                  // The actual grounded text chat below is the SAME state +
-                  // handler as the "Copilot" tab (copilotMessages/copilotPrompt/
-                  // handleSendPrompt → /api/moneypenny/chat, finance-namespace
-                  // invariant grounding) — one chat, two surfaces, never a
-                  // second implementation.
-                  <div className="flex-1 min-h-0 flex flex-col">
-                    <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                      <div className="text-xs uppercase tracking-wider text-white/60">Ask MoneyPenny</div>
-                      <div className="flex items-center gap-1">
-                        {avatarRequested && (
-                          <button
-                            onClick={refreshAvatar}
-                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
-                          >
-                            <RefreshCw className="w-3 h-3" />
-                            Refresh
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setAvatarRequested((v) => !v)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-white/50 hover:text-white hover:bg-white/10 transition-all"
-                          title={avatarRequested ? 'Hide the video avatar and show only chat' : 'Load the video avatar (may take a moment; falls back to chat if it fails)'}
-                        >
-                          <User className="w-3 h-3" />
-                          {avatarRequested ? 'Hide Avatar' : 'Show Avatar'}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
-                      {copilotMessages.map((msg, i) => (
-                        <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
-                          {msg.role === 'assistant' && (
-                            <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                          )}
-                          <p className={`text-sm leading-relaxed max-w-[85%] ${
-                            msg.role === 'user'
-                              ? 'bg-white/10 text-white/90 px-3 py-2 rounded-lg rounded-br-sm'
-                              : 'text-white/80'
-                          }`}>
-                            {msg.content}
-                          </p>
-                          {msg.role === 'user' && (
-                            <User className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                          )}
+              {/* Persistent wallet context (Quick Actions / Q¢ Balance /
+                  Smart Triad / per-activeTab context) — lives OUTSIDE the
+                  active MoneyPenny mode viewport per the reconstitution
+                  brief: renders once regardless of which mode is selected
+                  (never duplicated per-mode), and steps aside while a mode
+                  is expanded so that mode gets the full height. */}
+              {!moneyPennyExpanded && (
+                <>
+                  {activeTab === "wallet" && (
+                    <>
+                      <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-3">
+                        <div className="text-[10px] uppercase tracking-wider text-white/60 mb-2">Quick Actions</div>
+                        <div className="quick-actions-carousel">
+                          <Tooltip text="Browse your content library">
+                            <button
+                              onClick={() => {
+                                triadContext?.actions.refreshLibrary?.();
+                                setActiveTab("library");
+                              }}
+                              className="quick-action-item"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>Library</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Claim pending rewards">
+                            <button onClick={() => setActiveTab("rewards")} className="quick-action-item">
+                              <Gift className="w-3.5 h-3.5" />
+                              <span>Rewards</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="View available tasks">
+                            <button onClick={() => setActiveTab("tasks")} className="quick-action-item">
+                              <CheckSquare className="w-3.5 h-3.5" />
+                              <span>Tasks</span>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Build your reputation">
+                            <button onClick={() => setActiveTab("reputation")} className="quick-action-item">
+                              <Trophy className="w-3.5 h-3.5" />
+                              <span>Reputation</span>
+                            </button>
+                          </Tooltip>
                         </div>
-                      ))}
-                      {copilotLoading && (
-                        <div className="flex gap-3">
-                          <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                          <div className="copilot-thinking-dots emerald">
-                            <span className="dot" />
-                            <span className="dot" />
-                            <span className="dot" />
+                      </section>
+
+                      <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/5 border border-purple-500/20 p-4">
+                        <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Your Q¢ Balance</div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-3xl font-bold text-white/95">
+                              {bals.qctArb ? (Number(bals.qctArb) / Math.pow(10, bals.qctArbDecimals || 18)).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "0"}
+                            </div>
+                            <div className="text-sm text-white/60 mt-1">Q¢ on Arbitrum</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-white/60">Ready for payments</div>
+                            <div className="text-xs text-emerald-400 flex items-center justify-end gap-1 mt-1">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                              Live
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="mt-auto flex gap-2 pt-2 flex-shrink-0">
-                      <input
-                        type="text"
-                        value={copilotPrompt}
-                        onChange={(e) => setCopilotPrompt(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendPrompt();
-                          }
-                        }}
-                        placeholder="Ask MoneyPenny anything..."
-                        disabled={copilotLoading}
-                        className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/90 placeholder:text-white/40 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all disabled:opacity-50"
-                      />
-                      <Tooltip text="Send message">
-                        <button
-                          onClick={() => handleSendPrompt()}
-                          disabled={copilotLoading || !copilotPrompt.trim()}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 border border-white/20 text-white/90 hover:bg-white/15 hover:border-cyan-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          aria-label="Send message"
-                        >
-                          <Send className="w-4 h-4" />
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </div>
-                )}
+                      </section>
 
-                {moneyPennyMode === 'architect' && (
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
-                  </div>
-                )}
+                      <section className="rounded-xl backdrop-blur-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 border border-purple-500/20 p-4">
+                        <div className="text-xs uppercase tracking-wider text-white/70 mb-3">Smart Triad</div>
+                        <div className="space-y-2">
+                          <Tooltip text="Purchase selected content with Q¢">
+                            <button
+                              className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3 disabled:opacity-50"
+                              onClick={async () => {
+                                if (currentContent && triadContext) {
+                                  await triadContext.actions.purchaseContent(currentContent.id, "arb");
+                                }
+                              }}
+                              disabled={!currentContent}
+                            >
+                              <CreditCard className="w-5 h-5 text-purple-400" />
+                              <div>
+                                <div className="text-sm text-white/90">Purchase Content</div>
+                                <div className="text-xs text-white/60">Pay with Q¢ on Arbitrum</div>
+                              </div>
+                            </button>
+                          </Tooltip>
+                          <Tooltip text="Refresh library from QubeBase">
+                            <button
+                              className="w-full p-3 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-purple-500/30 transition-all text-left flex items-center gap-3"
+                              onClick={() => {
+                                triadContext?.actions.refreshLibrary?.();
+                                setActiveTab("library");
+                              }}
+                            >
+                              <RefreshCw className="w-5 h-5 text-purple-400" />
+                              <div>
+                                <div className="text-sm text-white/90">Sync Library</div>
+                                <div className="text-xs text-white/60">Refresh from QubeBase</div>
+                              </div>
+                            </button>
+                          </Tooltip>
+                        </div>
+                      </section>
+                    </>
+                  )}
 
-                {moneyPennyMode === 'runtime' && (
-                  <div className="flex-1 min-h-0 overflow-y-auto">
-                    <MoneyPennyWalletRuntime personaIdHint={effectivePersonaId} />
-                  </div>
-                )}
-              </section>
-            )}
+                  {activeTab === "library" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Library Context</div>
+                      <div className="text-sm text-white/80">
+                        {walletNode?.contentEntitlements?.length || 0} item(s) available. Use the Library tab below to browse covers and open entitlements.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "tasks" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Task Context</div>
+                      <div className="text-sm text-white/80">
+                        {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length} active tasks and {quests.length} active quest(s).
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "reputation" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Reputation Context</div>
+                      <div className="text-sm text-white/80">
+                        Score {activePersona?.reputationScore || 0} with {(activePersona?.badges || []).length} badge(s) earned.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "rewards" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Rewards Context</div>
+                      <div className="text-sm text-white/80">
+                        Lifetime rewards are surfaced in the Rewards tab. Use this copilot to claim pending rewards and review history.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "payments" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">Payments Context</div>
+                      <div className="text-sm text-white/80">
+                        Payment flow is active. Use this copilot for conversion, settlement retries, and purchase assistance.
+                      </div>
+                    </section>
+                  )}
+
+                  {activeTab === "iqube" && (
+                    <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                      <div className="text-xs uppercase tracking-wider text-white/70 mb-2">PersonaQube</div>
+                      <div className="text-sm text-white/80">
+                        Stage your persona as a content-addressed PersonaQube on Autonomys — enables cryptographic binding to SkillQubes and cross-platform portability.
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
