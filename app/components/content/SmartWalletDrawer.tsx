@@ -50,6 +50,7 @@ import { MoneyPennyWalletRuntime } from "../wallet/MoneyPennyWalletRuntime";
 // window.open/target=_blank anywhere in them.
 import { ArchitectPanel } from "@/app/(shell)/moneypenny/components/ArchitectPanel";
 import { RuntimePanel } from "@/app/(shell)/moneypenny/components/RuntimePanel";
+import { useArchitectDraft } from "@/hooks/useArchitectDraft";
 import { TransactionModal } from "../wallet/TransactionModal";
 import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
@@ -584,6 +585,13 @@ export default function SmartWalletDrawer({
   // own height. Never navigates anywhere, so it can never open a new tab and
   // always stays inside whichever host currently has this drawer mounted.
   const [moneyPennyExpanded, setMoneyPennyExpanded] = useState(false);
+  // ONE shared Architect draft/result state, passed to BOTH ArchitectPanel
+  // (expanded) and MoneyPennyWalletArchitect (compact) below via their
+  // `sharedState` prop, so expand/collapse shows the SAME conversation
+  // instead of two independently-preserved ones (operator report,
+  // 2026-08-06: "the full screen modal is not getting the active inference
+  // and conversation injected into it").
+  const architectDraft = useArchitectDraft(effectivePersonaId);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
@@ -3754,17 +3762,19 @@ export default function SmartWalletDrawer({
                   <B/>` unmounts whichever one wasn't showing, wiping its
                   intent/result `useState`. This is the SAME ternary-hidden-
                   class discipline the four mode viewports already use above
-                  (MS-3-style: state survives a visibility toggle) — each
-                  surface now keeps its OWN drafted intent/result across every
-                  expand/collapse, exactly as the mode rail already keeps
-                  Chat/Architect/Runtime/metaAvatar state across mode
-                  switches. */}
+                  (MS-3-style: state survives a visibility toggle) — and both
+                  surfaces are handed the SAME `architectDraft` (via
+                  `sharedState`, hooks/useArchitectDraft.ts) rather than each
+                  keeping its own independent copy, so expand/collapse shows
+                  ONE conversation, not two (operator follow-up, 2026-08-06:
+                  "the full screen modal is not getting the active inference
+                  and conversation injected into it"). */}
               <div className={moneyPennyMode === 'architect' ? (moneyPennyExpanded ? 'min-h-[420px]' : 'h-[290px] overflow-y-auto') : 'hidden'}>
                 <div className={moneyPennyExpanded ? '' : 'hidden'}>
-                  <ArchitectPanel />
+                  <ArchitectPanel sharedState={architectDraft} />
                 </div>
                 <div className={moneyPennyExpanded ? 'hidden' : ''}>
-                  <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} />
+                  <MoneyPennyWalletArchitect personaIdHint={effectivePersonaId} sharedState={architectDraft} />
                 </div>
               </div>
 

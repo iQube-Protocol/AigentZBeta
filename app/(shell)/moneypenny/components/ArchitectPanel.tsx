@@ -11,75 +11,29 @@
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { MarkdownLite } from "@/components/ui/markdown-lite";
 import { Loader2, Compass, ShieldCheck } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
+import { useArchitectDraft, type ArchitectDraftState } from "@/hooks/useArchitectDraft";
 
-interface ArchitectResult {
-  ok: boolean;
-  error?: string;
-  artifactId?: string;
-  title?: string;
-  body?: string;
-  citedInvariantIds?: string[];
+export interface ArchitectPanelProps {
+  /**
+   * A single shared draft/result state, owned by a host that mounts BOTH
+   * this panel and MoneyPennyWalletArchitect at once (SmartWalletDrawer's
+   * expand/collapse Architect viewport) — so the compact and expanded views
+   * are the SAME conversation rather than two independently-preserved ones.
+   * Omit for standalone usage (the /moneypenny page, MoneyPennyCartridge):
+   * the panel then calls useArchitectDraft itself, unchanged behaviour.
+   */
+  sharedState?: ArchitectDraftState;
 }
 
-export function ArchitectPanel() {
-  const [intent, setIntent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ArchitectResult | null>(null);
-  // id -> statement, for the invariant pills' tooltips. Loaded once per
-  // result via the EXISTING single-invariant route (GET /api/invariants/[id])
-  // — never a second, hand-maintained description list.
-  const [invariantStatements, setInvariantStatements] = useState<Record<string, string>>({});
-
-  const draft = async () => {
-    if (!intent.trim() || busy) return;
-    setBusy(true);
-    setResult(null);
-    try {
-      const res = await personaFetch("/api/moneypenny/architect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent }),
-      });
-      const data = (await res.json().catch(() => null)) as ArchitectResult | null;
-      setResult(data ?? { ok: false, error: `Draft failed (HTTP ${res.status})` });
-    } catch (e) {
-      setResult({ ok: false, error: e instanceof Error ? e.message : "Draft failed" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const citedIds = result?.ok ? result.citedInvariantIds ?? [] : [];
-  const loadInvariantStatement = useCallback(
-    async (id: string) => {
-      if (invariantStatements[id] !== undefined) return;
-      try {
-        const res = await personaFetch(`/api/invariants/${encodeURIComponent(id)}`, { cache: "no-store" });
-        const data = await res.json().catch(() => null);
-        setInvariantStatements((prev) => ({
-          ...prev,
-          [id]: res.ok && data?.invariant?.statement ? String(data.invariant.statement) : "Detail unavailable",
-        }));
-      } catch {
-        setInvariantStatements((prev) => ({ ...prev, [id]: "Detail unavailable" }));
-      }
-    },
-    [invariantStatements],
-  );
-  // Pre-fetch every cited invariant's statement once the result lands, so the
-  // tooltip has content on first hover rather than an initial "Loading…" flash.
-  useEffect(() => {
-    citedIds.forEach((id) => void loadInvariantStatement(id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.artifactId]);
+export function ArchitectPanel({ sharedState }: ArchitectPanelProps = {}) {
+  const ownState = useArchitectDraft();
+  const { intent, setIntent, busy, result, invariantStatements, draft } = sharedState ?? ownState;
 
   return (
     <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0 h-full flex flex-col">

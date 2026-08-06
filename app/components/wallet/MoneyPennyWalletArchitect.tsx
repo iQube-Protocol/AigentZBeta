@@ -21,71 +21,27 @@
  * persona is active.
  */
 
-import { useCallback, useEffect, useState } from "react";
 import { Compass, Loader2, ShieldCheck } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { MarkdownLite } from "@/components/ui/markdown-lite";
+import { useArchitectDraft, type ArchitectDraftState } from "@/hooks/useArchitectDraft";
 
-interface ArchitectResult {
-  ok: boolean;
-  error?: string;
-  artifactId?: string;
-  title?: string;
-  body?: string;
-  citedInvariantIds?: string[];
-}
-
-export function MoneyPennyWalletArchitect({ personaIdHint }: { personaIdHint?: string | null }) {
-  const [intent, setIntent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ArchitectResult | null>(null);
-  // id -> statement, for the invariant pills' tooltips — same single-invariant
-  // route (GET /api/invariants/[id]) ArchitectPanel.tsx uses; never a second,
-  // hand-maintained description list for this compact re-skin.
-  const [invariantStatements, setInvariantStatements] = useState<Record<string, string>>({});
-
-  const draft = async () => {
-    if (!intent.trim() || busy) return;
-    setBusy(true);
-    setResult(null);
-    try {
-      const res = await personaFetch("/api/moneypenny/architect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ intent }),
-        personaIdHint: personaIdHint || undefined,
-      });
-      const data = (await res.json()) as ArchitectResult;
-      setResult(data);
-    } catch (e) {
-      setResult({ ok: false, error: e instanceof Error ? e.message : "Draft failed" });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const citedIds = result?.ok ? result.citedInvariantIds ?? [] : [];
-  const loadInvariantStatement = useCallback(
-    async (id: string) => {
-      if (invariantStatements[id] !== undefined) return;
-      try {
-        const res = await personaFetch(`/api/invariants/${encodeURIComponent(id)}`, { cache: "no-store" });
-        const data = await res.json().catch(() => null);
-        setInvariantStatements((prev) => ({
-          ...prev,
-          [id]: res.ok && data?.invariant?.statement ? String(data.invariant.statement) : "Detail unavailable",
-        }));
-      } catch {
-        setInvariantStatements((prev) => ({ ...prev, [id]: "Detail unavailable" }));
-      }
-    },
-    [invariantStatements],
-  );
-  useEffect(() => {
-    citedIds.forEach((id) => void loadInvariantStatement(id));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [result?.artifactId]);
+export function MoneyPennyWalletArchitect({
+  personaIdHint,
+  sharedState,
+}: {
+  personaIdHint?: string | null;
+  /**
+   * A single shared draft/result state, owned by a host that mounts BOTH
+   * this compact surface and the full ArchitectPanel at once (SmartWalletDrawer's
+   * expand/collapse Architect viewport) — so the compact and expanded views
+   * are the SAME conversation. Omit to fall back to this component's own
+   * useArchitectDraft instance (unchanged standalone behaviour).
+   */
+  sharedState?: ArchitectDraftState;
+}) {
+  const ownState = useArchitectDraft(personaIdHint);
+  const { intent, setIntent, busy, result, invariantStatements, draft } = sharedState ?? ownState;
 
   return (
     <div className="flex h-full flex-col gap-3">

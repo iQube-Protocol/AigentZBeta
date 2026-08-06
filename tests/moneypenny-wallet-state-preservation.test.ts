@@ -32,8 +32,13 @@ describe('MoneyPenny wallet: Architect/Runtime expand-collapse never unmounts ei
   it('both ArchitectPanel and MoneyPennyWalletArchitect are mounted together, class-toggled — no `moneyPennyExpanded ? <X/> : <Y/>` component swap', () => {
     const c = code();
     expect(c).not.toMatch(/moneyPennyExpanded \? \(\s*<ArchitectPanel/);
-    expect(c).toMatch(/moneyPennyExpanded \? '' : 'hidden'[\s\S]{0,40}<ArchitectPanel \/>/);
-    expect(c).toMatch(/moneyPennyExpanded \? 'hidden' : ''[\s\S]{0,80}<MoneyPennyWalletArchitect/);
+    // 2026-08-06: both surfaces now take a `sharedState={architectDraft}` prop
+    // (one conversation, not two independently-preserved copies) — no longer
+    // a bare self-closing tag, so match the opening tag only.
+    expect(c).toMatch(/moneyPennyExpanded \? '' : 'hidden'[\s\S]{0,60}<ArchitectPanel /);
+    expect(c).toMatch(/moneyPennyExpanded \? 'hidden' : ''[\s\S]{0,100}<MoneyPennyWalletArchitect/);
+    expect(c).toMatch(/<ArchitectPanel sharedState=\{architectDraft\}/);
+    expect(c).toMatch(/<MoneyPennyWalletArchitect personaIdHint=\{effectivePersonaId\} sharedState=\{architectDraft\}/);
   });
 
   it('both RuntimePanel and MoneyPennyWalletRuntime are mounted together, class-toggled — no component swap', () => {
@@ -82,7 +87,10 @@ describe('MoneyPenny Architect: cited invariants carry a tooltip', () => {
   });
 
   it('fetches statements through the EXISTING /api/invariants/[id] route — no parallel description list', () => {
-    const code = stripComments(read('app/(shell)/moneypenny/components/ArchitectPanel.tsx'));
+    // The fetch itself lives in the shared useArchitectDraft hook (extracted
+    // 2026-08-06, also used by MoneyPennyWalletArchitect) — ArchitectPanel
+    // consumes it rather than duplicating the fetch.
+    const code = stripComments(read('hooks/useArchitectDraft.ts'));
     expect(code).toMatch(/\/api\/invariants\//);
   });
 });
@@ -101,5 +109,41 @@ describe('metaAvatar: the D-ID script is cache-busted on every (re)mount', () =>
       'utf8',
     );
     expect(code).toMatch(/script\.src = `https:\/\/agent\.d-id\.com\/v2\/index\.js\?[^`]+`/);
+  });
+
+  it('reloads on tab-visibility-return, not just React remount (operator report, 2026-08-06: "still blank screen on returning after changing tabs")', () => {
+    const code = fs.readFileSync(
+      path.join(__dirname, '..', 'app/components/metaVatar/MetaAvatar.tsx'),
+      'utf8',
+    );
+    expect(code).toContain("document.addEventListener('visibilitychange'");
+    expect(code).toMatch(/document\.visibilityState === 'visible'/);
+  });
+});
+
+describe('MoneyPenny Architect: compact and expanded views share ONE conversation (operator follow-up, 2026-08-06: "the full screen modal is not getting the active inference and conversation injected into it")', () => {
+  it('useArchitectDraft is the single shared hook, extracted rather than hand-copied in either component', () => {
+    expect(fs.existsSync(path.join(__dirname, '..', 'hooks/useArchitectDraft.ts'))).toBe(true);
+    const architect = stripComments(read('app/(shell)/moneypenny/components/ArchitectPanel.tsx'));
+    const walletArchitect = stripComments(read('app/components/wallet/MoneyPennyWalletArchitect.tsx'));
+    expect(architect).toMatch(/import \{ useArchitectDraft, type ArchitectDraftState \} from ["']@\/hooks\/useArchitectDraft["']/);
+    expect(walletArchitect).toMatch(/import \{ useArchitectDraft, type ArchitectDraftState \} from ["']@\/hooks\/useArchitectDraft["']/);
+  });
+
+  it('both components accept an optional sharedState prop and fall back to their own hook instance when it is absent', () => {
+    const architect = stripComments(read('app/(shell)/moneypenny/components/ArchitectPanel.tsx'));
+    const walletArchitect = stripComments(read('app/components/wallet/MoneyPennyWalletArchitect.tsx'));
+    expect(architect).toMatch(/sharedState\?:\s*ArchitectDraftState/);
+    expect(architect).toMatch(/sharedState \?\? ownState/);
+    expect(walletArchitect).toMatch(/sharedState\?:\s*ArchitectDraftState/);
+    expect(walletArchitect).toMatch(/sharedState \?\? ownState/);
+  });
+
+  it('SmartWalletDrawer calls useArchitectDraft exactly ONCE and hands the SAME instance to both surfaces', () => {
+    const drawer = stripComments(readSource(WALLET_DRAWER_PATH));
+    const hookCalls = drawer.match(/=\s*useArchitectDraft\(/g) ?? [];
+    expect(hookCalls).toHaveLength(1);
+    expect(drawer).toMatch(/<ArchitectPanel sharedState=\{architectDraft\}/);
+    expect(drawer).toMatch(/<MoneyPennyWalletArchitect personaIdHint=\{effectivePersonaId\} sharedState=\{architectDraft\}/);
   });
 });

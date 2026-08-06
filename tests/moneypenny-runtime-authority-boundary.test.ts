@@ -66,6 +66,12 @@ const RECEIPT_SERVICE_PATH = 'services/receipts/activityReceiptService.ts';
 const DVN_PIPELINE_PATH = 'services/dvn/activityReceiptDvnPipeline.ts';
 const WALLET_RUNTIME_PATH = 'app/components/wallet/MoneyPennyWalletRuntime.tsx';
 const WALLET_ARCHITECT_PATH = 'app/components/wallet/MoneyPennyWalletArchitect.tsx';
+// 2026-08-06 — the intent/result state + personaFetch calls that used to be
+// hand-copied in both ArchitectPanel.tsx and MoneyPennyWalletArchitect.tsx
+// were extracted into this ONE shared hook (so expand/collapse shows the
+// same conversation instead of two independent copies). The personaFetch
+// property now lives here, not in either component file.
+const ARCHITECT_DRAFT_HOOK_PATH = 'hooks/useArchitectDraft.ts';
 const WALLET_DRAWER_PATH = 'app/components/content/SmartWalletDrawer.tsx';
 const AGREEMENT_SERVICE_PATH = 'services/constitutional/constitutionalAgreement.ts';
 const PERSONHOOD_PROOF_PATH = 'services/passport/personhoodProof.ts';
@@ -343,7 +349,13 @@ describe('MoneyPenny wallet surface (SmartWalletDrawer) — same authority bound
   it('MoneyPennyWalletArchitect uses personaFetch, never raw fetch', () => {
     const code = stripComments(readSource(WALLET_ARCHITECT_PATH));
     expect(code).not.toMatch(/[^A-Za-z]fetch\(/);
-    expect(code).toContain('personaFetch(');
+    // The personaFetch calls live in the shared useArchitectDraft hook now
+    // (extracted 2026-08-06); this component must still route through it
+    // rather than calling fetch directly.
+    const hookCode = stripComments(readSource(ARCHITECT_DRAFT_HOOK_PATH));
+    expect(hookCode).not.toMatch(/[^A-Za-z]fetch\(/);
+    expect(hookCode).toContain('personaFetch(');
+    expect(code).toContain('useArchitectDraft(');
   });
 
   it('SmartWalletDrawer wires Architect/Runtime into the ONE unified MoneyPenny mode rail — Chat stays the default', () => {

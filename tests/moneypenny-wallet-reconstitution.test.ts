@@ -107,7 +107,10 @@ describe('MoneyPenny wallet: expand never navigates — full Runtime/Architect s
     const code = stripComments(readSource(WALLET_DRAWER_PATH));
     expect(code).toMatch(/import \{ ArchitectPanel \} from ["']@\/app\/\(shell\)\/moneypenny\/components\/ArchitectPanel["']/);
     expect(code).toMatch(/import \{ RuntimePanel \} from ["']@\/app\/\(shell\)\/moneypenny\/components\/RuntimePanel["']/);
-    expect(code).toContain('<ArchitectPanel />');
+    // ArchitectPanel takes a `sharedState` prop as of 2026-08-06 (one
+    // Architect conversation shared with the compact wallet view); RuntimePanel
+    // is unchanged.
+    expect(code).toMatch(/<ArchitectPanel sharedState=\{architectDraft\} \/>/);
     expect(code).toContain('<RuntimePanel />');
   });
 });
