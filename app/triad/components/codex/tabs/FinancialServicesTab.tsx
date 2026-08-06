@@ -518,6 +518,27 @@ export function FinancialServicesTab() {
           </div>
         )}
 
+        {/*
+          The agent/capability pair this click actually binds — shown right
+          above the buttons (operator report, 2026-08-06: an agreement got
+          formed+authorized for "agr-cap-financial-intelligence-agent-nakamoto",
+          which does not exist — the real runtime invocation uses
+          "aigent-nakamoto", a DIFFERENT identifier scheme from the Journey
+          Ratify stage's "agent-<slug>" convention shown a screen away. The
+          two schemes are real and both in live use; nothing here previously
+          told the operator which one this panel was about to bind). Making
+          the exact agreementId visible catches a mismatch before the click
+          instead of a "not found" 400 after it.
+        */}
+        <div className="mt-1 text-[11px] text-slate-500">
+          Will bind: <span className="font-mono text-slate-400">{agreementId}</span>
+          {agentOptionsLoaded && agentOptions.length > 0 && !agentOptions.some((o) => o.id === agentRef) && (
+            <span className="ml-2 text-amber-400">
+              ⚠ "{agentRef}" is not one of the Service Ready agents below — pick from the dropdown above before
+              forming/authorizing, or this agreement will never match a real invocation.
+            </span>
+          )}
+        </div>
         {/* Buttons at the BOTTOM — beneath the agreement in both states. */}
         <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-800 pt-3">
           <button onClick={() => void doAgreement("form")} disabled={agrBusy || !foEntitled} className="rounded-lg border border-slate-700 bg-slate-800/50 px-3 py-1.5 text-sm text-slate-200 hover:bg-slate-700/50 disabled:opacity-50">Form</button>
