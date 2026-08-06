@@ -404,6 +404,35 @@ export type AuthorizationResult<T> =
       diagnostics?: AuthorizationAttemptDiagnostics;
       /** The complete, untruncated `enable_pulse_monitoring` response — see NormalizedMcpSubmissionResult and Al's change 5. */
       partnerResponse?: NormalizedMcpSubmissionResult;
+      /**
+       * The exact arguments `submitHorizenTransparencyAuthorization` sent to
+       * `enable_pulse_monitoring` — added 2026-08-06 for the Nakamoto
+       * correlation trace (services/horizen/pulseEnrollmentTrace.ts). Never
+       * used for any decision here; a pure diagnostic carry, populated ONLY
+       * by the submit stage. Server-side/log-parity only — never forwarded
+       * to a client-facing route response (same discipline as
+       * escalationPacket below).
+       */
+      submittedArguments?: Record<string, unknown>;
+      /**
+       * The RAW, pre-`normalizeMcpSubmissionResult` MCP tool result for
+       * `enable_pulse_monitoring` — added 2026-08-06, same reason as
+       * `submittedArguments`. `partnerResponse` above is the interpreted
+       * form every existing caller already consumes; this is the exact bytes
+       * Horizen returned, before any interpretation, which the correlation
+       * trace's decision contract requires and no existing caller reads.
+       */
+      rawSubmitResult?: unknown;
+      /**
+       * The RAW `get_onboarding_status` MCP tool result from THIS reread —
+       * added 2026-08-06, same reason. `verifyHorizenTransparencyActivation`
+       * already computes `statusResult` internally; this exposes it rather
+       * than only the classified ok/refusalCode/detail every existing caller
+       * reads. Never used for any decision in this module.
+       */
+      rawStatusResult?: unknown;
+      /** The exact arguments this reread sent to the status tool — same diagnostic-only carry as `submittedArguments`. */
+      statusArgsUsed?: Record<string, unknown>;
     }
   | {
       ok: false;
@@ -422,6 +451,11 @@ export type AuthorizationResult<T> =
        * notion of "retryable" cannot silently drift apart.
        */
       retryable?: boolean;
+      /** See the `ok: true` branch's doc comment — same diagnostic-only carries, populated on the refusal paths that still reached the submit/status call. */
+      submittedArguments?: Record<string, unknown>;
+      rawSubmitResult?: unknown;
+      rawStatusResult?: unknown;
+      statusArgsUsed?: Record<string, unknown>;
     };
 
 // ── Injected dependencies (never touched by Phase 1 tests — always mocked) ──
@@ -1597,6 +1631,8 @@ export async function submitHorizenTransparencyAuthorization(
       // The full partner body, verbatim — never only `describeToolResultShape`'s
       // summary (Al's change 5: "The actual text is necessary evidence").
       partnerResponse: normalizeMcpSubmissionResult(submitResult),
+      submittedArguments: submitArgs,
+      rawSubmitResult: submitResult,
     };
   }
 
@@ -1638,7 +1674,7 @@ export async function submitHorizenTransparencyAuthorization(
       refusalDetail: detail,
       partnerStatus: normalized.partnerMessage ?? undefined,
     });
-    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail, partnerResponse: normalized };
+    return { ok: false, refusalCode: 'HORIZEN_SUBMISSION_REJECTED', detail, partnerResponse: normalized, submittedArguments: submitArgs, rawSubmitResult: submitResult };
   }
 
   /*
@@ -1663,6 +1699,8 @@ export async function submitHorizenTransparencyAuthorization(
     ok: true,
     value: { submissionRef: normalized.submissionRef ?? null, partnerResponse: normalized },
     partnerResponse: normalized,
+    submittedArguments: submitArgs,
+    rawSubmitResult: submitResult,
   };
 }
 
@@ -1862,7 +1900,7 @@ export async function verifySignatureIntegrity(
  * quotes, so a literal `'"active"'` search never matches — this joins the
  * actual text bodies instead of stringifying the wrapper around them.
  */
-function flattenToolResultText(result: McpToolResult | null | undefined): string {
+export function flattenToolResultText(result: McpToolResult | null | undefined): string {
   if (Array.isArray(result?.content)) {
     return result!.content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join(' ').toLowerCase();
   }
@@ -1974,7 +2012,7 @@ export async function verifyHorizenTransparencyActivation(
       refusalDetail: detail,
       partnerStatus: rawStatus,
     });
-    return { ok: false, refusalCode: 'PARTNER_NOT_ENROLLED', detail, retryable: true };
+    return { ok: false, refusalCode: 'PARTNER_NOT_ENROLLED', detail, retryable: true, rawStatusResult: statusResult, statusArgsUsed: statusArgs };
   }
 
   if (enrollmentState === 'PENDING_CONVERGENCE') {
@@ -2011,6 +2049,8 @@ export async function verifyHorizenTransparencyActivation(
         `Horizen's authoritative reread did not (yet) report Pulse as enabled, and ${because}. The authorization is ` +
         `unchanged and still submitted — nothing needs re-authorizing or re-signing. Re-check status to resolve it. ` +
         `Partner state read: ${rawStatus}`,
+      rawStatusResult: statusResult,
+      statusArgsUsed: statusArgs,
     };
   }
   // enrollmentState === 'CONFIRMED' falls through to the confirmation path below.
@@ -2045,7 +2085,7 @@ export async function verifyHorizenTransparencyActivation(
     receiptRef: receiptRef ?? undefined,
   });
 
-  return { ok: true, value: { confirmed: true } };
+  return { ok: true, value: { confirmed: true }, rawStatusResult: statusResult, statusArgsUsed: statusArgs };
 }
 
 // ── Full pipeline convenience wrapper (Phase 1 acceptance criterion) ────────
@@ -2175,5 +2215,13 @@ export async function runHorizenTransparencyAuthorization(
     value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null },
     diagnostics,
     partnerResponse,
+    // Forwarded from the submit/verify stages' own additive diagnostic
+    // fields (2026-08-06, the Nakamoto correlation trace) — this wrapper's
+    // control flow, stage order and decisions are unchanged; these three
+    // were simply never threaded through to its OWN final return before.
+    submittedArguments: submitted.submittedArguments,
+    rawSubmitResult: submitted.rawSubmitResult,
+    rawStatusResult: verified.rawStatusResult,
+    statusArgsUsed: verified.statusArgsUsed,
   };
 }

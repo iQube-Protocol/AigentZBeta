@@ -21,6 +21,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Clock, Loader2, ShieldAlert, XCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
+import { PulseEnrollmentTracePanel } from './PulseEnrollmentTracePanel';
 
 const DISCLOSURE_SCOPE = ['pulse-monitoring', 'pnl-disclosure'] as const;
 
@@ -395,31 +396,78 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
     );
   }
 
-  if (horizen.pulse?.enabled && horizen.pnl?.disclosureAuthorized) {
+  /*
+   * The correlated enrollment trace is a DIAGNOSTIC surface, additive below
+   * every branch from here down (every branch that has a real tokenId to
+   * trace against) — never a replacement for Authorize/"Check status again"
+   * above it. See PulseEnrollmentTracePanel.tsx's own header.
+   */
+  const tracePanel = <PulseEnrollmentTracePanel agentSlug={agentSlug} />;
+
+  /*
+   * PULSE AND P&L ARE TWO DISTINCT EVIDENCE BLOCKS, NEVER ONE "SOLVED ITEM"
+   * (operator directive, 2026-08-06: "Pulse and P&L should not be described
+   * as one solved item... unless Horizen's contract genuinely activates both
+   * in the same operation, one must not be inferred from the other").
+   *
+   * `horizen.pnl?.disclosureAuthorized` is written by
+   * agentCardEnrichment.ts UNCONDITIONALLY whenever Pulse's OWN authoritative
+   * reread confirms — there has never been an independent partner reread for
+   * P&L specifically (no separate tool, no separate status check). Rendering
+   * that as a second green checkmark beside Pulse's would assert a
+   * confirmation this integration does not actually have evidence for. This
+   * block still names the fact plainly rather than hiding it, and gates on
+   * Pulse's OWN evidence alone — never AND'd with P&L's inferred flag, which
+   * is exactly the conflation that used to collapse two questions into one.
+   */
+  if (horizen.pulse?.enabled) {
     return (
-      <div className="flex items-start gap-2 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-3 text-xs text-emerald-200">
-        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <div>
-          <p className="font-medium">Pulse monitoring and P&amp;L disclosure authorized</p>
-          <p className="mt-1 text-emerald-200/80">
-            Horizen has confirmed activation. This establishes Standing eligibility only — it does not
-            accrue Standing and does not enlarge {agentDisplayName}&apos;s constitutional authority.
-          </p>
-          {/*
-            AUTHORIZED ≠ HEALTHY (operator brief, 2026-08-06, after Horizen
-            confirmed enrollment succeeded but every health probe was 404ing).
-            Enrollment is a one-time authorization act; health monitoring is
-            an ongoing, separate signal this component has no live read on —
-            so this states what enrollment does and does not establish,
-            rather than implying continuous monitoring is already succeeding.
-          */}
-          <p className="mt-2 border-t border-emerald-900/40 pt-2 text-emerald-200/60">
-            Enrollment does not by itself mean health checks are passing. SLA receipts begin only once
-            Horizen's own probes reach {agentDisplayName}&apos;s registered health endpoint and receive HTTP
-            2xx — check the Agent Bench / Pulse leaderboard for current uptime.
-          </p>
+      <>
+        <div className="flex items-start gap-2 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-3 text-xs text-emerald-200">
+          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            <p className="font-medium">Pulse monitoring authorized</p>
+            <p className="mt-1 text-emerald-200/80">
+              Horizen has confirmed activation. This establishes Standing eligibility only — it does not
+              accrue Standing and does not enlarge {agentDisplayName}&apos;s constitutional authority.
+            </p>
+            {/*
+              AUTHORIZED ≠ HEALTHY (operator brief, 2026-08-06, after Horizen
+              confirmed enrollment succeeded but every health probe was 404ing).
+              Enrollment is a one-time authorization act; health monitoring is
+              an ongoing, separate signal this component has no live read on —
+              so this states what enrollment does and does not establish,
+              rather than implying continuous monitoring is already succeeding.
+            */}
+            <p className="mt-2 border-t border-emerald-900/40 pt-2 text-emerald-200/60">
+              Enrollment does not by itself mean health checks are passing. SLA receipts begin only once
+              Horizen's own probes reach {agentDisplayName}&apos;s registered health endpoint and receive HTTP
+              2xx — check the Agent Bench / Pulse leaderboard for current uptime.
+            </p>
+          </div>
         </div>
-      </div>
+        {/* P&L's OWN evidence block — never merged into Pulse's card above. */}
+        <div className="mt-2 flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-300">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+          <div>
+            <p className="font-medium text-slate-200">
+              P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'recorded, not independently confirmed' : 'not yet authorized'}
+            </p>
+            <p className="mt-1 text-slate-400">
+              {horizen.pnl?.disclosureAuthorized
+                ? `Recorded as authorized via the SAME enable_pulse_monitoring call that confirmed Pulse — there is no ` +
+                  `separate Horizen tool or authoritative reread for P&L disclosure specifically. Treat this as ` +
+                  `provisional evidence, not an independent partner confirmation, until Horizen's contract is confirmed ` +
+                  `to genuinely activate both together.`
+                : `Not authorized yet — no evidence exists for P&L disclosure independent of Pulse.`}
+            </p>
+            {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
+              <p className="mt-1 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>
+            )}
+          </div>
+        </div>
+        {tracePanel}
+      </>
     );
   }
 
@@ -431,6 +479,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
    */
   if (status?.state === 'pending') {
     return (
+      <>
       <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
         <div className="flex items-start gap-2">
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -453,6 +502,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         <p className="mt-2 text-amber-200/60">Checking automatically every {Math.round(STATUS_POLL_MS / 1000)}s.</p>
         {attemptFooter}
       </div>
+      {tracePanel}
+      </>
     );
   }
 
@@ -476,6 +527,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
    */
   if (status?.state === 'owner-source-conflict') {
     return (
+      <>
       <div className="rounded-md border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200">
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -514,11 +566,14 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         )}
         {attemptFooter}
       </div>
+      {tracePanel}
+      </>
     );
   }
 
   if (status?.state === 'not-enrolled') {
     return (
+      <>
       <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -564,6 +619,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         )}
         {attemptFooter}
       </div>
+      {tracePanel}
+      </>
     );
   }
 
@@ -581,6 +638,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
   if (status?.state === 'denied' || status?.state === 'expired') {
     const isExpired = status.state === 'expired';
     return (
+      <>
       <div className="rounded-md border border-rose-900/60 bg-rose-950/20 p-3 text-xs text-rose-200">
         <div className="flex items-start gap-2">
           <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -612,10 +670,13 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         {error && <p className="mt-2 text-rose-300">{error}</p>}
         {attemptFooter}
       </div>
+      {tracePanel}
+      </>
     );
   }
 
   return (
+    <>
     <div className="rounded-md border border-slate-800 bg-slate-950/40 p-3">
       <p className="text-xs text-slate-300">
         Authorizing enables Horizen to monitor {agentDisplayName}&apos;s Pulse status and disclose P&amp;L
@@ -638,6 +699,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
       {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
       {attemptFooter}
     </div>
+    {tracePanel}
+    </>
   );
 }
 
