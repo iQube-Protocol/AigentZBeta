@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { buildCodexUrl } from '@/utils/codex-nav';
+import { deriveCapabilityAction, capabilitySignalFromDescriptors } from '@/services/iqube/legibility/capabilityAction';
 
 type BenchLifecycleState = 'candidate' | 'invited' | 'in-admission' | 'service-ready' | 'engaged';
 type BenchRowSource = 'marketa' | 'registrable-agent';
@@ -226,6 +227,27 @@ function PersistentCardHeader({ row }: { row: AgentBenchRow }) {
             ))}
           </div>
         )}
+        {/* Capability-derived action (Agent Bench / aigentMe Specialist
+            Orchestration brief) — one projection, services/iqube/legibility/
+            capabilityAction.ts, shared with the Financial Services selector
+            and any future aigentMe capability chip. Silent when the row has
+            no registry asset yet (capabilityDescriptors empty) rather than
+            asserting "no capability" for a row that simply hasn't reached
+            the registry. */}
+        {row.capabilityDescriptors.length > 0 && (() => {
+          const action = deriveCapabilityAction(capabilitySignalFromDescriptors(row.capabilityDescriptors));
+          const KIND_STYLE: Record<string, string> = {
+            chat: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300',
+            invoke: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+            inspect: 'border-violet-500/40 bg-violet-500/15 text-violet-300',
+            none: 'border-slate-700 bg-slate-800/40 text-slate-500',
+          };
+          return (
+            <div className="mt-1.5">
+              <span className={`rounded border px-1.5 py-0.5 text-[10px] ${KIND_STYLE[action.kind]}`}>{action.label}</span>
+            </div>
+          );
+        })()}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           {row.registry && (
             <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">

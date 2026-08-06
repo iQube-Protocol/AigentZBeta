@@ -64,7 +64,16 @@ const STATUS_STYLE: Record<StepTrace["status"], string> = {
 const PANEL = "rounded-xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm";
 
 const DEFAULT_CAP = "cap-financial-intelligence";
+// Fallback only — used when the Agent Bench read model has no Service Ready
+// agent yet (e.g. DB unavailable). The selector below is registry-driven;
+// this hardcoded string is never the default path once real rows exist.
 const DEFAULT_AGENT = "agent-financial-intelligence";
+const MONEYPENNY_RUNTIME_ID = "aigent-moneypenny";
+
+interface AgentOption {
+  id: string;
+  label: string;
+}
 
 type Domain = "intelligence" | "investment" | "market";
 const DOMAIN_LABEL: Record<Domain, string> = { intelligence: "Financial Intelligence", investment: "Investment Operations", market: "Market Operations" };
@@ -91,6 +100,38 @@ export function FinancialServicesTab() {
   const [agreements, setAgreements] = useState<AgreementRow[]>([]);
   const [agrBusy, setAgrBusy] = useState(false);
   const [agrNote, setAgrNote] = useState<string | null>(null);
+
+  // Registry-driven agent selector (Agent Bench §4/§5 — "make the existing
+  // free-text field registry-driven"). Options are Service Ready + Engaged
+  // rows from the SAME read model Agent Bench itself renders — never a
+  // parallel agent list. Defaults to MoneyPenny when she is Service Ready;
+  // otherwise the first eligible agent; otherwise the DEFAULT_AGENT fallback
+  // so the tab stays usable even with an empty/unavailable Bench.
+  const [agentOptions, setAgentOptions] = useState<AgentOption[]>([]);
+  const [agentOptionsLoaded, setAgentOptionsLoaded] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await personaFetch("/api/marketa/activation/agent-bench", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const rows = [...(data?.rows?.["service-ready"] ?? []), ...(data?.rows?.engaged ?? [])];
+        const options: AgentOption[] = rows.map((r: { candidateId: string; name: string }) => ({ id: r.candidateId, label: r.name }));
+        if (!alive || options.length === 0) return;
+        setAgentOptions(options);
+        const moneyPenny = options.find((o) => o.id === MONEYPENNY_RUNTIME_ID);
+        setAgentRef(moneyPenny?.id ?? options[0].id);
+      } catch {
+        /* best-effort — falls back to DEFAULT_AGENT */
+      } finally {
+        if (alive) setAgentOptionsLoaded(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Commercial tier gating (Increment 3b) — reuses the existing plan, no
   // parallel tiering. Founder Office experience needs ventureLabAccess; Advanced
@@ -336,7 +377,27 @@ export function FinancialServicesTab() {
           </label>
           <label className="block text-xs text-slate-400">
             Agent
-            <input value={agentRef} onChange={(e) => setAgentRef(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600" />
+            {agentOptions.length > 0 ? (
+              <select
+                value={agentOptions.some((o) => o.id === agentRef) ? agentRef : agentOptions[0].id}
+                onChange={(e) => setAgentRef(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+              >
+                {agentOptions.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                    {o.id === MONEYPENNY_RUNTIME_ID ? " (default orchestrator)" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={agentRef}
+                onChange={(e) => setAgentRef(e.target.value)}
+                title={agentOptionsLoaded ? "No Service Ready agent found in the Agent Bench — using the fallback reference" : "Loading Service Ready agents…"}
+                className="mt-1 w-full rounded-lg border border-slate-800 bg-slate-950/50 p-2 text-sm text-slate-200 outline-none focus:border-slate-600"
+              />
+            )}
           </label>
         </div>
         <div className="flex flex-wrap gap-2">
