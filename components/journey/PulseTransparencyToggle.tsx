@@ -253,8 +253,13 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
   /*
    * DENIED / EXPIRED — a real verdict exists (Horizen explicitly rejected,
    * a local integrity check refused, or the request's own window lapsed
-   * before reaching Horizen). Only NOW is "Authorize again" the honest
-   * label — the store safely resets a non-SUBMITTED row on the next attempt.
+   * before reaching Horizen).
+   *
+   * AL'S BRIEF (2026-08-06): "Separate these operations explicitly. Refresh
+   * status may reread the existing request. Retry authorization must always:
+   * mark the previous attempt expired, generate a fresh nonce, call
+   * build_pulse_auth_message again, sign the newly returned message, and
+   * create a new authorization-attempt record." Two buttons, not one.
    */
   if (status?.state === 'denied' || status?.state === 'expired') {
     const isExpired = status.state === 'expired';
@@ -271,13 +276,22 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
             </p>
           </div>
         </div>
-        <button
-          onClick={() => void authorize()}
-          disabled={authorizing}
-          className="mt-3 rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40 disabled:opacity-50"
-        >
-          {authorizing ? 'Authorizing…' : 'Authorize again'}
-        </button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            onClick={() => void authorize()}
+            disabled={authorizing}
+            className="rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 text-xs font-medium text-purple-200 transition-colors hover:bg-purple-900/40 disabled:opacity-50"
+          >
+            {authorizing ? 'Authorizing…' : 'Create fresh authorization'}
+          </button>
+          <button
+            onClick={() => void checkStatus()}
+            disabled={checkingStatus}
+            className="rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/40 disabled:opacity-50"
+          >
+            {checkingStatus ? 'Checking…' : 'Refresh partner status'}
+          </button>
+        </div>
       </div>
     );
   }

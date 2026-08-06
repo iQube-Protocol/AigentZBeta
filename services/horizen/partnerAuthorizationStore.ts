@@ -347,8 +347,14 @@ export async function createPartnerAuthorizationRequest(
      * this function's own header — so a row already existing under this id
      * is the expected shape of "the operator clicked Authorize again", not
      * an error. What matters is whether Horizen might already have it:
-     *   - SUBMITTED/CONFIRMED: refuse — resetting here could silently
-     *     abandon a submission that may still resolve. Re-read status instead.
+     *   - CONFIRMED: refuse — resetting could silently abandon a confirmed
+     *     authorization. Re-read status instead.
+     *   - SUBMITTED (recent): refuse — authorization may still be in flight.
+     *     Re-read status instead.
+     *   - SUBMITTED (stale): the request is old enough that it cannot be in
+     *     flight anymore (operator escalation, 2026-08-06: "the request
+     *     carries a short validity window... Horizen's server-side
+     *     reconstruction refuses a stale issuedAt"). Safe to reset and retry.
      *   - anything else (PREPARED/AWAITING_SIGNATURE/SIGNED/REFUSED/EXPIRED/
      *     QUARANTINED): Horizen's state-changing call was never confirmed to
      *     have landed, so it's safe to reset the row with THIS attempt's
@@ -356,15 +362,40 @@ export async function createPartnerAuthorizationRequest(
      *     if this were a fresh row.
      */
     const existing = await getPartnerAuthorizationRequest(input.authorizationId, client);
-    if (existing && (existing.state === 'SUBMITTED' || existing.state === 'CONFIRMED')) {
+    if (existing && existing.state === 'CONFIRMED') {
       return {
         ok: false,
         refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT',
         detail:
-          `authorization "${input.authorizationId}" already exists in state ${existing.state} — Horizen may already ` +
-          `have this authorization on record. Re-read status rather than re-preparing.`,
+          `authorization "${input.authorizationId}" already exists in state ${existing.state} — Horizen has ` +
+          `confirmed activation. Re-read status rather than re-preparing.`,
         existingState: existing.state,
       };
+    }
+
+    // SUBMITTED rows are allowed to reset if they are stale (past the Pulse
+    // validity window), indicating the request is no longer in flight.
+    const PULSE_AUTH_DEFAULT_VALIDITY_MS = 5 * 60 * 1000;
+    let isStaleSubmission = false;
+    if (existing && existing.state === 'SUBMITTED' && existing.issuedAt) {
+      const ageMs = new Date().getTime() - new Date(existing.issuedAt).getTime();
+      isStaleSubmission = ageMs > PULSE_AUTH_DEFAULT_VALIDITY_MS;
+      if (!isStaleSubmission) {
+        return {
+          ok: false,
+          refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT',
+          detail:
+            `authorization "${input.authorizationId}" already exists in state SUBMITTED (recent) — Horizen may already ` +
+            `have this authorization on record. Re-read status rather than re-preparing.`,
+          existingState: existing.state,
+        };
+      }
+    }
+    if (isStaleSubmission) {
+      console.log(
+        `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" was in SUBMITTED state with ` +
+          `issuedAt ${existing!.issuedAt} — older than Pulse's validity window. Resetting for a fresh ceremony.`,
+      );
     }
     const { data: resetData, error: resetError } = await client
       .from(TABLE)
