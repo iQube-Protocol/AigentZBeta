@@ -1,8 +1,10 @@
 # Governed Capability Invocation — Design Pass (Phase 4 of the Agent Bench / aigentMe Specialist Orchestration brief)
 
-**Date:** 2026-08-06 (revised same day — operator correction, §0)
-**Status:** Design only — produced before coding, per operator instruction. No code in this pass. Extends `services/registry/invocationGateway.ts`; does **not** build a third gate (inv.engineering.036/037).
+**Date:** 2026-08-06 (revised same day — operator correction, §0; implemented same day, §8-update below)
+**Status:** The §8 code surface is built (gates, resolution, `invokeCapability()`, receipt types + migration, OS-9 canary tests — all passing). Extends `services/registry/invocationGateway.ts`; did **not** build a third gate (inv.engineering.036/037). Still NOT built, exactly as scoped in §8's table: MoneyPenny's own proposal path (the decision logic for *when* to call a helper), Agent Bench's invoke-action rewire, and `askSpecialist`'s Nakamoto-branch follow-on — `invokeCapability()` has no caller yet outside its own test suite.
 **Scope of the first implementation:** `aigentMe → MoneyPenny → Nakamoto`, `preview`/`shadow` execution modes only, for the `bitcoin_decentralisation_expertise` capability. No authoritative money-moving execution. No generic multi-agent planning, autonomous payments, or cross-domain orchestration.
+
+**Implementation note (2026-08-06):** receipts are written via `createActivityReceipt` directly (`capability_invocation_requested/authorized/refused/completed`, the last three DVN-anchorable), NOT via `emitReceipt`/`ReceiptEventType` (the registry ingestion factory's double-write projection) — that map is intentionally coarse (pipeline events fold into `artifact_created`/`knowledge_curated`, `asset.published` the one pinned exception; `tests/artifact-runtime-service.test.ts` enforces this) and a capability invocation is not a registry-ingestion event. `personaId` for receipt attribution is a parameter separate from the envelope's T1-safe `principalRef`, supplied by the (not-yet-built) caller from its own `getActivePersona` resolution — never derived from `principalRef`.
 
 This doc answers the operator's nine required items in order, revised per §0.
 

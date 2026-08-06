@@ -314,7 +314,17 @@ export type ActivityActionType =
   // services/invariants/discoveryEngine.ts's repairPromotedCandidateInvariantLink /
   // excludeCandidateFromCrystal.
   | 'population_record_repaired'
-  | 'population_record_excluded';
+  | 'population_record_excluded'
+  // Governed capability invocation (Phase 4, 2026-08-06 — see
+  // services/registry/invocationGateway.ts::invokeCapability and
+  // codexes/packs/agentiq/updates/2026-08-06_governed-capability-invocation-design.md
+  // §8/§9). authorized/refused/completed are DVN-anchorable — each is a
+  // constitutional decision (or its execution outcome) worth a tamper-evident
+  // record; requested stays local (pre-decision, high volume by design).
+  | 'capability_invocation_requested'
+  | 'capability_invocation_authorized'
+  | 'capability_invocation_refused'
+  | 'capability_invocation_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

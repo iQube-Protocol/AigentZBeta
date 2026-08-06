@@ -267,6 +267,15 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   // addition-only change. A trust-assessment change is audit-worthy by its
   // nature; see services/registry/trustDimensions.ts.
   'trust_dimension_incremented',
+  // Governed capability invocation (Phase 4, 2026-08-06) — same permitted
+  // addition-only change. Each is a constitutional decision (authorized/
+  // refused) or its execution outcome (completed); 'requested' is
+  // deliberately excluded — pre-decision, high volume by design, same
+  // discipline as 'invariant_discovered' above. See
+  // codexes/packs/agentiq/updates/2026-08-06_governed-capability-invocation-design.md §9.
+  'capability_invocation_authorized',
+  'capability_invocation_refused',
+  'capability_invocation_completed',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
