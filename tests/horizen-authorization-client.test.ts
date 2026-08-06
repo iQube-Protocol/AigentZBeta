@@ -57,9 +57,15 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
       return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used` };
     }
     usedNonces.add(nonceKey);
+    // Mirrors the real store's collision handling (partnerAuthorizationStore.ts)
+    // closely enough for tests that assert on wasReset/previousIssuedAt/
+    // previousNonce — a row already existing under this deterministic id is
+    // a RESET (retry for the same agent), never a fresh insert.
+    const existing = rows.get(input.authorizationId);
+    const wasReset = existing !== undefined;
     const record = { ...input, state: 'PREPARED', signerAddress: null, signatureRef: null, submissionRef: null, partnerStatus: null, receiptRef: null, refusalCode: null, refusalDetail: null, payloadHash: null, createdAt: 'now', updatedAt: 'now' };
     rows.set(input.authorizationId, record);
-    return { ok: true, record };
+    return { ok: true, record, wasReset, previousIssuedAt: existing?.issuedAt ?? null, previousNonce: existing?.nonce ?? null };
   }),
   getPartnerAuthorizationRequest: vi.fn(async (id: string) => rows.get(id) ?? null),
   // The ceremony now probes the store BEFORE calling Horizen (operator,
@@ -1051,5 +1057,59 @@ describe('PULSE_AUTHORIZATION_EXPIRED — staleness guard + bounded auto-retry (
       now: FIXED_NOW,
     });
     expect(result.ok).toBe(true);
+  });
+});
+
+/*
+ * FRESH_AUTHORIZATION_NOT_CREATED — the hard local guard (Al's audit brief,
+ * 2026-08-06, after three "Create fresh authorization" presses all
+ * reproduced the exact same messageHash/issuedAt/signaturePrefix). A genuine
+ * retry must call build_pulse_auth_message again and get back something
+ * that DIFFERS — if it comes back byte-identical to what is already
+ * persisted for this authorizationId, this is not a fresh ceremony and must
+ * refuse LOCALLY before ever reaching sign/submit.
+ */
+describe('FRESH_AUTHORIZATION_NOT_CREATED — replay guard (2026-08-06)', () => {
+  it('refuses when a second prepare call returns an issuedAt+message identical to the already-persisted attempt', async () => {
+    const authorizationId = 'auth-replay-guard';
+    const input = baseInput({ authorizationId });
+
+    const first = await prepareHorizenTransparencyAuthorization(input, { mcpClient: fakeMcpClient(), now: FIXED_NOW });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const persistedAfterFirst = rows.get(authorizationId);
+    expect(persistedAfterFirst.state).toBe('PREPARED');
+
+    // SAME mcp client fixture — build_pulse_auth_message returns the exact
+    // same message/issuedAt it returned last time, simulating a partner-side
+    // cache or a call that never actually reached Horizen fresh.
+    const second = await prepareHorizenTransparencyAuthorization(input, { mcpClient: fakeMcpClient(), now: FIXED_NOW });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.refusalCode).toBe('FRESH_AUTHORIZATION_NOT_CREATED');
+    expect(second.diagnostics?.issuedAt).toBe(first.value.envelope.issuedAt);
+    expect(second.diagnostics?.messageHash).toBe(first.value.envelope.messageHash);
+    // The old row is untouched — never overwritten by the rejected replay.
+    expect(rows.get(authorizationId)).toEqual(persistedAfterFirst);
+  });
+
+  it('proceeds normally when the second attempt genuinely differs (new issuedAt) from the persisted attempt', async () => {
+    const authorizationId = 'auth-replay-guard-genuine-retry';
+    const input = baseInput({ authorizationId });
+
+    const first = await prepareHorizenTransparencyAuthorization(input, { mcpClient: fakeMcpClient(), now: FIXED_NOW });
+    expect(first.ok).toBe(true);
+
+    // A genuinely fresh build response — different issuedAt, different message.
+    const freshMessage = 'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T12:03:00.000Z';
+    const laterNow = () => new Date('2026-07-31T12:03:00.000Z');
+    const second = await prepareHorizenTransparencyAuthorization(input, {
+      mcpClient: fakeMcpClient({ buildMessage: freshMessage }),
+      now: laterNow,
+    });
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.envelope.issuedAt).not.toBe((first as any).value.envelope.issuedAt);
+    expect(second.diagnostics?.rowAction).toBe('reset');
   });
 });

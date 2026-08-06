@@ -241,7 +241,18 @@ async function authorize(request: NextRequest) {
   });
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, refusalCode: result.refusalCode, error: result.detail }, { status: 422 });
+    /*
+     * `diagnostics` (attemptId/nonce/issuedAt/messageHash/rowAction) rides
+     * along on every refusal that reached at least the prepare stage — Al's
+     * audit brief, 2026-08-06: "display a small attempt header... that will
+     * make stale replay immediately visible." Never the escalationPacket
+     * (exact message/signature) — that stays server-log-only, per its own
+     * doc comment in authorizationClient.ts.
+     */
+    return NextResponse.json(
+      { ok: false, refusalCode: result.refusalCode, error: result.detail, diagnostics: result.diagnostics },
+      { status: 422 },
+    );
   }
 
   const enrichment = await enrichAgentCardAfterHorizenAuthorization({
@@ -266,6 +277,7 @@ async function authorize(request: NextRequest) {
       receiptRef: result.value.receiptRef,
       enrichmentRefusalCode: enrichment.refusalCode,
       enrichmentError: enrichment.detail,
+      diagnostics: result.diagnostics,
     });
   }
 
@@ -274,5 +286,6 @@ async function authorize(request: NextRequest) {
     authorizationId: result.value.authorizationId,
     receiptRef: result.value.receiptRef,
     receiptRefs: enrichment.receiptRefs,
+    diagnostics: result.diagnostics,
   });
 }

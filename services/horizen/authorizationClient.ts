@@ -28,7 +28,7 @@
  * never collapsed).
  */
 
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { HORIZEN_NETWORK_FACTS, parseAgentId, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
 import { findCompatibleTool, matchSchemaFields, missingRequiredFields, extractStringField, extractPartnerMessage, extractStructuredMessageField, extractIssuedAt, describeToolResultShape, type McpTool, type McpToolResult } from './mcpSchemaMatch';
@@ -181,6 +181,21 @@ export type HorizenAuthorizationRefusalCode =
    * happening and deserves a human look rather than a silent third retry.
    */
   | 'PULSE_AUTHORIZATION_EXPIRED'
+  /**
+   * INSTRUMENTATION + HARD GUARD, NOT A FIX (Al's audit brief, 2026-08-06,
+   * after three "Create fresh authorization" presses all reproduced the
+   * exact same messageHash/issuedAt/signaturePrefix): a fresh ceremony run
+   * must produce a build_pulse_auth_message response that DIFFERS from the
+   * one already persisted for this authorizationId — an identical
+   * issuedAt+message means either Horizen returned a cached response or this
+   * client never actually made a live call, and signing/submitting it again
+   * would reproduce the SAME rejection for the SAME reason with no new
+   * information. Checked immediately after a successful (non-stale) build
+   * attempt, BEFORE this attempt's nonce/issuedAt overwrite the previous
+   * row — so the comparison is always against the row as it stood before
+   * THIS click, and the old refused row is never touched when this fires.
+   */
+  | 'FRESH_AUTHORIZATION_NOT_CREATED'
   | 'STATE_MISMATCH';
 
 /**
@@ -254,14 +269,39 @@ export interface HorizenEscalationPacket {
   capturedAt: string;
 }
 
+/**
+ * Per-click audit trail (Al's audit brief, 2026-08-06 — "Capture and show
+ * the HTTP response for each click, including: authorization request ID,
+ * nonce, issuedAt, message hash, request state, whether the row was
+ * inserted or reused"). Attached whenever a build attempt actually ran,
+ * success or refusal, so the UI can render an "Attempt: ..." header that
+ * makes replay immediately visible without reading CloudWatch. `attemptId`
+ * is generated fresh per CALL (never the deterministic, per-agent
+ * `authorizationId`) — it exists purely so the operator can see that THIS
+ * click is a distinct event from the last one, even when the persisted
+ * authorizationId is (by design) the same row.
+ */
+export interface AuthorizationAttemptDiagnostics {
+  attemptId: string;
+  authorizationId: string;
+  nonce: string | null;
+  issuedAt: string;
+  messageHash: string;
+  state: string;
+  rowAction: 'inserted' | 'reset' | 'unknown';
+  preparedAt: string;
+}
+
 export type AuthorizationResult<T> =
-  | { ok: true; value: T }
+  | { ok: true; value: T; diagnostics?: AuthorizationAttemptDiagnostics }
   | {
       ok: false;
       refusalCode: HorizenAuthorizationRefusalCode;
       detail: string;
       /** Populated ONLY for HORIZEN_SUBMISSION_REJECTED, after local signature integrity already passed. See HorizenEscalationPacket's own doc comment for handling requirements. */
       escalationPacket?: HorizenEscalationPacket;
+      /** Populated whenever a build attempt ran before this refusal — see AuthorizationAttemptDiagnostics. */
+      diagnostics?: AuthorizationAttemptDiagnostics;
     };
 
 // ── Injected dependencies (never touched by Phase 1 tests — always mocked) ──
@@ -406,6 +446,8 @@ export interface PrepareHorizenTransparencyAuthorizationInput {
 
 export interface PreparedAuthorization {
   authorizationId: string;
+  /** Fresh per call, never the deterministic authorizationId — see AuthorizationAttemptDiagnostics. */
+  attemptId: string;
   actorPersonaId: string;
   envelope: HorizenTransparencyAuthorization;
   /** The exact partner-supplied message text this envelope's signature must be produced over. Preserved verbatim, never altered. */
@@ -426,6 +468,13 @@ export async function prepareHorizenTransparencyAuthorization(
   input: PrepareHorizenTransparencyAuthorizationInput,
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<PreparedAuthorization>> {
+  // Generated FIRST, unconditionally, and independent of deps.randomNonce
+  // (which governs the PERSISTED nonce, not this diagnostic-only id) — every
+  // diagnostic and refusal below that names an attempt uses this same id, so
+  // a click that fails early (e.g. INVALID_REQUEST) is still a
+  // distinguishable, loggable event.
+  const attemptId = randomUUID();
+
   if (!input.actorPersonaId || !input.aigentQubeId || !input.agentCardHash || !input.controllerWallet || !input.keyRef || !input.scope?.length) {
     return { ok: false, refusalCode: 'INVALID_REQUEST', detail: 'actorPersonaId, aigentQubeId, agentCardHash, controllerWallet, keyRef and a non-empty scope are all required' };
   }
@@ -707,6 +756,45 @@ export async function prepareHorizenTransparencyAuthorization(
     return { ok: false, refusalCode: attempt.refusalCode, detail: attempt.detail };
   }
   const { buildResult, message, issuedAt } = attempt;
+  const messageHash = sha256Hex(message);
+
+  /*
+   * FRESH_AUTHORIZATION_NOT_CREATED — THE HARD LOCAL GUARD (Al's audit
+   * brief, 2026-08-06). The staleness check above already ran on THIS
+   * response's own age; it cannot detect a response that looks
+   * superficially current-enough on age but is actually the same bytes
+   * Horizen (or a caching layer in front of it) returned last time — which
+   * is exactly what three consecutive "Create fresh authorization" presses
+   * reproduced (identical messageHash, identical issuedAt, identical
+   * signature prefix). Compared against the row AS IT STOOD BEFORE this
+   * click — never against anything this attempt is about to write — so a
+   * genuinely fresh build (different issuedAt OR different message text)
+   * always passes, and the prior REFUSED/EXPIRED row is left untouched when
+   * this fires (Al: "the old refused row remains immutable for audit").
+   */
+  const priorRecord = await getPartnerAuthorizationRequest(input.authorizationId);
+  if (priorRecord && priorRecord.issuedAt === issuedAt && priorRecord.payloadHash === messageHash) {
+    const detail =
+      `"${buildTool.tool.name}" returned an issuedAt (${issuedAt}) and message identical to the ALREADY-PERSISTED ` +
+      `attempt for this authorization (state: ${priorRecord.state}) — this is not a fresh ceremony. Refusing ` +
+      `locally rather than signing and submitting the same bytes again. The prior record is untouched.`;
+    console.error(`[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}": ${detail}`);
+    return {
+      ok: false,
+      refusalCode: 'FRESH_AUTHORIZATION_NOT_CREATED',
+      detail,
+      diagnostics: {
+        attemptId,
+        authorizationId: input.authorizationId,
+        nonce: priorRecord.nonce,
+        issuedAt,
+        messageHash,
+        state: priorRecord.state,
+        rowAction: 'unknown',
+        preparedAt: now().toISOString(),
+      },
+    };
+  }
 
   const nonce = deps.randomNonce ? deps.randomNonce() : sha256Hex(`${input.authorizationId}:${now().toISOString()}:${Math.random()}`).slice(0, 32);
   const expiresAt = new Date(now().getTime() + (input.expiresInSeconds ?? 900) * 1000).toISOString();
@@ -732,7 +820,21 @@ export async function prepareHorizenTransparencyAuthorization(
     // this used to hardcode NONCE_MISSING_OR_REPLAYED regardless of what the
     // store actually reported, mislabeling e.g. a LOCAL_PERSISTENCE_FAILED
     // schema-drift refusal as a nonce replay.
-    return { ok: false, refusalCode: created.refusalCode, detail: created.detail };
+    return {
+      ok: false,
+      refusalCode: created.refusalCode,
+      detail: created.detail,
+      diagnostics: {
+        attemptId,
+        authorizationId: input.authorizationId,
+        nonce,
+        issuedAt,
+        messageHash,
+        state: created.refusalCode === 'AUTHORIZATION_ALREADY_IN_FLIGHT' ? created.existingState : 'unknown',
+        rowAction: 'unknown',
+        preparedAt: now().toISOString(),
+      },
+    };
   }
 
   const envelope: HorizenTransparencyAuthorization = {
@@ -756,7 +858,7 @@ export async function prepareHorizenTransparencyAuthorization(
     nonce,
     issuedAt,
     expiresAt,
-    messageHash: sha256Hex(message),
+    messageHash,
   };
 
   await updatePartnerAuthorizationRequest(input.authorizationId, { state: 'PREPARED', payloadHash: envelope.messageHash });
@@ -765,12 +867,23 @@ export async function prepareHorizenTransparencyAuthorization(
     ok: true,
     value: {
       authorizationId: input.authorizationId,
+      attemptId,
       actorPersonaId: input.actorPersonaId,
       envelope,
       message,
       buildToolName: buildTool.tool.name,
       buildToolInputSchema: buildTool.tool.inputSchema,
       rawBuildResult: buildResult,
+    },
+    diagnostics: {
+      attemptId,
+      authorizationId: input.authorizationId,
+      nonce,
+      issuedAt,
+      messageHash,
+      state: 'PREPARED',
+      rowAction: created.wasReset ? 'reset' : 'inserted',
+      preparedAt: now().toISOString(),
     },
   };
 }
@@ -1490,6 +1603,10 @@ export async function runHorizenTransparencyAuthorization(
 
   const prepared = await prepareHorizenTransparencyAuthorization(input, shared);
   if (!prepared.ok) return prepared;
+  // Carried through EVERY later exit below (Al's audit brief, 2026-08-06) —
+  // a click that fails at ownership, integrity, or submission is still
+  // traceable to the exact attempt/nonce/issuedAt that prepare produced.
+  const diagnostics = prepared.diagnostics;
 
   /*
    * OWNERSHIP, BEFORE SIGNING (moved here 2026-08-04, al: "Signing is itself
@@ -1508,11 +1625,11 @@ export async function runHorizenTransparencyAuthorization(
       refusalCode: ownerCheck.refusalCode,
       refusalDetail: ownerCheck.detail,
     });
-    return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail };
+    return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail, diagnostics };
   }
 
   const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
-  if (!signed.ok) return signed;
+  if (!signed.ok) return { ...signed, diagnostics };
 
   /*
    * THE DECISIVE LOCAL TEST, BEFORE SUBMISSION (al, 2026-08-04): recover the
@@ -1530,7 +1647,7 @@ export async function runHorizenTransparencyAuthorization(
       refusalCode: integrityCheck.refusalCode,
       refusalDetail: integrityCheck.detail,
     });
-    return { ok: false, refusalCode: integrityCheck.refusalCode, detail: integrityCheck.detail };
+    return { ok: false, refusalCode: integrityCheck.refusalCode, detail: integrityCheck.detail, diagnostics };
   }
 
   const submitted = await submitHorizenTransparencyAuthorization(
@@ -1551,15 +1668,19 @@ export async function runHorizenTransparencyAuthorization(
     },
     shared,
   );
-  if (!submitted.ok) return submitted;
+  if (!submitted.ok) return { ...submitted, diagnostics };
 
   const verified = await verifyHorizenTransparencyActivation(
     prepared.value.authorizationId,
     { actorPersonaId: input.actorPersonaId, registry: input.registry, controllerWallet: input.controllerWallet },
     shared,
   );
-  if (!verified.ok) return verified;
+  if (!verified.ok) return { ...verified, diagnostics };
 
   const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
-  return { ok: true, value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null } };
+  return {
+    ok: true,
+    value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null },
+    diagnostics,
+  };
 }

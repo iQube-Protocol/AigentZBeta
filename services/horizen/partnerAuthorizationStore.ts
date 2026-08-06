@@ -131,7 +131,22 @@ export interface CreatePartnerAuthorizationRequestInput {
 }
 
 export type CreatePartnerAuthorizationRequestResult =
-  | { ok: true; record: PartnerAuthorizationRequestRecord }
+  | {
+      ok: true;
+      record: PartnerAuthorizationRequestRecord;
+      /**
+       * Did this call INSERT a brand-new row, or RESET an existing one under
+       * the same deterministic authorizationId? Al's audit brief, 2026-08-06:
+       * "Capture and show... whether the row was inserted or reused." A
+       * caller that only ever sees `ok: true` cannot otherwise distinguish
+       * "first-ever authorization for this agent" from "retry after a
+       * refusal" — both look identical without this flag.
+       */
+      wasReset: boolean;
+      /** The row's issuedAt/nonce BEFORE this write — null when wasReset is false (nothing existed to compare against). */
+      previousIssuedAt: string | null;
+      previousNonce: string | null;
+    }
   | { ok: false; refusalCode: 'NONCE_MISSING_OR_REPLAYED'; detail: string }
   /**
    * Any OTHER insert failure (e.g. a schema-drift missing column) — a
@@ -311,12 +326,23 @@ function isAuthorizationIdCollision(error: { message?: string; details?: string 
 export async function createPartnerAuthorizationRequest(
   input: CreatePartnerAuthorizationRequestInput,
   admin?: SupabaseClient,
+  /**
+   * `nowFn` is injectable so the staleness comparison below is deterministic
+   * under test — defaults to real wall-clock time for production callers
+   * (authorizationClient.ts never passes one). A prior version compared
+   * against a bare `new Date()` with no way to fix it, which made
+   * "is this SUBMITTED row stale" silently depend on how much real time had
+   * elapsed since a test fixture's hardcoded issuedAt — passing today,
+   * failing two days later with no code change (caught 2026-08-06).
+   */
+  deps: { nowFn?: () => Date } = {},
 ): Promise<CreatePartnerAuthorizationRequestResult> {
   if (!input.nonce) {
     return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: 'nonce is empty' };
   }
+  const nowFn = deps.nowFn ?? (() => new Date());
   const client = adminOrDefault(admin);
-  const now = new Date().toISOString();
+  const now = nowFn().toISOString();
   const { data, error } = await client
     .from(TABLE)
     .insert({
@@ -338,7 +364,13 @@ export async function createPartnerAuthorizationRequest(
     .select('*')
     .single();
 
-  if (!error) return { ok: true, record: rowToRecord(data as DbRow) };
+  if (!error) {
+    console.log(
+      `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" — row INSERTED (first attempt for ` +
+        `this agent/network). nonce=${input.nonce} issuedAt=${input.issuedAt}`,
+    );
+    return { ok: true, record: rowToRecord(data as DbRow), wasReset: false, previousIssuedAt: null, previousNonce: null };
+  }
 
   if (error.code === '23505' && isAuthorizationIdCollision(error)) {
     /*
@@ -378,7 +410,7 @@ export async function createPartnerAuthorizationRequest(
     const PULSE_AUTH_DEFAULT_VALIDITY_MS = 5 * 60 * 1000;
     let isStaleSubmission = false;
     if (existing && existing.state === 'SUBMITTED' && existing.issuedAt) {
-      const ageMs = new Date().getTime() - new Date(existing.issuedAt).getTime();
+      const ageMs = nowFn().getTime() - new Date(existing.issuedAt).getTime();
       isStaleSubmission = ageMs > PULSE_AUTH_DEFAULT_VALIDITY_MS;
       if (!isStaleSubmission) {
         return {
@@ -397,6 +429,19 @@ export async function createPartnerAuthorizationRequest(
           `issuedAt ${existing!.issuedAt} — older than Pulse's validity window. Resetting for a fresh ceremony.`,
       );
     }
+    /*
+     * FULL AUDIT LINE FOR EVERY RESET, NOT ONLY THE STALE-SUBMITTED CASE
+     * (Al's audit brief, 2026-08-06 — "Capture and show the HTTP response for
+     * each click, including... whether the row was inserted or reused"). Old
+     * vs new nonce/issuedAt named explicitly so a CloudWatch read settles,
+     * without inference, whether a given click actually produced different
+     * local values before Horizen was ever asked to build a message.
+     */
+    console.log(
+      `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" — row RESET (was ${existing?.state ?? 'unknown'}). ` +
+        `previousNonce=${existing?.nonce ?? 'null'} previousIssuedAt=${existing?.issuedAt ?? 'null'} -> ` +
+        `newNonce=${input.nonce} newIssuedAt=${input.issuedAt}`,
+    );
     const { data: resetData, error: resetError } = await client
       .from(TABLE)
       .update({
@@ -426,7 +471,13 @@ export async function createPartnerAuthorizationRequest(
         detail: `Authorization was not submitted to Horizen because MetaMe could not reset its stalled local authorization record for a retry: ${resetError.message}`,
       };
     }
-    return { ok: true, record: rowToRecord(resetData as DbRow) };
+    return {
+      ok: true,
+      record: rowToRecord(resetData as DbRow),
+      wasReset: true,
+      previousIssuedAt: existing?.issuedAt ?? null,
+      previousNonce: existing?.nonce ?? null,
+    };
   }
 
   if (error.code === '23505') {

@@ -222,18 +222,36 @@ describe('createPartnerAuthorizationRequest', () => {
     );
 
     it.each(['SUBMITTED', 'CONFIRMED'])(
-      'a row already %s is NEVER reset — refuses with AUTHORIZATION_ALREADY_IN_FLIGHT naming the real state, so a resume can never silently abandon a real submission',
+      'a row already %s and RECENT is NEVER reset — refuses with AUTHORIZATION_ALREADY_IN_FLIGHT naming the real state, so a resume can never silently abandon a real submission',
       async (state) => {
         const client = fakeSupabaseClientSequence([
           { data: null, error: pkCollisionError },
           { data: existingRow({ state }), error: null },
         ]);
-        const result = await createPartnerAuthorizationRequest(baseInput, client);
+        // Fixed `nowFn` pinned to the fixture's own issuedAt (age 0) — the
+        // staleness comparison is otherwise real-wall-clock and would make
+        // this test's outcome depend on how much real time has passed since
+        // baseInput.issuedAt was written, which is exactly what broke this
+        // test on 2026-08-06 (two days after the fixture's fixed date).
+        const result = await createPartnerAuthorizationRequest(baseInput, client, { nowFn: () => new Date(baseInput.issuedAt) });
         expect(result).toMatchObject({ ok: false, refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT', existingState: state });
         // No third `.from()` call — the reset UPDATE must never fire for these states.
         expect(client.from).toHaveBeenCalledTimes(2);
       },
     );
+
+    it('a row already SUBMITTED but STALE (past the Pulse validity window) IS reset — Al\'s audit brief, 2026-08-06: a stale SUBMITTED row cannot still be in flight', async () => {
+      const client = fakeSupabaseClientSequence([
+        { data: null, error: pkCollisionError },
+        { data: existingRow({ state: 'SUBMITTED' }), error: null },
+        { data: existingRow({ nonce: baseInput.nonce, agent_id: baseInput.agentId, state: 'PREPARED' }), error: null },
+      ]);
+      // 10 minutes after the fixture's issuedAt — past the 5-minute default validity window.
+      const staleNow = () => new Date(new Date(baseInput.issuedAt).getTime() + 10 * 60 * 1000);
+      const result = await createPartnerAuthorizationRequest(baseInput, client, { nowFn: staleNow });
+      expect(result).toMatchObject({ ok: true, record: { state: 'PREPARED', nonce: baseInput.nonce } });
+      if (result.ok) expect(result.wasReset).toBe(true);
+    });
 
     it('a genuine nonce-constraint collision (not the PK) still returns NONCE_MISSING_OR_REPLAYED, single-step — regression guard', async () => {
       const client = fakeSupabaseClient({

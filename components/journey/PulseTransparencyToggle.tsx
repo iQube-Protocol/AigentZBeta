@@ -42,6 +42,20 @@ interface VerifyStatusInfo {
 /** Same cadence as RegisterAgentPanel's own poll while a partner check is outstanding. */
 const STATUS_POLL_MS = 30_000;
 
+/**
+ * Mirrors AuthorizationAttemptDiagnostics (services/horizen/authorizationClient.ts)
+ * — rendered as a small header so stale replay is visible without reading
+ * CloudWatch (Al's audit brief, 2026-08-06: "display a small attempt header...
+ * that will make stale replay immediately visible").
+ */
+interface AttemptDiagnostics {
+  attemptId: string;
+  issuedAt: string;
+  messageHash: string;
+  preparedAt: string;
+  rowAction: 'inserted' | 'reset' | 'unknown';
+}
+
 interface AgentCardHorizen {
   tokenId: string | null;
   network?: string;
@@ -75,6 +89,7 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<VerifyStatusInfo | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [lastAttempt, setLastAttempt] = useState<AttemptDiagnostics | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -158,7 +173,26 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
        * The shared reader names that cause instead of hiding it.
        */
       const json = await readJsonOrExplain(res, 'verify/authorize');
+      // Captured REGARDLESS of ok/refusal — a refusal that reached the
+      // prepare stage still carries an attemptId/issuedAt/messageHash worth
+      // showing (Al's audit brief, 2026-08-06).
+      if (json?.diagnostics && typeof json.diagnostics.attemptId === 'string') {
+        setLastAttempt(json.diagnostics as AttemptDiagnostics);
+      }
       if (!res.ok || !json.ok) {
+        /*
+         * FRESH_AUTHORIZATION_NOT_CREATED is a LOCAL GUARD catching replay,
+         * not a partner rejection — say so honestly rather than reusing the
+         * generic "Authorization request failed" wording, which would read
+         * as another Horizen denial when nothing was even sent to Horizen's
+         * state-changing call this time.
+         */
+        if (json?.refusalCode === 'FRESH_AUTHORIZATION_NOT_CREATED') {
+          throw new Error(
+            'Horizen returned the same message and issuedAt as the last attempt — this click did not produce a ' +
+              'genuinely fresh ceremony, so nothing was submitted. See the Attempt header below; try again shortly.',
+          );
+        }
         throw new Error(typeof json?.error === 'string' ? json.error : `Authorization request failed (${res.status})`);
       }
       await refresh();
@@ -292,6 +326,13 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
             {checkingStatus ? 'Checking…' : 'Refresh partner status'}
           </button>
         </div>
+        {error && <p className="mt-2 text-rose-300">{error}</p>}
+        {lastAttempt && (
+          <p className="mt-2 border-t border-rose-900/40 pt-2 text-[10px] text-rose-200/60">
+            Attempt: {lastAttempt.attemptId.slice(0, 8)} · Prepared: {lastAttempt.preparedAt} · Message:{' '}
+            {lastAttempt.messageHash.slice(0, 12)} · Row: {lastAttempt.rowAction}
+          </p>
+        )}
       </div>
     );
   }
