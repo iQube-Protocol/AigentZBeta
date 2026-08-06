@@ -346,13 +346,16 @@ describe('MoneyPenny wallet surface (SmartWalletDrawer) — same authority bound
     expect(code).toContain('personaFetch(');
   });
 
-  it('SmartWalletDrawer wires both wallet panels into the MoneyPenny tab additively — Chat stays the default sub-mode', () => {
+  it('SmartWalletDrawer wires Architect/Runtime into the ONE unified MoneyPenny mode rail — Chat stays the default', () => {
     const code = stripComments(readSource(WALLET_DRAWER_PATH));
     expect(code).toContain('MoneyPennyWalletArchitect');
     expect(code).toContain('MoneyPennyWalletRuntime');
-    // 'chat' is still the default moneyPennyMode -- Architect/Runtime are
-    // additive tabs alongside it, never a replacement of the default.
-    expect(code).toMatch(/useState<'chat' \| 'architect' \| 'runtime'>\('chat'\)/);
+    // MoneyPenny Wallet Service Reconstitution (2026-08-06): the former
+    // two-level copilotMode('chat'|'avatar') + moneyPennyMode('chat'|
+    // 'architect'|'runtime') split collapsed into ONE mode selector
+    // covering all four surfaces -- 'chat' is still the default.
+    expect(code).toMatch(/useState<'chat' \| 'architect' \| 'runtime' \| 'avatar'>\('chat'\)/);
+    expect(code).not.toContain("useState<'chat' | 'avatar'>('chat')"); // the old copilotMode split is gone, not duplicated alongside the new one
     // 2026-08-06: Chat's own content changed FROM a static avatar-only
     // placeholder TO a real grounded text chat (operator-requested, same
     // session: "wire the copilot to the MoneyPenny KB" + "metaVatar renders
