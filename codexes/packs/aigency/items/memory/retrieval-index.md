@@ -3544,3 +3544,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c6113f2.md](../build_/COMMITS/COMMIT-c6113f2.md)
 - Message: Document mandatory delegation security architecture and constraints
+
+## Commit `e78fe17` — 2026-08-06T22:53:23Z
+- Type: `fix`
+- Brief: [COMMIT-e78fe17.md](../build_/COMMITS/COMMIT-e78fe17.md)
+- Message: fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants

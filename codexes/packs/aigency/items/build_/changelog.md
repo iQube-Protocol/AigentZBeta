@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e78fe17`](https://github.com/iQube-Protocol/AigentZBeta/commit/e78fe17dd057901f865956c6d291853e489e1bea) [fix] fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants (Claude, 2026-08-06T22:53:23Z)
 - [`c6113f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/c6113f259c378452a6db7a83ae64698ce085e387) [push] Document mandatory delegation security architecture and constraints (Claude, 2026-08-04T00:32:39Z)
 - [`bca5b77`](https://github.com/iQube-Protocol/AigentZBeta/commit/bca5b771ef59e24ed1ab23f550817da4a69b71de) [push] Document Nakamoto asset publication and aigentMe state reset findings and fixes (Claude, 2026-08-04T00:26:23Z)
 - [`232dd70`](https://github.com/iQube-Protocol/AigentZBeta/commit/232dd70cc955bf4ba06a631457b26ba1cc8a43b1) [push] record 15 autodrive CIDs from 2026-08-02 publication (Kn0w-1, 2026-08-02T16:28:01-04:00)
