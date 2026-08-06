@@ -154,7 +154,16 @@ function buildFinancialServicesMembership(args: {
     args.admission?.sponsorshipRecorded === true &&
     args.admission?.delegatePassportIssued === true &&
     args.admission?.delegationActive === true;
-  const fullyEligible = coreAdmissionHolds && args.registryPublished === true && args.pulseAuthorized && args.pnlEnabled;
+  // Pulse/P&L (the journey's optional `verify` stage) are tracked above in
+  // satisfied/outstanding for transparency, but MUST NOT gate Service Ready
+  // — the 2026-08-05 Agent Bench design (§5, §7) and the operator's direct
+  // ruling (2026-08-06: "Pulse and PnL integration is not a requirement for
+  // being service ready") are both explicit that an optional external
+  // verification can never become an accidental admission gate. A prior
+  // version of this line ANDed them in here, which silently regressed that
+  // rule (Nakamoto passport-approved and registry-published, held out of
+  // Service Ready solely for lacking Pulse/P&L) — do not reintroduce them.
+  const fullyEligible = coreAdmissionHolds && args.registryPublished === true;
 
   const status: RuntimeMembershipStatus = engagedAgreement
     ? 'active'

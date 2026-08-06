@@ -119,7 +119,7 @@ describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', ()
     expect(row.lifecycleState).toBe('engaged');
   });
 
-  it('reports pending-review — core admission holds, Pulse/P&L still outstanding — never a fabricated pass', async () => {
+  it('reports Service Ready even with Pulse/P&L outstanding — verify is optional, never an admission gate (operator ruling 2026-08-06)', async () => {
     mockResolveAgentAdmissionState.mockResolvedValue(FULL_ADMISSION);
     mockResolveAgentRegistrationState.mockResolvedValue({
       registered: true,
@@ -139,12 +139,18 @@ describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', ()
 
     expect(row.pulseAuthorized).toBe(false);
     expect(row.pnlEnabled).toBe(false);
-    expect(row.runtimeMemberships[0].status).toBe('pending-review');
+    // Core admission (sponsorship, passport, delegation) + registry published
+    // is sufficient — Pulse/P&L are the journey's optional `verify` stage and
+    // must never gate Service Ready (2026-08-05 Agent Bench design §5/§7;
+    // reasserted by the operator 2026-08-06 against a live Nakamoto row that
+    // was passport-approved and registry-published but held out of Service
+    // Ready solely for lacking Pulse/P&L — that was the defect, not the fix).
+    expect(row.runtimeMemberships[0].status).toBe('approved');
     expect(row.runtimeMemberships[0].eligibility.satisfied).toContain('sponsorship recorded');
+    // Still tracked and surfaced for transparency — just non-gating.
     expect(row.runtimeMemberships[0].eligibility.outstanding).toContain('Pulse authorized');
     expect(row.runtimeMemberships[0].eligibility.outstanding).toContain('P&L transparency enabled');
-    // pending-review, not yet approved — lifecycle stays at in-admission, not service-ready
-    expect(row.lifecycleState).toBe('in-admission');
+    expect(row.lifecycleState).toBe('service-ready');
   });
 
   it('surfaces a registration audit gap as an outstanding eligibility reason, never silently', async () => {
