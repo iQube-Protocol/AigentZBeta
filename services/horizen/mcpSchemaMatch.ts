@@ -561,6 +561,78 @@ export function normalizeMcpSubmissionResult(
   return { rawResult: toolResult ?? null, textBlocks, parsedJsonValues, submissionRef, semanticStatus, partnerMessage };
 }
 
+/**
+ * ── AUTHORITATIVE ENROLLMENT-STATE CLASSIFICATION (Al's follow-up brief,
+ * 2026-08-06) ────────────────────────────────────────────────────────────
+ *
+ * A live `get_onboarding_status` reread answered:
+ *
+ *   ✗ Not enrolled in Pulse monitoring.
+ *   Next step: Enroll: build_pulse_auth_message (action: enable) → sign
+ *   with the owner wallet → enable_pulse_monitoring.
+ *
+ * The PRIOR classification (`verifyHorizenTransparencyActivation`'s bare
+ * `.includes('enabled')` check) found no positive keyword and reported this
+ * as unresolved/pending — technically defensible for genuine ambiguity, but
+ * this response is not ambiguous. It is an EXPLICIT NEGATIVE: Horizen states,
+ * in words, that Pulse is not enrolled, and names the exact next step. A
+ * classifier that cannot distinguish "no answer yet" from "explicit no"
+ * traps the operator behind a status-check button that can never change the
+ * outcome, because nothing re-attempts the enrollment.
+ *
+ * Three states, checked in this order — NEGATION OUTRANKS POSITIVE MATCHING:
+ *   1. NOT_ENROLLED    — an explicit negative ("not enrolled", "not enabled",
+ *      "Next step: Enroll", a structured `false`, …). Checked FIRST so "not
+ *      enabled" can never fall through to the CONFIRMED check below merely
+ *      because it contains the substring "enabled".
+ *   2. CONFIRMED       — an explicit positive, once step 1 has ruled out a
+ *      negation of the same words.
+ *   3. PENDING_CONVERGENCE — explicit in-flight language, OR — the default —
+ *      no conclusive statement either way. Ambiguous NEVER resolves to
+ *      CONFIRMED or NOT_ENROLLED; only an explicit statement does.
+ */
+export type PulseEnrollmentState = 'CONFIRMED' | 'PENDING_CONVERGENCE' | 'NOT_ENROLLED';
+
+const NOT_ENROLLED_PATTERNS = [
+  /not\s+enroll(?:ed)?/i,
+  /not\s+enabled/i,
+  /not\s+configured/i,
+  /not\s+active/i,
+  /\bdisabled\b/i,
+  /\bunenrolled\b/i,
+  /no\s+pulse\s+monitoring/i,
+  /pulse\s+monitoring\s*[:\-]\s*no\b/i,
+  /next\s+step\s*:\s*enroll/i,
+  // A structured `false` sitting next to the field it answers — e.g.
+  // `"pulseEnabled":false` or `"enrolled": false` from a JSON-shaped reread.
+  /"?(?:pulse[_-]?)?(?:enabled|enrolled|monitoring|active)"?\s*[:=]\s*false\b/i,
+];
+const CONFIRMED_ENROLLMENT_PATTERNS = [
+  /\benrolled\b/i,
+  /\benabled\b/i,
+  /\bactive\b/i,
+  /\bmonitored\b/i,
+  /\bconfigured\b/i,
+  /\bcomplete\b/i,
+];
+/**
+ * Not branched on separately — explicit in-flight language and total silence
+ * both resolve to `PENDING_CONVERGENCE` via the fallback below, and neither
+ * is a conclusion either way. Kept as a named, tested pattern set so
+ * "genuine processing language remains pending" is a real assertion against
+ * partner wording, not merely proof that the fallback fires on nonsense text.
+ */
+const PENDING_ENROLLMENT_PATTERNS = [/\bprocessing\b/i, /\bpending\b/i, /\bqueued\b/i, /\bpropagat(?:ing|ion)\b/i, /\bin\s+progress\b/i];
+
+export function classifyPulseEnrollmentState(statusText: string): PulseEnrollmentState {
+  if (matchesUnnegated(statusText, NOT_ENROLLED_PATTERNS)) return 'NOT_ENROLLED';
+  if (matchesUnnegated(statusText, CONFIRMED_ENROLLMENT_PATTERNS)) return 'CONFIRMED';
+  if (matchesUnnegated(statusText, PENDING_ENROLLMENT_PATTERNS)) return 'PENDING_CONVERGENCE';
+  // No conclusive statement at all — still PENDING_CONVERGENCE, never a
+  // guess at CONFIRMED or NOT_ENROLLED.
+  return 'PENDING_CONVERGENCE';
+}
+
 /** Extract a named hex-string field (tx hash, message, payload, ...) from an MCP tool result. */
 export function extractStringField(toolResult: McpToolResult | null | undefined, fieldNames: string[]): string | null {
   const parsed = extractFirstJson(toolResult) as Record<string, unknown> | null;

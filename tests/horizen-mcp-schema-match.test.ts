@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage, extractStructuredMessageField, firstEmbeddedJsonObject, normalizeMcpSubmissionResult } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, findCompatibleTool, schemaFieldOverlapScore, extractFirstJson, extractStringField, describeToolResultShape, extractPartnerMessage, extractStructuredMessageField, firstEmbeddedJsonObject, normalizeMcpSubmissionResult, classifyPulseEnrollmentState } from '@/services/horizen/mcpSchemaMatch';
 
 describe('matchSchemaFields (regression-pinned — the register-moneypenny-horizen.ts precedent)', () => {
   it('matches candidate values against the schema\'s own declared property names, never inventing new ones', () => {
@@ -423,5 +423,60 @@ describe('normalizeMcpSubmissionResult — a submission reference is metadata, n
   it('handles an empty/absent result without throwing — unknown, never a crash', () => {
     expect(normalizeMcpSubmissionResult(null).semanticStatus).toBe('unknown');
     expect(normalizeMcpSubmissionResult({}).textBlocks).toEqual([]);
+  });
+});
+
+/*
+ * classifyPulseEnrollmentState — an explicit negative is not the same
+ * question as "no answer yet" (operator's follow-up brief, 2026-08-06).
+ *
+ * A live `get_onboarding_status` reread answered:
+ *   ✗ Not enrolled in Pulse monitoring.
+ *   Next step: Enroll: build_pulse_auth_message → sign → enable_pulse_monitoring.
+ * and the predecessor classifier (a bare `.includes('enabled')` check) filed
+ * this as inconclusive-pending, trapping the operator behind a status-check
+ * button that could never change the outcome. These tests pin the fix:
+ * negation outranks positive keyword matching, and only an EXPLICIT
+ * statement — never silence — may resolve to CONFIRMED or NOT_ENROLLED.
+ */
+describe('classifyPulseEnrollmentState — explicit negative outranks positive substring matching (2026-08-06)', () => {
+  it('the exact live transcript resolves to NOT_ENROLLED', () => {
+    const text =
+      'onboarding status for agent 8798 on base:\n' +
+      '✓ registered on-chain — owner 0xa6acb16f7baf5ffe984a67d96c62b686ed6c1709.\n' +
+      '✓ indexed in the registry marketplace as "agent #0x225e".\n' +
+      '✗ not enrolled in pulse monitoring.\n\n' +
+      'next step: enroll: build_pulse_auth_message (action: enable) → sign with the owner wallet → enable_pulse_monitoring.';
+    expect(classifyPulseEnrollmentState(text)).toBe('NOT_ENROLLED');
+  });
+
+  it('"Next step: Enroll" alone resolves to NOT_ENROLLED, even without the word "not"', () => {
+    expect(classifyPulseEnrollmentState('Onboarding incomplete. Next step: Enroll in Pulse monitoring.')).toBe('NOT_ENROLLED');
+  });
+
+  it('"not enabled" is NEVER misclassified as CONFIRMED merely because it contains "enabled"', () => {
+    expect(classifyPulseEnrollmentState('Pulse monitoring is not enabled for this agent.')).toBe('NOT_ENROLLED');
+    expect(classifyPulseEnrollmentState('Pulse monitoring is not enabled for this agent.')).not.toBe('CONFIRMED');
+  });
+
+  it('a structured false value resolves to NOT_ENROLLED', () => {
+    expect(classifyPulseEnrollmentState('{"agentId":"8798","pulseEnabled":false}')).toBe('NOT_ENROLLED');
+    expect(classifyPulseEnrollmentState('{"enrolled": false}')).toBe('NOT_ENROLLED');
+  });
+
+  it('an unqualified positive resolves to CONFIRMED', () => {
+    expect(classifyPulseEnrollmentState('Pulse monitoring is enabled and active for agent 8798.')).toBe('CONFIRMED');
+    expect(classifyPulseEnrollmentState('Agent is already enrolled in Pulse monitoring.')).toBe('CONFIRMED');
+  });
+
+  it('genuine processing language remains PENDING_CONVERGENCE, never a conclusion', () => {
+    expect(classifyPulseEnrollmentState('Your enrollment request is being processed.')).toBe('PENDING_CONVERGENCE');
+    expect(classifyPulseEnrollmentState('Enrollment queued — propagating to the registry.')).toBe('PENDING_CONVERGENCE');
+  });
+
+  it('total silence — no conclusive statement at all — defaults to PENDING_CONVERGENCE, never CONFIRMED or NOT_ENROLLED', () => {
+    expect(classifyPulseEnrollmentState('Thank you for your request. Reference material is in the developer portal.')).toBe(
+      'PENDING_CONVERGENCE',
+    );
   });
 });

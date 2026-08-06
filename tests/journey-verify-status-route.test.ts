@@ -236,6 +236,59 @@ describe('GET verify/status', () => {
       expect(JSON.stringify(body)).not.toMatch(/re-?authoriz/i);
     });
 
+    /*
+     * PARTNER_NOT_ENROLLED — a CONCLUSIVE negative is a distinct UI state
+     * from `pending` (operator's follow-up, 2026-08-06). The evidence: a live
+     * `get_onboarding_status` reread said, in words, "Not enrolled in Pulse
+     * monitoring. Next step: Enroll" and the surface rendered "Verification
+     * pending — Horizen has not yet responded" — which is false; Horizen HAD
+     * responded, definitively. This must never read as 'pending', and the
+     * retry affordance must be available from this state immediately.
+     */
+    it('reports not-enrolled — never pending — when the reread returns PARTNER_NOT_ENROLLED, with the retry marked available', async () => {
+      mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED' });
+      mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+        ok: false,
+        refusalCode: 'PARTNER_NOT_ENROLLED',
+        detail: 'Horizen... reports this agent is NOT enrolled in Pulse monitoring... Partner state read: {...Next step: Enroll...}',
+        retryable: true,
+      });
+      const res = await GET(makeRequest('nakamoto'));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.state).toBe('not-enrolled');
+      expect(body.state).not.toBe('pending');
+      expect(body.refusalCode).toBe('PARTNER_NOT_ENROLLED');
+      expect(body.retryable).toBe(true);
+      expect(body.refusalDetail).toContain('Next step: Enroll');
+      // Never the "hasn't responded yet" framing — Horizen DID respond.
+      expect(body.note).not.toMatch(/has not yet responded/i);
+    });
+
+    /*
+     * A row already REFUSED with PARTNER_NOT_ENROLLED (from an earlier
+     * refresh) reconciles the same way on a repeat check — idempotent, no
+     * new state, still surfaced as not-enrolled rather than the generic
+     * REFUSED/QUARANTINED 'denied' branch.
+     */
+    it.each(['REFUSED', 'QUARANTINED'])(
+      'a %s row still reporting PARTNER_NOT_ENROLLED on re-check stays not-enrolled, not the generic denied branch',
+      async (state) => {
+        mockGetPartnerAuthorizationRequest.mockResolvedValue({ state, refusalCode: 'PARTNER_NOT_ENROLLED', refusalDetail: 'not enrolled (prior check)' });
+        mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+          ok: false,
+          refusalCode: 'PARTNER_NOT_ENROLLED',
+          detail: 'still not enrolled — Next step: Enroll',
+          retryable: true,
+        });
+        const res = await GET(makeRequest('nakamoto'));
+        const body = await res.json();
+        expect(body.state).toBe('not-enrolled');
+        expect(body.refusalCode).toBe('PARTNER_NOT_ENROLLED');
+      },
+    );
+
     it('enriches the Agent Card when the reread confirms — a confirmation found by refresh must not leave Verify grey', async () => {
       mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'SUBMITTED', receiptRef: 'receipt-3' });
       mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: true, value: { confirmed: true } });

@@ -481,6 +481,86 @@ describe('required refusal canaries', () => {
   });
 
   /*
+   * PARTNER_NOT_ENROLLED — a CONCLUSIVE negative from the authoritative
+   * reread is distinct from an inconclusive one (operator's follow-up brief,
+   * 2026-08-06). Horizen's `get_onboarding_status` answered, in words, that
+   * Pulse is not enrolled and named the exact next step — this must never be
+   * filed under "hasn't converged yet."
+   */
+  it('reread reporting "Not enrolled... Next step: Enroll" resolves to PARTNER_NOT_ENROLLED, retryable, and persists as REFUSED with that exact code', async () => {
+    const authorizationId = 'auth-explicit-not-enrolled';
+    const liveStatusText =
+      'Onboarding status for agent 8798 on Base:\n' +
+      '✓ Registered on-chain — owner 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709.\n' +
+      '✓ Indexed in the registry marketplace as "Agent #0x225e".\n' +
+      '✗ Not enrolled in Pulse monitoring.\n\n' +
+      'Next step: Enroll: build_pulse_auth_message (action: enable) → sign with the owner wallet → enable_pulse_monitoring.';
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText: liveStatusText }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe('PARTNER_NOT_ENROLLED');
+    expect(result.retryable).toBe(true);
+    // Explicitly NOT a claim that the signature was invalid — the operator's
+    // exact requirement — while still naming (and denying) that class of
+    // failure, so the operator sees it was actively ruled out.
+    expect(result.detail).not.toMatch(/\binvalid signature\b/i);
+    expect(result.detail).toContain('not a signature, ownership, or cryptographic failure');
+    // No state migration: persisted as the EXISTING `REFUSED` state, distinguished by refusalCode alone.
+    expect(rows.get(authorizationId).state).toBe('REFUSED');
+    expect(rows.get(authorizationId).refusalCode).toBe('PARTNER_NOT_ENROLLED');
+    // The verbatim partner text survives for audit (acceptance item 8).
+    expect(rows.get(authorizationId).partnerStatus).toContain('Not enrolled');
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('"Next step: Enroll" alone (no local check failure, isError unset) still resolves to PARTNER_NOT_ENROLLED — never HORIZEN_SUBMISSION_REJECTED or a signature code', async () => {
+    const authorizationId = 'auth-next-step-enroll-only';
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText: 'Onboarding incomplete. Next step: Enroll in Pulse monitoring.' }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'PARTNER_NOT_ENROLLED' });
+  });
+
+  it('a fresh authorization after PARTNER_NOT_ENROLLED creates a genuinely new attempt via the existing REFUSED-reset path — no new state, no migration needed', async () => {
+    const authorizationId = 'auth-retry-after-not-enrolled';
+    const first = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText: 'Not enrolled in Pulse monitoring. Next step: Enroll.' }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(first).toMatchObject({ ok: false, refusalCode: 'PARTNER_NOT_ENROLLED' });
+    expect(rows.get(authorizationId).state).toBe('REFUSED');
+
+    // A genuinely fresh prepare call — different issuedAt — must proceed via
+    // the SAME reset path already proven for every other REFUSED reason,
+    // never blocked by AUTHORIZATION_ALREADY_IN_FLIGHT.
+    const laterNow = () => new Date('2026-07-31T12:05:00.000Z');
+    const second = await prepareHorizenTransparencyAuthorization(
+      baseInput({
+        authorizationId,
+        registry: { network: 'base-sepolia', tokenId: '1234' },
+      }),
+      {
+        mcpClient: fakeMcpClient({ buildMessage: 'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T12:05:00.000Z' }),
+        now: laterNow,
+      },
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.diagnostics?.rowAction).toBe('reset');
+    expect(second.value.envelope.issuedAt).toBe('2026-07-31T12:05:00.000Z');
+  });
+
+  /*
    * REPLACES "no recognisable submission reference is refused, never guessed"
    * (Al's brief, 2026-08-06). That test encoded the defect: it asserted that a
    * successful, non-`isError` response carrying no transaction-like reference
