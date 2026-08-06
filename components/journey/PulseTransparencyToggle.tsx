@@ -405,6 +405,19 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
             Horizen has confirmed activation. This establishes Standing eligibility only — it does not
             accrue Standing and does not enlarge {agentDisplayName}&apos;s constitutional authority.
           </p>
+          {/*
+            AUTHORIZED ≠ HEALTHY (operator brief, 2026-08-06, after Horizen
+            confirmed enrollment succeeded but every health probe was 404ing).
+            Enrollment is a one-time authorization act; health monitoring is
+            an ongoing, separate signal this component has no live read on —
+            so this states what enrollment does and does not establish,
+            rather than implying continuous monitoring is already succeeding.
+          */}
+          <p className="mt-2 border-t border-emerald-900/40 pt-2 text-emerald-200/60">
+            Enrollment does not by itself mean health checks are passing. SLA receipts begin only once
+            Horizen's own probes reach {agentDisplayName}&apos;s registered health endpoint and receive HTTP
+            2xx — check the Agent Bench / Pulse leaderboard for current uptime.
+          </p>
         </div>
       </div>
     );
