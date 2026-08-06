@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-04T00:28:25.608Z",
+  "last_updated": "2026-08-04T00:34:22.224Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bca5b771ef59e24ed1ab23f550817da4a69b71de",
-  "latest_commit_short": "bca5b77",
-  "latest_commit_title": "Document Nakamoto asset publication and aigentMe state reset findings and fixes",
+  "latest_commit": "c6113f259c378452a6db7a83ae64698ce085e387",
+  "latest_commit_short": "c6113f2",
+  "latest_commit_title": "Document mandatory delegation security architecture and constraints",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c6113f2",
+      "full_sha": "c6113f259c378452a6db7a83ae64698ce085e387",
+      "title": "Document mandatory delegation security architecture and constraints",
+      "author": "Claude",
+      "timestamp": "2026-08-04T00:32:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c6113f2.md"
+    },
     {
       "sha": "bca5b77",
       "full_sha": "bca5b771ef59e24ed1ab23f550817da4a69b71de",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T13:22:46Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-f647b06.md"
-    },
-    {
-      "sha": "dd7dc45",
-      "full_sha": "dd7dc453fdcf6d72ab1c7cfc92bbbc04a8bcbbc1",
-      "title": "Make Dev Command Center quick actions intelligent via the DCIR affordance service",
-      "author": "Claude",
-      "timestamp": "2026-07-07T10:40:52Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dd7dc45.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
