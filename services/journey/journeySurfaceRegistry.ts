@@ -140,6 +140,18 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'happens; the allowlist and embed mechanism (services/horizen/agentPageUrl.ts, IframeTab) stay ' +
       'the same either way.',
   },
+  'constitutional-agreement-ratify': {
+    kind: 'component',
+    component: 'AgreementRatifyPanel',
+    note:
+      'Built 2026-08-06 (components/journey/AgreementRatifyPanel.tsx) — the Ratify stage\'s ONE guided ' +
+      'action ("Verify & Sign Agreement") over the EXISTING generic /api/constitutional/agreement route ' +
+      '(services/constitutional/constitutionalAgreement.ts: form -> accept -> authorize), with ' +
+      'capabilityRef/selectedAgentRef/delegatedAuthority pre-populated from the Journey context ' +
+      '(services/journey/ratificationRefs.ts). No parallel agreement store, no new signing subsystem — ' +
+      'authorizing here is authorizing the SAME agreement MoneyPenny\'s live Financial Services runtime ' +
+      'gate checks (app/api/moneypenny/runtime/route.ts).',
+  },
   'pulse-transparency-toggle': {
     kind: 'component',
     component: 'PulseTransparencyToggle',

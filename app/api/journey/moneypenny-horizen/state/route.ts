@@ -37,6 +37,13 @@ import {
   resolveMonotonicJourneyState,
   type BlockingReason,
 } from '@/services/journey/stageResolution';
+import { resolveRatificationRefs } from '@/services/journey/ratificationRefs';
+import {
+  getAgreement,
+  requireAuthorizedAgreement,
+  agreementOwnerCommitment,
+  type ConstitutionalAgreementRow,
+} from '@/services/constitutional/constitutionalAgreement';
 import type { ExceptionRecord } from '@/services/research/exceptionIsolation';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 import { getActivePersona } from '@/services/identity/getActivePersona';
@@ -170,6 +177,13 @@ async function resolveState(req: NextRequest) {
    * services/journey/agentAdmissionState.ts for the defect this closes.
    */
   let admission: Awaited<ReturnType<typeof resolveAgentAdmissionState>> | null = null;
+  /*
+   * RATIFY — the Constitutional Agreement this operator holds for this agent,
+   * read directly (never re-derived from a receipt scan — see the
+   * `ratify-agreement` guarded read below for why).
+   */
+  let ratifyAgreement: ConstitutionalAgreementRow | null = null;
+  let ratifyGateRecognized = false;
   /*
    * PERSONA ASSIGNMENT ≠ aigentMe DESIGNATION (al, 2026-08-04). Whether the
    * OPERATOR's active persona has structurally assigned this agent as a
@@ -391,12 +405,57 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('authorization-store', async () => {
       authorizationStore = await checkAuthorizationStoreAvailable(supabase);
     });
+    /*
+     * RATIFY'S CANONICAL RECORD — the constitutional_agreements row itself,
+     * never a receipt scan (operator instruction 2026-08-06: "Stage
+     * completion must derive from the canonical constitutional_agreements
+     * record and its receipts"). `agreement_formed`/`agreement_authorized`
+     * receipts are written with `agentsInvoked: ['aigent-z']`
+     * (constitutionalAgreement.ts's acceptAgreement/authorizeAgreement) —
+     * NOT the selected agent's own runtimeAgentId — so the persona's
+     * `hasReceipt()` scan above (agents_invoked-filtered) would never find
+     * them for this agreement. The row's own `formedReceiptId`/
+     * `authorizedReceiptId` are the precise, agreement-scoped answer to
+     * "are the receipts available", and are read directly instead.
+     */
+    if (supabase) await guarded('ratify-agreement', async () => {
+      const activePersona = await getActivePersona(req);
+      const ratifyPersonaId = activePersona?.personaId;
+      if (!ratifyPersonaId) return;
+      const refs = resolveRatificationRefs(agent.slug);
+      const row = await getAgreement(refs.agreementId);
+      // Only THIS operator's own agreement counts — an agreement the row's
+      // owner-commitment does not match is evidence-absent for this caller,
+      // never fabricated as theirs.
+      ratifyAgreement =
+        row && row.object.ownership.ownerCommitment === agreementOwnerCommitment(ratifyPersonaId) ? row : null;
+      const gate = await requireAuthorizedAgreement({
+        capabilityRef: refs.capabilityRef,
+        selectedAgentRef: refs.selectedAgentRef,
+        requestingPersonaId: ratifyPersonaId,
+      });
+      ratifyGateRecognized = gate.ok;
+    });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
     });
   }
 
   const hasReceipt = (type: ActivityActionType) => (receiptRefs[type]?.length ?? 0) > 0;
+
+  // AGREEMENT_LIFECYCLE order (constitutionalAgreement.ts) — a rank comparison
+  // so "authorized" also counts as "at least accepted", without re-declaring
+  // the lifecycle's order a second time.
+  const AGREEMENT_STATUS_RANK: Record<string, number> = {
+    proposed: 0,
+    accepted: 1,
+    authorized: 2,
+    executed: 3,
+    settled: 4,
+    reconstitutable: 5,
+  };
+  const ratifyAgreementStatusAtLeast = (min: string): boolean =>
+    !!ratifyAgreement && (AGREEMENT_STATUS_RANK[ratifyAgreement.status] ?? -1) >= (AGREEMENT_STATUS_RANK[min] ?? Infinity);
 
   /*
    * ONE FACT, ONE EXPRESSION. "This agent has a Delegate Passport" is read by
@@ -437,6 +496,30 @@ async function resolveState(req: NextRequest) {
         agentRegistryBindingRecorded: hasReceipt('agent_registry_binding_recorded'),
       },
       verify: {
+        /*
+         * PRIMARY — the Constitutional Agreement lifecycle. Gates
+         * completion (named in the stage's own `completionEvidence`,
+         * horizenMoneyPennyJourney.ts). Ranked off the row's own
+         * AGREEMENT_LIFECYCLE status, read canonically above — never
+         * inferred from a receipt.
+         */
+        agreementTermsCommitted: !!ratifyAgreement,
+        agreementAcceptanceRecorded: ratifyAgreementStatusAtLeast('accepted'),
+        agreementAuthorized: ratifyAgreementStatusAtLeast('authorized'),
+        // The row's OWN receipt ids — precise to this agreement, unlike a
+        // persona-wide agents_invoked receipt scan (see the guarded read's
+        // comment for why `agentsInvoked: ['aigent-z']` makes hasReceipt()
+        // the wrong tool here).
+        agreementReceiptsAnchored: !!ratifyAgreement?.formedReceiptId && !!ratifyAgreement?.authorizedReceiptId,
+        agreementGateRecognized: ratifyGateRecognized,
+        /*
+         * SECONDARY — Transparency. Real Pulse/P&L/Agent Card enrichment,
+         * kept in the evidence record for the Transparency section to
+         * display, but deliberately absent from `completionEvidence` above
+         * — an unresolved or unavailable partner enrichment must never
+         * block Ratify once the service agreement is authorized (operator
+         * instruction, 2026-08-06).
+         */
         pulseAuthorizationVerified: hasReceipt('horizen_pulse_authorized'),
         pnlTransparencyEnabled: hasReceipt('horizen_pnl_transparency_enabled'),
         agentCardEnrichmentCommitted: hasReceipt('agent_card_enriched'),

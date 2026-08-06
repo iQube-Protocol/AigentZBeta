@@ -24,6 +24,7 @@ import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPenny
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import { RegisterAgentPanel, PILOT_AGENTS } from '@/components/journey/RegisterAgentPanel';
 import { HorizenAgentPageSurface } from '@/components/journey/HorizenAgentPageSurface';
+import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
@@ -53,6 +54,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   AgentCardSurface,
   RegisterAgentPanel,
   HorizenAgentPageSurface,
+  AgreementRatifyPanel,
   PulseTransparencyToggle,
   MarketaEligibilityView,
   PassportBureauApplyTab,
@@ -125,6 +127,8 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
            tracked the selection and the authorize route already accepted an
            agentSlug — only this surface was never handed it, so Verify
            narrated a different agent than Register had just acted on. */
+        : descriptor.component === 'AgreementRatifyPanel'
+          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
         : descriptor.component === 'PulseTransparencyToggle'
           ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
         /* Claim must speak about the agent Register/Verify just acted on, not

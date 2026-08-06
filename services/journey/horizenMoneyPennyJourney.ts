@@ -259,7 +259,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     },
     {
       id: 'verify',
-      label: 'Verify',
+      label: 'Ratify',
       milestone: 'VERIFIED',
       /*
        * A POST-ACTIVATION BRANCH, NOT AN ADMISSION STAGE (operator, 2026-08-03).
@@ -267,44 +267,85 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        *
        *   Register -> Claim -> Passport -> Delegate -> aigentMe
        *                                                  |- Ingest -> Standing eligible
-       *                                                  `- Verify -> Financial-services eligible
+       *                                                  `- Ratify -> Financial-services eligible
        *
        * It has no `nextStageId`: nothing waits on it, and it is not a step on
        * a line. Its sibling branch does not wait on it either.
        *
-       * What it MAY later gate is specific financial-services capability:
-       * advisory over live Pulse data, P&L transparency, treasury execution,
-       * trading/settlement permissions, Marketa participation.
+       * RECONSTITUTED 2026-08-06 around the Constitutional Agreement lifecycle
+       * (operator instruction): the id stays `verify` (it is read by
+       * `prerequisites` arrays, `platformState.stages.verify`, and every
+       * existing route — renaming it would be a much larger, unrequested
+       * change; only the LABEL changes, matching the `deploy`/"Ingest into
+       * Factory" precedent below). What "Verify" verifies is no longer Pulse/
+       * P&L alone — it is the form -> accept -> authorize ceremony
+       * (services/constitutional/constitutionalAgreement.ts,
+       * services/journey/ratificationRefs.ts) that ratifies MoneyPenny's
+       * eligibility for the financial-services runtime. Pulse, P&L and Agent
+       * Card enrichment remain real, but as a SECONDARY Transparency section:
+       * assurance around the provision of an already-authorized service, never
+       * a precondition of authorizing it (see completionEvidence below).
        */
       branch: 'capability',
-      description: 'Horizen Pulse and P&L transparency enrich, never enlarge, the agent’s constitutional authority.',
+      description:
+        'Ratify the constitutional service agreement — form, accept and authorize the terms that let MoneyPenny operate the Financial Services runtime. Horizen Pulse and P&L transparency enrich, never enlarge, that authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
         {
           mode: 'component',
+          ref: 'constitutional-agreement-ratify',
+          note:
+            'PRIMARY — the one guided action ("Verify & Sign Agreement") over the EXISTING generic ' +
+            '/api/constitutional/agreement route (services/constitutional/constitutionalAgreement.ts) — ' +
+            'form, accept and authorize the Financial Services capability agreement, pre-populated from ' +
+            'the Journey context (services/journey/ratificationRefs.ts). No parallel agreement store, no ' +
+            'new signing subsystem.',
+        },
+        {
+          mode: 'component',
           ref: 'pulse-transparency-toggle',
-          note: 'Genuinely new component (§22) — no existing Pulse/P&L transparency UI exists in this repo.',
+          note:
+            'SECONDARY — Transparency section. Real Pulse/P&L authorization, but an assurance enrichment ' +
+            'around an already-authorized service — it neither creates nor enlarges MoneyPenny\'s authority, ' +
+            'and its own owner-source-conflict state (HORIZEN_OWNER_SOURCE_CONFLICT) is never suppressed.',
         },
         {
           mode: 'component',
           ref: 'horizen-agent-page-verify',
-          note: "Reopens Horizen's agent page with transparency framing, per operator ruling 2026-07-31 — the direct partner-side depiction of Pulse/P&L state.",
+          note:
+            "SECONDARY — Transparency section. Reopens Horizen's agent page with transparency framing " +
+            '(operator ruling 2026-07-31) — the direct partner-side depiction of Pulse/P&L state.',
         },
       ],
       prerequisites: ['aigentme'],
-      permittedActions: ['authorize-pnl-disclosure'],
-      completionEvidence: ['pulseAuthorizationVerified', 'pnlTransparencyEnabled', 'agentCardEnrichmentCommitted'],
-      // GJR-VFY-001 Phase 2 (2026-07-31): horizen_pulse_authorized is the
-      // authorizationClient's own confirmation receipt (Phase 1); the other
-      // two are written by the Phase 2 enrichment step immediately after.
-      //
-      // The four Marketa types moved HERE from Claim (operator, 2026-08-03):
-      // eligibility assessment is a financial-services enrichment, so its
-      // evidence belongs on the enrichment branch. They are listed as
-      // surfaced evidence only — deliberately NOT in `completionEvidence`,
-      // so Marketa gates nothing on this branch either.
+      permittedActions: ['form-agreement', 'accept-agreement', 'authorize-agreement', 'authorize-pnl-disclosure'],
+      /*
+       * THE PRIMARY COMPLETION CONTRACT — the Constitutional Agreement
+       * lifecycle, and NOTHING from Pulse/P&L/Agent Card enrichment (operator
+       * instruction, 2026-08-06: "Stage completion must derive from the
+       * canonical constitutional_agreements record and its receipts, not from
+       * Horizen Pulse or P&L status... unresolved or unavailable Pulse/P&L
+       * must not block progression once the service agreement is
+       * authorized"). Computed by app/api/journey/moneypenny-horizen/
+       * state/route.ts from the agreement row + requireAuthorizedAgreement —
+       * never re-derived here.
+       */
+      completionEvidence: [
+        'agreementTermsCommitted',
+        'agreementAcceptanceRecorded',
+        'agreementAuthorized',
+        'agreementReceiptsAnchored',
+        'agreementGateRecognized',
+      ],
+      // Pulse/P&L/Agent Card/Marketa receipt types are listed as SURFACED
+      // evidence only — deliberately NOT in `completionEvidence` above, so
+      // none of them gates Ratify (mirrors the Marketa precedent already
+      // established here, operator 2026-08-03: "eligibility assessment is a
+      // financial-services enrichment... listed as surfaced evidence only").
       receiptTypes: [
+        'agreement_formed',
+        'agreement_authorized',
         'horizen_pulse_authorized',
         'horizen_pnl_transparency_enabled',
         'agent_card_enriched',
@@ -314,9 +355,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         'marketa_eligibility_quarantined',
       ],
       companion: {
-        before: 'Horizen can enrich MoneyPenny’s verifiable operational state once you authorize disclosure.',
+        before:
+          'Sign the constitutional service agreement to ratify MoneyPenny\'s eligibility for the Financial Services runtime. Forming and accepting record a tamper-evident commitment; authorizing is an authenticated constitutional act you perform as the operator — neither is a wallet or blockchain signature.',
         complete:
-          "Horizen has enriched MoneyPenny's verifiable operational state. It has not created or enlarged her constitutional authority.",
+          'The service agreement is authorized — MoneyPenny is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich her verifiable operational state; they do not create or enlarge this authority.',
       },
     },
 {
