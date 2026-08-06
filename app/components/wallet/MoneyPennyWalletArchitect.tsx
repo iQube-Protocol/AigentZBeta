@@ -21,9 +21,11 @@
  * persona is active.
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Compass, Loader2, ShieldCheck } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { MarkdownLite } from "@/components/ui/markdown-lite";
 
 interface ArchitectResult {
   ok: boolean;
@@ -38,6 +40,10 @@ export function MoneyPennyWalletArchitect({ personaIdHint }: { personaIdHint?: s
   const [intent, setIntent] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ArchitectResult | null>(null);
+  // id -> statement, for the invariant pills' tooltips — same single-invariant
+  // route (GET /api/invariants/[id]) ArchitectPanel.tsx uses; never a second,
+  // hand-maintained description list for this compact re-skin.
+  const [invariantStatements, setInvariantStatements] = useState<Record<string, string>>({});
 
   const draft = async () => {
     if (!intent.trim() || busy) return;
@@ -58,6 +64,28 @@ export function MoneyPennyWalletArchitect({ personaIdHint }: { personaIdHint?: s
       setBusy(false);
     }
   };
+
+  const citedIds = result?.ok ? result.citedInvariantIds ?? [] : [];
+  const loadInvariantStatement = useCallback(
+    async (id: string) => {
+      if (invariantStatements[id] !== undefined) return;
+      try {
+        const res = await personaFetch(`/api/invariants/${encodeURIComponent(id)}`, { cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        setInvariantStatements((prev) => ({
+          ...prev,
+          [id]: res.ok && data?.invariant?.statement ? String(data.invariant.statement) : "Detail unavailable",
+        }));
+      } catch {
+        setInvariantStatements((prev) => ({ ...prev, [id]: "Detail unavailable" }));
+      }
+    },
+    [invariantStatements],
+  );
+  useEffect(() => {
+    citedIds.forEach((id) => void loadInvariantStatement(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.artifactId]);
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -90,19 +118,31 @@ export function MoneyPennyWalletArchitect({ personaIdHint }: { personaIdHint?: s
       {result && !result.ok && <p className="text-xs text-rose-400">{result.error ?? "Draft failed"}</p>}
 
       {result?.ok && (
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-2 rounded-lg border border-white/10 bg-black/20 p-3">
+        // resize-y, like ArchitectPanel.tsx's expanded view — the compact
+        // wallet viewport is even more cramped, so a fixed short height was
+        // the same "inference window too short" complaint in miniature.
+        <div className="resize-y overflow-y-auto space-y-2 rounded-lg border border-white/10 bg-black/20 p-3 min-h-[140px] max-h-[60vh] h-[220px]">
           <h3 className="text-xs font-semibold text-white/90">{result.title}</h3>
-          <p className="text-xs whitespace-pre-wrap text-white/80">{result.body}</p>
+          {/* Same shared MarkdownLite renderer as ArchitectPanel.tsx and the
+              Copilot chat — this compact wallet viewport is a separate DOM
+              subtree from the global Copilot, so it does NOT inherit that
+              surface's formatting; it must render through the shared
+              component directly or the proposal shows raw markup. */}
+          <MarkdownLite text={result.body ?? ""} className="space-y-1 text-xs text-white/80" />
           {result.citedInvariantIds && result.citedInvariantIds.length > 0 && (
             <div className="flex flex-wrap items-center gap-1 border-t border-white/10 pt-2">
               <ShieldCheck className="h-3 w-3 text-emerald-400 shrink-0" />
               {result.citedInvariantIds.map((id) => (
-                <span
-                  key={id}
-                  className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-0.5 text-[9px] text-emerald-300"
-                >
-                  {id}
-                </span>
+                <Tooltip key={id}>
+                  <TooltipTrigger asChild>
+                    <span className="cursor-default rounded border border-emerald-500/30 bg-emerald-500/10 px-1 py-0.5 text-[9px] text-emerald-300">
+                      {id}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-[220px] whitespace-normal text-left">
+                    {invariantStatements[id] ?? "Loading…"}
+                  </TooltipContent>
+                </Tooltip>
               ))}
             </div>
           )}

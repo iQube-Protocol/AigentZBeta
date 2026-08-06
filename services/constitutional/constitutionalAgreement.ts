@@ -344,7 +344,7 @@ export async function formAgreement(personaId: string, input: FormAgreementInput
 }
 
 export type AcceptResult =
-  | { ok: true; agreement: ConstitutionalAgreementRow; receiptId: string | null; alreadyAccepted: boolean }
+  | { ok: true; agreement: ConstitutionalAgreementRow; receiptId: string | null; alreadyAccepted: boolean; receiptWarning?: string }
   | { ok: false; reason: string };
 
 /**
@@ -365,7 +365,15 @@ export async function acceptAgreement(
 
   const row = await getAgreement(agreementId);
   if (!row) return { ok: false, reason: `agreement "${agreementId}" not found — form it first` };
-  if (row.status === 'accepted') return { ok: true, agreement: row, receiptId: row.formedReceiptId, alreadyAccepted: true };
+  if (row.status === 'accepted') {
+    return {
+      ok: true,
+      agreement: row,
+      receiptId: row.formedReceiptId,
+      alreadyAccepted: true,
+      receiptWarning: row.formedReceiptId ? undefined : 'agreement_formed receipt is still missing on this already-accepted agreement',
+    };
+  }
   if (!isLegalObjectTransition(AGREEMENT_LIFECYCLE, row.status, 'accepted')) {
     return { ok: false, reason: `cannot accept an agreement in status '${row.status}'` };
   }
@@ -396,6 +404,7 @@ export async function acceptAgreement(
   };
 
   let receiptId: string | null = null;
+  let receiptWarning: string | undefined;
   try {
     const receipt = await createActivityReceipt({
       personaId,
@@ -411,8 +420,14 @@ export async function acceptAgreement(
       artifactsCreated: [agreementId],
     });
     receiptId = receipt?.id ?? null;
+    // createActivityReceipt can resolve without throwing yet still return no
+    // row (its own soft-fail path) — that is exactly as silent as a caught
+    // exception, so both must produce the same visible warning.
+    if (!receiptId) receiptWarning = 'agreement_formed receipt was not created — see server logs for [constitutional agreement]';
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[constitutional agreement] agreement_formed receipt failed — acceptance stands:', e);
+    receiptWarning = `agreement_formed receipt failed: ${msg}`;
   }
 
   const provenanceIds = receiptId ? [...updatedObject.provenance.receiptIds, receiptId] : updatedObject.provenance.receiptIds;
@@ -432,11 +447,11 @@ export async function acceptAgreement(
     softFail('accept', error.message);
     return { ok: false, reason: error.message };
   }
-  return { ok: true, agreement: rowToAgreement(data), receiptId, alreadyAccepted: false };
+  return { ok: true, agreement: rowToAgreement(data), receiptId, alreadyAccepted: false, receiptWarning };
 }
 
 export type AuthorizeResult =
-  | { ok: true; agreement: ConstitutionalAgreementRow; receiptId: string | null; alreadyAuthorized: boolean }
+  | { ok: true; agreement: ConstitutionalAgreementRow; receiptId: string | null; alreadyAuthorized: boolean; receiptWarning?: string }
   | { ok: false; reason: string };
 
 /**
@@ -460,7 +475,15 @@ export async function authorizeAgreement(
   if (row.object.ownership.ownerCommitment !== agreementOwnerCommitment(personaId)) {
     return { ok: false, reason: 'only the requesting operator may authorize this agreement' };
   }
-  if (row.status === 'authorized') return { ok: true, agreement: row, receiptId: row.authorizedReceiptId, alreadyAuthorized: true };
+  if (row.status === 'authorized') {
+    return {
+      ok: true,
+      agreement: row,
+      receiptId: row.authorizedReceiptId,
+      alreadyAuthorized: true,
+      receiptWarning: row.authorizedReceiptId ? undefined : 'agreement_authorized receipt is still missing on this already-authorized agreement',
+    };
+  }
   if (row.status !== 'accepted') {
     return { ok: false, reason: `cannot authorize an agreement in status '${row.status}' — it must be accepted first` };
   }
@@ -494,6 +517,7 @@ export async function authorizeAgreement(
   };
 
   let receiptId: string | null = null;
+  let receiptWarning: string | undefined;
   try {
     const receipt = await createActivityReceipt({
       personaId,
@@ -508,8 +532,14 @@ export async function authorizeAgreement(
       policyEnvelopeId: agreementId,
     });
     receiptId = receipt?.id ?? null;
+    // See acceptAgreement's identical comment — a resolved-but-null receipt
+    // (createActivityReceipt's own missing-table soft-fail) is exactly as
+    // silent as a caught exception and must surface the same way.
+    if (!receiptId) receiptWarning = 'agreement_authorized receipt was not created — see server logs for [constitutional agreement]';
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[constitutional agreement] agreement_authorized receipt failed — authorization stands:', e);
+    receiptWarning = `agreement_authorized receipt failed: ${msg}`;
   }
 
   const provenanceIds = receiptId ? [...updatedObject.provenance.receiptIds, receiptId] : updatedObject.provenance.receiptIds;
@@ -528,7 +558,7 @@ export async function authorizeAgreement(
     softFail('authorize', error.message);
     return { ok: false, reason: error.message };
   }
-  return { ok: true, agreement: rowToAgreement(data), receiptId, alreadyAuthorized: false };
+  return { ok: true, agreement: rowToAgreement(data), receiptId, alreadyAuthorized: false, receiptWarning };
 }
 
 // ---------------------------------------------------------------------------

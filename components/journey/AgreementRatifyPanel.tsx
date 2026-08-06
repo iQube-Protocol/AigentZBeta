@@ -148,7 +148,17 @@ export function AgreementRatifyPanel({ agentSlug, agentDisplayName }: AgreementR
       const authorized = await call({ action: 'authorize', agreementId: refs.agreementId });
       if (!authorized.ok) throw new Error(authorized.data?.error ?? 'authorizing the agreement failed');
 
-      setNote(`Authorized — status now '${authorized.data?.agreement?.status ?? 'authorized'}'.`);
+      // Authorization can genuinely succeed (status -> 'authorized') while the
+      // DVN-anchorable receipt behind it silently failed to persist — never
+      // report a clean "Authorized" in that case, or Ratify staying incomplete
+      // (agreementReceiptsAnchored requires BOTH receipt ids) reads as a bug
+      // with no explanation.
+      const receiptWarnings = [accepted.data?.receiptWarning, authorized.data?.receiptWarning].filter(Boolean) as string[];
+      setNote(
+        receiptWarnings.length > 0
+          ? `Authorized, but ${receiptWarnings.join('; ')} — Ratify will stay incomplete until the receipt exists. Retry, or report this to the operator.`
+          : `Authorized — status now '${authorized.data?.agreement?.status ?? 'authorized'}'.`,
+      );
       await loadAgreement();
     } catch (e) {
       setNote(e instanceof Error ? e.message : 'Verify & Sign Agreement failed');

@@ -52,6 +52,7 @@ import { listAgreements, type ConstitutionalAgreementRow } from '@/services/cons
 import type { CapabilityDescriptor } from '@/types/registryIngestion';
 import { correlateAgent } from '@/services/horizen/correlate';
 import { HORIZEN_NETWORKS, type HorizenNetwork } from '@/services/horizen/identity';
+import { resolveRatificationRefs } from '@/services/journey/ratificationRefs';
 
 export type BenchLifecycleState = 'candidate' | 'invited' | 'in-admission' | 'service-ready' | 'engaged';
 
@@ -341,7 +342,7 @@ export async function buildAgentBenchRow(
 
   const allAgreements = await listAgreements().catch(() => [] as ConstitutionalAgreementRow[]);
   const agreements = registrableAgent
-    ? allAgreements.filter((a) => a.selectedAgentRef === registrableAgent.runtimeAgentId)
+    ? allAgreements.filter((a) => a.selectedAgentRef === resolveRatificationRefs(registrableAgent.slug).selectedAgentRef)
     : [];
 
   const financialServices = buildFinancialServicesMembership({

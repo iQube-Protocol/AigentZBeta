@@ -128,13 +128,25 @@ export async function POST(request: NextRequest) {
       provider: typeof body.provider === 'string' ? body.provider : undefined,
     });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
-    return NextResponse.json({ ok: true, alreadyAccepted: result.alreadyAccepted, receiptId: result.receiptId, agreement: result.agreement });
+    return NextResponse.json({
+      ok: true,
+      alreadyAccepted: result.alreadyAccepted,
+      receiptId: result.receiptId,
+      receiptWarning: result.receiptWarning,
+      agreement: result.agreement,
+    });
   }
 
   if (body.action === 'authorize') {
     const result = await authorizeAgreement(personaId, { agreementId: String(body.agreementId ?? '') });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
-    return NextResponse.json({ ok: true, alreadyAuthorized: result.alreadyAuthorized, receiptId: result.receiptId, agreement: result.agreement });
+    return NextResponse.json({
+      ok: true,
+      alreadyAuthorized: result.alreadyAuthorized,
+      receiptId: result.receiptId,
+      receiptWarning: result.receiptWarning,
+      agreement: result.agreement,
+    });
   }
 
   if (body.action === 'gate') {

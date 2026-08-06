@@ -108,7 +108,14 @@ describe('buildAgentBenchRow — registrable-agent subject (Nakamoto shape)', ()
       { id: 'r2', actionType: 'horizen_pnl_transparency_enabled' },
     ]);
     mockListAgreements.mockResolvedValue([
-      { id: 'agr-1', agreementId: 'agr-1', displayLabel: 'Nakamoto FS agreement', status: 'authorized', selectedAgentRef: 'aigent-nakamoto', createdAt: '2026-08-01T00:00:00Z' },
+      // 'agent-nakamoto' (services/journey/ratificationRefs.ts's scheme) — NOT
+      // 'aigent-nakamoto' (registrableAgent.runtimeAgentId). These are two
+      // distinct, non-interchangeable identifier schemes; a real Constitutional
+      // Agreement's selectedAgentRef is always the former. Pins the 2026-08-06
+      // fix for "Nakamoto stuck in Deploy, never reaches Operate" — the filter
+      // in agentBenchReadModel.ts previously compared against runtimeAgentId
+      // and could never match a real agreement.
+      { id: 'agr-1', agreementId: 'agr-1', displayLabel: 'Nakamoto FS agreement', status: 'authorized', selectedAgentRef: 'agent-nakamoto', createdAt: '2026-08-01T00:00:00Z' },
     ]);
 
     const row = await buildAgentBenchRow({} as any, { kind: 'registrable-agent', agent: NAKAMOTO_AGENT }, { hasInvitation: false });
