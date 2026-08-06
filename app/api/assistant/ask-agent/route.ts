@@ -31,6 +31,7 @@ import {
   askSpecialist,
   type SpecialistId,
   type SpecialistContext,
+  type SpecialistResponse,
 } from '@/services/agents/specialistRouter';
 import { resolveConstitutionalField } from '@/services/invariants/resolution';
 import type { InvariantNamespace } from '@/types/invariants';
@@ -169,8 +170,150 @@ async function maybeInjectContactContext(
 }
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { runPreflightGather } from '@/services/capabilities/preflight';
+import { invokeCapability } from '@/services/registry/invocationGateway';
+import { personaPublicRef } from '@/services/identity/personaReferences';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * The direct-specialist pattern (design doc §0/§7,
+ * codexes/packs/agentiq/updates/2026-08-06_governed-capability-invocation-design.md):
+ * requestingAgentId === the resolved provider, orchestratorAgentId absent.
+ * Every direct consultation with Aigent Nakamoto is governed through the SAME
+ * gateway a MoneyPenny-orchestrated call would use — never a second,
+ * ungoverned path to her runtime. Scoped to her pilot capability
+ * (bitcoin_decentralisation_expertise) rather than per-message topic
+ * detection: this integration proves the mechanism end-to-end for the one
+ * capability Phase 4 scoped, not a full per-topic router for her other
+ * capabilities (disclosed simplification, not a fabrication).
+ *
+ * `shadow` mode — advisory consultation, never money-moving — so Pulse/P&L
+ * are not required (design doc §4 Gate 2's example, verbatim).
+ */
+async function gateDirectNakamotoConsultation(
+  personaId: string,
+  intentText: string,
+): Promise<{ ok: true } | { ok: false; status: number; body: Record<string, unknown> }> {
+  const decision = await invokeCapability(
+    {
+      mode: 'capability',
+      invocationId: `capinv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      principalRef: personaPublicRef(personaId),
+      originatingSurface: 'aigentme',
+      requestingAgentId: 'aigent-nakamoto',
+      capabilityId: 'bitcoin_decentralisation_expertise',
+      runtimeMembershipRef: 'financial-services',
+      executionMode: 'shadow',
+      intent: intentText,
+      input: {},
+      policyBindingRefs: [],
+      delegationDepth: 0,
+      invocationPath: [],
+      maxInvocationDepth: 2,
+    },
+    personaId,
+  );
+
+  if (decision.decision === 'refuse') {
+    return {
+      ok: false,
+      status: 403,
+      body: { error: 'capability-invocation-refused', code: decision.code, detail: decision.reason },
+    };
+  }
+  // 'allow-with-approval' / 'shadow-only' — neither is reachable from a
+  // `shadow` mode request in this phase (Gate 2 only escalates authoritative
+  // mode), but handled explicitly rather than falling through silently.
+  if (decision.decision !== 'allow') {
+    return {
+      ok: false,
+      status: 202,
+      body: { error: 'capability-invocation-not-allowed', decision: decision.decision },
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * MoneyPenny's own decision logic for when to bring in a helper (design doc
+ * scope note: "MoneyPenny proposes the team and invocation. The gateway
+ * governs it." / "She is required for the Financial Services orchestration
+ * path or when multiple helper agents must be composed. She is not required
+ * for an explicit direct consultation with Nakamoto" — that direct path is
+ * `gateDirectNakamotoConsultation` above, a SEPARATE pattern).
+ *
+ * Detection is a topic heuristic, not a claim of general intent
+ * understanding: it recognises the one capability this phase scoped
+ * (`bitcoin_decentralisation_expertise`), matching the domain Nakamoto's own
+ * agent card declares (consensus, UTXO/script semantics, layer 2, Lightning,
+ * sidechains, self-custody, cypherpunk history). A miss just means MoneyPenny
+ * answers alone, exactly as she does today — this never narrows what she can
+ * already do, only adds a helper call when the topic is plainly in Nakamoto's
+ * declared lane.
+ */
+const BITCOIN_DECENTRALISATION_RE =
+  /\b(bitcoin|btc|utxo|lightning\s*network|sidechain|layer\s*-?\s*2|\bl2\b|satoshi|consensus\s+(mechanism|algorithm|rule)|self-?custody|cypherpunk|decentrali[sz]ation|proof[\s-]of[\s-]work)\b/i;
+
+/**
+ * Best-effort — an enrichment on top of MoneyPenny's own answer, never a
+ * requirement for it to succeed. Returns null (never throws) when the topic
+ * doesn't match, the gateway refuses, or Nakamoto's own consultation fails —
+ * MoneyPenny's response proceeds unchanged in every one of those cases.
+ */
+async function maybeConsultNakamotoViaMoneyPenny(
+  personaId: string,
+  intentText: string,
+  specialistContext: SpecialistContext,
+): Promise<SpecialistResponse | null> {
+  if (!BITCOIN_DECENTRALISATION_RE.test(intentText)) return null;
+
+  try {
+    const decision = await invokeCapability(
+      {
+        mode: 'capability',
+        invocationId: `capinv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        principalRef: personaPublicRef(personaId),
+        originatingSurface: 'wallet-copilot',
+        requestingAgentId: 'aigent-moneypenny',
+        orchestratorAgentId: 'aigent-moneypenny',
+        capabilityId: 'bitcoin_decentralisation_expertise',
+        runtimeMembershipRef: 'financial-services',
+        executionMode: 'shadow',
+        intent: intentText,
+        input: {},
+        policyBindingRefs: [],
+        delegationDepth: 1,
+        invocationPath: [],
+        maxInvocationDepth: 2,
+      },
+      personaId,
+    );
+    if (decision.decision !== 'allow') return null;
+
+    return await askSpecialist({ specialistId: 'aigent-nakamoto', context: specialistContext });
+  } catch (err) {
+    console.error('[ask-agent] MoneyPenny -> Nakamoto helper consultation failed (non-fatal)', err);
+    return null;
+  }
+}
+
+/**
+ * Fold Nakamoto's contribution into MoneyPenny's own response — MoneyPenny
+ * stays the response's identity (specialistId/specialistLabel/title); her
+ * summary gains an attributed addendum and her recommendations gain
+ * Nakamoto's, each tagged so the operator can see who said what. Never
+ * mutates `moneyPenny` in place.
+ */
+function attributeNakamotoContribution(moneyPenny: SpecialistResponse, nakamoto: SpecialistResponse): SpecialistResponse {
+  return {
+    ...moneyPenny,
+    summary: `${moneyPenny.summary}\n\nPer Aigent Nakamoto (Bitcoin/decentralisation specialist, consulted for this question): ${nakamoto.summary}`,
+    recommendations: [
+      ...moneyPenny.recommendations,
+      ...nakamoto.recommendations.map((r) => `[Aigent Nakamoto] ${r}`),
+    ],
+  };
+}
 
 const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye', 'researcher'];
 
@@ -336,10 +479,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ...(invariantSlice && invariantSlice.length > 0 ? { invariantSlice } : {}),
     };
 
-    const response = await askSpecialist({
+    if (resolvedSpecialistId === 'aigent-nakamoto') {
+      const gate = await gateDirectNakamotoConsultation(context.personaId, lookupQuery);
+      if (!gate.ok) {
+        return NextResponse.json(gate.body, { status: gate.status, headers: { 'Cache-Control': 'no-store' } });
+      }
+    }
+
+    let response = await askSpecialist({
       specialistId: resolvedSpecialistId,
       context: specialistContext,
     });
+
+    // MoneyPenny's own decision to bring in a helper (design doc scope note
+    // — she proposes, the gateway governs). Enrichment only: her own
+    // response above is already complete and correct on its own; this only
+    // ADDS Nakamoto's attributed contribution when the topic is in her lane.
+    let nakamotoContributed = false;
+    if (resolvedSpecialistId === 'moneypenny') {
+      const nakamotoContribution = await maybeConsultNakamotoViaMoneyPenny(context.personaId, lookupQuery, specialistContext);
+      if (nakamotoContribution) {
+        response = attributeNakamotoContribution(response, nakamotoContribution);
+        nakamotoContributed = true;
+      }
+    }
 
     // Emit a 'specialist_consulted' receipt. Best-effort; non-fatal.
     // Persists the full SpecialistResponse body so the operator can
@@ -351,7 +514,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       activeCartridge,
       actionType: 'specialist_consulted',
       summary: `Consulted ${response.specialistLabel}: ${response.title}`,
-      agentsInvoked: ['aigent-me', resolvedSpecialistId],
+      agentsInvoked: nakamotoContributed ? ['aigent-me', resolvedSpecialistId, 'aigent-nakamoto'] : ['aigent-me', resolvedSpecialistId],
       toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
       // CFS-008 §2 — the invariants this consultation was grounded in.

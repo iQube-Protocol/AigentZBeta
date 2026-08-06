@@ -205,6 +205,72 @@ function RuntimeMembershipBadges({ memberships }: { memberships: RuntimeMembersh
   );
 }
 
+const CAPABILITY_ACTION_KIND_STYLE: Record<string, string> = {
+  chat: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25',
+  invoke: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25',
+  inspect: 'border-violet-500/40 bg-violet-500/15 text-violet-300',
+  none: 'border-slate-700 bg-slate-800/40 text-slate-500',
+};
+
+/**
+ * The capability-derived action, made real: chat/invoke kinds are clickable
+ * and call POST /api/marketa/activation/agent-bench/invoke (the governed
+ * capability invocation gateway, direct pattern). `inspect`/`none` stay
+ * inert badges -- there is no capability policy in this phase that resolves
+ * a read-only action to a live call.
+ */
+function CapabilityActionControl({ row }: { row: AgentBenchRow }) {
+  const action = deriveCapabilityAction(capabilitySignalFromDescriptors(row.capabilityDescriptors));
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; code?: string; reason?: string } | null>(null);
+  const interactive = (action.kind === 'invoke' || action.kind === 'chat') && !!action.capabilityName;
+
+  const runInvoke = useCallback(async () => {
+    if (!action.capabilityName) return;
+    setBusy(true);
+    setResult(null);
+    try {
+      const res = await personaFetch('/api/marketa/activation/agent-bench/invoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capabilityId: action.capabilityName, agentId: row.candidateId }),
+      });
+      const data = await res.json();
+      setResult({
+        ok: data?.decision?.decision === 'allow',
+        code: data?.decision?.code,
+        reason: data?.decision?.reason,
+      });
+    } catch (e) {
+      setResult({ ok: false, reason: e instanceof Error ? e.message : 'invoke failed' });
+    } finally {
+      setBusy(false);
+    }
+  }, [action.capabilityName, row.candidateId]);
+
+  return (
+    <div className="mt-1.5 flex flex-col gap-1">
+      {interactive ? (
+        <button
+          type="button"
+          onClick={() => void runInvoke()}
+          disabled={busy}
+          className={`self-start rounded border px-1.5 py-0.5 text-[10px] transition disabled:opacity-50 ${CAPABILITY_ACTION_KIND_STYLE[action.kind]}`}
+        >
+          {busy ? 'Invoking…' : action.label}
+        </button>
+      ) : (
+        <span className={`self-start rounded border px-1.5 py-0.5 text-[10px] ${CAPABILITY_ACTION_KIND_STYLE[action.kind]}`}>{action.label}</span>
+      )}
+      {result && (
+        <span className={`text-[10px] ${result.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {result.ok ? 'Allowed by the gateway' : `Refused${result.code ? ` (${result.code})` : ''}${result.reason ? ` — ${result.reason}` : ''}`}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Always-visible persistent facts — identity, source, capabilities,
  *  registry/trust band, Pulse/P&L, runtime memberships. Shown the same
  *  regardless of which action tab is active, per the card-structure spec:
@@ -233,21 +299,13 @@ function PersistentCardHeader({ row }: { row: AgentBenchRow }) {
             and any future aigentMe capability chip. Silent when the row has
             no registry asset yet (capabilityDescriptors empty) rather than
             asserting "no capability" for a row that simply hasn't reached
-            the registry. */}
-        {row.capabilityDescriptors.length > 0 && (() => {
-          const action = deriveCapabilityAction(capabilitySignalFromDescriptors(row.capabilityDescriptors));
-          const KIND_STYLE: Record<string, string> = {
-            chat: 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300',
-            invoke: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
-            inspect: 'border-violet-500/40 bg-violet-500/15 text-violet-300',
-            none: 'border-slate-700 bg-slate-800/40 text-slate-500',
-          };
-          return (
-            <div className="mt-1.5">
-              <span className={`rounded border px-1.5 py-0.5 text-[10px] ${KIND_STYLE[action.kind]}`}>{action.label}</span>
-            </div>
-          );
-        })()}
+            the registry. Clickable for chat/invoke kinds -- calls THROUGH
+            the governed capability invocation gateway (design doc §8's
+            "Agent Bench's existing direct-call action... Rewire"), direct
+            pattern (the operator's own click, no orchestrator). */}
+        {row.capabilityDescriptors.length > 0 && (
+          <CapabilityActionControl row={row} />
+        )}
         <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
           {row.registry && (
             <span className="rounded-full border border-slate-600 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400">
