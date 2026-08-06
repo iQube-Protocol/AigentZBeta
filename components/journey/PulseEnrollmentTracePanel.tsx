@@ -2,26 +2,35 @@
 
 /**
  * PulseEnrollmentTracePanel — "Close Nakamoto Pulse Enrollment — Final
- * Correlated Trace" (operator directive, 2026-08-06).
+ * Correlated Trace" (operator directive, 2026-08-06; hardened against
+ * serverless timeout per Al's review, same day).
  *
  * A DIAGNOSTIC surface, additive to PulseTransparencyToggle — never a
- * replacement for its Authorize/"Check status again" affordances. Drives
- * POST /api/journey/moneypenny-horizen/verify/pulse-trace, which runs ONE
- * fresh enrollment attempt (build -> sign -> submit -> reread at
- * t+0/5/15/30s) and returns the full correlation record
- * (services/horizen/pulseEnrollmentTrace.ts). Renders exactly the UI
- * requirement the directive specifies — classification, the latest
- * submission response verbatim, the latest authoritative status verbatim,
- * and the attempt id — and never collapses any of that into "not enrolled"
- * alone.
+ * replacement for its Authorize/"Check status again" affordances.
  *
- * Takes ~30s+ by design (the required sequence's own timed rereads); the
- * button disables and narrates progress rather than appearing hung.
+ * TWO CALLS, NEVER ONE LONG ONE (Al's review, verbatim: "Do not make one
+ * HTTP request wait through t+0/5/15/30... Use a persisted attempt plus
+ * short read-only polling calls... Do not use setTimeout/sleep inside a
+ * long-running API request"):
+ *   1. "Run correlated trace" → POST .../pulse-trace (start): build -> sign
+ *      -> submit -> the immediate t+0 reread, in ONE fast round trip.
+ *      Returns right away with the attemptId and t+0 evidence.
+ *   2. THIS COMPONENT then schedules its OWN client-side timers (setTimeout
+ *      in the browser — never on the server) to call
+ *      POST .../pulse-trace/continue with that attemptId at +5/+15/+30s.
+ *      Each call performs exactly ONE authoritative reread server-side (no
+ *      re-signing, no resubmission) and returns the updated record;
+ *      classification is re-rendered after every one. Polling stops once the
+ *      record reports `complete`.
+ *
+ * Renders exactly the UI requirement — classification, the latest submission
+ * response verbatim, the latest authoritative status verbatim, and the
+ * attempt id — and never collapses any of that into "not enrolled" alone.
  *
  * Spine-gated route — personaFetch only, never raw fetch.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, PlayCircle } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
@@ -54,6 +63,7 @@ interface CorrelationRecord {
   statusReads: StatusReadRecord[];
   reachedPartnerSubmission: boolean;
   localContractError: string | null;
+  complete: boolean;
 }
 
 const CLASSIFICATION_STYLE: Record<Classification, string> = {
@@ -72,6 +82,10 @@ const CLASSIFICATION_LABEL: Record<Classification, string> = {
   LOCAL_CONTRACT_ERROR: 'Local contract error',
 };
 
+// Relative to when the START call returns — the client owns this cadence,
+// never the server (see this file's own header).
+const REREAD_DELAYS_MS: Array<5 | 15 | 30> = [5, 15, 30];
+
 function verbatim(value: unknown): string {
   if (value === null || value === undefined) return '(none)';
   if (typeof value === 'string') return value;
@@ -87,12 +101,42 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
   const [record, setRecord] = useState<CorrelationRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
+  }, []);
+  useEffect(() => clearTimers, [clearTimers]);
+
+  const continueOnce = useCallback(async (attemptId: string, atSeconds: 5 | 15 | 30) => {
+    setProgressNote(`Reading authoritative status at t+${atSeconds}s…`);
+    try {
+      const res = await personaFetch('/api/journey/moneypenny-horizen/verify/pulse-trace/continue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ attemptId }),
+      });
+      const json = await readJsonOrExplain(res, 'verify/pulse-trace/continue');
+      if (res.ok && json?.ok) {
+        setRecord(json.record as CorrelationRecord);
+      }
+      // A failed continue call leaves the last-known record standing — the
+      // t+0 (or earlier) evidence is unaffected; the operator can still see
+      // it and the schedule below still runs its remaining reads.
+    } catch {
+      // Same reasoning — a transport failure here says nothing new.
+    } finally {
+      setProgressNote(null);
+    }
+  }, []);
 
   const run = useCallback(async () => {
     setRunning(true);
     setError(null);
     setRecord(null);
-    setProgressNote('Running build → sign → submit → reread (t+0s)… this includes rereads at +5s/+15s/+30s, so it takes about 30-40 seconds.');
+    clearTimers();
+    setProgressNote('Running build → sign → submit → the immediate status read (t+0s)…');
     try {
       const res = await personaFetch('/api/journey/moneypenny-horizen/verify/pulse-trace', {
         method: 'POST',
@@ -103,16 +147,28 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
       if (!res.ok || !json?.ok) {
         throw new Error(typeof json?.error === 'string' ? json.error : `Correlation trace failed (${res.status})`);
       }
-      setRecord(json.record as CorrelationRecord);
+      const started = json.record as CorrelationRecord;
+      setRecord(started);
+      // Schedule the further rereads on OUR OWN client-side timers — never a
+      // server-side sleep. Each one is independent; a started trace that is
+      // already `complete` (e.g. a LOCAL_CONTRACT_ERROR before submission)
+      // schedules nothing.
+      if (!started.complete) {
+        REREAD_DELAYS_MS.forEach((atSeconds) => {
+          const timer = setTimeout(() => void continueOnce(started.attemptId, atSeconds), atSeconds * 1000);
+          timersRef.current.push(timer);
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Correlation trace failed');
     } finally {
       setProgressNote(null);
       setRunning(false);
     }
-  }, [agentSlug]);
+  }, [agentSlug, clearTimers, continueOnce]);
 
   const latestStatusRead = record?.statusReads?.length ? record.statusReads[record.statusReads.length - 1] : null;
+  const stillPolling = record !== null && !record.complete;
 
   return (
     <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs">
@@ -120,9 +176,9 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
         <div>
           <p className="font-medium text-slate-200">Correlated enrollment trace</p>
           <p className="mt-0.5 text-slate-500">
-            Runs ONE fresh attempt end to end and rereads authoritative status at t+0/5/15/30s, so a submission Horizen
-            accepted but never persisted is distinguishable from one it genuinely rejected — never collapsed into
-            &quot;not enrolled&quot; alone.
+            Runs ONE fresh attempt (build → sign → submit → t+0 read) then rereads authoritative status at
+            +5s/+15s/+30s on separate calls, so a submission Horizen accepted but never persisted is distinguishable
+            from one it genuinely rejected — never collapsed into &quot;not enrolled&quot; alone.
           </p>
         </div>
         <button
@@ -131,20 +187,25 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
           className="flex shrink-0 items-center gap-1.5 rounded-md border border-purple-800/60 bg-purple-950/30 px-3 py-1.5 font-medium text-purple-200 transition-colors hover:bg-purple-900/40 disabled:opacity-50"
         >
           {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
-          {running ? 'Running…' : 'Run correlated trace'}
+          {running ? 'Starting…' : 'Run correlated trace'}
         </button>
       </div>
 
-      {progressNote && <p className="mt-2 text-slate-500">{progressNote}</p>}
+      {progressNote && (
+        <p className="mt-2 flex items-center gap-1.5 text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> {progressNote}
+        </p>
+      )}
       {error && <p className="mt-2 text-rose-300">{error}</p>}
 
       {record && (
         <div className="mt-3 space-y-2 border-t border-slate-800 pt-3">
-          {/* THE UI REQUIREMENT, VERBATIM (directive, 2026-08-06) — these four
+          {/* THE UI REQUIREMENT, VERBATIM (directive, 2026-08-06) — these
               lines are never omitted and never merged into one summary. */}
           <div className={`rounded border px-2 py-1.5 ${CLASSIFICATION_STYLE[record.classification]}`}>
             <span className="font-medium">Pulse submission outcome:</span> {CLASSIFICATION_LABEL[record.classification]}
-            <span className="ml-1 text-[10px] opacity-80">— {record.classificationReason}</span>
+            {stillPolling && <span className="ml-1 text-[10px] opacity-70">(provisional — more rereads scheduled)</span>}
+            <span className="ml-1 block text-[10px] opacity-80">{record.classificationReason}</span>
           </div>
 
           <div>

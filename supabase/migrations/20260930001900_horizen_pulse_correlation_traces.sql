@@ -9,9 +9,14 @@
 --
 -- ONE ROW PER FRESH ENROLLMENT ATTEMPT (attempt_id, not the deterministic
 -- per-agent authorizationId — a re-run of the trace for the same agent is a
--- NEW row, never an update, so no earlier attempt's evidence is ever
--- overwritten). Read-only diagnostic capture, never itself a decision input
--- for the agreement/Standing/Agent Bench/wallet-selection/signing/health
+-- NEW row, never reusing an earlier attempt's id, so no earlier attempt's
+-- evidence is ever overwritten by a later one). The row IS updated, though —
+-- INSERTed once by startPulseEnrollmentTrace (build->sign->submit->t+0
+-- read), then UPDATEd in place by continuePulseEnrollmentTrace as each
+-- +5/+15/+30s reread appends to status_reads (Al's review, 2026-08-06: one
+-- HTTP request must never hold open through the full 30s schedule — see
+-- pulseEnrollmentTrace.ts's own header). Never itself a decision input for
+-- the agreement/Standing/Agent Bench/wallet-selection/signing/health
 -- pipelines — see services/horizen/pulseEnrollmentTrace.ts, the only writer.
 --
 -- NEVER THE RAW SIGNATURE. Mirrors partner_authorization_requests.signature_ref
@@ -57,6 +62,12 @@ CREATE TABLE IF NOT EXISTS public.horizen_pulse_correlation_traces (
       'PARTNER_RESPONSE_UNRESOLVED', 'LOCAL_CONTRACT_ERROR'
     )),
   classification_reason        TEXT NOT NULL,
+
+  -- True once every scheduled reread (t+0/5/15/30s) has run, or the
+  -- classification is conclusive without further reads (ENROLLED /
+  -- PARTNER_REJECTED / LOCAL_CONTRACT_ERROR). The UI stops calling
+  -- continuePulseEnrollmentTrace once this is true.
+  complete                     BOOLEAN NOT NULL DEFAULT false,
 
   -- {step: isoTimestamp} for every stage of the sequence.
   timestamps                   JSONB NOT NULL DEFAULT '{}'::jsonb,

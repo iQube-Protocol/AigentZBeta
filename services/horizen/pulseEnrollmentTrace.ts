@@ -1,42 +1,52 @@
 /**
  * Pulse enrollment correlation trace — "Close Nakamoto Pulse Enrollment —
- * Final Correlated Trace" (operator directive, 2026-08-06).
+ * Final Correlated Trace" (operator directive, 2026-08-06; hardened against
+ * serverless timeout per Al's review, 2026-08-06).
  *
- * Constraint on that directive, verbatim: "Do not change agreement
+ * Constraint on the original directive, verbatim: "Do not change agreement
  * identifiers, ratification, Standing, Agent Bench, wallet selection,
  * signature generation, message selection or health routing. The sole
  * objective is to determine why a fresh, locally valid
  * enable_pulse_monitoring submission does not become an enrolled state."
+ *
+ * Al's follow-up review, verbatim (2026-08-06) — the reason this module has
+ * TWO entry points rather than one: "Do not make one HTTP request wait
+ * through t+0/5/15/30... That could fail before returning the trace and
+ * recreate the same ambiguity... Start trace: build, sign, submit once,
+ * persist raw evidence, perform the immediate status read, return
+ * immediately. Continue trace: a read-only-in-spirit route the UI calls at
+ * ~+5/+15/+30s; each call performs ONE authoritative reread and appends it
+ * to the same trace; no call re-signs or resubmits; classification updates
+ * after every read." There is NO `setTimeout`/sleep anywhere in this module
+ * — the +5/+15/+30s cadence lives entirely in the BROWSER (the caller of
+ * `continuePulseEnrollmentTrace`), the same pattern PulseTransparencyToggle's
+ * own `STATUS_POLL_MS` client-side interval already uses.
  *
  * This module NEVER duplicates the build/select/sign/submit mechanics —
  * every one of those stays exactly as `services/horizen/authorizationClient.ts`
  * already implements it (`runHorizenTransparencyAuthorization`, which itself
  * composes prepare -> crossCheckRegistryOwner -> sign -> verifySignatureIntegrity
  * (the local EIP-191 recovery check) -> submit -> first authoritative reread,
- * unchanged). This module's only two additions are:
+ * unchanged, called exactly ONCE by `startPulseEnrollmentTrace`). Later
+ * rereads reuse the SAME `verifyHorizenTransparencyActivation` function with
+ * `allowStates: RECONCILABLE_STATES`, never re-signing or resubmitting.
  *
- *   1. Three FURTHER authoritative rereads at +5s/+15s/+30s after the first
- *      one `runHorizenTransparencyAuthorization` already performs — using
- *      the SAME `verifyHorizenTransparencyActivation` function, the SAME
- *      `pulseStatusCandidates` schema-matched arguments, with
- *      `allowStates: RECONCILABLE_STATES` so a reread that already flipped
- *      the row to REFUSED (e.g. PARTNER_NOT_ENROLLED) does not block the
- *      next one.
- *   2. A five-way DECISION CONTRACT built purely from what those calls
- *      returned (never re-deriving or second-guessing the classifications
- *      `classifyPulseEnrollmentState`/`normalizeMcpSubmissionResult` already
- *      compute), persisted as one correlation record per attempt.
+ * "Invalidate/supersede any earlier refused authorization" needs no code
+ * here — `createPartnerAuthorizationRequest` (partnerAuthorizationStore.ts)
+ * already resets a non-CONFIRMED/non-recent-SUBMITTED row on every fresh
+ * `prepareHorizenTransparencyAuthorization` call, which
+ * `runHorizenTransparencyAuthorization` invokes unchanged.
  *
- * "Invalidate/supersede any earlier refused authorization" (the required
- * sequence's step 1) needs no code here — `createPartnerAuthorizationRequest`
- * (partnerAuthorizationStore.ts) already resets a non-CONFIRMED/non-recent-
- * SUBMITTED row on every fresh `prepareHorizenTransparencyAuthorization` call,
- * which `runHorizenTransparencyAuthorization` invokes unchanged.
- *
- * NEVER THE RAW SIGNATURE — see the migration's own header
- * (20260930001900_horizen_pulse_correlation_traces.sql) for why this mirrors
- * `partner_authorization_requests.signature_ref`'s existing "commitment, not
- * the bearer signature" discipline rather than inventing a laxer one.
+ * NEVER THE RAW SIGNATURE, NEVER THE RAW PERSONA ID. The signature stays a
+ * sha256 commitment (mirrors `partner_authorization_requests.signature_ref`
+ * — see the migration's own header). `actorPersonaId` is NEVER persisted on
+ * the correlation row and never appears in what these functions return to a
+ * route — CLAUDE.md's Identity & Access Spine marks personaId a T0
+ * identifier ("NEVER serialise to JSON"), and this table's rows ARE
+ * serialised to JSON for the UI. `continuePulseEnrollmentTrace` therefore
+ * takes `actorPersonaId` as a fresh per-call argument (the CALLER's own
+ * active persona, resolved by the route exactly as `startPulseEnrollmentTrace`
+ * already does) rather than reading a stored one.
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
@@ -63,7 +73,7 @@ export type PulseEnrollmentClassification =
   | 'LOCAL_CONTRACT_ERROR';
 
 export interface PulseStatusReadRecord {
-  /** 0 = the reread `runHorizenTransparencyAuthorization` already performed as part of its own ceremony; 5/15/30 = this module's additional rereads. */
+  /** 0 = the reread `runHorizenTransparencyAuthorization` already performed as part of its own ceremony, captured by `startPulseEnrollmentTrace`; 5/15/30 = a later `continuePulseEnrollmentTrace` call. */
   atSeconds: 0 | 5 | 15 | 30;
   timestamp: string;
   ok: boolean;
@@ -97,78 +107,37 @@ export interface PulseCorrelationRecord {
   localContractError: string | null;
   classification: PulseEnrollmentClassification;
   classificationReason: string;
+  /** True once every scheduled reread (t+0/5/15/30s) has run, OR the classification is one that needs no further reads (ENROLLED/PARTNER_REJECTED/LOCAL_CONTRACT_ERROR). The UI stops polling `continue` once this is true. */
+  complete: boolean;
   timestamps: Record<string, string>;
   createdAt: string;
 }
 
-export type RunPulseEnrollmentTraceResult =
-  | { ok: true; record: PulseCorrelationRecord }
-  | { ok: false; reason: string };
+export type StartPulseEnrollmentTraceResult = { ok: true; record: PulseCorrelationRecord } | { ok: false; reason: string };
+export type ContinuePulseEnrollmentTraceResult = { ok: true; record: PulseCorrelationRecord } | { ok: false; reason: string };
 
-export interface RunPulseEnrollmentTraceInput {
+export interface StartPulseEnrollmentTraceInput {
   agentSlug: string;
   actorPersonaId: string;
   /** The scheme+host this request arrived on — for the self-fetch of the agent's own Agent Card, same as verify/authorize/route.ts's resolveRequestOrigin. */
   origin: string;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+const SCHEDULED_REREAD_SECONDS: Array<5 | 15 | 30> = [5, 15, 30];
+const TABLE = 'horizen_pulse_correlation_traces';
+
+function isConclusiveWithoutFurtherReads(classification: PulseEnrollmentClassification): boolean {
+  return classification === 'ENROLLED' || classification === 'PARTNER_REJECTED' || classification === 'LOCAL_CONTRACT_ERROR';
 }
 
-async function persistTrace(record: PulseCorrelationRecord): Promise<void> {
-  const admin = getSupabaseServer();
-  if (!admin) {
-    console.error('[PULSE CORRELATION TRACE] no Supabase client available — trace NOT persisted:', JSON.stringify(record));
-    return;
-  }
-  const { error } = await admin.from('horizen_pulse_correlation_traces').insert({
-    attempt_id: record.attemptId,
-    authorization_id: record.authorizationId,
-    agent_slug: record.agentSlug,
-    agent_id: record.agentId,
-    chain: record.chain,
-    wallet_address: record.walletAddress,
-    issued_at: record.issuedAt,
-    selected_message_source: record.selectedMessageSource,
-    selected_message_length: record.selectedMessageLength,
-    selected_message_hash: record.selectedMessageHash,
-    signature_ref: record.signatureRef,
-    submit_arguments: record.submitArguments,
-    raw_submit_response: record.rawSubmitResponse,
-    normalized_submission: record.normalizedSubmission,
-    status_reread_arguments: record.statusRereadArguments,
-    status_reads: record.statusReads,
-    reached_partner_submission: record.reachedPartnerSubmission,
-    local_contract_error: record.localContractError,
-    classification: record.classification,
-    classification_reason: record.classificationReason,
-    timestamps: record.timestamps,
-    created_at: record.createdAt,
-  });
-  if (error) {
-    // A migration not yet applied (20260930001900) is the expected shape of
-    // this failure until the operator runs it — never let a persistence
-    // failure discard the trace the operator is waiting on.
-    console.error(`[PULSE CORRELATION TRACE] persistence failed (apply migration 20260930001900?): ${error.message}. Record: ${JSON.stringify(record)}`);
-  }
+function computeComplete(reachedPartnerSubmission: boolean, statusReads: PulseStatusReadRecord[], classification: PulseEnrollmentClassification): boolean {
+  if (!reachedPartnerSubmission) return true; // LOCAL_CONTRACT_ERROR — nothing to reread, ever.
+  if (isConclusiveWithoutFurtherReads(classification)) return true;
+  return statusReads.length >= 1 + SCHEDULED_REREAD_SECONDS.length; // t+0 plus all three scheduled rereads.
 }
 
-/**
- * Fetch the most recent persisted trace(s) for an agent — read path for the
- * UI, never re-running the ceremony.
- */
-export async function getLatestPulseCorrelationTraces(agentSlug: string, limit = 5): Promise<PulseCorrelationRecord[]> {
-  const admin = getSupabaseServer();
-  if (!admin) return [];
-  const { data, error } = await admin
-    .from('horizen_pulse_correlation_traces')
-    .select('*')
-    .eq('agent_slug', agentSlug)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return data.map((row: Record<string, unknown>) => ({
+function rowToRecord(row: Record<string, unknown>): PulseCorrelationRecord {
+  return {
     attemptId: String(row.attempt_id),
     authorizationId: (row.authorization_id as string | null) ?? null,
     agentSlug: String(row.agent_slug),
@@ -189,9 +158,93 @@ export async function getLatestPulseCorrelationTraces(agentSlug: string, limit =
     localContractError: (row.local_contract_error as string | null) ?? null,
     classification: row.classification as PulseEnrollmentClassification,
     classificationReason: String(row.classification_reason),
+    complete: row.complete === true,
     timestamps: (row.timestamps as Record<string, string> | null) ?? {},
     createdAt: String(row.created_at),
-  }));
+  };
+}
+
+async function insertTrace(record: PulseCorrelationRecord): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) {
+    console.error('[PULSE CORRELATION TRACE] no Supabase client available — trace NOT persisted:', JSON.stringify(record));
+    return;
+  }
+  const { error } = await admin.from(TABLE).insert({
+    attempt_id: record.attemptId,
+    authorization_id: record.authorizationId,
+    agent_slug: record.agentSlug,
+    agent_id: record.agentId,
+    chain: record.chain,
+    wallet_address: record.walletAddress,
+    issued_at: record.issuedAt,
+    selected_message_source: record.selectedMessageSource,
+    selected_message_length: record.selectedMessageLength,
+    selected_message_hash: record.selectedMessageHash,
+    signature_ref: record.signatureRef,
+    submit_arguments: record.submitArguments,
+    raw_submit_response: record.rawSubmitResponse,
+    normalized_submission: record.normalizedSubmission,
+    status_reread_arguments: record.statusRereadArguments,
+    status_reads: record.statusReads,
+    reached_partner_submission: record.reachedPartnerSubmission,
+    local_contract_error: record.localContractError,
+    classification: record.classification,
+    classification_reason: record.classificationReason,
+    complete: record.complete,
+    timestamps: record.timestamps,
+    created_at: record.createdAt,
+  });
+  if (error) {
+    // A migration not yet applied (20260930001900) is the expected shape of
+    // this failure until the operator runs it — never let a persistence
+    // failure discard the trace the operator is waiting on.
+    console.error(`[PULSE CORRELATION TRACE] insert failed (apply migration 20260930001900?): ${error.message}. Record: ${JSON.stringify(record)}`);
+  }
+}
+
+async function updateTraceStatusReads(
+  attemptId: string,
+  updates: { statusReads: PulseStatusReadRecord[]; classification: PulseEnrollmentClassification; classificationReason: string; complete: boolean; timestamps: Record<string, string> },
+): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) {
+    console.error('[PULSE CORRELATION TRACE] no Supabase client available — reread NOT persisted for attempt', attemptId);
+    return;
+  }
+  const { error } = await admin
+    .from(TABLE)
+    .update({
+      status_reads: updates.statusReads,
+      classification: updates.classification,
+      classification_reason: updates.classificationReason,
+      complete: updates.complete,
+      timestamps: updates.timestamps,
+    })
+    .eq('attempt_id', attemptId);
+  if (error) {
+    console.error(`[PULSE CORRELATION TRACE] update failed for attempt "${attemptId}": ${error.message}`);
+  }
+}
+
+/**
+ * Fetch the most recent persisted trace(s) for an agent — read path for the
+ * UI, never re-running the ceremony.
+ */
+export async function getLatestPulseCorrelationTraces(agentSlug: string, limit = 5): Promise<PulseCorrelationRecord[]> {
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  const { data, error } = await admin.from(TABLE).select('*').eq('agent_slug', agentSlug).order('created_at', { ascending: false }).limit(limit);
+  if (error || !data) return [];
+  return data.map(rowToRecord);
+}
+
+async function getTraceByAttemptId(attemptId: string): Promise<PulseCorrelationRecord | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data, error } = await admin.from(TABLE).select('*').eq('attempt_id', attemptId).maybeSingle();
+  if (error || !data) return null;
+  return rowToRecord(data as Record<string, unknown>);
 }
 
 function enrollmentStateFromRawStatus(raw: unknown): 'CONFIRMED' | 'NOT_ENROLLED' | 'PENDING_CONVERGENCE' | null {
@@ -203,7 +256,9 @@ function enrollmentStateFromRawStatus(raw: unknown): 'CONFIRMED' | 'NOT_ENROLLED
  * The five-way decision contract, applied to already-computed evidence only
  * — never a second interpretation of raw text (that stays
  * `classifyPulseEnrollmentState`'s and `normalizeMcpSubmissionResult`'s job,
- * both unchanged, both reused as-is).
+ * both unchanged, both reused as-is). Called after EVERY read — t+0 in
+ * `startPulseEnrollmentTrace`, and again after each `continuePulseEnrollmentTrace`
+ * — so the classification only ever grows more certain, never regresses.
  */
 export function classifyTrace(args: {
   reachedPartnerSubmission: boolean;
@@ -231,22 +286,35 @@ export function classifyTrace(args: {
       reason: 'an authoritative get_onboarding_status reread explicitly reported Pulse enabled',
     };
   }
+  const allScheduledReadsIn = args.statusReads.length >= 1 + SCHEDULED_REREAD_SECONDS.length;
   if (args.submissionConfirmed) {
     return {
       classification: 'PARTNER_ACCEPTED_NOT_PERSISTED',
-      reason: 'the submission explicitly reported success/accepted/enabled, but every status reread (t+0/5/15/30s) reported not enrolled — Horizen accepted the attempt but did not persist or expose it',
+      reason: allScheduledReadsIn
+        ? 'the submission explicitly reported success/accepted/enabled, but every status reread (t+0/5/15/30s) reported not enrolled — Horizen accepted the attempt but did not persist or expose it'
+        : `the submission explicitly reported success/accepted/enabled, but the ${args.statusReads.length} status read(s) so far report not enrolled — provisional until all scheduled rereads complete`,
     };
   }
   return {
     classification: 'PARTNER_RESPONSE_UNRESOLVED',
-    reason: 'the submission response did not clearly state success or failure, and status remained not enrolled through every reread (t+0/5/15/30s)',
+    reason: allScheduledReadsIn
+      ? 'the submission response did not clearly state success or failure, and status remained not enrolled through every reread (t+0/5/15/30s)'
+      : `the submission response did not clearly state success or failure, and the ${args.statusReads.length} status read(s) so far report not enrolled — provisional until all scheduled rereads complete`,
   };
 }
 
-export async function runPulseEnrollmentTrace(
-  input: RunPulseEnrollmentTraceInput,
+/**
+ * STEP 1 of Al's hardened sequence — build, sign, submit ONCE, persist raw
+ * evidence, perform the immediate (t+0) status read, RETURN IMMEDIATELY. No
+ * `setTimeout`, no sleep. Whatever latency exists here is exactly the SAME
+ * single round trip `/verify/authorize` has always made (build -> sign ->
+ * submit -> one reread) — this function calls the identical, unmodified
+ * `runHorizenTransparencyAuthorization`, never a slower or riskier path.
+ */
+export async function startPulseEnrollmentTrace(
+  input: StartPulseEnrollmentTraceInput,
   deps: AuthorizationDeps = {},
-): Promise<RunPulseEnrollmentTraceResult> {
+): Promise<StartPulseEnrollmentTraceResult> {
   const attemptId = randomUUID();
   const timestamps: Record<string, string> = { traceStarted: new Date().toISOString() };
   const stamp = (key: string) => {
@@ -290,17 +358,14 @@ export async function runPulseEnrollmentTrace(
   }
 
   const authorizationId = `horizen-pulse-auth-${agent.aigentQubeId}-${binding.token_id}-${network}`;
-  const registry = { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined };
   stamp('inputsResolved');
 
   /*
    * THE ENTIRE build -> crossCheckRegistryOwner -> sign -> verifySignatureIntegrity
-   * -> submit -> first reread ceremony, UNCHANGED. This is the ONE call to
-   * enable_pulse_monitoring the required sequence asks for — nothing in this
-   * module calls it a second time. Same scope as the existing "Authorize
-   * Pulse monitoring & P&L disclosure" button, so this is the SAME
-   * authorizationId and the SAME ceremony an operator's click would run, not
-   * a parallel one.
+   * -> submit -> first reread ceremony, UNCHANGED, called EXACTLY ONCE. Same
+   * scope as the existing "Authorize Pulse monitoring & P&L disclosure"
+   * button, so this is the SAME authorizationId and the SAME ceremony an
+   * operator's click would run, not a parallel one.
    */
   const result = await runHorizenTransparencyAuthorization(
     {
@@ -310,7 +375,7 @@ export async function runPulseEnrollmentTrace(
       agentCardHash,
       controllerWallet: addresses.evmAddress,
       keyRef: agent.runtimeAgentId,
-      registry,
+      registry: { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined },
       scope: ['pulse-monitoring', 'pnl-disclosure'],
       agentDisplayName: agent.displayName,
       pulseEndpoint,
@@ -364,16 +429,17 @@ export async function runPulseEnrollmentTrace(
       localContractError,
       classification,
       classificationReason: reason,
+      complete: true,
       timestamps,
       createdAt: new Date().toISOString(),
     };
-    await persistTrace(record);
+    await insertTrace(record);
     return { ok: true, record };
   }
 
   // Reached Horizen. The reread `runHorizenTransparencyAuthorization` itself
   // already ran IS this trace's t=0 read — captured via the same additive
-  // rawStatusResult/statusArgsUsed fields, never re-invoked.
+  // rawStatusResult/statusArgsUsed fields, never re-invoked here.
   const statusReads: PulseStatusReadRecord[] = [
     {
       atSeconds: 0,
@@ -386,46 +452,10 @@ export async function runPulseEnrollmentTrace(
     },
   ];
 
-  // Three FURTHER rereads at +5s/+15s/+30s — the required sequence's step 8.
-  // `allowStates: RECONCILABLE_STATES` so a row the t=0 reread already
-  // flipped to REFUSED (PARTNER_NOT_ENROLLED) does not block these.
-  const delays: Array<5 | 15 | 30> = [5, 15, 30];
-  let previousElapsedMs = 0;
-  for (const atSeconds of delays) {
-    const waitMs = atSeconds * 1000 - previousElapsedMs;
-    if (waitMs > 0) await sleep(waitMs);
-    previousElapsedMs = atSeconds * 1000;
-
-    const reread = await verifyHorizenTransparencyActivation(
-      resolvedAuthorizationId,
-      {
-        actorPersonaId: input.actorPersonaId,
-        registry,
-        controllerWallet: addresses.evmAddress,
-        allowStates: RECONCILABLE_STATES,
-      },
-      deps,
-    );
-    stamp(`statusReread_${atSeconds}s`);
-    statusReads.push({
-      atSeconds,
-      timestamp: timestamps[`statusReread_${atSeconds}s`],
-      ok: reread.ok,
-      refusalCode: reread.ok ? null : reread.refusalCode,
-      rawStatusResult: reread.rawStatusResult ?? null,
-      statusArgsUsed: reread.statusArgsUsed ?? null,
-      enrollmentState: enrollmentStateFromRawStatus(reread.rawStatusResult),
-    });
-  }
-
   const normalizedSubmission = result.partnerResponse ?? null;
-  const { classification, reason } = classifyTrace({
-    reachedPartnerSubmission: true,
-    localContractError: null,
-    submissionRejected: normalizedSubmission?.semanticStatus === 'rejected' || (!result.ok && result.refusalCode === 'HORIZEN_SUBMISSION_REJECTED'),
-    submissionConfirmed: normalizedSubmission?.semanticStatus === 'confirmed',
-    statusReads,
-  });
+  const submissionRejected = normalizedSubmission?.semanticStatus === 'rejected' || (!result.ok && result.refusalCode === 'HORIZEN_SUBMISSION_REJECTED');
+  const submissionConfirmed = normalizedSubmission?.semanticStatus === 'confirmed';
+  const { classification, reason } = classifyTrace({ reachedPartnerSubmission: true, localContractError: null, submissionRejected, submissionConfirmed, statusReads });
 
   const record: PulseCorrelationRecord = {
     ...baseFields,
@@ -438,9 +468,83 @@ export async function runPulseEnrollmentTrace(
     localContractError: null,
     classification,
     classificationReason: reason,
+    complete: computeComplete(true, statusReads, classification),
     timestamps,
     createdAt: new Date().toISOString(),
   };
-  await persistTrace(record);
+  await insertTrace(record);
   return { ok: true, record };
+}
+
+/**
+ * STEP 2 of Al's hardened sequence — called by the UI at ~+5/+15/+30s
+ * relative to when `startPulseEnrollmentTrace` returned. Performs EXACTLY
+ * ONE authoritative reread (never re-signs, never resubmits — the
+ * `verifyHorizenTransparencyActivation` call below is a plain
+ * get_onboarding_status read with `allowStates: RECONCILABLE_STATES`),
+ * appends it to the SAME persisted trace, recomputes the classification, and
+ * returns. A no-op (returns the record unchanged) once the trace is already
+ * `complete` — safe to call an extra time without effect.
+ */
+export async function continuePulseEnrollmentTrace(
+  attemptId: string,
+  actorPersonaId: string,
+  deps: AuthorizationDeps = {},
+): Promise<ContinuePulseEnrollmentTraceResult> {
+  const record = await getTraceByAttemptId(attemptId);
+  if (!record) return { ok: false, reason: `no trace found for attempt "${attemptId}"` };
+  if (record.complete) return { ok: true, record };
+
+  const nextAtSecondsIndex = record.statusReads.length - 1; // t+0 already present at index 0
+  const nextAtSeconds = SCHEDULED_REREAD_SECONDS[nextAtSecondsIndex];
+  if (nextAtSeconds === undefined) return { ok: true, record }; // already has all scheduled reads
+
+  const agent = resolveRegistrableAgent(record.agentSlug);
+  if (!agent) return { ok: false, reason: `"${record.agentSlug}" is no longer a registrable agent` };
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, reason: 'Service unavailable — no Supabase client' };
+  const { binding } = await resolveHorizenRegistrationBinding(admin, agent);
+  if (!binding?.token_id) return { ok: false, reason: `${agent.displayName} no longer has a Horizen tokenId` };
+  const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+  const addresses = await new AgentKeyService().getAgentAddresses(agent.runtimeAgentId);
+  if (!addresses?.evmAddress) return { ok: false, reason: `no evm_address on record for agent "${agent.runtimeAgentId}"` };
+
+  const network = (binding.network ?? record.chain ?? 'base-sepolia') as HorizenNetwork;
+  const registry = { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined };
+  const authorizationId = record.authorizationId ?? `horizen-pulse-auth-${agent.aigentQubeId}-${binding.token_id}-${network}`;
+
+  const reread = await verifyHorizenTransparencyActivation(
+    authorizationId,
+    { actorPersonaId, registry, controllerWallet: addresses.evmAddress, allowStates: RECONCILABLE_STATES },
+    deps,
+  );
+  const timestamps = { ...record.timestamps, [`statusReread_${nextAtSeconds}s`]: new Date().toISOString() };
+  const newRead: PulseStatusReadRecord = {
+    atSeconds: nextAtSeconds,
+    timestamp: timestamps[`statusReread_${nextAtSeconds}s`],
+    ok: reread.ok,
+    refusalCode: reread.ok ? null : reread.refusalCode,
+    rawStatusResult: reread.rawStatusResult ?? null,
+    statusArgsUsed: reread.statusArgsUsed ?? null,
+    enrollmentState: enrollmentStateFromRawStatus(reread.rawStatusResult),
+  };
+  const statusReads = [...record.statusReads, newRead];
+
+  const submissionRejected = record.normalizedSubmission?.semanticStatus === 'rejected';
+  const submissionConfirmed = record.normalizedSubmission?.semanticStatus === 'confirmed';
+  const { classification, reason } = classifyTrace({
+    reachedPartnerSubmission: true,
+    localContractError: null,
+    submissionRejected,
+    submissionConfirmed,
+    statusReads,
+  });
+  const complete = computeComplete(true, statusReads, classification);
+
+  await updateTraceStatusReads(attemptId, { statusReads, classification, classificationReason: reason, complete, timestamps });
+
+  return {
+    ok: true,
+    record: { ...record, statusReads, classification, classificationReason: reason, complete, timestamps },
+  };
 }
