@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-06T23:12:04.765Z",
+  "last_updated": "2026-08-06T23:48:41.488Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e78fe17dd057901f865956c6d291853e489e1bea",
-  "latest_commit_short": "e78fe17",
-  "latest_commit_title": "fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants",
+  "latest_commit": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
+  "latest_commit_short": "a91d664",
+  "latest_commit_title": "fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a91d664",
+      "full_sha": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
+      "title": "fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits",
+      "author": "Claude",
+      "timestamp": "2026-08-06T23:46:35Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a91d664.md"
+    },
     {
       "sha": "e78fe17",
       "full_sha": "e78fe17dd057901f865956c6d291853e489e1bea",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T13:31:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c9514f6.md"
-    },
-    {
-      "sha": "a865e95",
-      "full_sha": "a865e95ac04b7599b55d8ba560c0eee50ce4b0ee",
-      "title": "Expand the DCIR observation seam to aigentMe (observe-mode-first)",
-      "author": "Claude",
-      "timestamp": "2026-07-07T13:25:07Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a865e95.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

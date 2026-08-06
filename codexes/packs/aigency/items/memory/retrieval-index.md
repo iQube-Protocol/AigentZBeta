@@ -3549,3 +3549,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-e78fe17.md](../build_/COMMITS/COMMIT-e78fe17.md)
 - Message: fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants
+
+## Commit `a91d664` — 2026-08-06T23:46:35Z
+- Type: `fix`
+- Brief: [COMMIT-a91d664.md](../build_/COMMITS/COMMIT-a91d664.md)
+- Message: fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits
