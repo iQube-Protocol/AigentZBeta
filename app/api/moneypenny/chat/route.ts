@@ -35,7 +35,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callSovereign } from '@/services/constitutional/modelRouter';
-import { resolveCitableInvariants, formatCitableInvariantsBlock, resolveCommonConstitutionalGround } from '@/services/invariants/resolution';
+import { resolveCitableInvariants, formatCitableInvariantsBlock } from '@/services/invariants/resolution';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -100,13 +100,25 @@ export async function runMoneyPennyChat(params: MoneyPennyChatParams): Promise<M
   // 2. Common constitutional ground for shared platform concepts (iQube, metaMe, polity).
   // The ground-truth block must always be available so MoneyPenny can answer questions
   // about platform fundamentals, not just wallet/pricing specifics.
-  const [domainInvariants, groundTruth] = await Promise.all([
-    resolveCitableInvariants(messageText, 4, { namespaces: ['finance'] }),
-    resolveCommonConstitutionalGround(messageText, undefined, 4),
-  ]);
+  let domainBlock = '';
+  let groundBlock = '';
 
-  const domainBlock = formatCitableInvariantsBlock(domainInvariants);
-  const groundBlock = formatCitableInvariantsBlock(groundTruth);
+  try {
+    const { resolveCommonConstitutionalGround, INVARIANT_BUDGET } = await import(
+      '@/services/invariants/resolution'
+    );
+
+    const [domainInvariants, groundTruth] = await Promise.all([
+      resolveCitableInvariants(messageText, 4, { namespaces: ['finance'] }),
+      resolveCommonConstitutionalGround(messageText, undefined, INVARIANT_BUDGET.currentTurn),
+    ]);
+
+    domainBlock = formatCitableInvariantsBlock(domainInvariants);
+    groundBlock = formatCitableInvariantsBlock(groundTruth);
+  } catch (err) {
+    // IRE unavailable or error — proceed without invariants
+    console.error('MoneyPenny invariant resolution error:', err);
+  }
 
   const contextStr = context
     ? `\n\nUser Context:\n- Wallet Balance: ${typeof context.walletBalance === 'number' ? context.walletBalance.toFixed(2) : '0'} Q¢\n- Agent: ${context.agentName || 'Unknown'}`

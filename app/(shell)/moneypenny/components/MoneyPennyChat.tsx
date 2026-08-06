@@ -7,11 +7,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Send, Loader2, Brain, BarChart3, Target, Zap, UserCircle, Search } from "lucide-react";
+import { Send, Loader2, Brain } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Message {
@@ -26,13 +22,6 @@ export function MoneyPennyChat() {
   const [isLoading, setIsLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  const quickActions = [
-    { id: 'portfolio', label: 'Show Portfolio', icon: BarChart3, prompt: 'Show me my current portfolio performance and P&L' },
-    { id: 'quotes', label: 'Get Quotes', icon: Search, prompt: 'What are the current best quotes across all chains?' },
-    { id: 'strategy', label: 'Analyze Strategy', icon: Target, prompt: 'Analyze my current trading strategy and suggest optimizations' },
-    { id: 'risk', label: 'Risk Assessment', icon: Brain, prompt: 'What are my current risk exposures and how can I mitigate them?' },
-  ];
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -107,10 +96,6 @@ export function MoneyPennyChat() {
     }
   };
 
-  const handleQuickAction = (action: typeof quickActions[0]) => {
-    setInput(action.prompt);
-  };
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -119,122 +104,82 @@ export function MoneyPennyChat() {
   };
 
   return (
-    <Card className="backdrop-blur-xl bg-white/5 ring-1 ring-white/10 border-0 h-full flex flex-col">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Brain className="h-5 w-5 text-emerald-400" />
-          MoneyPenny AI Assistant
-        </CardTitle>
-        <CardDescription className="text-white/60">
-          Your AI-powered trading assistant for strategy analysis and market insights
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="flex-1 flex flex-col space-y-4">
-        {/* Quick Actions */}
-        {messages.length === 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {quickActions.map((action) => {
-              const Icon = action.icon;
-              return (
-                <Button
-                  key={action.id}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickAction(action)}
-                  className="flex items-center gap-2 h-auto p-3 bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white hover:border-white/30 transition-all"
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="text-xs">{action.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        )}
+    <div className="flex h-full flex-col gap-3">
+      <div>
+        <div className="text-xs uppercase tracking-wider text-white/60 mb-1">MoneyPenny Chat</div>
+        <p className="text-[11px] text-white/40">
+          Ask questions about your portfolio, trading strategies, and market insights
+        </p>
+      </div>
 
-        {/* Messages */}
-        <div 
-          ref={scrollRef}
-          className="flex-1 pr-4 overflow-y-auto max-h-96"
-        >
-          <div className="space-y-4">
-            {messages.length === 0 ? (
-              <div className="text-center py-8">
-                <Brain className="h-12 w-12 mx-auto text-white/40 mb-4" />
-                <p className="text-white/60">
-                  Hello! I'm MoneyPenny, your AI trading assistant. I can help you with:
-                </p>
-                <ul className="text-sm text-white/60 mt-2 space-y-1">
-                  <li>• Portfolio analysis and performance tracking</li>
-                  <li>• Real-time market quotes and opportunities</li>
-                  <li>• Trading strategy optimization</li>
-                  <li>• Risk assessment and mitigation</li>
-                </ul>
-              </div>
-            ) : (
-              messages.map((message, index) => (
+      {/* Messages */}
+      <div 
+        ref={scrollRef}
+        className="flex-1 pr-2 overflow-y-auto"
+      >
+        <div className="space-y-2">
+          {messages.length === 0 ? (
+            <div className="text-center py-8">
+              <Brain className="h-8 w-8 mx-auto text-white/40 mb-3" />
+              <p className="text-[11px] text-white/60">
+                Ask about portfolio, quotes, strategies, or risk assessment
+              </p>
+            </div>
+          ) : (
+            messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
                 <div
-                  key={index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`max-w-[85%] rounded-lg p-2.5 text-xs ${
+                    message.role === 'user'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-black/20 border border-white/10 text-white/90'
+                  }`}
                 >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user'
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-white/5 border border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      {message.role === 'assistant' && <Brain className="h-4 w-4 text-emerald-400" />}
-                      <span className="text-xs font-medium">
-                        {message.role === 'user' ? 'You' : 'MoneyPenny'}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap text-white/90">{message.content}</p>
-                    <div className="text-xs opacity-70 mt-1 text-white/60">
-                      {message.timestamp.toLocaleTimeString()}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-                    <span className="text-sm text-white/80">MoneyPenny is thinking...</span>
-                  </div>
+                  <p className="whitespace-pre-wrap">{message.content}</p>
                 </div>
               </div>
-            )}
-          </div>
+            ))
+          )}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-black/20 border border-white/10 rounded-lg p-2.5">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+                  <span className="text-xs text-white/80">Thinking...</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Input */}
-        <div className="flex gap-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask about your portfolio, strategies, or market conditions..."
-            disabled={isLoading}
-            className="flex-1 bg-white/5 border-white/10 text-white/90 placeholder:text-white/40 focus:border-emerald-500/30 focus:bg-white/10"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!input.trim() || isLoading}
-            size="icon"
-            className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Input */}
+      <div className="flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask MoneyPenny..."
+          disabled={isLoading}
+          className="flex-1 rounded-lg border border-white/10 bg-black/20 p-2 text-xs text-white/90 placeholder:text-white/40 outline-none focus:border-emerald-500/30 focus:bg-white/10"
+        />
+        <button
+          onClick={handleSendMessage}
+          disabled={!input.trim() || isLoading}
+          className="flex items-center justify-center w-8 h-8 rounded-lg border border-emerald-500/30 bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 disabled:opacity-50 transition-colors"
+        >
+          {isLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Send className="h-3.5 w-3.5" />
+          )}
+        </button>
+      </div>
+    </div>
   );
 }
+
+export default MoneyPennyChat;
