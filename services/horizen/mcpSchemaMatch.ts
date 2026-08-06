@@ -633,6 +633,38 @@ export function classifyPulseEnrollmentState(statusText: string): PulseEnrollmen
   return 'PENDING_CONVERGENCE';
 }
 
+/**
+ * The on-chain owner address named in a Horizen status response — prose or
+ * JSON — for the DEFENSIVE cross-source conflict check (Al's escalation,
+ * 2026-08-06). A live `get_onboarding_status` reread said, in words, "✓
+ * Registered on-chain — owner 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709" —
+ * an address that disagreed with Horizen's OWN REST `/agents/:id` endpoint
+ * for the identical token, and that had zero on-chain transaction history at
+ * all. Cross-verified live (mint event, direct `ownerOf()`, three unrelated
+ * tokenIds) that the REST value was correct; the onboarding-status value was
+ * a partner-side inconsistency between Horizen's own two services.
+ *
+ * This exists so that inconsistency is DETECTED and named, not silently
+ * trusted or silently ignored — it is the read half of
+ * `HORIZEN_OWNER_SOURCE_CONFLICT`. Structured JSON is tried first (the same
+ * field names `pickStringField` already searches on the REST side, for the
+ * SAME reason: one set of candidate names, not a second one invented per
+ * source); the prose form ("owner 0x…", "owner: 0x…", "owner is 0x…") is the
+ * fallback for a response with no structured field. Returns null — never a
+ * guess — when neither shape names an owner.
+ */
+export function extractRegistryOwnerFromStatusText(text: string): string | null {
+  const embedded = firstEmbeddedJsonObject(text);
+  if (embedded && typeof embedded === 'object' && !Array.isArray(embedded)) {
+    for (const f of ['owner', 'ownerAddress', 'controller', 'controllerWallet']) {
+      const v = (embedded as Record<string, unknown>)[f];
+      if (typeof v === 'string' && /^0x[a-fA-F0-9]{40}$/.test(v)) return v;
+    }
+  }
+  const m = /\bowner\b[:\s]+(?:is\s+)?(0x[a-fA-F0-9]{40})/i.exec(text);
+  return m ? m[1] : null;
+}
+
 /** Extract a named hex-string field (tx hash, message, payload, ...) from an MCP tool result. */
 export function extractStringField(toolResult: McpToolResult | null | undefined, fieldNames: string[]): string | null {
   const parsed = extractFirstJson(toolResult) as Record<string, unknown> | null;

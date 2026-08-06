@@ -91,6 +91,7 @@ import {
   prepareHorizenTransparencyAuthorization,
   signHorizenTransparencyAuthorization,
   runHorizenTransparencyAuthorization,
+  verifyHorizenTransparencyActivation,
   verifySignatureIntegrity,
   parseLabelledMessageFields,
   buildFieldParityTable,
@@ -487,16 +488,20 @@ describe('required refusal canaries', () => {
    * Pulse is not enrolled and named the exact next step — this must never be
    * filed under "hasn't converged yet."
    */
-  it('reread reporting "Not enrolled... Next step: Enroll" resolves to PARTNER_NOT_ENROLLED, retryable, and persists as REFUSED with that exact code', async () => {
+  it('reread reporting "Not enrolled... Next step: Enroll" (no conflicting owner in the text) resolves to PARTNER_NOT_ENROLLED, retryable, persisted as REFUSED with that exact code', async () => {
     const authorizationId = 'auth-explicit-not-enrolled';
-    const liveStatusText =
+    // No "owner 0x…" line here, deliberately — this test isolates the
+    // enrollment classifier from the owner-source-conflict gate below, which
+    // is exercised separately against the exact live transcript (that
+    // transcript's owner line is what THAT gate exists to catch).
+    const statusText =
       'Onboarding status for agent 8798 on Base:\n' +
-      '✓ Registered on-chain — owner 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709.\n' +
+      '✓ Registered on-chain.\n' +
       '✓ Indexed in the registry marketplace as "Agent #0x225e".\n' +
       '✗ Not enrolled in Pulse monitoring.\n\n' +
       'Next step: Enroll: build_pulse_auth_message (action: enable) → sign with the owner wallet → enable_pulse_monitoring.';
     const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
-      mcpClient: fakeMcpClient({ statusText: liveStatusText }),
+      mcpClient: fakeMcpClient({ statusText }),
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
       resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
       now: FIXED_NOW,
@@ -1352,6 +1357,119 @@ describe('PULSE_AUTHORIZATION_EXPIRED — staleness guard + bounded auto-retry (
       now: FIXED_NOW,
     });
     expect(result.ok).toBe(true);
+  });
+});
+
+/*
+ * HORIZEN_OWNER_SOURCE_CONFLICT — a defensive gate for a partner-side data
+ * inconsistency, not a MetaMe defect (Al's escalation, 2026-08-06).
+ *
+ * A live investigation proved: Horizen's REST `/agents/:id` endpoint and
+ * their `get_onboarding_status` MCP tool can report DIFFERENT owners for the
+ * SAME token. For Nakamoto's token 8798, the REST value (matching MetaMe's
+ * configured wallet) was corroborated three independent ways — the on-chain
+ * mint event, a direct `ownerOf()` read, and cross-validation against three
+ * unrelated tokenIds — while the onboarding-status value had never
+ * transacted on-chain at all. This is Horizen's own two services disagreeing
+ * with each other, not a signature or wallet-configuration defect on our
+ * side, and no local action (re-signing, retrying) can fix it.
+ *
+ * These tests exercise the gate added to `crossCheckRegistryOwner` — checked
+ * BEFORE any signing, using the exact live transcript as a fixture.
+ */
+describe('HORIZEN_OWNER_SOURCE_CONFLICT — Horizen\'s own two services disagree (2026-08-06)', () => {
+  const LIVE_ONBOARDING_STATUS_TEXT =
+    'Onboarding status for agent 8798 on Base:\n' +
+    '✓ Registered on-chain — owner 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709.\n' +
+    '✓ Indexed in the registry marketplace as "Agent #0x225e".\n' +
+    '✗ Not enrolled in Pulse monitoring.\n\n' +
+    'Next step: Enroll: build_pulse_auth_message (action: enable) → sign with the owner wallet → enable_pulse_monitoring.';
+
+  it('the exact live transcript — REST owner (the signing wallet) vs onboarding-status owner — refuses HORIZEN_OWNER_SOURCE_CONFLICT BEFORE signing, naming both addresses', async () => {
+    const authorizationId = 'auth-owner-source-conflict';
+    const resolveSigningKeySpy = vi.fn(async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }));
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText: LIVE_ONBOARDING_STATUS_TEXT }),
+      // REST reports the SAME wallet MetaMe already signs with — this is the
+      // side that was proven correct by the live investigation.
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: resolveSigningKeySpy,
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.refusalCode).toBe('HORIZEN_OWNER_SOURCE_CONFLICT');
+    // Caught BEFORE signing — never asked the agent key to sign anything.
+    expect(resolveSigningKeySpy).not.toHaveBeenCalled();
+    // Both addresses named, never just one.
+    expect(result.detail).toContain(WALLET.address);
+    expect(result.detail).toContain('0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709');
+    // Never framed as our signature/wallet being wrong.
+    expect(result.detail).not.toMatch(/\binvalid signature\b/i);
+    expect(result.detail).toContain("partner-side data conflict between two Horizen backends");
+    expect(rows.get(authorizationId).state).toBe('REFUSED');
+    expect(rows.get(authorizationId).refusalCode).toBe('HORIZEN_OWNER_SOURCE_CONFLICT');
+  });
+
+  it('never fires when both sources agree — the ordinary matching-owner path is unaffected', async () => {
+    const agreeingText = 'Onboarding status for agent 8798 on Base:\n✓ Registered on-chain — owner ' + WALLET.address + '.\n✗ Not enrolled in Pulse monitoring.';
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-owners-agree' }), {
+      mcpClient: fakeMcpClient({ statusText: agreeingText }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    // Proceeds past the owner gate to the (unrelated) enrollment classification.
+    expect(result.refusalCode).toBe('PARTNER_NOT_ENROLLED');
+  });
+
+  it('never fires when the onboarding-status tool cannot be reached or names no owner — best-effort, not a hard requirement', async () => {
+    // fakeMcpClient()'s default get_onboarding_status returns `{"status":"active"}` — no owner field at all.
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-no-status-owner-signal' }), {
+      mcpClient: fakeMcpClient(),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('a genuine REGISTRY_OWNER_MISMATCH (no cross-source conflict at all) is still reported as such, not swallowed by the new gate', async () => {
+    const stranger = ethers.Wallet.createRandom();
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId: 'auth-plain-owner-mismatch' }), {
+      mcpClient: fakeMcpClient(), // default status text names no owner at all
+      fetchRegistryAgent: fakeFetchRegistryAgent(stranger.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'REGISTRY_OWNER_MISMATCH' });
+  });
+
+  it('the gate also runs on the post-submit reread path (verifyHorizenTransparencyActivation / "Refresh partner status"), not only pre-submit', async () => {
+    const authorizationId = 'auth-owner-conflict-on-reread';
+    const prepared = await prepareHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient(),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      now: FIXED_NOW,
+    });
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    const signed = await signHorizenTransparencyAuthorization(prepared.value, {
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(signed.ok).toBe(true);
+    if (!signed.ok) return;
+    rows.set(authorizationId, { ...rows.get(authorizationId), state: 'SUBMITTED', submissionRef: '0xsub' });
+
+    const verified = await verifyHorizenTransparencyActivation(
+      authorizationId,
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '1234' }, controllerWallet: WALLET.address },
+      { mcpClient: fakeMcpClient({ statusText: LIVE_ONBOARDING_STATUS_TEXT }), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+    );
+    expect(verified).toMatchObject({ ok: false, refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT' });
   });
 });
 

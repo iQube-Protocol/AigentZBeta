@@ -41,6 +41,7 @@ import {
   describeToolResultShape,
   normalizeMcpSubmissionResult,
   classifyPulseEnrollmentState,
+  extractRegistryOwnerFromStatusText,
   type McpTool,
   type McpToolResult,
   type NormalizedMcpSubmissionResult,
@@ -242,6 +243,27 @@ export type HorizenAuthorizationRefusalCode =
    * THIS refusalCode naming the specific, conclusive reason.
    */
   | 'PARTNER_NOT_ENROLLED'
+  /**
+   * Horizen's OWN two services disagree about who owns this token (Al's
+   * escalation, 2026-08-06, after a live investigation): their REST
+   * `/agents/:id` endpoint reported `0x24BBB9C7...` as owner of token 8798 —
+   * matching the on-chain mint event and a direct `ownerOf()` read, verified
+   * three independent ways — while their `get_onboarding_status` MCP tool
+   * reported a DIFFERENT address, `0xa6aCB16f7...`, that has never
+   * transacted on-chain at all. Neither our signing wallet nor our local
+   * checks are implicated: this is a partner-side data inconsistency between
+   * two Horizen backends, not a signature, ownership, or wallet-configuration
+   * defect on our side.
+   *
+   * Checked in `crossCheckRegistryOwner`, BEFORE any signing — a conflict
+   * here means no local action (re-signing, choosing a different wallet,
+   * retrying) can resolve it, so retrying is actively counterproductive: it
+   * would just reproduce the identical rejection while consuming another
+   * nonce. The UI must show BOTH addresses and must NOT offer "Create fresh
+   * authorization" from this state — see PulseTransparencyToggle.tsx's
+   * 'owner-source-conflict' branch.
+   */
+  | 'HORIZEN_OWNER_SOURCE_CONFLICT'
   | 'STATE_MISMATCH';
 
 /**
@@ -1642,13 +1664,47 @@ function pickStringField(obj: Record<string, unknown> | null | undefined, names:
  * here turns that into a named, local REGISTRY_OWNER_MISMATCH before any
  * partner contact for the state-changing call happens.
  */
+/**
+ * Horizen's own onboarding-status service, read for exactly one purpose
+ * here: the owner it names, compared against the REST reread's owner by
+ * `crossCheckRegistryOwner` immediately below (Al's escalation, 2026-08-06 —
+ * see `HORIZEN_OWNER_SOURCE_CONFLICT`'s own doc comment for the full
+ * evidence chain). Best-effort and silent on failure: an unreachable or
+ * incompatible status tool is NOT itself a refusal — it only means no
+ * additional cross-source signal was available, and the existing REST-based
+ * check proceeds exactly as it did before this existed.
+ */
+async function fetchOnboardingStatusOwner(
+  mcpClient: PartnerMcpClient,
+  registry: { tokenId: string; network: HorizenNetwork },
+): Promise<{ owner: string | null }> {
+  try {
+    const { tools } = await mcpClient.listTools();
+    const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
+    if (!statusTool.ok) return { owner: null };
+    const statusArgs = matchSchemaFields(statusTool.tool.inputSchema, {
+      tokenId: registry.tokenId,
+      agentId: registry.tokenId,
+      network: registry.network,
+    });
+    const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
+    const content = statusResult?.content;
+    const rawText = Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join(' ') : '';
+    return { owner: rawText ? extractRegistryOwnerFromStatusText(rawText) : null };
+  } catch {
+    // A transport failure here says nothing about ownership — never let it
+    // block the REST-based check this augments.
+    return { owner: null };
+  }
+}
+
 async function crossCheckRegistryOwner(
   registry: { network: HorizenNetwork; tokenId: string; registryAlias?: string },
   controllerWallet: string,
   deps: AuthorizationDeps,
 ): Promise<
   | { ok: true; owner: string }
-  | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH'; detail: string }
+  | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH' | 'HORIZEN_OWNER_SOURCE_CONFLICT'; detail: string }
 > {
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
   const reread = await fetchAgent(registry.registryAlias ?? registry.tokenId, registry.network);
@@ -1656,6 +1712,33 @@ async function crossCheckRegistryOwner(
     return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
   }
   const owner = pickStringField(reread.value, ['owner', 'ownerAddress', 'controller', 'controllerWallet']);
+
+  /*
+   * DEFENSIVE CROSS-SOURCE CHECK, BEFORE ANY SIGNING (Al's escalation,
+   * 2026-08-06). A live investigation proved Horizen's REST `/agents/:id`
+   * owner and their `get_onboarding_status` owner can disagree for the SAME
+   * token, and that the REST value was the one corroborated by the on-chain
+   * mint event and a direct `ownerOf()` read three ways. A conflict here
+   * means Horizen's own two services disagree with each other — no local
+   * action (re-signing, choosing a different wallet, retrying) can resolve
+   * it, so this refuses rather than let another attempt reproduce the same
+   * partner-side rejection.
+   */
+  const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
+  const statusOwner = await fetchOnboardingStatusOwner(mcpClient, registry);
+  if (owner && statusOwner.owner && owner.toLowerCase() !== statusOwner.owner.toLowerCase()) {
+    return {
+      ok: false,
+      refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT',
+      detail:
+        `Horizen's own services disagree about who owns this token: the registry REST endpoint reports owner ` +
+        `${owner}, while the onboarding-status service reports ${statusOwner.owner}. This is a partner-side data ` +
+        `conflict between two Horizen backends — not a signature, ownership, or wallet-configuration issue on our ` +
+        `side. Refusing rather than signing or retrying, since no local action can resolve a disagreement between ` +
+        `two of the partner's own services.`,
+    };
+  }
+
   if (owner && owner.toLowerCase() !== controllerWallet.toLowerCase()) {
     return {
       ok: false,
