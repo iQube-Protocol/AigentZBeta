@@ -54,6 +54,18 @@ interface AttemptDiagnostics {
   messageHash: string;
   preparedAt: string;
   rowAction: 'inserted' | 'reset' | 'unknown';
+  /**
+   * WHICH of build_pulse_auth_message's candidate strings this attempt signed
+   * (Al's brief, 2026-08-06). `structured-message` + a ~198-byte length is
+   * the canonical case; the 826-byte instructional envelope was the defect.
+   * Shown so the operator can confirm the right payload was signed without
+   * reading server logs.
+   */
+  selection?: {
+    source: 'structured-message' | 'named-field' | 'sole-text-block';
+    messageByteLength: number;
+    outerCandidateByteLength: number | null;
+  };
 }
 
 interface AgentCardHorizen {
@@ -331,6 +343,16 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           <p className="mt-2 border-t border-rose-900/40 pt-2 text-[10px] text-rose-200/60">
             Attempt: {lastAttempt.attemptId.slice(0, 8)} · Prepared: {lastAttempt.preparedAt} · Message:{' '}
             {lastAttempt.messageHash.slice(0, 12)} · Row: {lastAttempt.rowAction}
+            {lastAttempt.selection && (
+              <>
+                {' '}
+                · Signed: {lastAttempt.selection.source} ({lastAttempt.selection.messageByteLength}B
+                {lastAttempt.selection.outerCandidateByteLength !== null
+                  ? `, envelope ${lastAttempt.selection.outerCandidateByteLength}B not signed`
+                  : ''}
+                )
+              </>
+            )}
           </p>
         )}
       </div>

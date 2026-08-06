@@ -212,6 +212,40 @@ export interface PulseMessageDriftSide {
 }
 
 /**
+ * WHICH of the strings in `build_pulse_auth_message`'s response was selected
+ * as the canonical signable payload, and what the rejected alternative was
+ * (Al's brief, 2026-08-06). Persisted alongside the authorization so a future
+ * 401 can be diagnosed from the record alone — "which bytes did this attempt
+ * actually sign" must never again require re-running the ceremony to answer.
+ *
+ * `source`:
+ *   - `structured-message` — the `--- structured ---` JSON's own `message`
+ *     field. The canonical case, and the fix for the 2026-08-06 401.
+ *   - `named-field` / `sole-text-block` — the legacy shapes, retained
+ *     unchanged for responses that carry no structured message at all.
+ */
+export interface PulseMessageSelection {
+  source: 'structured-message' | 'named-field' | 'sole-text-block';
+  /** The JSON field the message came from, when `source` is `structured-message`. */
+  field: string | null;
+  messageByteLength: number;
+  messageHash: string;
+  /** The instructional envelope that was NOT signed — null when it did not differ, or no structured selection happened. */
+  outerCandidateByteLength: number | null;
+  outerCandidateHash: string | null;
+}
+
+/**
+ * Byte length (UTF-8, not `.length`) + hash of a candidate message. Byte
+ * length is what the partner's own diagnostics report and what a "198 vs
+ * 826" comparison means; `String.length` counts UTF-16 units and would
+ * silently disagree on any non-ASCII message.
+ */
+function describeMessageSide(s: string): { length: number; byteLength: number; sha256: string } {
+  return { length: s.length, byteLength: Buffer.byteLength(s, 'utf8'), sha256: sha256Hex(s) };
+}
+
+/**
  * One row of a field-by-field comparison between what was SIGNED (parsed
  * from build_pulse_auth_message's exact returned text) and what was
  * SUBMITTED (the arguments actually sent to enable_pulse_monitoring) —
@@ -266,6 +300,15 @@ export interface HorizenEscalationPacket {
    */
   submitTool: { name: string; inputSchema: unknown; rawResult: unknown };
   fieldParity: HorizenMessageFieldParityRow[];
+  /**
+   * WHICH candidate string in the build response was signed (Al's brief,
+   * 2026-08-06). The single most important fact in a 401 escalation after
+   * the 826-vs-198 discovery: it lets Horizen confirm, without a second live
+   * reproduction, that the exact structured canonical message was signed.
+   * Optional so standalone callers of `submitHorizenTransparencyAuthorization`
+   * (unit tests) still produce a well-formed packet without it.
+   */
+  messageSelection?: PulseMessageSelection;
   capturedAt: string;
 }
 
@@ -290,6 +333,13 @@ export interface AuthorizationAttemptDiagnostics {
   state: string;
   rowAction: 'inserted' | 'reset' | 'unknown';
   preparedAt: string;
+  /**
+   * WHICH of the build response's candidate strings this attempt signed
+   * (Al's brief, 2026-08-06). Absent on refusals raised before a message was
+   * ever selected. Surfaces to the UI so "did this attempt sign the 198-byte
+   * canonical message or the 826-byte envelope" is answerable at a glance.
+   */
+  selection?: PulseMessageSelection;
 }
 
 export type AuthorizationResult<T> =
@@ -452,6 +502,8 @@ export interface PreparedAuthorization {
   envelope: HorizenTransparencyAuthorization;
   /** The exact partner-supplied message text this envelope's signature must be produced over. Preserved verbatim, never altered. */
   message: string;
+  /** WHICH candidate in the build response `message` was selected from — see PulseMessageSelection. */
+  selection: PulseMessageSelection;
   /**
    * Carried forward ONLY so a submission rejection can attach a full
    * HorizenEscalationPacket naming exactly what the build stage declared and
@@ -625,24 +677,119 @@ export async function prepareHorizenTransparencyAuthorization(
   const MESSAGE_FIELDS = ['message', 'payload', 'authMessage', 'messageToSign', 'authorizationMessage'];
 
   type BuildAttempt =
-    | { kind: 'ok'; buildResult: McpToolResult; message: string; issuedAt: string }
+    | {
+        kind: 'ok';
+        buildResult: McpToolResult;
+        message: string;
+        issuedAt: string;
+        selection: PulseMessageSelection;
+      }
     | { kind: 'refuse'; refusalCode: HorizenAuthorizationRefusalCode; detail: string }
     | { kind: 'stale'; issuedAt: string; ageMs: number; validForMs: number };
 
   /*
-   * ONE ATTEMPT: call build_pulse_auth_message, extract, drift-check,
-   * extract issuedAt, and check it against ITS OWN validity window. Never
-   * signs, never submits, never persists anything — a pure read-and-check,
-   * safe to repeat.
+   * ONE ATTEMPT: call build_pulse_auth_message, select the canonical signable
+   * message, extract issuedAt, and check it against ITS OWN validity window.
+   * Never signs, never submits, never persists anything — a pure
+   * read-and-check, safe to repeat.
    */
   async function attemptBuild(): Promise<BuildAttempt> {
     const buildResult = await mcpClient.callTool({ name: buildTool.tool.name, arguments: buildArgs });
+
     /*
-     * Named field first; a lone non-error text block accepted as the message
-     * second (Horizen's `build_pulse_auth_message` returns exactly that — 265
-     * chars of plain text, established by the diagnostic refusal on 2026-08-03,
-     * not assumed). Every refusal below still names what the partner actually
-     * sent, because the next unknown shape should cost one line to diagnose.
+     * ── CANONICAL MESSAGE SELECTION (Al's brief, 2026-08-06) ────────────────
+     *
+     * THE STRUCTURED `message` FIELD WINS. This is the fix for the repeated
+     * `401 Invalid signature`, and it changes exactly one assumption: which
+     * of the two strings Horizen returns is the authorization payload.
+     *
+     * The live response carries BOTH:
+     *   - an 826-byte instructional envelope beginning "Sign this message
+     *     with wallet …", which embeds the human-readable body AND a
+     *     `--- structured ---` JSON block;
+     *   - inside that JSON, a 198-byte `message` field beginning "ASR Pulse
+     *     enable\nAgent: 8798\n…".
+     *
+     * Both carry the same operational FIELDS — which is why every
+     * field-parity check passed while the bytes and hashes differed
+     * completely (826/1c60a368… vs 198/784fe278…). We were signing the
+     * envelope. `enable_pulse_monitoring` accepts no message argument at
+     * all, so Horizen's server RECONSTRUCTS the canonical message and
+     * verifies against that. A signature over the envelope therefore
+     * recovers perfectly to the correct owner locally and still fails the
+     * partner's verification — precisely the observed symptom.
+     *
+     * The partner's own machine-readable `message` field is a stronger
+     * statement of "this is what to sign" than any text heuristic over the
+     * prose around it, so it is selected outright rather than compared and
+     * refused. The 2026-08-05 drift instrumentation is what produced this
+     * evidence; it is now narrowed (below) to the one case that remains
+     * genuinely undecidable.
+     */
+    const structuredAttempt = extractStructuredMessageField(buildResult, MESSAGE_FIELDS);
+
+    /*
+     * The ONE surviving fail-closed case: the embedded JSON names two or more
+     * candidate message fields carrying DISTINCT strings. No local rule can
+     * decide which the partner reconstructs against, so refuse rather than
+     * pick (Al: "Two conflicting structured canonical messages still fail
+     * closed"). Fields that agree byte-for-byte are not a conflict.
+     */
+    if (!structuredAttempt.found && structuredAttempt.conflict) {
+      return {
+        kind: 'refuse',
+        refusalCode: 'PULSE_MESSAGE_DRIFT',
+        detail:
+          `"${buildTool.tool.name}"'s structured response declares conflicting canonical message fields ` +
+          `(${structuredAttempt.conflict.fields.join(', ')}) carrying different strings — refusing rather than ` +
+          `guessing which one Horizen's server reconstructs against. ${structuredAttempt.reason}`,
+      };
+    }
+
+    if (structuredAttempt.found) {
+      // The exact string JSON decoding produced — never trimmed, never
+      // normalized, never rebuilt from the labelled lines around it.
+      const message = structuredAttempt.message;
+      const outer = extractPartnerMessage(buildResult, MESSAGE_FIELDS);
+      const outerCandidate = outer.ok && outer.message !== message ? describeMessageSide(outer.message) : null;
+      const selected = describeMessageSide(message);
+      /*
+       * The rejected envelope is RECORDED, not refused on — a noncanonical
+       * diagnostic candidate. This log line is what proves, from CloudWatch
+       * alone, which of the two strings a given attempt actually signed.
+       */
+      console.log(
+        `[PULSE MESSAGE SELECTION] "${buildTool.tool.name}" canonical message selected from structured field ` +
+          `"${structuredAttempt.field}" (markerPresent: ${structuredAttempt.markerPresent}): ` +
+          `length ${selected.length}, sha256 ${selected.sha256}. ` +
+          (outerCandidate
+            ? `Noncanonical outer candidate NOT signed: length ${outerCandidate.length}, sha256 ${outerCandidate.sha256}.`
+            : 'No differing outer candidate.'),
+      );
+      const issuedAtCheck = resolveIssuedAtOrRefuse(buildResult, message, buildTool.tool.name);
+      if (issuedAtCheck.kind !== 'ok') return issuedAtCheck;
+      return {
+        kind: 'ok',
+        buildResult,
+        message,
+        issuedAt: issuedAtCheck.issuedAt,
+        selection: {
+          source: 'structured-message',
+          field: structuredAttempt.field,
+          messageByteLength: selected.byteLength,
+          messageHash: selected.sha256,
+          outerCandidateByteLength: outerCandidate?.byteLength ?? null,
+          outerCandidateHash: outerCandidate?.sha256 ?? null,
+        },
+      };
+    }
+
+    /*
+     * NO STRUCTURED MESSAGE AT ALL — the legacy shapes keep working exactly
+     * as before: a named top-level field, or a lone non-error text block
+     * (Horizen's earlier 265-char plain-text response, established by the
+     * 2026-08-03 diagnostic). This fallback is unchanged and still refuses
+     * rather than inventing when neither shape is present.
      */
     const extracted = extractPartnerMessage(buildResult, MESSAGE_FIELDS);
     if (!extracted.ok) {
@@ -652,47 +799,41 @@ export async function prepareHorizenTransparencyAuthorization(
         detail:
           `"${buildTool.tool.name}" did not return a usable message — refusing rather than inventing one. ` +
           `${extracted.reason}. Looked for fields: ${MESSAGE_FIELDS.join(', ')}. ` +
+          `No structured message either (${structuredAttempt.reason}). ` +
           `Actually returned: ${describeToolResultShape(buildResult)}`,
       };
     }
     const message = extracted.message;
+    const selected = describeMessageSide(message);
+    const issuedAtCheck = resolveIssuedAtOrRefuse(buildResult, message, buildTool.tool.name);
+    if (issuedAtCheck.kind !== 'ok') return issuedAtCheck;
+    return {
+      kind: 'ok',
+      buildResult,
+      message,
+      issuedAt: issuedAtCheck.issuedAt,
+      selection: {
+        source: extracted.via === 'named-field' ? 'named-field' : 'sole-text-block',
+        field: null,
+        messageByteLength: selected.byteLength,
+        messageHash: selected.sha256,
+        outerCandidateByteLength: null,
+        outerCandidateHash: null,
+      },
+    };
+  }
 
-    /*
-     * PULSE_MESSAGE_DRIFT INSTRUMENTATION (Horizen live-test escalation,
-     * 2026-08-05) — see the refusal code's own doc comment above for the full
-     * evidence chain. This compares `message` (what is about to be signed,
-     * decided by `extractPartnerMessage`) against a marker-aware read of the
-     * SAME `buildResult` (`extractStructuredMessageField`). If a structured
-     * `message` field exists and differs from what we're about to sign, that
-     * is decisive: refuse now, with every byte-level diagnostic named, rather
-     * than sign, submit, and receive Horizen's 401 again. If no structured
-     * alternative is found at all, there is nothing to diff against — proceed
-     * exactly as before; this instrumentation only ever ADDS a refusal, it
-     * never widens what gets signed.
-     */
-    const structuredAttempt = extractStructuredMessageField(buildResult, MESSAGE_FIELDS);
-    if (structuredAttempt.found && structuredAttempt.message !== message) {
-      const describe = (s: string): PulseMessageDriftSide => ({
-        length: s.length,
-        json: JSON.stringify(s),
-        sha256: sha256Hex(s),
-        first32: s.slice(0, 32),
-        last32: s.slice(-32),
-      });
-      const signed = describe(message);
-      const structured = describe(structuredAttempt.message);
-      return {
-        kind: 'refuse',
-        refusalCode: 'PULSE_MESSAGE_DRIFT',
-        detail:
-          `"${buildTool.tool.name}"'s response contains a structured "message" field that differs from the text ` +
-          `extractPartnerMessage chose to sign (via: ${extracted.via}, markerPresent: ${structuredAttempt.markerPresent}). ` +
-          `Refusing to sign rather than guess which side Horizen's server reconstructs against. ` +
-          `SIGNED candidate — length ${signed.length}, sha256 ${signed.sha256}, first32 ${signed.first32}, last32 ${signed.last32}, json ${signed.json}. ` +
-          `STRUCTURED candidate — length ${structured.length}, sha256 ${structured.sha256}, first32 ${structured.first32}, last32 ${structured.last32}, json ${structured.json}.`,
-      };
-    }
-
+  /**
+   * `issuedAt` extraction + the staleness check, shared by both selection
+   * paths above so neither can drift from the other (inv.engineering.036/037:
+   * one authoritative location). Returns a `BuildAttempt` refusal/stale
+   * verdict directly, or `{kind:'ok', issuedAt}` on success.
+   */
+  function resolveIssuedAtOrRefuse(
+    buildResult: McpToolResult,
+    message: string,
+    toolName: string,
+  ): { kind: 'ok'; issuedAt: string } | Extract<BuildAttempt, { kind: 'refuse' } | { kind: 'stale' }> {
     /*
      * NEVER REGENERATE issuedAt (al / Horizen brief, 2026-08-04). This used to
      * be `now().toISOString()` — a value independently generated AFTER the
@@ -701,8 +842,8 @@ export async function prepareHorizenTransparencyAuthorization(
      * "the issuedAt returned by build_pulse_auth_message"; Horizen's signature
      * verification reconstructs the message server-side using ITS OWN
      * issuedAt, so submitting any other value fails verification even with an
-     * otherwise-correct call. Extracted from the message text itself — never
-     * generated, never guessed.
+     * otherwise-correct call. Extracted from the selected message text itself
+     * — never generated, never guessed.
      */
     const issuedAt = extractIssuedAt(message);
     if (!issuedAt) {
@@ -710,7 +851,7 @@ export async function prepareHorizenTransparencyAuthorization(
         kind: 'refuse',
         refusalCode: 'ISSUED_AT_UNAVAILABLE',
         detail:
-          `"${buildTool.tool.name}"'s response did not contain a recognisable issuedAt — refusing rather than ` +
+          `"${toolName}"'s response did not contain a recognisable issuedAt — refusing rather than ` +
           `generating one, since enable_pulse_monitoring requires back the EXACT value embedded in the signed ` +
           `message. Looked for: issuedAt="...", "Issued At: ...". Actually returned: ${describeToolResultShape(buildResult)}`,
       };
@@ -730,8 +871,7 @@ export async function prepareHorizenTransparencyAuthorization(
     if (!Number.isFinite(ageMs) || ageMs > validForMs) {
       return { kind: 'stale', issuedAt, ageMs, validForMs };
     }
-
-    return { kind: 'ok', buildResult, message, issuedAt };
+    return { kind: 'ok', issuedAt };
   }
 
   let attempt: BuildAttempt = { kind: 'stale', issuedAt: '', ageMs: 0, validForMs: 0 };
@@ -755,8 +895,11 @@ export async function prepareHorizenTransparencyAuthorization(
   if (attempt.kind === 'refuse') {
     return { ok: false, refusalCode: attempt.refusalCode, detail: attempt.detail };
   }
-  const { buildResult, message, issuedAt } = attempt;
-  const messageHash = sha256Hex(message);
+  const { buildResult, message, issuedAt, selection } = attempt;
+  // The SELECTED message's own hash — the same value persisted as
+  // payload_hash, signed over, and reported in diagnostics. One derivation,
+  // never a second one computed from a differently-selected string.
+  const messageHash = selection.messageHash;
 
   /*
    * FRESH_AUTHORIZATION_NOT_CREATED — THE HARD LOCAL GUARD (Al's audit
@@ -871,6 +1014,7 @@ export async function prepareHorizenTransparencyAuthorization(
       actorPersonaId: input.actorPersonaId,
       envelope,
       message,
+      selection,
       buildToolName: buildTool.tool.name,
       buildToolInputSchema: buildTool.tool.inputSchema,
       rawBuildResult: buildResult,
@@ -884,6 +1028,7 @@ export async function prepareHorizenTransparencyAuthorization(
       state: 'PREPARED',
       rowAction: created.wasReset ? 'reset' : 'inserted',
       preparedAt: now().toISOString(),
+      selection,
     },
   };
 }
@@ -1083,6 +1228,7 @@ function buildHorizenEscalationPacket(args: {
   submitToolName: string;
   submitToolInputSchema: unknown;
   rawSubmitResult: unknown;
+  messageSelection?: PulseMessageSelection;
   now: () => Date;
 }): HorizenEscalationPacket {
   const sig = args.signature.signature;
@@ -1104,6 +1250,7 @@ function buildHorizenEscalationPacket(args: {
     buildTool: { name: args.buildToolName, inputSchema: args.buildToolInputSchema, rawResult: args.rawBuildResult },
     submitTool: { name: args.submitToolName, inputSchema: args.submitToolInputSchema, rawResult: args.rawSubmitResult },
     fieldParity: buildFieldParityTable(args.message, args.submittedArguments),
+    ...(args.messageSelection ? { messageSelection: args.messageSelection } : {}),
     capturedAt: args.now().toISOString(),
   };
 }
@@ -1133,6 +1280,8 @@ export async function submitHorizenTransparencyAuthorization(
     buildToolName?: string;
     buildToolInputSchema?: unknown;
     rawBuildResult?: unknown;
+    /** Which build-response candidate produced `message` — escalation-only, see HorizenEscalationPacket.messageSelection. */
+    messageSelection?: PulseMessageSelection;
   },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ submissionRef: string }>> {
@@ -1305,6 +1454,7 @@ export async function submitHorizenTransparencyAuthorization(
             submitToolName: submitTool.tool.name,
             submitToolInputSchema: submitTool.tool.inputSchema,
             rawSubmitResult: submitResult,
+            messageSelection: args.messageSelection,
             now: deps.now ?? (() => new Date()),
           })
         : undefined;
@@ -1665,6 +1815,7 @@ export async function runHorizenTransparencyAuthorization(
       buildToolName: prepared.value.buildToolName,
       buildToolInputSchema: prepared.value.buildToolInputSchema,
       rawBuildResult: prepared.value.rawBuildResult,
+      messageSelection: prepared.value.selection,
     },
     shared,
   );

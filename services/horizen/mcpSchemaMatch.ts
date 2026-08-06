@@ -409,30 +409,46 @@ export function extractIssuedAt(message: string): string | null {
 }
 
 export type StructuredMessageExtraction =
-  | { found: true; message: string; markerPresent: boolean }
-  | { found: false; markerPresent: boolean; reason: string };
+  | { found: true; message: string; markerPresent: boolean; field: string }
+  | {
+      found: false;
+      markerPresent: boolean;
+      reason: string;
+      /**
+       * Set when the embedded JSON declared TWO OR MORE candidate message
+       * fields carrying DISTINCT strings — the one shape where "which string
+       * is canonical" genuinely cannot be decided locally and the caller must
+       * fail closed rather than pick. One field, or several fields agreeing
+       * byte-for-byte, is never a conflict.
+       */
+      conflict?: { fields: string[] };
+    };
 
 /**
- * The MESSAGE named inside an embedded JSON object (a `--- structured ---`
- * block, or any other brace-balanced object found in the text) — DISTINCT
- * from `extractPartnerMessage`, whose `sole-text-block` fallback may accept
- * the ENTIRE text block, preamble and all, when no top-level `JSON.parse`
- * succeeds.
+ * The canonical MESSAGE named inside an embedded JSON object (a
+ * `--- structured ---` block, or any other brace-balanced object found in
+ * the text) — DISTINCT from `extractPartnerMessage`, whose `sole-text-block`
+ * fallback accepts the ENTIRE text block, preamble and all, when no
+ * top-level `JSON.parse` succeeds.
  *
- * ── Why this exists (Horizen live-test escalation, 2026-08-05) ─────────────
+ * ── Promoted from instrumentation to the SELECTOR (Al's brief, 2026-08-06) ──
  *
- * Horizen's own engineer reproduced our HTTP 401 by signing corrupted
- * variants and reported: signing the full rendered text blob (preamble +
- * human-readable body) 401s; signing the JSON `message` field verbatim
- * 403s (i.e. recovers to a real signature, just the wrong owner in his
- * deliberately-wrong test) — meaning a 401 is consistent with "the signed
- * bytes are not what the structured `message` field says they should be."
+ * Born on 2026-08-05 as a comparison-only probe (refuse when this disagrees
+ * with `extractPartnerMessage`). The comparison then produced the decisive
+ * evidence: `build_pulse_auth_message`'s live response carries an 826-byte
+ * instructional envelope AND, inside its `--- structured ---` JSON, a
+ * 198-byte `message` field ("ASR Pulse enable\nAgent: 8798\n..."). The old
+ * extractor signed the envelope; Horizen's `enable_pulse_monitoring` accepts
+ * no message argument at all, so its server reconstructs the canonical
+ * message itself — and verifies the signature against THAT. A signature
+ * over the envelope recovers perfectly locally and fails Horizen's
+ * verification: exactly the repeated `401 Invalid signature`.
  *
- * This function is instrumentation, not a fix: it exists so a caller can
- * COMPARE what is about to be signed (`extractPartnerMessage`'s `message`)
- * against what a structured/marker-aware read of the SAME response would
- * consider the message, and refuse loudly on any divergence rather than
- * silently sign whichever the prior extraction happened to settle on.
+ * So the structured `message` field, when the response declares one, IS the
+ * canonical signable payload — the partner's own machine-readable statement
+ * of what to sign, stronger than any text heuristic. The string is returned
+ * exactly as JSON decoding produced it: never trimmed, normalized, or
+ * reconstructed from fields.
  */
 export function extractStructuredMessageField(
   toolResult: McpToolResult | null | undefined,
@@ -445,9 +461,28 @@ export function extractStructuredMessageField(
     const markerPresent = item.text.includes('--- structured ---');
     const embedded = firstEmbeddedJsonObject(item.text);
     if (embedded && typeof embedded === 'object' && !Array.isArray(embedded)) {
+      // Collect EVERY declared candidate before answering — a response that
+      // names two different strings as its message is a contract ambiguity
+      // to refuse on, not a first-match-wins race.
+      const candidates: { field: string; value: string }[] = [];
       for (const f of fieldNames) {
         const v = (embedded as Record<string, unknown>)[f];
-        if (typeof v === 'string' && v.length > 0) return { found: true, message: v, markerPresent };
+        if (typeof v === 'string' && v.length > 0) candidates.push({ field: f, value: v });
+      }
+      const distinctValues = new Set(candidates.map((c) => c.value));
+      if (distinctValues.size > 1) {
+        return {
+          found: false,
+          markerPresent,
+          conflict: { fields: candidates.map((c) => c.field) },
+          reason:
+            `the embedded JSON object declares ${candidates.length} candidate message fields ` +
+            `(${candidates.map((c) => c.field).join(', ')}) carrying ${distinctValues.size} DISTINCT strings — `
+            + 'no local rule can decide which is canonical',
+        };
+      }
+      if (candidates.length > 0) {
+        return { found: true, message: candidates[0].value, markerPresent, field: candidates[0].field };
       }
       return {
         found: false,
