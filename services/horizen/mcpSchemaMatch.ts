@@ -484,6 +484,79 @@ function matchesUnnegated(text: string, patterns: RegExp[]): boolean {
   return false;
 }
 
+/**
+ * A `NOT_ENROLLED_PATTERNS` match belongs to a DIFFERENT capability, not
+ * Pulse (Aigent Nakamoto, 2026-08-08). A live `get_onboarding_status`
+ * response reports on MULTIPLE independent capabilities in one blob —
+ * Pulse and Verifiable PnL — and several of the generic negative patterns
+ * (`next step: enroll`, the structured-`false` pattern) carry no "pulse"
+ * anchor of their own. Reproduced directly: a response containing BOTH
+ * `pulseEnrolled: true` (genuinely Pulse-positive) AND, elsewhere in the
+ * SAME text, "Next step: Enroll" about Verifiable PnL (genuinely,
+ * independently still unregistered — see services/horizen/evidenceChain.ts's
+ * own `verifiablePnlLink`) classified as `NOT_ENROLLED` for Pulse: the PnL
+ * sentence's unrelated "next step" vetoed Pulse's own positive evidence a
+ * few lines away.
+ *
+ * Deliberately NARROW, mirroring `NEGATION_BEFORE`'s own bounded-window
+ * technique rather than attempting general topic segmentation this has no
+ * business claiming to do: a match is treated as PnL-scoped (and skipped)
+ * ONLY when a "pnl"/"verifiable pnl" label sits CLOSER to it, within a
+ * bounded window, than any "pulse" label does. A match with NO nearby PnL
+ * label at all is UNAFFECTED — this is what keeps the existing bare
+ * `{"enrolled": false}` canary (no capability label at all) resolving
+ * `NOT_ENROLLED`, exactly as before: nothing here widens what counts as a
+ * genuine Pulse negative, it only narrows which unrelated-capability
+ * mentions may no longer masquerade as one.
+ */
+const TOPIC_SCOPE_WINDOW = 80;
+const PNL_LABEL = /\b(?:verifiable[\s-]?)?pnl\b/gi;
+const PULSE_LABEL = /\bpulse\b/gi;
+
+function nearestLabelDistance(text: string, matchIndex: number, matchLength: number, label: RegExp): number | null {
+  const start = Math.max(0, matchIndex - TOPIC_SCOPE_WINDOW);
+  const end = Math.min(text.length, matchIndex + matchLength + TOPIC_SCOPE_WINDOW);
+  const window = text.slice(start, end);
+  let nearest: number | null = null;
+  label.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = label.exec(window))) {
+    const distance = Math.abs(start + m.index - matchIndex);
+    if (nearest === null || distance < nearest) nearest = distance;
+  }
+  return nearest;
+}
+
+function isUnrelatedCapabilityMatch(text: string, matchIndex: number, matchLength: number): boolean {
+  const pnlDistance = nearestLabelDistance(text, matchIndex, matchLength, PNL_LABEL);
+  if (pnlDistance === null) return false;
+  const pulseDistance = nearestLabelDistance(text, matchIndex, matchLength, PULSE_LABEL);
+  return pulseDistance === null || pnlDistance < pulseDistance;
+}
+
+/**
+ * `matchesUnnegated`, plus the topic-scoping guard above — used ONLY for
+ * `classifyPulseEnrollmentState`'s `NOT_ENROLLED_PATTERNS` check. Never
+ * applied to `matchesUnnegated`'s other callers (submission semantic-status
+ * classification, `CONFIRMED_ENROLLMENT_PATTERNS`, `PENDING_ENROLLMENT_
+ * PATTERNS`) — those have no analogous multi-capability ambiguity to guard
+ * against, and widening the guard to them would be an unreviewed behavior
+ * change this fix does not need to make.
+ */
+function matchesUnnegatedAndPulseScoped(text: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    const re = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      const preceding = text.slice(Math.max(0, m.index - 24), m.index);
+      if (NEGATION_BEFORE.test(preceding.trimEnd() + ' ')) continue;
+      if (isUnrelatedCapabilityMatch(text, m.index, m[0].length)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Depth-bounded search for any of `fields` in an already-parsed JSON value. */
 function findReferenceInJson(value: unknown, fields: readonly string[], depth = 0): string | null {
   if (depth > 6 || value === null || typeof value !== 'object') return null;
@@ -639,7 +712,7 @@ const CONFIRMED_ENROLLMENT_PATTERNS = [
 const PENDING_ENROLLMENT_PATTERNS = [/\bprocessing\b/i, /\bpending\b/i, /\bqueued\b/i, /\bpropagat(?:ing|ion)\b/i, /\bin\s+progress\b/i];
 
 export function classifyPulseEnrollmentState(statusText: string): PulseEnrollmentState {
-  if (matchesUnnegated(statusText, NOT_ENROLLED_PATTERNS)) return 'NOT_ENROLLED';
+  if (matchesUnnegatedAndPulseScoped(statusText, NOT_ENROLLED_PATTERNS)) return 'NOT_ENROLLED';
   if (matchesUnnegated(statusText, CONFIRMED_ENROLLMENT_PATTERNS)) return 'CONFIRMED';
   if (matchesUnnegated(statusText, PENDING_ENROLLMENT_PATTERNS)) return 'PENDING_CONVERGENCE';
   // No conclusive statement at all — still PENDING_CONVERGENCE, never a
