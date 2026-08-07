@@ -21,7 +21,11 @@
  * unknown value falls back to 'web-embed' exactly as before.
  */
 const companionFrame = document.getElementById('companionFrame');
-companionFrame.src = `${COMPANION_EMBED_URL}?surface=${encodeURIComponent(COMPANION_SURFACE_SIDEBAR)}`;
+if (!companionFrame) {
+  console.error('[metaMe Companion] companionFrame element not found in sidepanel.html');
+} else {
+  companionFrame.src = `${COMPANION_EMBED_URL}?surface=${encodeURIComponent(COMPANION_SURFACE_SIDEBAR)}`;
+}
 
 /**
  * REFRESH BRIDGE (2026-07-25) — iframe ⇄ extension.
@@ -93,6 +97,9 @@ function isCompanionAppOriginUrl(url) {
 }
 
 window.addEventListener('message', (event) => {
+  // Guard: companion frame must be available
+  if (!companionFrame || !companionFrame.contentWindow) return;
+
   if (event.source !== companionFrame.contentWindow) return;
   if (event.origin !== COMPANION_APP_ORIGIN) return;
 
@@ -106,7 +113,15 @@ window.addEventListener('message', (event) => {
       if (answered) return;
       answered = true;
       clearTimeout(timer);
-      companionFrame.contentWindow?.postMessage({ type: REOBSERVE_DONE, ok }, COMPANION_APP_ORIGIN);
+      try {
+        if (companionFrame?.contentWindow) {
+          companionFrame.contentWindow.postMessage({ type: REOBSERVE_DONE, ok }, COMPANION_APP_ORIGIN);
+        } else {
+          console.warn('[metaMe Companion] companionFrame.contentWindow unavailable for reobserve response');
+        }
+      } catch (err) {
+        console.warn('[metaMe Companion] failed to send reobserve response:', err?.message ?? err);
+      }
     };
     const timer = setTimeout(() => answer(false), 3000);
 
@@ -127,7 +142,15 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === OPEN_TAB_REQUEST) {
     const url = event.data?.url;
     const answer = (ok) => {
-      companionFrame.contentWindow?.postMessage({ type: OPEN_TAB_DONE, ok }, COMPANION_APP_ORIGIN);
+      try {
+        if (companionFrame?.contentWindow) {
+          companionFrame.contentWindow.postMessage({ type: OPEN_TAB_DONE, ok }, COMPANION_APP_ORIGIN);
+        } else {
+          console.warn('[metaMe Companion] companionFrame.contentWindow unavailable for open-tab response');
+        }
+      } catch (err) {
+        console.warn('[metaMe Companion] failed to send open-tab response:', err?.message ?? err);
+      }
     };
 
     if (!isCompanionAppOriginUrl(url)) {
