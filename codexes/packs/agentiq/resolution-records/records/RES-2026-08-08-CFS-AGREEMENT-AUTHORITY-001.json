@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-08",
+  "resolutionId": "RES-2026-08-08-CFS-AGREEMENT-AUTHORITY-001",
+  "capability": "cfs-agreement-authority",
+  "milestone": "CFS agreements bind authority to RootDID rather than persona — a different persona resolving to the same RootDID as the forming persona can authorize a CFS agreement; a persona resolving to a different RootDID cannot.",
+  "problem": "authorizeAgreement's ownership check compared the acting persona's one-way commitment against the forming persona's one-way commitment (agreementOwnerCommitment), with no notion of an authority tier above the persona. Every agreement was therefore persona-bound by construction, regardless of what constitutional principal it actually belonged to — a CFS agreement formed by one of an operator's personas could never be authorized by another of that same operator's personas, even though both resolve to the same RootDID.",
+  "observedFailure": [
+    "Operator reported Nakamoto's CSA displaying 'Ratified' and 'Agreement authorized' simultaneously and asked for a diagnosis before any state was mutated.",
+    "The forming persona and the persona expected to authorize a CFS agreement are not guaranteed to be identical — CFS's own ceremony can involve forming as one delegated agent persona (e.g. ArkAgent) and authorizing as another (e.g. Aigent Z) that the same operator controls via the same RootDID — and the existing persona-commitment check had no way to recognize that as the same principal."
+  ],
+  "rootCauses": [
+    "AgreementPayload had no authorityBinding facet — the constitutional object could not declare which authority tier governs a given agreement, so every agreement was implicitly PERSONA-bound with no way to model CFS as RootDID-bound without changing the authorization mechanism itself.",
+    "The RootDID resolution primitive already existed (lookupExistingBinding in services/passport/bureauIdentityService.ts, used by the Passport Bureau's own binding flow) but was module-private, so nothing outside that flow could compare two personas' RootDID commitments to establish they share a principal.",
+    "authorizeAgreement's single ownership-commitment comparison conflated 'is this the same context' (persona) with 'is this the same constitutional principal' (RootDID) — the two questions have different answers for CFS's own cross-persona ceremony and the code asked only the first."
+  ],
+  "resolution": [
+    "Diagnosed first, per the operator's explicit gate ('do not mutate the agreement until this is established'): confirmed via source inspection that 'Ratified' and 'Agreement authorized' in AgreementRatifyPanel.tsx are the SAME isAuthorized boolean, rendered twice (a status badge and a completed-button label) — not two distinct constitutional states requiring reconciliation. No relabeling was needed; the operator's instruction to 'preserve Ratified only if it represents a genuinely distinct constitutional state... otherwise identify and resolve the semantic duplication' was satisfied by confirming there is no duplication to resolve.",
+    "Added AGREEMENT_AUTHORITY_BINDINGS = ['PERSONA', 'ROOT_DID'] and AgreementPayload.authorityBinding. Existing and future agreements default to PERSONA unless explicitly formed with authorityBinding: 'ROOT_DID' — no existing agreement's behavior changed.",
+    "Exported resolveRootDidCommitment from bureauIdentityService.ts — a thin public wrapper over the existing private lookupExistingBinding walk, reused rather than duplicated (inv.engineering.036/037).",
+    "formAgreement resolves and stores principalRootDidCommitment via resolveRootDidCommitment when authorityBinding is ROOT_DID, and refuses formation outright if the forming persona resolves no RootDID through the identity spine.",
+    "authorizeAgreement branches on authorityBinding: for ROOT_DID-bound agreements it resolves the ACTING persona's own RootDID commitment and compares it against the agreement's stored principalRootDidCommitment — never raw RootDIDs, per the Identity & Access Spine's T0 (raw identifier)/T2 (commitment) tiers, mirroring the DVN pipeline's own hashPersonaRef convention. Differing or absent commitments refuse authorization. PERSONA-bound agreements keep the original single-commitment comparison, byte-for-byte.",
+    "Enriched the agreement_authorized receipt's actionInput with: agreement identity, terms commitment, authority class, principalRootDidCommitment, the acting persona's own commitment, verification evidence (worldIdRequired/worldIdVerified), timestamp, and policy version (cfs-agreement-authority-v1) — the acting persona remains auditable via a one-way commitment without becoming the constitutional principal of record.",
+    "Extended GET /api/constitutional/agreement's non-admin filter: alongside the existing owner-commitment match, it also includes ROOT_DID-bound agreements where the caller's own resolved RootDID commitment equals the agreement's principalRootDidCommitment — so switching the active persona among personas that share a RootDID never causes an already-authorized CFS agreement to render as unauthorized.",
+    "AgreementRatifyPanel's verifyAndSign() now passes authorityBinding: 'ROOT_DID' on the 'form' action — CFS's own ceremony is the only current caller of the ROOT_DID branch; every other agreement-forming call site is untouched and stays PERSONA-bound.",
+    "Six regression scenarios, verbatim from the operator's directive, all pass in tests/constitutional-agreement-rootdid-authority.test.ts: (1) form and authorize as the same persona — PASS; (2) form as one persona, authorize as a different persona sharing the same RootDID — PASS; (3) form under RootDID A, authorize through a persona belonging to RootDID B — REFUSE; (4) same RootDID but the acting persona resolves no RootDID (insufficient verification) — REFUSE; (5) successful authorization issues the agreement_authorized DVN receipt and the agreement's canonical state becomes AUTHORIZED; (6) switching the active persona afterward does not alter the agreement's AUTHORIZED state."
+  ],
+  "rejectedApproaches": [
+    "Comparing raw RootDIDs (personas.root_did / root_identity.did_uri) directly — rejected: violates the Identity & Access Spine's T0 rule that raw identifiers are never compared or serialized outside their resolver; used the existing one-way commitment convention instead.",
+    "Changing AgreementPayload's default authorityBinding, or retroactively reclassifying existing agreements as ROOT_DID — rejected per the operator: 'Existing agreements remain PERSONA unless explicitly classified otherwise.' Applied additively; only CFS's own formation call site opts in.",
+    "Relabeling or removing the 'Ratified' status now that 'Agreement authorized' exists — rejected once diagnosis established they are the same boolean rendered in two places, not a genuine duplication of constitutional state.",
+    "Treating RootDID equivalence as licence to widen bounded delegation — explicitly rejected per the operator: 'RootDID equivalence establishes who may exercise the principal's authority; it does not expand the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority.' None of those fields are read or written by the authorityBinding branch.",
+    "Generalizing ROOT_DID authority binding to every agreement type in this pass — rejected per the operator: 'Do not generalize ROOT_DID authority to every agreement yet. Apply it to CFS services only and expose the authority class cleanly so we can develop the broader hierarchy separately.' authorityBinding is a generic facet, but the ROOT_DID comparison branch is exercised only by agreements the codebase explicitly forms with authorityBinding: 'ROOT_DID' (currently CFS only).",
+    "Declaring RootDID the top of the authority hierarchy — rejected per the operator's explicit correction: 'I wouldn't call RootDID the highest authority. Sovereign personhood remains constitutionally prior to RootDID... CFS currently belongs at the RootDID authority tier, rather than the persona tier.' Captured as a note on the candidate invariant rather than asserted as doctrine."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001"
+  ],
+  "canaries": [
+    "tests/constitutional-agreement-rootdid-authority.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "invariant-incomplete-or-misscoped",
+  "evidence": {
+    "commits": [
+      "2f0111a"
+    ],
+    "tests": [
+      "tests/constitutional-agreement-rootdid-authority.test.ts",
+      "tests/moneypenny-runtime-authority-boundary.test.ts"
+    ],
+    "receipts": [
+      "agreement_authorized"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
