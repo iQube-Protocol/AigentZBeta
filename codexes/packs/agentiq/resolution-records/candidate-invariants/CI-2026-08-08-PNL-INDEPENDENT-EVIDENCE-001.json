@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+  "statement": "P&L verification is an independent, asynchronous capability transition from Pulse admission, with its own state (absent / evidence-pending / verified). Absence of P&L evidence must never invalidate, gate, or block already-proven upstream constitutional state (Pulse Verified, CFS authorization, or Ratify). A P&L receipt is minted ONLY when a read-only Horizen correlation returns a genuine artifact independently attributable to the exact agent/token/chain — never fabricated to make a status render green, and never inferred from Pulse's own confirmation.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"Do not invent or implement another registration ceremony merely to make the state green... Treat the current constitutional state as: P&L authority verified / service evidence pending... Pulse Verified is sufficient to close Ratify. P&L verification is an independent, asynchronous capability transition and can occur when its first valid evidence arrives... Protocol invariant: Absence of optional downstream evidence must not invalidate already-proven upstream constitutional state.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/pnl-service-verification.test.ts",
+      "assertion": "discoverAndReceiptPnlServiceEvidence mints pnl_service_verified ONLY on a genuine, on-chain-attributed, chain-agreeing correlation; every other case (not-found, read-failed, identity-unconfirmed, chain-mismatch) returns evidencePending with a named reason and mints nothing. No test or call site couples this function to Pulse's own state or to any Journey/Ratify gate.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "horizen-pnl-verification",
+      "defect": "Before this change, no function distinguished 'P&L was independently verified' from 'P&L disclosure scope was authorized' (horizen_pnl_transparency_enabled, issued unconditionally alongside Pulse) — a reader consuming only the existing receipt vocabulary could mistake authorization-of-intent for verified operation.",
+      "resolutionId": "RES-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+      "evidence": [
+        "tests/pnl-service-verification.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "This is a specific application of CI-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001's own 'Proof establishes fact. Policy establishes consequence. Receipt establishes state.' to a second, independent partner-agentic capability — not a new architectural pattern, but not yet claimed as cross-capability scope either; kept local until a second real capability actually exercises the same shape.",
+    "horizen_pnl_transparency_enabled and partner_agent_evidence_recorded are NOT superseded or deprecated by pnl_service_verified — all three remain valid, distinct claims. A future reader must not treat any one of them as implying another.",
+    "The investigation (background research agent, read-only, cited file:line for every claim) found verifiablePnlRegistered is currently false for Nakamoto's live agent, and that the generic correlation channel (fetchPnlCorrelation) had never been queried against Nakamoto's own token (8798) specifically before this change — only against a different reference token (7866). The capability described here answers 'has anyone actually asked, for THIS token' — evidence-pending is the expected, honest report until a genuine correlation appears."
+  ]
+}
