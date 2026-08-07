@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`91c57fe`](https://github.com/iQube-Protocol/AigentZBeta/commit/91c57fee3f5bd70d7af5fd877d6a38df7ffa1511) [feat] add extension distribution packages to .gitignore (Claude, 2026-08-07T01:08:11Z)
 - [`a91d664`](https://github.com/iQube-Protocol/AigentZBeta/commit/a91d664c8b6cd93b6bf975c68ffa5551726e7e1e) [fix] fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits (Claude, 2026-08-06T23:46:35Z)
 - [`e78fe17`](https://github.com/iQube-Protocol/AigentZBeta/commit/e78fe17dd057901f865956c6d291853e489e1bea) [fix] fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants (Claude, 2026-08-06T22:53:23Z)
 - [`c6113f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/c6113f259c378452a6db7a83ae64698ce085e387) [push] Document mandatory delegation security architecture and constraints (Claude, 2026-08-04T00:32:39Z)
