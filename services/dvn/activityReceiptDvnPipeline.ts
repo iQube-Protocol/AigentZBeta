@@ -298,6 +298,17 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'pulse_enrollment_verified',
   'pulse_commitment_verified',
   'reconciliation_discrepancy_recorded',
+  // P&L is an independent, asynchronous capability transition, deliberately
+  // kept as its own state machine from Pulse admission (operator directive,
+  // 2026-08-08). Issued ONLY when a read-only Horizen correlation
+  // independently produces and attributes a genuine Verifiable-PnL record
+  // for the exact agent/token/chain — see
+  // services/horizen/pnlServiceVerification.ts. Additive alongside
+  // horizen_pnl_transparency_enabled (a materially weaker "disclosure scope
+  // authorized" claim) and partner_agent_evidence_recorded (a different
+  // constitutional question, identity-binding attribution) — never replaces
+  // either. (Action-type addition only.)
+  'pnl_service_verified',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {
