@@ -65,6 +65,19 @@ interface VerifyStatusInfo {
    * operator just created.
    */
   authorizationId?: string;
+  /**
+   * THE CONSTITUTIONAL ACT SUCCEEDING IS NOT THE SAME FACT AS ITS PROJECTION
+   * LANDING (Aigent Nakamoto, 2026-08-07). `state: 'complete'` means Horizen
+   * confirmed the authorization — it says nothing about whether that
+   * confirmation was ever written onto the Agent Card. When these are
+   * present alongside `state: 'complete'`, the projection failed and must be
+   * shown as its own incomplete step, never silently folded into either
+   * "authorized" (horizen.pulse?.enabled will correctly read false) or
+   * "not yet authorized" (the default un-authorized card, which is a lie —
+   * Horizen already confirmed this).
+   */
+  enrichmentRefusalCode?: string;
+  enrichmentError?: string;
 }
 
 /** Same cadence as RegisterAgentPanel's own poll while a partner check is outstanding. */
@@ -193,6 +206,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           refusalDetail: json.refusalDetail,
           note: json.note,
           authorizationId: typeof json.authorizationId === 'string' ? json.authorizationId : undefined,
+          enrichmentRefusalCode: typeof json.enrichmentRefusalCode === 'string' ? json.enrichmentRefusalCode : undefined,
+          enrichmentError: typeof json.enrichmentError === 'string' ? json.enrichmentError : undefined,
         });
         // The refresh reconciled a locally-refused row against the partner and
         // confirmed it — the Agent Card projection changed, so re-read it
@@ -467,6 +482,48 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           </div>
         </div>
         {tracePanel}
+      </>
+    );
+  }
+
+  /*
+   * AUTHORIZATION CONFIRMED, PROJECTION INCOMPLETE — the constitutional act
+   * succeeded; its Agent Card projection did not, and the two must never be
+   * conflated (Aigent Nakamoto, 2026-08-07). Checked BEFORE 'pending' below:
+   * `state: 'complete'` with an `enrichmentRefusalCode` present is neither a
+   * transport condition nor an unauthorized state — it is Horizen's own
+   * confirmed "yes", still waiting on the (retryable) local write that
+   * projects it onto this agent's served Agent Card. `horizen.pulse?.enabled`
+   * already correctly read false above, so falling through here would
+   * otherwise land on the default "not yet authorized" card — which would
+   * misrepresent an act Horizen already confirmed as never having happened.
+   */
+  if (status?.state === 'complete' && status.enrichmentRefusalCode) {
+    return (
+      <>
+      <div className="rounded-md border border-amber-900/60 bg-amber-950/20 p-3 text-xs text-amber-200">
+        <div className="flex items-start gap-2">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div>
+            <p className="font-medium">Pulse authorization: confirmed</p>
+            <p className="mt-1 text-amber-200/80">Agent Card enrichment: incomplete</p>
+            <p className="mt-2 text-amber-200/60">
+              Reason: <span className="font-mono">{status.enrichmentRefusalCode}</span>
+              {status.enrichmentError ? ` — ${status.enrichmentError}` : ''}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => void checkStatus()}
+          disabled={checkingStatus}
+          className="mt-3 flex items-center gap-1.5 rounded-md border border-amber-800/60 bg-amber-950/30 px-3 py-1.5 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/40 disabled:opacity-50"
+        >
+          {checkingStatus ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Clock className="h-3.5 w-3.5" />}
+          {checkingStatus ? 'Retrying enrichment…' : 'Retry enrichment'}
+        </button>
+        {attemptFooter}
+      </div>
+      {tracePanel}
       </>
     );
   }
