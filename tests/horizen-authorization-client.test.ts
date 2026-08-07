@@ -117,6 +117,7 @@ import {
   RECONCILABLE_STATES,
   getPulseAuthorizationEvidence,
   reconcilePulseConstitutionalState,
+  materializePulseEvidenceFromHistoricalConfirmation,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
 import {
@@ -2200,6 +2201,194 @@ describe('Receipted constitutional state — evidence commitment + fine-grained 
       { mcpClient: fakeMcpClient() },
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'NO_RECEIPTED_EVIDENCE' });
+  });
+});
+
+/*
+ * ── MATERIALIZING EVIDENCE FOR A PRE-EXISTING CONFIRMATION (operator
+ * directive, 2026-08-08) ─────────────────────────────────────────────────────
+ *
+ * The acceptance test for the whole receipted-constitutional-state pass:
+ * "verify Nakamoto's existing confirmed Pulse evidence can be converted/
+ * idempotently materialized into the new pulse_enrollment_verified/
+ * pulse_commitment_verified receipts, and the Journey subsequently renders
+ * its green state from those receipts without another Horizen call."
+ */
+function confirmedRowWithoutEvidence(authorizationId: string, overrides: Partial<Record<string, unknown>> = {}) {
+  rows.set(authorizationId, {
+    authorizationId,
+    purpose: 'horizen-pulse-transparency',
+    subjectAigentQubeId: 'aigentqube-nakamoto',
+    partner: 'horizen',
+    network: 'base-sepolia',
+    agentId: 'nakamoto-8798',
+    walletAddress: WALLET.address,
+    issuedAt: '2026-08-05T00:00:00.000Z',
+    state: 'CONFIRMED',
+    signerAddress: WALLET.address,
+    signatureRef: 'sig-ref-historical',
+    submissionRef: '0xsubmission-historical',
+    // The pre-existing receipt (written before actionInput.evidence existed)
+    // — a real receipt id, but its actionInput carries no `evidence` field.
+    receiptRef: 'receipt-legacy-1',
+    partnerStatus: JSON.stringify({ pulseEnrolled: true, pulseCommitmentRecorded: true }),
+    refusalCode: null,
+    refusalDetail: null,
+    createdAt: 'earlier',
+    updatedAt: 'earlier',
+    ...overrides,
+  });
+  receiptStore.set('receipt-legacy-1', {
+    id: 'receipt-legacy-1',
+    actionType: 'horizen_pulse_authorized',
+    actionInput: { aigentQubeId: 'aigentqube-nakamoto', authorizationId, tokenId: '8798', network: 'base-sepolia' },
+  });
+}
+
+describe('materializePulseEvidenceFromHistoricalConfirmation — the acceptance test (operator directive, 2026-08-08)', () => {
+  it('refuses STATE_MISMATCH against a row that is not CONFIRMED', async () => {
+    rows.set('auth-materialize-not-confirmed', { authorizationId: 'auth-materialize-not-confirmed', state: 'SUBMITTED', receiptRef: null });
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-not-confirmed', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'STATE_MISMATCH' });
+  });
+
+  it('is a no-op reporting alreadyMaterialized:true when evidence already exists at receiptRef', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-idempotent');
+    // Seed the legacy receipt as if it ALREADY carries evidence (a prior materialization).
+    receiptStore.get('receipt-legacy-1')!.actionInput.evidence = { pulseEnrolled: true, verifierPolicyVersion: 'gjr-vfy-001-structured-first-v1' };
+    createActivityReceipt.mockClear();
+
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-idempotent', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+
+    expect(result).toMatchObject({ ok: true, alreadyMaterialized: true, receiptRef: 'receipt-legacy-1' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('refuses NO_HISTORICAL_SNAPSHOT when partnerStatus is null', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-no-snapshot', { partnerStatus: null });
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-no-snapshot', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'NO_HISTORICAL_SNAPSHOT' });
+  });
+
+  it('refuses NO_HISTORICAL_SNAPSHOT when partnerStatus carries no structured field — a row confirmed via prose classification alone, never re-contacts Horizen or fabricates evidence', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-prose-only', {
+      partnerStatus: '✓ Enrolled in Pulse monitoring — Next step: Onboarding complete.',
+    });
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-prose-only', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'NO_HISTORICAL_SNAPSHOT' });
+  });
+
+  it('refuses AMBIGUOUS_HISTORICAL_FACT when the snapshot itself says pulseEnrolled:false, contradicting the row\'s own CONFIRMED state', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-contradiction', {
+      partnerStatus: JSON.stringify({ pulseEnrolled: false }),
+    });
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-contradiction', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'AMBIGUOUS_HISTORICAL_FACT' });
+  });
+
+  it('refuses MISSING_CONTROLLER_WALLET when the row has no persisted walletAddress', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-no-wallet', { walletAddress: null });
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-no-wallet', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'MISSING_CONTROLLER_WALLET' });
+  });
+
+  it('the happy path: materializes pulse_enrollment_verified + pulse_commitment_verified from the historical snapshot, repoints receiptRef, and the Journey then reads structuredStatus from THAT receipt with no Horizen call', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-happy-path');
+    createActivityReceipt.mockClear();
+
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-happy-path', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+      runtimeAgentId: 'aigent-nakamoto',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.alreadyMaterialized).toBe(false);
+    expect(result.evidence).toMatchObject({
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      materializedFrom: 'historical-partner-status-snapshot',
+    });
+
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).toContain('pulse_commitment_verified');
+    // Every materialized receipt is findable by agent — never dropped like
+    // the pre-existing historical horizen_pulse_authorized receipt was.
+    for (const call of createActivityReceipt.mock.calls) {
+      expect(call[0].agentsInvoked).toEqual(['aigent-nakamoto']);
+    }
+
+    // THE ACCEPTANCE TEST ITSELF: the row's receiptRef now points at the
+    // NEW, richer receipt — never mutating the original — and reading
+    // through the ordinary getPulseAuthorizationEvidence path (exactly what
+    // verify/status/route.ts's already-enriched fast path calls) recovers
+    // the SAME structured evidence with NO live Horizen call anywhere in
+    // this test.
+    const updatedRow = rows.get('auth-materialize-happy-path');
+    expect(updatedRow.receiptRef).not.toBe('receipt-legacy-1');
+    expect(updatedRow.state).toBe('CONFIRMED');
+    const reread = await getPulseAuthorizationEvidence(updatedRow.receiptRef);
+    expect(reread).toMatchObject({ pulseEnrolled: true, pulseCommitmentRecorded: true, materializedFrom: 'historical-partner-status-snapshot' });
+
+    // The original horizen_pulse_authorized receipt is untouched — receipts
+    // are append-only, never mutated in place.
+    expect(receiptStore.get('receipt-legacy-1')!.actionInput.evidence).toBeUndefined();
+  });
+
+  it('an enrollment-only historical snapshot (no commitment fact) materializes only pulse_enrollment_verified', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-enrollment-only', {
+      partnerStatus: JSON.stringify({ pulseEnrolled: true }),
+    });
+    createActivityReceipt.mockClear();
+
+    const result = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-enrollment-only', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+
+    expect(result.ok).toBe(true);
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).not.toContain('pulse_commitment_verified');
+  });
+
+  it('running materialization twice is idempotent — the second run reports alreadyMaterialized and writes nothing further', async () => {
+    confirmedRowWithoutEvidence('auth-materialize-run-twice');
+
+    const first = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-run-twice', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(first.ok).toBe(true);
+    createActivityReceipt.mockClear();
+
+    const second = await materializePulseEvidenceFromHistoricalConfirmation('auth-materialize-run-twice', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+
+    expect(second).toMatchObject({ ok: true, alreadyMaterialized: true });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
   });
 });
 
