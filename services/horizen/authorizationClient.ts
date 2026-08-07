@@ -2308,7 +2308,7 @@ export async function getPulseAuthorizationEvidence(
  * calls `updatePartnerAuthorizationRequest` with a `state` field at all: on
  * agreement it records the check (`partnerStatus`, for audit visibility) and
  * changes nothing else; on disagreement it writes a NEW
- * `horizen_reconciliation_discrepancy_recorded` receipt naming exactly which
+ * `reconciliation_discrepancy_recorded` receipt naming exactly which
  * fields disagreed, and STILL changes nothing else. A genuine revocation/
  * expiry is a separate, deliberate constitutional act this function does not
  * perform — see this session's own report for why that is intentional.
@@ -2396,7 +2396,7 @@ export async function reconcilePulseConstitutionalState(
     const receipt = await createActivityReceipt({
       personaId: args.actorPersonaId,
       activeCartridge: 'agentiq',
-      actionType: 'horizen_reconciliation_discrepancy_recorded',
+      actionType: 'reconciliation_discrepancy_recorded',
       summary: `Horizen's fresh onboarding status disagrees with ${record.subjectAigentQubeId}'s receipted Pulse evidence on: ${disagreements.join(', ')}`,
       agentsInvoked: args.runtimeAgentId ? [args.runtimeAgentId] : [],
       actionInput: {

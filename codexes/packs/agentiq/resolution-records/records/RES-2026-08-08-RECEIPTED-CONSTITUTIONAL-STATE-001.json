@@ -19,7 +19,7 @@
     "writeConfirmedPulseActivation now builds and persists a complete evidence commitment on CONFIRMED — network, tokenId, controllerWallet, authorizationId, every structured fact (pulseEnrolled/pulseCommitmentRecorded/verifiablePnlRegistered/endpointWarning), a sha256 commitment over the COMPLETE source response (never the pre-existing 500-char partnerStatus truncation), a verification timestamp, and a named verifier/policy version — carried in horizen_pulse_authorized's actionInput.evidence.",
     "Added two fine-grained, independently-gated receipt types alongside the existing horizen_pulse_authorized: pulse_enrollment_verified (fires whenever the transition confirms) and pulse_commitment_verified (fires only when the SAME confirmation also verified pulseCommitmentRecorded) — additive, never replacing the existing receipt, so every current reader (the journey-state route's hasReceipt('horizen_pulse_authorized') among them) is unaffected.",
     "Added getPulseAuthorizationEvidence — a three-valued reader (found / not-found / read-failed, never conflated) of the receipted evidence by receiptRef — and wired verify/status/route.ts's already-confirmed-and-enriched fast path to serve structuredStatus from it instead of leaving the field undefined. This is a pure activity_receipts row read, not a partner call, so the pre-existing zero-latency short-circuit is unchanged.",
-    "Added reconcilePulseConstitutionalState as a SEPARATE primitive (never the same code path as verify-and-transition) for checking an already-CONFIRMED row against a fresh partner read: agreement records the check and changes nothing else; disagreement writes a NEW horizen_reconciliation_discrepancy_recorded receipt naming exactly which fields disagreed and leaves `state` untouched. Exposed via POST /api/journey/moneypenny-horizen/verify/reconcile. Deliberately not wired into any automatic cadence this pass — see rejectedApproaches.",
+    "Added reconcilePulseConstitutionalState as a SEPARATE primitive (never the same code path as verify-and-transition) for checking an already-CONFIRMED row against a fresh partner read: agreement records the check and changes nothing else; disagreement writes a NEW reconciliation_discrepancy_recorded receipt naming exactly which fields disagreed and leaves `state` untouched. Exposed via POST /api/journey/moneypenny-horizen/verify/reconcile. Deliberately not wired into any automatic cadence this pass — see rejectedApproaches.",
     "Rebuilt activity_receipts_action_type_check (migration 20260930002000) with the three new action types, per the existing 2026-07-15 constraint-drift incident's own regression guard (tests/activity-receipts-action-type-parity.test.ts)."
   ],
   "rejectedApproaches": [
@@ -56,7 +56,7 @@
       "horizen_pulse_authorized",
       "pulse_enrollment_verified",
       "pulse_commitment_verified",
-      "horizen_reconciliation_discrepancy_recorded"
+      "reconciliation_discrepancy_recorded"
     ],
     "incidentRefs": []
   },

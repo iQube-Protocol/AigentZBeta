@@ -325,20 +325,25 @@ export type ActivityActionType =
   | 'capability_invocation_authorized'
   | 'capability_invocation_refused'
   | 'capability_invocation_completed'
-  // Receipted constitutional state for the Horizen admission journey
-  // (operator directive, 2026-08-08 — "Replace external-state-as-runtime-
-  // authority with receipted constitutional state"). Each verified milestone
-  // gets its own DVN-attributable transition, carrying the evidence that
+  // Receipted constitutional state (operator directive, 2026-08-08 —
+  // "Replace external-state-as-runtime-authority with receipted
+  // constitutional state"). `pulse_enrollment_verified`/
+  // `pulse_commitment_verified` are Pulse-specific EVENT TYPES, first proven
+  // out for the Horizen admission journey — each carries the evidence that
   // justified it (network, agent/token reference, verified source values,
   // source-response commitment, verification timestamp, verifier/policy
   // version) — see services/horizen/authorizationClient.ts's
-  // writeConfirmedPulseActivation. `horizen_reconciliation_discrepancy_
-  // recorded` is written by reconcilePulseConstitutionalState when a LATER
-  // external read disagrees with already-receipted evidence; it is itself a
-  // new event, never a rewrite of the transition it compares against.
+  // writeConfirmedPulseActivation. `reconciliation_discrepancy_recorded` is
+  // deliberately PROTOCOL-LEVEL, not partner-prefixed (corrected same day,
+  // operator: "I would not let the underlying reconciliation architecture
+  // become Horizen-specific") — written by reconcilePulseConstitutionalState
+  // when a LATER external read disagrees with already-receipted evidence;
+  // it is itself a new event, never a rewrite of the transition it compares
+  // against, and the same type will serve any future partner's
+  // reconciliation writes.
   | 'pulse_enrollment_verified'
   | 'pulse_commitment_verified'
-  | 'horizen_reconciliation_discrepancy_recorded';
+  | 'reconciliation_discrepancy_recorded';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 

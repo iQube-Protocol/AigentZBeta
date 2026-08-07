@@ -2144,7 +2144,7 @@ describe('Receipted constitutional state — evidence commitment + fine-grained 
     expect(rows.get('auth-reconcile-agree').receiptRef).toBe(receiptRef);
   });
 
-  it('reconciliation on DISAGREEMENT: names the disagreeing fields, writes horizen_reconciliation_discrepancy_recorded, and — the acceptance invariant itself — NEVER changes state away from CONFIRMED', async () => {
+  it('reconciliation on DISAGREEMENT: names the disagreeing fields, writes reconciliation_discrepancy_recorded, and — the acceptance invariant itself — NEVER changes state away from CONFIRMED', async () => {
     await confirmPulseViaReread('auth-reconcile-disagree', CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE);
     createActivityReceipt.mockClear();
 
@@ -2162,7 +2162,7 @@ describe('Receipted constitutional state — evidence commitment + fine-grained 
     expect(result.discrepancyReceiptRef).not.toBeNull();
     expect(createActivityReceipt).toHaveBeenCalledWith(
       expect.objectContaining({
-        actionType: 'horizen_reconciliation_discrepancy_recorded',
+        actionType: 'reconciliation_discrepancy_recorded',
         actionInput: expect.objectContaining({ disagreements: ['pulseEnrolled'] }),
       }),
     );

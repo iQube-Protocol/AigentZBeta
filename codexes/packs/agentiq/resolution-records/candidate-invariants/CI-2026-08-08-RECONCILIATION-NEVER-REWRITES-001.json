@@ -19,7 +19,7 @@
   "canaries": [
     {
       "path": "tests/horizen-authorization-client.test.ts",
-      "assertion": "reconcilePulseConstitutionalState against a later disagreeing partner read writes horizen_reconciliation_discrepancy_recorded naming the disagreeing fields and leaves partner_authorization_requests.state at CONFIRMED — the acceptance-invariant assertion itself. On agreement, writes no discrepancy receipt and touches no state field.",
+      "assertion": "reconcilePulseConstitutionalState against a later disagreeing partner read writes reconciliation_discrepancy_recorded naming the disagreeing fields and leaves partner_authorization_requests.state at CONFIRMED — the acceptance-invariant assertion itself. On agreement, writes no discrepancy receipt and touches no state field.",
       "verifiedFailingBeforeFix": false
     }
   ],
@@ -41,6 +41,8 @@
   "supersededBy": null,
   "notes": [
     "A genuine subsequent state change (revocation, expiry) is EXPLICITLY OUT OF SCOPE for the reconciliation function itself — it requires a new, separately verified and receipted transition, issued as its own deliberate act. Automating that from a disagreement is the exact shortcut this invariant forbids.",
-    "reconcilePulseConstitutionalState is not wired into any automatic cadence yet (no click, no poll, no cron) — see the parent resolution record's rejectedApproaches. The 'never rewrites' property is enforced regardless of how/when reconciliation is triggered, but 'periodic' reconciliation in the operator's literal sense (time-scheduled) remains a follow-up decision, not yet built."
+    "reconcilePulseConstitutionalState is not wired into any automatic cadence yet (no click, no poll, no cron) — see the parent resolution record's rejectedApproaches. The 'never rewrites' property is enforced regardless of how/when reconciliation is triggered, but 'periodic' reconciliation in the operator's literal sense (time-scheduled) remains a follow-up decision, not yet built.",
+    "CORRECTED same day (before any receipt existed under the old name): the wire action type was renamed reconciliation_discrepancy_recorded, dropping the horizen_ prefix — operator: 'The name horizen_reconciliation_discrepancy_recorded is partner-specific whereas the principle we have just established is clearly protocol-level... I would not let the underlying reconciliation architecture become Horizen-specific.' pulse_enrollment_verified/pulse_commitment_verified were deliberately left partner-specific (Pulse-specific EVENT TYPES, distinct from the reconciliation MECHANISM). Migration 20260930002100_reconciliation_discrepancy_protocol_level.sql.",
+    "Operator's tightest formulation of this invariant, worth preserving verbatim: 'Proof establishes fact. Policy establishes consequence. Receipt establishes state.' Also: 'External systems are authorities over the facts they originate, but not over the constitutional state those facts produce. A verified fact becomes constitutional state only through a policy-governed, auditable state-transition receipt. Subsequent external observations reconcile against that state; they do not silently rewrite it.'"
   ]
 }
