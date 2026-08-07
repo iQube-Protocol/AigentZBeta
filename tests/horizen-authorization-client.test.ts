@@ -98,9 +98,10 @@ import {
   pulseBuildCandidates,
   pulseStatusCandidates,
   detectPulseArgumentDrift,
+  RECONCILABLE_STATES,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
-import { matchSchemaFields, missingRequiredFields } from '@/services/horizen/mcpSchemaMatch';
+import { matchSchemaFields, missingRequiredFields, classifyPulseEnrollmentState } from '@/services/horizen/mcpSchemaMatch';
 import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
 
 const WALLET = ethers.Wallet.createRandom();
@@ -1690,5 +1691,104 @@ describe('FRESH_AUTHORIZATION_NOT_CREATED — replay guard (2026-08-06)', () => 
     if (!second.ok) return;
     expect(second.value.envelope.issuedAt).not.toBe((first as any).value.envelope.issuedAt);
     expect(second.diagnostics?.rowAction).toBe('reset');
+  });
+});
+
+/*
+ * ── A LATER PROVEN PARTNER STATE SUPERSEDES AN EARLIER SETTLED REFUSAL
+ * (operator directive, 2026-08-07) ──────────────────────────────────────
+ *
+ * Aigent Nakamoto's live `get_onboarding_status` reread came back positive —
+ * "✓ Enrolled in Pulse monitoring... Next step: Onboarding complete." — while
+ * the locally-persisted `partner_authorization_requests` row still held an
+ * EARLIER reread's verdict: REFUSED / PARTNER_NOT_ENROLLED. The operator's
+ * report was that the UI kept projecting the stale refusal instead of the
+ * fresh confirmation.
+ *
+ * Canonical precedence rule (unchanged from OS-1, restated for this specific
+ * transition): a confirmed external consequence outranks a stale local
+ * refusal. The refusal remains true AS HISTORY (never deleted, never
+ * overwritten to hide that it happened) but must not be what a subsequent
+ * read of "current state" reports once a later authoritative reread
+ * confirms enrollment.
+ *
+ * This block adds the exact regression fixture requested: the live positive
+ * transcript, verbatim, asserted against `classifyPulseEnrollmentState`
+ * directly, and the full reconciliation transition through
+ * `verifyHorizenTransparencyActivation` (the same function
+ * verify/status/route.ts calls for "Check status now" / "Refresh partner
+ * status") — never a second, parallel classifier or reconciliation path.
+ */
+const LIVE_CONFIRMED_ONBOARDING_STATUS_TEXT =
+  '✓ Registered on-chain\n' +
+  '✓ Indexed in registry marketplace as "Aigent Nakamoto"\n' +
+  '✓ Enrolled in Pulse monitoring — SLA receipts accumulate automatically.\n' +
+  '✓ On-chain identity commitment recorded — SLA proofs will be accepted.\n\n' +
+  'Next step: Onboarding complete.';
+
+describe('Pulse reconciliation — a later CONFIRMED reread supersedes an earlier REFUSED/PARTNER_NOT_ENROLLED row (2026-08-07)', () => {
+  it('classifyPulseEnrollmentState reads the exact live positive transcript as CONFIRMED', () => {
+    expect(classifyPulseEnrollmentState(LIVE_CONFIRMED_ONBOARDING_STATUS_TEXT)).toBe('CONFIRMED');
+  });
+
+  it('a row already REFUSED/PARTNER_NOT_ENROLLED from an earlier reread is reconciled to CONFIRMED by a later authoritative reread that reports enrollment — the old refusal never survives as current state', async () => {
+    const authorizationId = 'auth-reconcile-refused-to-confirmed';
+    // Seed the row exactly as verifyHorizenTransparencyActivation's own
+    // NOT_ENROLLED branch would have left it after an EARLIER reread — never
+    // hand-rolled state a real code path wouldn't actually produce.
+    rows.set(authorizationId, {
+      authorizationId,
+      purpose: 'horizen-pulse-transparency',
+      subjectAigentQubeId: 'aigentqube-nakamoto',
+      partner: 'horizen',
+      network: 'base-sepolia',
+      agentId: 'nakamoto-8798',
+      walletAddress: WALLET.address,
+      issuedAt: '2026-08-06T00:00:00.000Z',
+      state: 'REFUSED',
+      signerAddress: WALLET.address,
+      signatureRef: 'sig-ref-earlier-attempt',
+      submissionRef: '0xsubmission-earlier',
+      partnerStatus: 'earlier NOT_ENROLLED reread (history — must not be re-asserted as current)',
+      receiptRef: null,
+      refusalCode: 'PARTNER_NOT_ENROLLED',
+      refusalDetail:
+        'Horizen\'s authoritative status reports this agent is NOT enrolled in Pulse monitoring — the prior ' +
+        'submission did not establish enrollment. Partner state read: (earlier negative transcript)',
+      createdAt: 'earlier',
+      updatedAt: 'earlier',
+    });
+
+    const result = await verifyHorizenTransparencyActivation(
+      authorizationId,
+      {
+        actorPersonaId: 'persona-operator-1',
+        registry: { network: 'base-sepolia', tokenId: '8798' },
+        controllerWallet: WALLET.address,
+        // The exact set "Check status now" / "Refresh partner status" pass —
+        // never a wider or narrower allowlist invented for this test.
+        allowStates: RECONCILABLE_STATES,
+      },
+      {
+        mcpClient: fakeMcpClient({ statusText: LIVE_CONFIRMED_ONBOARDING_STATUS_TEXT }),
+        fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      },
+    );
+
+    expect(result.ok).toBe(true);
+
+    const reconciled = rows.get(authorizationId);
+    expect(reconciled.state).toBe('CONFIRMED');
+    // The earlier refusal's own record is allowed to remain readable in the
+    // row's refusalCode/refusalDetail fields (history) — but `state` itself,
+    // the field every observer (verify/status/route.ts, PulseTransparencyToggle)
+    // actually branches on, must no longer read REFUSED once this reread
+    // confirms. This is the one assertion that catches "shadowed by history".
+    expect(reconciled.state).not.toBe('REFUSED');
+    // A receipt was written for the newly-confirmed enrollment — the same
+    // `horizen_pulse_authorized` receipt path CONFIRMED already takes.
+    expect(createActivityReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ actionType: 'horizen_pulse_authorized' }),
+    );
   });
 });
