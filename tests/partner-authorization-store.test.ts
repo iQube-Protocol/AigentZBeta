@@ -36,7 +36,11 @@ vi.mock('@/app/api/_lib/supabaseServer', () => ({
 }));
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { checkAuthorizationStoreAvailable, createPartnerAuthorizationRequest } from '@/services/horizen/partnerAuthorizationStore';
+import {
+  checkAuthorizationStoreAvailable,
+  createPartnerAuthorizationRequest,
+  updatePartnerAuthorizationRequest,
+} from '@/services/horizen/partnerAuthorizationStore';
 
 /** A minimal chainable fake mirroring supabase-js's query-builder shape (thenable at any link in the chain). */
 function fakeSupabaseClient(result: { data?: unknown; error?: { code?: string; message: string } | null }) {
@@ -299,5 +303,63 @@ describe('createPartnerAuthorizationRequest', () => {
     });
     const result = await createPartnerAuthorizationRequest(baseInput, client);
     expect(result).toMatchObject({ ok: true, record: { authorizationId: 'auth-1', agentId: '8798', walletAddress: '0xabc' } });
+  });
+});
+
+/*
+ * `state` MADE OPTIONAL (2026-08-08) — reconcilePulseConstitutionalState's
+ * AGREEMENT path (services/horizen/authorizationClient.ts) records a
+ * reconciliation check (partnerStatus only) against an ALREADY-CONFIRMED row
+ * without writing `state` at all, per the operator's "reconciliation never
+ * rewrites constitutional history" directive. This exercises the actual
+ * update payload sent to Supabase — never `state: undefined` left to
+ * whatever the client's JSON serialization happens to do with that, but the
+ * key omitted from the payload entirely.
+ */
+describe('updatePartnerAuthorizationRequest — state is optional (2026-08-08)', () => {
+  function fakeUpdateCapturingClient(existing: Record<string, unknown>, updated: Record<string, unknown>) {
+    const updateCalls: Record<string, unknown>[] = [];
+    let callIndex = 0;
+    return {
+      updateCalls,
+      client: {
+        from: vi.fn(() => {
+          const isFirstCall = callIndex === 0;
+          callIndex += 1;
+          const builder: any = {
+            select: () => builder,
+            update: (payload: Record<string, unknown>) => {
+              updateCalls.push(payload);
+              return builder;
+            },
+            eq: () => builder,
+            maybeSingle: () => Promise.resolve({ data: isFirstCall ? existing : null, error: null }),
+            single: () => Promise.resolve({ data: updated, error: null }),
+          };
+          return builder;
+        }),
+      } as any,
+    };
+  }
+
+  it('omitting `state` from the patch omits it from the update payload entirely — the row keeps its existing state', async () => {
+    const existing = existingRow({ state: 'CONFIRMED' });
+    const { client, updateCalls } = fakeUpdateCapturingClient(existing, { ...existing, partner_status: 'fresh-check' });
+
+    await updatePartnerAuthorizationRequest(existing.authorization_id as string, { partnerStatus: 'fresh-check' }, client);
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]).not.toHaveProperty('state');
+    expect(updateCalls[0]).toMatchObject({ partner_status: 'fresh-check' });
+  });
+
+  it('providing `state` still writes it, exactly as every existing caller relies on', async () => {
+    const existing = existingRow({ state: 'SUBMITTED' });
+    const { client, updateCalls } = fakeUpdateCapturingClient(existing, { ...existing, state: 'CONFIRMED' });
+
+    await updatePartnerAuthorizationRequest(existing.authorization_id as string, { state: 'CONFIRMED' }, client);
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0]).toMatchObject({ state: 'CONFIRMED' });
   });
 });

@@ -505,7 +505,16 @@ export async function getPartnerAuthorizationRequest(
 }
 
 export interface PartnerAuthorizationStateUpdate {
-  state: PartnerAuthorizationState;
+  /**
+   * Optional (2026-08-08) — reconcilePulseConstitutionalState's AGREEMENT
+   * path records a reconciliation check (partnerStatus only) against an
+   * ALREADY-CONFIRMED row without writing `state` at all, per the operator's
+   * "reconciliation never rewrites constitutional history" directive. Every
+   * OTHER caller in this codebase still passes `state` explicitly — this
+   * relaxation exists for that one caller, never as license to omit it
+   * elsewhere.
+   */
+  state?: PartnerAuthorizationState;
   payloadHash?: string;
   signerAddress?: string;
   signatureRef?: string;
@@ -526,7 +535,11 @@ export async function updatePartnerAuthorizationRequest(
   const existing = await getPartnerAuthorizationRequest(authorizationId, client);
   if (!existing) throw new Error(`updatePartnerAuthorizationRequest: no row for authorizationId "${authorizationId}"`);
 
-  const row: Record<string, unknown> = { state: patch.state, updated_at: new Date().toISOString() };
+  // `state` is omitted from the update payload entirely when the caller did
+  // not supply one — never sent as `undefined` and left to whatever the
+  // Supabase client's JSON serialization happens to do with that.
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.state !== undefined) row.state = patch.state;
   if (patch.payloadHash !== undefined) row.payload_hash = patch.payloadHash;
   if (patch.signerAddress !== undefined) row.signer_address = patch.signerAddress;
   if (patch.signatureRef !== undefined) row.signature_ref = patch.signatureRef;
