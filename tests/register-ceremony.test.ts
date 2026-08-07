@@ -181,6 +181,55 @@ describe('prepareRegistrationMandate', () => {
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'UNKNOWN_AGENT' });
   });
+
+  /*
+   * ── CROSS-AGENT ISOLATION REGRESSION (operator directive, 2026-08-08) ────
+   *
+   * "Add a regression test where the same principal signs registration
+   * mandates for Nakamoto and MoneyPenny sequentially; the second ceremony
+   * must preserve MoneyPenny's runtimeAgentId, wallet/key material and
+   * receipt subject with zero cross-agent carryover." This exercises
+   * prepareRegistrationMandate itself (a pure function of its own input, no
+   * module-level state), proving the write side of the Register ceremony
+   * has no shared/stale "current agent" to leak from — the contamination
+   * traced to READ-time (StageReceiptsDrawer/api/assistant/receipts, fixed
+   * separately) never originated here.
+   */
+  it('the same principal, signing sequentially for two different agents, gets each agent\'s own subject with zero carryover', async () => {
+    const store = fakeRequestStore();
+    const deps = baseDeps(store);
+
+    const first = await prepareRegistrationMandate(
+      { agentSlug: 'nakamoto', principalPersonaId: 'persona-operator-1' },
+      deps,
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.value.subjectAgentRef).toBe('aigent-nakamoto');
+    expect(first.value.payload).toContain('Aigent Nakamoto');
+
+    const second = await prepareRegistrationMandate(
+      { agentSlug: 'moneypenny', principalPersonaId: 'persona-operator-1' },
+      deps,
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.subjectAgentRef).toBe('aigent-moneypenny');
+    expect(second.value.subjectAgentRef).not.toBe(first.value.subjectAgentRef);
+    expect(second.value.payload).toContain('Aigent MoneyPenny');
+    expect(second.value.payload).not.toContain('Nakamoto');
+    // Distinct nonces/mandates — the second ceremony is not a stale replay
+    // of the first under a different label.
+    expect(second.value.nonce).not.toBe(first.value.nonce);
+    expect(second.value.id).not.toBe(first.value.id);
+
+    // Both rows persist independently in the store, each still carrying its
+    // OWN subject — preparing the second never mutated the first in place.
+    const nakamotoRow = await store.get(first.value.id);
+    const moneypennyRow = await store.get(second.value.id);
+    expect(nakamotoRow?.subjectAgentRef).toBe('aigent-nakamoto');
+    expect(moneypennyRow?.subjectAgentRef).toBe('aigent-moneypenny');
+  });
 });
 
 describe('approvePrincipalRegistrationMandate', () => {

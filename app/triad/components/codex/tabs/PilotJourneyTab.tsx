@@ -192,6 +192,15 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
       // iframe's selected agent and the observer's selected agent must never
       // diverge (al, 2026-08-04).
       selectedAgentSlug={selectedAgentSlug}
+      /*
+       * THE EVIDENCE RECEIPTS DRAWER MUST SCOPE TO THE SELECTED AGENT
+       * (operator directive, 2026-08-08). `aigent-${slug}` is the exact
+       * `agents_invoked` convention RegisterAgentPanel.tsx and
+       * registerCeremony.ts already use — computed here, not inside
+       * JourneyRunSurface, which stays journey-agnostic and treats this as
+       * an opaque string.
+       */
+      receiptsSubjectAgentRef={`aigent-${selectedAgentSlug}`}
       personaId={personaId}
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}

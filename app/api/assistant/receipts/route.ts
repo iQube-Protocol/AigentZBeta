@@ -8,6 +8,18 @@
  *   ?limit=20          // 1..100, default 20
  *   ?cartridge=knyt    // filter to one cartridge
  *   ?actionType=...    // comma-separated list
+ *   ?agentsInvoked=... // comma-separated agent ids — narrows to receipts
+ *                       // naming ANY of these agents as a subject (overlap
+ *                       // match against agents_invoked, via
+ *                       // listActivityReceiptsForPersona's existing
+ *                       // agentsInvoked option). Added 2026-08-08: without
+ *                       // this, a caller filtering only by actionType gets
+ *                       // EVERY agent's receipts of that type the acting
+ *                       // persona has ever written — e.g. Nakamoto's
+ *                       // horizen_agent_registered receipt rendering as
+ *                       // MoneyPenny's Register evidence, because both were
+ *                       // registered by the same operator persona. See
+ *                       // components/journey/StageReceiptsDrawer.tsx.
  *
  * Returns the receipt list scoped to the active persona. Persona resolved
  * from spine; never read from query.
@@ -173,6 +185,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const limitRaw = url.searchParams.get('limit');
   const cartridge = url.searchParams.get('cartridge') ?? undefined;
   const actionTypesRaw = url.searchParams.get('actionType');
+  const agentsInvokedRaw = url.searchParams.get('agentsInvoked');
 
   const limit =
     limitRaw && /^\d+$/.test(limitRaw)
@@ -187,6 +200,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           VALID_ACTION_TYPES.has(s as ActivityActionType),
         ))
     : undefined;
+  // No allowlist here, unlike actionType — agent ids are not a closed,
+  // access-relevant vocabulary (persona_id scoping above is the real gate),
+  // and an unrecognised id simply matches nothing rather than needing one.
+  const agentsInvoked: string[] | undefined = agentsInvokedRaw
+    ? agentsInvokedRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
 
   try {
     const [receipts, personaDisplayLabel] = await Promise.all([
@@ -194,6 +213,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         limit,
         ...(cartridge ? { cartridge } : {}),
         ...(actionTypes && actionTypes.length > 0 ? { actionTypes } : {}),
+        ...(agentsInvoked && agentsInvoked.length > 0 ? { agentsInvoked } : {}),
       }),
       readPersonaDisplayLabel(context.personaId),
     ]);
