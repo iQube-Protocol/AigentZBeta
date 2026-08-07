@@ -181,6 +181,17 @@ export interface HorizenEvidenceRecord {
   registryAlias: string;
   pulseAlias: string;
   pnlUuid: string | null;
+  /**
+   * §3.5's own partner-reported status string for the correlation record —
+   * REPORTED, never re-interpreted (the same discipline `validationStatus`
+   * already follows below): this module does not know Horizen's Verifiable
+   * PnL status vocabulary, so mapping an unknown word onto "registered" or
+   * "pending" would be a guess. `null` exactly when `pnlUuid` is null — there
+   * is no partner status to report when there is no correlation record.
+   * Added 2026-08-07 — carried by `correlate.ts` since Slice B but never
+   * projected past that point, so no surface could show it.
+   */
+  pnlStatus: string | null;
   /** on-chain | service-onboarded | catalogue | unknown (§2.4.2/§2.4.3). */
   identityClass: string;
 
@@ -310,6 +321,7 @@ export function buildHorizenEvidence(
     registryAlias: record.identity.registryAlias,
     pulseAlias: record.identity.pulseAlias,
     pnlUuid: record.pnl.present ? record.pnl.value.uuid : null,
+    pnlStatus: record.pnl.present ? record.pnl.value.status : null,
     identityClass: record.identity.identityClass,
 
     agentCardCommitment: commitCard(record),
