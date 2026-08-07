@@ -163,9 +163,22 @@ interface PulseTransparencyToggleProps {
    */
   agentSlug: string;
   agentDisplayName: string;
+  /**
+   * Shows the "Run correlated trace" diagnostic panel (PulseEnrollmentTracePanel).
+   * Defaults to false (operator directive, 2026-08-08): "once constitutional
+   * state is receipt-driven, [the trace] belongs under Evidence/Admin/
+   * diagnostics rather than in the primary constitutional ceremony." It did
+   * its job exposing the classifier defects this session fixed — the
+   * ordinary Ratify/Verify surface no longer needs it to function, so it is
+   * no longer shown there by default. Never removed: an admin viewer can
+   * still reach it, same adminOnly-prop convention this codebase already
+   * uses elsewhere (PilotJourneyTab.tsx threads its own `isAdmin` through
+   * as this flag).
+   */
+  showDiagnostics?: boolean;
 }
 
-export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTransparencyToggleProps) {
+export function PulseTransparencyToggle({ agentSlug, agentDisplayName, showDiagnostics = false }: PulseTransparencyToggleProps) {
   const [loading, setLoading] = useState(true);
   const [horizen, setHorizen] = useState<AgentCardHorizen | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
@@ -432,9 +445,11 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
    * The correlated enrollment trace is a DIAGNOSTIC surface, additive below
    * every branch from here down (every branch that has a real tokenId to
    * trace against) — never a replacement for Authorize/"Check status again"
-   * above it. See PulseEnrollmentTracePanel.tsx's own header.
+   * above it. See PulseEnrollmentTracePanel.tsx's own header. Demoted out of
+   * the ordinary ceremony view (operator directive, 2026-08-08) — rendered
+   * only when `showDiagnostics` is set, never by default.
    */
-  const tracePanel = <PulseEnrollmentTracePanel agentSlug={agentSlug} />;
+  const tracePanel = showDiagnostics ? <PulseEnrollmentTracePanel agentSlug={agentSlug} /> : null;
 
   /*
    * PULSE AND P&L ARE TWO DISTINCT EVIDENCE BLOCKS, NEVER ONE "SOLVED ITEM"

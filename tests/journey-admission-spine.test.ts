@@ -598,8 +598,11 @@ describe('the Bureau receives an absolute Agent Card URL, never a bare path', ()
   });
 
   it('origin is a dependency of the surface-props resolver, so the prefill updates on mount', () => {
-    // Without this the memoised callback would keep the empty first-render value.
-    expect(tabSrc).toMatch(/\[selectedAgentSlug, origin\]/);
+    // Without this the memoised callback would keep the empty first-render
+    // value. Not anchored to the exact end of the array — isAdmin joined it
+    // 2026-08-08 (PulseTransparencyToggle's showDiagnostics gate) — only that
+    // selectedAgentSlug and origin are both still present, in order.
+    expect(tabSrc).toMatch(/\[selectedAgentSlug, origin/);
   });
 });
 
