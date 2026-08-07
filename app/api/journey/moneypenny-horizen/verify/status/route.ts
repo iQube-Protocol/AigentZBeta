@@ -287,6 +287,16 @@ async function statusImpl(request: NextRequest) {
       authorizationId,
       reconciledFrom: record.state,
       receiptRef: confirmedRecord?.receiptRef ?? null,
+      /*
+       * THE STRUCTURED PROJECTION, CARRIED VERBATIM ("Close Pulse now"
+       * directive, 2026-08-08) — `pulseCommitmentRecorded`,
+       * `verifiablePnlRegistered`, `endpointWarning`, pulled directly from
+       * THIS reread's own `get_onboarding_status` JSON by
+       * `verifyHorizenTransparencyActivation` (never re-derived from prose
+       * here). `PulseTransparencyToggle` renders these directly rather than
+       * inferring them from the Agent Card's own, narrower `pulse.enabled`.
+       */
+      structuredStatus: result.structuredStatus ?? null,
       ...(enrichment.ok
         ? { receiptRefs: enrichment.receiptRefs }
         : { enrichmentRefusalCode: enrichment.refusalCode, enrichmentError: enrichment.detail }),

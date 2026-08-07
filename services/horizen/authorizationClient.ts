@@ -40,11 +40,13 @@ import {
   extractIssuedAt,
   describeToolResultShape,
   normalizeMcpSubmissionResult,
-  classifyPulseEnrollmentState,
+  classifyPulseEnrollmentStateAuthoritative,
+  extractStructuredPulseOnboardingFields,
   extractRegistryOwnerFromStatusText,
   type McpTool,
   type McpToolResult,
   type NormalizedMcpSubmissionResult,
+  type StructuredPulseOnboardingFields,
 } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
@@ -433,6 +435,15 @@ export type AuthorizationResult<T> =
       rawStatusResult?: unknown;
       /** The exact arguments this reread sent to the status tool — same diagnostic-only carry as `submittedArguments`. */
       statusArgsUsed?: Record<string, unknown>;
+      /**
+       * Structured `pulseEnrolled`/`pulseCommitmentRecorded`/
+       * `verifiablePnlRegistered`/`endpointWarning`, pulled directly from
+       * `rawStatusResult`'s own JSON ("Close Pulse now" directive,
+       * 2026-08-08) — never re-derived from prose. Populated only on the
+       * CONFIRMED path (`writeConfirmedPulseActivation`), since that is the
+       * one outcome the client is meant to project these onto.
+       */
+      structuredStatus?: StructuredPulseOnboardingFields;
     }
   | {
       ok: false;
@@ -2002,8 +2013,14 @@ export async function verifyHorizenTransparencyActivation(
    * this classifier's predecessor filed under the former. See
    * `classifyPulseEnrollmentState`'s own doc comment for the full evidence
    * and the negation-outranks-positive rule that fixes it.
+   *
+   * STRUCTURED-FIRST ("Close Pulse now" directive, 2026-08-08): a partner-
+   * declared `pulseEnrolled`/`pulseCommitmentRecorded` boolean in
+   * `statusResult`'s own JSON decides this outright — the prose classifier
+   * below only ever runs when NEITHER structured field is present. See
+   * `classifyPulseEnrollmentStateAuthoritative`'s own doc comment.
    */
-  const enrollmentState = classifyPulseEnrollmentState(statusText);
+  const enrollmentState = classifyPulseEnrollmentStateAuthoritative(statusResult, statusText);
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
 
   if (enrollmentState === 'NOT_ENROLLED') {
@@ -2094,6 +2111,7 @@ async function writeConfirmedPulseActivation(
     };
   }
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
+  const structuredStatus = extractStructuredPulseOnboardingFields(statusResult);
 
   const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
   let receiptRef: string | null = null;
@@ -2125,7 +2143,13 @@ async function writeConfirmedPulseActivation(
     receiptRef: receiptRef ?? undefined,
   });
 
-  return { ok: true, value: { confirmed: true }, rawStatusResult: statusResult, statusArgsUsed: statusArgs };
+  return {
+    ok: true,
+    value: { confirmed: true },
+    rawStatusResult: statusResult,
+    statusArgsUsed: statusArgs,
+    structuredStatus,
+  };
 }
 
 // ── Full pipeline convenience wrapper (Phase 1 acceptance criterion) ────────
@@ -2206,7 +2230,10 @@ export async function runHorizenTransparencyAuthorization(
    * as before this gate existed.
    */
   if (ownerCheck.statusResult) {
-    const preSubmitState = classifyPulseEnrollmentState(flattenToolResultText(ownerCheck.statusResult));
+    const preSubmitState = classifyPulseEnrollmentStateAuthoritative(
+      ownerCheck.statusResult,
+      flattenToolResultText(ownerCheck.statusResult),
+    );
     if (preSubmitState === 'CONFIRMED') {
       const confirmed = await writeConfirmedPulseActivation(
         prepared.value.authorizationId,
@@ -2222,6 +2249,7 @@ export async function runHorizenTransparencyAuthorization(
           diagnostics,
           rawStatusResult: confirmed.rawStatusResult,
           statusArgsUsed: confirmed.statusArgsUsed,
+          structuredStatus: confirmed.structuredStatus,
         };
       }
       // confirmed.ok===false only on STATE_MISMATCH (the row vanished between
@@ -2333,5 +2361,6 @@ export async function runHorizenTransparencyAuthorization(
     rawSubmitResult: submitted.rawSubmitResult,
     rawStatusResult: verified.rawStatusResult,
     statusArgsUsed: verified.statusArgsUsed,
+    structuredStatus: verified.structuredStatus,
   };
 }

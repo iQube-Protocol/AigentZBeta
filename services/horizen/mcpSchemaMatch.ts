@@ -721,6 +721,99 @@ export function classifyPulseEnrollmentState(statusText: string): PulseEnrollmen
 }
 
 /**
+ * ── STRUCTURED-FIRST PRECEDENCE ("Close Pulse now" directive, 2026-08-08) ──
+ *
+ * "Do not use prose regex classification when structured status exists.
+ * Parse the structured JSON returned by get_onboarding_status first...
+ * A Boolean partner field must never be overridden by prose interpretation."
+ *
+ * The topic-scoping fix above (2026-08-08, same day) closed the ONE known way
+ * an unrelated capability's prose could veto Pulse's own genuinely positive
+ * evidence. This is the belt this operator asked for in addition to that
+ * suspender: when Horizen's response already carries a partner-declared
+ * BOOLEAN for the exact question being asked, no regex — scoped or not — gets
+ * a vote at all. Every field pulled here is read from the RAW (never
+ * lowercased) JSON `get_onboarding_status` actually returned; the prose
+ * classifier remains the fallback for the (still-real) case where a response
+ * carries no structured field, e.g. a partner that answers in free text only.
+ */
+export interface StructuredPulseOnboardingFields {
+  pulseEnrolled?: boolean;
+  pulseCommitmentRecorded?: boolean;
+  /** Display-only — never consulted by classification (see the "no contamination" note below). */
+  verifiablePnlRegistered?: boolean;
+  /**
+   * Present (possibly `null`) exactly when the partner's own JSON declared
+   * this key at all — absence is represented by the key being OMITTED from
+   * this object entirely, never defaulted to `null`, so a caller can tell
+   * "the partner said no warning" from "the partner never answered".
+   */
+  endpointWarning?: string | null;
+}
+
+function mergeStructuredPulseFields(into: StructuredPulseOnboardingFields, source: unknown): void {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+  const obj = source as Record<string, unknown>;
+  if (into.pulseEnrolled === undefined && typeof obj.pulseEnrolled === 'boolean') into.pulseEnrolled = obj.pulseEnrolled;
+  if (into.pulseCommitmentRecorded === undefined && typeof obj.pulseCommitmentRecorded === 'boolean') {
+    into.pulseCommitmentRecorded = obj.pulseCommitmentRecorded;
+  }
+  if (into.verifiablePnlRegistered === undefined && typeof obj.verifiablePnlRegistered === 'boolean') {
+    into.verifiablePnlRegistered = obj.verifiablePnlRegistered;
+  }
+  if (!('endpointWarning' in into) && Object.prototype.hasOwnProperty.call(obj, 'endpointWarning')) {
+    const v = obj.endpointWarning;
+    if (v === null || typeof v === 'string') into.endpointWarning = v;
+  }
+}
+
+/**
+ * Every structured field this integration projects, pulled from WHICHEVER
+ * text block(s) of an MCP tool result carry them — never from the lowercased
+ * prose `flattenToolResultText` produces, which would corrupt camelCase keys
+ * (`pulseEnrolled` -> `pulseenrolled`) and make every lookup below fail
+ * silently. Merges across multiple text blocks (first value wins per field)
+ * so a response that splits its JSON across blocks still resolves; in the
+ * ordinary one-block case this is just "parse it".
+ */
+export function extractStructuredPulseOnboardingFields(toolResult: McpToolResult | null | undefined): StructuredPulseOnboardingFields {
+  const result: StructuredPulseOnboardingFields = {};
+  const content = toolResult?.content;
+  if (!Array.isArray(content)) return result;
+  for (const item of content) {
+    if (item?.type !== 'text' || typeof item.text !== 'string') continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(item.text);
+    } catch {
+      parsed = firstEmbeddedJsonObject(item.text);
+    }
+    mergeStructuredPulseFields(result, parsed);
+  }
+  return result;
+}
+
+/**
+ * The classifier `verifyHorizenTransparencyActivation` actually calls.
+ * Precedence, exactly as directed: structured `pulseEnrolled` boolean, then
+ * structured `pulseCommitmentRecorded`, then — ONLY when neither structured
+ * field is present — the scoped prose classifier. `verifiablePnlRegistered`
+ * and `endpointWarning` are deliberately NOT read here: they are P&L/health
+ * display facts, not Pulse enrollment facts, and letting them influence this
+ * decision would be exactly the cross-capability contamination the operator
+ * ruled out ("Do NOT let P&L state contaminate Pulse classification").
+ */
+export function classifyPulseEnrollmentStateAuthoritative(
+  toolResult: McpToolResult | null | undefined,
+  statusText: string,
+): PulseEnrollmentState {
+  const structured = extractStructuredPulseOnboardingFields(toolResult);
+  if (structured.pulseEnrolled !== undefined) return structured.pulseEnrolled ? 'CONFIRMED' : 'NOT_ENROLLED';
+  if (structured.pulseCommitmentRecorded !== undefined) return structured.pulseCommitmentRecorded ? 'CONFIRMED' : 'NOT_ENROLLED';
+  return classifyPulseEnrollmentState(statusText);
+}
+
+/**
  * The on-chain owner address named in a Horizen status response — prose or
  * JSON — for the DEFENSIVE cross-source conflict check (Al's escalation,
  * 2026-08-06). A live `get_onboarding_status` reread said, in words, "✓

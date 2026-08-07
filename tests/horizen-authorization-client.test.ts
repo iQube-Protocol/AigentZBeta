@@ -101,7 +101,13 @@ import {
   RECONCILABLE_STATES,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
-import { matchSchemaFields, missingRequiredFields, classifyPulseEnrollmentState } from '@/services/horizen/mcpSchemaMatch';
+import {
+  matchSchemaFields,
+  missingRequiredFields,
+  classifyPulseEnrollmentState,
+  classifyPulseEnrollmentStateAuthoritative,
+  extractStructuredPulseOnboardingFields,
+} from '@/services/horizen/mcpSchemaMatch';
 import { HORIZEN_NETWORK_FACTS } from '@/services/horizen/identity';
 
 const WALLET = ethers.Wallet.createRandom();
@@ -1829,6 +1835,152 @@ describe('Pulse reconciliation — a later CONFIRMED reread supersedes an earlie
     expect(reconciled.state).not.toBe('REFUSED');
     // A receipt was written for the newly-confirmed enrollment — the same
     // `horizen_pulse_authorized` receipt path CONFIRMED already takes.
+    expect(createActivityReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ actionType: 'horizen_pulse_authorized' }),
+    );
+  });
+});
+
+/*
+ * ── "CLOSE PULSE NOW" — STRUCTURED-FIRST RECONCILIATION (operator directive,
+ * 2026-08-08) ────────────────────────────────────────────────────────────────
+ *
+ * The topic-scoping fix above (same day) closed the one KNOWN way an
+ * unrelated capability's prose could veto Pulse's own positive evidence. This
+ * operator directive asks for the belt as well as that suspender: "Do not
+ * use prose regex classification when structured status exists... A Boolean
+ * partner field must never be overridden by prose interpretation."
+ *
+ * `verifyHorizenTransparencyActivation` only ever makes ONE live partner
+ * call in this path — `get_onboarding_status` — so this fixture folds the
+ * operator's two supplied response blocks (the enrollment confirmation and
+ * the onboarding-status reread) into the single structured JSON that one
+ * call is modeled as returning, carrying every field the acceptance test
+ * requires a projection for: `pulseEnrolled`, `pulseCommitmentRecorded`,
+ * `verifiablePnlRegistered`, and `endpointWarning`.
+ */
+const CLOSE_PULSE_NOW_FIXTURE_TEXT = JSON.stringify({
+  registeredOnChain: true,
+  indexedInRegistry: true,
+  onboardingPath: 'pulse',
+  pulseEnrolled: true,
+  pulseCommitmentRecorded: true,
+  verifiablePnlRegistered: false,
+  endpointWarning: null,
+  nextStep: 'Onboarding complete. Verified receipts appear as Pulse proves uptime windows.',
+});
+
+describe('"Close Pulse now" — structured pulseEnrolled/pulseCommitmentRecorded dominate prose (operator directive, 2026-08-08)', () => {
+  it('classifyPulseEnrollmentStateAuthoritative reads the exact fixture as CONFIRMED from its structured fields alone', () => {
+    const toolResult = { content: [{ type: 'text', text: CLOSE_PULSE_NOW_FIXTURE_TEXT }] };
+    expect(classifyPulseEnrollmentStateAuthoritative(toolResult, CLOSE_PULSE_NOW_FIXTURE_TEXT.toLowerCase())).toBe('CONFIRMED');
+  });
+
+  it('extractStructuredPulseOnboardingFields pulls all four projected fields from the fixture, case-preserved', () => {
+    const toolResult = { content: [{ type: 'text', text: CLOSE_PULSE_NOW_FIXTURE_TEXT }] };
+    expect(extractStructuredPulseOnboardingFields(toolResult)).toEqual({
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      verifiablePnlRegistered: false,
+      endpointWarning: null,
+    });
+  });
+
+  it('a structured pulseEnrolled:true would-be defeated by NOT_ENROLLED prose elsewhere in the SAME response is still CONFIRMED — the boolean outranks the regex, not merely coexists with it', () => {
+    // Deliberately adversarial: this response ALSO contains "next step:
+    // enroll" prose (as Verifiable PnL's own unrelated copy would read) —
+    // proving the structured field is checked FIRST and short-circuits the
+    // prose classifier entirely, rather than merely happening to agree with
+    // it on this fixture.
+    const adversarial = JSON.stringify({
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      note: 'Next step: Enroll to unlock Verifiable PnL reporting.',
+    });
+    const toolResult = { content: [{ type: 'text', text: adversarial }] };
+    expect(classifyPulseEnrollmentStateAuthoritative(toolResult, adversarial.toLowerCase())).toBe('CONFIRMED');
+  });
+
+  it('a structured pulseEnrolled:false is NOT_ENROLLED even when confirmation-shaped words appear elsewhere in the same response', () => {
+    const adversarial = JSON.stringify({ pulseEnrolled: false, note: 'Pulse monitoring is enabled for other agents on this registry.' });
+    const toolResult = { content: [{ type: 'text', text: adversarial }] };
+    expect(classifyPulseEnrollmentStateAuthoritative(toolResult, adversarial.toLowerCase())).toBe('NOT_ENROLLED');
+  });
+
+  it('no structured field at all falls back to the scoped prose classifier, unchanged', () => {
+    const prose = 'Not enrolled in Pulse monitoring. Next step: Enroll.';
+    expect(classifyPulseEnrollmentStateAuthoritative({ content: [{ type: 'text', text: prose }] }, prose.toLowerCase())).toBe('NOT_ENROLLED');
+  });
+
+  /*
+   * THE FULL ACCEPTANCE TEST, VERBATIM (operator directive, 2026-08-08):
+   * seed local REFUSED/PARTNER_NOT_ENROLLED, return the exact live structured
+   * response, and require the reconciliation to land on CONFIRMED with the
+   * structured projection fields attached — through
+   * `verifyHorizenTransparencyActivation`, the SAME function verify/status/
+   * route.ts calls for "Check status again", never a second reconciliation
+   * path.
+   */
+  it('seeded REFUSED/PARTNER_NOT_ENROLLED + the exact live structured response reconciles to CONFIRMED, carrying pulseCommitmentRecorded/verifiablePnlRegistered/endpointWarning for the UI to project directly — no "Create fresh authorization" affordance is warranted', async () => {
+    const authorizationId = 'auth-close-pulse-now-8798';
+    rows.set(authorizationId, {
+      authorizationId,
+      purpose: 'horizen-pulse-transparency',
+      subjectAigentQubeId: 'aigentqube-nakamoto',
+      partner: 'horizen',
+      network: 'base-sepolia',
+      agentId: 'nakamoto-8798',
+      walletAddress: WALLET.address,
+      issuedAt: '2026-08-07T00:00:00.000Z',
+      state: 'REFUSED',
+      signerAddress: WALLET.address,
+      signatureRef: 'sig-ref-earlier-attempt',
+      submissionRef: '0xsubmission-earlier',
+      partnerStatus: 'earlier PARTNER_NOT_ENROLLED reread (history — must not be re-asserted as current)',
+      receiptRef: null,
+      refusalCode: 'PARTNER_NOT_ENROLLED',
+      refusalDetail: 'Horizen\'s authoritative status reports this agent is NOT enrolled in Pulse monitoring (stale, superseded below).',
+      createdAt: 'earlier',
+      updatedAt: 'earlier',
+    });
+
+    const result = await verifyHorizenTransparencyActivation(
+      authorizationId,
+      {
+        actorPersonaId: 'persona-operator-1',
+        registry: { network: 'base-sepolia', tokenId: '8798' },
+        controllerWallet: WALLET.address,
+        allowStates: RECONCILABLE_STATES,
+      },
+      {
+        mcpClient: fakeMcpClient({ statusText: CLOSE_PULSE_NOW_FIXTURE_TEXT }),
+        fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // The structured fields this test's UI-projection counterpart
+      // (PulseTransparencyToggle) renders directly — never re-derived from
+      // prose on the client either.
+      expect(result.structuredStatus).toEqual({
+        pulseEnrolled: true,
+        pulseCommitmentRecorded: true,
+        verifiablePnlRegistered: false,
+        endpointWarning: null,
+      });
+    }
+
+    const reconciled = rows.get(authorizationId);
+    expect(reconciled.state).toBe('CONFIRMED');
+    expect(reconciled.state).not.toBe('REFUSED');
+    // The historical refusal is explicitly permitted to remain readable as
+    // AUDIT HISTORY (operator: "Preserve the historical refusal in
+    // audit/receipt history if desired") — but nothing that reads CURRENT
+    // state may branch on it once `state` itself has moved to CONFIRMED.
+    // verify/status/route.ts's CONFIRMED branch never reads refusalCode at
+    // all, which is the structural guarantee this assertion documents.
+    expect(reconciled.refusalCode).toBe('PARTNER_NOT_ENROLLED');
     expect(createActivityReceipt).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: 'horizen_pulse_authorized' }),
     );

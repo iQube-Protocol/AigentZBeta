@@ -78,6 +78,21 @@ interface VerifyStatusInfo {
    */
   enrichmentRefusalCode?: string;
   enrichmentError?: string;
+  /**
+   * STRUCTURED, PARTNER-DECLARED FACTS — never re-derived from prose here
+   * either ("Close Pulse now" directive, 2026-08-08). Populated on a reread
+   * that actually reached `get_onboarding_status` (verify/status/route.ts's
+   * `result.ok` branch); absent/null on paths that short-circuited before
+   * reaching the partner (e.g. an already-CONFIRMED row with nothing to
+   * reconcile). Rendered directly in the enrolled card below — never gated
+   * behind a second interpretation of what these booleans mean.
+   */
+  structuredStatus?: {
+    pulseEnrolled?: boolean;
+    pulseCommitmentRecorded?: boolean;
+    verifiablePnlRegistered?: boolean;
+    endpointWarning?: string | null;
+  } | null;
 }
 
 /** Same cadence as RegisterAgentPanel's own poll while a partner check is outstanding. */
@@ -208,6 +223,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           authorizationId: typeof json.authorizationId === 'string' ? json.authorizationId : undefined,
           enrichmentRefusalCode: typeof json.enrichmentRefusalCode === 'string' ? json.enrichmentRefusalCode : undefined,
           enrichmentError: typeof json.enrichmentError === 'string' ? json.enrichmentError : undefined,
+          structuredStatus:
+            json.structuredStatus && typeof json.structuredStatus === 'object' ? json.structuredStatus : null,
         });
         // The refresh reconciled a locally-refused row against the partner and
         // confirmed it — the Agent Card projection changed, so re-read it
@@ -436,6 +453,8 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
    * is exactly the conflation that used to collapse two questions into one.
    */
   if (horizen.pulse?.enabled) {
+    const structured = status?.structuredStatus;
+    const hasEndpointWarning = structured ? 'endpointWarning' in structured : false;
     return (
       <>
         <div className="flex items-start gap-2 rounded-md border border-emerald-900/60 bg-emerald-950/20 p-3 text-xs text-emerald-200">
@@ -446,6 +465,22 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
               Horizen has confirmed activation. This establishes Standing eligibility only — it does not
               accrue Standing and does not enlarge {agentDisplayName}&apos;s constitutional authority.
             </p>
+            {/*
+              THE STRUCTURED PROJECTION, VERBATIM ("Close Pulse now" directive,
+              2026-08-08) — only rendered when a reread actually supplied it;
+              never fabricated for a card reached via the Agent Card's own
+              pulse.enabled alone.
+            */}
+            {structured?.pulseCommitmentRecorded !== undefined && (
+              <p className="mt-2 text-emerald-200/80">
+                Identity commitment: {structured.pulseCommitmentRecorded ? 'Recorded' : 'Not recorded'}
+              </p>
+            )}
+            {hasEndpointWarning && (
+              <p className="mt-1 text-emerald-200/80">
+                Endpoint: {structured!.endpointWarning === null ? 'Healthy — no warning reported' : `Warning — ${structured!.endpointWarning}`}
+              </p>
+            )}
             {/*
               AUTHORIZED ≠ HEALTHY (operator brief, 2026-08-06, after Horizen
               confirmed enrollment succeeded but every health probe was 404ing).
@@ -466,15 +501,22 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
           <div>
             <p className="font-medium text-slate-200">
-              P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'recorded, not independently confirmed' : 'not yet authorized'}
+              {structured?.verifiablePnlRegistered !== undefined ? (
+                <>Verifiable P&amp;L — {structured.verifiablePnlRegistered ? 'registered' : 'not registered'}</>
+              ) : (
+                <>P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'recorded, not independently confirmed' : 'not yet authorized'}</>
+              )}
             </p>
             <p className="mt-1 text-slate-400">
-              {horizen.pnl?.disclosureAuthorized
-                ? `Recorded as authorized via the SAME enable_pulse_monitoring call that confirmed Pulse — there is no ` +
-                  `separate Horizen tool or authoritative reread for P&L disclosure specifically. Treat this as ` +
-                  `provisional evidence, not an independent partner confirmation, until Horizen's contract is confirmed ` +
-                  `to genuinely activate both together.`
-                : `Not authorized yet — no evidence exists for P&L disclosure independent of Pulse.`}
+              {structured?.verifiablePnlRegistered !== undefined
+                ? `Read directly from Horizen's own authoritative onboarding status — independent of Pulse's enrollment ` +
+                  `evidence, never inferred from it.`
+                : horizen.pnl?.disclosureAuthorized
+                  ? `Recorded as authorized via the SAME enable_pulse_monitoring call that confirmed Pulse — there is no ` +
+                    `separate Horizen tool or authoritative reread for P&L disclosure specifically. Treat this as ` +
+                    `provisional evidence, not an independent partner confirmation, until Horizen's contract is confirmed ` +
+                    `to genuinely activate both together.`
+                  : `Not authorized yet — no evidence exists for P&L disclosure independent of Pulse.`}
             </p>
             {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
               <p className="mt-1 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>
@@ -505,8 +547,11 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName }: PulseTr
         <div className="flex items-start gap-2">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div>
-            <p className="font-medium">Pulse authorization: confirmed</p>
-            <p className="mt-1 text-amber-200/80">Agent Card enrichment: incomplete</p>
+            <p className="font-medium">Pulse enrolled · local enrichment pending</p>
+            <p className="mt-1 text-amber-200/80">
+              Horizen has confirmed enrollment. Only this agent&apos;s served Agent Card projection is still
+              catching up.
+            </p>
             <p className="mt-2 text-amber-200/60">
               Reason: <span className="font-mono">{status.enrichmentRefusalCode}</span>
               {status.enrichmentError ? ` — ${status.enrichmentError}` : ''}

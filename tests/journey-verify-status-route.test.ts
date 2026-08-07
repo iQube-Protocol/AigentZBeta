@@ -185,6 +185,44 @@ describe('GET verify/status', () => {
     expect(body.receiptRefs).toEqual(['receipt-enrich-1']);
   });
 
+  /*
+   * "CLOSE PULSE NOW" — THE ROUTE MUST FORWARD THE STRUCTURED PROJECTION
+   * VERBATIM (operator directive, 2026-08-08). `verifyHorizenTransparencyActivation`
+   * now returns `structuredStatus` (pulseEnrolled/pulseCommitmentRecorded/
+   * verifiablePnlRegistered/endpointWarning) pulled directly from the
+   * partner's own JSON — this route must carry it into the response
+   * untouched, for PulseTransparencyToggle to render directly. This is the
+   * SERVER-SIDE half of the projection boundary; the client-side half is
+   * pinned by tests/pulse-close-now-structured-projection.test.ts.
+   */
+  it('a REFUSED/PARTNER_NOT_ENROLLED row reconciled to CONFIRMED forwards the structured projection into the response, untouched', async () => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({
+      state: 'REFUSED',
+      refusalCode: 'PARTNER_NOT_ENROLLED',
+      refusalDetail: 'stale — superseded by this reconciliation',
+      receiptRef: 'receipt-9',
+    });
+    mockVerifyHorizenTransparencyActivation.mockResolvedValue({
+      ok: true,
+      value: { confirmed: true },
+      structuredStatus: {
+        pulseEnrolled: true,
+        pulseCommitmentRecorded: true,
+        verifiablePnlRegistered: false,
+        endpointWarning: null,
+      },
+    });
+    const res = await GET(makeRequest('nakamoto'));
+    const body = await res.json();
+    expect(body.state).toBe('complete');
+    expect(body.structuredStatus).toEqual({
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      verifiablePnlRegistered: false,
+      endpointWarning: null,
+    });
+  });
+
   it('the reread is widened to reconcilable states — never left as SUBMITTED-only, or a refused row could never be reconciled', async () => {
     mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'REFUSED', refusalCode: 'X', refusalDetail: 'y' });
     mockVerifyHorizenTransparencyActivation.mockResolvedValue({ ok: false, refusalCode: 'HORIZEN_REREAD_NOT_CONFIRMED', detail: 'no' });
