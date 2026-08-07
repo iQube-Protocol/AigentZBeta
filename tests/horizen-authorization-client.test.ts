@@ -118,6 +118,7 @@ import {
   getPulseAuthorizationEvidence,
   reconcilePulseConstitutionalState,
   materializePulseEvidenceFromHistoricalConfirmation,
+  bootstrapPulseEvidenceFromLiveReread,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
 import {
@@ -2389,6 +2390,162 @@ describe('materializePulseEvidenceFromHistoricalConfirmation — the acceptance 
 
     expect(second).toMatchObject({ ok: true, alreadyMaterialized: true });
     expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+});
+
+describe('bootstrapPulseEvidenceFromLiveReread — closing the gap materialization refuses (operator directive, 2026-08-08)', () => {
+  it('refuses STATE_MISMATCH when the row is not CONFIRMED', async () => {
+    rows.set('auth-bootstrap-not-confirmed', { authorizationId: 'auth-bootstrap-not-confirmed', state: 'SUBMITTED', receiptRef: null });
+    const result = await bootstrapPulseEvidenceFromLiveReread('auth-bootstrap-not-confirmed', {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'STATE_MISMATCH' });
+  });
+
+  it('confirmed+no receipts: a CONFIRMED row with no canonical receipted evidence proceeds to the live call rather than short-circuiting', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-confirmed-no-receipts');
+    const mcpClient = fakeMcpClient({ statusText: JSON.stringify({ pulseEnrolled: true, pulseCommitmentRecorded: true }) });
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-confirmed-no-receipts',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mcpClient.callTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'get_onboarding_status' }));
+  });
+
+  it('already bootstrapped: is a no-op reporting alreadyBootstrapped:true when evidence already exists at receiptRef, and makes no live call', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-idempotent');
+    receiptStore.get('receipt-legacy-1')!.actionInput.evidence = { pulseEnrolled: true, verifierPolicyVersion: 'gjr-vfy-001-structured-first-v1' };
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient();
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-idempotent',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result).toMatchObject({ ok: true, alreadyBootstrapped: true, enrollmentReceiptRef: 'receipt-legacy-1' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+    expect(mcpClient.callTool).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'get_onboarding_status' }));
+  });
+
+  it('enrollment-only: a live read that supports enrollment but not commitment mints only pulse_enrollment_verified', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-enrollment-only');
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient({ statusText: JSON.stringify({ pulseEnrolled: true }) });
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-enrollment-only',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result).toMatchObject({ ok: true, alreadyBootstrapped: false, commitmentReceiptRef: null });
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).not.toContain('pulse_commitment_verified');
+  });
+
+  it('enrollment+commitment: a live read that supports both mints both receipts and repoints receiptRef at the new evidence', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-enrollment-and-commitment');
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient({ statusText: JSON.stringify({ pulseEnrolled: true, pulseCommitmentRecorded: true }) });
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-enrollment-and-commitment',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' }, runtimeAgentId: 'aigent-nakamoto' },
+      { mcpClient },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.alreadyBootstrapped).toBe(false);
+    expect(result.enrollmentReceiptRef).toBeTruthy();
+    expect(result.commitmentReceiptRef).toBeTruthy();
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).toContain('pulse_commitment_verified');
+
+    const updatedRow = rows.get('auth-bootstrap-enrollment-and-commitment');
+    expect(updatedRow.receiptRef).toBe(result.enrollmentReceiptRef);
+    expect(updatedRow.state).toBe('CONFIRMED');
+    const reread = await getPulseAuthorizationEvidence(updatedRow.receiptRef);
+    expect(reread).toMatchObject({ pulseEnrolled: true, pulseCommitmentRecorded: true });
+  });
+
+  it('negative: refuses PULSE_NOT_ENROLLED_LIVE and mints nothing when the live read says pulseEnrolled:false', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-negative');
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient({ statusText: JSON.stringify({ pulseEnrolled: false }) });
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-negative',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result).toMatchObject({ ok: false, refusalCode: 'PULSE_NOT_ENROLLED_LIVE' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+    expect(rows.get('auth-bootstrap-negative').state).toBe('CONFIRMED');
+  });
+
+  it('ambiguous: refuses AMBIGUOUS_LIVE_STATUS and mints nothing when the live read carries no structured pulseEnrolled field', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-ambiguous');
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient({ statusText: '✓ Enrolled in Pulse monitoring — Next step: Onboarding complete.' });
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-ambiguous',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result).toMatchObject({ ok: false, refusalCode: 'AMBIGUOUS_LIVE_STATUS' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('wrong chain: refuses WRONG_CHAIN and makes no live call when the caller-supplied network differs from the row\'s own recorded network', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-wrong-chain'); // recorded network: base-sepolia
+    createActivityReceipt.mockClear();
+    const mcpClient = fakeMcpClient();
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-wrong-chain',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-mainnet', tokenId: '8798' } },
+      { mcpClient },
+    );
+
+    expect(result).toMatchObject({ ok: false, refusalCode: 'WRONG_CHAIN' });
+    expect(mcpClient.callTool).not.toHaveBeenCalled();
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('transport failure: refuses TRANSPORT_FAILURE and mints nothing when the live call throws', async () => {
+    confirmedRowWithoutEvidence('auth-bootstrap-transport-failure');
+    createActivityReceipt.mockClear();
+    const throwingClient = {
+      listTools: vi.fn(async () => ({
+        tools: [{ name: 'get_onboarding_status', inputSchema: { properties: { tokenId: {}, submissionRef: {} } } }],
+      })),
+      callTool: vi.fn(async () => {
+        throw new Error('ECONNRESET');
+      }),
+    };
+
+    const result = await bootstrapPulseEvidenceFromLiveReread(
+      'auth-bootstrap-transport-failure',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient: throwingClient as any },
+    );
+
+    expect(result).toMatchObject({ ok: false, refusalCode: 'TRANSPORT_FAILURE' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+    expect(rows.get('auth-bootstrap-transport-failure').state).toBe('CONFIRMED');
   });
 });
 
