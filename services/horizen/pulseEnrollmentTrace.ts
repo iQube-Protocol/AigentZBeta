@@ -130,6 +130,36 @@ function isConclusiveWithoutFurtherReads(classification: PulseEnrollmentClassifi
   return classification === 'ENROLLED' || classification === 'PARTNER_REJECTED' || classification === 'LOCAL_CONTRACT_ERROR';
 }
 
+/**
+ * Did this ceremony genuinely reach — or correctly determine it never needed
+ * to reach — Horizen's state-changing `enable_pulse_monitoring` call?
+ * (2026-08-07 fix, correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c.)
+ *
+ * An `ok:true` result is ALWAYS true: success arrives either via a genuine
+ * submit+confirm, or via `runHorizenTransparencyAuthorization`'s pre-submit
+ * idempotency gate (the agent was already enrolled — enable_pulse_monitoring
+ * was correctly never called, which is a success, not a local failure).
+ *
+ * On `ok:false`, only `rawSubmitResult`'s presence says submission was
+ * attempted. `runHorizenTransparencyAuthorization` now forwards it on every
+ * failure path that reached submission — including the post-submit reread's
+ * OWN failure (PARTNER_NOT_ENROLLED, PARTNER_STATE_UNRESOLVED, ...), which it
+ * used to drop. Before that fix, a genuinely-reached submission whose
+ * immediate reread had not converged read as "never reached submission" here
+ * — `classifyTrace` then forced `LOCAL_CONTRACT_ERROR` with the (false)
+ * reason "before enable_pulse_monitoring was ever called", and
+ * `computeComplete`'s own first line marked the trace `complete: true` on the
+ * strength of that misreading — permanently blocking the scheduled
+ * +5/+15/+30s continuation rereads that would otherwise have discovered
+ * Horizen's later, genuine confirmation.
+ */
+export function reachedPartnerSubmission(result: AuthorizationResultLike): boolean {
+  return result.ok === true || result.rawSubmitResult !== undefined;
+}
+
+/** The minimal shape `reachedPartnerSubmission` needs — avoids importing authorizationClient.ts's full generic `AuthorizationResult<T>` just for this one check. */
+type AuthorizationResultLike = { ok: boolean; rawSubmitResult?: unknown };
+
 function computeComplete(reachedPartnerSubmission: boolean, statusReads: PulseStatusReadRecord[], classification: PulseEnrollmentClassification): boolean {
   if (!reachedPartnerSubmission) return true; // LOCAL_CONTRACT_ERROR — nothing to reread, ever.
   if (isConclusiveWithoutFurtherReads(classification)) return true;
@@ -402,15 +432,16 @@ export async function startPulseEnrollmentTrace(
     signatureRef: persistedRecord?.signatureRef ?? null,
   };
 
-  // Did this attempt actually reach enable_pulse_monitoring? Only the submit
-  // stage's own additive fields (2026-08-06) populate `rawSubmitResult` —
-  // absent means every earlier stage's own refusal (a LOCAL_CONTRACT_ERROR
-  // by the required sequence's own definition: "arguments, message,
-  // signature recovery or chain resolution fail before submission").
-  const reachedPartnerSubmission = result.rawSubmitResult !== undefined;
+  // Did this attempt actually reach — or correctly determine it never needed
+  // to reach — enable_pulse_monitoring? See `reachedPartnerSubmission`'s own
+  // doc comment (2026-08-07 fix) for why this is no longer a bare
+  // `rawSubmitResult !== undefined` check.
+  const reached = reachedPartnerSubmission(result);
 
-  if (!reachedPartnerSubmission) {
-    const localContractError = result.ok ? 'unexpected: submission succeeded with no rawSubmitResult captured' : `${result.refusalCode}: ${result.detail}`;
+  if (!reached) {
+    // Unreachable for an ok:true result — `reached` is true whenever
+    // result.ok is true — but written defensively rather than asserted away.
+    const localContractError = result.ok ? 'unexpected: reachedPartnerSubmission reported false for an ok:true result' : `${result.refusalCode}: ${result.detail}`;
     const { classification, reason } = classifyTrace({
       reachedPartnerSubmission: false,
       localContractError,

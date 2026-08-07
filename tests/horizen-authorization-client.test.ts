@@ -121,7 +121,23 @@ const REAL_ENABLE_PULSE_SCHEMA = {
 };
 
 function fakeMcpClient(
-  overrides: Partial<{ tools: any[]; buildMessage: string; submissionRef: string; statusText: string; enableResult: any }> = {},
+  overrides: Partial<{
+    tools: any[];
+    buildMessage: string;
+    submissionRef: string;
+    statusText: string;
+    /**
+     * Per-call get_onboarding_status text, indexed by call order — call #1 is
+     * ALWAYS the pre-submit read `crossCheckRegistryOwner` makes for its own
+     * owner cross-check (2026-08-07: also now consulted by the pre-submit
+     * Pulse status gate), call #2+ are the post-submit reread(s). The LAST
+     * entry repeats for any call beyond the array's length. Falls back to the
+     * single `statusText` (or its own default) for every call when omitted —
+     * every test that predates this option is unaffected.
+     */
+    statusTextSequence: string[];
+    enableResult: any;
+  }> = {},
 ) {
   const tools = overrides.tools ?? [
     { name: 'build_pulse_auth_message', inputSchema: { properties: { tokenId: {}, network: {}, wallet: {} } } },
@@ -136,6 +152,7 @@ function fakeMcpClient(
       'ASR Pulse enable\nAgent: 1234\nIssued At: 2026-07-31T12:00:00.000Z';
   const submissionRef = overrides.submissionRef ?? '0xsubmission123';
   const statusText = overrides.statusText ?? '{"status":"active"}';
+  let statusCallCount = 0;
   return {
     listTools: vi.fn(async () => ({ tools })),
     callTool: vi.fn(async ({ name }: { name: string }) => {
@@ -144,7 +161,13 @@ function fakeMcpClient(
         if (overrides.enableResult) return overrides.enableResult;
         return { content: [{ type: 'text', text: JSON.stringify({ submissionRef }) }] };
       }
-      if (name === 'get_onboarding_status') return { content: [{ type: 'text', text: statusText }] };
+      if (name === 'get_onboarding_status') {
+        statusCallCount += 1;
+        const text = overrides.statusTextSequence
+          ? overrides.statusTextSequence[Math.min(statusCallCount, overrides.statusTextSequence.length) - 1]
+          : statusText;
+        return { content: [{ type: 'text', text }] };
+      }
       throw new Error(`unexpected tool call: ${name}`);
     }),
   };
@@ -178,7 +201,10 @@ beforeEach(() => {
 
 describe('runHorizenTransparencyAuthorization — full pipeline (Phase 1 acceptance criterion)', () => {
   it('discovers tools, prepares, signs without exposing key material, submits, confirms, and writes the receipt', async () => {
-    const mcpClient = fakeMcpClient();
+    // Pre-submit read: neutral (agent not yet enrolled — this test exercises
+    // the FULL sign+submit ceremony, per its own name). Post-submit reread:
+    // the original default, which confirms.
+    const mcpClient = fakeMcpClient({ statusTextSequence: ['{"status":"unrelated"}', '{"status":"active"}'] });
     const result = await runHorizenTransparencyAuthorization(baseInput(), {
       mcpClient,
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
@@ -342,7 +368,10 @@ describe('required refusal canaries', () => {
 
   it('invalid signature — signer does not match the registered controller', async () => {
     const other = ethers.Wallet.createRandom();
-    const mcpClient = fakeMcpClient();
+    // Pre-submit read: neutral — this test isolates a key-custody mismatch,
+    // never reaches submission, and must not be short-circuited by the
+    // pre-submit Pulse status gate reading the default fixture as enrolled.
+    const mcpClient = fakeMcpClient({ statusText: '{"status":"unrelated"}' });
     const result = await runHorizenTransparencyAuthorization(baseInput({ controllerWallet: other.address }), {
       mcpClient,
       // The ownership check now runs BEFORE signing (2026-08-04) — set the
@@ -681,7 +710,9 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
    * and inspects what was actually sent.
    */
   it('sends all six required fields, none undefined', async () => {
-    const mcpClient = fakeMcpClient();
+    // Pre-submit read neutral so submission is actually reached (this test
+    // inspects the submit call itself); post-submit default confirms.
+    const mcpClient = fakeMcpClient({ statusTextSequence: ['{"status":"unrelated"}', '{"status":"active"}'] });
     const result = await runHorizenTransparencyAuthorization(baseInput({ agentDisplayName: 'Aigent Nakamoto', pulseEndpoint: 'https://nakamoto.example/health' }), {
       mcpClient,
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
@@ -709,7 +740,9 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
    * independently re-derived at submit time.
    */
   it('submits the EXACT agentId/walletAddress/issuedAt that produced the signed message — never regenerated', async () => {
-    const mcpClient = fakeMcpClient();
+    // Pre-submit read neutral so submission is actually reached; post-submit
+    // default confirms.
+    const mcpClient = fakeMcpClient({ statusTextSequence: ['{"status":"unrelated"}', '{"status":"active"}'] });
     const result = await runHorizenTransparencyAuthorization(baseInput({ registry: { network: 'base-sepolia', tokenId: '8798' } }), {
       mcpClient,
       fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
@@ -740,6 +773,9 @@ describe('enable_pulse_monitoring conforms to the LIVE required schema (al / Hor
     const zodStyleError =
       'Invalid arguments for tool enable_pulse_monitoring: [{"code":"invalid_type","expected":"string","received":"undefined","path":["agentId"],"message":"Required"}]';
     const mcpClient = fakeMcpClient({
+      // Pre-submit read neutral so submission is actually attempted (and
+      // rejected, which is what this test exercises).
+      statusText: '{"status":"unrelated"}',
       enableResult: { isError: true, content: [{ type: 'text', text: zodStyleError }] },
     });
     const result = await runHorizenTransparencyAuthorization(baseInput(), {
@@ -871,6 +907,9 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
   it('an "Invalid signature" rejection gets the corrected framing AND a full escalation packet with the exact message and signature (never bounded, unlike the general-log transcript)', async () => {
     const mcpClient = fakeMcpClient({
       buildMessage: asrMessage,
+      // Pre-submit read neutral so submission is actually attempted (and
+      // rejected, which is what this test exercises).
+      statusText: '{"status":"unrelated"}',
       enableResult: {
         isError: true,
         content: [{ type: 'text', text: 'Registry API returned 401 for /agents/8798/enable-pulse — Invalid signature' }],
@@ -967,6 +1006,9 @@ describe('HorizenEscalationPacket — attached on submission rejection (al, 2026
     const mismatchedMessage = asrMessage.replace(WALLET.address.toLowerCase(), anotherWallet.address.toLowerCase());
     const mcpClient = fakeMcpClient({
       buildMessage: mismatchedMessage,
+      // Pre-submit read neutral so submission is actually attempted (and
+      // rejected, which is what this test exercises).
+      statusText: '{"status":"unrelated"}',
       enableResult: {
         isError: true,
         content: [{ type: 'text', text: 'Registry API returned 401 for /agents/8798/enable-pulse — Invalid signature' }],
@@ -1790,5 +1832,199 @@ describe('Pulse reconciliation — a later CONFIRMED reread supersedes an earlie
     expect(createActivityReceipt).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: 'horizen_pulse_authorized' }),
     );
+  });
+});
+
+/*
+ * ── PRE-SUBMIT PULSE STATUS GATE — correlated trace c565e58b-4ce8-4ccf-9f0f-
+ * ac611d1d526c (operator directive, 2026-08-07) ─────────────────────────────
+ *
+ * `crossCheckRegistryOwner` already calls `get_onboarding_status` before any
+ * signing, purely to extract an owner address for the cross-source conflict
+ * check. That response is DISCARDED afterward — `runHorizenTransparencyAuthorization`
+ * never asks whether it also says Pulse is already enrolled, so an
+ * already-enrolled agent is signed and resubmitted anyway, every time. This
+ * exercises the required fix: reuse that SAME already-fetched response (no
+ * new partner call) to short-circuit before signing when it already reports
+ * enrollment.
+ *
+ * The exact live transcript from the operator's brief, verbatim.
+ */
+const PRESUBMIT_LIVE_ENROLLED_TEXT =
+  '✓ Enrolled in Pulse monitoring\n' + '✓ On-chain identity commitment recorded\n' + 'Next step: Onboarding complete.';
+
+describe('Pre-submit Pulse status gate — an already-enrolled agent is never resubmitted (2026-08-07)', () => {
+  it('classifyPulseEnrollmentState reads the operator\'s exact transcript as CONFIRMED (sanity check for the fixture itself)', () => {
+    expect(classifyPulseEnrollmentState(PRESUBMIT_LIVE_ENROLLED_TEXT)).toBe('CONFIRMED');
+  });
+
+  it('acceptance #1 + #3 — a fresh ceremony against an already-enrolled agent never calls enable_pulse_monitoring and never returns PARTNER_NOT_ENROLLED', async () => {
+    const authorizationId = 'auth-presubmit-already-enrolled';
+    const mcp = fakeMcpClient({ statusText: PRESUBMIT_LIVE_ENROLLED_TEXT });
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: mcp,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.refusalCode).not.toBe('PARTNER_NOT_ENROLLED');
+    // The decisive assertion: enable_pulse_monitoring was never invoked.
+    expect(mcp.callTool).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'enable_pulse_monitoring' }));
+    expect(rows.get(authorizationId).state).toBe('CONFIRMED');
+    expect(createActivityReceipt).toHaveBeenCalledWith(expect.objectContaining({ actionType: 'horizen_pulse_authorized' }));
+  });
+
+  it('acceptance #2 — an existing REFUSED/PARTNER_NOT_ENROLLED row reconciles to CONFIRMED via the pre-submit read alone, without resubmitting', async () => {
+    const authorizationId = 'auth-presubmit-reconcile-refused';
+    rows.set(authorizationId, {
+      authorizationId,
+      purpose: 'horizen-financial-transparency',
+      subjectAigentQubeId: 'aigentqube-nakamoto',
+      partner: 'horizen',
+      network: 'base-sepolia',
+      agentId: '8798',
+      walletAddress: WALLET.address.toLowerCase(),
+      issuedAt: '2026-08-06T00:00:00.000Z',
+      nonce: 'earlier-nonce',
+      expiresAt: '2026-08-06T00:15:00.000Z',
+      state: 'REFUSED',
+      signerAddress: WALLET.address,
+      signatureRef: 'sig-ref-earlier',
+      submissionRef: '0xsubmission-earlier',
+      partnerStatus: 'earlier NOT_ENROLLED reread',
+      receiptRef: null,
+      refusalCode: 'PARTNER_NOT_ENROLLED',
+      refusalDetail: 'earlier refusal (history)',
+      createdAt: 'earlier',
+      updatedAt: 'earlier',
+    });
+
+    const mcp = fakeMcpClient({ statusText: PRESUBMIT_LIVE_ENROLLED_TEXT });
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: mcp,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(mcp.callTool).not.toHaveBeenCalledWith(expect.objectContaining({ name: 'enable_pulse_monitoring' }));
+    const reconciled = rows.get(authorizationId);
+    expect(reconciled.state).toBe('CONFIRMED');
+    expect(reconciled.state).not.toBe('REFUSED');
+  });
+
+  it('acceptance #4 (preserve) — a pre-submit read that explicitly says not enrolled proceeds to the ordinary sign+submit ceremony, unaffected by the new gate', async () => {
+    const authorizationId = 'auth-presubmit-genuinely-not-enrolled';
+    const mcp = fakeMcpClient({ statusText: 'Not enrolled in Pulse monitoring. Next step: Enroll.' });
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: mcp,
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    // Same fixture text pre- and post-submit (the fake client returns one
+    // canned response) — genuinely not enrolled resolves the ordinary way:
+    // submit IS attempted, and the post-submit reread still refuses honestly.
+    expect(mcp.callTool).toHaveBeenCalledWith(expect.objectContaining({ name: 'enable_pulse_monitoring' }));
+    expect(result).toMatchObject({ ok: false, refusalCode: 'PARTNER_NOT_ENROLLED' });
+  });
+
+  it('acceptance #5 (preserve) — an owner-source conflict still refuses BEFORE the enrollment gate, never masked by a positive-looking status read', async () => {
+    const authorizationId = 'auth-presubmit-owner-conflict';
+    // The exact live owner-conflict transcript (also positive on enrollment
+    // wording) used by the existing HORIZEN_OWNER_SOURCE_CONFLICT suite above —
+    // proves the conflict check still runs first even when the SAME response
+    // would otherwise look enrolled.
+    const statusText =
+      'Onboarding status for agent 8798 on Base:\n' +
+      '✓ Registered on-chain — owner 0xa6aCB16f7baf5FFE984a67d96c62b686ED6c1709.\n' +
+      '✓ Enrolled in Pulse monitoring.\n' +
+      'Next step: Onboarding complete.';
+    const result = await runHorizenTransparencyAuthorization(baseInput({ authorizationId }), {
+      mcpClient: fakeMcpClient({ statusText }),
+      fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+      resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+      now: FIXED_NOW,
+    });
+    expect(result).toMatchObject({ ok: false, refusalCode: 'HORIZEN_OWNER_SOURCE_CONFLICT' });
+  });
+});
+
+/*
+ * ── THE FORWARDING GAP BEHIND acceptance #7 (correlated trace, 2026-08-07) ──
+ *
+ * `services/horizen/pulseEnrollmentTrace.ts`'s `startPulseEnrollmentTrace`
+ * decides whether Horizen was ever actually contacted for submission by
+ * checking `result.rawSubmitResult !== undefined`. When submission genuinely
+ * SUCCEEDED but the immediate post-submit reread did not (yet) confirm —
+ * PARTNER_NOT_ENROLLED, PARTNER_STATE_UNRESOLVED, or any other reread
+ * refusal — `runHorizenTransparencyAuthorization`'s failure return dropped
+ * `submitted.rawSubmitResult`/`submittedArguments` entirely, so the trace
+ * read this as "never reached submission" and froze at LOCAL_CONTRACT_ERROR
+ * — which also means `computeComplete` marked it `complete: true`,
+ * permanently blocking the scheduled +5/+15/+30s continuation rereads that
+ * would otherwise have discovered Horizen's later, genuine confirmation.
+ */
+describe('Submit-then-inconclusive-reread must still report rawSubmitResult (2026-08-07)', () => {
+  it('a submission that succeeds, followed by a reread that reports NOT_ENROLLED, still carries rawSubmitResult + submittedArguments on the failure result', async () => {
+    const authorizationId = 'auth-submit-then-not-yet-converged';
+    let statusCallCount = 0;
+    const client = {
+      listTools: vi.fn(async () => ({
+        tools: [
+          { name: 'build_pulse_auth_message', inputSchema: { properties: { tokenId: {}, network: {}, wallet: {} } } },
+          { name: 'enable_pulse_monitoring', inputSchema: REAL_ENABLE_PULSE_SCHEMA },
+          { name: 'get_onboarding_status', inputSchema: { properties: { tokenId: {}, submissionRef: {} } } },
+        ],
+      })),
+      callTool: vi.fn(async ({ name }: { name: string }) => {
+        if (name === 'build_pulse_auth_message') {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify({ message: 'Sign...\nASR Pulse enable\nAgent: 8798\nIssued At: 2026-07-31T12:00:00.000Z' }),
+              },
+            ],
+          };
+        }
+        if (name === 'enable_pulse_monitoring') {
+          return { content: [{ type: 'text', text: JSON.stringify({ submissionRef: '0xsub-converge', status: 'success' }) }] };
+        }
+        if (name === 'get_onboarding_status') {
+          statusCallCount += 1;
+          // Pre-submit owner-extraction call: no owner named, harmless.
+          // Post-submit reread: genuinely hasn't converged yet — an explicit
+          // negative, which is a CONCLUSIVE (not pending) verdict per
+          // classifyPulseEnrollmentState's own contract, and is preserved
+          // unchanged by this fix.
+          const text = statusCallCount === 1 ? '{"status":"unrelated"}' : 'Not enrolled in Pulse monitoring. Next step: Enroll.';
+          return { content: [{ type: 'text', text }] };
+        }
+        throw new Error(`unexpected tool: ${name}`);
+      }),
+    };
+
+    const result = await runHorizenTransparencyAuthorization(
+      baseInput({ authorizationId, registry: { network: 'base-sepolia', tokenId: '8798' } }),
+      {
+        mcpClient: client,
+        fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address),
+        resolveSigningKey: async () => ({ privateKeyHex: WALLET.privateKey, storedAddress: WALLET.address }),
+        now: FIXED_NOW,
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    // The genuine reread verdict is unchanged — this fix never touches it.
+    expect(result.refusalCode).toBe('PARTNER_NOT_ENROLLED');
+    // The decisive assertion: submission DID happen, and the result must say so.
+    expect(result.rawSubmitResult).toBeDefined();
+    expect(result.submittedArguments).toBeDefined();
+    expect((result.submittedArguments as any)?.agentId).toBe('8798');
   });
 });

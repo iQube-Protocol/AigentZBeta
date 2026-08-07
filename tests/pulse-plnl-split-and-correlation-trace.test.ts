@@ -50,12 +50,14 @@ describe('PulseTransparencyToggle — the correlated enrollment trace is reachab
     expect(instantiations).toHaveLength(1);
   });
 
-  it('renders {tracePanel} in every branch below the tokenId gate — Pulse-enabled, pending, owner-conflict, not-enrolled, denied/expired, and the default not-yet-authorized state', () => {
+  it('renders {tracePanel} in every branch below the tokenId gate — confirmed-but-unenriched, Pulse-enabled, pending, owner-conflict, not-enrolled, denied/expired, and the default not-yet-authorized state', () => {
     const occurrences = source.match(/\{tracePanel\}/g) ?? [];
-    // One per branch: pulse-enabled, pending, owner-source-conflict,
-    // not-enrolled, denied/expired, default. Six, not five and not seven —
-    // exactly the branches that have a real tokenId to trace against.
-    expect(occurrences).toHaveLength(6);
+    // One per branch: confirmed-but-unenriched (added 2026-08-07, the
+    // authorization-confirmed/projection-incomplete split state), pulse-
+    // enabled, pending, owner-source-conflict, not-enrolled, denied/expired,
+    // default. Seven — exactly the branches that have a real tokenId to
+    // trace against.
+    expect(occurrences).toHaveLength(7);
   });
 
   it('never renders the trace panel before a tokenId is confirmed present (loading / no-tokenId branches stay untouched)', () => {

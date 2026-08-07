@@ -1755,11 +1755,11 @@ function pickStringField(obj: Record<string, unknown> | null | undefined, names:
 async function fetchOnboardingStatusOwner(
   mcpClient: PartnerMcpClient,
   registry: { tokenId: string; network: HorizenNetwork },
-): Promise<{ owner: string | null }> {
+): Promise<{ owner: string | null; statusResult: McpToolResult | null; statusArgs: Record<string, unknown> | null }> {
   try {
     const { tools } = await mcpClient.listTools();
     const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
-    if (!statusTool.ok) return { owner: null };
+    if (!statusTool.ok) return { owner: null, statusResult: null, statusArgs: null };
     const statusArgs = matchSchemaFields(
       statusTool.tool.inputSchema,
       pulseStatusCandidates(HORIZEN_NETWORK_FACTS[registry.network], registry.tokenId),
@@ -1767,11 +1767,11 @@ async function fetchOnboardingStatusOwner(
     const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
     const content = statusResult?.content;
     const rawText = Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join(' ') : '';
-    return { owner: rawText ? extractRegistryOwnerFromStatusText(rawText) : null };
+    return { owner: rawText ? extractRegistryOwnerFromStatusText(rawText) : null, statusResult, statusArgs };
   } catch {
     // A transport failure here says nothing about ownership — never let it
     // block the REST-based check this augments.
-    return { owner: null };
+    return { owner: null, statusResult: null, statusArgs: null };
   }
 }
 
@@ -1780,7 +1780,20 @@ async function crossCheckRegistryOwner(
   controllerWallet: string,
   deps: AuthorizationDeps,
 ): Promise<
-  | { ok: true; owner: string }
+  | {
+      ok: true;
+      owner: string;
+      /**
+       * The get_onboarding_status response this same call already fetched for
+       * owner extraction — carried through so a caller can ALSO check current
+       * enrollment state without a second partner call (2026-08-07 pre-submit
+       * idempotency gate, correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+       * `null` only when the status tool was unreachable/incompatible — the
+       * owner-conflict check above already tolerates that same absence.
+       */
+      statusResult: McpToolResult | null;
+      statusArgs: Record<string, unknown> | null;
+    }
   | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH' | 'HORIZEN_OWNER_SOURCE_CONFLICT'; detail: string }
 > {
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
@@ -1827,7 +1840,7 @@ async function crossCheckRegistryOwner(
   // controllerWallet is the only candidate available; downstream callers
   // (verifySignatureIntegrity) use this as the expected owner for the
   // decisive local test either way.
-  return { ok: true, owner: owner ?? controllerWallet };
+  return { ok: true, owner: owner ?? controllerWallet, statusResult: statusOwner.statusResult, statusArgs: statusOwner.statusArgs };
 }
 
 /**
@@ -2054,6 +2067,33 @@ export async function verifyHorizenTransparencyActivation(
     };
   }
   // enrollmentState === 'CONFIRMED' falls through to the confirmation path below.
+  return writeConfirmedPulseActivation(authorizationId, args, statusResult, statusArgs);
+}
+
+/**
+ * Records a CONFIRMED Pulse activation — the ONE place that writes the
+ * `horizen_pulse_authorized` receipt and flips the persisted row to
+ * `CONFIRMED`. Extracted 2026-08-07 (inv.engineering.036/037) so the
+ * pre-submit idempotency gate in `runHorizenTransparencyAuthorization` can
+ * record a confirmation discovered BEFORE signing/submission through the
+ * exact same path `verifyHorizenTransparencyActivation`'s post-submit
+ * confirmation already uses — never a second, parallel writer.
+ */
+async function writeConfirmedPulseActivation(
+  authorizationId: string,
+  args: { actorPersonaId: string; registry: { network: HorizenNetwork; tokenId: string }; controllerWallet: string },
+  statusResult: McpToolResult,
+  statusArgs: Record<string, unknown>,
+): Promise<AuthorizationResult<{ confirmed: true }>> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record) {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail: `authorization "${authorizationId}" is absent — cannot record a confirmation against no row`,
+    };
+  }
+  const rawStatus = JSON.stringify(statusResult).slice(0, 500);
 
   const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
   let receiptRef: string | null = null;
@@ -2146,6 +2186,50 @@ export async function runHorizenTransparencyAuthorization(
     return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail, diagnostics };
   }
 
+  /*
+   * PRE-SUBMIT PULSE STATUS GATE — an already-enrolled agent is never
+   * resubmitted merely to reconfirm it (operator ruling 2026-08-07,
+   * correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+   *
+   * `crossCheckRegistryOwner` immediately above already called
+   * get_onboarding_status once, for its own owner cross-check — this reuses
+   * that SAME response (no second partner call) and runs it through the
+   * identical, already-proven `classifyPulseEnrollmentState` the post-submit
+   * reread uses. If it already reports enrollment, `enable_pulse_monitoring`
+   * has nothing to do: write the confirmation through the SAME path the
+   * post-submit reread uses (`writeConfirmedPulseActivation`, so this is
+   * retrieval-then-record, never a second interpretation of raw text) and
+   * return — never sign, never submit.
+   *
+   * A NOT_ENROLLED or PENDING_CONVERGENCE read here changes nothing: falls
+   * through to the ordinary sign -> submit -> reread ceremony below, exactly
+   * as before this gate existed.
+   */
+  if (ownerCheck.statusResult) {
+    const preSubmitState = classifyPulseEnrollmentState(flattenToolResultText(ownerCheck.statusResult));
+    if (preSubmitState === 'CONFIRMED') {
+      const confirmed = await writeConfirmedPulseActivation(
+        prepared.value.authorizationId,
+        { actorPersonaId: input.actorPersonaId, registry: input.registry, controllerWallet: input.controllerWallet },
+        ownerCheck.statusResult,
+        ownerCheck.statusArgs ?? {},
+      );
+      if (confirmed.ok) {
+        const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
+        return {
+          ok: true,
+          value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null },
+          diagnostics,
+          rawStatusResult: confirmed.rawStatusResult,
+          statusArgsUsed: confirmed.statusArgsUsed,
+        };
+      }
+      // confirmed.ok===false only on STATE_MISMATCH (the row vanished between
+      // prepare and here) — fall through to the ordinary ceremony rather than
+      // trusting a classification with no row left to record it against.
+    }
+  }
+
   const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
   if (!signed.ok) return { ...signed, diagnostics };
 
@@ -2207,7 +2291,33 @@ export async function runHorizenTransparencyAuthorization(
     },
     shared,
   );
-  if (!verified.ok) return { ...verified, diagnostics, partnerResponse };
+  /*
+   * FORWARD rawSubmitResult/submittedArguments EVEN ON A REREAD FAILURE
+   * (2026-08-07 fix, correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+   *
+   * `enable_pulse_monitoring` above already succeeded — Horizen genuinely
+   * received and accepted the submission — but `verified` (this reread's own
+   * AuthorizationResult) carries no rawSubmitResult field at all, so the bare
+   * spread below used to silently drop it whenever the reread itself did not
+   * confirm (PARTNER_NOT_ENROLLED, PARTNER_STATE_UNRESOLVED, an owner
+   * conflict discovered post-submit, ...). Downstream,
+   * services/horizen/pulseEnrollmentTrace.ts's `reachedPartnerSubmission`
+   * check reads `rawSubmitResult !== undefined` to decide whether submission
+   * was ever attempted — so a genuinely-reached submission was misreported as
+   * "failed before enable_pulse_monitoring was ever called" (LOCAL_CONTRACT_ERROR),
+   * which ALSO marks that trace `complete: true` and permanently blocks the
+   * scheduled +5/+15/+30s continuation rereads that would otherwise have
+   * discovered Horizen's later, genuine confirmation.
+   */
+  if (!verified.ok) {
+    return {
+      ...verified,
+      diagnostics,
+      partnerResponse,
+      submittedArguments: submitted.submittedArguments,
+      rawSubmitResult: submitted.rawSubmitResult,
+    };
+  }
 
   const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
   return {
