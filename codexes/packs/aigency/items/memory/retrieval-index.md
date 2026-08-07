@@ -3554,3 +3554,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a91d664.md](../build_/COMMITS/COMMIT-a91d664.md)
 - Message: fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits
+
+## Commit `91c57fe` — 2026-08-07T01:08:11Z
+- Type: `feat`
+- Brief: [COMMIT-91c57fe.md](../build_/COMMITS/COMMIT-91c57fe.md)
+- Message: add extension distribution packages to .gitignore

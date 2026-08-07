@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-06T23:48:41.488Z",
+  "last_updated": "2026-08-07T01:10:18.281Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
-  "latest_commit_short": "a91d664",
-  "latest_commit_title": "fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits",
+  "latest_commit": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
+  "latest_commit_short": "91c57fe",
+  "latest_commit_title": "add extension distribution packages to .gitignore",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "91c57fe",
+      "full_sha": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
+      "title": "add extension distribution packages to .gitignore",
+      "author": "Claude",
+      "timestamp": "2026-08-07T01:08:11Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-91c57fe.md"
+    },
     {
       "sha": "a91d664",
       "full_sha": "a91d664c8b6cd93b6bf975c68ffa5551726e7e1e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T14:00:39Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-575a293.md"
-    },
-    {
-      "sha": "c9514f6",
-      "full_sha": "c9514f65593771225ef8a0cf451e1bf3d692def1",
-      "title": "Build CCRL Phase C2.1: structured research proposal kinds for the research copilot",
-      "author": "Claude",
-      "timestamp": "2026-07-07T13:31:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c9514f6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
