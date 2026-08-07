@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-08",
+  "resolutionId": "RES-2026-08-08-REGISTER-EVIDENCE-CROSS-AGENT-001",
+  "capability": "horizen-pulse-admission",
+  "milestone": "The Register stage's Evidence Receipts drawer can never display a different agent's receipt as the currently-selected agent's evidence.",
+  "problem": "MoneyPenny's Register stage, correctly reported pending_registration (tokenId 'not yet registered'), simultaneously displayed an Evidence Receipts entry for Aigent Nakamoto's HORIZEN_AGENT_REGISTERED receipt (her historical tx 0xedda5f...), tagged agentsInvoked: ['aigent-nakamoto']. The operator required the full Register chain audited before any fix, and the write-vs-read locus of the contamination identified before broader changes.",
+  "observedFailure": [
+    "The stage's Evidence Receipts drawer rendered a receipt naming a different runtime agent (aigent-nakamoto) than the one the stage was displaying (aigent-moneypenny), with the raw agentsInvoked tag visible in the receipt card itself."
+  ],
+  "rootCauses": [
+    "GET /api/assistant/receipts (app/api/assistant/receipts/route.ts) filtered strictly by actionType and the ACTING persona (getActivePersona) — never by the receipt's SUBJECT agent. A persona that has acted as the signing operator for multiple agents (here, the same operator registering both Nakamoto and MoneyPenny) therefore returns EVERY agent's receipts of a shared action type on any query, regardless of which agent's stage is asking.",
+    "StageReceiptsDrawer.tsx (the generic Evidence Receipts panel every Guided Journey Runtime stage renders) called that route with only `actionType` — it had no notion of 'the currently selected agent' to scope by, and nothing upstream passed one."
+  ],
+  "resolution": [
+    "Diagnosed FIRST, per the operator's explicit gate, before any mutation: traced the full chain — selected agentSlug -> prepareRegistrationMandate (services/horizen/registerCeremony.ts, resolves `agent` from the caller-supplied agentSlug, never defaulted) -> subjectAgentRef: agent.runtimeAgentId on the signing mandate -> every Register/Claim receipt written with agentsInvoked: [agent.runtimeAgentId] -> RegisterAgentPanel.tsx's own ceremony-progress ladder (readProgress's `forThisAgent`/`mine` filters, already scoped by `aigent-${agentSlug}`) -> the /state route's registration resolution (findAgentReceiptRefs(agent.runtimeAgentId, ...), already correctly scoped). Every one of these was clean. The contamination is READ/PROJECTION-TIME ONLY, isolated to StageReceiptsDrawer's query and the route it calls — confirmed and reported before writing any fix, per the operator's explicit instruction.",
+    "GET /api/assistant/receipts now accepts an optional `agentsInvoked` query param (comma-separated), threaded to listActivityReceiptsForPersona's existing `agentsInvoked` filter option (added 2026-08-03 for exactly this class of defect on a different route, but never wired into THIS route until now) — additive; omitting it preserves the prior, unfiltered behavior for every existing caller.",
+    "Added JourneyStageDefinition.receiptsScopedToSubjectAgent (types/journey.ts) — an explicit, per-stage, verified-true-only flag. Set on register and claim (services/journey/horizenMoneyPennyJourney.ts) after confirming every action type each declares is written with agentsInvoked: [agent.runtimeAgentId] throughout. Deliberately left unset on verify: its agreement_formed/agreement_authorized receipts (services/constitutional/constitutionalAgreement.ts) carry only agentsInvoked: ['aigent-z'] (the orchestrator, never a subject agent) — applying the filter there would silently hide those receipts for every agent rather than fix the real gap, so it is named as a known, out-of-scope exclusion rather than silently patched or silently left broken.",
+    "StageReceiptsDrawer.tsx accepts an `agentsInvoked` prop and includes it in the receipts query when the active stage opts in. Also fixed a related staleness gap discovered while implementing this: the drawer is never remounted when the journey's selected agent changes, so its `loaded` cache would have kept showing a PRIOR agent's receipts after switching agents even with the filter in place — now the cache invalidates and refetches (if open) whenever the scope (receiptTypes + agentsInvoked) changes.",
+    "JourneyRunSurface.tsx stays journey-agnostic: it accepts an opaque `receiptsSubjectAgentRef` string from its caller and applies it only when `activeStage.receiptsScopedToSubjectAgent` is true — it never hardcodes Horizen's 'aigent-<slug>' naming convention itself. PilotJourneyTab.tsx computes and passes `receiptsSubjectAgentRef={`aigent-${selectedAgentSlug}`}`, the same convention RegisterAgentPanel.tsx/registerCeremony.ts already use.",
+    "Verified the ceremony's signing path separately, per the operator's specific request: prepareRegistrationMandate is a pure function of its own `agentSlug` input with no shared/stale 'current agent' state — added a sequential regression test (tests/register-ceremony.test.ts) proving the same principal signing for Nakamoto then MoneyPenny gets each agent's own subjectAgentRef, wallet material and mandate payload with zero carryover, confirming the write side was never where the contamination originated."
+  ],
+  "rejectedApproaches": [
+    "Hiding or special-casing the Nakamoto receipt in the UI for MoneyPenny's view — rejected per the operator's explicit instruction: 'Do not patch this by hiding the receipt or special-casing MoneyPenny. Find the generic subject-resolution defect.'",
+    "Applying the agentsInvoked filter unconditionally to every stage's drawer — rejected: Verify's agreement_formed/agreement_authorized receipts carry no subject-agent tag at all (only 'aigent-z'), so an unconditional filter would make them disappear from EVERY agent's Verify drawer, a real functional regression for a currently-working (if also imperfectly-scoped) display. The opt-in `receiptsScopedToSubjectAgent` flag, verified true only where checked, avoids this without leaving the underlying gap silently unaddressed — it is named in this record and in the field's own doc comment as a follow-up candidate.",
+    "Fixing Verify's agreement receipts' missing subject tag in this same pass — rejected as scope expansion beyond what was reported and audited; the operator's acceptance test and audit-path request were specific to Register (and, by the same defect shape, Claim). Flagged, not silently expanded into or silently left for someone else to discover."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-08-RECEIPT-SUBJECT-SCOPING-001"
+  ],
+  "canaries": [
+    "tests/assistant-receipts-agent-scoping.test.ts",
+    "tests/register-stage-receipt-agent-isolation.test.ts",
+    "tests/register-ceremony.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "subsystems-disagreed",
+  "evidence": {
+    "commits": [
+      "d9953c4"
+    ],
+    "tests": [
+      "tests/assistant-receipts-agent-scoping.test.ts",
+      "tests/register-stage-receipt-agent-isolation.test.ts",
+      "tests/register-ceremony.test.ts"
+    ],
+    "receipts": [
+      "horizen_agent_registered",
+      "agent_control_proven"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}
