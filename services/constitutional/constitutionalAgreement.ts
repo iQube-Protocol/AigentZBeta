@@ -40,6 +40,7 @@ import {
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { PROOF_REQUIREMENT } from '@/services/constitutional/guidedOnboarding';
 import { hasVerifiedWorldIdPassport } from '@/services/passport/personhoodProof';
+import { resolveRootDidCommitment } from '@/services/passport/bureauIdentityService';
 import {
   getAcceptanceProvider,
   type AcceptanceRecord,
@@ -63,6 +64,29 @@ export type AgreementStatus = (typeof AGREEMENT_LIFECYCLE)[number];
 
 /** Statuses at/after which the 409 gate lets delegated execution proceed. */
 const GATE_OPEN_STATUSES = new Set<AgreementStatus>(['authorized', 'executed', 'settled', 'reconstitutable']);
+
+/**
+ * Authority tier an agreement's AUTHORIZE step is bound to (operator
+ * directive, 2026-08-08: "CFS agreements are RootDID-authority-bound, not
+ * persona-authority-bound"). `PERSONA` (the pre-existing, only behavior) —
+ * the SAME persona that formed the agreement must authorize it, checked by
+ * one-way `ownerCommitment` equality. `ROOT_DID` — forming and authorizing
+ * personas may differ; authorization succeeds when BOTH resolve through the
+ * identity spine (`resolveRootDidCommitment`) to the SAME RootDID
+ * commitment. Deliberately scoped to CFS agreements only for now — see
+ * this file's own `formAgreement` and `authorizeAgreement`.
+ *
+ * NOT a claim that RootDID is the highest authority tier — sovereign
+ * personhood remains constitutionally prior to RootDID. This says only that
+ * CFS currently belongs at the RootDID tier rather than the persona tier;
+ * the broader authority hierarchy (personhood → RootDID → persona →
+ * delegation → session) is a separate development.
+ */
+export const AGREEMENT_AUTHORITY_BINDINGS = ['PERSONA', 'ROOT_DID'] as const;
+export type AgreementAuthorityBinding = (typeof AGREEMENT_AUTHORITY_BINDINGS)[number];
+
+/** Named policy/version string carried on every agreement_authorized receipt's actionInput — bump on any change to the authorization decision logic itself. */
+const AGREEMENT_AUTHORIZATION_POLICY_VERSION = 'cfs-agreement-authority-v1';
 
 const MISSING = 'constitutional_agreements';
 
@@ -146,6 +170,13 @@ export interface FormAgreementInput {
   /** Optional settlement terms (x402/USDC/Q¢). null for Domain 3 (no fund movement). */
   settlementTerms?: Record<string, unknown> | null;
   governingInvariants?: string[];
+  /**
+   * Which authority tier the AUTHORIZE step is bound to. Omitted/undefined
+   * means `'PERSONA'` — existing callers are unaffected. CFS agreements
+   * pass `'ROOT_DID'` explicitly (operator directive, 2026-08-08: "Existing
+   * agreements remain PERSONA unless explicitly classified otherwise").
+   */
+  authorityBinding?: AgreementAuthorityBinding;
 }
 
 export interface AgreementTerms {
@@ -160,12 +191,25 @@ export interface AgreementTerms {
 export interface AgreementPayload extends AgreementTerms {
   termsCommitment: string;
   acceptance: AcceptanceRecord | null;
+  /** Defaults to 'PERSONA' via `?? 'PERSONA'` at every read site — never assume this field is present on a row formed before 2026-08-08. */
+  authorityBinding: AgreementAuthorityBinding;
+  /**
+   * T2-safe commitment of the FORMING persona's RootDID
+   * (`resolveRootDidCommitment`), resolved and pinned once at formation —
+   * never re-derived at authorize time. `null` for `authorityBinding:
+   * 'PERSONA'` agreements, which never had a RootDID to pin. Compared
+   * against the AUTHORIZING persona's own RootDID commitment at
+   * authorize time; equality is what lets a different persona under the
+   * same RootDID authorize what a different persona formed.
+   */
+  principalRootDidCommitment: string | null;
 }
 
 /** PURE — build the agreement's ConstitutionalObject. No I/O, no receipts. */
 export function buildAgreementObject(
   input: FormAgreementInput,
   ownerCommitment: string,
+  principalRootDidCommitment: string | null = null,
 ): ConstitutionalObject<AgreementPayload> {
   const terms: AgreementTerms = {
     capabilityRef: input.capabilityRef,
@@ -179,6 +223,8 @@ export function buildAgreementObject(
     ...terms,
     termsCommitment: termsCommitment(terms),
     acceptance: null,
+    authorityBinding: input.authorityBinding ?? 'PERSONA',
+    principalRootDidCommitment,
   };
   return {
     identity: {
@@ -304,8 +350,26 @@ export async function formAgreement(personaId: string, input: FormAgreementInput
   const admin = getSupabaseServer();
   if (!admin) return { ok: false, reason: 'agreement store unavailable' };
 
+  const authorityBinding = input.authorityBinding ?? 'PERSONA';
+  let principalRootDidCommitment: string | null = null;
+  if (authorityBinding === 'ROOT_DID') {
+    // Pinned ONCE, here, at formation — never re-derived at authorize time.
+    // Fail closed: a forming persona with no resolvable RootDID cannot form
+    // a ROOT_DID-bound agreement at all, rather than forming one with a
+    // null principal that would make every future authorize attempt refuse
+    // for an unclear reason.
+    const { rootDidPublicRef } = await resolveRootDidCommitment(personaId);
+    if (!rootDidPublicRef) {
+      return {
+        ok: false,
+        reason: 'authorityBinding "ROOT_DID" requires the forming persona to resolve a RootDID through the identity spine — none found',
+      };
+    }
+    principalRootDidCommitment = rootDidPublicRef;
+  }
+
   const ownerCommitment = agreementOwnerCommitment(personaId);
-  const object = buildAgreementObject({ ...input, agreementId }, ownerCommitment);
+  const object = buildAgreementObject({ ...input, agreementId }, ownerCommitment, principalRootDidCommitment);
   // T2 canary — a leak is a refusal, never a write.
   const leak = findForbiddenObjectKey(object);
   if (leak) return { ok: false, reason: `T0 identifier leak in agreement object at ${leak} — refused` };
@@ -471,8 +535,42 @@ export async function authorizeAgreement(
 
   const row = await getAgreement(agreementId);
   if (!row) return { ok: false, reason: `agreement "${agreementId}" not found` };
-  // Only the requesting operator may authorize (owner-commitment match).
-  if (row.object.ownership.ownerCommitment !== agreementOwnerCommitment(personaId)) {
+
+  /*
+   * AUTHORITY CHECK — branches on the agreement's OWN classification
+   * (operator directive, 2026-08-08: "CFS agreements are RootDID-authority-
+   * bound, not persona-authority-bound"). `authorityBinding` defaults to
+   * 'PERSONA' for every row formed before this field existed — the exact
+   * pre-existing owner-commitment check, byte-for-byte unchanged.
+   *
+   * 'ROOT_DID': the forming and authorizing personas need not be the same
+   * persona — authorization succeeds when BOTH resolve, through the
+   * identity spine, to the SAME RootDID commitment. RootDID equivalence
+   * establishes WHO may exercise the principal's authority; it does not by
+   * itself open the gate below — the verification-requirements check that
+   * follows still runs against the AUTHORIZING persona, exactly as before,
+   * so "same RootDID but this specific human hasn't met the CFS
+   * verification bar" still refuses.
+   */
+  const authorityBinding = row.object.payload.authorityBinding ?? 'PERSONA';
+  let principalRootDidCommitment: string | null = null;
+  let actingRootDidCommitment: string | null = null;
+  if (authorityBinding === 'ROOT_DID') {
+    principalRootDidCommitment = row.object.payload.principalRootDidCommitment ?? null;
+    const { rootDidPublicRef } = await resolveRootDidCommitment(personaId);
+    actingRootDidCommitment = rootDidPublicRef ?? null;
+    // Fail closed on either side missing — an unresolvable RootDID is never
+    // treated as "matches" and never treated as "safe to skip the check".
+    if (!principalRootDidCommitment || !actingRootDidCommitment || principalRootDidCommitment !== actingRootDidCommitment) {
+      return {
+        ok: false,
+        reason:
+          'only a persona resolving to the same RootDID as the agreement\'s principal may authorize this ' +
+          'ROOT_DID-bound agreement',
+      };
+    }
+  } else if (row.object.ownership.ownerCommitment !== agreementOwnerCommitment(personaId)) {
+    // Only the requesting operator may authorize (owner-commitment match) — unchanged.
     return { ok: false, reason: 'only the requesting operator may authorize this agreement' };
   }
   if (row.status === 'authorized') {
@@ -499,8 +597,10 @@ export async function authorizeAgreement(
   // for money movement. Fail closed: a lookup error reads as unverified, never
   // as verified.
   const requirements = row.object.payload.verificationRequirements ?? [];
-  if (requirements.includes(PROOF_REQUIREMENT.world_id)) {
-    const verified = await hasVerifiedWorldIdPassport(personaId);
+  const worldIdRequired = requirements.includes(PROOF_REQUIREMENT.world_id);
+  let verified: boolean | null = null;
+  if (worldIdRequired) {
+    verified = await hasVerifiedWorldIdPassport(personaId);
     if (!verified) {
       return {
         ok: false,
@@ -530,6 +630,24 @@ export async function authorizeAgreement(
       agentsInvoked: ['aigent-z'],
       contextShared: ['agreement_id', 'delegated_authority'],
       policyEnvelopeId: agreementId,
+      /*
+       * THE RECEIPT IS THE CANONICAL GATEWAY TO CSA = AUTHORIZED (operator
+       * directive, 2026-08-08) — every field the directive names, preserved
+       * structurally rather than only in the free-text summary above.
+       * `principalRootDidCommitment`/`actingPersonaCommitment` are ONE-WAY
+       * commitments (never raw RootDID/personaId) — the acting persona
+       * remains auditable without becoming the constitutional principal.
+       */
+      actionInput: {
+        agreement: agreementId,
+        termsCommitment: row.object.payload.termsCommitment,
+        authorityClass: authorityBinding,
+        principalRootDidCommitment: authorityBinding === 'ROOT_DID' ? principalRootDidCommitment : null,
+        actingPersonaCommitment: agreementOwnerCommitment(personaId),
+        verificationEvidence: { worldIdRequired, worldIdVerified: verified },
+        verifiedAt: new Date().toISOString(),
+        policyVersion: AGREEMENT_AUTHORIZATION_POLICY_VERSION,
+      },
     });
     receiptId = receipt?.id ?? null;
     // See acceptAgreement's identical comment — a resolved-but-null receipt

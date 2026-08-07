@@ -30,8 +30,11 @@ import {
   requireAuthorizedAgreement,
   listAgreements,
   agreementOwnerCommitment,
+  AGREEMENT_AUTHORITY_BINDINGS,
   type DelegatedAuthority,
+  type AgreementAuthorityBinding,
 } from '@/services/constitutional/constitutionalAgreement';
+import { resolveRootDidCommitment } from '@/services/passport/bureauIdentityService';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,7 +87,23 @@ export async function GET(request: NextRequest) {
   const all = await listAgreements();
   const isAdmin = g.persona.cartridgeFlags?.isAdmin === true;
   const mine = agreementOwnerCommitment(g.persona.personaId);
-  const agreements = isAdmin ? all : all.filter((a) => a.object.ownership.ownerCommitment === mine);
+  /*
+   * PERSONA SELECTION MUST NOT MAKE AN AUTHORIZED ROOT_DID AGREEMENT APPEAR
+   * UNAUTHORIZED (operator directive, 2026-08-08). A non-admin viewer sees
+   * an agreement when EITHER they are its owner-commitment match (the
+   * pre-existing rule, unchanged) OR it is ROOT_DID-bound and the viewer's
+   * OWN RootDID commitment matches the agreement's pinned principal — the
+   * exact equivalence `authorizeAgreement` itself uses, never a raw RootDID
+   * comparison. Resolved once per request, not per agreement.
+   */
+  const myRootDid = isAdmin ? null : (await resolveRootDidCommitment(g.persona.personaId)).rootDidPublicRef ?? null;
+  const agreements = isAdmin
+    ? all
+    : all.filter((a) => {
+        if (a.object.ownership.ownerCommitment === mine) return true;
+        const binding = a.object.payload.authorityBinding ?? 'PERSONA';
+        return binding === 'ROOT_DID' && myRootDid !== null && a.object.payload.principalRootDidCommitment === myRootDid;
+      });
   return NextResponse.json({ ok: true, agreements, viewer: { isAdmin } });
 }
 
@@ -103,6 +122,15 @@ export async function POST(request: NextRequest) {
     if (!delegatedAuthority) {
       return NextResponse.json({ ok: false, error: 'delegatedAuthority required (band, allowedActions, forbiddenActions, allowedSurfaces, ttlHours, maxActions)' }, { status: 400 });
     }
+    // Explicit opt-in only — omitted/unrecognised defaults to undefined,
+    // which formAgreement itself treats as 'PERSONA' (operator directive,
+    // 2026-08-08: "Existing agreements remain PERSONA unless explicitly
+    // classified otherwise"). Never inferred from capabilityRef or any
+    // other heuristic — the caller declares it.
+    const authorityBinding =
+      typeof body.authorityBinding === 'string' && (AGREEMENT_AUTHORITY_BINDINGS as readonly string[]).includes(body.authorityBinding)
+        ? (body.authorityBinding as AgreementAuthorityBinding)
+        : undefined;
     const result = await formAgreement(personaId, {
       agreementId: String(body.agreementId ?? ''),
       displayLabel: String(body.displayLabel ?? ''),
@@ -113,6 +141,7 @@ export async function POST(request: NextRequest) {
       verificationRequirements: Array.isArray(body.verificationRequirements) ? body.verificationRequirements.filter((x): x is string => typeof x === 'string') : undefined,
       settlementTerms: body.settlementTerms && typeof body.settlementTerms === 'object' ? (body.settlementTerms as Record<string, unknown>) : null,
       governingInvariants: Array.isArray(body.governingInvariants) ? body.governingInvariants.filter((x): x is string => typeof x === 'string') : undefined,
+      authorityBinding,
     });
     if (!result.ok) return NextResponse.json({ ok: false, error: result.reason }, { status: 400 });
     return NextResponse.json({ ok: true, alreadyFormed: result.alreadyFormed, agreement: result.agreement });
