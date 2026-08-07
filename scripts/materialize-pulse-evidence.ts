@@ -18,9 +18,15 @@
  *   npx tsx scripts/materialize-pulse-evidence.ts --agent=nakamoto --actorPersonaId=<your persona uuid>
  *
  * Requires the same Supabase env vars the app itself uses
- * (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY) to already be set in
- * the shell this runs from.
+ * (NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY) in .env.local at the
+ * repo root — loaded via dotenv, matching this repo's other standalone
+ * operator scripts (e.g. scripts/apply-content-rls-fix.ts), not assumed to
+ * already be exported in the shell.
  */
+
+import * as path from 'path';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 
 import { resolveRegistrableAgent } from '../services/horizen/registrableAgents';
 import { materializePulseEvidenceFromHistoricalConfirmation } from '../services/horizen/authorizationClient';
