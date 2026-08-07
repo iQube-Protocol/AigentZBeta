@@ -50,8 +50,10 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
 }));
 
 const mockVerifyHorizenTransparencyActivation = vi.fn();
+const mockGetPulseAuthorizationEvidence = vi.fn(async () => null);
 vi.mock('@/services/horizen/authorizationClient', () => ({
   verifyHorizenTransparencyActivation: (...args: any[]) => mockVerifyHorizenTransparencyActivation(...args),
+  getPulseAuthorizationEvidence: (...args: any[]) => mockGetPulseAuthorizationEvidence(...args),
   RECONCILABLE_STATES: ['SUBMITTED', 'REFUSED', 'QUARANTINED', 'EXPIRED'],
 }));
 
@@ -103,6 +105,8 @@ beforeEach(() => {
   mockVerifyHorizenTransparencyActivation.mockReset();
   mockGetAgentAddresses.mockReset();
   mockEnrichAgentCard.mockReset();
+  mockGetPulseAuthorizationEvidence.mockReset();
+  mockGetPulseAuthorizationEvidence.mockResolvedValue(null);
   registryAssetsRow = null;
 
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });

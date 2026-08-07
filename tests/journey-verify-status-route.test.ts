@@ -40,8 +40,10 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
 }));
 
 const mockVerifyHorizenTransparencyActivation = vi.fn();
+const mockGetPulseAuthorizationEvidence = vi.fn(async () => null);
 vi.mock('@/services/horizen/authorizationClient', () => ({
   verifyHorizenTransparencyActivation: (...args: any[]) => mockVerifyHorizenTransparencyActivation(...args),
+  getPulseAuthorizationEvidence: (...args: any[]) => mockGetPulseAuthorizationEvidence(...args),
   // The route imports this to widen the reread to locally-refused rows
   // (Al's change 3, 2026-08-06). Mirrors the real export's value — a mock that
   // omitted it would make `allowStates` silently undefined and stop this
@@ -93,6 +95,8 @@ beforeEach(() => {
   mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xabc' });
   mockEnrichAgentCard.mockReset();
   mockEnrichAgentCard.mockResolvedValue({ ok: true, receiptRefs: ['receipt-enrich-1'] });
+  mockGetPulseAuthorizationEvidence.mockReset();
+  mockGetPulseAuthorizationEvidence.mockResolvedValue(null);
 });
 
 describe('GET verify/status', () => {
@@ -128,6 +132,49 @@ describe('GET verify/status', () => {
     expect(body.state).toBe('complete');
     expect(body.receiptRef).toBe('receipt-1');
     expect(mockVerifyHorizenTransparencyActivation).not.toHaveBeenCalled();
+  });
+
+  /*
+   * RECEIPTED STATE, NOT A LIVE RECLASSIFICATION (operator directive,
+   * 2026-08-08). Once the Agent Card is already enriched, the route reads
+   * the canonical evidence off the receipt — never touches Horizen again on
+   * this path — so this must not call verifyHorizenTransparencyActivation
+   * (a live partner call) at all.
+   */
+  it('a CONFIRMED row with an already-enriched Agent Card projection reads structuredStatus from the receipted evidence, without contacting Horizen', async () => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'CONFIRMED', receiptRef: 'receipt-1' });
+    mockResolveHorizenRegistrationBinding.mockResolvedValue({
+      binding: { ...BINDING, transparency: { pulse_enabled: true } },
+    });
+    mockGetPulseAuthorizationEvidence.mockResolvedValue({
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      verifiablePnlRegistered: false,
+      endpointWarning: null,
+      verifierPolicyVersion: 'gjr-vfy-001-structured-first-v1',
+    });
+
+    const res = await GET(makeRequest('nakamoto'));
+    const body = await res.json();
+
+    expect(body.state).toBe('complete');
+    expect(body.structuredStatus).toMatchObject({ pulseEnrolled: true, pulseCommitmentRecorded: true, verifiablePnlRegistered: false, endpointWarning: null });
+    expect(mockVerifyHorizenTransparencyActivation).not.toHaveBeenCalled();
+    expect(mockEnrichAgentCard).not.toHaveBeenCalled();
+  });
+
+  it('a CONFIRMED row with an already-enriched projection but no readable receipted evidence reports structuredStatus: null — never fabricated', async () => {
+    mockGetPartnerAuthorizationRequest.mockResolvedValue({ state: 'CONFIRMED', receiptRef: 'receipt-1' });
+    mockResolveHorizenRegistrationBinding.mockResolvedValue({
+      binding: { ...BINDING, transparency: { pulse_enabled: true } },
+    });
+    mockGetPulseAuthorizationEvidence.mockResolvedValue(undefined);
+
+    const res = await GET(makeRequest('nakamoto'));
+    const body = await res.json();
+
+    expect(body.state).toBe('complete');
+    expect(body.structuredStatus).toBeNull();
   });
 
   it('reports expired — distinct from a partner denial — for an EXPIRED row, after re-checking the partner', async () => {

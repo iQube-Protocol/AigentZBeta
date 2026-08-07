@@ -82,9 +82,25 @@ vi.mock('@/services/horizen/partnerAuthorizationStore', () => ({
   }),
 }));
 
-const createActivityReceipt = vi.fn(async (input: any) => ({ id: 'receipt-1', ...input }));
+// Keyed store backing BOTH mocks below, so a receipt written by
+// createActivityReceipt can be read back by getActivityReceiptActionInput —
+// exercising the real write-then-read round trip
+// getPulseAuthorizationEvidence/reconcilePulseConstitutionalState depend on,
+// never just asserting the write happened. Numbered sequentially so the
+// FIRST receipt in any test keeps the pre-existing 'receipt-1' id every
+// existing assertion already expects.
+const receiptStore = new Map<string, any>();
+let receiptCounter = 0;
+const createActivityReceipt = vi.fn(async (input: any) => {
+  receiptCounter += 1;
+  const record = { id: `receipt-${receiptCounter}`, ...input };
+  receiptStore.set(record.id, record);
+  return record;
+});
+const getActivityReceiptActionInput = vi.fn(async (id: string) => receiptStore.get(id)?.actionInput ?? null);
 vi.mock('@/services/receipts/activityReceiptService', () => ({
   createActivityReceipt: (...args: any[]) => createActivityReceipt(...args),
+  getActivityReceiptActionInput: (...args: any[]) => getActivityReceiptActionInput(...args),
 }));
 
 import {
@@ -99,6 +115,8 @@ import {
   pulseStatusCandidates,
   detectPulseArgumentDrift,
   RECONCILABLE_STATES,
+  getPulseAuthorizationEvidence,
+  reconcilePulseConstitutionalState,
   type PrepareHorizenTransparencyAuthorizationInput,
 } from '@/services/horizen/authorizationClient';
 import {
@@ -203,6 +221,9 @@ beforeEach(() => {
   rows.clear();
   usedNonces.clear();
   createActivityReceipt.mockClear();
+  getActivityReceiptActionInput.mockClear();
+  receiptStore.clear();
+  receiptCounter = 0;
 });
 
 describe('runHorizenTransparencyAuthorization — full pipeline (Phase 1 acceptance criterion)', () => {
@@ -223,10 +244,15 @@ describe('runHorizenTransparencyAuthorization — full pipeline (Phase 1 accepta
     expect(result.value.receiptRef).toBe('receipt-1');
 
     expect(mcpClient.listTools).toHaveBeenCalled();
-    expect(createActivityReceipt).toHaveBeenCalledTimes(1);
+    // horizen_pulse_authorized (primary) + pulse_enrollment_verified (the
+    // fine-grained constitutional transition, 2026-08-08) — no
+    // pulse_commitment_verified here since this fixture's status text
+    // carries no structured pulseCommitmentRecorded field.
+    expect(createActivityReceipt).toHaveBeenCalledTimes(2);
     const receiptCall = createActivityReceipt.mock.calls[0][0];
     expect(receiptCall.actionType).toBe('horizen_pulse_authorized');
     expect(receiptCall.personaId).toBe('persona-operator-1');
+    expect(createActivityReceipt.mock.calls[1][0].actionType).toBe('pulse_enrollment_verified');
 
     const finalRow = rows.get(result.value.authorizationId);
     expect(finalRow.state).toBe('CONFIRMED');
@@ -1984,6 +2010,196 @@ describe('"Close Pulse now" — structured pulseEnrolled/pulseCommitmentRecorded
     expect(createActivityReceipt).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: 'horizen_pulse_authorized' }),
     );
+  });
+});
+
+/*
+ * ── RECEIPTED CONSTITUTIONAL STATE (operator directive, 2026-08-08) ─────────
+ *
+ * "Replace external-state-as-runtime-authority with receipted constitutional
+ * state... verified external fact + valid constitutional policy + DVN
+ * receipt = canonical constitutional state transition... Reconciliation does
+ * not rewrite constitutional history. It produces new evidence."
+ *
+ * Exercises, against the SAME `verifyHorizenTransparencyActivation` transition
+ * boundary already covered above (never a parallel writer):
+ *   1. the evidence commitment written alongside CONFIRMED is complete and
+ *      readable back via getPulseAuthorizationEvidence;
+ *   2/3. pulse_enrollment_verified / pulse_commitment_verified are each
+ *      independently gated on their own structured fact;
+ *   4/5. reconcilePulseConstitutionalState on agreement vs. disagreement —
+ *      disagreement writes a NEW discrepancy receipt and NEVER touches
+ *      `state`, which is the acceptance invariant itself;
+ *   6/7. reconciliation refuses cleanly against a not-yet-confirmed row or a
+ *      confirmed row with no readable receipted evidence, rather than
+ *      guessing at either.
+ */
+const CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE = JSON.stringify({
+  pulseEnrolled: true,
+  pulseCommitmentRecorded: true,
+  verifiablePnlRegistered: false,
+  endpointWarning: null,
+  nextStep: 'Onboarding complete.',
+});
+
+async function confirmPulseViaReread(
+  authorizationId: string,
+  statusText: string,
+): Promise<{ evidence: any; receiptRef: string | null }> {
+  rows.set(authorizationId, {
+    authorizationId,
+    purpose: 'horizen-pulse-transparency',
+    subjectAigentQubeId: 'aigentqube-nakamoto',
+    partner: 'horizen',
+    network: 'base-sepolia',
+    agentId: 'nakamoto-8798',
+    walletAddress: WALLET.address,
+    issuedAt: '2026-08-08T00:00:00.000Z',
+    state: 'SUBMITTED',
+    signerAddress: WALLET.address,
+    signatureRef: 'sig-ref-1',
+    submissionRef: '0xsubmission-1',
+    partnerStatus: null,
+    receiptRef: null,
+    refusalCode: null,
+    refusalDetail: null,
+    createdAt: 'earlier',
+    updatedAt: 'earlier',
+  });
+  const result = await verifyHorizenTransparencyActivation(
+    authorizationId,
+    {
+      actorPersonaId: 'persona-operator-1',
+      registry: { network: 'base-sepolia', tokenId: '8798' },
+      controllerWallet: WALLET.address,
+      runtimeAgentId: 'aigent-nakamoto',
+    },
+    { mcpClient: fakeMcpClient({ statusText }), fetchRegistryAgent: fakeFetchRegistryAgent(WALLET.address) },
+  );
+  expect(result.ok).toBe(true);
+  const row = rows.get(authorizationId);
+  expect(row.state).toBe('CONFIRMED');
+  const evidence = await getPulseAuthorizationEvidence(row.receiptRef);
+  return { evidence, receiptRef: row.receiptRef };
+}
+
+describe('Receipted constitutional state — evidence commitment + fine-grained transitions (operator directive, 2026-08-08)', () => {
+  it('the evidence commitment written at CONFIRMED carries every field the directive requires, and reads back byte-identical via getPulseAuthorizationEvidence', async () => {
+    const { evidence } = await confirmPulseViaReread('auth-evidence-shape', CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE);
+    expect(evidence).toMatchObject({
+      aigentQubeId: 'aigentqube-nakamoto',
+      network: 'base-sepolia',
+      tokenId: '8798',
+      controllerWallet: WALLET.address,
+      authorizationId: 'auth-evidence-shape',
+      pulseEnrolled: true,
+      pulseCommitmentRecorded: true,
+      verifiablePnlRegistered: false,
+      endpointWarning: null,
+      verifierPolicyVersion: 'gjr-vfy-001-structured-first-v1',
+    });
+    // A commitment over the COMPLETE source response — 64 lowercase hex
+    // chars, sha256's exact shape — never the 500-char `partnerStatus` truncation.
+    expect(evidence.sourceResponseCommitment).toMatch(/^[0-9a-f]{64}$/);
+    expect(typeof evidence.verifiedAt).toBe('string');
+    expect(new Date(evidence.verifiedAt).toString()).not.toBe('Invalid Date');
+  });
+
+  it('pulse_enrollment_verified fires whenever the transition confirms; pulse_commitment_verified fires ONLY when pulseCommitmentRecorded is true', async () => {
+    await confirmPulseViaReread(
+      'auth-both-verified',
+      JSON.stringify({ pulseEnrolled: true, pulseCommitmentRecorded: true, verifiablePnlRegistered: false, endpointWarning: null }),
+    );
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).toContain('pulse_commitment_verified');
+  });
+
+  it('an enrollment confirmed WITHOUT a commitment fact issues only pulse_enrollment_verified, never pulse_commitment_verified', async () => {
+    // pulseEnrolled true, pulseCommitmentRecorded explicitly false — the
+    // schema permits these to diverge even though this pilot's live fixture
+    // always shows both true together.
+    await confirmPulseViaReread(
+      'auth-enrolled-not-committed',
+      JSON.stringify({ pulseEnrolled: true, pulseCommitmentRecorded: false }),
+    );
+    const actionTypes = createActivityReceipt.mock.calls.map((c: any[]) => c[0].actionType);
+    expect(actionTypes).toContain('pulse_enrollment_verified');
+    expect(actionTypes).not.toContain('pulse_commitment_verified');
+  });
+
+  it('reconciliation on AGREEMENT: records the check, writes no discrepancy receipt, and leaves state CONFIRMED', async () => {
+    const { receiptRef } = await confirmPulseViaReread('auth-reconcile-agree', CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE);
+    createActivityReceipt.mockClear();
+
+    const result = await reconcilePulseConstitutionalState(
+      'auth-reconcile-agree',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' }, runtimeAgentId: 'aigent-nakamoto' },
+      { mcpClient: fakeMcpClient({ statusText: CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE }) },
+    );
+
+    expect(result).toMatchObject({ ok: true, agreement: true, disagreements: [], discrepancyReceiptRef: null });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+    expect(rows.get('auth-reconcile-agree').state).toBe('CONFIRMED');
+    expect(rows.get('auth-reconcile-agree').receiptRef).toBe(receiptRef);
+  });
+
+  it('reconciliation on DISAGREEMENT: names the disagreeing fields, writes horizen_reconciliation_discrepancy_recorded, and — the acceptance invariant itself — NEVER changes state away from CONFIRMED', async () => {
+    await confirmPulseViaReread('auth-reconcile-disagree', CLOSE_PULSE_NOW_RECONCILIATION_FIXTURE);
+    createActivityReceipt.mockClear();
+
+    const laterDisagreeingRead = JSON.stringify({ pulseEnrolled: false, pulseCommitmentRecorded: true, verifiablePnlRegistered: false, endpointWarning: null });
+    const result = await reconcilePulseConstitutionalState(
+      'auth-reconcile-disagree',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' }, runtimeAgentId: 'aigent-nakamoto' },
+      { mcpClient: fakeMcpClient({ statusText: laterDisagreeingRead }) },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.agreement).toBe(false);
+    expect(result.disagreements).toEqual(['pulseEnrolled']);
+    expect(result.discrepancyReceiptRef).not.toBeNull();
+    expect(createActivityReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: 'horizen_reconciliation_discrepancy_recorded',
+        actionInput: expect.objectContaining({ disagreements: ['pulseEnrolled'] }),
+      }),
+    );
+    // THE ASSERTION THAT MATTERS: a later disagreeing read produces a NEW
+    // event, never a silent rewrite of the receipted transition.
+    expect(rows.get('auth-reconcile-disagree').state).toBe('CONFIRMED');
+  });
+
+  it('refuses STATE_MISMATCH against a row that has not yet reached CONFIRMED — reconciliation is not a substitute for verifyHorizenTransparencyActivation', async () => {
+    rows.set('auth-not-yet-confirmed', {
+      authorizationId: 'auth-not-yet-confirmed',
+      state: 'SUBMITTED',
+      subjectAigentQubeId: 'aigentqube-nakamoto',
+      receiptRef: null,
+    });
+    const result = await reconcilePulseConstitutionalState(
+      'auth-not-yet-confirmed',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient: fakeMcpClient() },
+    );
+    expect(result).toMatchObject({ ok: false, refusalCode: 'STATE_MISMATCH' });
+    expect(createActivityReceipt).not.toHaveBeenCalled();
+  });
+
+  it('refuses NO_RECEIPTED_EVIDENCE for a CONFIRMED row with no readable receipt, rather than fabricating agreement', async () => {
+    rows.set('auth-confirmed-no-receipt', {
+      authorizationId: 'auth-confirmed-no-receipt',
+      state: 'CONFIRMED',
+      subjectAigentQubeId: 'aigentqube-nakamoto',
+      receiptRef: null,
+    });
+    const result = await reconcilePulseConstitutionalState(
+      'auth-confirmed-no-receipt',
+      { actorPersonaId: 'persona-operator-1', registry: { network: 'base-sepolia', tokenId: '8798' } },
+      { mcpClient: fakeMcpClient() },
+    );
+    expect(result).toMatchObject({ ok: false, refusalCode: 'NO_RECEIPTED_EVIDENCE' });
   });
 });
 

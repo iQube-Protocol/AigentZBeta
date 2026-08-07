@@ -276,6 +276,21 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'capability_invocation_authorized',
   'capability_invocation_refused',
   'capability_invocation_completed',
+  // Receipted constitutional state for the Horizen admission journey
+  // (operator directive, 2026-08-08: "verified external fact + valid
+  // constitutional policy + DVN receipt = canonical constitutional state
+  // transition"). `pulse_enrollment_verified`/`pulse_commitment_verified`
+  // are the fine-grained transitions `writeConfirmedPulseActivation` now
+  // issues alongside the existing `horizen_pulse_authorized` receipt, each
+  // carrying its own evidence commitment. `horizen_reconciliation_
+  // discrepancy_recorded` is the event a later external read produces when
+  // it disagrees with already-receipted state — the discrepancy itself is
+  // anchored; it never rewrites the receipted transition it compares
+  // against. (Action-type addition only — the one change this file permits
+  // unilaterally. Payload shape, state machine and hashPersonaRef untouched.)
+  'pulse_enrollment_verified',
+  'pulse_commitment_verified',
+  'horizen_reconciliation_discrepancy_recorded',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

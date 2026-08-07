@@ -154,7 +154,25 @@ async function statusImpl(request: NextRequest) {
      * the reconciliation branch below already uses (inv.engineering.036/037).
      */
     if (binding.transparency?.pulse_enabled) {
-      return NextResponse.json({ ok: true, state: 'complete' as VerifyStatusState, authorizationId, receiptRef: record.receiptRef });
+      /*
+       * READ THE RECEIPTED EVIDENCE — NEVER RECLASSIFY (operator directive,
+       * 2026-08-08: "downstream orchestration should consume that receipted
+       * state, rather than reinterpreting Horizen prose every time somebody
+       * opens a screen"). This is a pure `activity_receipts` row read — no
+       * live Horizen call, so it carries none of the latency/cost of a
+       * partner round trip. Periodic/manual RECONCILIATION against a fresh
+       * partner read is a separate, deliberately opt-in capability — see
+       * POST .../verify/reconcile — never run implicitly on this fast path.
+       */
+      const { getPulseAuthorizationEvidence } = await import('@/services/horizen/authorizationClient');
+      const evidence = await getPulseAuthorizationEvidence(record.receiptRef);
+      return NextResponse.json({
+        ok: true,
+        state: 'complete' as VerifyStatusState,
+        authorizationId,
+        receiptRef: record.receiptRef,
+        structuredStatus: evidence ?? null,
+      });
     }
 
     const { AgentKeyService } = await import('@/services/identity/agentKeyService');
