@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-07T01:10:18.281Z",
+  "last_updated": "2026-08-07T01:15:37.740Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
-  "latest_commit_short": "91c57fe",
-  "latest_commit_title": "add extension distribution packages to .gitignore",
+  "latest_commit": "7fce0bf9466bf4acefc42caca5770f96a81d1167",
+  "latest_commit_short": "7fce0bf",
+  "latest_commit_title": "fix: add defensive null checks and error handling to sidepanel message handlers",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7fce0bf",
+      "full_sha": "7fce0bf9466bf4acefc42caca5770f96a81d1167",
+      "title": "fix: add defensive null checks and error handling to sidepanel message handlers",
+      "author": "Claude",
+      "timestamp": "2026-08-07T01:13:31Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7fce0bf.md"
+    },
     {
       "sha": "91c57fe",
       "full_sha": "91c57fee3f5bd70d7af5fd877d6a38df7ffa1511",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-07T16:13:29Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6f76157.md"
-    },
-    {
-      "sha": "575a293",
-      "full_sha": "575a2938c61f86b93c11cb02312cfb467b764ebb",
-      "title": "Persist dev-loop sessions: the Constitutional Development Environment survives refresh",
-      "author": "Claude",
-      "timestamp": "2026-07-07T14:00:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-575a293.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
