@@ -3564,3 +3564,63 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7fce0bf.md](../build_/COMMITS/COMMIT-7fce0bf.md)
 - Message: fix: add defensive null checks and error handling to sidepanel message handlers
+
+## Commit `7d77143` — 2026-08-08T12:47:57Z
+- Type: `push`
+- Brief: [COMMIT-7d77143.md](../build_/COMMITS/COMMIT-7d77143.md)
+- Message: Ignore vitest's coverage/ output directory
+
+## Commit `439fa9c` — 2026-08-08T12:47:23Z
+- Type: `feat`
+- Brief: [COMMIT-439fa9c.md](../build_/COMMITS/COMMIT-439fa9c.md)
+- Message: Fix test:ci's missing coverage dependency; add non-secret placeholder env vars
+
+## Commit `de41937` — 2026-08-08T12:28:57Z
+- Type: `fix`
+- Brief: [COMMIT-de41937.md](../build_/COMMITS/COMMIT-de41937.md)
+- Message: Fix tsconfig.json crash blocking type-check on every commit; make it informational in the new dev workflow
+
+## Commit `bf82b58` — 2026-08-08T12:18:48Z
+- Type: `fix`
+- Brief: [COMMIT-bf82b58.md](../build_/COMMITS/COMMIT-bf82b58.md)
+- Message: Replace dev CI fix with a narrow dedicated workflow
+
+## Commit `8513b6e` — 2026-08-08T12:14:51Z
+- Type: `fix`
+- Brief: [COMMIT-8513b6e.md](../build_/COMMITS/COMMIT-8513b6e.md)
+- Message: Correct A4 source-rebuild claim; run CI on PRs into dev
+
+## Commit `19f1887` — 2026-08-08T07:36:16-04:00
+- Type: `chore`
+- Brief: [COMMIT-19f1887.md](../build_/COMMITS/COMMIT-19f1887.md)
+- Message: Update provenance canary for CAP-1 v2 deployment
+
+## Commit `34ee202` — 2026-08-08T07:35:35-04:00
+- Type: `feat`
+- Brief: [COMMIT-34ee202.md](../build_/COMMITS/COMMIT-34ee202.md)
+- Message: Add CAP-1 activation canary with PoS leg held dark
+
+## Commit `ccb537f` — 2026-08-08T07:35:15-04:00
+- Type: `feat`
+- Brief: [COMMIT-ccb537f.md](../build_/COMMITS/COMMIT-ccb537f.md)
+- Message: Add proof_of_state_v2 Candid parity canary
+
+## Commit `ad02a1a` — 2026-08-08T07:34:57-04:00
+- Type: `feat`
+- Brief: [COMMIT-ad02a1a.md](../build_/COMMITS/COMMIT-ad02a1a.md)
+- Message: Add explicit CAP-1 activation gate and parked evidence
+
+## Commit `7baf817` — 2026-08-08T07:34:33-04:00
+- Type: `push`
+- Brief: [COMMIT-7baf817.md](../build_/COMMITS/COMMIT-7baf817.md)
+- Message: Record CAP-1 v2 canisters and close A4 provenance gate
+
+## Commit `7e8979e` — 2026-08-08T07:33:30-04:00
+- Type: `feat`
+- Brief: [COMMIT-7e8979e.md](../build_/COMMITS/COMMIT-7e8979e.md)
+- Message: Add proof_of_state_v2 TypeScript binding
+
+## Commit `cee3d41` — 2026-08-08T07:33:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-cee3d41.md](../build_/COMMITS/COMMIT-cee3d41.md)
+- Message: Add proof_of_state_v2 canonical DID for CAP-1 integration
