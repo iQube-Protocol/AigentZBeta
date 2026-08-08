@@ -181,7 +181,7 @@ No new migrations required if `20251105114300_remote_custody_claim.sql` is deplo
 - `services/ops/btcService.ts` — wire `BTC_SIGNER_CANISTER_ID` into signing flow alongside existing `proof_of_state` anchoring
 - Bitcoin mainnet: change `BTC_NETWORK=mainnet` and update RPC/explorer URLs in `btcService.ts`
 
-**Dependency:** `BTC_SIGNER_CANISTER_ID` must be set in env. The canister is live (confirmed) but the env var may not be populated in production.
+**Dependency (CORRECTED 2026-08-08):** the canister is NOT live. NOT ON IC — `uxrrr-q7777-77774-qaaaq-cai` is the LOCAL dfx id (.dfx/local/canister_ids.json @ cebf998, iQubeBeta-Program); it resolves `canister_not_found` on mainnet. Census 2026-08-08. No IC-mainnet btc_signer has ever existed. This work is blocked on Constitutional Anchor v2's first genuine mainnet deployment.
 
 ---
 

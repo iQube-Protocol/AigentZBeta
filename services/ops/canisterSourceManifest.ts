@@ -146,7 +146,10 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     canonicalPath: 'canisters/btc_signer_psbt/src/lib.rs',
     sourceCommitLastVerified: 'db6e562821c086acd530b5e9bdafaf575e775995',
     lastVerifiedAt: '2026-08-08',
-    localIdlPath: '(none — reached only via proof_of_state.anchor())',
+    // The IDL DOES exist here (operator correction, 2026-08-08). An earlier
+    // entry claimed none, having assumed the canister was reachable only via
+    // proof_of_state.anchor(). AigentZBeta holds a full binding.
+    localIdlPath: 'services/ops/idl/btc_signer_psbt.ts',
     deployedModuleHash: null,
     moduleHashVerifiedAgainstSource: null,
     observedCaveats: [

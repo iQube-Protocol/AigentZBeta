@@ -108,3 +108,55 @@ provenance across it*.
 
 `tests/canister-source-manifest.test.ts` enforces the manifest's structure and
 its coverage of every canister this repo holds an IDL for.
+
+---
+
+## Production canister principals are never hard-coded in dependent canister source (PARAMOUNT, 2026-08-08)
+
+**A canister must not embed another canister's production principal as a literal
+in its own source. Cross-canister callees are supplied through governed
+configuration, with the principal's provenance recorded.**
+
+### The failure that established this
+
+`proof_of_state::anchor()` contained:
+
+```rust
+let btc_canister_id = "uxrrr-q7777-77774-qaaaq-cai";
+```
+
+That principal is the **local dfx id** from `.dfx/local/canister_ids.json`. It
+resolves `canister_not_found` on IC mainnet, so the inter-canister call could
+never succeed — and control landed on the fallback every time:
+
+```rust
+Err(_) => Ok(format!("mock_btc_txid_{}", &batch.root[..8]))
+```
+
+All 76 "anchored" batches recorded a synthesised txid. The system reported
+Bitcoin anchoring it had never performed, for its entire deployed life, because
+a literal in one canister named a canister that did not exist in the environment
+it was deployed to.
+
+A hard-coded principal cannot be environment-aware, cannot be audited against a
+deployment record, and cannot fail loudly when wrong — it fails at call time, in
+whatever way the caller's error branch happens to be written.
+
+### Required
+
+1. **No production principal as a literal in canister source.** Take it from
+   an init argument, a stable governed setting, or an explicit configuration
+   record — never `let x = "abcd-..."`.
+2. **A missing or unset callee is a refusal, not a fallback.** If the signer is
+   not configured, `anchor()` must return `Err`. Substituting synthesised output
+   for an unreachable dependency is the defect above, restated.
+3. **The principal's provenance is recorded** in
+   `services/ops/canisterSourceManifest.ts` (network, module hash, and whether
+   it has been verified against a reproducible build) before any dependent
+   canister is pointed at it.
+4. **Phase P applies this to the new signer.** `proof_of_state` must consume
+   Constitutional Anchor v2's principal through governed configuration; the
+   repaired canister may not inherit the literal it is replacing.
+
+`tests/no-promoted-local-canister-ids.test.ts` enforces the AigentZBeta half:
+no active config or doc may present a local-shaped principal as mainnet truth.
