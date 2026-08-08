@@ -396,7 +396,7 @@ export function RegisterAgentPanel({
         personaFetch('/api/wallet/signing-requests', { cache: 'no-store', personaIdHint: personaId }),
         fetch(`/api/agents/${agentSlug}/agent-card.json`, { cache: 'no-store' }),
         personaFetch(
-          '/api/assistant/receipts?limit=100&actionTypes=horizen_registration_submitted,horizen_agent_registered',
+          '/api/assistant/receipts?limit=100&actionType=horizen_registration_submitted,horizen_agent_registered',
           { cache: 'no-store', personaIdHint: personaId },
         ),
       ]);

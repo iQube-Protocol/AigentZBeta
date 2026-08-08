@@ -170,6 +170,42 @@ const VALID_ACTION_TYPES = new Set<ActivityActionType>([
   'marketa_eligibility_assessed',
   'marketa_eligibility_refused',
   'marketa_eligibility_quarantined',
+  // Wallet Signing Topology, Register vertical slice (operator ruling
+  // 2026-08-01) — the five ceremony-step receipts named in
+  // horizenMoneyPennyJourney.ts's Register stage `receiptTypes`. Omitted
+  // here when they shipped, so StageReceiptsDrawer's query silently dropped
+  // every one of them while the journey's own state resolution (which reads
+  // `activity_receipts` directly, with no allowlist) showed the ceremony
+  // progressing correctly — "no receipts recorded for this stage" even
+  // though the receipts existed.
+  'principal_registration_mandate_signed',
+  'agent_registry_transaction_signed',
+  'horizen_registration_submitted',
+  'horizen_registration_confirmed',
+  'agent_registry_binding_recorded',
+  // The SAME drift, found on every OTHER Horizen-MoneyPenny journey stage
+  // when auditing the Register-stage gap above (2026-08-08) — each of these
+  // is named in a stage's `receiptTypes` in horizenMoneyPennyJourney.ts but
+  // was never added here, so StageReceiptsDrawer would show "no receipts
+  // recorded" for Passport, Delegate, aigentMe, Ratify's agreement receipts,
+  // Deploy, and Standing too, for the identical reason. Third occurrence of
+  // this allowlist-drift defect class overall; see
+  // tests/assistant-receipts-action-type-allowlist-parity.test.ts, which now
+  // asserts EVERY receiptTypes entry across the journey definition is
+  // present here so a fourth occurrence fails the build instead of shipping.
+  'operator_passport_validated',
+  'agent_sponsorship_recorded',
+  'passport_issued',
+  'agent_delegate_passport_issued',
+  'agent_delegated',
+  'finance_authoritative_execution',
+  'aigentme_activated',
+  'experienceqube_focus_disposition_recorded',
+  'journey_completed',
+  'agreement_formed',
+  'agreement_authorized',
+  'capability_registered',
+  'standing_accrued',
 ]);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
