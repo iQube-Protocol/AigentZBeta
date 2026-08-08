@@ -499,7 +499,21 @@ function ActivityReceiptsDvnPanel() {
             : r.receipt_status === 'dvn_failed'
             ? 'text-red-400'
             : 'text-slate-400';
-          const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          /*
+           * DATE, NOT JUST TIME (operator report, 2026-08-08). This rendered
+           * `toLocaleTimeString` alone, so a receipt created 2026-07-20T06:46
+           * displayed as "06:46" — indistinguishable from one created this
+           * morning. The operator read three-week-old `failed` rows as current
+           * failures and reported a live DVN outage that had actually happened
+           * weeks earlier. A stale observation must never render as current
+           * (Companion MS-10 / observer invariant OS-2, third instance of this
+           * same shape). Today keeps the bare time; anything older is dated.
+           */
+          const created = new Date(r.created_at);
+          const isToday = created.toDateString() === new Date().toDateString();
+          const ts = isToday
+            ? created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : created.toLocaleDateString([], { month: 'short', day: 'numeric' });
           return (
             <div key={r.id} className="flex items-start justify-between gap-2 text-xs">
               <span className={`font-medium shrink-0 ${r.action_type === 'agent_delegated' ? 'text-emerald-300' : 'text-rose-300'}`}>
