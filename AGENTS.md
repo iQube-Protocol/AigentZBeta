@@ -30,6 +30,14 @@
 - No destructive actions without checkpoints/tests.
 - Never use production credentials, wallets, or live DBs.
 
+## MCP tool access — Threshold / metaMe (no auth required)
+
+A metaMe/Threshold MCP server is available at `https://dev-beta.aigentz.me/api/threshold/mcp`
+(no API key or OAuth needed). It's registered in the repo root `.mcp.json` under the key
+`threshold` — any MCP-capable agent session opening this repo should read the endpoint from
+there rather than being told it out of band. If your harness doesn't auto-read `.mcp.json`, add
+the same endpoint manually using this URL. See `CLAUDE.md` for the full note.
+
 ## QubeTalk bridge delivery pattern (required)
 When Codex completes a sprint/epic slice:
 

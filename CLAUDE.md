@@ -1542,6 +1542,27 @@ Specialist agents are defined in `.claude/agents/`:
 
 ---
 
+## MCP Servers — Threshold / metaMe Tool Access (project-scoped, no auth)
+
+The **Threshold** MCP server exposes metaMe/AigentZ platform tools (Threshold Cohort Activation,
+Founder Office Agent Bench, etc.) directly inside an agent session — the same tool surface
+available as a connector on claude.ai.
+
+- **Endpoint**: `https://dev-beta.aigentz.me/api/threshold/mcp`
+- **Auth**: none — no API key, no OAuth.
+- **Wiring**: registered in the repo root `.mcp.json` (checked into git) under the key `threshold`.
+  Any Claude Code session that opens this repo picks it up automatically — no per-session setup.
+- **First-use trust prompt**: Claude Code asks to approve a new project-scoped MCP server the
+  first time a session in a given local checkout uses it. That's a security prompt, not a config
+  gap — approve it once per checkout.
+- **Other agents** (Codex, Lovable, etc.): read `.mcp.json` for the endpoint if your harness
+  supports MCP; the server needs no credentials to add. See `AGENTS.md` for the Codex-facing note.
+
+If the endpoint changes (e.g. promoted from `dev-beta` to a production host), update `.mcp.json`
+and this section together — never let them drift.
+
+---
+
 ## QubeTalk — Sandbox Limitation
 
 **Outbound HTTPS is blocked in the Claude Code sandbox.** The `qubetalk-claude.sh` script and all `curl` calls to external hosts fail with a 403 CONNECT tunnel error. This includes both sending and reading QubeTalk messages.
