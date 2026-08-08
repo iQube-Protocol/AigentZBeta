@@ -69,11 +69,23 @@ export interface CanisterSourceEntry {
   /** This repo's local IDL binding — the adapter surface AigentZBeta owns. */
   localIdlPath: string;
   /**
-   * sha256 of the deployed WASM module, when it has been obtained. NULL means
-   * "we have not proven the deployed code matches the source", which is the
-   * current, honest state for every entry. Never fill this speculatively.
+   * sha256 of the deployed WASM module, READ FROM THE LIVE CANISTER via a
+   * certified `read_state` (scripts/canister-lineage-census.ts). This is an
+   * OBSERVATION — it says what is running, not what source produced it.
    */
   deployedModuleHash: string | null;
+  /**
+   * THE A4 GATE. sha256 of a REPRODUCIBLE BUILD of `sourceCommitLastVerified`
+   * that MATCHES `deployedModuleHash`. Null until such a build has actually
+   * been performed and compared.
+   *
+   * Deliberately separate from `deployedModuleHash`: obtaining the deployed
+   * hash is easy and proves nothing about provenance. Collapsing the two would
+   * let the activation gate open the moment someone ran the census — the exact
+   * "a weaker fact promoted into a stronger claim" pattern that put a LOCAL
+   * canister id into mainnet config under the label "LIVE MAINNET".
+   */
+  moduleHashVerifiedAgainstSource: string | null;
   /**
    * Behaviours OBSERVED on the deployed canister that a reader must not
    * assume away. Recorded here because they are the difference between "the
@@ -93,7 +105,8 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     sourceCommitLastVerified: 'db6e562821c086acd530b5e9bdafaf575e775995',
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/cross_chain_service.ts',
-    deployedModuleHash: null,
+    deployedModuleHash: '72a026cab892ac65690c2b001216dc844b7d4f9ed286da53977df1eae18ce16e',
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: [
       'get_ready_messages() is UNREADABLE on the deployed canister: the ready set exceeds the IC 3 MiB query response cap (IC0504). A read failure here must never be reported as an empty set.',
       'Readiness is attestation_count >= 2 (REQUIRED_ATTESTATIONS). This is a STATE TRANSITION, not verification.',
@@ -110,7 +123,8 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     sourceCommitLastVerified: 'db6e562821c086acd530b5e9bdafaf575e775995',
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/proof_of_state.ts',
-    deployedModuleHash: null,
+    deployedModuleHash: '97b83aa2d4af6b9c324a6a2120633db14704018f492fd6d5bf25f0cbee2c4b7b',
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: [
       'The batch root commits to RECEIPT IDS, not data_hash. Proven live: 20/20 sampled batches satisfy root == sha256(concat receipt_ids); 0/20 satisfy root == sha256(concat data_hashes).',
       'merkle_proof is empty on all 186 receipts in anchored batches, and the root is a single sequential SHA256 over concatenated ids — not a Merkle tree, so no per-leaf inclusion proof is constructible.',
@@ -123,13 +137,18 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     name: 'btc_signer_psbt',
     sourceLocationStatus: 'located',
     canisterId: 'uxrrr-q7777-77774-qaaaq-cai',
-    network: 'ic',
+    // NOT 'ic'. Census 2026-08-08: canister_not_found on mainnet. This is the
+    // LOCAL dfx id from .dfx/local/canister_ids.json @ cebf998, promoted into
+    // mainnet env config at a88bc3a under the label "Bitcoin Signer - LIVE
+    // MAINNET". No IC-mainnet btc_signer has ever existed.
+    network: 'local',
     canonicalRepo: 'iQube-Protocol/iQubeBeta-Program',
     canonicalPath: 'canisters/btc_signer_psbt/src/lib.rs',
     sourceCommitLastVerified: 'db6e562821c086acd530b5e9bdafaf575e775995',
     lastVerifiedAt: '2026-08-08',
     localIdlPath: '(none — reached only via proof_of_state.anchor())',
     deployedModuleHash: null,
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: [
       'create_anchor_transaction computes _op_return_script and DISCARDS it (underscore-prefixed, never used). The data hash is never encoded into transaction bytes.',
       'Outputs carry the literal strings "OP_RETURN" and "change_address" in their address field; no Bitcoin transaction is ever serialised.',
@@ -149,7 +168,8 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     sourceCommitLastVerified: null,
     lastVerifiedAt: null,
     localIdlPath: 'services/ops/idl/evm_rpc.ts',
-    deployedModuleHash: null,
+    deployedModuleHash: 'f61b3c2970548b611fcc9285eca94aace166e3c295cb98287c9e009a1075d392',
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: ['Source located but NOT yet read or behaviourally audited — no caveats recorded either way.'],
   },
   // ── Canonical in THIS repo (AigentZBeta owns these outright) ─────────────
@@ -164,6 +184,7 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/reward_hub.ts',
     deployedModuleHash: null,
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: ['Declared in THIS repo\'s dfx.json — AigentZBeta is the canonical owner, unlike the ICP substrate canisters above.'],
   },
   {
@@ -177,6 +198,7 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/rqh.ts',
     deployedModuleHash: null,
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: ['Declared in THIS repo\'s dfx.json — AigentZBeta is the canonical owner.'],
   },
   /*
@@ -204,6 +226,7 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: null,
     localIdlPath: `services/ops/idl/${name}.ts`,
     deployedModuleHash: null,
+    moduleHashVerifiedAgainstSource: null,
     observedCaveats: [],
   })),
 ];
@@ -229,7 +252,7 @@ export function activationProvenanceBlockers(): CanisterSourceEntry[] {
   return CANISTER_SOURCE_MANIFEST.filter(
     (e) =>
       (BITCOIN_PATH_CANISTERS as readonly string[]).includes(e.name) &&
-      (e.deployedModuleHash === null || e.sourceCommitLastVerified === null),
+      (e.moduleHashVerifiedAgainstSource === null || e.sourceCommitLastVerified === null),
   );
 }
 

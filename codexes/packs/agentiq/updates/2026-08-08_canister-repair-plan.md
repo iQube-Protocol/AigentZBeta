@@ -283,6 +283,150 @@ split:
    repaired canisters ship, closing the "is the live canister running this source" gap that is
    currently `null` for every entry.
 
+---
+
+## 7. CANISTER LINEAGE CENSUS (read-only, 2026-08-08)
+
+Run before Phase B implementation, per operator directive. `read_state` +
+query calls only — nothing deployed, upgraded or mutated.
+
+### 7.1 Correction to the record
+
+Two claims made earlier in this investigation **overstated the evidence and are
+withdrawn**:
+
+- ~~"this canister has never had a working test gate"~~
+- ~~"the anchor path cannot have worked at any point in its history"~~
+
+What was actually established is narrower: **at `db6e5628` the workspace did not
+resolve and `btc_signer_psbt`'s tests did not compile.** That is a statement
+about HEAD, not about the project's history.
+
+`3ee3cb0` (2025-09-14, *"Complete ICP/BTC integration with deployed canisters"*)
+records all four canisters deployed with dfx 0.29.1 / Rust 1.89.0 and
+**"Successfully test all deployed canisters with live function calls"**. The
+workspace break was introduced later, when `reputation_qube` joined the
+workspace with an `ic-cdk-macros` feature that does not exist.
+
+**This is a regression in a system that once ran, not an edifice that never
+did.** That changes the repair posture materially.
+
+### 7.2 Census results
+
+| Canister | Principal | Classification | Deployed module hash |
+|---|---|---|---|
+| proof_of_state | `n2hhv-aaaaa-aaaas-qccza-cai` | **LIVE on IC** | `97b83aa2d4af6b9c…ee2c4b7b` |
+| cross_chain_service | `sp5ye-2qaaa-aaaao-qkqla-cai` | **LIVE on IC** | `72a026cab892ac65…e18ce16e` |
+| evm_rpc | `7hfb6-caaaa-aaaar-qadga-cai` | **LIVE on IC** | `f61b3c2970548b61…1075d392` |
+| btc_signer_psbt | `uxrrr-q7777-77774-qaaaq-cai` | **NOT ON IC** — `canister_not_found` | — |
+| evm_rpc | `uzt4z-lp777-77774-qaabq-cai` | **NOT ON IC** — `canister_not_found` | — |
+| proof_of_state | `umunu-kh777-77774-qaaca-cai` | NOT ON IC (local dfx) | — |
+| cross_chain_service | `u6s2n-gx777-77774-qaaba-cai` | NOT ON IC (local dfx) | — |
+| solana_signer_ed25519 | `ulvla-h7777-77774-qaacq-cai` | NOT ON IC (local dfx) | — |
+
+**Discrepancy resolved:** the operator's note recorded `.dfx` as listing
+`proof_of_state = ulvla…`. The historical file at `cebf998` actually lists
+`proof_of_state = umunu-kh777-77774-qaaca-cai`; `ulvla…` was
+`solana_signer_ed25519` there, and `__Candid_UI` at `7ad1683`. It does not
+change the conclusion — every `-77774-` principal is local — but the record
+should be exact.
+
+### 7.3 THE CENTRAL FINDING — an accidental promotion, and what it caused
+
+`a88bc3a` (2025-10-05) wrote into mainnet environment configuration:
+
+```
+# Bitcoin Signer - LIVE MAINNET
+BTC_SIGNER_CANISTER_ID=uxrrr-q7777-77774-qaaaq-cai
+# EVM RPC - LIVE MAINNET
+EVM_RPC_CANISTER_ID=uzt4z-lp777-77774-qaabq-cai
+```
+
+Both are **local dfx ids** from `.dfx/local/canister_ids.json` @ `cebf998`.
+Neither resolves on IC mainnet. The label "LIVE MAINNET" was applied to a
+local-replica identity.
+
+`n2hhv…` (PoS) and `sp5ye…` (DVN) were, by contrast, genuinely deployed to
+mainnet via a GitHub Actions pipeline — the same commit series describes
+`n2hhv` as *"Fresh IC Mainnet"*. So the promotion defect is specific, not
+general.
+
+**Why this matters more than any source defect found so far.**
+`proof_of_state::anchor()` hardcodes its callee:
+
+```rust
+let btc_canister_id = "uxrrr-q7777-77774-qaaaq-cai";
+```
+
+That principal does not exist on mainnet, so the inter-canister call **cannot
+succeed**, and control lands here every single time:
+
+```rust
+Err(_) => Ok(format!("mock_btc_txid_{}", &batch.root[..8]))
+```
+
+The synthesised txid on all 76 anchored batches is therefore **not a lazy
+placeholder — it is the error branch firing continuously since deployment.**
+The BTC signer was never absent from the design; it was absent from the
+network, and the code swallowed that as success.
+
+This is the same defect class as everything else in this investigation
+(`Err`-as-success, read-failure-as-empty-result), now found at the
+infrastructure layer: **a failure to reach the substrate was recorded as
+substrate output.**
+
+### 7.4 Was there ever a real IC-mainnet btc_signer?
+
+**No.** Evidence, all consistent:
+
+- `canister_ids.json` at HEAD contains **only** `cross_chain_service` under
+  `"ic"` — no PoS, no signer;
+- the sole `btc_signer_psbt` id in any `.dfx` state is the local `uxrrr…`;
+- `uxrrr…` resolves `canister_not_found` on mainnet today;
+- no commit anywhere in 138 commits of history records a signer mainnet deploy.
+
+`n2hhv` reached mainnet through CI; the signer never did.
+
+### 7.5 Phase B routing recommendation
+
+Of the three options: **(2) create a new `btc_anchor_v2` canister**, with one
+qualification.
+
+- **(1) repair the existing signer source** — the source is the right starting
+  point and Phase B's seven RED tests already target it. But there is no
+  deployed mainnet signer to repair: the repair necessarily produces a *new*
+  mainnet canister with a *new* principal.
+- **(3) recover a different historical implementation** — nothing to recover.
+  The census found no other signer identity, and the local `uxrrr…` ran the
+  same mock-bearing source.
+
+So the substance of (1) — fix `btc_signer_psbt`'s source against the RED
+contract — and the deployment reality of (2): first mainnet deployment, new
+principal, recorded in `canister_ids.json` under `"ic"` with a reproducible
+build and module hash per A4. Whether it is *named* `btc_anchor_v2` or remains
+`btc_signer_psbt` at a new principal is the operator's call; the census does not
+decide it.
+
+### 7.6 `n2hhv` is active legacy state
+
+Treated as such throughout: **not** dead code. It holds 161 batches / 624
+receipts. Its root construction is wrong (commits to receipt ids) and its
+`merkle_proof` is empty, so a v2 `proof_of_state` cannot simply inherit that
+state as though it were valid evidence. **No upgrade proposed until
+state-preservation semantics are specified and reviewed** — a Phase P
+precondition, not a Phase B one.
+
+### 7.7 Provenance still open
+
+The census obtained deployed module hashes for the three live canisters. That
+is an **observation of what is running**, not proof of what source produced it.
+`moduleHashVerifiedAgainstSource` remains `null` for every entry and the A4 gate
+keys on **that** field, not on `deployedModuleHash` — otherwise merely running
+the census would have opened the gate, which is the same weak-fact-promoted-to-
+strong-claim pattern that put a local canister id into mainnet config.
+
+---
+
 ## 6. Explicitly NOT in this plan
 
 - **Repairing the historical 120 `dvn_failed` / 267 `dvn_pending`.** Held per operator ruling.
