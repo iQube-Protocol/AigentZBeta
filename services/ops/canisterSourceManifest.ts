@@ -208,6 +208,31 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
   })),
 ];
 
+/**
+ * AMENDMENT A4 — the activation gate (operator, 2026-08-08).
+ *
+ * `POS_LEG_SUBMISSION_ENABLED` may not be flipped on the strength of source
+ * review. Every canister on the Bitcoin path must additionally have its
+ * DEPLOYED MODULE HASH matched against a reproducible build of the recorded
+ * source commit. Until then, "this is where the code is maintained" is the only
+ * claim this manifest supports — and every finding in the 2026-08-08
+ * investigation came from a deployed canister whose provenance is unverified,
+ * so the repair must not inherit that weakness.
+ *
+ * Returns the canisters still blocking activation. Empty ⇒ the provenance
+ * half of the gate is satisfied (CAP-1 and the acceptance suites are separate,
+ * and both still apply).
+ */
+export const BITCOIN_PATH_CANISTERS = ['proof_of_state', 'btc_signer_psbt'] as const;
+
+export function activationProvenanceBlockers(): CanisterSourceEntry[] {
+  return CANISTER_SOURCE_MANIFEST.filter(
+    (e) =>
+      (BITCOIN_PATH_CANISTERS as readonly string[]).includes(e.name) &&
+      (e.deployedModuleHash === null || e.sourceCommitLastVerified === null),
+  );
+}
+
 export function canisterSourceFor(canisterId: string): CanisterSourceEntry | undefined {
   return CANISTER_SOURCE_MANIFEST.find((e) => e.canisterId === canisterId);
 }

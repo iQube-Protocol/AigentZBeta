@@ -51,11 +51,18 @@ ALTER TABLE public.activity_receipts
 -- ── The PoS / Bitcoin leg ───────────────────────────────────────────────────
 -- pos_receipt_id : the id proof_of_state.issue_receipt(H) returned.
 -- pos_status     : lifecycle of THIS leg alone, never of the receipt overall.
---   pending  = issue_receipt accepted it; awaiting Merkle batching
---   batched  = it appears in a MerkleBatch that has no btc_anchor_txid yet
---   anchored = its batch carries a btc_anchor_txid (Bitcoin evidence exists)
---   failed   = issue_receipt was reached and refused
---   NULL     = this leg has never been attempted
+--   pending   = issue_receipt accepted it; awaiting Merkle batching
+--   batched   = it appears in a MerkleBatch that has no Bitcoin transaction yet
+--   broadcast = a VALID transaction carrying the batch root was serialised and
+--               accepted by the Bitcoin network; a real txid exists. NOTHING IS
+--               CONFIRMED. (Amendment A2, operator 2026-08-08.) Collapsing this
+--               into 'anchored' would be the same error class as 'dvn_recorded'
+--               meaning "appeared in a queue": reporting a SUBMISSION as a
+--               SETTLEMENT. A broadcast tx can be RBF-replaced (sequence
+--               0xfffffffd enables it), evicted from mempools, or never mined.
+--   anchored  = that txid appears in a block, at a height READ FROM THE NETWORK
+--   failed    = issue_receipt was reached and refused
+--   NULL      = this leg has never been attempted
 ALTER TABLE public.activity_receipts
   ADD COLUMN IF NOT EXISTS pos_receipt_id text,
   ADD COLUMN IF NOT EXISTS pos_status text,
@@ -78,7 +85,7 @@ ALTER TABLE public.activity_receipts
   DROP CONSTRAINT IF EXISTS activity_receipts_pos_status_check;
 ALTER TABLE public.activity_receipts
   ADD CONSTRAINT activity_receipts_pos_status_check
-  CHECK (pos_status IS NULL OR pos_status IN ('pending', 'batched', 'anchored', 'failed'));
+  CHECK (pos_status IS NULL OR pos_status IN ('pending', 'batched', 'broadcast', 'anchored', 'failed'));
 
 ALTER TABLE public.activity_receipts
   DROP CONSTRAINT IF EXISTS activity_receipts_dvn_status_check;
@@ -105,6 +112,6 @@ CREATE INDEX IF NOT EXISTS idx_activity_receipts_dvn_leg_outstanding
 COMMENT ON COLUMN public.activity_receipts.commitment_hash IS
   'sha256 of the receipt''s immutable T2-safe projection (services/receipts/receiptCommitment.ts). The SAME value is the PoS data_hash and travels in the DVN payload; it is how the two legs are reconciled by identity. NULL on rows predating 2026-08-08.';
 COMMENT ON COLUMN public.activity_receipts.pos_status IS
-  'proof_of_state leg ONLY: pending|batched|anchored|failed. Never implies anything about the DVN leg.';
+  'proof_of_state leg ONLY: pending|batched|broadcast|anchored|failed. ''broadcast'' = a real txid exists but nothing is confirmed; ''anchored'' = that txid is in a block at a height read from the network. Never implies anything about the DVN leg.';
 COMMENT ON COLUMN public.activity_receipts.dvn_status IS
   'cross_chain_service leg ONLY: submitted|ready|failed. ''ready'' requires per-message attestation evidence, never mere message existence.';

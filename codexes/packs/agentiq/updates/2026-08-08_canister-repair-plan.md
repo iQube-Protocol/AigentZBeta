@@ -9,6 +9,95 @@ work begins in `iQube-Protocol/iQubeBeta-Program`.
 
 ---
 
+## 0a. Approved amendments (operator, 2026-08-08)
+
+The plan below is approved subject to these four, which are binding on Phase B implementation.
+
+### A1 — ICP native Bitcoin API is the authoritative transport, not HTTP
+
+The canonical transport is the **IC management canister's Bitcoin API**
+(`bitcoin_get_utxos`, `bitcoin_send_transaction`, `bitcoin_get_current_fee_percentiles`,
+`bitcoin_get_balance`), **not** HTTPS outcalls to Blockstream / mempool.space.
+
+Why this is not merely a preference: an HTTPS outcall must reach byte-identical responses across
+every replica to pass consensus, so a block explorer's response — which carries confirmation
+counts, rotating field order, and timestamps — is *structurally* consensus-hostile. It works in a
+single-replica test and degrades unpredictably in production. Worse for our purposes, it makes an
+external service the arbiter of whether a constitutional anchor exists. The native API is
+replicated by the IC itself and is the only transport that makes "the anchor is on Bitcoin" a
+statement the subnet can attest to rather than a claim relayed by a third party.
+
+The existing `broadcast_transaction` HTTP path is therefore **removed**, not repaired. Any
+explorer lookup that survives is a *convenience for humans reading the Ops console* and must never
+be the source of an anchoring state transition.
+
+### A2 — `broadcast` is a distinct state before `anchored`
+
+The PoS leg's lifecycle becomes:
+
+```
+pending → batched → broadcast → anchored
+                              ↘ failed
+```
+
+- **`broadcast`** — a valid transaction was serialised and accepted by the Bitcoin network; a real
+  txid exists. **Nothing is confirmed.**
+- **`anchored`** — that txid appears in a block, at a height read from the network.
+
+Collapsing these is the same error class as `dvn_recorded` meaning "appeared in a queue": it
+reports a *submission* as a *settlement*. A broadcast transaction can be replaced (RBF is enabled
+via `sequence: 0xfffffffd`), evicted from mempools, or simply never mined. Until it is in a block,
+the honest claim is "we sent it", and the schema must be able to say exactly that.
+
+This requires a matching change to AigentZBeta's `pos_status` CHECK constraint before the
+migration is applied.
+
+### A3 — Normative byte encoding and domain separation
+
+Under-specified hashing is how two implementations silently disagree about the same commitment.
+The following is normative; a verifier written from this section alone must reproduce our roots.
+
+| Element | Specification |
+|---|---|
+| `H` | 32 bytes. AigentZBeta computes `sha256(canonicalJson(projection))` and transports it as 64-char lowercase hex. **The canister MUST hex-decode to 32 raw bytes before hashing.** Hashing the ASCII hex string is a different commitment and is forbidden. |
+| Leaf | `SHA256(0x00 ‖ H_bytes)` — 33 bytes input |
+| Internal node | `SHA256(0x01 ‖ left ‖ right)` — 65 bytes input |
+| Domain separation | The `0x00` / `0x01` prefixes are **mandatory**. Without them a 64-byte leaf preimage can be reinterpreted as an internal node, which is the classic Merkle second-preimage attack — a forged inclusion proof for a receipt that was never issued. |
+| Odd level | Promote the unpaired node unchanged to the next level. Do **not** duplicate it: duplication (the CVE-2012-2459 shape) lets two distinct leaf sets produce one root. |
+| Single leaf | Root = that leaf. Not re-hashed. |
+| Empty batch | No root. `batch()` refuses; it does not emit `SHA256("")`. |
+| Ordering | Leaves in receipt-insertion order. The order is part of the commitment and is recorded with the batch so a proof can be checked. |
+| Root on-chain | The 32 raw bytes, in `OP_RETURN OP_PUSHBYTES_32 <root>` → script `6a20` ‖ root. Never the hex string (which would need 64 bytes and mean a different commitment). |
+| Proof element | 32 raw bytes plus a side bit (left/right). Both are required — a path without sides is not verifiable. |
+
+### A4 — Reproducible build + module hash is part of the activation gate
+
+`POS_LEG_SUBMISSION_ENABLED` may not be flipped on the strength of source review. Activation
+additionally requires:
+
+1. a **reproducible build** of the repaired canisters from a named commit (pinned toolchain,
+   documented `docker`/`ic-wasm` invocation, byte-identical output on a repeat run);
+2. the **deployed module hash** (`dfx canister info <id>` / `read_state` `module_hash`) matching
+   that build's WASM sha256;
+3. both recorded in `services/ops/canisterSourceManifest.ts` against the source commit.
+
+This closes the gap the manifest currently states honestly as `null`: today we can say "this is
+where the code is maintained" and cannot say "this is what the live canister runs". Every finding
+in this plan came from a deployed canister whose provenance is unverified — the fix must not
+inherit that weakness.
+
+### CAP-1 — the final activation criterion
+
+> **An independent verifier, starting from the Bitcoin transaction alone, must be able to prove the
+> path back to `H`.**
+
+Not "our code can verify it". A third party holding the txid, the public Merkle proof, and this
+document's §A3 must arrive at `H` and match it to the constitutional receipt. Everything else in
+this plan is a precondition for CAP-1; CAP-1 is the only criterion that cannot be satisfied by a
+system that merely looks correct from the inside.
+
+---
+
 ## 0. The chain that must hold end to end
 
 ```

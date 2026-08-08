@@ -17,7 +17,8 @@
 import { describe, it, expect } from 'vitest';
 import { readdirSync } from 'fs';
 import { join } from 'path';
-import { CANISTER_SOURCE_MANIFEST, canisterSourceFor, unlocatedCanisters } from '@/services/ops/canisterSourceManifest';
+import { CANISTER_SOURCE_MANIFEST, canisterSourceFor, unlocatedCanisters, activationProvenanceBlockers } from '@/services/ops/canisterSourceManifest';
+import { POS_LEG_SUBMISSION_ENABLED } from '@/services/dvn/activityReceiptDvnPipeline';
 import { readSource } from './_lib/sourceAuthority';
 
 describe('canister source manifest', () => {
@@ -104,5 +105,34 @@ describe('canister source manifest', () => {
     // accident rather than a decision.
     expect(agents).toContain('iQubeBeta-Program');
     expect(agents).toContain('Canonical canister implementation');
+  });
+});
+
+/*
+ * AMENDMENT A4 (operator, 2026-08-08) — reproducible-build / module-hash
+ * provenance is part of the activation gate, not a nice-to-have.
+ *
+ * Source review is not deployment evidence. Every finding in this
+ * investigation came from a deployed canister whose provenance is unverified;
+ * activating the PoS leg on the strength of a source reading would inherit
+ * exactly that weakness.
+ */
+describe('activation gate — provenance (A4)', () => {
+  it('reports the Bitcoin-path canisters as blocking until their deployed module hash is verified', () => {
+    const blockers = activationProvenanceBlockers().map((e) => e.name).sort();
+    expect(blockers).toEqual(['btc_signer_psbt', 'proof_of_state']);
+  });
+
+  it('POS_LEG_SUBMISSION_ENABLED stays false while any provenance blocker remains', () => {
+    // The two must not be able to disagree: a code change that flips the flag
+    // without closing provenance fails here rather than shipping.
+    if (activationProvenanceBlockers().length > 0) {
+      expect(
+        POS_LEG_SUBMISSION_ENABLED,
+        'PoS submission is enabled while Bitcoin-path canisters still lack verified deployment ' +
+          'provenance. Per amendment A4 the deployed module hash must match a reproducible build ' +
+          'of the recorded source commit first.',
+      ).toBe(false);
+    }
   });
 });
