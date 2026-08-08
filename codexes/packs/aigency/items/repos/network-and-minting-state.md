@@ -177,7 +177,7 @@ Two contract addresses tracked on Ethereum mainnet:
 PROOF_OF_STATE_CANISTER_ID
 CROSS_CHAIN_SERVICE_CANISTER_ID
 EVM_RPC_CANISTER_ID
-BTC_SIGNER_CANISTER_ID          # Live canister, env var may not be set in production
+BTC_SIGNER_CANISTER_ID          # NOT a live canister — see 2026-08-08 census; no mainnet signer exists
 RQH_CANISTER_ID                 # Default: sp5ye-2qaaa-aaaao-qkqla-cai
 REWARD_HUB_CANISTER_ID
 
