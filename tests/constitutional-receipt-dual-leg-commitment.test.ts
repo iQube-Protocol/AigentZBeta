@@ -33,6 +33,7 @@
 import { describe, it, expect } from 'vitest';
 import { readSource, stripComments } from './_lib/sourceAuthority';
 import { computeReceiptCommitment, type ReceiptCommitmentInput } from '@/services/receipts/receiptCommitment';
+import { isRealBitcoinTxid } from '@/services/dvn/activityReceiptDvnPipeline';
 
 const pipelineSource = stripComments(readSource('services/dvn/activityReceiptDvnPipeline.ts'));
 const repairSource = stripComments(readSource('app/api/ops/sync/repair/route.ts'));
@@ -102,16 +103,62 @@ describe('both legs are written, and neither is mistaken for the other', () => {
     expect(pipelineSource).toContain('submitActivityReceiptToPos');
   });
 
-  it('the SAME commitment travels on both legs — never two independently derived hashes', () => {
-    // Both submitters must derive H through the one shared helper. A second
-    // derivation would let the legs drift apart silently (inv.engineering.036/037).
+  it('the dual-leg path computes H ONCE and hands the identical value to both legs', () => {
+    /*
+     * Stronger than "both legs derive the same H". Two derivations agreeing is
+     * a coincidence the code does not enforce; passing one value to both is a
+     * fact. It also closes a real hole in the first version: if the PoS leg
+     * threw before deriving anything, H was never persisted at all, even
+     * though the DVN leg had already carried one on-chain — leaving a message
+     * committing to an H the database could not name.
+     */
     expect(pipelineSource).toContain('computeReceiptCommitment');
-    expect(pipelineSource).toContain('commitmentHash');
-    const derivations = pipelineSource.match(/computeReceiptCommitment\(/g) ?? [];
+    expect(pipelineSource).toMatch(/submitActivityReceiptToDvn\(record,\s*personaId,\s*commitmentHash\)/);
+    expect(pipelineSource).toMatch(/submitActivityReceiptToPos\(record,\s*personaId,\s*commitmentHash\)/);
+  });
+
+  it('persists H BEFORE either leg runs, never from a leg result', () => {
+    const enqueueStart = pipelineSource.indexOf('export function enqueueActivityReceiptAnchor');
+    expect(enqueueStart).toBeGreaterThan(-1);
+    const body = pipelineSource.slice(enqueueStart);
+    const persistIdx = body.indexOf('commitment_hash: commitmentHash');
+    const legsIdx = body.indexOf('Promise.allSettled');
+    expect(persistIdx).toBeGreaterThan(-1);
     expect(
-      derivations.length,
-      'Each leg derives H via the shared receiptCommitment helper; no other hashing path may appear.',
-    ).toBeGreaterThanOrEqual(2);
+      persistIdx < legsIdx,
+      'H must be persisted before either leg is attempted, so a leg that throws cannot leave the ' +
+        'row unable to name the commitment its sibling already carried on-chain.',
+    ).toBe(true);
+    // And never sourced from a leg's own result object.
+    expect(pipelineSource).not.toMatch(/commitment_hash:\s*posResult\./);
+  });
+
+  it('offers a per-leg retry entry point that does NOT consult the legacy receipt_status', () => {
+    /*
+     * DVN-ok + PoS-failed flips receipt_status to dvn_pending, which makes the
+     * row permanently ineligible for the `=== 'local'` hot path. Without a
+     * per-leg entry point the PoS leg is stranded with no route back.
+     */
+    expect(pipelineSource).toContain('export async function enqueueReceiptLeg');
+    const legStart = pipelineSource.indexOf('export async function enqueueReceiptLeg');
+    const legBody = pipelineSource.slice(legStart, pipelineSource.indexOf('export function enqueueActivityReceiptAnchor'));
+    expect(
+      /receiptStatus\s*!==\s*'local'/.test(legBody),
+      'the per-leg entry point must not gate on the legacy DVN-only flag',
+    ).toBe(false);
+    // It gates on the leg's OWN durable evidence instead.
+    expect(legBody).toContain('pos_receipt_id');
+    expect(legBody).toContain('dvn_receipt_id');
+  });
+
+  /*
+   * PROVEN AGAINST THE DEPLOYED CANISTER, 2026-08-08. `issue_receipt` derives
+   * its id from the clock and never looks up an existing receipt by data_hash,
+   * so calling it twice with the same H creates TWO receipts, not a no-op.
+   * Any retry driver must therefore gate on our own record.
+   */
+  it('never claims PoS retries are idempotent — the canister does not deduplicate by data_hash', () => {
+    expect(pipelineSource).not.toMatch(/idempotent/i);
   });
 
   it('records the PoS leg on its own column, never folded into receipt_status', () => {
@@ -170,5 +217,43 @@ describe('sync/repair must never fabricate constitutional provenance', () => {
 
   it('refuses the balance strategy explicitly rather than silently ignoring it', () => {
     expect(repairSource).toContain('BALANCE_STRATEGY_REMOVED');
+  });
+});
+
+/*
+ * ── THE POS LEG IS NOT YET CONSTITUTIONAL EVIDENCE ─────────────────────────
+ *
+ * Read-only probe of the DEPLOYED canister n2hhv-aaaaa-aaaas-qccza-cai,
+ * 2026-08-08 (scripts/probe-pos-btc-anchoring.ts):
+ *   - all 76 anchored batches carry `mock_btc_txid_<root[..8]>`, not a txid
+ *   - btc_block_height is the constant 800000 on every one
+ *   - root == sha256(receipt_ids) on 20/20; == sha256(data_hashes) on 0/20
+ *   - merkle_proof empty on all 186 receipts
+ *
+ * So Bitcoin anchoring does not exist, and even if it did the anchored root
+ * would not commit to H. These canaries stop the code from ever claiming
+ * otherwise.
+ */
+describe('the PoS leg may not claim Bitcoin evidence it does not have', () => {
+  it('rejects the deployed canister\'s mock txid as Bitcoin evidence', () => {
+    expect(isRealBitcoinTxid('mock_btc_txid_b0a5b693')).toBe(false);
+    expect(isRealBitcoinTxid('btc_anchor_b0a5b693')).toBe(false);
+    expect(isRealBitcoinTxid(null)).toBe(false);
+    expect(isRealBitcoinTxid(undefined)).toBe(false);
+  });
+
+  it('accepts only a well-formed 64-hex Bitcoin txid', () => {
+    expect(isRealBitcoinTxid('a'.repeat(64))).toBe(true);
+    expect(isRealBitcoinTxid('A'.repeat(64))).toBe(false); // uppercase is not the canonical form
+    expect(isRealBitcoinTxid('a'.repeat(63))).toBe(false);
+    expect(isRealBitcoinTxid('a'.repeat(65))).toBe(false);
+  });
+
+  it('no code path writes pos_status anchored — nothing on chain justifies it today', () => {
+    expect(
+      /pos_status:\s*'anchored'/.test(pipelineSource),
+      'A receipt may not be marked Bitcoin-anchored while the canister emits synthesised txids and ' +
+        'the batch root does not commit to H. That is the false green this investigation removed.',
+    ).toBe(false);
   });
 });

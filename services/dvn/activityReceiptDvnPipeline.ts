@@ -362,6 +362,16 @@ function validateReceiptForDvn(record: ActivityReceiptRecord, personaId: string)
 export async function submitActivityReceiptToDvn(
   record: ActivityReceiptRecord,
   personaId: string,
+  /**
+   * The commitment computed ONCE by the caller and already persisted
+   * (operator directive, 2026-08-08 item 1). Passing it explicitly is what
+   * makes "the same H on both legs" a fact rather than a coincidence of two
+   * derivations agreeing. Standalone callers that drive ONE leg (the retry
+   * routes) may omit it; `computeReceiptCommitment` is deterministic, so
+   * re-deriving yields the identical value — but the dual-leg path must never
+   * rely on that.
+   */
+  precomputedCommitment?: string,
 ): Promise<ActivityDvnSubmissionResult> {
   try {
     // Pre-flight validation — catches corrupt/partial records before
@@ -392,7 +402,8 @@ export async function submitActivityReceiptToDvn(
      * personaId (T0).
      */
     const personaRef = hashPersonaRef(personaId);
-    const commitmentHash = computeReceiptCommitment(receiptCommitmentInput(record, personaRef));
+    const commitmentHash =
+      precomputedCommitment ?? computeReceiptCommitment(receiptCommitmentInput(record, personaRef));
 
     const payload = JSON.stringify({
       action: 'AIGENTME_ACTIVITY_RECEIPT',
@@ -453,10 +464,28 @@ export async function submitActivityReceiptToDvn(
  * canister's anchored batches, not one an activity receipt.
  *
  * `data_hash` is the SHARED COMMITMENT H, identical to the one carried in the
- * DVN payload. That identity is the whole point: it is what makes the two legs
- * reconcilable, and what makes re-submission of a stalled receipt idempotent
- * in intent (the same act always commits to the same H) rather than a way to
- * mint duplicate constitutional events.
+ * DVN payload. That identity is what makes the two legs reconcilable.
+ *
+ * ── RETRIES ARE NOT IDEMPOTENT. DO NOT DESCRIBE THEM AS SUCH ───────────────
+ *
+ * An earlier version of this comment called re-submission "idempotent in
+ * intent" because the same act always commits to the same H. That was wrong,
+ * and the canister source (read 2026-08-08 from
+ * iQube-Protocol/iQubeBeta-Program, `canisters/proof_of_state/src/lib.rs`)
+ * settles it:
+ *
+ *     pub fn issue_receipt(data_hash: String) -> String {
+ *         let receipt_id = format!("receipt_{}", ic_cdk::api::time());
+ *         ...
+ *     }
+ *
+ * The receipt id is derived from the CLOCK, and there is no lookup of an
+ * existing receipt by `data_hash` anywhere in the canister. Calling
+ * `issue_receipt(H)` twice therefore produces TWO distinct receipts carrying
+ * the same H — a duplicate constitutional entry, not a no-op. Until the
+ * deployed canister deduplicates by `data_hash`, any retry driver MUST gate on
+ * our OWN `pos_receipt_id` being absent and must never rely on the canister to
+ * absorb a repeat. `enqueueReceiptLeg` below does exactly that.
  *
  * Deliberately mirrors `submitActivityReceiptToDvn`'s shape — same timeout
  * guard, same Candid string-or-variant handling — rather than inventing a
@@ -469,9 +498,48 @@ export interface ActivityPosSubmissionResult {
   error?: string;
 }
 
+/**
+ * ── THE POS LEG IS NOT YET CONSTITUTIONAL EVIDENCE ─────────────────────────
+ *
+ * Established by READ-ONLY PROBE of the DEPLOYED canister n2hhv-aaaaa-aaaas-
+ * qccza-cai on 2026-08-08 (`scripts/probe-pos-btc-anchoring.ts`), corroborated
+ * by `canisters/proof_of_state/src/lib.rs` in iQube-Protocol/iQubeBeta-Program:
+ *
+ *   1. NO REAL BITCOIN TRANSACTION EXISTS. Every one of the 76 anchored
+ *      batches carries `btc_anchor_txid = "mock_btc_txid_<root[..8]>"`. That is
+ *      not 64 hex characters, so no Bitcoin network can contain it. `anchor()`
+ *      discards the BTC signer's actual response (`Ok(_response)`) and returns
+ *      a synthesised string on BOTH the success and error branches.
+ *   2. `btc_block_height` is the hardcoded constant 800000 on every batch.
+ *   3. THE ROOT DOES NOT COMMIT TO H. Recomputed locally over each batch's own
+ *      receipts: 20 of 20 sampled satisfy root == sha256(concat receipt_ids),
+ *      and 0 satisfy root == sha256(concat data_hashes). The id is
+ *      `receipt_<clock>`, carrying no information about the act. So anchoring
+ *      the root would prove nothing about the receipt even if the anchor were
+ *      real.
+ *   4. NO INCLUSION PROOF IS PRODUCIBLE. `merkle_proof` is empty on all 186
+ *      receipts, and a single sequential SHA256 over concatenated ids is not a
+ *      Merkle tree — it admits no per-leaf proof by construction.
+ *
+ * Consequence for this code: `pos_status` may reach 'pending' (we issued a PoS
+ * receipt) but MUST NOT reach 'anchored' on the strength of a `btc_anchor_txid`
+ * that is not a real Bitcoin txid. Writing 'anchored' here would manufacture
+ * precisely the false green this whole investigation exists to remove — a
+ * receipt claiming Bitcoin tamper-evidence it does not have.
+ *
+ * This predicate is the gate. It is deliberately strict: a txid must LOOK like
+ * a Bitcoin txid before any code may treat it as one. Verifying that it also
+ * EXISTS on-chain is a further step no code here performs.
+ */
+export function isRealBitcoinTxid(txid: string | null | undefined): boolean {
+  return typeof txid === 'string' && /^[0-9a-f]{64}$/.test(txid);
+}
+
 export async function submitActivityReceiptToPos(
   record: ActivityReceiptRecord,
   personaId: string,
+  /** See `submitActivityReceiptToDvn`'s note — the caller computes H once. */
+  precomputedCommitment?: string,
 ): Promise<ActivityPosSubmissionResult> {
   try {
     const validationErr = validateReceiptForDvn(record, personaId);
@@ -485,9 +553,8 @@ export async function submitActivityReceiptToPos(
       return { ok: false, error: 'PROOF_OF_STATE_CANISTER_ID not configured' };
     }
 
-    const commitmentHash = computeReceiptCommitment(
-      receiptCommitmentInput(record, hashPersonaRef(personaId)),
-    );
+    const commitmentHash =
+      precomputedCommitment ?? computeReceiptCommitment(receiptCommitmentInput(record, hashPersonaRef(personaId)));
 
     const pos = await getActor<{ issue_receipt: (dataHash: string) => Promise<string> }>(canisterId, posIdl);
     const response = await Promise.race([
@@ -523,6 +590,94 @@ export async function submitActivityReceiptToPos(
 }
 
 /**
+ * PER-LEG SUBMISSION FOR THE SCHEDULED RECONCILER (operator directive,
+ * 2026-08-08 item 2).
+ *
+ * `enqueueActivityReceiptAnchor` is the hot-path, both-legs entry point and is
+ * gated on `receipt_status === 'local'`. That gate is correct there (it stops
+ * a second DVN message for the same receipt) but it makes the commonest
+ * partial outcome — DVN ok, PoS failed — permanently unretryable, because the
+ * row is no longer `local`.
+ *
+ * This is the entry point that fixes that: it drives ONE leg, and decides
+ * eligibility from that leg's OWN durable evidence rather than from the legacy
+ * flag. Because `proof_of_state.issue_receipt` does NOT deduplicate by
+ * `data_hash` (see the note above), the PoS guard is `pos_receipt_id IS NULL`
+ * — our own record of whether we already issued one. Nothing here trusts the
+ * canister to absorb a repeat call.
+ *
+ * Returns what happened so a reconciler can log it; never throws.
+ */
+export async function enqueueReceiptLeg(
+  record: ActivityReceiptRecord,
+  personaId: string,
+  leg: 'pos' | 'dvn',
+): Promise<{ attempted: boolean; ok: boolean; detail: string }> {
+  if (!shouldAnchorActionType(record.actionType)) {
+    return { attempted: false, ok: false, detail: 'action type is not anchorable' };
+  }
+  const supabase = getSupabaseServer();
+  if (!supabase) return { attempted: false, ok: false, detail: 'no Supabase client' };
+
+  // Re-read the row's own leg columns — the caller's in-memory record may be
+  // stale, and a duplicate submission is not recoverable once made.
+  const { data: current } = await supabase
+    .from('activity_receipts')
+    .select('pos_receipt_id, dvn_receipt_id, commitment_hash')
+    .eq('id', record.id)
+    .maybeSingle();
+  const row = (current ?? {}) as { pos_receipt_id?: string | null; dvn_receipt_id?: string | null; commitment_hash?: string | null };
+
+  if (leg === 'pos' && row.pos_receipt_id) {
+    return { attempted: false, ok: true, detail: `PoS leg already issued (${row.pos_receipt_id})` };
+  }
+  if (leg === 'dvn' && row.dvn_receipt_id) {
+    return { attempted: false, ok: true, detail: `DVN leg already submitted (${row.dvn_receipt_id})` };
+  }
+
+  // H is recomputed only if the row does not already carry one — the persisted
+  // value always wins, so a retry commits to exactly what the first attempt did.
+  const commitmentHash =
+    row.commitment_hash ?? computeReceiptCommitment(receiptCommitmentInput(record, hashPersonaRef(personaId)));
+  if (!row.commitment_hash) {
+    await supabase.from('activity_receipts').update({ commitment_hash: commitmentHash }).eq('id', record.id);
+  }
+
+  if (leg === 'pos') {
+    const res = await submitActivityReceiptToPos(record, personaId, commitmentHash);
+    if (res.ok && res.posReceiptId) {
+      await supabase
+        .from('activity_receipts')
+        .update({ pos_receipt_id: res.posReceiptId, pos_status: 'pending' })
+        .eq('id', record.id);
+      return { attempted: true, ok: true, detail: `PoS receipt ${res.posReceiptId}` };
+    }
+    if (!res.error?.includes('not configured')) {
+      console.error(`[DVN ESCALATION] Receipt ${record.id} PoS leg retry FAILED — error="${res.error ?? 'unknown'}"`);
+      await supabase.from('activity_receipts').update({ pos_status: 'failed' }).eq('id', record.id);
+    }
+    return { attempted: true, ok: false, detail: res.error ?? 'unknown PoS failure' };
+  }
+
+  const res = await submitActivityReceiptToDvn(record, personaId, commitmentHash);
+  if (res.ok && res.messageId) {
+    await supabase
+      .from('activity_receipts')
+      .update({ receipt_status: 'dvn_pending', dvn_receipt_id: res.messageId, dvn_status: 'submitted' })
+      .eq('id', record.id);
+    return { attempted: true, ok: true, detail: `DVN message ${res.messageId}` };
+  }
+  if (!res.error?.includes('not configured')) {
+    console.error(`[DVN ESCALATION] Receipt ${record.id} DVN leg retry FAILED — error="${res.error ?? 'unknown'}"`);
+    await supabase
+      .from('activity_receipts')
+      .update({ receipt_status: 'dvn_failed', dvn_status: 'failed' })
+      .eq('id', record.id);
+  }
+  return { attempted: true, ok: false, detail: res.error ?? 'unknown DVN failure' };
+}
+
+/**
  * Fire-and-forget anchor enqueue for the receipt-creation hot path.
  * Resolves immediately so the caller never blocks on DVN; the submission
  * runs in the background and updates the row's receipt_status when it
@@ -551,9 +706,52 @@ export function enqueueActivityReceiptAnchor(
   personaId: string,
 ): void {
   if (!shouldAnchorActionType(record.actionType)) return;
+  /*
+   * PER-LEG RETRY MUST NOT BE GATED BY THE LEGACY FLAG (operator directive,
+   * 2026-08-08 item 2).
+   *
+   * `receipt_status` describes the DVN leg ONLY. Gating the whole enqueue on
+   * `=== 'local'` means the commonest partial outcome — DVN succeeds, PoS
+   * fails — flips the row to `dvn_pending` and thereby makes it permanently
+   * ineligible for re-enqueue, stranding the PoS leg with no path back. The
+   * scheduled reconciler must be able to drive either leg independently, which
+   * is the entire point of tracking them separately.
+   *
+   * This guard is kept ONLY as a duplicate-submission check for the hot path
+   * (a receipt that already has a DVN message id must not get a second one).
+   * It is deliberately NOT a statement about the PoS leg: `enqueueReceiptLeg`
+   * below is the per-leg entry point the reconciler uses, and it consults the
+   * leg's OWN column.
+   */
   if (record.receiptStatus !== 'local') return;
   // Background promise — intentionally not awaited.
   void (async () => {
+    /*
+     * H IS COMPUTED ONCE, BEFORE EITHER LEG, AND PERSISTED FIRST (operator
+     * directive, 2026-08-08 item 1).
+     *
+     * The first version of this let each submitter derive H internally and
+     * then persisted whatever `posResult` happened to carry. Two defects in
+     * that: the identity shared by the legs was a coincidence of two
+     * derivations agreeing rather than a fact, and — worse — if the PoS leg
+     * threw before deriving anything, H was never persisted AT ALL even though
+     * the DVN leg had already carried one on-chain. The row would then hold a
+     * message committing to an H the database could not name, which is
+     * unreconcilable by exactly the identity this design exists to establish.
+     *
+     * So: derive, persist, then hand the identical value to both legs.
+     */
+    const commitmentHash = computeReceiptCommitment(
+      receiptCommitmentInput(record, hashPersonaRef(personaId)),
+    );
+    const supabaseForCommitment = getSupabaseServer();
+    if (supabaseForCommitment) {
+      await supabaseForCommitment
+        .from('activity_receipts')
+        .update({ commitment_hash: commitmentHash })
+        .eq('id', record.id);
+    }
+
     /*
      * BOTH LEGS, CONCURRENTLY, NEITHER BLOCKING THE OTHER. `allSettled` (not
      * `all`) because a PoS failure must never suppress a DVN submission that
@@ -561,8 +759,8 @@ export function enqueueActivityReceiptAnchor(
      * tracked representations, not a transaction.
      */
     const [dvnSettled, posSettled] = await Promise.allSettled([
-      submitActivityReceiptToDvn(record, personaId),
-      submitActivityReceiptToPos(record, personaId),
+      submitActivityReceiptToDvn(record, personaId, commitmentHash),
+      submitActivityReceiptToPos(record, personaId, commitmentHash),
     ]);
     const result: ActivityDvnSubmissionResult =
       dvnSettled.status === 'fulfilled'
@@ -578,15 +776,13 @@ export function enqueueActivityReceiptAnchor(
 
     /*
      * THE POS LEG IS RECORDED ON ITS OWN COLUMNS — never folded into
-     * `receipt_status`, which describes the DVN leg alone. The commitment is
-     * persisted whichever way the legs went, because it is the identity the
-     * scheduled reconciler needs to retry either one idempotently.
+     * `receipt_status`, which describes the DVN leg alone. H is already
+     * persisted above, so nothing here re-derives or re-writes it.
      */
-    const commitmentHash = posResult.commitmentHash ?? null;
     if (posResult.ok && posResult.posReceiptId) {
       await supabase
         .from('activity_receipts')
-        .update({ pos_receipt_id: posResult.posReceiptId, pos_status: 'pending', commitment_hash: commitmentHash })
+        .update({ pos_receipt_id: posResult.posReceiptId, pos_status: 'pending' })
         .eq('id', record.id);
     } else {
       const posUnreachable = !!posResult.error?.includes('not configured');
@@ -598,12 +794,7 @@ export function enqueueActivityReceiptAnchor(
           `[DVN ESCALATION] Activity receipt ${record.id} PoS leg FAILED — ` +
             `actionType=${record.actionType} error="${posResult.error ?? 'unknown'}"`,
         );
-        await supabase
-          .from('activity_receipts')
-          .update({ pos_status: 'failed', commitment_hash: commitmentHash })
-          .eq('id', record.id);
-      } else if (commitmentHash) {
-        await supabase.from('activity_receipts').update({ commitment_hash: commitmentHash }).eq('id', record.id);
+        await supabase.from('activity_receipts').update({ pos_status: 'failed' }).eq('id', record.id);
       }
     }
 
