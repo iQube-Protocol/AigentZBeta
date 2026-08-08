@@ -40,11 +40,13 @@ import {
   extractIssuedAt,
   describeToolResultShape,
   normalizeMcpSubmissionResult,
-  classifyPulseEnrollmentState,
+  classifyPulseEnrollmentStateAuthoritative,
+  extractStructuredPulseOnboardingFields,
   extractRegistryOwnerFromStatusText,
   type McpTool,
   type McpToolResult,
   type NormalizedMcpSubmissionResult,
+  type StructuredPulseOnboardingFields,
 } from './mcpSchemaMatch';
 import {
   signPartnerAuthorization,
@@ -433,6 +435,15 @@ export type AuthorizationResult<T> =
       rawStatusResult?: unknown;
       /** The exact arguments this reread sent to the status tool — same diagnostic-only carry as `submittedArguments`. */
       statusArgsUsed?: Record<string, unknown>;
+      /**
+       * Structured `pulseEnrolled`/`pulseCommitmentRecorded`/
+       * `verifiablePnlRegistered`/`endpointWarning`, pulled directly from
+       * `rawStatusResult`'s own JSON ("Close Pulse now" directive,
+       * 2026-08-08) — never re-derived from prose. Populated only on the
+       * CONFIRMED path (`writeConfirmedPulseActivation`), since that is the
+       * one outcome the client is meant to project these onto.
+       */
+      structuredStatus?: StructuredPulseOnboardingFields;
     }
   | {
       ok: false;
@@ -1755,11 +1766,11 @@ function pickStringField(obj: Record<string, unknown> | null | undefined, names:
 async function fetchOnboardingStatusOwner(
   mcpClient: PartnerMcpClient,
   registry: { tokenId: string; network: HorizenNetwork },
-): Promise<{ owner: string | null }> {
+): Promise<{ owner: string | null; statusResult: McpToolResult | null; statusArgs: Record<string, unknown> | null }> {
   try {
     const { tools } = await mcpClient.listTools();
     const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
-    if (!statusTool.ok) return { owner: null };
+    if (!statusTool.ok) return { owner: null, statusResult: null, statusArgs: null };
     const statusArgs = matchSchemaFields(
       statusTool.tool.inputSchema,
       pulseStatusCandidates(HORIZEN_NETWORK_FACTS[registry.network], registry.tokenId),
@@ -1767,11 +1778,11 @@ async function fetchOnboardingStatusOwner(
     const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
     const content = statusResult?.content;
     const rawText = Array.isArray(content) ? content.map((c) => (typeof c?.text === 'string' ? c.text : '')).join(' ') : '';
-    return { owner: rawText ? extractRegistryOwnerFromStatusText(rawText) : null };
+    return { owner: rawText ? extractRegistryOwnerFromStatusText(rawText) : null, statusResult, statusArgs };
   } catch {
     // A transport failure here says nothing about ownership — never let it
     // block the REST-based check this augments.
-    return { owner: null };
+    return { owner: null, statusResult: null, statusArgs: null };
   }
 }
 
@@ -1780,7 +1791,20 @@ async function crossCheckRegistryOwner(
   controllerWallet: string,
   deps: AuthorizationDeps,
 ): Promise<
-  | { ok: true; owner: string }
+  | {
+      ok: true;
+      owner: string;
+      /**
+       * The get_onboarding_status response this same call already fetched for
+       * owner extraction — carried through so a caller can ALSO check current
+       * enrollment state without a second partner call (2026-08-07 pre-submit
+       * idempotency gate, correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+       * `null` only when the status tool was unreachable/incompatible — the
+       * owner-conflict check above already tolerates that same absence.
+       */
+      statusResult: McpToolResult | null;
+      statusArgs: Record<string, unknown> | null;
+    }
   | { ok: false; refusalCode: 'REGISTRY_REREAD_FAILED' | 'REGISTRY_OWNER_MISMATCH' | 'HORIZEN_OWNER_SOURCE_CONFLICT'; detail: string }
 > {
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
@@ -1827,7 +1851,7 @@ async function crossCheckRegistryOwner(
   // controllerWallet is the only candidate available; downstream callers
   // (verifySignatureIntegrity) use this as the expected owner for the
   // decisive local test either way.
-  return { ok: true, owner: owner ?? controllerWallet };
+  return { ok: true, owner: owner ?? controllerWallet, statusResult: statusOwner.statusResult, statusArgs: statusOwner.statusArgs };
 }
 
 /**
@@ -1920,6 +1944,45 @@ export function flattenToolResultText(result: McpToolResult | null | undefined):
  */
 export const RECONCILABLE_STATES: PartnerAuthorizationState[] = ['SUBMITTED', 'REFUSED', 'QUARANTINED', 'EXPIRED'];
 
+type OnboardingStatusCallResult =
+  | { ok: true; statusResult: McpToolResult; statusText: string; statusArgs: Record<string, unknown> }
+  | { ok: false; refusalCode: 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND'; detail: string };
+
+/**
+ * The ONE live `get_onboarding_status` call, factored out (2026-08-08) so
+ * `verifyHorizenTransparencyActivation` (verify-and-transition) and
+ * `reconcilePulseConstitutionalState` (verify-without-transitioning, below)
+ * share the identical tool-resolution mechanics rather than a second copy
+ * (inv.engineering.036/037) — the only difference between them is what each
+ * does with the result, never how the result is obtained.
+ */
+async function callOnboardingStatusTool(
+  record: { submissionRef: string | null },
+  registry: { network: HorizenNetwork; tokenId: string },
+  deps: AuthorizationDeps,
+): Promise<OnboardingStatusCallResult> {
+  const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
+  const { tools } = await mcpClient.listTools();
+  const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
+  if (!statusTool.ok) {
+    return {
+      ok: false,
+      refusalCode: 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND',
+      detail: `no tool compatible with role "status" declared by Horizen's MCP server. Declared tools: ${statusTool.declaredToolNames.join(', ') || '(none)'}`,
+    };
+  }
+  const statusArgs = matchSchemaFields(
+    statusTool.tool.inputSchema,
+    pulseStatusCandidates(HORIZEN_NETWORK_FACTS[registry.network], registry.tokenId, {
+      submissionRef: record.submissionRef ?? '',
+      transactionHash: record.submissionRef ?? '',
+    }),
+  );
+  const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
+  const statusText = flattenToolResultText(statusResult);
+  return { ok: true, statusResult, statusText, statusArgs };
+}
+
 export async function verifyHorizenTransparencyActivation(
   authorizationId: string,
   args: {
@@ -1940,6 +2003,8 @@ export async function verifyHorizenTransparencyActivation(
      * assert confirmation, which always requires the partner's own state.
      */
     submitSemanticStatus?: NormalizedMcpSubmissionResult['semanticStatus'];
+    /** Optional — set only by callers that already have it (verify/status/route.ts). Threaded to the CONFIRMED receipt's `agentsInvoked` so it is findable cross-persona; never required, never guessed. */
+    runtimeAgentId?: string;
   },
   deps: AuthorizationDeps = {},
 ): Promise<AuthorizationResult<{ confirmed: true }>> {
@@ -1961,25 +2026,9 @@ export async function verifyHorizenTransparencyActivation(
     return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail };
   }
 
-  const mcpClient = deps.mcpClient ?? (await defaultMcpClient());
-  const { tools } = await mcpClient.listTools();
-  const statusTool = findCompatibleTool(tools, STATUS_TOOL_SPEC, new Set());
-  if (!statusTool.ok) {
-    return {
-      ok: false,
-      refusalCode: 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND',
-      detail: `no tool compatible with role "status" declared by Horizen's MCP server. Declared tools: ${statusTool.declaredToolNames.join(', ') || '(none)'}`,
-    };
-  }
-  const statusArgs = matchSchemaFields(
-    statusTool.tool.inputSchema,
-    pulseStatusCandidates(HORIZEN_NETWORK_FACTS[args.registry.network], args.registry.tokenId, {
-      submissionRef: record.submissionRef ?? '',
-      transactionHash: record.submissionRef ?? '',
-    }),
-  );
-  const statusResult = await mcpClient.callTool({ name: statusTool.tool.name, arguments: statusArgs });
-  const statusText = flattenToolResultText(statusResult);
+  const statusCall = await callOnboardingStatusTool(record, args.registry, deps);
+  if (!statusCall.ok) return statusCall;
+  const { statusResult, statusText, statusArgs } = statusCall;
   /*
    * THREE OUTCOMES, NOT TWO (Al's follow-up brief, 2026-08-06). A bare
    * `.includes('enabled')` check cannot tell "Horizen hasn't answered
@@ -1989,8 +2038,14 @@ export async function verifyHorizenTransparencyActivation(
    * this classifier's predecessor filed under the former. See
    * `classifyPulseEnrollmentState`'s own doc comment for the full evidence
    * and the negation-outranks-positive rule that fixes it.
+   *
+   * STRUCTURED-FIRST ("Close Pulse now" directive, 2026-08-08): a partner-
+   * declared `pulseEnrolled`/`pulseCommitmentRecorded` boolean in
+   * `statusResult`'s own JSON decides this outright — the prose classifier
+   * below only ever runs when NEITHER structured field is present. See
+   * `classifyPulseEnrollmentStateAuthoritative`'s own doc comment.
    */
-  const enrollmentState = classifyPulseEnrollmentState(statusText);
+  const enrollmentState = classifyPulseEnrollmentStateAuthoritative(statusResult, statusText);
   const rawStatus = JSON.stringify(statusResult).slice(0, 500);
 
   if (enrollmentState === 'NOT_ENROLLED') {
@@ -2054,6 +2109,104 @@ export async function verifyHorizenTransparencyActivation(
     };
   }
   // enrollmentState === 'CONFIRMED' falls through to the confirmation path below.
+  return writeConfirmedPulseActivation(authorizationId, args, statusResult, statusArgs);
+}
+
+/**
+ * Records a CONFIRMED Pulse activation — the ONE place that writes the
+ * `horizen_pulse_authorized` receipt and flips the persisted row to
+ * `CONFIRMED`. Extracted 2026-08-07 (inv.engineering.036/037) so the
+ * pre-submit idempotency gate in `runHorizenTransparencyAuthorization` can
+ * record a confirmation discovered BEFORE signing/submission through the
+ * exact same path `verifyHorizenTransparencyActivation`'s post-submit
+ * confirmation already uses — never a second, parallel writer.
+ */
+/**
+ * The evidence-commitment shape the operator's "Close Pulse now" / "receipted
+ * constitutional state" directives both require (2026-08-08): every fact a
+ * downstream reader (Journey, Agent Bench, Financial Services, the toggle)
+ * needs, plus what makes the commitment itself checkable — a hash of the
+ * complete source response, when it was verified, and which classification
+ * policy verified it. Carried under `actionInput.evidence` on every receipt
+ * this function writes, so a reader consumes ONE evidence shape regardless of
+ * which action type it came from.
+ */
+const PULSE_VERIFIER_POLICY_VERSION = 'gjr-vfy-001-structured-first-v1';
+
+interface PulseVerifiedEvidence extends StructuredPulseOnboardingFields {
+  aigentQubeId: string;
+  network: HorizenNetwork;
+  tokenId: string;
+  controllerWallet: string;
+  authorizationId: string;
+  sourceResponseCommitment: string;
+  verifiedAt: string;
+  verifierPolicyVersion: string;
+  /**
+   * Present ONLY on evidence built by materializePulseEvidenceFromHistoricalConfirmation
+   * — never on a live confirmation's own evidence. Marks that
+   * `sourceResponseCommitment` above commits to a PERSISTED historical
+   * snapshot (partnerStatus), not a response this verification just
+   * received, so a reader can tell "verified live" from "verified once,
+   * evidence materialized later" apart.
+   */
+  materializedFrom?: 'historical-partner-status-snapshot';
+  /**
+   * Present only alongside materializedFrom. `partnerStatus` is persisted
+   * truncated to 500 characters — true here means the snapshot may not be
+   * the complete original response, so sourceResponseCommitment commits to
+   * what survived truncation, never claimed as complete.
+   */
+  sourceSnapshotTruncated?: boolean;
+}
+
+function buildPulseVerifiedEvidence(
+  record: { subjectAigentQubeId: string },
+  args: { registry: { network: HorizenNetwork; tokenId: string }; controllerWallet: string },
+  authorizationId: string,
+  statusResult: McpToolResult,
+  structuredStatus: StructuredPulseOnboardingFields,
+): PulseVerifiedEvidence {
+  return {
+    ...structuredStatus,
+    aigentQubeId: record.subjectAigentQubeId,
+    network: args.registry.network,
+    tokenId: args.registry.tokenId,
+    controllerWallet: args.controllerWallet,
+    authorizationId,
+    // The COMPLETE source response, never the 500-char `partnerStatus`
+    // truncation — a commitment over a truncated value could not detect a
+    // divergence that happened to fall past character 500.
+    sourceResponseCommitment: sha256Hex(JSON.stringify(statusResult)),
+    verifiedAt: new Date().toISOString(),
+    verifierPolicyVersion: PULSE_VERIFIER_POLICY_VERSION,
+  };
+}
+
+async function writeConfirmedPulseActivation(
+  authorizationId: string,
+  args: {
+    actorPersonaId: string;
+    registry: { network: HorizenNetwork; tokenId: string };
+    controllerWallet: string;
+    /** Optional — set only by callers that already have it (verify/status/route.ts). Never required, never guessed. */
+    runtimeAgentId?: string;
+  },
+  statusResult: McpToolResult,
+  statusArgs: Record<string, unknown>,
+): Promise<AuthorizationResult<{ confirmed: true }>> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record) {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail: `authorization "${authorizationId}" is absent — cannot record a confirmation against no row`,
+    };
+  }
+  const rawStatus = JSON.stringify(statusResult).slice(0, 500);
+  const structuredStatus = extractStructuredPulseOnboardingFields(statusResult);
+  const evidence = buildPulseVerifiedEvidence(record, args, authorizationId, statusResult, structuredStatus);
+  const agentsInvoked = args.runtimeAgentId ? [args.runtimeAgentId] : [];
 
   const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
   let receiptRef: string | null = null;
@@ -2063,6 +2216,7 @@ export async function verifyHorizenTransparencyActivation(
       activeCartridge: 'agentiq',
       actionType: 'horizen_pulse_authorized',
       summary: `Horizen Pulse/PnL transparency authorization confirmed for ${record.subjectAigentQubeId} (token ${args.registry.tokenId}, ${args.registry.network})`,
+      agentsInvoked,
       actionInput: {
         aigentQubeId: record.subjectAigentQubeId,
         controllerWallet: args.controllerWallet,
@@ -2071,6 +2225,7 @@ export async function verifyHorizenTransparencyActivation(
         authorizationId,
         signatureRef: record.signatureRef,
         submissionRef: record.submissionRef,
+        evidence,
       },
     });
     receiptRef = receipt?.id ?? null;
@@ -2079,13 +2234,571 @@ export async function verifyHorizenTransparencyActivation(
     // surfaced as a null receiptRef for the caller to retry recording.
   }
 
+  /*
+   * THE FINE-GRAINED CONSTITUTIONAL TRANSITIONS (operator directive,
+   * 2026-08-08) — additive, alongside `horizen_pulse_authorized` above, never
+   * replacing it (inv.engineering.036/037: existing readers of
+   * `horizen_pulse_authorized` — the journey-state route among them — keep
+   * working unchanged). Each is independently gated on the structured fact it
+   * names, so a response that verifies enrollment without commitment (the
+   * schema permits this even though this pilot's live fixture always shows
+   * both true) issues only PULSE_ENROLLMENT_VERIFIED, never the second.
+   * Best-effort and independently guarded: a failure to write either must
+   * never re-open the authorization or block the other.
+   */
+  try {
+    await createActivityReceipt({
+      personaId: args.actorPersonaId,
+      activeCartridge: 'agentiq',
+      actionType: 'pulse_enrollment_verified',
+      summary: `Verified Pulse enrollment for ${record.subjectAigentQubeId} (token ${args.registry.tokenId}, ${args.registry.network})`,
+      agentsInvoked,
+      actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+    });
+  } catch {
+    // Surfaced only as a missing fine-grained receipt — horizen_pulse_authorized above already carries the same evidence.
+  }
+  if (structuredStatus.pulseCommitmentRecorded === true) {
+    try {
+      await createActivityReceipt({
+        personaId: args.actorPersonaId,
+        activeCartridge: 'agentiq',
+        actionType: 'pulse_commitment_verified',
+        summary: `Verified on-chain identity commitment for ${record.subjectAigentQubeId} (token ${args.registry.tokenId}, ${args.registry.network})`,
+        agentsInvoked,
+        actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+      });
+    } catch {
+      // Same reasoning — the primary receipt already carries this evidence.
+    }
+  }
+
   await updatePartnerAuthorizationRequest(authorizationId, {
     state: 'CONFIRMED',
     partnerStatus: rawStatus,
     receiptRef: receiptRef ?? undefined,
   });
 
-  return { ok: true, value: { confirmed: true }, rawStatusResult: statusResult, statusArgsUsed: statusArgs };
+  return {
+    ok: true,
+    value: { confirmed: true },
+    rawStatusResult: statusResult,
+    statusArgsUsed: statusArgs,
+    structuredStatus,
+  };
+}
+
+/**
+ * The receipted evidence for an already-CONFIRMED Pulse authorization — the
+ * read half of the constitutional-state model. Reads `actionInput.evidence`
+ * off the canonical `horizen_pulse_authorized` receipt (via
+ * `getActivityReceiptActionInput`, this codebase's one receipt-body reader —
+ * never a second, parallel `activity_receipts` query). Three-valued, same
+ * discipline as its reader: `null` means "no receipt at that ref" (a fact);
+ * `undefined` means "could not read" (an admission of ignorance) — a caller
+ * MUST NOT treat `undefined` as `null`, or a transient read failure would
+ * render as "nothing was ever verified."
+ */
+export async function getPulseAuthorizationEvidence(
+  receiptRef: string | null | undefined,
+): Promise<PulseVerifiedEvidence | null | undefined> {
+  if (!receiptRef) return null;
+  const { getActivityReceiptActionInput } = await import('@/services/receipts/activityReceiptService');
+  const actionInput = await getActivityReceiptActionInput(receiptRef);
+  if (actionInput === undefined) return undefined;
+  if (actionInput === null) return null;
+  const evidence = actionInput.evidence;
+  if (!evidence || typeof evidence !== 'object') return null;
+  return evidence as PulseVerifiedEvidence;
+}
+
+/**
+ * ── RECONCILIATION — NEVER REWRITES CONSTITUTIONAL HISTORY (operator
+ * directive, 2026-08-08) ─────────────────────────────────────────────────────
+ *
+ * "Reconciliation does not rewrite constitutional history. It produces new
+ * evidence." This is the ONLY function in this module that reads
+ * `get_onboarding_status` against an ALREADY-CONFIRMED row — every other
+ * reread (`verifyHorizenTransparencyActivation`) is verify-THEN-transition,
+ * gated to states that have not yet reached CONFIRMED. This function never
+ * calls `updatePartnerAuthorizationRequest` with a `state` field at all: on
+ * agreement it records the check (`partnerStatus`, for audit visibility) and
+ * changes nothing else; on disagreement it writes a NEW
+ * `reconciliation_discrepancy_recorded` receipt naming exactly which
+ * fields disagreed, and STILL changes nothing else. A genuine revocation/
+ * expiry is a separate, deliberate constitutional act this function does not
+ * perform — see this session's own report for why that is intentional.
+ */
+export type PulseReconciliationResult =
+  | {
+      ok: true;
+      agreement: boolean;
+      receiptedEvidence: PulseVerifiedEvidence;
+      freshStatus: StructuredPulseOnboardingFields;
+      disagreements: string[];
+      discrepancyReceiptRef: string | null;
+    }
+  | {
+      ok: false;
+      refusalCode: 'STATE_MISMATCH' | 'NO_RECEIPTED_EVIDENCE' | 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND';
+      detail: string;
+    };
+
+const PULSE_RECONCILIATION_FIELDS = ['pulseEnrolled', 'pulseCommitmentRecorded', 'verifiablePnlRegistered', 'endpointWarning'] as const;
+
+function pulseFieldDisagreements(
+  receipted: StructuredPulseOnboardingFields,
+  fresh: StructuredPulseOnboardingFields,
+): string[] {
+  const out: string[] = [];
+  for (const field of PULSE_RECONCILIATION_FIELDS) {
+    // A field the receipted evidence never answered has nothing to disagree
+    // with — a fresh read naming it for the first time is new information,
+    // not a discrepancy. Same for the reverse: a fresh read that stays silent
+    // on a receipted field is absence, not contradiction.
+    if (receipted[field] === undefined || !(field in fresh)) continue;
+    if (receipted[field] !== fresh[field]) out.push(field);
+  }
+  return out;
+}
+
+export async function reconcilePulseConstitutionalState(
+  authorizationId: string,
+  args: {
+    actorPersonaId: string;
+    registry: { network: HorizenNetwork; tokenId: string };
+    runtimeAgentId?: string;
+  },
+  deps: AuthorizationDeps = {},
+): Promise<PulseReconciliationResult> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record || record.state !== 'CONFIRMED') {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail:
+        `authorization "${authorizationId}" is ${record ? `in ${record.state} state` : 'absent'} — reconciliation only ` +
+        `runs against an already-CONFIRMED receipted transition; a row that has not yet transitioned is verified by ` +
+        `verifyHorizenTransparencyActivation, not reconciled here`,
+    };
+  }
+
+  const receiptedEvidence = await getPulseAuthorizationEvidence(record.receiptRef);
+  if (!receiptedEvidence) {
+    return {
+      ok: false,
+      refusalCode: 'NO_RECEIPTED_EVIDENCE',
+      detail:
+        `authorization "${authorizationId}" is CONFIRMED but carries no readable receipted evidence ` +
+        `(receiptRef: ${record.receiptRef ?? 'none'}${receiptedEvidence === undefined ? ', read failed' : ', not found'}) ` +
+        `— nothing to reconcile against`,
+    };
+  }
+
+  const statusCall = await callOnboardingStatusTool(record, args.registry, deps);
+  if (!statusCall.ok) return statusCall;
+  const freshStatus = extractStructuredPulseOnboardingFields(statusCall.statusResult);
+  const rawStatus = JSON.stringify(statusCall.statusResult).slice(0, 500);
+
+  const disagreements = pulseFieldDisagreements(receiptedEvidence, freshStatus);
+  if (disagreements.length === 0) {
+    await updatePartnerAuthorizationRequest(authorizationId, { partnerStatus: rawStatus });
+    return { ok: true, agreement: true, receiptedEvidence, freshStatus, disagreements, discrepancyReceiptRef: null };
+  }
+
+  const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
+  let discrepancyReceiptRef: string | null = null;
+  try {
+    const receipt = await createActivityReceipt({
+      personaId: args.actorPersonaId,
+      activeCartridge: 'agentiq',
+      actionType: 'reconciliation_discrepancy_recorded',
+      summary: `Horizen's fresh onboarding status disagrees with ${record.subjectAigentQubeId}'s receipted Pulse evidence on: ${disagreements.join(', ')}`,
+      agentsInvoked: args.runtimeAgentId ? [args.runtimeAgentId] : [],
+      actionInput: {
+        aigentQubeId: record.subjectAigentQubeId,
+        authorizationId,
+        receiptedEvidenceRef: record.receiptRef,
+        disagreements,
+        receiptedStatus: receiptedEvidence,
+        freshStatus,
+        observedAt: new Date().toISOString(),
+      },
+    });
+    discrepancyReceiptRef = receipt?.id ?? null;
+  } catch {
+    // A failure to record the discrepancy is surfaced via a null ref, never
+    // silently dropped — and the constitutional state is unchanged either way.
+  }
+  // `state` is deliberately NOT written here — see this function's own header.
+  return { ok: true, agreement: false, receiptedEvidence, freshStatus, disagreements, discrepancyReceiptRef };
+}
+
+/**
+ * ── MATERIALIZING EVIDENCE FOR A PRE-EXISTING CONFIRMATION (operator
+ * directive, 2026-08-08) ─────────────────────────────────────────────────────
+ *
+ * The acceptance test for the receipted-constitutional-state work: "verify
+ * Nakamoto's EXISTING confirmed Pulse evidence can be converted/idempotently
+ * materialized into the new pulse_enrollment_verified/pulse_commitment_
+ * verified receipts, and the Journey subsequently renders its green state
+ * from those receipts without another Horizen call." A row confirmed
+ * BEFORE this evidence-commitment mechanism existed has no
+ * actionInput.evidence on its horizen_pulse_authorized receipt — this
+ * closes that gap for an already-CONFIRMED row, once, without calling
+ * Horizen again and without ever re-deciding the confirmation.
+ *
+ * NEVER LIVE, NEVER A REWRITE. This makes exactly ONE live call: none. The
+ * only source of fact is `record.partnerStatus` — the truncated JSON
+ * snapshot `writeConfirmedPulseActivation`/`verifyHorizenTransparencyActivation`
+ * already persisted at the moment Horizen's confirming response was read,
+ * long before this function existed. If that snapshot carries no
+ * structured field to materialize from (a row confirmed via the prose
+ * classifier alone, before the structured-first fix), this REFUSES rather
+ * than re-contacting Horizen or fabricating evidence — a caller wanting
+ * fresher evidence must use the ordinary verify/reconcile paths, which DO
+ * call Horizen, deliberately, because they are asking a live question this
+ * function does not.
+ *
+ * IDEMPOTENT: if evidence is already readable at `record.receiptRef`, this
+ * is a no-op that reports what's already there — safe to run repeatedly
+ * (e.g. from an operator script) without risk of duplicate receipts.
+ *
+ * NEVER MUTATES THE ORIGINAL RECEIPT. Receipts are append-only, same as
+ * everywhere else in this file — this writes NEW pulse_enrollment_verified/
+ * pulse_commitment_verified receipts (marked `materializedFrom` in their
+ * evidence, so a reader can always tell a backfill apart from a live
+ * confirmation) and then REPOINTS `partner_authorization_requests.
+ * receiptRef` at the new, richer receipt — the same mutable-pointer field
+ * `writeConfirmedPulseActivation` already updates once at confirmation
+ * time, not a receipt body. `state` is untouched throughout; the row was
+ * CONFIRMED before this ran and is CONFIRMED after.
+ */
+export type PulseEvidenceMaterializationResult =
+  | {
+      ok: true;
+      alreadyMaterialized: boolean;
+      receiptRef: string | null;
+      evidence: PulseVerifiedEvidence;
+    }
+  | {
+      ok: false;
+      refusalCode: 'STATE_MISMATCH' | 'NO_HISTORICAL_SNAPSHOT' | 'AMBIGUOUS_HISTORICAL_FACT' | 'MISSING_CONTROLLER_WALLET';
+      detail: string;
+    };
+
+export async function materializePulseEvidenceFromHistoricalConfirmation(
+  authorizationId: string,
+  args: {
+    actorPersonaId: string;
+    registry: { network: HorizenNetwork; tokenId: string };
+    runtimeAgentId?: string;
+  },
+): Promise<PulseEvidenceMaterializationResult> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record || record.state !== 'CONFIRMED') {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail: `authorization "${authorizationId}" is ${record ? `in ${record.state} state` : 'absent'} — materialization only applies to an already-CONFIRMED row; a row that has not yet confirmed has nothing historical to materialize`,
+    };
+  }
+
+  const existing = await getPulseAuthorizationEvidence(record.receiptRef);
+  if (existing) {
+    return { ok: true, alreadyMaterialized: true, receiptRef: record.receiptRef, evidence: existing };
+  }
+
+  if (!record.partnerStatus) {
+    return {
+      ok: false,
+      refusalCode: 'NO_HISTORICAL_SNAPSHOT',
+      detail: `authorization "${authorizationId}" carries no persisted partnerStatus snapshot to materialize evidence from`,
+    };
+  }
+
+  // The SAME McpToolResult shape extractStructuredPulseOnboardingFields
+  // already expects — wrapping the persisted string costs nothing and reuses
+  // the one extraction function rather than a second parser (inv.engineering.036/037).
+  const snapshotResult: McpToolResult = { content: [{ type: 'text', text: record.partnerStatus }] };
+  const structuredStatus = extractStructuredPulseOnboardingFields(snapshotResult);
+  if (structuredStatus.pulseEnrolled === undefined && structuredStatus.pulseCommitmentRecorded === undefined) {
+    return {
+      ok: false,
+      refusalCode: 'NO_HISTORICAL_SNAPSHOT',
+      detail:
+        `authorization "${authorizationId}"'s persisted partnerStatus snapshot carries no structured pulseEnrolled/` +
+        `pulseCommitmentRecorded field to materialize from — this row was confirmed via prose classification alone, ` +
+        `before structured extraction existed. Refusing rather than re-contacting Horizen or fabricating evidence; ` +
+        `use the ordinary verify/reconcile path if fresh partner evidence is wanted.`,
+    };
+  }
+  if (structuredStatus.pulseEnrolled === false) {
+    return {
+      ok: false,
+      refusalCode: 'AMBIGUOUS_HISTORICAL_FACT',
+      detail:
+        `authorization "${authorizationId}"'s persisted snapshot's own structured pulseEnrolled is false, contradicting ` +
+        `this row's CONFIRMED state — refusing to materialize a contradiction rather than silently picking a side.`,
+    };
+  }
+  if (!record.walletAddress) {
+    return {
+      ok: false,
+      refusalCode: 'MISSING_CONTROLLER_WALLET',
+      detail: `authorization "${authorizationId}" has no persisted walletAddress — cannot build an evidence commitment without a controller wallet to name.`,
+    };
+  }
+
+  const baseEvidence = buildPulseVerifiedEvidence(
+    record,
+    { registry: args.registry, controllerWallet: record.walletAddress },
+    authorizationId,
+    snapshotResult,
+    structuredStatus,
+  );
+  const evidence: PulseVerifiedEvidence = {
+    ...baseEvidence,
+    materializedFrom: 'historical-partner-status-snapshot',
+    sourceSnapshotTruncated: record.partnerStatus.length >= 500,
+  };
+  const agentsInvoked = args.runtimeAgentId ? [args.runtimeAgentId] : [];
+
+  const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
+  let enrollmentReceiptRef: string | null = null;
+  try {
+    const receipt = await createActivityReceipt({
+      personaId: args.actorPersonaId,
+      activeCartridge: 'agentiq',
+      actionType: 'pulse_enrollment_verified',
+      summary: `Materialized Pulse enrollment evidence for ${record.subjectAigentQubeId} from a pre-existing confirmation (token ${args.registry.tokenId}, ${args.registry.network})`,
+      agentsInvoked,
+      actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+    });
+    enrollmentReceiptRef = receipt?.id ?? null;
+  } catch {
+    // Surfaced via a null enrollmentReceiptRef below — the row's CONFIRMED
+    // state and its original horizen_pulse_authorized receipt are unaffected.
+  }
+  if (structuredStatus.pulseCommitmentRecorded === true) {
+    try {
+      await createActivityReceipt({
+        personaId: args.actorPersonaId,
+        activeCartridge: 'agentiq',
+        actionType: 'pulse_commitment_verified',
+        summary: `Materialized on-chain identity commitment evidence for ${record.subjectAigentQubeId} from a pre-existing confirmation (token ${args.registry.tokenId}, ${args.registry.network})`,
+        agentsInvoked,
+        actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+      });
+    } catch {
+      // Same reasoning — the enrollment receipt above already carries this evidence.
+    }
+  }
+
+  if (enrollmentReceiptRef) {
+    // Repoint the mutable evidence pointer at the new, richer receipt —
+    // never mutating the original horizen_pulse_authorized receipt, and
+    // never touching `state`. See this function's own header.
+    await updatePartnerAuthorizationRequest(authorizationId, { receiptRef: enrollmentReceiptRef });
+  }
+
+  return { ok: true, alreadyMaterialized: false, receiptRef: enrollmentReceiptRef, evidence };
+}
+
+/**
+ * ── BOOTSTRAPPING PULSE EVIDENCE FROM A LIVE REREAD (operator directive,
+ * 2026-08-08) ────────────────────────────────────────────────────────────
+ *
+ * `materializePulseEvidenceFromHistoricalConfirmation` closes the gap for a
+ * CONFIRMED row whose persisted `partnerStatus` snapshot already carries
+ * structured fields — it correctly REFUSES when that snapshot predates
+ * structured extraction entirely (a row confirmed via the prose classifier
+ * alone, before this pilot's structured-first fix). This function closes
+ * THAT gap: the one live call a row in exactly that position needs, once,
+ * to establish receipted evidence for the first time.
+ *
+ * DELIBERATELY NOT RECONCILIATION. `reconcilePulseConstitutionalState`
+ * compares a fresh read against evidence that must already exist, and
+ * refuses (`NO_RECEIPTED_EVIDENCE`) when there is nothing to compare
+ * against — exactly this function's precondition. Keeping the two apart
+ * preserves reconciliation's own contract ("produces new evidence by
+ * comparing against a baseline") rather than overloading it with a second,
+ * unrelated "there IS no baseline yet" case. Once this function succeeds,
+ * the row has a baseline, and ordinary reconciliation becomes the only
+ * external reread mechanism this row needs going forward.
+ *
+ * NEVER SIGNS, SUBMITS, OR RE-ENROLLS, AND NEVER TOUCHES `state`. Makes
+ * exactly one live call — `get_onboarding_status`, read-only — against the
+ * row's OWN recorded network (`record.network`), never a caller-supplied
+ * network that might differ (`WRONG_CHAIN`). The row was CONFIRMED before
+ * this ran and is CONFIRMED after, regardless of outcome.
+ *
+ * `pulseEnrolled` and `pulseCommitmentRecorded` are gated INDEPENDENTLY,
+ * exactly as `writeConfirmedPulseActivation`/`materializePulseEvidenceFromHistoricalConfirmation`
+ * already gate them — a live read that supports enrollment but not
+ * commitment mints only the enrollment receipt. `pulseEnrolled` itself is
+ * a hard precondition for minting anything: `false` is a live contradiction
+ * of this row's CONFIRMED state (refused, not silently resolved either
+ * way); anything else absent a structured `true` is an ambiguous read
+ * (refused rather than guessed).
+ */
+export type PulseEvidenceBootstrapResult =
+  | {
+      ok: true;
+      alreadyBootstrapped: boolean;
+      enrollmentReceiptRef: string | null;
+      commitmentReceiptRef: string | null;
+      evidence: PulseVerifiedEvidence;
+    }
+  | {
+      ok: false;
+      refusalCode:
+        | 'STATE_MISMATCH'
+        | 'WRONG_CHAIN'
+        | 'MISSING_CONTROLLER_WALLET'
+        | 'HORIZEN_AUTHORIZATION_TOOL_NOT_FOUND'
+        | 'PULSE_NOT_ENROLLED_LIVE'
+        | 'AMBIGUOUS_LIVE_STATUS'
+        | 'TRANSPORT_FAILURE';
+      detail: string;
+    };
+
+export async function bootstrapPulseEvidenceFromLiveReread(
+  authorizationId: string,
+  args: {
+    actorPersonaId: string;
+    registry: { network: HorizenNetwork; tokenId: string };
+    runtimeAgentId?: string;
+  },
+  deps: AuthorizationDeps = {},
+): Promise<PulseEvidenceBootstrapResult> {
+  const record = await getPartnerAuthorizationRequest(authorizationId);
+  if (!record || record.state !== 'CONFIRMED') {
+    return {
+      ok: false,
+      refusalCode: 'STATE_MISMATCH',
+      detail:
+        `authorization "${authorizationId}" is ${record ? `in ${record.state} state` : 'absent'} — bootstrap only ` +
+        `applies to an already-CONFIRMED row; a row that has not yet confirmed is verified by ` +
+        `verifyHorizenTransparencyActivation, not bootstrapped here.`,
+    };
+  }
+
+  // Precondition: no canonical pulse_enrollment_verified receipt exists yet.
+  // The row's receiptRef already carries structured evidence once either
+  // this function or materializePulseEvidenceFromHistoricalConfirmation has
+  // run successfully — reuse that one existence check rather than a second.
+  const existing = await getPulseAuthorizationEvidence(record.receiptRef);
+  if (existing) {
+    return { ok: true, alreadyBootstrapped: true, enrollmentReceiptRef: record.receiptRef, commitmentReceiptRef: null, evidence: existing };
+  }
+
+  // "One read-only get_onboarding_status on the row's RECORDED chain" — the
+  // row's own persisted network, never a caller-supplied one that might
+  // differ from what this authorization actually ran on.
+  if (args.registry.network !== record.network) {
+    return {
+      ok: false,
+      refusalCode: 'WRONG_CHAIN',
+      detail:
+        `authorization "${authorizationId}" was recorded on network "${record.network}" — refusing to bootstrap ` +
+        `evidence from a read against "${args.registry.network}".`,
+    };
+  }
+
+  if (!record.walletAddress) {
+    return {
+      ok: false,
+      refusalCode: 'MISSING_CONTROLLER_WALLET',
+      detail: `authorization "${authorizationId}" has no persisted walletAddress — cannot build an evidence commitment without a controller wallet to name.`,
+    };
+  }
+
+  let statusCall: OnboardingStatusCallResult;
+  try {
+    statusCall = await callOnboardingStatusTool(record, args.registry, deps);
+  } catch (err) {
+    return {
+      ok: false,
+      refusalCode: 'TRANSPORT_FAILURE',
+      detail: `get_onboarding_status reread failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+  if (!statusCall.ok) {
+    return { ok: false, refusalCode: statusCall.refusalCode, detail: statusCall.detail };
+  }
+
+  const structuredStatus = extractStructuredPulseOnboardingFields(statusCall.statusResult);
+  if (structuredStatus.pulseEnrolled === false) {
+    return {
+      ok: false,
+      refusalCode: 'PULSE_NOT_ENROLLED_LIVE',
+      detail:
+        `authorization "${authorizationId}" is CONFIRMED, but Horizen's live status now reports pulseEnrolled=false ` +
+        `— refusing to bootstrap a contradiction rather than silently picking a side.`,
+    };
+  }
+  if (structuredStatus.pulseEnrolled !== true) {
+    return {
+      ok: false,
+      refusalCode: 'AMBIGUOUS_LIVE_STATUS',
+      detail:
+        `authorization "${authorizationId}"'s live get_onboarding_status carries no structured pulseEnrolled field ` +
+        `to bootstrap from — refusing an ambiguous read rather than guessing.`,
+    };
+  }
+
+  const evidence = buildPulseVerifiedEvidence(
+    record,
+    { registry: args.registry, controllerWallet: record.walletAddress },
+    authorizationId,
+    statusCall.statusResult,
+    structuredStatus,
+  );
+  const agentsInvoked = args.runtimeAgentId ? [args.runtimeAgentId] : [];
+
+  const { createActivityReceipt } = await import('@/services/receipts/activityReceiptService');
+  let enrollmentReceiptRef: string | null = null;
+  try {
+    const receipt = await createActivityReceipt({
+      personaId: args.actorPersonaId,
+      activeCartridge: 'agentiq',
+      actionType: 'pulse_enrollment_verified',
+      summary: `Bootstrapped Pulse enrollment evidence for ${record.subjectAigentQubeId} from a live reread (token ${args.registry.tokenId}, ${args.registry.network})`,
+      agentsInvoked,
+      actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+    });
+    enrollmentReceiptRef = receipt?.id ?? null;
+  } catch {
+    // Surfaced only via a null enrollmentReceiptRef — the row's CONFIRMED
+    // state and its original horizen_pulse_authorized receipt are unaffected.
+  }
+
+  let commitmentReceiptRef: string | null = null;
+  if (structuredStatus.pulseCommitmentRecorded === true) {
+    try {
+      const receipt = await createActivityReceipt({
+        personaId: args.actorPersonaId,
+        activeCartridge: 'agentiq',
+        actionType: 'pulse_commitment_verified',
+        summary: `Bootstrapped on-chain identity commitment evidence for ${record.subjectAigentQubeId} from a live reread (token ${args.registry.tokenId}, ${args.registry.network})`,
+        agentsInvoked,
+        actionInput: { aigentQubeId: record.subjectAigentQubeId, authorizationId, evidence },
+      });
+      commitmentReceiptRef = receipt?.id ?? null;
+    } catch {
+      // Same reasoning — the enrollment receipt above already carries this evidence.
+    }
+  }
+
+  if (enrollmentReceiptRef) {
+    // Repoint the mutable evidence pointer at the new, richer receipt — never
+    // mutating the original horizen_pulse_authorized receipt, and never
+    // touching `state`. See this function's own header.
+    await updatePartnerAuthorizationRequest(authorizationId, { receiptRef: enrollmentReceiptRef });
+  }
+
+  return { ok: true, alreadyBootstrapped: false, enrollmentReceiptRef, commitmentReceiptRef, evidence };
 }
 
 // ── Full pipeline convenience wrapper (Phase 1 acceptance criterion) ────────
@@ -2144,6 +2857,54 @@ export async function runHorizenTransparencyAuthorization(
       refusalDetail: ownerCheck.detail,
     });
     return { ok: false, refusalCode: ownerCheck.refusalCode, detail: ownerCheck.detail, diagnostics };
+  }
+
+  /*
+   * PRE-SUBMIT PULSE STATUS GATE — an already-enrolled agent is never
+   * resubmitted merely to reconfirm it (operator ruling 2026-08-07,
+   * correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+   *
+   * `crossCheckRegistryOwner` immediately above already called
+   * get_onboarding_status once, for its own owner cross-check — this reuses
+   * that SAME response (no second partner call) and runs it through the
+   * identical, already-proven `classifyPulseEnrollmentState` the post-submit
+   * reread uses. If it already reports enrollment, `enable_pulse_monitoring`
+   * has nothing to do: write the confirmation through the SAME path the
+   * post-submit reread uses (`writeConfirmedPulseActivation`, so this is
+   * retrieval-then-record, never a second interpretation of raw text) and
+   * return — never sign, never submit.
+   *
+   * A NOT_ENROLLED or PENDING_CONVERGENCE read here changes nothing: falls
+   * through to the ordinary sign -> submit -> reread ceremony below, exactly
+   * as before this gate existed.
+   */
+  if (ownerCheck.statusResult) {
+    const preSubmitState = classifyPulseEnrollmentStateAuthoritative(
+      ownerCheck.statusResult,
+      flattenToolResultText(ownerCheck.statusResult),
+    );
+    if (preSubmitState === 'CONFIRMED') {
+      const confirmed = await writeConfirmedPulseActivation(
+        prepared.value.authorizationId,
+        { actorPersonaId: input.actorPersonaId, registry: input.registry, controllerWallet: input.controllerWallet },
+        ownerCheck.statusResult,
+        ownerCheck.statusArgs ?? {},
+      );
+      if (confirmed.ok) {
+        const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
+        return {
+          ok: true,
+          value: { authorizationId: prepared.value.authorizationId, receiptRef: finalRecord?.receiptRef ?? null },
+          diagnostics,
+          rawStatusResult: confirmed.rawStatusResult,
+          statusArgsUsed: confirmed.statusArgsUsed,
+          structuredStatus: confirmed.structuredStatus,
+        };
+      }
+      // confirmed.ok===false only on STATE_MISMATCH (the row vanished between
+      // prepare and here) — fall through to the ordinary ceremony rather than
+      // trusting a classification with no row left to record it against.
+    }
   }
 
   const signed = await signHorizenTransparencyAuthorization(prepared.value, shared);
@@ -2207,7 +2968,33 @@ export async function runHorizenTransparencyAuthorization(
     },
     shared,
   );
-  if (!verified.ok) return { ...verified, diagnostics, partnerResponse };
+  /*
+   * FORWARD rawSubmitResult/submittedArguments EVEN ON A REREAD FAILURE
+   * (2026-08-07 fix, correlated trace c565e58b-4ce8-4ccf-9f0f-ac611d1d526c).
+   *
+   * `enable_pulse_monitoring` above already succeeded — Horizen genuinely
+   * received and accepted the submission — but `verified` (this reread's own
+   * AuthorizationResult) carries no rawSubmitResult field at all, so the bare
+   * spread below used to silently drop it whenever the reread itself did not
+   * confirm (PARTNER_NOT_ENROLLED, PARTNER_STATE_UNRESOLVED, an owner
+   * conflict discovered post-submit, ...). Downstream,
+   * services/horizen/pulseEnrollmentTrace.ts's `reachedPartnerSubmission`
+   * check reads `rawSubmitResult !== undefined` to decide whether submission
+   * was ever attempted — so a genuinely-reached submission was misreported as
+   * "failed before enable_pulse_monitoring was ever called" (LOCAL_CONTRACT_ERROR),
+   * which ALSO marks that trace `complete: true` and permanently blocks the
+   * scheduled +5/+15/+30s continuation rereads that would otherwise have
+   * discovered Horizen's later, genuine confirmation.
+   */
+  if (!verified.ok) {
+    return {
+      ...verified,
+      diagnostics,
+      partnerResponse,
+      submittedArguments: submitted.submittedArguments,
+      rawSubmitResult: submitted.rawSubmitResult,
+    };
+  }
 
   const finalRecord = await getPartnerAuthorizationRequest(prepared.value.authorizationId);
   return {
@@ -2223,5 +3010,6 @@ export async function runHorizenTransparencyAuthorization(
     rawSubmitResult: submitted.rawSubmitResult,
     rawStatusResult: verified.rawStatusResult,
     statusArgsUsed: verified.statusArgsUsed,
+    structuredStatus: verified.structuredStatus,
   };
 }

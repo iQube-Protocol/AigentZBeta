@@ -8,6 +8,47 @@ export const dynamic = 'force-dynamic';
 
 const BATCH_SIZE = 10;
 
+/**
+ * ── A REJECTED ATTESTATION IS NOT A PROCESSED ONE (operator ruling, 2026-08-08) ──
+ *
+ * `submit_attestation` is declared in services/ops/idl/cross_chain_service.ts
+ * as returning a Candid Variant — `{ Ok: Text }` or `{ Err: Text }`. An `Err`
+ * is a SUCCESSFUL CALL RETURNING A REJECTION: it does not throw, so
+ * `Promise.allSettled` records it as `fulfilled`, and this route's mapper
+ * previously returned `status: 'processed'` unconditionally. The route could
+ * therefore answer "Processed 10/10 messages" when the canister had rejected
+ * all ten, and `processed` — the number the Ops console alerts on — counted
+ * every rejection as a success.
+ *
+ * That made this path useless for diagnosing the very backlog it exists to
+ * drain: no telemetry from it could distinguish "drained" from "silently
+ * refused". Nothing about validatorId, signature generation, batching, receipt
+ * rows or canister behaviour is changed here — only whether the result is told
+ * truthfully (operator: "Do not change validatorId, signature generation,
+ * batching strategy, receipt rows, or canister behavior until that response
+ * tells us what is actually being rejected").
+ */
+type AttestationOutcome =
+  | { ok: true; value: string }
+  | { ok: false; canisterError: string };
+
+function readAttestationResult(raw: unknown): AttestationOutcome {
+  // Plain-string return (older/looser canister builds) — treat as Ok, matching
+  // submitActivityReceiptToDvn's own handling of the same dual shape.
+  if (typeof raw === 'string') return { ok: true, value: raw };
+  if (raw && typeof raw === 'object') {
+    const r = raw as Record<string, unknown>;
+    if ('Err' in r) {
+      // The EXACT canister error, preserved verbatim — this is the thing we
+      // are trying to learn and must never be summarised away.
+      return { ok: false, canisterError: typeof r.Err === 'string' ? r.Err : JSON.stringify(r.Err) };
+    }
+    if ('Ok' in r) return { ok: true, value: typeof r.Ok === 'string' ? r.Ok : JSON.stringify(r.Ok) };
+  }
+  // Neither variant arm present — unrecognised, and therefore NOT a success.
+  return { ok: false, canisterError: `submit_attestation returned unexpected shape: ${JSON.stringify(raw)}` };
+}
+
 function decodePayload(message: any): { txHash: string; txDetails: any } {
   try {
     const payloadBytes = Array.isArray(message.payload)
@@ -66,6 +107,21 @@ export async function POST(request: Request) {
             validatorId,
             Array.from(mockSignature)
           );
+          const outcome = readAttestationResult(attestResult);
+
+          // A rejected attestation is reported as REJECTED and nothing else
+          // happens for this message — in particular no DVN transaction is
+          // recorded, because none occurred.
+          if (!outcome.ok) {
+            return {
+              messageId,
+              sourceChain,
+              txHash,
+              status: 'rejected' as const,
+              canisterError: outcome.canisterError,
+              validator: validatorId
+            };
+          }
 
           try {
             listener.recordDVNTransaction({
@@ -86,7 +142,7 @@ export async function POST(request: Request) {
             sourceChain,
             txHash,
             status: 'processed' as const,
-            attestResult: attestResult?.Ok ?? attestResult,
+            attestResult: outcome.value,
             validator: validatorId
           };
         })
@@ -102,12 +158,38 @@ export async function POST(request: Request) {
         };
       });
 
+      // Three outcomes, counted separately and never merged: `processed` is an
+      // Ok variant, `rejected` is an Err variant (the canister answered and
+      // refused), `failed` is a thrown call (the canister never answered).
+      // Collapsing rejected into processed is the exact defect this route
+      // carried — see readAttestationResult's own note.
       const processed = results.filter((r) => r.status === 'processed').length;
+      const rejected = results.filter((r) => r.status === 'rejected').length;
+      const failed = results.filter((r) => r.status === 'failed').length;
+      // Every distinct canister error, verbatim and de-duplicated — the answer
+      // to "what is actually being rejected", surfaced without having to open
+      // the results array.
+      const canisterErrors = Array.from(
+        new Set(
+          results
+            .map((r) => (r as { canisterError?: string }).canisterError)
+            .filter((e): e is string => typeof e === 'string' && e.length > 0),
+        ),
+      );
 
       return NextResponse.json({
+        // `ok` describes the ROUTE's own execution, not the batch's outcome —
+        // it answered, and the counts below say what happened. A caller
+        // deciding whether work got done must read `processed`, never `ok`.
         ok: true,
-        message: `Processed ${processed}/${batch.length} messages`,
+        message:
+          `Processed ${processed}/${batch.length}` +
+          (rejected > 0 ? `, ${rejected} rejected by canister` : '') +
+          (failed > 0 ? `, ${failed} call(s) failed` : ''),
         processed,
+        rejected,
+        failed,
+        canisterErrors,
         total: pendingMessages.length,
         batchSize: batch.length,
         hasMore: pendingMessages.length > BATCH_SIZE,

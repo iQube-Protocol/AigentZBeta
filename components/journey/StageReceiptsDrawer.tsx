@@ -12,7 +12,7 @@
  * platform uses, never a second receipt-rendering component.
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Receipt as ReceiptIcon, Loader2 } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
 import { ActivityReceiptCard, type ActivityReceiptData } from '@/components/metame/cards/ActivityReceiptCard';
@@ -20,9 +20,24 @@ import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface StageReceiptsDrawerProps {
   receiptTypes: readonly string[];
+  /**
+   * Narrows the query to receipts naming ANY of these agents as a subject
+   * (operator directive, 2026-08-08 — the Register cross-agent contamination
+   * defect: MoneyPenny's Register stage displayed Aigent Nakamoto's
+   * `HORIZEN_AGENT_REGISTERED` receipt, because the drawer's query filtered
+   * only by actionType and the ACTING persona, never by the receipt's
+   * subject — and the same operator persona had registered both agents).
+   *
+   * Pass this ONLY when every type in `receiptTypes` is verified
+   * subject-tagged (JourneyStageDefinition.receiptsScopedToSubjectAgent) —
+   * omitting it preserves the prior, unfiltered behavior for stages not yet
+   * audited (e.g. Verify's agreement_formed/agreement_authorized, tagged
+   * only with the orchestrator, never a subject agent).
+   */
+  agentsInvoked?: readonly string[];
 }
 
-export function StageReceiptsDrawer({ receiptTypes }: StageReceiptsDrawerProps) {
+export function StageReceiptsDrawer({ receiptTypes, agentsInvoked }: StageReceiptsDrawerProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -33,10 +48,9 @@ export function StageReceiptsDrawer({ receiptTypes }: StageReceiptsDrawerProps) 
     if (receiptTypes.length === 0) return;
     setLoading(true);
     try {
-      const res = await personaFetch(
-        `/api/assistant/receipts?actionType=${encodeURIComponent(receiptTypes.join(','))}&limit=20`,
-        { cache: 'no-store' },
-      );
+      const params = new URLSearchParams({ actionType: receiptTypes.join(','), limit: '20' });
+      if (agentsInvoked && agentsInvoked.length > 0) params.set('agentsInvoked', agentsInvoked.join(','));
+      const res = await personaFetch(`/api/assistant/receipts?${params.toString()}`, { cache: 'no-store' });
       if (res.ok) {
         const json = await readJsonOrExplain(res, 'journey/receipts');
         setReceipts(Array.isArray(json.receipts) ? json.receipts : []);
@@ -48,12 +62,34 @@ export function StageReceiptsDrawer({ receiptTypes }: StageReceiptsDrawerProps) 
       setLoading(false);
       setLoaded(true);
     }
-  }, [receiptTypes]);
+  }, [receiptTypes, agentsInvoked]);
 
   const toggle = useCallback(() => {
     setOpen((o) => !o);
     if (!loaded) void load();
   }, [loaded, load]);
+
+  /*
+   * A STALE SCOPE MUST NEVER RENDER AS CURRENT (operator directive,
+   * 2026-08-08). This component is not remounted when the journey's
+   * selected agent changes (JourneyRunSurface keys it by neither stage nor
+   * agent) — only `receiptTypes`/`agentsInvoked` change. Without this,
+   * `loaded` stays true from the PRIOR agent's fetch, and switching agents
+   * while the drawer is already open (or already fetched-and-collapsed)
+   * would keep showing that prior agent's receipts indefinitely. Any change
+   * to the scope invalidates the cache and, if the drawer is open, refetches
+   * immediately — never waits for a manual re-toggle.
+   */
+  const scopeKey = `${receiptTypes.join(',')}|${(agentsInvoked ?? []).join(',')}`;
+  const priorScopeKey = useRef(scopeKey);
+  useEffect(() => {
+    if (priorScopeKey.current === scopeKey) return;
+    priorScopeKey.current = scopeKey;
+    setLoaded(false);
+    setReceipts([]);
+    if (open) void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   if (receiptTypes.length === 0) return null;
 

@@ -81,6 +81,20 @@ async function startTrace(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    return await getHistory(request);
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `The trace history read threw before it could answer: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}. This is a pure read — no signing or submission happens on this path, and nothing here is affected.`,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function getHistory(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 });
 

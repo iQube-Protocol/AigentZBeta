@@ -23,6 +23,7 @@ vi.mock('@/app/api/assistant/ask-agent/route', () => ({
 }));
 
 import { GET as healthGet } from '@/app/api/agents/nakamoto/health/route';
+import { GET as healthCatchAllGet } from '@/app/api/agents/nakamoto/health/[...rest]/route';
 import { POST as invokePost } from '@/app/api/agents/nakamoto/invoke/route';
 
 const ENV_KEYS = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'VENICE_API_KEY'] as const;
@@ -65,6 +66,39 @@ describe('GET /api/agents/nakamoto/health', () => {
     const res = await healthGet();
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
+});
+
+/*
+ * Horizen's correlated trace names endpoint=https://dev-beta.aigentz.me/api/
+ * agents/nakamoto/health and healthPath=/health for THIS agent (operator
+ * report, 2026-08-07). `endpoint` matches exactly what
+ * services/registry/runtimeDescriptor.ts resolves and submits; `healthPath`
+ * is a value this client has NEVER sent — so it can only be a Horizen-side
+ * default, applied by composing endpoint+healthPath. Composed, that is
+ * .../health/health — the EXACT path this suite pins.
+ */
+describe('GET /api/agents/nakamoto/health/health — the composed path Horizen actually probes', () => {
+  it('answers 2xx, identically to the bare /health route, without any enrollment/signing change', async () => {
+    const res = await healthCatchAllGet();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ status: 'ok', agent: 'aigent-nakamoto' });
+  });
+
+  it('is side-effect-free — never calls the ask-agent/invoke execution path', async () => {
+    await healthCatchAllGet();
+    expect(mockAskAgentPost).not.toHaveBeenCalled();
+  });
+
+  it('sets the same no-store/CORS headers as the bare route', async () => {
+    const res = await healthCatchAllGet();
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
+
+  it('re-exports the identical handler — never a second, forkable implementation', async () => {
+    expect(healthCatchAllGet).toBe(healthGet);
   });
 });
 

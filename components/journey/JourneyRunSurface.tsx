@@ -123,6 +123,17 @@ export interface JourneyRunSurfaceProps {
    * unchanged.
    */
   selectedAgentSlug?: string;
+  /**
+   * The `agents_invoked` value naming the currently-selected agent as a
+   * receipt subject (e.g. Horizen's "aigent-<slug>" convention) — an
+   * opaque string from this file's own perspective, computed by the caller,
+   * which already knows the journey-specific naming convention (operator
+   * directive, 2026-08-08). Applied ONLY to stages whose
+   * `receiptsScopedToSubjectAgent` is true; every other stage's Evidence
+   * Receipts drawer is unaffected. See StageReceiptsDrawer's own doc comment
+   * for the defect this closes.
+   */
+  receiptsSubjectAgentRef?: string;
 }
 
 export function JourneyRunSurface({
@@ -134,6 +145,7 @@ export function JourneyRunSurface({
   components,
   resolveSurfaceProps,
   selectedAgentSlug,
+  receiptsSubjectAgentRef,
 }: JourneyRunSurfaceProps) {
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -578,7 +590,14 @@ export function JourneyRunSurface({
             receipts (see JourneyStageDefinition.receiptsSurfacedNatively) —
             two renderings of the same evidence is not more evidence. */}
         {!activeStage.receiptsSurfacedNatively && (
-          <StageReceiptsDrawer receiptTypes={activeStage.receiptTypes} />
+          <StageReceiptsDrawer
+            receiptTypes={activeStage.receiptTypes}
+            agentsInvoked={
+              activeStage.receiptsScopedToSubjectAgent && receiptsSubjectAgentRef
+                ? [receiptsSubjectAgentRef]
+                : undefined
+            }
+          />
         )}
       </div>
     </div>

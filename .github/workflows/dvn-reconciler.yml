@@ -1,0 +1,80 @@
+name: dvn-reconciler
+
+# ── OBSERVABILITY MUST NOT PROVIDE LIVENESS (operator ruling, 2026-08-08) ──
+#
+# Drives the EXISTING server-side reconciler at /api/ops/sync/cron-tick. That
+# endpoint was written specifically to replace the client-driven auto-process
+# loop in hooks/ops/useSyncStatus.ts ("which only ran when a browser had /ops
+# open" — its own header) and was then never wired to a scheduler. So the
+# browser loop silently remained the only live path: with /ops closed the DVN
+# backlog accumulated (observed: 710 pending messages / drift 710), and merely
+# OPENING /ops drained it. The constitutional receipt spine cannot depend on
+# somebody having an administrative webpage open.
+#
+# This workflow adds NO new worker and NO second DVN implementation — it only
+# gives the existing, idempotent, audited reconciler independent liveness.
+#
+# ── NOT THE FINAL INFRASTRUCTURE MODEL (operator, same ruling) ─────────────
+#
+# GitHub Actions is the right IMMEDIATE fix because this repository already
+# operates that pattern (access-receipts-batcher.yml, deferred-mints-batcher.yml).
+# A constitutional receipt spine should ultimately have service-native
+# liveness; nothing in cron-tick itself depends on GitHub Actions, so
+# replacing this trigger later is a scheduler change only.
+#
+# Required secret (Settings → Secrets and variables → Actions):
+#   CRON_TRIGGER_TOKEN — the same value set in Amplify env. Authorises
+#                        /api/ops/sync/cron-tick (x-cron-token header).
+#
+# Manual trigger: Actions → dvn-reconciler → Run workflow.
+
+on:
+  schedule:
+    # Every 15 minutes — matches access-receipts-batcher.yml's cadence and
+    # GitHub's >5-min cron minimum. cron-tick applies its OWN K/T policy
+    # (batch_size_k / max_age_minutes_t from ops_anchor_config), so a tick
+    # arriving with nothing to do is a cheap, audited no-op — the cadence
+    # here is an upper bound on reconciliation latency, not a rate of work.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Never overlap ticks: cron-tick performs canister batch/anchor calls and
+  # two concurrent runs could double-batch the same pending set.
+  group: dvn-reconciler
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run DVN/anchor reconciliation tick
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          # --max-time 120: cron-tick makes several ICP canister calls
+          # (batch_now + anchor + drift reads) and declares maxDuration 60.
+          # -fsS is deliberately NOT used: a non-2xx body carries the tick's
+          # own diagnosis (cycle_action / decision_reason / error) and we want
+          # it echoed rather than swallowed by curl's failure mode.
+          response=$(curl -sS --max-time 120 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/sync/cron-tick")
+          echo "Reconciler response: $response"
+          # A tick that legitimately defers or skips is a SUCCESS — only
+          # ok=false (cycle_action=failed) is a workflow failure. Anchoring
+          # is size-OR-time gated by design; treating a deferral as an error
+          # would page the operator every 15 minutes.
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "parse_error")
+          if [ "$ok" = "parse_error" ]; then
+            echo "::error::Reconciler returned an unparseable response (see body above)"
+            exit 1
+          fi
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Reconciler tick reported failure"
+            exit 1
+          fi

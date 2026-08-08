@@ -139,6 +139,14 @@ export function AgreementRatifyPanel({ agentSlug, agentDisplayName }: AgreementR
         settlementTerms: null,
         verificationRequirements: RATIFY_VERIFICATION_REQUIREMENTS,
         governingInvariants: RATIFY_GOVERNING_INVARIANTS,
+        // This is a Constitutional Financial Services agreement — CFS
+        // agreements are RootDID-authority-bound, not persona-authority-
+        // bound (operator directive, 2026-08-08): the persona that forms it
+        // here need not be the same persona that later authorizes it, only
+        // the same RootDID. Every other agreement kind formed through this
+        // generic route (Threshold OAuth/service completion, etc.) omits
+        // this field and stays 'PERSONA', unchanged.
+        authorityBinding: 'ROOT_DID',
       });
       if (!formed.ok) throw new Error(formed.data?.error ?? 'forming the agreement failed');
 

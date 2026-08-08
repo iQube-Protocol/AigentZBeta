@@ -480,3 +480,52 @@ describe('classifyPulseEnrollmentState — explicit negative outranks positive s
     );
   });
 });
+
+/*
+ * ── AUTHORITATIVE pulseEnrolled=true MUST DOMINATE AN UNRELATED CAPABILITY'S
+ * OWN "next step" (Aigent Nakamoto, 2026-08-08) ─────────────────────────────
+ *
+ * A live get_onboarding_status response reports on MULTIPLE independent
+ * capabilities in ONE blob — Pulse and Verifiable PnL. The exact operator
+ * regression fixture: pulseEnrolled:true, pulseCommitmentRecorded:true,
+ * nextStep:"Onboarding complete. Verified receipts appear as Pulse proves
+ * uptime windows." — genuinely Pulse-positive. But the SAME response also
+ * names Verifiable PnL's OWN, independent, genuinely-still-pending next step
+ * ("Next step: Enroll ... Verifiable PnL" — see services/horizen/
+ * evidenceChain.ts's verifiablePnlLink, unaffected by this fix). Before this
+ * fix, that unrelated sentence's bare "next step: enroll" vetoed Pulse's own
+ * positive evidence a few lines away — reproduced below, FAILING before the
+ * fix (classified NOT_ENROLLED), passing after (CONFIRMED).
+ */
+describe('classifyPulseEnrollmentState — an unrelated capability\'s own "next step" must not veto Pulse\'s (2026-08-08)', () => {
+  it('the exact operator regression fixture: Pulse positive + PnL\'s own unrelated "next step: enroll" in the same response', () => {
+    const text =
+      'pulseEnrolled: true\n' +
+      'pulseCommitmentRecorded: true\n' +
+      'Next step: Onboarding complete. Verified receipts appear as Pulse proves uptime windows.\n' +
+      'Next step: Enroll to unlock Verifiable PnL reporting.';
+    expect(classifyPulseEnrollmentState(text)).toBe('CONFIRMED');
+  });
+
+  it('the same fixture, with the two capabilities in the opposite order', () => {
+    const text =
+      'Verifiable PnL: not registered. Next step: Enroll in Verifiable PnL through the Horizen dashboard.\n' +
+      '✓ Enrolled in Pulse monitoring\n' +
+      '✓ On-chain identity commitment recorded\n' +
+      'Next step: Onboarding complete.';
+    expect(classifyPulseEnrollmentState(text)).toBe('CONFIRMED');
+  });
+
+  it('preserved exactly: a bare structured false with NO capability label at all is still NOT_ENROLLED (no PnL label anywhere to misattribute it to)', () => {
+    expect(classifyPulseEnrollmentState('{"enrolled": false}')).toBe('NOT_ENROLLED');
+  });
+
+  it('preserved exactly: a GENUINE Pulse-specific negative right next to a PnL mention still resolves NOT_ENROLLED — this narrows false positives, it never widens what counts as a Pulse negative', () => {
+    const text = 'Pulse monitoring: not enrolled. Next step: Enroll in Pulse monitoring. Verifiable PnL: also not registered.';
+    expect(classifyPulseEnrollmentState(text)).toBe('NOT_ENROLLED');
+  });
+
+  it('preserved exactly: the existing live-transcript and "Next step: Enroll in Pulse monitoring" canaries above are unaffected (no PnL mention in either)', () => {
+    expect(classifyPulseEnrollmentState('Onboarding incomplete. Next step: Enroll in Pulse monitoring.')).toBe('NOT_ENROLLED');
+  });
+});

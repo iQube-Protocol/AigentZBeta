@@ -44,18 +44,20 @@ describe('PulseTransparencyToggle — Pulse and P&L are never one solved item (2
 });
 
 describe('PulseTransparencyToggle — the correlated enrollment trace is reachable from every real-tokenId branch (2026-08-06)', () => {
-  it('imports and instantiates PulseEnrollmentTracePanel exactly once, keyed to agentSlug', () => {
+  it('imports and instantiates PulseEnrollmentTracePanel exactly once, keyed to agentSlug, gated on showDiagnostics (2026-08-08 demotion)', () => {
     expect(source).toMatch(/import \{ PulseEnrollmentTracePanel \} from ['"]\.\/PulseEnrollmentTracePanel['"]/);
-    const instantiations = source.match(/const tracePanel = <PulseEnrollmentTracePanel agentSlug=\{agentSlug\} \/>;/g) ?? [];
+    const instantiations = source.match(/const tracePanel = showDiagnostics \? <PulseEnrollmentTracePanel agentSlug=\{agentSlug\} \/> : null;/g) ?? [];
     expect(instantiations).toHaveLength(1);
   });
 
-  it('renders {tracePanel} in every branch below the tokenId gate — Pulse-enabled, pending, owner-conflict, not-enrolled, denied/expired, and the default not-yet-authorized state', () => {
+  it('renders {tracePanel} in every branch below the tokenId gate — confirmed-but-unenriched, Pulse-enabled, pending, owner-conflict, not-enrolled, denied/expired, and the default not-yet-authorized state', () => {
     const occurrences = source.match(/\{tracePanel\}/g) ?? [];
-    // One per branch: pulse-enabled, pending, owner-source-conflict,
-    // not-enrolled, denied/expired, default. Six, not five and not seven —
-    // exactly the branches that have a real tokenId to trace against.
-    expect(occurrences).toHaveLength(6);
+    // One per branch: confirmed-but-unenriched (added 2026-08-07, the
+    // authorization-confirmed/projection-incomplete split state), pulse-
+    // enabled, pending, owner-source-conflict, not-enrolled, denied/expired,
+    // default. Seven — exactly the branches that have a real tokenId to
+    // trace against.
+    expect(occurrences).toHaveLength(7);
   });
 
   it('never renders the trace panel before a tokenId is confirmed present (loading / no-tokenId branches stay untouched)', () => {
@@ -65,5 +67,16 @@ describe('PulseTransparencyToggle — the correlated enrollment trace is reachab
     const loadingBranch = source.match(/if \(loading\) \{([\s\S]*?)\n {2}\}/);
     expect(loadingBranch).not.toBeNull();
     expect(loadingBranch![1]).not.toContain('tracePanel');
+  });
+});
+
+describe('PulseTransparencyToggle — "Run correlated trace" demoted out of the ordinary ceremony (operator directive, 2026-08-08)', () => {
+  it('showDiagnostics defaults to false — the diagnostic is opt-in, never shown in the ordinary Ratify/Verify ceremony by default', () => {
+    expect(source).toMatch(/showDiagnostics\s*=\s*false\s*\}:\s*PulseTransparencyToggleProps/);
+  });
+
+  it('PilotJourneyTab threads its own isAdmin through to PulseTransparencyToggle as showDiagnostics — the existing adminOnly-prop convention, never a new gating mechanism', () => {
+    const tabSource = read('app/triad/components/codex/tabs/PilotJourneyTab.tsx');
+    expect(tabSource).toContain('showDiagnostics: isAdmin === true');
   });
 });

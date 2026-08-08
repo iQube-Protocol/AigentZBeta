@@ -132,7 +132,84 @@ async function statusImpl(request: NextRequest) {
   }
 
   if (record.state === 'CONFIRMED') {
-    return NextResponse.json({ ok: true, state: 'complete' as VerifyStatusState, authorizationId, receiptRef: record.receiptRef });
+    /*
+     * AUTHORIZATION CONFIRMED IS NOT THE SAME FACT AS ENRICHMENT COMPLETE
+     * (Aigent Nakamoto, 2026-08-07). This branch used to answer 'complete'
+     * from the partner_authorization_requests row alone, without ever
+     * looking at whether the confirmed authorization actually got projected
+     * onto the binding's `transparency` field. When `enrichAgentCardAfter-
+     * HorizenAuthorization` throws or is skipped between CONFIRMED being
+     * written and the Agent Card enrichment step running (e.g. the
+     * authorize route's own top-level catch swallowing a throw that landed
+     * AFTER the partner call already confirmed), every subsequent status
+     * check hit this exact short-circuit and reported 'complete' forever,
+     * with no path that ever retried or even surfaced the gap.
+     *
+     * `binding` (resolved above, same resolver verify/authorize uses) already
+     * tells us whether the projection landed — no extra query needed. If it
+     * has not, this reruns the SAME idempotent enrichment write against the
+     * SAME already-matching binding (confirmed present by direct query,
+     * 2026-08-07: registry=horizen, network=base-sepolia, token_id=8798) —
+     * never a fabricated one. Mirrors the identical enrichment-outcome shape
+     * the reconciliation branch below already uses (inv.engineering.036/037).
+     */
+    if (binding.transparency?.pulse_enabled) {
+      /*
+       * READ THE RECEIPTED EVIDENCE — NEVER RECLASSIFY (operator directive,
+       * 2026-08-08: "downstream orchestration should consume that receipted
+       * state, rather than reinterpreting Horizen prose every time somebody
+       * opens a screen"). This is a pure `activity_receipts` row read — no
+       * live Horizen call, so it carries none of the latency/cost of a
+       * partner round trip. Periodic/manual RECONCILIATION against a fresh
+       * partner read is a separate, deliberately opt-in capability — see
+       * POST .../verify/reconcile — never run implicitly on this fast path.
+       */
+      const { getPulseAuthorizationEvidence } = await import('@/services/horizen/authorizationClient');
+      const evidence = await getPulseAuthorizationEvidence(record.receiptRef);
+      return NextResponse.json({
+        ok: true,
+        state: 'complete' as VerifyStatusState,
+        authorizationId,
+        receiptRef: record.receiptRef,
+        structuredStatus: evidence ?? null,
+      });
+    }
+
+    const { AgentKeyService } = await import('@/services/identity/agentKeyService');
+    const addresses = await new AgentKeyService().getAgentAddresses(agent.runtimeAgentId);
+    if (!addresses?.evmAddress) {
+      return NextResponse.json({
+        ok: true,
+        state: 'complete' as VerifyStatusState,
+        authorizationId,
+        receiptRef: record.receiptRef,
+        enrichmentRefusalCode: 'NO_CONTROLLER_WALLET',
+        enrichmentError: `${agent.displayName}'s controller wallet could not be resolved to retry enrichment`,
+      });
+    }
+
+    const { enrichAgentCardAfterHorizenAuthorization } = await import('@/services/horizen/agentCardEnrichment');
+    const enrichment = await enrichAgentCardAfterHorizenAuthorization({
+      actorPersonaId: persona.personaId,
+      aigentQubeId: agent.aigentQubeId,
+      runtimeAgentId: agent.runtimeAgentId,
+      displayName: agent.displayName,
+      authorizationId,
+      controllerWallet: addresses.evmAddress,
+      tokenId: binding.token_id,
+      network,
+      signatureRef: null,
+      submissionRef: null,
+    });
+    return NextResponse.json({
+      ok: true,
+      state: 'complete' as VerifyStatusState,
+      authorizationId,
+      receiptRef: record.receiptRef,
+      ...(enrichment.ok
+        ? { receiptRefs: enrichment.receiptRefs }
+        : { enrichmentRefusalCode: enrichment.refusalCode, enrichmentError: enrichment.detail }),
+    });
   }
 
   if (record.state === 'PREPARED' || record.state === 'AWAITING_SIGNATURE' || record.state === 'SIGNED') {
@@ -228,6 +305,16 @@ async function statusImpl(request: NextRequest) {
       authorizationId,
       reconciledFrom: record.state,
       receiptRef: confirmedRecord?.receiptRef ?? null,
+      /*
+       * THE STRUCTURED PROJECTION, CARRIED VERBATIM ("Close Pulse now"
+       * directive, 2026-08-08) — `pulseCommitmentRecorded`,
+       * `verifiablePnlRegistered`, `endpointWarning`, pulled directly from
+       * THIS reread's own `get_onboarding_status` JSON by
+       * `verifyHorizenTransparencyActivation` (never re-derived from prose
+       * here). `PulseTransparencyToggle` renders these directly rather than
+       * inferring them from the Agent Card's own, narrower `pulse.enabled`.
+       */
+      structuredStatus: result.structuredStatus ?? null,
       ...(enrichment.ok
         ? { receiptRefs: enrichment.receiptRefs }
         : { enrichmentRefusalCode: enrichment.refusalCode, enrichmentError: enrichment.detail }),

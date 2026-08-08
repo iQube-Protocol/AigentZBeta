@@ -276,6 +276,39 @@ const ANCHORABLE_ACTION_TYPES = new Set<string>([
   'capability_invocation_authorized',
   'capability_invocation_refused',
   'capability_invocation_completed',
+  // Receipted constitutional state — first proven out for the Horizen
+  // admission journey (operator directive, 2026-08-08: "verified external
+  // fact + valid constitutional policy + DVN receipt = canonical
+  // constitutional state transition"), then corrected the same day per the
+  // operator: "the principle we have just established is clearly
+  // protocol-level... I would not let the underlying reconciliation
+  // architecture become Horizen-specific." `pulse_enrollment_verified`/
+  // `pulse_commitment_verified` are Pulse-specific EVENT TYPES (a claim
+  // about a specific external fact) and stay partner-scoped by design —
+  // `writeConfirmedPulseActivation` issues them alongside the existing
+  // `horizen_pulse_authorized` receipt, each carrying its own evidence
+  // commitment. `reconciliation_discrepancy_recorded` is deliberately
+  // NAMED WITHOUT A PARTNER PREFIX: the mechanism it belongs to — a later
+  // external read disagreeing with already-receipted state produces a new,
+  // anchored event rather than rewriting the receipted transition it
+  // compares against — is protocol-level, not a Horizen invariant; a future
+  // partner's reconciliation writes the same action type. (Action-type
+  // addition only — the one change this file permits unilaterally. Payload
+  // shape, state machine and hashPersonaRef untouched.)
+  'pulse_enrollment_verified',
+  'pulse_commitment_verified',
+  'reconciliation_discrepancy_recorded',
+  // P&L is an independent, asynchronous capability transition, deliberately
+  // kept as its own state machine from Pulse admission (operator directive,
+  // 2026-08-08). Issued ONLY when a read-only Horizen correlation
+  // independently produces and attributes a genuine Verifiable-PnL record
+  // for the exact agent/token/chain — see
+  // services/horizen/pnlServiceVerification.ts. Additive alongside
+  // horizen_pnl_transparency_enabled (a materially weaker "disclosure scope
+  // authorized" claim) and partner_agent_evidence_recorded (a different
+  // constitutional question, identity-binding attribution) — never replaces
+  // either. (Action-type addition only.)
+  'pnl_service_verified',
 ]);
 
 export function shouldAnchorActionType(actionType: string): boolean {

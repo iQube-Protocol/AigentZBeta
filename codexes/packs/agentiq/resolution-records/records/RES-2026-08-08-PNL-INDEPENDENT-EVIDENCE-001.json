@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-08",
+  "resolutionId": "RES-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001",
+  "capability": "horizen-pnl-verification",
+  "milestone": "P&L verification is modeled as its own independent, asynchronous capability transition — read-only discovery against Horizen's real Verifiable-PnL correlation endpoint, receipted only on genuine, attributable evidence, never invented to make a Journey state look green.",
+  "problem": "The operator's framing: 'We already have the authority chain for Aigent Nakamoto: Nakamoto -> token 8798 -> verified owner -> constitutional authorization. What remains unproven is the independent activation/operation of the P&L capability.' Before doing anything, the operator required a cheap, read-only investigation of what Horizen actually exposes for P&L, and an explicit instruction not to invent a substitute registration ceremony merely to turn a status green.",
+  "observedFailure": [
+    "horizen_pnl_transparency_enabled (services/horizen/agentCardEnrichment.ts) is issued UNCONDITIONALLY alongside Pulse's own confirmation — it represents 'disclosure scope was authorized', not 'Horizen's Verifiable-PnL service independently verified this agent'. Treating it as P&L verification would materially overstate what actually happened.",
+    "verifiablePnlRegistered (a genuine partner-reported field from get_onboarding_status) has already been read live for Nakamoto and reported false — a real, negative signal, not an absence of one; the investigation confirmed this is documented in RES-2026-08-08-RECEIPTED-CONSTITUTIONAL-STATE-001's own rejectedApproaches.",
+    "A second, generic, read-only correlation channel exists — fetchPnlCorrelation / correlateAgent's GET /v1/erc8004/{tokenId} — but was, before this change, only ever invoked against a different reference token (7866), never against Nakamoto's own token (8798)."
+  ],
+  "rootCauses": [
+    "No function in this codebase queried Horizen's Verifiable-PnL correlation endpoint for an ARBITRARY agent/token and turned a genuine, attributable result into a receipted constitutional fact — correlateAgent/buildHorizenEvidence exist, but the nearest existing receipt writer (services/horizen/operatorClaim.ts, actionType partner_agent_evidence_recorded) answers a different constitutional question (identity-binding attribution) and requires a resolved attribution binding this question does not need."
+  ],
+  "resolution": [
+    "Investigated first, read-only, before writing any code (background research agent): confirmed the two genuine read-only P&L channels (get_onboarding_status's verifiablePnlRegistered field, and fetchPnlCorrelation's GET /v1/erc8004/{tokenId}), confirmed horizen_pnl_transparency_enabled's weaker meaning with exact file:line citations, and confirmed the open Horizen contract question: whether enable_pulse_monitoring genuinely activates P&L disclosure or only authorizes the intent.",
+    "Added discoverAndReceiptPnlServiceEvidence (services/horizen/pnlServiceVerification.ts) — reuses correlateAgent (services/horizen/correlate.ts), the codebase's ONE existing Horizen agent-correlation pipeline, rather than a second PnL-reading implementation. Makes read-only GET requests only; never signs, submits, registers, or re-enrolls.",
+    "Idempotent via the existing findAgentReceiptRefs lookup (services/receipts/activityReceiptService.ts), keyed on runtimeAgentId + the new action type — an already-verified agent short-circuits with NO live call, mirroring the same-day Pulse bootstrap function's own idempotency discipline.",
+    "Validates provenance before minting anything: the correlation must report record.pnl.present (a genuine artifact, not absence), record.identity.identityClass === 'on-chain' (a confirmed ERC-8004 token, not a lesser identity class), and no disagreement between the correlation's own erc8004Chain claim and the network queried. Any failure of these returns evidencePending with a named reason and the open contract question — never a fabricated positive.",
+    "Added pnl_service_verified as a NEW, additive action type (services/receipts/activityReceiptService.ts, services/dvn/activityReceiptDvnPipeline.ts's ANCHORABLE_ACTION_TYPES — the one unilateral change CLAUDE.md's DVN Pipeline Protection permits — and migration 20260930002200_pnl_service_verified_receipt_type.sql) rather than reusing horizen_pnl_transparency_enabled or partner_agent_evidence_recorded, per the operator's own instruction ('provisionally pnl_service_verified, unless an existing canonical receipt type is more appropriate') — neither existing type represents the same claim.",
+    "7 tests added (tests/pnl-service-verification.test.ts): genuine correlation mints the receipt; already-verified short-circuits with no live call; not-found/read-failed/identity-unconfirmed/chain-mismatch all return evidencePending and mint nothing; every call made is a plain GET (no method override, i.e. no mutation is even structurally possible through this path).",
+    "Shipped with scripts/discover-pnl-evidence.ts for the operator to run against Nakamoto's live token — reports evidencePending plainly if nothing genuine is found, and explicitly states this never blocks the Journey."
+  ],
+  "rejectedApproaches": [
+    "Inventing a substitute P&L registration/activation ceremony to make a status render green — explicitly rejected per the operator: 'do not invent or implement another registration ceremony merely to make the state green.' This platform has no PnL registration action to take (services/horizen/client.ts's own header: reads and correlation only); the honest state absent a genuine correlation is evidence-pending, stated plainly.",
+    "Reusing horizen_pnl_transparency_enabled for this receipt — rejected: that type is issued unconditionally alongside Pulse confirmation and represents authorization of disclosure scope, a materially weaker claim than independent verification. Overloading it would misrepresent an authorization as an operation.",
+    "Reusing partner_agent_evidence_recorded for this receipt — rejected: that type answers a different constitutional question (identity-binding attribution, requiring a resolved attribution binding) that this function's question does not need and should not be forced through.",
+    "Treating an already-observed live verifiablePnlRegistered:false as sufficient reason to skip building this capability at all — rejected: the operator's own framing distinguishes 'no signal exists' from 'the specific correlation channel for THIS token has not actually been queried yet' (fetchPnlCorrelation was previously only exercised against a different reference token). The capability is built and evidence-pending is the honest, expected report until/unless a genuine correlation for 8798 specifically appears.",
+    "Coupling P&L verification to Pulse admission or the Journey's Ratify gate — rejected per the operator: 'Pulse Verified is sufficient to close Ratify. P&L verification is an independent, asynchronous capability transition.' No code in this change reads or writes any Pulse-side state, and no Journey gate was touched."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001"
+  ],
+  "canaries": [
+    "tests/pnl-service-verification.test.ts",
+    "tests/activity-receipts-action-type-parity.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "reusable-pattern-established",
+  "evidence": {
+    "commits": [
+      "b3f2a6a"
+    ],
+    "tests": [
+      "tests/pnl-service-verification.test.ts"
+    ],
+    "receipts": [
+      "pnl_service_verified"
+    ],
+    "incidentRefs": []
+  },
+  "sourceDocs": [],
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  }
+}

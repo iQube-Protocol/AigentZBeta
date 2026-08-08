@@ -324,7 +324,39 @@ export type ActivityActionType =
   | 'capability_invocation_requested'
   | 'capability_invocation_authorized'
   | 'capability_invocation_refused'
-  | 'capability_invocation_completed';
+  | 'capability_invocation_completed'
+  // Receipted constitutional state (operator directive, 2026-08-08 —
+  // "Replace external-state-as-runtime-authority with receipted
+  // constitutional state"). `pulse_enrollment_verified`/
+  // `pulse_commitment_verified` are Pulse-specific EVENT TYPES, first proven
+  // out for the Horizen admission journey — each carries the evidence that
+  // justified it (network, agent/token reference, verified source values,
+  // source-response commitment, verification timestamp, verifier/policy
+  // version) — see services/horizen/authorizationClient.ts's
+  // writeConfirmedPulseActivation. `reconciliation_discrepancy_recorded` is
+  // deliberately PROTOCOL-LEVEL, not partner-prefixed (corrected same day,
+  // operator: "I would not let the underlying reconciliation architecture
+  // become Horizen-specific") — written by reconcilePulseConstitutionalState
+  // when a LATER external read disagrees with already-receipted evidence;
+  // it is itself a new event, never a rewrite of the transition it compares
+  // against, and the same type will serve any future partner's
+  // reconciliation writes.
+  | 'pulse_enrollment_verified'
+  | 'pulse_commitment_verified'
+  | 'reconciliation_discrepancy_recorded'
+  // P&L is an independent, asynchronous capability transition, deliberately
+  // kept as its own state machine from Pulse admission (operator directive,
+  // 2026-08-08: "Absence of optional downstream evidence must not invalidate
+  // already-proven upstream constitutional state"). pnl_service_verified is
+  // issued ONLY when a read-only Horizen correlation independently produces
+  // and attributes a genuine Verifiable-PnL record for the exact agent/
+  // token/chain — see services/horizen/pnlServiceVerification.ts. Additive
+  // alongside horizen_pnl_transparency_enabled (a materially WEAKER claim:
+  // disclosure scope was authorized, issued unconditionally alongside Pulse
+  // confirmation) and partner_agent_evidence_recorded (a DIFFERENT
+  // constitutional question: identity-binding attribution) — never replaces
+  // either.
+  | 'pnl_service_verified';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
@@ -775,6 +807,44 @@ export async function readReceiptAnchorStatus(
     }
     if (!data) return null;
     return ((data as { receipt_status?: ReceiptStatus }).receipt_status ?? 'local') as ReceiptStatus;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * A receipt's `actionInput`, by id — the read half of the receipted-
+ * constitutional-state model (operator directive, 2026-08-08). A canonical
+ * transition (e.g. `horizen_pulse_authorized`) is written with its
+ * `receiptRef` stored on the caller's own row (see
+ * `partner_authorization_requests.receiptRef`); reading the evidence back
+ * later — for display, or for `reconcilePulseConstitutionalState`'s
+ * comparison — goes through this function rather than a second, parallel
+ * `activity_receipts` query (inv.engineering.036/037).
+ *
+ * THREE-VALUED, same discipline as `readReceiptAnchorStatus` immediately
+ * above: `null` means "read successfully, no such receipt" (a fact);
+ * `undefined` means "could not read" (an admission of ignorance). Returns
+ * `actionInput` alone, never the full receipt body — this reader exists for
+ * evidence lookup, not general receipt display.
+ */
+export async function getActivityReceiptActionInput(
+  receiptId: string | null | undefined,
+): Promise<Record<string, unknown> | null | undefined> {
+  if (!receiptId) return null;
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from('activity_receipts')
+      .select('action_input')
+      .eq('id', receiptId)
+      .maybeSingle();
+    if (error) {
+      if (isMissingTable(error)) return undefined;
+      return undefined;
+    }
+    if (!data) return null;
+    return (data as { action_input: Record<string, unknown> | null }).action_input ?? null;
   } catch {
     return undefined;
   }

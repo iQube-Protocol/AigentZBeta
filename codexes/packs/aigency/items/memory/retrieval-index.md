@@ -3559,3 +3559,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-91c57fe.md](../build_/COMMITS/COMMIT-91c57fe.md)
 - Message: add extension distribution packages to .gitignore
+
+## Commit `7fce0bf` — 2026-08-07T01:13:31Z
+- Type: `fix`
+- Brief: [COMMIT-7fce0bf.md](../build_/COMMITS/COMMIT-7fce0bf.md)
+- Message: fix: add defensive null checks and error handling to sidepanel message handlers

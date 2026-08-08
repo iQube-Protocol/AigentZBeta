@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "candidate-invariant/v2.0",
+  "candidateId": "CI-2026-08-08-CFS-ROOTDID-AUTHORITY-001",
+  "statement": "An agreement declared authorityBinding: 'ROOT_DID' is authorized by RootDID equivalence, not persona identity: the forming and authorizing personas may differ, and authorization succeeds only when both resolve through the identity spine to the same RootDID commitment. RootDID equivalence establishes who may exercise the principal's authority — it never expands the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority, and the acting persona is preserved in the authorization receipt as an auditable commitment without becoming the constitutional principal of record.",
+  "family": "constitutional",
+  "governingPrinciple": false,
+  "parentCandidateId": null,
+  "projections": {
+    "targets": [
+      "devon"
+    ],
+    "researchRequired": false,
+    "ratificationRequired": true,
+    "track": "constitutional"
+  },
+  "classification": "Operator directive, 2026-08-08, verbatim: \"CFS agreements are RootDID-authority-bound, not persona-authority-bound... For ROOT_DID, forming and authorizing personas need not have identical persona IDs. Authorization succeeds when both resolve through the identity spine to the same verified RootDID... Do not weaken bounded delegation. RootDID equivalence establishes who may exercise the principal's authority; it does not expand the agreement's allowed actions, TTL, financial limits, verification requirements, or agent authority.\"",
+  "scope": "local",
+  "status": "candidate",
+  "canaries": [
+    {
+      "path": "tests/constitutional-agreement-rootdid-authority.test.ts",
+      "assertion": "Covers the operator's six required scenarios: same-persona authorization passes; cross-persona same-RootDID authorization passes; cross-RootDID authorization refuses; an acting persona with no resolvable RootDID refuses; successful authorization issues the agreement_authorized DVN receipt and sets the agreement's canonical state to AUTHORIZED; a subsequent persona switch does not alter that state. Also asserts the authorization receipt's actionInput carries only commitments (never raw personaId/RootDID) for the acting persona.",
+      "verifiedFailingBeforeFix": false
+    }
+  ],
+  "occurrences": [
+    {
+      "site": "cfs-agreement-authority",
+      "defect": "authorizeAgreement compared only persona-level one-way commitments, so a CFS agreement formed by one of an operator's own delegated-agent personas could never be authorized by another of that operator's personas sharing the same RootDID — the code had no notion of an authority tier above persona at all.",
+      "resolutionId": "RES-2026-08-08-CFS-AGREEMENT-AUTHORITY-001",
+      "evidence": [
+        "2f0111a",
+        "tests/constitutional-agreement-rootdid-authority.test.ts"
+      ]
+    }
+  ],
+  "derivedFrom": [
+    "RES-2026-08-08-CFS-AGREEMENT-AUTHORITY-001"
+  ],
+  "ratifiedSource": null,
+  "supersededBy": null,
+  "notes": [
+    "Deliberately NOT generalized to every agreement this pass — authorityBinding defaults to PERSONA and only CFS's own formation call site (AgreementRatifyPanel.verifyAndSign) currently sets ROOT_DID. Operator: 'Do not generalize ROOT_DID authority to every agreement yet. Apply it to CFS services only and expose the authority class cleanly so we can develop the broader hierarchy separately.'",
+    "RootDID is explicitly NOT the top of the authority hierarchy — preserved verbatim, operator's own correction and taxonomy, 2026-08-08: \"I wouldn't call RootDID the highest authority. Sovereign personhood remains constitutionally prior to RootDID. What we're saying is that CFS currently belongs at the RootDID authority tier, rather than the persona tier. Personhood establishes the constitutional principal. RootDID establishes durable identity authority. Persona establishes context. Delegation establishes bounded agency. Session establishes authenticated presence. And then DVN receipts establish the canonical record that an authorized constitutional act actually occurred.\" This full six-tier taxonomy (personhood → RootDID → persona → delegation → session → DVN receipt) is recorded here as the operator's own articulation, not asserted as a second, competing invariant — a candidate covering the taxonomy itself, if wanted, is a separate act for the operator to request.",
+    "Diagnosis-before-mutation finding, same session: 'Ratified' and 'Agreement authorized' in AgreementRatifyPanel.tsx are the same isAuthorized boolean rendered in two places (a status badge and a completed-button label), not two distinct constitutional states. No relabeling was made — there was no genuine semantic duplication to resolve.",
+    "RootDID comparison uses the existing one-way commitment convention (resolveRootDidCommitment → didPublicRef-style hash), never raw RootDIDs — consistent with the Identity & Access Spine's T0/T2 tiers and the DVN pipeline's own hashPersonaRef pattern. This candidate does not introduce a new commitment scheme."
+  ]
+}

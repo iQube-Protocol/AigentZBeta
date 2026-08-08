@@ -62,7 +62,7 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   ParticipationStandingTab,
 };
 
-function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
@@ -130,7 +130,19 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
         : descriptor.component === 'AgreementRatifyPanel'
           ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
         : descriptor.component === 'PulseTransparencyToggle'
-          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
+          /*
+           * "Run correlated trace" is a diagnostic instrument, not part of
+           * the primary constitutional ceremony (operator directive,
+           * 2026-08-08: "once constitutional state is receipt-driven, it
+           * belongs under Evidence/Admin/diagnostics rather than in the
+           * primary constitutional ceremony"). `isAdmin` already reaches
+           * this component from the codex shell (PilotJourneyTabProps) —
+           * it previously dead-ended here, gating nothing. Threading it
+           * through as `showDiagnostics` is the same adminOnly-prop
+           * pattern already used elsewhere in this codebase, never a new
+           * gating mechanism.
+           */
+          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName, showDiagnostics: isAdmin === true }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
            wallet control" resolved MoneyPenny's registry_assets row).
@@ -150,7 +162,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
             ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
             : {};
     },
-    [selectedAgentSlug, origin],
+    [selectedAgentSlug, origin, isAdmin],
   );
 
   return (
@@ -180,6 +192,15 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
       // iframe's selected agent and the observer's selected agent must never
       // diverge (al, 2026-08-04).
       selectedAgentSlug={selectedAgentSlug}
+      /*
+       * THE EVIDENCE RECEIPTS DRAWER MUST SCOPE TO THE SELECTED AGENT
+       * (operator directive, 2026-08-08). `aigent-${slug}` is the exact
+       * `agents_invoked` convention RegisterAgentPanel.tsx and
+       * registerCeremony.ts already use — computed here, not inside
+       * JourneyRunSurface, which stays journey-agnostic and treats this as
+       * an opaque string.
+       */
+      receiptsSubjectAgentRef={`aigent-${selectedAgentSlug}`}
       personaId={personaId}
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}

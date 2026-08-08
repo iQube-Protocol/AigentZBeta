@@ -73,6 +73,10 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         'horizen_registration_confirmed',
         'agent_registry_binding_recorded',
       ],
+      // Every type above is written with agentsInvoked: [agent.runtimeAgentId]
+      // (services/horizen/registerCeremony.ts) — verified subject-tagged
+      // (operator directive, 2026-08-08).
+      receiptsScopedToSubjectAgent: true,
       companion: {
         before:
           'MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
@@ -122,6 +126,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        */
       completionEvidence: ['controlProofFresh'],
       receiptTypes: ['agent_control_proven'],
+      // agent_control_proven is written with agentsInvoked: [agent.runtimeAgentId]
+      // — verified subject-tagged (operator directive, 2026-08-08).
+      receiptsScopedToSubjectAgent: true,
       companion: {
         before: 'A wallet-control challenge must be signed to prove the agent’s controller wallet.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',

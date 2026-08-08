@@ -484,6 +484,79 @@ function matchesUnnegated(text: string, patterns: RegExp[]): boolean {
   return false;
 }
 
+/**
+ * A `NOT_ENROLLED_PATTERNS` match belongs to a DIFFERENT capability, not
+ * Pulse (Aigent Nakamoto, 2026-08-08). A live `get_onboarding_status`
+ * response reports on MULTIPLE independent capabilities in one blob —
+ * Pulse and Verifiable PnL — and several of the generic negative patterns
+ * (`next step: enroll`, the structured-`false` pattern) carry no "pulse"
+ * anchor of their own. Reproduced directly: a response containing BOTH
+ * `pulseEnrolled: true` (genuinely Pulse-positive) AND, elsewhere in the
+ * SAME text, "Next step: Enroll" about Verifiable PnL (genuinely,
+ * independently still unregistered — see services/horizen/evidenceChain.ts's
+ * own `verifiablePnlLink`) classified as `NOT_ENROLLED` for Pulse: the PnL
+ * sentence's unrelated "next step" vetoed Pulse's own positive evidence a
+ * few lines away.
+ *
+ * Deliberately NARROW, mirroring `NEGATION_BEFORE`'s own bounded-window
+ * technique rather than attempting general topic segmentation this has no
+ * business claiming to do: a match is treated as PnL-scoped (and skipped)
+ * ONLY when a "pnl"/"verifiable pnl" label sits CLOSER to it, within a
+ * bounded window, than any "pulse" label does. A match with NO nearby PnL
+ * label at all is UNAFFECTED — this is what keeps the existing bare
+ * `{"enrolled": false}` canary (no capability label at all) resolving
+ * `NOT_ENROLLED`, exactly as before: nothing here widens what counts as a
+ * genuine Pulse negative, it only narrows which unrelated-capability
+ * mentions may no longer masquerade as one.
+ */
+const TOPIC_SCOPE_WINDOW = 80;
+const PNL_LABEL = /\b(?:verifiable[\s-]?)?pnl\b/gi;
+const PULSE_LABEL = /\bpulse\b/gi;
+
+function nearestLabelDistance(text: string, matchIndex: number, matchLength: number, label: RegExp): number | null {
+  const start = Math.max(0, matchIndex - TOPIC_SCOPE_WINDOW);
+  const end = Math.min(text.length, matchIndex + matchLength + TOPIC_SCOPE_WINDOW);
+  const window = text.slice(start, end);
+  let nearest: number | null = null;
+  label.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = label.exec(window))) {
+    const distance = Math.abs(start + m.index - matchIndex);
+    if (nearest === null || distance < nearest) nearest = distance;
+  }
+  return nearest;
+}
+
+function isUnrelatedCapabilityMatch(text: string, matchIndex: number, matchLength: number): boolean {
+  const pnlDistance = nearestLabelDistance(text, matchIndex, matchLength, PNL_LABEL);
+  if (pnlDistance === null) return false;
+  const pulseDistance = nearestLabelDistance(text, matchIndex, matchLength, PULSE_LABEL);
+  return pulseDistance === null || pnlDistance < pulseDistance;
+}
+
+/**
+ * `matchesUnnegated`, plus the topic-scoping guard above — used ONLY for
+ * `classifyPulseEnrollmentState`'s `NOT_ENROLLED_PATTERNS` check. Never
+ * applied to `matchesUnnegated`'s other callers (submission semantic-status
+ * classification, `CONFIRMED_ENROLLMENT_PATTERNS`, `PENDING_ENROLLMENT_
+ * PATTERNS`) — those have no analogous multi-capability ambiguity to guard
+ * against, and widening the guard to them would be an unreviewed behavior
+ * change this fix does not need to make.
+ */
+function matchesUnnegatedAndPulseScoped(text: string, patterns: RegExp[]): boolean {
+  for (const pattern of patterns) {
+    const re = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g');
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text))) {
+      const preceding = text.slice(Math.max(0, m.index - 24), m.index);
+      if (NEGATION_BEFORE.test(preceding.trimEnd() + ' ')) continue;
+      if (isUnrelatedCapabilityMatch(text, m.index, m[0].length)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Depth-bounded search for any of `fields` in an already-parsed JSON value. */
 function findReferenceInJson(value: unknown, fields: readonly string[], depth = 0): string | null {
   if (depth > 6 || value === null || typeof value !== 'object') return null;
@@ -639,12 +712,105 @@ const CONFIRMED_ENROLLMENT_PATTERNS = [
 const PENDING_ENROLLMENT_PATTERNS = [/\bprocessing\b/i, /\bpending\b/i, /\bqueued\b/i, /\bpropagat(?:ing|ion)\b/i, /\bin\s+progress\b/i];
 
 export function classifyPulseEnrollmentState(statusText: string): PulseEnrollmentState {
-  if (matchesUnnegated(statusText, NOT_ENROLLED_PATTERNS)) return 'NOT_ENROLLED';
+  if (matchesUnnegatedAndPulseScoped(statusText, NOT_ENROLLED_PATTERNS)) return 'NOT_ENROLLED';
   if (matchesUnnegated(statusText, CONFIRMED_ENROLLMENT_PATTERNS)) return 'CONFIRMED';
   if (matchesUnnegated(statusText, PENDING_ENROLLMENT_PATTERNS)) return 'PENDING_CONVERGENCE';
   // No conclusive statement at all — still PENDING_CONVERGENCE, never a
   // guess at CONFIRMED or NOT_ENROLLED.
   return 'PENDING_CONVERGENCE';
+}
+
+/**
+ * ── STRUCTURED-FIRST PRECEDENCE ("Close Pulse now" directive, 2026-08-08) ──
+ *
+ * "Do not use prose regex classification when structured status exists.
+ * Parse the structured JSON returned by get_onboarding_status first...
+ * A Boolean partner field must never be overridden by prose interpretation."
+ *
+ * The topic-scoping fix above (2026-08-08, same day) closed the ONE known way
+ * an unrelated capability's prose could veto Pulse's own genuinely positive
+ * evidence. This is the belt this operator asked for in addition to that
+ * suspender: when Horizen's response already carries a partner-declared
+ * BOOLEAN for the exact question being asked, no regex — scoped or not — gets
+ * a vote at all. Every field pulled here is read from the RAW (never
+ * lowercased) JSON `get_onboarding_status` actually returned; the prose
+ * classifier remains the fallback for the (still-real) case where a response
+ * carries no structured field, e.g. a partner that answers in free text only.
+ */
+export interface StructuredPulseOnboardingFields {
+  pulseEnrolled?: boolean;
+  pulseCommitmentRecorded?: boolean;
+  /** Display-only — never consulted by classification (see the "no contamination" note below). */
+  verifiablePnlRegistered?: boolean;
+  /**
+   * Present (possibly `null`) exactly when the partner's own JSON declared
+   * this key at all — absence is represented by the key being OMITTED from
+   * this object entirely, never defaulted to `null`, so a caller can tell
+   * "the partner said no warning" from "the partner never answered".
+   */
+  endpointWarning?: string | null;
+}
+
+function mergeStructuredPulseFields(into: StructuredPulseOnboardingFields, source: unknown): void {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) return;
+  const obj = source as Record<string, unknown>;
+  if (into.pulseEnrolled === undefined && typeof obj.pulseEnrolled === 'boolean') into.pulseEnrolled = obj.pulseEnrolled;
+  if (into.pulseCommitmentRecorded === undefined && typeof obj.pulseCommitmentRecorded === 'boolean') {
+    into.pulseCommitmentRecorded = obj.pulseCommitmentRecorded;
+  }
+  if (into.verifiablePnlRegistered === undefined && typeof obj.verifiablePnlRegistered === 'boolean') {
+    into.verifiablePnlRegistered = obj.verifiablePnlRegistered;
+  }
+  if (!('endpointWarning' in into) && Object.prototype.hasOwnProperty.call(obj, 'endpointWarning')) {
+    const v = obj.endpointWarning;
+    if (v === null || typeof v === 'string') into.endpointWarning = v;
+  }
+}
+
+/**
+ * Every structured field this integration projects, pulled from WHICHEVER
+ * text block(s) of an MCP tool result carry them — never from the lowercased
+ * prose `flattenToolResultText` produces, which would corrupt camelCase keys
+ * (`pulseEnrolled` -> `pulseenrolled`) and make every lookup below fail
+ * silently. Merges across multiple text blocks (first value wins per field)
+ * so a response that splits its JSON across blocks still resolves; in the
+ * ordinary one-block case this is just "parse it".
+ */
+export function extractStructuredPulseOnboardingFields(toolResult: McpToolResult | null | undefined): StructuredPulseOnboardingFields {
+  const result: StructuredPulseOnboardingFields = {};
+  const content = toolResult?.content;
+  if (!Array.isArray(content)) return result;
+  for (const item of content) {
+    if (item?.type !== 'text' || typeof item.text !== 'string') continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(item.text);
+    } catch {
+      parsed = firstEmbeddedJsonObject(item.text);
+    }
+    mergeStructuredPulseFields(result, parsed);
+  }
+  return result;
+}
+
+/**
+ * The classifier `verifyHorizenTransparencyActivation` actually calls.
+ * Precedence, exactly as directed: structured `pulseEnrolled` boolean, then
+ * structured `pulseCommitmentRecorded`, then — ONLY when neither structured
+ * field is present — the scoped prose classifier. `verifiablePnlRegistered`
+ * and `endpointWarning` are deliberately NOT read here: they are P&L/health
+ * display facts, not Pulse enrollment facts, and letting them influence this
+ * decision would be exactly the cross-capability contamination the operator
+ * ruled out ("Do NOT let P&L state contaminate Pulse classification").
+ */
+export function classifyPulseEnrollmentStateAuthoritative(
+  toolResult: McpToolResult | null | undefined,
+  statusText: string,
+): PulseEnrollmentState {
+  const structured = extractStructuredPulseOnboardingFields(toolResult);
+  if (structured.pulseEnrolled !== undefined) return structured.pulseEnrolled ? 'CONFIRMED' : 'NOT_ENROLLED';
+  if (structured.pulseCommitmentRecorded !== undefined) return structured.pulseCommitmentRecorded ? 'CONFIRMED' : 'NOT_ENROLLED';
+  return classifyPulseEnrollmentState(statusText);
 }
 
 /**

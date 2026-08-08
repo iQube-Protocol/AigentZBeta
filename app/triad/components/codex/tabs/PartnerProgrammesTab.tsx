@@ -1390,6 +1390,30 @@ function EvidenceChainPanel({
                 ))}
               </div>
 
+              {/*
+                Pulse and Verifiable PnL — two INDEPENDENT status cards
+                (operator direction, 2026-08-07), deliberately separate from
+                the seven links above (those are the ratified constitutional
+                chain; these are partner-capability status). Neither is
+                derived from the other — an agent can be fully Pulse-enrolled
+                while Verifiable PnL still reads "not registered", and that is
+                not a contradiction to resolve, it is the actual state.
+              */}
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+                <ChainStatus
+                  label={row.chain.pulseStatus.label}
+                  status={row.chain.pulseStatus.status}
+                  state={row.chain.pulseStatus.state}
+                  detail={row.chain.pulseStatus.detail}
+                />
+                <ChainStatus
+                  label={row.chain.verifiablePnlStatus.label}
+                  status={row.chain.verifiablePnlStatus.status}
+                  state={row.chain.verifiablePnlStatus.state}
+                  detail={row.chain.verifiablePnlStatus.detail}
+                />
+              </div>
+
               {/* The partner's own public record — chain data, no metaMe identifier. */}
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 <MetricCard label="Binding state">{row.chain.bindingState}</MetricCard>

@@ -101,6 +101,7 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
   const [record, setRecord] = useState<CorrelationRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const clearTimers = useCallback(() => {
@@ -108,6 +109,49 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
     timersRef.current = [];
   }, []);
   useEffect(() => clearTimers, [clearTimers]);
+
+  /*
+   * SHOW WHAT WE ALREADY POSSESS, READ-ONLY, BEFORE ASKING FOR ANYTHING NEW
+   * (operator directive, 2026-08-08: "We should get the UI to tell the truth
+   * about the Pulse state we already possess"). This panel used to show
+   * NOTHING until "Run correlated trace" was clicked — the ONE affordance
+   * that performs a live build->sign->submit->reread ceremony. That made the
+   * only way to see this agent's own trace history "run a fresh submission
+   * ceremony", which is also the exact ceremony the operator has twice
+   * directed this session not to repeat, and the one most exposed to the
+   * platform's own gateway timeout on a slow partner round trip (the
+   * reported 504 — see this file's own header on why NOT re-running it is
+   * the fix, not a longer maxDuration). `getLatestPulseCorrelationTraces`
+   * (GET, services/horizen/pulseEnrollmentTrace.ts) is pure read — no
+   * signing, no submission, no partner call at all — so mounting this way
+   * costs nothing and never re-runs anything.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingHistory(true);
+    (async () => {
+      try {
+        const res = await personaFetch(
+          `/api/journey/moneypenny-horizen/verify/pulse-trace?agentSlug=${encodeURIComponent(agentSlug)}`,
+          { cache: 'no-store' },
+        );
+        const json = await readJsonOrExplain(res, 'verify/pulse-trace (history)').catch(() => null);
+        const latest = Array.isArray(json?.records) ? (json.records[0] as CorrelationRecord | undefined) : undefined;
+        if (!cancelled && latest) setRecord(latest);
+        // No latest record, or the read itself failed: leave `record` null —
+        // the panel then shows only the (still fully available) "Run
+        // correlated trace" affordance, exactly as before this change.
+      } catch {
+        // A transport failure here says nothing new — the panel degrades to
+        // its pre-existing "nothing shown until Run is clicked" behavior.
+      } finally {
+        if (!cancelled) setLoadingHistory(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agentSlug]);
 
   const continueOnce = useCallback(async (attemptId: string, atSeconds: 5 | 15 | 30) => {
     setProgressNote(`Reading authoritative status at t+${atSeconds}s…`);
@@ -168,7 +212,15 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
   }, [agentSlug, clearTimers, continueOnce]);
 
   const latestStatusRead = record?.statusReads?.length ? record.statusReads[record.statusReads.length - 1] : null;
-  const stillPolling = record !== null && !record.complete;
+  /*
+   * "More rereads scheduled" must name an ACTUAL scheduled timer, not merely
+   * `!record.complete` — a record loaded from history (the mount fetch
+   * above) can be incomplete simply because the browser that ran it closed
+   * before its own +5/+15/+30s timers fired. Nothing is scheduled for that
+   * record now, and claiming otherwise would be exactly the kind of
+   * fabricated-progress this session has been correcting elsewhere.
+   */
+  const stillPolling = timersRef.current.length > 0 && record !== null && !record.complete;
 
   return (
     <div className="mt-3 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs">
@@ -191,6 +243,11 @@ export function PulseEnrollmentTracePanel({ agentSlug }: { agentSlug: string }) 
         </button>
       </div>
 
+      {loadingHistory && !record && (
+        <p className="mt-2 flex items-center gap-1.5 text-slate-500">
+          <Loader2 className="h-3 w-3 animate-spin" /> Reading last known trace, if any…
+        </p>
+      )}
       {progressNote && (
         <p className="mt-2 flex items-center gap-1.5 text-slate-500">
           <Loader2 className="h-3 w-3 animate-spin" /> {progressNote}
