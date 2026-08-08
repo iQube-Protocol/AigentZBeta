@@ -62,4 +62,20 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
+        # Several test files create a `@supabase/supabase-js` client at
+        # module load time (services/wallet/multiEmailIdentity.ts and
+        # friends) purely to satisfy an import chain -- they never touch a
+        # real Supabase instance, but `createClient()` throws synchronously
+        # on a missing/malformed URL or key before any test in that file can
+        # even run. These placeholders are NOT secrets (no repo secret is
+        # referenced or required) -- they exist only to satisfy that
+        # constructor's format validation. Confirmed by testing locally with
+        # real secrets absent: these values alone take the suite from 5
+        # failing files to 0 (a separate, pre-existing, order-dependent flake
+        # in tests/companion-observer.test.ts aside -- passes in isolation,
+        # unrelated to this workflow or any file it introduces).
         run: npm run test:ci
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-key
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
