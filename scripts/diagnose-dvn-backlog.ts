@@ -230,15 +230,29 @@ async function main() {
   }
 
   console.log('\n── The specific receipts named in the operator report ──────────────────');
+  /*
+   * EVERY STATUS, NOT JUST dvn_failed (fix, 2026-08-08). The first run filtered
+   * on receipt_status='dvn_failed' and so could not see that the receipts the
+   * operator had SEEN badged "DVN FAILED" (agent_card_enriched /
+   * horizen_pnl_transparency_enabled, 2026-08-07 16:33) were absent from the
+   * result. A filtered query cannot distinguish "that row no longer has this
+   * status" from "that row does not exist" — and the first is the interesting
+   * answer, because retry-dvn flips dvn_failed -> dvn_pending on a successful
+   * resubmit. Reporting present state means reporting it whatever it now is.
+   */
   const { data: nakamotoRows } = await admin
     .from('activity_receipts')
     .select('id, action_type, receipt_status, dvn_receipt_id, summary, created_at')
     .contains('agents_invoked', ['aigent-nakamoto'])
-    .eq('receipt_status', 'dvn_failed')
     .order('created_at', { ascending: false })
-    .limit(5);
-  console.log('Nakamoto dvn_failed receipts:');
-  console.log(JSON.stringify(nakamotoRows, null, 2));
+    .limit(20);
+  console.log('Nakamoto receipts (ALL statuses, most recent 20) — present state:');
+  for (const r of nakamotoRows ?? []) {
+    console.log(`  ${r.receipt_status.padEnd(12)} ${r.action_type.padEnd(38)} ${r.created_at}  msgId=${r.dvn_receipt_id ?? 'null'}`);
+  }
+  const nakamotoByStatus = new Map<string, number>();
+  for (const r of nakamotoRows ?? []) nakamotoByStatus.set(r.receipt_status, (nakamotoByStatus.get(r.receipt_status) ?? 0) + 1);
+  console.log(`  → ${[...nakamotoByStatus.entries()].map(([s, c]) => `${s}: ${c}`).join(' · ')}`);
 
   const { data: delegationRows } = await admin
     .from('activity_receipts')
