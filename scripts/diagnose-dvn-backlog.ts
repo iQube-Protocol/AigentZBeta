@@ -62,7 +62,18 @@ async function main() {
     get_ready_messages: () => Promise<DVNMessage[]>;
     get_dvn_message: (id: string) => Promise<[DVNMessage] | []>;
   }>(DVN_ID, dvnIdl);
-  const pos = await getAnonymousActor<{ get_pending_count: () => Promise<bigint> }>(POS_ID, posIdl);
+  const pos = await getAnonymousActor<{
+    get_pending_count: () => Promise<bigint>;
+    get_anchor_status: () => Promise<string>;
+    get_batches: () => Promise<
+      Array<{
+        root: string;
+        receipts: Array<{ id: string; data_hash: string; timestamp: bigint }>;
+        btc_anchor_txid: [string] | [];
+        btc_block_height: [bigint] | [];
+      }>
+    >;
+  }>(POS_ID, posIdl);
 
   console.log('── Canister-side counts (read-only query calls) ──────────────────────');
   /*
@@ -239,8 +250,68 @@ async function main() {
   console.log('\nOne ordinary failed delegation receipt (most recent 5 shown):');
   console.log(JSON.stringify(delegationRows, null, 2));
 
+  /*
+   * ── WHAT IS ACTUALLY ANCHORED TO BITCOIN (operator question, 2026-08-08) ──
+   *
+   * The Ops dashboard defines `drift = |PoS.get_pending_count() −
+   * DVN.get_pending_messages().length|`, which only means anything if the two
+   * canisters hold representations of the SAME acts. This section tests that
+   * premise against the PoS canister's own batch contents rather than against
+   * the counter.
+   *
+   * `data_hash` is the only thing `issue_receipt(text)` accepts, so grouping
+   * the anchored hashes by prefix shows exactly which subsystems ever reached
+   * Bitcoin. `sync_repair_*` is the synthetic filler `/api/ops/sync/repair`'s
+   * `balance` strategy injects purely to make the drift counter agree — every
+   * one of those is batched and BTC-anchored for real.
+   */
+  console.log('\n── What is actually in the BTC-anchored PoS batches? ─────────────────');
+  try {
+    console.log(`PoS get_anchor_status(): ${await pos.get_anchor_status()}`);
+    const batches = await pos.get_batches();
+    const anchored = batches.filter((b) => b.btc_anchor_txid.length > 0);
+    const receipts = batches.flatMap((b) => b.receipts);
+    console.log(`total batches: ${batches.length}`);
+    console.log(`batches WITH a btc_anchor_txid: ${anchored.length}`);
+    console.log(`total receipts across all batches: ${receipts.length}`);
+
+    const byPrefix = new Map<string, number>();
+    for (const r of receipts) {
+      // Synthetic/system receipts use a `<subsystem>_...` convention; a real
+      // content hash is bare hex. Bucketing on the first underscore separates
+      // the two without assuming any particular subsystem name.
+      const hash = String(r.data_hash);
+      const key = hash.includes('_') ? `${hash.split('_')[0]}_*` : '(bare hex content hash)';
+      byPrefix.set(key, (byPrefix.get(key) ?? 0) + 1);
+    }
+    console.log('\nanchored receipts by data_hash family:');
+    [...byPrefix.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([k, v]) => console.log(`  ${String(v).padStart(6)}  ${k}`));
+
+    const synthetic = [...byPrefix.entries()]
+      .filter(([k]) => /^(sync|test|anchor)_\*$/.test(k))
+      .reduce((n, [, v]) => n + v, 0);
+    if (receipts.length > 0) {
+      const pct = Math.round((synthetic / receipts.length) * 100);
+      console.log(
+        `\n  ${synthetic}/${receipts.length} (${pct}%) of everything ever BTC-anchored is synthetic ` +
+          `(sync-repair filler, tests, anchor probes) rather than a constitutional act.`,
+      );
+    }
+    console.log(
+      '\n  NOTE: activity_receipts never calls pos.issue_receipt (see\n' +
+        '  services/dvn/activityReceiptDvnPipeline.ts — its only hand-off is\n' +
+        '  dvn.submit_dvn_message), so no constitutional receipt can appear above.',
+    );
+  } catch (err) {
+    console.log(`get_batches UNREADABLE: ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`);
+    console.log('(If IC0504/payload-too-large, the batch set now exceeds the IC query cap too.)');
+  }
+
   console.log('\nDiagnosis complete. Nothing was mutated: only get_pending_messages, ');
-  console.log('get_ready_messages, get_pending_count, and Supabase SELECTs were called.');
+  console.log('get_ready_messages, get_pending_count, get_anchor_status, get_batches,');
+  console.log('and Supabase SELECTs were called.');
 }
 
 main().catch((err) => {
