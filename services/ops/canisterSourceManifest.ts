@@ -1,96 +1,41 @@
 /**
- * CANISTER SOURCE MANIFEST — where the code behind each deployed canister
- * actually lives (operator ruling, 2026-08-08).
+ * CANISTER SOURCE MANIFEST — cross-repo source and deployment provenance.
  *
- * ── THE FAILURE THIS PREVENTS ──────────────────────────────────────────────
- *
- * On 2026-08-08 an investigation concluded that `cross_chain_service`'s source
- * was "not in this repo" and therefore unavailable — and stopped there. It was
- * available: it lives in `iQube-Protocol/iQubeBeta-Program`, whose `dfx.json`
- * owns both `cross_chain_service` and `proof_of_state`. Because the source was
- * treated as unreachable, two facts went unverified for hours and were nearly
- * accepted as unknowable:
- *
- *   - the DVN readiness rule is literally `attestation_count >= 2`, and
- *     `submit_attestation` performs NO validator authorization and NO
- *     signature verification — it appends whatever it is handed;
- *   - `proof_of_state` builds its batch root from receipt IDs (not
- *     `data_hash`), leaves `merkle_proof` empty, and synthesises its
- *     `btc_anchor_txid` on both the success and error branches.
- *
- * A repository boundary became an epistemic boundary. This manifest exists so
- * that cannot happen silently again: every deployed canister names its
- * canonical repo and path, so "I searched this repo" is never the end of the
- * enquiry.
- *
- * ── WHAT THIS MANIFEST DOES *NOT* CLAIM ────────────────────────────────────
- *
- * Naming a source repo is the claim "this is where the code is maintained".
- * It is emphatically NOT the stronger claim "the live canister is running
- * exactly this source". Nothing here verifies deployment provenance, and the
- * distinction matters precisely because the checked-in code contains mock
- * Bitcoin behaviour: until a deployed module hash is compared against a build
- * of `sourceCommit`, an observation of the live canister always outranks a
- * reading of the source. `deployedModuleHash` is therefore OPTIONAL and
- * currently unset everywhere — an honest null, not a placeholder to be filled
- * with something plausible.
+ * Repository boundaries are not epistemic boundaries. This manifest records
+ * where each canister's canonical implementation lives and, separately, what
+ * has actually been observed about a deployment. A deployed module hash is an
+ * observation; it becomes source provenance only after the deployment artifact
+ * and an independent rebuild of the pinned source both match that hash.
  */
 
 export interface CanisterSourceEntry {
   /** The canister's name in its canonical repo's dfx.json. */
   name: string;
-  /** Deployed canister principal. */
+  /** Deployed canister principal, or an explicit local/unknown marker. */
   canisterId: string;
   network: 'ic' | 'local';
-  /**
-   * owner/repo that MAINTAINS this canister's implementation, or `null` when
-   * the source has NOT been located. Null is a tracked, visible gap — never a
-   * reason to omit the canister from this manifest, which would hide it.
-   */
   canonicalRepo: string | null;
-  /** Path within `canonicalRepo`, or null when unlocated. */
   canonicalPath: string | null;
-  /**
-   * `located`   — source found and read.
-   * `unlocated` — an IDL exists and is USED, but no implementation has been
-   *               found in any known repo. `note` must say what was searched,
-   *               so the next agent resumes the hunt instead of restarting it.
-   */
   sourceLocationStatus: 'located' | 'unlocated';
-  /** Required when unlocated: where the search has already been.  */
+  /** Required when unlocated; may also record lineage/context for located entries. */
   note?: string;
-  /**
-   * The commit of `canonicalRepo` whose source was last READ and compared
-   * against observed canister behaviour. Not a deployment claim — see header.
-   */
+  /** Pinned canonical source commit that was read and verified. */
   sourceCommitLastVerified: string | null;
-  /** ISO date of that verification. */
   lastVerifiedAt: string | null;
-  /** This repo's local IDL binding — the adapter surface AigentZBeta owns. */
+  /** AigentZBeta-owned consumer binding. */
   localIdlPath: string;
-  /**
-   * sha256 of the deployed WASM module, READ FROM THE LIVE CANISTER via a
-   * certified `read_state` (scripts/canister-lineage-census.ts). This is an
-   * OBSERVATION — it says what is running, not what source produced it.
-   */
+  /** sha256 observed from the deployed IC module. */
   deployedModuleHash: string | null;
   /**
-   * THE A4 GATE. sha256 of a REPRODUCIBLE BUILD of `sourceCommitLastVerified`
-   * that MATCHES `deployedModuleHash`. Null until such a build has actually
-   * been performed and compared.
-   *
-   * Deliberately separate from `deployedModuleHash`: obtaining the deployed
-   * hash is easy and proves nothing about provenance. Collapsing the two would
-   * let the activation gate open the moment someone ran the census — the exact
-   * "a weaker fact promoted into a stronger claim" pattern that put a LOCAL
-   * canister id into mainnet config under the label "LIVE MAINNET".
+   * sha256 of the exact staged artifact used by the deployment session, after
+   * verifying it equals deployedModuleHash. This is the first half of A4.
+   */
+  deploymentArtifactHashVerified: string | null;
+  /**
+   * sha256 of a fresh independent rebuild of sourceCommitLastVerified, after
+   * verifying it equals deployedModuleHash. This is the second half of A4.
    */
   moduleHashVerifiedAgainstSource: string | null;
-  /**
-   * Behaviours OBSERVED on the deployed canister that a reader must not
-   * assume away. Recorded here because they are the difference between "the
-   * source looks fine" and "the live system does what it claims".
-   */
   observedCaveats: string[];
 }
 
@@ -106,13 +51,16 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/cross_chain_service.ts',
     deployedModuleHash: '72a026cab892ac65690c2b001216dc844b7d4f9ed286da53977df1eae18ce16e',
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
     observedCaveats: [
       'get_ready_messages() is UNREADABLE on the deployed canister: the ready set exceeds the IC 3 MiB query response cap (IC0504). A read failure here must never be reported as an empty set.',
-      'Readiness is attestation_count >= 2 (REQUIRED_ATTESTATIONS). This is a STATE TRANSITION, not verification.',
-      'submit_attestation performs no validator authorization and no signature verification — it appends the supplied validator/signature verbatim. Fabricated attestations therefore promote messages to ready.',
+      'Readiness is attestation_count >= 2 (REQUIRED_ATTESTATIONS). This is a state transition, not cryptographic verification.',
+      'submit_attestation performs no validator authorization and no signature verification; supplied validator/signature values are appended verbatim.',
     ],
   },
+
+  // Legacy Proof-of-State deployment. Historical state remains untouched.
   {
     name: 'proof_of_state',
     sourceLocationStatus: 'located',
@@ -124,43 +72,63 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/proof_of_state.ts',
     deployedModuleHash: '97b83aa2d4af6b9c324a6a2120633db14704018f492fd6d5bf25f0cbee2c4b7b',
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
+    note: 'Legacy deployment retained for historical state only; it is not the CAP-1 activation target.',
     observedCaveats: [
-      'The batch root commits to RECEIPT IDS, not data_hash. Proven live: 20/20 sampled batches satisfy root == sha256(concat receipt_ids); 0/20 satisfy root == sha256(concat data_hashes).',
-      'merkle_proof is empty on all 186 receipts in anchored batches, and the root is a single sequential SHA256 over concatenated ids — not a Merkle tree, so no per-leaf inclusion proof is constructible.',
-      'btc_anchor_txid is synthesised ("mock_btc_txid_<root[..8]>") on ALL 76 anchored batches; anchor() discards the BTC signer response on both the Ok and Err branches.',
-      'btc_block_height is the hardcoded constant 800000 on every batch.',
-      'issue_receipt(data_hash) derives its id from the clock and never deduplicates by data_hash — repeat calls create duplicate receipts, so retries are NOT idempotent.',
+      'The live batch root commits to receipt IDs, not data_hash/H: 20/20 sampled batches matched sha256(concat receipt_ids), 0/20 matched sha256(concat data_hashes).',
+      'merkle_proof is empty on all sampled anchored receipts and the root is not a Merkle tree, so no per-leaf inclusion proof is constructible.',
+      'All 76 historically anchored batches carry synthesised mock_btc_txid_* values; btc_block_height is hardcoded to 800000.',
+      'issue_receipt is clock-id keyed rather than H-keyed, so retries are not idempotent.',
     ],
   },
+
+  // CAP-1 Proof-of-State v2 deployment. New canister; no in-place legacy upgrade.
+  {
+    name: 'proof_of_state_v2',
+    sourceLocationStatus: 'located',
+    canisterId: 'cz7nu-zyaaa-aaaao-qqavq-cai',
+    network: 'ic',
+    canonicalRepo: 'iQube-Protocol/iQubeBeta-Program',
+    canonicalPath: 'canisters/proof_of_state_v2/src/lib.rs',
+    sourceCommitLastVerified: '7387fc1a1ecb58ffd7f81d15c9fe5b51d19b0d7c',
+    lastVerifiedAt: '2026-08-08',
+    localIdlPath: 'services/ops/idl/proof_of_state_v2.ts',
+    deployedModuleHash: '23d24ddb1496aa4c5352c252259f2109e4d7712701c962e743ee953aa1b6b741',
+    deploymentArtifactHashVerified: '23d24ddb1496aa4c5352c252259f2109e4d7712701c962e743ee953aa1b6b741',
+    moduleHashVerifiedAgainstSource: null,
+    note: 'CAP-1 deployment. Init config points to Constitutional Anchor v2, separates operator/reconciler principals, and requires one Bitcoin confirmation.',
+    observedCaveats: [
+      'A live three-H CAP-1 batch reproduced the normative domain-separated Merkle root a3e774cb030179e5257b4d8e929f4f09bb368848a9ee933a97b310d47db4e978 independently.',
+      'Stored H1 and H3 inclusion proofs replay successfully; the odd third leaf records Promoted as required.',
+      'Two request_anchor attempts failed before signing because the configured signer could not see a spendable UTXO through the stale IC Bitcoin Testnet view. Batch state correctly remained Unanchored.',
+      'moduleHashVerifiedAgainstSource independent-rebuild claim NOT reproduced: rebuilding the pinned commit via dfx build (local and --network ic context) with rustc 1.94.1 (sandbox default) produced a078948d…, and with rustc 1.89.0 (the version pinned by this repo’s own CI, icp-ci.yml) produced a third, different hash — neither matches the deployed 23d24ddb…. iQubeBeta-Program has no rust-toolchain.toml pinning the exact compiler used for the original claimed rebuild, so that claim is not independently reproducible as recorded. deploymentArtifactHashVerified (live on-chain module_hash) was independently re-confirmed by live network query and stands.',
+    ],
+  },
+
+  // Constitutional Anchor v2. This is the first genuine IC deployment of the signer.
   {
     name: 'btc_signer_psbt',
     sourceLocationStatus: 'located',
-    canisterId: 'uxrrr-q7777-77774-qaaaq-cai',
-    // NOT 'ic'. Census 2026-08-08: canister_not_found on mainnet. This is the
-    // LOCAL dfx id from .dfx/local/canister_ids.json @ cebf998, promoted into
-    // mainnet env config at a88bc3a under the label "Bitcoin Signer - LIVE
-    // MAINNET". No IC-mainnet btc_signer has ever existed.
-    network: 'local',
+    canisterId: 'c66la-uaaaa-aaaao-qqava-cai',
+    network: 'ic',
     canonicalRepo: 'iQube-Protocol/iQubeBeta-Program',
-    canonicalPath: 'canisters/btc_signer_psbt/src/lib.rs',
-    sourceCommitLastVerified: 'db6e562821c086acd530b5e9bdafaf575e775995',
+    canonicalPath: 'constitutional-anchor/btc_signer_psbt/src/lib.rs',
+    sourceCommitLastVerified: '7387fc1a1ecb58ffd7f81d15c9fe5b51d19b0d7c',
     lastVerifiedAt: '2026-08-08',
-    // The IDL DOES exist here (operator correction, 2026-08-08). An earlier
-    // entry claimed none, having assumed the canister was reachable only via
-    // proof_of_state.anchor(). AigentZBeta holds a full binding.
     localIdlPath: 'services/ops/idl/btc_signer_psbt.ts',
-    deployedModuleHash: null,
+    deployedModuleHash: 'e594d99531a9d211f018184627a3501ad46bdf514012313e3a62d0a937cf341a',
+    deploymentArtifactHashVerified: 'e594d99531a9d211f018184627a3501ad46bdf514012313e3a62d0a937cf341a',
     moduleHashVerifiedAgainstSource: null,
+    note: 'The earlier uxrrr-q7777-77774-qaaaq-cai value was a local dfx id and is retired from active truth. No IC-mainnet signer existed before this CAP-1 deployment.',
     observedCaveats: [
-      'create_anchor_transaction computes _op_return_script and DISCARDS it (underscore-prefixed, never used). The data hash is never encoded into transaction bytes.',
-      'Outputs carry the literal strings "OP_RETURN" and "change_address" in their address field; no Bitcoin transaction is ever serialised.',
-      'sign_transaction sets txid = first 32 bytes of the SIGNATURE, not the double-SHA256 of a serialised transaction, and raw_tx = the string "signed_tx_<hex>".',
-      'get_btc_address returns "tb1q" + hex of the first 20 pubkey bytes — not bech32 (no checksum, no 5-bit encoding, not a hash of the pubkey).',
-      'create_and_broadcast_anchor uses a mock UTXO with an all-zero txid.',
+      'Live threshold public key derives Testnet4 P2WPKH address tb1qyyr0hdq7ck3wrtgup6cxy5egh5frvyft7p0qd6, independently reproduced off-canister.',
+      'Funding tx ef1721b54e3348b594531d01f257b3562f9a95524277c1a20cff3f4198fa5097 paid 1,000,000 sats to vout 1 and is confirmed externally in Testnet4 block 147513.',
+      'Signer failed closed with No UTXOs rather than fabricating a transaction because the IC Bitcoin Testnet canister remained at height 147508 while the external chain advanced to at least 147515. No anchor transaction was signed or broadcast.',
+      'moduleHashVerifiedAgainstSource independent-rebuild claim NOT reproduced: this canister is type=custom (no dfx post-processing possible), so its build is fully attributable to cargo/rustc alone. rustc 1.94.1 reproducibly gave e93d5566… (3/3 attempts: bare cargo, dfx build local, dfx build --network ic); rustc 1.89.0 (this repo’s own CI pin, icp-ci.yml) gave a third, different hash 3dde1799…. Neither matches the deployed e594d995…, and constitutional-anchor/Cargo.toml already pins codegen-units=1 + lto=true so this is not codegen-unit nondeterminism — it is an unpinned-toolchain gap. deploymentArtifactHashVerified (live on-chain module_hash) was independently re-confirmed by live network query and stands.',
     ],
   },
-  // ── Canonical in iQubeBeta-Program, not yet behaviourally audited ────────
+
   {
     name: 'evm_rpc',
     sourceLocationStatus: 'located',
@@ -172,10 +140,11 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: null,
     localIdlPath: 'services/ops/idl/evm_rpc.ts',
     deployedModuleHash: 'f61b3c2970548b611fcc9285eca94aace166e3c295cb98287c9e009a1075d392',
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
-    observedCaveats: ['Source located but NOT yet read or behaviourally audited — no caveats recorded either way.'],
+    observedCaveats: ['Source located but not yet behaviourally audited.'],
   },
-  // ── Canonical in THIS repo (AigentZBeta owns these outright) ─────────────
+
   {
     name: 'reward_hub',
     sourceLocationStatus: 'located',
@@ -187,8 +156,9 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/reward_hub.ts',
     deployedModuleHash: null,
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
-    observedCaveats: ['Declared in THIS repo\'s dfx.json — AigentZBeta is the canonical owner, unlike the ICP substrate canisters above.'],
+    observedCaveats: ['Declared in this repo dfx.json; AigentZBeta is the canonical owner.'],
   },
   {
     name: 'rqh',
@@ -201,16 +171,11 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     lastVerifiedAt: '2026-08-08',
     localIdlPath: 'services/ops/idl/rqh.ts',
     deployedModuleHash: null,
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
-    observedCaveats: ['Declared in THIS repo\'s dfx.json — AigentZBeta is the canonical owner.'],
+    observedCaveats: ['Declared in this repo dfx.json; AigentZBeta is the canonical owner.'],
   },
-  /*
-   * ── UNLOCATED ───────────────────────────────────────────────────────────
-   * Each of these has an IDL in this repo that PRODUCTION CODE CALLS, and no
-   * implementation found in either known repo. They are recorded rather than
-   * omitted precisely because omission is what let cross_chain_service pass
-   * for "unavailable". A visible gap can be closed; an invisible one cannot.
-   */
+
   ...(['dbc', 'escrow', 'fbc', 'evm_rpc_full', 'sol_rpc'] as const).map((name) => ({
     name,
     sourceLocationStatus: 'unlocated' as const,
@@ -219,43 +184,38 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     canonicalRepo: null,
     canonicalPath: null,
     note:
-      `Searched 2026-08-08: absent from iQube-Protocol/AigentZBeta (dfx.json declares only rqh + reward_hub; ` +
-      `src/ holds proof_of_state as THREE ZERO-BYTE FILES — a hollow shell that reads as local source and is ` +
-      `not) and absent from iQube-Protocol/iQubeBeta-Program (dfx.json declares cross_chain_service, evm_rpc, ` +
-      `btc_signer_psbt, proof_of_state, solana_signer_ed25519, reputation_qube). No canister id found in ` +
-      `.env.example. The IDL is nonetheless imported by live routes, so an implementation exists somewhere — ` +
-      `likely a third repo or an externally-operated canister. Ask the operator before assuming behaviour.`,
+      `Searched 2026-08-08: absent from iQube-Protocol/AigentZBeta's canister ownership and absent from ` +
+      `iQube-Protocol/iQubeBeta-Program's known canister sources. The IDL is imported by platform code, ` +
+      `so an implementation exists elsewhere or is externally operated. Do not infer behaviour from the IDL.`,
     sourceCommitLastVerified: null,
     lastVerifiedAt: null,
     localIdlPath: `services/ops/idl/${name}.ts`,
     deployedModuleHash: null,
+    deploymentArtifactHashVerified: null,
     moduleHashVerifiedAgainstSource: null,
     observedCaveats: [],
   })),
 ];
 
-/**
- * AMENDMENT A4 — the activation gate (operator, 2026-08-08).
- *
- * `POS_LEG_SUBMISSION_ENABLED` may not be flipped on the strength of source
- * review. Every canister on the Bitcoin path must additionally have its
- * DEPLOYED MODULE HASH matched against a reproducible build of the recorded
- * source commit. Until then, "this is where the code is maintained" is the only
- * claim this manifest supports — and every finding in the 2026-08-08
- * investigation came from a deployed canister whose provenance is unverified,
- * so the repair must not inherit that weakness.
- *
- * Returns the canisters still blocking activation. Empty ⇒ the provenance
- * half of the gate is satisfied (CAP-1 and the acceptance suites are separate,
- * and both still apply).
- */
-export const BITCOIN_PATH_CANISTERS = ['proof_of_state', 'btc_signer_psbt'] as const;
+/** The generation intended for eventual PoS/BTC activation. */
+export const BITCOIN_PATH_CANISTERS = ['proof_of_state_v2', 'btc_signer_psbt'] as const;
 
+/**
+ * A4 provenance gate only. Empty means source/deployment provenance is closed;
+ * it does NOT mean CAP-1 has passed or that PoS submission may be activated.
+ */
 export function activationProvenanceBlockers(): CanisterSourceEntry[] {
   return CANISTER_SOURCE_MANIFEST.filter(
     (e) =>
       (BITCOIN_PATH_CANISTERS as readonly string[]).includes(e.name) &&
-      (e.moduleHashVerifiedAgainstSource === null || e.sourceCommitLastVerified === null),
+      (
+        e.sourceCommitLastVerified === null ||
+        e.deployedModuleHash === null ||
+        e.deploymentArtifactHashVerified === null ||
+        e.moduleHashVerifiedAgainstSource === null ||
+        e.deploymentArtifactHashVerified !== e.deployedModuleHash ||
+        e.moduleHashVerifiedAgainstSource !== e.deployedModuleHash
+      ),
   );
 }
 
@@ -263,7 +223,6 @@ export function canisterSourceFor(canisterId: string): CanisterSourceEntry | und
   return CANISTER_SOURCE_MANIFEST.find((e) => e.canisterId === canisterId);
 }
 
-/** Canisters whose implementation has not been found — the open provenance gaps. */
 export function unlocatedCanisters(): CanisterSourceEntry[] {
   return CANISTER_SOURCE_MANIFEST.filter((e) => e.sourceLocationStatus === 'unlocated');
 }
