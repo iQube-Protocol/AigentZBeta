@@ -65,15 +65,47 @@ async function main() {
   const pos = await getAnonymousActor<{ get_pending_count: () => Promise<bigint> }>(POS_ID, posIdl);
 
   console.log('── Canister-side counts (read-only query calls) ──────────────────────');
-  const [pending, ready, posPendingCount] = await Promise.all([
-    dvn.get_pending_messages().catch((e) => { console.error('get_pending_messages failed:', e.message); return []; }),
-    dvn.get_ready_messages().catch((e) => { console.error('get_ready_messages failed:', e.message); return []; }),
+  /*
+   * THREE-VALUED, NEVER COLLAPSED TO ZERO (fix, 2026-08-08). The first run of
+   * this script caught `get_ready_messages` failing with IC0504 — the ready set
+   * had grown to 5.7 MB against the IC's 3 MiB query-response cap — and then
+   * reported "get_ready_messages(): 0", because the catch returned []. That is
+   * the same fail-silent shape this whole investigation is about: "could not
+   * read" rendered as "nothing there". An unreadable accessor is now reported
+   * as UNREADABLE, with its error, and never as an empty set.
+   */
+  type SetRead = { readable: true; messages: DVNMessage[] } | { readable: false; error: string };
+  const readSet = async (label: string, call: () => Promise<DVNMessage[]>): Promise<SetRead> => {
+    try {
+      return { readable: true, messages: await call() };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      console.error(`  ${label}: UNREADABLE — ${error.split('\n')[0]}`);
+      return { readable: false, error };
+    }
+  };
+
+  const [pendingRead, readyRead, posPendingCount] = await Promise.all([
+    readSet('get_pending_messages', () => dvn.get_pending_messages()),
+    readSet('get_ready_messages', () => dvn.get_ready_messages()),
     pos.get_pending_count().catch((e) => { console.error('get_pending_count failed:', e.message); return BigInt(-1); }),
   ]);
-  console.log(`DVN get_pending_messages(): ${pending.length}`);
-  console.log(`DVN get_ready_messages():   ${ready.length}`);
+  const pending = pendingRead.readable ? pendingRead.messages : [];
+
+  console.log(`DVN get_pending_messages(): ${pendingRead.readable ? pendingRead.messages.length : 'UNREADABLE'}`);
+  console.log(`DVN get_ready_messages():   ${readyRead.readable ? readyRead.messages.length : 'UNREADABLE'}`);
   console.log(`PoS get_pending_count():    ${Number(posPendingCount)}`);
-  console.log(`drift = |PoS - DVN pending| = ${Math.abs(Number(posPendingCount) - pending.length)}\n`);
+  if (pendingRead.readable) {
+    console.log(`drift = |PoS - DVN pending| = ${Math.abs(Number(posPendingCount) - pending.length)}`);
+  }
+  if (!readyRead.readable) {
+    console.log('\n  !! get_ready_messages() CANNOT BE READ. finalizeReadyActivityReceipts()');
+    console.log('     depends on it entirely, so NO receipt can ever reach dvn_recorded');
+    console.log('     while this holds. If the error is IC0504/payload-too-large, the set is');
+    console.log('     larger than the IC query cap and grows monotonically — every further');
+    console.log('     pending->ready promotion makes it strictly worse.');
+  }
+  console.log('');
 
   console.log('── Who produced the pending messages? (decoded action field) ─────────');
   const byAction = new Map<string, number>();
@@ -102,25 +134,89 @@ async function main() {
     console.log(`  ${status.padEnd(12)} ${count ?? '(error)'}`);
   }
 
-  console.log('\n── dvn_pending rows: are they in the canister pending set, the ready set, or neither (orphaned)? ──');
+  console.log('\n── dvn_pending rows: where is each one, exactly? ──────────────────────');
   const { data: dvnPendingRows } = await admin
     .from('activity_receipts')
     .select('id, action_type, agents_invoked, dvn_receipt_id, created_at')
     .eq('receipt_status', 'dvn_pending')
     .limit(2000);
   const pendingIds = new Set(pending.map((m) => m.id));
-  const readyIds = new Set(ready.map((m) => m.id));
-  let inPending = 0, inReady = 0, orphaned = 0;
+  const readyIds = new Set(readyRead.readable ? readyRead.messages.map((m) => m.id) : []);
+
+  /*
+   * `no dvn_receipt_id` is broken out separately from `id not found`. All three
+   * writers of receipt_status='dvn_pending' (activityReceiptDvnPipeline's
+   * enqueue, admin/dvn-retry-all, assistant/receipts/[id]/retry-dvn) set
+   * dvn_receipt_id ATOMICALLY with it, so a dvn_pending row with a null id
+   * cannot come from any known path — it would indicate a fourth writer. The
+   * first run of this script lumped both into one "orphaned" bucket and could
+   * not tell them apart.
+   */
+  let noMessageId = 0, inPending = 0, inReady = 0, notFound = 0;
+  const notFoundSamples: string[] = [];
   for (const row of dvnPendingRows ?? []) {
-    if (!row.dvn_receipt_id) { orphaned++; continue; }
+    if (!row.dvn_receipt_id) { noMessageId++; continue; }
     if (pendingIds.has(row.dvn_receipt_id)) inPending++;
     else if (readyIds.has(row.dvn_receipt_id)) inReady++;
-    else orphaned++;
+    else { notFound++; if (notFoundSamples.length < 5) notFoundSamples.push(row.dvn_receipt_id); }
   }
   console.log(`  total local dvn_pending rows: ${dvnPendingRows?.length ?? 0}`);
-  console.log(`  still in canister pending set:      ${inPending}`);
-  console.log(`  ALREADY in canister ready set (finalizer never ran): ${inReady}`);
-  console.log(`  orphaned (no dvn_receipt_id, or id not found in either set): ${orphaned}`);
+  console.log(`  no dvn_receipt_id at all (unexplained — no known writer does this): ${noMessageId}`);
+  console.log(`  still in canister pending set:                        ${inPending}`);
+  console.log(`  in canister ready set (finalizer never ran):          ${inReady}${readyRead.readable ? '' : '  [ready set UNREADABLE — cannot classify]'}`);
+  console.log(`  message id not found in either readable set:          ${notFound}`);
+
+  /*
+   * THE DECISIVE PROBE. `get_dvn_message(id)` returns ONE message, so its
+   * response is small and is not subject to the cap that makes
+   * get_ready_messages unreadable. If the canister still HAS these messages,
+   * they propagated successfully and the only thing that failed is our local
+   * acknowledgement — which is a reconciliation defect, never a reason to
+   * recreate the constitutional events.
+   */
+  if (notFoundSamples.length > 0) {
+    console.log('\n── Per-id probe of "not found" ids (get_dvn_message — small response, unaffected by the cap) ──');
+    for (const messageId of notFoundSamples) {
+      try {
+        const opt = await dvn.get_dvn_message(messageId);
+        const present = Array.isArray(opt) ? opt.length > 0 : opt != null;
+        console.log(`  ${messageId}`);
+        console.log(`    canister ${present ? 'HAS this message' : 'does NOT have this message'}` +
+          (present && pendingIds.size === 0 ? ' — and the pending set is empty, so it is past pending' : ''));
+      } catch (e) {
+        console.log(`  ${messageId}\n    probe failed: ${e instanceof Error ? e.message.split('\n')[0] : String(e)}`);
+      }
+    }
+  }
+
+  /*
+   * `local` is NOT uniformly a defect: a receipt whose action type is not in
+   * ANCHORABLE_ACTION_TYPES is never submitted at all and correctly stays
+   * local forever. Only anchorable types sitting in local are stalled.
+   */
+  console.log('\n── `local` rows: stalled, or legitimately never anchorable? ───────────');
+  const { shouldAnchorActionType } = await import('../services/dvn/activityReceiptDvnPipeline');
+  const { data: localRows } = await admin
+    .from('activity_receipts')
+    .select('action_type')
+    .eq('receipt_status', 'local')
+    .limit(5000);
+  let anchorableLocal = 0, notAnchorableLocal = 0;
+  const stalledByType = new Map<string, number>();
+  for (const row of localRows ?? []) {
+    if (shouldAnchorActionType(row.action_type)) {
+      anchorableLocal++;
+      stalledByType.set(row.action_type, (stalledByType.get(row.action_type) ?? 0) + 1);
+    } else notAnchorableLocal++;
+  }
+  console.log(`  anchorable but still local (STALLED — never submitted): ${anchorableLocal}`);
+  console.log(`  not an anchorable action type (correctly local forever): ${notAnchorableLocal}`);
+  if (stalledByType.size > 0) {
+    console.log('  stalled anchorable types:');
+    for (const [t, c] of [...stalledByType.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`    ${String(c).padStart(4)}  ${t}`);
+    }
+  }
 
   console.log('\n── The specific receipts named in the operator report ──────────────────');
   const { data: nakamotoRows } = await admin
