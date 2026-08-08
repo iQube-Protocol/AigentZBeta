@@ -96,12 +96,13 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     localIdlPath: 'services/ops/idl/proof_of_state_v2.ts',
     deployedModuleHash: '23d24ddb1496aa4c5352c252259f2109e4d7712701c962e743ee953aa1b6b741',
     deploymentArtifactHashVerified: '23d24ddb1496aa4c5352c252259f2109e4d7712701c962e743ee953aa1b6b741',
-    moduleHashVerifiedAgainstSource: '23d24ddb1496aa4c5352c252259f2109e4d7712701c962e743ee953aa1b6b741',
+    moduleHashVerifiedAgainstSource: null,
     note: 'CAP-1 deployment. Init config points to Constitutional Anchor v2, separates operator/reconciler principals, and requires one Bitcoin confirmation.',
     observedCaveats: [
       'A live three-H CAP-1 batch reproduced the normative domain-separated Merkle root a3e774cb030179e5257b4d8e929f4f09bb368848a9ee933a97b310d47db4e978 independently.',
       'Stored H1 and H3 inclusion proofs replay successfully; the odd third leaf records Promoted as required.',
       'Two request_anchor attempts failed before signing because the configured signer could not see a spendable UTXO through the stale IC Bitcoin Testnet view. Batch state correctly remained Unanchored.',
+      'moduleHashVerifiedAgainstSource independent-rebuild claim NOT reproduced: rebuilding the pinned commit via dfx build (local and --network ic context) with rustc 1.94.1 (sandbox default) produced a078948d…, and with rustc 1.89.0 (the version pinned by this repo’s own CI, icp-ci.yml) produced a third, different hash — neither matches the deployed 23d24ddb…. iQubeBeta-Program has no rust-toolchain.toml pinning the exact compiler used for the original claimed rebuild, so that claim is not independently reproducible as recorded. deploymentArtifactHashVerified (live on-chain module_hash) was independently re-confirmed by live network query and stands.',
     ],
   },
 
@@ -118,12 +119,13 @@ export const CANISTER_SOURCE_MANIFEST: CanisterSourceEntry[] = [
     localIdlPath: 'services/ops/idl/btc_signer_psbt.ts',
     deployedModuleHash: 'e594d99531a9d211f018184627a3501ad46bdf514012313e3a62d0a937cf341a',
     deploymentArtifactHashVerified: 'e594d99531a9d211f018184627a3501ad46bdf514012313e3a62d0a937cf341a',
-    moduleHashVerifiedAgainstSource: 'e594d99531a9d211f018184627a3501ad46bdf514012313e3a62d0a937cf341a',
+    moduleHashVerifiedAgainstSource: null,
     note: 'The earlier uxrrr-q7777-77774-qaaaq-cai value was a local dfx id and is retired from active truth. No IC-mainnet signer existed before this CAP-1 deployment.',
     observedCaveats: [
       'Live threshold public key derives Testnet4 P2WPKH address tb1qyyr0hdq7ck3wrtgup6cxy5egh5frvyft7p0qd6, independently reproduced off-canister.',
       'Funding tx ef1721b54e3348b594531d01f257b3562f9a95524277c1a20cff3f4198fa5097 paid 1,000,000 sats to vout 1 and is confirmed externally in Testnet4 block 147513.',
       'Signer failed closed with No UTXOs rather than fabricating a transaction because the IC Bitcoin Testnet canister remained at height 147508 while the external chain advanced to at least 147515. No anchor transaction was signed or broadcast.',
+      'moduleHashVerifiedAgainstSource independent-rebuild claim NOT reproduced: this canister is type=custom (no dfx post-processing possible), so its build is fully attributable to cargo/rustc alone. rustc 1.94.1 reproducibly gave e93d5566… (3/3 attempts: bare cargo, dfx build local, dfx build --network ic); rustc 1.89.0 (this repo’s own CI pin, icp-ci.yml) gave a third, different hash 3dde1799…. Neither matches the deployed e594d995…, and constitutional-anchor/Cargo.toml already pins codegen-units=1 + lto=true so this is not codegen-unit nondeterminism — it is an unpinned-toolchain gap. deploymentArtifactHashVerified (live on-chain module_hash) was independently re-confirmed by live network query and stands.',
     ],
   },
 

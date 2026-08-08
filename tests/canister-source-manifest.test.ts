@@ -94,11 +94,38 @@ describe('canister source manifest', () => {
 });
 
 describe('activation gate — provenance (A4)', () => {
-  it('is closed for the new CAP-1 Bitcoin-path deployment', () => {
-    expect(activationProvenanceBlockers()).toEqual([]);
+  /*
+   * A4 has TWO independent sub-claims (see the field docstrings above):
+   * deploymentArtifactHashVerified (live on-chain module hash matches the
+   * staged install artifact) and moduleHashVerifiedAgainstSource (a fresh,
+   * independent rebuild of the pinned source reproduces that same hash).
+   * The first is independently re-confirmed (live network query). The
+   * second is NOT: rebuilding the pinned commit with two different rustc
+   * versions (the sandbox default and this repo's own CI-pinned 1.89.0,
+   * see icp-ci.yml) produced two more DIFFERENT hashes, neither matching
+   * the deployed module — iQubeBeta-Program has no rust-toolchain.toml, so
+   * the exact compiler that produced the deployed artifact is not pinned
+   * anywhere and the claim is not independently reproducible as recorded.
+   * Recording this as a passed gate would be exactly the unverified-strong-
+   * claim this manifest exists to prevent (see the file's own docstring).
+   */
+  it('remains open for the CAP-1 Bitcoin-path deployment: deployment-artifact match is confirmed, source-rebuild match is not', () => {
+    expect(activationProvenanceBlockers().map((e) => e.name).sort()).toEqual([
+      'btc_signer_psbt',
+      'proof_of_state_v2',
+    ]);
   });
 
-  it('does not confuse A4 being green with CAP-1 being complete', () => {
+  it('does not claim source-rebuild provenance it could not reproduce', () => {
+    const pos = CANISTER_SOURCE_MANIFEST.find((entry) => entry.name === 'proof_of_state_v2')!;
+    const signer = CANISTER_SOURCE_MANIFEST.find((entry) => entry.name === 'btc_signer_psbt')!;
+    expect(pos.deploymentArtifactHashVerified).toBe(pos.deployedModuleHash);
+    expect(pos.moduleHashVerifiedAgainstSource).toBeNull();
+    expect(signer.deploymentArtifactHashVerified).toBe(signer.deployedModuleHash);
+    expect(signer.moduleHashVerifiedAgainstSource).toBeNull();
+  });
+
+  it('does not confuse A4 being partially closed with CAP-1 being complete', () => {
     const pos = CANISTER_SOURCE_MANIFEST.find((entry) => entry.name === 'proof_of_state_v2')!;
     const signer = CANISTER_SOURCE_MANIFEST.find((entry) => entry.name === 'btc_signer_psbt')!;
     expect(pos.note).toContain('CAP-1');
