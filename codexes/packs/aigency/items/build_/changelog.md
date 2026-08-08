@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c56c1aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/c56c1aa5ab85ded801b4c0f133bb7df42458b505) [docs] docs(chrysalis): capture DVN Spine fast-follow backlog (Kn0w1, 2026-08-08T19:14:29-04:00)
 - [`cee3d41`](https://github.com/iQube-Protocol/AigentZBeta/commit/cee3d4149757191bcbcceb02ab9bb3ce3703c9f5) [feat] Add proof_of_state_v2 canonical DID for CAP-1 integration (Kn0w1, 2026-08-08T07:33:08-04:00)
 - [`7e8979e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7e8979e6af79b5450ed3bf3e2201fbe7142a75d0) [feat] Add proof_of_state_v2 TypeScript binding (Kn0w1, 2026-08-08T07:33:30-04:00)
 - [`7baf817`](https://github.com/iQube-Protocol/AigentZBeta/commit/7baf81790147764d8a4b80d12c5515e38e08a4d5) [push] Record CAP-1 v2 canisters and close A4 provenance gate (Kn0w1, 2026-08-08T07:34:33-04:00)

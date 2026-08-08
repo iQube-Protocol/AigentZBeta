@@ -3624,3 +3624,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-cee3d41.md](../build_/COMMITS/COMMIT-cee3d41.md)
 - Message: Add proof_of_state_v2 canonical DID for CAP-1 integration
+
+## Commit `c56c1aa` — 2026-08-08T19:14:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-c56c1aa.md](../build_/COMMITS/COMMIT-c56c1aa.md)
+- Message: docs(chrysalis): capture DVN Spine fast-follow backlog
