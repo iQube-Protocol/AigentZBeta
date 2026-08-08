@@ -5,6 +5,16 @@
 - Runtime authority order: **metaMe guardian > Aigent Z orchestration > cartridge agents**.
 - Treat missing policy gates, missing receipts, missing CRM ladder instrumentation, and UI drift as defects.
 
+## Codebase as implementation invariant
+- For any task involving code, architecture, PRDs, specifications, implementation plans, technical reviews, debugging, or proposed platform changes, **inspect the relevant repository code before forming conclusions or recommendations**.
+- Treat the live codebase as the shared **implementation invariant**: it is the ground truth for what the system actually does today. Distinguish that from constitutional/canonical intent, product requirements, and future-state design when they differ.
+- Prefer evidence from the current working branch and relevant source files, schemas, migrations, tests, routes, call sites, and configuration over recollection, summaries, or architectural assumptions.
+- Trace important claims end-to-end where practical (writer → storage/state → processor/reconciler → external/canister/chain boundary → reader/projection/UI) rather than relying on a single file or surface.
+- When drafting a PRD or specification, explicitly identify what already exists in code, what can be reused, what must be extended, and what is genuinely new. Do not design around capabilities that already exist under another name or surface.
+- When code and documented/canonical intent diverge, report the discrepancy explicitly. Do not silently rewrite one to match the other.
+- When a claimed capability or bridge is not found, search broadly enough to rule out alternate call paths, legacy implementations, generated bindings/IDLs, migrations, background jobs, and branch-specific implementations before declaring it absent.
+- Use repository evidence as a common reference point across agents so implementation work and future-state design can be reviewed against the same factual substrate.
+
 ## Delivery rules
 - **Golden Rule: Do not recreate what already exists.** Reuse first, extend existing platform/cartridge functionality second, and create new systems only when there is no suitable existing surface, service, schema, connector, or workflow to extend.
 - Make clear in initial implementation plans what will be reused, what will be extended, and what is genuinely new.
