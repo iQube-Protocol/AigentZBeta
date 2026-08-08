@@ -61,6 +61,13 @@ export interface ActivityReceiptData {
    */
   posStatus?: "pending" | "batched" | "broadcast" | "anchored" | "failed" | null;
   btcAnchorTxid?: string | null;
+  /**
+   * cross_chain_service leg status ONLY (2026-08-08 dual-leg migration) —
+   * distinct from `receiptStatus`, which already folds DVN submission state
+   * into the badge below. Surfaced here purely so the badge tooltip can show
+   * the precise underlying value; the badge label itself stays terse.
+   */
+  dvnStatus?: "submitted" | "ready" | "failed" | null;
   /** Specialist response body when actionType === 'specialist_consulted'. */
   specialistResponse?: ActivityReceiptSpecialistResponse | null;
   createdAt: string;
@@ -91,33 +98,48 @@ const ACTION_LABELS: Record<string, string> = {
   session_completed: "Session completed",
 };
 
+/**
+ * Compact badge vocabulary for the DVN receipt lifecycle (operator ruling,
+ * 2026-08-08 — "Horizen Journey — Simplify DVN / Bitcoin Receipt Badges").
+ * Four non-conflatable stages, each its own label — a receipt created in SQL
+ * is NOT "DVN Pending" (it hasn't been submitted yet), and "DVN Minted" is
+ * the deliberate replacement for "DVN recorded"/"DVN Local": `dvn_recorded`
+ * is the operational-finality threshold at which the receipt is usable DVN
+ * evidence. Precise underlying values (receiptStatus, dvnStatus) live in the
+ * badge's `title` tooltip, never in the label text itself.
+ */
 const STATUS_META: Record<
   ActivityReceiptData["receiptStatus"],
   { label: string; ring: string }
 > = {
-  local:        { label: "Local",        ring: "border-slate-700 text-slate-300" },
-  dvn_pending:  { label: "DVN pending",  ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
-  dvn_recorded: { label: "DVN recorded", ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
-  dvn_failed:   { label: "DVN failed",   ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
+  local:        { label: "Receipt Created", ring: "border-slate-700 text-slate-300" },
+  dvn_pending:  { label: "DVN Pending",     ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
+  dvn_recorded: { label: "DVN Minted",      ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
+  dvn_failed:   { label: "DVN Failed",      ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
 };
 
 /**
  * proof_of_state/Bitcoin leg — deliberately separate from STATUS_META (the
- * DVN leg). `null`/missing renders as "Bitcoin anchor pending", never as an
- * error: POS_LEG_SUBMISSION_ENABLED is false platform-wide today, so this is
- * the correct, current state for every receipt, not a defect to surface as
- * failed. A receipt can be fully DVN-recorded while this stays pending.
+ * DVN leg): Bitcoin anchoring is a subsequent, independent finality layer,
+ * never a DVN state, so this is never folded into the badge above and never
+ * named "DVN Bitcoin Anchored". `queued`/`batched`/`broadcast` (and
+ * `null`/missing — POS_LEG_SUBMISSION_ENABLED is false platform-wide today,
+ * so this is the correct, current state for every receipt) all collapse to
+ * the single terse "BTC Pending" label; the exact sub-state is preserved in
+ * `posStatus` and surfaced via the badge's tooltip, never hidden. A receipt
+ * can be fully DVN Minted while this stays BTC Pending indefinitely — that is
+ * expected, not a defect.
  */
 const BTC_STATUS_META: Record<
   NonNullable<ActivityReceiptData["posStatus"]> | "not_started",
   { label: string; ring: string }
 > = {
-  not_started: { label: "Bitcoin anchor pending", ring: "border-slate-700 text-slate-400" },
-  pending:     { label: "Bitcoin: queued",              ring: "border-slate-700 text-slate-400" },
-  batched:     { label: "Bitcoin: batched",              ring: "border-slate-700 text-slate-400" },
-  broadcast:   { label: "Bitcoin: broadcast (unconfirmed)", ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
-  anchored:    { label: "Bitcoin: anchored",             ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
-  failed:      { label: "Bitcoin: anchor failed",        ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
+  not_started: { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  pending:     { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  batched:     { label: "BTC Pending",  ring: "border-slate-700 text-slate-400" },
+  broadcast:   { label: "BTC Pending",  ring: "border-amber-500/40 text-amber-300 bg-amber-500/10" },
+  anchored:    { label: "BTC Anchored", ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
+  failed:      { label: "BTC Failed",   ring: "border-rose-500/40 text-rose-300 bg-rose-500/10" },
 };
 
 const CARTRIDGE_LABELS: Record<string, string> = {
@@ -244,7 +266,12 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           <h4 className="font-medium mt-0.5">{data.summary}</h4>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
+          <span
+            className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}
+            title={`Constitutional receipt lifecycle — receiptStatus: ${effectiveStatus}${
+              data.dvnStatus ? `, dvnStatus: ${data.dvnStatus}` : ""
+            }`}
+          >
             {status.label}
           </span>
           {effectiveStatus === "dvn_failed" && (
@@ -317,7 +344,9 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           className={`ml-auto px-1.5 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${
             BTC_STATUS_META[data.posStatus ?? "not_started"].ring
           }`}
-          title="proof_of_state/Bitcoin leg — independent of the DVN status above; pending here never blocks this receipt's completion."
+          title={`proof_of_state/Bitcoin leg — posStatus: ${
+            data.posStatus ?? "not started"
+          }. Independent of the DVN status above; pending here never blocks this receipt's completion.`}
         >
           {BTC_STATUS_META[data.posStatus ?? "not_started"].label}
         </span>

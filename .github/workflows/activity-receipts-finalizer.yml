@@ -1,0 +1,65 @@
+name: activity-receipts-finalizer
+
+# ── CLOSES DISCREPANCY-REGISTER FINDING O-2 ────────────────────────────────
+#
+# finalizeReadyActivityReceipts() — the function that flips activity_receipts
+# from dvn_pending -> dvn_recorded once the DVN canister reports the message
+# ready — had exactly one caller repo-wide: a manual admin-dashboard button
+# (app/api/admin/activity-receipts/finalize). With nobody clicking it,
+# DVN-minted evidence for the receipts the Horizen journey and
+# ActivityReceiptCard actually read sat at dvn_pending indefinitely, which is
+# the backlog observed on /ops.
+#
+# This workflow gives the EXISTING, unmodified finalizer independent
+# liveness — same pattern as dvn-reconciler.yml (which did the same thing for
+# the PoS/anchor tick), access-receipts-batcher.yml, and
+# deferred-mints-batcher.yml. No new worker, no second implementation of the
+# dvn_pending -> dvn_recorded transition.
+#
+# Required secret (already provisioned for dvn-reconciler.yml — same token,
+# same env var, no new secret to add):
+#   CRON_TRIGGER_TOKEN
+#
+# Manual trigger: Actions -> activity-receipts-finalizer -> Run workflow.
+
+on:
+  schedule:
+    # Every 5 minutes — tighter than the other 15-minute batchers because,
+    # once Horizen journey stages gate on dvn_recorded (DVN Minted) rather
+    # than dvn_pending, this cadence becomes the upper bound on how long a
+    # consequential stage transition waits behind DVN finalization.
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  # Never overlap runs against the same pending set.
+  group: activity-receipts-finalizer
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finalize ready activity receipts (dvn_pending -> dvn_recorded)
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -sS --max-time 60 -X POST \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/finalize-activity-receipts")
+          echo "Finalizer response: $response"
+          # A run that legitimately finds nothing ready is a SUCCESS — only
+          # ok=false is a workflow failure.
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))" 2>/dev/null || echo "parse_error")
+          if [ "$ok" = "parse_error" ]; then
+            echo "::error::Finalizer returned an unparseable response (see body above)"
+            exit 1
+          fi
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Finalizer reported failure"
+            exit 1
+          fi
