@@ -37,6 +37,8 @@ import { isRealBitcoinTxid } from '@/services/dvn/activityReceiptDvnPipeline';
 
 const pipelineSource = stripComments(readSource('services/dvn/activityReceiptDvnPipeline.ts'));
 const repairSource = stripComments(readSource('app/api/ops/sync/repair/route.ts'));
+const activityReceiptServiceSource = stripComments(readSource('services/receipts/activityReceiptService.ts'));
+const receiptsRouteSource = stripComments(readSource('app/api/assistant/receipts/route.ts'));
 
 function input(overrides: Partial<ReceiptCommitmentInput> = {}): ReceiptCommitmentInput {
   return {
@@ -255,5 +257,56 @@ describe('the PoS leg may not claim Bitcoin evidence it does not have', () => {
       'A receipt may not be marked Bitcoin-anchored while the canister emits synthesised txids and ' +
         'the batch root does not commit to H. That is the false green this investigation removed.',
     ).toBe(false);
+  });
+});
+
+/*
+ * WRITING A LEG'S STATE IS NOT THE SAME AS BEING ABLE TO SEE IT.
+ *
+ * The 2026-08-08 migration added commitment_hash/pos_status/dvn_status/
+ * btc_anchor_txid/btc_batch_root to activity_receipts, and the pipeline above
+ * writes them. Until this canary's paired fix, NOTHING read them back out:
+ * ActivityReceiptRecord (the one type every consumer — the receipts API, the
+ * UI card, retry routes — actually uses) had no such fields, so the dual-leg
+ * write was invisible past the write itself. A pilot operator asking "did the
+ * Bitcoin leg run" had no way to find out without querying Supabase directly.
+ *
+ * These canaries pin that the retrieval layer projects both legs, not just
+ * the DVN leg — Horizen Pilot alignment (2026-08-08) requires observability
+ * of the pending Bitcoin leg without it blocking anything.
+ */
+describe('the dual-leg state is retrievable, not just writable', () => {
+  it('ActivityReceiptRecord carries both legs, not just the DVN leg', () => {
+    for (const field of ['commitmentHash', 'posStatus', 'dvnStatus', 'btcAnchorTxid', 'btcBatchRoot']) {
+      expect(
+        activityReceiptServiceSource.includes(`${field}:`),
+        `ActivityReceiptRecord is missing ${field} — the PoS/Bitcoin leg's state would be unreadable ` +
+          `by every consumer of this type (the receipts API, retry routes, the UI card).`,
+      ).toBe(true);
+    }
+  });
+
+  it('rowToRecord actually maps the DB columns onto those fields, not just declares the type', () => {
+    for (const mapping of [
+      /commitmentHash:\s*row\.commitment_hash/,
+      /posStatus:\s*row\.pos_status/,
+      /dvnStatus:\s*row\.dvn_status/,
+      /btcAnchorTxid:\s*row\.btc_anchor_txid/,
+      /btcBatchRoot:\s*row\.btc_batch_root/,
+    ]) {
+      expect(mapping.test(activityReceiptServiceSource), `rowToRecord is missing the mapping ${mapping}`).toBe(true);
+    }
+  });
+
+  it('the receipts API route does not strip the dual-leg fields back out', () => {
+    // enrichWithParentIntentIds spreads the full record (`...r`); a route
+    // that instead re-listed fields explicitly could silently drop the new
+    // ones even though the service layer carries them.
+    expect(
+      /\.\.\.r[,}]/.test(receiptsRouteSource) || /commitmentHash|posStatus/.test(receiptsRouteSource),
+      'The receipts route must either spread the full ActivityReceiptRecord or explicitly project ' +
+        'the dual-leg fields — silently narrowing the shape would make the Bitcoin leg unobservable ' +
+        'again despite the service layer carrying it.',
+    ).toBe(true);
   });
 });

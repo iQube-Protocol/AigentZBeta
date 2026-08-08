@@ -404,6 +404,21 @@ export interface ActivityReceiptRecord {
   receiptStatus: ReceiptStatus;
   dvnReceiptId: string | null;
   /**
+   * Shared-commitment dual-leg anchoring state (2026-08-08 migration). Null
+   * on every row predating that migration and on any row whose leg has never
+   * been attempted — never fabricated, never backfilled. `posStatus` is the
+   * proof_of_state/Bitcoin leg ONLY (pending|batched|broadcast|anchored|failed);
+   * it is independent of `receiptStatus`/`dvnReceiptId`, which describe the
+   * DVN leg. A receipt can be fully DVN-recorded while its Bitcoin leg is
+   * dark (POS_LEG_SUBMISSION_ENABLED=false) — that is the expected, current
+   * state platform-wide, not a defect to hide.
+   */
+  commitmentHash: string | null;
+  posStatus: 'pending' | 'batched' | 'broadcast' | 'anchored' | 'failed' | null;
+  dvnStatus: 'submitted' | 'ready' | 'failed' | null;
+  btcAnchorTxid: string | null;
+  btcBatchRoot: string | null;
+  /**
    * SpecialistResponse body persisted on the receipt — title, summary,
    * recommendations, suggestedArtifacts, confidence, source. Present on
    * specialist_consulted receipts; null elsewhere.
@@ -434,6 +449,11 @@ interface DbRow {
   policy_envelope_id: string | null;
   receipt_status: ReceiptStatus;
   dvn_receipt_id: string | null;
+  commitment_hash: string | null;
+  pos_status: 'pending' | 'batched' | 'broadcast' | 'anchored' | 'failed' | null;
+  dvn_status: 'submitted' | 'ready' | 'failed' | null;
+  btc_anchor_txid: string | null;
+  btc_batch_root: string | null;
   specialist_response: SpecialistResponsePayload | null;
   action_connector_id: string | null;
   action_connector_label: string | null;
@@ -459,6 +479,11 @@ function rowToRecord(row: Partial<DbRow> & { id: string; created_at: string }): 
     policyEnvelopeId: row.policy_envelope_id ?? null,
     receiptStatus: (row.receipt_status as ReceiptStatus) ?? 'local',
     dvnReceiptId: row.dvn_receipt_id ?? null,
+    commitmentHash: row.commitment_hash ?? null,
+    posStatus: row.pos_status ?? null,
+    dvnStatus: row.dvn_status ?? null,
+    btcAnchorTxid: row.btc_anchor_txid ?? null,
+    btcBatchRoot: row.btc_batch_root ?? null,
     specialistResponse: row.specialist_response ?? null,
     actionConnectorId: row.action_connector_id ?? null,
     actionConnectorLabel: row.action_connector_label ?? null,
