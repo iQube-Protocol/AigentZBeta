@@ -1,0 +1,50 @@
+name: Dev Integration Checks
+
+# dev is this project's actual integration base (see CLAUDE.md's Deployment
+# section: the merge-claude-to-dev workflow merges every session branch here,
+# and Amplify builds from it). Neither ci.yml (targets main/staging) nor
+# lint.yml (targets main/develop) runs on PRs into dev, so PRs into dev have
+# had NO CI coverage at all.
+#
+# This workflow is deliberately narrow: type-check + the vitest suite only
+# (the "typecheck/tests/canaries" a dev-integration PR actually needs to
+# prove). It does NOT fold in lint.yml's eslint/prettier/npm-audit/bundle-size
+# jobs -- those carry substantial pre-existing failures across files unrelated
+# to any given dev-integration PR (observed directly: `next lint
+# --max-warnings=0` and `npm audit --audit-level=moderate` both fail on `dev`
+# today for reasons with nothing to do with whatever a specific PR changed).
+# Gating dev PRs on that backlog would block unrelated integration work
+# without giving anyone a way to fix it in the PR that hit it. If that backlog
+# is cleaned up, folding dev into lint.yml's own branch list is the better
+# long-term home for those checks -- this workflow is the narrow gate until
+# then.
+
+on:
+  push:
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
+
+jobs:
+  typecheck-and-test:
+    name: 'Type-check + test suite'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript type checking
+        run: npm run type-check
+
+      - name: Run tests
+        run: npm run test:ci
