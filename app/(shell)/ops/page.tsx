@@ -1589,6 +1589,14 @@ export default function OpsPage() {
             async function handleRepair() {
               try {
                 await syncStatus.repair('auto');
+                // Explicit refresh. `repair()` used to end with its own
+                // internal `await load()`; that was removed 2026-08-08 because
+                // load() re-triggered repair(), forming an unbounded recursion
+                // that made merely having /ops open the thing keeping the DVN
+                // spine synchronized (see useSyncStatus.load()'s own note).
+                // The refresh a manual click wants is requested here, by the
+                // click handler, rather than baked into the mutation.
+                await syncStatus.refresh?.();
               } catch (e: any) {
                 alert(`Sync repair failed: ${e.message}`);
               }
@@ -1597,7 +1605,26 @@ export default function OpsPage() {
             async function handleLayerZeroProcess() {
               try {
                 const result = await syncStatus.processLayerZero('process_pending');
-                alert(`LayerZero processing completed: ${result.message}\nProcessed: ${result.processed}/${result.total} messages`);
+                /*
+                 * REPORT REJECTIONS, NOT JUST SUCCESSES (operator ruling,
+                 * 2026-08-08). This alert used to show only `processed` — and
+                 * the route counted canister REJECTIONS (Candid `{Err}`, which
+                 * does not throw) as processed, so "Processed 3/3" was
+                 * displayable when all three were refused. The route now
+                 * separates processed / rejected / failed and returns the exact
+                 * canister errors; showing them here is what makes a click
+                 * that achieves nothing look like a click that achieved
+                 * nothing.
+                 */
+                const lines = [
+                  `LayerZero processing: ${result.message}`,
+                  `processed ${result.processed} · rejected ${result.rejected ?? 0} · failed ${result.failed ?? 0}`,
+                  `pending total: ${result.total}${result.hasMore ? ' (more remain — batch size 10)' : ''}`,
+                ];
+                if (Array.isArray(result.canisterErrors) && result.canisterErrors.length > 0) {
+                  lines.push('', 'Canister said:', ...result.canisterErrors.map((e: string) => `  • ${e}`));
+                }
+                alert(lines.join('\n'));
                 
                 // Firefox-compatible async refresh with proper error handling
                 const refreshWithDelay = async (refreshFn: (() => Promise<void>) | undefined, delay: number = 0) => {
