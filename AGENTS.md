@@ -51,3 +51,60 @@ Always leave:
 2. Validation run
 3. Remaining risks
 4. Suggested next tasks
+
+---
+
+## Repository boundaries are not epistemic boundaries (PARAMOUNT, 2026-08-08)
+
+**The codebase is the implementation invariant — but the codebase SPANS canonical
+repositories. "I searched this repo and could not find it" is never a sufficient
+basis for declaring behaviour, source, or a mechanism absent.**
+
+### The failure that established this
+
+An investigation into the DVN/PoS constitutional spine concluded that
+`cross_chain_service`'s implementation was unavailable because `AigentZBeta`
+contains only its IDL. That conclusion was wrong, and it very nearly settled two
+questions as unknowable:
+
+- DVN readiness is literally `attestation_count >= 2`, and `submit_attestation`
+  performs **no validator authorization and no signature verification** — so
+  fabricated attestations promote messages to "ready";
+- `proof_of_state` builds its batch root from **receipt IDs, not `data_hash`**,
+  leaves `merkle_proof` empty, and synthesises `btc_anchor_txid` on both
+  branches — so nothing was ever anchored to Bitcoin.
+
+Both were plainly readable in `iQube-Protocol/iQubeBeta-Program`, whose
+`dfx.json` owns those canisters. A repo boundary had become an epistemic one.
+
+### The ownership model (do NOT collapse it)
+
+| Repository | Owns |
+|---|---|
+| `iQube-Protocol/iQubeBeta-Program` | **Canonical canister implementation** — `cross_chain_service`, `proof_of_state`, `btc_signer_psbt` Rust; candid; deployment config |
+| `iQube-Protocol/AigentZBeta` | **Canonical platform implementation** — generated/local IDLs, receipt + commitment spine, reconciler/cron, constitutional state, UI/Ops projections |
+
+**Do not copy canister sources into AigentZBeta.** Two sources of truth would
+recreate exactly the drift being debugged (`inv.engineering.036/037`). The
+boundary is useful; what was missing was *discoverability and enforced
+provenance across it*.
+
+### Required of every agent
+
+1. **Before declaring any canister behaviour or source absent**, consult
+   `services/ops/canisterSourceManifest.ts` and read the canonical repo.
+   Clone it read-only if needed — it is public.
+2. **An observation of a deployed canister outranks a reading of its source.**
+   Naming a source repo asserts "this is where the code is maintained", never
+   "the live canister runs exactly this". Until a deployed module hash is
+   compared against a build of the recorded commit, `deployedModuleHash` stays
+   `null` — an honest gap, never a plausible-looking fill.
+3. **A read failure is not an empty result.** `get_ready_messages()` exceeding
+   the IC query cap returned an error that was caught and rendered as `0`; that
+   single mistranslation hid a total finalization outage for the system's entire
+   history. Report `UNREADABLE` with the error.
+4. **Record new observed caveats in the manifest** when live behaviour
+   contradicts, or goes beyond, what the source suggests.
+
+`tests/canister-source-manifest.test.ts` enforces the manifest's structure and
+its coverage of every canister this repo holds an IDL for.

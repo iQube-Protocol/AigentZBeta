@@ -496,6 +496,14 @@ export interface ActivityPosSubmissionResult {
   posReceiptId?: string;
   commitmentHash?: string;
   error?: string;
+  /**
+   * True when the leg was deliberately NOT attempted (POS_LEG_SUBMISSION_ENABLED
+   * is false). Distinct from a failure in every way that matters: it is not an
+   * escalation, it does not mark `pos_status` failed, and it leaves the column
+   * NULL — which the schema defines as "this leg has never been attempted".
+   * Recording a policy decision as a canister error would be its own small lie.
+   */
+  withheld?: boolean;
 }
 
 /**
@@ -535,6 +543,44 @@ export function isRealBitcoinTxid(txid: string | null | undefined): boolean {
   return typeof txid === 'string' && /^[0-9a-f]{64}$/.test(txid);
 }
 
+/**
+ * ── INTERIM POSTURE: THE POS LEG IS BUILT BUT NOT ENABLED ──────────────────
+ * (operator ruling, 2026-08-08: "choose (c), with (a) as the interim
+ * deployment posture… do not enable PoS submission and do not apply/deploy it
+ * as a functioning anchoring path until the canister stack is evidentiary.")
+ *
+ * The shared-H structure above is correct and stays. What is withheld is the
+ * SUBMISSION, because the substrate beneath it cannot produce evidence:
+ *
+ *   proof_of_state   root commits to receipt ids, not data_hash; merkle_proof
+ *                    always empty; anchor() synthesises the txid on both
+ *                    branches and hardcodes block height 800000
+ *   btc_signer_psbt  `_op_return_script` is computed and DISCARDED (note the
+ *                    underscore); outputs carry the literal strings
+ *                    "OP_RETURN"/"change_address" as addresses; no Bitcoin
+ *                    transaction is ever serialised; `txid` is the first 32
+ *                    bytes of the SIGNATURE rather than the double-SHA256 of
+ *                    the tx; `raw_tx` is the string "signed_tx_<hex>";
+ *                    create_and_broadcast_anchor uses a zero-txid mock UTXO
+ *
+ * Issuing PoS receipts into that stack would mint `pos_receipt_id` values that
+ * LOOK like Bitcoin provenance and are not — the precise false-green class
+ * this whole investigation removed. And because `issue_receipt` never
+ * deduplicates by data_hash, those entries could not be cleanly retracted
+ * later either.
+ *
+ * A CONSTANT, DELIBERATELY NOT AN ENV VAR. Flipping this must be a reviewed
+ * code change accompanied by the acceptance evidence in the repair plan
+ * (codexes/packs/agentiq/updates/2026-08-08_canister-repair-plan.md), never an
+ * environment toggle someone can set in a dashboard while the substrate is
+ * still mock.
+ *
+ * The required chain before this becomes true:
+ *   H → PoS leaf → real Merkle root/proof → valid BTC tx committing that root
+ *     → real txid → confirmed block
+ */
+export const POS_LEG_SUBMISSION_ENABLED = false;
+
 export async function submitActivityReceiptToPos(
   record: ActivityReceiptRecord,
   personaId: string,
@@ -545,6 +591,24 @@ export async function submitActivityReceiptToPos(
     const validationErr = validateReceiptForDvn(record, personaId);
     if (validationErr) {
       return { ok: false, error: `Payload validation failed: ${validationErr}` };
+    }
+
+    /*
+     * WITHHELD BY DESIGN — see POS_LEG_SUBMISSION_ENABLED. Returns a refusal
+     * naming the reason rather than throwing or silently no-oping, so the
+     * caller records `pos_status` accurately and the operator can see WHY the
+     * leg is dark instead of inferring it from an absence.
+     */
+    if (!POS_LEG_SUBMISSION_ENABLED) {
+      return {
+        ok: false,
+        withheld: true,
+        error:
+          'PoS submission is withheld: the proof_of_state / btc_signer_psbt stack cannot produce Bitcoin ' +
+          'evidence (root commits to receipt ids not data_hash; merkle_proof always empty; txid and block ' +
+          'height synthesised). Issuing receipts into it would create the appearance of anchoring without ' +
+          'the substance. Re-enable only with the acceptance evidence in the canister repair plan.',
+      };
     }
 
     const canisterId =
@@ -645,6 +709,9 @@ export async function enqueueReceiptLeg(
 
   if (leg === 'pos') {
     const res = await submitActivityReceiptToPos(record, personaId, commitmentHash);
+    if (res.withheld) {
+      return { attempted: false, ok: false, detail: res.error ?? 'PoS submission withheld' };
+    }
     if (res.ok && res.posReceiptId) {
       await supabase
         .from('activity_receipts')
@@ -784,7 +851,9 @@ export function enqueueActivityReceiptAnchor(
         .from('activity_receipts')
         .update({ pos_receipt_id: posResult.posReceiptId, pos_status: 'pending' })
         .eq('id', record.id);
-    } else {
+    } else if (!posResult.withheld) {
+      // A withheld leg is a policy posture, not an outcome: no escalation, no
+      // 'failed' status, `pos_status` stays NULL per the schema's own meaning.
       const posUnreachable = !!posResult.error?.includes('not configured');
       if (!posUnreachable) {
         // Same escalation contract as the DVN leg: a PoS failure is a gap in
