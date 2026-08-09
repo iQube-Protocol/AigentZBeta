@@ -176,9 +176,24 @@ interface PulseTransparencyToggleProps {
    * as this flag).
    */
   showDiagnostics?: boolean;
+  /**
+   * The Ratify stage's OWN `pnl_service_verified` evidence, read off the
+   * journey observer's `verify` stage (`evidencePresent`/`evidenceMissing`)
+   * — never re-derived here (Horizen Journey P&L vocabulary correction,
+   * 2026-08-09). This is the THIRD, independent P&L tier: whether Horizen's
+   * Verifiable-PnL service has produced genuine, correlated proof evidence
+   * for this agent. `undefined` while the observer's read is still in
+   * flight — rendered as "Pending", never guessed as verified.
+   */
+  pnlServiceVerified?: boolean;
 }
 
-export function PulseTransparencyToggle({ agentSlug, agentDisplayName, showDiagnostics = false }: PulseTransparencyToggleProps) {
+export function PulseTransparencyToggle({
+  agentSlug,
+  agentDisplayName,
+  showDiagnostics = false,
+  pnlServiceVerified,
+}: PulseTransparencyToggleProps) {
   const [loading, setLoading] = useState(true);
   const [horizen, setHorizen] = useState<AgentCardHorizen | null>(null);
   const [authorizing, setAuthorizing] = useState(false);
@@ -511,32 +526,63 @@ export function PulseTransparencyToggle({ agentSlug, agentDisplayName, showDiagn
             </p>
           </div>
         </div>
-        {/* P&L's OWN evidence block — never merged into Pulse's card above. */}
-        <div className="mt-2 flex items-start gap-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-300">
-          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
-          <div>
-            <p className="font-medium text-slate-200">
-              {structured?.verifiablePnlRegistered !== undefined ? (
-                <>Verifiable P&amp;L — {structured.verifiablePnlRegistered ? 'registered' : 'not registered'}</>
-              ) : (
-                <>P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'recorded, not independently confirmed' : 'not yet authorized'}</>
-              )}
-            </p>
-            <p className="mt-1 text-slate-400">
-              {structured?.verifiablePnlRegistered !== undefined
-                ? `Read directly from Horizen's own authoritative onboarding status — independent of Pulse's enrollment ` +
-                  `evidence, never inferred from it.`
-                : horizen.pnl?.disclosureAuthorized
-                  ? `Recorded as authorized via the SAME enable_pulse_monitoring call that confirmed Pulse — there is no ` +
-                    `separate Horizen tool or authoritative reread for P&L disclosure specifically. Treat this as ` +
-                    `provisional evidence, not an independent partner confirmation, until Horizen's contract is confirmed ` +
-                    `to genuinely activate both together.`
-                  : `Not authorized yet — no evidence exists for P&L disclosure independent of Pulse.`}
-            </p>
-            {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
-              <p className="mt-1 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>
-            )}
+        {/*
+          P&L's OWN evidence — THREE DISTINCT TIERS, always rendered as three
+          rows, never one row that switches text depending on which signal
+          happens to be present (Horizen Journey P&L vocabulary correction,
+          2026-08-09: "the earlier transparency receipt can easily be read as
+          'P&L was approved by Horizen,' when what was approved was
+          permission/disclosure scope"). Never merged into Pulse's card above,
+          and never let one tier stand in for another:
+            Disclosure — the OPERATOR's permission/scope grant.
+            Service    — whether HORIZEN's Verifiable-PnL onboarding has
+                         registered this agent at all.
+            Evidence   — whether genuine, correlated proof has been produced
+                         and independently verified (pnl_service_verified).
+        */}
+        <div className="mt-2 rounded-md border border-slate-800 bg-slate-950/40 p-3 text-xs text-slate-300">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+            <p className="font-medium text-slate-200">P&amp;L transparency — three independent facts</p>
           </div>
+          <dl className="mt-2 space-y-2 pl-5.5">
+            <div>
+              <dt className="text-slate-200">
+                P&amp;L disclosure — {horizen.pnl?.disclosureAuthorized ? 'Authorized' : 'Not authorized'}
+              </dt>
+              <dd className="mt-0.5 text-slate-500">
+                The operator's permission/scope grant only. Recorded via the SAME enable_pulse_monitoring call
+                that confirmed Pulse — this is NOT Horizen approving or registering financial performance.
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-200">
+                P&amp;L service —{' '}
+                {structured?.verifiablePnlRegistered === undefined
+                  ? 'Unknown (no onboarding status read yet)'
+                  : structured.verifiablePnlRegistered
+                    ? 'Registered'
+                    : 'Not registered'}
+              </dt>
+              <dd className="mt-0.5 text-slate-500">
+                Whether Horizen's Verifiable-PnL service has onboarded this agent at all — read directly from
+                Horizen's own authoritative onboarding status, independent of disclosure authorization above.
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-200">
+                P&amp;L evidence —{' '}
+                {pnlServiceVerified === undefined ? 'Pending (not yet checked)' : pnlServiceVerified ? 'Verified' : 'Pending'}
+              </dt>
+              <dd className="mt-0.5 text-slate-500">
+                Whether genuine, correlated proof evidence exists and has been independently verified
+                (pnl_service_verified) — distinct from, and never inferred from, service registration above.
+              </dd>
+            </div>
+          </dl>
+          {(horizen.pnl?.proofRefs?.length ?? 0) > 0 && (
+            <p className="mt-2 text-slate-500">{horizen.pnl!.proofRefs.length} proof reference(s) on file.</p>
+          )}
         </div>
         {tracePanel}
       </>

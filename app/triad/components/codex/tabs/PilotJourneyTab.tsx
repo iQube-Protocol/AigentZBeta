@@ -166,7 +166,20 @@ function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
            * pattern already used elsewhere in this codebase, never a new
            * gating mechanism.
            */
-          ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName, showDiagnostics: isAdmin === true }
+          ? {
+              agentSlug: selectedAgentSlug,
+              agentDisplayName: selectedAgent.displayName,
+              showDiagnostics: isAdmin === true,
+              /*
+               * P&L EVIDENCE — the observer's OWN `verify` stage evidence
+               * (Horizen Journey P&L vocabulary correction, 2026-08-09) —
+               * never re-derived client-side. `undefined` while the state
+               * read is in flight, rendered as "Pending", never guessed.
+               */
+              pnlServiceVerified: runtimeState?.stages
+                .find((s) => s.stageId === 'verify')
+                ?.evidencePresent.includes('pnlServiceVerified'),
+            }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
            wallet control" resolved MoneyPenny's registry_assets row).

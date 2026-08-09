@@ -480,7 +480,16 @@ export function JourneyRunSurface({
                 'COMPLETE';
             return (
               <React.Fragment key={stage.id}>
-                {i > 0 && <div className={`h-px flex-1 min-w-[16px] ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
+                {/* Fixed-width connector — the SAME 16px used by the
+                    Operate→fork junction connector below, so every
+                    inter-stage gap in the strip reads as one uniform
+                    interval (Horizen Journey spacing correction,
+                    2026-08-09). Previously `flex-1 min-w-[16px]`, which
+                    stretched to fill leftover strip width on wide
+                    viewports while the fork's connector stayed a fixed
+                    16px — the two connector kinds diverged visually
+                    whenever the strip was wider than its content. */}
+                {i > 0 && <div className={`h-px w-4 shrink-0 ${prevDone ? 'bg-emerald-500/50' : 'bg-slate-700'}`} />}
                 <button
                   data-stage-id={stage.id}
                   onClick={() => selectStage(stage.id)}
