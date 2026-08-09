@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-08-09_horizen-pilot-closure-report.md",
         "updates/2026-08-09_dvn-finality-transition-matrix.md",
         "updates/2026-08-08_canister-repair-plan.md",
         "updates/2026-08-06_governed-capability-invocation-design.md",
