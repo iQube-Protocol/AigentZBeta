@@ -84,6 +84,10 @@ function nakamotoPlatformState(overrides: Partial<AuthoritativePlatformState['st
       },
       verify: { pulseAuthorizationVerified: false, pnlTransparencyEnabled: false, agentCardEnrichmentCommitted: false },
       claim: { controlProofFresh: false },
+      // Orient (2026-08-09) — Passport's own prerequisite now, between Claim
+      // and Passport. Absent evidence here is honest: Nakamoto's fixture
+      // predates Orient and has not performed its acknowledgment act.
+      orient: { orientationComplete: false },
       passport: { operatorPolityCitizenPassportValid: false, sponsorBinding: false, delegatePassportIssued: false },
       delegate: {},
       activate: {},
@@ -289,9 +293,13 @@ describe('CANARY 4 — a non-blocking partner exception prevents Claim or Passpo
      * genuine constitutional prerequisite be waived. The isolation claim is
      * this one: with Claim satisfied, an unapplied local migration must not
      * stand between the operator and the Passport act.
+     *
+     * `orient: true` added 2026-08-09 — Passport's prerequisite moved from
+     * 'claim' to 'orient'; this test isolates the Verify/authorization-store
+     * claim, not Orient's own gate, so Orient is satisfied alongside Claim.
      */
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true },
       operationalBlockers: { verify: [storeBlocker] },
       nonBlockingIncompleteStages: ['verify'],
     });
@@ -449,7 +457,8 @@ describe('CANARY 5 — completing a stage does not route to the next executable 
   });
 
   it('walks the whole admission spine, one act at a time, without ever naming Verify', () => {
-    const spine = ['register', 'claim', 'passport', 'delegate', 'aigentme'];
+    // Orient inserted between Claim and Passport (2026-08-09).
+    const spine = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'];
     const done: Record<string, boolean> = {};
     const visited: string[] = [];
     for (let i = 0; i < spine.length; i += 1) {
@@ -1082,7 +1091,7 @@ describe('AXES — a branch is never named as "the one next act"', () => {
    */
   it('offers no single next act once the admission spine is complete', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });
@@ -1103,7 +1112,7 @@ describe('AXES — a branch is never named as "the one next act"', () => {
     const branchIds = [...offSpineStageIds(HORIZEN_MONEYPENNY_JOURNEY)];
     expect(branchIds.length).toBeGreaterThan(0);
     const done: Record<string, boolean> = {};
-    for (const stageId of ['register', 'claim', 'passport', 'delegate', 'aigentme']) {
+    for (const stageId of ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme']) {
       const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
         canonicalOutcomes: { ...done },
       });
@@ -1252,17 +1261,17 @@ describe('ACCEPTANCE 3 — each completed act routes directly to the next, never
    * projection. PRE-FIX PROOF: returning null from resolveNextExecutableAct
    * for a non-complete journey turns this red (mutation-verified).
    */
-  it('routes Claim → Passport → Delegate → aigentMe, one act at a time', () => {
+  it('routes Claim → Orient → Passport → Delegate → aigentMe, one act at a time', () => {
     const done: Record<string, boolean> = { register: true };
     const route: string[] = [];
-    for (const justFinished of ['claim', 'passport', 'delegate']) {
+    for (const justFinished of ['claim', 'orient', 'passport', 'delegate']) {
       done[justFinished] = true;
       const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
         canonicalOutcomes: { ...done },
       });
       route.push(resolution.nextExecutableAct!.stageId);
     }
-    expect(route).toEqual(['passport', 'delegate', 'aigentme']);
+    expect(route).toEqual(['orient', 'passport', 'delegate', 'aigentme']);
     // Never a dashboard, cartridge home or status surface.
     for (const stageId of route) {
       expect(HORIZEN_MONEYPENNY_JOURNEY.stages.some((s) => s.id === stageId)).toBe(true);
@@ -1288,10 +1297,16 @@ describe('ACCEPTANCE 3 — each completed act routes directly to the next, never
     const atClaim = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
       canonicalOutcomes: { register: true },
     });
-    const atPassport = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+    // Orient now sits between Claim and Passport (2026-08-09) — completing
+    // Claim alone moves the pointer to Orient, not straight to Passport.
+    const atOrient = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
       canonicalOutcomes: { register: true, claim: true },
     });
+    const atPassport = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
+      canonicalOutcomes: { register: true, claim: true, orient: true },
+    });
     expect(atClaim.currentStageId).toBe('claim');
+    expect(atOrient.currentStageId).toBe('orient');
     expect(atPassport.currentStageId).toBe('passport');
   });
 });
@@ -1323,7 +1338,7 @@ describe('ACCEPTANCE 5/6 — the branch surface', () => {
    */
   it('neither branch is ever the mandatory next act', () => {
     const resolution = resolveMonotonicJourneyState(HORIZEN_MONEYPENNY_JOURNEY, nakamotoPlatformState(), {
-      canonicalOutcomes: { register: true, claim: true, passport: true, delegate: true, aigentme: true },
+      canonicalOutcomes: { register: true, claim: true, orient: true, passport: true, delegate: true, aigentme: true },
     });
     expect(resolution.nextExecutableAct).toBeNull();
   });

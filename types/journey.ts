@@ -165,6 +165,22 @@ export interface JourneyStageDefinition {
    */
   branch?: 'factory' | 'capability';
   nextStageId?: string;
+  /**
+   * Consequence Fork rendering hint (Threshold Journey — Orient + Consequence
+   * Fork, 2026-08-09) — presentation-only, never a completion/gating input.
+   *
+   * Purely additive: undefined for every stage on the linear admission spine
+   * and for any journey that has not opted in. `JourneyRunSurface` renders
+   * the spine exactly as before for those stages; only stages that declare a
+   * position are grouped into a three-pronged fork after the spine ends.
+   * Which stages actually branch, and what (if anything) gates them, is
+   * still entirely `prerequisites`/`completionEvidence` — this field decides
+   * WHERE a stage's node is drawn, never whether it is reachable or
+   * complete. A stage may carry `branch` (a state-axis grouping, see above)
+   * and `forkPosition` (a rendering position) independently — neither
+   * implies the other.
+   */
+  forkPosition?: 'upper' | 'middle' | 'lower';
 }
 
 export interface JourneyDefinition {

@@ -38,6 +38,7 @@ import {
   type BlockingReason,
 } from '@/services/journey/stageResolution';
 import { resolveRatificationRefs } from '@/services/journey/ratificationRefs';
+import { resolveOrientationContext, type OrientationContext } from '@/services/journey/orientationContext';
 import {
   getAgreement,
   requireAuthorizedAgreement,
@@ -57,6 +58,9 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/services/identity/passportPrincipal';
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
+import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
+import { attemptPnlServiceVerificationIfEligible } from '@/services/horizen/pnlVerificationBoundary';
+import type { discoverAndReceiptPnlServiceEvidence } from '@/services/horizen/pnlServiceVerification';
 import {
   resolveAgentStateAxes,
   resolveBranchOffers,
@@ -80,6 +84,8 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   'horizen_pnl_transparency_enabled',
   'agent_card_enriched',
   'agent_control_proven',
+  // Orient stage (Threshold Journey — Orient + Consequence Fork, 2026-08-09).
+  'orientation_ritual_completed',
   'marketa_eligibility_recommended',
   'operator_passport_validated',
   'agent_sponsorship_recorded',
@@ -101,6 +107,10 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   // Ingestion's OWN receipt. Deliberately distinct from standing_accrued:
   // becoming an eligible participant is not an accrual (operator, 2026-08-03).
   'capability_registered',
+  // Independent, read-only P&L SERVICE VERIFICATION — deliberately distinct
+  // from 'horizen_pnl_transparency_enabled' (disclosure AUTHORIZATION) above.
+  // See services/horizen/pnlServiceVerification.ts's own header.
+  'pnl_service_verified',
   'aigentme_activated',
   'experienceqube_focus_disposition_recorded',
   'journey_completed',
@@ -195,6 +205,11 @@ async function resolveState(req: NextRequest) {
    */
   let personaAssignedAsDelegate: boolean | undefined;
   let priorResolution: Awaited<ReturnType<typeof readJourneyResolution>> = null;
+  // Orient's contextual ritual — resolved from the OPERATOR's own prior
+  // constitutional history, never from which agent is selected (see
+  // services/journey/orientationContext.ts). null only when no active
+  // persona could be resolved on this request — an audit gap, never guessed.
+  let orientationContext: OrientationContext | null = null;
   /*
    * ══ THE OPERATOR'S OWN PASSPORT — RECOGNIZED, NEVER RE-APPLIED FOR ═══════
    *
@@ -205,6 +220,17 @@ async function resolveState(req: NextRequest) {
    * than a boolean.
    */
   let registrationStandingSeeded = false;
+  /*
+   * P&L SERVICE VERIFICATION — the result of THIS request's attempt, if any
+   * (Horizen Pilot Closure item 4, 2026-08-09). Deliberately a distinct
+   * variable from anything Pulse-authorization-related: `verified: true`
+   * here means Horizen's own Verifiable-PnL service independently correlated
+   * a record for this exact agent/token/chain — a materially different,
+   * stronger claim than `horizen_pnl_transparency_enabled` (disclosure scope
+   * was authorized). Null means no attempt was made this request (not
+   * eligible yet, or already verified with nothing new to attempt).
+   */
+  let pnlVerification: Awaited<ReturnType<typeof discoverAndReceiptPnlServiceEvidence>> | null = null;
   let operatorPassport: { known: boolean; valid: boolean; personhood: boolean; detail?: string } = {
     known: false,
     valid: false,
@@ -269,6 +295,35 @@ async function resolveState(req: NextRequest) {
     });
     if (supabase) await guarded('registration', async () => {
       registration = await resolveAgentRegistrationState(supabase, agent);
+    });
+    /*
+     * P&L SERVICE VERIFICATION — wired generically at the boundary where a
+     * subject to correlate first becomes known: a confirmed registration's
+     * own tokenId/registryAgentId (Horizen Pilot Closure item 4, 2026-08-09).
+     *
+     * discoverAndReceiptPnlServiceEvidence (services/horizen/pnlServiceVerification.ts)
+     * was fully built and tested but had zero production callers — only a
+     * manual CLI script exercised it. Never coupled to Pulse admission or the
+     * Ratify gate (per the operator's own ratified rule,
+     * RES-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001 / CI-2026-08-08-PNL-
+     * INDEPENDENT-EVIDENCE-001: "Pulse Verified is sufficient to close
+     * Ratify. P&L verification is an independent, asynchronous capability
+     * transition.") — this block only ever ADDS a distinct evidence field,
+     * never gates or blocks anything else in this response.
+     *
+     * Read-only and idempotent by the function's own construction (an
+     * existing `pnl_service_verified` receipt short-circuits with no live
+     * call). Agent-generic: `subjectRegistryAlias` and `network` come from
+     * THIS agent's own resolved registration, never a hardcoded token.
+     */
+    if (supabase) await guarded('pnl-service-verification', async () => {
+      const activePersona = await getActivePersona(req);
+      pnlVerification = await attemptPnlServiceVerificationIfEligible(agent, registration, activePersona?.personaId ?? null);
+      // Reflected in THIS response without a second round-trip, same
+      // discipline as the standing-seed block above.
+      if (pnlVerification?.ok && pnlVerification.verified && pnlVerification.receiptRef) {
+        (receiptRefs['pnl_service_verified'] ??= []).push(pnlVerification.receiptRef);
+      }
     });
     if (supabase) await guarded('passport', async () => {
       /*
@@ -385,6 +440,56 @@ async function resolveState(req: NextRequest) {
     if (supabase) await guarded('agent-admission', async () => {
       admission = await resolveAgentAdmissionState(supabase, agent, caller?.authProfileId ?? null);
     });
+    /*
+     * REGISTRATION STANDING SEED — awarded inline, the same idiom this route
+     * already uses for `passport_is_issued` above: a settled fact observed
+     * eligible is settled HERE, not deferred to a UI action nobody wires.
+     *
+     * Horizen Pilot Closure item 2 (operator, 2026-08-09): the seed
+     * (services/journey/registrationStandingSeed.ts) was fully specified —
+     * amount, basis, the settle-then-award contract — but had ZERO production
+     * callers. The state route READ the settled fact
+     * (`registrationStandingSeeded` above) but nothing ever WROTE it, so
+     * `initialStandingAwarded` below was always 0 for every agent, forever.
+     * See RES-2026-08-09-STANDING-SEED-PRODUCTION-WIRING-001.
+     *
+     * Eligibility reuses the EXACT two facts `factoryIngested` is computed
+     * from below (`admission?.factoryPresent`, the `capability_registered`
+     * receipt) — never a third, parallel eligibility check.
+     *
+     * Idempotent by construction: `settleFact` returns `alreadySettled: true`
+     * on every call after the first and does not overwrite, so this block is
+     * safe to run on every request (a page refresh, a retried reconciliation,
+     * concurrent tabs) without risk of a second award — the invariant the
+     * operator asked for ("cannot award repeatedly because reconciliation/UI
+     * is retried") is `settleFact`'s own guarantee, not a new one.
+     *
+     * Attribution: the ACTIVE OPERATOR persona, resolved the same way the
+     * ratify-agreement block below resolves it — never a static resolver
+     * string, because a Standing award (unlike Passport recognition) needs a
+     * real "who" for the audit trail. No active persona resolvable -> skipped
+     * as an audit gap, never guessed.
+     */
+    if (supabase) await guarded('standing-seed', async () => {
+      const capabilityReceiptIds = receiptRefs['capability_registered'] ?? [];
+      const activePersona = await getActivePersona(req);
+      if (!activePersona?.personaId) return; // cannot attribute — audit gap, never guessed
+
+      const outcome = await awardRegistrationStandingSeedIfEligible(supabase, agent, activePersona.personaId, {
+        alreadySeeded: registrationStandingSeeded,
+        factoryIngestedNow: admission?.factoryPresent === true || capabilityReceiptIds.length > 0,
+        evidenceReceiptIds: capabilityReceiptIds,
+      });
+      if (!outcome.awarded) return;
+
+      // Reflected in THIS response without a second round-trip — the fact was
+      // just settled and receipted in this same request, so both
+      // `registrationStandingSeeded` and the `standing_accrued` receiptRef
+      // (which `standingGatewayEnabled` below reads via `hasReceipt`) are
+      // updated together rather than lagging one request behind.
+      registrationStandingSeeded = true;
+      if (outcome.receiptId) (receiptRefs['standing_accrued'] ??= []).push(outcome.receiptId);
+    });
     if (supabase) await guarded('persona-assignment', async () => {
       const agentRootId = admission?.agentRootId;
       if (!agentRootId) return; // no root identity resolved — genuinely nothing to assign yet
@@ -438,6 +543,18 @@ async function resolveState(req: NextRequest) {
     });
     if (supabase) await guarded('prior-resolution', async () => {
       priorResolution = await readJourneyResolution(supabase, agent.aigentQubeId, HORIZEN_MONEYPENNY_JOURNEY.id);
+    });
+    /*
+     * ORIENT — resolved from the OPERATOR's own prior constitutional history
+     * (see services/journey/orientationContext.ts), never re-derived here.
+     * Uses the same active-persona resolution as every other operator-scoped
+     * guarded read above; no active persona resolvable is an audit gap, left
+     * null, never guessed.
+     */
+    if (supabase) await guarded('orientation-context', async () => {
+      const activePersona = await getActivePersona(req);
+      if (!activePersona?.personaId) return;
+      orientationContext = await resolveOrientationContext(activePersona.personaId, agent);
     });
   }
 
@@ -522,6 +639,13 @@ async function resolveState(req: NextRequest) {
          */
         pulseAuthorizationVerified: hasReceipt('horizen_pulse_authorized'),
         pnlTransparencyEnabled: hasReceipt('horizen_pnl_transparency_enabled'),
+        /*
+         * DISTINCT FROM pnlTransparencyEnabled ABOVE — authorization vs
+         * verification, never conflated (Horizen Pilot Closure item 4). True
+         * only when Horizen's own Verifiable-PnL service has independently
+         * correlated a record for this exact agent/token/chain.
+         */
+        pnlServiceVerified: hasReceipt('pnl_service_verified'),
         agentCardEnrichmentCommitted: hasReceipt('agent_card_enriched'),
       },
       claim: {
@@ -531,6 +655,13 @@ async function resolveState(req: NextRequest) {
          * enrichment and gates nothing on the admission spine.
          */
         controlProofFresh: hasReceipt('agent_control_proven'),
+      },
+      orient: {
+        // The ONLY thing that flips this true is the operator's explicit
+        // acknowledgment act (app/api/journey/moneypenny-horizen/orient/
+        // acknowledge/route.ts) — never merely having viewed the stage or
+        // having this route resolve a ritual for it.
+        orientationComplete: hasReceipt('orientation_ritual_completed'),
       },
       passport: {
         /*
@@ -673,6 +804,13 @@ async function resolveState(req: NextRequest) {
     ancillary: {
       pulseAuthorized: hasReceipt('horizen_pulse_authorized'),
       pnlDisclosureAuthorized: hasReceipt('horizen_pnl_transparency_enabled'),
+      // DISTINCT from pnlDisclosureAuthorized — see the `verify.ancillary`
+      // comment above for why these must never be represented as equivalent.
+      pnlServiceVerified: hasReceipt('pnl_service_verified'),
+      pnlServiceVerificationDetail:
+        !hasReceipt('pnl_service_verified') && pnlVerification && !pnlVerification.verified
+          ? `${pnlVerification.reason}: ${pnlVerification.detail}`
+          : undefined,
       authorizationStoreAvailable: authorizationStore ? authorizationStore.available : undefined,
       authorizationStoreRemedy: authorizationStore && !authorizationStore.available ? authorizationStore.remedy : undefined,
       partnerMetadataComplete: registration ? registration.auditGaps.length === 0 : undefined,
@@ -861,5 +999,8 @@ async function resolveState(req: NextRequest) {
     },
     passportEligibility: eligibility,
     agentCardResolved: !!agentCard,
+    // Orient's contextually-resolved ritual (services/journey/orientationContext.ts)
+    // — null only when no active persona could be resolved on this request.
+    orientationContext,
   });
 }

@@ -10,6 +10,39 @@
  *
  * Stage order and completion conditions mirror §7's table exactly. Do not
  * edit this file without re-reading that table — it is the authority.
+ *
+ * THRESHOLD JOURNEY — ORIENT + CONSEQUENCE FORK (operator spec, 2026-08-09).
+ * The admission spine is now:
+ *
+ *   Register -> Claim -> Orient -> Passport -> Delegate -> aigentMe
+ *
+ * Orient is the transition from "I control this agent" to "I understand
+ * what constitutional act must occur before legitimate authority can
+ * originate from me / my principal" — a real, receipted stage
+ * (services/journey/orientationContext.ts resolves its ritual from state,
+ * never from agent name).
+ *
+ * aigentMe still terminates the spine and opens the SAME two independent
+ * branches as before, rendered as a three-pronged Consequence Fork:
+ *
+ *                                    Ratify   (upper)
+ *                                       |
+ *   Register -> Claim -> Orient -> Passport -> Delegate -> aigentMe -- Ingest  (middle/straight)
+ *                                       |
+ *                                    Standing (lower, prerequisites: ['deploy'] unchanged)
+ *
+ * `forkPosition` on the verify/deploy/standing stages below is a rendering
+ * hint ONLY (components/journey/JourneyRunSurface.tsx) — it changes where a
+ * stage's node is drawn, never its gating or completion evidence.
+ *
+ * AGENT-GENERIC NARRATION (Horizen Pilot Closure item 5, 2026-08-09): every
+ * stage-copy string below that names the subject agent uses the token
+ * `{{agentDisplayName}}` (services/journey/journeyCopyTemplate.ts's
+ * AGENT_DISPLAY_NAME_TOKEN), never the literal "MoneyPenny" — this journey
+ * definition itself is not MoneyPenny-specific data, it is rendered for
+ * whichever agent (MoneyPenny, Nakamoto, or a future registrable agent) the
+ * caller selects. Renderers call `renderJourneyCopy(text, agent)` before
+ * display; never substitute the token by hand at a call site.
  */
 
 import type { JourneyDefinition } from '@/types/journey';
@@ -33,7 +66,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         {
           mode: 'external-url',
           ref: 'horizen-registry-agent-page',
-          note: "Horizen's own live agent/registry page for MoneyPenny's tokenId — URL not yet resolvable (§22).",
+          note: "Horizen's own live agent/registry page for {{agentDisplayName}}'s tokenId — URL not yet resolvable (§22).",
         },
         {
           mode: 'component',
@@ -79,9 +112,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       receiptsScopedToSubjectAgent: true,
       companion: {
         before:
-          'MoneyPenny has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
+          '{{agentDisplayName}} has a persisted AigentQube and a published Agent Card. Horizen registration is still pending. Registry presence will establish external identity and discoverability, but not constitutional authority.',
         complete:
-          'MoneyPenny is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
+          '{{agentDisplayName}} is now discoverable in Horizen. Registry presence proves identity and discoverability, but not constitutional authority.',
       },
       nextStageId: 'claim',
     },
@@ -133,6 +166,51 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         before: 'A wallet-control challenge must be signed to prove the agent’s controller wallet.',
         complete: 'Control has been proven without revealing the private key. Control does not yet equal authority.',
       },
+      nextStageId: 'orient',
+    },
+    {
+      id: 'orient',
+      label: 'Orient',
+      description:
+        'The transition from control to constitutional authority. What must become constitutionally true before this operator can act as the principal from whom {{agentDisplayName}}\'s authority originates?',
+      actor: 'operator',
+      subjectRef: 'moneypenny',
+      surfaces: [
+        {
+          mode: 'component',
+          ref: 'orientation-panel',
+          note:
+            'The one guided action on this stage: resolve the contextual orientation ritual ' +
+            '(services/journey/orientationContext.ts — state-derived, never agent-name-derived) and ' +
+            'record the operator\'s explicit acknowledgment via /api/journey/moneypenny-horizen/orient/acknowledge.',
+        },
+      ],
+      prerequisites: ['claim'],
+      permittedActions: ['acknowledge-orientation-ritual'],
+      /*
+       * ── ORIENT IS A REAL STAGE, NOT AN INFORMATIONAL PANEL ───────────────
+       *
+       * Threshold Journey — Orient stage + Consequence Fork (operator spec,
+       * 2026-08-09). Orient answers: "I have proved I control this agent.
+       * What must become constitutionally true before I can act as the
+       * principal from whom its authority originates?" — never bypassing
+       * state, only adding the operator's understanding of it.
+       *
+       * The ritual is CONTEXTUAL, resolved from state (does this operator
+       * already hold a prior constitutional relationship — e.g. an earlier
+       * agent's Passport/sponsorship — or is this their first constitutional
+       * act?), never hardcoded to MoneyPenny or Nakamoto by name. Completion
+       * requires the operator's explicit acknowledgment act (a real POST,
+       * writing a real receipt) — never inferred from having merely viewed
+       * the surface.
+       */
+      completionEvidence: ['orientationComplete'],
+      receiptTypes: ['orientation_ritual_completed'],
+      receiptsScopedToSubjectAgent: true,
+      companion: {
+        before: 'You have proved control of {{agentDisplayName}}. Control does not yet establish constitutional authority.',
+        complete: 'Oriented — the constitutional act this operator needed before Passport was identified and acknowledged.',
+      },
       nextStageId: 'passport',
     },
     {
@@ -149,7 +227,11 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           note: "Rendered bare — Venture Lab α's Participate → Apply module (the Citizen application). Not the Polity Passport Bureau cartridge.",
         },
       ],
-      prerequisites: ['claim'],
+      // Was ['claim'] — Orient now sits between Claim and Passport
+      // (Threshold Journey spec, 2026-08-09). Passport still flips only on
+      // its own completionEvidence below; this only changes WHEN it may
+      // begin.
+      prerequisites: ['orient'],
       permittedActions: ['record-sponsorship'],
       completionEvidence: ['operatorPolityCitizenPassportValid', 'sponsorBinding', 'delegatePassportIssued'],
       /*
@@ -166,7 +248,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
         'agent_delegate_passport_issued',
       ],
       companion: {
-        before: "Your Polity Citizen Passport must resolve before you can sponsor MoneyPenny.",
+        before: "Your Polity Citizen Passport must resolve before you can sponsor {{agentDisplayName}}.",
         complete: 'The wallet proved control. The Passport now establishes the human source from whom authority may originate.',
       },
       nextStageId: 'delegate',
@@ -259,9 +341,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       receiptTypes: ['aigentme_activated', 'experienceqube_focus_disposition_recorded', 'journey_completed'],
       receiptsSurfacedNatively: true,
       companion: {
-        before: 'MoneyPenny is ready to introduce you to aigentMe, your constitutional companion.',
+        before: '{{agentDisplayName}} is ready to introduce you to aigentMe, your constitutional companion.',
         complete:
-          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. MoneyPenny has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
+          'You have crossed the threshold. Your Polity Citizen Passport establishes your continuing constitutional personhood. aigentMe is now active as your constitutional companion. {{agentDisplayName}} has joined your agent set through a Polity Delegate Passport and may act only within the authority and mandates you have granted.',
       },
     },
     {
@@ -294,8 +376,12 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
        * a precondition of authorizing it (see completionEvidence below).
        */
       branch: 'capability',
+      // Consequence Fork — upper prong (operator spec, 2026-08-09: "Standing
+      // below Ingest, Ratify above it"). Rendering only — gating is
+      // unchanged (prerequisites: ['aigentme'], independent of the other two prongs).
+      forkPosition: 'upper',
       description:
-        'Ratify the constitutional service agreement — form, accept and authorize the terms that let MoneyPenny operate the Financial Services runtime. Horizen Pulse and P&L transparency enrich, never enlarge, that authority.',
+        'Ratify the constitutional service agreement — form, accept and authorize the terms that let {{agentDisplayName}} operate the Financial Services runtime. Horizen Pulse and P&L transparency enrich, never enlarge, that authority.',
       actor: 'operator',
       subjectRef: 'moneypenny',
       surfaces: [
@@ -314,7 +400,7 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
           ref: 'pulse-transparency-toggle',
           note:
             'SECONDARY — Transparency section. Real Pulse/P&L authorization, but an assurance enrichment ' +
-            'around an already-authorized service — it neither creates nor enlarges MoneyPenny\'s authority, ' +
+            'around an already-authorized service — it neither creates nor enlarges {{agentDisplayName}}\'s authority, ' +
             'and its own owner-source-conflict state (HORIZEN_OWNER_SOURCE_CONFLICT) is never suppressed.',
         },
         {
@@ -363,9 +449,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       ],
       companion: {
         before:
-          'Sign the constitutional service agreement to ratify MoneyPenny\'s eligibility for the Financial Services runtime. Forming and accepting record a tamper-evident commitment; authorizing is an authenticated constitutional act you perform as the operator — neither is a wallet or blockchain signature.',
+          'Sign the constitutional service agreement to ratify {{agentDisplayName}}\'s eligibility for the Financial Services runtime. Forming and accepting record a tamper-evident commitment; authorizing is an authenticated constitutional act you perform as the operator — neither is a wallet or blockchain signature.',
         complete:
-          'The service agreement is authorized — MoneyPenny is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich her verifiable operational state; they do not create or enlarge this authority.',
+          'The service agreement is authorized — {{agentDisplayName}} is ratified for the Financial Services runtime. Horizen Pulse and P&L transparency, below, remain real and worth completing, but they enrich its verifiable operational state; they do not create or enlarge this authority.',
       },
     },
 {
@@ -373,6 +459,9 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
       // Branch A. Establishes PARTICIPATION and Standing ELIGIBILITY —
       // ingestion is never itself an accrual of Standing.
       branch: 'factory',
+      // Consequence Fork — middle/straight prong, visually continuing the
+      // main spine (operator spec, 2026-08-09).
+      forkPosition: 'middle',
       label: 'Ingest into Factory',
       description:
         'Ingestion registers the activated agent as a factory participant and makes it ELIGIBLE to accrue Standing. It never accrues Standing itself.',
@@ -465,6 +554,11 @@ export const HORIZEN_MONEYPENNY_JOURNEY: JourneyDefinition = {
     {
       id: 'standing',
       label: 'Standing',
+      // Consequence Fork — lower prong (operator spec, 2026-08-09: "Standing
+      // below Ingest"). Rendering only — `prerequisites: ['deploy']` below
+      // is an existing gating relationship, unchanged and unrelated to this
+      // visual position.
+      forkPosition: 'lower',
       description:
         'Standing is earned, observed and held separately from deployment — its own stage, not a tab beside the Ingestion Factory.',
       actor: 'moneypenny',

@@ -356,7 +356,13 @@ export type ActivityActionType =
   // confirmation) and partner_agent_evidence_recorded (a DIFFERENT
   // constitutional question: identity-binding attribution) — never replaces
   // either.
-  | 'pnl_service_verified';
+  | 'pnl_service_verified'
+  // Threshold Journey — Orient stage (operator spec, 2026-08-09). The
+  // operator's explicit acknowledgment of the contextually-resolved
+  // orientation ritual (which of the two ritual kinds applies is resolved
+  // from state, never from agent name) — never issued merely for viewing
+  // the stage. See services/journey/orientationContext.ts.
+  | 'orientation_ritual_completed';
 
 export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
 
@@ -404,6 +410,21 @@ export interface ActivityReceiptRecord {
   receiptStatus: ReceiptStatus;
   dvnReceiptId: string | null;
   /**
+   * Shared-commitment dual-leg anchoring state (2026-08-08 migration). Null
+   * on every row predating that migration and on any row whose leg has never
+   * been attempted — never fabricated, never backfilled. `posStatus` is the
+   * proof_of_state/Bitcoin leg ONLY (pending|batched|broadcast|anchored|failed);
+   * it is independent of `receiptStatus`/`dvnReceiptId`, which describe the
+   * DVN leg. A receipt can be fully DVN-recorded while its Bitcoin leg is
+   * dark (POS_LEG_SUBMISSION_ENABLED=false) — that is the expected, current
+   * state platform-wide, not a defect to hide.
+   */
+  commitmentHash: string | null;
+  posStatus: 'pending' | 'batched' | 'broadcast' | 'anchored' | 'failed' | null;
+  dvnStatus: 'submitted' | 'ready' | 'failed' | null;
+  btcAnchorTxid: string | null;
+  btcBatchRoot: string | null;
+  /**
    * SpecialistResponse body persisted on the receipt — title, summary,
    * recommendations, suggestedArtifacts, confidence, source. Present on
    * specialist_consulted receipts; null elsewhere.
@@ -434,6 +455,11 @@ interface DbRow {
   policy_envelope_id: string | null;
   receipt_status: ReceiptStatus;
   dvn_receipt_id: string | null;
+  commitment_hash: string | null;
+  pos_status: 'pending' | 'batched' | 'broadcast' | 'anchored' | 'failed' | null;
+  dvn_status: 'submitted' | 'ready' | 'failed' | null;
+  btc_anchor_txid: string | null;
+  btc_batch_root: string | null;
   specialist_response: SpecialistResponsePayload | null;
   action_connector_id: string | null;
   action_connector_label: string | null;
@@ -459,6 +485,11 @@ function rowToRecord(row: Partial<DbRow> & { id: string; created_at: string }): 
     policyEnvelopeId: row.policy_envelope_id ?? null,
     receiptStatus: (row.receipt_status as ReceiptStatus) ?? 'local',
     dvnReceiptId: row.dvn_receipt_id ?? null,
+    commitmentHash: row.commitment_hash ?? null,
+    posStatus: row.pos_status ?? null,
+    dvnStatus: row.dvn_status ?? null,
+    btcAnchorTxid: row.btc_anchor_txid ?? null,
+    btcBatchRoot: row.btc_batch_root ?? null,
     specialistResponse: row.specialist_response ?? null,
     actionConnectorId: row.action_connector_id ?? null,
     actionConnectorLabel: row.action_connector_label ?? null,
@@ -722,6 +753,51 @@ export async function findAgentReceiptRefs(
   return (data as { id: string; action_type: ActivityActionType }[]).map((r) => ({
     id: r.id,
     actionType: r.action_type,
+  }));
+}
+
+/**
+ * Every receipt of ONE action type, across ALL personas — the infra/ops-scoped
+ * counterpart to `listActivityReceiptsForPersona` (which requires a persona
+ * and therefore cannot answer "which registrations are still pending,
+ * regardless of who submitted them"). Same shape of need as
+ * `finalizeReadyActivityReceipts` (services/dvn/activityReceiptDvnPipeline.ts),
+ * which queries `activity_receipts` directly for the same reason: a scheduled
+ * reconciler has no persona to scope to. Lives here, not as a second raw
+ * query, so this stays the one place that reads `activity_receipts` by shape
+ * (inv.engineering.036/037).
+ */
+export interface ReceiptByActionType {
+  id: string;
+  personaId: string;
+  agentsInvoked: string[];
+  actionInput: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export async function findReceiptsByActionType(
+  actionType: ActivityActionType,
+  options?: { limit?: number },
+): Promise<ReceiptByActionType[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .select('id, persona_id, agents_invoked, action_input, created_at')
+    .eq('action_type', actionType)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`findReceiptsByActionType failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as Array<{ id: string; persona_id: string; agents_invoked: string[] | null; action_input: Record<string, unknown> | null; created_at: string }>).map((r) => ({
+    id: r.id,
+    personaId: r.persona_id,
+    agentsInvoked: r.agents_invoked ?? [],
+    actionInput: r.action_input,
+    createdAt: r.created_at,
   }));
 }
 

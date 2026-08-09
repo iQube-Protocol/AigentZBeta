@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   isHorizenTrigger,
-  JOURNEY_INTRO_TEXT,
+  buildJourneyIntroText,
   VENTURE_LAB_CODEX_ID,
   VENTURE_LAB_CODEX_SLUG,
   PARTNER_JOURNEY_TAB_SLUG,
 } from '@/services/journey/journeyCompanionTrigger';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { VENTURE_LAB_CODEX } from '@/data/codex-configs';
+import { resolveRegistrableAgent } from '@/services/horizen/registrableAgents';
 
 // PRD-GJR-001 §11.4 — the canonical Companion trigger. Recognition is a pure
 // string check (no window/DOM dependency), so it's testable without jsdom,
@@ -47,15 +48,25 @@ describe('journey trigger constants stay consistent with the live registry', () 
   });
 
   it('the intro copy names every stage, in order, and states the count from the registry', () => {
+    const nakamoto = resolveRegistrableAgent('nakamoto')!;
+    const introText = buildJourneyIntroText(nakamoto);
     for (const stage of HORIZEN_MONEYPENNY_JOURNEY.stages) {
-      expect(JOURNEY_INTRO_TEXT).toContain(stage.label);
+      expect(introText).toContain(stage.label);
     }
     // The count is DERIVED, not written out — a hand-typed "seven" went stale
     // the moment Standing became the eighth stage (2026-08-02). Assert the
     // derivation rather than pinning a number that must be edited in two
     // places forever.
-    expect(JOURNEY_INTRO_TEXT).toContain(`${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages`);
+    expect(introText).toContain(`${HORIZEN_MONEYPENNY_JOURNEY.stages.length} stages`);
     expect(HORIZEN_MONEYPENNY_JOURNEY.stages.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('names the SELECTED agent, never a hardcoded one (Horizen Pilot Closure item 5)', () => {
+    const moneypenny = resolveRegistrableAgent('moneypenny')!;
+    const nakamoto = resolveRegistrableAgent('nakamoto')!;
+    expect(buildJourneyIntroText(moneypenny)).toContain('Aigent MoneyPenny');
+    expect(buildJourneyIntroText(nakamoto)).toContain('Aigent Nakamoto');
+    expect(buildJourneyIntroText(nakamoto)).not.toContain('MoneyPenny');
   });
 
   it("names 'Register' as where the journey begins — the trigger auto-selects it", () => {

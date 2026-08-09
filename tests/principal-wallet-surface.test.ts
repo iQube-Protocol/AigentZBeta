@@ -378,8 +378,12 @@ describe('the acceptance conditions the operator specified', () => {
     // that builds the request; the identity fields live in the helper.
     expect(register).toMatch(/handOverToWallet\('PRINCIPAL_WALLET_PROVISIONING'/);
     expect(register).toMatch(/origin: 'HORIZEN_REGISTER'/);
-    expect(register).toMatch(/subjectAgentId: `aigent-\$\{agentSlugForReturn\}`/);
-    expect(register).toMatch(/returnTarget: `journey:horizen:register:aigent-\$\{agentSlugForReturn\}`/);
+    // Horizen Pilot Closure item 5 (2026-08-09): the canonical runtimeAgentId,
+    // resolved via resolveRegistrableAgent, never the aigent-${slug} string
+    // coincidence — falls back to the coincidence only if resolution fails.
+    expect(register).toMatch(/subjectAgentId: runtimeAgentIdForReturn/);
+    expect(register).toMatch(/runtimeAgentIdForReturn = resolveRegistrableAgent\(agentSlugForReturn\)\?\.runtimeAgentId \?\? `aigent-\$\{agentSlugForReturn\}`/);
+    expect(register).toMatch(/returnTarget: `journey:horizen:register:\$\{runtimeAgentIdForReturn\}`/);
   });
 
   it('successful provisioning does not announce completion before CONTROL_PROVEN', () => {

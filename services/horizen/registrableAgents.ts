@@ -38,6 +38,29 @@ export interface RegistrableAgentConfig {
   agentCardPath: string;
   /** agent_keys.fio_handle — used to resolve the agent's own persona row for journey-state receipt scoping. */
   fioHandle: string;
+  /**
+   * Path (not origin-qualified) to this agent's served health route — the
+   * REQUIRED counterpart to `registry_assets.metadata.runtime.health`
+   * (services/registry/runtimeDescriptor.ts), which is what
+   * services/horizen/pulseEndpoint.ts actually resolves for Horizen Pulse.
+   *
+   * Required, not optional (Horizen Pilot Closure item 3, 2026-08-09): the
+   * runtime descriptor's CONSUMPTION path was already fully generic before
+   * this field existed — the gap was that adding a registrable agent here
+   * never forced anyone to also give it a runtime surface, so MoneyPenny went
+   * unpopulated indefinitely and Pulse/Ratify's P&L resolution honestly
+   * returned null for her. `tests/registrable-agent-runtime-surface.test.ts`
+   * fails the build if a listed agent's `runtimeHealthPath` is missing OR
+   * does not resolve to a real route file on disk — the next agent cannot
+   * silently skip this the way MoneyPenny did.
+   *
+   * This field states what the health surface SHOULD be; it does not by
+   * itself populate `registry_assets.metadata.runtime` — that is still a
+   * migration (or a `setAssetRuntimeDescriptor` call), same as any other
+   * registry-asset data. What this closes is the SILENT skip, not the
+   * deploy-time seeding step itself.
+   */
+  runtimeHealthPath: string;
 }
 
 /**
@@ -63,6 +86,7 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     aigentQubeId: 'aigentqube-moneypenny',
     agentCardPath: '/api/agents/moneypenny/agent-card.json',
     fioHandle: 'moneypenny@aigent',
+    runtimeHealthPath: '/api/agents/moneypenny/health',
   },
   nakamoto: {
     slug: 'nakamoto',
@@ -71,6 +95,7 @@ export const REGISTRABLE_AGENTS: Record<string, RegistrableAgentConfig> = {
     aigentQubeId: 'aigentqube-nakamoto',
     agentCardPath: '/api/agents/nakamoto/agent-card.json',
     fioHandle: 'nakamoto@aigent',
+    runtimeHealthPath: '/api/agents/nakamoto/health',
   },
 };
 

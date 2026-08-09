@@ -21,24 +21,49 @@
 import React, { useEffect, useState } from 'react';
 import { Check, Lock } from 'lucide-react';
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
-import { JOURNEY_INTRO_TEXT, focusJourneyStage } from '@/services/journey/journeyCompanionTrigger';
+import { buildJourneyIntroText, focusJourneyStage } from '@/services/journey/journeyCompanionTrigger';
+import { renderJourneyCopy } from '@/services/journey/journeyCopyTemplate';
+import { getSelectedPilotAgentSlug } from '@/services/journey/selectedPilotAgent';
+import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG, type RegistrableAgentConfig } from '@/services/horizen/registrableAgents';
 import type { JourneyRuntimeState } from '@/types/journey';
 import { readJsonOrExplain } from '@/utils/readJsonOrExplain';
 
 interface Props {
   personaId?: string;
   codexId?: string;
+  /**
+   * The agent this Companion instance is admitting. Optional so existing
+   * callers keep working — when absent, resolves the operator's last
+   * selection on the Journey tab (services/journey/selectedPilotAgent.ts),
+   * never a hardcoded MoneyPenny default (Horizen Pilot Closure item 5,
+   * 2026-08-09).
+   */
+  agentSlug?: string;
 }
 
-export function JourneyCompanionCarousel({ personaId, codexId }: Props) {
+function resolveAgent(agentSlug?: string): RegistrableAgentConfig {
+  const slug = agentSlug ?? getSelectedPilotAgentSlug();
+  return resolveRegistrableAgent(slug) ?? resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!;
+}
+
+export function JourneyCompanionCarousel({ personaId, codexId, agentSlug }: Props) {
+  // Resolved with the literal default on first render (SSR-safe — never
+  // reads localStorage during render, per CLAUDE.md's SSR/CSR rule), then
+  // corrected in the effect below once the operator's real selection (or an
+  // explicit prop) is known.
+  const [agent, setAgent] = useState<RegistrableAgentConfig>(() => resolveRegistrableAgent(DEFAULT_REGISTRABLE_AGENT_SLUG)!);
   const [runtimeState, setRuntimeState] = useState<JourneyRuntimeState | null>(null);
   const [selectedStageId, setSelectedStageId] = useState<string>(HORIZEN_MONEYPENNY_JOURNEY.stages[0].id);
+
+  useEffect(() => {
+    setAgent(resolveAgent(agentSlug));
+  }, [agentSlug]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/journey/moneypenny-horizen/state', { cache: 'no-store' });
+        const res = await fetch(`/api/journey/moneypenny-horizen/state?agentSlug=${encodeURIComponent(agent.slug)}`, { cache: 'no-store' });
         if (!res.ok) return;
         const json = await readJsonOrExplain(res, 'journey/companion');
         if (!cancelled) setRuntimeState(json.state as JourneyRuntimeState);
@@ -49,7 +74,7 @@ export function JourneyCompanionCarousel({ personaId, codexId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [agent.slug]);
 
   useEffect(() => {
     const onSelect = (e: Event) => {
@@ -69,7 +94,7 @@ export function JourneyCompanionCarousel({ personaId, codexId }: Props) {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <p className="whitespace-pre-line text-sm leading-relaxed">{JOURNEY_INTRO_TEXT}</p>
+      <p className="whitespace-pre-line text-sm leading-relaxed">{buildJourneyIntroText(agent)}</p>
       <div className="flex flex-wrap gap-1.5">
         {HORIZEN_MONEYPENNY_JOURNEY.stages.map((stage, i) => {
           const stageState = runtimeState?.stages.find((s) => s.stageId === stage.id)?.state ?? 'NOT_STARTED';
@@ -80,7 +105,7 @@ export function JourneyCompanionCarousel({ personaId, codexId }: Props) {
             <button
               key={stage.id}
               onClick={() => handleSelect(stage.id)}
-              title={stage.description}
+              title={renderJourneyCopy(stage.description, agent)}
               className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] transition-colors ${
                 isCurrent
                   ? 'border-purple-400 bg-purple-500/20 text-purple-100'

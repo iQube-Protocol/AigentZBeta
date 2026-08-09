@@ -3564,3 +3564,143 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7fce0bf.md](../build_/COMMITS/COMMIT-7fce0bf.md)
 - Message: fix: add defensive null checks and error handling to sidepanel message handlers
+
+## Commit `7d77143` — 2026-08-08T12:47:57Z
+- Type: `push`
+- Brief: [COMMIT-7d77143.md](../build_/COMMITS/COMMIT-7d77143.md)
+- Message: Ignore vitest's coverage/ output directory
+
+## Commit `439fa9c` — 2026-08-08T12:47:23Z
+- Type: `feat`
+- Brief: [COMMIT-439fa9c.md](../build_/COMMITS/COMMIT-439fa9c.md)
+- Message: Fix test:ci's missing coverage dependency; add non-secret placeholder env vars
+
+## Commit `de41937` — 2026-08-08T12:28:57Z
+- Type: `fix`
+- Brief: [COMMIT-de41937.md](../build_/COMMITS/COMMIT-de41937.md)
+- Message: Fix tsconfig.json crash blocking type-check on every commit; make it informational in the new dev workflow
+
+## Commit `bf82b58` — 2026-08-08T12:18:48Z
+- Type: `fix`
+- Brief: [COMMIT-bf82b58.md](../build_/COMMITS/COMMIT-bf82b58.md)
+- Message: Replace dev CI fix with a narrow dedicated workflow
+
+## Commit `8513b6e` — 2026-08-08T12:14:51Z
+- Type: `fix`
+- Brief: [COMMIT-8513b6e.md](../build_/COMMITS/COMMIT-8513b6e.md)
+- Message: Correct A4 source-rebuild claim; run CI on PRs into dev
+
+## Commit `19f1887` — 2026-08-08T07:36:16-04:00
+- Type: `chore`
+- Brief: [COMMIT-19f1887.md](../build_/COMMITS/COMMIT-19f1887.md)
+- Message: Update provenance canary for CAP-1 v2 deployment
+
+## Commit `34ee202` — 2026-08-08T07:35:35-04:00
+- Type: `feat`
+- Brief: [COMMIT-34ee202.md](../build_/COMMITS/COMMIT-34ee202.md)
+- Message: Add CAP-1 activation canary with PoS leg held dark
+
+## Commit `ccb537f` — 2026-08-08T07:35:15-04:00
+- Type: `feat`
+- Brief: [COMMIT-ccb537f.md](../build_/COMMITS/COMMIT-ccb537f.md)
+- Message: Add proof_of_state_v2 Candid parity canary
+
+## Commit `ad02a1a` — 2026-08-08T07:34:57-04:00
+- Type: `feat`
+- Brief: [COMMIT-ad02a1a.md](../build_/COMMITS/COMMIT-ad02a1a.md)
+- Message: Add explicit CAP-1 activation gate and parked evidence
+
+## Commit `7baf817` — 2026-08-08T07:34:33-04:00
+- Type: `push`
+- Brief: [COMMIT-7baf817.md](../build_/COMMITS/COMMIT-7baf817.md)
+- Message: Record CAP-1 v2 canisters and close A4 provenance gate
+
+## Commit `7e8979e` — 2026-08-08T07:33:30-04:00
+- Type: `feat`
+- Brief: [COMMIT-7e8979e.md](../build_/COMMITS/COMMIT-7e8979e.md)
+- Message: Add proof_of_state_v2 TypeScript binding
+
+## Commit `cee3d41` — 2026-08-08T07:33:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-cee3d41.md](../build_/COMMITS/COMMIT-cee3d41.md)
+- Message: Add proof_of_state_v2 canonical DID for CAP-1 integration
+
+## Commit `c56c1aa` — 2026-08-08T19:14:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-c56c1aa.md](../build_/COMMITS/COMMIT-c56c1aa.md)
+- Message: docs(chrysalis): capture DVN Spine fast-follow backlog
+
+## Commit `43e2e15` — 2026-08-09T02:01:34Z
+- Type: `push`
+- Brief: [COMMIT-43e2e15.md](../build_/COMMITS/COMMIT-43e2e15.md)
+- Message: Insert Orient stage between Claim and Passport, render Ratify/Ingest/Standing as Consequence Fork
+
+## Commit `1a5d597` — 2026-08-09T01:24:30Z
+- Type: `push`
+- Brief: [COMMIT-1a5d597.md](../build_/COMMITS/COMMIT-1a5d597.md)
+- Message: Horizen Pilot Closure Report — CODE READY / LIVE VERIFICATION PENDING
+
+## Commit `edd2ed4` — 2026-08-09T01:21:54Z
+- Type: `feat`
+- Brief: [COMMIT-edd2ed4.md](../build_/COMMITS/COMMIT-edd2ed4.md)
+- Message: Add Agent-N genericity proof with a third synthetic agent
+
+## Commit `a016920` — 2026-08-09T01:17:29Z
+- Type: `push`
+- Brief: [COMMIT-a016920.md](../build_/COMMITS/COMMIT-a016920.md)
+- Message: Build the read-only Agent-N preflight check
+
+## Commit `6753cc2` — 2026-08-09T01:14:09Z
+- Type: `push`
+- Brief: [COMMIT-6753cc2.md](../build_/COMMITS/COMMIT-6753cc2.md)
+- Message: Produce DVN finality transition matrix, no mechanical Minted gating
+
+## Commit `0eaaa90` — 2026-08-09T01:12:17Z
+- Type: `push`
+- Brief: [COMMIT-0eaaa90.md](../build_/COMMITS/COMMIT-0eaaa90.md)
+- Message: JourneyCompanionCarousel and journey narration are agent-generic
+
+## Commit `fc163cc` — 2026-08-09T01:01:08Z
+- Type: `push`
+- Brief: [COMMIT-fc163cc.md](../build_/COMMITS/COMMIT-fc163cc.md)
+- Message: Remove duplicate PILOT_AGENTS registry; stop constructing aigent-\${slug}
+
+## Commit `4846fa6` — 2026-08-09T00:52:25Z
+- Type: `feat`
+- Brief: [COMMIT-4846fa6.md](../build_/COMMITS/COMMIT-4846fa6.md)
+- Message: Wire real P&L verification into production, distinct from authorization
+
+## Commit `20dc5ed` — 2026-08-09T00:46:01Z
+- Type: `push`
+- Brief: [COMMIT-20dc5ed.md](../build_/COMMITS/COMMIT-20dc5ed.md)
+- Message: Close MoneyPenny's Ratify runtime-endpoint descriptor gap generically
+
+## Commit `d427c26` — 2026-08-09T00:41:56Z
+- Type: `feat`
+- Brief: [COMMIT-d427c26.md](../build_/COMMITS/COMMIT-d427c26.md)
+- Message: Wire the registration Standing seed into production, generically
+
+## Commit `7638442` — 2026-08-09T00:13:19Z
+- Type: `push`
+- Brief: [COMMIT-7638442.md](../build_/COMMITS/COMMIT-7638442.md)
+- Message: Give Horizen registration confirmation independent server-side liveness
+
+## Commit `e201597` — 2026-08-08T23:34:27Z
+- Type: `fix`
+- Brief: [COMMIT-e201597.md](../build_/COMMITS/COMMIT-e201597.md)
+- Message: Fix receipts-route allowlist drift hiding MoneyPenny's Register ceremony evidence
+
+## Commit `8edc1f8` — 2026-08-08T23:08:47Z
+- Type: `push`
+- Brief: [COMMIT-8edc1f8.md](../build_/COMMITS/COMMIT-8edc1f8.md)
+- Message: Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness
+
+## Commit `82ff28e` — 2026-08-08T22:40:18Z
+- Type: `push`
+- Brief: [COMMIT-82ff28e.md](../build_/COMMITS/COMMIT-82ff28e.md)
+- Message: Register Threshold/metaMe MCP server in .mcp.json + docs
+
+## Commit `f294431` — 2026-08-08T20:59:02Z
+- Type: `push`
+- Brief: [COMMIT-f294431.md](../build_/COMMITS/COMMIT-f294431.md)
+- Message: Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI

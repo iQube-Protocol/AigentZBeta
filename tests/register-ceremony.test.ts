@@ -853,10 +853,14 @@ describe('the dry-run agent is the one selected on arrival', () => {
   const tab = stripComments(readSource('app/triad/components/codex/tabs/PilotJourneyTab.tsx'));
 
   it('Nakamoto is first in PILOT_AGENTS', () => {
+    // Horizen Pilot Closure item 5 (2026-08-09): PILOT_AGENTS is no longer a
+    // hand-copied array literal — it is projected from the canonical
+    // services/horizen/registrableAgents.ts registry via an explicit
+    // ['nakamoto', 'moneypenny'] order, so this now asserts on THAT order
+    // declaration rather than on `slug: '...'` object-literal text.
     const at = panel.indexOf('export const PILOT_AGENTS');
-    const list = panel.slice(at, panel.indexOf('];', at));
-    expect(list.indexOf("slug: 'nakamoto'")).toBeGreaterThan(-1);
-    expect(list.indexOf("slug: 'nakamoto'")).toBeLessThan(list.indexOf("slug: 'moneypenny'"));
+    const declaration = panel.slice(at, at + 400);
+    expect(declaration).toMatch(/\[\s*'nakamoto'\s*,\s*'moneypenny'\s*\]/);
   });
 
   it('and is the initial selection', () => {
@@ -869,7 +873,8 @@ describe('the dry-run agent is the one selected on arrival', () => {
     // slug does not resolve. If the two disagreed, the fallback would silently
     // reintroduce the default this change removes.
     const at = panel.indexOf('export const PILOT_AGENTS');
-    const first = panel.slice(at, panel.indexOf('];', at)).match(/slug: '([a-z]+)'/)?.[1];
+    const declaration = panel.slice(at, at + 400);
+    const first = declaration.match(/\[\s*'([a-z]+)'/)?.[1];
     expect(tab).toMatch(new RegExp(`useState<string>\\('${first}'\\)`));
   });
 });
@@ -1097,7 +1102,12 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
   it('an unconfirmed broadcast is recovered from the receipts, not from page memory', () => {
     const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
     // Read back from the durable record of the broadcast.
-    expect(panel).toMatch(/actionTypes=horizen_registration_submitted,horizen_agent_registered/);
+    // The receipts route only reads the singular `actionType` query param
+    // (app/api/assistant/receipts/route.ts) — `actionTypes` (plural) was a
+    // silent no-op the client-side agentsInvoked/actionType filtering below
+    // happened to mask. Fixed 2026-08-08; this assertion now encodes the
+    // param the server actually honours, not the defect.
+    expect(panel).toMatch(/actionType=horizen_registration_submitted,horizen_agent_registered/);
     // A submitted receipt with no confirmation behind it IS the pending one.
     expect(panel).toMatch(/confirmedHashes/);
     expect(panel).toMatch(/r\.actionType === 'horizen_registration_submitted' &&/);

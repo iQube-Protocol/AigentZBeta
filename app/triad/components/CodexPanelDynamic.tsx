@@ -49,6 +49,7 @@ import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 import { resolveLegacyTabSlug } from "@/data/codex-configs";
 import { isHorizenTrigger, focusJourneyStage } from "@/services/journey/journeyCompanionTrigger";
 import { JourneyCompanionCarousel } from "@/components/journey/JourneyCompanionCarousel";
+import { getSelectedPilotAgentSlug } from "@/services/journey/selectedPilotAgent";
 
 interface CodexPanelDynamicProps {
   codexId: string;              // 'knyt-codex', 'qripto-codex', 'aigentiq-codex' (Agentiq Cartridge)
@@ -1308,7 +1309,18 @@ export default function CodexPanelDynamic({
             onUserPrompt={async (prompt: string) => {
               if (!isHorizenTrigger(prompt)) return undefined;
               focusJourneyStage('register', codexId, resolvedPersonaId);
-              return { content: <JourneyCompanionCarousel personaId={resolvedPersonaId} codexId={codexId} /> };
+              // The operator's last selection on the Journey tab, never a
+              // hardcoded MoneyPenny default (Horizen Pilot Closure item 5,
+              // 2026-08-09) — see services/journey/selectedPilotAgent.ts.
+              return {
+                content: (
+                  <JourneyCompanionCarousel
+                    personaId={resolvedPersonaId}
+                    codexId={codexId}
+                    agentSlug={getSelectedPilotAgentSlug()}
+                  />
+                ),
+              };
             }}
           />
         );
