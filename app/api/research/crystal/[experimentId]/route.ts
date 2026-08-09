@@ -29,6 +29,8 @@ import {
   isReviewableScientificObject,
   crystalLifecycleStage,
 } from '@/services/research/crystalDomains';
+import { resolveObserverRound } from '@/services/research/crystalObserverReview';
+import { observerRoundId, getObserverRound } from '@/services/research/observerReviewStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,6 +79,45 @@ export async function GET(
    */
   const crystalArtifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
 
+  /*
+   * OBSERVER ACCEPTANCE — the gate that unlocks post-crystal experiment
+   * preparation (Post-Freeze Observer Review Closure, point 11). Derived from
+   * REAL decisions recorded against the current Observer Review round for
+   * this artifact — never asserted, and never computed from readiness (a
+   * passing readiness report is not an observer's acceptance of the frozen
+   * result). `null` when the artifact is not frozen, or is frozen but no
+   * round has been assigned yet — both are honest absences, not `pending`.
+   */
+  let observerAcceptance: ReturnType<typeof resolveObserverRound> | null = null;
+  let frozenArtifactSummary: {
+    id: string;
+    contentHash: string | null;
+    commitmentHash: string | null;
+    frozenAt: string | null;
+    signedBy: string[];
+    receiptId: string | null;
+  } | null = null;
+  if (crystalArtifact?.lifecycle === 'frozen') {
+    frozenArtifactSummary = {
+      id: crystalArtifact.id,
+      contentHash: crystalArtifact.contentHash,
+      commitmentHash: crystalArtifact.commitmentHash,
+      frozenAt: crystalArtifact.frozenAt,
+      signedBy: crystalArtifact.signedBy,
+      receiptId: crystalArtifact.receiptId,
+    };
+    try {
+      const admin = getSupabaseServer();
+      const round = admin ? await getObserverRound(admin, observerRoundId(experimentId, crystalArtifact.id)) : null;
+      if (round?.package) {
+        observerAcceptance = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
+      }
+    } catch {
+      // Unreadable substrate — observerAcceptance stays null (honest absence,
+      // never a fabricated 'pending').
+    }
+  }
+
   // ── RESPONSE SHAPE CORRECTIONS (operator ruling, 2026-08-02) ────────────
   //
   // 1. `ok: true` meant "the HTTP request succeeded" and was read as "the
@@ -114,7 +155,17 @@ export async function GET(
     {
       requestSucceeded: true,
       reviewPackageReady,
-      crystalStatus: 'candidate',
+      /*
+       * HONEST, DERIVED FROM THE PERSISTED ARTIFACT (fixed 2026-08-09, Post-
+       * Freeze Observer Review Closure verification). This was hardcoded
+       * `'candidate'` unconditionally — a frozen crystal still reported
+       * `crystalStatus: 'candidate'` in this same payload that also, correctly,
+       * reported `lifecycle.stageId === 'FROZEN'`. Two fields describing one
+       * fact must never disagree; this one now reads the same persisted
+       * artifact `lifecycle` derives from. `'canonical'` has no producer yet,
+       * matching `crystalLifecycleStage`'s own honesty about that rung.
+       */
+      crystalStatus: crystalArtifact?.lifecycle === 'frozen' ? 'frozen' : 'candidate',
       /*
        * ASSESSED vs DOMAIN_UNPOPULATED, hoisted to the top of the payload
        * (operator report, 2026-08-02).
@@ -164,6 +215,15 @@ export async function GET(
         frozen: crystalArtifact?.lifecycle === 'frozen',
       }),
       /*
+       * The immutable frozen artifact summary (Post-Freeze Observer Review
+       * Closure, point 1) — null unless the crystal-version artifact is
+       * actually frozen. A UI reading `lifecycle.stageId === 'FROZEN'` renders
+       * THIS instead of any freeze-preparation control.
+       */
+      frozenArtifact: frozenArtifactSummary,
+      /* SPEC point 11 — see the derivation above. */
+      observerAcceptance,
+      /*
        * Honest and reviewable are different properties. An empty package is a
        * truthful baseline and belongs in the research bundle as provenance; it
        * is not something an external reviewer can produce a finding about.
@@ -183,10 +243,34 @@ export async function GET(
        * asked to assess or recommend a freeze before then. `reviewRequestOpen`
        * is the flag any invitation path must consult; it is derived, never set.
        */
-      reviewStage: crystalReviewStageStatus({
-        invariantCount: readiness?.invariantCount ?? 0,
-        readinessOk: Boolean(readiness?.ok),
-      }),
+      /*
+       * FROZEN OVERRIDES THE PRE-FREEZE REVIEW STAGE (fixed 2026-08-09,
+       * Post-Freeze Observer Review Closure verification). `crystalReviewStageStatus`
+       * only ever knows `{invariantCount, readinessOk}` — it has no notion of
+       * `frozen` and, over a still-populated-and-passing domain, would keep
+       * reporting `INDEPENDENT_REVIEW_OPEN` / "the independent pre-freeze
+       * review is open... record your assessment" indefinitely, even though
+       * that review concluded at freeze. A reader — human or agent — meeting
+       * that text after the crystal is already frozen would be told to do
+       * something that already happened. Overridden here, at the wire
+       * boundary only, so the shared pure function and its own tests (which
+       * exercise the pre-freeze case exclusively) are untouched.
+       */
+      reviewStage:
+        crystalArtifact?.lifecycle === 'frozen'
+          ? {
+              state: 'FROZEN',
+              label: 'Frozen — Post-Freeze Observer Review',
+              message:
+                'The crystal is frozen. The independent PRE-freeze review has concluded; see `observerAcceptance` ' +
+                'for the current Post-Freeze Observer Review status, not this field.',
+              independentReviewRequestOpen: false,
+              internalDiagnosticAvailable: true,
+            }
+          : crystalReviewStageStatus({
+              invariantCount: readiness?.invariantCount ?? 0,
+              readinessOk: Boolean(readiness?.ok),
+            }),
       crystalDomainDeclaration: crystalDomainForExperiment(experimentId),
       ...(recommendation.unpopulatedProvenance
         ? { unpopulatedProvenance: recommendation.unpopulatedProvenance }

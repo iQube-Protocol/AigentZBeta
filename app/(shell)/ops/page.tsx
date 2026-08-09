@@ -23,6 +23,7 @@ import { useArbitrumSepolia } from "@/hooks/ops/useArbitrumSepolia";
 import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
 import { useBaseMainnet } from "@/hooks/ops/useBaseMainnet";
 import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
+import { personaFetch } from "@/utils/personaSpine";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
 import { useSolanaTestnet } from "@/hooks/ops/useSolanaTestnet";
@@ -499,7 +500,21 @@ function ActivityReceiptsDvnPanel() {
             : r.receipt_status === 'dvn_failed'
             ? 'text-red-400'
             : 'text-slate-400';
-          const ts = new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          /*
+           * DATE, NOT JUST TIME (operator report, 2026-08-08). This rendered
+           * `toLocaleTimeString` alone, so a receipt created 2026-07-20T06:46
+           * displayed as "06:46" — indistinguishable from one created this
+           * morning. The operator read three-week-old `failed` rows as current
+           * failures and reported a live DVN outage that had actually happened
+           * weeks earlier. A stale observation must never render as current
+           * (Companion MS-10 / observer invariant OS-2, third instance of this
+           * same shape). Today keeps the bare time; anything older is dated.
+           */
+          const created = new Date(r.created_at);
+          const isToday = created.toDateString() === new Date().toDateString();
+          const ts = isToday
+            ? created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : created.toLocaleDateString([], { month: 'short', day: 'numeric' });
           return (
             <div key={r.id} className="flex items-start justify-between gap-2 text-xs">
               <span className={`font-medium shrink-0 ${r.action_type === 'agent_delegated' ? 'text-emerald-300' : 'text-rose-300'}`}>
@@ -1589,6 +1604,14 @@ export default function OpsPage() {
             async function handleRepair() {
               try {
                 await syncStatus.repair('auto');
+                // Explicit refresh. `repair()` used to end with its own
+                // internal `await load()`; that was removed 2026-08-08 because
+                // load() re-triggered repair(), forming an unbounded recursion
+                // that made merely having /ops open the thing keeping the DVN
+                // spine synchronized (see useSyncStatus.load()'s own note).
+                // The refresh a manual click wants is requested here, by the
+                // click handler, rather than baked into the mutation.
+                await syncStatus.refresh?.();
               } catch (e: any) {
                 alert(`Sync repair failed: ${e.message}`);
               }
@@ -1597,7 +1620,26 @@ export default function OpsPage() {
             async function handleLayerZeroProcess() {
               try {
                 const result = await syncStatus.processLayerZero('process_pending');
-                alert(`LayerZero processing completed: ${result.message}\nProcessed: ${result.processed}/${result.total} messages`);
+                /*
+                 * REPORT REJECTIONS, NOT JUST SUCCESSES (operator ruling,
+                 * 2026-08-08). This alert used to show only `processed` — and
+                 * the route counted canister REJECTIONS (Candid `{Err}`, which
+                 * does not throw) as processed, so "Processed 3/3" was
+                 * displayable when all three were refused. The route now
+                 * separates processed / rejected / failed and returns the exact
+                 * canister errors; showing them here is what makes a click
+                 * that achieves nothing look like a click that achieved
+                 * nothing.
+                 */
+                const lines = [
+                  `LayerZero processing: ${result.message}`,
+                  `processed ${result.processed} · rejected ${result.rejected ?? 0} · failed ${result.failed ?? 0}`,
+                  `pending total: ${result.total}${result.hasMore ? ' (more remain — batch size 10)' : ''}`,
+                ];
+                if (Array.isArray(result.canisterErrors) && result.canisterErrors.length > 0) {
+                  lines.push('', 'Canister said:', ...result.canisterErrors.map((e: string) => `  • ${e}`));
+                }
+                alert(lines.join('\n'));
                 
                 // Firefox-compatible async refresh with proper error handling
                 const refreshWithDelay = async (refreshFn: (() => Promise<void>) | undefined, delay: number = 0) => {
@@ -1805,7 +1847,11 @@ export default function OpsPage() {
               const validator = (document.getElementById('dvn-validator-test') as HTMLInputElement)?.value;
               const signatureHex = (document.getElementById('dvn-sighex-test') as HTMLInputElement)?.value;
               if (!dvnMon.messageId || !validator || !signatureHex) return;
-              await fetch('/api/ops/dvn/attest', {
+              // /api/ops/dvn/attest now requires auth (Horizen Pilot Closure,
+              // Part B2, 2026-08-09 — it had none before) and resolves the
+              // admin-persona path via getActivePersona, which needs the
+              // Authorization Bearer a raw fetch() never attaches.
+              await personaFetch('/api/ops/dvn/attest', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({ messageId: dvnMon.messageId, validator, signatureHex }),

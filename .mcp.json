@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "threshold": {
+      "type": "http",
+      "url": "https://dev-beta.aigentz.me/api/threshold/mcp"
+    }
+  }
+}

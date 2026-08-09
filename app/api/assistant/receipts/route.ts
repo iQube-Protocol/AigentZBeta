@@ -8,6 +8,18 @@
  *   ?limit=20          // 1..100, default 20
  *   ?cartridge=knyt    // filter to one cartridge
  *   ?actionType=...    // comma-separated list
+ *   ?agentsInvoked=... // comma-separated agent ids — narrows to receipts
+ *                       // naming ANY of these agents as a subject (overlap
+ *                       // match against agents_invoked, via
+ *                       // listActivityReceiptsForPersona's existing
+ *                       // agentsInvoked option). Added 2026-08-08: without
+ *                       // this, a caller filtering only by actionType gets
+ *                       // EVERY agent's receipts of that type the acting
+ *                       // persona has ever written — e.g. Nakamoto's
+ *                       // horizen_agent_registered receipt rendering as
+ *                       // MoneyPenny's Register evidence, because both were
+ *                       // registered by the same operator persona. See
+ *                       // components/journey/StageReceiptsDrawer.tsx.
  *
  * Returns the receipt list scoped to the active persona. Persona resolved
  * from spine; never read from query.
@@ -158,6 +170,46 @@ const VALID_ACTION_TYPES = new Set<ActivityActionType>([
   'marketa_eligibility_assessed',
   'marketa_eligibility_refused',
   'marketa_eligibility_quarantined',
+  // Wallet Signing Topology, Register vertical slice (operator ruling
+  // 2026-08-01) — the five ceremony-step receipts named in
+  // horizenMoneyPennyJourney.ts's Register stage `receiptTypes`. Omitted
+  // here when they shipped, so StageReceiptsDrawer's query silently dropped
+  // every one of them while the journey's own state resolution (which reads
+  // `activity_receipts` directly, with no allowlist) showed the ceremony
+  // progressing correctly — "no receipts recorded for this stage" even
+  // though the receipts existed.
+  'principal_registration_mandate_signed',
+  'agent_registry_transaction_signed',
+  'horizen_registration_submitted',
+  'horizen_registration_confirmed',
+  'agent_registry_binding_recorded',
+  // The SAME drift, found on every OTHER Horizen-MoneyPenny journey stage
+  // when auditing the Register-stage gap above (2026-08-08) — each of these
+  // is named in a stage's `receiptTypes` in horizenMoneyPennyJourney.ts but
+  // was never added here, so StageReceiptsDrawer would show "no receipts
+  // recorded" for Passport, Delegate, aigentMe, Ratify's agreement receipts,
+  // Deploy, and Standing too, for the identical reason. Third occurrence of
+  // this allowlist-drift defect class overall; see
+  // tests/assistant-receipts-action-type-allowlist-parity.test.ts, which now
+  // asserts EVERY receiptTypes entry across the journey definition is
+  // present here so a fourth occurrence fails the build instead of shipping.
+  'operator_passport_validated',
+  'agent_sponsorship_recorded',
+  'passport_issued',
+  'agent_delegate_passport_issued',
+  'agent_delegated',
+  'finance_authoritative_execution',
+  'aigentme_activated',
+  'experienceqube_focus_disposition_recorded',
+  'journey_completed',
+  'agreement_formed',
+  'agreement_authorized',
+  'capability_registered',
+  'standing_accrued',
+  // Orient stage (Threshold Journey — Orient + Consequence Fork, 2026-08-09)
+  // — the acknowledgment/legacy-precedent receipt named in
+  // horizenMoneyPennyJourney.ts's Orient stage `receiptTypes`.
+  'orientation_ritual_completed',
 ]);
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -173,6 +225,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const limitRaw = url.searchParams.get('limit');
   const cartridge = url.searchParams.get('cartridge') ?? undefined;
   const actionTypesRaw = url.searchParams.get('actionType');
+  const agentsInvokedRaw = url.searchParams.get('agentsInvoked');
 
   const limit =
     limitRaw && /^\d+$/.test(limitRaw)
@@ -187,6 +240,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           VALID_ACTION_TYPES.has(s as ActivityActionType),
         ))
     : undefined;
+  // No allowlist here, unlike actionType — agent ids are not a closed,
+  // access-relevant vocabulary (persona_id scoping above is the real gate),
+  // and an unrecognised id simply matches nothing rather than needing one.
+  const agentsInvoked: string[] | undefined = agentsInvokedRaw
+    ? agentsInvokedRaw.split(',').map((s) => s.trim()).filter(Boolean)
+    : undefined;
 
   try {
     const [receipts, personaDisplayLabel] = await Promise.all([
@@ -194,6 +253,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         limit,
         ...(cartridge ? { cartridge } : {}),
         ...(actionTypes && actionTypes.length > 0 ? { actionTypes } : {}),
+        ...(agentsInvoked && agentsInvoked.length > 0 ? { agentsInvoked } : {}),
       }),
       readPersonaDisplayLabel(context.personaId),
     ]);

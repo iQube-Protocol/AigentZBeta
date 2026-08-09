@@ -19,6 +19,15 @@ import { getAsset } from "./persistence";
 import { emitReceipt } from "./receiptEmitter";
 import { PolicyClass, WrapperStrategy } from "@/types/registryIngestion";
 import { evaluateSkillQubePolicy } from "@/services/policy/skillQubePolicyGate";
+import type { CapabilityInvocation, InvocationDecision } from "@/types/capabilityInvocation";
+import {
+  evaluateLoopAndDepthGuard,
+  resolveProviderForGates,
+  evaluateIdentityAndAuthorityGate,
+  evaluateCapabilityAndRuntimeGate,
+  evaluatePolicyAndConsequenceGate,
+} from "./capabilityInvocationGates";
+import { createActivityReceipt, type ActivityActionType } from "@/services/receipts/activityReceiptService";
 
 function generateId(): string {
   return `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -135,6 +144,198 @@ export async function invokeAsset(req: InvocationRequest): Promise<InvocationRes
     output: status === "completed" ? output : undefined,
     status,
     error,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governed CAPABILITY invocation — Phase 4, 2026-08-06. A second discriminated
+// mode alongside `invokeAsset` above, per inv.engineering.036/037 (extend this
+// gateway, never build a third gate). Design doc: codexes/packs/agentiq/
+// updates/2026-08-06_governed-capability-invocation-design.md — every gate,
+// refusal code and the depth/loop guard below is that doc transcribed into
+// code. `invokeAsset` above is UNCHANGED by this addition.
+//
+// `invokeCapability` returns a DECISION, not a dispatch result (design doc
+// §8's own scoping) — it does not itself call the resolved provider's
+// runtime. The caller (MoneyPenny's proposal path, Agent Bench's invoke
+// action, or `askSpecialist`'s direct-consultation branch) is what actually
+// invokes the runtime after receiving `{decision:'allow', envelope}`; none of
+// those call sites exist yet (design doc §8 — named, not built, in this
+// pass) so this function's contract is exercised by its own tests today.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function recordCapabilityInvocation(
+  req: CapabilityInvocation,
+  registryAssetId: string,
+  status: string,
+): Promise<void> {
+  const supabase = getSupabaseServer();
+  if (!supabase) return;
+  const inputHash = createHash("sha256").update(JSON.stringify(req.input)).digest("hex");
+  await supabase
+    .from("registry_invocations")
+    .upsert(
+      {
+        invocation_id: req.invocationId,
+        asset_id: registryAssetId,
+        invoked_by: req.principalRef,
+        tenant_id: req.originatingSurface,
+        wrapper_strategy: "agent_capability",
+        policy_class: req.executionMode,
+        input_hash: inputHash,
+        status,
+        invoked_at: new Date().toISOString(),
+        completed_at: status === "pending" ? null : new Date().toISOString(),
+      },
+      { onConflict: "invocation_id" },
+    )
+    .then(
+      () => undefined,
+      () => undefined, // best-effort — mirrors recordInvocationStart/End's no-throw convention
+    );
+}
+
+const CAPABILITY_RECEIPT_ACTION_TYPE: Record<
+  "requested" | "authorized" | "refused" | "completed",
+  ActivityActionType
+> = {
+  requested: "capability_invocation_requested",
+  authorized: "capability_invocation_authorized",
+  refused: "capability_invocation_refused",
+  completed: "capability_invocation_completed",
+};
+
+/**
+ * Deliberately NOT `emitReceipt`/`ReceiptEventType` (the registry ingestion
+ * factory's double-write projection) — that map is intentionally coarse
+ * (every ingestion-pipeline event folds into `artifact_created` /
+ * `knowledge_curated`, `asset.published` the one named exception —
+ * tests/artifact-runtime-service.test.ts pins this) because it exists to
+ * keep pipeline noise off fine-grained action types. A capability invocation
+ * is not a registry-ingestion event, and its authorize/refuse/complete
+ * outcomes ARE meant to be individually anchorable — so this calls
+ * `createActivityReceipt` directly, its own real action types, same as every
+ * other non-registry constitutional event class in this codebase (passport,
+ * governance, agreement, ...).
+ *
+ * `personaId` is the caller's OWN resolved T0 identifier (from
+ * `getActivePersona`), passed separately from the envelope's T1-safe
+ * `principalRef` — never derived from `principalRef` itself, and never
+ * placed in the receipt's `actionInput` payload. Omitted (no caller wired
+ * yet, per design doc §8) means the receipt write is skipped — best-effort,
+ * a missing receipt must never break the decision it describes.
+ */
+async function emitCapabilityReceipt(
+  outcome: "requested" | "authorized" | "refused" | "completed",
+  req: CapabilityInvocation,
+  personaId: string | undefined,
+  extra: Record<string, unknown>,
+): Promise<void> {
+  if (!personaId) return;
+  await createActivityReceipt({
+    personaId,
+    activeCartridge: req.originatingSurface,
+    actionType: CAPABILITY_RECEIPT_ACTION_TYPE[outcome],
+    summary: `Capability invocation ${outcome} — '${req.capabilityId}' requested by '${req.requestingAgentId}'${req.orchestratorAgentId ? ` (orchestrated by '${req.orchestratorAgentId}')` : ''}`,
+    agentsInvoked: [req.requestingAgentId, req.orchestratorAgentId, extra.resolvedProviderId as string | undefined].filter(
+      (id): id is string => Boolean(id),
+    ),
+    actionInput: {
+      invocationId: req.invocationId,
+      principalRef: req.principalRef,
+      originatingSurface: req.originatingSurface,
+      capabilityId: req.capabilityId,
+      executionMode: req.executionMode,
+      delegationRef: req.delegationRef ?? null,
+      policyBindingRefs: req.policyBindingRefs,
+      delegationDepth: req.delegationDepth,
+      ...extra,
+    },
+  }).catch(() => undefined); // best-effort — a receipt failure must never break the decision it describes
+}
+
+/**
+ * Governed capability invocation — resolves `capabilityId` to its current
+ * provider (never a caller-named agent directly), runs the depth/loop guard
+ * and the three gates in the design doc's documented order, and returns a
+ * decision. Never throws — a resolution/DB failure surfaces as a `refuse`
+ * decision, consistent with `invokeAsset`'s fail-closed posture.
+ *
+ * `personaId` is the caller's already-resolved T0 persona id (from
+ * `getActivePersona`) — used ONLY for receipt attribution, never part of the
+ * envelope/decision returned. Optional so this function's own unit tests
+ * (and any future caller that hasn't wired receipts yet) can omit it; the
+ * decision logic is identical either way.
+ */
+export async function invokeCapability(req: CapabilityInvocation, personaId?: string): Promise<InvocationDecision> {
+  await emitCapabilityReceipt("requested", req, personaId, {});
+
+  const depthGuard = evaluateLoopAndDepthGuard(req);
+  if (!depthGuard.ok) {
+    await emitCapabilityReceipt("refused", req, personaId, { code: depthGuard.code, reason: depthGuard.reason });
+    return { decision: "refuse", code: depthGuard.code, reason: depthGuard.reason };
+  }
+
+  const resolution = await resolveProviderForGates(req);
+  if ("gate" in resolution) {
+    await emitCapabilityReceipt("refused", req, personaId, { code: resolution.gate.code, reason: resolution.gate.reason });
+    return { decision: "refuse", code: resolution.gate.code, reason: resolution.gate.reason };
+  }
+  const { provider } = resolution;
+
+  // §6 — re-run the circular check now that the provider is known (the
+  // pre-resolution pass in evaluateLoopAndDepthGuard could only catch a
+  // caller naming itself; this catches the provider already being in path).
+  if (req.invocationPath.includes(provider.providerAgentId)) {
+    const refusal = { code: "CIRCULAR_INVOCATION", reason: `resolved provider '${provider.providerAgentId}' already appears in invocationPath` };
+    await emitCapabilityReceipt("refused", req, personaId, refusal);
+    return { decision: "refuse", ...refusal };
+  }
+
+  const identityGate = await evaluateIdentityAndAuthorityGate(req, provider);
+  if (!identityGate.ok) {
+    await emitCapabilityReceipt("refused", req, personaId, { code: identityGate.code, reason: identityGate.reason, registryAssetId: provider.registryAssetId });
+    return { decision: "refuse", code: identityGate.code, reason: identityGate.reason };
+  }
+
+  const capabilityGate = evaluateCapabilityAndRuntimeGate(req, provider);
+  if (!capabilityGate.ok) {
+    await emitCapabilityReceipt("refused", req, personaId, { code: capabilityGate.code, reason: capabilityGate.reason, registryAssetId: provider.registryAssetId });
+    return { decision: "refuse", code: capabilityGate.code, reason: capabilityGate.reason };
+  }
+
+  const policyGate = evaluatePolicyAndConsequenceGate(req);
+  if (!policyGate.ok) {
+    await emitCapabilityReceipt("refused", req, personaId, { code: policyGate.code, reason: policyGate.reason, registryAssetId: provider.registryAssetId });
+    return { decision: "refuse", code: policyGate.code, reason: policyGate.reason };
+  }
+
+  // §5 — bounded context: echo exactly what was requested and why. No
+  // per-capability "minimum required fields" declaration exists yet (design
+  // doc §5's deeper mechanism), so today's honest bound is "only the refs the
+  // caller explicitly named, nothing implicitly widened" — never the whole
+  // parent conversation.
+  const sharedContext = (req.contextRefs ?? []).map((ref) => ({
+    ref,
+    justification: `explicitly requested by originatingSurface '${req.originatingSurface}'`,
+  }));
+
+  await recordCapabilityInvocation(req, provider.registryAssetId, "authorized");
+  await emitCapabilityReceipt("authorized", req, personaId, {
+    registryAssetId: provider.registryAssetId,
+    resolvedProviderId: provider.providerAgentId,
+  });
+
+  return {
+    decision: "allow",
+    envelope: {
+      invocationId: req.invocationId,
+      capabilityId: req.capabilityId,
+      resolvedProviderId: provider.providerAgentId,
+      resolvedRegistryAssetId: provider.registryAssetId,
+      executionMode: req.executionMode,
+      sharedContext,
+    },
   };
 }
 

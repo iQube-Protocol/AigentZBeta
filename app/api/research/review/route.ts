@@ -46,6 +46,16 @@ import {
 import { EXP_P1_REVIEW_QUESTION } from '@/services/research/review/templates/expP1Admissibility';
 
 export const dynamic = 'force-dynamic';
+// `mode:'run'` dispatches BOTH reviewers through `runDualReview` — a real
+// multi-call round trip to the Venice provider that can legitimately run
+// well past a typical serverless default (al, EXP PP1 Track 2, 2026-08-05:
+// a platform gateway timeout here was surfacing to the operator as "review
+// run failed (HTTP 504)", which reads as a governance rejection when it is
+// actually a transport failure — the client now distinguishes the two, but
+// giving this route more room to actually finish is the other half of the
+// fix). Best-effort: only takes effect on platforms that honor Next.js
+// route segment config for function duration.
+export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const gate = await requireReviewReadAccess(req);
@@ -188,6 +198,27 @@ export async function POST(req: NextRequest) {
       steward,
     };
 
+    /*
+     * EXECUTIVE SUMMARY FOR THE STEWARD ONLY (operator direction,
+     * 2026-08-05) — built from `summary` above, which is already returned
+     * to the steward unredacted. NEVER pass `plan.pkg` or `preview` into
+     * this call; see services/research/reviewExecutiveSummary.ts's own
+     * header for why that boundary matters. A failure here never blocks the
+     * ceremony — the steward can still preview/send without it, exactly as
+     * if this feature did not exist.
+     */
+    const { summarizeReviewPackage } = await import('@/services/research/reviewExecutiveSummary');
+    const executiveSummaryResult = await summarizeReviewPackage({
+      corpusRowCount: summary.corpusRowCount,
+      inBoundaryCount: summary.inBoundaryCount,
+      outOfBoundaryCount: summary.outOfBoundaryCount,
+      classC: { assessed: summary.classC.assessed, admitted: summary.classC.admitted, extracted: summary.classC.extracted, ruling: summary.classC.ruling },
+      individuallyEnumerated: summary.individuallyEnumerated,
+      mechanicallyFlaggedCount: summary.mechanicallyFlagged,
+      reviewerCount: summary.reviewers.length,
+    }).catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    const executiveSummary = executiveSummaryResult.ok ? executiveSummaryResult.summary : null;
+
     if (mode === 'preview') {
       await upsertReview(gate.caller.admin, {
         reviewId: plan.reviewId,
@@ -206,7 +237,7 @@ export async function POST(req: NextRequest) {
         actionAt: null,
       });
       // The preview IS the sealed package — same object, same hash.
-      return NextResponse.json({ ok: true, mode, summary, preview });
+      return NextResponse.json({ ok: true, mode, summary, preview, executiveSummary });
     }
 
     const providerFor = (a: ReviewerAssignment): ReviewProvider => {
@@ -261,6 +292,7 @@ export async function POST(req: NextRequest) {
       mode,
       summary,
       preview,
+      executiveSummary,
       tally: artifacts.tally,
       contested: artifacts.contested,
       preRunManifest: artifacts.preRunManifest,

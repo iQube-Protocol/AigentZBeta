@@ -123,11 +123,17 @@ export function passportDeepLinks(opts: DeepLinkOptions = {}): {
   apply: string; delegation: string; registry: string; locker: string;
 } {
   const base = { personaSessionToken: opts.personaSessionToken, personaId: opts.personaId, from: opts.from ?? 'guided-onboarding' };
+  // The real codex ids are 'irl-os-cartridge' / 'agentiq-os-cartridge'
+  // (data/codex-configs.ts) — buildCodexUrl's embed shell guesses a
+  // '-codex' suffix for any bare slug lacking a recognised one, so the
+  // marketing slugs 'irl-os'/'agentiq-os' alone resolved to the
+  // nonexistent 'irl-os-codex'/'agentiq-os-codex' and 404d client-side
+  // ("Failed to load codex"). Fixed 2026-08-09.
   return {
-    apply: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-apply' }),
-    delegation: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-delegation' }),
-    registry: buildCodexUrl('agentiq-os', { ...base, tab: 'os-passport-registry' }),
-    locker: buildCodexUrl('irl-os', { ...base, tab: 'irl-os-passport-locker' }),
+    apply: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-apply' }),
+    delegation: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-delegation' }),
+    registry: buildCodexUrl('agentiq-os-cartridge', { ...base, tab: 'os-passport-registry' }),
+    locker: buildCodexUrl('irl-os-cartridge', { ...base, tab: 'irl-os-passport-locker' }),
   };
 }
 

@@ -309,6 +309,53 @@ export const RESEARCH_WORKSPACES: ResearchWorkspace[] = [
     experimentId: 'EXP-P1',
     lifecycleTemplateId: 'research-experiment',
     currentStage: 'Review',
+    /**
+     * DECLARED HERE, NOT INHERITED (Post-Freeze Observer Review Closure,
+     * point 2, 2026-08-09): every other field on this workspace inherits
+     * from `autonomi-independent-review-programme`, but the Observer Review
+     * link is EXP-P1-specific — EXP-P2/P3 are pre-freeze and have no frozen
+     * crystal to observe yet. Carries the programme's own three links
+     * forward explicitly (own `links` REPLACES rather than merges with the
+     * inherited value — `researchWorkspaceLinks`'s `inherited()` walk) so
+     * this workspace does not lose them by declaring one more.
+     */
+    links: [
+      {
+        id: 'irl-protocols',
+        label: 'Protocols & Articles',
+        description: 'Pre-registration protocols, experiment designs, evaluation frameworks',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-protocols',
+        area: 'overview',
+      },
+      {
+        id: 'irl-independent-review',
+        label: 'Independent Review',
+        description: 'IRL-REVIEW-001 — the independent-review capability surface',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-independent-review',
+        area: 'operate',
+      },
+      {
+        id: 'irl-observer-review',
+        label: 'Observer Review',
+        description:
+          'The canonical external-observer surface for EXP-P1\'s frozen crystal — hash-bound Observer ' +
+          'Review Package, self-service structured decision submission, and change-proposal handling ' +
+          '(Post-Freeze Observer Review Closure).',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-independent-review',
+        area: 'operate',
+      },
+      {
+        id: 'irl-records',
+        label: 'Records & Findings',
+        description: 'The constitutional record — every increment, finding, and session record',
+        codexSlug: 'irl-cartridge',
+        tab: 'irl-records',
+        area: 'evidence',
+      },
+    ],
   },
   {
     id: 'autonomi-review-exp-p2',

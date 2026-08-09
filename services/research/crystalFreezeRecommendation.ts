@@ -144,18 +144,22 @@ export function composeCrystalFreezeRecommendation(
   });
 
   // A summary item, mechanically derived from the SAME checks list above —
-  // never a separate judgement. If every named check passed, this is
-  // trivially true; it exists so a reader sees one line stating the
-  // all-checks-passed fact explicitly, matching the operator's requested
-  // checklist vocabulary ("readiness checks passed").
+  // never a separate judgement. `readiness.ok` depends ONLY on
+  // `scientific-readiness`-tier checks (operator ruling, 2026-08-05); this
+  // item's own text must say so explicitly rather than claiming "all N
+  // passed" when N includes the non-blocking `scientific-maturity` checks
+  // (structural-diversity, graph-connectivity), which may still be failing
+  // even when `ok` is true.
+  const readinessTierChecks = readiness.checks.filter((c) => c.tier === 'scientific-readiness');
   rationale.unshift({
     id: 'readiness-checks-passed',
     label: 'Readiness checks passed',
     satisfied: readiness.ok,
     detail: readiness.ok
-      ? `all ${readiness.checks.length} Crystal Intrinsic Readiness checks passed`
-      : `${readiness.checks.filter((c) => !c.passed).length}/${readiness.checks.length} checks failing: ` +
-        readiness.checks.filter((c) => !c.passed).map((c) => c.name).join(', '),
+      ? `all ${readinessTierChecks.length} scientific-readiness checks passed (freeze-gating); ` +
+        `scientific maturity ${readiness.maturity.passedCount}/${readiness.maturity.totalCount} (${readiness.maturity.band}, informational only)`
+      : `${readinessTierChecks.filter((c) => !c.passed).length}/${readinessTierChecks.length} scientific-readiness checks failing: ` +
+        readinessTierChecks.filter((c) => !c.passed).map((c) => c.name).join(', '),
   });
 
   // Nothing to assess is a different situation from assessed-and-failing, and

@@ -20,6 +20,8 @@ import { composeCrystalFreezeRecommendation } from '../services/research/crystal
 import type { CrystalReadinessReport } from '../services/research/crystalReadiness';
 import type { CrystalStatisticsReport } from '../services/research/crystalStatistics';
 
+const MATURITY_TIER_CHECK_NAMES = new Set(['structural-diversity', 'graph-connectivity']);
+
 function passingReadiness(): CrystalReadinessReport {
   const names = [
     'selection-space',
@@ -32,9 +34,25 @@ function passingReadiness(): CrystalReadinessReport {
     'graph-connectivity',
     'orphan-detection',
   ];
+  const checks = names.map((name) => ({
+    name,
+    passed: true,
+    detail: `${name} ok`,
+    remedy: null,
+    tier: (MATURITY_TIER_CHECK_NAMES.has(name) ? 'scientific-maturity' : 'scientific-readiness') as
+      | 'scientific-maturity'
+      | 'scientific-readiness',
+  }));
+  const maturityChecks = checks.filter((c) => c.tier === 'scientific-maturity');
   return {
     ok: true,
-    checks: names.map((name) => ({ name, passed: true, detail: `${name} ok`, remedy: null })),
+    checks,
+    maturity: {
+      checks: maturityChecks,
+      passedCount: maturityChecks.filter((c) => c.passed).length,
+      totalCount: maturityChecks.length,
+      band: 'gold',
+    },
     invariantCount: 12,
     eligibleCount: 12,
     populations: { A: 12, B: 0, C: 0, unclassified: 0, ablationCount: 12 },

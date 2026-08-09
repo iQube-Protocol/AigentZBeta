@@ -123,6 +123,20 @@ export interface ChainLink {
   detail: string;
 }
 
+/**
+ * The SAME shape as `ChainLink`, minus `id` — for a status card that is
+ * rendered on its own (Pulse, Verifiable PnL below), never iterated as one of
+ * the ratified seven `links`. Kept as a distinct type rather than reusing
+ * `ChainLink` with a fabricated `ChainLinkId` so the closed seven-member
+ * union stays closed.
+ */
+export interface StatusCard {
+  label: string;
+  status: string;
+  state: ChainLinkState;
+  detail: string;
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // 2. Standing — the verdict, always with its reason
 // ───────────────────────────────────────────────────────────────────────────
@@ -200,6 +214,15 @@ export interface EvidenceChainView {
     /** `parsed` | `unresolved` | … — the card STATUS, never the card. */
     agentCardStatus: string;
     pulseEnrolled: boolean;
+    /**
+     * §3.3 — what lets SLA proofs finalise at all. Was carried on
+     * `HorizenEvidenceRecord` but never projected into this view (2026-08-07
+     * gap: an agent could read `pulseEnrolled: true` here while its SLA
+     * proofs still could not finalise, with no way for this surface to say
+     * so). `null` only when Pulse itself is absent — see `pulseStatus` below
+     * for the single place these two facts are read together.
+     */
+    pulseCommitmentRecorded: boolean | null;
     correlationVerified: boolean;
     /** Capped — see MAX_CORRELATION_NOTES. */
     correlationNotes: string[];
@@ -210,6 +233,21 @@ export interface EvidenceChainView {
   bindingState: EvidenceBindingState;
   links: ChainLink[];
   standing: StandingVerdict;
+  /**
+   * Pulse (health/SLA monitoring) and Verifiable PnL, as TWO INDEPENDENT
+   * status cards — NOT added to the ratified 7-link `links` array above
+   * (operator ruling, 2026-07-28: those seven are the fixed constitutional
+   * chain), but genuinely surfaced rather than carried only on `agent.*` with
+   * nothing in this component ever rendering them (2026-08-07 gap: both
+   * fields existed on the projection and were never shown to an operator).
+   *
+   * Independent by construction, per the operator's 2026-08-07 direction:
+   * PnL's own status is derived ONLY from `evidence.proofChain`/`pnlUuid`
+   * (never from `pulseEnrolled`), so an agent fully enrolled in Pulse can
+   * still — correctly — show PnL as not yet registered, and vice versa.
+   */
+  pulseStatus: StatusCard;
+  verifiablePnlStatus: StatusCard;
   /** Ruling 4 — four distinct instants, never collapsed into "now". */
   temporal: {
     actionOccurredAt: string | null;
@@ -446,6 +484,9 @@ export function projectEvidenceChain(input: EvidenceChainInput): EvidenceChainVi
     dvnReceiptLink(receiptAnchor),
   ];
 
+  const pulseStatus = pulseMonitoringLink(evidence);
+  const verifiablePnlStatus = verifiablePnlLink(evidence);
+
   return {
     agent: {
       network: evidence.registryProfileNetwork,
@@ -457,12 +498,15 @@ export function projectEvidenceChain(input: EvidenceChainInput): EvidenceChainVi
       proofChain: evidence.proofChain,
       agentCardStatus: evidence.agentCardStatus,
       pulseEnrolled: evidence.pulseEnrolled,
+      pulseCommitmentRecorded: evidence.pulseCommitmentRecorded,
       correlationVerified: evidence.correlationVerified,
       correlationNotes: evidence.correlationNotes.slice(0, MAX_CORRELATION_NOTES),
       ready: evidence.ready,
     },
     bindingState: evidence.bindingState,
     links,
+    pulseStatus,
+    verifiablePnlStatus,
     standing: {
       // PROJECTED from the evidence record's own field, which evidence.ts
       // derived with `isStandingEligible`. Calling `isStandingEligible` again
@@ -595,5 +639,79 @@ function dvnReceiptLink(anchor: ReceiptAnchor): ChainLink {
     status: 'pending',
     state: 'indeterminate',
     detail: `the ingestion receipt is written and awaiting anchoring (receipt status "${anchor.receiptStatus}")`,
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// 7. Pulse and Verifiable PnL — two independent status cards (2026-08-07)
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pulse (health/SLA monitoring), THREE states — never collapsed into
+ * `pulseEnrolled` alone. §3.3: `commitmentRecorded` is "what lets SLA proofs
+ * finalise at all", so an agent can read `enrolled: true` and still have no
+ * way for its SLA proofs to settle. Absence of enrollment is a valid agent
+ * state (§9), never rendered as an error.
+ */
+function pulseMonitoringLink(e: HorizenEvidenceRecord): StatusCard {
+  const label = 'Pulse monitoring';
+  if (!e.pulseEnrolled) {
+    return {
+      label,
+      status: 'not enrolled',
+      state: 'negative',
+      detail: 'this agent is not enrolled in Pulse — a valid, optional agent state (Horizen brief §9), not a defect',
+    };
+  }
+  if (e.pulseCommitmentRecorded !== true) {
+    return {
+      label,
+      status: 'commitment pending',
+      state: 'indeterminate',
+      detail: 'enrolled, but the on-chain Pulse commitment is not yet recorded — SLA proofs cannot finalise until it is (Horizen brief §3.3)',
+    };
+  }
+  return {
+    label,
+    status: 'enrolled',
+    state: 'affirmed',
+    detail: 'enrolled, with the on-chain commitment recorded — SLA proofs can finalise',
+  };
+}
+
+/**
+ * Verifiable PnL, deliberately INDEPENDENT of Pulse — the operator's own
+ * 2026-08-07 direction: "treat verifiablePnlRegistered:false as a separate
+ * unfinished state" and derive it "independently from Pulse". Never reads
+ * `e.pulseEnrolled`/`pulseCommitmentRecorded`, by construction.
+ *
+ * A Verifiable PnL correlation record is a HORIZEN-SIDE event this codebase
+ * only ever READS (`services/horizen/client.ts`'s own header: "Kickoff
+ * scope: reads and correlation only... no PnL registration"). There is no
+ * registration action this platform can perform — the honest next step,
+ * stated plainly rather than invented, is that Horizen (or the agent
+ * operator, through Horizen's own Verifiable-PnL onboarding) must produce and
+ * correlate a PnL record before this becomes anything but absent.
+ */
+function verifiablePnlLink(e: HorizenEvidenceRecord): StatusCard {
+  const label = 'Verifiable PnL';
+  if (e.pnlUuid === null) {
+    return {
+      label,
+      status: 'not registered',
+      state: 'negative',
+      detail:
+        'no Verifiable PnL correlation exists for this tokenId yet (Horizen brief §3.5: a 404 means none) — independent of, and not blocked by, Pulse enrollment. Producing one is a Horizen-side act; this platform has no registration action to take',
+    };
+  }
+  return {
+    label,
+    status: e.pnlStatus ?? 'registered',
+    state: 'affirmed',
+    // The partner's own status string, reported verbatim when present —
+    // never re-interpreted (the same discipline horizenProofLink follows).
+    detail: e.pnlStatus
+      ? `Verifiable PnL correlation exists; partner-reported status "${e.pnlStatus}"`
+      : 'a Verifiable PnL correlation exists for this tokenId (no partner status string reported)',
   };
 }

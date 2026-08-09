@@ -17,7 +17,8 @@
     "epistemology",
     "representation",
     "polity",
-    "commercialisation"
+    "commercialisation",
+    "finance"
   ],
   "notes": "Seed crystal for the Invariant Ontology (CFS-002). status=proposed until ratified via canonization; ratified_source marks statements drawn verbatim from ratified Polity documents.",
   "invariants": [
@@ -5582,6 +5583,202 @@
       ],
       "provenance": {
         "source": "PRD-IDE-002 \u00a79.1 C-016; operator ruling 2026-07-27 (Commercialisation Crystal). inclusionBasis=cross-domain-recurrence; recurrence=3; observedDomains=financial-services,media,human-mobility-services; experimentalStatus=seeded-for-evaluation; evidenceProvenance=platform-derived; discoveryProvenance=ide. The two axes are ORTHOGONAL (operator ruling 2026-07-27) and evidence provenance ALONE decides the experimental population, which is COMPUTED from this record, never stored (services/research/experimentalPopulations.ts). Evidence provenance is platform-derived because PRD-IDE-002 \u00a76 and \u00a79.4 state it in terms: every candidate in \u00a79.1 was compressed from the in-repo corpus, cites repo paths only, and \u00a712 records verbatim that no external corpus has been acquired and no external source is cited. Discovery provenance is ide because the candidates were discovered under the CFS-048 IDE method (PRD-IDE-002 \u00a79 \u2014 structured reading of the \u00a76 corpus), not authored as doctrine; that fact does NOT make the evidence independent. When PRD-IDE-002 \u00a77's external corpus lands and re-derives this invariant from an independently authored source, evidence provenance changes via a RECORDED reclassification carrying its own evidence refs \u2014 never a quiet field edit. Inclusion in the experimental crystal is NOT ratification \u2014 canonicalStatus remains proposed (the record's own status field). Evidence is platform-derived and UNVALIDATED: the three evidence domains share one platform architecture, so a shared common cause is not excluded (PRD-IDE-002 \u00a79.4)."
+      }
+    },
+    {
+      "id": "inv.finance.001",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "No portfolio action should be delegated until the current portfolio state has been independently verified.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "investment-operations",
+        "delegation"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 1 \u2014 Investment Operations)",
+        "originalId": "F-001",
+        "originalLabel": "Verifiable State Before Action",
+        "note": "F-nnn is a drafting convenience per CRP-003 \u00a710 (\"never adopt this shorthand as a second numbering system\") \u2014 renumbered here into inv.finance.<n> per that charter's own instruction for the future seed-and-ratify pass."
+      }
+    },
+    {
+      "id": "inv.finance.002",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "Every recommended allocation must include an auditable rationale and confidence signal.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "investment-operations"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 1 \u2014 Investment Operations)",
+        "originalId": "F-002",
+        "originalLabel": "Explainable Allocation"
+      }
+    },
+    {
+      "id": "inv.finance.003",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "Agents may recommend allocation changes but cannot execute beyond delegated authority.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "investment-operations",
+        "delegation"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 1 \u2014 Investment Operations)",
+        "originalId": "F-003",
+        "originalLabel": "Delegation Boundaries"
+      }
+    },
+    {
+      "id": "inv.finance.004",
+      "namespace": "finance",
+      "semantic_type": "principle",
+      "statement": "Recommendation and execution remain independently attributable.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "market-operations"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 2 \u2014 Market Operations)",
+        "originalId": "F-101",
+        "originalLabel": "Separation of Advice and Execution"
+      }
+    },
+    {
+      "id": "inv.finance.005",
+      "namespace": "finance",
+      "semantic_type": "principle",
+      "statement": "Agent selection considers demonstrated standing, not historical popularity alone.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "market-operations",
+        "standing"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 2 \u2014 Market Operations)",
+        "originalId": "F-102",
+        "originalLabel": "Standing-Weighted Agent Selection"
+      }
+    },
+    {
+      "id": "inv.finance.006",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "Financial outcomes contribute to standing only after independently verifiable execution.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "market-operations",
+        "standing"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 2 \u2014 Market Operations)",
+        "originalId": "F-103",
+        "originalLabel": "Verification Before Standing"
+      }
+    },
+    {
+      "id": "inv.finance.007",
+      "namespace": "finance",
+      "semantic_type": "heuristic",
+      "statement": "High-impact recommendations should incorporate multiple independent evidence sources.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "financial-intelligence"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 3 \u2014 Financial Intelligence)",
+        "originalId": "F-201",
+        "originalLabel": "Source Diversity"
+      }
+    },
+    {
+      "id": "inv.finance.008",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "Every recommendation should preserve traceability to supporting evidence.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "financial-intelligence"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 3 \u2014 Financial Intelligence)",
+        "originalId": "F-202",
+        "originalLabel": "Evidence Attribution"
+      }
+    },
+    {
+      "id": "inv.finance.009",
+      "namespace": "finance",
+      "semantic_type": "heuristic",
+      "statement": "Confidence should reflect evidence quality, not model certainty.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "financial-intelligence"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a73 (Domain 3 \u2014 Financial Intelligence)",
+        "originalId": "F-203",
+        "originalLabel": "Confidence Calibration"
+      }
+    },
+    {
+      "id": "inv.finance.010",
+      "namespace": "finance",
+      "semantic_type": "principle",
+      "statement": "Every constitutional transaction should contain, or explicitly reference, the authority, resources, verification, and settlement required to complete itself without creating hidden obligations for unrelated participants.",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-15/16)",
+      "contexts": [
+        "financial-services",
+        "constitutional-financial-integrity",
+        "settlement"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a74 (Domain 4 \u2014 Constitutional Financial Integrity)",
+        "originalId": "CFI-001",
+        "originalLabel": "Constitutional Self-Sufficiency",
+        "note": "Settlement-rail-independent: micro-settlement, x402, x409, USDC, and traditional banking rails are candidate IMPLEMENTATIONS of this invariant, never the invariant itself."
+      }
+    },
+    {
+      "id": "inv.finance.011",
+      "namespace": "finance",
+      "semantic_type": "constraint",
+      "statement": "There must be an explicit, attributable agreement before delegated execution: a machine-readable record binding requesting operator, requested capability, selected agent, delegated authority, constraints, verification requirements, and settlement terms (if any).",
+      "status": "proposed",
+      "ratified_source": "CRP-003 Financial Services Constitutional Capability Domain (operator-ratified 2026-07-16, Alethean's refinement)",
+      "contexts": [
+        "financial-services",
+        "constitutional-financial-integrity",
+        "constitutional-agreement"
+      ],
+      "provenance": {
+        "source": "codexes/packs/irl/foundation/CRP-003_financial-services-constitutional-capability-domain.md \u00a74 (Domain 4 \u2014 Constitutional Financial Integrity)",
+        "originalId": "CFI-002",
+        "originalLabel": "Constitutional Agreement Required",
+        "note": "Provider-agnostic (\"primitives are invariant, providers are replaceable\", CFS-018 amendment): x409/Consenti is the pilot's first candidate PROVIDER, never the invariant itself. Already implemented in code as services/constitutional/constitutionalAgreement.ts's form/accept/authorize lifecycle."
       }
     }
   ]

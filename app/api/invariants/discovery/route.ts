@@ -31,6 +31,7 @@ import {
   rejectCandidate,
   type EvidenceKind,
 } from '@/services/invariants/discoveryEngine';
+import { suggestProvenanceClass } from '@/services/invariants/provenanceSuggestion';
 import {
   DISCOVERY_DOMAINS,
   DEFAULT_DISCOVERY_DOMAIN,
@@ -249,18 +250,35 @@ export async function POST(req: NextRequest) {
       //    the resolution work for every queue entry including the ones the
       //    operator never opens. `suggest-parents` has the same shape: fired
       //    on demand when a panel opens, for ONE record.
-      //  · A SUGGESTION, not an act. It writes nothing, proposes no evidence-
-      //    provenance class, and does not submit. The operator's submit stays
-      //    the constitutional act (PRD-ICA-001 §6/§11), and every refusal in
-      //    applyProvenanceReclassification still runs on it — a suggestion
-      //    that resolved only repo-internal citations is still refused on the
-      //    way into Population A.
+      //  · A SUGGESTION, not an act. It writes nothing and does not submit.
+      //    The operator's submit stays the constitutional act (PRD-ICA-001
+      //    §6/§11), and every refusal in applyProvenanceReclassification
+      //    still runs on it — an accepted suggestion that resolved only
+      //    repo-internal citations is still refused on the way into
+      //    Population A.
+      //
+      //  · `classSuggestion` (operator direction, 2026-08-05: "the steward
+      //    should never begin with a blank form when the substrate can
+      //    derive a reasonable proposal") — a REVIEWABLE proposal of the
+      //    class itself, on top of `suggestion`'s existing evidence/rationale
+      //    pre-fill. This does NOT relax `suggestClassification`'s own
+      //    restraint (it still reports `recordedProvenanceClass` as context
+      //    only, never preselecting) — it is a SEPARATE, explicitly reviewed
+      //    layer the steward must still Accept, Edit or Reject; nothing here
+      //    writes a class. `null` when there is no resolved evidence to
+      //    reason from at all — never a guess.
       const invariantId = typeof body.invariantId === 'string' ? body.invariantId.trim() : '';
       if (!invariantId) return NextResponse.json({ ok: false, error: 'invariantId required' }, { status: 400 });
       const invariant = await getInvariantById(invariantId);
       if (!invariant) return NextResponse.json({ ok: false, error: `invariant '${invariantId}' not found` }, { status: 404 });
       const suggestion = await suggestClassification(admin, invariantId, invariant.provenance);
-      return NextResponse.json({ ok: true, suggestion });
+      const classResult = await suggestProvenanceClass({ id: invariantId, statement: invariant.statement }, suggestion);
+      return NextResponse.json({
+        ok: true,
+        suggestion,
+        classSuggestion: classResult.ok ? classResult.suggestion : null,
+        classSuggestionError: classResult.ok ? null : classResult.error,
+      });
     }
     case 'classify': {
       // THE EXIT FROM `unclassified` (operator, 2026-07-28: the same block the

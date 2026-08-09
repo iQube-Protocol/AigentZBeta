@@ -529,6 +529,28 @@ describe('promoteCandidate resolves the namespace from the registry', () => {
     expect(experimentalPopulation(prov)).toBeNull();
     expect(inPrimaryPopulation(prov)).toBe(false);
   });
+
+  it('defaults to semanticType constraint when no fifth argument is given (2026-08-05 regression — every prior caller must be unaffected)', async () => {
+    const { promoteCandidate } = await import('@/services/invariants/discoveryEngine');
+    await promoteCandidate(
+      fakeAdmin({ id: 'c4', status: 'candidate', domain: 'financial-services', statement: 'S', confidence: 0.6 }),
+      'c4',
+      { personaId: 'p1' },
+    );
+    expect(discoverInvariant.mock.calls[0][0].semanticType).toBe('constraint');
+  });
+
+  it('promotes with a steward-reviewed semanticType when one is explicitly passed — the structural-diversity remediation path', async () => {
+    const { promoteCandidate } = await import('@/services/invariants/discoveryEngine');
+    await promoteCandidate(
+      fakeAdmin({ id: 'c5', status: 'candidate', domain: 'financial-services', statement: 'S', confidence: 0.6 }),
+      'c5',
+      { personaId: 'p1' },
+      [],
+      'law',
+    );
+    expect(discoverInvariant.mock.calls[0][0].semanticType).toBe('law');
+  });
 });
 
 // ── 7 · "Safe" is not "finished" — the classification queue and the gate ────

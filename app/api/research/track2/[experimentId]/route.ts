@@ -18,8 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { listCandidateSources } from '@/services/corpusScout/provenance';
-import { listCandidates, type CandidateRow } from '@/services/invariants/discoveryEngine';
-import { getInvariantsByIds, listEdgesForInvariants } from '@/services/invariants/store';
+import { listCandidates } from '@/services/invariants/discoveryEngine';
 import { getArtifact } from '@/services/research/artifacts';
 import {
   crystalDeclarationHash,
@@ -28,18 +27,20 @@ import {
   crystalReviewStageStatus,
 } from '@/services/research/crystalDomains';
 import { runCrystalReadinessReport } from '@/services/research/crystalReadiness';
-import { readEvidenceProvenance } from '@/services/research/experimentalPopulations';
-import { buildTrack2Programme, type PromotedCohort } from '@/services/research/track2Programme';
+import { reconcilePromotedCohort } from '@/services/research/populationReconciliation';
+import { buildTrack2Programme } from '@/services/research/track2Programme';
 
 /**
  * STAGES 5–7's POPULATION, RESOLVED FROM STAGE 4's OUTPUT (operator ruling,
- * 2026-08-03).
+ * 2026-08-03) — via `reconcilePromotedCohort` (services/research/
+ * populationReconciliation.ts, 2026-08-04), which replaced this route's own
+ * inline `resolvePromotedCohort`.
  *
  *   > "Stage 5 appears to have reverted to querying the ratified domain
  *   >  registry instead of the crystal it inherited. Those are different
  *   >  populations."
  *
- * What this replaces, exactly:
+ * What THAT replaced, exactly:
  *
  *     listInvariants({ domain: acquisitionDomain, limit: 500 })
  *       .filter(inv => readEvidenceProvenance(inv.provenance) === null).length
@@ -49,63 +50,15 @@ import { buildTrack2Programme, type PromotedCohort } from '@/services/research/t
  * 17, and the readiness remedy pulled onto the same stage spoke about a third
  * population again (the empty crystal domain). Three numbers, one stage.
  *
- * The cohort is now resolved through `promoted_invariant_id` — the link the
- * promotion itself recorded — so Stage 5 receives exactly what Stage 4 handed
- * on. A promoted candidate whose invariant cannot be resolved is an EXPLICIT
- * exclusion carrying its reason, never a silent shortfall: that is what makes
- * `received + excluded === declaredOut` checkable rather than aspirational.
+ * `resolvePromotedCohort`'s OWN successor defect (al, 2026-08-04): it counted
+ * a promoted candidate as "excluded" the instant its invariant id was missing
+ * or unresolvable — an AUTOMATIC classification with no operator act behind
+ * it — and silently dropped a THIRD case: two candidates legitimately
+ * resolving to the SAME invariant (a rediscovery) left the second one in
+ * NEITHER `invariantIds` nor `excluded`. `reconcilePromotedCohort` names every
+ * one of these individually instead, and counts as "excluded" ONLY an
+ * operator-confirmed exclusion — see that module's own header.
  */
-async function resolvePromotedCohort(candidates: CandidateRow[]): Promise<PromotedCohort> {
-  const promoted = candidates.filter((c) => c.status === 'promoted');
-  const excluded: { recordId: string; reason: string }[] = [];
-  const ids: string[] = [];
-  for (const c of promoted) {
-    if (c.promotedInvariantId) ids.push(c.promotedInvariantId);
-    else
-      excluded.push({
-        recordId: c.id,
-        reason: 'promoted with no recorded promoted_invariant_id — the promotion did not produce a readable invariant',
-      });
-  }
-
-  const records = ids.length > 0 ? await getInvariantsByIds(ids) : [];
-  const found = new Set(records.map((r) => r.id));
-  for (const id of ids) {
-    if (!found.has(id)) {
-      excluded.push({ recordId: id, reason: 'promoted invariant id does not resolve to an invariant row' });
-    }
-  }
-
-  let graph: PromotedCohort['graph'] = null;
-  if (records.length > 0) {
-    try {
-      const memberIds = new Set(records.map((r) => r.id));
-      const edges = await listEdgesForInvariants([...memberIds], 'both');
-      // INTRA-COHORT ONLY. An edge to an invariant outside the cohort is a
-      // relationship to a different population and must not be counted as one
-      // inside this one.
-      const intra = edges.filter((e) => memberIds.has(e.fromInvariantId) && memberIds.has(e.toInvariantId));
-      const degree = new Set<string>();
-      for (const e of intra) {
-        degree.add(e.fromInvariantId);
-        degree.add(e.toInvariantId);
-      }
-      graph = { relationshipCount: intra.length, orphanCount: records.length - degree.size };
-    } catch {
-      graph = null; // unread ⇒ `unknown`, never "no relationships"
-    }
-  } else if (ids.length === 0) {
-    graph = { relationshipCount: 0, orphanCount: 0 };
-  }
-
-  return {
-    invariantIds: records.map((r) => r.id).sort(),
-    unclassified: records.filter((r) => readEvidenceProvenance(r.provenance) === null).length,
-    unvalidated: records.filter((r) => r.timesValidated === 0).length,
-    graph,
-    excluded,
-  };
-}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -171,7 +124,9 @@ export async function GET(
   // `candidates` array Stage 4 is counted from, so the two cannot be about
   // different sets — and when the resolution itself fails, the signal is
   // `null` (`unknown`) rather than a domain query standing in for it.
-  const promotedCohort = candidates ? await resolvePromotedCohort(candidates).catch(() => null) : null;
+  const promotedCohort = candidates
+    ? await reconcilePromotedCohort(candidates.filter((c) => c.status === 'promoted')).catch(() => null)
+    : null;
 
   const lifecycle = crystalLifecycleStage({
     domainRatified: declaration.ratification === 'ratified',

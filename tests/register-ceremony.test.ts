@@ -181,6 +181,55 @@ describe('prepareRegistrationMandate', () => {
     );
     expect(result).toMatchObject({ ok: false, refusalCode: 'UNKNOWN_AGENT' });
   });
+
+  /*
+   * ── CROSS-AGENT ISOLATION REGRESSION (operator directive, 2026-08-08) ────
+   *
+   * "Add a regression test where the same principal signs registration
+   * mandates for Nakamoto and MoneyPenny sequentially; the second ceremony
+   * must preserve MoneyPenny's runtimeAgentId, wallet/key material and
+   * receipt subject with zero cross-agent carryover." This exercises
+   * prepareRegistrationMandate itself (a pure function of its own input, no
+   * module-level state), proving the write side of the Register ceremony
+   * has no shared/stale "current agent" to leak from — the contamination
+   * traced to READ-time (StageReceiptsDrawer/api/assistant/receipts, fixed
+   * separately) never originated here.
+   */
+  it('the same principal, signing sequentially for two different agents, gets each agent\'s own subject with zero carryover', async () => {
+    const store = fakeRequestStore();
+    const deps = baseDeps(store);
+
+    const first = await prepareRegistrationMandate(
+      { agentSlug: 'nakamoto', principalPersonaId: 'persona-operator-1' },
+      deps,
+    );
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.value.subjectAgentRef).toBe('aigent-nakamoto');
+    expect(first.value.payload).toContain('Aigent Nakamoto');
+
+    const second = await prepareRegistrationMandate(
+      { agentSlug: 'moneypenny', principalPersonaId: 'persona-operator-1' },
+      deps,
+    );
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    expect(second.value.subjectAgentRef).toBe('aigent-moneypenny');
+    expect(second.value.subjectAgentRef).not.toBe(first.value.subjectAgentRef);
+    expect(second.value.payload).toContain('Aigent MoneyPenny');
+    expect(second.value.payload).not.toContain('Nakamoto');
+    // Distinct nonces/mandates — the second ceremony is not a stale replay
+    // of the first under a different label.
+    expect(second.value.nonce).not.toBe(first.value.nonce);
+    expect(second.value.id).not.toBe(first.value.id);
+
+    // Both rows persist independently in the store, each still carrying its
+    // OWN subject — preparing the second never mutated the first in place.
+    const nakamotoRow = await store.get(first.value.id);
+    const moneypennyRow = await store.get(second.value.id);
+    expect(nakamotoRow?.subjectAgentRef).toBe('aigent-nakamoto');
+    expect(moneypennyRow?.subjectAgentRef).toBe('aigent-moneypenny');
+  });
 });
 
 describe('approvePrincipalRegistrationMandate', () => {
@@ -804,10 +853,14 @@ describe('the dry-run agent is the one selected on arrival', () => {
   const tab = stripComments(readSource('app/triad/components/codex/tabs/PilotJourneyTab.tsx'));
 
   it('Nakamoto is first in PILOT_AGENTS', () => {
+    // Horizen Pilot Closure item 5 (2026-08-09): PILOT_AGENTS is no longer a
+    // hand-copied array literal — it is projected from the canonical
+    // services/horizen/registrableAgents.ts registry via an explicit
+    // ['nakamoto', 'moneypenny'] order, so this now asserts on THAT order
+    // declaration rather than on `slug: '...'` object-literal text.
     const at = panel.indexOf('export const PILOT_AGENTS');
-    const list = panel.slice(at, panel.indexOf('];', at));
-    expect(list.indexOf("slug: 'nakamoto'")).toBeGreaterThan(-1);
-    expect(list.indexOf("slug: 'nakamoto'")).toBeLessThan(list.indexOf("slug: 'moneypenny'"));
+    const declaration = panel.slice(at, at + 400);
+    expect(declaration).toMatch(/\[\s*'nakamoto'\s*,\s*'moneypenny'\s*\]/);
   });
 
   it('and is the initial selection', () => {
@@ -820,7 +873,8 @@ describe('the dry-run agent is the one selected on arrival', () => {
     // slug does not resolve. If the two disagreed, the fallback would silently
     // reintroduce the default this change removes.
     const at = panel.indexOf('export const PILOT_AGENTS');
-    const first = panel.slice(at, panel.indexOf('];', at)).match(/slug: '([a-z]+)'/)?.[1];
+    const declaration = panel.slice(at, at + 400);
+    const first = declaration.match(/\[\s*'([a-z]+)'/)?.[1];
     expect(tab).toMatch(new RegExp(`useState<string>\\('${first}'\\)`));
   });
 });
@@ -1048,7 +1102,12 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
   it('an unconfirmed broadcast is recovered from the receipts, not from page memory', () => {
     const panel = stripComments(readSource('components/journey/RegisterAgentPanel.tsx'));
     // Read back from the durable record of the broadcast.
-    expect(panel).toMatch(/actionTypes=horizen_registration_submitted,horizen_agent_registered/);
+    // The receipts route only reads the singular `actionType` query param
+    // (app/api/assistant/receipts/route.ts) — `actionTypes` (plural) was a
+    // silent no-op the client-side agentsInvoked/actionType filtering below
+    // happened to mask. Fixed 2026-08-08; this assertion now encodes the
+    // param the server actually honours, not the defect.
+    expect(panel).toMatch(/actionType=horizen_registration_submitted,horizen_agent_registered/);
     // A submitted receipt with no confirmation behind it IS the pending one.
     expect(panel).toMatch(/confirmedHashes/);
     expect(panel).toMatch(/r\.actionType === 'horizen_registration_submitted' &&/);
@@ -1316,17 +1375,37 @@ describe('a lapsed ceremony says so, and can be restarted', () => {
 
   it('a failed registry reread does not discard verified on-chain evidence', () => {
     const client = stripComments(readSource('services/horizen/registrationClient.ts'));
-    const at = client.indexOf('if (!reread.ok)');
-    expect(at).toBeGreaterThan(-1);
+    const at = client.indexOf('const rereadTokenId =');
+    expect(at, 'the reread/chain-fallback tokenId computation is missing').toBeGreaterThan(-1);
     const block = client.slice(at, at + 2600);
-    // The refusal now only fires when the chain did NOT verify.
-    expect(block).toMatch(/if \(!onChain\.verified \|\| !onChain\.agentId\)/);
+    // tokenId falls back to the receipt-decoded, ownerOf-verified
+    // onChain.agentId whenever Horizen's own reread doesn't supply one —
+    // regardless of whether the reread failed outright or merely omitted
+    // the field (MoneyPenny live defect fix, 2026-08-09).
+    expect(block).toMatch(/rereadTokenId \?\? \(onChain\.verified \? onChain\.agentId : null\)/);
+    // The refusal now only fires when there is genuinely no tokenId from
+    // EITHER source AND the reread itself failed outright.
+    expect(block).toMatch(/if \(!tokenId\)/);
+    expect(block).toMatch(/if \(!reread\.ok\)/);
     expect(block).toMatch(/refusalCode: 'REGISTRY_REREAD_FAILED'/);
     // Otherwise the decoded tokenId is used — and the identifier stays absent
-    // rather than being defaulted from it (operator ruling 2026-07-31).
-    expect(block).toMatch(/agentIdentifier: null/);
-    expect(block).toMatch(/humanReadableUrl: null/);
+    // rather than being defaulted from it (operator ruling 2026-07-31) —
+    // only Horizen's own reread can ever supply agentIdentifier.
+    expect(block).toMatch(/agentIdentifier = reread\.ok \? pickStringField/);
     expect(block).toMatch(/reported absent rather/);
+  });
+
+  it('the chain-fallback tokenId fires identically whether the reread failed outright OR succeeded without a tokenId field (2026-08-09 MoneyPenny defect)', () => {
+    const client = stripComments(readSource('services/horizen/registrationClient.ts'));
+    const at = client.indexOf('const usedChainFallback =');
+    expect(at, 'usedChainFallback is not computed — the two divergence cases are not unified').toBeGreaterThan(-1);
+    const block = client.slice(at, at + 900);
+    expect(block).toMatch(/usedChainFallback = !rereadTokenId && !!tokenId/);
+    // Both branches state the SAME fact — the tokenId came from the chain,
+    // not from Horizen's reread — never silently merged into a single
+    // undifferentiated "something went wrong" message.
+    expect(block).toMatch(/registry reread also failed/);
+    expect(block).toMatch(/registry reread succeeded but returned no resolvable/);
   });
 });
 

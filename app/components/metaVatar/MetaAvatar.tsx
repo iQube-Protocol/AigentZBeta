@@ -122,7 +122,24 @@ export function MetaAvatar() {
       // Create fresh script element for D-ID SDK
       const script = document.createElement('script');
       script.type = 'module';
-      script.src = 'https://agent.d-id.com/v2/index.js';
+      /*
+       * CACHE-BUSTED SRC — the actual cause of the blank-on-return report.
+       *
+       * `<script type="module">` is evaluated AT MOST ONCE per exact URL for
+       * the life of the page (the browser's module map is keyed by resolved
+       * URL, not by how many `<script>` tags request it). The mount effect
+       * below correctly re-runs `init()` on every remount — a fresh script
+       * element, a fresh container id, a fresh sweep — but re-appending the
+       * SAME src silently no-ops on the SECOND and every later mount: the
+       * module's top-level init code (the part that reads `data-target-id`
+       * and renders into the container) never runs again, so the new,
+       * genuinely fresh container sits there with nothing rendered into it —
+       * a real container, a real cleanup, an SDK that was never asked to look
+       * at either. A trailing query string makes each injection a distinct
+       * module URL, so the browser fetches and evaluates it fresh every time,
+       * exactly as `init()` already intends.
+       */
+      script.src = `https://agent.d-id.com/v2/index.js?_r=${Date.now()}`;
       script.setAttribute('data-mode', 'full');
       script.setAttribute('data-client-key', DID_CLIENT_KEY);
       script.setAttribute('data-agent-id', DID_AGENT_ID);
@@ -142,28 +159,54 @@ export function MetaAvatar() {
     // Initialize on mount
     init();
 
-    // Listen for external refresh events
-    const handleRefresh = () => {
-      console.log('[MetaAvatar] refresh event received');
-      
+    const reload = () => {
       // Clean up current script
       if (scriptRef.current && scriptRef.current.parentNode) {
         scriptRef.current.parentNode.removeChild(scriptRef.current);
         scriptRef.current = null;
       }
-      
+
       // Clear container
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
-      
+
       // Re-initialize
       init();
     };
 
+    // Listen for external refresh events
+    const handleRefresh = () => {
+      console.log('[MetaAvatar] refresh event received');
+      reload();
+    };
+
     window.addEventListener('metaAvatarRefresh', handleRefresh);
 
+    /*
+     * BROWSER-TAB RETURN (operator report, 2026-08-06: "still blank screen on
+     * returning after changing tabs" — persisting after the module-cache-bust
+     * fix above, which only covers a React mount/unmount, not this). D-ID's
+     * embedded video widget is known to suspend its underlying media/WebRTC
+     * pipeline when its tab is backgrounded and NOT reliably resume it when
+     * the tab regains visibility — a widget-side lifecycle issue, not
+     * something a container/script-tag fix can reach. The one lever this
+     * component has is the SAME reload path `metaAvatarRefresh` already uses:
+     * fire it automatically when the tab transitions hidden -> visible while
+     * this instance is mounted (i.e. while a container actually owns the
+     * avatar), so a stalled widget gets a fresh script + container rather
+     * than staying blank until the operator finds a manual refresh control.
+     */
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[MetaAvatar] tab became visible — reloading to recover from a possible suspended widget');
+        reload();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('metaAvatarRefresh', handleRefresh);
 
       // Cleanup on unmount. The container clear + script removal below were

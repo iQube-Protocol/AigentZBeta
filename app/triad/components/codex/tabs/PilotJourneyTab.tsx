@@ -23,9 +23,13 @@ import { JourneyRunSurface, type JourneyRunSurfaceProps } from '@/components/jou
 import { HORIZEN_MONEYPENNY_JOURNEY } from '@/services/journey/horizenMoneyPennyJourney';
 import { AgentCardSurface } from '@/components/journey/AgentCardSurface';
 import { RegisterAgentPanel, PILOT_AGENTS } from '@/components/journey/RegisterAgentPanel';
+import { getSelectedPilotAgentSlug, setSelectedPilotAgentSlug } from '@/services/journey/selectedPilotAgent';
 import { HorizenAgentPageSurface } from '@/components/journey/HorizenAgentPageSurface';
+import { AgreementRatifyPanel } from '@/components/journey/AgreementRatifyPanel';
 import { PulseTransparencyToggle } from '@/components/journey/PulseTransparencyToggle';
 import { MarketaEligibilityView } from '@/components/journey/MarketaEligibilityView';
+import { OrientationPanel } from '@/components/journey/OrientationPanel';
+import { IngestIntoFactoryPanel } from '@/components/journey/IngestIntoFactoryPanel';
 import { PassportBureauApplyTab } from './PassportBureauApplyTab';
 import { BoundedDelegationTab } from './BoundedDelegationTab';
 import { ParticipationStandingTab } from './ParticipationStandingTab';
@@ -53,19 +57,45 @@ const JOURNEY_COMPONENTS: Record<string, React.ComponentType<Record<string, unkn
   AgentCardSurface,
   RegisterAgentPanel,
   HorizenAgentPageSurface,
+  AgreementRatifyPanel,
   PulseTransparencyToggle,
   MarketaEligibilityView,
+  OrientationPanel,
+  IngestIntoFactoryPanel,
   PassportBureauApplyTab,
   BoundedDelegationTab,
   ParticipationStandingTab,
 };
 
-function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
+function PilotJourneyTabInner({ personaId, isAdmin }: PilotJourneyTabProps) {
   // Which registrable agent the Register stage is currently sponsoring
   // (services/horizen/registrableAgents.ts, MoneyPenny is the demo default).
   // The dry-run agent is the one being exercised, so it is the one selected on
   // arrival. Kept in step with PILOT_AGENTS[0] — see the note there.
-  const [selectedAgentSlug, setSelectedAgentSlug] = useState<string>('nakamoto');
+  const [selectedAgentSlug, setSelectedAgentSlugState] = useState<string>('nakamoto');
+  // Component-scoped so both resolveSurfaceProps AND the receipts-drawer prop
+  // below read the SAME resolved agent — never two separate PILOT_AGENTS.find
+  // calls that could observe a mid-render change differently.
+  const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
+
+  /*
+   * SHARED WITH THE COMPANION CAROUSEL (Horizen Pilot Closure item 5,
+   * 2026-08-09) — services/journey/selectedPilotAgent.ts. Read after mount
+   * only (SSR-safe, CLAUDE.md's State Management rule: window is undefined
+   * server-side), and written on every change so a choice made here is
+   * visible the next time JourneyCompanionCarousel resolves its own agent.
+   */
+  useEffect(() => {
+    const stored = getSelectedPilotAgentSlug();
+    if (stored !== selectedAgentSlug) setSelectedAgentSlugState(stored);
+    // Only on mount — this reads the PRIOR selection once; it must not fight
+    // the operator's own in-session changes below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setSelectedAgentSlug = useCallback((slug: string) => {
+    setSelectedAgentSlugState(slug);
+    setSelectedPilotAgentSlug(slug);
+  }, []);
 
   /*
    * THE AGENT CARD URL MUST BE ABSOLUTE (operator, 2026-08-03).
@@ -93,9 +123,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
   }, []);
 
   const resolveSurfaceProps = useCallback(
-    ({ surfaceRef, descriptor, runtimeState }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
-      const selectedAgent = PILOT_AGENTS.find((a) => a.slug === selectedAgentSlug) ?? PILOT_AGENTS[0];
-
+    ({ surfaceRef, descriptor, runtimeState, pnlEvidence }: Parameters<NonNullable<JourneyRunSurfaceProps['resolveSurfaceProps']>>[0]) => {
       /*
        * IS THE OPERATOR'S PASSPORT PRESENT? — ASKED OF THE OBSERVER, ANSWERED
        * ONCE (operator, 2026-08-03: "in the passport step the decision should
@@ -125,8 +153,48 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
            tracked the selection and the authorize route already accepted an
            agentSlug — only this surface was never handed it, so Verify
            narrated a different agent than Register had just acted on. */
-        : descriptor.component === 'PulseTransparencyToggle'
+        : descriptor.component === 'AgreementRatifyPanel'
           ? { agentSlug: selectedAgentSlug, agentDisplayName: selectedAgent.displayName }
+        : descriptor.component === 'PulseTransparencyToggle'
+          /*
+           * "Run correlated trace" is a diagnostic instrument, not part of
+           * the primary constitutional ceremony (operator directive,
+           * 2026-08-08: "once constitutional state is receipt-driven, it
+           * belongs under Evidence/Admin/diagnostics rather than in the
+           * primary constitutional ceremony"). `isAdmin` already reaches
+           * this component from the codex shell (PilotJourneyTabProps) —
+           * it previously dead-ended here, gating nothing. Threading it
+           * through as `showDiagnostics` is the same adminOnly-prop
+           * pattern already used elsewhere in this codebase, never a new
+           * gating mechanism.
+           */
+          ? {
+              agentSlug: selectedAgentSlug,
+              agentDisplayName: selectedAgent.displayName,
+              showDiagnostics: isAdmin === true,
+              /*
+               * P&L EVIDENCE — from the observer's dedicated `pnlEvidence`
+               * projection (Final Horizen Projection Reconciliation part 2/3,
+               * 2026-08-09), never client-derived.
+               *
+               * FIXED DEFECT: this used to read `runtimeState.stages
+               * .find('verify').evidencePresent.includes('pnlServiceVerified')`
+               * — but `evidencePresent` is built ONLY from a stage's
+               * `completionEvidence` list (services/journey/
+               * resolveJourneyState.ts), and Pulse/P&L fields are
+               * DELIBERATELY excluded from `verify.completionEvidence` so
+               * they can never gate Ratify. That means this check could
+               * never be true, for any agent, regardless of the real
+               * receipt state — a structurally dead read. `pnlEvidence` is
+               * the dedicated, additive field built for exactly this.
+               * `undefined` while the state read is in flight, rendered as
+               * "Pending", never guessed.
+               */
+              pnlServiceVerified: pnlEvidence?.serviceVerified,
+              pnlServiceVerifiedDvnStatus: pnlEvidence?.serviceVerifiedDvnStatus ?? null,
+              pnlServiceRegistered: pnlEvidence?.serviceRegistered,
+              pnlServiceRegisteredDvnStatus: pnlEvidence?.serviceRegisteredDvnStatus ?? null,
+            }
         /* Claim must speak about the agent Register/Verify just acted on, not
            a hardcoded MoneyPenny (operator, 2026-08-03 — Nakamoto's "Prove
            wallet control" resolved MoneyPenny's registry_assets row).
@@ -134,6 +202,17 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
            reason PulseTransparencyToggle's is: a default would silently
            restore exactly this. */
         : descriptor.component === 'MarketaEligibilityView'
+          ? { agentSlug: selectedAgentSlug }
+        /* Orient must speak about the agent Register/Claim just acted on, the
+           same discipline as Claim/Verify's own agentSlug threading above —
+           never a default, which would silently resolve the wrong agent's
+           orientation context (services/journey/orientationContext.ts). */
+        : descriptor.component === 'OrientationPanel'
+          ? { agentSlug: selectedAgentSlug }
+        /* Ingest must speak about the agent Register/Claim/Operate just
+           acted on — same discipline as Orient/Claim/Verify's own agentSlug
+           threading above, never a default. */
+        : descriptor.component === 'IngestIntoFactoryPanel'
           ? { agentSlug: selectedAgentSlug }
         : descriptor.component === 'PassportBureauApplyTab'
           ? {
@@ -146,7 +225,7 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
             ? { agentSlug: selectedAgentSlug, mode: surfaceRef.ref === 'horizen-agent-page-verify' ? 'verify' : 'register' }
             : {};
     },
-    [selectedAgentSlug, origin],
+    [selectedAgentSlug, origin, isAdmin],
   );
 
   return (
@@ -176,6 +255,16 @@ function PilotJourneyTabInner({ personaId }: PilotJourneyTabProps) {
       // iframe's selected agent and the observer's selected agent must never
       // diverge (al, 2026-08-04).
       selectedAgentSlug={selectedAgentSlug}
+      /*
+       * THE EVIDENCE RECEIPTS DRAWER MUST SCOPE TO THE SELECTED AGENT
+       * (operator directive, 2026-08-08). Computed here, not inside
+       * JourneyRunSurface, which stays journey-agnostic and treats this as
+       * an opaque string. Uses the canonical `runtimeAgentId` from the
+       * resolved agent — never the `aigent-${slug}` string coincidence
+       * (Horizen Pilot Closure item 5) — so a future agent whose slug does
+       * not happen to match this convention still scopes correctly.
+       */
+      receiptsSubjectAgentRef={selectedAgent.runtimeAgentId}
       personaId={personaId}
       documentTitle="metaMe × Horizen — Constitutional Admission Journey"
       components={JOURNEY_COMPONENTS}

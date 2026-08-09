@@ -773,3 +773,90 @@ describe('canonical slate surface styling', () => {
     expect(src).not.toMatch(/rgba\(255,\s*255,\s*255/);
   });
 });
+
+// ─── 12. Pulse and Verifiable PnL — two INDEPENDENT status cards (2026-08-07) ─
+
+describe('pulseStatus — three states, never collapsed into pulseEnrolled alone', () => {
+  it('not enrolled reads negative, and names it a valid agent state, not a defect', () => {
+    const view = chainFor([boundBinding()], { kind: 'none' }, agentRecord({
+      pulse: { present: false, reason: 'not-enrolled', detail: 'fixture' },
+    }));
+    expect(view.pulseStatus).toMatchObject({ label: 'Pulse monitoring', status: 'not enrolled', state: 'negative' });
+    expect(view.pulseStatus.detail).toContain('not enrolled');
+  });
+
+  it('enrolled but commitment not recorded reads indeterminate, naming what it blocks (SLA proofs)', () => {
+    const view = chainFor([boundBinding()], { kind: 'none' }, agentRecord({
+      pulse: {
+        present: true,
+        value: { enrolled: true, commitmentRecorded: false, slaTarget: 99, uptimeCurrent: 100, totalChallenges: 0, slaProofs: [] },
+      },
+    }));
+    expect(view.pulseStatus).toMatchObject({ status: 'commitment pending', state: 'indeterminate' });
+    expect(view.pulseStatus.detail).toContain('SLA proofs cannot finalise');
+  });
+
+  it('enrolled AND commitment recorded — the exact Nakamoto case — reads affirmed', () => {
+    // agentRecord()'s own default: enrolled:true, commitmentRecorded:true.
+    const view = chainFor([boundBinding()]);
+    expect(view.pulseStatus).toMatchObject({ status: 'enrolled', state: 'affirmed' });
+    expect(view.agent.pulseEnrolled).toBe(true);
+    expect(view.agent.pulseCommitmentRecorded).toBe(true);
+  });
+});
+
+describe('verifiablePnlStatus — independent of Pulse, never derived from it', () => {
+  it('no PnL correlation reads negative — the exact Nakamoto case (Pulse enrolled, PnL absent)', () => {
+    // agentRecord()'s own default: pnl absent, pulse enrolled+committed.
+    const view = chainFor([boundBinding()]);
+    expect(view.pulseStatus.state).toBe('affirmed'); // Pulse is fine —
+    expect(view.verifiablePnlStatus).toMatchObject({ label: 'Verifiable PnL', status: 'not registered', state: 'negative' }); // — and PnL is independently pending.
+    // The text MAY explain the independence in prose (that is honest, helpful
+    // framing) — what must never happen is the STATE/STATUS being derived
+    // from Pulse's fields, which the dedicated test below pins directly.
+    expect(view.verifiablePnlStatus.detail).toContain('independent of');
+  });
+
+  it('states plainly that producing a PnL record is a Horizen-side act with no registration action on this platform — never invents one', () => {
+    const view = chainFor([boundBinding()]);
+    expect(view.verifiablePnlStatus.detail).toContain('Horizen-side act');
+    expect(view.verifiablePnlStatus.detail).toContain('no registration action');
+  });
+
+  it('a present PnL correlation reads affirmed and reports the partner\'s own status string verbatim, never re-interpreted', () => {
+    const view = chainFor([boundBinding()], { kind: 'none' }, agentRecord({
+      pnl: { present: true, value: { uuid: 'pnl-uuid-123', erc8004Chain: 'base-sepolia', status: 'active' } },
+    }));
+    expect(view.verifiablePnlStatus).toMatchObject({ status: 'active', state: 'affirmed' });
+    expect(view.verifiablePnlStatus.detail).toContain('"active"');
+  });
+
+  it('a present PnL correlation with no partner status string still reads affirmed, honestly, without fabricating one', () => {
+    const view = chainFor([boundBinding()], { kind: 'none' }, agentRecord({
+      pnl: { present: true, value: { uuid: 'pnl-uuid-123', erc8004Chain: 'base-sepolia', status: null } },
+    }));
+    expect(view.verifiablePnlStatus.state).toBe('affirmed');
+    expect(view.verifiablePnlStatus.status).toBe('registered');
+  });
+
+  it('is NEVER computed from pulseEnrolled/pulseCommitmentRecorded — an already-Pulse-enrolled agent with no PnL record still reads not registered', () => {
+    const enrolledNoPnl = chainFor([boundBinding()]); // enrolled+committed, pnl absent, by agentRecord()'s defaults.
+    expect(enrolledNoPnl.pulseStatus.state).toBe('affirmed');
+    expect(enrolledNoPnl.verifiablePnlStatus.state).toBe('negative');
+  });
+});
+
+describe('the panel renders both independent cards, never folding either into the ratified seven links', () => {
+  it('pulseStatus and verifiablePnlStatus are not among the seven CHAIN_LINK_IDS', () => {
+    const view = chainFor([boundBinding()]);
+    const linkIds = view.links.map((l) => l.id);
+    expect(linkIds).toEqual([...CHAIN_LINK_IDS]);
+    expect(linkIds).toHaveLength(7);
+  });
+
+  it('the tab renders both status cards via the shared ChainStatus component, independently of the links grid', () => {
+    const src = stripComments(readSource(TAB_SOURCE));
+    expect(src).toMatch(/row\.chain\.pulseStatus\.label/);
+    expect(src).toMatch(/row\.chain\.verifiablePnlStatus\.label/);
+  });
+});

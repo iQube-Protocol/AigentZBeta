@@ -39,6 +39,10 @@ function fromRow(row: ResearchObjectRecord): FrozenArtifact {
     commitmentHash: (p.commitmentHash as string | null) ?? null,
     frozenAt: (p.frozenAt as string | null) ?? null,
     signedBy: Array.isArray(p.signedBy) ? p.signedBy : [],
+    // From the ROW, not the payload — receiptId is its own column
+    // (services/research/lifecycle.ts's ResearchObjectRecord), never
+    // duplicated into the JSON blob.
+    receiptId: row.receiptId ?? null,
   };
 }
 
@@ -105,6 +109,7 @@ export async function upsertArtifact(input: {
     commitmentHash: null,
     frozenAt: null,
     signedBy: [],
+    receiptId: null,
     ...(input.taskSetId ? { taskSetId: input.taskSetId } : {}),
     ...(input.taskSetContentHash ? { taskSetContentHash: input.taskSetContentHash } : {}),
   } as FrozenArtifact;
@@ -139,7 +144,14 @@ export async function checkFreezeGate(
     // gate working as designed, not a bug to route around.
     const readiness = await runCrystalReadinessReport({ experimentId: artifact.experimentId });
     if (!readiness.ok) {
-      const failed = readiness.checks.filter((c) => !c.passed).map((c) => `${c.name}: ${c.detail}`);
+      // `ok` already excludes `scientific-maturity` checks (operator ruling,
+      // 2026-08-05 — those are informational, never a freeze blocker); this
+      // filter keeps the error message honest about the SAME set, so it never
+      // cites structural-diversity/graph-connectivity as "why this failed"
+      // when neither is actually gating anything.
+      const failed = readiness.checks
+        .filter((c) => c.tier === 'scientific-readiness' && !c.passed)
+        .map((c) => `${c.name}: ${c.detail}`);
       return {
         ok: false,
         error: `Crystal Intrinsic Readiness Report failed (PRD-EPI-001 §3.1) — ${failed.join('; ')}`,

@@ -75,10 +75,54 @@ interface FreezeBody {
   signedBy?: unknown;
   freezeRationale?: unknown;
   confirm?: unknown;
+  /** Required boolean, freeze act only. See the boundary block below —
+   *  declared here only so this is visible as a real field, never so it can
+   *  be defaulted. */
+  boundaryAcknowledged?: unknown;
+  /**
+   * NOT INPUTS (operator ruling, EXP PP1 Track 2, 2026-08-05): the ratified
+   * boundary is read server-side from the Domain Declaration and is never
+   * supplied, restated, or overridden by a caller — declared here only so a
+   * caller that still sends one is REFUSED rather than silently ignored,
+   * mirroring freeze-preview/route.ts's own guard.
+   */
+  domainBoundary?: unknown;
+  namespace?: unknown;
+  scope?: unknown;
 }
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
+}
+
+/**
+ * GET ?crystalId=... — read-only. Exists so the Freeze surface can render a
+ * post-freeze summary (receipt, immutable metadata) WITHOUT re-mounting the
+ * ceremony inputs on every reload (operator bug report, 2026-08-05: "the UI
+ * still renders the pre-freeze ceremony... creating the impression that
+ * another freeze is required"). The programme route's own artifact signal
+ * is a narrow `{id, lifecycle}` projection — this is the first place that
+ * reads the artifact's full frozen fields (contentHash, signedBy, frozenAt,
+ * receiptId) back out.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ experimentId: string }> },
+) {
+  const persona = await getActivePersona(req);
+  if (!persona?.personaId) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Not authenticated' }, { status: 401 });
+  }
+  if (!persona.cartridgeFlags?.isAdmin) {
+    return NextResponse.json({ requestSucceeded: false, error: 'Steward access required' }, { status: 403 });
+  }
+  const { experimentId } = await params;
+  const crystalId = req.nextUrl.searchParams.get('crystalId') || `${experimentId}/crystal-vP1`;
+  const artifact = await getArtifactById(crystalId).catch(() => null);
+  return NextResponse.json(
+    { requestSucceeded: true, artifact },
+    { headers: { 'Cache-Control': 'no-store' } },
+  );
 }
 
 export async function POST(
@@ -165,6 +209,59 @@ export async function POST(
     );
   }
 
+  /*
+   * FREEZE MUST NEVER ACCEPT A DOMAIN BOUNDARY AS OPERATOR INPUT (operator
+   * ruling, EXP PP1 Track 2, 2026-08-05). The freeze package carries the
+   * ratified boundary verbatim, read server-side from the Domain
+   * Declaration — the operator's only constitutional act here is to
+   * acknowledge that they are freezing exactly that ratified boundary.
+   * Changing scope is a formal amendment to the Domain Declaration
+   * (services/research/crystalDomains.ts), never a field on this request —
+   * mirrors freeze-preview/route.ts's identical guard.
+   */
+  for (const forbidden of ['domainBoundary', 'namespace', 'scope'] as const) {
+    if (body[forbidden] !== undefined) {
+      return NextResponse.json(
+        {
+          requestSucceeded: false,
+          error:
+            `${forbidden} is not an input to the freeze act. The ratified boundary is read server-side from the ` +
+            'domain declaration; a different scope requires a formal amendment to the domain declaration, never ' +
+            'a field on this request.',
+        },
+        { status: 400 },
+      );
+    }
+  }
+
+  // The ratified Domain Declaration must exist BEFORE anything else about
+  // scope is checked — a freeze with no ratified boundary to acknowledge is
+  // not a smaller version of a valid freeze, it is not a freeze at all.
+  const declaration = crystalDomainForExperiment(experimentId);
+  if (!declaration?.boundary) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error: `no ratified Domain Declaration exists for experiment '${experimentId}' — freeze cannot proceed without one`,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (body.boundaryAcknowledged !== true) {
+    return NextResponse.json(
+      {
+        requestSucceeded: false,
+        error:
+          'boundaryAcknowledged: true is required — the operator must acknowledge the exact ratified boundary ' +
+          '(read server-side from the domain declaration) before freezing; it is never re-derived, restated, ' +
+          'or bypassed here.',
+        ratifiedBoundary: declaration.boundary,
+      },
+      { status: 400 },
+    );
+  }
+
   const freezeRationale = asString(body.freezeRationale);
   if (!freezeRationale) {
     return NextResponse.json(
@@ -203,7 +300,7 @@ export async function POST(
     );
   }
 
-  const crystalDomain = asString(body.crystalDomain) || crystalDomainForExperiment(experimentId)?.domain;
+  const crystalDomain = asString(body.crystalDomain) || declaration.domain;
   if (!crystalDomain) {
     return NextResponse.json(
       {

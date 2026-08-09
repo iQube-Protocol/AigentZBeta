@@ -137,6 +137,7 @@ import { StewardParticipationTab } from "./tabs/StewardParticipationTab";
 import { PartnerProgrammesTab } from "./tabs/PartnerProgrammesTab";
 import { CorpusScoutTab } from "./tabs/CorpusScoutTab";
 import { ExperimentRegistryTab } from "./tabs/ExperimentRegistryTab";
+import { AgentBenchTab } from "./tabs/AgentBenchTab";
 import { IRLWelcomeTab } from "./tabs/IRLWelcomeTab";
 import { PassportDoctrineTab } from "./tabs/PassportDoctrineTab";
 import { PassportEnsTab } from "./tabs/PassportEnsTab";
@@ -341,6 +342,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PartnerProgrammesTab,
   CorpusScoutTab,
   ExperimentRegistryTab,
+  AgentBenchTab,
   IRLWelcomeTab,
   PassportDoctrineTab,
   PassportEnsTab,

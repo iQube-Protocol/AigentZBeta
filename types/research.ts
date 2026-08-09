@@ -255,7 +255,7 @@ export const EXPERIMENT_REGISTRY: ResearchExperiment[] = [
     programmeFocus: 'Reasoning Compression',
     seriesId: 'VP1',
     hypothesis:
-      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? The externally-countersigned freeze of EXP-010’s four-arm design.',
+      'Does invariant representation + runtime beat conventional context engineering at equal token budget under externally specified controls? EXP-P1 operationalizes the externally reviewed four-arm EXP-010 design against frozen Crystal vP1.',
     protocolRef: 'codexes/packs/irl/foundation/experiments/exp-p1-representation-runtime-gauntlet/README.md',
     governingInvariants: ['inv.reasoning.310', 'inv.reasoning.313', 'inv.reasoning.318'],
   },
@@ -760,6 +760,12 @@ export interface FrozenArtifact {
   commitmentHash: string | null;
   frozenAt: string | null;
   signedBy: string[]; // T2 refs of signatories (IRL + reviewer, per IRL-016 §2)
+  /** The freeze act's own lifecycle-transition receipt — persisted on the
+   *  research_objects row since PRD-EPI-001 §2, but never read back until
+   *  now (2026-08-05: the Freeze UI needs it to render a post-freeze summary
+   *  without re-deriving anything). Null before freeze; null is also honest
+   *  if the write somehow failed while lifecycle still reached 'frozen'. */
+  receiptId: string | null;
 }
 
 /** task-set and answer-key are mutually referential by design (PRD-EPI-001

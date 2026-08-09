@@ -1,27 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
-import { getQCTEventListener } from '@/services/qct/EventListener';
+import { processPendingDvnAttestations } from '@/services/ops/dvnAttestationProcessor';
+import { requireOpsAuth } from '@/services/ops/opsAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const BATCH_SIZE = 10;
+/**
+ * ── AUTH (Horizen Pilot Closure, Part B2, 2026-08-09) ───────────────────────
+ *
+ * This route previously had NO auth gate at all — any caller could drive
+ * DVN attestation submission. It now requires EITHER CRON_TRIGGER_TOKEN
+ * (for the new scheduler route to reuse if it ever calls this route instead
+ * of the shared service directly) OR an authenticated admin persona — see
+ * services/ops/opsAuth.ts for why this route gets the dual-path check
+ * instead of the cron-token-only convention most /api/ops/** routes use:
+ * this is one of the two routes the operator /ops console calls directly.
+ *
+ * `process_pending`'s submit_attestation logic now lives in
+ * services/ops/dvnAttestationProcessor.ts — this route calls it rather
+ * than reimplementing it, so the new cron-driven scheduler route
+ * (app/api/ops/dvn/attestation-processor-cron/route.ts) can never drift
+ * from what the operator's manual "Process via LayerZero" button does.
+ * Nothing about validatorId generation, signature generation, batch size,
+ * or attestation semantics changed in the extraction.
+ */
+export async function POST(request: NextRequest) {
+  const auth = await requireOpsAuth(request);
+  if (!auth.ok) return auth.response!;
 
-function decodePayload(message: any): { txHash: string; txDetails: any } {
-  try {
-    const payloadBytes = Array.isArray(message.payload)
-      ? message.payload
-      : Object.values(message.payload || {});
-    const payloadStr = new TextDecoder().decode(Uint8Array.from(payloadBytes));
-    const payloadJson = JSON.parse(payloadStr);
-    return { txHash: payloadJson.txHash || 'unknown', txDetails: payloadJson };
-  } catch {
-    return { txHash: 'unknown', txDetails: {} };
-  }
-}
-
-export async function POST(request: Request) {
   try {
     const { action = 'process_pending', messageIds = [] } = await request.json().catch(() => ({}));
 
@@ -37,86 +45,12 @@ export async function POST(request: Request) {
     const dvn = await getActor<any>(DVN_ID, dvnIdl);
 
     if (action === 'process_pending') {
-      const pendingMessages = await dvn.get_pending_messages().catch(() => []);
-
-      if (!Array.isArray(pendingMessages) || pendingMessages.length === 0) {
-        return NextResponse.json({
-          ok: true,
-          message: 'No pending messages to process',
-          processed: 0,
-          total: 0,
-          results: []
-        });
-      }
-
-      const batch = pendingMessages.slice(0, BATCH_SIZE);
-      const listener = getQCTEventListener();
-
-      const settled = await Promise.allSettled(
-        batch.map(async (message: any) => {
-          const messageId = message.id;
-          const sourceChain = message.source_chain;
-          const { txHash, txDetails } = decodePayload(message);
-
-          const validatorId = `validator_${Date.now()}_${messageId}`;
-          const mockSignature = new TextEncoder().encode(`sig_${messageId}_${Date.now()}`);
-
-          const attestResult = await dvn.submit_attestation(
-            messageId,
-            validatorId,
-            Array.from(mockSignature)
-          );
-
-          try {
-            listener.recordDVNTransaction({
-              messageId,
-              sourceChain,
-              txHash,
-              timestamp: Number(message.timestamp) || Date.now(),
-              from: txDetails.fromAddress || message.sender || 'unknown',
-              to: txDetails.toAddress || 'unknown',
-              amount: txDetails.amount || '0',
-              operation: txDetails.operation || 'transfer',
-              metadata: txDetails.metadata || {}
-            });
-          } catch { /* event recording is best-effort */ }
-
-          return {
-            messageId,
-            sourceChain,
-            txHash,
-            status: 'processed' as const,
-            attestResult: attestResult?.Ok ?? attestResult,
-            validator: validatorId
-          };
-        })
-      );
-
-      const results = settled.map((s, i) => {
-        if (s.status === 'fulfilled') return s.value;
-        return {
-          messageId: batch[i]?.id,
-          sourceChain: batch[i]?.source_chain,
-          status: 'failed' as const,
-          error: s.reason?.message ?? String(s.reason)
-        };
-      });
-
-      const processed = results.filter((r) => r.status === 'processed').length;
-
-      return NextResponse.json({
-        ok: true,
-        message: `Processed ${processed}/${batch.length} messages`,
-        processed,
-        total: pendingMessages.length,
-        batchSize: batch.length,
-        hasMore: pendingMessages.length > BATCH_SIZE,
-        results,
-        at: new Date().toISOString()
-      });
+      const result = await processPendingDvnAttestations(dvn);
+      return NextResponse.json(result);
     }
 
     if (action === 'verify_message' && messageIds.length > 0) {
+      const BATCH_SIZE = 10;
       const verifyBatch = (messageIds as string[]).slice(0, BATCH_SIZE);
 
       const settled = await Promise.allSettled(

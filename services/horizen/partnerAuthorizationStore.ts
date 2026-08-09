@@ -42,6 +42,15 @@ export interface PartnerAuthorizationRequestRecord {
   payloadHash: string | null;
   nonce: string;
   expiresAt: string;
+  /**
+   * The three facts that produced the signed Pulse message (al / Horizen
+   * brief, 2026-08-04) — persisted so a resumed/retried submit reads back the
+   * EXACT values, never re-derives them. `null` only for rows created before
+   * this correction landed.
+   */
+  agentId: string | null;
+  walletAddress: string | null;
+  issuedAt: string | null;
   state: PartnerAuthorizationState;
   signerAddress: string | null;
   signatureRef: string | null;
@@ -64,6 +73,9 @@ interface DbRow {
   payload_hash: string | null;
   nonce: string;
   expires_at: string;
+  agent_id: string | null;
+  wallet_address: string | null;
+  issued_at: string | null;
   state: PartnerAuthorizationState;
   signer_address: string | null;
   signature_ref: string | null;
@@ -87,6 +99,9 @@ function rowToRecord(row: DbRow): PartnerAuthorizationRequestRecord {
     payloadHash: row.payload_hash,
     nonce: row.nonce,
     expiresAt: row.expires_at,
+    agentId: row.agent_id,
+    walletAddress: row.wallet_address,
+    issuedAt: row.issued_at,
     state: row.state,
     signerAddress: row.signer_address,
     signatureRef: row.signature_ref,
@@ -109,11 +124,53 @@ export interface CreatePartnerAuthorizationRequestInput {
   network: string;
   nonce: string;
   expiresAt: string;
+  /** The exact facts that produced (or will produce) the signed message — see PartnerAuthorizationRequestRecord. */
+  agentId: string;
+  walletAddress: string;
+  issuedAt: string;
 }
 
 export type CreatePartnerAuthorizationRequestResult =
-  | { ok: true; record: PartnerAuthorizationRequestRecord }
-  | { ok: false; refusalCode: 'NONCE_MISSING_OR_REPLAYED'; detail: string };
+  | {
+      ok: true;
+      record: PartnerAuthorizationRequestRecord;
+      /**
+       * Did this call INSERT a brand-new row, or RESET an existing one under
+       * the same deterministic authorizationId? Al's audit brief, 2026-08-06:
+       * "Capture and show... whether the row was inserted or reused." A
+       * caller that only ever sees `ok: true` cannot otherwise distinguish
+       * "first-ever authorization for this agent" from "retry after a
+       * refusal" — both look identical without this flag.
+       */
+      wasReset: boolean;
+      /** The row's issuedAt/nonce BEFORE this write — null when wasReset is false (nothing existed to compare against). */
+      previousIssuedAt: string | null;
+      previousNonce: string | null;
+    }
+  | { ok: false; refusalCode: 'NONCE_MISSING_OR_REPLAYED'; detail: string }
+  /**
+   * Any OTHER insert failure (e.g. a schema-drift missing column) — a
+   * DEFINITE refusal, never a thrown error (al, 2026-08-04: "the system does
+   * know that this attempt did not reach Horizen" — this write happens
+   * strictly before signing and before enable_pulse_monitoring, Horizen's
+   * only STATE-CHANGING call in this ceremony, is ever invoked. Even though
+   * build_pulse_auth_message may already have been called by this point,
+   * that call only builds message text — it records nothing on Horizen's
+   * side — so a failure here always means Horizen never recorded anything).
+   */
+  | { ok: false; refusalCode: 'LOCAL_PERSISTENCE_FAILED'; detail: string }
+  /**
+   * `authorizationId` is DETERMINISTIC per (aigentQubeId, tokenId, network) —
+   * see app/api/journey/moneypenny-horizen/verify/authorize/route.ts's
+   * `horizen-pulse-auth-${aigentQubeId}-${tokenId}-${network}` — so every
+   * retry for the SAME agent targets the SAME primary key, by design (one
+   * authorization per agent, not one row per attempt). A row already exists
+   * AND has reached SUBMITTED or CONFIRMED — i.e. Horizen may already have
+   * this authorization on record — so resetting it here would silently
+   * abandon a submission that might still resolve. Refuse and name the
+   * existing state; the caller must re-read status, never blindly re-prepare.
+   */
+  | { ok: false; refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT'; detail: string; existingState: PartnerAuthorizationState };
 
 function adminOrDefault(admin?: SupabaseClient): SupabaseClient {
   const client = admin ?? getSupabaseServer();
@@ -153,11 +210,25 @@ export type AuthorizationStoreAvailability =
   | { available: true }
   | {
       available: false;
-      kind: 'no-client' | 'table-absent' | 'permission-denied' | 'unknown';
+      kind: 'no-client' | 'table-absent' | 'columns-absent' | 'permission-denied' | 'unknown';
       detail: string;
       /** The exact next act, executable — never "check the database". */
       remedy: string;
     };
+
+/**
+ * Same detection pair services/receipts/activityReceiptService.ts already
+ * uses for its own missing-column canary (inv.engineering.036/037 — one
+ * detection method, not a second one invented per table): PostgREST reports
+ * an unknown COLUMN as PGRST204, Postgres itself as 42703 (undefined_column)
+ * — distinct from PGRST205/42P01 (unknown TABLE) below.
+ */
+const COLUMN_MISSING_CODES = new Set(['42703', 'PGRST204']);
+function isMissingColumn(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code && COLUMN_MISSING_CODES.has(err.code)) return true;
+  return typeof err.message === 'string' && /column .* does not exist|could not find the .* column/i.test(err.message);
+}
 
 export async function checkAuthorizationStoreAvailable(
   admin?: SupabaseClient,
@@ -173,8 +244,20 @@ export async function checkAuthorizationStoreAvailable(
   }
 
   // `head: true` reads no rows — the cheapest probe that still forces
-  // PostgREST to resolve the relation.
-  const { error } = await client.from(TABLE).select('authorization_id', { head: true, count: 'exact' }).limit(1);
+  // PostgREST to resolve the relation. Selects every column
+  // createPartnerAuthorizationRequest's INSERT actually writes (not just
+  // authorization_id) — a prior version probed authorization_id alone, which
+  // cannot detect a table that exists but is missing agent_id/wallet_address/
+  // issued_at (20260930001400's columns). That gap let exactly that drift
+  // reach createPartnerAuthorizationRequest's INSERT instead of this
+  // pre-flight check — confirmed live, not theoretical (al, 2026-08-04):
+  // "Could not find the 'agent_id' column of 'partner_authorization_requests'
+  // in the schema cache", surfaced mid-ceremony after Horizen's
+  // build_pulse_auth_message had already been called.
+  const { error } = await client
+    .from(TABLE)
+    .select('authorization_id, agent_id, wallet_address, issued_at', { head: true, count: 'exact' })
+    .limit(1);
   if (!error) return { available: true };
 
   /*
@@ -187,7 +270,7 @@ export async function checkAuthorizationStoreAvailable(
    */
   const code = (error as { code?: string }).code ?? '';
   const message = error.message ?? String(error);
-  if (code === 'PGRST205' || code === '42P01' || /schema cache|does not exist/i.test(message)) {
+  if (code === 'PGRST205' || code === '42P01' || (/schema cache|does not exist/i.test(message) && !isMissingColumn(error))) {
     return {
       available: false,
       kind: 'table-absent',
@@ -195,6 +278,17 @@ export async function checkAuthorizationStoreAvailable(
       remedy:
         `Apply supabase/migrations/20260930000500_partner_authorization_requests.sql to this project, ` +
         `then reload PostgREST's schema cache: NOTIFY pgrst, 'reload schema';`,
+    };
+  }
+  if (isMissingColumn(error)) {
+    return {
+      available: false,
+      kind: 'columns-absent',
+      detail: message,
+      remedy:
+        `Apply supabase/migrations/20260930001400_partner_authorization_request_message_facts.sql to this ` +
+        `project (adds agent_id/wallet_address/issued_at), then reload PostgREST's schema cache: ` +
+        `NOTIFY pgrst, 'reload schema';`,
     };
   }
   if (code === '42501' || /permission denied|row-level security/i.test(message)) {
@@ -213,15 +307,42 @@ export async function checkAuthorizationStoreAvailable(
   };
 }
 
+/**
+ * `23505` (unique_violation) fires from EITHER of this table's two unique
+ * constraints — the PRIMARY KEY on `authorization_id`, or
+ * `uq_partner_authorization_requests_partner_nonce` on `(partner, nonce)` —
+ * and Postgres/PostgREST names the violated constraint in the error, so
+ * which one fired is never a guess. Blindly reporting every 23505 as a nonce
+ * replay (fixed 2026-08-04) misattributed a PRIMARY KEY collision — expected
+ * on a RETRY, since authorizationId is deterministic per agent — as a
+ * coincidental reuse of a nonce that was in fact generated fresh moments
+ * earlier and could not possibly have been "used" before.
+ */
+function isAuthorizationIdCollision(error: { message?: string; details?: string } | null | undefined): boolean {
+  const text = `${error?.message ?? ''} ${error?.details ?? ''}`;
+  return /authorization_id|_pkey/i.test(text) && !/\bnonce\b/i.test(text);
+}
+
 export async function createPartnerAuthorizationRequest(
   input: CreatePartnerAuthorizationRequestInput,
   admin?: SupabaseClient,
+  /**
+   * `nowFn` is injectable so the staleness comparison below is deterministic
+   * under test — defaults to real wall-clock time for production callers
+   * (authorizationClient.ts never passes one). A prior version compared
+   * against a bare `new Date()` with no way to fix it, which made
+   * "is this SUBMITTED row stale" silently depend on how much real time had
+   * elapsed since a test fixture's hardcoded issuedAt — passing today,
+   * failing two days later with no code change (caught 2026-08-06).
+   */
+  deps: { nowFn?: () => Date } = {},
 ): Promise<CreatePartnerAuthorizationRequestResult> {
   if (!input.nonce) {
     return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: 'nonce is empty' };
   }
+  const nowFn = deps.nowFn ?? (() => new Date());
   const client = adminOrDefault(admin);
-  const now = new Date().toISOString();
+  const now = nowFn().toISOString();
   const { data, error } = await client
     .from(TABLE)
     .insert({
@@ -233,6 +354,9 @@ export async function createPartnerAuthorizationRequest(
       network: input.network,
       nonce: input.nonce,
       expires_at: input.expiresAt,
+      agent_id: input.agentId,
+      wallet_address: input.walletAddress,
+      issued_at: input.issuedAt,
       state: 'PREPARED' as PartnerAuthorizationState,
       created_at: now,
       updated_at: now,
@@ -240,13 +364,134 @@ export async function createPartnerAuthorizationRequest(
     .select('*')
     .single();
 
-  if (error) {
-    if (error.code === '23505') {
-      return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used for partner "${input.partner}"` };
-    }
-    throw new Error(`createPartnerAuthorizationRequest failed: ${error.message}`);
+  if (!error) {
+    console.log(
+      `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" — row INSERTED (first attempt for ` +
+        `this agent/network). nonce=${input.nonce} issuedAt=${input.issuedAt}`,
+    );
+    return { ok: true, record: rowToRecord(data as DbRow), wasReset: false, previousIssuedAt: null, previousNonce: null };
   }
-  return { ok: true, record: rowToRecord(data as DbRow) };
+
+  if (error.code === '23505' && isAuthorizationIdCollision(error)) {
+    /*
+     * A RETRY FOR THE SAME AGENT, NOT A DUPLICATE (2026-08-04). One
+     * authorization per (aigentQubeId, tokenId, network) is the DESIGN — see
+     * this function's own header — so a row already existing under this id
+     * is the expected shape of "the operator clicked Authorize again", not
+     * an error. What matters is whether Horizen might already have it:
+     *   - CONFIRMED: refuse — resetting could silently abandon a confirmed
+     *     authorization. Re-read status instead.
+     *   - SUBMITTED (recent): refuse — authorization may still be in flight.
+     *     Re-read status instead.
+     *   - SUBMITTED (stale): the request is old enough that it cannot be in
+     *     flight anymore (operator escalation, 2026-08-06: "the request
+     *     carries a short validity window... Horizen's server-side
+     *     reconstruction refuses a stale issuedAt"). Safe to reset and retry.
+     *   - anything else (PREPARED/AWAITING_SIGNATURE/SIGNED/REFUSED/EXPIRED/
+     *     QUARANTINED): Horizen's state-changing call was never confirmed to
+     *     have landed, so it's safe to reset the row with THIS attempt's
+     *     fresh nonce/issuedAt/facts and let the ceremony proceed exactly as
+     *     if this were a fresh row.
+     */
+    const existing = await getPartnerAuthorizationRequest(input.authorizationId, client);
+    if (existing && existing.state === 'CONFIRMED') {
+      return {
+        ok: false,
+        refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT',
+        detail:
+          `authorization "${input.authorizationId}" already exists in state ${existing.state} — Horizen has ` +
+          `confirmed activation. Re-read status rather than re-preparing.`,
+        existingState: existing.state,
+      };
+    }
+
+    // SUBMITTED rows are allowed to reset if they are stale (past the Pulse
+    // validity window), indicating the request is no longer in flight.
+    const PULSE_AUTH_DEFAULT_VALIDITY_MS = 5 * 60 * 1000;
+    let isStaleSubmission = false;
+    if (existing && existing.state === 'SUBMITTED' && existing.issuedAt) {
+      const ageMs = nowFn().getTime() - new Date(existing.issuedAt).getTime();
+      isStaleSubmission = ageMs > PULSE_AUTH_DEFAULT_VALIDITY_MS;
+      if (!isStaleSubmission) {
+        return {
+          ok: false,
+          refusalCode: 'AUTHORIZATION_ALREADY_IN_FLIGHT',
+          detail:
+            `authorization "${input.authorizationId}" already exists in state SUBMITTED (recent) — Horizen may already ` +
+            `have this authorization on record. Re-read status rather than re-preparing.`,
+          existingState: existing.state,
+        };
+      }
+    }
+    if (isStaleSubmission) {
+      console.log(
+        `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" was in SUBMITTED state with ` +
+          `issuedAt ${existing!.issuedAt} — older than Pulse's validity window. Resetting for a fresh ceremony.`,
+      );
+    }
+    /*
+     * FULL AUDIT LINE FOR EVERY RESET, NOT ONLY THE STALE-SUBMITTED CASE
+     * (Al's audit brief, 2026-08-06 — "Capture and show the HTTP response for
+     * each click, including... whether the row was inserted or reused"). Old
+     * vs new nonce/issuedAt named explicitly so a CloudWatch read settles,
+     * without inference, whether a given click actually produced different
+     * local values before Horizen was ever asked to build a message.
+     */
+    console.log(
+      `[PULSE AUTHORIZATION LIFECYCLE] authorization "${input.authorizationId}" — row RESET (was ${existing?.state ?? 'unknown'}). ` +
+        `previousNonce=${existing?.nonce ?? 'null'} previousIssuedAt=${existing?.issuedAt ?? 'null'} -> ` +
+        `newNonce=${input.nonce} newIssuedAt=${input.issuedAt}`,
+    );
+    const { data: resetData, error: resetError } = await client
+      .from(TABLE)
+      .update({
+        nonce: input.nonce,
+        expires_at: input.expiresAt,
+        agent_id: input.agentId,
+        wallet_address: input.walletAddress,
+        issued_at: input.issuedAt,
+        payload_hash: null,
+        state: 'PREPARED' as PartnerAuthorizationState,
+        signer_address: null,
+        signature_ref: null,
+        submission_ref: null,
+        partner_status: null,
+        receipt_ref: null,
+        refusal_code: null,
+        refusal_detail: null,
+        updated_at: now,
+      })
+      .eq('authorization_id', input.authorizationId)
+      .select('*')
+      .single();
+    if (resetError) {
+      return {
+        ok: false,
+        refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+        detail: `Authorization was not submitted to Horizen because MetaMe could not reset its stalled local authorization record for a retry: ${resetError.message}`,
+      };
+    }
+    return {
+      ok: true,
+      record: rowToRecord(resetData as DbRow),
+      wasReset: true,
+      previousIssuedAt: existing?.issuedAt ?? null,
+      previousNonce: existing?.nonce ?? null,
+    };
+  }
+
+  if (error.code === '23505') {
+    return { ok: false, refusalCode: 'NONCE_MISSING_OR_REPLAYED', detail: `nonce "${input.nonce}" already used for partner "${input.partner}"` };
+  }
+  // A DEFINITE refusal, not a thrown error (al, 2026-08-04) — this is the
+  // ceremony's local persistence step, strictly before Horizen's
+  // state-changing enable_pulse_monitoring call; a failure here always
+  // means the authorization was not submitted, never an open question.
+  return {
+    ok: false,
+    refusalCode: 'LOCAL_PERSISTENCE_FAILED',
+    detail: `Authorization was not submitted to Horizen because MetaMe could not create its local authorization record: ${error.message}`,
+  };
 }
 
 export async function getPartnerAuthorizationRequest(
@@ -260,7 +505,16 @@ export async function getPartnerAuthorizationRequest(
 }
 
 export interface PartnerAuthorizationStateUpdate {
-  state: PartnerAuthorizationState;
+  /**
+   * Optional (2026-08-08) — reconcilePulseConstitutionalState's AGREEMENT
+   * path records a reconciliation check (partnerStatus only) against an
+   * ALREADY-CONFIRMED row without writing `state` at all, per the operator's
+   * "reconciliation never rewrites constitutional history" directive. Every
+   * OTHER caller in this codebase still passes `state` explicitly — this
+   * relaxation exists for that one caller, never as license to omit it
+   * elsewhere.
+   */
+  state?: PartnerAuthorizationState;
   payloadHash?: string;
   signerAddress?: string;
   signatureRef?: string;
@@ -281,7 +535,11 @@ export async function updatePartnerAuthorizationRequest(
   const existing = await getPartnerAuthorizationRequest(authorizationId, client);
   if (!existing) throw new Error(`updatePartnerAuthorizationRequest: no row for authorizationId "${authorizationId}"`);
 
-  const row: Record<string, unknown> = { state: patch.state, updated_at: new Date().toISOString() };
+  // `state` is omitted from the update payload entirely when the caller did
+  // not supply one — never sent as `undefined` and left to whatever the
+  // Supabase client's JSON serialization happens to do with that.
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.state !== undefined) row.state = patch.state;
   if (patch.payloadHash !== undefined) row.payload_hash = patch.payloadHash;
   if (patch.signerAddress !== undefined) row.signer_address = patch.signerAddress;
   if (patch.signatureRef !== undefined) row.signature_ref = patch.signatureRef;

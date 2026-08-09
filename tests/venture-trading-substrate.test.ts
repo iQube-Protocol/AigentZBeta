@@ -1879,6 +1879,16 @@ describe('AC-14 the compensation object is never a top-level canister payload fi
     const expected = [
       'action',
       'receiptId',
+      // THE SHARED CONSTITUTIONAL COMMITMENT (operator ruling, 2026-08-08 —
+      // an explicitly approved payload-shape change, reviewed here as this
+      // canary's own comment requires). H is the sha256 of the receipt's
+      // immutable T2-safe projection; the IDENTICAL value is passed to
+      // proof_of_state.issue_receipt as its data_hash. Carrying it on both
+      // legs is what lets the PoS/Bitcoin and DVN representations of one act
+      // be reconciled by identity instead of by comparing queue counts — the
+      // defect that let the Bitcoin leg go missing for the system's entire
+      // history while the dashboard read green.
+      'commitmentHash',
       'personaRef',
       'activeCartridge',
       'actionType',
@@ -1891,7 +1901,18 @@ describe('AC-14 the compensation object is never a top-level canister payload fi
       'approvalsGranted',
       'timestamp',
     ];
-    const keys = [...canisterPayloadBlock().matchAll(/^\s{6}([A-Za-z][A-Za-z0-9_]*):/gm)].map((m) => m[1]);
+    /*
+     * MATCHES SHORTHAND TOO (`key,`), not just `key: value`.
+     *
+     * The original pattern required a colon, so a field written in ES6
+     * shorthand was INVISIBLE to this pin — a payload key could be added
+     * without changing the detected set, which is precisely the promotion
+     * this canary exists to catch. Found 2026-08-08 when `personaRef` became
+     * shorthand and silently dropped out of the comparison. A canary with a
+     * syntax-shaped blind spot is the "inert mechanism" defect (MS-7/OS-9):
+     * it still passes, so nobody learns it stopped watching.
+     */
+    const keys = [...canisterPayloadBlock().matchAll(/^\s{6}([A-Za-z][A-Za-z0-9_]*)\s*[:,]/gm)].map((m) => m[1]);
     expect(keys.sort()).toEqual([...expected].sort());
   });
 

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { runCrystalReadinessReport } from '../services/research/crystalReadiness';
+import { runCrystalReadinessReport, connectedComponents } from '../services/research/crystalReadiness';
 import { listInvariants, listEdgesForInvariants } from '@/services/invariants/store';
 import type { InvariantEdgeRecord } from '@/types/invariants';
 
@@ -274,5 +274,112 @@ describe('PRD-EPI-001 §3.1 — Crystal Intrinsic Readiness Report', () => {
     const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
     expect(typeof report.derivationEligibleFraction).toBe('number');
     expect(typeof report.duplicatePairCount).toBe('number');
+  });
+});
+
+describe('scientific-readiness vs scientific-maturity tiers (2026-08-05 operator ruling) — "Can this crystal be frozen?" and "Is it scientifically ideal?" are not the same question', () => {
+  // 15 invariants, one semantic_type (fails structural-diversity), split into
+  // 3 disjoint 5-node clusters, each internally dense (fails graph-connectivity:
+  // largest component is 5/15 = 33% < the 60% floor) — but relationship-density
+  // and orphan-detection (separate, NON-maturity checks) both pass, because
+  // each cluster is densely connected internally and nobody is unconnected.
+  const TOPICS = [
+    'Settlement instructions require dual authorization before execution.',
+    'Insurance claims must reference a valid policy identifier.',
+    'Credit exposure limits are reviewed on a quarterly basis.',
+    'Treasury operations record every wire transfer independently.',
+    'Compliance officers verify sanctions screening before onboarding.',
+    'Custody accounts segregate client assets from house assets.',
+    'Liquidity buffers are maintained above the regulatory minimum.',
+    'Trade confirmations are reconciled within one business day.',
+    'Audit trails capture every configuration change permanently.',
+    'Risk committees approve any material exposure increase.',
+    'Reconciliation breaks are escalated after two business days.',
+    'Collateral valuations are refreshed at the end of each day.',
+    'Counterparty limits are enforced before trade execution.',
+    'Regulatory reports are filed before the monthly deadline.',
+    'Data retention policies preserve records for seven years.',
+  ];
+
+  function monocultureInv(id: string, statement: string): Awaited<ReturnType<typeof listInvariants>>[number] {
+    return {
+      id,
+      statement,
+      semanticType: 'constraint',
+      timesValidated: 3,
+      provenance: { provenanceClass: 'external-established' },
+    } as unknown as Awaited<ReturnType<typeof listInvariants>>[number];
+  }
+
+  function denseClusterEdges(ids: string[]): InvariantEdgeRecord[] {
+    const [a, b, c, d, e] = ids;
+    return [edge(a, b), edge(b, c), edge(c, d), edge(d, e), edge(a, e), edge(b, d)];
+  }
+
+  it('ok stays TRUE — freezable — even though structural-diversity and graph-connectivity both fail; maturity band is bronze', async () => {
+    const clusters = [TOPICS.slice(0, 5), TOPICS.slice(5, 10), TOPICS.slice(10, 15)].map((topics, ci) =>
+      topics.map((t, i) => `c${ci}-${i}`),
+    );
+    const allIds = clusters.flat();
+    const invariants = allIds.map((id, i) => monocultureInv(id, TOPICS[i]));
+    const edges = clusters.flatMap(denseClusterEdges);
+
+    vi.mocked(listInvariants).mockResolvedValueOnce(invariants);
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(edges);
+    const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+
+    const diversity = report.checks.find((c) => c.name === 'structural-diversity');
+    const connectivity = report.checks.find((c) => c.name === 'graph-connectivity');
+    expect(diversity?.passed).toBe(false);
+    expect(diversity?.tier).toBe('scientific-maturity');
+    expect(connectivity?.passed).toBe(false);
+    expect(connectivity?.tier).toBe('scientific-maturity');
+
+    // Every OTHER check — the actual hard gate — passes.
+    const readinessTierChecks = report.checks.filter((c) => c.tier === 'scientific-readiness');
+    expect(readinessTierChecks.every((c) => c.passed)).toBe(true);
+    expect(readinessTierChecks).toHaveLength(7);
+
+    // The whole point of the ruling: a crystal blocked ONLY by maturity
+    // findings is still freezable.
+    expect(report.ok).toBe(true);
+    expect(report.maturity.totalCount).toBe(2);
+    expect(report.maturity.passedCount).toBe(0);
+    expect(report.maturity.band).toBe('bronze');
+  });
+
+  it('never lets a genuine scientific-readiness failure hide behind a passing maturity tier', async () => {
+    // A small crystal where duplicate-detection (scientific-readiness) fails
+    // — ok must be false regardless of what the maturity tier reports, and
+    // regardless of any OTHER check that happens to also fail alongside it.
+    const ids = ['d1', 'd2', 'd3', 'd4', 'd5'];
+    const dupStatement = 'Settlement instructions require dual authorization before execution.';
+    const invariants = ids.map((id, i) =>
+      monocultureInv(id, i < 2 ? dupStatement : TOPICS[i]),
+    );
+    vi.mocked(listInvariants).mockResolvedValueOnce(invariants);
+    vi.mocked(listEdgesForInvariants).mockResolvedValueOnce(denseClusterEdges(ids));
+    const report = await runCrystalReadinessReport({ experimentId: 'EXP-P1', crystalDomain: 'd' });
+    expect(report.checks.find((c) => c.name === 'duplicate-detection')?.passed).toBe(false);
+    expect(report.ok).toBe(false);
+  });
+});
+
+describe('connectedComponents (2026-08-05, Stage 9 bridge-candidate remediation) — full membership, not just sizes', () => {
+  it('groups connected ids together and isolates unconnected ones, matching the sizes the readiness check itself reports', () => {
+    const groups = connectedComponents(['a', 'b', 'c', 'd'], [['a', 'b']]);
+    const sorted = groups.map((g) => [...g].sort()).sort((x, y) => y.length - x.length);
+    expect(sorted).toEqual([['a', 'b'], ['c'], ['d']]);
+  });
+
+  it('returns one group per id when there are no edges at all', () => {
+    const groups = connectedComponents(['x', 'y'], []);
+    expect(groups).toHaveLength(2);
+  });
+
+  it('transitively merges a chain into a single component', () => {
+    const groups = connectedComponents(['a', 'b', 'c'], [['a', 'b'], ['b', 'c']]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].sort()).toEqual(['a', 'b', 'c']);
   });
 });

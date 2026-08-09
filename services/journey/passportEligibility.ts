@@ -133,6 +133,18 @@ export interface RequiredAuthorization {
 export interface AncillaryInput {
   pulseAuthorized?: boolean;
   pnlDisclosureAuthorized?: boolean;
+  /**
+   * DISTINCT from `pnlDisclosureAuthorized` — authorization vs verification,
+   * never conflated (Horizen Pilot Closure item 4, 2026-08-09). True only
+   * once Horizen's own Verifiable-PnL service has independently correlated a
+   * record for this exact agent/token/chain
+   * (services/horizen/pnlServiceVerification.ts). Ancillary and non-blocking
+   * here for the same reason `pnlDisclosureAuthorized` is: an unresolved or
+   * absent verification must never gate Passport/Ratify.
+   */
+  pnlServiceVerified?: boolean;
+  /** Present only when verification was attempted and did not (yet) succeed — names why, never a bare false. */
+  pnlServiceVerificationDetail?: string;
   /** The `partner_authorization_requests` migration state — Verify-only. */
   authorizationStoreAvailable?: boolean;
   authorizationStoreRemedy?: string;

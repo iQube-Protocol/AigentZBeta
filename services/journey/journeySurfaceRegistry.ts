@@ -140,6 +140,18 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'happens; the allowlist and embed mechanism (services/horizen/agentPageUrl.ts, IframeTab) stay ' +
       'the same either way.',
   },
+  'constitutional-agreement-ratify': {
+    kind: 'component',
+    component: 'AgreementRatifyPanel',
+    note:
+      'Built 2026-08-06 (components/journey/AgreementRatifyPanel.tsx) — the Ratify stage\'s ONE guided ' +
+      'action ("Verify & Sign Agreement") over the EXISTING generic /api/constitutional/agreement route ' +
+      '(services/constitutional/constitutionalAgreement.ts: form -> accept -> authorize), with ' +
+      'capabilityRef/selectedAgentRef/delegatedAuthority pre-populated from the Journey context ' +
+      '(services/journey/ratificationRefs.ts). No parallel agreement store, no new signing subsystem — ' +
+      'authorizing here is authorizing the SAME agreement MoneyPenny\'s live Financial Services runtime ' +
+      'gate checks (app/api/moneypenny/runtime/route.ts).',
+  },
   'pulse-transparency-toggle': {
     kind: 'component',
     component: 'PulseTransparencyToggle',
@@ -149,6 +161,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'POST /api/journey/moneypenny-horizen/verify/authorize, then enriches the Agent Card ' +
       '(services/horizen/agentCardEnrichment.ts). Honestly blocks on a missing tokenId rather than ' +
       'fabricating a toggle when Register has not completed.',
+  },
+  'orientation-panel': {
+    kind: 'component',
+    component: 'OrientationPanel',
+    note:
+      "Orient stage's ONE guided action (Threshold Journey — Orient + Consequence Fork, 2026-08-09, " +
+      'components/journey/OrientationPanel.tsx) — reads the contextually-resolved ritual ' +
+      '(services/journey/orientationContext.ts, never agent-name-derived) and records the operator\'s ' +
+      'explicit acknowledgment via POST /api/journey/moneypenny-horizen/orient/acknowledge. Mirrors ' +
+      "MarketaEligibilityView's observe-then-act shape exactly.",
   },
   'marketa-eligibility-view': {
     kind: 'component',
@@ -182,6 +204,17 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
       'Bounded delegation — the same BoundedDelegationTab module Venture Lab α’s Participate group ' +
       'mounts. Rendered bare, superseding the Partner Pilot Command Center’s Constitutional ' +
       'Agreements iframe for this stage.',
+  },
+  'ingest-into-factory-action': {
+    kind: 'component',
+    component: 'IngestIntoFactoryPanel',
+    note:
+      "The Ingest stage's ONE guided action (Horizen Pilot Closure, part 2, operator decision A, " +
+      '2026-08-09, components/journey/IngestIntoFactoryPanel.tsx) — writes the agent-scoped ' +
+      "`capability_registered` receipt via POST /api/journey/moneypenny-horizen/ingest. Mirrors " +
+      "OrientationPanel's observe-then-act shape exactly. Rendered ABOVE 'venture-participate-standing' " +
+      'below, which stays the read-only Ingested Assets evidence catalogue — this panel is the missing ' +
+      'consequential act, never a replacement for that evidence surface.',
   },
   'venture-participate-standing': {
     kind: 'component',
@@ -241,14 +274,16 @@ export const JOURNEY_SURFACES: Record<string, JourneySurfaceDescriptor> = {
   },
   'validation-programme-crystal-review': {
     kind: 'component',
-    component: 'IndependentReviewPanel',
+    component: 'CrystalObserverReviewPanel',
     note:
-      'The real IndependentReviewPanel (components/composer/IndependentReviewPanel.tsx) rendered ' +
-      'directly with reviewerMode=true, not the Laboratory\'s embed shell around it — operator ' +
-      'instruction 2026-08-01, point 4: "the exact same page... only addition: Download JSON for ' +
-      'Agent." reviewerMode hides New Review and every governed-resolution control (freeze preview, ' +
-      'accept/revise/defer/reject); Review Queue/Result/Crystal vP1 render unchanged, scoped server-' +
-      'side to the caller\'s reviewer grant (requireReviewReadAccess).',
+      'Post-Freeze Observer Review Closure (2026-08-09), points 2 and 10: the ONE canonical Workspace ' +
+      'Review surface for the autonomi-review-exp-p1 workspace. Composes the existing read-only Crystal ' +
+      'vP1 projection (IndependentReviewPanel rendered internally in reviewerMode=true — New Review and ' +
+      'every governed-resolution control still hidden, and the frozen-artifact summary + observer ' +
+      'acceptance status render once frozen) with the NEW self-service Observer Decision submission ' +
+      '(/api/research/observer-review/[experimentId]/decision). Replaces the prior direct mount of ' +
+      'IndependentReviewPanel here, which duplicated this workspace\'s review surface without an ' +
+      'observer-decision mechanism of its own.',
   },
   'validation-programme-reviewer-agreement': {
     kind: 'component',

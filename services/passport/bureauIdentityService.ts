@@ -383,3 +383,25 @@ async function lookupExistingBinding(personaId: string): Promise<{
     ...(kybeDid ? { kybePublicRef: didPublicRef(kybeDid) } : {}),
   };
 }
+
+/**
+ * Public export of `lookupExistingBinding`'s exact walk (personaId →
+ * `personas.root_did` → `root_identity` by `did_uri` → optional
+ * `kybe_identity.kybe_did`), for callers OUTSIDE the Passport Bureau bind
+ * flow that need "does this persona resolve to a RootDID, and what is its
+ * T2-safe commitment" — e.g. RootDID-bound Constitutional Agreement
+ * authorization (services/constitutional/constitutionalAgreement.ts).
+ * Never duplicates the walk (inv.engineering.036/037); `bindBureauIdentity`
+ * keeps calling `lookupExistingBinding` directly, unchanged.
+ *
+ * Returns `{}` (both fields absent) when the persona has no `root_did`, or
+ * no matching `root_identity` row — never a guessed or partial commitment.
+ * Compare `rootDidPublicRef` values for RootDID equivalence; never compare
+ * raw DIDs (T0 — server-internal only, per this file's own header).
+ */
+export async function resolveRootDidCommitment(personaId: string): Promise<{
+  kybePublicRef?: string;
+  rootDidPublicRef?: string;
+}> {
+  return lookupExistingBinding(personaId);
+}

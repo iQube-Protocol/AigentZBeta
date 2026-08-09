@@ -1,0 +1,28 @@
+name: receipt-status-check
+
+# One-off, manually-triggered ops diagnostic (Horizen Pilot Closure, part B3,
+# 2026-08-09). Curls /api/ops/dvn/receipt-status for a caller-supplied list of
+# activity_receipts ids and prints the result — no schedule, no mutation.
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Comma-separated activity_receipts ids to inspect'
+        required: true
+        default: '3ab6bb61-cdff-4347-a633-713395c3f3aa,b0fe09d4-3d45-4860-abe4-982b412e6688,efba95ce-1a75-43ed-becd-fad577598f9c,4894a100-89c8-4e60-9977-3450f8c3601c,034d66e6-0776-40fa-b061-bbb2ffc08023,c8dc591b-d6f4-47b7-a74e-1496d0a71b42,7f7293f7-cac0-44ce-af31-2c06a31c6ba9'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query receipt status
+        env:
+          CRON_TRIGGER_TOKEN: ${{ secrets.CRON_TRIGGER_TOKEN }}
+        run: |
+          if [ -z "$CRON_TRIGGER_TOKEN" ]; then
+            echo "::error::CRON_TRIGGER_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          curl -sS --max-time 60 \
+            -H "x-cron-token: $CRON_TRIGGER_TOKEN" \
+            "https://dev-beta.aigentz.me/api/ops/dvn/receipt-status?ids=${{ inputs.ids }}"

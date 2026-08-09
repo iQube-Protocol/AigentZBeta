@@ -43,6 +43,7 @@ import {
   type PopulationDeclaration,
   type PopulationHandover,
 } from '@/services/research/exceptionIsolation';
+import type { CohortMemberRef, UnaccountedPromotionRecord } from '@/services/research/populationReconciliation';
 
 export type Track2StageId =
   | 'discover-sources'
@@ -160,11 +161,58 @@ export interface PromotedCohort {
   /** Relationships AMONG cohort members, and members with none. Null = unread. */
   graph: { relationshipCount: number; orphanCount: number } | null;
   /**
-   * Records that left the population between Stage 4 and here, each with a
-   * stated reason. The only legitimate narrowing — and visible, never
-   * discarded (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-DISCARDED-001`).
+   * OPERATOR-CONFIRMED exclusions only — a steward acted through the
+   * Population Reconciliation Board (services/research/
+   * populationReconciliation.ts). The only legitimate narrowing — and
+   * visible, never discarded (`CI-2026-08-03-EXCLUSION-VISIBLE-NOT-
+   * DISCARDED-001`).
    */
   excluded: { recordId: string; reason: string }[];
+  /**
+   * Every promoted candidate that is NEITHER a distinct resolved member NOR
+   * an operator-confirmed exclusion — named individually, never collapsed
+   * into "unaccounted for: N" (al, 2026-08-04). The Population Reconciliation
+   * Board renders exactly this list at Stage 5; Stages 6–7 link back to it
+   * rather than repeat the diagnosis.
+   */
+  unaccountedRecords: UnaccountedPromotionRecord[];
+  /** Named worklists for the action buttons Stages 5-7 render (al, 2026-08-04: "replace explanation with action; an action needs a record to act on"). */
+  unclassifiedRecords: CohortMemberRef[];
+  unvalidatedRecords: CohortMemberRef[];
+  orphanRecords: CohortMemberRef[];
+  members: CohortMemberRef[];
+}
+
+/**
+ * The three named worklists Stages 5-7 render as executable queues, rather
+ * than a count with nowhere to click (al, 2026-08-04 steward-workflow
+ * ruling). Present whenever there is a cohort to work over; each list is
+ * simply the cohort's own field, carried here so the panel does not have to
+ * reach into `reconciliation`/stage internals to find it.
+ */
+export interface Track2ActionQueues {
+  crystalId: string;
+  unclassified: CohortMemberRef[];
+  unvalidated: CohortMemberRef[];
+  orphans: CohortMemberRef[];
+  /** Every distinct resolved cohort member — the Relationship Queue's "relate to" picker. */
+  members: CohortMemberRef[];
+}
+
+/**
+ * The Population Reconciliation Board's read model — the Stage 4 → Stage 5
+ * handover, with the unaccounted records NAMED rather than only counted (al,
+ * 2026-08-04). `crystalId` and the stage ids are carried here so the board's
+ * repair/exclude POST can be built without the client inventing any of them.
+ */
+export interface PopulationReconciliationView {
+  crystalId: string;
+  fromStageId: Track2StageId;
+  toStageId: Track2StageId;
+  declaredOut: number;
+  received: number;
+  explicitlyExcluded: number;
+  unaccountedRecords: UnaccountedPromotionRecord[];
 }
 
 export interface Track2ProgrammeSignals {
@@ -218,6 +266,17 @@ export interface Track2Programme {
     /** Every unreconciled handover's breach sentence, verbatim. */
     breaches: string[];
   };
+  /**
+   * THE POPULATION RECONCILIATION BOARD'S DATA (al, 2026-08-04) — the same
+   * Stage 4 → Stage 5 handover as `populationContinuity`, but carrying the
+   * NAMED unaccounted records rather than only a breach sentence. `null`
+   * when there is no cohort to reconcile at all (nothing promoted yet).
+   * Rendered ONCE, at Stage 5 — Stage 6/7 link back to it rather than repeat
+   * the diagnosis.
+   */
+  reconciliation: PopulationReconciliationView | null;
+  /** Stages 5-7's action-queue worklists (al, 2026-08-04). `null` when there is no cohort to work over yet. */
+  actionQueues: Track2ActionQueues | null;
   /** Every remedy on the current stage, hoisted so a surface leads with it. */
   nextActions: string[];
   /** Stated on the payload: this is read, not stored. */
@@ -330,13 +389,26 @@ export function buildTrack2Programme(input: {
       };
     }
     if (breach) {
+      // NAMED RECORDS, NOT A NAVIGATION INSTRUCTION (al, 2026-08-04). The
+      // remedy used to send the operator to go find, diagnose and repair
+      // these candidates elsewhere. The Population Reconciliation Board
+      // (Track2ProgrammePanel.tsx) renders `unaccountedRecords` inline,
+      // directly beneath this remedy, with an executable treatment per
+      // record — this text now describes THAT act, not a search.
+      const repairable = cohort.unaccountedRecords.filter((r) => r.recommendedTreatment === 'repair').length;
+      const needsJudgment = cohort.unaccountedRecords.length - repairable;
       return {
         status: 'blocked',
         detail: breach,
         remedies: [
-          'This is a defect in the pipeline, not in the data. Do not act on either count until the two ' +
-            'stages describe the same population: resolve the promoted candidates that carry no invariant ' +
-            'id, or record them as explicit exclusions with a reason.',
+          `This is a defect in the pipeline, not in the data. ${cohort.unaccountedRecords.length} record(s) are ` +
+            `named individually in the Population Reconciliation Board below` +
+            (repairable > 0 ? ` — ${repairable} can be repaired and included with a recommended act already prepared` : '') +
+            (needsJudgment > 0
+              ? `${repairable > 0 ? ', and' : ' —'} ${needsJudgment} need${needsJudgment === 1 ? 's' : ''} a steward's ` +
+                'explicit exclusion with a reason'
+              : '') +
+            '. Resolve each below; Stage 5 unlocks automatically once every record is accounted for.',
         ],
       };
     }
@@ -638,11 +710,17 @@ export function buildTrack2Programme(input: {
         produces: 'assigned-crystal',
         source: `runCrystalReadinessReport over domain '${input.crystalDomain}', status validated|canonical`,
       },
+      // READY FOR FREEZE (`s.readiness.ok`) depends only on the
+      // `scientific-readiness`-tier checks — `scientific-maturity` checks
+      // (structural-diversity, graph-connectivity) are informational and
+      // never block this stage's completion (operator ruling, 2026-08-05:
+      // "Can this crystal be frozen? Is this crystal scientifically ideal?
+      // Those are not the same question.").
       status: !populated ? 'not-started' : s.readiness.ok ? 'complete' : 'in-progress',
       detail: populated
         ? s.readiness.ok
-          ? 'all nine checks pass'
-          : `${s.readiness.checks.filter((c) => !c.passed).length}/${s.readiness.checks.length} checks failing`
+          ? `all scientific-readiness checks pass — maturity ${s.readiness.maturity.passedCount}/${s.readiness.maturity.totalCount} (${s.readiness.maturity.band})`
+          : `${s.readiness.checks.filter((c) => c.tier === 'scientific-readiness' && !c.passed).length}/${s.readiness.checks.filter((c) => c.tier === 'scientific-readiness').length} scientific-readiness checks failing`
         : 'nothing to assess yet',
       remedies: remediesFor('run-readiness', s.readiness),
     },
@@ -660,9 +738,23 @@ export function buildTrack2Programme(input: {
         produces: 'assigned-crystal',
         source: 'crystalReviewStageStatus over the same assigned crystal the readiness report assessed',
       },
-      status: s.independentReviewRequestOpen ? 'in-progress' : populated ? 'blocked' : 'not-started',
+      // 'partially-complete', not 'in-progress' (al, EXP PP1 Track 2,
+      // 2026-08-05): independent review is OPTIONAL to freeze —
+      // `checkFreezeGate` never requires it, and `crystalFreezeCeremony`
+      // already treats a missing reviewerRef as "reported, never hidden."
+      // Stage 10 being merely ELIGIBLE (not necessarily attempted, and
+      // never blocked on a reviewer transport failure such as an HTTP
+      // 504) is enough for Stage 11 to be workable — the same
+      // "produced something to work on" logic PASSES_THROUGH already
+      // applies everywhere else in this file. Leaving this at
+      // 'in-progress' forever was the actual bug: it silently withheld
+      // Stage 11 from `unblockedStageIds` no matter what the reviewer
+      // call did, so an infrastructure timeout on Stage 10 LOOKED LIKE a
+      // constitutional block on Freeze when nothing downstream ever
+      // checked review status at all.
+      status: s.independentReviewRequestOpen ? 'partially-complete' : populated ? 'blocked' : 'not-started',
       detail: s.independentReviewRequestOpen
-        ? 'the independent pre-freeze review may open'
+        ? 'the independent pre-freeze review may open — optional; a reviewer transport failure never blocks Freeze'
         : populated
           ? 'readiness has not passed — this is internal diagnostic work, not a reviewer’s to assess'
           : 'nothing to review yet',
@@ -734,6 +826,32 @@ export function buildTrack2Programme(input: {
     breaches,
   };
 
+  // THE RECONCILIATION BOARD'S DATA (al, 2026-08-04) — present whenever there
+  // is a cohort to reconcile at all, whether or not anything is currently
+  // unaccounted, so the board can also render "reconciliation complete".
+  const reconciliation: Track2Programme['reconciliation'] =
+    cohort && handover
+      ? {
+          crystalId: input.experimentId,
+          fromStageId: 'review-and-promote',
+          toStageId: 'classify-provenance',
+          declaredOut: handover.declaredOut,
+          received: handover.received,
+          explicitlyExcluded: cohort.excluded.length,
+          unaccountedRecords: cohort.unaccountedRecords,
+        }
+      : null;
+
+  const actionQueues: Track2Programme['actionQueues'] = cohort
+    ? {
+        crystalId: input.experimentId,
+        unclassified: cohort.unclassifiedRecords,
+        unvalidated: cohort.unvalidatedRecords,
+        orphans: cohort.orphanRecords,
+        members: cohort.members,
+      }
+    : null;
+
   return {
     experimentId: input.experimentId,
     crystalDomain: input.crystalDomain,
@@ -741,6 +859,8 @@ export function buildTrack2Programme(input: {
     currentStageId: current.id,
     unblockedStageIds,
     populationContinuity,
+    reconciliation,
+    actionQueues,
     // A discontinuity is the FIRST thing to act on: every count downstream of
     // it is about a subject nobody has agreed on. It leads `nextActions` ahead
     // of the current stage's own remedies.

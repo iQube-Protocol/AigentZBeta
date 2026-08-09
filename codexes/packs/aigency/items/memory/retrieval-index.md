@@ -3544,3 +3544,293 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c6113f2.md](../build_/COMMITS/COMMIT-c6113f2.md)
 - Message: Document mandatory delegation security architecture and constraints
+
+## Commit `e78fe17` — 2026-08-06T22:53:23Z
+- Type: `fix`
+- Brief: [COMMIT-e78fe17.md](../build_/COMMITS/COMMIT-e78fe17.md)
+- Message: fix MoneyPenny KB: include common constitutional ground-truth (polity namespace) in addition to domain-scoped finance invariants
+
+## Commit `a91d664` — 2026-08-06T23:46:35Z
+- Type: `fix`
+- Brief: [COMMIT-a91d664.md](../build_/COMMITS/COMMIT-a91d664.md)
+- Message: fix MoneyPenny: align Chat styling with Architect/Runtime, improve KB ground-truth resolution with proper budget limits
+
+## Commit `91c57fe` — 2026-08-07T01:08:11Z
+- Type: `feat`
+- Brief: [COMMIT-91c57fe.md](../build_/COMMITS/COMMIT-91c57fe.md)
+- Message: add extension distribution packages to .gitignore
+
+## Commit `7fce0bf` — 2026-08-07T01:13:31Z
+- Type: `fix`
+- Brief: [COMMIT-7fce0bf.md](../build_/COMMITS/COMMIT-7fce0bf.md)
+- Message: fix: add defensive null checks and error handling to sidepanel message handlers
+
+## Commit `7d77143` — 2026-08-08T12:47:57Z
+- Type: `push`
+- Brief: [COMMIT-7d77143.md](../build_/COMMITS/COMMIT-7d77143.md)
+- Message: Ignore vitest's coverage/ output directory
+
+## Commit `439fa9c` — 2026-08-08T12:47:23Z
+- Type: `feat`
+- Brief: [COMMIT-439fa9c.md](../build_/COMMITS/COMMIT-439fa9c.md)
+- Message: Fix test:ci's missing coverage dependency; add non-secret placeholder env vars
+
+## Commit `de41937` — 2026-08-08T12:28:57Z
+- Type: `fix`
+- Brief: [COMMIT-de41937.md](../build_/COMMITS/COMMIT-de41937.md)
+- Message: Fix tsconfig.json crash blocking type-check on every commit; make it informational in the new dev workflow
+
+## Commit `bf82b58` — 2026-08-08T12:18:48Z
+- Type: `fix`
+- Brief: [COMMIT-bf82b58.md](../build_/COMMITS/COMMIT-bf82b58.md)
+- Message: Replace dev CI fix with a narrow dedicated workflow
+
+## Commit `8513b6e` — 2026-08-08T12:14:51Z
+- Type: `fix`
+- Brief: [COMMIT-8513b6e.md](../build_/COMMITS/COMMIT-8513b6e.md)
+- Message: Correct A4 source-rebuild claim; run CI on PRs into dev
+
+## Commit `19f1887` — 2026-08-08T07:36:16-04:00
+- Type: `chore`
+- Brief: [COMMIT-19f1887.md](../build_/COMMITS/COMMIT-19f1887.md)
+- Message: Update provenance canary for CAP-1 v2 deployment
+
+## Commit `34ee202` — 2026-08-08T07:35:35-04:00
+- Type: `feat`
+- Brief: [COMMIT-34ee202.md](../build_/COMMITS/COMMIT-34ee202.md)
+- Message: Add CAP-1 activation canary with PoS leg held dark
+
+## Commit `ccb537f` — 2026-08-08T07:35:15-04:00
+- Type: `feat`
+- Brief: [COMMIT-ccb537f.md](../build_/COMMITS/COMMIT-ccb537f.md)
+- Message: Add proof_of_state_v2 Candid parity canary
+
+## Commit `ad02a1a` — 2026-08-08T07:34:57-04:00
+- Type: `feat`
+- Brief: [COMMIT-ad02a1a.md](../build_/COMMITS/COMMIT-ad02a1a.md)
+- Message: Add explicit CAP-1 activation gate and parked evidence
+
+## Commit `7baf817` — 2026-08-08T07:34:33-04:00
+- Type: `push`
+- Brief: [COMMIT-7baf817.md](../build_/COMMITS/COMMIT-7baf817.md)
+- Message: Record CAP-1 v2 canisters and close A4 provenance gate
+
+## Commit `7e8979e` — 2026-08-08T07:33:30-04:00
+- Type: `feat`
+- Brief: [COMMIT-7e8979e.md](../build_/COMMITS/COMMIT-7e8979e.md)
+- Message: Add proof_of_state_v2 TypeScript binding
+
+## Commit `cee3d41` — 2026-08-08T07:33:08-04:00
+- Type: `feat`
+- Brief: [COMMIT-cee3d41.md](../build_/COMMITS/COMMIT-cee3d41.md)
+- Message: Add proof_of_state_v2 canonical DID for CAP-1 integration
+
+## Commit `c56c1aa` — 2026-08-08T19:14:29-04:00
+- Type: `docs`
+- Brief: [COMMIT-c56c1aa.md](../build_/COMMITS/COMMIT-c56c1aa.md)
+- Message: docs(chrysalis): capture DVN Spine fast-follow backlog
+
+## Commit `43e2e15` — 2026-08-09T02:01:34Z
+- Type: `push`
+- Brief: [COMMIT-43e2e15.md](../build_/COMMITS/COMMIT-43e2e15.md)
+- Message: Insert Orient stage between Claim and Passport, render Ratify/Ingest/Standing as Consequence Fork
+
+## Commit `1a5d597` — 2026-08-09T01:24:30Z
+- Type: `push`
+- Brief: [COMMIT-1a5d597.md](../build_/COMMITS/COMMIT-1a5d597.md)
+- Message: Horizen Pilot Closure Report — CODE READY / LIVE VERIFICATION PENDING
+
+## Commit `edd2ed4` — 2026-08-09T01:21:54Z
+- Type: `feat`
+- Brief: [COMMIT-edd2ed4.md](../build_/COMMITS/COMMIT-edd2ed4.md)
+- Message: Add Agent-N genericity proof with a third synthetic agent
+
+## Commit `a016920` — 2026-08-09T01:17:29Z
+- Type: `push`
+- Brief: [COMMIT-a016920.md](../build_/COMMITS/COMMIT-a016920.md)
+- Message: Build the read-only Agent-N preflight check
+
+## Commit `6753cc2` — 2026-08-09T01:14:09Z
+- Type: `push`
+- Brief: [COMMIT-6753cc2.md](../build_/COMMITS/COMMIT-6753cc2.md)
+- Message: Produce DVN finality transition matrix, no mechanical Minted gating
+
+## Commit `0eaaa90` — 2026-08-09T01:12:17Z
+- Type: `push`
+- Brief: [COMMIT-0eaaa90.md](../build_/COMMITS/COMMIT-0eaaa90.md)
+- Message: JourneyCompanionCarousel and journey narration are agent-generic
+
+## Commit `fc163cc` — 2026-08-09T01:01:08Z
+- Type: `push`
+- Brief: [COMMIT-fc163cc.md](../build_/COMMITS/COMMIT-fc163cc.md)
+- Message: Remove duplicate PILOT_AGENTS registry; stop constructing aigent-\${slug}
+
+## Commit `4846fa6` — 2026-08-09T00:52:25Z
+- Type: `feat`
+- Brief: [COMMIT-4846fa6.md](../build_/COMMITS/COMMIT-4846fa6.md)
+- Message: Wire real P&L verification into production, distinct from authorization
+
+## Commit `20dc5ed` — 2026-08-09T00:46:01Z
+- Type: `push`
+- Brief: [COMMIT-20dc5ed.md](../build_/COMMITS/COMMIT-20dc5ed.md)
+- Message: Close MoneyPenny's Ratify runtime-endpoint descriptor gap generically
+
+## Commit `d427c26` — 2026-08-09T00:41:56Z
+- Type: `feat`
+- Brief: [COMMIT-d427c26.md](../build_/COMMITS/COMMIT-d427c26.md)
+- Message: Wire the registration Standing seed into production, generically
+
+## Commit `7638442` — 2026-08-09T00:13:19Z
+- Type: `push`
+- Brief: [COMMIT-7638442.md](../build_/COMMITS/COMMIT-7638442.md)
+- Message: Give Horizen registration confirmation independent server-side liveness
+
+## Commit `e201597` — 2026-08-08T23:34:27Z
+- Type: `fix`
+- Brief: [COMMIT-e201597.md](../build_/COMMITS/COMMIT-e201597.md)
+- Message: Fix receipts-route allowlist drift hiding MoneyPenny's Register ceremony evidence
+
+## Commit `8edc1f8` — 2026-08-08T23:08:47Z
+- Type: `push`
+- Brief: [COMMIT-8edc1f8.md](../build_/COMMITS/COMMIT-8edc1f8.md)
+- Message: Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness
+
+## Commit `82ff28e` — 2026-08-08T22:40:18Z
+- Type: `push`
+- Brief: [COMMIT-82ff28e.md](../build_/COMMITS/COMMIT-82ff28e.md)
+- Message: Register Threshold/metaMe MCP server in .mcp.json + docs
+
+## Commit `f294431` — 2026-08-08T20:59:02Z
+- Type: `push`
+- Brief: [COMMIT-f294431.md](../build_/COMMITS/COMMIT-f294431.md)
+- Message: Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI
+
+## Commit `2126d7d` — 2026-08-09T03:06:02Z
+- Type: `push`
+- Brief: [COMMIT-2126d7d.md](../build_/COMMITS/COMMIT-2126d7d.md)
+- Message: Record the real commit hash on the observer-review resolution record
+
+## Commit `f2ca7aa` — 2026-08-09T03:05:48Z
+- Type: `feat`
+- Brief: [COMMIT-f2ca7aa.md](../build_/COMMITS/COMMIT-f2ca7aa.md)
+- Message: Add Post-Freeze Observer Review Closure for Crystal vP1 (EXP-P1)
+
+## Commit `b96a7b3` — 2026-08-09T04:22:05Z
+- Type: `push`
+- Brief: [COMMIT-b96a7b3.md](../build_/COMMITS/COMMIT-b96a7b3.md)
+- Message: Rebuild Consequence Fork trident as one absolutely-positioned box, not stacked rows
+
+## Commit `51917a4` — 2026-08-09T03:25:19Z
+- Type: `fix`
+- Brief: [COMMIT-51917a4.md](../build_/COMMITS/COMMIT-51917a4.md)
+- Message: Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels
+
+## Commit `b5abe6e` — 2026-08-09T05:41:11Z
+- Type: `push`
+- Brief: [COMMIT-b5abe6e.md](../build_/COMMITS/COMMIT-b5abe6e.md)
+- Message: Split Ratify P&L into three independent tiers, uniform journey spacing
+
+## Commit `126e971` — 2026-08-09T06:24:58Z
+- Type: `push`
+- Brief: [COMMIT-126e971.md](../build_/COMMITS/COMMIT-126e971.md)
+- Message: Revert fixed-width journey connectors to equal flex-grow
+
+## Commit `04572c9` — 2026-08-09T06:24:52Z
+- Type: `push`
+- Brief: [COMMIT-04572c9.md](../build_/COMMITS/COMMIT-04572c9.md)
+- Message: Replace global get_ready_messages() with targeted per-receipt DVN reads
+
+## Commit `52d1e56` — 2026-08-09T06:24:43Z
+- Type: `fix`
+- Brief: [COMMIT-52d1e56.md](../build_/COMMITS/COMMIT-52d1e56.md)
+- Message: Fix tokenId fallback when Horizen reread succeeds without one
+
+## Commit `3694f4b` — 2026-08-09T07:32:48Z
+- Type: `feat`
+- Brief: [COMMIT-3694f4b.md](../build_/COMMITS/COMMIT-3694f4b.md)
+- Message: Add durable local-to-DVN-pending reconciler, closing the receipt lifecycle
+
+## Commit `c082ef3` — 2026-08-09T07:18:13Z
+- Type: `push`
+- Brief: [COMMIT-c082ef3.md](../build_/COMMITS/COMMIT-c082ef3.md)
+- Message: Compact Journey evidence checklist into the stage description row
+
+## Commit `d5c8474` — 2026-08-09T07:48:39Z
+- Type: `feat`
+- Brief: [COMMIT-d5c8474.md](../build_/COMMITS/COMMIT-d5c8474.md)
+- Message: Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract
+
+## Commit `21c278e` — 2026-08-09T08:06:03Z
+- Type: `feat`
+- Brief: [COMMIT-21c278e.md](../build_/COMMITS/COMMIT-21c278e.md)
+- Message: Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic
+
+## Commit `efe5d1a` — 2026-08-09T08:39:43Z
+- Type: `push`
+- Brief: [COMMIT-efe5d1a.md](../build_/COMMITS/COMMIT-efe5d1a.md)
+- Message: Make receipt-status diagnostic column-schema-safe after discovering dvn_status missing in prod
+
+## Commit `c94c072` — 2026-08-09T08:59:48Z
+- Type: `feat`
+- Brief: [COMMIT-c94c072.md](../build_/COMMITS/COMMIT-c94c072.md)
+- Message: Add migration-drift diagnostic covering dual-leg anchoring + MoneyPenny AigentQube seed
+
+## Commit `52cfb3f` — 2026-08-09T09:32:29Z
+- Type: `feat`
+- Brief: [COMMIT-52cfb3f.md](../build_/COMMITS/COMMIT-52cfb3f.md)
+- Message: Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair
+
+## Commit `bd52b76` — 2026-08-09T09:41:03Z
+- Type: `feat`
+- Brief: [COMMIT-bd52b76.md](../build_/COMMITS/COMMIT-bd52b76.md)
+- Message: Add workflow to trigger MoneyPenny AigentQube repair route
+
+## Commit `6ad4cf4` — 2026-08-09T09:55:10Z
+- Type: `feat`
+- Brief: [COMMIT-6ad4cf4.md](../build_/COMMITS/COMMIT-6ad4cf4.md)
+- Message: Correct Horizen PnL onboarding contract + wire production Onboard action
+
+## Commit `e720dcd` — 2026-08-09T11:06:08Z
+- Type: `feat`
+- Brief: [COMMIT-e720dcd.md](../build_/COMMITS/COMMIT-e720dcd.md)
+- Message: Fix DVN Pending fork pill + P&L three-state UI, add purpose-bound agent wallet binding
+
+## Commit `e860c62` — 2026-08-09T12:29:35Z
+- Type: `feat`
+- Brief: [COMMIT-e860c62.md](../build_/COMMITS/COMMIT-e860c62.md)
+- Message: Fix AigentQube-presence/Factory-ingestion conflation + wire P&L service registered evidence
+
+## Commit `2ba52ac` — 2026-08-09T17:51:55Z
+- Type: `feat`
+- Brief: [COMMIT-2ba52ac.md](../build_/COMMITS/COMMIT-2ba52ac.md)
+- Message: Add GitHub Actions workflows for the ops routes needing CRON_TRIGGER_TOKEN
+
+## Commit `1ea799b` — 2026-08-09T18:23:29Z
+- Type: `feat`
+- Brief: [COMMIT-1ea799b.md](../build_/COMMITS/COMMIT-1ea799b.md)
+- Message: Add GIN index on activity_receipts.agents_invoked + raise ops route timeouts
+
+## Commit `90629c7` — 2026-08-09T19:34:39Z
+- Type: `push`
+- Brief: [COMMIT-90629c7.md](../build_/COMMITS/COMMIT-90629c7.md)
+- Message: Stop double-counting the Standing seed and make supersession consequential
+
+## Commit `a3aaa7f` — 2026-08-09T19:56:02Z
+- Type: `feat`
+- Brief: [COMMIT-a3aaa7f.md](../build_/COMMITS/COMMIT-a3aaa7f.md)
+- Message: Add read-only DVN message classifier for Part B1 Nakamoto truth-check
+
+## Commit `7379156` — 2026-08-09T19:51:43Z
+- Type: `push`
+- Brief: [COMMIT-7379156.md](../build_/COMMITS/COMMIT-7379156.md)
+- Message: Give DVN attestation processing scheduled liveness, secure its two mutation routes
+
+## Commit `cc779a6` — 2026-08-09T20:35:17Z
+- Type: `push`
+- Brief: [COMMIT-cc779a6.md](../build_/COMMITS/COMMIT-cc779a6.md)
+- Message: Give the DVN attestation processor scheduled liveness (B3 confirmed)
+
+## Commit `6e961c0` — 2026-08-09T21:48:06Z
+- Type: `feat`
+- Brief: [COMMIT-6e961c0.md](../build_/COMMITS/COMMIT-6e961c0.md)
+- Message: Add the missing Ingest act (capability_registered) plus its guided UI action

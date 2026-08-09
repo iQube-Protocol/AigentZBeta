@@ -33,6 +33,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { resolveRequestOrigin } from '@/app/api/agents/_lib/requestOrigin';
 import { runHorizenTransparencyAuthorization } from '@/services/horizen/authorizationClient';
+import { resolvePulseEndpoint } from '@/services/horizen/pulseEndpoint';
 import { enrichAgentCardAfterHorizenAuthorization } from '@/services/horizen/agentCardEnrichment';
 import { resolveRegistrableAgent, DEFAULT_REGISTRABLE_AGENT_SLUG } from '@/services/horizen/registrableAgents';
 import type { HorizenNetwork } from '@/services/horizen/identity';
@@ -164,15 +165,63 @@ async function authorize(request: NextRequest) {
 
   const origin = resolveRequestOrigin(request);
   let agentCardHash: string;
+  let pulseEndpoint: string | null;
   try {
-    const cardRes = await fetch(`${origin}${agent.agentCardPath}`, { cache: 'no-store' });
+    /*
+     * CACHE-BUST THE SELF-FETCH (2026-08-04). This fetch leaves the Lambda and
+     * comes back in over the PUBLIC origin — i.e. through whatever CDN sits in
+     * front of Amplify — so it is subject to edge caching the same way an
+     * external client's request would be. `{ cache: 'no-store' }` only
+     * disables NEXT.JS'S OWN fetch cache; it says nothing about an
+     * intermediary CDN, which can serve a cached pre-authorization response
+     * (from before an agent's runtime descriptor existed) indefinitely if its
+     * cache policy doesn't fully honour the route's `Cache-Control: no-store`
+     * response header. A unique query param defeats any URL-keyed cache
+     * regardless of how that policy is configured; the explicit no-cache
+     * request headers are a second, redundant guard for edges that do
+     * respect them. Confirmed necessary, not theoretical: this route kept
+     * refusing NO_RUNTIME_ENDPOINT for Nakamoto after her descriptor was
+     * verified live via both /agent-card.json and /health directly.
+     */
+    const cardRes = await fetch(`${origin}${agent.agentCardPath}?_cb=${Date.now()}-${Math.random().toString(36).slice(2)}`, {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+    });
     if (!cardRes.ok) throw new Error(`agent-card fetch failed: HTTP ${cardRes.status}`);
     const cardText = await cardRes.text();
     agentCardHash = createHash('sha256').update(cardText, 'utf8').digest('hex');
+    // Parsed once, reused for both the hash (above, over the raw text — so
+    // the hash still commits to exact bytes) and the Pulse endpoint below.
+    pulseEndpoint = resolvePulseEndpoint(JSON.parse(cardText));
   } catch (err) {
     return NextResponse.json(
       { ok: false, refusalCode: 'AGENT_CARD_UNAVAILABLE', error: err instanceof Error ? err.message : 'agent-card fetch failed' },
       { status: 502 },
+    );
+  }
+
+  /*
+   * REFUSE LOCALLY, BEFORE CALLING HORIZEN AT ALL (operator ruling,
+   * 2026-08-04). Pulse monitors a live HTTP service, resolved from the
+   * agent's canonical Agent Runtime Endpoint descriptor
+   * (registry_assets.metadata.runtime — services/registry/runtimeDescriptor.ts).
+   * Nothing in this platform's Agent Cards declares one yet. Inventing a URL
+   * (e.g. reusing the Agent Card route itself, which merely DESCRIBES the
+   * agent) would be exactly the fabrication CLAUDE.md's No-Guessing rule
+   * forbids, and would hand Horizen a health-check target no one intended it
+   * to poll.
+   */
+  if (!pulseEndpoint) {
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: 'NO_RUNTIME_ENDPOINT',
+        error:
+          `${agent.displayName} has no Agent Runtime Endpoint declared (registry_assets.metadata.runtime.endpoint) ` +
+          `— Pulse has nothing to health-check. Set a runtime descriptor for this asset ` +
+          `(services/registry/runtimeDescriptor.ts: setAssetRuntimeDescriptor) before authorizing Pulse monitoring.`,
+      },
+      { status: 409 },
     );
   }
 
@@ -187,10 +236,40 @@ async function authorize(request: NextRequest) {
     keyRef: AGENT_KEY_REF,
     registry: { network, tokenId: binding.token_id, registryAlias: binding.registry_alias ?? undefined },
     scope,
+    agentDisplayName: agent.displayName,
+    pulseEndpoint,
   });
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, refusalCode: result.refusalCode, error: result.detail }, { status: 422 });
+    /*
+     * `diagnostics` (attemptId/nonce/issuedAt/messageHash/rowAction) rides
+     * along on every refusal that reached at least the prepare stage — Al's
+     * audit brief, 2026-08-06: "display a small attempt header... that will
+     * make stale replay immediately visible." Never the escalationPacket
+     * (exact message/signature) — that stays server-log-only, per its own
+     * doc comment in authorizationClient.ts.
+     */
+    return NextResponse.json(
+      {
+        ok: false,
+        refusalCode: result.refusalCode,
+        error: result.detail,
+        diagnostics: result.diagnostics,
+        /*
+         * THE PARTNER'S EXACT WORDS, UNTRUNCATED (Al's change 5, 2026-08-06:
+         * "The actual text is necessary evidence"). `enable_pulse_monitoring`
+         * answered with 1109 characters that the operator only ever saw
+         * summarised as `[0] type=text, NOT JSON` — which is precisely the
+         * information needed to tell a success from a failure. Safe to expose:
+         * this is the partner's own response about the operator's OWN agent,
+         * and it is what any other MCP client would display. Unlike
+         * `escalationPacket` (exact signed message + signature) which stays
+         * server-log-only, this carries no key-adjacent material.
+         */
+        partnerResponse: result.partnerResponse,
+      },
+      { status: 422 },
+    );
   }
 
   const enrichment = await enrichAgentCardAfterHorizenAuthorization({
@@ -215,6 +294,8 @@ async function authorize(request: NextRequest) {
       receiptRef: result.value.receiptRef,
       enrichmentRefusalCode: enrichment.refusalCode,
       enrichmentError: enrichment.detail,
+      diagnostics: result.diagnostics,
+      partnerResponse: result.partnerResponse,
     });
   }
 
@@ -223,5 +304,7 @@ async function authorize(request: NextRequest) {
     authorizationId: result.value.authorizationId,
     receiptRef: result.value.receiptRef,
     receiptRefs: enrichment.receiptRefs,
+    diagnostics: result.diagnostics,
+    partnerResponse: result.partnerResponse,
   });
 }

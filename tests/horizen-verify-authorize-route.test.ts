@@ -71,7 +71,17 @@ beforeEach(() => {
   registryAssetsRow = null;
 
   mockGetActivePersona.mockResolvedValue({ personaId: 'persona-operator-1' });
-  mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => '{"name":"Aigent MoneyPenny"}' });
+  // Declares a canonical Agent Runtime Endpoint descriptor (operator ruling,
+  // 2026-08-04) — without one, the route now refuses locally with
+  // NO_RUNTIME_ENDPOINT rather than inventing an endpoint for Horizen to
+  // poll. See tests/horizen-pulse-endpoint.test.ts and
+  // tests/registry-runtime-descriptor.test.ts for the resolver's own unit
+  // coverage.
+  mockFetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({ name: 'Aigent MoneyPenny', metadata: { runtime: { endpoint: 'https://moneypenny.example.test', health: '/health' } } }),
+  });
 });
 
 const BOUND_ROW = {
@@ -137,6 +147,17 @@ describe('POST verify/authorize — refusals', () => {
     const json = await res.json();
     expect(res.status).toBe(502);
     expect(json.refusalCode).toBe('AGENT_CARD_UNAVAILABLE');
+    expect(mockRunHorizenTransparencyAuthorization).not.toHaveBeenCalled();
+  });
+
+  it('409s with NO_RUNTIME_ENDPOINT when the Agent Card projects no runtime descriptor — never invents a URL for Horizen to poll', async () => {
+    registryAssetsRow = BOUND_ROW;
+    mockGetAgentAddresses.mockResolvedValue({ evmAddress: '0xController' });
+    mockFetch.mockResolvedValue({ ok: true, status: 200, text: async () => '{"name":"Aigent MoneyPenny"}' });
+    const res = await POST(makeRequest());
+    const json = await res.json();
+    expect(res.status).toBe(409);
+    expect(json.refusalCode).toBe('NO_RUNTIME_ENDPOINT');
     expect(mockRunHorizenTransparencyAuthorization).not.toHaveBeenCalled();
   });
 

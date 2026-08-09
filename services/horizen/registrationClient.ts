@@ -41,7 +41,7 @@ import { ethers } from 'ethers';
 import { HORIZEN_NETWORK_FACTS, type HorizenNetwork } from './identity';
 import { HORIZEN_REGISTRY_MCP, fetchRegistryAgent as defaultFetchRegistryAgent, type HorizenRead } from './client';
 import { decodeAgentIdFromReceipt } from './agentIdRecovery';
-import { findCompatibleTool, matchSchemaFields, type McpTool, type McpToolResult } from './mcpSchemaMatch';
+import { findCompatibleTool, matchSchemaFields, firstEmbeddedJsonObject, type McpTool, type McpToolResult } from './mcpSchemaMatch';
 import { resolveRegistrableAgent, type RegistrableAgentConfig } from './registrableAgents';
 import { buildHorizenAgentPageUrl } from './agentPageUrl';
 
@@ -251,57 +251,13 @@ export interface UnsignedTx {
   chainId?: string | number;
 }
 
-/** Mirrors scripts/register-moneypenny-horizen.ts's extractUnsignedTx — moved here so the script and this service share one implementation (never a second copy, inv.engineering.036/037). */
 /**
- * The first balanced JSON object embedded anywhere in `text`, or null.
- *
- * Horizen does not return bare JSON. It returns human prose, a `--- structured
- * ---` marker, and then the object — so `JSON.parse(text)` throws on the very
- * response that contains the transaction. Brace-balanced rather than a regex,
- * and string-aware, so a `{` or `}` inside a description field cannot truncate
- * the object early (Nakamoto's own description contains braces-adjacent
- * punctuation and several escaped quotes).
+ * Mirrors scripts/register-moneypenny-horizen.ts's extractUnsignedTx.
+ * `firstEmbeddedJsonObject` (brace-balanced, `--- structured ---`-marker-aware
+ * extraction) now lives in `./mcpSchemaMatch` — shared with
+ * `authorizationClient.ts`'s `extractStructuredMessageField` — never a second
+ * copy (inv.engineering.036/037).
  */
-function firstEmbeddedJsonObject(text: string): unknown | null {
-  // Horizen marks the machine-readable part; prefer it when present so a brace
-  // in the prose above can never be mistaken for the start of the object.
-  const marker = text.indexOf('--- structured ---');
-  const from = marker === -1 ? 0 : marker;
-
-  // Otherwise try EVERY `{` in turn. Taking only the first one is fragile:
-  // Horizen's prose is free text, and a single stray brace in it would consume
-  // the whole extraction and report "no transaction" about a response that
-  // contains one. Found by a test case before it was found in production.
-  for (let start = text.indexOf('{', from); start !== -1; start = text.indexOf('{', start + 1)) {
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let i = start; i < text.length; i += 1) {
-      const ch = text[i];
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (ch === '\\') escaped = true;
-        else if (ch === '"') inString = false;
-        continue;
-      }
-      if (ch === '"') inString = true;
-      else if (ch === '{') depth += 1;
-      else if (ch === '}') {
-        depth -= 1;
-        if (depth === 0) {
-          try {
-            return JSON.parse(text.slice(start, i + 1));
-          } catch {
-            break; // not the object — try the next candidate `{`
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
-
 /**
  * The unsigned transaction inside a `build_registration_tx` result.
  *
@@ -970,62 +926,69 @@ export async function checkAgentRegistrationStatus(
 
   const fetchAgent = deps.fetchRegistryAgent ?? defaultFetchRegistryAgent;
   const reread = await fetchAgent(input.ownerWalletAddress, input.network);
-  if (!reread.ok) {
+
+  /*
+   * THE RECEIPT-DECODED AGENTID IS THE FALLBACK TOKENID REGARDLESS OF WHY
+   * HORIZEN'S REREAD DIDN'T SUPPLY ONE (MoneyPenny live defect, 2026-08-09).
+   *
+   * The original code only reached for `onChain.agentId` when `reread.ok`
+   * was false outright (a transport/timeout failure). But a reread can
+   * SUCCEED — Horizen answers, `reread.ok === true` — while its payload
+   * simply has no `tokenId`/`agentId`/`id` field (the agent's index entry
+   * exists but is not yet fully enriched). That case fell through to the
+   * "happy path" below with `tokenId = null`, and a chain-verified,
+   * ownerOf-checked mint was silently discarded even though the exact same
+   * `onChain.agentId` value was sitting right there. MoneyPenny's live
+   * reconciliation hit precisely this: `confirmationSource:
+   * 'on-chain-receipt'` (the chain verified it, Horizen's status text did
+   * not) with a reread that succeeded but carried no tokenId — and the
+   * fallback never fired because it was gated on `!reread.ok`.
+   *
+   * The fix: try Horizen's own reread field first; when it is absent, fall
+   * back to the receipt-decoded, ownerOf-verified agentId — the SAME
+   * authoritative value in both the "reread failed" and "reread succeeded
+   * without a tokenId" cases, never a heuristic (never transaction
+   * position, never an index guess).
+   */
+  const rereadTokenId = reread.ok ? pickStringField(reread.value, ['tokenId', 'agentId', 'id']) : null;
+  const tokenId = rereadTokenId ?? (onChain.verified ? onChain.agentId : null);
+
+  if (!tokenId) {
     /*
      * A FAILED REREAD IS NOT A LOST REGISTRATION when the chain has already
-     * verified it. The reread is how Horizen's own record is read; it is not
-     * the thing that makes the registration true. Refusing here would discard
-     * verified on-chain evidence because a convenience lookup failed.
-     *
-     * The decoded agentId IS the ERC-721 tokenId — the same value the reread's
-     * `tokenId` field carries — so nothing is invented. `agentIdentifier`
-     * stays NULL (operator ruling 2026-07-31: never defaulted from tokenId),
-     * and therefore so does the human-readable URL.
+     * verified it — refusing here would discard verified on-chain evidence
+     * because a convenience lookup failed. But if the chain ALSO did not
+     * verify a mint, there is genuinely nothing to report the tokenId as
+     * yet, and a failed reread is refused rather than answered with an
+     * empty confirmation (unchanged from the original REGISTRY_REREAD_FAILED
+     * contract — see the canary for this refusal).
      */
-    if (!onChain.verified || !onChain.agentId) {
+    if (!reread.ok) {
       return { ok: false, refusalCode: 'REGISTRY_REREAD_FAILED', detail: `registry reread failed: ${reread.reason}` };
     }
-    const chainTokenId = onChain.agentId;
-    const chainAlias = `0x${BigInt(chainTokenId).toString(16)}`;
-    if (deps.updateRegistryAssetBinding) {
-      await deps.updateRegistryAssetBinding(agent.aigentQubeId, { tokenId: chainTokenId, registryAlias: chainAlias, agentIdentifier: null, humanReadableUrl: null });
-    }
-    const chainReceiptId = deps.createRegistrationReceipt
-      ? await deps.createRegistrationReceipt({
-          actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash,
-          tokenId: chainTokenId, registryAddress: onChain.registry, ownerAddress: input.ownerWalletAddress,
-          confirmationSource: confirmationSource ?? 'on-chain-receipt',
-          blockNumber: onChain.blockNumber, logIndex: onChain.logIndex,
-        })
-      : null;
-    return {
-      ok: true,
-      value: {
-        confirmed: true,
-        tokenId: chainTokenId,
-        registryAlias: chainAlias,
-        agentIdentifier: null,
-        humanReadableUrl: null,
-        rawStatus,
-        receiptId: chainReceiptId,
-        confirmationSource,
-        onChain,
-        divergence:
-          `${divergence ? `${divergence} ` : ''}Horizen's registry reread also failed (${reread.reason}), so the ` +
-          'token id below is the one decoded from the transaction receipt and verified by ownerOf. The ' +
-          'human-readable agent identifier is not resolvable without the reread and is reported absent rather ' +
-          'than guessed.',
-      },
-    };
   }
-  const tokenId = pickStringField(reread.value, ['tokenId', 'agentId', 'id']);
-  const registryAlias = pickStringField(reread.value, ['registryAlias', 'alias']) ?? (tokenId ? `0x${BigInt(tokenId).toString(16)}` : null);
+
   // DISTINCT field, deliberately not overlapping tokenId's candidate names —
   // operator ruling 2026-07-31: never conflate the two without confirmation
   // from Horizen's real response. Absent means "not yet resolvable", not
-  // "same as tokenId".
-  const agentIdentifier = pickStringField(reread.value, ['agentIdentifier', 'identifier', 'slug']);
+  // "same as tokenId". Only Horizen's own reread can ever supply these —
+  // the chain fallback carries no identifier or URL to offer.
+  const registryAlias = (reread.ok ? pickStringField(reread.value, ['registryAlias', 'alias']) : null) ?? (tokenId ? `0x${BigInt(tokenId).toString(16)}` : null);
+  const agentIdentifier = reread.ok ? pickStringField(reread.value, ['agentIdentifier', 'identifier', 'slug']) : null;
   const humanReadableUrl = agentIdentifier ? buildHorizenAgentPageUrl(agentIdentifier, input.network) : null;
+
+  const usedChainFallback = !rereadTokenId && !!tokenId;
+  const finalDivergence = !reread.ok
+    ? `${divergence ? `${divergence} ` : ''}Horizen's registry reread also failed (${reread.reason}), so the ` +
+      'token id below is the one decoded from the transaction receipt and verified by ownerOf. The ' +
+      'human-readable agent identifier is not resolvable without the reread and is reported absent rather ' +
+      'than guessed.'
+    : usedChainFallback
+      ? `${divergence ? `${divergence} ` : ''}Horizen's registry reread succeeded but returned no resolvable ` +
+        'tokenId field, so the token id below is the one decoded from the transaction receipt and verified by ' +
+        'ownerOf. The human-readable agent identifier is not resolvable without a reread-supplied identifier ' +
+        'and is reported absent rather than guessed.'
+      : divergence;
 
   let receiptId: string | null = null;
   if (tokenId && registryAlias) {
@@ -1036,13 +999,13 @@ export async function checkAgentRegistrationStatus(
       receiptId = await deps.createRegistrationReceipt({
         actorPersonaId: input.actorPersonaId, agent, network: input.network, txHash: input.txHash,
         tokenId, registryAddress: onChain.registry ?? registryAlias, ownerAddress: input.ownerWalletAddress,
-        confirmationSource: confirmationSource ?? 'horizen-status',
+        confirmationSource: confirmationSource ?? (usedChainFallback ? 'on-chain-receipt' : 'horizen-status'),
         blockNumber: onChain.blockNumber, logIndex: onChain.logIndex,
       });
     }
   }
 
-  return { ok: true, value: { confirmed: true, tokenId, registryAlias, agentIdentifier, humanReadableUrl, rawStatus, receiptId, confirmationSource, onChain, divergence } };
+  return { ok: true, value: { confirmed: true, tokenId, registryAlias, agentIdentifier, humanReadableUrl, rawStatus, receiptId, confirmationSource, onChain, divergence: finalDivergence } };
 }
 
 function pickStringField(obj: Record<string, unknown> | null | undefined, names: string[]): string | null {

@@ -42,7 +42,15 @@ const byId = (id: string): JourneyStageDefinition => {
 };
 const orderOf = (id: string) => STAGES.findIndex((s) => s.id === id);
 
-const SPINE = ['register', 'claim', 'passport', 'delegate', 'aigentme'] as const;
+/*
+ * ORIENT INSERTED 2026-08-09 (Threshold Journey — Orient stage + Consequence
+ * Fork, operator spec): the spine is now Register -> Claim -> Orient ->
+ * Passport -> Delegate -> aigentMe. Orient answers "what must become
+ * constitutionally true before I can act as the principal from whom
+ * authority originates" — a real, receipted stage
+ * (services/journey/orientationContext.ts), not a step Passport can skip.
+ */
+const SPINE = ['register', 'claim', 'orient', 'passport', 'delegate', 'aigentme'] as const;
 
 /** Read from the module's own closed union so the canary cannot drift from it. */
 const SETTLED_PREDICATES = fs
@@ -61,7 +69,10 @@ describe('the admission spine is Register -> Claim -> Passport -> Delegate -> ai
   it('each spine stage requires only its predecessor', () => {
     // THE ASSERTION THAT FAILS ON THE DEFECT: Claim used to require 'verify'.
     expect(byId('claim').prerequisites).toEqual(['register']);
-    expect(byId('passport').prerequisites).toEqual(['claim']);
+    // Orient now sits between Claim and Passport (2026-08-09) — Passport's
+    // own prerequisite moved from 'claim' to 'orient'; Orient's is 'claim'.
+    expect(byId('orient').prerequisites).toEqual(['claim']);
+    expect(byId('passport').prerequisites).toEqual(['orient']);
     expect(byId('delegate').prerequisites).toEqual(['passport']);
     expect(byId('aigentme').prerequisites).toEqual(['delegate']);
   });
@@ -598,8 +609,11 @@ describe('the Bureau receives an absolute Agent Card URL, never a bare path', ()
   });
 
   it('origin is a dependency of the surface-props resolver, so the prefill updates on mount', () => {
-    // Without this the memoised callback would keep the empty first-render value.
-    expect(tabSrc).toMatch(/\[selectedAgentSlug, origin\]/);
+    // Without this the memoised callback would keep the empty first-render
+    // value. Not anchored to the exact end of the array — isAdmin joined it
+    // 2026-08-08 (PulseTransparencyToggle's showDiagnostics gate) — only that
+    // selectedAgentSlug and origin are both still present, in order.
+    expect(tabSrc).toMatch(/\[selectedAgentSlug, origin/);
   });
 });
 
@@ -813,11 +827,68 @@ describe('Deploy observes registry presence; Passport observes the receipt the B
     expect(deploy.completionEvidence).not.toContain('standingGatewayEnabled');
   });
 
-  it('registry presence is read canonically, per "presence there is a receipt in itself"', () => {
+  /*
+   * SUPERSEDES "registry presence is read canonically, per 'presence there
+   * is a receipt in itself'" (operator correction, 2026-08-09 — "URGENT
+   * SEQUENCING CORRECTION: AigentQube Presence ≠ Factory Ingestion").
+   *
+   * The 2026-08-03 ruling this test used to pin was true only while
+   * `registry_assets` presence for an agent's asset_id could ONLY be a side
+   * effect of genuine Factory ingestion. The AigentQube entrance gate later
+   * started writing a row to the SAME table for an unrelated reason — "this
+   * agent has a persisted constitutional information object", a
+   * REGISTER-stage prerequisite — and the two facts collapsed: repairing
+   * MoneyPenny's AigentQube (Register-stage work, correct and necessary)
+   * silently satisfied Deploy's `factoryIngested` evidence, and because
+   * `resolveJourneyState` lets established completion evidence outrank an
+   * unmet prerequisite, Deploy and then Standing rendered COMPLETE before
+   * Claim/Orient/Passport/Delegate/Operate had ever happened for her.
+   *
+   * `factoryPresent` still exists (renamed in meaning, not in name — see
+   * its own doc comment) as "does the AigentQube row exist", genuinely
+   * useful for Register's own gate — it must simply never again answer
+   * "was this agent Factory-ingested".
+   */
+  it('Deploy\'s canonical outcome is its OWN capability_registered receipt — registry/AigentQube presence never counts', () => {
     expect(admissionSrc).toMatch(/from\('registry_assets'\)/);
     expect(admissionSrc).toMatch(/factoryPresent: boolean \| undefined/);
+    // The doc comment must now say this is NOT Factory ingestion.
+    expect(admissionSrc).toMatch(/NOT the same fact as Factory ingestion/);
+
     const block = stateSrc.slice(stateSrc.indexOf('const canonicalStages'));
-    expect(block.match(/^\s*deploy:[^\n]*/m)?.[0] ?? '').toContain('admission?.factoryPresent');
+    const deployLine = block.match(/^\s*deploy:[^\n]*/m)?.[0] ?? '';
+    expect(deployLine).not.toContain('admission?.factoryPresent');
+    expect(deployLine).toContain("hasReceipt('capability_registered')");
+
+    // Same correction applied everywhere else factoryIngested is computed —
+    // `stages.deploy.factoryIngested`, `axes.factoryIngested`, and the
+    // Standing seed eligibility must none of them ACTUALLY EVALUATE
+    // `factoryPresent` (the surrounding comments legitimately quote the old
+    // formula in prose while explaining the fix — only the live code lines
+    // are asserted on here, never the prose around them).
+    const codeLines = stateSrc
+      .split('\n')
+      .filter((line) => !line.trim().startsWith('*') && !line.trim().startsWith('//'));
+    const factoryIngestedCodeLines = codeLines.filter((line) => line.includes('factoryIngested'));
+    for (const line of factoryIngestedCodeLines) {
+      expect(line, `live code line must not read admission?.factoryPresent: "${line.trim()}"`).not.toContain('admission?.factoryPresent');
+    }
+    expect(factoryIngestedCodeLines.some((l) => l.includes("hasReceipt('capability_registered')"))).toBe(true);
+
+    const seedEligibilityCodeLines = codeLines.filter((line) => line.includes('factoryIngestedNow'));
+    for (const line of seedEligibilityCodeLines) {
+      expect(line, `live code line must not read admission?.factoryPresent: "${line.trim()}"`).not.toContain('admission?.factoryPresent');
+    }
+  });
+
+  it('the Standing seed award additionally requires aigentMe/Operate to be canonically active — belt-and-suspenders against the same evidence-precedes-prerequisite rule', () => {
+    const standingSeedBlock = stateSrc.slice(
+      stateSrc.indexOf("guarded('standing-seed'"),
+      stateSrc.indexOf("guarded('standing-seed'") + 2000,
+    );
+    expect(standingSeedBlock).toMatch(/aigentme_activated/);
+    expect(standingSeedBlock).toMatch(/experienceqube_focus_disposition_recorded/);
+    expect(standingSeedBlock).toMatch(/factoryIngestedNow:\s*aigentMeActiveForSeed\s*&&\s*genuinelyFactoryIngested/);
   });
 
   it('Standing has NO canonical shortcut — an accrual is the only thing that accrues', () => {
@@ -874,10 +945,31 @@ describe('Deploy observes registry presence; Passport observes the receipt the B
 /*
  * ══ THE FACTORY SURFACE OPENS ON WHAT IS ALREADY THERE ════════════════════
  */
+describe('the Deploy (Ingest) stage carries its own guided act, not just the evidence catalogue', () => {
+  it('has an ingest-into-factory-action surface, resolving to IngestIntoFactoryPanel, before the read-only registry surface', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    const actIndex = deploy.surfaces.findIndex((s) => s.ref === 'ingest-into-factory-action');
+    const registryIndex = deploy.surfaces.findIndex((s) => s.ref === 'venture-participate-standing');
+    expect(actIndex).toBeGreaterThanOrEqual(0);
+    expect(registryIndex).toBeGreaterThanOrEqual(0);
+    expect(actIndex).toBeLessThan(registryIndex);
+  });
+
+  it('completionEvidence is factoryIngested only — never re-derived from registry/AigentQube presence', () => {
+    const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
+    expect(deploy.completionEvidence).toEqual(['factoryIngested']);
+  });
+});
+
 describe('the Deploy stage deep-links into Ingested Assets', () => {
   it('pins the Ingestion Factory to its assets section', () => {
     const deploy = HORIZEN_MONEYPENNY_JOURNEY.stages.find((s) => s.id === 'deploy')!;
-    const surface = deploy.surfaces[0] as { props?: Record<string, unknown> };
+    // By ref, not position — the Ingest act's own guided-action surface
+    // ('ingest-into-factory-action', Horizen Pilot Closure part 2, 2026-08-09)
+    // was added ahead of this one in the array; identity must come from what
+    // is being rendered, never from where it sits in the list (the same
+    // discipline JourneyRunSurface's own surface keying already follows).
+    const surface = deploy.surfaces.find((s) => s.ref === 'venture-participate-standing') as { props?: Record<string, unknown> };
     expect(surface.props?.only).toBe('registry');
     expect(surface.props?.registrySection).toBe('assets');
   });
