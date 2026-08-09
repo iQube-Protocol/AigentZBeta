@@ -58,6 +58,8 @@ import { isPassportUsable, loadUsableCitizenPassportForAuthProfile } from '@/ser
 import { readSettledFact, settleFact, isSettled } from '@/services/journey/settledFacts';
 import { REGISTRATION_SEED_STANDING } from '@/services/journey/registrationStandingSeed';
 import { awardRegistrationStandingSeedIfEligible } from '@/services/journey/registrationStandingSeedAward';
+import { attemptPnlServiceVerificationIfEligible } from '@/services/horizen/pnlVerificationBoundary';
+import type { discoverAndReceiptPnlServiceEvidence } from '@/services/horizen/pnlServiceVerification';
 import {
   resolveAgentStateAxes,
   resolveBranchOffers,
@@ -102,6 +104,10 @@ const JOURNEY_ACTION_TYPES: ActivityActionType[] = [
   // Ingestion's OWN receipt. Deliberately distinct from standing_accrued:
   // becoming an eligible participant is not an accrual (operator, 2026-08-03).
   'capability_registered',
+  // Independent, read-only P&L SERVICE VERIFICATION — deliberately distinct
+  // from 'horizen_pnl_transparency_enabled' (disclosure AUTHORIZATION) above.
+  // See services/horizen/pnlServiceVerification.ts's own header.
+  'pnl_service_verified',
   'aigentme_activated',
   'experienceqube_focus_disposition_recorded',
   'journey_completed',
@@ -206,6 +212,17 @@ async function resolveState(req: NextRequest) {
    * than a boolean.
    */
   let registrationStandingSeeded = false;
+  /*
+   * P&L SERVICE VERIFICATION — the result of THIS request's attempt, if any
+   * (Horizen Pilot Closure item 4, 2026-08-09). Deliberately a distinct
+   * variable from anything Pulse-authorization-related: `verified: true`
+   * here means Horizen's own Verifiable-PnL service independently correlated
+   * a record for this exact agent/token/chain — a materially different,
+   * stronger claim than `horizen_pnl_transparency_enabled` (disclosure scope
+   * was authorized). Null means no attempt was made this request (not
+   * eligible yet, or already verified with nothing new to attempt).
+   */
+  let pnlVerification: Awaited<ReturnType<typeof discoverAndReceiptPnlServiceEvidence>> | null = null;
   let operatorPassport: { known: boolean; valid: boolean; personhood: boolean; detail?: string } = {
     known: false,
     valid: false,
@@ -270,6 +287,35 @@ async function resolveState(req: NextRequest) {
     });
     if (supabase) await guarded('registration', async () => {
       registration = await resolveAgentRegistrationState(supabase, agent);
+    });
+    /*
+     * P&L SERVICE VERIFICATION — wired generically at the boundary where a
+     * subject to correlate first becomes known: a confirmed registration's
+     * own tokenId/registryAgentId (Horizen Pilot Closure item 4, 2026-08-09).
+     *
+     * discoverAndReceiptPnlServiceEvidence (services/horizen/pnlServiceVerification.ts)
+     * was fully built and tested but had zero production callers — only a
+     * manual CLI script exercised it. Never coupled to Pulse admission or the
+     * Ratify gate (per the operator's own ratified rule,
+     * RES-2026-08-08-PNL-INDEPENDENT-EVIDENCE-001 / CI-2026-08-08-PNL-
+     * INDEPENDENT-EVIDENCE-001: "Pulse Verified is sufficient to close
+     * Ratify. P&L verification is an independent, asynchronous capability
+     * transition.") — this block only ever ADDS a distinct evidence field,
+     * never gates or blocks anything else in this response.
+     *
+     * Read-only and idempotent by the function's own construction (an
+     * existing `pnl_service_verified` receipt short-circuits with no live
+     * call). Agent-generic: `subjectRegistryAlias` and `network` come from
+     * THIS agent's own resolved registration, never a hardcoded token.
+     */
+    if (supabase) await guarded('pnl-service-verification', async () => {
+      const activePersona = await getActivePersona(req);
+      pnlVerification = await attemptPnlServiceVerificationIfEligible(agent, registration, activePersona?.personaId ?? null);
+      // Reflected in THIS response without a second round-trip, same
+      // discipline as the standing-seed block above.
+      if (pnlVerification?.ok && pnlVerification.verified && pnlVerification.receiptRef) {
+        (receiptRefs['pnl_service_verified'] ??= []).push(pnlVerification.receiptRef);
+      }
     });
     if (supabase) await guarded('passport', async () => {
       /*
@@ -573,6 +619,13 @@ async function resolveState(req: NextRequest) {
          */
         pulseAuthorizationVerified: hasReceipt('horizen_pulse_authorized'),
         pnlTransparencyEnabled: hasReceipt('horizen_pnl_transparency_enabled'),
+        /*
+         * DISTINCT FROM pnlTransparencyEnabled ABOVE — authorization vs
+         * verification, never conflated (Horizen Pilot Closure item 4). True
+         * only when Horizen's own Verifiable-PnL service has independently
+         * correlated a record for this exact agent/token/chain.
+         */
+        pnlServiceVerified: hasReceipt('pnl_service_verified'),
         agentCardEnrichmentCommitted: hasReceipt('agent_card_enriched'),
       },
       claim: {
@@ -724,6 +777,13 @@ async function resolveState(req: NextRequest) {
     ancillary: {
       pulseAuthorized: hasReceipt('horizen_pulse_authorized'),
       pnlDisclosureAuthorized: hasReceipt('horizen_pnl_transparency_enabled'),
+      // DISTINCT from pnlDisclosureAuthorized — see the `verify.ancillary`
+      // comment above for why these must never be represented as equivalent.
+      pnlServiceVerified: hasReceipt('pnl_service_verified'),
+      pnlServiceVerificationDetail:
+        !hasReceipt('pnl_service_verified') && pnlVerification && !pnlVerification.verified
+          ? `${pnlVerification.reason}: ${pnlVerification.detail}`
+          : undefined,
       authorizationStoreAvailable: authorizationStore ? authorizationStore.available : undefined,
       authorizationStoreRemedy: authorizationStore && !authorizationStore.available ? authorizationStore.remedy : undefined,
       partnerMetadataComplete: registration ? registration.auditGaps.length === 0 : undefined,
