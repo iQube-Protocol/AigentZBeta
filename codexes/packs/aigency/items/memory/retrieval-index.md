@@ -3779,3 +3779,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-52cfb3f.md](../build_/COMMITS/COMMIT-52cfb3f.md)
 - Message: Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair
+
+## Commit `bd52b76` — 2026-08-09T09:41:03Z
+- Type: `feat`
+- Brief: [COMMIT-bd52b76.md](../build_/COMMITS/COMMIT-bd52b76.md)
+- Message: Add workflow to trigger MoneyPenny AigentQube repair route

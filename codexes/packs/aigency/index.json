@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T09:34:34.849Z",
+  "last_updated": "2026-08-09T09:43:01.319Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "52cfb3f9e07472e62888311b961c80972b207b8e",
-  "latest_commit_short": "52cfb3f",
-  "latest_commit_title": "Add wall-clock safety budget to DVN reconciler + targeted submit route + MoneyPenny AigentQube repair",
+  "latest_commit": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
+  "latest_commit_short": "bd52b76",
+  "latest_commit_title": "Add workflow to trigger MoneyPenny AigentQube repair route",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bd52b76",
+      "full_sha": "bd52b76344ea1fca5d91eddd6f0c4a6a89c0b6df",
+      "title": "Add workflow to trigger MoneyPenny AigentQube repair route",
+      "author": "Claude",
+      "timestamp": "2026-08-09T09:41:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-bd52b76.md"
+    },
     {
       "sha": "52cfb3f",
       "full_sha": "52cfb3f9e07472e62888311b961c80972b207b8e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T21:17:58Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8392f60.md"
-    },
-    {
-      "sha": "9576050",
-      "full_sha": "9576050e31d7b3fd45dc887e024550ec28aa957e",
-      "title": "reconcile 139/144 precisely: the access-and-codification bridge (inv.epistemology.150)",
-      "author": "Claude",
-      "timestamp": "2026-07-16T21:21:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9576050.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
