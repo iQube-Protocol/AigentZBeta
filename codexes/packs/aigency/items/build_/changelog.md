@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`cc779a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/cc779a662d818314c2ff7ea60779a2e71d3d6fbe) [push] Give the DVN attestation processor scheduled liveness (B3 confirmed) (Claude, 2026-08-09T20:35:17Z)
 - [`7379156`](https://github.com/iQube-Protocol/AigentZBeta/commit/737915672d0a5061832ec3710a4efbf48d137e9e) [push] Give DVN attestation processing scheduled liveness, secure its two mutation routes (Claude, 2026-08-09T19:51:43Z)
 - [`a3aaa7f`](https://github.com/iQube-Protocol/AigentZBeta/commit/a3aaa7f35629d9e3601e669d75840b905de96e84) [feat] Add read-only DVN message classifier for Part B1 Nakamoto truth-check (Claude, 2026-08-09T19:56:02Z)
 - [`90629c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/90629c7b459bf0280238f63cfebb1cf63cc696f4) [push] Stop double-counting the Standing seed and make supersession consequential (Claude, 2026-08-09T19:34:39Z)
