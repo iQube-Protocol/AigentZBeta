@@ -24,7 +24,7 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { PassportConnectPanel, type PassportFacts } from "@/components/companion/PassportConnectPanel";
 import { PasskeyEnrolmentPanel } from "@/components/passport/PasskeyEnrolmentPanel";
 import { PrincipalWalletProvisioningPanel } from "@/components/wallet/PrincipalWalletProvisioningPanel";
-import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest } from "@/services/wallet/walletSurfaceRequest";
+import { subscribeWalletSurfaceRequest, acknowledgeWalletSurfaceRequest, announceWalletSurfaceCompletion } from "@/services/wallet/walletSurfaceRequest";
 import { PendingActionsPanel } from "@/components/wallet/PendingActionsPanel";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import PersonaReferencesInventory from "../identity/PersonaReferencesInventory";
@@ -601,7 +601,11 @@ export default function SmartWalletDrawer({
       subscribeWalletSurfaceRequest((request) => {
         // Honour any surface this drawer can render — a listener that only
         // knew one surface would silently drop the second one added.
-        if (request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' && request.surface !== 'PENDING_ACTIONS') return;
+        if (
+          request.surface !== 'PRINCIPAL_WALLET_PROVISIONING' &&
+          request.surface !== 'PENDING_ACTIONS' &&
+          request.surface !== 'PASSPORT_SIGN_IN'
+        ) return;
         setWalletSurface(request.surface);
         setDeepLinkReturn({ target: request.returnTarget ?? null, label: request.returnLabel ?? null });
         acknowledgeWalletSurfaceRequest(request.token, "SmartWalletDrawer");
@@ -6231,6 +6235,19 @@ export default function SmartWalletDrawer({
                   void refreshPersonas();
                   setConnectedPassport(passport ?? null);
                   setWalletSurface('PASSPORT_CONNECTED');
+                  // Tell a cross-iframe requester (e.g. a campaign surface's
+                  // Remix-gate) that Passport sign-in completed, so it can
+                  // resume the intent it was interrupted from. A no-op for
+                  // every existing entry point (persona menu, auto-open) —
+                  // those never set a returnTarget, so deepLinkReturn.target
+                  // is null and nothing is announced.
+                  if (deepLinkReturn.target) {
+                    announceWalletSurfaceCompletion({
+                      surface: 'PASSPORT_SIGN_IN',
+                      outcome: 'ACTION_COMPLETED',
+                      returnTarget: deepLinkReturn.target,
+                    });
+                  }
                 }}
               />
             )}

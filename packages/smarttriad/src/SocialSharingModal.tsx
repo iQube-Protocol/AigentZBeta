@@ -37,6 +37,13 @@ interface SocialSharingModalProps {
    *  the active-persona surface's displayLabel/ownFioHandle when not
    *  supplied. */
   personaLabel?: string;
+  /** Optional campaign discriminator (e.g. 'knyts-bridge-crossing'),
+   *  forwarded to /api/social/track so this share's click/signup/
+   *  conversion counters and reward accrue to that campaign instead of
+   *  the default 'qriptopian-share' (Herald of the Order). Omitted by
+   *  every existing caller — behavior is unchanged unless a caller
+   *  opts in. */
+  campaignId?: string;
   onShare?: (platform: string) => void;
 }
 
@@ -46,6 +53,7 @@ export function SocialSharingModal({
   article,
   personaId,
   personaLabel,
+  campaignId,
   onShare,
 }: SocialSharingModalProps) {
   const [copied, setCopied] = useState(false);
@@ -74,9 +82,10 @@ export function SocialSharingModal({
         personaId,                 // server-side only
         contentId: article.id,
         eventType: 'create',
+        campaignId,
       }),
     }).catch(() => { /* non-fatal — link still works */ });
-  }, [isOpen, shareId, personaId, article.id]);
+  }, [isOpen, shareId, personaId, article.id, campaignId]);
 
   if (!isOpen) return null;
 
@@ -214,6 +223,7 @@ export function SocialSharingModal({
           contentId: article.id,
           platform,
           eventType: 'create',
+          campaignId,
         }),
       }).catch(() => {});
     }

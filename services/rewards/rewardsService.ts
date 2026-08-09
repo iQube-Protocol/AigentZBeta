@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { ShareRewardConfig } from '@/types/campaign';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,15 +65,20 @@ export async function distributeBringAKnightReward(referrerId: string, refereeId
   }
 }
 
-export async function distributeHeraldOfOrderReward(personaId: string, shareId: string, conversionType: 'click' | 'signup' | 'conversion') {
+export async function distributeShareReward(
+  personaId: string,
+  shareId: string,
+  conversionType: 'click' | 'signup' | 'conversion',
+  config: ShareRewardConfig
+) {
   try {
-    const rewardAmount = REWARD_AMOUNTS.herald_of_order.sharer;
-    
+    const rewardAmount = config.rewardAmount;
+
     const { data, error } = await supabase
       .from('rewards_ledger')
       .insert({
         persona_id: personaId,
-        reward_type: 'herald_of_order',
+        reward_type: config.rewardType,
         amount: rewardAmount,
         status: 'pending',
         metadata: { share_id: shareId, conversion_type: conversionType }
@@ -94,7 +100,7 @@ export async function distributeHeraldOfOrderReward(personaId: string, shareId: 
       if (conversionType === 'click') updates.clicks = (shareData.clicks || 0) + 1;
       if (conversionType === 'signup') updates.signups = (shareData.signups || 0) + 1;
       if (conversionType === 'conversion') updates.conversions = (shareData.conversions || 0) + 1;
-      
+
       await supabase
         .from('social_share_analytics')
         .update(updates)
@@ -103,9 +109,17 @@ export async function distributeHeraldOfOrderReward(personaId: string, shareId: 
 
     return { success: true, reward: data };
   } catch (error) {
-    console.error('Error distributing Herald of Order reward:', error);
+    console.error(`Error distributing ${config.rewardType} reward:`, error);
     return { success: false, error };
   }
+}
+
+export async function distributeHeraldOfOrderReward(personaId: string, shareId: string, conversionType: 'click' | 'signup' | 'conversion') {
+  return distributeShareReward(personaId, shareId, conversionType, {
+    rewardType: 'herald_of_order',
+    rewardAmount: REWARD_AMOUNTS.herald_of_order.sharer,
+    thresholds: { click: 10, signup: 3, conversion: 1 },
+  });
 }
 
 export async function distributeKnightOfAttentionReward(personaId: string, eventType: string, streakCount: number = 0) {

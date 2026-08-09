@@ -12,6 +12,11 @@
  * Phase 5b will lift the hardcoded reactions endpoint (`KnytReactionBar`)
  * to a cartridge-parameterized route — the operator note on
  * `QriptoPulseTab` tracks that follow-up.
+ *
+ * `config.campaignTag` (optional) scopes the tab to a single campaign's
+ * content — e.g. the KNYTS Bridge VIEW stage sets this to
+ * 'knyts-bridge-crossing' when the wizard configures a campaign-only
+ * Pulse tab. Omitted for every existing tab (unfiltered, back-compat).
  */
 
 import React from "react";
@@ -23,7 +28,10 @@ export function PulseTemplate({
   personaId,
   permissions,
   theme,
+  config,
 }: TabTemplateProps) {
+  const campaignTag =
+    typeof config?.campaignTag === "string" ? config.campaignTag : undefined;
   return (
     <KnytCommunityContentTab
       personaId={personaId}
@@ -34,6 +42,7 @@ export function PulseTemplate({
       // preserves the existing call sites (KNYT, Qripto) and lets the
       // template render for any new cartridge once the prop widens.
       cartridge={cartridgeSlug as "knyt" | "qripto"}
+      campaignTag={campaignTag}
       theme={theme}
     />
   );
