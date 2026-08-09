@@ -3724,3 +3724,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-51917a4.md](../build_/COMMITS/COMMIT-51917a4.md)
 - Message: Fix Orient regression, anchor Consequence Fork trident to spine end, verb labels
+
+## Commit `b5abe6e` — 2026-08-09T05:41:11Z
+- Type: `push`
+- Brief: [COMMIT-b5abe6e.md](../build_/COMMITS/COMMIT-b5abe6e.md)
+- Message: Split Ratify P&L into three independent tiers, uniform journey spacing
