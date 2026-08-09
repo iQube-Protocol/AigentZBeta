@@ -29,6 +29,8 @@ import {
   isReviewableScientificObject,
   crystalLifecycleStage,
 } from '@/services/research/crystalDomains';
+import { resolveObserverRound } from '@/services/research/crystalObserverReview';
+import { observerRoundId, getObserverRound } from '@/services/research/observerReviewStore';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +78,45 @@ export async function GET(
    * confirmed is the worse error of the two.
    */
   const crystalArtifact = await getArtifact(experimentId, 'crystal-version').catch(() => null);
+
+  /*
+   * OBSERVER ACCEPTANCE — the gate that unlocks post-crystal experiment
+   * preparation (Post-Freeze Observer Review Closure, point 11). Derived from
+   * REAL decisions recorded against the current Observer Review round for
+   * this artifact — never asserted, and never computed from readiness (a
+   * passing readiness report is not an observer's acceptance of the frozen
+   * result). `null` when the artifact is not frozen, or is frozen but no
+   * round has been assigned yet — both are honest absences, not `pending`.
+   */
+  let observerAcceptance: ReturnType<typeof resolveObserverRound> | null = null;
+  let frozenArtifactSummary: {
+    id: string;
+    contentHash: string | null;
+    commitmentHash: string | null;
+    frozenAt: string | null;
+    signedBy: string[];
+    receiptId: string | null;
+  } | null = null;
+  if (crystalArtifact?.lifecycle === 'frozen') {
+    frozenArtifactSummary = {
+      id: crystalArtifact.id,
+      contentHash: crystalArtifact.contentHash,
+      commitmentHash: crystalArtifact.commitmentHash,
+      frozenAt: crystalArtifact.frozenAt,
+      signedBy: crystalArtifact.signedBy,
+      receiptId: crystalArtifact.receiptId,
+    };
+    try {
+      const admin = getSupabaseServer();
+      const round = admin ? await getObserverRound(admin, observerRoundId(experimentId, crystalArtifact.id)) : null;
+      if (round?.package) {
+        observerAcceptance = resolveObserverRound({ pkg: round.package, decisions: round.decisions });
+      }
+    } catch {
+      // Unreadable substrate — observerAcceptance stays null (honest absence,
+      // never a fabricated 'pending').
+    }
+  }
 
   // ── RESPONSE SHAPE CORRECTIONS (operator ruling, 2026-08-02) ────────────
   //
@@ -163,6 +204,15 @@ export async function GET(
         readinessOk: Boolean(readiness?.ok),
         frozen: crystalArtifact?.lifecycle === 'frozen',
       }),
+      /*
+       * The immutable frozen artifact summary (Post-Freeze Observer Review
+       * Closure, point 1) — null unless the crystal-version artifact is
+       * actually frozen. A UI reading `lifecycle.stageId === 'FROZEN'` renders
+       * THIS instead of any freeze-preparation control.
+       */
+      frozenArtifact: frozenArtifactSummary,
+      /* SPEC point 11 — see the derivation above. */
+      observerAcceptance,
       /*
        * Honest and reviewable are different properties. An empty package is a
        * truthful baseline and belongs in the research bundle as provenance; it

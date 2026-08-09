@@ -28,6 +28,9 @@ import { RESEARCH_WORKSPACE_ROLE_AUTHORITY, type ResearchWorkspaceRoleId } from 
 import { getResearchWorkspace, researchWorkspaceParent, researchWorkspaceExperiment, researchWorkspaceLabel } from '@/services/research/researchWorkspace';
 import { corpusReadPackFile } from '@/services/knowledge/packCorpusStore';
 import { reviewerAgreementStatus, CONSENT_BINDS_EXACT_TERMS } from '@/services/research/reviewerAgreement';
+import { getArtifact } from '@/services/research/artifacts';
+import { observerRoundId, getObserverRound } from '@/services/research/observerReviewStore';
+import { resolveObserverRound, OBSERVER_DECISION_KINDS } from '@/services/research/crystalObserverReview';
 import {
   VALIDATION_PROGRAMME_JOURNEY,
   VALIDATION_PROGRAMME_WORKSPACE_ID,
@@ -56,6 +59,7 @@ const PROHIBITIONS = [
   'No corpus mutation: the invariant canon, CFS corpus, and source assets under review may not be edited by this reviewer or their agent.',
   'No standing changes: Standing is granted only through the platform\'s own verified-contribution pipeline, never by an act of authority this role holds.',
   'No experiment execution: EXP-P1 may not be run, re-run, or have its parameters changed by this reviewer or their agent.',
+  'No additional observer vote: a delegated agent may analyse the frozen crystal and submit attributable evidence alongside a decision (submittedByAgentRef), but the decision is recorded under the human reviewer\'s own persona alone — an agent never creates a second vote, and only a research-steward or principal-investigator may resolve a change proposal.',
   'These prohibitions hold unless and until a platform admin explicitly authorizes a broader grant — nothing in this package itself expands them.',
 ];
 
@@ -170,6 +174,55 @@ async function getImpl(req: NextRequest) {
   }
 
   const journeyUrl = `${origin}/triad/embed/codex/irl-os?tab=irl-os-validation-programme`;
+
+  /*
+   * THE OBSERVER REVIEW PACKAGE, HASH-BOUND TO WHAT WAS ACTUALLY FROZEN
+   * (Post-Freeze Observer Review Closure, point 9, 2026-08-09).
+   *
+   * Extends this package with the exact frozen artifact/package hash, the
+   * decision schema, and the submission endpoint — SEPARATE from the
+   * automated dual-model R1/R2 pipeline `expectedReviewOutput` below still
+   * (correctly) says nothing structured exists for. This block is null,
+   * honestly, until the crystal is frozen and a round has been assigned; a
+   * delegated agent reading this before then must not be told a package
+   * exists that does not.
+   */
+  let observerReview: {
+    packageHash: string;
+    roundPolicy: string;
+    assignedObserverRefs: string[];
+    resolution: ReturnType<typeof resolveObserverRound> | null;
+    decisionSubmissionEndpoint: string;
+    decisionSchema: Record<string, unknown>;
+    changeProposalEndpoint: string;
+  } | null = null;
+  try {
+    const artifact = await getArtifact(VALIDATION_PROGRAMME_EXPERIMENT_ID, 'crystal-version');
+    if (artifact?.lifecycle === 'frozen' && admin) {
+      const round = await getObserverRound(admin, observerRoundId(VALIDATION_PROGRAMME_EXPERIMENT_ID, artifact.id));
+      if (round?.package) {
+        observerReview = {
+          packageHash: round.package.packageHash,
+          roundPolicy: round.package.roundPolicy,
+          assignedObserverRefs: [...round.package.assignedObserverRefs],
+          resolution: resolveObserverRound({ pkg: round.package, decisions: round.decisions }),
+          decisionSubmissionEndpoint: `${origin}/api/research/observer-review/${VALIDATION_PROGRAMME_EXPERIMENT_ID}/decision`,
+          decisionSchema: {
+            decision: OBSERVER_DECISION_KINDS,
+            rationale: 'string, required',
+            evidenceRefs: 'string[], optional',
+            submittedByAgentRef:
+              'string, optional — records that a delegated agent assisted; the decision is still attributed to ' +
+              'the calling persona alone and never creates an additional vote',
+            proposedChange: "string, required only when decision === 'changes_requested'",
+          },
+          changeProposalEndpoint: `${origin}/api/research/observer-review/${VALIDATION_PROGRAMME_EXPERIMENT_ID}/change-proposal`,
+        };
+      }
+    }
+  } catch {
+    observerReview = null;
+  }
 
   return NextResponse.json({
     ok: true,
@@ -286,9 +339,24 @@ async function getImpl(req: NextRequest) {
           'Persona-scoped citizen ↔ delegated-agent channels — populated once the reviewer has claimed their invitation and a delegation exists. No workspace-wide channel id exists separately from this.',
       },
       expectedReviewOutput:
-        'Comments, recommendations, and contested-finding flags against the Crystal Readiness Report, Crystal Statistics, and Freeze Recommendation served at crystalReviewEndpoint — deliberated via the QubeTalk channel and, where useful, a supporting document uploaded to the Locker. There is no separate structured reviewer-decision API today: the automated dual-review pipeline (POST /api/research/review, admin-only) is a distinct mechanism from this external-reviewer channel.',
+        'Pre-freeze: comments, recommendations, and contested-finding flags against the Crystal Readiness Report, ' +
+        'Crystal Statistics, and Freeze Recommendation served at crystalReviewEndpoint — deliberated via the ' +
+        'QubeTalk channel and, where useful, a supporting document uploaded to the Locker. Post-freeze: a ' +
+        'structured Observer Decision against the frozen crystal — see the `observerReview` block below. The ' +
+        'automated dual-review pipeline (POST /api/research/review, admin-only) remains a distinct mechanism ' +
+        'from both of these.',
       submissionMechanism:
-        'Peer Exchange (QubeTalk) for deliberation, Upload to Locker for supporting documents, and the Invitation section\'s claim mechanics for the collaboration/review agreement and acknowledgement — all inside the Submit Review stage\'s LockerTab render. No separate submission form exists or should be built.',
+        'Pre-freeze deliberation: Peer Exchange (QubeTalk) and Upload to Locker, inside the Submit Review ' +
+        'stage\'s LockerTab render. Post-freeze structured decision (Post-Freeze Observer Review Closure, ' +
+        '2026-08-09): POST to `observerReview.decisionSubmissionEndpoint` — see the `observerReview` block below ' +
+        'for the exact schema. The collaboration/review agreement and acknowledgement remain the Invitation ' +
+        'section\'s claim mechanics.',
+      /*
+       * SPEC point 9 — the exact frozen artifact/package hash, decision
+       * schema, and submission endpoint. `null` until the crystal is frozen
+       * and a round has been assigned — never fabricated.
+       */
+      observerReview,
       prohibitions: PROHIBITIONS,
     },
   });

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "resolution-record/v2.0",
+  "date": "2026-08-09",
+  "resolutionId": "RES-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001",
+  "capability": "exp-p1-post-freeze-observer-review",
+  "milestone": "EXP-P1 Crystal vP1 — Post-Freeze Observer Review Closure",
+  "problem": "Once Crystal vP1 freezes, three things were missing: (1) the UI still offered freeze-preparation/governance affordances on an object that is already immutable; (2) the journey's own 'has the reviewer decided?' evidence was computed by checking the AUTOMATED dual-model R1/R2 adjudication pipeline's reviewer slots — a caller could never satisfy it by doing the thing the stage actually asks (an external human observer assessing a frozen crystal), and a caller who happened to match an R1/R2 ref would read COMPLETE for a decision never made; (3) there was no mechanism at all for N independent human observer principals (e.g. two named reviewers) to record attributable, hash-bound decisions against one frozen artifact under an explicit round policy, nor for a requested change to route to a governed proposal instead of mutating the frozen object.",
+  "observedFailure": [
+    "IndependentReviewPanel's Crystal vP1 section rendered the 'Preview a freeze ceremony package' domain-override input and ceremony form regardless of whether the artifact was already frozen — an already-immutable object still offered a re-run of its own freeze rehearsal.",
+    "app/api/journey/validation-programme/state/route.ts computed `reviewDecisionSubmitted` by checking `[...r.r1Decisions, ...r.r2Decisions].some((d) => d.reviewerRef === callerRef)` — the automated pipeline's reviewer slots, a completely different mechanism (services/research/review/adjudication.ts) from an external human observer's own post-freeze decision.",
+    "The Validation Programme Agent Package's `expectedReviewOutput`/`submissionMechanism` fields stated in prose: 'There is no separate structured reviewer-decision API today... No separate submission form exists or should be built' — an accurate description of a real gap, not a design decision.",
+    "No mechanism existed for multiple named observer principals (e.g. two reviewers) to each independently accept or request changes against one frozen crystal under an explicit policy (e.g. requiring every named observer to accept)."
+  ],
+  "rootCauses": [
+    "The Crystal vP1 UI derived 'may I still show freeze controls' from `reviewerMode` alone rather than from the artifact's own persisted lifecycle — the same class of defect crystalDomains.ts's `mayOfferFreezeAffordance` was written to close for the OPERATOR surface, left unclosed for the frozen-state case across both operator and reviewer surfaces.",
+    "The journey state route treated 'a review decision exists somewhere with my ref on it' as sufficient evidence, without distinguishing WHICH review mechanism produced it — R1/R2 belongs to pre-constitution corpus classification, not post-freeze external assessment of the constituted object.",
+    "No dedicated observer/decision/round vocabulary existed distinct from `ReviewerSlot` ('R1'|'R2'), so there was no way to express 'N named human principals, each with one independent vote, under an explicit acceptance policy' without either force-fitting N into two automation slots or widening the automation pipeline itself."
+  ],
+  "resolution": [
+    "Built `services/research/crystalObserverReview.ts` — a pure, crystal-specific module (deliberately OUTSIDE the generic `services/research/review/` IRL-REVIEW-001 capability, which is canaried to name no crystal/experiment instance) with `buildObserverReviewPackage` (refuses unless the artifact is ALREADY `frozen` with both hashes present), `validateObserverDecision` (refuses a decision from an observer the package did not assign), `resolveObserverRound` (folds N decisions under an explicit `any-assigned`/`all-assigned` policy — a single `changes_requested` always blocks, regardless of any other observer's acceptance), and `createChangeProposal`/`resolveChangeProposal` (never mutates the frozen artifact; an accepted proposal names a superseding candidate artifact id it never provisions itself).",
+    "Built `services/research/observerReviewStore.ts` — persistence on the existing `research_objects` table (`object_kind: 'observer_review_round'`), keyed one row per (experimentId, artifactId); `upsertObserverDecision` is keyed by `observerRef` so a delegated agent's assisted resubmission replaces the SAME human observer's own decision rather than adding a vote.",
+    "Added three API routes under `/api/research/observer-review/[experimentId]` — GET round status; POST assign (steward/PI/admin only, builds the package from the frozen artifact); POST decision (self-service, persona-scoped, gated by the existing Independent Reviewer Agreement); POST change-proposal (steward/PI/admin only, provisions the superseding candidate at `draft`, never `frozen`, and opens a fresh round).",
+    "Extended `app/api/research/crystal/[experimentId]/route.ts` to expose `frozenArtifact` (the immutable summary) and `observerAcceptance` (derived from the real round, never from readiness) alongside the existing lifecycle stage.",
+    "Edited `components/composer/IndependentReviewPanel.tsx`'s Crystal vP1 section to suppress the domain-override input and the freeze-ceremony-preview panel once `lifecycle.stageId === 'FROZEN'` (for every caller, not only `reviewerMode`), rendering a Frozen Crystal — Immutable summary with the observer acceptance status instead.",
+    "Built `components/composer/CrystalObserverReviewPanel.tsx` — the ONE canonical Workspace Review surface for `autonomi-review-exp-p1`, composing the existing read-only Crystal vP1 projection (`IndependentReviewPanel reviewerMode`) with the new self-service Observer Decision form. Wired into the Validation Programme journey's `crystal-review` stage in place of the direct `IndependentReviewPanel reviewerMode` mount.",
+    "Fixed `app/api/journey/validation-programme/state/route.ts`: renamed `reviewDecisionSubmitted` to `observerDecisionSubmitted`, now derived from the real Observer Review round's decisions for the caller's own `personaPublicRef` — never from R1/R2.",
+    "Extended the Validation Programme Agent Package with the exact frozen artifact/package hash, the observer decision JSON schema, and the submission/change-proposal endpoints; corrected the prior honest-but-now-stale 'no separate structured reviewer-decision API' prose.",
+    "Declared the `irl-observer-review` link directly on the `autonomi-review-exp-p1` workspace (not inherited from the programme, since sibling EXP-P2/P3 have no frozen crystal to observe yet)."
+  ],
+  "rejectedApproaches": [
+    "Extending `ReviewerSlot` ('R1'|'R2') to a third/fourth slot to admit more human observers — rejected explicitly by the spec and by design: R1/R2 belongs to the automated dual-model pipeline that classifies corpus rows BEFORE a crystal is constituted; widening it would force human post-freeze observers into an abstraction built for a different act at a different time.",
+    "Reusing the automated review queue's `accept`/`revise`/`defer`/`reject` governed-resolution mechanism for observer decisions — rejected because that mechanism resolves DISPUTES within the R1/R2 pipeline's own findings; an observer decision is a distinct, self-service, persona-scoped act against a frozen object, not a steward's resolution of a contested corpus row.",
+    "Letting a delegated agent submit a decision under its own identifier as a second vote — rejected: the store's write is keyed by the human `observerRef` alone; an agent may only be recorded as having assisted (`submittedByAgentRef`), never as an independent decider.",
+    "Mutating the frozen `crystal-version` artifact in place when a change proposal is accepted — rejected as a direct violation of IRL-016 §4 (freeze is immutable); an accepted proposal always provisions a NEW candidate artifact id at `draft`."
+  ],
+  "candidateInvariants": [
+    "CI-2026-08-09-POST-FREEZE-OBSERVER-REVIEW-001"
+  ],
+  "canaries": [
+    "tests/post-freeze-observer-review.test.ts",
+    "tests/validation-programme-journey.test.ts",
+    "tests/validation-programme-agent-package.test.ts"
+  ],
+  "scope": "local",
+  "status": "candidate",
+  "trigger": "milestone-complete",
+  "evidence": {
+    "commits": [],
+    "tests": [
+      "tests/post-freeze-observer-review.test.ts",
+      "tests/validation-programme-journey.test.ts",
+      "tests/validation-programme-agent-package.test.ts"
+    ],
+    "receipts": [],
+    "incidentRefs": []
+  },
+  "sourceDocs": [
+    "codexes/packs/agentiq/resolution-records/records/RES-2026-08-02-EXP-P1-CRYSTAL-CONSTITUTION-001.json"
+  ],
+  "projections": {
+    "targets": ["irl"],
+    "researchRequired": false,
+    "ratificationRequired": false,
+    "track": "constitutional"
+  }
+}
