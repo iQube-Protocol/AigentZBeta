@@ -3759,3 +3759,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d5c8474.md](../build_/COMMITS/COMMIT-d5c8474.md)
 - Message: Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract
+
+## Commit `21c278e` — 2026-08-09T08:06:03Z
+- Type: `feat`
+- Brief: [COMMIT-21c278e.md](../build_/COMMITS/COMMIT-21c278e.md)
+- Message: Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic

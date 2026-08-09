@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-08-09T07:50:42.616Z",
+  "last_updated": "2026-08-09T08:08:18.466Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
-  "latest_commit_short": "d5c8474",
-  "latest_commit_title": "Add Verifiable-PnL onboarding boundary, verified against Horizen's live contract",
+  "latest_commit": "21c278e3daa51c115a957f4f0279f403fd542ad4",
+  "latest_commit_short": "21c278e",
+  "latest_commit_title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "21c278e",
+      "full_sha": "21c278e3daa51c115a957f4f0279f403fd542ad4",
+      "title": "Fix local-to-DVN reconciler starvation on non-anchorable backlog + add receipt-status diagnostic",
+      "author": "Claude",
+      "timestamp": "2026-08-09T08:06:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-21c278e.md"
+    },
     {
       "sha": "d5c8474",
       "full_sha": "d5c84747d50ca207fcabd5fe70b651a1a86218dd",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-07-16T22:59:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e49714c.md"
-    },
-    {
-      "sha": "7392598",
-      "full_sha": "73925989a9e217a63c6b19f3b7a48341162dafde",
-      "title": "CFS-035 Phase 3: Field Extractor (Perception layer) v0 seam",
-      "author": "Claude",
-      "timestamp": "2026-07-16T23:01:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7392598.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
