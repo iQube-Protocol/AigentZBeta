@@ -3629,3 +3629,78 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-c56c1aa.md](../build_/COMMITS/COMMIT-c56c1aa.md)
 - Message: docs(chrysalis): capture DVN Spine fast-follow backlog
+
+## Commit `43e2e15` — 2026-08-09T02:01:34Z
+- Type: `push`
+- Brief: [COMMIT-43e2e15.md](../build_/COMMITS/COMMIT-43e2e15.md)
+- Message: Insert Orient stage between Claim and Passport, render Ratify/Ingest/Standing as Consequence Fork
+
+## Commit `1a5d597` — 2026-08-09T01:24:30Z
+- Type: `push`
+- Brief: [COMMIT-1a5d597.md](../build_/COMMITS/COMMIT-1a5d597.md)
+- Message: Horizen Pilot Closure Report — CODE READY / LIVE VERIFICATION PENDING
+
+## Commit `edd2ed4` — 2026-08-09T01:21:54Z
+- Type: `feat`
+- Brief: [COMMIT-edd2ed4.md](../build_/COMMITS/COMMIT-edd2ed4.md)
+- Message: Add Agent-N genericity proof with a third synthetic agent
+
+## Commit `a016920` — 2026-08-09T01:17:29Z
+- Type: `push`
+- Brief: [COMMIT-a016920.md](../build_/COMMITS/COMMIT-a016920.md)
+- Message: Build the read-only Agent-N preflight check
+
+## Commit `6753cc2` — 2026-08-09T01:14:09Z
+- Type: `push`
+- Brief: [COMMIT-6753cc2.md](../build_/COMMITS/COMMIT-6753cc2.md)
+- Message: Produce DVN finality transition matrix, no mechanical Minted gating
+
+## Commit `0eaaa90` — 2026-08-09T01:12:17Z
+- Type: `push`
+- Brief: [COMMIT-0eaaa90.md](../build_/COMMITS/COMMIT-0eaaa90.md)
+- Message: JourneyCompanionCarousel and journey narration are agent-generic
+
+## Commit `fc163cc` — 2026-08-09T01:01:08Z
+- Type: `push`
+- Brief: [COMMIT-fc163cc.md](../build_/COMMITS/COMMIT-fc163cc.md)
+- Message: Remove duplicate PILOT_AGENTS registry; stop constructing aigent-\${slug}
+
+## Commit `4846fa6` — 2026-08-09T00:52:25Z
+- Type: `feat`
+- Brief: [COMMIT-4846fa6.md](../build_/COMMITS/COMMIT-4846fa6.md)
+- Message: Wire real P&L verification into production, distinct from authorization
+
+## Commit `20dc5ed` — 2026-08-09T00:46:01Z
+- Type: `push`
+- Brief: [COMMIT-20dc5ed.md](../build_/COMMITS/COMMIT-20dc5ed.md)
+- Message: Close MoneyPenny's Ratify runtime-endpoint descriptor gap generically
+
+## Commit `d427c26` — 2026-08-09T00:41:56Z
+- Type: `feat`
+- Brief: [COMMIT-d427c26.md](../build_/COMMITS/COMMIT-d427c26.md)
+- Message: Wire the registration Standing seed into production, generically
+
+## Commit `7638442` — 2026-08-09T00:13:19Z
+- Type: `push`
+- Brief: [COMMIT-7638442.md](../build_/COMMITS/COMMIT-7638442.md)
+- Message: Give Horizen registration confirmation independent server-side liveness
+
+## Commit `e201597` — 2026-08-08T23:34:27Z
+- Type: `fix`
+- Brief: [COMMIT-e201597.md](../build_/COMMITS/COMMIT-e201597.md)
+- Message: Fix receipts-route allowlist drift hiding MoneyPenny's Register ceremony evidence
+
+## Commit `8edc1f8` — 2026-08-08T23:08:47Z
+- Type: `push`
+- Brief: [COMMIT-8edc1f8.md](../build_/COMMITS/COMMIT-8edc1f8.md)
+- Message: Simplify DVN/BTC receipt badges to terse vocabulary + give the activity-receipts finalizer independent liveness
+
+## Commit `82ff28e` — 2026-08-08T22:40:18Z
+- Type: `push`
+- Brief: [COMMIT-82ff28e.md](../build_/COMMITS/COMMIT-82ff28e.md)
+- Message: Register Threshold/metaMe MCP server in .mcp.json + docs
+
+## Commit `f294431` — 2026-08-08T20:59:02Z
+- Type: `push`
+- Brief: [COMMIT-f294431.md](../build_/COMMITS/COMMIT-f294431.md)
+- Message: Surface the dual-leg (DVN + Bitcoin) receipt state through to the UI
