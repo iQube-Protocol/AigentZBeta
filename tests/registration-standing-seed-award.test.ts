@@ -29,6 +29,7 @@ const NAKAMOTO = {
   aigentQubeId: 'aigentqube-nakamoto',
   agentCardPath: '/api/agents/nakamoto/agent-card.json',
   fioHandle: 'nakamoto@aigent',
+  runtimeHealthPath: '/api/agents/nakamoto/health',
 };
 
 const MONEYPENNY = {
@@ -38,6 +39,7 @@ const MONEYPENNY = {
   aigentQubeId: 'aigentqube-moneypenny',
   agentCardPath: '/api/agents/moneypenny/agent-card.json',
   fioHandle: 'moneypenny@aigent',
+  runtimeHealthPath: '/api/agents/moneypenny/health',
 };
 
 const admin = {} as any;
