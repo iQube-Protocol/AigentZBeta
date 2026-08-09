@@ -3729,3 +3729,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b5abe6e.md](../build_/COMMITS/COMMIT-b5abe6e.md)
 - Message: Split Ratify P&L into three independent tiers, uniform journey spacing
+
+## Commit `126e971` — 2026-08-09T06:24:58Z
+- Type: `push`
+- Brief: [COMMIT-126e971.md](../build_/COMMITS/COMMIT-126e971.md)
+- Message: Revert fixed-width journey connectors to equal flex-grow
+
+## Commit `04572c9` — 2026-08-09T06:24:52Z
+- Type: `push`
+- Brief: [COMMIT-04572c9.md](../build_/COMMITS/COMMIT-04572c9.md)
+- Message: Replace global get_ready_messages() with targeted per-receipt DVN reads
+
+## Commit `52d1e56` — 2026-08-09T06:24:43Z
+- Type: `fix`
+- Brief: [COMMIT-52d1e56.md](../build_/COMMITS/COMMIT-52d1e56.md)
+- Message: Fix tokenId fallback when Horizen reread succeeds without one
